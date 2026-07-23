@@ -275,6 +275,14 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
     - failed → exited (exit_code=1)
     - skipped → exited (exit_code=None)
     """
+    # sqlite-only legacy data copy (PRAGMA introspection, '?' placeholders).
+    # A postgres install can never contain legacy ArchiveResult cmd/pwd data at
+    # this point, so there is nothing to copy into machine_process. The
+    # RemoveField ops below are real (non-state-only) and drop the now-empty
+    # cmd/pwd/cmd_version columns on both vendors, so no resync is needed.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+
     cursor = connection.cursor()
 
     # Check if old fields still exist (skip if fresh install or already migrated)

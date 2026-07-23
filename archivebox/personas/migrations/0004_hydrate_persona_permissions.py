@@ -92,6 +92,12 @@ def _ensure_permissions_column(cursor):
 
 
 def hydrate_persona_permissions(apps, schema_editor):
+    # sqlite-only legacy hydration + generated-column repair (PRAGMA
+    # table_xinfo / VIRTUAL generated column). On postgres the ``permissions``
+    # column is created portably by 0003 (AddField GeneratedField) and there is
+    # never legacy data to hydrate, so this is a no-op there.
+    if schema_editor.connection.vendor != "sqlite":
+        return
     Persona = apps.get_model("personas", "Persona")
     base_config = raw_base_config(apps)
     default_permissions = resolve_permissions(base_config, "public")

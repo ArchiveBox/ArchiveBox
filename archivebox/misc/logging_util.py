@@ -410,7 +410,8 @@ def printable_folder_status(name: str, folder: dict) -> str:
     else:
         color, symbol, note, num_files = "grey53", "-", "unused", "-"
 
-    if folder["path"]:
+    if folder["path"] and "://" not in str(folder["path"]):
+        # file-count probing only makes sense for filesystem paths, not DSNs
         if os.access(folder["path"], os.R_OK):
             try:
                 num_files = (

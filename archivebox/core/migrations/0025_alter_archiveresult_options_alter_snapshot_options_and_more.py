@@ -11,6 +11,12 @@ from archivebox.uuid_compat import uuid7
 
 def copy_old_fields_to_new(apps, schema_editor):
     """Copy data from old field names to new field names after AddField operations."""
+    # sqlite-only legacy data copy (PRAGMA introspection). On postgres there is
+    # no legacy data and the state-only AddFields below are resynced by
+    # _pg_sync_schema at the end of this migration.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+
     cursor = connection.cursor()
 
     # Check if old fields still exist
@@ -41,6 +47,19 @@ def copy_old_fields_to_new(apps, schema_editor):
     # NOTE: Snapshot timestamps (added→bookmarked_at, updated→modified_at) were already
     # transformed by migration 0023, so we don't need to copy them here.
     # NOTE: UUIDs are already populated by migration 0023 for all migration paths.
+
+
+def _pg_sync_schema(apps, schema_editor):
+    # This migration mixes real ORM AddFields with state-only AddFields (the
+    # snapshot config/current_step/depth/notes/num_uses_*/parent_snapshot/
+    # retry_at/status columns and archiveresult created_at/modified_at were
+    # created on sqlite by 0023's raw rebuild, so here they are state-only).
+    # On postgres those columns would never land, desyncing the real schema.
+    # Resync to this migration's final state (empty tables on pg). Snapshot is
+    # referenced by SnapshotTag and ArchiveResult, so rebuild those too.
+    from archivebox.misc.db import rebuild_models_from_migration_state
+
+    rebuild_models_from_migration_state(apps, schema_editor, "core", ["Snapshot", "SnapshotTag", "ArchiveResult"])
 
 
 class Migration(migrations.Migration):
@@ -335,4 +354,5 @@ class Migration(migrations.Migration):
             model_name="snapshot",
             constraint=models.UniqueConstraint(fields=("timestamp",), name="unique_timestamp"),
         ),
+        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
     ]

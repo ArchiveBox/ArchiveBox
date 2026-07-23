@@ -16,31 +16,38 @@ MAX_SEARCH_RANK_IDS = 500
 
 
 def escape_like_query(query: str) -> str:
-    """Escape a string for SQLite LIKE matching."""
+    """Escape a string for SQL LIKE matching (used with ESCAPE '\\')."""
     return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def crawl_config_values_search_wave(query: str) -> Q | None:
     """Build a Snapshot Q predicate matching values inside Crawl.config."""
-    if connection.vendor != "sqlite":
-        return None
-
     from archivebox.crawls.models import Crawl
 
     pattern = f"%{escape_like_query(query).lower()}%"
-    matching_crawls = Crawl.objects.extra(
-        where=[
-            """
-            EXISTS (
-                SELECT 1
-                FROM json_tree(config)
-                WHERE json_tree.atom IS NOT NULL
-                  AND LOWER(CAST(json_tree.atom AS TEXT)) LIKE %s ESCAPE '\\'
-            )
-            """,
-        ],
-        params=[pattern],
-    )
+    if connection.vendor == "sqlite":
+        matching_crawls = Crawl.objects.extra(
+            where=[
+                """
+                EXISTS (
+                    SELECT 1
+                    FROM json_tree(config)
+                    WHERE json_tree.atom IS NOT NULL
+                      AND LOWER(CAST(json_tree.atom AS TEXT)) LIKE %s ESCAPE '\\'
+                )
+                """,
+            ],
+            params=[pattern],
+        )
+    elif connection.vendor == "postgresql":
+        # jsonb has no json_tree() equivalent; matching the serialized jsonb text
+        # covers every nested value (keys can also match, which only widens recall).
+        matching_crawls = Crawl.objects.extra(
+            where=["LOWER(config::text) LIKE %s ESCAPE '\\'"],
+            params=[pattern],
+        )
+    else:
+        return None
     return Q(crawl_id__in=matching_crawls.values("pk"))
 
 

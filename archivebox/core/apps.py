@@ -20,6 +20,14 @@ class CoreConfig(AppConfig):
 
         ModelWithOutputDir.register_delete_signal()
 
+        # SQLite ignores VARCHAR(n) limits but PostgreSQL enforces them; clamp
+        # CharField values on save so writes behave the same on both backends.
+        from django.db.models.signals import pre_save
+
+        from archivebox.misc.db import truncate_overlong_charfields
+
+        pre_save.connect(truncate_overlong_charfields, dispatch_uid="archivebox_truncate_overlong_charfields")
+
         # Import models to register state machines with the registry
         # Skip during makemigrations to avoid premature state machine access
         if "makemigrations" not in sys.argv:

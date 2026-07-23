@@ -212,44 +212,18 @@ TEMPLATES = [
 ### External Service Settings
 ################################################################################
 
+# All sqlite-vs-postgres connection logic lives in archivebox.misc.db;
+# DATABASE_ENGINE config selects the backend (sqlite by default).
+from archivebox.misc.db import get_database_settings, get_sqlite_connection_options
+
 DATABASE_NAME = CONFIG.DATABASE_NAME
 SQLITE_JOURNAL_MODE = CONFIG.SQLITE_JOURNAL_MODE
 SQLITE_MMAP_SIZE = CONFIG.SQLITE_MMAP_SIZE
 
-SQLITE_CONNECTION_OPTIONS = {
-    "ENGINE": "archivebox.core.sqlite_backend",
-    "TIME_ZONE": CONSTANTS.TIMEZONE,
-    "OPTIONS": {
-        # https://gcollazo.com/optimal-sqlite-settings-for-django/
-        # https://litestream.io/tips/#busy-timeout
-        # https://docs.djangoproject.com/en/5.1/ref/databases/#setting-pragma-options
-        "timeout": CONFIG.SQLITE_BUSY_TIMEOUT / 1000,
-        "check_same_thread": False,
-        # Keep SQLite on Django's default deferred transaction mode. BEGIN
-        # IMMEDIATE grabs the write lock as soon as atomic() opens, which is
-        # exactly what hurts ArchiveBox on large collections where Python code
-        # may do filesystem work before the actual row write. Deferred BEGIN
-        # keeps writes statement-scoped unless a caller explicitly opens a
-        # transaction around multiple writes.
-        "transaction_mode": None,
-        "init_command": (
-            "PRAGMA foreign_keys=ON;"
-            f"PRAGMA busy_timeout = {CONFIG.SQLITE_BUSY_TIMEOUT};"
-            f"PRAGMA journal_mode = {SQLITE_JOURNAL_MODE};"
-            "PRAGMA synchronous = NORMAL;"
-            "PRAGMA temp_store = MEMORY;"
-            f"PRAGMA mmap_size = {SQLITE_MMAP_SIZE};"
-            "PRAGMA journal_size_limit = 67108864;"
-            "PRAGMA cache_size = 2000;"
-        ),
-    },
-}
+SQLITE_CONNECTION_OPTIONS = get_sqlite_connection_options()
 
 DATABASES = {
-    "default": {
-        "NAME": DATABASE_NAME,
-        **SQLITE_CONNECTION_OPTIONS,
-    },
+    "default": get_database_settings(),
 }
 MIGRATION_MODULES = {"signal_webhooks": None}
 

@@ -666,9 +666,9 @@ Skip the startup check that verifies [`TMP_DIR`](#tmp_dir) can host unix-domain 
 
 ## Database Settings
 
-*Options for tuning the SQLite index database that backs ArchiveBox's snapshot, tag, and crawl metadata.*
+*Options for choosing and tuning the index database that backs ArchiveBox's snapshot, tag, and crawl metadata.*
 
-ArchiveBox stores all of its index metadata in a single SQLite database file (`index.sqlite3` inside your data directory). The defaults are tuned for nearly all users — the knobs below mostly govern **lock-contention behavior**, which matters when multiple workers touch the database concurrently (e.g. supervised orchestrators, parallel `archivebox add` runs, container restarts that race against an in-flight write, or long-running web/admin processes alongside CLI commands).
+ArchiveBox stores all of its index metadata in a single SQLite database file (`index.sqlite3` inside your data directory) by default, or optionally in a PostgreSQL database (see [`DATABASE_ENGINE`](#database_engine)). The defaults are tuned for nearly all users — the knobs below mostly govern **lock-contention behavior**, which matters when multiple workers touch the database concurrently (e.g. supervised orchestrators, parallel `archivebox add` runs, container restarts that race against an in-flight write, or long-running web/admin processes alongside CLI commands).
 
 > [!NOTE]
 > These are advanced operator tuning options. If you are not actively diagnosing `database is locked` errors or planning a non-default storage layout, you can safely leave everything in this section at its default.
@@ -677,6 +677,49 @@ ArchiveBox stores all of its index metadata in a single SQLite database file (`i
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#sqlite-database-is-locked
 - https://www.sqlite.org/wal.html
 - https://www.sqlite.org/pragma.html
+
+---
+<a id="database_engine"></a>
+<a id="archivebox_database_engine"></a>
+#### `DATABASE_ENGINE`
+**Possible Values:** [`sqlite`]/`postgres`
+Which database backend to use for the main index. Settable as `ARCHIVEBOX_DATABASE_ENGINE` or under `[DATABASE_CONFIG]` in `ArchiveBox.conf`.
+
+The default `sqlite` keeps everything in a single `index.sqlite3` file inside the data directory and requires no external services. Set this to `postgres` to store the index in a PostgreSQL database instead — useful for large collections with many concurrent writers, or when the data directory lives on a filesystem where SQLite performs poorly (e.g. network mounts).
+
+With `postgres`, connection details come from the options below. `archivebox init` will create the configured database automatically if the server is reachable and the database does not exist yet. Only the *index* moves to PostgreSQL — snapshot output files stay in `./archive/` in the data directory, and plugin-owned sidecar databases (e.g. the `search.sqlite3` full-text index) are unaffected.
+
+```ini
+# example ArchiveBox.conf
+[DATABASE_CONFIG]
+DATABASE_ENGINE = postgres
+DATABASE_NAME = archivebox
+DATABASE_HOST = 127.0.0.1
+DATABASE_PORT = 5432
+DATABASE_USER = archivebox
+DATABASE_PASSWORD = s3cret
+```
+
+> [!WARNING]
+> Pick a backend when you first run `archivebox init` and stick with it. There is no built-in tool (yet) to move an existing collection's index between SQLite and PostgreSQL.
+
+*Related options:*
+[`DATABASE_NAME`](#database_name), [`DATABASE_HOST`](#database_host)
+
+---
+<a id="database_host"></a>
+<a id="archivebox_database_host"></a>
+<a id="database_port"></a>
+<a id="archivebox_database_port"></a>
+<a id="database_user"></a>
+<a id="archivebox_database_user"></a>
+<a id="database_password"></a>
+<a id="archivebox_database_password"></a>
+#### `DATABASE_HOST` / `DATABASE_PORT` / `DATABASE_USER` / `DATABASE_PASSWORD`
+**Possible Values:** [`127.0.0.1`] / [`5432`] / [`archivebox`] / [empty]
+PostgreSQL connection settings, used only when [`DATABASE_ENGINE`](#database_engine)`=postgres`. Settable as `ARCHIVEBOX_DATABASE_HOST`, `ARCHIVEBOX_DATABASE_PORT`, `ARCHIVEBOX_DATABASE_USER`, and `ARCHIVEBOX_DATABASE_PASSWORD`.
+
+`DATABASE_HOST` may also be a path to a directory containing a PostgreSQL unix socket (e.g. `/var/run/postgresql`). When `DATABASE_ENGINE=postgres`, [`DATABASE_NAME`](#database_name) is the name of the PostgreSQL database (default: `archivebox`) instead of a file path.
 
 ---
 <a id="database_name"></a>

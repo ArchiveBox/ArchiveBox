@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TextIO
 from typing import Any
 import fcntl
+import os
 import time
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -19,6 +20,267 @@ from sqlite3 import OperationalError as SQLiteOperationalError
 
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import enforce_types
+
+
+# ============================================================================
+# Database backend adapter (sqlite / postgresql)
+# ============================================================================
+# All sqlite-vs-postgres branching in ArchiveBox is centralized in this
+# section. Code elsewhere should call these helpers instead of checking
+# ``connection.vendor``, building ``DATABASES`` entries, or touching
+# ``CONSTANTS.DATABASE_FILE`` directly.
+
+SQLITE_VENDOR = "sqlite"
+POSTGRES_VENDOR = "postgresql"
+
+
+def database_backend() -> str:
+    """Configured backend vendor name: 'sqlite' (default) or 'postgresql'."""
+    from archivebox.config.common import get_config
+
+    engine = (get_config().DATABASE_ENGINE or "sqlite").strip().lower()
+    return POSTGRES_VENDOR if engine.startswith("postgres") else SQLITE_VENDOR
+
+
+def is_postgres() -> bool:
+    return database_backend() == POSTGRES_VENDOR
+
+
+def postgres_db_params() -> dict[str, str]:
+    """Postgres connection params from config (NAME/USER/PASSWORD/HOST/PORT)."""
+    from archivebox.config.common import get_config
+
+    config = get_config()
+    name = config.DATABASE_NAME
+    # DATABASE_NAME defaults to the sqlite file path; that default makes no
+    # sense as a postgres database name, so fall back to 'archivebox'.
+    if name == str(CONSTANTS.DATABASE_FILE) or name.endswith(".sqlite3"):
+        name = "archivebox"
+    return {
+        "NAME": name,
+        "USER": config.DATABASE_USER,
+        "PASSWORD": config.DATABASE_PASSWORD,
+        "HOST": config.DATABASE_HOST,
+        "PORT": str(config.DATABASE_PORT),
+    }
+
+
+def get_sqlite_connection_options() -> dict[str, Any]:
+    """ENGINE + OPTIONS for the sqlite backend (without NAME)."""
+    from archivebox.config.common import get_config
+
+    config = get_config()
+    return {
+        "ENGINE": "archivebox.core.sqlite_backend",
+        "TIME_ZONE": CONSTANTS.TIMEZONE,
+        "OPTIONS": {
+            # https://gcollazo.com/optimal-sqlite-settings-for-django/
+            # https://litestream.io/tips/#busy-timeout
+            # https://docs.djangoproject.com/en/5.1/ref/databases/#setting-pragma-options
+            "timeout": config.SQLITE_BUSY_TIMEOUT / 1000,
+            "check_same_thread": False,
+            # Keep SQLite on Django's default deferred transaction mode. BEGIN
+            # IMMEDIATE grabs the write lock as soon as atomic() opens, which is
+            # exactly what hurts ArchiveBox on large collections where Python code
+            # may do filesystem work before the actual row write. Deferred BEGIN
+            # keeps writes statement-scoped unless a caller explicitly opens a
+            # transaction around multiple writes.
+            "transaction_mode": None,
+            "init_command": (
+                "PRAGMA foreign_keys=ON;"
+                f"PRAGMA busy_timeout = {config.SQLITE_BUSY_TIMEOUT};"
+                f"PRAGMA journal_mode = {config.SQLITE_JOURNAL_MODE};"
+                "PRAGMA synchronous = NORMAL;"
+                "PRAGMA temp_store = MEMORY;"
+                f"PRAGMA mmap_size = {config.SQLITE_MMAP_SIZE};"
+                "PRAGMA journal_size_limit = 67108864;"
+                "PRAGMA cache_size = 2000;"
+            ),
+        },
+    }
+
+
+def get_database_settings() -> dict[str, Any]:
+    """The DATABASES['default'] dict for Django settings, per configured backend."""
+    from archivebox.config.common import get_config
+
+    if is_postgres():
+        return {
+            "ENGINE": "django.db.backends.postgresql",
+            **postgres_db_params(),
+            "OPTIONS": {"connect_timeout": 10},
+        }
+    return {
+        "NAME": get_config().DATABASE_NAME,
+        **get_sqlite_connection_options(),
+    }
+
+
+def _psycopg_connect(dbname: str | None = None, connect_timeout: int = 5):
+    import psycopg
+
+    params = postgres_db_params()
+    return psycopg.connect(
+        dbname=dbname or params["NAME"],
+        user=params["USER"],
+        password=params["PASSWORD"] or None,
+        host=params["HOST"],
+        port=params["PORT"],
+        connect_timeout=connect_timeout,
+    )
+
+
+def database_exists() -> bool:
+    """True if this collection's database has been initialized.
+
+    sqlite: the index.sqlite3 file exists on disk.
+    postgres: the configured database is reachable and contains the
+    django_migrations table. Safe to call before Django is set up.
+    """
+    if not is_postgres():
+        return os.path.isfile(CONSTANTS.DATABASE_FILE)
+    try:
+        with _psycopg_connect() as conn:
+            row = conn.execute("SELECT to_regclass('django_migrations')").fetchone()
+            return bool(row and row[0])
+    except Exception:
+        return False
+
+
+def database_display_location() -> str:
+    """Human-readable location of the database (file path or postgres DSN)."""
+    if not is_postgres():
+        return str(CONSTANTS.DATABASE_FILE)
+    params = postgres_db_params()
+    return f"postgresql://{params['USER']}@{params['HOST']}:{params['PORT']}/{params['NAME']}"
+
+
+def ensure_database_ready() -> None:
+    """Make sure a database server is reachable before running migrations.
+
+    sqlite: no-op (the file is created on first connection).
+    postgres: verify the server accepts connections and create the configured
+    database if it does not exist yet. Raises SystemExit with a helpful
+    message if the server is unreachable.
+    """
+    if not is_postgres():
+        return
+
+    import psycopg
+    from rich import print as rich_print
+
+    params = postgres_db_params()
+    try:
+        with _psycopg_connect():
+            return
+    except psycopg.OperationalError as err:
+        # 3D000 invalid_catalog_name: server is up but the database is missing
+        if getattr(err, "sqlstate", None) != "3D000" and "does not exist" not in str(err):
+            rich_print(f"[red][X] Error: Unable to connect to PostgreSQL at {database_display_location()}[/red]")
+            rich_print(f"    {err}")
+            rich_print("    [violet]Hint:[/violet] Check ARCHIVEBOX_DATABASE_HOST/PORT/USER/PASSWORD and that the server is running.")
+            raise SystemExit(4) from err
+
+    with _psycopg_connect(dbname="postgres") as conn:
+        conn.autocommit = True
+        safe_name = params["NAME"].replace('"', '""')
+        conn.execute(f'CREATE DATABASE "{safe_name}"')
+        rich_print(f"    + Created PostgreSQL database {params['NAME']}")
+
+
+def is_missing_table_error(err: BaseException) -> bool:
+    """True if err means a queried table does not exist (any backend)."""
+    msg = str(err).lower()
+    return "no such table" in msg or ("relation" in msg and "does not exist" in msg)
+
+
+def approximate_row_counts(connection) -> dict[str, int]:
+    """Cheap per-table approximate row counts from the backend's optimizer stats.
+
+    sqlite: reads sqlite_stat1 (populated by ANALYZE).
+    postgres: reads pg_class.reltuples (maintained by autovacuum/ANALYZE).
+    Returns {} on any failure; tables never analyzed may be absent.
+    """
+    counts: dict[str, int] = {}
+    try:
+        with connection.cursor() as cursor:
+            if connection.vendor == SQLITE_VENDOR:
+                cursor.execute("SELECT tbl, stat FROM sqlite_stat1")
+                for table, stat in cursor.fetchall():
+                    try:
+                        counts[str(table)] = int(str(stat).split()[0])
+                    except (IndexError, TypeError, ValueError):
+                        continue
+            elif connection.vendor == POSTGRES_VENDOR:
+                cursor.execute(
+                    """
+                    SELECT c.relname, c.reltuples::bigint
+                      FROM pg_class c
+                      JOIN pg_namespace n ON n.oid = c.relnamespace
+                     WHERE c.relkind = 'r'
+                       AND n.nspname = current_schema()
+                       AND c.reltuples >= 0
+                    """,
+                )
+                counts = {str(table): int(estimate) for table, estimate in cursor.fetchall()}
+    except Exception:
+        return {}
+    return counts
+
+
+def truncate_overlong_charfields(sender, instance, **kwargs) -> None:
+    """pre_save receiver: clamp CharField values to their declared max_length.
+
+    SQLite never enforces VARCHAR(n) limits, so ArchiveBox has always stored
+    overlong values (e.g. long crawl labels or page titles) untruncated.
+    PostgreSQL enforces them and would raise DataError on save instead.
+    Truncating at save time keeps writes succeeding identically on both
+    backends. Registered once for all models in CoreConfig.ready().
+    """
+    from django.db import models as dj_models
+
+    for field in instance._meta.local_concrete_fields:
+        if isinstance(field, dj_models.CharField) and field.max_length:
+            value = getattr(instance, field.attname, None)
+            if isinstance(value, str) and len(value) > field.max_length:
+                setattr(instance, field.attname, value[: field.max_length])
+
+
+# --- migration helpers ------------------------------------------------------
+
+
+def migration_table_exists(connection, table_name: str) -> bool:
+    """Portable existence check usable from inside migrations."""
+    return table_name in connection.introspection.table_names()
+
+
+def migration_table_columns(connection, table_name: str) -> set[str]:
+    """Portable column-name introspection usable from inside migrations."""
+    with connection.cursor() as cursor:
+        return {col.name for col in connection.introspection.get_table_description(cursor, table_name)}
+
+
+def rebuild_models_from_migration_state(apps, schema_editor, app_label: str, model_names: list[str]) -> None:
+    """(non-sqlite only) Drop and recreate the given models' tables from the
+    current migration state.
+
+    ArchiveBox's historical sqlite migrations rebuild tables with raw SQL that
+    intentionally diverges from Django migration state (state-only AddFields
+    reconciled by later sqlite rebuilds). Postgres support postdates all of
+    them, so a non-sqlite database can never contain legacy data at these
+    points in history: every affected table is empty, and dropping + recreating
+    it from state is always equivalent, keeping the real schema in lockstep
+    with migration state at each divergence point. No-op on sqlite.
+    """
+    if schema_editor.connection.vendor == SQLITE_VENDOR:
+        return
+    existing_tables = set(schema_editor.connection.introspection.table_names())
+    models = [apps.get_model(app_label, model_name) for model_name in model_names]
+    for model in models:
+        if model._meta.db_table in existing_tables:
+            schema_editor.delete_model(model)
+    for model in models:
+        schema_editor.create_model(model)
 
 
 def run_db_analyze_batch(
@@ -357,7 +619,7 @@ def migration_state(out_dir: Path = CONSTANTS.DATA_DIR) -> tuple[list[str], list
             try:
                 cursor.execute("SELECT app, name FROM django_migrations")
             except Exception as err:
-                if "no such table" in str(err).lower():
+                if is_missing_table_error(err):
                     return set()
                 raise
             return {(str(app), str(name)) for app, name in cursor.fetchall()}

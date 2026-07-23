@@ -16,6 +16,7 @@ from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic import FormView
+from django.db import connection
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.core.paginator import InvalidPage
 from django.contrib import messages
@@ -276,12 +277,18 @@ class SnapshotView(View):
         """
 
         def _fragmentless_url_query(url: str) -> Q:
-            # Use a range comparison (url >= 'canonical#' AND url < 'canonical#\U0010ffff')
-            # instead of LIKE/__startswith — SQLite's case-insensitive LIKE bypasses the
-            # url index and forces a full-table scan over ~1M rows (~250ms). The range
-            # form lets SQLite use a MULTI-INDEX OR and stays under 1ms.
             canonical = without_fragment(url)
-            return Q(url=canonical) | (Q(url__gte=f"{canonical}#") & Q(url__lt=f"{canonical}#\U0010ffff"))
+            if connection.vendor == "sqlite":
+                # Use a range comparison (url >= 'canonical#' AND url < 'canonical#\U0010ffff')
+                # instead of LIKE/__startswith — SQLite's case-insensitive LIKE bypasses the
+                # url index and forces a full-table scan over ~1M rows (~250ms). The range
+                # form lets SQLite use a MULTI-INDEX OR and stays under 1ms.
+                return Q(url=canonical) | (Q(url__gte=f"{canonical}#") & Q(url__lt=f"{canonical}#\U0010ffff"))
+            # On postgres the range trick is unsafe: linguistic (ICU/libc) collations
+            # don't compare '#'-suffixed strings bytewise, so the range can miss rows.
+            # startswith compiles to LIKE 'prefix%' with wildcards escaped, which is
+            # correct under any collation and uses the url pattern-ops index.
+            return Q(url=canonical) | Q(url__startswith=f"{canonical}#")
 
         normalized = without_fragment(path)
         if path.startswith(("http://", "https://")):

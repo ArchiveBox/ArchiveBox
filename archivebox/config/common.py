@@ -350,7 +350,16 @@ class DatabaseConfig(BaseConfigSet):
     toml_section_header: str = "DATABASE_CONFIG"
     _scope: str = PrivateAttr(default=_SCOPE_SERVER)
 
+    DATABASE_ENGINE: str = Field(
+        default="sqlite",
+        alias="ARCHIVEBOX_DATABASE_ENGINE",
+        pattern=r"(?i)^(sqlite|postgres|postgresql)$",
+    )
     DATABASE_NAME: str = Field(default=str(CONSTANTS.DATABASE_FILE), alias="ARCHIVEBOX_DATABASE_NAME")
+    DATABASE_HOST: str = Field(default="127.0.0.1", alias="ARCHIVEBOX_DATABASE_HOST")
+    DATABASE_PORT: int = Field(default=5432, alias="ARCHIVEBOX_DATABASE_PORT", ge=1, le=65535)
+    DATABASE_USER: str = Field(default="archivebox", alias="ARCHIVEBOX_DATABASE_USER")
+    DATABASE_PASSWORD: str = Field(default="", alias="ARCHIVEBOX_DATABASE_PASSWORD")
     SQLITE_JOURNAL_MODE: str = Field(
         default="WAL",
         alias="ARCHIVEBOX_SQLITE_JOURNAL_MODE",

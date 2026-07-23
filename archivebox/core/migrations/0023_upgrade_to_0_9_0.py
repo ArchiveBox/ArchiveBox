@@ -47,6 +47,14 @@ def normalize_status(status):
 
 def upgrade_core_tables(apps, schema_editor):
     """Upgrade core tables from v0.7.2 or v0.8.6rc0 to v0.9.0."""
+    # sqlite-only legacy repair/rebuild. On postgres this raw SQL (PRAGMA,
+    # sqlite_master, INSERT OR IGNORE, DATETIME, table-rebuild dance) is both
+    # invalid and unnecessary: a postgres database can never contain legacy
+    # data at this point. The final _pg_sync_schema op resyncs the real
+    # postgres schema to migration state instead.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+
     from archivebox.uuid_compat import uuid7
 
     cursor = connection.cursor()
@@ -491,6 +499,15 @@ def upgrade_core_tables(apps, schema_editor):
         print("    ✓ Core table rebuild complete")
 
 
+def _pg_sync_schema(apps, schema_editor):
+    # On postgres, upgrade_core_tables is a no-op above, so the raw sqlite
+    # rebuilds of core_tag/core_snapshot/core_archiveresult never ran. Resync
+    # the real schema to this migration's end-state (tables are empty on pg).
+    from archivebox.misc.db import rebuild_models_from_migration_state
+
+    rebuild_models_from_migration_state(apps, schema_editor, "core", ["Tag", "Snapshot", "SnapshotTag", "ArchiveResult"])
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("core", "0022_auto_20231023_2008"),
@@ -571,4 +588,5 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
+        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
     ]

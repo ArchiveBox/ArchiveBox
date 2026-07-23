@@ -7,16 +7,36 @@ import django.utils.timezone
 from archivebox.uuid_compat import uuid7
 
 
-class Migration(migrations.Migration):
-    initial = True
+def _run_sqlite_initial_ddl(apps, schema_editor):
+    # sqlite-only: raw DDL creates the real tables byte-for-byte as historically
+    # shipped. On other vendors the tables are built from migration state by
+    # _pg_sync_schema below (a fresh non-sqlite DB never holds legacy data here).
+    if schema_editor.connection.vendor != "sqlite":
+        return
+    migrations.RunSQL(
+        sql=_SQLITE_INITIAL_SQL,
+        reverse_sql=_SQLITE_INITIAL_REVERSE_SQL,
+    ).database_forwards("machine", schema_editor, None, None)
 
-    dependencies = []
 
-    operations = [
-        migrations.SeparateDatabaseAndState(
-            database_operations=[
-                migrations.RunSQL(
-                    sql="""
+def _reverse_sqlite_initial_ddl(apps, schema_editor):
+    if schema_editor.connection.vendor != "sqlite":
+        return
+    migrations.RunSQL(
+        sql=_SQLITE_INITIAL_SQL,
+        reverse_sql=_SQLITE_INITIAL_REVERSE_SQL,
+    ).database_backwards("machine", schema_editor, None, None)
+
+
+def _pg_sync_schema(apps, schema_editor):
+    from archivebox.misc.db import rebuild_models_from_migration_state
+
+    rebuild_models_from_migration_state(
+        apps, schema_editor, "machine", ["Machine", "NetworkInterface", "Binary"]
+    )
+
+
+_SQLITE_INITIAL_SQL = """
                 -- Create machine_machine table
                 CREATE TABLE IF NOT EXISTS machine_machine (
                     id TEXT PRIMARY KEY NOT NULL,
@@ -98,13 +118,25 @@ class Migration(migrations.Migration):
                 CREATE INDEX IF NOT EXISTS machine_binary_status_idx ON machine_binary(status);
                 CREATE INDEX IF NOT EXISTS machine_binary_retry_at_idx ON machine_binary(retry_at);
 
-            """,
-                    reverse_sql="""
+            """
+
+
+_SQLITE_INITIAL_REVERSE_SQL = """
                         DROP TABLE IF EXISTS machine_binary;
                         DROP TABLE IF EXISTS machine_networkinterface;
                         DROP TABLE IF EXISTS machine_machine;
-                    """,
-                ),
+                    """
+
+
+class Migration(migrations.Migration):
+    initial = True
+
+    dependencies = []
+
+    operations = [
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(_run_sqlite_initial_ddl, _reverse_sqlite_initial_ddl),
             ],
             state_operations=[
                 migrations.CreateModel(
@@ -244,4 +276,5 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
+        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
     ]

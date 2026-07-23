@@ -12,19 +12,9 @@ import signal_webhooks.fields
 import signal_webhooks.utils
 
 
-class Migration(migrations.Migration):
-    initial = True
-
-    dependencies = [
-        ("auth", "0012_alter_user_first_name_max_length"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-    ]
-
-    operations = [
-        migrations.SeparateDatabaseAndState(
-            database_operations=[
-                migrations.RunSQL(
-                    sql="""
+# Raw sqlite DDL kept EXACTLY as-is; executed only on sqlite via Django's
+# RunSQL (identical statement splitting → byte-for-byte identical behavior).
+INITIAL_SQL = """
                 -- Create api_apitoken table
                 CREATE TABLE IF NOT EXISTS api_apitoken (
                     id TEXT PRIMARY KEY NOT NULL,
@@ -70,12 +60,48 @@ class Migration(migrations.Migration):
                 CREATE INDEX IF NOT EXISTS api_outboundwebhook_created_at_idx ON api_outboundwebhook(created_at);
                 CREATE INDEX IF NOT EXISTS api_outboundwebhook_name_idx ON api_outboundwebhook(name);
                 CREATE INDEX IF NOT EXISTS api_outboundwebhook_ref_idx ON api_outboundwebhook(ref);
-                    """,
-                    reverse_sql="""
+                    """
+
+INITIAL_REVERSE_SQL = """
                 DROP TABLE IF EXISTS api_outboundwebhook;
                 DROP TABLE IF EXISTS api_apitoken;
-                    """,
-                ),
+                    """
+
+
+def _run_sqlite_only_sql(apps, schema_editor):
+    if schema_editor.connection.vendor != "sqlite":
+        return
+    migrations.RunSQL(sql=INITIAL_SQL, reverse_sql=INITIAL_REVERSE_SQL).database_forwards(
+        "api", schema_editor, None, None,
+    )
+
+
+def _run_sqlite_only_sql_reverse(apps, schema_editor):
+    if schema_editor.connection.vendor != "sqlite":
+        return
+    migrations.RunSQL(sql=INITIAL_SQL, reverse_sql=INITIAL_REVERSE_SQL).database_backwards(
+        "api", schema_editor, None, None,
+    )
+
+
+def _pg_sync_schema(apps, schema_editor):
+    from archivebox.misc.db import rebuild_models_from_migration_state
+
+    rebuild_models_from_migration_state(apps, schema_editor, "api", ["APIToken", "OutboundWebhook"])
+
+
+class Migration(migrations.Migration):
+    initial = True
+
+    dependencies = [
+        ("auth", "0012_alter_user_first_name_max_length"),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(_run_sqlite_only_sql, reverse_code=_run_sqlite_only_sql_reverse),
             ],
             state_operations=[
                 migrations.CreateModel(
@@ -236,4 +262,8 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
+        # On non-sqlite backends the raw DDL above is skipped, so the real
+        # schema diverges from Django state. Rebuild both tables (including the
+        # unique constraint) from the post-migration state (no-op on sqlite).
+        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
     ]
