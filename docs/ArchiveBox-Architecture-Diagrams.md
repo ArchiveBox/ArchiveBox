@@ -1,200 +1,121 @@
 # ArchiveBox Architecture Diagrams
 
-## High-Level System Execution Flow
+This page is a map of the current execution and persistence paths. The implementation lives primarily in:
+
+- `archivebox/cli/` for CLI entry points
+- `archivebox/services/runner.py` for crawl and snapshot execution
+- `archivebox/crawls/models.py` for the `Crawl` model and state machine
+- `archivebox/core/models.py` for `Snapshot`, `ArchiveResult`, and the `Snapshot` state machine
+- `archivebox/services/` for bus event projectors
+- `abxpkg` and `abx-plugins` for binary resolution and plugin hooks
+
+## High-Level Execution Flow
+
+```mermaid
+flowchart TD
+    ENTRY["CLI, Web UI, REST API, or scheduler"] --> CRAWL["Create or resume a Crawl row"]
+    CRAWL --> RUNNER["run_crawl() / CrawlRunner"]
+    RUNNER --> DISCOVER["Create or select Snapshot rows"]
+    DISCOVER --> EVENTS["Emit crawl and snapshot lifecycle events"]
+    EVENTS --> PLUGINS["Run selected abx-plugin hooks"]
+    PLUGINS --> PROCESSES["Persist Process rows and hook output"]
+    PROCESSES --> RESULTS["Project ArchiveResult rows"]
+    RESULTS --> FILES["Write snapshot output files"]
+    RESULTS --> SNAPSTATE["Seal or requeue Snapshot"]
+    SNAPSTATE --> CRAWLSTATE["Seal, pause, or continue Crawl"]
+
+    EVENTS --> BINREQ["BinaryRequestEvent"]
+    BINREQ --> ABXPKG["abxpkg resolution"]
+    ABXPKG --> HOST["Compatible host binary"]
+    ABXPKG --> MANAGED["Managed install fallback"]
+    HOST --> ENV["Project resolved binary into LIB_DIR/env/bin"]
+    MANAGED --> ENV
+
+    CRAWL -.-> DB["SQLite database"]
+    PROCESSES -.-> DB
+    RESULTS -.-> DB
+    FILES -.-> STORAGE["archive/users/... snapshot storage"]
+```
+
+ArchiveBox has one normal crawl execution path. CLI commands and web/API actions create or select database rows, then call the same runner. The runner emits lifecycle events, abx-plugin hooks do the extraction work, and service projectors persist processes and results.
+
+Binary discovery and installation always goes through abxpkg. Compatible host binaries are preferred; managed providers are the fallback. Resolved binaries are projected into `LIB_DIR/env/bin` before programmatic use. `LIB_DIR/bin` is only a convenience directory for humans.
+
+## Persistent Data
+
+```mermaid
+flowchart LR
+    DATA["ArchiveBox data directory"] --> DB["index.sqlite3"]
+    DATA --> ARCHIVE["archive/users/&lt;user&gt;/snapshots/&lt;date&gt;/&lt;domain&gt;/&lt;uuid&gt;/"]
+    DATA --> SOURCES["sources/"]
+    DATA --> LOGS["logs/"]
+    DATA --> LIB["lib/env/bin/ resolved binaries"]
+
+    ARCHIVE --> PLUGINOUT["Plugin-namespaced outputs"]
+    ARCHIVE --> META["Snapshot metadata and indexes"]
+```
+
+The database is the source of truth for model state. Snapshot directories contain captured artifacts and rendered metadata. Older collections may also contain legacy timestamp-named snapshot directories.
+
+## `Crawl` State Machine
+
+Implemented by `Crawl` and `CrawlMachine` in `archivebox/crawls/models.py`.
 
 ```mermaid
 stateDiagram-v2
-    archivebox.cli.main(sys.argv)
-    state Supervisord {
-        Scheduler
-        state Orchestrator {
-            [*] --> TICK
-            TICK --> SPAWN_ACTORS: queued > 0
-            SPAWN_ACTORS --> TICK
-            TICK --> IDLE: queued == 0
-            IDLE --> TICK: 1s
-        }
-    }
-
-    note left of archivebox.cli.main(sys.argv)
-        archivebox entrypoint
-    end note
-
-    state "archivebox.cli.SUBCOMMAND" as MAIN_THREAD
-
-    archivebox.cli.main(sys.argv) --> run_subcommand(sys.argv)
-    run_subcommand(sys.argv) --> setup_django()
-    setup_django() --> Supervisord: spawns in background
-    setup_django() --> MAIN_THREAD: runs in foreground   
-
-    MAIN_THREAD --> archivebox.main.SUBCOMMAND
-    archivebox.main.SUBCOMMAND --> Storage: add_to_queue()
-
-    state Actors {
-        CrawlActor --> Crawl: tick()
-        SnapshotActor --> Snapshot: tick()
-        ArchiveResultActors --> ArchiveResult: tick()
-    }
-
-    state "State Machines" as JOBS {
-
-        state Crawl {
-            state "QUEUED" as CRAWL_QUEUED
-            state "STARTED" as CRAWL_STARTED
-            state "SEALED" as CRAWL_SEALED
-            CRAWL_QUEUED --> CRAWL_STARTED: create_root_snapshot()
-            CRAWL_STARTED --> CRAWL_SEALED: is_finished
-        }
-
-        state Snapshot {
-            state "QUEUED" as SNAP_QUEUED
-            state "STARTED" as SNAP_STARTED
-            state "SEALED" as SNAP_SEALED
-            SNAP_QUEUED --> SNAP_STARTED: create_pending_archiveresults()
-            SNAP_STARTED --> SNAP_SEALED: is_finished
-        }
-
-        state ArchiveResult {
-            QUEUED --> STARTED: run_extractor()
-            STARTED --> BACKOFF: is_temp_error
-            BACKOFF --> STARTED: is_retry_past
-            STARTED --> FAILED: is_fatal_error
-            STARTED --> SUCCEEDED: is_succeded
-        }
-        
-        
-        note right of ArchiveResult
-            exec_crome()
-        end note
-        
-        note right of ArchiveResult
-            exec_wget()
-        end note
-        
-        note right of ArchiveResult
-            exec_curl()
-        end note
-        
-        note right of ArchiveResult
-            ... other extractor subprocesses ...
-        end note
-    }
-    
-    state Storage {
-        state "DB" as SQLITE_DB
-        sources/
-        archive/
-        state "index.json" as INDEX_JSONS
-    }
-
-    Storage: Storage
-
-    Orchestrator --> Actors: spawns subprocesses
-    
-    Crawl --> Snapshot: create_root_snapshot()
-    Snapshot --> ArchiveResult: create_pending_archiveresults()
-    
-    Crawl --> Storage: .save()
-    Snapshot --> Storage: .save()
-    ArchiveResult --> Storage: .save()
-    
-    Storage --> Actors: get_queue()
-
-
+    [*] --> QUEUED
+    QUEUED --> STARTED: tick and valid URLs
+    QUEUED --> QUEUED: tick and not ready
+    QUEUED --> SEALED: all existing snapshots finished
+    STARTED --> SEALED: all snapshots finished
+    QUEUED --> PAUSED: pause requested
+    STARTED --> PAUSED: pause requested
+    PAUSED --> QUEUED: resume requested
+    PAUSED --> PAUSED: tick
+    QUEUED --> SEALED: explicit seal
+    STARTED --> SEALED: explicit seal
+    PAUSED --> SEALED: explicit seal
+    SEALED --> [*]
 ```
 
----
+A crawl owns a set of snapshots. Entering `STARTED` creates or discovers those snapshots; sealing waits for their normal lifecycle to finish. Pausing also schedules child snapshots to pause, and resuming returns the crawl to the runnable queue.
 
-## State Diagrams for Main Models
+## `Snapshot` State Machine
 
-
-### `Crawl`
-
-- `crawls/models.py`: `Crawl`
-- `crawls/statemachines.py`: `CrawlMachine`
+Implemented by `Snapshot` and `SnapshotMachine` in `archivebox/core/models.py`.
 
 ```mermaid
 stateDiagram-v2
-    STARTED --> SEALED: tick [is_finished]
-    STARTED --> STARTED: tick [!is_finished]    
-    QUEUED --> STARTED: tick [can_start]
-    QUEUED --> QUEUED: tick [!can_start]
-
-    
-    note left of QUEUED
-        Crawl created
-    end note
-    
-    note right of STARTED
-        create_root_snapshot()
-        crawl.retry_at = now + 5s
-    end note
+    [*] --> QUEUED
+    QUEUED --> STARTED: tick and URL is ready
+    QUEUED --> QUEUED: tick and not ready
+    QUEUED --> SEALED: all existing results finished
+    STARTED --> SEALED: all hook results finished
+    QUEUED --> PAUSED: pause requested
+    STARTED --> PAUSED: pause requested
+    PAUSED --> QUEUED: resume requested
+    PAUSED --> PAUSED: tick
+    QUEUED --> SEALED: explicit seal
+    STARTED --> SEALED: explicit seal
+    PAUSED --> SEALED: explicit seal
+    SEALED --> [*]
 ```
 
+The runner creates one queued `ArchiveResult` per selected hook, executes those hooks through the shared event bus, and seals the snapshot after every result reaches a final status. The narrow search-index maintenance operation on an already sealed snapshot is the intentional exception; it does not reopen or invent a second general lifecycle path.
 
-## `Snapshot`
+## `ArchiveResult` Projection
 
-- `core/models.py`: `Snapshot`
-- `core/statemachines.py`: `SnapshotMachine`
+`ArchiveResult` is not driven by a separate Python state machine. The runner creates queued rows, and `ArchiveResultService` projects `ArchiveResultEvent` and `ProcessCompletedEvent` data into them.
 
 ```mermaid
-stateDiagram-v2
-    STARTED --> SEALED: tick [is_finished]
-    STARTED --> STARTED: tick [!is_finished]
-    QUEUED --> STARTED: tick [can_start]
-    QUEUED --> QUEUED: tick [!can_start]
-    
-    note left of QUEUED
-        Snapshot created
-    end note
-    
-    note right of STARTED
-        create_pending_archiveresults(extractors)
-        snapshot.retry_at = now + 60s
-    end note
+flowchart LR
+    QUEUED["queued"] --> STARTED["started"]
+    STARTED --> SUCCEEDED["succeeded"]
+    STARTED --> FAILED["failed"]
+    STARTED --> SKIPPED["skipped"]
+    STARTED --> NORESULTS["noresults"]
+    STARTED -. recoverable wait .-> BACKOFF["backoff"]
+    BACKOFF -. resumed work .-> STARTED
 ```
 
-
-### `ArchiveResult`
-
-- `core/models.py`: `ArchiveResult`
-- `core/statemachines.py`: `ArchiveResultMachine`
-
-<img width="1740" alt="image" src="https://github.com/user-attachments/assets/23d596ab-6c8a-440a-b49b-a2432f37abb3">
-
-```mermaid
-stateDiagram-v2
-    QUEUED --> QUEUED: tick [!can_start]
-    QUEUED --> STARTED: tick [can_start]
-    STARTED --> STARTED: tick [!is_finished]
-    STARTED --> BACKOFF: tick [is_backoff]
-    STARTED --> FAILED: tick [is_failed]
-    STARTED --> SUCCEEDED: tick [is_succeeded]
-    BACKOFF --> BACKOFF: tick [!can_start]
-    BACKOFF --> STARTED: tick [can_start]
-    
-    note left of QUEUED
-        ArchiveResult created
-    end note
-    
-    note left of STARTED
-        start_ts = now
-        retry_at = now + 60s
-        create_output_dir()
-        run_extractor()
-    end note
-    
-    note right of BACKOFF
-        retry_at = now + 60s
-    end note
-    
-    note right of SUCCEEDED
-        end_ts = now
-        retry_at = None
-    end note
-    
-    note right of FAILED
-        end_ts = now
-        retry_at = None
-    end note
-```
+`succeeded`, `failed`, `skipped`, and `noresults` are final result statuses. Each row identifies the plugin and hook that produced it and stores structured output, file metadata, timing, and error details.

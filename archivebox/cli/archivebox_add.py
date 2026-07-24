@@ -235,6 +235,7 @@ def add(
                             ["--crawl-id", str(crawl.id)],
                             name=f"worker_runner_add_{os.getpid()}",
                             interactive_interrupts=True,
+                            config=get_config(crawl=crawl),
                         )
                         crawl.refresh_from_db(fields=["status", "retry_at"])
                         if exit_code == 0 and crawl.status == crawl.StatusChoices.SEALED:

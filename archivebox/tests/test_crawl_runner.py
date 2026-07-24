@@ -6,7 +6,7 @@ import sys
 import pytest
 from asgiref.sync import sync_to_async
 
-from archivebox.tests.conftest import resolve_abxpkg_binary_env
+from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db
 
@@ -412,6 +412,7 @@ def test_machine_service_persists_only_derived_config_events(tmp_path, hermetic_
     machine = Machine.current()
     machine.config = {}
     machine.save(update_fields=["config"])
+    install_real_binary("wget", machine=machine, binproviders="env,apt,brew")
     resolve_abxpkg_binary_env(hermetic_lib_dir, "wget")
     wget_binary = hermetic_lib_dir / "env" / "bin" / "wget"
     assert wget_binary.is_symlink()
@@ -487,6 +488,7 @@ def test_load_run_state_uses_real_lib_dir_for_machine_binary_config(tmp_path, he
     resolved_lib_dir = get_config(include_machine=False).ABXPKG_LIB_DIR
     assert resolved_lib_dir == hermetic_lib_dir, f"ABXPKG_LIB_DIR override not applied: {resolved_lib_dir!r} != {hermetic_lib_dir!r}"
 
+    install_real_binary("wget", binproviders="env,apt,brew")
     resolve_abxpkg_binary_env(resolved_lib_dir, "wget")
     wget_binary = resolved_lib_dir / "env" / "bin" / "wget"
     assert wget_binary.is_symlink()
@@ -788,6 +790,7 @@ def test_wait_for_snapshot_tasks_returns_after_completed_tasks_are_pruned():
     asyncio.run(run_test())
 
 
+@pytest.mark.django_db(transaction=True)
 def test_abx_process_service_background_process_finishes_after_process_exit(tmp_path, recursive_test_site, hermetic_lib_dir):
     from abx_dl.events import ProcessCompletedEvent, ProcessEvent
     from abx_dl.orchestrator import create_bus
@@ -808,6 +811,7 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
     plugin_output_dir.mkdir(parents=True)
     hook_path = Path(str(files("abx_plugins.plugins.wget").joinpath("on_Snapshot__06_wget.finite.bg.py")))
     wget_config = Path(str(files("abx_plugins.plugins.wget").joinpath("config.json")))
+    install_real_binary("wget", binproviders="env,apt,brew")
     hook_env = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=wget_config)
 
     async def run_test():

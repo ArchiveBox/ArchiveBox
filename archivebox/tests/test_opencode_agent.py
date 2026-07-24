@@ -75,7 +75,7 @@ def opencode_archive_config(initialized_archive):
 
 @pytest.fixture
 def live_opencode(opencode_archive_config):
-    from abx_plugins.plugins.opencode import views
+    from archivebox.opencode import views
 
     install = run_archivebox_cmd(
         ["install", "opencode", "--binproviders=env,pnpm"],
@@ -114,7 +114,7 @@ def live_opencode(opencode_archive_config):
 
 def test_opencode_disabled_route_does_not_start_server(client, initialized_archive):
     from archivebox.machine.models import Machine
-    from abx_plugins.plugins.opencode import views
+    from archivebox.opencode import views
 
     os.chdir(initialized_archive)
     Machine.from_json({"config": {"OPENCODE_ENABLED": False}})
@@ -163,7 +163,7 @@ def test_opencode_proxy_blocks_cross_site_fetch_metadata(admin_client, db, live_
 
 
 def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode):
-    from abx_plugins.plugins.opencode import views
+    from archivebox.opencode import views
 
     response = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     recent_session_id = views._recent_session_id(live_opencode.settings)
@@ -238,7 +238,7 @@ def test_opencode_starts_with_isolated_state(live_opencode):
 
 
 def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
-    from abx_plugins.plugins.opencode import views
+    from archivebox.opencode import views
 
     workdir = tmp_path / "data"
     settings = views._settings({"OPENCODE_WORKDIR": str(workdir)})
@@ -258,7 +258,7 @@ def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
 
 
 def test_opencode_rewrites_vite_preload_assets():
-    from abx_plugins.plugins.opencode import views
+    from archivebox.opencode import views
 
     body = b'const BL="modulepreload",UL=function(t){return"/"+t};const icon="/assets/sprite.svg#anthropic"'
     rewritten = views._rewrite_text(body, {"origin": "http://127.0.0.1:4096"}).decode()

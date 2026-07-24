@@ -7,65 +7,14 @@ env:
   PYTHONIOENCODING: utf-8
   USE_COLOR: "False"
   SHOW_PROGRESS: "False"
-  ARCHIVEBOX_PUBLISH_ADMIN_PASSWORD: "archivebox-docs-ci-only"
 
 jobs:
-  docs-matrix:
+  discover:
+    name: Discover documentation examples
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
-        with:
-          version: "0.11.3"
-      - id: matrix
-        run: |
-          uv run --no-project python - <<'PY' >> "$GITHUB_OUTPUT"
-          import json
-          import tomllib
-
-          with open("docs/codeblocks.toml", "rb") as manifest_file:
-              ci = tomllib.load(manifest_file)["ci"]
-
-          include = []
-          for environment, runner in ci["standard"].items():
-              if environment == "core":
-                  include.extend(
-                      {
-                          "environment": environment,
-                          "runner": runner,
-                          "core_shard": shard,
-                          "job_name": f"core/{shard}",
-                          "validate_manifest": shard == "metadata",
-                      }
-                      for shard in ci["core_shards"]
-                  )
-              else:
-                  include.append(
-                      {
-                          "environment": environment,
-                          "runner": runner,
-                          "core_shard": "",
-                          "job_name": environment,
-                          "validate_manifest": False,
-                      },
-                  )
-
-          print("matrix=" + json.dumps({"include": include}, separators=(",", ":")))
-          PY
-
-  docs-standard:
-    name: docs/${{ matrix.job_name }}
-    needs: docs-matrix
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 5
-    env:
-      DOCS_CORE_SHARD: ${{ matrix.core_shard }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJSON(needs.docs-matrix.outputs.matrix) }}
+      matrix: ${{ steps.inventory.outputs.matrix }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -77,213 +26,150 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.11.3"
-      - name: Install ArchiveBox
-        run: uv sync --locked --dev --all-extras
-      - name: Prepare abxpkg environment
-        shell: bash
+      - name: Install ArchiveBox development dependencies
+        run: uv sync --locked --dev
+      - name: Resolve documentation tools through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/archivebox-docs-lib
         run: |
-          {
-            echo "ABXPKG_LIB_DIR=${{ runner.temp }}/archivebox-docs-lib"
-            echo "ARCHIVEBOX_PROJECT_DIR=$GITHUB_WORKSPACE"
-          } >> "$GITHUB_ENV"
-          echo "${{ runner.temp }}/archivebox-docs-lib/env/bin" >> "$GITHUB_PATH"
-      - name: Resolve Node.js through abxpkg
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
           export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
-          tooling_env="$(
-            uv run --no-sync abxpkg env \
-              --install \
-              --json \
-              --lib="$ABXPKG_LIB_DIR" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:node_binaries"
-          )"
-          JQ_BINARY="$ABXPKG_LIB_DIR/env/bin/jq"
-          "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
-            <<< "$tooling_env" >> "$GITHUB_ENV"
-
-          node_binary="$ABXPKG_LIB_DIR/env/bin/node"
+          uv run --no-sync abxpkg env \
+            --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/docs/mermaid-binary.json:required_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/docs/nginx-binary.json:required_binaries"
+          bash_binary="$ABXPKG_LIB_DIR/env/bin/bash"
+          mmdc_binary="$ABXPKG_LIB_DIR/env/bin/mmdc"
+          nginx_binary="$ABXPKG_LIB_DIR/env/bin/nginx"
+          test -L "$bash_binary"
+          test -L "$mmdc_binary"
+          test -L "$nginx_binary"
+          test -x "$bash_binary"
+          test -x "$mmdc_binary"
+          test -x "$nginx_binary"
           {
-            echo "JQ_BINARY=$JQ_BINARY"
-            echo "NODE_BINARY=$node_binary"
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+            echo "BASH_BINARY=$bash_binary"
           } >> "$GITHUB_ENV"
-          test -L "$node_binary"
-          test -x "$node_binary"
-          "$node_binary" --version
-      - name: Resolve documentation shell tools through abxpkg
-        shell: bash
+      - id: inventory
+        name: Validate the complete authored documentation inventory
         run: |
-          set -Eeuo pipefail
-          shell_env="$(
-            uv run --no-sync abxpkg env \
-              --install \
-              --json \
-              --lib="$ABXPKG_LIB_DIR" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docs_binaries"
-          )"
-          "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
-            <<< "$shell_env" >> "$GITHUB_ENV"
+          matrix="$(uv run --no-sync python docs/test_codeblocks_manifest.py matrix)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
-          curl_binary="$ABXPKG_LIB_DIR/env/bin/curl"
-          echo "CURL_BINARY=$curl_binary" >> "$GITHUB_ENV"
-          test -L "$curl_binary"
-          test -x "$curl_binary"
-      - name: Resolve Docker through abxpkg
-        if: matrix.environment == 'docker'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          docker_env="$(
-            uv run --no-sync abxpkg env \
-              --install \
-              --json \
-              --lib="$ABXPKG_LIB_DIR" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries"
-          )"
-          "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
-            <<< "$docker_env" >> "$GITHUB_ENV"
-
-          docker_binary="$ABXPKG_LIB_DIR/env/bin/docker"
-          echo "DOCKER_BINARY=$docker_binary" >> "$GITHUB_ENV"
-          test -L "$docker_binary"
-          test -x "$docker_binary"
-          "$docker_binary" --version
-      - name: Start bound local documentation site
-        shell: bash
-        run: |
-          ready_fifo="${{ runner.temp }}/archivebox-docs-http-ready"
-          mkfifo "$ready_fifo"
-          uv run --no-sync python .github/scripts/docs_http_server.py --ready-fifo "$ready_fifo" &
-          server_pid=$!
-          IFS= read -r docs_url < "$ready_fifo"
-          {
-            echo "ARCHIVEBOX_DOCS_SERVER_PID=$server_pid"
-            echo "ARCHIVEBOX_DOCS_URL_ONE=$docs_url/collection-one"
-            echo "ARCHIVEBOX_DOCS_URL_TWO=$docs_url/collection-two"
-            echo "ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT=18000"
-            echo "ARCHIVEBOX_DOCS_STATIC_PORT=18001"
-          } >> "$GITHUB_ENV"
-      - name: Resolve documentation validators through abxpkg
-        if: matrix.validate_manifest
-        run: |
-          validators_env="$(
-            uv run abxpkg env \
-              --install \
-              --json \
-              --lib="$ABXPKG_LIB_DIR" \
-              --deps-from="$GITHUB_WORKSPACE/docs/mermaid-binary.json:required_binaries" \
-              --deps-from="$GITHUB_WORKSPACE/docs/nginx-binary.json:required_binaries"
-          )"
-          "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
-            <<< "$validators_env" >> "$GITHUB_ENV"
-      - name: Resolve merge tools through abxpkg
-        if: matrix.environment == 'merge'
-        run: |
-          uv run abxpkg install rsync --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew
-          uv run abxpkg install sqlite3 --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew
-      - name: Validate documentation inventory and structured fences
-        if: matrix.validate_manifest
-        run: uv run --no-sync pytest -q docs/test_codeblocks_manifest.py
-      - name: Initialize documentation collection
-        if: contains(fromJSON('["core", "macos", "root"]'), matrix.environment)
-        shell: bash
-        run: |
-          docs_data_dir="${{ runner.temp }}/archivebox-docs-data"
-          mkdir -p "$docs_data_dir"
-          (cd "$docs_data_dir" && uv run --project "$GITHUB_WORKSPACE" --no-sync archivebox init)
-          echo "ARCHIVEBOX_DOCS_DATA_DIR=$docs_data_dir" >> "$GITHUB_ENV"
-      - name: Build local documentation image
-        if: matrix.environment == 'docker'
-        run: '"$DOCKER_BINARY" build --tag archivebox-docs-ci .'
-      - name: Run documentation code blocks
-        if: matrix.environment != 'root' && !contains(fromJSON('["core", "macos"]'), matrix.environment)
-        run: |
-          mapfile -t docs_paths < <(
-            uv run --no-sync python - <<'PY'
-          from pathlib import Path
-
-          print(*(str(path) for path in sorted(Path("docs").rglob("*.md")) if not path.is_symlink()), sep="\n")
-          PY
-          )
-          uv run --no-sync pytest -vv --tb=long README.md AGENTS.md skills "${docs_paths[@]}" --docs-environment=${{ matrix.environment }}
-      - name: Run collection documentation code blocks
-        if: contains(fromJSON('["core", "macos"]'), matrix.environment)
-        working-directory: ${{ env.ARCHIVEBOX_DOCS_DATA_DIR }}
-        run: |
-          docs_paths=()
-          if [[ -n "$DOCS_CORE_SHARD" ]]; then
-            mapfile -t docs_paths < <(
-              uv run --project "$GITHUB_WORKSPACE" --no-sync python - "$DOCS_CORE_SHARD" <<'PY'
-          import os
-          from pathlib import Path
-          import sys
-          import tomllib
-
-          workspace = Path(os.environ["GITHUB_WORKSPACE"])
-          with (workspace / "docs" / "codeblocks.toml").open("rb") as manifest_file:
-              shard_paths = tomllib.load(manifest_file)["ci"]["core_shards"][sys.argv[1]]
-          print(*(workspace / path for path in shard_paths), sep="\n")
-          PY
-            )
-          else
-            while IFS= read -r docs_path; do
-              docs_paths+=("$docs_path")
-            done < <(
-              uv run --project "$GITHUB_WORKSPACE" --no-sync python - <<'PY'
-          import os
-          from pathlib import Path
-
-          docs_dir = Path(os.environ["GITHUB_WORKSPACE"]) / "docs"
-          print(*(str(path) for path in sorted(docs_dir.rglob("*.md")) if not path.is_symlink()), sep="\n")
-          PY
-            )
-            docs_paths=("$GITHUB_WORKSPACE/README.md" "$GITHUB_WORKSPACE/AGENTS.md" "$GITHUB_WORKSPACE/skills" "${docs_paths[@]}")
-          fi
-          uv run --project "$GITHUB_WORKSPACE" --no-sync pytest -vv --tb=long "${docs_paths[@]}" --docs-environment=${{ matrix.environment }}
-      - name: Run root documentation code blocks
-        if: matrix.environment == 'root'
-        working-directory: ${{ env.ARCHIVEBOX_DOCS_DATA_DIR }}
-        run: |
-          uv_bin="$ABXPKG_LIB_DIR/env/bin/uv"
-          test -L "$uv_bin"
-          test -x "$uv_bin"
-          mapfile -t docs_paths < <(
-            uv run --project "$GITHUB_WORKSPACE" --no-sync python - <<'PY'
-          import os
-          from pathlib import Path
-
-          docs_dir = Path(os.environ["GITHUB_WORKSPACE"]) / "docs"
-          print(*(str(path) for path in sorted(docs_dir.rglob("*.md")) if not path.is_symlink()), sep="\n")
-          PY
-          )
-          "$SUDO_BINARY" --preserve-env=PATH,ABXPKG_LIB_DIR,ARCHIVEBOX_PROJECT_DIR,ARCHIVEBOX_DOCS_URL_ONE,ARCHIVEBOX_DOCS_URL_TWO,ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT,ARCHIVEBOX_DOCS_STATIC_PORT,ARCHIVEBOX_PUBLISH_ADMIN_PASSWORD "$uv_bin" run --project "$GITHUB_WORKSPACE" --no-sync pytest -vv --tb=long "$GITHUB_WORKSPACE/README.md" "$GITHUB_WORKSPACE/AGENTS.md" "$GITHUB_WORKSPACE/skills" "${docs_paths[@]}" --docs-environment=${{ matrix.environment }}
-      - name: Stop local documentation site
-        if: always()
-        run: kill "$ARCHIVEBOX_DOCS_SERVER_PID"
-
-  docs-freebsd:
-    name: docs/freebsd
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
+  examples:
+    name: docs/${{ matrix.name }}
+    needs: discover
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: vmactions/freebsd-vm@77ed28d336d03fe19a3f4f7266c1d2c4714dd79d # v1.5.2
+        with:
+          submodules: true
+          fetch-depth: 1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
+        with:
+          version: "0.11.3"
+      - name: Install ArchiveBox
+        if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
+        run: uv sync --locked --dev
+      - name: Resolve documentation runtime through abxpkg
+        if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/archivebox-docs-lib
+        run: |
+          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+          dependency_sources=(
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries"
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docs_binaries"
+          )
+          if [[ '${{ matrix.environment }}' == ubuntu ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries")
+          elif [[ '${{ matrix.environment }}' == docker ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries")
+          elif [[ '${{ matrix.environment }}' == macos ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-macos-brew.json:required_binaries")
+          fi
+          uv run --no-sync abxpkg env \
+            --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            "${dependency_sources[@]}"
+          bash_binary="$ABXPKG_LIB_DIR/env/bin/bash"
+          python_binary="$ABXPKG_LIB_DIR/env/bin/python"
+          sudo_binary="$ABXPKG_LIB_DIR/env/bin/sudo"
+          uv_binary="$ABXPKG_LIB_DIR/env/bin/uv"
+          test -L "$bash_binary"
+          test -x "$bash_binary"
+          test -L "$python_binary"
+          test -x "$python_binary"
+          test -L "$sudo_binary"
+          test -x "$sudo_binary"
+          test -L "$uv_binary"
+          test -x "$uv_binary"
+          {
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+            echo "BASH_BINARY=$bash_binary"
+            echo "PYTHON_BINARY=$python_binary"
+            echo "SUDO_BINARY=$sudo_binary"
+            echo "UV_BINARY=$uv_binary"
+          } >> "$GITHUB_ENV"
+          echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
+          if [[ '${{ matrix.environment }}' == docker ]]; then
+            docker_binary="$ABXPKG_LIB_DIR/env/bin/docker"
+            test -L "$docker_binary"
+            test -x "$docker_binary"
+            echo "DOCKER_BINARY=$docker_binary" >> "$GITHUB_ENV"
+          elif [[ '${{ matrix.environment }}' == macos ]]; then
+            test -L "$ABXPKG_LIB_DIR/env/bin/brew"
+            test -x "$ABXPKG_LIB_DIR/env/bin/brew"
+          fi
+      - name: Build the exact checkout's documentation image
+        if: ${{ matrix.environment == 'docker' }}
+        run: '"$DOCKER_BINARY" build --tag archivebox/archivebox:dev .'
+      - name: Run the Ubuntu, Docker, or macOS documentation lane
+        if: ${{ !contains(fromJSON('["root", "freebsd", "openbsd"]'), matrix.environment) }}
+        run: uv run --no-sync python docs/test_codeblocks_manifest.py run-environment '${{ matrix.environment }}'
+      - name: Run the root documentation lane
+        if: ${{ matrix.environment == 'root' }}
+        run: |
+          "$SUDO_BINARY" \
+            --preserve-env=PATH,ABXPKG_LIB_DIR,BASH_BINARY,PYTHON_BINARY,SUDO_BINARY,UV_BINARY \
+            "$UV_BINARY" run --no-sync python docs/test_codeblocks_manifest.py run-environment root
+      - name: Run the FreeBSD documentation lane
+        if: ${{ matrix.environment == 'freebsd' }}
+        uses: vmactions/freebsd-vm@77ed28d336d03fe19a3f4f7266c1d2c4714dd79d # v1.5.2
         with:
           usesh: true
           prepare: pkg install -y py313-uv
-          run: uv run --no-project --with pytest --with pytest-codeblocks pytest -o addopts=--codeblocks -vv --tb=long README.md AGENTS.md skills $(uv run --no-project python -c 'from pathlib import Path; print(*(str(path) for path in sorted(Path("docs").rglob("*.md")) if not path.is_symlink()))') --docs-environment=freebsd
-
-  docs-openbsd:
-    name: docs/openbsd
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: vmactions/openbsd-vm@c941015845c0f0c429676840963dc63b226d4f69 # v1.4.5
+          run: |
+            abxpkg_version="$(uv run --no-project python -c 'import tomllib; dependencies = tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]; print(next(dependency.split("==", 1)[1] for dependency in dependencies if dependency.startswith("abxpkg==")))')"
+            export ABXPKG_LIB_DIR="/tmp/archivebox-docs-lib"
+            uvx --from "abxpkg[pyinfra]==$abxpkg_version" abxpkg env \
+              --install \
+              --lib="$ABXPKG_LIB_DIR" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:bsd_binaries" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:freebsd_binaries"
+            BASH_BINARY="$ABXPKG_LIB_DIR/env/bin/bash" uv run --no-project python docs/test_codeblocks_manifest.py run-environment freebsd
+      - name: Run the OpenBSD documentation lane
+        if: ${{ matrix.environment == 'openbsd' }}
+        uses: vmactions/openbsd-vm@c941015845c0f0c429676840963dc63b226d4f69 # v1.4.5
         with:
           usesh: true
           prepare: pkg_add uv
-          run: uv run --no-project --with pytest --with pytest-codeblocks pytest -o addopts=--codeblocks -vv --tb=long README.md AGENTS.md skills $(uv run --no-project python -c 'from pathlib import Path; print(*(str(path) for path in sorted(Path("docs").rglob("*.md")) if not path.is_symlink()))') --docs-environment=openbsd
+          run: |
+            abxpkg_version="$(uv run --no-project python -c 'import tomllib; dependencies = tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]; print(next(dependency.split("==", 1)[1] for dependency in dependencies if dependency.startswith("abxpkg==")))')"
+            export ABXPKG_LIB_DIR="/tmp/archivebox-docs-lib"
+            uvx --from "abxpkg[pyinfra]==$abxpkg_version" abxpkg env \
+              --install \
+              --lib="$ABXPKG_LIB_DIR" \
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:bsd_binaries"
+            BASH_BINARY="$ABXPKG_LIB_DIR/env/bin/bash" uv run --no-project python docs/test_codeblocks_manifest.py run-environment openbsd

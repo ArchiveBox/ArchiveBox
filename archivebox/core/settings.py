@@ -72,7 +72,7 @@ INSTALLED_APPS = [
     "archivebox.crawls",  # handles Crawl and CrawlSchedule models and management (depends on core)
     "archivebox.progressmonitor",  # live progress endpoint and admin monitor template
     "archivebox.api",  # Django-Ninja-based Rest API interfaces, config, APIToken model, etc.
-    "abx_plugins.plugins.opencode",
+    "archivebox.opencode",
     # 3rd-party apps from PyPI that need to be loaded last
     "admin_data_views",  # handles rendering some convenient automatic read-only views of data in Django admin
     "django_extensions",  # provides Django Debug Toolbar (and other non-debug helpers)

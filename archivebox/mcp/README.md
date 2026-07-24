@@ -19,9 +19,7 @@ This is a lightweight, stateless MCP server that dynamically introspects Archive
 ### Start the MCP Server
 
 ```bash
-request='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
-response="$(printf '%s\n' "$request" | "$UV_BINARY" run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync archivebox mcp)"
-"$JQ_BINARY" -e '.id == 1 and .result.serverInfo.name == "archivebox-mcp"' <<< "$response"
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | archivebox mcp
 ```
 
 The server runs in stdio mode, reading JSON-RPC 2.0 requests from stdin and writing responses to stdout.
@@ -30,20 +28,11 @@ The server runs in stdio mode, reading JSON-RPC 2.0 requests from stdin and writ
 
 ```python
 import json
-import os
 import subprocess
 
 request = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}
 completed = subprocess.run(
-    [
-        os.environ["UV_BINARY"],
-        "run",
-        "--project",
-        os.environ["ARCHIVEBOX_PROJECT_DIR"],
-        "--no-sync",
-        "archivebox",
-        "mcp",
-    ],
+    ["archivebox", "mcp"],
     input=json.dumps(request) + "\n",
     capture_output=True,
     text=True,

@@ -1590,9 +1590,8 @@ def resolve_abxpkg_binary_env(
     *binary_names: str,
     env: dict[str, str] | None = None,
     deps_from: Path | list[Path] | tuple[Path, ...] | None = None,
-    install: bool = True,
 ) -> dict[str, str]:
-    """Resolve real test dependencies through abxpkg and return its exported env."""
+    """Resolve already-available test dependencies through abxpkg."""
     command_env = dict(env) if env is not None else os.environ.copy()
     command_env["ABXPKG_LIB_DIR"] = str(lib_dir)
     command = [
@@ -1601,8 +1600,6 @@ def resolve_abxpkg_binary_env(
         "--json",
         f"--lib={lib_dir}",
     ]
-    if install:
-        command.append("--install")
     deps_configs = [deps_from] if isinstance(deps_from, Path) else list(deps_from or ())
     command.extend(f"--deps-from={config}:required_binaries" for config in deps_configs)
     command.extend(binary_names)
@@ -1625,7 +1622,6 @@ def resolve_abxpkg_chrome_env(lib_dir: Path, env: dict[str, str] | None = None) 
         lib_dir,
         env=env,
         deps_from=chrome_config,
-        install=False,
     )
     chrome_binary = Path(payload["CHROME_BINARY"])
     node_binary = Path(payload["NODE_BINARY"])

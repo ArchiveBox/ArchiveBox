@@ -688,8 +688,16 @@ class TestSearchBackendsE2E:
         from abx_plugins import get_plugins_dir
 
         plugins_dir = Path(get_plugins_dir())
+        lib_dir = initialized_archive / "lib"
+        install_result = run_archivebox_cmd(
+            ["install", "search_backend_ripgrep", "search_backend_sonic"],
+            cwd=initialized_archive,
+            env={"ABXPKG_LIB_DIR": str(lib_dir)},
+            default_cli_env=True,
+        )
+        assert install_result.returncode == 0, install_result.stderr or install_result.stdout
         binary_env = resolve_abxpkg_binary_env(
-            initialized_archive / "lib",
+            lib_dir,
             deps_from=[
                 plugins_dir / "search_backend_ripgrep" / "config.json",
                 plugins_dir / "search_backend_sonic" / "config.json",

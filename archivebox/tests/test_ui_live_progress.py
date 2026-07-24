@@ -77,19 +77,21 @@ def real_second_snapshot_hook_process(snapshot, tmp_path):
 
 
 @pytest.fixture
-def real_crawl_setup_process(snapshot, tmp_path):
+def real_crawl_setup_process(snapshot, hermetic_lib_dir):
     from archivebox.plugins.hooks import run_hook
+    from archivebox.services.runner import run_install
 
     hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
     config_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("config.json")))
-    binary_env = resolve_abxpkg_binary_env(tmp_path / "lib", deps_from=config_path)
+    run_install(plugin_names=["chrome"])
+    binary_env = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=config_path)
     output_dir = Path(snapshot.crawl.output_dir) / "chrome"
     process = run_hook(
         hook_path,
         output_dir,
         config={
             **binary_env,
-            "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
+            "ABXPKG_LIB_DIR": str(hermetic_lib_dir),
             "CRAWL_DIR": str(snapshot.crawl.output_dir),
             "SNAP_DIR": str(snapshot.output_dir),
             "CHROME_USER_DATA_DIR": str(output_dir / "profile"),

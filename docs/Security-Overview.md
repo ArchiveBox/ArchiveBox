@@ -6,11 +6,11 @@
 ## Web UI Permissions
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
-uv run --project "$project_dir" --no-sync archivebox config --set PUBLIC_INDEX=False && uv run --project "$project_dir" --no-sync archivebox config --set PUBLIC_ADD_VIEW=False
-uv run --project "$project_dir" --no-sync archivebox config --set PERMISSIONS=private
-uv run --project "$project_dir" --no-sync archivebox manage createsuperuser --help && uv run --project "$project_dir" --no-sync archivebox manage changepassword --help
+archivebox config --set PUBLIC_INDEX=False      # require login to access the list of Snapshots
+archivebox config --set PUBLIC_ADD_VIEW=False   # require log-in to submit new URLs for archiving
+archivebox config --set PERMISSIONS=private     # default new snapshots to login-required (was: PUBLIC_SNAPSHOTS=False)
+
+archivebox manage [createsuperuser|changepassword] # create/modify admin UI users
 ```
 
 See [[Setting Up Authentication]] for more...
@@ -30,10 +30,10 @@ This is the default (lax) mode, intended for archiving public (non-secret) URLs 
 The default mode should not be used for archiving entire browser history or authenticated private content like Google Docs, paywalled content, invite-only subreddits, private photo share urls, etc.
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
-uv run --project "$project_dir" --no-sync archivebox config --set ARCHIVEDOTORG_ENABLED=True
-uv run --project "$project_dir" --no-sync archivebox config --set CHROME_ISOLATION=snapshot
-uv run --project "$project_dir" --no-sync archivebox config --set COOKIES_FILE=None
+# (these are the defaults)
+archivebox config --set ARCHIVEDOTORG_ENABLED=True   # see https://archivebox.github.io/abx-plugins/#archivedotorg
+archivebox persona create public
+archivebox add --persona=public 'https://example.com'
 ```
 
 
@@ -44,12 +44,12 @@ uv run --project "$project_dir" --no-sync archivebox config --set COOKIES_FILE=N
 ArchiveBox is able to archive content that requires authentication or cookies, but it comes with some caveats. Create dedicated logins for archiving to access paywalled content, private forums, LAN-only content, etc. then share them with ArchiveBox via Chrome profile + cookies.txt file.
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cookies_file="$(mktemp)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox persona create personal
-uv run --project "$project_dir" --no-sync archivebox config --set ARCHIVEDOTORG_ENABLED=False && uv run --project "$project_dir" --no-sync archivebox config --set COOKIES_FILE="$cookies_file"
-uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls --persona=personal "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+archivebox config --set ARCHIVEDOTORG_ENABLED=False
+archivebox persona create --import=chrome personal
+archivebox add --persona=personal 'https://members.example.com/'
 ```
 
-To get started, set [`CHROME_USER_DATA_DIR`](https://archivebox.github.io/abx-plugins/#chrome) and [`COOKIES_FILE`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#cookies_file) to point to a Chrome user folder that has your sessions and a wget `cookies.txt` file respectively.
+To get started, import a dedicated browser profile into a [persona](https://github.com/ArchiveBox/ArchiveBox/wiki/Personas). A persona keeps its Chrome profile and `cookies.txt` together and applies the same identity consistently across extractors.
 
 ➡️ For full instructions on setting up a Chromium user profile see here: https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
 
@@ -77,21 +77,13 @@ If you're importing private links or authenticated content, you probably don't w
 ### Publishing
 
 > [!CAUTION]
-> Re-hosting untrusted archived content on a domain can potentially compromise *all apps on that domain*!  
-> (including other subdomains)
+> Re-hosting untrusted archived content on the same origin as an authenticated application can compromise that application.
 
-Make sure you thoroughly understand the dangers of [hosting untrusted HTML/JS/CSS that may be captured during archiving](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy), and how viewing it can enable [CSRF attacks](https://en.wikipedia.org/wiki/Cross-site_request_forgery) across all apps on the same domain. If a logged-in user happens to visit an archived page with malicious Javascript embedded, it would allow the JS to hijack any cookies on the domain and pretend to be them, potentially exfiltrating or modifying other Snapshots/data on your server.
+Make sure you understand the dangers of [hosting untrusted HTML/JS/CSS](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy). The default `SERVER_SECURITY_MODE=safe-subdomains-fullreplay` separates admin, web, and API control-plane origins from replay content, and gives each Snapshot its own replay subdomain so archived JavaScript cannot share admin cookies.
 
-(This is why we don't support serving ArchiveBox from a subdirectory like `myapps.example.com/archivebox/`, it's too dangerous to share domains)
+This mode requires wildcard DNS and TLS for your configured `BASE_URL`. If your deployment cannot provide wildcard subdomains, use `SERVER_SECURITY_MODE=safe-onedomain-nojsreplay`, which keeps one origin but disables JavaScript replay.
 
-The industry standard approach is to use a separate domain for untrusted content, for example Github uses `githubusercontent.com` and Google uses `googleusercontent.com` for all user-uploaded files. If hosting ArchiveBox publicly, do the same and keep it on an isolated domain in order to mitigate potential damage of leaked cookies, CORS, and CSRF attacks.  
-
-To protect the Admin dashboard, it's also recommended to serve all content under `/archive/` on a separate domain from `/admin/`. We do this on our servers using a simple redirect rule in nginx/cloudflare like so:
-
-- https://demo.archivebox.io: only serves `/`, redirects `/archive/*` to `demo-static.`
-- https://demo-static.archivebox.io: only serves `/archive/`, redirects everything else to `demo.`
-
-<img width="400" alt="Cloudflare redirect rule for /archive/ to be served by a separate domain" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/9c77f503-0d97-4a8d-810f-1f4400c7aa3e">
+Do not serve ArchiveBox from a shared subdirectory such as `myapps.example.com/archivebox/`; it cannot provide the required origin isolation.
 
 Published archives automatically include a `robots.txt` `Disallow: /` to block search engines from indexing them. You may still wish to publish your contact info in the index footer though using [`FOOTER_INFO`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#footer_info) so that you can respond to any DMCA and copyright takedown notices if you accidentally rehost copyrighted content.
 
@@ -110,7 +102,7 @@ More info:
 
 <br/>
 
-## Do not run as root
+## Run ArchiveBox as an unprivileged user
 
 <img src="https://imgur.zervice.io/yDqJc4I.jpg" width="150px" align="right"/>
 
@@ -130,22 +122,20 @@ More info:
 >   
 > If you must use `exec` for some reason (e.g. if you only have access to a live container shell), you can run `su archivebox` within the shell, or add the arg `--user=archivebox` after `exec`.
 
-Do not run ArchiveBox as root for a number of reasons:
- - Chrome will execute as root and fail immediately because Chrome sandboxing is pointless when the data directory is opened as root (do not set [`CHROME_SANDBOX=False`](https://archivebox.github.io/abx-plugins/#chrome) just to bypass that error!)
+ArchiveBox drops privileges to the collection owner when it starts as root and can do so safely, including in the official Docker image. Do not bypass that boundary or force runtime dependencies to stay privileged:
+ - Browser sandboxing cannot provide its normal protection when the browser itself runs as root
  - All dependencies will be run as root, if any of them have a vulnerability that's exploited by sites you're archiving you're opening yourself up to full system compromise
  - ArchiveBox does lots of HTML parsing, filesystem access, and shell command execution.  A bug in any one of those subsystems could potentially lead to deleted/damaged data on your hard drive, or full system compromise unless restricted to a user that only has permissions to access the directories needed
  - Do you really trust a project created by a Github user called `@pirate` 😉? Why give a random program off the internet root access to your entire system? (I don't have malicious intent, I'm just saying in principle you should not be running random Github projects as root)
 
 **Instead, you should run ArchiveBox under a separate user account with less privileged access:**
 ```bash
-getent group archivebox >/dev/null || groupadd --system archivebox
-created_archivebox_user=false; if ! id archivebox >/dev/null 2>&1; then useradd --system --gid archivebox --create-home archivebox; created_archivebox_user=true; fi; trap 'if [ "$created_archivebox_user" = true ]; then userdel --remove archivebox >/dev/null 2>&1 || true; fi' EXIT
-archivebox_home="$(getent passwd archivebox | cut -d: -f6)"; mkdir -p "$archivebox_home/data"; chown -R archivebox:archivebox "$archivebox_home"
-uv_binary="$(command -v uv)"; sudo -u archivebox env HOME="$archivebox_home" DATA_DIR="$archivebox_home/data" "$uv_binary" run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync archivebox init
-sudo -u archivebox env HOME="$archivebox_home" DATA_DIR="$archivebox_home/data" "$uv_binary" run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync archivebox add --plugins=parse_txt_urls "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+useradd -r -g archivebox -G audio,video archivebox  # the audio & video groups are used by chrome
+mkdir -p /home/archivebox/data
+chown -R archivebox:archivebox /home/archivebox
+...
+sudo -u archivebox archivebox add ...
 ```
-
-~~If you absolutely must run it as root for some reason, a footgun is provided: you can set `ALLOW_ROOT=True` via environment variable or in your ArchiveBox.conf file.~~ This footgun option was removed (I'm sorry, the support burden of helping people who messed up their systems by running everything as root was too high).
 
 <img src="https://imgur.zervice.io/ca1he6I.png" width="40px" align="right"/>
 
@@ -169,11 +159,11 @@ More info:
 
 ### Filesystem
 
-How much are you planning to archive?  Only a few bookmarked articles, or thousands of pages of browsing history a day?  If it's only 1-50 pages a day, you can probably just stick it in a normal folder on your hard drive, but if you want to go over 100 pages a day, you will likely want to put your archive on a compressed/deduplicated/encrypted disk image or filesystem like ZFS. Other distributed/networked/checksummed filesystems that have also been reported to work (but are not technically officially supported) include SMB, NFS, Ceph, Unraid, and BTRFS. Make sure the filesystem you're using supports FSYNC. Some filesystems are unable to store more than a certain number of directory entries, and your total number of snapshots in `./archive` may be capped as a result. Some other filesystems begin to have performance degradations but continue to function when the directory entry count gets too high. Generally this isn't an issue unless you have more than ~20,000 Snapshot folders in `./archive`.
+How much are you planning to archive? Only a few bookmarked articles, or thousands of pages of browsing history a day? If it's only 1-50 pages a day, you can probably use a normal folder on your hard drive, but at higher volume you may want a compressed/deduplicated/encrypted filesystem like ZFS. Other distributed/networked/checksummed filesystems reported to work include SMB, NFS, Ceph, Unraid, and BTRFS. The database and config must remain on a local filesystem with reliable FSYNC. Current Snapshot directories are sharded under `archive/users/<user>/snapshots/<date>/<domain>/<uuid>/`, avoiding the old single-directory scaling limit.
 
 #### Purging entries
 
-Unless `--yes --delete` is passed to `archivebox remove`, Snapshots removed from the index remain in the filesystem and their `./archive/<timestamp>` folders need to be deleted manually to be fully removed. Imported URLs are also logged separately in `./sources`, `./logs`, and the Sonic full-text index `./sonic` and should be removed manually as well to clear all traces of a URL added by accident. You can search for a URL on the filesystem you're trying to remove using `grep -a -r "https://example.com/url/to/search/for"`.
+`archivebox remove --yes URL` deletes matching Snapshot rows and schedules their Snapshot directories for cleanup through the normal state-machine path. The legacy `--delete` flag is accepted only for CLI compatibility and does not change that behavior. Original imports and operational history may still appear in `sources/`, `logs/`, or an external search backend; remove those separately if your goal is to erase every trace of a URL.
 
 #### Permissions
 

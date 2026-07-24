@@ -5,7 +5,6 @@ on:
 
 env:
   UV_NO_SOURCES: "1"
-  PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
 
 jobs:
   lint:
@@ -31,19 +30,8 @@ jobs:
       - name: Verify checked dependency lock
         run: uv lock --check
 
-      - name: Clone abxpkg
-        run: bash .github/scripts/clone_abx_repo.sh abxpkg
-
-      - name: Clone abx-plugins
-        run: bash .github/scripts/clone_abx_repo.sh abx-plugins
-
-      - name: Clone abx-dl
-        run: bash .github/scripts/clone_abx_repo.sh abx-dl
-
       - name: Install dependencies with uv
-        run: |
-          uv venv
-          uv pip install --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[sonic,debug]"
+        run: uv sync --locked --dev --extra sonic --extra debug
 
       - name: Run prek
         run: uv run --no-sync --no-sources prek run --all-files

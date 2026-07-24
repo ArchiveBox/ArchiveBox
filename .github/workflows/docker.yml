@@ -193,9 +193,6 @@ jobs:
           context: ./
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
-          tags: |
-            ${{ env.DOCKERHUB_IMAGE }}
-            ${{ env.GHCR_IMAGE }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           build-args: |
             ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
@@ -207,7 +204,7 @@ jobs:
           outputs: |
             type=docker,name=${{ matrix.local_tag }}
             type=oci,dest=${{ runner.temp }}/archivebox-image.tar
-            type=image,push-by-digest=true,name-canonical=true,push=true
+            type=image,"name=${{ env.DOCKERHUB_IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Build pull request image
         if: ${{ !inputs.push_digests }}

@@ -36,7 +36,7 @@ from archivebox.machine.models import (
     PROCESS_TIMEOUT_GRACE,
 )
 from archivebox.machine.detect import unknown_if_blank
-from archivebox.tests.conftest import resolve_abxpkg_binary_env
+from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -209,6 +209,7 @@ class TestMachineModel:
     def test_machine_from_jsonl_update(self, hermetic_lib_dir):
         """Machine.from_json() should update machine config."""
         Machine.current()  # Ensure machine exists
+        install_real_binary("wget", binproviders="env,apt,brew")
         resolve_abxpkg_binary_env(hermetic_lib_dir, "wget")
         wget_path = hermetic_lib_dir / "env" / "bin" / "wget"
         assert wget_path.is_symlink()
@@ -231,6 +232,7 @@ class TestMachineModel:
         import survive. Only ``_BINARY`` paths get validated/dropped on import.
         """
         Machine.current()  # Ensure machine exists
+        install_real_binary("wget", binproviders="env,apt,brew")
         resolve_abxpkg_binary_env(hermetic_lib_dir, "wget")
         wget_path = hermetic_lib_dir / "env" / "bin" / "wget"
         assert wget_path.is_symlink()
@@ -264,6 +266,8 @@ class TestMachineModel:
         """
         import archivebox.machine.models as models
 
+        install_real_binary("node", binproviders="env,apt,brew")
+        install_real_binary("wget", binproviders="env,apt,brew")
         resolve_abxpkg_binary_env(hermetic_lib_dir, "node", "wget")
         chrome_path = hermetic_lib_dir / "env" / "bin" / "node"
         node_path = hermetic_lib_dir / "env" / "bin" / "wget"
@@ -309,6 +313,7 @@ class TestMachineModel:
 
         lib_dir = get_config(include_machine=False).ABXPKG_LIB_DIR
         assert lib_dir == hermetic_lib_dir
+        install_real_binary("node", binproviders="env,apt,brew")
         resolve_abxpkg_binary_env(lib_dir, "node")
         chrome_path = lib_dir / "env" / "bin" / "node"
         machine = Machine.current()

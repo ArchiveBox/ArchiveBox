@@ -87,6 +87,10 @@
   },
   "ci_binaries": [
     {
+      "name": "{BASH_BINARY}",
+      "binproviders": "env,apt,brew"
+    },
+    {
       "name": "{PYTHON_BINARY}",
       "binproviders": "env"
     },
@@ -97,6 +101,18 @@
     {
       "name": "{UV_BINARY}",
       "binproviders": "env"
+    }
+  ],
+  "bsd_binaries": [
+    {
+      "name": "{BASH_BINARY}",
+      "binproviders": "env,pyinfra"
+    }
+  ],
+  "freebsd_binaries": [
+    {
+      "name": "{SUDO_BINARY}",
+      "binproviders": "env,pyinfra"
     }
   ],
   "docker_binaries": [
