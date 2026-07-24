@@ -1,0 +1,1 @@
+"""ArchiveBox OpenCode admin integration."""

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Running ArchiveBox with Docker allows you to manage it in a container without exposing it to the rest of your system. ArchiveBox generally works the same in Docker as it does outside Docker. You can even use `pip`-installed ArchiveBox and Docker ArchiveBox in tandem, as they both share the same data directory format.
+Running ArchiveBox with Docker allows you to manage it in a container without exposing it to the rest of your system. ArchiveBox generally works the same in Docker as it does outside Docker. You can even use `uv`-installed ArchiveBox and Docker ArchiveBox in tandem, as they both share the same data directory format.
 
 <img src="https://imgur.zervice.io/qFAPRwC.png" width="20%" align="right"/>
 
@@ -68,15 +68,9 @@ docker compose run archivebox init
 docker compose run archivebox manage createsuperuser
 ```
 
-To use [Sonic](https://github.com/valeriansaliou/sonic) for improved full-text search, download this config & uncomment the sonic service in `docker-compose.yml`:
+To use [Sonic](https://github.com/valeriansaliou/sonic) for improved full-text search, select it as the search backend. ArchiveBox installs and starts the managed service automatically:
 ```bash
-# download the sonic config file into your data folder (e.g. ~/archivebox)
-curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/etc/sonic.cfg' > sonic.cfg
-
-# then uncomment the sonic-related sections in docker-compose.yml
-nano docker-compose.yml
-
-# to backfill any existing archive data into the search index, run:
+docker compose run archivebox config --set SEARCH_BACKEND_ENGINE=sonic
 docker compose run archivebox update --index-only
 ```
 
@@ -113,7 +107,7 @@ docker compose run -T archivebox add < ~/Downloads/example_urls.txt
 docker compose run archivebox add --depth=1 /data/sources/example_urls.txt
 
 # OR pipe in URLs from a remote source
-curl 'https://example.com/some/rss/feed.xml' | docker compose run archivebox add
+curl 'https://example.com/some/rss/feed.xml' | docker compose run -T archivebox add
 docker compose run archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
 ```
 
@@ -130,16 +124,16 @@ docker compose run archivebox add --depth=1 'https://example.com/some/feed.rss'
 
 ### Accessing the data
 
-The outputted archive data is stored in `data/` (relative to the project root), or whatever folder path you specified in the `docker-compose.yml` `volumes:` section. Make sure the `data/` folder on the host has permissions initially set to `777` so that the ArchiveBox command is able to set it to the specified `OUTPUT_PERMISSIONS` config setting on the first run.
+The outputted archive data is stored in `data/` (relative to the project root), or whatever folder path you specified in the `docker-compose.yml` `volumes:` section. The mounted directory must be writable by its current owner; the entrypoint detects that non-root owner and runs ArchiveBox with matching permissions.
 
-To access the results directly via the filesystem, open `./data/archive/<timestamp>/index.html` (timestamp is shown in output of previous command).
+To access a result directly via the filesystem, follow its backwards-compatible `./data/archive/<timestamp>` symlink, or browse the canonical `./data/archive/users/<user>/snapshots/<date>/<domain>/<uuid>/` tree.
 
 Alternatively, to use the web UI, start the server with:
 ```bash
 docker compose up         # add -d to run in the background
 ```
 
-Then open [`http://127.0.0.1:8000`](http://127.0.0.1:8000).
+Then open [`http://web.archivebox.localhost:8000`](http://web.archivebox.localhost:8000) for the public UI or [`http://admin.archivebox.localhost:8000`](http://admin.archivebox.localhost:8000) for the admin UI.
 
 <br/>
 
@@ -150,29 +144,29 @@ ArchiveBox running with `docker compose` accepts all the same config options as 
 The recommended way configure ArchiveBox in Docker Compose is using `archivebox config --set ...` or by editing `ArchiveBox.conf`.
 ```bash
 docker compose run archivebox config --set TIMEOUT=120
-# OR
-echo 'TIMEOUT=120' >> ./data/ArchiveBox.conf
+# OR edit ./data/ArchiveBox.conf and add this under its existing [ARCHIVING_CONFIG] section:
+TIMEOUT=120
 
 # plugin-specific options work the same way (see https://archivebox.github.io/abx-plugins/)
-docker compose run archivebox config --set MEDIA_MAX_SIZE=750mb
+docker compose run archivebox config --set YTDLP_MAX_SIZE=750m
 ```
 This will apply the config to all containers or archivebox instances that access the collection.
 
 If you're only running one container, or if you want to scope config options to only apply to a particular container, you can set them in that container's `environment:` section:
 
 ```yaml
-# ...
+...
 
 services:
     archivebox:
-        # ...
+        ...
         environment:
             - USE_COLOR=False
             - SHOW_PROGRESS=False
             - CHECK_SSL_VALIDITY=False
             - RESOLUTION=1900,1820
             - MEDIA_TIMEOUT=512000
-        # ...
+        ...
 ```
 
 You can also specify an env file via CLI when running compose using `docker compose --env-file=/path/to/config.env ...` although you must specify the variables in the `environment:` section that you want to have passed down to the ArchiveBox container from the passed env file.
@@ -261,7 +255,7 @@ docker run -it -v /media/USB-DRIVE/archivebox/data:/data archivebox/archivebox:d
 Then to view your data, you can look in the folder on the host `/media/USB-DRIVE/archivebox/data`, or use the Web UI:
 ```bash
 docker run -it -v /media/USB_DRIVE/archivebox/data:/data -p 8000:8000 archivebox/archivebox:dev
-# then open https://127.0.0.1:8000
+# then open http://web.archivebox.localhost:8000
 ```
 
 <br/>
@@ -273,8 +267,8 @@ The easiest way is to use `archivebox config --set KEY=value` or edit `./Archive
 For example, this sets `TIMEOUT=120` as a persistent setting for the collection:
 ```bash
 docker run -it -v $PWD:/data archivebox/archivebox:dev config --set TIMEOUT=120
-# OR
-echo 'TIMEOUT=120' >> ./ArchiveBox.conf
+# OR edit ./ArchiveBox.conf and add this under its existing [ARCHIVING_CONFIG] section:
+TIMEOUT=120
 ```
 
 ArchiveBox in Docker also accepts config as environment variables, see more on the [[Configuration]] page (and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options).

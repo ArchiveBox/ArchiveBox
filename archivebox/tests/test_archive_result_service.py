@@ -37,6 +37,7 @@ def _run_shipped_snapshot_hook(
     import asyncio
 
     from abx_dl.services.process_service import ProcessService as HookProcessService
+    from abx_plugins.plugins.base.utils import get_hydrated_required_binaries
     from archivebox.core.models import ArchiveResult
     from archivebox.machine.models import Process
     from archivebox.services.archive_result_service import ArchiveResultService
@@ -45,6 +46,15 @@ def _run_shipped_snapshot_hook(
     hook_path = Path(str(files(f"abx_plugins.plugins.{plugin}").joinpath(hook_name)))
     projected_hook_name = event_hook_name or hook_name
     hook_config = hook_path.parent / "config.json"
+    for required_binary in get_hydrated_required_binaries(
+        hook_config,
+        environ={**os.environ, "ABXPKG_LIB_DIR": str(lib_dir)},
+    ):
+        install_real_binary(
+            required_binary["name"],
+            binproviders=required_binary["binproviders"],
+            overrides=required_binary.get("overrides"),
+        )
     binary_env = resolve_abxpkg_binary_env(lib_dir, deps_from=hook_config)
     output_dir = Path(snapshot.output_dir) / plugin
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -509,7 +519,6 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
     mercury_env = resolve_abxpkg_binary_env(
         lib_dir,
         deps_from=mercury_config,
-        install=False,
     )
     mercury_path = Path(mercury_env["MERCURY_BINARY"])
     provider_path = Path(binary.abspath)
@@ -582,20 +591,21 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
 
 @pytest.mark.django_db(transaction=True)
 def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp_path, hermetic_lib_dir):
-    from archivebox.machine.models import NetworkInterface
+    from archivebox.machine.models import Binary, NetworkInterface
     from archivebox.machine.models import Process as MachineProcess
     from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
+    from archivebox.services.runner import run_install
     from abx_dl.services.process_service import ProcessService as DlProcessService
 
-    iface = NetworkInterface.current()
-    machine = iface.machine
-
     lib_dir = hermetic_lib_dir
-    chrome_config = Path(str(files("abx_plugins.plugins.chrome").joinpath("config.json")))
-    node_env = resolve_abxpkg_binary_env(lib_dir, deps_from=chrome_config)
-    node_path = Path(node_env["NODE_BINARY"])
-    node = install_real_binary("node", machine=machine)
-    assert Path(node.abspath).resolve() == node_path.resolve()
+    run_install(plugin_names=["chrome"])
+    installed_node_ids = set(
+        Binary.objects.filter(name="node", status=Binary.StatusChoices.INSTALLED).values_list("id", flat=True),
+    )
+    assert installed_node_ids
+    iface = NetworkInterface.current()
+    node_env = resolve_abxpkg_binary_env(lib_dir, "node")
+    node_path = lib_dir / "env" / "bin" / "node"
 
     hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
     crawl_dir = tmp_path / "crawl"
@@ -618,7 +628,7 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp
                 env={
                     **node_env,
                     "ABXPKG_LIB_DIR": str(lib_dir),
-                    "NODE_BINARY": node.abspath,
+                    "NODE_BINARY": str(node_path),
                     "CRAWL_DIR": str(crawl_dir),
                     "SNAP_DIR": str(crawl_dir / "snapshot"),
                     "CHROME_USER_DATA_DIR": str(output_dir / "profile"),
@@ -646,7 +656,11 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp
         pwd=str(output_dir),
         cmd=[str(hook_path)],
     )
-    assert process.binary_id == node.id
+    assert process.binary_id is not None
+    assert process.binary_id in installed_node_ids
+    assert process.binary.name == "node"
+    assert process.binary.status == process.binary.StatusChoices.INSTALLED
+    assert Path(process.binary.abspath).resolve() == node_path.resolve()
     assert process.iface_id == iface.id
     assert process.exit_code == 0, process.stderr
     assert "chrome zombies. cpu usage:" in process.stdout

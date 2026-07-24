@@ -71,6 +71,7 @@ dependencies = [
     "django-stubs>=5.0.4",   # for: vscode type hints on models and common django APIs
     ### API clients
     "requests>=2.32.3",      # for: fetching title, static files, headers (TODO: replace with httpx?)
+    "httpx>=0.28.1",         # for: streaming the admin-only OpenCode proxy
     "sonic-client>=1.0.0",
     ### Parsers
     "dateparser>=1.2.0",     # for: parsing pocket/pinboard/etc. RSS/bookmark import dates
@@ -80,9 +81,9 @@ dependencies = [
     ### Extractor dependencies (runtime binaries resolved through abxpkg)
     ### Binary/Package Management
     "abxbus==2.5.40",         # EventBus API
-    "abxpkg==1.11.288",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
-    "abx-plugins==1.11.311",  # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
-    "abx-dl==1.11.268",       # shared ArchiveBox downloader package with blocking install preflight
+    "abxpkg==1.11.289",        # for: detecting, versioning, and installing binaries via apt/brew/pip/npm
+    "abx-plugins==1.11.312",  # shared ArchiveBox plugin package with Chrome/Puppeteer dependency wiring
+    "abx-dl==1.11.269",       # shared ArchiveBox downloader package with blocking install preflight
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
@@ -140,8 +141,7 @@ dev = [
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
     "pytest-django>=4.11.1",
-    "pytest>=8.3.3,<9",                               # pytest-codeblocks 0.17.0 still uses the pre-pytest-9 collect hook signature.
-    "pytest-codeblocks>=0.17.0",
+    "pytest>=8.3.3",
     "pytest-cov>=6.0.0",
     "pytest-github-actions-annotate-failures>=0.4.0",
     "pytest-httpserver>=1.1.0",
@@ -240,17 +240,13 @@ exclude = ["*.pyi", "*.html", "**/*.html", "typings/", "migrations/", "archivebo
 ignore = ["E731", "E303", "E266", "E241", "E222"]
 
 [tool.codespell]
-ignore-words-list = "abx,archivebox,adminsnapshots,bu,wit,dont,cant,wont,havent,thats,shouldnt,doesnt,doenst,succeded,re-use,re-used,re-using,re-usable,generat"
+ignore-words-list = "abx,archivebox,adminsnapshots,bu,wit,dont,cant,wont,havent,thats,shouldnt,doesnt,doenst,succeded,re-use,re-used,re-using,re-usable,generat,te"
 skip = "*.json,*.min.js,*.min.css,uv.lock,old/*,publicsite/*,docs/apidocs/*"
 
 [tool.pytest.ini_options]
-testpaths = [ "archivebox/tests", "README.md", "AGENTS.md", "skills", "docs" ]
-addopts = ["--codeblocks"]
-norecursedirs = ["archivebox/tests/data"]
+testpaths = [ "archivebox/tests" ]
 timeout = 600
 timeout_method = "thread"
-# Note: Plugin tests under abx_plugins/plugins/ must NOT load Django
-# They use a conftest.py to disable Django automatically
 
 [tool.coverage.run]
 # Enable branch coverage (tracks if/else branches)

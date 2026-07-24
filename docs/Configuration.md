@@ -4,23 +4,11 @@ Configuration of ArchiveBox is done by using the `archivebox config` command, mo
 
 *Some equivalent examples of setting some configuration options:*
 ```bash
-set -euo pipefail
-examples_root="$(mktemp -d)"
-trap 'rm -rf "$examples_root"' EXIT
-
-# Persist a value through the CLI.
-mkdir -p "$examples_root/cli" && cd "$examples_root/cli"
-archivebox init
 archivebox config --set TIMEOUT=120
-
-# Or write the same value in a different collection's config file.
-mkdir -p "$examples_root/file" && cd "$examples_root/file"
-archivebox init
-printf '\n[ARCHIVING_CONFIG]\nTIMEOUT=120\n' >> ArchiveBox.conf
-archivebox config --get TIMEOUT
-
-# Or override the value for one command without persisting it.
-env TIMEOUT=120 archivebox add --index-only "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+# OR edit ArchiveBox.conf and add this under its existing [ARCHIVING_CONFIG] section:
+TIMEOUT=120
+# OR
+env TIMEOUT=120 archivebox add ~/Downloads/bookmarks_export.html
 ```
 
 Environment variables seed process-level defaults. Persisted Machine, Persona, Crawl, and Snapshot settings can override them depending on scope, and existing Crawl config is not silently overwritten by later environment changes. Runtime-derived values like crawl/snapshot output dirs are resolved fresh for each run instead of being stored in frozen crawl config. For more examples see [Usage: Configuration](Usage#run-archivebox-with-configuration-options)...
@@ -62,9 +50,8 @@ Controls what happens when you `add` a URL that **already has a Snapshot** in yo
 Equivalent to the `--only-new` / `--no-only-new` flag on `archivebox add`:
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
-example_url="${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"; uv run --project "$project_dir" --no-sync archivebox add --plugins=wget "$example_url"
-uv run --project "$project_dir" --no-sync archivebox add --plugins=wget --no-only-new "$example_url"
+archivebox add https://example.com                    # honors ONLY_NEW (default True)
+archivebox add --no-only-new https://example.com      # force a re-archive even if already in the index
 ```
 
 > [!NOTE]
@@ -135,8 +122,8 @@ You can generate a `cookies.txt` using a [browser extension](https://chromewebst
 The recommended path is to create a persona and let it manage cookies + Chrome profile state for you:
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox persona create personal
-uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls --persona=personal "${ARCHIVEBOX_DOCS_URL_ONE:-https://members.example.com/feed}"
+archivebox persona create --import=chrome personal
+archivebox add --persona=personal https://members.example.com/feed
 ```
 
 > [!WARNING]
@@ -262,9 +249,9 @@ Retention policy: automatically delete Crawls, Snapshots, ArchiveResults, and Pr
 Accepted units: `h`/`hr`/`hour`, `d`/`day`, `w`/`week`, `mo`/`month`, `y`/`yr`/`year`. The minimum non-zero duration is `1h`. Examples:
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox config --set DELETE_AFTER=24h
-uv run --project "$project_dir" --no-sync archivebox config --set DELETE_AFTER=30d
-uv run --project "$project_dir" --no-sync archivebox config --set DELETE_AFTER=6mo
+archivebox config --set DELETE_AFTER=24h     # daily rolling buffer
+archivebox config --set DELETE_AFTER=30d     # 30-day retention
+archivebox config --set DELETE_AFTER=6mo     # 6 months
 ```
 
 `DELETE_AFTER` can be set globally, per-persona, per-crawl, or per-snapshot — the most-specific value wins. When a Snapshot is created, its `delete_at` timestamp is computed from the effective `DELETE_AFTER` and persisted; the retention sweeper then deletes rows whose `delete_at` is in the past.
@@ -303,7 +290,7 @@ Comma-separated **whitelist** of plugins to load and run for this archiving run.
 When set, only the listed plugins (plus any plugins they declare as `required_plugins` in their `config.json` — e.g. picking `singlefile` automatically pulls in `chrome`) participate in the run. Equivalent to the CLI flag:
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox add --plugins=wget,favicon,screenshot "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+archivebox add --plugins=wget,favicon,screenshot https://example.com
 ```
 
 The admin "Add" form and REST API both write to `PLUGINS` when you select extractors — there is no separate "enabled set" config knob; `PLUGINS` is the single source of truth for which plugins run on any given Crawl, Snapshot, or Persona scope.
@@ -322,7 +309,7 @@ Useful for one-off runs ("just grab a screenshot and skip everything else") or f
 #### `ADMIN_USERNAME` / `ADMIN_PASSWORD`
 **Possible Values:** [`None`]/`"admin"`/...
 
-Only used on first run / initial setup in Docker. ArchiveBox will create an admin superuser with the specified username and password when both options are present in the environment at startup. After the user exists, changing these values has no effect — use `archivebox manage changepassword <username>` or the Django admin UI instead.
+Used on first run / initial setup in any installation method. ArchiveBox will create an admin superuser with the specified username and password when both options are present during `archivebox init`. After the user exists, changing these values has no effect — use `archivebox manage changepassword <username>` or the Django admin UI instead.
 
 > [!WARNING]
 > Setting `ADMIN_PASSWORD` via environment variable bakes the secret into your shell history, Docker inspect output, and process listings. For long-lived deployments, set it once during provisioning, create the user, then unset the variable.
@@ -342,8 +329,8 @@ More info:
 Server-wide toggles for whether login is required to use each public area of ArchiveBox.
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox config --set PUBLIC_INDEX=True
-uv run --project "$project_dir" --no-sync archivebox config --set PUBLIC_ADD_VIEW=False
+archivebox config --set PUBLIC_INDEX=True        # allow viewing the snapshot index without login
+archivebox config --set PUBLIC_ADD_VIEW=False    # require login to submit new URLs via the web UI
 ```
 
 - `PUBLIC_INDEX` (default `True`) — when on, anonymous visitors can browse the snapshot list page. Individual snapshot visibility is still gated by each Snapshot's own [`PERMISSIONS`](#permissions) field.
@@ -373,8 +360,6 @@ The `host:port` socket the ArchiveBox web server actually listens on. **This is 
 - `127.0.0.1:8000` (default) — listen only on the loopback interface. Safest when you're running a reverse proxy on the same host and don't want the server reachable directly from the network.
 - `0.0.0.0:8000` — listen on **all** IPv4 interfaces. Required when running in Docker without `--network=host`, or when you want the server reachable from other machines on your LAN without a reverse proxy.
 - `[::]:8000` — listen on all IPv6 interfaces (most modern OSes will accept v4-mapped connections too).
-- `unix:/path/to/archivebox.sock` — bind to a Unix socket instead of a TCP port (useful for nginx/Caddy on the same host).
-
 IPv6 literal addresses must be bracketed: `[::1]:8000`, not `::1:8000`.
 
 > [!NOTE]
@@ -448,12 +433,6 @@ Number of rows to render per page on the Snapshot and ArchiveResult list views (
 Free-form text rendered in the footer of every archive page. Useful for adding a takedown contact, an org disclaimer, or attribution. Plain text — no HTML.
 
 ---
-#### `CUSTOM_TEMPLATES_DIR`
-**Possible Values:** [`data/custom_templates`]/`/path/to/custom_templates`/...
-
-Path to a directory containing custom HTML / CSS / image overrides for the default ArchiveBox templates. Files placed here shadow the built-in templates of the same path, letting you rebrand the UI without forking. See the Django template loader docs for the resolution order.
-
----
 #### `REVERSE_PROXY_USER_HEADER`
 **Possible Values:** [`Remote-User`]/`X-Remote-User`/`X-Forwarded-User`/...
 
@@ -500,7 +479,7 @@ URL users are redirected to after logging out. The default `/` keeps users on Ar
 Master switch for LDAP authentication. When `True`, ArchiveBox loads the `django-auth-ldap` backend and validates that `LDAP_SERVER_URI`, `LDAP_BIND_DN`, `LDAP_BIND_PASSWORD`, and `LDAP_USER_BASE` are all set — startup fails fast otherwise.
 
 ```bash
-archivebox_spec="${ARCHIVEBOX_PROJECT_DIR:+$ARCHIVEBOX_PROJECT_DIR[ldap]}"; archivebox_spec="${archivebox_spec:-archivebox[ldap] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev}"; tool_root="$(mktemp -d)"; UV_TOOL_DIR="$tool_root/tools" UV_TOOL_BIN_DIR="$tool_root/bin" uv tool install --python 3.13 --upgrade "$archivebox_spec"
+uv tool install --python 3.13 --upgrade 'archivebox[ldap] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
 ```
 
 Then set these configuration values:
@@ -798,7 +777,7 @@ Which search backend engine to use when running `archivebox search` and renderin
 
 - **`ripgrep`** *(default)* — Pure filesystem grep across each Snapshot's archived output (HTML, text, metadata) via the [`search_backend_ripgrep`](https://archivebox.github.io/abx-plugins/#search_backend_ripgrep) plugin. No extra daemon, no extra database to maintain — just install `rg` and it works. Slow on very large collections (each query re-scans the disk) but always 100% correct: results reflect what's actually on disk *right now*, no stale index. Best choice for small-to-medium collections (≲50k snapshots) and for users who don't want to run extra services.
 
-- **`sonic`** — Fast, suggest-style fuzzy search via a running [Sonic](https://github.com/valeriansaliou/sonic) daemon (configured via the [`search_backend_sonic`](https://archivebox.github.io/abx-plugins/#search_backend_sonic) plugin). ArchiveBox pushes text into Sonic at index time and queries it at search time. Sub-millisecond queries even at very large scale, but you have to run and maintain the Sonic process (Docker compose has it built in). Best choice for large collections (≳100k snapshots) when query latency matters.
+- **`sonic`** — Fast, suggest-style fuzzy search via a running [Sonic](https://github.com/valeriansaliou/sonic) daemon (configured via the [`search_backend_sonic`](https://archivebox.github.io/abx-plugins/#search_backend_sonic) plugin). ArchiveBox pushes text into Sonic at index time and queries it at search time. Sub-millisecond queries even at very large scale; ArchiveBox starts the managed service automatically when this backend is selected. Best choice for large collections (≳100k snapshots) when query latency matters.
 
 - **`sqlite`** — FTS5 full-text index stored alongside ArchiveBox's main `index.sqlite3`, configured via the [`search_backend_sqlite`](https://archivebox.github.io/abx-plugins/#search_backend_sqlite) plugin. No extra processes, no extra binary — uses the SQLite already shipped with Python. Faster than `ripgrep` on large collections, slightly slower than `sonic`, but no daemon to babysit. Good middle ground for users who want a real index without operational overhead.
 
@@ -839,7 +818,7 @@ Whether to colorize console output with ANSI escape codes. Defaults to `True` wh
 Override to **force-off** when piping `archivebox` output into a log file or cron-mail wrapper that doesn't strip ANSI codes (otherwise you'll see `^[[31m...^[[0m` litter throughout your logs). Override to **force-on** for tools like `script(1)` or some CI runners that don't report as a TTY but *do* render ANSI correctly.
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; USE_COLOR=False uv run --project "$project_dir" --no-sync archivebox add --plugins=wget "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}" >> archive.log; test -s archive.log
+USE_COLOR=False archivebox add https://example.com >> archive.log
 ```
 
 *Related options:* [`SHOW_PROGRESS`](#show_progress), [`DEBUG`](#debug)
@@ -853,12 +832,7 @@ Whether to render live progress bars during long-running operations (archiving, 
 Override to **force-off** in environments where the auto-detection is fooled into thinking it has a TTY (some Docker setups, Kubernetes log collectors, `tmux`/`screen` pipes) but the redrawing carriage-return output ends up as garbage in your logs.
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
-printf '%s\n' \
-    "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/one}" \
-    "${ARCHIVEBOX_DOCS_URL_TWO:-https://example.com/two}" > urls.txt
-SHOW_PROGRESS=False uv run --project "$project_dir" --no-sync archivebox add --plugins=wget < urls.txt
+SHOW_PROGRESS=False archivebox add < urls.txt
 ```
 
 *Related options:* [`USE_COLOR`](#use_color)
@@ -1131,10 +1105,10 @@ A handful of *core* options (documented above on this page) act as the **fallbac
 All plugin options can be set via the same three mechanisms as core options — env var, `ArchiveBox.conf`, or `archivebox config --set` — and inspected with `archivebox config`:
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox config
-uv run --project "$project_dir" --no-sync archivebox config --get SCREENSHOT_RESOLUTION
-uv run --project "$project_dir" --no-sync archivebox config --set SCREENSHOT_RESOLUTION=1920,1080
-uv run --project "$project_dir" --no-sync archivebox config --search wget
+archivebox config                                  # show every option (core + every installed plugin)
+archivebox config --get SCREENSHOT_RESOLUTION      # read one value
+archivebox config --set SCREENSHOT_RESOLUTION=1920,1080
+archivebox config --search wget                    # search options by name/description
 ```
 
 ### Why is plugin config documented separately?

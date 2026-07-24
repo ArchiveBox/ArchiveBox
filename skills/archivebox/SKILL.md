@@ -22,10 +22,10 @@ ArchiveBox is the full self-hosted web archiving app. Use this skill for collect
 ## Development Setup
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-archivebox_data="$(mktemp -d)"
-uv sync --project "$project_dir" --dev --all-extras
-cd "$archivebox_data" && uv run --project "$project_dir" --no-sync archivebox init --install
+uv sync --dev --all-extras
+mkdir -p data
+cd data
+uv run --project .. archivebox init --install
 ```
 
 ## User-Facing Setup
@@ -33,12 +33,11 @@ cd "$archivebox_data" && uv run --project "$project_dir" --no-sync archivebox in
 Recommended CLI install:
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-tool_root="$(mktemp -d)"; export UV_TOOL_DIR="$tool_root/tools" UV_TOOL_BIN_DIR="$tool_root/bin"
-uv tool install --force "$project_dir"
-export PLUGINS=parse_txt_urls
-archivebox_data="$(mktemp -d)"
-cd "$archivebox_data" && "$UV_TOOL_BIN_DIR/archivebox" init --install && "$UV_TOOL_BIN_DIR/archivebox" add --plugins=parse_txt_urls "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
+uv tool install --python 3.13 --prerelease allow archivebox
+mkdir -p ~/archivebox/data
+cd ~/archivebox/data
+archivebox init --install
+archivebox add --plugins=parse_txt_urls 'https://example.com/'
 ```
 
 Alternative install methods:
@@ -52,25 +51,24 @@ Alternative install methods:
 
 Run from inside an initialized data dir:
 
-<!--pytest-codeblocks:cont-->
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-archivebox_data="$(mktemp -d)"
-cd "$archivebox_data" && uv run --project "$project_dir" --no-sync archivebox init --install
-uv run --project "$project_dir" --no-sync archivebox version && uv run --project "$project_dir" --no-sync archivebox status && uv run --project "$project_dir" --no-sync archivebox install
-uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/docs-basic-usage}"
-uv run --project "$project_dir" --no-sync archivebox list --json --with-headers
-uv run --project "$project_dir" --no-sync archivebox search 'example' && uv run --project "$project_dir" --no-sync archivebox update --filter-type=domain example.com
-uv run --project "$project_dir" --no-sync archivebox remove --yes --delete --filter-type=exact "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/docs-basic-usage}"
-uv run --project "$project_dir" --no-sync archivebox run
+cd ~/archivebox/data
+archivebox version
+archivebox status
+archivebox install
+archivebox add --plugins=parse_txt_urls 'https://example.com/docs-basic-usage'
+archivebox list --json --with-headers
+archivebox search 'example'
+archivebox update --filter-type=domain example.com
+archivebox remove --yes --delete --filter-type=exact 'https://example.com/docs-basic-usage'
+archivebox run
 ```
 
 ## Verification
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-.}"
-uv run --project "$project_dir" --no-sync pytest "$project_dir/archivebox/tests/test_cli_add.py::test_add_help_shows_depth_and_tag_options" -q
-(cd "$project_dir" && uv run --no-sync prek run --all-files)
+uv run pytest archivebox/tests/test_cli_add.py::test_add_help_shows_depth_and_tag_options -q
+uv run prek run --all-files
 ```
 
 Releases are published only by `.github/workflows/release.yml` after the complete `dev` CI workflow succeeds. Local development and deployment commands must not publish packages, images, tags, or GitHub releases.

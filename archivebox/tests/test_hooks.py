@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from archivebox.tests.conftest import resolve_abxpkg_binary_env
+from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
 # Set up Django before importing any Django-dependent modules
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.settings")
@@ -183,16 +183,20 @@ class TestJSONLParsing:
 class TestRequiredBinaryConfigHandling:
     """Test that required_binaries keep configured XYZ_BINARY values intact."""
 
-    def test_binary_env_var_absolute_path_handling(self, tmp_path):
+    @pytest.mark.django_db(transaction=True)
+    def test_binary_env_var_absolute_path_handling(self, hermetic_lib_dir):
         """abxpkg should expose the resolved binary as an absolute path."""
-        resolved = resolve_abxpkg_binary_env(tmp_path / "lib", deps_from=WGET_CONFIG)
+        install_real_binary("wget", binproviders="env,apt,brew")
+        resolved = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=WGET_CONFIG)
 
         assert Path(resolved["WGET_BINARY"]).is_absolute()
         assert Path(resolved["WGET_BINARY"]).is_file()
 
-    def test_binary_env_var_name_only_handling(self, tmp_path):
+    @pytest.mark.django_db(transaction=True)
+    def test_binary_env_var_name_only_handling(self, hermetic_lib_dir):
         """The projected command name should execute the resolved host binary."""
-        lib_dir = tmp_path / "lib"
+        lib_dir = hermetic_lib_dir
+        install_real_binary("wget", binproviders="env,apt,brew")
         resolve_abxpkg_binary_env(lib_dir, deps_from=WGET_CONFIG)
         projection = lib_dir / "env" / "bin" / "wget"
         result = subprocess.run([projection, "--version"], capture_output=True, text=True)
@@ -362,9 +366,13 @@ class TestHookExecution:
         assert records[0]["type"] == "ArchiveResult"
         assert records[0]["status"] == "succeeded"
 
-    def test_js_hook_execution(self, tmp_path):
+    @pytest.mark.django_db(transaction=True)
+    def test_js_hook_execution(self, tmp_path, hermetic_lib_dir):
         """A shipped JavaScript hook should execute through projected Node."""
-        lib_dir = tmp_path / "lib"
+        from archivebox.services.runner import run_install
+
+        lib_dir = hermetic_lib_dir
+        run_install(plugin_names=["chrome"])
         chrome_config = Path(
             str(files("abx_plugins.plugins.chrome").joinpath("config.json")),
         )
@@ -405,10 +413,12 @@ class TestHookExecution:
         assert "chrome zombies" in result.stdout
 
     @pytest.mark.django_db(transaction=True)
-    def test_real_js_hook_runs_through_abxpkg_node_projection(self, tmp_path):
+    def test_real_js_hook_runs_through_abxpkg_node_projection(self, tmp_path, hermetic_lib_dir):
         from archivebox.plugins.hooks import run_hook
+        from archivebox.services.runner import run_install
 
-        lib_dir = tmp_path / "lib"
+        lib_dir = hermetic_lib_dir
+        run_install(plugin_names=["chrome"])
         node_env = resolve_abxpkg_binary_env(lib_dir, deps_from=CHROME_CONFIG)
         node_projection = lib_dir / "env" / "bin" / "node"
         crawl_dir = tmp_path / "crawl"
@@ -470,8 +480,9 @@ class TestDependencyRecordOutput:
     """Test Binary JSONL emitted by the real CLI and persisted model."""
 
     @pytest.mark.django_db(transaction=True)
-    def test_binary_cli_emits_resolved_dependency_record(self, initialized_archive, tmp_path):
-        wget_path = resolve_abxpkg_binary_env(tmp_path / "lib", deps_from=WGET_CONFIG)["WGET_BINARY"]
+    def test_binary_cli_emits_resolved_dependency_record(self, initialized_archive, hermetic_lib_dir):
+        install_real_binary("wget", binproviders="env,apt,brew")
+        wget_path = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=WGET_CONFIG)["WGET_BINARY"]
         version = subprocess.run([wget_path, "--version"], capture_output=True, text=True, check=True).stdout.split()[2]
         from archivebox.tests.conftest import parse_jsonl_output, run_archivebox_cmd
 
@@ -573,11 +584,13 @@ class TestPluginMetadata:
 
 
 @pytest.mark.django_db(transaction=True)
-def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_path):
+def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_path, hermetic_lib_dir):
     """Hook subprocesses must get a real NODE_MODULES_DIR even when NODE_PATH has multiple entries."""
     from archivebox.plugins.hooks import run_hook
+    from archivebox.services.runner import run_install
 
-    lib_dir = tmp_path / "lib"
+    lib_dir = hermetic_lib_dir
+    run_install(plugin_names=["chrome"])
     chrome_config = Path(str(files("abx_plugins.plugins.chrome").joinpath("config.json")))
     node_env = resolve_abxpkg_binary_env(
         lib_dir,

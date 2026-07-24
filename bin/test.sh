@@ -12,8 +12,8 @@ IFS=$'\n'
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
-source "$DIR/.venv/bin/activate"
-
 mkdir -p "$DIR/tests/out"
-pytest -s --basetemp="$DIR/tests/out" "$@"
-exec ./bin/test_plugins.sh
+if [ "$#" -eq 0 ]; then
+    set -- archivebox/tests
+fi
+exec uv run --project "$DIR" --no-sync --no-sources pytest -s --basetemp="$DIR/tests/out" "$@"

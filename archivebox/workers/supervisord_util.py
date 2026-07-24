@@ -918,9 +918,17 @@ def run_runner_worker(
     name: str = "worker_runner_once",
     interactive_interrupts: bool = False,
     keep_running=None,
+    config=None,
 ) -> int:
+    from archivebox.config.common import get_config
+
     supervisor = get_or_create_supervisord_process(daemonize=False)
     worker = RUNNER_ONCE_WORKER(args, name=name)
+    workers = [(worker, False)]
+
+    sonic_worker = get_sonic_supervisord_worker_from_plugin(config if config is not None else get_config())
+    if sonic_worker is not None:
+        workers.insert(0, (sonic_worker, False))
     log_path = Path(worker["stdout_logfile"])
     if not log_path.is_absolute():
         log_path = CONSTANTS.DATA_DIR / log_path
@@ -928,7 +936,7 @@ def run_runner_worker(
     log_path.touch()
     log_handle = log_path.open()
     log_handle.seek(0, 2)
-    sync_supervisord_workers(supervisor, [(worker, False)], prune=False)
+    sync_supervisord_workers(supervisor, workers, prune=False)
     final_states = {"STOPPED", "EXITED", "FATAL", "UNKNOWN"}
     forwarded_interrupt = False
     try:

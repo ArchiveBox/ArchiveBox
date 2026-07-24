@@ -24,7 +24,7 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 **CPU Architectures:** `amd64` (`x86_64`), `arm64` (`aarch64`), `arm7`  
 *(Including 64-bit Intel/AMD, M1/M2/etc. Macs, Raspberry Pi >= 3)*
 
-* [**macOS:**](#macos) >=10.12 (with `pip`)
+* [**macOS:**](#macos) >=10.12 (with `uv` or Homebrew)
 * [**Linux:**](#ubuntudebian) Ubuntu (>= 18.04), Debian (>= 10), etc. (with `apt`)
 * [**BSD:**](#bsd) FreeBSD, OpenBSD, NetBSD etc (with `pkg`)
 
@@ -36,7 +36,7 @@ Other systems are not officially supported but may work with degraded functional
  * **Windows:** Via [[Docker]], Docker in WSL2, or WSL2 without Docker (not recommended)
  * [Other UNIX systems:](https://github.com/ArchiveBox/ArchiveBox#-package-manager-setup) Arch, Nix, Guix, Fedora, SUSE, Arch, CentOS, etc.
 
-<sub>Note: On `arm7` the `playwright` package is not available, so `chromium` must be installed manually if needed.</sub>
+<sub>Note: Some managed binary providers do not publish `arm7` builds. Run `archivebox install` to see which compatible host or managed providers are available for your platform.</sub>
 
 <br/>
 
@@ -80,8 +80,8 @@ If you're on Linux with `apt` or FreeBSD with `pkg` there is an optional auto-se
 *(or scroll further down for manual install instructions)*
 
 ```bash
-set -euo pipefail; setup_script="$(mktemp)"; curl -fsSL "file://${ARCHIVEBOX_PROJECT_DIR:-$PWD}/bin/setup.sh" > "$setup_script"
-bash -n "$setup_script"; cmp "$setup_script" "${ARCHIVEBOX_PROJECT_DIR:-$PWD}/bin/setup.sh"
+curl -fsSL 'https://get.archivebox.io' | bash
+# shortcut to run https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh
 ``` 
 The script explains what it installs beforehand, and will prompt for user confirmation before making any changes to your system. The script uses Docker if already installed, but you can decline and it will install ArchiveBox using `uv` instead.
 
@@ -113,9 +113,9 @@ See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) do
 
 <br/>
 
-### 1. Install base system dependencies needed for your OS
+### 1. Install `uv` or the ArchiveBox OS package
 
-*Be aware, you'll need to keep all these packages up-to-date yourself over time!*
+ArchiveBox itself is the only tool you need to bootstrap manually. After that, `archivebox install` resolves every runtime dependency through `abxpkg`, preferring compatible host binaries and installing managed ones only when needed.
 
 <img src="https://imgur.zervice.io/Ue9BI7n.png" width="30px" align="right"/>
 
@@ -124,17 +124,9 @@ See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) do
 Make sure you have [Homebrew](https://brew.sh/) installed first.
 
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-brew install uv node git wget curl ffmpeg yt-dlp ripgrep sonic
-tool_root="$(mktemp -d)"; export UV_TOOL_DIR="$tool_root/tools" UV_TOOL_BIN_DIR="$tool_root/bin"
-uv tool install --python 3.13 --upgrade "$project_dir"
-archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
-"$UV_TOOL_BIN_DIR/archivebox" init
-"$UV_TOOL_BIN_DIR/archivebox" install
-"$UV_TOOL_BIN_DIR/archivebox" version
-brew list --versions uv node git wget curl ffmpeg yt-dlp ripgrep sonic
-brew info ffmpeg >/dev/null
-brew info --cask chromium >/dev/null
+brew install uv
+uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+archivebox install
 ```
 
 <img src="https://assets.ubuntu.com/v1/c5cb0f8e-picto-ubuntu.svg" width="30px" align="right"/>
@@ -144,14 +136,14 @@ brew info --cask chromium >/dev/null
 Use the third-party ArchiveBox apt repo for the simplest bare-metal install:
 
 ```bash
-set -euo pipefail; echo 'deb [trusted=yes] https://archivebox.github.io/debian-archivebox dev main' > /etc/apt/sources.list.d/archivebox.list
-apt-get update
-apt-get install -y archivebox
-archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
+echo 'deb [trusted=yes] https://archivebox.github.io/debian-archivebox dev main' | sudo tee /etc/apt/sources.list.d/archivebox.list
+sudo apt update
+sudo apt install archivebox
+
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init
 archivebox install
-archivebox add --plugins=parse_txt_urls "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
-archivebox status
+archivebox add 'https://example.com'
 ```
 
 The apt package is a thin dev-channel wrapper around the normal Python install
@@ -166,17 +158,19 @@ if you want it to install missing system packages via apt.
 #### FreeBSD
 
 ```bash
-set -euo pipefail; pkg install -y python313 git wget curl yt-dlp ripgrep py313-sqlite3 npm-node22 ffmpeg
-pkg install -y chromium
-python3.13 --version; node --version; git --version
-wget --version; curl --version; yt-dlp --version; rg --version
-ffmpeg -version; chromium --version
+sudo pkg install curl
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+archivebox install
 ```
 
 #### OpenBSD
 
 ```bash
-set -euo pipefail; pkg_add python313 node wget git curl yt-dlp ffmpeg ripgrep chromium; python3.13 --version; node --version; chromium --version
+doas pkg_add uv
+uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+archivebox install
 ```
 
 #### Arch Linux / Nix / Guix / etc. Other OSs
@@ -193,10 +187,11 @@ See the [Quickstart](https://github.com/ArchiveBox/ArchiveBox#-package-manager-s
 If you are not using the apt package above, install ArchiveBox with `uv`.
 
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-tool_root="$(mktemp -d)"; export UV_TOOL_DIR="$tool_root/tools" UV_TOOL_BIN_DIR="$tool_root/bin"
-uv tool install --python 3.13 --upgrade "$project_dir"
-"$UV_TOOL_BIN_DIR/archivebox" --help
+# get the dev version of ArchiveBox
+uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+
+# if the optional ldap extra must compile locally on Debian/Ubuntu, install its headers and retry
+# sudo apt install build-essential libldap2-dev libsasl2-dev
 ```
 
 <br/>
@@ -205,14 +200,21 @@ uv tool install --python 3.13 --upgrade "$project_dir"
 
 Finish installing runtime dependencies for the enabled ArchiveBox plugins.
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-archivebox_data="$(mktemp -d)"
-cd "$archivebox_data"
-uv run --project "$project_dir" --no-sync archivebox init
-uv run --project "$project_dir" --no-sync archivebox install
-uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
-uv run --project "$project_dir" --no-sync archivebox version
-uv run --project "$project_dir" --no-sync archivebox help
+# create a new empty folder anywhere to hold your collection, and cd into it
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
+
+# instantiate the directory as an archivebox collection dir
+archivebox init
+
+# auto-install runtime dependencies such as Chromium, yt-dlp, SingleFile, etc.
+archivebox install
+
+# archive a first URL
+archivebox add 'https://example.com'
+
+# ✅ see a final detailed breakdown of all the installed dependencies and commands available
+archivebox version
+archivebox help
 ```
 
 <br/>
@@ -221,13 +223,15 @@ uv run --project "$project_dir" --no-sync archivebox help
 
 Make sure the `uv`-installed version of `archivebox` is available in your `$PATH`.
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
-uv run --project "$project_dir" --no-sync archivebox init
-uv tool list
-uv run --project "$project_dir" --no-sync archivebox version
-uv run --project "$project_dir" --no-sync archivebox status
-uv run --project "$project_dir" --no-sync archivebox help
+uv tool list             # show info about uv-installed tools
+
+echo $PATH               # show the directories your system is searching for binaries
+type -a archivebox       # show all installed archivebox binaries available
+
+cd ~/archivebox/data
+archivebox version       # ⭐️ show lots of useful info about installed dependencies and more
+archivebox status
+archivebox help
 ```
 (ensure the version shown is the most recent available from [Releases](https://github.com/ArchiveBox/ArchiveBox/releases))  
   
@@ -244,22 +248,22 @@ If you have issues getting Chromium / Google Chrome or other dependencies workin
 For guides on how to import URLs from different sources into ArchiveBox, check out [Input Formats](https://github.com/ArchiveBox/ArchiveBox#input-formats) and [Preparing URLs](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive). ➡️
 
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
+cd ~/archivebox/data
 ```
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
-printf '%s\n' "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}" > bookmarks_export.html
-uv run --project "$project_dir" --no-sync archivebox add --help; uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls < bookmarks_export.html
+# feed in your URLs to start archiving!
+archivebox add --help
+archivebox add < ~/Downloads/bookmarks_export.html
 ```
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
-uv run --project "$project_dir" --no-sync archivebox list
-uv run --project "$project_dir" --no-sync archivebox status
+# inspect the newly added Snapshots via the CLI
+archivebox list
+archivebox status
 ```
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init
-uv run --project "$project_dir" --no-sync archivebox server --help
-printf 'Open http://localhost:%s\n' "${ARCHIVEBOX_DOCS_ARCHIVEBOX_PORT:-8000}"
+# OR start the webserver and view them in the Web UI
+archivebox server 0.0.0.0:8000
+open http://web.archivebox.localhost:8000
 ```
 See our [[Usage]] Wiki documentation page for more examples.
 
@@ -267,15 +271,16 @@ See our [[Usage]] Wiki documentation page for more examples.
 
 ### Next Steps: *Upgrading Archivebox to a new version*
 
-Make sure all apt/brew/pkg/etc. dependencies from above are installed & up-to-date first.
+Upgrade ArchiveBox itself first; `archivebox install` will then re-resolve compatible host binaries and update any managed runtime dependencies.
 
 ```bash
-set -euo pipefail; project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-tool_root="$(mktemp -d)"; export UV_TOOL_DIR="$tool_root/tools" UV_TOOL_BIN_DIR="$tool_root/bin"
-uv tool install --python 3.13 --upgrade "$project_dir"
-archivebox_data="$(mktemp -d)"; cd "$archivebox_data"
-"$UV_TOOL_BIN_DIR/archivebox" init
-"$UV_TOOL_BIN_DIR/archivebox" install
+# get the dev version of ArchiveBox
+uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+
+# run init inside any data directories to migrate the index to the latest version
+cd ~/archivebox/data
+archivebox init          # update collection index & apply any migrations
+archivebox install       # update runtime dependencies to latest versions
 ```
 
 Check our more detailed [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives) documentation and [Release Notes](https://github.com/ArchiveBox/ArchiveBox/releases) if you run into any problems. ➡️

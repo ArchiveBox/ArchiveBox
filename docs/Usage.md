@@ -29,7 +29,7 @@ All three of these ways of running ArchiveBox are equivalent and interchangeable
   *Using the Python package via `uv tool install archivebox`*
 - `docker run ... archivebox/archivebox [subcommand] [...args]`  
   *Using the official Docker image*
-- `docker-compose run archivebox [subcommand] [...args]`  
+- `docker compose run archivebox [subcommand] [...args]`
   *Using the official Docker image w/ Docker Compose*
 
 You can share a single archivebox data directory between Docker and non-Docker instances as well, allowing you to run the server in a container but still execute CLI commands on the host for example.
@@ -48,17 +48,17 @@ For more examples see [README: Usage](https://github.com/ArchiveBox/ArchiveBox#%
 You can set environment variables in your shell profile, a config file, or by using the `env` command.
 
 ```bash
-# Persist a setting in this collection and verify the effective value.
+# set config via the CLI
 archivebox config --set TIMEOUT=120
-config_output="$(archivebox config --get TIMEOUT)"
-case "$config_output" in *'TIMEOUT = 120'*) ;; *) exit 1 ;; esac
 
-# Environment variables override the persisted value for one command.
-config_output="$(TIMEOUT=121 archivebox config --get TIMEOUT)"
-case "$config_output" in *'TIMEOUT = 121'*) ;; *) exit 1 ;; esac
+# OR edit ArchiveBox.conf and add this under its existing [ARCHIVING_CONFIG] section:
+TIMEOUT=120
+
+# OR use environment variables
+env TIMEOUT=120 archivebox add 'https://example.com'
 ```
 
-See [[Configuration]] page for core ArchiveBox config options and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options (e.g. `MEDIA_MAX_SIZE`, `CHROME_USER_DATA_DIR`, `WGET_ARGS`, etc.).  
+See [[Configuration]] page for core ArchiveBox config options and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options (e.g. `YTDLP_MAX_SIZE`, `CHROME_USER_DATA_DIR`, `WGET_ARGS`, etc.).
 If you're using Docker, also make sure to read the Configuration section on the [[Docker]] page.
 
 > [!TIP]  
@@ -70,10 +70,9 @@ If you're using Docker, also make sure to read the Configuration section on the 
 ### Import a single URL
 
 ```bash
-url="$ARCHIVEBOX_DOCS_URL_ONE/usage-single"
-archivebox add --index-only "$url"
-archivebox shell -c \
-    "from archivebox.crawls.models import Crawl; assert Crawl.objects.filter(urls__contains='$url').exists()"
+archivebox add 'https://example.com'
+# OR
+echo 'https://example.com' | archivebox add
 ```
 
 You can also add `--depth=1` to any of these commands if you want to recursively archive the URLs and all URLs one hop away. (e.g. all the outlinks on a page + the page).
@@ -81,34 +80,23 @@ You can also add `--depth=1` to any of these commands if you want to recursively
 ### Import a list of URLs from a text file
 
 ```bash
-urls_file="$(mktemp)"
-printf '%s\n%s\n' \
-    "$ARCHIVEBOX_DOCS_URL_ONE/usage-list-one" \
-    "$ARCHIVEBOX_DOCS_URL_TWO/usage-list-two" > "$urls_file"
-archivebox add --index-only < "$urls_file"
-
-feed_file="$(mktemp)"
-"$CURL_BINARY" --fail --silent --show-error \
-    "$ARCHIVEBOX_DOCS_URL_ONE/usage-feed" > "$feed_file"
-archivebox add --index-only < "$feed_file"
+cat urls_to_archive.txt | archivebox add
+# OR
+archivebox add < urls_to_archive.txt
+# OR
+curl 'https://example.com/some/rss/feed.xml' | archivebox add
+# OR
+archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
 ```
 
 You can also pipe in RSS, XML, Netscape, or any of the other [supported import formats](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) via stdin.
 
 ```bash
-imports_dir="$(mktemp -d)"
-cat > "$imports_dir/bookmarks.html" <<EOF
-<!DOCTYPE NETSCAPE-Bookmark-file-1>
-<DL><p><DT><A HREF="$ARCHIVEBOX_DOCS_URL_ONE/usage-bookmark">Docs bookmark</A></DL>
-EOF
-printf '[{"href":"%s","description":"Pinboard fixture"}]\n' \
-    "$ARCHIVEBOX_DOCS_URL_TWO/usage-pinboard" > "$imports_dir/pinboard.json"
-printf 'Read %s next.\n' \
-    "$ARCHIVEBOX_DOCS_URL_ONE/usage-text" > "$imports_dir/urls.txt"
-
-archivebox add --index-only < "$imports_dir/bookmarks.html"
-archivebox add --index-only < "$imports_dir/pinboard.json"
-archivebox add --index-only < "$imports_dir/urls.txt"
+archivebox add < ~/Downloads/browser_bookmarks_export.html
+# OR
+archivebox add < ~/Downloads/pinboard_bookmarks.json
+# OR
+archivebox add < ~/Downloads/any_text_containing_urls.txt
 ```
 
 ---
@@ -119,40 +107,14 @@ Look in the `bin/` folder of this repo to find a script to parse your browser's 
 Specify the type of the browser as the first argument, and optionally the path to the SQLite history file as the second argument.
 
 ```bash
-history_dir="$(mktemp -d)"
-uv run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync \
-    abxpkg install sqlite3 --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew
-SQLITE3_BINARY="$ABXPKG_LIB_DIR/env/bin/sqlite3"
-test -L "$SQLITE3_BINARY" && test -x "$SQLITE3_BINARY"
-
-"$SQLITE3_BINARY" "$history_dir/History" \
-    "CREATE TABLE urls (last_visit_time INTEGER, title TEXT, url TEXT); INSERT INTO urls VALUES (1, 'Chrome fixture', '$ARCHIVEBOX_DOCS_URL_ONE/chrome-history');"
-printf '{"roots":{"other":{"children":[{"url":"%s","name":"Chrome bookmark","date_added":"2"}]}}}\n' \
-    "$ARCHIVEBOX_DOCS_URL_TWO/chrome-bookmark" > "$history_dir/Bookmarks"
-"$ARCHIVEBOX_PROJECT_DIR/bin/export_browser_history.sh" --chrome "$history_dir/History"
-"$JQ_BINARY" -e --arg url "$ARCHIVEBOX_DOCS_URL_ONE/chrome-history" \
-    '.[0].href == $url' chrome_history.json
-"$JQ_BINARY" -e --arg url "$ARCHIVEBOX_DOCS_URL_TWO/chrome-bookmark" \
-    '.[0].href == $url' chrome_bookmarks.json
-archivebox add --index-only < chrome_history.json
-archivebox add --index-only < chrome_bookmarks.json
-
-"$SQLITE3_BINARY" "$history_dir/places.sqlite" \
-    "CREATE TABLE moz_places (id INTEGER, last_visit_date INTEGER, title TEXT, url TEXT); CREATE TABLE moz_bookmarks (id INTEGER, parent INTEGER, fk INTEGER, dateAdded INTEGER, title TEXT); INSERT INTO moz_places VALUES (1, 3, 'Firefox fixture', '$ARCHIVEBOX_DOCS_URL_ONE/firefox-history'), (2, 4, 'Firefox bookmark', '$ARCHIVEBOX_DOCS_URL_TWO/firefox-bookmark'); INSERT INTO moz_bookmarks VALUES (1, 0, NULL, 0, 'root'), (2, 1, NULL, 0, 'docs'), (3, 2, 2, 4, 'Firefox bookmark');"
-"$ARCHIVEBOX_PROJECT_DIR/bin/export_browser_history.sh" --firefox "$history_dir/places.sqlite"
-"$JQ_BINARY" -e --arg url "$ARCHIVEBOX_DOCS_URL_ONE/firefox-history" \
-    '.[0].href == $url' firefox_history.json
-"$JQ_BINARY" -e --arg url "$ARCHIVEBOX_DOCS_URL_TWO/firefox-bookmark" \
-    '.[0].href == $url' firefox_bookmarks.json
-archivebox add --index-only < firefox_history.json
-archivebox add --index-only < firefox_bookmarks.json
-
-"$SQLITE3_BINARY" "$history_dir/History.db" \
-    "CREATE TABLE history_items (url TEXT); INSERT INTO history_items VALUES ('$ARCHIVEBOX_DOCS_URL_ONE/safari-history');"
-"$ARCHIVEBOX_PROJECT_DIR/bin/export_browser_history.sh" --safari "$history_dir/History.db"
-safari_history="$(< safari_history.json)"
-test "$safari_history" = "$ARCHIVEBOX_DOCS_URL_ONE/safari-history"
-archivebox add --index-only < safari_history.json
+bash ./bin/export_browser_history.sh --chrome
+archivebox add < chrome_history.json
+# or
+bash ./bin/export_browser_history.sh --firefox
+archivebox add < firefox_history.json
+# or
+bash ./bin/export_browser_history.sh --safari
+archivebox add < safari_history.json
 ```
 
 <br/>
@@ -163,57 +125,13 @@ archivebox add --index-only < safari_history.json
 
 ### Import browser cookies into a persona
 
-To archive logged-in sites, import a Chrome, Chromium, Brave, or Edge profile into a persona. Importing generates a `cookies.txt` file for wget/curl/yt-dlp and copies the profile so Chrome-based extractors can reuse it. Use `--profile='Profile 1'` when the browser profile is not named `Default`.
+To archive logged-in sites, you can import cookies from your browser into a persona. This generates a `cookies.txt` file in the persona directory (used by wget/curl/yt-dlp, etc.) and, for Chromium-based browsers, also copies the profile into the persona so Chrome-based extractors can reuse it.
 
 ```bash
-plugins_dir="$(
-    uv run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync python -c \
-        'from abx_plugins import get_plugins_dir; print(get_plugins_dir())'
-)"
-chrome_env="$(
-    uv run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync abxpkg env \
-        --install \
-        --json \
-        --lib "$ABXPKG_LIB_DIR" \
-        --deps-from "$plugins_dir/chrome/config.json:required_binaries"
-)"
-while IFS='=' read -r key value; do
-    export "$key=$value"
-done < <("$JQ_BINARY" -r 'to_entries[] | select(.key != "PATH") | "\(.key)=\(.value)"' <<< "$chrome_env")
-
-# This creates a real local Chromium profile for the executable example.
-# Normally, use the profile your desktop browser has already created.
-docs_home="$(mktemp -d)"
-host_profile_root="$(
-    HOME="$docs_home" uv run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync python -c \
-        'import platform; from pathlib import Path; home = Path.home(); print(home / "Library/Application Support/Chromium" if platform.system() == "Darwin" else home / ".config/chromium")'
-)"
-mkdir -p "$host_profile_root"
-HOST_PROFILE_ROOT="$host_profile_root" \
-HOST_PROFILE_URL="$ARCHIVEBOX_DOCS_URL_ONE/persona-profile" \
-"$NODE_BINARY" - <<'JS'
-const puppeteer = require('puppeteer');
-(async () => {
-  const browser = await puppeteer.launch({
-    executablePath: process.env.CHROME_BINARY,
-    headless: true,
-    userDataDir: process.env.HOST_PROFILE_ROOT,
-    args: ['--no-sandbox'],
-  });
-  const page = await browser.newPage();
-  await page.goto(process.env.HOST_PROFILE_URL);
-  await browser.close();
-})().catch(error => { console.error(error); process.exit(1); });
-JS
-test -s "$host_profile_root/Default/Preferences"
-
-persona_name="docs-personal-$$"
-persona_record="$(HOME="$docs_home" archivebox persona create --import=chromium --profile=Default "$persona_name")"
-archivebox shell -c \
-    "from archivebox.personas.models import Persona; p = Persona.objects.get(name='$persona_name'); assert (p.path / 'chrome_profile' / 'Default' / 'Preferences').is_file(); assert (p.path / 'cookies.txt').stat().st_size > 0"
-printf '%s\n' "$persona_record" | archivebox persona delete --yes
-archivebox shell -c \
-    "from archivebox.personas.models import Persona; assert not Persona.objects.filter(name='$persona_name').exists()"
+archivebox persona create --import=chrome personal
+# supported: chrome/chromium/brave/edge (Chromium-based only)
+# use --profile to target a specific profile (e.g. Default, Profile 1)
+# re-running import merges/dedupes cookies.txt (by domain/path/name) but replaces chrome_user_data
 ```
 
 If cookie extraction fails, you can still export a Netscape-format `cookies.txt` using a browser extension and place it at `data/personas/<NAME>/cookies.txt`.
@@ -232,12 +150,10 @@ archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_ADD_VIEW=False
 archivebox config --set PERMISSIONS=private        # default visibility of newly created snapshots (was: PUBLIC_SNAPSHOTS=False)
 
-admin_username="docs-admin-$$"
-DJANGO_SUPERUSER_PASSWORD="$ARCHIVEBOX_PUBLISH_ADMIN_PASSWORD" \
-    archivebox manage createsuperuser --noinput \
-        --username "$admin_username" --email "$admin_username@example.com"
-archivebox shell -c \
-    "from django.contrib.auth import get_user_model; assert get_user_model().objects.get(username='$admin_username').is_superuser"
+archivebox manage createsuperuser  # set an admin password to use for any areas requiring login
+archivebox server 0.0.0.0:8000     # start the archivebox web server
+
+open http://admin.archivebox.localhost:8000  # open the admin UI
 ```
 
 *See the [Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#permissions) and [Security Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#archiving-private-content) for more info...*
@@ -317,21 +233,27 @@ The `OUTPUT_DIR` folder (usually whatever folder you run the `archivebox` comman
 
 Simply back up the entire `data/` folder to back up your archive, e.g. `zip -r data.backup.zip data`.
 
-```text
+```yaml
  - data/
    - index.sqlite3        # Main index of all archived URLs
    - ArchiveBox.conf      # Main config file in ini format
 
    - archive/
-      - 155243135/        # Archived links are stored in folders by timestamp
-         - index.json     # Index/details page for individual archived link
-         - index.html
+      - 155243135 -> users/admin/snapshots/20210406/example.com/SNAPSHOT_UUID/
+      - users/
+         - admin/
+            - snapshots/
+               - 20210406/
+                  - example.com/
+                     - SNAPSHOT_UUID/
+                        - index.jsonl
+                        - index.html
 
-         # Archive method outputs:
-         - warc/
-         - media/
-         - git/
-         ...
+                        # Archive method outputs:
+                        - wget/warc/
+                        - ytdlp/media/
+                        - git/
+                        ...
 
    - sources/             # Each imported URL list is saved as a copy here
       - getpocket.com-1552432264.txt
@@ -353,16 +275,11 @@ Those numbers are from running it single-threaded on my i5 machine with 50mbps d
 
 Storage requirements go up immensely if you're using [`MEDIA_ENABLED=True`](https://archivebox.github.io/abx-plugins/#media) (or its [`FETCH_MEDIA`](https://archivebox.github.io/abx-plugins/#ytdlp) / `YTDLP_ENABLED` aliases) and are archiving many pages with audio & video.
 
-Import one combined list and let ArchiveBox's crawl runner manage concurrency. Starting multiple writers against the same collection can cause `database locked` errors on slower filesystems.
+ArchiveBox's unified crawl runner handles bounded concurrency without starting competing writers:
 ```bash
-combined_urls="$(mktemp)"
-printf '%s\n%s\n' \
-    "$ARCHIVEBOX_DOCS_URL_ONE/usage-batch-one" \
-    "$ARCHIVEBOX_DOCS_URL_TWO/usage-batch-two" > "$combined_urls"
-archivebox add --index-only < "$combined_urls"
-archivebox shell -c \
-    "from archivebox.crawls.models import Crawl; assert Crawl.objects.filter(urls__contains='usage-batch-one').filter(urls__contains='usage-batch-two').exists()"
+env CRAWL_MAX_CONCURRENT_SNAPSHOTS=4 archivebox add < urls_to_archive.txt
 ```
+Higher concurrency is not always faster on slow disks or network filesystems, so increase it gradually.
 
 Users have reported running it with 50k+ bookmarks with success (though it will take more RAM while running).
 
@@ -385,12 +302,13 @@ For more info about troubleshooting filesystem permissions, performance, or issu
 
 Explore the SQLite3 DB a bit to see what's available using the SQLite3 shell:
 ```bash
-uv run --project "$ARCHIVEBOX_PROJECT_DIR" --no-sync \
-    abxpkg install sqlite3 --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew
-SQLITE3_BINARY="$ABXPKG_LIB_DIR/env/bin/sqlite3"
-test -L "$SQLITE3_BINARY" && test -x "$SQLITE3_BINARY"
-snapshot_count="$("$SQLITE3_BINARY" index.sqlite3 'SELECT COUNT(*) FROM core_snapshot;')"
-case "$snapshot_count" in ''|*[!0-9]*) exit 1 ;; esac
+cd ~/archivebox/data
+sqlite3 index.sqlite3
+
+# example usage:
+SELECT * FROM core_snapshot;
+UPDATE auth_user SET email = 'someNewEmail@example.com' WHERE username = 'someUsernameHere';
+...
 ```
 
 More info:
@@ -413,8 +331,23 @@ Explore the Python API a bit to see what's available using the archivebox shell:
 **Python API Documentation:** https://docs.archivebox.io/dev/apidocs/index.html
 
 ```bash
-archivebox shell -c \
-    "from archivebox.core.models import Snapshot; count = Snapshot.objects.count(); assert isinstance(count, int); print(f'{count} snapshots')"
+$ archivebox shell
+[i] ArchiveBox shell
+>>> from archivebox.core.models import Snapshot
+>>> from archivebox.cli.archivebox_add import add
+
+# count completed snapshots
+>>> print(Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED).count())
+24
+
+# inspect or add URLs through current APIs
+>>> Snapshot.objects.filter(url="https://example.com").first()
+<Snapshot: https://example.com>
+>>> crawl, snapshots = add(urls=["https://example.com/new"], index_only=True)
+
+# show raw SQL queries run
+>>> from django.db import connection
+>>> print(connection.queries)
 ```
 
 For more info and example usage:
@@ -436,26 +369,23 @@ You can interact with ArchiveBox as a Python library from external scripts or pr
 
 This API is a *local* API, designed to be used on the same machine as the ArchiveBox collection.
 
-For example, a local Python program can initialize Django and queue a URL like so:
+For example, you could create a script `add_archivebox_url.py` like so:
 ```python
 import os
 from pathlib import Path
 
-data_dir = Path(os.environ["ARCHIVEBOX_DOCS_DATA_DIR"])
-os.chdir(data_dir)
+DATA_DIR = Path("~/archivebox/data").expanduser()
+os.chdir(DATA_DIR)
 
 # you must import and setup django first to establish a DB connection
 from archivebox.config.django import setup_django
 setup_django(check_db=True)
 
-# then import and use the same implementation as the CLI
+# then import the specific API you need
 from archivebox.cli.archivebox_add import add
-from archivebox.crawls.models import Crawl
 
-url = f'{os.environ["ARCHIVEBOX_DOCS_URL_ONE"]}/usage-python-api'
-crawl, snapshots = add([url], index_only=True)
-assert snapshots.count() == 0
-assert Crawl.objects.get(pk=crawl.pk).get_urls_list() == [url]
+crawl, snapshots = add(urls=["https://example.com"], index_only=True)
+print(crawl.id, list(snapshots.values_list("id", flat=True)))
 ```
 
 For more information see:

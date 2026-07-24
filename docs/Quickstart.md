@@ -32,9 +32,9 @@ Follow the links here to find instructions for exporting a list of URLs from eac
  - [Safari Bookmarks](http://imgur.zervice.io/AtcvUZA.png)
  - [Opera Bookmarks](http://help.opera.com/Windows/12.10/en/importexport.html)
  - [Internet Explorer Bookmarks](https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows)
- - Chrome History: `./bin/export_browser_history.sh --chrome`
- - Firefox History: `./bin/export_browser_history.sh --firefox`
- - Safari History: `./bin/export_browser_history.sh --safari`
+ - Chrome History: `bash ./bin/export_browser_history.sh --chrome`
+ - Firefox History: `bash ./bin/export_browser_history.sh --firefox`
+ - Safari History: `bash ./bin/export_browser_history.sh --safari`
  - Other File or URL: (e.g. RSS feed url, text file path) pass as second argument in the next step
 
  (If any of these links are broken, please submit an issue and I'll fix it)
@@ -43,17 +43,17 @@ Follow the links here to find instructions for exporting a list of URLs from eac
 
 Pass in URLs directly, import a list of links from a file, or import from a feed URL. All via stdin:
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"
-archivebox_data="$(mktemp -d)"
-cd "$archivebox_data"
-uv run --project "$project_dir" --no-sync archivebox init
-printf '%s\n' "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/one}" > your_urls.txt
-uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls < your_urls.txt
-curl -fsSL "${ARCHIVEBOX_DOCS_URL_TWO:-https://example.com/two}" | uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls
-uv run --project "$project_dir" --no-sync archivebox add --plugins=parse_txt_urls "${ARCHIVEBOX_DOCS_URL_ONE:-https://example.com/}"
-uv run --project "$project_dir" --no-sync archivebox list --json
-uv run --project "$project_dir" --no-sync archivebox status
-uv run --project "$project_dir" --no-sync archivebox search example
+archivebox add < your_urls.txt
+
+# or if using plain Docker
+docker run -v $PWD:/data -i archivebox/archivebox:dev add < your_urls.txt
+
+# or if using Docker Compose
+docker compose run -T archivebox add < your_urls.txt
+
+# any text containing URLs can ingested via stdin or as args
+curl -fsSL 'https://getpocket.com/users/YOURUSERNAME/feed/all' | archivebox add
+archivebox add 'https://example.com'
 ```
 
 ## ✅ Done!
@@ -62,16 +62,16 @@ Open `./archive` to view your archive data in the filesystem.
 
 You can also use the interactive Web UI to view/manage/add links to your archive:
 ```bash
-docker_data="$(mktemp -d)"
-docker run --rm -v "$docker_data:/data" archivebox-docs-ci init
-docker run --rm -v "$docker_data:/data" archivebox-docs-ci add --plugins=parse_txt_urls 'https://example.com/'
-docker run --rm -v "$docker_data:/data" archivebox-docs-ci list --json
-compose_file="$(mktemp)"
-printf 'services:\n  archivebox:\n    image: archivebox-docs-ci\n    volumes:\n      - %s:/data\n' "$docker_data" > "$compose_file"
-docker compose -f "$compose_file" run --rm archivebox status
-docker compose -f "$compose_file" run --rm archivebox server --help
-docker run --rm -v "$docker_data:/data" archivebox-docs-ci server --help
-docker version
+# with plain Docker:
+docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
+
+# with Docker Compose:
+docker compose up -d
+
+# or without Docker:
+archivebox server
+
+open http://web.archivebox.localhost:8000
 ```
 
 ---
@@ -79,7 +79,7 @@ docker version
 **Next Steps:**
 
 ```bash
-project_dir="${ARCHIVEBOX_PROJECT_DIR:-$PWD}"; archivebox_data="$(mktemp -d)"; cd "$archivebox_data"; uv run --project "$project_dir" --no-sync archivebox init; uv run --project "$project_dir" --no-sync archivebox help
+archivebox help   # see info about all the available commands
 ```
 
  - Read [[Usage]] to learn about the various CLI and web UI functions

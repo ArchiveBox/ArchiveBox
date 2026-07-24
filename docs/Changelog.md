@@ -27,11 +27,10 @@
    - https://github.com/ArchiveBox/ArchiveBox/releases
  - easy migration from previous versions
    ```bash
-   export PLUGINS=parse_txt_urls
-   archive_dir="$(mktemp -d)"
-   cd "$archive_dir"
+   cd path/to/your/archive/folder
    archivebox init
-   archivebox add --plugins=parse_txt_urls 'https://example.com'
+   archivebox add 'https://example.com'
+   archivebox add 'https://getpocket.com/users/USERNAME/feed/all' --depth=1
    ```
  - full transition to Django Sqlite DB with migrations (making upgrades between versions much safer now)
  - maintains an intuitive and helpful CLI that's backwards-compatible with all previous archivebox data versions

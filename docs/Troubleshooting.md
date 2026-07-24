@@ -19,12 +19,12 @@ If using `archivebox` without Docker, make sure you've followed the full guide i
 
 Then make sure `archivebox` is installed available in your `$PATH`.
 ```bash
-set -Eeuo pipefail; if command -v apt >/dev/null; then apt show archivebox || test "$?" -eq 100; fi
-if command -v brew >/dev/null; then brew info archivebox/archivebox/archivebox || test "$?" -eq 1; fi
-uv tool list
+apt show archivebox      # show info about the apt-installed version of archivebox
+brew info archivebox     # show info about the brew-installed version of archivebox
+uv tool list             # show info about uv-installed tools
 
-printf '%s\n' "$PATH"
-type -a archivebox
+echo $PATH               # show the directories your system is searching for binaries
+type -a archivebox       # show all installed archivebox binaries available
 ```
 **⭐️ Show the full archivebox version info + info about all installed dependencies:**
 ```bash
@@ -35,95 +35,59 @@ archivebox version       # shows lots of useful info about installed dependencie
 ### macOS
 ArchiveBox can be installed with Homebrew or `uv` on macOS:
 ```bash
-set -Eeuo pipefail
 brew tap archivebox/archivebox
-brew install archivebox; archivebox_binary="$(brew --prefix archivebox/archivebox/archivebox)/bin/archivebox"; test -x "$archivebox_binary"
-data_dir="$(mktemp -d)"; trap 'rm -rf "$data_dir"' EXIT
-mkdir -p "$data_dir"
-cd "$data_dir"
-"$archivebox_binary" init
-"$archivebox_binary" install
+brew install archivebox
+
+mkdir -p ~/archivebox/data
+cd ~/archivebox/data     # (for example, can be anywhere)
+
+archivebox init
+archivebox install       # finish installing runtime dependencies
 ```
 More info: https://github.com/ArchiveBox/homebrew-archivebox
 
-### Python
+### Python and uv
 
-Make sure you have at least Python 3.13 installed on your system.
+ArchiveBox's supported bare-metal install uses `uv`, which manages the Python 3.13 environment for the tool:
 
 ```bash
-set -Eeuo pipefail; uv --version
-uv python find 3.13
-uv run --no-project --python 3.13 python --version
+uv --version
+uv tool list
+archivebox version
 ```
 
-If you still need help getting Python installed, [the official Python docs](https://docs.python.org/3.9/using/unix.html) are a good place to start.
+If `archivebox` is missing, repeat the `uv tool install` command from the [[Install]] guide.
 
 ### Chromium/Google Chrome
 
 For more info, see the [[Chromium Install]] page.
 
-ArchiveBox depends on being able to access a `chromium`/`google-chrome` executable.  The executable used
-defaults to `chromium` but can be manually specified with the environment variable [`CHROME_BINARY`](https://archivebox.github.io/abx-plugins/#chrome):
+ArchiveBox resolves Chrome through `abxpkg`, preferring a compatible browser already installed on the host and otherwise installing a managed build:
 
 ```bash
-set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"; chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"; env CHROME_BINARY="$chrome_binary" archivebox version
+archivebox install chrome
+archivebox version
 ```
 
-1. Test to make sure you have Chrome on your `$PATH` with:
-
-```bash
-set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"; chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"; printf '%s\n' "$chrome_binary"
-```
-If no executable is displayed, follow the setup instructions to install and link one of them.
-
-2. If a path is displayed, the next step is to check that it's runnable:
-
-```bash
-set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"; chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"; "$chrome_binary" --version
-```
-If no version is displayed, try the setup instructions again, or confirm that you have permission to access chrome.
-
-3. If a version is displayed and it's `<111`, upgrade it:
-
-```bash
-set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"
-chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"
-chrome_major="$("$chrome_binary" --version | sed -E 's/[^0-9]*([0-9]+).*/\1/')"; test "$chrome_major" -ge 111
-```
-
-4. If a version is displayed and it's `>=111`, make sure ArchiveBox is running the right one:
-
-```bash
-set -Eeuo pipefail; eval "$(uv run abxpkg env chromium --install --lib "$ABXPKG_LIB_DIR" --binproviders env,playwright,puppeteer --min-version 111 --postinstall-scripts)"; chrome_binary="$(command -v chromium)"; test -x "$chrome_binary"; env CHROME_BINARY="$chrome_binary" archivebox version
-```
+The version output shows the selected provider, version, and projected path. If it reports an incompatible host browser, update that browser or let ArchiveBox install the managed fallback; do not bypass the resolver with an unrelated path.
 
 
 ### Wget & Curl
 
-If you're missing `wget` or `curl`, simply install them using `apt` or your package manager of choice.
-See the "Manual Setup" instructions for more details.
+Resolve or update both tools through the same installer:
 
-If wget times out or randomly fails to download some sites that you have confirmed are online,
-upgrade wget to the most recent version with `brew upgrade wget` or `apt upgrade wget`.  There is
-a bug in versions `<=1.19.1_1` that caused wget to fail for perfectly valid sites.
+```bash
+archivebox install wget curl
+archivebox version
+```
 
 ### NPM Dependencies
 
-NPM packages like `readability`, `singlefile`, etc. are auto-installed by `archivebox install`.
-
-Make sure you have installed NodeJS + NPM first, here are their [official install docs](https://nodejs.org/en/download/package-manager/).
+Node.js and JavaScript extractor packages such as `readability` and `singlefile` are resolved through `abxpkg`; they do not require a separate global npm setup.
 
 ```bash
-set -Eeuo pipefail
-test -f index.sqlite3
-archivebox install node
-uv run abxpkg env node npm --install --lib "$ABXPKG_LIB_DIR" --binproviders env,npm >/dev/null
-node_binary="$ABXPKG_LIB_DIR/env/bin/node"
-npm_binary="$ABXPKG_LIB_DIR/env/bin/npm"
-test -x "$node_binary"
-test -x "$npm_binary"
-"$node_binary" --version
-"$npm_binary" --version
+cd ~/archivebox/data   # go into your data directory
+archivebox install node singlefile readability
 archivebox version
 ```
 
@@ -142,7 +106,7 @@ If you ran the archiver once, it wont re-download sites subsequent times, it wil
 If you haven't already run it, make sure you have a working internet connection and that the parsed URLs look correct.
 You can check the ArchiveBox stdout logs or the Web UI to see what links it's downloading.
 
-If you're still having issues, try deleting or moving the `./archive` folder (back it up first!) and running `archivebox init` again.
+To intentionally capture an already indexed URL again, use `archivebox add --no-only-new URL`. Do not delete or move the `archive/` tree to work around `ONLY_NEW`; that separates database state from its Snapshot files.
 
 ### Lots of errors
 
@@ -169,23 +133,7 @@ if you have problem with a particular nginx config.
 
 #### Docker Permissions issues
 
-Make sure the mounted data directory is writable by the user that owns it. The `archivebox` username only exists inside the Docker container, so on the host you should check numeric ownership instead. For a new or root-owned Docker data directory, make sure it is writable by UID/GID `911:911`.
-
-Try using [`bindfs`](https://github.com/clecherbauer/docker-volume-bindfs) to work around issues by remapping permissions, for example to remap `uid:33 gid:33` on the host to `911:911` inside the container:
-`docker-compose.yml`:
-```yaml
-services:
-  archivebox:
-    volumes:
-      - archivebox-data:/data
-
-volumes:
-  archivebox-data:
-    driver: lebokus/bindfs:latest
-    driver_opts:
-      sourcePath: "${EXTERNAL_MOUNT_PARENT}/external-parent/external/archivebox"
-      map: "33/911:@33/@911"
-```
+Make sure the mounted data directory is writable by its intended non-root owner. The current Docker entrypoint detects the first non-root collection owner and runs ArchiveBox with matching numeric UID/GID; a new root-owned collection falls back to the image's `archivebox` user. Check the host directory's numeric ownership and the entrypoint's startup output before changing permissions.
 
 <br/>
 
@@ -199,14 +147,12 @@ Database and filesystem issues are uncommon but do come up from time to time (es
 
 *ℹ️ Generally, these commands can help you resolve most issues:*
 ```bash
-set -Eeuo pipefail
 archivebox init                 # upgrade the archivebox collection
-archivebox install wget         # upgrade a runtime dependency through the normal installer
+archivebox install              # upgrade the archivebox runtime dependencies
 archivebox update --index-only  # force an upgrade of some of the archivebox index/collection files
-archivebox server --debug --help
-archivebox shell --help
-uv run abxpkg env sqlite3 --install --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew >/dev/null
-"$ABXPKG_LIB_DIR/env/bin/sqlite3" --version
+archivebox server --debug       # run the server with more verbose debug log output
+archivebox shell                # access the Python API / Django management shell
+sqlite3 index.sqlite3           # access the SQLite3 SQL database shell
 ```
 
 Don't be scared by the volume of content here. Almost all of these issues linked below are duplicates or old resolved bugs, but they contain valuable context and troubleshooting steps if you're trying to figure out the cause of a problem with your setup.
@@ -230,8 +176,7 @@ More info:
 
 ArchiveBox can sometimes struggle when archiving many links in parallel with multiple ArchiveBox processes trying to write to the database at the same time, leading to errors like this:
 ```bash
-error='Unable to create the django_migrations table (database is locked)'
-printf '%s\n' "$error" | grep -F 'database is locked'
+Unable to create the django_migrations table (database is locked)
 ```
 
 These errors can also be encountered when there are permissions, network, or filesystem issues preventing writes to `index.sqlite3`.
@@ -284,8 +229,7 @@ A corrupted database file can theoretically only happen if an external process o
 
 Note this is specific to this error, these steps do not apply to other migrations/db errors (see above/below for other issues):
 ```bash
-error='sqlite3.DatabaseError: database disk image is malformed'
-printf '%s\n' "$error" | grep -F 'database disk image is malformed'
+sqlite3.DatabaseError: database disk image is malformed
 ```
 
 Generally all index issues should be fixable by running `archivebox init`.  
@@ -293,7 +237,7 @@ You can see the status of Snapshots and find any invalid/orphan/missing snapshot
 
 **Error output:**
 
-```text
+```python3
 [i] [2022-03-24 20:37:27] ArchiveBox v0.6.2: archivebox init                                                                                                                                  
     > /data                                                                                                                                                                                   
                                                                                                                                                                                               
@@ -316,17 +260,10 @@ sqlite3.DatabaseError: database disk image is malformed
 **Steps to fix:**
 
 ```bash
-set -Eeuo pipefail
-test -s index.sqlite3
-test ! -e corrupt_index.sqlite3
-test ! -e repaired_index.sqlite3
-uv run abxpkg env sqlite3 --install --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew >/dev/null
-sqlite3_binary="$ABXPKG_LIB_DIR/env/bin/sqlite3"; test -x "$sqlite3_binary"
-echo '.dump' | "$sqlite3_binary" index.sqlite3 | "$sqlite3_binary" repaired_index.sqlite3
-"$sqlite3_binary" repaired_index.sqlite3 'PRAGMA integrity_check;' | grep -Fx ok
+cd ~/archivebox/data
+echo '.dump' | sqlite3 index.sqlite3 | sqlite3 repaired_index.sqlite3
 mv index.sqlite3 corrupt_index.sqlite3
 mv repaired_index.sqlite3 index.sqlite3
-"$sqlite3_binary" index.sqlite3 'PRAGMA integrity_check;' | grep -Fx ok
 ```
 
 More info:

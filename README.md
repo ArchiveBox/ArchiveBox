@@ -100,7 +100,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 </code></pre>
 <br/>
 <sub>Open <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI and <a href="http://admin.archivebox.localhost:8000"><code>http://admin.archivebox.localhost:8000</code></a> for the admin UI ➡️</sub><br/>
-<sub>Set <code>BIND_ADDR</code> to change the base domain; <code>web.</code> and <code>admin.</code> subdomains are used automatically.</sub>
+<sub>Set <code>BASE_URL</code> to change the public base domain; <code>web.</code> and <code>admin.</code> subdomains are used automatically. <code>BIND_ADDR</code> only controls the local listen address.</sub>
 </details>
 <br/>
 
@@ -165,7 +165,7 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 
 # Quickstart
 
-**🖥&nbsp; [Supported OSs](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#supported-systems):** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64`, `arm7`<br/>
+**🖥&nbsp; [Supported OSs](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#supported-systems):** Linux/BSD, macOS, Windows (Docker) &nbsp; **👾&nbsp; CPUs:** `amd64` (`x86_64`), `arm64`, `arm7` <sup>(raspi>=3)</sup><br/>
 
 <br/>
 
@@ -280,7 +280,7 @@ archivebox help
 
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <br/>
-<sub>See the <a href="https://github.com/ArchiveBox/pip-archivebox"><code>pip-archivebox</code></a> repo for more details about this distribution.</sub>
+<sub>See the <a href="https://docs.astral.sh/uv/guides/tools/"><code>uv tool</code> documentation</a> for more details about this installation method.</sub>
 <br/><br/>
 </details>
 
@@ -353,11 +353,11 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <summary><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" height="28px" align="top"/> <code>pacman</code> / <img src="https://user-images.githubusercontent.com/511499/118077946-29e6a080-b383-11eb-94f0-d4871da08c3f.png" alt="FreeBSD" height="28px" align="top"/> <code>pkg</code> / <img src="https://user-images.githubusercontent.com/511499/118077861-002d7980-b383-11eb-86a7-5936fad9190f.png" alt="Nix" height="28px" align="top"/> <code>nix</code> (Arch/FreeBSD/NixOS/more)</summary>
 <br/>
 
-> *Warning: These are contributed by external volunteers and may lag behind the official `pip` channel.*
+> *Warning: These are contributed by external volunteers and may lag behind the official `uv` and Docker channels.*
 
 <ul>
 <li>Arch: <a href="https://aur.archlinux.org/packages/archivebox/"><code>yay -S archivebox</code></a> (contributed by <a href="https://github.com/imlonghao"><code>@imlonghao</code></a>, maintained by <a href="https://github.com/jasongodev"><code>@jasongodev</code></a>)</li>
-<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -fsSL 'https://get.archivebox.io' | bash</code></a> (uses <code>pkg</code> + <code>pip3</code> under-the-hood)</li>
+<li>FreeBSD: <a href="https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup"><code>curl -fsSL 'https://get.archivebox.io' | bash</code></a> (uses <code>pkg</code> + <code>uv</code> under-the-hood)</li>
 <li>Nix: <a href="https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/archivebox/default.nix"><code>nix-env --install archivebox</code></a> (contributed by <a href="https://github.com/siraben"><code>@siraben</code></a>)</li>
 <li>Guix: <a href="https://packages.guix.gnu.org/packages/archivebox/"><code>guix install archivebox</code></a> (contributed by <a href="https://github.com/rakino"><code>@rakino</code></a>)</li>
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
@@ -470,23 +470,7 @@ For more discussion on managed and paid hosting options see here: <a href="https
 ArchiveBox commands can be run in a terminal [directly on your host](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage), or via [Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage-1)/[Docker Compose](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage).  
 <sup>(depending on how you chose to install it above)</sup>
 
-<!--
 ```bash
-set -euo pipefail
-__archivebox_docs_home="$(mktemp -d)"
-export HOME="$__archivebox_docs_home"
-export PLUGINS=parse_txt_urls
-mkdir -p ~/archivebox/data
-cd ~/archivebox/data
-archivebox init
-archivebox version
-archivebox help
-test -f index.sqlite3
-test -d archive
-rm -rf "$__archivebox_docs_home"
-```
--->
-```console
 mkdir -p ~/archivebox/data   # create a new data dir anywhere
 cd ~/archivebox/data         # IMPORTANT: cd into the directory
 
@@ -577,7 +561,7 @@ docker run -v $PWD:/data -it archivebox/archivebox:dev add 'https://example.com'
 <pre lang="bash"><code style="white-space: pre-line">
 archivebox shell           # explore the Python library API in a REPL
 sqlite3 ./index.sqlite3    # run SQL queries directly on your index
-ls ./archive/*/index.html  # or inspect snapshot data directly on the filesystem
+find ./archive/users -path '*/snapshots/*/*/*/index.html'  # inspect snapshot data directly
 </code></pre>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage">Python Shell</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">SQL API</a>, and <a href="https://github.com/ArchiveBox/ArchiveBox#archive-layout">Disk Layout</a> wikis. ➡️</i>
 </details>
@@ -602,7 +586,7 @@ docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
 </code></pre>
 
 <sup>Open <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI and <a href="http://admin.archivebox.localhost:8000"><code>http://admin.archivebox.localhost:8000</code></a> for the admin UI ➡️</sup><br/>
-<sup>Set <code>BIND_ADDR</code> to change the base domain; <code>web.</code> and <code>admin.</code> subdomains are used automatically.</sup>
+<sup>Set <code>BASE_URL</code> to change the public base domain; <code>web.</code> and <code>admin.</code> subdomains are used automatically. <code>BIND_ADDR</code> only controls the local listen address.</sup>
 <br/><br/>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage">Usage: Web UI</a> wiki. ➡️</i>
 <br/><br/>
@@ -610,10 +594,10 @@ docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
 
 <pre lang="bash"><code style="white-space: pre-line">
 archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs 
-archivebox config --set PUBLIC_SNAPSHOTS=True  # allow guests to see snapshot content
+archivebox config --set PERMISSIONS=public     # make newly added snapshots public
 archivebox config --set PUBLIC_INDEX=True      # allow guests to see list of all snapshots
 # or
-docker compose run archivebox config --set ...
+docker compose run archivebox config --set PERMISSIONS=public
 
 # restart the server to apply any config changes
 </code></pre>
@@ -690,58 +674,19 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://ex
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e1e5bd78-b0b6-45dc-914c-e1046fee4bc4" width="330px" align="right" style="float: right"/>
 
 
-<!--
-```bash
-set -euo pipefail
-__archivebox_docs_home="$(mktemp -d)"
-export HOME="$__archivebox_docs_home"
-mkdir -p ~/archivebox/data ~/Downloads
-cd ~/archivebox/data
-archivebox init
-cat > ~/Downloads/some_feed.xml <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
-  <channel>
-    <title>ArchiveBox docs test feed</title>
-    <link>https://example.com/</link>
-    <description>ArchiveBox docs test feed</description>
-    <item>
-      <title>Feed item</title>
-      <link>https://example.com/from-feed</link>
-      <guid>https://example.com/from-feed</guid>
-    </item>
-  </channel>
-</rss>
-EOF
-```
--->
-<!--pytest-codeblocks:cont-->
 ```bash
 # archivebox add --help
-archivebox add --plugins=parse_txt_urls 'https://example.com/some/page'
-archivebox add --depth=1 --plugins=parse_rss_urls < "$HOME/Downloads/some_feed.xml"
-archivebox add --plugins=parse_txt_urls 'https://example.com/docs-example'
-echo 'http://example.com' | archivebox add --plugins=parse_txt_urls
-echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add --plugins=parse_txt_urls
+archivebox add 'https://example.com/some/page'
+archivebox add --depth=1 --plugins=parse_rss_urls "file://$HOME/Downloads/some_feed.xml"
+archivebox add --depth=1 'https://news.ycombinator.com#2020-12-12'
+echo 'http://example.com' | archivebox add
+echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox add
 
 # if using Docker, add -i when piping stdin:
 # echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox:dev add
 # if using Docker Compose, add -T when piping stdin / stdout:
 # echo 'https://example.com' | docker compose run -T archivebox add
 ```
-<!--pytest-codeblocks:cont-->
-<!--
-```bash
-archivebox list --json > snapshots.json
-grep -q 'https://example.com/some/page' snapshots.json
-grep -q 'https://example.com/from-feed' snapshots.json
-grep -q 'https://example.com/docs-example' snapshots.json
-grep -q 'http://example.com' snapshots.json
-test -d archive/users/system/crawls
-test "$(grep -c '\"url\"' snapshots.json)" -ge 4
-rm -rf "$__archivebox_docs_home"
-```
--->
 
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) page for documentation and examples.
 
@@ -798,10 +743,10 @@ ArchiveBox can be configured via environment variables, by using the `archivebox
 archivebox config --get CHROME_BINARY           # view a specific value
 <br/>
 archivebox config --set CHROME_BINARY=chromium  # persist a config using CLI
+# OR edit ArchiveBox.conf and add this under its existing [ARCHIVING_CONFIG] section:
+CHROME_BINARY=chromium
 # OR
-echo CHROME_BINARY=chromium >> ArchiveBox.conf  # persist a config using file
-# OR
-env CHROME_BINARY=chromium archivebox ...       # run with a one-off config
+env CHROME_BINARY=chromium archivebox version   # run with a one-off config
 </code></pre>
 <sub>These methods also work the same way when run inside Docker, see the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration">Docker Configuration</a> wiki page for details.</sub>
 </details><br/>
@@ -819,7 +764,7 @@ TIMEOUT=240                # default: 60    add more seconds on slower networks
 CHECK_SSL_VALIDITY=False   # default: True  False = allow saving URLs w/ bad SSL
 <br/>
 PUBLIC_INDEX=True          # default: True  whether anon users can view index
-PUBLIC_SNAPSHOTS=True      # default: True  whether anon users can view pages
+PERMISSIONS=public         # default: public visibility for newly added snapshots
 PUBLIC_ADD_VIEW=False      # default: False whether anon users can add new URLs
 <br/>
 USER_AGENT="Mozilla/5.0 ..."  # change this to get around bot blocking
@@ -872,9 +817,7 @@ These optional subdependencies used for archiving sites include:
 <li>and more as we grow...</li>
 </ul>
 
-You don't need to install every dependency to use ArchiveBox. ArchiveBox will automatically disable extractors that rely on dependencies that aren't installed, based on what is configured and available in your <code>$PATH</code>.
-  
-If not using Docker, make sure to keep the dependencies up-to-date yourself and check that ArchiveBox isn't reporting any incompatibility with the versions you install.
+You don't need to install every dependency by hand. ArchiveBox resolves every extractor dependency through <code>abxpkg</code>: it uses a compatible host installation when one is already available, and otherwise installs and manages the dependency for you.
 
 <pre lang="bash"><code style="white-space: pre-line"># install uv + archivebox first (see Quickstart instructions above)
 <br/>
@@ -910,7 +853,7 @@ All <code>archivebox</code> CLI commands are designed to be run from inside an A
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data   # just an example, can be anywhere
 archivebox init</code></pre>
 
-The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard <code>index.sqlite3</code> database in the root of the data folder (it can also be <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html">exported as static JSON/HTML</a>), and the archive snapshots are organized by date-added timestamp in the <code>data/archive/</code> subfolder.
+The on-disk layout is optimized to be easy to browse by hand and durable long-term. The main index is a standard <code>index.sqlite3</code> database in the root of the data folder (it can also be <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html">exported as static JSON/HTML</a>). Snapshot data is organized by user, date, domain, and UUID under <code>data/archive/users/</code>.
 
 <img src="https://user-images.githubusercontent.com/511499/117453293-c7b91600-af12-11eb-8a3f-aa48b0f9da3c.png" width="400px" align="right" style="float: right"/>
 
@@ -919,18 +862,23 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
     index.sqlite3
     ArchiveBox.conf
     archive/
-        ...
-        1617687755/
-            index.html
-            index.json
-            screenshot.png
-            media/some_video.mp4
-            warc/1617687755.warc.gz
-            git/somerepo.git
-            ...
+        1617687755 -> users/admin/snapshots/20210406/example.com/SNAPSHOT_UUID/
+        users/
+            admin/
+                snapshots/
+                    20210406/
+                        example.com/
+                            SNAPSHOT_UUID/
+                                index.html
+                                index.jsonl
+                                screenshot/screenshot.png
+                                ytdlp/media/some_video.mp4
+                                wget/warc/example.com.warc.gz
+                                git/somerepo.git
+                                ...
 </code></pre>
 
-Each snapshot subfolder <code>data/archive/TIMESTAMP/</code> includes a static <code>index.json</code> and <code>index.html</code> describing its contents, and the snapshot extractor outputs are plain files within the folder.
+Each snapshot subfolder includes static metadata and plain extractor output files. ArchiveBox also maintains a backwards-compatible <code>data/archive/TIMESTAMP</code> symlink for each snapshot.
 
 <h4>Learn More</h4>
 <ul>
@@ -964,7 +912,7 @@ archivebox list --json --with-headers > index.json     # export to json blob
 archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
 
 # (if using Docker Compose, add the -T flag when piping)
-# docker compose run -T archivebox list --html 'https://example.com' > index.json
+# docker compose run -T archivebox list --html 'https://example.com' > index.html
 </code></pre>
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.
@@ -974,7 +922,7 @@ The paths in the static exports are relative, make sure to keep them next to you
 <ul>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive#2-export-and-host-it-as-static-html">Wiki: Publishing Your Archive (Exporting as Static HTML)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing">Wiki: Security Overview (Publishing)</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#public_index--public_snapshots--public_add_view">Wiki: Configuration (<code>PUBLIC_INDEX</code>, <code>PUBLIC_SNAPSHOTS</code>, <code>PUBLIC_ADD_VIEW</code>)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#permissions">Wiki: Configuration (<code>PERMISSIONS</code>, <code>PUBLIC_INDEX</code>, <code>PUBLIC_ADD_VIEW</code>)</a></li>
 </ul>
 
 </details>
@@ -1005,7 +953,7 @@ archivebox add 'https://vimeo.com/somePrivateVideo'
 
 # restrict the main index, Snapshot content, and Add Page to authenticated users as-needed:
 archivebox config --set PUBLIC_INDEX=False
-archivebox config --set PUBLIC_SNAPSHOTS=False
+archivebox config --set PERMISSIONS=private
 archivebox config --set PUBLIC_ADD_VIEW=False
 archivebox manage createsuperuser
 </code></pre>
@@ -1021,8 +969,8 @@ archivebox manage createsuperuser
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive">Wiki: Publishing Your Archive</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Wiki: Security Overview</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile">Wiki: Chromium Install (Setting Up a User Profile)</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir">Wiki: Configuration (<code>CHROME_USER_DATA_DIR</code>)</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#cookies_file">Wiki: Configuration (<code>COOKIES_FILE</code>)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Personas">Wiki: Personas (browser profiles and cookies)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#default_persona">Wiki: Configuration (<code>DEFAULT_PERSONA</code>)</a></li>
 </ul>
 
 </details>
@@ -1031,7 +979,7 @@ archivebox manage createsuperuser
 
 ### Security Risks of Viewing Archived JS
 
-Be aware that malicious archived JS can access the contents of other pages in your archive when viewed. Because the Web UI serves all viewed snapshots from a single domain, they share a request context and **typical CSRF/CORS/XSS/CSP protections do not work to prevent cross-site request attacks**. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) page and [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239) for more details.
+Archived JavaScript is untrusted content. The default <code>SERVER_SECURITY_MODE=safe-subdomains-fullreplay</code> serves replay content on isolated snapshot subdomains so it cannot share the admin UI's cookies or origin. If your deployment cannot use wildcard <code>*.archivebox.localhost</code> subdomains, use <code>safe-onedomain-nojsreplay</code>, which keeps one origin but disables JavaScript replay. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview) and [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239) for details.
 
 
 <br/>
@@ -1039,18 +987,16 @@ Be aware that malicious archived JS can access the contents of other pages in yo
 <summary><i>Expand to see risks and mitigations...</i></summary>
 
 
-<pre lang="bash"><code style="white-space: pre-line"># visiting an archived page with malicious JS:
-https://127.0.0.1:8000/archive/1602401954/example.com/index.html
+<pre lang="bash"><code style="white-space: pre-line"># Default: full replay on isolated snapshot subdomains
+archivebox config --set SERVER_SECURITY_MODE=safe-subdomains-fullreplay
 
-# example.com/index.js can now make a request to read everything from:
-https://127.0.0.1:8000/index.html
-https://127.0.0.1:8000/archive/*
-# then example.com/index.js can send it off to some evil server
+# Alternative for deployments without wildcard subdomains: disable JS replay
+archivebox config --set SERVER_SECURITY_MODE=safe-onedomain-nojsreplay
 </code></pre>
 
 <blockquote>
 <p><em>NOTE: Only the <code>wget</code> &amp; <code>dom</code> extractor methods execute archived JS when viewing snapshots, all other archive methods produce static output that does not execute JS on viewing.</em><br/>
-<em>If you are worried about these issues ^ you should disable these extractors using:<br/> <code>archivebox config --set SAVE_WGET=False SAVE_DOM=False</code>.</em></p>
+<em>If you do not need JavaScript-capable replay at all, you can also disable those extractors with:<br/> <code>archivebox config --set WGET_ENABLED=False DOM_ENABLED=False</code>.</em></p>
 </blockquote>
 
 <h4>Learn More</h4>
@@ -1077,7 +1023,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 
 <ul>
 <li>Set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent"><code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, <code>CURL_USER_AGENT</code></a> to impersonate a real browser (by default, ArchiveBox reveals that it's a bot when using the default user agent settings)</li>
-<li>Set up a logged-in browser session for archiving using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile"><code>CHROME_USER_DATA_DIR</code> &amp; <code>COOKIES_FILE</code></a></li>
+<li>Set up a logged-in browser session for archiving by <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Personas">importing a dedicated browser profile into a persona</a></li>
 <li>Rewrite your URLs before archiving to swap in alternative frontends that are more bot-friendly e.g.<br>
 <code>reddit.com/some/url</code> -&gt; <code>teddit.net/some/url</code>: <a href="https://github.com/mendel5/alternative-front-ends">https://github.com/mendel5/alternative-front-ends</a></li>
 </ul>
@@ -1090,7 +1036,7 @@ In the future we plan on adding support for running JS scripts during archiving 
 
 ### Saving Multiple Snapshots of a Single URL
 
-ArchiveBox appends a hash with the current date `https://example.com#2020-10-24` to differentiate when a single URL is archived multiple times.
+ArchiveBox can preserve multiple snapshots of the same URL. The default <code>ONLY_NEW=True</code> skips URLs already in the collection; use <code>--no-only-new</code> when you intentionally want another snapshot.
 
 
 <br/>
@@ -1099,16 +1045,13 @@ ArchiveBox appends a hash with the current date `https://example.com#2020-10-24`
 <br/>
 
 
-Because ArchiveBox uniquely identifies snapshots by URL, it must use a workaround to take multiple snapshots of the same URL (otherwise they would show up as a single Snapshot entry). It makes the URLs of repeated snapshots unique by adding a hash with the archive date at the end:
+Each re-archive creates a distinct Snapshot row for the same URL:
 
-<pre lang="bash"><code style="white-space: pre-line">archivebox add 'https://example.com#2020-10-24'
-...
-archivebox add 'https://example.com#2020-10-25'
+<pre lang="bash"><code style="white-space: pre-line">archivebox add 'https://example.com'
+archivebox add --no-only-new 'https://example.com'
 </code></pre>
 
-The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI is a shortcut for this hash-date multi-snapshotting workaround.
-
-Improved support for saving multiple snapshots of a single URL without this hash-date workaround will be <a href="https://github.com/ArchiveBox/ArchiveBox/issues/179">added eventually</a> (along with the ability to view diffs of the changes between runs).
+The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI performs the same explicit re-archive.
 
 <h4>Learn More</h4>
 
@@ -1235,7 +1178,7 @@ ArchiveBox's stance is that duplication of other people's content is only ethica
 
 In the U.S., <a href="https://guides.library.oregonstate.edu/copyright/libraries">libraries, researchers, and archivists</a> are allowed to duplicate copyrighted materials under <a href="https://libguides.ala.org/copyright/fairuse">"fair use"</a> for <a href="https://guides.cuny.edu/cunyfairuse/librarians#:~:text=One%20of%20these%20specified%20conditions,may%20be%20liable%20for%20copyright">private study, scholarship, or research</a>. Archive.org's non-profit preservation work is <a href="https://blog.archive.org/2024/03/01/fair-use-in-action-at-the-internet-archive/">covered under fair use</a> in the US, and they properly handle <a href="https://cardozoaelj.com/2015/03/20/use-of-copyright-law-to-take-down-revenge-porn/">unethical content</a>/<a href="https://help.archive.org/help/rights/">DMCA</a>/<a href="https://gdpr.eu/right-to-be-forgotten/#:~:text=An%20individual%20has%20the%20right,that%20individual%20withdraws%20their%20consent.">GDPR</a> removal requests to maintain good standing in the eyes of the law.
 
-As long as you A. don't try to profit off pirating copyrighted content and B. have processes in place to respond to removal requests, many countries allow you to use software like ArchiveBox to ethically and responsibly archive any web content you can view. That being said, ArchiveBox is not liable for how you choose to operate the software. You must research your own local laws and regulations, and get proper legal council if you plan to host a public instance (start by putting your DMCA/GDPR contact info in <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#footer_info"><code>FOOTER_INFO</code></a> and changing your instance's branding using <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#custom_templates_dir"><code>CUSTOM_TEMPLATES_DIR</code></a>).
+As long as you A. don't try to profit off pirating copyrighted content and B. have processes in place to respond to removal requests, many countries allow you to use software like ArchiveBox to ethically and responsibly archive any web content you can view. That being said, ArchiveBox is not liable for how you choose to operate the software. You must research your own local laws and regulations, and get proper legal counsel if you plan to host a public instance (start by putting your DMCA/GDPR contact info in <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#footer_info"><code>FOOTER_INFO</code></a> and placing branding overrides in your collection's fixed <code>custom_templates/</code> directory).
 
 </details>
 <br/>
@@ -1284,7 +1227,6 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 </details>
 
 <br/>
-
 
 ## Internet Archiving Ecosystem
 
@@ -1384,7 +1326,7 @@ All contributions to ArchiveBox are welcomed! Check our [issues](https://github.
 
 For low hanging fruit / easy first tickets, see: <a href="https://github.com/ArchiveBox/ArchiveBox/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc+label%3A%22help+wanted%22">ArchiveBox/Issues `#good first ticket` `#help wanted`</a>.
 
-**Python API Documentation:** https://docs.archivebox.io/en/dev/archivebox.html#module-archivebox.main
+**Python API Documentation:** https://docs.archivebox.io/dev/apidocs/
 
 **Internal Architecture Diagrams:** https://github.com/ArchiveBox/ArchiveBox/wiki/ArchiveBox-Architecture-Diagrams
 
@@ -1397,7 +1339,7 @@ For low hanging fruit / easy first tickets, see: <a href="https://github.com/Arc
 
 First make sure you have `uv` installed: https://docs.astral.sh/uv/getting-started/installation/
 
-```console
+```bash
 git clone https://github.com/ArchiveBox/monorepo
 cd monorepo
 ./bin/setup.sh
@@ -1418,7 +1360,7 @@ Repos included in monorepo setup:
 
 #### 2. Option A: Install the Python, JS, and system dependencies directly on your machine
 
-```console
+```bash
 # Install ArchiveBox runtime dependencies
 mkdir -p data && cd data
 archivebox init
@@ -1433,7 +1375,7 @@ archivebox server 0.0.0.0:8000
 
 #### 2. Option B: Build the docker container and use that for development instead
 
-```console
+```bash
 # Optional: develop via docker by mounting the code dir into the container
 # if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
 # inside the container will reload and pick up your changes
@@ -1463,7 +1405,7 @@ You can also run all these in Docker. For more examples see the GitHub Actions C
 
 <details><summary><i>Click to expand...</i></summary>
 
-```console
+```bash
 # set up persistent DEBUG=True for all runs
 archivebox config --set DEBUG=True
 
@@ -1487,7 +1429,7 @@ https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-dj
 
 If you're looking for the latest `dev` Docker image, it's often available pre-built on Docker Hub, simply pull and use `archivebox/archivebox:dev`.
 
-```console
+```bash
 docker pull archivebox/archivebox:dev
 docker run archivebox/archivebox:dev version
 # verify the BUILD_TIME and COMMIT_HASH in the output are recent
@@ -1497,7 +1439,7 @@ docker run archivebox/archivebox:dev version
 
 You can also build and run any branch yourself from source, for example to build & use `dev` locally:
 
-```console
+```bash
 # docker-compose.yml:
 services:
     archivebox:
@@ -1509,9 +1451,8 @@ services:
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
 docker run -it -v $PWD:/data archivebox:dev init
 
-# or with pip:
-pip install 'git+https://github.com/pirate/ArchiveBox@dev'
-npm install 'git+https://github.com/ArchiveBox/ArchiveBox.git#dev'
+# or with uv:
+uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
 archivebox install
 ```
 
@@ -1521,7 +1462,7 @@ archivebox install
 
 <details><summary><i>Click to expand...</i></summary>
 
-```console
+```bash
 ./bin/lint.sh
 ./bin/test.sh
 ```
@@ -1534,10 +1475,9 @@ archivebox install
 
 <details><summary><i>Click to expand...</i></summary>
 
-```console
+```bash
 # generate the database migrations after changes to models.py
-cd archivebox/
-./manage.py makemigrations
+archivebox manage makemigrations
 
 # enter a python shell or a SQL shell
 cd path/to/test/data/
@@ -1546,8 +1486,7 @@ archivebox manage dbshell
 
 # generate a graph of the ORM models
 brew install graphviz
-pip install pydot graphviz
-archivebox manage graph_models -a -o orm.png
+uv run --with pydot --with graphviz archivebox manage graph_models -a -o orm.png
 open orm.png
 
 # list all models with field db info and methods
@@ -1555,7 +1494,7 @@ archivebox manage list_model_info --all --signature --db-type --field-class
 
 # print all django settings
 archivebox manage print_settings
-archivebox manage print_settings --format=yaml    # pip install pyyaml
+uv run --with pyyaml archivebox manage print_settings --format=yaml
 
 # autogenerate an admin.py from given app models
 archivebox manage admin_generator core > core/admin.py
@@ -1569,9 +1508,8 @@ archivebox manage runscript testdata
 archivebox manage reset_db
 
 # use django-tui to interactively explore commands
-uv pip install django-tui
 # ensure django-tui is in INSTALLED_APPS: core/settings.py
-archivebox manage tui
+uv run --with django-tui archivebox manage tui
 ```
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/dc3e9f8c-9544-46e0-a7f0-30f571b72022" width="600px" alt="ArchiveBox ORM models relatinoship graph"/>
@@ -1598,7 +1536,7 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 <details><summary><i>Click to expand...</i></summary>
 
 (Normally CI takes care of this, but these scripts can be run to do it manually)
-```console
+```bash
 ./bin/build.sh
 
 # or individually:

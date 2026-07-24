@@ -232,7 +232,6 @@ def update(
     from archivebox.core.takeover_util import (
         command_owns_foreground_runner,
         current_command,
-        ensure_daemon_stack,
         foreground_runner_owner,
         standby_until_foreground_runner_needed,
     )
@@ -253,11 +252,9 @@ def update(
         standby_until_foreground_runner_needed(command, data_dir=CONSTANTS.DATA_DIR)
         raise_if_shutdown_requested()
 
-    def run_scoped_runner(*args: str, ensure_daemon_reason: str | None = None) -> None:
+    def run_scoped_runner(*args: str) -> None:
         while True:
             wait_for_turn()
-            if ensure_daemon_reason:
-                ensure_daemon_stack(reason=ensure_daemon_reason)
             exit_code = run_runner_worker(
                 list(args),
                 name=f"worker_runner_update_{os.getpid()}",
@@ -398,7 +395,6 @@ def update(
                     if full_update_empty:
                         print("[*] No snapshots found; skipping search indexing backfill.")
                     else:
-                        ensure_daemon_stack(reason="search indexing")
                         search_plugins = _get_search_indexing_plugins()
                         if not search_plugins:
                             print("[*] No search indexing plugins are available, nothing to backfill.")
@@ -502,7 +498,6 @@ def update(
                     else:
                         run_scoped_runner(
                             *(["--maintenance-only", "--maintenance-batch-size", str(batch_size)] if index_only or migrate_only else []),
-                            ensure_daemon_reason="search indexing" if do_index else None,
                         )
 
                 if not continuous:

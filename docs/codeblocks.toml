@@ -1,105 +1,411 @@
-version = 1
-environments = ["core", "merge", "publishing", "docker", "root", "macos", "freebsd", "openbsd"]
+# Generated with: uv run --no-sync python docs/test_codeblocks_manifest.py render
+# Every authored occurrence is classified here without adding test plumbing to the rendered docs.
+version = 2
 
-[syntax]
-executed = ["bash", "sh", "python"]
-shell_syntax_only = ["console"]
-structured = ["json", "yaml", "ini", "sql", "nginx", "mermaid"]
-prose = ["text"]
-directive_prefixes = ["{"]
-console_blocks = [
-    "README.md::line 489",
-    "README.md::line 1400",
-    "README.md::line 1421",
-    "README.md::line 1436",
-    "README.md::line 1466",
-    "README.md::line 1490",
-    "README.md::line 1500",
-    "README.md::line 1524",
-    "README.md::line 1537",
-    "README.md::line 1601",
-]
+[snippets]
 
-[ci.standard]
-core = "ubuntu-24.04"
-merge = "ubuntu-24.04"
-publishing = "ubuntu-24.04"
-docker = "ubuntu-24.04"
-root = "ubuntu-24.04"
-macos = "macos-15"
+# README.md
+"7299ee2aeeaffe3a-1" = "illustration"
+"072d74f81af28e41-1" = "illustration"
+"347ba4a5f066d4d9-1" = "run"
+"e5efbef69f81e4ac-1" = "illustration"
+"8e0e2bcdf08b2ef5-1" = "illustration"
+"7e6bd7d1ecb5c1e7-1" = "illustration"
+"16f90085b2eb8756-1" = "illustration"
+"811eaaada5eb1861-1" = "run"
+"8e6f975ced292777-1" = "run"
+"588be84a1f0fda9a-1" = "illustration"
+"7669e806d194bf07-1" = "run"
+"15db87cd5a52c1c4-1" = "run"
+"588be84a1f0fda9a-2" = "illustration"
+"623dec26599ab9f2-1" = "run"
+"2b08779e4d24d305-1" = "run"
+"588be84a1f0fda9a-3" = "illustration"
+"c6e77a7ea47549e5-1" = "illustration"
+"6392c7b5f3593d07-1" = "run"
+"5d43b3d527ac69c6-1" = "run"
+"b5176e0b5ad1bcfc-1" = "illustration"
+"13fefe6d12cab753-1" = "illustration"
+"7cf50ffa6a169683-1" = "illustration"
+"35e12e491c22f48a-1" = "illustration"
+"eac57da2650e527c-1" = "illustration"
+"a7e2cb64628d3d38-1" = "illustration"
+"88fb0039056c161e-1" = "run"
+"715e94940898c09d-1" = "illustration"
+"d6cb543b1403f8ef-1" = "run"
+"e4a4f50f45b47ec8-1" = "run"
+"5604a7d87f7492cf-1" = "output"
+"59e14df6c51c6bb0-1" = "run"
+"0ddf9613e881e636-1" = "illustration"
+"285b452d2dce81a3-1" = "run"
+"fab7ffa7e26bc3e5-1" = "run"
+"06e963d9fad5b4f9-1" = "illustration"
+"834b852409be5697-1" = "illustration"
+"6cc5d78f24372d44-1" = "illustration"
+"747d7bb0b608c5ae-1" = "illustration"
+"efbeb534feb1eaf8-1" = "illustration"
+"511f47bb050d2921-1" = "illustration"
+"6f0ed916c341d2fc-1" = "illustration"
+"1e5a1e7eef7f2237-1" = "illustration"
+"3c4ecdabd2c9ba35-1" = "illustration"
 
-[ci.core_shards]
-metadata = [
-    "README.md",
-    "archivebox/mcp/README.md",
-    "docs/Changelog.md",
-    "docs/Chromium-Install.md",
-]
-agents = [
-    "AGENTS.md",
-    "skills/archivebox/SKILL.md",
-]
-guides = [
-    "docs/Quickstart.md",
-    "docs/Scheduled-Archiving.md",
-    "docs/Security-Overview.md",
-    "docs/Setting-Up-Storage.md",
-]
-configuration = ["docs/Configuration.md"]
-install = ["docs/Install.md"]
-authentication = ["docs/Setting-up-Authentication.md"]
-search = ["docs/Setting-up-Search.md"]
-troubleshooting = ["docs/Troubleshooting.md"]
-usage = [
-    "docs/Upgrading.md",
-    "docs/Usage.md",
-]
+# AGENTS.md
+"2695777473e3a217-1" = "run"
+"16f996904f0eaa96-1" = "run"
+"93dd34b605cd6775-1" = "run"
+"6a6234b63cd3d0ae-1" = "run"
+"396490664ce459e9-1" = "run"
 
-[ci.bsd]
-freebsd = "vmactions/freebsd-vm@v1.5.2"
-openbsd = "vmactions/openbsd-vm@v1.4.5"
+# archivebox/mcp/README.md
+"d9ff84abeb97d380-1" = "run"
+"aebc15190116f5cd-1" = "run"
+"49747d67b7e3ea8d-1" = "illustration"
+"fead0184493aab00-1" = "illustration"
+"256531ee2b730012-1" = "illustration"
+"399c370c70523428-1" = "run"
+"7d33d72cc96df65b-1" = "run"
 
-[files]
-"README.md" = "core"
-"AGENTS.md" = "core"
-"archivebox/mcp/README.md" = "core"
-"skills/archivebox/SKILL.md" = "core"
-"docs/Changelog.md" = "core"
-"docs/Chromium-Install.md" = "core"
-"docs/Configuration.md" = "core"
-"docs/Docker.md" = "docker"
-"docs/Install.md" = "core"
-"docs/Merging-Collections.md" = "merge"
-"docs/Publishing-Your-Archive.md" = "publishing"
-"docs/Quickstart.md" = "core"
-"docs/Scheduled-Archiving.md" = "core"
-"docs/Security-Overview.md" = "core"
-"docs/Setting-Up-Storage.md" = "core"
-"docs/Setting-up-Authentication.md" = "core"
-"docs/Setting-up-Search.md" = "core"
-"docs/Troubleshooting.md" = "core"
-"docs/Upgrading.md" = "core"
-"docs/Usage.md" = "core"
+# skills/archivebox/SKILL.md
+"2695777473e3a217-2" = "run"
+"93dd34b605cd6775-2" = "run"
+"46fe9d81940ea385-1" = "run"
+"396490664ce459e9-2" = "run"
 
-[blocks]
-"docs/Chromium-Install.md::line 100" = "docker"
-"docs/Chromium-Install.md::line 105" = "docker"
-"docs/Chromium-Install.md::line 114" = "docker"
-"docs/Configuration.md::line 137" = "macos"
-"docs/Install.md::line 126" = "macos"
-"docs/Install.md::line 146" = "root"
-"docs/Install.md::line 168" = "freebsd"
-"docs/Install.md::line 178" = "openbsd"
-"docs/Quickstart.md::line 64" = "docker"
-"docs/Scheduled-Archiving.md::line 53" = "docker"
-"docs/Security-Overview.md::line 140" = "root"
-"docs/Setting-Up-Storage.md::line 62" = "root"
-"docs/Setting-Up-Storage.md::line 174" = "root"
-"docs/Setting-Up-Storage.md::line 258" = "docker"
-"docs/Setting-Up-Storage.md::line 289" = "docker"
-"docs/Setting-up-Search.md::line 95" = "macos"
-"docs/Setting-up-Search.md::line 149" = "docker"
-"docs/Troubleshooting.md::line 37" = "macos"
-"docs/Troubleshooting.md::line 88" = "root"
-"docs/Upgrading.md::line 60" = "docker"
-"docs/Upgrading.md::line 77" = "docker"
+# docs/ArchiveBox-Architecture-Diagrams.md
+"7442dd337fd0a1dd-1" = "illustration"
+"9d6f8ac3043ff691-1" = "illustration"
+"8c8802244e05cfb7-1" = "illustration"
+"d0eb428affe5bb44-1" = "illustration"
+"7d1d068e1e754a75-1" = "illustration"
+
+# docs/Changelog.md
+"6fdf9ece2f8a3f7f-1" = "illustration"
+
+# docs/Chromium-Install.md
+"201988374bff6d14-1" = "run"
+"d85a11895d69713a-1" = "run"
+"d8061ea425363f8c-1" = "illustration"
+"bd5e6d3fc3193a25-1" = "illustration"
+"0ff6fc827fe34ab1-1" = "illustration"
+"3e1dabfc6426fef6-1" = "illustration"
+"ce2edd9be87280fc-1" = "run"
+"7890998169008ad0-1" = "illustration"
+
+# docs/Configuration.md
+"129eb9ca56f17500-1" = "illustration"
+"798793d9d6b2e12e-1" = "run"
+"3fecc495abdc20ef-1" = "illustration"
+"ce0de8ed0d7cd552-1" = "run"
+"83cb9be168d203ca-1" = "run"
+"2028f9a887105a13-1" = "run"
+"83c90c1a23a33f90-1" = "run"
+"00c51bd82b457d50-1" = "illustration"
+"c4266755c0748aa0-1" = "run"
+"f0a08cf932c513b3-1" = "illustration"
+"ea6d6196f0985d3c-1" = "run"
+
+# docs/Docker.md
+"03a42395e6560eba-1" = "illustration"
+"3e31436bc1fa4b6b-1" = "illustration"
+"ecb1424a53832ee7-1" = "run"
+"b0032c4cfcac6915-1" = "run"
+"c46afe2bbd31a239-1" = "run"
+"1165a871312ed99e-1" = "illustration"
+"c7b0be01cfea2d3a-1" = "illustration"
+"150ae2c7f6d012ab-1" = "illustration"
+"4c9a12d2d0a26431-1" = "run"
+"6bcb6c2e8770907a-1" = "illustration"
+"fcb2471eb154161b-1" = "illustration"
+"6353a7cf3014612e-1" = "illustration"
+"d66324df4c7f97c7-1" = "illustration"
+"17ed06e5b75aac1b-1" = "illustration"
+"b0b21bad724545d4-1" = "illustration"
+"148aae5565f0afd9-1" = "illustration"
+"638a9af2fdb6ce41-1" = "illustration"
+"0ac2cef38147537b-1" = "illustration"
+"7494fb04398b9fd8-1" = "illustration"
+
+# docs/Install.md
+"662be0691524555c-1" = "illustration"
+"fb630418e789bca8-1" = "run"
+"bf5409d061557508-1" = "run"
+"39d6e53c2e53ef77-1" = "run"
+"6a149b1a387f76cc-1" = "run"
+"73e5b1670430202c-1" = "run"
+"77b61fd52c4c3c32-1" = "run"
+"a8f16f6be4f2b3c0-1" = "run"
+"035ecb710f7fc2a8-1" = "illustration"
+"e4e22c56cb720344-1" = "illustration"
+"2905d7f9dece0b61-1" = "run"
+"e1c3e8b9016a71a9-1" = "illustration"
+"0dc947d99d081ca3-1" = "run"
+
+# docs/Merging-Collections.md
+"befadadb67c37c7b-1" = "illustration"
+"92e13fe91bc77af9-1" = "illustration"
+"f0ff0e950c4f04bd-1" = "illustration"
+"1343441ed4354bf6-1" = "illustration"
+"3d38133db42791b8-1" = "illustration"
+"25f5a83ce92e6b8d-1" = "transcript"
+"93f3695c9bcebd1e-1" = "illustration"
+"9bbf385bf2eb1160-1" = "run"
+"ef0e524c29534852-1" = "transcript"
+"25f5a83ce92e6b8d-2" = "transcript"
+"3ecf97d15d7e8ae9-1" = "illustration"
+
+# docs/Publishing-Your-Archive.md
+"a3e3e05317559025-1" = "illustration"
+"44fb1b5e4e4b8019-1" = "illustration"
+"e3fbec28244a58a0-1" = "illustration"
+
+# docs/Quickstart.md
+"9900ea0b79f00814-1" = "illustration"
+"4972b2ae112247f0-1" = "illustration"
+"c84835e713d1c625-1" = "run"
+
+# docs/Scheduled-Archiving.md
+"e6102e50b4491a0d-1" = "illustration"
+"e256179d1504c37d-1" = "illustration"
+"302de01a4a1490f0-1" = "run"
+"2bec913ab03ee911-1" = "run"
+"f96ae0f8a9b6f3a1-1" = "run"
+"244aee50bbfc11be-1" = "run"
+"5c9d291b47101962-1" = "run"
+
+# docs/Security-Overview.md
+"cf6f0d08c86314d6-1" = "illustration"
+"2b5b645b4047ba9c-1" = "run"
+"42d2d62ba382ad48-1" = "illustration"
+"226c4fb317fb9a60-1" = "illustration"
+
+# docs/Setting-Up-Storage.md
+"75084db745eabaf9-1" = "illustration"
+"499d97044307896f-1" = "illustration"
+"62b0ce987c89c1ef-1" = "illustration"
+"2945f0463a3da1ec-1" = "illustration"
+"2586f140447eb628-1" = "illustration"
+"f1b6a0d897e62225-1" = "run"
+"d8013405262d9dee-1" = "run"
+"5a399294a8709168-1" = "illustration"
+"f0923529c67db731-1" = "illustration"
+"48e05033c49e460c-1" = "illustration"
+"0fdcf228bb957933-1" = "run"
+"d76a2cce93150387-1" = "illustration"
+"acb33c3336d33ac5-1" = "illustration"
+"8bc58240c72e3eaa-1" = "illustration"
+"74e75b4a84bbb636-1" = "run"
+
+# docs/Setting-up-Authentication.md
+"c2de5f67fd56b58c-1" = "illustration"
+"9821835f15ad67b2-1" = "illustration"
+"83c90c1a23a33f90-2" = "run"
+"7caaf25736e20132-1" = "illustration"
+"4f35c142a9d6a1c6-1" = "illustration"
+"38551637f2a2b4ee-1" = "illustration"
+"eca3786ae3cadccf-1" = "illustration"
+"15b6f6ecd23a6736-1" = "illustration"
+
+# docs/Setting-up-Search.md
+"aeb19a9eb984d7dd-1" = "run"
+"9613aa41cb49f134-1" = "run"
+"ebebc2e7861a80e9-1" = "run"
+"23b079b81c0eaf87-1" = "run"
+"276ad19decf92bba-1" = "transcript"
+"20b7130b3bf05a00-1" = "run"
+
+# docs/Troubleshooting.md
+"f51f94b1347085a0-1" = "illustration"
+"24badf54daccd7fa-1" = "run"
+"f729b2ac542cbd20-1" = "run"
+"ad5f652a64306a33-1" = "run"
+"201988374bff6d14-2" = "run"
+"725a7a8c6f829ece-1" = "run"
+"7658fabf90ed3c2e-1" = "run"
+"bc29163a3bad12d6-1" = "illustration"
+"2f491912a15ecd93-1" = "output"
+"e0cbb64ddf1d7135-1" = "run"
+"0e66f4942ee1586a-1" = "output"
+"ca9f38c9c70b2d0b-1" = "output"
+"03803c44e54399c4-1" = "illustration"
+
+# docs/Upgrading.md
+"d4f106f7f176cc4f-1" = "illustration"
+"e566c21263033134-1" = "illustration"
+"5d39ef7a4a12e290-1" = "illustration"
+"03abe5364d9c713f-1" = "illustration"
+
+# docs/Usage.md
+"865eeba3c03d1e2d-1" = "run"
+"a336bc3a2b591f3b-1" = "run"
+"6611c2dee47b1092-1" = "illustration"
+"2560680733c8e908-1" = "illustration"
+"debc2548308dec0c-1" = "illustration"
+"d29b422c54745a7a-1" = "illustration"
+"463a437ec1fc9586-1" = "illustration"
+"5cd641727f4b04bb-1" = "output"
+"f0e895e5b375c198-1" = "illustration"
+"72a06916ecdabcca-1" = "transcript"
+"5036043d7f4b90f4-1" = "transcript"
+"85f531841ec3e169-1" = "run"
+
+[scenarios]
+"347ba4a5f066d4d9-1" = "docker"
+"811eaaada5eb1861-1" = "system"
+"8e6f975ced292777-1" = "collection"
+"7669e806d194bf07-1" = "system"
+"15db87cd5a52c1c4-1" = "collection"
+"623dec26599ab9f2-1" = "system"
+"2b08779e4d24d305-1" = "system"
+"6392c7b5f3593d07-1" = "collection"
+"5d43b3d527ac69c6-1" = "docker"
+"88fb0039056c161e-1" = "collection"
+"d6cb543b1403f8ef-1" = "collection"
+"e4a4f50f45b47ec8-1" = "collection"
+"59e14df6c51c6bb0-1" = "collection"
+"285b452d2dce81a3-1" = "collection"
+"fab7ffa7e26bc3e5-1" = "collection"
+"2695777473e3a217-1" = "project"
+"16f996904f0eaa96-1" = "project"
+"93dd34b605cd6775-1" = "system"
+"6a6234b63cd3d0ae-1" = "collection"
+"396490664ce459e9-1" = "project"
+"d9ff84abeb97d380-1" = "collection"
+"aebc15190116f5cd-1" = "collection"
+"399c370c70523428-1" = "collection"
+"7d33d72cc96df65b-1" = "collection"
+"2695777473e3a217-2" = "project"
+"93dd34b605cd6775-2" = "system"
+"46fe9d81940ea385-1" = "collection"
+"396490664ce459e9-2" = "project"
+"201988374bff6d14-1" = "collection"
+"d85a11895d69713a-1" = "collection"
+"ce2edd9be87280fc-1" = "collection"
+"798793d9d6b2e12e-1" = "collection"
+"ce0de8ed0d7cd552-1" = "collection"
+"83cb9be168d203ca-1" = "collection"
+"2028f9a887105a13-1" = "collection"
+"83c90c1a23a33f90-1" = "system"
+"c4266755c0748aa0-1" = "collection"
+"ea6d6196f0985d3c-1" = "collection"
+"ecb1424a53832ee7-1" = "docker"
+"b0032c4cfcac6915-1" = "docker"
+"c46afe2bbd31a239-1" = "docker"
+"4c9a12d2d0a26431-1" = "docker"
+"fb630418e789bca8-1" = "system"
+"bf5409d061557508-1" = "system"
+"39d6e53c2e53ef77-1" = "system"
+"6a149b1a387f76cc-1" = "system"
+"73e5b1670430202c-1" = "system"
+"77b61fd52c4c3c32-1" = "collection"
+"a8f16f6be4f2b3c0-1" = "collection"
+"2905d7f9dece0b61-1" = "collection"
+"0dc947d99d081ca3-1" = "system-data"
+"9bbf385bf2eb1160-1" = "collection"
+"c84835e713d1c625-1" = "collection"
+"302de01a4a1490f0-1" = "docker"
+"2bec913ab03ee911-1" = "collection"
+"f96ae0f8a9b6f3a1-1" = "collection"
+"244aee50bbfc11be-1" = "collection"
+"5c9d291b47101962-1" = "collection"
+"2b5b645b4047ba9c-1" = "collection"
+"f1b6a0d897e62225-1" = "system"
+"d8013405262d9dee-1" = "system"
+"0fdcf228bb957933-1" = "docker-data"
+"74e75b4a84bbb636-1" = "docker"
+"83c90c1a23a33f90-2" = "system"
+"aeb19a9eb984d7dd-1" = "collection"
+"9613aa41cb49f134-1" = "collection"
+"ebebc2e7861a80e9-1" = "collection"
+"23b079b81c0eaf87-1" = "collection"
+"20b7130b3bf05a00-1" = "collection"
+"24badf54daccd7fa-1" = "collection"
+"f729b2ac542cbd20-1" = "system"
+"ad5f652a64306a33-1" = "collection"
+"201988374bff6d14-2" = "collection"
+"725a7a8c6f829ece-1" = "collection"
+"7658fabf90ed3c2e-1" = "collection"
+"e0cbb64ddf1d7135-1" = "collection"
+"865eeba3c03d1e2d-1" = "collection"
+"a336bc3a2b591f3b-1" = "collection"
+"85f531841ec3e169-1" = "collection"
+
+[environments]
+"347ba4a5f066d4d9-1" = "docker"
+"811eaaada5eb1861-1" = "ubuntu"
+"8e6f975ced292777-1" = "ubuntu"
+"7669e806d194bf07-1" = "root"
+"15db87cd5a52c1c4-1" = "ubuntu"
+"623dec26599ab9f2-1" = "macos"
+"2b08779e4d24d305-1" = "macos"
+"6392c7b5f3593d07-1" = "ubuntu"
+"5d43b3d527ac69c6-1" = "docker"
+"88fb0039056c161e-1" = "ubuntu"
+"d6cb543b1403f8ef-1" = "ubuntu"
+"e4a4f50f45b47ec8-1" = "ubuntu"
+"59e14df6c51c6bb0-1" = "ubuntu"
+"285b452d2dce81a3-1" = "ubuntu"
+"fab7ffa7e26bc3e5-1" = "ubuntu"
+"2695777473e3a217-1" = "ubuntu"
+"16f996904f0eaa96-1" = "ubuntu"
+"93dd34b605cd6775-1" = "ubuntu"
+"6a6234b63cd3d0ae-1" = "ubuntu"
+"396490664ce459e9-1" = "ubuntu"
+"d9ff84abeb97d380-1" = "ubuntu"
+"aebc15190116f5cd-1" = "ubuntu"
+"399c370c70523428-1" = "ubuntu"
+"7d33d72cc96df65b-1" = "ubuntu"
+"2695777473e3a217-2" = "ubuntu"
+"93dd34b605cd6775-2" = "ubuntu"
+"46fe9d81940ea385-1" = "ubuntu"
+"396490664ce459e9-2" = "ubuntu"
+"201988374bff6d14-1" = "ubuntu"
+"d85a11895d69713a-1" = "ubuntu"
+"ce2edd9be87280fc-1" = "ubuntu"
+"798793d9d6b2e12e-1" = "ubuntu"
+"ce0de8ed0d7cd552-1" = "ubuntu"
+"83cb9be168d203ca-1" = "ubuntu"
+"2028f9a887105a13-1" = "ubuntu"
+"83c90c1a23a33f90-1" = "ubuntu"
+"c4266755c0748aa0-1" = "ubuntu"
+"ea6d6196f0985d3c-1" = "ubuntu"
+"ecb1424a53832ee7-1" = "docker"
+"b0032c4cfcac6915-1" = "docker"
+"c46afe2bbd31a239-1" = "docker"
+"4c9a12d2d0a26431-1" = "docker"
+"fb630418e789bca8-1" = "macos"
+"bf5409d061557508-1" = "root"
+"39d6e53c2e53ef77-1" = "freebsd"
+"6a149b1a387f76cc-1" = "openbsd"
+"73e5b1670430202c-1" = "ubuntu"
+"77b61fd52c4c3c32-1" = "ubuntu"
+"a8f16f6be4f2b3c0-1" = "ubuntu"
+"2905d7f9dece0b61-1" = "ubuntu"
+"0dc947d99d081ca3-1" = "ubuntu"
+"9bbf385bf2eb1160-1" = "ubuntu"
+"c84835e713d1c625-1" = "ubuntu"
+"302de01a4a1490f0-1" = "docker"
+"2bec913ab03ee911-1" = "ubuntu"
+"f96ae0f8a9b6f3a1-1" = "ubuntu"
+"244aee50bbfc11be-1" = "ubuntu"
+"5c9d291b47101962-1" = "ubuntu"
+"2b5b645b4047ba9c-1" = "ubuntu"
+"f1b6a0d897e62225-1" = "ubuntu"
+"d8013405262d9dee-1" = "root"
+"0fdcf228bb957933-1" = "docker"
+"74e75b4a84bbb636-1" = "docker"
+"83c90c1a23a33f90-2" = "ubuntu"
+"aeb19a9eb984d7dd-1" = "ubuntu"
+"9613aa41cb49f134-1" = "ubuntu"
+"ebebc2e7861a80e9-1" = "ubuntu"
+"23b079b81c0eaf87-1" = "ubuntu"
+"20b7130b3bf05a00-1" = "ubuntu"
+"24badf54daccd7fa-1" = "ubuntu"
+"f729b2ac542cbd20-1" = "macos"
+"ad5f652a64306a33-1" = "ubuntu"
+"201988374bff6d14-2" = "ubuntu"
+"725a7a8c6f829ece-1" = "ubuntu"
+"7658fabf90ed3c2e-1" = "ubuntu"
+"e0cbb64ddf1d7135-1" = "ubuntu"
+"865eeba3c03d1e2d-1" = "ubuntu"
+"a336bc3a2b591f3b-1" = "ubuntu"
+"85f531841ec3e169-1" = "ubuntu"

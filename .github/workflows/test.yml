@@ -1,4 +1,4 @@
-name: Integration Tests
+name: Install and CLI Compatibility
 
 on:
   workflow_call:
@@ -12,10 +12,9 @@ env:
   UV_NO_SOURCES: "1"
 
 jobs:
-  python_tests:
+  install_cli_platform:
+    name: CLI install / ${{ matrix.os_name }} / Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
-    env:
-      PYTHONPATH: ${{ github.workspace }}/abxpkg:${{ github.workspace }}/abx-plugins:${{ github.workspace }}/abx-dl
 
     strategy:
       fail-fast: false
@@ -48,44 +47,23 @@ jobs:
         with:
           version: "0.11.3"
 
-      - name: Clone abxpkg
-        run: bash .github/scripts/clone_abx_repo.sh abxpkg
-
-      - name: Clone abx-plugins
-        run: bash .github/scripts/clone_abx_repo.sh abx-plugins
-
-      - name: Clone abx-dl
-        run: bash .github/scripts/clone_abx_repo.sh abx-dl
-
-      ### Install dependencies
-      - name: Cache uv
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/uv
-          key: ${{ runner.os }}-${{ matrix.python }}-uv-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.python }}-uv-
-
-      - name: Bootstrap local abxpkg
-        run: |
-          set -Eeuo pipefail
-          uv venv
-          uv pip install -e ./abxpkg
-
       - name: Prepare abxpkg environment
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -Eeuo pipefail
+          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          test -n "$ABXPKG_VERSION"
           mkdir -p "$LIB_DIR/env/bin"
           {
+            echo "ABXPKG_VERSION=$ABXPKG_VERSION"
             echo "LIB_DIR=$LIB_DIR"
             echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
           } >> "$GITHUB_ENV"
           echo "$LIB_DIR/env/bin" >> "$GITHUB_PATH"
 
-      - name: Resolve Node.js through abxpkg
+      - name: Resolve CI tools through abxpkg
         env:
           LIB_DIR: ${{ runner.temp }}/abx-lib
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
@@ -93,25 +71,18 @@ jobs:
           set -Eeuo pipefail
           export PATH="$LIB_DIR/env/bin:$PATH"
           tooling_env="$(
-            uv run --no-sync --no-sources abxpkg env \
+            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
               --install \
               --json \
               --lib="$LIB_DIR" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries" \
-              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:node_binaries"
+              --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries"
           )"
           JQ_BINARY="$LIB_DIR/env/bin/jq"
           "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
             <<< "$tooling_env" >> "$GITHUB_ENV"
-
-          node_binary="$LIB_DIR/env/bin/node"
-          {
-            echo "JQ_BINARY=$JQ_BINARY"
-            echo "NODE_BINARY=$node_binary"
-          } >> "$GITHUB_ENV"
-          test -L "$node_binary"
-          test -x "$node_binary"
-          "$node_binary" --version
+          echo "JQ_BINARY=$JQ_BINARY" >> "$GITHUB_ENV"
+          test -L "$JQ_BINARY"
+          test -x "$JQ_BINARY"
 
       - name: Resolve Linux build dependencies through abxpkg
         if: runner.os == 'Linux'
@@ -120,19 +91,12 @@ jobs:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -Eeuo pipefail
-          uv run --no-sync --no-sources abxpkg env \
+          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
             --install \
             --no-cache \
             --json \
             --lib="$LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries"
-          uv run --no-sync --no-sources abxpkg env \
-            --install \
-            --json \
-            --lib="$LIB_DIR" \
-            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-env.json:required_binaries" \
-            | "$JQ_BINARY" -r 'to_entries[] | "\(.key)=\(.value)"' \
-            >> "$GITHUB_ENV"
 
       - name: Resolve host Homebrew through abxpkg
         if: runner.os == 'macOS'
@@ -142,7 +106,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           brew_env="$(
-            uv run --no-sync --no-sources abxpkg env \
+            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
               --install \
               --json \
               --lib="$LIB_DIR" \
@@ -164,14 +128,14 @@ jobs:
           brew_root="$(dirname "$(dirname "$brew_target")")"
           export ABXPKG_BREW_ROOT="$brew_root"
 
-          uv run --no-sync --no-sources abxpkg env \
+          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
             --install \
             --json \
             --lib="$LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-macos-build.json:required_binaries"
 
           PATH="$brew_root/opt/openldap/bin:$PATH" \
-            uv run --no-sync --no-sources abxpkg env \
+            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
               --install \
               --json \
               --lib="$LIB_DIR" \
@@ -180,6 +144,14 @@ jobs:
               >> "$GITHUB_ENV"
 
           ldapvc_target="$(readlink "$LIB_DIR/env/bin/ldapvc")"
+          while [[ -L "$ldapvc_target" ]]; do
+            next_ldapvc_target="$(readlink "$ldapvc_target")"
+            if [[ "$next_ldapvc_target" == /* ]]; then
+              ldapvc_target="$next_ldapvc_target"
+            else
+              ldapvc_target="$(dirname "$ldapvc_target")/$next_ldapvc_target"
+            fi
+          done
           test -x "$ldapvc_target"
           openldap_prefix="$(dirname "$(dirname "$ldapvc_target")")"
           test -f "$openldap_prefix/include/ldap.h"
@@ -192,8 +164,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Install dependencies with uv
-        run: |
-          uv pip install --group dev -e ./abxpkg -e ./abx-plugins -e ./abx-dl -e ".[all]"
+        run: uv sync --locked --dev --all-extras
 
       - name: ArchiveBox full install check
         run: |
@@ -205,27 +176,8 @@ jobs:
           uv run --directory "$DATA_DIR" --no-sync --no-sources archivebox version
           uv run --directory "$DATA_DIR" --no-sync --no-sources archivebox status
 
-      - name: Install PostgreSQL server binaries
-        if: matrix.os_name == 'macOS' || matrix.python == '3.14'
-        run: |
-          set -Eeuo pipefail
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            if ! ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1 && ! command -v initdb >/dev/null 2>&1; then
-              sudo apt-get update && sudo apt-get install -y postgresql
-            fi
-          else
-            if ! command -v initdb >/dev/null 2>&1 && ! ls /opt/homebrew/opt/postgresql*/bin/initdb >/dev/null 2>&1; then
-              brew install postgresql@17
-            fi
-          fi
-
-      - name: Run consolidated core suite
-        if: matrix.os_name == 'macOS' || matrix.python == '3.14'
-        run: |
-          mkdir -p tests/out
-          uv run --no-sync --no-sources pytest -q archivebox/tests --basetemp="$GITHUB_WORKSPACE/tests/out/${{ matrix.os_name }}-python-${{ matrix.python }}"
-
   docker_tests:
+    name: Docker CLI and mount compatibility
     runs-on: ubuntu-24.04
 
     steps:

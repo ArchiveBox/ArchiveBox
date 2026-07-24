@@ -1,188 +1,472 @@
+"""Inventory, validate, and run the code examples in the authored documentation.
+
+The docs stay written for people.  This scanner reads Markdown fences and the
+README's deliberately hand-authored ``<pre lang="bash">`` examples without
+requiring test directives in the prose.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
 import configparser
-from collections import Counter
+from dataclasses import dataclass
+from hashlib import sha256
+from html import unescape
 import json
+import os
 from pathlib import Path
+import re
 import sqlite3
 import subprocess
+import sys
+import tempfile
 import tomllib
 
-from pytest_codeblocks.main import extract_from_file
-import yaml
+ROOT = Path(__file__).resolve().parent.parent
+MANIFEST = ROOT / "docs" / "codeblocks.toml"
+DISPOSITIONS = {"run", "illustration", "transcript", "output"}
+ENVIRONMENT_RUNNERS = {
+    "ubuntu": "ubuntu-24.04",
+    "root": "ubuntu-24.04",
+    "docker": "ubuntu-24.04",
+    "macos": "macos-15",
+    "freebsd": "ubuntu-24.04",
+    "openbsd": "ubuntu-24.04",
+}
+SCENARIOS = {"project", "collection", "system", "system-data", "docker", "docker-data"}
+FENCE_START = re.compile(r"^(?P<indent>[ \t]*)(?P<fence>`{3,}|~{3,})[ \t]*(?P<info>[^\n]*)$")
+HTML_PRE = re.compile(
+    r"""<pre\b(?=[^>]*\blang=(?:"(?:bash|sh|console)"|'(?:bash|sh|console)'|(?:bash|sh|console)\b))[^>]*>
+        \s*<code\b[^>]*>(?P<code>.*?)</code>\s*</pre>""",
+    re.IGNORECASE | re.DOTALL | re.VERBOSE,
+)
+HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 
 
-REPO_ROOT = Path(__file__).parent.parent
-MANIFEST_PATH = REPO_ROOT / "docs" / "codeblocks.toml"
-WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "docs.yml"
+@dataclass(frozen=True)
+class Snippet:
+    id: str
+    path: str
+    line: int
+    style: str
+    syntax: str
+    code: str
 
 
-def markdown_paths() -> tuple[Path, ...]:
-    candidates = [
-        REPO_ROOT / "README.md",
-        REPO_ROOT / "AGENTS.md",
-        REPO_ROOT / "archivebox" / "mcp" / "README.md",
-    ]
-    candidates.extend(sorted((REPO_ROOT / "skills").rglob("*.md")))
-    candidates.extend(sorted((REPO_ROOT / "docs").rglob("*.md")))
+def authored_markdown_paths() -> tuple[Path, ...]:
+    candidates = [ROOT / "README.md", ROOT / "AGENTS.md", ROOT / "archivebox" / "mcp" / "README.md"]
+    candidates.extend(sorted((ROOT / "skills").rglob("*.md")))
+    candidates.extend(sorted((ROOT / "docs").rglob("*.md")))
 
-    unique_paths: dict[Path, Path] = {}
+    paths: list[Path] = []
+    seen: set[Path] = set()
     for path in candidates:
-        unique_paths.setdefault(path.resolve(), path)
-    return tuple(unique_paths.values())
+        if not path.is_file() or path.is_symlink() or "apidocs" in path.parts:
+            continue
+        resolved = path.resolve()
+        if resolved not in seen:
+            seen.add(resolved)
+            paths.append(path)
+    return tuple(paths)
 
 
-def docs_blocks() -> dict[str, object]:
-    return {
-        f"{path.relative_to(REPO_ROOT).as_posix()}::line {block.lineno}": block
-        for path in markdown_paths()
-        for block in extract_from_file(path)
-    }
+def _masked_html_comments(text: str) -> str:
+    chars = list(text)
+    for match in HTML_COMMENT.finditer(text):
+        for index in range(match.start(), match.end()):
+            if chars[index] != "\n":
+                chars[index] = " "
+    return "".join(chars)
 
 
-def test_every_executable_docs_block_has_exactly_one_ci_environment() -> None:
-    with MANIFEST_PATH.open("rb") as manifest_file:
-        manifest = tomllib.load(manifest_file)
-
-    environments = set(manifest["environments"])
-    executable_syntaxes = set(manifest["syntax"]["executed"])
-    file_environments = manifest["files"]
-    block_environments = manifest["blocks"]
-    discovered: dict[str, str] = {}
-
-    executable_files = {
-        path.relative_to(REPO_ROOT).as_posix()
-        for path in markdown_paths()
-        if any(block.syntax in executable_syntaxes for block in extract_from_file(path))
-    }
-
-    assert set(file_environments) == executable_files
-
-    for relative_path in sorted(executable_files):
-        file_environment = file_environments[relative_path]
-        assert file_environment in environments
-        path = REPO_ROOT / relative_path
-        assert path.is_file(), relative_path
-        for block in extract_from_file(path):
-            if block.syntax not in executable_syntaxes:
-                continue
-            nodeid = f"{relative_path}::line {block.lineno}"
-            environment = block_environments.get(nodeid, file_environment)
-            assert environment in environments, nodeid
-            assert nodeid not in discovered
-            discovered[nodeid] = environment
-
-    assert set(block_environments) <= set(discovered)
-    assert set(discovered.values()) == environments
+def _markdown_fences(text: str) -> list[tuple[int, str, str, str]]:
+    original_lines = text.splitlines(keepends=True)
+    masked_lines = _masked_html_comments(text).splitlines(keepends=True)
+    found: list[tuple[int, str, str, str]] = []
+    index = 0
+    while index < len(masked_lines):
+        start = FENCE_START.match(masked_lines[index].rstrip("\r\n"))
+        if start is None:
+            index += 1
+            continue
+        fence = start.group("fence")
+        syntax = start.group("info").strip().split(maxsplit=1)[0].lower()
+        if syntax.startswith("{.") and syntax.endswith("}"):
+            syntax = syntax[2:-1]
+        closing = re.compile(rf"^[ \t]*{re.escape(fence[0])}{{{len(fence)},}}[ \t]*$")
+        end = index + 1
+        while end < len(masked_lines) and closing.match(masked_lines[end].rstrip("\r\n")) is None:
+            end += 1
+        if end == len(masked_lines):
+            raise AssertionError(f"Unclosed Markdown fence at line {index + 1}")
+        found.append((index + 1, "fence", syntax, "".join(original_lines[index + 1 : end]).rstrip("\r\n")))
+        index = end + 1
+    return found
 
 
-def test_every_docs_fence_syntax_is_explicitly_classified() -> None:
-    with MANIFEST_PATH.open("rb") as manifest_file:
-        syntax_manifest = tomllib.load(manifest_file)["syntax"]
-
-    classified = set(syntax_manifest["executed"])
-    classified.update(syntax_manifest["shell_syntax_only"])
-    classified.update(syntax_manifest["structured"])
-    classified.update(syntax_manifest["prose"])
-    directive_prefixes = tuple(syntax_manifest["directive_prefixes"])
-
-    unknown = {
-        f"{nodeid} ({block.syntax!r})"
-        for nodeid, block in docs_blocks().items()
-        if block.syntax not in classified and not block.syntax.startswith(directive_prefixes)
-    }
-    assert not unknown
+def _html_pre_blocks(text: str) -> list[tuple[int, str, str, str]]:
+    found = []
+    for match in HTML_PRE.finditer(text):
+        opening = text[match.start() : match.start("code")]
+        language = re.search(r"""\blang=["']?(bash|sh|console)""", opening, re.IGNORECASE)
+        assert language is not None
+        code = re.sub(r"<br\s*/?>", "\n", match.group("code"), flags=re.IGNORECASE)
+        code = re.sub(r"</?[^>]+>", "", code)
+        found.append((text.count("\n", 0, match.start()) + 1, "html-pre", language.group(1).lower(), unescape(code).strip()))
+    return found
 
 
-def test_every_console_fence_is_inventoried_and_shell_parseable() -> None:
-    with MANIFEST_PATH.open("rb") as manifest_file:
-        expected_console_blocks = set(tomllib.load(manifest_file)["syntax"]["console_blocks"])
+def scan_snippets() -> tuple[Snippet, ...]:
+    raw: list[tuple[str, int, str, str, str]] = []
+    for path in authored_markdown_paths():
+        relative_path = path.relative_to(ROOT).as_posix()
+        text = path.read_text()
+        blocks = _markdown_fences(text)
+        blocks.extend(_html_pre_blocks(text))
+        for line, style, syntax, code in sorted(blocks):
+            raw.append((relative_path, line, style, syntax, code))
 
-    console_blocks = {nodeid: block for nodeid, block in docs_blocks().items() if block.syntax == "console"}
-    assert set(console_blocks) == expected_console_blocks
-    for nodeid, block in console_blocks.items():
-        result = subprocess.run(["bash", "-n"], input=block.code, text=True, capture_output=True, check=False)
-        assert result.returncode == 0, f"{nodeid}: {result.stderr}"
+    hash_counts: dict[str, int] = {}
+    snippets: list[Snippet] = []
+    for path, line, style, syntax, code in raw:
+        normalized = code.replace("\r\n", "\n").rstrip() + "\n"
+        digest = sha256(f"{syntax}\0{normalized}".encode()).hexdigest()[:16]
+        hash_counts[digest] = hash_counts.get(digest, 0) + 1
+        snippets.append(
+            Snippet(
+                id=f"{digest}-{hash_counts[digest]}",
+                path=path,
+                line=line,
+                style=style,
+                syntax=syntax,
+                code=code,
+            ),
+        )
+    return tuple(snippets)
 
 
-def test_structured_data_fences_parse() -> None:
-    blocks = docs_blocks()
-    sql_connection = sqlite3.connect(":memory:")
-    sql_connection.execute(
-        "CREATE TABLE auth_user (password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined)",
+def load_manifest() -> dict[str, dict[str, str]]:
+    with MANIFEST.open("rb") as manifest_file:
+        document = tomllib.load(manifest_file)
+    assert document.get("version") == 2
+    records = {snippet_id: {"disposition": disposition} for snippet_id, disposition in document.get("snippets", {}).items()}
+    for snippet_id, scenario in document.get("scenarios", {}).items():
+        assert snippet_id in records
+        records[snippet_id]["scenario"] = scenario
+    for snippet_id, environment in document.get("environments", {}).items():
+        assert snippet_id in records
+        records[snippet_id]["environment"] = environment
+    return records
+
+
+def check_inventory() -> tuple[Snippet, ...]:
+    snippets = scan_snippets()
+    records = load_manifest()
+    by_id = {snippet.id: snippet for snippet in snippets}
+    assert set(records) == set(by_id), (
+        f"Docs inventory is stale. Missing: {sorted(set(by_id) - set(records))}; removed: {sorted(set(records) - set(by_id))}"
     )
 
-    for nodeid, block in blocks.items():
-        if block.syntax == "json":
-            json.loads(block.code)
-        elif block.syntax == "yaml":
-            list(yaml.safe_load_all(block.code))
-        elif block.syntax == "ini":
-            parser = configparser.ConfigParser()
-            parser.read_string(block.code)
-        elif block.syntax == "sql":
+    for snippet in snippets:
+        record = records[snippet.id]
+        assert record.get("disposition") in DISPOSITIONS, f"{snippet.path}:{snippet.line}: missing disposition"
+        if record["disposition"] == "run":
+            assert record.get("scenario") in SCENARIOS, f"{snippet.id}: unknown run scenario"
+            assert record.get("environment") in ENVIRONMENT_RUNNERS, f"{snippet.id}: unknown run environment"
+        else:
+            assert "scenario" not in record, f"{snippet.id}: non-running examples must not declare runtime setup"
+            assert "environment" not in record, f"{snippet.id}: non-running examples must not declare a CI environment"
+    return snippets
+
+
+def validate_non_running(snippet: Snippet, disposition: str) -> None:
+    assert snippet.code.strip(), f"{snippet.path}:{snippet.line}: empty code block"
+    if disposition in {"transcript", "output"}:
+        return
+    if snippet.syntax in {"bash", "sh", "console"}:
+        illustrative_shell = re.sub(r"<[A-Za-z][A-Za-z0-9_-]*>", "PLACEHOLDER", snippet.code)
+        bash = Path(os.environ["BASH_BINARY"])
+        assert bash.is_file() and os.access(bash, os.X_OK)
+        result = subprocess.run([bash, "-n"], input=illustrative_shell, text=True, capture_output=True, check=False)
+        assert result.returncode == 0, f"{snippet.path}:{snippet.line}: {result.stderr}"
+    elif snippet.syntax in {"python", "python3"}:
+        ast.parse(snippet.code, filename=f"{snippet.path}:{snippet.line}")
+    elif snippet.syntax == "json":
+        json.loads(snippet.code)
+    elif snippet.syntax in {"yaml", "yml"}:
+        import yaml
+
+        illustrative_yaml = "\n".join(line for line in snippet.code.splitlines() if line.strip() != "...")
+        list(yaml.safe_load_all(illustrative_yaml))
+    elif snippet.syntax == "ini":
+        parser = configparser.ConfigParser()
+        parser.read_string(snippet.code)
+    elif snippet.syntax == "sql":
+        connection = sqlite3.connect(":memory:")
+        connection.execute(
+            "CREATE TABLE auth_user "
+            "(password, last_login, is_superuser, username, first_name, last_name, email, "
+            "is_staff, is_active, date_joined)",
+        )
+        connection.executescript(snippet.code)
+    elif snippet.syntax == "mermaid":
+        assert snippet.code.lstrip().startswith(("stateDiagram", "flowchart", "graph", "sequenceDiagram"))
+        mmdc = Path(os.environ["ABXPKG_LIB_DIR"]) / "env" / "bin" / "mmdc"
+        assert mmdc.is_file() and os.access(mmdc, os.X_OK)
+        with tempfile.TemporaryDirectory(prefix="archivebox-docs-mermaid-") as temp:
+            source = Path(temp) / "diagram.mmd"
+            output = Path(temp) / "diagram.svg"
+            source.write_text(snippet.code)
+            result = subprocess.run(
+                [mmdc, "--input", source, "--output", output],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 0, result.stderr or result.stdout
+            assert output.stat().st_size > 0
+    elif snippet.syntax == "nginx":
+        assert snippet.code.count("{") == snippet.code.count("}")
+        nginx = Path(os.environ["ABXPKG_LIB_DIR"]) / "env" / "bin" / "nginx"
+        assert nginx.is_file() and os.access(nginx, os.X_OK)
+        with tempfile.TemporaryDirectory(prefix="archivebox-docs-nginx-") as temp:
+            config = Path(temp) / "nginx.conf"
+            config.write_text(f"events {{}}\nhttp {{\nserver {{\nlisten 8080;\n{snippet.code}\n}}\n}}\n")
+            result = subprocess.run(
+                [nginx, "-t", "-c", config, "-p", temp],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            assert result.returncode == 0, result.stderr or result.stdout
+
+
+def validate_all() -> tuple[Snippet, ...]:
+    snippets = check_inventory()
+    records = load_manifest()
+    for snippet in snippets:
+        disposition = records[snippet.id]["disposition"]
+        if disposition != "run":
             try:
-                sql_connection.executescript(block.code)
-            except sqlite3.Error as err:
-                raise AssertionError(nodeid) from err
+                validate_non_running(snippet, disposition)
+            except Exception as error:
+                raise AssertionError(
+                    f"{snippet.path}:{snippet.line} ({snippet.id}, {disposition}) failed validation",
+                ) from error
+    return snippets
 
 
-def test_mermaid_fences_render_with_resolved_mmdc(tmp_path: Path) -> None:
-    mermaid_blocks = [(nodeid, block) for nodeid, block in docs_blocks().items() if block.syntax == "mermaid"]
-    assert len(mermaid_blocks) == 4
-    for index, (nodeid, block) in enumerate(mermaid_blocks):
-        source = tmp_path / f"diagram-{index}.mmd"
-        output = tmp_path / f"diagram-{index}.svg"
-        source.write_text(block.code)
-        result = subprocess.run(["mmdc", "--input", source, "--output", output], text=True, capture_output=True, check=False)
-        assert result.returncode == 0, f"{nodeid}: {result.stderr}"
-        assert output.stat().st_size > 0
+def matrix() -> dict[str, list[dict[str, str]]]:
+    snippets = validate_all()
+    records = load_manifest()
+    environments = {records[snippet.id]["environment"] for snippet in snippets if records[snippet.id]["disposition"] == "run"}
+    include = [
+        {
+            "name": environment,
+            "environment": environment,
+            "runner": ENVIRONMENT_RUNNERS[environment],
+        }
+        for environment in ENVIRONMENT_RUNNERS
+        if environment in environments
+    ]
+    assigned_ids = [snippet.id for snippet in snippets if records[snippet.id]["disposition"] == "run"]
+    assert include, "At least one deterministic documentation example must run in CI"
+    assert len(set(assigned_ids)) == len(assigned_ids)
+    assert {entry["environment"] for entry in include} == environments, "Every runnable snippet environment must have exactly one CI lane"
+    return {"include": include}
 
 
-def test_nginx_fence_parses_with_resolved_nginx(tmp_path: Path) -> None:
-    nginx_blocks = [(nodeid, block) for nodeid, block in docs_blocks().items() if block.syntax == "nginx"]
-    assert len(nginx_blocks) == 1
-    nodeid, block = nginx_blocks[0]
-    config = tmp_path / "nginx.conf"
-    config.write_text(f"events {{}}\nhttp {{\nserver {{\nlisten 8080;\n{block.code}\n}}\n}}\n")
-    result = subprocess.run(
-        ["nginx", "-t", "-c", str(config), "-p", str(tmp_path)],
-        text=True,
-        capture_output=True,
-        check=False,
+def run_environment(environment: str) -> None:
+    assert environment in ENVIRONMENT_RUNNERS, f"Unknown documentation environment: {environment}"
+    snippets = check_inventory()
+    records = load_manifest()
+    snippet_ids = tuple(
+        snippet.id
+        for snippet in snippets
+        if records[snippet.id]["disposition"] == "run" and records[snippet.id]["environment"] == environment
     )
-    assert result.returncode == 0, f"{nodeid}: {result.stderr}"
+    assert snippet_ids, f"No documentation snippets are assigned to {environment}"
+    run_snippets(snippet_ids)
 
 
-def test_docs_ci_matrix_covers_every_manifest_environment() -> None:
-    with MANIFEST_PATH.open("rb") as manifest_file:
-        manifest = tomllib.load(manifest_file)
+def run_snippets(snippet_ids: tuple[str, ...]) -> None:
+    snippets = {snippet.id: snippet for snippet in check_inventory()}
+    records = load_manifest()
+    assert len(set(snippet_ids)) == len(snippet_ids), "Each documentation snippet must run exactly once"
+    for snippet_id in snippet_ids:
+        assert snippet_id in snippets, f"Unknown snippet ID: {snippet_id}"
+        assert records[snippet_id]["disposition"] == "run", f"{snippet_id} is classified as {records[snippet_id]['disposition']}"
 
-    environments = set(manifest["environments"])
-    standard_environments = set(manifest["ci"]["standard"])
-    bsd_environments = set(manifest["ci"]["bsd"])
-    assert standard_environments.isdisjoint(bsd_environments)
-    assert standard_environments | bsd_environments == environments
+    with tempfile.TemporaryDirectory(prefix="archivebox-docs-") as temp:
+        temp_dir = Path(temp)
+        env = os.environ.copy()
+        env.update(
+            {
+                "HOME": str(temp_dir / "home"),
+                "XDG_CACHE_HOME": str(temp_dir / "cache"),
+                "XDG_CONFIG_HOME": str(temp_dir / "config"),
+                "XDG_DATA_HOME": str(temp_dir / "share"),
+                "UV_TOOL_BIN_DIR": str(temp_dir / "home" / ".local" / "bin"),
+                "ABXPKG_LIB_DIR": str(temp_dir / "lib"),
+                "PATH": f"{Path(sys.executable).parent}:{env['PATH']}",
+            },
+        )
+        Path(env["HOME"]).mkdir()
+        system_home = temp_dir / "system-home"
+        system_home.mkdir()
+        system_env = {
+            "HOME": str(system_home),
+            "XDG_CACHE_HOME": str(system_home / ".cache"),
+            "XDG_CONFIG_HOME": str(system_home / ".config"),
+            "XDG_DATA_HOME": str(system_home / ".local" / "share"),
+            "UV_TOOL_BIN_DIR": str(system_home / ".local" / "bin"),
+            "ABXPKG_LIB_DIR": str(temp_dir / "system-lib"),
+        }
+        system_path = os.pathsep.join(
+            [
+                str(system_home / ".local" / "bin"),
+                str(system_home / ".cargo" / "bin"),
+                *(part for part in env["PATH"].split(os.pathsep) if Path(part).resolve() != Path(sys.executable).parent.resolve()),
+            ],
+        )
+        scenarios = {records[snippet_id]["scenario"] for snippet_id in snippet_ids}
+        workdirs = {
+            "project": ROOT,
+            "system": system_home,
+            "system-data": system_home / "archivebox" / "data",
+            "collection": Path(env["HOME"]) / "archivebox" / "data",
+            "docker": Path(env["HOME"]) / "archivebox",
+            "docker-data": temp_dir / "data",
+        }
 
-    workflow = WORKFLOW_PATH.read_text()
-    assert "pytest -q docs/test_codeblocks_manifest.py" in workflow
-    assert "--docs-environment=${{ matrix.environment }}" in workflow
-    assert "DOCS_CORE_SHARD: ${{ matrix.core_shard }}" in workflow
-    for environment in bsd_environments:
-        assert f"--docs-environment={environment}" in workflow
+        if "system-data" in scenarios:
+            workdirs["system-data"].mkdir(parents=True)
+        if "collection" in scenarios:
+            workdirs["collection"].mkdir(parents=True, exist_ok=True)
+            archivebox = Path(sys.executable).with_name("archivebox")
+            assert archivebox.is_file() and os.access(archivebox, os.X_OK)
+            subprocess.run(
+                [archivebox, "init"],
+                cwd=workdirs["collection"],
+                env=env,
+                check=True,
+            )
+        if scenarios.intersection({"docker", "docker-data"}):
+            env["ARCHIVEBOX_IMAGE"] = "archivebox/archivebox:dev"
+            docker = Path(env["DOCKER_BINARY"])
+            assert docker.is_file() and os.access(docker, os.X_OK)
+        if "docker" in scenarios:
+            workdirs["docker"].mkdir(parents=True)
+            (workdirs["docker"] / "docker-compose.yml").write_text((ROOT / "docker-compose.yml").read_text())
+            subprocess.run(
+                [docker, "compose", "run", "--rm", "archivebox", "init"],
+                cwd=workdirs["docker"],
+                env=env,
+                check=True,
+            )
+        if "docker-data" in scenarios:
+            workdirs["docker-data"].mkdir()
+            subprocess.run(
+                [docker, "run", "--rm", "-v", f"{workdirs['docker-data']}:/data", "archivebox/archivebox:dev", "init"],
+                env=env,
+                check=True,
+            )
+
+        for snippet_id in snippet_ids:
+            snippet = snippets[snippet_id]
+            record = records[snippet_id]
+            snippet_env = env.copy()
+            if record["scenario"] in {"system", "system-data"}:
+                snippet_env.update(system_env)
+                snippet_env["PATH"] = system_path
+            print(f"Running {snippet.id}: {snippet.path}:{snippet.line} ({record['scenario']})", flush=True)
+            if snippet.syntax in {"bash", "sh", "console"}:
+                bash = Path(snippet_env["BASH_BINARY"])
+                assert bash.is_file() and os.access(bash, os.X_OK)
+                subprocess.run(
+                    [bash, "-Eeuo", "pipefail", "-c", snippet.code],
+                    cwd=workdirs[record["scenario"]],
+                    env=snippet_env,
+                    check=True,
+                )
+            elif snippet.syntax in {"python", "python3"}:
+                subprocess.run(
+                    [sys.executable, "-c", snippet.code],
+                    cwd=workdirs[record["scenario"]],
+                    env=snippet_env,
+                    check=True,
+                )
+            else:
+                raise AssertionError(f"{snippet.id}: {snippet.syntax} cannot have run disposition")
 
 
-def test_every_core_file_belongs_to_exactly_one_explicit_shard() -> None:
-    with MANIFEST_PATH.open("rb") as manifest_file:
-        manifest = tomllib.load(manifest_file)
+def render_manifest() -> None:
+    existing: dict[str, dict[str, str | None]] = {}
+    if MANIFEST.exists():
+        with MANIFEST.open("rb") as manifest_file:
+            document = tomllib.load(manifest_file)
+        if document.get("version") == 2:
+            existing = {
+                snippet_id: {
+                    "disposition": disposition,
+                    "scenario": document.get("scenarios", {}).get(snippet_id),
+                    "environment": document.get("environments", {}).get(snippet_id),
+                }
+                for snippet_id, disposition in document.get("snippets", {}).items()
+            }
+    lines = [
+        "# Generated with: uv run --no-sync python docs/test_codeblocks_manifest.py render",
+        "# Every authored occurrence is classified here without adding test plumbing to the rendered docs.",
+        "version = 2",
+        "",
+        "[snippets]",
+    ]
+    snippets = scan_snippets()
+    last_path = ""
+    for snippet in snippets:
+        old = existing.get(snippet.id, {})
+        disposition = old.get("disposition", "illustration")
+        if snippet.syntax in {"python", "python3"} and any(line.lstrip().startswith((">>>", "...")) for line in snippet.code.splitlines()):
+            disposition = old.get("disposition", "transcript")
+        if snippet.path != last_path:
+            lines.extend(["", f"# {snippet.path}"])
+            last_path = snippet.path
+        lines.append(f"{json.dumps(snippet.id)} = {json.dumps(disposition)}")
 
-    file_environments = manifest["files"]
-    block_environments = manifest["blocks"]
-    core_files = {path for path, environment in file_environments.items() if environment == "core"}
-    core_files.update(nodeid.partition("::")[0] for nodeid, environment in block_environments.items() if environment == "core")
+    scenarios = {
+        snippet.id: existing[snippet.id]["scenario"] for snippet in snippets if existing.get(snippet.id, {}).get("disposition") == "run"
+    }
+    environments = {
+        snippet.id: existing[snippet.id]["environment"] for snippet in snippets if existing.get(snippet.id, {}).get("disposition") == "run"
+    }
+    lines.extend(["", "[scenarios]"])
+    lines.extend(f"{json.dumps(snippet_id)} = {json.dumps(scenario)}" for snippet_id, scenario in scenarios.items())
+    lines.extend(["", "[environments]"])
+    lines.extend(f"{json.dumps(snippet_id)} = {json.dumps(environment)}" for snippet_id, environment in environments.items())
+    print("\n".join(lines))
 
-    core_shards = manifest["ci"]["core_shards"]
-    assert core_shards
-    shard_members = [path for paths in core_shards.values() for path in paths]
-    member_counts = Counter(shard_members)
 
-    assert set(shard_members) == core_files
-    assert {path: count for path, count in member_counts.items() if count != 1} == {}
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("command", choices=("check", "matrix", "run", "run-environment", "render"))
+    parser.add_argument("snippet_id", nargs="?")
+    args = parser.parse_args()
+
+    if args.command == "check":
+        snippets = validate_all()
+        print(f"Validated {len(snippets)} authored documentation snippets.")
+    elif args.command == "matrix":
+        print(json.dumps(matrix(), separators=(",", ":")))
+    elif args.command == "run":
+        assert args.snippet_id, "run requires a snippet ID"
+        run_snippets((args.snippet_id,))
+    elif args.command == "run-environment":
+        assert args.snippet_id, "run-environment requires an environment"
+        run_environment(args.snippet_id)
+    else:
+        render_manifest()
+
+
+if __name__ == "__main__":
+    main()

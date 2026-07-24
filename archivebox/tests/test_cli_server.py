@@ -39,8 +39,16 @@ from archivebox.tests.conftest import (
 def _resolve_sonic_env(data_dir: Path) -> dict[str, str]:
     from abx_plugins import get_plugins_dir
 
+    lib_dir = data_dir / "lib"
+    install_result = run_archivebox_cmd(
+        ["install", "search_backend_sonic"],
+        cwd=data_dir,
+        env={"ABXPKG_LIB_DIR": str(lib_dir)},
+        default_cli_env=True,
+    )
+    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
     config = Path(get_plugins_dir()) / "search_backend_sonic" / "config.json"
-    resolved = resolve_abxpkg_binary_env(data_dir / "lib", deps_from=config)
+    resolved = resolve_abxpkg_binary_env(lib_dir, deps_from=config)
     assert Path(resolved["SONIC_BINARY"]).is_file()
     return resolved
 
@@ -242,6 +250,34 @@ def test_server_daemon_starts_real_plugin_owned_sonic_worker(initialized_archive
     assert state["worker_runner"]["statename"] == "RUNNING", state
     assert state["worker_sonic"]["statename"] == "RUNNING", state
     assert "sonic" in state["worker_sonic"]["name"]
+
+
+@pytest.mark.timeout(300)
+@pytest.mark.django_db(transaction=True)
+def test_foreground_runner_starts_enabled_plugin_daemon_before_snapshot_hooks(initialized_archive, recursive_test_site):
+    from archivebox.core.models import ArchiveResult
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    env = cli_env(
+        PLUGINS="wget",
+        SEARCH_BACKEND_SONIC_HOST_NAME="127.0.0.1",
+        SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
+        ABXPKG_LIB_DIR=str(initialized_archive / "lib"),
+    )
+    result = run_archivebox_cmd(
+        ["add", "--depth=0", "--plugins=wget,search_backend_sonic", recursive_test_site["root_url"]],
+        cwd=initialized_archive,
+        env=env,
+        timeout=300,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    with use_archivebox_db(initialized_archive):
+        sonic_result = ArchiveResult.objects.get(plugin="search_backend_sonic")
+    assert sonic_result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    assert sonic_result.output_str.endswith("kb text indexed")
+    supervisord_log = (initialized_archive / "logs" / "supervisord.log").read_text(encoding="utf-8", errors="replace")
+    assert "spawned: 'worker_sonic' with pid" in supervisord_log
 
 
 def test_server_daemon_restarts_runner_killed_by_signal(archivebox_daemon_server):

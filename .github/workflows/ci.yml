@@ -23,13 +23,13 @@ jobs:
     uses: ./.github/workflows/lint.yml
     secrets: inherit
 
-  complete-tests:
-    name: Complete test suite
+  install-cli-platform:
+    name: Install and CLI platform compatibility
     uses: ./.github/workflows/test.yml
     secrets: inherit
 
-  sharded-plugin-tests:
-    name: Sharded and plugin tests
+  tests:
+    name: Discovered test matrix
     uses: ./.github/workflows/test-parallel.yml
     secrets: inherit
 
@@ -60,8 +60,8 @@ jobs:
     if: ${{ always() }}
     needs:
       - lint
-      - complete-tests
-      - sharded-plugin-tests
+      - install-cli-platform
+      - tests
       - documentation
       - codeql
       - python-artifacts
@@ -71,8 +71,8 @@ jobs:
       - name: Verify every required lane succeeded
         env:
           LINT_RESULT: ${{ needs.lint.result }}
-          COMPLETE_TESTS_RESULT: ${{ needs.complete-tests.result }}
-          SHARDED_PLUGIN_TESTS_RESULT: ${{ needs.sharded-plugin-tests.result }}
+          INSTALL_CLI_PLATFORM_RESULT: ${{ needs.install-cli-platform.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
           DOCUMENTATION_RESULT: ${{ needs.documentation.result }}
           CODEQL_RESULT: ${{ needs.codeql.result }}
           PYTHON_ARTIFACTS_RESULT: ${{ needs.python-artifacts.result }}
@@ -80,8 +80,8 @@ jobs:
         run: |
           for result in \
             "$LINT_RESULT" \
-            "$COMPLETE_TESTS_RESULT" \
-            "$SHARDED_PLUGIN_TESTS_RESULT" \
+            "$INSTALL_CLI_PLATFORM_RESULT" \
+            "$TESTS_RESULT" \
             "$DOCUMENTATION_RESULT" \
             "$CODEQL_RESULT" \
             "$PYTHON_ARTIFACTS_RESULT" \
