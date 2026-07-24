@@ -120,6 +120,14 @@ jobs:
           fi
           uv sync --locked --dev "${extra_args[@]}"
 
+      - name: Install PostgreSQL server binaries
+        if: contains(matrix.test.path, 'test_postgres_backend')
+        run: |
+          set -Eeuo pipefail
+          if ! ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1 && ! command -v initdb >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y postgresql
+          fi
+
       - name: Run ${{ matrix.test.name }}
         env:
           TEST_PATH: ${{ matrix.test.path }}

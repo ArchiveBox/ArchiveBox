@@ -4,11 +4,102 @@
 from django.db import migrations, models
 
 
+# Raw sqlite table-rebuild that makes core_snapshot.crawl_id NOT NULL. Kept
+# byte-for-byte and replayed through Django's own RunSQL only on sqlite.
+_MAKE_CRAWL_ID_NOT_NULL_SQL = """
+                        -- Rebuild snapshot table with NOT NULL crawl_id
+                        CREATE TABLE core_snapshot_final (
+                            id TEXT PRIMARY KEY NOT NULL,
+                            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            modified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                            url TEXT NOT NULL,
+                            timestamp VARCHAR(32) NOT NULL UNIQUE,
+                            bookmarked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+                            crawl_id TEXT NOT NULL,
+                            parent_snapshot_id TEXT,
+
+                            title VARCHAR(512),
+                            downloaded_at DATETIME,
+                            depth INTEGER NOT NULL DEFAULT 0,
+                            fs_version VARCHAR(10) NOT NULL DEFAULT '0.9.0',
+
+                            config TEXT NOT NULL DEFAULT '{}',
+                            notes TEXT NOT NULL DEFAULT '',
+                            num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
+                            num_uses_failed INTEGER NOT NULL DEFAULT 0,
+
+                            status VARCHAR(15) NOT NULL DEFAULT 'queued',
+                            retry_at DATETIME,
+                            current_step INTEGER NOT NULL DEFAULT 0,
+
+                            FOREIGN KEY (crawl_id) REFERENCES crawls_crawl(id) ON DELETE CASCADE,
+                            FOREIGN KEY (parent_snapshot_id) REFERENCES core_snapshot(id) ON DELETE SET NULL
+                        );
+
+                        INSERT INTO core_snapshot_final (
+                            id, url, timestamp, title,
+                            bookmarked_at, created_at, modified_at,
+                            crawl_id, parent_snapshot_id,
+                            downloaded_at, depth, fs_version,
+                            config, notes,
+                            num_uses_succeeded, num_uses_failed,
+                            status, retry_at, current_step
+                        )
+                        SELECT
+                            id, url, timestamp, title,
+                            bookmarked_at, created_at, modified_at,
+                            REPLACE(crawl_id, '-', ''), REPLACE(parent_snapshot_id, '-', ''),
+                            downloaded_at, depth, fs_version,
+                            COALESCE(config, '{}'), COALESCE(notes, ''),
+                            num_uses_succeeded, num_uses_failed,
+                            status, retry_at, current_step
+                        FROM core_snapshot;
+
+                        DROP TABLE core_snapshot;
+                        ALTER TABLE core_snapshot_final RENAME TO core_snapshot;
+
+                        CREATE INDEX core_snapshot_url_idx ON core_snapshot(url);
+                        CREATE INDEX core_snapshot_timestamp_idx ON core_snapshot(timestamp);
+                        CREATE INDEX core_snapshot_bookmarked_at_idx ON core_snapshot(bookmarked_at);
+                        CREATE INDEX core_snapshot_crawl_id_idx ON core_snapshot(crawl_id);
+                        CREATE INDEX core_snapshot_status_idx ON core_snapshot(status);
+                        CREATE INDEX core_snapshot_retry_at_idx ON core_snapshot(retry_at);
+                        CREATE INDEX core_snapshot_created_at_idx ON core_snapshot(created_at);
+                        CREATE UNIQUE INDEX core_snapshot_url_crawl_unique ON core_snapshot(url, crawl_id);
+                    """
+
+
+def _make_crawl_id_not_null(apps, schema_editor):
+    # sqlite-only table rebuild. Reuse Django's own RunSQL statement splitting so
+    # the sqlite behavior is byte-for-byte identical to the original RunSQL op.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+    migrations.RunSQL(sql=_MAKE_CRAWL_ID_NOT_NULL_SQL).database_forwards("core", schema_editor, None, None)
+
+
+def _pg_sync_schema(apps, schema_editor):
+    # On postgres the raw sqlite rebuilds above are skipped and crawl was only
+    # added to migration state; resync the real schema to this migration's
+    # end-state (empty tables). Snapshot is referenced by SnapshotTag and
+    # ArchiveResult, so those are rebuilt too to restore FK constraints.
+    from archivebox.misc.db import rebuild_models_from_migration_state
+
+    rebuild_models_from_migration_state(apps, schema_editor, "core", ["Snapshot", "SnapshotTag", "ArchiveResult"])
+
+
 def create_default_crawl_and_assign_snapshots(apps, schema_editor):
     """
     Create a default crawl for migrated snapshots and assign all snapshots without a crawl to it.
     Uses raw SQL because the app registry isn't fully populated during migrations.
     """
+    # Legacy-data-only, sqlite-specific (PRAGMA + '?' placeholders). On a fresh
+    # postgres install core_snapshot has no crawl_id column yet and there are no
+    # unassigned snapshots, so gate before touching any SQL.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+
     from django.db import connection
     import uuid as uuid_lib
     from datetime import datetime
@@ -89,72 +180,10 @@ class Migration(migrations.Migration):
         ),
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                # Now make crawl_id NOT NULL
-                migrations.RunSQL(
-                    sql="""
-                        -- Rebuild snapshot table with NOT NULL crawl_id
-                        CREATE TABLE core_snapshot_final (
-                            id TEXT PRIMARY KEY NOT NULL,
-                            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                            modified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-                            url TEXT NOT NULL,
-                            timestamp VARCHAR(32) NOT NULL UNIQUE,
-                            bookmarked_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-                            crawl_id TEXT NOT NULL,
-                            parent_snapshot_id TEXT,
-
-                            title VARCHAR(512),
-                            downloaded_at DATETIME,
-                            depth INTEGER NOT NULL DEFAULT 0,
-                            fs_version VARCHAR(10) NOT NULL DEFAULT '0.9.0',
-
-                            config TEXT NOT NULL DEFAULT '{}',
-                            notes TEXT NOT NULL DEFAULT '',
-                            num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
-                            num_uses_failed INTEGER NOT NULL DEFAULT 0,
-
-                            status VARCHAR(15) NOT NULL DEFAULT 'queued',
-                            retry_at DATETIME,
-                            current_step INTEGER NOT NULL DEFAULT 0,
-
-                            FOREIGN KEY (crawl_id) REFERENCES crawls_crawl(id) ON DELETE CASCADE,
-                            FOREIGN KEY (parent_snapshot_id) REFERENCES core_snapshot(id) ON DELETE SET NULL
-                        );
-
-                        INSERT INTO core_snapshot_final (
-                            id, url, timestamp, title,
-                            bookmarked_at, created_at, modified_at,
-                            crawl_id, parent_snapshot_id,
-                            downloaded_at, depth, fs_version,
-                            config, notes,
-                            num_uses_succeeded, num_uses_failed,
-                            status, retry_at, current_step
-                        )
-                        SELECT
-                            id, url, timestamp, title,
-                            bookmarked_at, created_at, modified_at,
-                            REPLACE(crawl_id, '-', ''), REPLACE(parent_snapshot_id, '-', ''),
-                            downloaded_at, depth, fs_version,
-                            COALESCE(config, '{}'), COALESCE(notes, ''),
-                            num_uses_succeeded, num_uses_failed,
-                            status, retry_at, current_step
-                        FROM core_snapshot;
-
-                        DROP TABLE core_snapshot;
-                        ALTER TABLE core_snapshot_final RENAME TO core_snapshot;
-
-                        CREATE INDEX core_snapshot_url_idx ON core_snapshot(url);
-                        CREATE INDEX core_snapshot_timestamp_idx ON core_snapshot(timestamp);
-                        CREATE INDEX core_snapshot_bookmarked_at_idx ON core_snapshot(bookmarked_at);
-                        CREATE INDEX core_snapshot_crawl_id_idx ON core_snapshot(crawl_id);
-                        CREATE INDEX core_snapshot_status_idx ON core_snapshot(status);
-                        CREATE INDEX core_snapshot_retry_at_idx ON core_snapshot(retry_at);
-                        CREATE INDEX core_snapshot_created_at_idx ON core_snapshot(created_at);
-                        CREATE UNIQUE INDEX core_snapshot_url_crawl_unique ON core_snapshot(url, crawl_id);
-                    """,
-                    reverse_sql=migrations.RunSQL.noop,
+                # Now make crawl_id NOT NULL (sqlite-only table rebuild)
+                migrations.RunPython(
+                    _make_crawl_id_not_null,
+                    reverse_code=migrations.RunPython.noop,
                 ),
             ],
             state_operations=[
@@ -169,4 +198,5 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
+        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
     ]

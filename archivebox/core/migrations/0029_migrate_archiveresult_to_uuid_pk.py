@@ -26,6 +26,12 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
 
     Result: Clean schema with ONLY id as UUIDField (no old_id, no uuid)
     """
+    # sqlite-only table rebuild (sqlite_master, PRAGMA, table copy/rename). On
+    # postgres this is unnecessary and invalid: the table is empty and the
+    # state flip of id -> UUIDField is applied by _pg_sync_schema below.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+
     cursor = connection.cursor()
 
     # Check if table exists and has data
@@ -190,6 +196,16 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
     print(f"    ✓ ArchiveResult UUID primary key migration complete ({row_count} records)")
 
 
+def _pg_sync_schema(apps, schema_editor):
+    # On postgres the sqlite table rebuild above is skipped; the id -> UUIDField
+    # flip and uuid-field removal only reach migration state. Resync the real
+    # (empty) core_archiveresult table to this migration's end-state. Nothing in
+    # core references ArchiveResult, so no other models need rebuilding.
+    from archivebox.misc.db import rebuild_models_from_migration_state
+
+    rebuild_models_from_migration_state(apps, schema_editor, "core", ["ArchiveResult"])
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("core", "0028_alter_snapshot_fs_version"),
@@ -217,4 +233,5 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
+        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
     ]

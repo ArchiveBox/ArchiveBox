@@ -14,6 +14,10 @@ import archivebox
 from archivebox.config.constants import CONSTANTS
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import get_api_base_url, get_admin_base_url, get_base_url, normalize_base_url
+
+# DATABASE_ENGINE config selects the backend (sqlite by default); the
+# sqlite-vs-postgres helpers live in archivebox.misc.db.
+from archivebox.misc.db import is_postgres, postgres_db_params
 from .settings_logging import SETTINGS_LOGGING
 
 
@@ -245,12 +249,21 @@ SQLITE_CONNECTION_OPTIONS = {
     },
 }
 
-DATABASES = {
-    "default": {
-        "NAME": DATABASE_NAME,
-        **SQLITE_CONNECTION_OPTIONS,
-    },
-}
+if is_postgres():
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            **postgres_db_params(),
+            "OPTIONS": {"connect_timeout": 10},
+        },
+    }
+else:
+    DATABASES = {
+        "default": {
+            "NAME": DATABASE_NAME,
+            **SQLITE_CONNECTION_OPTIONS,
+        },
+    }
 MIGRATION_MODULES = {"signal_webhooks": None}
 
 # Django requires DEFAULT_AUTO_FIELD to subclass AutoField (BigAutoField, SmallAutoField, etc.)

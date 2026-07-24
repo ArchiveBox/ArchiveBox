@@ -58,9 +58,11 @@ def _get_collection_id(DATA_DIR=DATA_DIR, force_create=False) -> str:
     collection_id = hashlib.sha256(f"{machine_id}:{collection_path}@{creation_date}".encode()).hexdigest()[:8]
 
     try:
-        # only persist collection_id file if we already have an index.sqlite3 file present
+        # only persist collection_id file if this dir already looks like a real collection
+        # (has an index.sqlite3, or an ArchiveBox.conf when the DB lives in postgres),
         # otherwise we might be running in a directory that is not a collection, no point creating cruft files
-        collection_is_active = os.path.isfile(DATABASE_FILE) and os.path.isdir(ARCHIVE_DIR) and os.access(DATA_DIR, os.W_OK)
+        collection_marker = os.path.isfile(DATABASE_FILE) or os.path.isfile(DATA_DIR / "ArchiveBox.conf")
+        collection_is_active = collection_marker and os.path.isdir(ARCHIVE_DIR) and os.access(DATA_DIR, os.W_OK)
         if collection_is_active or force_create:
             collection_id_file.write_text(collection_id)
 
@@ -270,6 +272,24 @@ def get_or_create_working_lib_dir(autofix=True, quiet=False, config: "ArchiveBox
         raise OSError(f"ArchiveBox is unable to find a writable ABXPKG_LIB_DIR, tried {CANDIDATES}!")
 
 
+def _sql_index_location() -> dict:
+    from archivebox.misc.db import database_display_location, database_exists, is_postgres
+
+    if is_postgres():
+        return {
+            "path": database_display_location(),
+            "enabled": True,
+            "is_valid": database_exists(),
+            "is_mount": False,
+        }
+    return {
+        "path": DATABASE_FILE.resolve(),
+        "enabled": True,
+        "is_valid": os.path.isfile(DATABASE_FILE) and os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
+        "is_mount": os.path.ismount(DATABASE_FILE.resolve()),
+    }
+
+
 def get_data_locations(config: "ArchiveBoxConfig | None" = None, **config_kwargs):
     from archivebox.config.constants import CONSTANTS
     from archivebox.config.common import get_config
@@ -296,12 +316,7 @@ def get_data_locations(config: "ArchiveBoxConfig | None" = None, **config_kwargs
                 and os.access(CONSTANTS.CONFIG_FILE, os.R_OK)
                 and os.access(CONSTANTS.CONFIG_FILE, os.W_OK),
             },
-            "SQL_INDEX": {
-                "path": DATABASE_FILE.resolve(),
-                "enabled": True,
-                "is_valid": os.path.isfile(DATABASE_FILE) and os.access(DATABASE_FILE, os.R_OK) and os.access(DATABASE_FILE, os.W_OK),
-                "is_mount": os.path.ismount(DATABASE_FILE.resolve()),
-            },
+            "SQL_INDEX": _sql_index_location(),
             "ARCHIVE_DIR": {
                 "path": CONSTANTS.ARCHIVE_DIR.resolve(),
                 "enabled": True,

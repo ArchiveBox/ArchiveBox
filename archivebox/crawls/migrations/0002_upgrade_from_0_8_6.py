@@ -6,6 +6,10 @@ from django.db import migrations, connection
 
 def upgrade_crawl_table_from_v086(apps, schema_editor):
     """Upgrade crawls_crawl table from v0.8.6rc0 schema to v0.9.0 schema."""
+    # sqlite-only legacy repair (sqlite_master/PRAGMA/GLOB). Postgres support
+    # postdates all legacy data, so this never has work to do there.
+    if schema_editor.connection.vendor != "sqlite":
+        return
     cursor = connection.cursor()
 
     # Check if crawls_crawl table exists

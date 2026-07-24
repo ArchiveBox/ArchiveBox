@@ -10,19 +10,9 @@ from archivebox.uuid_compat import uuid7
 from archivebox.base_models.models import get_or_create_system_user_pk
 
 
-class Migration(migrations.Migration):
-    initial = True
-
-    dependencies = [
-        ("auth", "0012_alter_user_first_name_max_length"),
-        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-    ]
-
-    operations = [
-        migrations.SeparateDatabaseAndState(
-            database_operations=[
-                migrations.RunSQL(
-                    sql="""
+# Raw sqlite DDL kept EXACTLY as-is; executed only on sqlite via Django's
+# RunSQL (identical statement splitting → byte-for-byte identical behavior).
+INITIAL_SQL = """
                 -- Create crawls_crawlschedule table first (circular FK will be added later)
                 CREATE TABLE IF NOT EXISTS crawls_crawlschedule (
                     id TEXT PRIMARY KEY NOT NULL,
@@ -75,12 +65,60 @@ class Migration(migrations.Migration):
                 CREATE INDEX IF NOT EXISTS crawls_crawl_created_at_idx ON crawls_crawl(created_at);
                 CREATE INDEX IF NOT EXISTS crawls_crawl_created_by_id_idx ON crawls_crawl(created_by_id);
                 CREATE INDEX IF NOT EXISTS crawls_crawl_schedule_id_idx ON crawls_crawl(schedule_id);
-                    """,
-                    reverse_sql="""
+                    """
+
+INITIAL_REVERSE_SQL = """
                 DROP TABLE IF EXISTS crawls_crawl;
                 DROP TABLE IF EXISTS crawls_crawlschedule;
-                    """,
-                ),
+                    """
+
+
+def _run_sqlite_only_sql(apps, schema_editor):
+    if schema_editor.connection.vendor != "sqlite":
+        return
+    migrations.RunSQL(sql=INITIAL_SQL, reverse_sql=INITIAL_REVERSE_SQL).database_forwards(
+        "crawls",
+        schema_editor,
+        None,
+        None,
+    )
+
+
+def _run_sqlite_only_sql_reverse(apps, schema_editor):
+    if schema_editor.connection.vendor != "sqlite":
+        return
+    migrations.RunSQL(sql=INITIAL_SQL, reverse_sql=INITIAL_REVERSE_SQL).database_backwards(
+        "crawls",
+        schema_editor,
+        None,
+        None,
+    )
+
+
+def _pg_sync_schema(apps, schema_editor):
+    from archivebox.misc.db import rebuild_models_from_migration_state
+
+    rebuild_models_from_migration_state(apps, schema_editor, "crawls", ["CrawlSchedule", "Crawl"])
+
+
+def _pg_drop_schema(apps, schema_editor):
+    from archivebox.misc.db import drop_models_on_postgres
+
+    drop_models_on_postgres(apps, schema_editor, "crawls", ["Crawl", "CrawlSchedule"])
+
+
+class Migration(migrations.Migration):
+    initial = True
+
+    dependencies = [
+        ("auth", "0012_alter_user_first_name_max_length"),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunPython(_run_sqlite_only_sql, reverse_code=_run_sqlite_only_sql_reverse),
             ],
             state_operations=[
                 migrations.CreateModel(
@@ -174,4 +212,9 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
+        # On non-sqlite backends the raw DDL above is skipped, so the real
+        # schema diverges from Django state. Rebuild both tables from the
+        # post-migration state (no-op on sqlite). Runs as a top-level op so
+        # ``apps`` reflects the full state including the circular template FK.
+        migrations.RunPython(_pg_sync_schema, reverse_code=_pg_drop_schema),
     ]

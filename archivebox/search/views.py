@@ -124,19 +124,32 @@ def iter_url_prefix_search_ids(prefix: str, queryset):
     table = connection.ops.quote_name(model._meta.db_table)
     pk_column = connection.ops.quote_name(model._meta.pk.column)
     url_column = connection.ops.quote_name(model._meta.get_field("url").column)
-    upper_bound = url_prefix_upper_bound(prefix)
     raw_ids = []
+
+    if connection.vendor == "sqlite":
+        # Bytewise range comparison uses the plain url btree index directly.
+        where_clause = f"{url_column} >= %s AND {url_column} < %s"
+        where_params = [prefix, url_prefix_upper_bound(prefix)]
+    else:
+        # Range comparisons are collation-dependent on postgres (linguistic
+        # collations don't compare bytewise), so use LIKE with escaped
+        # wildcards instead — correct under any collation and able to use the
+        # url pattern-ops index.
+        from archivebox.search.query import escape_like_query
+
+        where_clause = f"{url_column} LIKE %s ESCAPE '\\'"
+        where_params = [f"{escape_like_query(prefix)}%"]
 
     with connection.cursor() as cursor:
         cursor.execute(
             f"""
             SELECT {pk_column}
             FROM {table}
-            WHERE {url_column} >= %s AND {url_column} < %s
+            WHERE {where_clause}
             ORDER BY {url_column}
             LIMIT %s
             """,
-            [prefix, upper_bound, URL_PREFIX_SEARCH_LIMIT],
+            [*where_params, URL_PREFIX_SEARCH_LIMIT],
         )
         raw_ids = [str(row[0]).replace("-", "") for row in cursor.fetchall()]
 

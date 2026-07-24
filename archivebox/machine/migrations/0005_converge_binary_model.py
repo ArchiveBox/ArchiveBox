@@ -10,6 +10,13 @@ def converge_binary_table(apps, schema_editor):
     Drop machine_installedbinary if it exists (0.8.6rc0 path).
     Create machine_binary if it doesn't exist (needed by Process model).
     """
+    # sqlite-only legacy convergence: on a fresh install machine_binary already
+    # exists with the final column set (created by 0001), so every branch below
+    # is a no-op schema-wise. A non-sqlite DB never carries the 0.8.x legacy
+    # shapes this repairs, and its Binary table already matches migration state.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+
     cursor = connection.cursor()
 
     # Check what tables exist

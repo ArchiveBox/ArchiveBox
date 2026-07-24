@@ -44,7 +44,10 @@ def status(out_dir: Path = CONSTANTS.DATA_DIR) -> None:
         legacy_snapshot_dirs = [
             entry for entry in archive_dir.iterdir() if entry.is_dir() and not entry.is_symlink() and Snapshot.is_legacy_archive_dir(entry)
         ]
-    print(f"    > SQL Main Index: {num_sql_links} links".ljust(36), f"(found in {CONSTANTS.SQL_INDEX_FILENAME})")
+    from archivebox.misc.db import database_display_location, is_postgres
+
+    index_location = database_display_location() if is_postgres() else CONSTANTS.SQL_INDEX_FILENAME
+    print(f"    > SQL Main Index: {num_sql_links} links".ljust(36), f"(found in {index_location})")
     print(f"    > JSON Link Details: {len(legacy_snapshot_dirs)} links".ljust(36), f"(found in {archive_dir.name}/*/index.json)")
     print()
     print("[green]\\[*] Scanning archive data directories...[/green]")
