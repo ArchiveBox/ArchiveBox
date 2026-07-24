@@ -39,6 +39,12 @@ def _pg_sync_schema(apps, schema_editor):
     )
 
 
+def _pg_drop_schema(apps, schema_editor):
+    from archivebox.misc.db import drop_models_on_postgres
+
+    drop_models_on_postgres(apps, schema_editor, "machine", ["Binary", "NetworkInterface", "Machine"])
+
+
 _SQLITE_INITIAL_SQL = """
                 -- Create machine_machine table
                 CREATE TABLE IF NOT EXISTS machine_machine (
@@ -279,5 +285,5 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
-        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
+        migrations.RunPython(_pg_sync_schema, reverse_code=_pg_drop_schema),
     ]

@@ -2,17 +2,12 @@ from django.db import migrations
 
 
 def remove_output_dir_if_exists(apps, schema_editor):
-    if schema_editor.connection.vendor == "sqlite":
-        cursor = schema_editor.connection.cursor()
-        cursor.execute("PRAGMA table_info(machine_binary)")
-        columns = {row[1] for row in cursor.fetchall()}
-    else:
-        # Portable introspection: on non-sqlite the RemoveField below is
-        # state-only, so the real ALTER TABLE DROP COLUMN must run here too.
-        # A fresh non-sqlite DB has machine_binary with output_dir from 0001.
-        from archivebox.misc.db import migration_table_columns
-
-        columns = migration_table_columns(schema_editor.connection, "machine_binary")
+    # On non-sqlite the RemoveField below is state-only, so the real
+    # ALTER TABLE DROP COLUMN must run here too (a fresh DB has machine_binary
+    # with output_dir from 0001). Portable introspection works on both backends.
+    connection = schema_editor.connection
+    with connection.cursor() as cursor:
+        columns = {col.name for col in connection.introspection.get_table_description(cursor, "machine_binary")}
 
     if "output_dir" not in columns:
         return

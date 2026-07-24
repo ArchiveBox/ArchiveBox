@@ -101,6 +101,12 @@ def _pg_sync_schema(apps, schema_editor):
     rebuild_models_from_migration_state(apps, schema_editor, "crawls", ["CrawlSchedule", "Crawl"])
 
 
+def _pg_drop_schema(apps, schema_editor):
+    from archivebox.misc.db import drop_models_on_postgres
+
+    drop_models_on_postgres(apps, schema_editor, "crawls", ["Crawl", "CrawlSchedule"])
+
+
 class Migration(migrations.Migration):
     initial = True
 
@@ -210,5 +216,5 @@ class Migration(migrations.Migration):
         # schema diverges from Django state. Rebuild both tables from the
         # post-migration state (no-op on sqlite). Runs as a top-level op so
         # ``apps`` reflects the full state including the circular template FK.
-        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
+        migrations.RunPython(_pg_sync_schema, reverse_code=_pg_drop_schema),
     ]

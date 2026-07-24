@@ -57,57 +57,6 @@ def postgres_db_params() -> dict[str, str]:
     }
 
 
-def get_sqlite_connection_options() -> dict[str, Any]:
-    """ENGINE + OPTIONS for the sqlite backend (without NAME)."""
-    from archivebox.config.common import get_config
-
-    config = get_config()
-    return {
-        "ENGINE": "archivebox.core.sqlite_backend",
-        "TIME_ZONE": CONSTANTS.TIMEZONE,
-        "OPTIONS": {
-            # https://gcollazo.com/optimal-sqlite-settings-for-django/
-            # https://litestream.io/tips/#busy-timeout
-            # https://docs.djangoproject.com/en/5.1/ref/databases/#setting-pragma-options
-            "timeout": config.SQLITE_BUSY_TIMEOUT / 1000,
-            "check_same_thread": False,
-            # Keep SQLite on Django's default deferred transaction mode. BEGIN
-            # IMMEDIATE grabs the write lock as soon as atomic() opens, which is
-            # exactly what hurts ArchiveBox on large collections where Python code
-            # may do filesystem work before the actual row write. Deferred BEGIN
-            # keeps writes statement-scoped unless a caller explicitly opens a
-            # transaction around multiple writes.
-            "transaction_mode": None,
-            "init_command": (
-                "PRAGMA foreign_keys=ON;"
-                f"PRAGMA busy_timeout = {config.SQLITE_BUSY_TIMEOUT};"
-                f"PRAGMA journal_mode = {config.SQLITE_JOURNAL_MODE};"
-                "PRAGMA synchronous = NORMAL;"
-                "PRAGMA temp_store = MEMORY;"
-                f"PRAGMA mmap_size = {config.SQLITE_MMAP_SIZE};"
-                "PRAGMA journal_size_limit = 67108864;"
-                "PRAGMA cache_size = 2000;"
-            ),
-        },
-    }
-
-
-def get_database_settings() -> dict[str, Any]:
-    """The DATABASES['default'] dict for Django settings, per configured backend."""
-    from archivebox.config.common import get_config
-
-    if is_postgres():
-        return {
-            "ENGINE": "django.db.backends.postgresql",
-            **postgres_db_params(),
-            "OPTIONS": {"connect_timeout": 10},
-        }
-    return {
-        "NAME": get_config().DATABASE_NAME,
-        **get_sqlite_connection_options(),
-    }
-
-
 def _psycopg_connect(dbname: str | None = None, connect_timeout: int = 5):
     import psycopg
 
@@ -214,17 +163,23 @@ def approximate_row_counts(connection) -> dict[str, int]:
     return counts
 
 
-def truncate_overlong_charfields(sender, instance, **kwargs) -> None:
-    """pre_save receiver: clamp CharField values to their declared max_length.
+def truncate_overlong_charfields(instance=None, **kwargs) -> None:
+    """Clamp a model instance's CharField values to their declared max_length.
 
     SQLite never enforces VARCHAR(n) limits, so ArchiveBox has always stored
     overlong values (e.g. long crawl labels or page titles) untruncated.
     PostgreSQL enforces them and would raise DataError on save instead.
-    Truncating at save time keeps writes succeeding identically on both
-    backends. Registered once for all models in CoreConfig.ready().
+    Truncating keeps writes succeeding identically on both backends.
+
+    Dual-use: works as a ``pre_save`` receiver (Django passes ``instance=`` and
+    ``sender=`` as kwargs; registered in ``CoreConfig.ready()``) and as a plain
+    ``truncate_overlong_charfields(obj)`` call for ``bulk_create`` paths, which
+    bypass signals.
     """
     from django.db import models as dj_models
 
+    if instance is None:
+        return
     for field in instance._meta.local_concrete_fields:
         if isinstance(field, dj_models.CharField) and field.max_length:
             value = getattr(instance, field.attname, None)
@@ -233,12 +188,6 @@ def truncate_overlong_charfields(sender, instance, **kwargs) -> None:
 
 
 # --- migration helpers ------------------------------------------------------
-
-
-def migration_table_columns(connection, table_name: str) -> set[str]:
-    """Portable column-name introspection usable from inside migrations."""
-    with connection.cursor() as cursor:
-        return {col.name for col in connection.introspection.get_table_description(cursor, table_name)}
 
 
 def rebuild_models_from_migration_state(apps, schema_editor, app_label: str, model_names: list[str]) -> None:
@@ -262,6 +211,22 @@ def rebuild_models_from_migration_state(apps, schema_editor, app_label: str, mod
             schema_editor.delete_model(model)
     for model in models:
         schema_editor.create_model(model)
+
+
+def drop_models_on_postgres(apps, schema_editor, app_label: str, model_names: list[str]) -> None:
+    """Reverse companion to ``rebuild_models_from_migration_state``.
+
+    Drops the given models' tables on non-sqlite backends (in the order given,
+    so callers pass reverse-dependency order). No-op on sqlite, whose reverse is
+    handled by the gated ``RunSQL`` reverse_sql instead.
+    """
+    if schema_editor.connection.vendor == "sqlite":
+        return
+    existing_tables = set(schema_editor.connection.introspection.table_names())
+    for model_name in model_names:
+        model = apps.get_model(app_label, model_name)
+        if model._meta.db_table in existing_tables:
+            schema_editor.delete_model(model)
 
 
 def run_db_analyze_batch(

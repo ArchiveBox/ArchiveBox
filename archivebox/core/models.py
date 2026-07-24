@@ -183,9 +183,14 @@ class SnapshotQuerySet(models.QuerySet):
                 for crawl_id, permissions in Crawl.objects.filter(pk__in=missing_crawl_ids).values_list("pk", "permissions")
             }
 
+        from archivebox.misc.db import truncate_overlong_charfields
+
         for obj in objs:
             if isinstance(obj, self.model):
                 obj.ensure_permissions_config(crawl_permissions=crawl_permissions_by_id.get(str(obj.crawl_id)))
+                # bulk_create bypasses pre_save, so clamp CharFields here too
+                # (e.g. page titles) to stay within postgres VARCHAR limits.
+                truncate_overlong_charfields(obj)
         return super().bulk_create(objs, *args, **kwargs)
 
     def paged_iterator(self, chunk_size: int = 500):

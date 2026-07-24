@@ -719,11 +719,18 @@ DATABASE_PASSWORD = s3cret
 **Possible Values:** [`127.0.0.1`] / [`5432`] / [`archivebox`] / [empty]
 PostgreSQL connection settings, used only when [`DATABASE_ENGINE`](#database_engine)`=postgres`. Settable as `ARCHIVEBOX_DATABASE_HOST`, `ARCHIVEBOX_DATABASE_PORT`, `ARCHIVEBOX_DATABASE_USER`, and `ARCHIVEBOX_DATABASE_PASSWORD`.
 
-`DATABASE_HOST` may also be a path to a directory containing a PostgreSQL unix socket (e.g. `/var/run/postgresql`). When `DATABASE_ENGINE=postgres`, [`DATABASE_NAME`](#database_name) is the name of the PostgreSQL database (default: `archivebox`) instead of a file path.
+`DATABASE_HOST` may also be a path to a directory containing a PostgreSQL unix socket (e.g. `/var/run/postgresql`).
 
 ---
 <a id="database_name"></a>
 <a id="archivebox_database_name"></a>
+#### `DATABASE_NAME`
+**Possible Values:** [`index.sqlite3`] / `archivebox` / ...
+The main index database. Settable as `ARCHIVEBOX_DATABASE_NAME`.
+
+With the default [`DATABASE_ENGINE`](#database_engine)`=sqlite`, this is the path to the SQLite index file inside the data directory (`index.sqlite3`). With `DATABASE_ENGINE=postgres`, it is the name of the PostgreSQL database instead (default: `archivebox`), created automatically by `archivebox init` if it does not exist.
+
+---
 #### `SQLITE_JOURNAL_MODE`
 **Possible Values:** [`WAL`]/`DELETE`/`TRUNCATE`/`PERSIST`/`MEMORY`/`OFF`
 SQLite [journal mode](https://www.sqlite.org/pragma.html#pragma_journal_mode), applied via `PRAGMA journal_mode = ...` on every new connection. Settable as `ARCHIVEBOX_SQLITE_JOURNAL_MODE`.

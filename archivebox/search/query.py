@@ -40,10 +40,20 @@ def crawl_config_values_search_wave(query: str) -> Q | None:
             params=[pattern],
         )
     elif connection.vendor == "postgresql":
-        # jsonb has no json_tree() equivalent; matching the serialized jsonb text
-        # covers every nested value (keys can also match, which only widens recall).
+        # Match only scalar config *values*, not keys (mirrors SQLite's
+        # json_tree.atom). jsonb_path_query('$.**') walks every nested node;
+        # keep the non-container leaves and compare their text form.
         matching_crawls = Crawl.objects.extra(
-            where=["LOWER(config::text) LIKE %s ESCAPE '\\'"],
+            where=[
+                """
+                EXISTS (
+                    SELECT 1
+                    FROM jsonb_path_query(config, '$.**') AS leaf
+                    WHERE jsonb_typeof(leaf) NOT IN ('object', 'array')
+                      AND LOWER(leaf #>> '{}') LIKE %s ESCAPE '\\'
+                )
+                """,
+            ],
             params=[pattern],
         )
     else:

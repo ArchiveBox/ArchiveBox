@@ -96,6 +96,12 @@ def _pg_sync_schema(apps, schema_editor):
     rebuild_models_from_migration_state(apps, schema_editor, "api", ["APIToken", "OutboundWebhook"])
 
 
+def _pg_drop_schema(apps, schema_editor):
+    from archivebox.misc.db import drop_models_on_postgres
+
+    drop_models_on_postgres(apps, schema_editor, "api", ["OutboundWebhook", "APIToken"])
+
+
 class Migration(migrations.Migration):
     initial = True
 
@@ -271,5 +277,5 @@ class Migration(migrations.Migration):
         # On non-sqlite backends the raw DDL above is skipped, so the real
         # schema diverges from Django state. Rebuild both tables (including the
         # unique constraint) from the post-migration state (no-op on sqlite).
-        migrations.RunPython(_pg_sync_schema, reverse_code=migrations.RunPython.noop),
+        migrations.RunPython(_pg_sync_schema, reverse_code=_pg_drop_schema),
     ]
