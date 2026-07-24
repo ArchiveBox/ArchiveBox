@@ -16,7 +16,6 @@ from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.generic.list import ListView
 from django.views.generic import FormView
-from django.db import connection
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.core.paginator import InvalidPage
 from django.contrib import messages
@@ -277,8 +276,10 @@ class SnapshotView(View):
         """
 
         def _fragmentless_url_query(url: str) -> Q:
+            from archivebox.misc.db import is_postgres
+
             canonical = without_fragment(url)
-            if connection.vendor == "sqlite":
+            if not is_postgres():
                 # Use a range comparison (url >= 'canonical#' AND url < 'canonical#\U0010ffff')
                 # instead of LIKE/__startswith — SQLite's case-insensitive LIKE bypasses the
                 # url index and forces a full-table scan over ~1M rows (~250ms). The range
