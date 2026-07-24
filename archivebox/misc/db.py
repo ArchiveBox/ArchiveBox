@@ -30,20 +30,12 @@ from archivebox.misc.util import enforce_types
 # ``connection.vendor``, building ``DATABASES`` entries, or touching
 # ``CONSTANTS.DATABASE_FILE`` directly.
 
-SQLITE_VENDOR = "sqlite"
-POSTGRES_VENDOR = "postgresql"
-
-
-def database_backend() -> str:
-    """Configured backend vendor name: 'sqlite' (default) or 'postgresql'."""
-    from archivebox.config.common import get_config
-
-    engine = (get_config().DATABASE_ENGINE or "sqlite").strip().lower()
-    return POSTGRES_VENDOR if engine.startswith("postgres") else SQLITE_VENDOR
-
 
 def is_postgres() -> bool:
-    return database_backend() == POSTGRES_VENDOR
+    """True if DATABASE_ENGINE selects postgres (sqlite is the default)."""
+    from archivebox.config.common import get_config
+
+    return (get_config().DATABASE_ENGINE or "sqlite").strip().lower().startswith("postgres")
 
 
 def postgres_db_params() -> dict[str, str]:
@@ -188,12 +180,6 @@ def ensure_database_ready() -> None:
         rich_print(f"    + Created PostgreSQL database {params['NAME']}")
 
 
-def is_missing_table_error(err: BaseException) -> bool:
-    """True if err means a queried table does not exist (any backend)."""
-    msg = str(err).lower()
-    return "no such table" in msg or ("relation" in msg and "does not exist" in msg)
-
-
 def approximate_row_counts(connection) -> dict[str, int]:
     """Cheap per-table approximate row counts from the backend's optimizer stats.
 
@@ -204,14 +190,14 @@ def approximate_row_counts(connection) -> dict[str, int]:
     counts: dict[str, int] = {}
     try:
         with connection.cursor() as cursor:
-            if connection.vendor == SQLITE_VENDOR:
+            if connection.vendor == "sqlite":
                 cursor.execute("SELECT tbl, stat FROM sqlite_stat1")
                 for table, stat in cursor.fetchall():
                     try:
                         counts[str(table)] = int(str(stat).split()[0])
                     except (IndexError, TypeError, ValueError):
                         continue
-            elif connection.vendor == POSTGRES_VENDOR:
+            elif connection.vendor == "postgresql":
                 cursor.execute(
                     """
                     SELECT c.relname, c.reltuples::bigint
@@ -249,11 +235,6 @@ def truncate_overlong_charfields(sender, instance, **kwargs) -> None:
 # --- migration helpers ------------------------------------------------------
 
 
-def migration_table_exists(connection, table_name: str) -> bool:
-    """Portable existence check usable from inside migrations."""
-    return table_name in connection.introspection.table_names()
-
-
 def migration_table_columns(connection, table_name: str) -> set[str]:
     """Portable column-name introspection usable from inside migrations."""
     with connection.cursor() as cursor:
@@ -272,7 +253,7 @@ def rebuild_models_from_migration_state(apps, schema_editor, app_label: str, mod
     it from state is always equivalent, keeping the real schema in lockstep
     with migration state at each divergence point. No-op on sqlite.
     """
-    if schema_editor.connection.vendor == SQLITE_VENDOR:
+    if schema_editor.connection.vendor == "sqlite":
         return
     existing_tables = set(schema_editor.connection.introspection.table_names())
     models = [apps.get_model(app_label, model_name) for model_name in model_names]
@@ -619,7 +600,8 @@ def migration_state(out_dir: Path = CONSTANTS.DATA_DIR) -> tuple[list[str], list
             try:
                 cursor.execute("SELECT app, name FROM django_migrations")
             except Exception as err:
-                if is_missing_table_error(err):
+                msg = str(err).lower()
+                if "no such table" in msg or ("relation" in msg and "does not exist" in msg):
                     return set()
                 raise
             return {(str(app), str(name)) for app, name in cursor.fetchall()}
