@@ -344,10 +344,19 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
             CREATE_WEBHOOK="$CREATE_WEBHOOK" \
             node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME"
 
+        OPENCODE_PORT="$(uv run --project "$REPO_DIR" python - <<'PY'
+import socket
+
+with socket.socket() as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+)"
         (
             cd "$DATA_DIR"
-            uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'from archivebox.machine.models import Machine; Machine.from_json({"config": {"OPENCODE_ENABLED": True}})'
+            OPENCODE_PORT="$OPENCODE_PORT" uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'import os; from archivebox.machine.models import Machine; Machine.from_json({"config": {"OPENCODE_ENABLED": True, "OPENCODE_PORT": int(os.environ["OPENCODE_PORT"])}})'
+            uv run --project "$REPO_DIR" archivebox install opencode --binproviders=env,pnpm
         )
 
         SWEETING_CAPTURE_STARTED_AT="$( (
