@@ -14,6 +14,14 @@ function chromePath() {
   return configured && fs.existsSync(configured) ? configured : undefined;
 }
 
+function needsNoSandbox() {
+  return process.platform === 'linux' && !String(process.env.DISPLAY || '').trim();
+}
+
+function addLaunchArg(args, arg) {
+  if (!args.includes(arg)) args.push(arg);
+}
+
 async function submitAdminAdd(page, url, configure) {
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
   if (!page.url().includes('/add/')) return false;
@@ -80,7 +88,12 @@ async function main() {
       height: Number(process.env.SCREENSHOT_HEIGHT || 1000),
     },
     protocolTimeout: 300000,
+    args: [],
   };
+  if (needsNoSandbox()) {
+    addLaunchArg(launchOptions.args, '--no-sandbox');
+    addLaunchArg(launchOptions.args, '--disable-setuid-sandbox');
+  }
   const executablePath = chromePath();
   if (executablePath) launchOptions.executablePath = executablePath;
 
