@@ -70,7 +70,7 @@ jobs:
     needs: discover-tests
     runs-on: ubuntu-24.04
     env:
-      ABXPKG_LIB_DIR: ${{ runner.temp }}/archivebox-lib
+      ABXPKG_LIB_DIR: /tmp/archivebox-lib
       CHROME_HEADLESS: "true"
       DATA_DIR: /tmp/archivebox-test-data
       PERSONAS_DIR: /tmp/abx-personas
