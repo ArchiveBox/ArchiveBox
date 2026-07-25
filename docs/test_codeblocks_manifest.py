@@ -241,9 +241,7 @@ def validate_non_running(snippet: Snippet, disposition: str) -> None:
         with tempfile.TemporaryDirectory(prefix="archivebox-docs-nginx-") as temp:
             config = Path(temp) / "nginx.conf"
             config.write_text(
-                f"pid {temp}/nginx.pid;\n"
-                f"events {{}}\n"
-                f"http {{\nserver {{\nlisten 8080;\n{snippet.code}\n}}\n}}\n",
+                f"pid {temp}/nginx.pid;\nevents {{}}\nhttp {{\nserver {{\nlisten 8080;\n{snippet.code}\n}}\n}}\n",
             )
             result = subprocess.run(
                 [nginx, "-t", "-c", config, "-p", temp],
