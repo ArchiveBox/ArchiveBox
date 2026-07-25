@@ -34,7 +34,6 @@ ENVIRONMENT_RUNNERS = {
     "freebsd": "ubuntu-24.04",
     "openbsd": "ubuntu-24.04",
 }
-CI_ENVIRONMENTS = {"ubuntu", "macos"}
 SCENARIOS = {"project", "collection", "system", "system-data", "docker", "docker-data"}
 FENCE_START = re.compile(r"^(?P<indent>[ \t]*)(?P<fence>`{3,}|~{3,})[ \t]*(?P<info>[^\n]*)$")
 HTML_PRE = re.compile(
@@ -275,7 +274,6 @@ def matrix() -> dict[str, list[dict[str, str]]]:
     snippets = validate_all()
     records = load_manifest()
     environments = {records[snippet.id]["environment"] for snippet in snippets if records[snippet.id]["disposition"] == "run"}
-    ci_environments = environments.intersection(CI_ENVIRONMENTS)
     include = [
         {
             "name": environment,
@@ -283,14 +281,12 @@ def matrix() -> dict[str, list[dict[str, str]]]:
             "runner": ENVIRONMENT_RUNNERS[environment],
         }
         for environment in ENVIRONMENT_RUNNERS
-        if environment in ci_environments
+        if environment in environments
     ]
     assigned_ids = [snippet.id for snippet in snippets if records[snippet.id]["disposition"] == "run"]
     assert include, "At least one deterministic documentation example must run in CI"
     assert len(set(assigned_ids)) == len(assigned_ids)
-    assert {entry["environment"] for entry in include} == ci_environments, (
-        "Every selected CI documentation environment must have exactly one lane"
-    )
+    assert {entry["environment"] for entry in include} == environments, "Every runnable snippet environment must have exactly one CI lane"
     return {"include": include}
 
 
