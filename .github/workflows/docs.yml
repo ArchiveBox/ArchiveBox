@@ -145,6 +145,7 @@ jobs:
       - name: Run the root documentation lane
         if: ${{ matrix.environment == 'root' }}
         run: |
+          "$SUDO_BINARY" chown -R archivebox:archivebox "$ABXPKG_LIB_DIR"
           "$SUDO_BINARY" \
             --preserve-env=PATH,ABXPKG_LIB_DIR,BASH_BINARY,PYTHON_BINARY,SUDO_BINARY,UV_BINARY \
             "$UV_BINARY" run --no-sync python docs/test_codeblocks_manifest.py run-environment root
