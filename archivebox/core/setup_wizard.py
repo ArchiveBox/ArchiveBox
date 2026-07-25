@@ -3,6 +3,13 @@ from typing import Any
 from archivebox.core.routes_util import canonical_base_host_for_request, get_base_url, split_host_port
 
 
+def _request_scheme(request) -> str:
+    forwarded_scheme = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",", 1)[0].strip().lower()
+    if forwarded_scheme in {"http", "https"}:
+        return forwarded_scheme
+    return request.scheme or "http"
+
+
 def get_setup_wizard_context(request, config) -> dict[str, Any]:
     """Build the first-run setup context when ``BASE_URL`` is unset."""
     context = {
@@ -19,7 +26,7 @@ def get_setup_wizard_context(request, config) -> dict[str, Any]:
     if request is None:
         return context
 
-    scheme = request.scheme or "http"
+    scheme = _request_scheme(request)
     canonical_host = canonical_base_host_for_request(request.get_host() or "")
     display_hostname, display_port = split_host_port(canonical_host)
     display_host = canonical_host
@@ -52,7 +59,7 @@ def get_base_url_mismatch_context(request, config) -> dict[str, str] | None:
     if request is None or not config.BASE_URL:
         return None
 
-    scheme = request.scheme or "http"
+    scheme = _request_scheme(request)
     browser_url = f"{scheme}://{request.get_host()}".rstrip("/")
     browser_base_url = browser_url
     if config.USES_SUBDOMAIN_ROUTING:

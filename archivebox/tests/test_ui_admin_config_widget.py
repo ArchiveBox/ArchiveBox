@@ -211,6 +211,19 @@ def test_unconfigured_banner_displays_canonical_url_host(request_host, secure, e
     assert context["display_host"] == expected_display_host
 
 
+def test_unconfigured_banner_honors_forwarded_https_from_ingress():
+    request = RequestFactory().get(
+        "/admin/",
+        HTTP_HOST="archivebox.example.test",
+        HTTP_X_FORWARDED_PROTO="https",
+    )
+    request.user = AnonymousUser()
+
+    context = get_setup_wizard_context(request, get_config(include_machine=False))
+
+    assert context["suggested_base_url"] == "https://archivebox.example.test"
+
+
 def test_unconfigured_banner_does_not_show_setup_wizard_to_non_superusers():
     html = render_to_string(
         "core/system_warnings_banner.html",
