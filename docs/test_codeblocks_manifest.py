@@ -10,18 +10,18 @@ from __future__ import annotations
 import argparse
 import ast
 import configparser
-from dataclasses import dataclass
-from hashlib import sha256
-from html import unescape
 import json
 import os
-from pathlib import Path
 import re
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import tomllib
+from dataclasses import dataclass
+from hashlib import sha256
+from html import unescape
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "docs" / "codeblocks.toml"
@@ -403,8 +403,6 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                     },
                 )
                 system_lib_dir = Path(snippet_env["ABXPKG_LIB_DIR"])
-                system_lib_dir.mkdir(parents=True, exist_ok=True)
-                system_lib_dir.chmod(0o777)
                 if record["environment"] == "root":
                     snippet_env["PATH"] = os.pathsep.join(
                         [
@@ -419,6 +417,8 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                         ],
                     )
                 else:
+                    system_lib_dir.mkdir(parents=True, exist_ok=True)
+                    system_lib_dir.chmod(0o777)
                     excluded_path_dirs = {Path(sys.executable).parent.resolve()}
                     if env.get("ABXPKG_LIB_DIR"):
                         excluded_path_dirs.add((Path(env["ABXPKG_LIB_DIR"]) / "env" / "bin").resolve())
