@@ -197,7 +197,10 @@ def check_not_root():
 def is_archivebox_source_root(path: Path | str | None = None) -> bool:
     """Return whether path is the root of an ArchiveBox source checkout."""
     path = Path(path or os.getcwd()).resolve()
-    return (path / ".git").exists() and (path / "archivebox" / "__init__.py").is_file() and (path / "pyproject.toml").is_file()
+    try:
+        return (path / ".git").exists() and (path / "archivebox" / "__init__.py").is_file() and (path / "pyproject.toml").is_file()
+    except OSError:
+        return False
 
 
 def check_not_inside_source_dir(path: Path | str | None = None) -> None:

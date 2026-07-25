@@ -9,6 +9,7 @@ import pytest
 from archivebox.core.shutdown_util import foreground_shutdown_signals
 from archivebox.core.shutdown_util import raise_if_shutdown_requested
 from archivebox.misc.checks import _migration_interrupt_message
+from archivebox.misc.checks import is_archivebox_source_root
 
 
 def test_migration_interrupt_message_prints_resume_command_and_atomic_safety():
@@ -25,6 +26,18 @@ def test_migration_interrupt_message_before_apply_says_no_changes_applied():
 
     assert "cancelled before any changes were applied" in message
     assert "archivebox init" in message
+
+
+def test_source_root_check_treats_inaccessible_probe_paths_as_not_source_root(tmp_path):
+    (tmp_path / ".git").mkdir()
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'not-archivebox'\n")
+    archivebox_dir = tmp_path / "archivebox"
+    archivebox_dir.mkdir()
+    archivebox_dir.chmod(0)
+    try:
+        assert is_archivebox_source_root(tmp_path) is False
+    finally:
+        archivebox_dir.chmod(0o700)
 
 
 @pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM])

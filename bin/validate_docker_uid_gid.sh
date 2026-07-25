@@ -63,9 +63,11 @@ uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
     >/dev/null
 export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
 DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
+SUDO_BINARY="$ABXPKG_LIB_DIR/env/bin/sudo"
 SSH_BINARY="$ABXPKG_LIB_DIR/env/bin/ssh"
 UNAME_BINARY="$ABXPKG_LIB_DIR/env/bin/uname"
 test -x "$DOCKER_BINARY"
+test -x "$SUDO_BINARY"
 test -x "$SSH_BINARY"
 test -x "$UNAME_BINARY"
 
@@ -475,7 +477,7 @@ run_mount_case "SMB" "${SMB_TEST_DIR:-}"
 log "SUMMARY passed=$passed failed=$failed total=$total"
 
 if [[ "$KEEP_VALIDATION_ROOT" != "1" ]]; then
-    rm -rf "$VALIDATION_ROOT"
+    "$SUDO_BINARY" rm -rf "$VALIDATION_ROOT"
 fi
 
 [[ "$failed" == "0" ]]
