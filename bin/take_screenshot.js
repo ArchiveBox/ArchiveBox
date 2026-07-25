@@ -198,6 +198,7 @@ async function main() {
           .filter((bar) => bar.getClientRects().length > 0 && bar.offsetWidth > 0 && bar.offsetHeight > 0);
         const panel = document.querySelector('#progress-monitor .screencast-panel.visible');
         const image = panel?.querySelector('img');
+        const placeholder = panel?.querySelector('.screencast-placeholder');
         return monitor
           && getComputedStyle(monitor).display !== 'none'
           && !monitor.classList.contains('collapsed')
@@ -206,9 +207,14 @@ async function main() {
           && panel?.getClientRects().length > 0
           && panel.offsetWidth > 0
           && panel.offsetHeight > 0
-          && image?.complete
-          && image.naturalWidth > 0
-          && image.naturalHeight > 0;
+          && (
+            (
+              image?.complete
+              && image.naturalWidth > 0
+              && image.naturalHeight > 0
+            )
+            || placeholder?.getClientRects().length > 0
+          );
       }, { timeout: 120000, polling: 250 });
     }
 
@@ -232,6 +238,7 @@ async function main() {
       progressCrawls: document.querySelectorAll('#progress-monitor .crawl-item').length,
       progressSnapshots: document.querySelectorAll('#progress-monitor .snapshot-item').length,
       screencastVisible: Boolean(document.querySelector('#progress-monitor .screencast-panel.visible')),
+      screencastPlaceholderVisible: Boolean(document.querySelector('#progress-monitor .screencast-panel.visible .screencast-placeholder')),
       screencastImageLoaded: (() => {
         const img = document.querySelector('#progress-monitor .screencast-panel.visible img');
         return Boolean(img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
