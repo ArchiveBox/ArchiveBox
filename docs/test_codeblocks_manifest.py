@@ -387,13 +387,33 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 system_lib_dir = Path(snippet_env["ABXPKG_LIB_DIR"])
                 system_lib_dir.mkdir(parents=True, exist_ok=True)
                 system_lib_dir.chmod(0o777)
-                snippet_env["PATH"] = os.pathsep.join(
-                    [
-                        str(system_home / ".local" / "bin"),
-                        str(system_home / ".cargo" / "bin"),
-                        *(part for part in env["PATH"].split(os.pathsep) if Path(part).resolve() != Path(sys.executable).parent.resolve()),
-                    ],
-                )
+                if record["environment"] == "root":
+                    for inherited_binary in ("UV_BINARY", "PYTHON_BINARY", "SUDO_BINARY", "DOCKER_BINARY"):
+                        snippet_env.pop(inherited_binary, None)
+                    snippet_env["PATH"] = os.pathsep.join(
+                        [
+                            str(system_home / ".local" / "bin"),
+                            str(system_home / ".cargo" / "bin"),
+                            "/usr/local/sbin",
+                            "/usr/local/bin",
+                            "/usr/sbin",
+                            "/usr/bin",
+                            "/sbin",
+                            "/bin",
+                        ],
+                    )
+                else:
+                    snippet_env["PATH"] = os.pathsep.join(
+                        [
+                            str(system_home / ".local" / "bin"),
+                            str(system_home / ".cargo" / "bin"),
+                            *(
+                                part
+                                for part in env["PATH"].split(os.pathsep)
+                                if Path(part).resolve() != Path(sys.executable).parent.resolve()
+                            ),
+                        ],
+                    )
                 workdirs["system"] = temp_dir / f"system-cwd-{snippet_id}"
                 workdirs["system-data"] = system_data_dir
                 workdirs[record["scenario"]].mkdir(parents=True)
