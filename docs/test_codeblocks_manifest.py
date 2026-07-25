@@ -313,6 +313,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
 
     with tempfile.TemporaryDirectory(prefix="archivebox-docs-") as temp:
         temp_dir = Path(temp)
+        temp_dir.chmod(0o755)
         env = os.environ.copy()
         env.update(
             {
