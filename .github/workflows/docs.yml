@@ -168,8 +168,10 @@ jobs:
         uses: vmactions/openbsd-vm@c941015845c0f0c429676840963dc63b226d4f69 # v1.4.5
         with:
           usesh: true
+          cpu: 1
           prepare: pkg_add uv rust
           run: |
+            export CARGO_BUILD_JOBS=1
             abxpkg_version="$(uv run --no-project python -c 'import tomllib; dependencies = tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]; print(next(dependency.split("==", 1)[1] for dependency in dependencies if dependency.startswith("abxpkg==")))')"
             export ABXPKG_LIB_DIR="/tmp/archivebox-docs-lib"
             uvx --from "abxpkg==$abxpkg_version" abxpkg env \
