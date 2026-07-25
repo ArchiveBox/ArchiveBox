@@ -219,7 +219,7 @@ def validate_non_running(snippet: Snippet, disposition: str) -> None:
             output = Path(temp) / "diagram.svg"
             source.write_text(snippet.code)
             command = [mmdc, "--input", source, "--output", output]
-            if sys.platform.startswith("linux") and not os.environ.get("DISPLAY", "").strip():
+            if sys.platform.startswith("linux"):
                 command.extend(
                     [
                         "--puppeteerConfigFile",
