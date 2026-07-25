@@ -385,7 +385,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                     },
                 )
                 system_lib_dir = Path(snippet_env["ABXPKG_LIB_DIR"])
-                system_lib_dir.mkdir(exist_ok=True)
+                system_lib_dir.mkdir(parents=True, exist_ok=True)
                 system_lib_dir.chmod(0o777)
                 snippet_env["PATH"] = os.pathsep.join(
                     [
