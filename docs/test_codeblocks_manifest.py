@@ -344,9 +344,11 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
             ],
         )
         scenarios = {records[snippet_id]["scenario"] for snippet_id in snippet_ids}
+        system_cwd = temp_dir / "system-cwd"
+        system_cwd.mkdir()
         workdirs = {
             "project": ROOT,
-            "system": system_home,
+            "system": system_cwd,
             "system-data": system_home / "archivebox" / "data",
             "collection": Path(env["HOME"]) / "archivebox" / "data",
             "docker": Path(env["HOME"]) / "archivebox",

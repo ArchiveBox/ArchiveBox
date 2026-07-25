@@ -324,6 +324,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Install <a href="https://brew.sh/#install">Homebrew</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>brew</code>.
 <pre lang="bash"><code style="white-space: pre-line">brew tap archivebox/archivebox
+brew trust archivebox/archivebox
 brew install archivebox
 archivebox version                         # make sure all dependencies are installed
 </code></pre>

@@ -36,6 +36,7 @@ archivebox version       # shows lots of useful info about installed dependencie
 ArchiveBox can be installed with Homebrew or `uv` on macOS:
 ```bash
 brew tap archivebox/archivebox
+brew trust archivebox/archivebox
 brew install archivebox
 
 mkdir -p ~/archivebox/data
