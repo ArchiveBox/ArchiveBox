@@ -115,7 +115,13 @@ jobs:
           mkdir -p "$data_dir"
 
           uv venv --python "${{ matrix.python }}" "$smoke_env"
-          uv pip install --python "$smoke_env" --no-cache "$artifact"
+          uv pip install \
+            --python "$smoke_env" \
+            --no-cache \
+            --refresh-package abx-dl \
+            --refresh-package abx-plugins \
+            --refresh-package abxpkg \
+            "$artifact"
 
           unset PYTHONPATH
           cd "$data_dir"
