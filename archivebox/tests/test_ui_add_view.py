@@ -1,4 +1,5 @@
 import json
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -10,7 +11,6 @@ from archivebox.machine.models import Machine
 from archivebox.personas.models import Persona
 from archivebox.services.runner import CrawlRunner
 from archivebox.workers.models import RETRY_AT_MAX
-
 
 pytestmark = pytest.mark.django_db
 
@@ -40,6 +40,10 @@ def test_add_view_renders_tag_editor_and_url_filter_fields(client, admin_user, p
     assert response.status_code == 200
     assert response.context["can_override_crawl_config"] is False
     assert form.plugin_groups == []
+    placeholder = form.fields["url"].widget.attrs["placeholder"]
+    assert isinstance(placeholder, str)
+    assert placeholder.startswith("Enter URL(s) to archive.")
+    assert "https://example.com\n\nhttps://news.ycombinator.com" in placeholder
     assert {
         "url",
         "tag",
@@ -563,14 +567,12 @@ def test_add_view_extracts_urls_from_mixed_text_input(client, admin_user):
     response = client.post(
         reverse("add"),
         data={
-            "url": "\n".join(
-                [
-                    "https://sweeting.me,https://google.com",
-                    "Notes: [ArchiveBox](https://github.com/ArchiveBox/ArchiveBox), https://news.ycombinator.com",
-                    "[Wiki](https://en.wikipedia.org/wiki/Classification_(machine_learning))",
-                    '{"items":["https://example.com/three"]}',
-                    "csv,https://example.com/four",
-                ],
+            "url": (
+                "https://sweeting.me,https://google.com\n"
+                "Notes: [ArchiveBox](https://github.com/ArchiveBox/ArchiveBox), https://news.ycombinator.com\n"
+                "[Wiki](https://en.wikipedia.org/wiki/Classification_(machine_learning))\n"
+                '{"items":["https://example.com/three"]}\n'
+                "csv,https://example.com/four"
             ),
             "tag": "",
             "depth": "0",
@@ -594,14 +596,12 @@ def test_add_view_extracts_urls_from_mixed_text_input(client, admin_user):
 
     crawl = Crawl.objects.order_by("-created_at").first()
     assert crawl is not None
-    expected_input = "\n".join(
-        [
-            "https://sweeting.me,https://google.com",
-            "Notes: [ArchiveBox](https://github.com/ArchiveBox/ArchiveBox), https://news.ycombinator.com",
-            "[Wiki](https://en.wikipedia.org/wiki/Classification_(machine_learning))",
-            '{"items":["https://example.com/three"]}',
-            "csv,https://example.com/four",
-        ],
+    expected_input = (
+        "https://sweeting.me,https://google.com\n"
+        "Notes: [ArchiveBox](https://github.com/ArchiveBox/ArchiveBox), https://news.ycombinator.com\n"
+        "[Wiki](https://en.wikipedia.org/wiki/Classification_(machine_learning))\n"
+        '{"items":["https://example.com/three"]}\n'
+        "csv,https://example.com/four"
     )
     assert crawl.urls == expected_input
     assert crawl.snapshot_set.count() == 0
@@ -613,12 +613,7 @@ def test_add_view_trims_trailing_punctuation_from_markdown_urls(client, admin_us
     response = client.post(
         reverse("add"),
         data={
-            "url": "\n".join(
-                [
-                    "Docs: https://github.com/ArchiveBox/ArchiveBox.",
-                    "Issue: https://github.com/abc?abc#234234?.",
-                ],
-            ),
+            "url": ("Docs: https://github.com/ArchiveBox/ArchiveBox.\nIssue: https://github.com/abc?abc#234234?."),
             "tag": "",
             "depth": "0",
             "max_urls": "0",
@@ -641,12 +636,7 @@ def test_add_view_trims_trailing_punctuation_from_markdown_urls(client, admin_us
 
     crawl = Crawl.objects.order_by("-created_at").first()
     assert crawl is not None
-    expected_input = "\n".join(
-        [
-            "Docs: https://github.com/ArchiveBox/ArchiveBox.",
-            "Issue: https://github.com/abc?abc#234234?.",
-        ],
-    )
+    expected_input = "Docs: https://github.com/ArchiveBox/ArchiveBox.\nIssue: https://github.com/abc?abc#234234?."
     assert crawl.urls == expected_input
     assert crawl.snapshot_set.count() == 0
 

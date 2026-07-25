@@ -14,6 +14,7 @@
  - 🌐 [Web UI](Usage#ui-usage)
  - 🧩 [Browser Extension](Usage#browser-extension-usage)
  - 👾 [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496#issuecomment-2080174235) / [Webhooks](https://github.com/ArchiveBox/ArchiveBox/pull/1418)
+ - 📸 [[UI Screenshots|Screenshots]]
  - 📜 [Python API](https://docs.archivebox.io/dev/apidocs/index.html) / [REPL](Usage#python-shell-usage) / [SQL API](Usage#sql-shell-usage)
 
 # Reference

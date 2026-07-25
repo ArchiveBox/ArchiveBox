@@ -16,9 +16,13 @@ Environment:
   SESSIONID                  Django session cookie value for admin.archivebox.localhost
   SCREENSHOT_COOKIE_NAME     Cookie name, defaults to sessionid
   SCREENSHOT_COOKIE_DOMAIN   Cookie domain, defaults to admin.archivebox.localhost
+  SCREENSHOT_USER_DATA_DIR   Chrome profile directory (e.g. a persona's chrome_profile)
+  SCREENSHOT_LOGIN_USERNAME  Log in through #id_username before capture
+  SCREENSHOT_LOGIN_PASSWORD  Password used with SCREENSHOT_LOGIN_USERNAME
   CHROME_BINARY              Chromium/Chrome executable path
   SCREENSHOT_WIDTH           Viewport width, defaults to 1600
   SCREENSHOT_HEIGHT          Viewport height, defaults to 1400
+  SCREENSHOT_VARIANTS_JSON   JSON array of {path,width,height} captures from one loaded page
   SCREENSHOT_FULL_PAGE       Set to 1 to capture the full page, defaults to viewport only
   SCREENSHOT_SCROLL_SELECTOR Scroll this selector into view before capture
   SCREENSHOT_WAIT_SELECTOR   Wait for this selector before capture
@@ -26,6 +30,10 @@ Environment:
   SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR  Wait for this selector after clicking
   SCREENSHOT_HOST_RESOLVER_RULES  Chrome host resolver rules
   SCREENSHOT_SNAPSHOT_VIEW   Set to list or grid before loading the page
+  SCREENSHOT_SNAPSHOT_HEADER Set to expanded or collapsed before loading a snapshot detail page
+  SCREENSHOT_EXPECT_PLUGIN   Require this snapshot output plugin to be selected
+  SCREENSHOT_EXPECT_LIVE_PROGRESS  Require real progress bars and a loaded screencast frame
+  SCREENSHOT_COLLAPSE_FILTERS Set to 1 to keep admin filters out of screenshots
   SCREENSHOT_RESET_FILTERS   Set to 1 to clear the admin filter collapsed preference
 `);
 }
@@ -58,6 +66,18 @@ async function main() {
   const width = Number(process.env.SCREENSHOT_WIDTH || 1600);
   const height = Number(process.env.SCREENSHOT_HEIGHT || 1400);
   const fullPage = process.env.SCREENSHOT_FULL_PAGE === '1';
+  const variants = process.env.SCREENSHOT_VARIANTS_JSON
+    ? JSON.parse(process.env.SCREENSHOT_VARIANTS_JSON)
+    : [];
+
+  if (!Array.isArray(variants)) {
+    throw new Error('SCREENSHOT_VARIANTS_JSON must be a JSON array');
+  }
+  for (const variant of variants) {
+    if (!variant.path || !Number.isInteger(variant.width) || !Number.isInteger(variant.height)) {
+      throw new Error('Each screenshot variant requires path, integer width, and integer height');
+    }
+  }
 
   fs.mkdirSync(path.dirname(output), { recursive: true });
 
@@ -66,19 +86,30 @@ async function main() {
     defaultViewport: { width, height },
     executablePath: chromePath(),
   };
+  if (process.env.SCREENSHOT_USER_DATA_DIR) {
+    launchOptions.userDataDir = path.resolve(process.env.SCREENSHOT_USER_DATA_DIR);
+  }
   if (process.env.SCREENSHOT_HOST_RESOLVER_RULES) {
     launchOptions.args = [`--host-resolver-rules=${process.env.SCREENSHOT_HOST_RESOLVER_RULES}`];
   }
   const browser = await puppeteer.launch(launchOptions);
   try {
+    // Persistent persona profiles can restore tabs left by earlier launches.
+    // Close them before navigating so repeated captures do not multiply live
+    // admin requests and overwhelm the server being documented.
+    const restoredPages = await browser.pages();
     const page = await browser.newPage();
+    await Promise.all(restoredPages.map((restoredPage) => restoredPage.close()));
     page.setDefaultTimeout(45000);
 
-    if (process.env.SCREENSHOT_SNAPSHOT_VIEW || process.env.SCREENSHOT_RESET_FILTERS === '1') {
-      await page.evaluateOnNewDocument((snapshotView, resetFilters) => {
+    if (process.env.SCREENSHOT_SNAPSHOT_VIEW || process.env.SCREENSHOT_SNAPSHOT_HEADER || process.env.SCREENSHOT_COLLAPSE_FILTERS === '1' || process.env.SCREENSHOT_RESET_FILTERS === '1') {
+      await page.evaluateOnNewDocument((snapshotView, snapshotHeader, collapseFilters, resetFilters) => {
         if (snapshotView) localStorage.setItem('preferred_snapshot_view_mode', snapshotView);
-        if (resetFilters) localStorage.removeItem('admin-filters-collapsed');
-      }, process.env.SCREENSHOT_SNAPSHOT_VIEW || '', process.env.SCREENSHOT_RESET_FILTERS === '1');
+        if (snapshotHeader === 'expanded') localStorage.setItem('archivebox-snapshot-header-visible', 'true');
+        if (snapshotHeader === 'collapsed') localStorage.setItem('archivebox-snapshot-header-visible', 'false');
+        if (collapseFilters) localStorage.setItem('admin-filters-collapsed', 'true');
+        else if (resetFilters) localStorage.removeItem('admin-filters-collapsed');
+      }, process.env.SCREENSHOT_SNAPSHOT_VIEW || '', process.env.SCREENSHOT_SNAPSHOT_HEADER || '', process.env.SCREENSHOT_COLLAPSE_FILTERS === '1', process.env.SCREENSHOT_RESET_FILTERS === '1');
     }
 
     if (process.env.SESSIONID) {
@@ -95,7 +126,26 @@ async function main() {
       await page.setCookie(cookie);
     }
 
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    let navigationResponse = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+    if (process.env.SCREENSHOT_LOGIN_USERNAME || process.env.SCREENSHOT_LOGIN_PASSWORD) {
+      if (!process.env.SCREENSHOT_LOGIN_USERNAME || !process.env.SCREENSHOT_LOGIN_PASSWORD) {
+        throw new Error('SCREENSHOT_LOGIN_USERNAME and SCREENSHOT_LOGIN_PASSWORD must be set together');
+      }
+      await page.waitForSelector('#id_username');
+      await page.type('#id_username', process.env.SCREENSHOT_LOGIN_USERNAME);
+      await page.type('#id_password', process.env.SCREENSHOT_LOGIN_PASSWORD);
+      const [loginResponse] = await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }),
+        page.click('button[type="submit"], input[type="submit"]'),
+      ]);
+      navigationResponse = loginResponse || navigationResponse;
+      if (new URL(page.url()).pathname.includes('/admin/login/')) {
+        const loginError = await page.evaluate(() => Array.from(document.querySelectorAll('.errornote, .errorlist')).map((element) => element.textContent.trim()).filter(Boolean).join(' '));
+        const cookieDetails = (await page.cookies()).map((cookie) => `${cookie.name}@${cookie.domain}${cookie.path}${cookie.secure ? ';Secure' : ''}`).join(', ') || 'none';
+        throw new Error(`ArchiveBox persona login failed at ${page.url()}: ${loginError || 'no form error shown'} (cookies: ${cookieDetails})`);
+      }
+    }
 
     await page.waitForSelector('body');
     await page.waitForSelector('#progress-monitor, #add-form', { timeout: 5000 }).catch(() => {});
@@ -114,6 +164,39 @@ async function main() {
       await page.evaluate((selector) => {
         document.querySelector(selector)?.scrollIntoView({ block: 'start', inline: 'nearest' });
       }, process.env.SCREENSHOT_SCROLL_SELECTOR);
+    }
+
+    if (process.env.SCREENSHOT_EXPECT_PLUGIN) {
+      const expectedPlugin = process.env.SCREENSHOT_EXPECT_PLUGIN.toLowerCase();
+      await page.waitForFunction((pluginName) => {
+        const selectedCard = document.querySelector('.thumb-card.selected-card[data-plugin-name]');
+        const frame = document.querySelector('#main-frame');
+        return selectedCard?.dataset.pluginName?.toLowerCase() === pluginName
+          && frame
+          && frame.getAttribute('src')
+          && frame.getAttribute('src') !== 'about:blank';
+      }, { timeout: 45000 }, expectedPlugin);
+    }
+
+    if (process.env.SCREENSHOT_EXPECT_LIVE_PROGRESS === '1') {
+      await page.waitForFunction(() => {
+        const monitor = document.querySelector('#progress-monitor');
+        const bars = [...document.querySelectorAll('#progress-monitor .progress-bar')]
+          .filter((bar) => bar.getClientRects().length > 0 && bar.offsetWidth > 0 && bar.offsetHeight > 0);
+        const panel = document.querySelector('#progress-monitor .screencast-panel.visible');
+        const image = panel?.querySelector('img');
+        return monitor
+          && getComputedStyle(monitor).display !== 'none'
+          && !monitor.classList.contains('collapsed')
+          && monitor.querySelector('.progress-content')?.getClientRects().length > 0
+          && bars.length >= 2
+          && panel?.getClientRects().length > 0
+          && panel.offsetWidth > 0
+          && panel.offsetHeight > 0
+          && image?.complete
+          && image.naturalWidth > 0
+          && image.naturalHeight > 0;
+      }, { timeout: 120000, polling: 250 });
     }
 
     const frameHandle = await page.$('.crawl-snapshots-embed iframe');
@@ -147,7 +230,21 @@ async function main() {
       snapshotEmbed: Boolean(document.querySelector('.crawl-snapshots-embed iframe')),
       addForm: Boolean(document.querySelector('#add-form')),
       limitFields: Array.from(document.querySelectorAll('.crawl-limit-field label')).map((el) => el.textContent.trim()),
+      snapshotOutputPlugins: [...new Set(
+        [...document.querySelectorAll('.thumb-card[data-plugin-name] a[target="preview"]')]
+          .map((link) => link.closest('.thumb-card')?.dataset.pluginName)
+          .filter(Boolean),
+      )],
+      snapshotOutputs: [...document.querySelectorAll('.thumb-card[data-plugin-name]')]
+        .map((card) => ({
+          plugin: card.dataset.pluginName || '',
+          previewUrl: card.dataset.previewUrl || card.querySelector('a[target="preview"]')?.getAttribute('href') || '',
+        }))
+        .filter((output) => output.plugin && output.previewUrl),
+      selectedSnapshotOutputPlugin: document.querySelector('.thumb-card.selected-card[data-plugin-name]')?.dataset.pluginName || '',
     }));
+    checks.status = navigationResponse ? navigationResponse.status() : null;
+    checks.finalUrl = page.url();
 
     let frameChecks = null;
     const embeddedFrameHandle = await page.$('.crawl-snapshots-embed iframe');
@@ -165,8 +262,21 @@ async function main() {
       }
     }
 
-    await page.screenshot({ path: output, fullPage });
-    console.log(JSON.stringify({ screenshotPath: output, checks, frameChecks }, null, 2));
+    const screenshotPaths = [];
+    if (variants.length) {
+      for (const variant of variants) {
+        const variantPath = path.resolve(variant.path);
+        fs.mkdirSync(path.dirname(variantPath), { recursive: true });
+        await page.setViewport({width: variant.width, height: variant.height, deviceScaleFactor: 1});
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await page.screenshot({ path: variantPath, fullPage });
+        screenshotPaths.push(variantPath);
+      }
+    } else {
+      await page.screenshot({ path: output, fullPage });
+      screenshotPaths.push(output);
+    }
+    console.log(JSON.stringify({ screenshotPath: screenshotPaths[0], screenshotPaths, checks, frameChecks }, null, 2));
   } finally {
     await browser.close();
   }

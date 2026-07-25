@@ -1,0 +1,121 @@
+{% load static %}
+<div id="archivebox-setup-wizard" role="dialog" aria-modal="true" aria-labelledby="archivebox-setup-title"
+     data-machine-admin-url="{{ machine_admin_url }}"
+     data-public-index="{{ public_index|yesno:'true,false' }}" data-public-add-view="{{ public_add_view|yesno:'true,false' }}"
+     data-permissions="{{ permissions }}">
+  <link rel="stylesheet" href="{% static 'setup_wizard.css' %}">
+  <div class="abx-setup-panel">
+    <div>
+      <div class="abx-setup-eyebrow">First-time server setup</div>
+      <h2 id="archivebox-setup-title">Setup access to your ArchiveBox Server: <code>{{ display_host|default:canonical_host }}</code></h2>
+    </div>
+
+    <fieldset class="abx-question">
+      <legend><b>Hosting Location:</b> What machine are you hosting this ArchiveBox server on?</legend>
+      <div class="abx-question-options">
+        <label class="abx-question-option"><input type="radio" name="archivebox-hosting-location" value="localhost"> <span><b>Localhost</b><small>Same machine as you, such as a local laptop or desktop. Modern browsers support wildcard <code>*.archivebox.localhost</code> with no DNS or HTTPS setup required.</small></span></label>
+        <label class="abx-question-option"><input type="radio" name="archivebox-hosting-location" value="private"> <span><b>Private Server</b><small>NAS, Docker host, private cloud, VPS behind NAT, or another server not directly accessible from the public internet.</small></span></label>
+        <label class="abx-question-option"><input type="radio" name="archivebox-hosting-location" value="public"> <span><b>Public Server</b><small>A server with a public static IP and public domain, directly accessible from the internet.</small></span></label>
+      </div>
+      <div class="abx-question-status" id="archivebox-setup-hosting-status">Choose where this server is hosted.</div>
+    </fieldset>
+
+    <fieldset class="abx-question">
+      <legend><b>DNS mode:</b> How will DNS point to this ArchiveBox server?</legend>
+      <div class="abx-question-options">
+        <label class="abx-question-option"><input type="radio" name="archivebox-dns-mode" value="localhost"> <span><b>⭐ Localhost</b><small>No setup needed. <code id="archivebox-setup-localhost-dns-example">*.archivebox.localhost</code> works directly in modern browsers with all features.</small></span></label>
+        <label class="abx-question-option"><input type="radio" name="archivebox-dns-mode" value="single"> <span><b>⚠️ Single-domain DNS</b><small>Register a DNS record like <code>A archivebox.example.com</code> → <code>your server's IP</code>, or add an equivalent <code>/etc/hosts</code> entry pointing to your server. Some archived content that depends on JavaScript may not display properly in this mode. JavaScript still runs during capture, but viewing HTML captured by <code>wget</code>, <code>dom</code>, <code>responses</code>, <code>staticfile</code>, and similar plugins will not replay JavaScript unless wildcard DNS is used.</small></span></label>
+        <label class="abx-question-option"><input type="radio" name="archivebox-dns-mode" value="wildcard"> <span><b>⭐ Wildcard DNS</b><small>Point both the bare <code>BASE_URL</code> hostname and <code>*.BASE_URL</code> to this server using A/AAAA records or CNAME records. Ideal: safest isolation with all replay features. <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Modes" target="_blank" rel="noopener noreferrer">Setup instructions</a>.</small></span></label>
+      </div>
+      <div class="abx-question-status" id="archivebox-setup-dns-status">Choose a DNS mode to begin testing.</div>
+    </fieldset>
+
+    <fieldset class="abx-question">
+      <legend><b>Ingress &amp; TLS mode:</b> How will HTTPS traffic reach this ArchiveBox server?</legend>
+      <div class="abx-question-options">
+        <label class="abx-question-option"><input type="radio" name="archivebox-tls-mode" value="localhost"> <span><b>⭐ Localhost</b><small>No setup needed. HTTPS is not required for local access; all replay features remain available.</small></span></label>
+        <label class="abx-question-option"><input type="radio" name="archivebox-tls-mode" value="none"> <span><b>⚠️ No separate ingress service / SSL termination</b><small>Access ArchiveBox directly without an ingress service like Cloudflare/AWS/Nginx/Caddy/Traefik in front. In-browser WARC viewing will be disabled unless using <code>localhost</code> or HTTPS.</small></span></label>
+        <label class="abx-question-option"><input type="radio" name="archivebox-tls-mode" value="single"> <span><b>⚠️ Single-domain HTTPS certificate</b><small>One certificate from Nginx + Let's Encrypt, Caddy, Traefik, Cloudflare, Tailscale, or another ingress provider. This mode is not allowed unless also using Single-domain DNS.</small></span></label>
+        <label class="abx-question-option"><input type="radio" name="archivebox-tls-mode" value="wildcard"> <span><b>⭐ Wildcard TLS</b><small>A <code>*.example.com</code> certificate from Let's Encrypt, Cloudflare, or another wildcard-capable provider. Ideal for public isolated-subdomain servers.</small></span></label>
+      </div>
+      <div class="abx-question-status" id="archivebox-setup-tls-status">Choose how HTTPS will reach ArchiveBox.</div>
+    </fieldset>
+
+    <div class="abx-setup-row">
+      <label class="abx-setup-label" for="archivebox-setup-base-url">Choose the public <code>BASE_URL</code> you'll use to access this ArchiveBox instance:</label>
+      <input class="abx-setup-control" id="archivebox-setup-base-url" type="url" value="{{ suggested_base_url }}" placeholder="{{ suggested_base_url }}" spellcheck="false">
+      <div class="abx-url-comparison">
+        <span>Browser-detected URL: <code id="archivebox-setup-browser-url"></code></span>
+        <span>Selected <code>BASE_URL</code>: <code id="archivebox-setup-configured-url"></code></span>
+        <strong id="archivebox-setup-url-match" class="abx-url-comparison-status"></strong>
+      </div>
+      <small class="abx-setup-help" id="archivebox-setup-wildcard-help">This is the main canonical URL for this server that will used in generated permalinks and some filesystem outputs. If you are able to setup wildcard DNS/TLS e.g. <code id="archivebox-setup-wildcard-example"></code> -&gt; this server that is ideal, input just <code id="archivebox-setup-base-url-example"></code> and select "isolated subdomains" below.</small>
+    </div>
+
+    <div class="abx-setup-row">
+      <label class="abx-setup-label" for="archivebox-setup-security-mode">Choose your <code>SERVER_SECURITY_MODE</code>:</label>
+      <select class="abx-setup-control" id="archivebox-setup-security-mode">
+        <option value="auto" selected>Auto (recommended; one-domain/no-JS on normal NAS and VPS hostnames)</option>
+        <option value="safe-onedomain-nojsreplay">One domain with archived JavaScript disabled (simplest self-hosted setup)</option>
+        <option value="safe-subdomains-fullreplay">Isolated subdomains with full replay</option>
+        <option value="unsafe-onedomain-noadmin">Replay-only one domain; admin and API disabled</option>
+        <option value="danger-onedomain-fullreplay">Danger: one domain with full replay and admin/API</option>
+      </select>
+      <div id="archivebox-setup-effective-mode"></div>
+      <ol class="abx-mode-list">
+        <li><b>Auto:</b> chooses one-domain/script-disabled replay for normal NAS and VPS hostnames, and automatically unlocks isolated full replay on <code>*.localhost</code>.</li>
+        <li><b>One domain, scripts disabled:</b> the simplest self-hosted setup. It needs only one DNS record and one HTTPS certificate—or neither on a trusted local network. Risky HTML/XML/SVG scripts are blocked by CSP; trusted viewers and normal ArchiveBox UI/API JavaScript still work.</li>
+        <li><b>Isolated subdomains:</b> allows full replay, including untrusted archived JavaScript, while separating each snapshot from the admin UI, API, and other snapshots. Remote access needs wildcard DNS and normally wildcard HTTPS.</li>
+        <li><b>Replay-only one domain:</b> allows full archived JavaScript but disables login, admin UI, API, URL submission, and all state-changing requests. Every request is anonymous; private snapshots cannot be opened.</li>
+        <li><b>Dangerous shared domain:</b> keeps admin UI/API and full archived JavaScript on one origin. A malicious saved page can trivially read archive data and attempt admin/API changes with your browser session.</li>
+      </ol>
+    </div>
+
+    <div class="abx-setup-row">
+      <span class="abx-setup-label">Choose your UI permissions:</span>
+      <div class="abx-permission-grid">
+        <label class="abx-check"><input id="archivebox-setup-public-index" type="checkbox"> <span><code>PUBLIC_INDEX</code><br><small>Allow anonymous visitors to browse the public snapshot list. Be careful archiving any secret URLs or private share URLs to avoid unintentionally sharing sensitive content.</small></span></label>
+        <label class="abx-check"><input id="archivebox-setup-public-add" type="checkbox"> <span><code>PUBLIC_ADD_VIEW</code><br><small>Allow anonymous visitors to submit URLs. Beware capturing / viewing archives of URLs that contain malicious JS can increase the risk of compromising the server.</small></span></label>
+        <label class="abx-permissions-field" for="archivebox-setup-permissions">
+          <span class="abx-permissions-label">Default <code>PERMISSIONS</code> for new snapshots:</span>
+          <select class="abx-setup-control" id="archivebox-setup-permissions">
+            <option value="public">Public — listed and readable without signing in</option>
+            <option value="unlisted">Unlisted — hidden from lists, readable by anyone with the URL</option>
+            <option value="private">Private — requires an ArchiveBox admin login</option>
+          </select>
+        </label>
+      </div>
+    </div>
+
+    <section class="abx-preview" aria-labelledby="archivebox-setup-preview-title">
+      <h3 id="archivebox-setup-preview-title">Live access preview</h3>
+      <p class="abx-preview-copy">These examples update as you change the form. They show routing and anonymous exposure separately.</p>
+      <div class="abx-preview-row"><label for="archivebox-preview-admin">Admin URL</label><input class="abx-preview-url" id="archivebox-preview-admin" readonly><span id="archivebox-preview-admin-status"></span></div>
+      <div class="abx-preview-row"><label for="archivebox-preview-api">API URL</label><input class="abx-preview-url" id="archivebox-preview-api" readonly><span id="archivebox-preview-api-status"></span></div>
+      <div class="abx-preview-row"><label for="archivebox-preview-index">Public Index URL</label><input class="abx-preview-url" id="archivebox-preview-index" readonly><span id="archivebox-preview-index-status"></span></div>
+      <div class="abx-preview-row"><label for="archivebox-preview-snapshot">Snapshot URL</label><input class="abx-preview-url" id="archivebox-preview-snapshot" readonly><span id="archivebox-preview-snapshot-status"></span></div>
+      <div class="abx-preview-row"><label for="archivebox-preview-save">SavePageNow URL</label><input class="abx-preview-url" id="archivebox-preview-save" readonly><span id="archivebox-preview-save-status"></span></div>
+      <div class="abx-preview-row"><label for="archivebox-preview-last">Last-save shortcut URL</label><input class="abx-preview-url" id="archivebox-preview-last" readonly><span id="archivebox-preview-last-status"></span></div>
+
+      <div class="abx-preview-statuses">
+        <div class="abx-status-row"><b>DNS:</b> <span id="archivebox-preview-dns"></span></div>
+        <div class="abx-status-row"><b>TLS:</b> <span id="archivebox-preview-tls"></span></div>
+        <div class="abx-status-row"><b>Can use high-fidelity web-archive viewers:</b> <span id="archivebox-preview-warc"></span> <small>(ArchiveWeb.page/WACZ)</small></div>
+        <div class="abx-status-row"><b>Can replay snapshots containing untrusted JavaScript:</b> <span id="archivebox-preview-js"></span> <small>(wget, DOM, responses, git, static-file HTML/XML/SVG, etc.)</small></div>
+      </div>
+
+      <h3 class="abx-exposure-title">Exposure summary</h3>
+      <ul class="abx-risk-list" id="archivebox-setup-risks"></ul>
+      <p class="abx-exposure-note">The two lower-security modes are available for intentionally isolated deployments. Read every exposure warning before selecting one.</p>
+    </section>
+
+    <div class="abx-setup-actions">
+      <div id="archivebox-setup-validation" role="status" aria-live="polite">Complete the access checks above to continue.</div>
+      <button class="abx-button" type="button" id="archivebox-setup-retry">Retry access checks</button>
+      <button class="abx-button abx-button-primary" type="button" id="archivebox-setup-review" disabled>
+        Review and save in Machine config →
+      </button>
+    </div>
+  </div>
+</div>
+<script src="{% static 'setup_wizard.js' %}?v=20260723-2" defer></script>

@@ -20,8 +20,8 @@ services:
         environment:
             # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
-            - BASE_URL=${BASE_URL:-http://archivebox.localhost:8000}                  # public URL used to build admin/web/api/snapshot links
-            - SERVER_SECURITY_MODE=${SERVER_SECURITY_MODE:-safe-subdomains-fullreplay} # safe-onedomain-nojsreplay if you can't do wildcard DNS *.your.domain
+            - BASE_URL                                                               # optional canonical URL; the first-run admin wizard fills it from the browser
+            - SERVER_SECURITY_MODE=${SERVER_SECURITY_MODE:-auto}                    # *.localhost uses isolated subdomains; other hosts use one-domain/no-JS replay
             - PUBLIC_ADD_VIEW=False                              # set to True to allow anonymous users to submit new URLs to archive
             # For all other options, it's better to use data/ArchiveBox.conf or the new Personas config feature in the admin UI...
             # - TIMEOUT=60

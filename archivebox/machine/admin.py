@@ -5,6 +5,7 @@ import shlex
 from pathlib import Path
 
 from django.contrib import admin, messages
+from django.db import DatabaseError
 from django.db.models import DurationField, ExpressionWrapper, F
 from django.db.models.functions import Coalesce, Now
 from django.shortcuts import redirect
@@ -14,9 +15,9 @@ from django.utils.safestring import mark_safe
 from django_object_actions import action
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
-from archivebox.misc.logging_util import printable_filesize
 from archivebox.machine.env_util import env_to_dotenv_text
-from archivebox.machine.models import Machine, NetworkInterface, Binary, Process
+from archivebox.machine.models import Binary, Machine, NetworkInterface, Process
+from archivebox.misc.logging_util import printable_filesize
 
 
 def _render_copy_block(text: str, *, multiline: bool = False):
@@ -102,6 +103,21 @@ class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
         "os_release",
         "hw_uuid",
     )
+    search_fields = (
+        "id",
+        "guid",
+        "hostname",
+        "networkinterface__ip_public",
+        "networkinterface__ip_local",
+        "hw_manufacturer",
+        "hw_product",
+        "hw_uuid",
+        "os_platform",
+        "os_family",
+        "os_arch",
+        "os_release",
+        "os_kernel",
+    )
 
     readonly_fields = ("guid", "created_at", "modified_at", "ips")
 
@@ -162,9 +178,9 @@ class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
     )
 
     list_filter = ("hw_in_docker", "hw_in_vm", "os_arch", "os_family", "os_platform")
-    ordering = ["-created_at"]
+    ordering = ("-created_at",)
     list_per_page = 100
-    actions = ["delete_selected"]
+    actions = ("delete_selected",)
 
     @admin.display(description="Public IP", ordering="networkinterface__ip_public")
     def ips(self, machine):
@@ -192,7 +208,7 @@ class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
 
         try:
             current_id = str(Machine.current().pk)
-        except Exception:
+        except (DatabaseError, RuntimeError, TypeError, ValueError):
             current_id = None
 
         machine_id = str(machine.pk)
@@ -297,9 +313,9 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
     )
 
     list_filter = ("isp", "country", "region")
-    ordering = ["-created_at"]
+    ordering = ("-created_at",)
     list_per_page = 100
-    actions = ["delete_selected"]
+    actions = ("delete_selected",)
 
     @admin.display(description="Machine", ordering="machine__id")
     def machine_info(self, iface):
@@ -370,9 +386,9 @@ class BinaryAdmin(BaseModelAdmin):
     )
 
     list_filter = ("name", "binprovider", "status", "machine_id")
-    ordering = ["-created_at"]
+    ordering = ("-created_at",)
     list_per_page = 100
-    actions = ["delete_selected"]
+    actions = ("delete_selected",)
 
     @admin.display(description="Machine", ordering="machine__id")
     def machine_info(self, binary):
@@ -492,10 +508,10 @@ class ProcessAdmin(BaseModelAdmin):
     )
 
     list_filter = ("status", "exit_code", "machine_id")
-    ordering = ["-created_at"]
+    ordering = ("-created_at",)
     list_per_page = 100
-    actions = ["kill_processes", "delete_selected"]
-    change_actions = ["kill_process"]
+    actions = ("kill_processes", "delete_selected")
+    change_actions = ("kill_process",)
 
     def get_queryset(self, request):
         return (
@@ -694,7 +710,7 @@ class ProcessAdmin(BaseModelAdmin):
         if isinstance(output_files, str):
             try:
                 output_files = json.loads(output_files)
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 output_files = {}
 
         file_count = 0

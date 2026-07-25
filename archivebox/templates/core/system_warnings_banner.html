@@ -1,115 +1,51 @@
 {% comment %}
-  Fixed red badge that hangs off the top center of the page. Five trigger
-  conditions (see ``system_warnings_banner`` in core_tags.py); precedence is
-  config/security first, then host-health:
-
-  * mode="unconfigured"  — BASE_URL is not set. Always shown until the
-                           operator pins it explicitly, even when CSRF
-                           auto-derive or request-host fallback are keeping
-                           the server functional.
-  * mode="unsafe"        — server is in a non-subdomain SERVER_SECURITY_MODE.
-                           Archived content shares an origin with the admin UI.
-  * mode="low_disk"      — free space on DATA_DIR's filesystem is below 1GiB.
-                           Archive jobs will fail until the operator frees space.
-  * mode="high_memory"   — virtual memory utilization above 95%; one OOM-kill
-                           from a crash.
-  * mode="high_load"     — 15-min loadavg > 3 × cpu_count; saturated host.
+  Render exactly one system warning. Configuration/security warnings take
+  precedence over host-health warnings; superusers get the full setup wizard
+  while BASE_URL is unset.
 {% endcomment %}
-{% if mode == "low_disk" %}
-<div id="archivebox-system-warning-banner" role="alert" aria-live="assertive"
-     style="position:fixed;top:-10px;left:50%;transform:translateX(-50%);
-            z-index:2147483647;background:#dc2626;color:#fff;
-            font:600 11px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-            padding:14px 14px 4px 14px;border-radius:0 0 6px 6px;
-            box-shadow:0 2px 10px rgba(0,0,0,0.35);pointer-events:auto;
-            max-width:90vw;letter-spacing:0.3px;text-transform:uppercase;">
-  <span style="display:inline-block;background:#fff;color:#dc2626;
-               border-radius:3px;padding:1px 5px;margin-right:6px;font-weight:800;">
-    ⚠ low disk
-  </span>
-  Only <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ free_gb }} GiB</code>
-  free on <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">DATA_DIR</code>
-  — new archive jobs will fail until space is reclaimed.
-  <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Disk-Usage"
-     target="_blank" rel="noopener noreferrer"
-     style="color:#fff;text-decoration:underline;margin-left:6px;">docs</a>
-</div>
-{% elif mode == "high_memory" %}
-<div id="archivebox-system-warning-banner" role="alert" aria-live="assertive"
-     style="position:fixed;top:-10px;left:50%;transform:translateX(-50%);
-            z-index:2147483647;background:#dc2626;color:#fff;
-            font:600 11px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-            padding:14px 14px 4px 14px;border-radius:0 0 6px 6px;
-            box-shadow:0 2px 10px rgba(0,0,0,0.35);pointer-events:auto;
-            max-width:90vw;letter-spacing:0.3px;text-transform:uppercase;">
-  <span style="display:inline-block;background:#fff;color:#dc2626;
-               border-radius:3px;padding:1px 5px;margin-right:6px;font-weight:800;">
-    ⚠ high memory
-  </span>
-  Virtual memory at
-  <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ mem_pct }}%</code>
-  — the host is close to OOM. Consider stopping crawls or scaling up.
-</div>
-{% elif mode == "high_load" %}
-<div id="archivebox-system-warning-banner" role="alert" aria-live="polite"
-     style="position:fixed;top:-10px;left:50%;transform:translateX(-50%);
-            z-index:2147483647;background:#dc2626;color:#fff;
-            font:600 11px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-            padding:14px 14px 4px 14px;border-radius:0 0 6px 6px;
-            box-shadow:0 2px 10px rgba(0,0,0,0.35);pointer-events:auto;
-            max-width:90vw;letter-spacing:0.3px;text-transform:uppercase;">
-  <span style="display:inline-block;background:#fff;color:#dc2626;
-               border-radius:3px;padding:1px 5px;margin-right:6px;font-weight:800;">
-    ⚠ high load
-  </span>
-  15-min loadavg
-  <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_15 }}</code>
-  exceeds
-  <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_threshold }}</code>
-  ({{ cpu_count }} cores × 3) — the host is saturated; crawls are queuing faster than the runner can finish them.
-</div>
-{% elif mode == "unsafe" %}
-<div id="archivebox-system-warning-banner" role="alert" aria-live="polite"
-     style="position:fixed;top:-10px;left:50%;transform:translateX(-50%);
-            z-index:2147483647;background:#aa1e55;color:#fff;
-            font:600 11px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-            padding:14px 14px 4px 14px;border-radius:0 0 6px 6px;
-            box-shadow:0 2px 10px rgba(0,0,0,0.35);pointer-events:auto;
-            white-space:nowrap;letter-spacing:0.3px;text-transform:uppercase;">
-  <span style="display:inline-block;background:#fff;color:#aa1e55;
-               border-radius:3px;padding:1px 5px;margin-right:6px;font-weight:800;">
-    ⚠ unsafe
-  </span>
-  ArchiveBox single-domain mode &mdash; archived pages share an origin with this site
-  <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Modes"
-     target="_blank" rel="noopener noreferrer"
-     style="color:#fff;text-decoration:underline;margin-left:6px;">why?</a>
-</div>
-{% elif mode == "unconfigured" %}
-<div id="archivebox-system-warning-banner" role="alert" aria-live="polite"
-     style="position:fixed;top:-10px;left:50%;transform:translateX(-50%);
-            z-index:2147483647;background:#dc2626;color:#fff;
-            font:600 11px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-            padding:14px 14px 4px 14px;border-radius:0 0 6px 6px;
-            box-shadow:0 2px 10px rgba(0,0,0,0.35);pointer-events:auto;
-            max-width:90vw;letter-spacing:0.3px;text-transform:uppercase;">
-  <span style="display:inline-block;background:#fff;color:#dc2626;
-               border-radius:3px;padding:1px 5px;margin-right:6px;font-weight:800;">
-    ⚠ base_url not set
-  </span>
-  To prevent unauthorized requests, you must set your intended server URL in env or config:
-  <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">
-    BASE_URL={% if suggested_base_url %}{{ suggested_base_url }}{% else %}http://*.archivebox.localhost:8000{% endif %}
-  </code>
-  {% if machine_admin_url %}
-    <a href="{{ machine_admin_url }}#BASE_URL"
-       style="display:inline-block;background:#fff;color:#dc2626;padding:1px 6px;border-radius:3px;
-              font-weight:800;text-decoration:none;margin-left:6px;text-transform:uppercase;">
-      pin via admin →
-    </a>
-  {% endif %}
-  <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Modes#base_url"
-     target="_blank" rel="noopener noreferrer"
-     style="color:#fff;text-decoration:underline;margin-left:6px;">docs</a>
-</div>
+{% if mode == "unconfigured" and can_configure and machine_admin_url %}
+  {% include "setup_wizard.html" %}
+{% elif mode %}
+  <div id="archivebox-system-warning-banner" role="alert" aria-live="polite"
+       style="position:fixed;top:-10px;left:50%;transform:translateX(-50%);
+              z-index:2147483647;background:{% if mode == 'unsafe' %}#aa1e55{% else %}#dc2626{% endif %};color:#fff;
+              font:600 11px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+              padding:14px 14px 4px;border-radius:0 0 6px 6px;
+              box-shadow:0 2px 10px rgba(0,0,0,.35);pointer-events:auto;
+              max-width:90vw;letter-spacing:.3px;text-transform:uppercase;">
+    <span style="display:inline-block;background:#fff;color:{% if mode == 'unsafe' %}#aa1e55{% else %}#dc2626{% endif %};
+                 border-radius:3px;padding:1px 5px;margin-right:6px;font-weight:800;">
+      {% if mode == "low_disk" %}⚠ low disk
+      {% elif mode == "high_memory" %}⚠ high memory
+      {% elif mode == "high_load" %}⚠ high load
+      {% elif mode == "unsafe" %}⚠ unsafe
+      {% elif mode == "base_url_mismatch" %}⚠ base_url mismatch
+      {% else %}⚠ base_url not set{% endif %}
+    </span>
+
+    {% if mode == "low_disk" %}
+      Only <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ free_gb }} GiB</code>
+      free on <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">DATA_DIR</code>
+      — new archive jobs will fail until space is reclaimed.
+      <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Disk-Usage" target="_blank" rel="noopener noreferrer" style="color:#fff;text-decoration:underline;margin-left:6px;">docs</a>
+    {% elif mode == "high_memory" %}
+      Virtual memory at <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ mem_pct }}%</code>
+      — the host is close to OOM. Consider stopping crawls or scaling up.
+    {% elif mode == "high_load" %}
+      15-min loadavg <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_15 }}</code>
+      exceeds <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_threshold }}</code>
+      ({{ cpu_count }} cores × 3) — the host is saturated; crawls are queuing faster than the runner can finish them.
+    {% elif mode == "unsafe" %}
+      ArchiveBox single-domain mode — archived pages share an origin with this site
+      <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Modes" target="_blank" rel="noopener noreferrer" style="color:#fff;text-decoration:underline;margin-left:6px;">why?</a>
+    {% elif mode == "base_url_mismatch" %}
+      Browser URL:
+      <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ browser_url }}</code>
+      · Configured BASE_URL:
+      <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ configured_base_url }}</code>
+      — GET access is allowed here, but state-changing requests are accepted only on BASE_URL.
+    {% else %}
+      Ask an ArchiveBox superuser to finish server setup and pin the canonical URL.
+    {% endif %}
+  </div>
 {% endif %}

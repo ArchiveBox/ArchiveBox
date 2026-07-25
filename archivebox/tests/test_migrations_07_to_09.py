@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Migration tests from 0.7.x to 0.9.x.
 
@@ -8,7 +7,9 @@ Migration tests from 0.7.x to 0.9.x.
 - AutoField primary keys
 """
 
+import json
 import sqlite3
+import zipfile
 
 import pytest
 
@@ -122,6 +123,184 @@ def test_migration_preserves_archiveresults(archive_07):
     assert migrated_counts == expected_counts
     assert missing_process_count == 0
     assert process_count == expected_count
+
+
+def test_legacy_onedomain_server_upgrade_works_in_auto_mode(archive_07):
+    """A 0.7.3 LISTEN_HOST deployment should upgrade without new DNS/TLS config."""
+    work_dir, _db_path, original_data = archive_07
+    snapshot = original_data["snapshots"][0]
+    snapshot_dir = work_dir / "archive" / snapshot["timestamp"]
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    (work_dir / "ArchiveBox.conf").write_text(
+        """[SERVER_CONFIG]
+LISTEN_HOST = archivebox.mydomain
+ALLOWED_HOSTS = archivebox.mydomain
+CSRF_TRUSTED_ORIGINS = http://admin.archivebox.localhost:8000
+PUBLIC_INDEX = True
+PUBLIC_SNAPSHOTS = True
+PUBLIC_ADD_VIEW = False
+""",
+        encoding="utf-8",
+    )
+    (snapshot_dir / "index.json").write_text(
+        json.dumps({"url": snapshot["url"], "timestamp": snapshot["timestamp"], "title": snapshot["title"]}),
+        encoding="utf-8",
+    )
+    (snapshot_dir / "output.html").write_text(
+        "<!doctype html><script>window.__legacy_dom_ran__ = true;</script>",
+        encoding="utf-8",
+    )
+    (snapshot_dir / "wget").mkdir()
+    (snapshot_dir / "wget" / "index.html").write_text(
+        "<!doctype html><script>window.__legacy_wget_ran__ = true;</script>",
+        encoding="utf-8",
+    )
+    (snapshot_dir / "singlefile.html").write_text(
+        "<!doctype html><script>window.__legacy_singlefile_ran__ = true;</script>",
+        encoding="utf-8",
+    )
+    (snapshot_dir / "screenshot.png").write_bytes(b"\x89PNG\r\n\x1a\nlegacy")
+    (snapshot_dir / "output.pdf").write_bytes(b"%PDF-1.4\n%legacy\n")
+    (snapshot_dir / "video.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42legacy")
+    (snapshot_dir / "gallery.jpg").write_bytes(b"\xff\xd8\xff\xe0legacy\xff\xd9")
+    archivewebpage_dir = snapshot_dir / "archivewebpage"
+    archivewebpage_dir.mkdir()
+    with zipfile.ZipFile(archivewebpage_dir / "archivewebpage.wacz", "w") as wacz:
+        wacz.writestr(
+            "pages/pages.jsonl",
+            '{"format":"json-pages-1.0"}\n{"url":"https://example.com/page1"}\n',
+        )
+
+    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
+    assert result.returncode == 0, f"Init failed: {result.stderr}"
+    migrated_config = (work_dir / "ArchiveBox.conf").read_text(encoding="utf-8")
+    assert "LISTEN_HOST = archivebox.mydomain" in migrated_config
+    assert "ALLOWED_HOSTS = archivebox.mydomain" in migrated_config
+    assert "BASE_URL = http://archivebox.mydomain" in migrated_config
+
+    script = f"""
+from django.contrib.auth import get_user_model
+from django.test import Client
+from archivebox.config.common import get_config, get_request_config
+from archivebox.core.models import Snapshot
+from archivebox.core.routes_util import build_admin_url, build_snapshot_url, build_web_url, get_base_url
+from archivebox.machine.models import Machine
+
+def body(response):
+    return b''.join(response.streaming_content) if response.streaming else response.content
+
+snapshot = Snapshot.objects.get(id='{snapshot["id"]}')
+snapshot_id = str(snapshot.id)
+config = get_config(resolve_plugins=False)
+assert config.SERVER_SECURITY_MODE == 'auto'
+assert get_base_url(config=config) == 'http://archivebox.mydomain'
+assert Machine.current().config['LISTEN_HOST'] == 'archivebox.mydomain'
+assert Machine.current().config['BASE_URL'] == 'http://archivebox.mydomain'
+
+user = get_user_model().objects.get(username='admin')
+user.set_password('testpassword')
+user.save()
+client = Client()
+
+for host in ('archivebox.mydomain', 'other-intranet-name'):
+    for app_path in ('/public/', '/admin/login/', '/api/v1/docs'):
+        app_response = client.get(app_path, HTTP_HOST=host)
+        assert app_response.status_code == 200
+        assert "script-src 'none'" not in (app_response.headers.get('Content-Security-Policy') or '')
+
+alternate = client.get('/public/', HTTP_HOST='other-intranet-name')
+alternate_config = get_request_config(alternate.wsgi_request)
+assert alternate_config.SERVER_SECURITY_MODE == 'safe-onedomain-nojsreplay'
+assert build_web_url('/public/', request=alternate.wsgi_request) == 'http://archivebox.mydomain/public/'
+assert build_admin_url('/admin/login/', request=alternate.wsgi_request) == 'http://archivebox.mydomain/admin/login/'
+assert build_snapshot_url(snapshot_id, 'output.html', request=alternate.wsgi_request).startswith(
+    f'http://archivebox.mydomain/snapshot/{{snapshot_id.replace("-", "")}}/'
+)
+
+payload = '{{"username":"admin","password":"testpassword"}}'
+canonical_post = client.post(
+    '/api/v1/auth/get_api_token', data=payload, content_type='application/json', HTTP_HOST='archivebox.mydomain'
+)
+assert canonical_post.status_code == 200
+assert canonical_post.json().get('token')
+alternate_post = client.post(
+    '/api/v1/auth/get_api_token', data=payload, content_type='application/json', HTTP_HOST='other-intranet-name'
+)
+assert alternate_post.status_code == 403
+client.force_login(user)
+
+for path in ('output.html', 'wget/index.html'):
+    response = client.get(f'/snapshot/{{snapshot_id}}/{{path}}', HTTP_HOST='archivebox.mydomain')
+    assert response.status_code == 200, (path, response.status_code, response.headers)
+    assert response['X-ArchiveBox-Security-Mode'] == 'safe-onedomain-nojsreplay', (path, response.headers)
+    assert "script-src 'none'" in response['Content-Security-Policy'], (path, response.headers)
+
+singlefile = client.get(f'/snapshot/{{snapshot_id}}/singlefile.html', HTTP_HOST='archivebox.mydomain')
+assert singlefile.status_code == 200
+assert 'sandbox;' in singlefile['Content-Security-Policy']
+assert "script-src 'none'" in singlefile['Content-Security-Policy']
+
+for path, content_type in (
+    ('screenshot.png', 'image/png'),
+    ('output.pdf', 'application/pdf'),
+    ('video.mp4', 'video/mp4'),
+    ('gallery.jpg', 'image/jpeg'),
+):
+    response = client.get(f'/snapshot/{{snapshot_id}}/{{path}}', HTTP_HOST='archivebox.mydomain')
+    assert response.status_code == 200
+    assert response['Content-Type'].startswith(content_type)
+    assert "script-src 'none'" not in (response.headers.get('Content-Security-Policy') or '')
+
+wacz = client.get(
+    f'/snapshot/{{snapshot_id}}/archivewebpage/archivewebpage.wacz?preview=1', HTTP_HOST='archivebox.mydomain'
+)
+assert wacz.status_code == 200
+assert '<replay-web-page' in body(wacz).decode('utf-8', 'ignore')
+assert "worker-src 'self'" in wacz['Content-Security-Policy']
+assert "script-src 'none'" not in wacz['Content-Security-Policy']
+
+admin = client.get('/admin/login/', HTTP_HOST='archivebox.mydomain')
+assert 'Content-Security-Policy' not in admin.headers or "script-src 'none'" not in admin.headers['Content-Security-Policy']
+print('OK')
+"""
+    result = run_archivebox_migration_cmd(work_dir, ["manage", "shell", "-c", script], timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert "OK" in result.stdout
+
+    isolated_script = f"""
+from django.contrib.auth import get_user_model
+from django.test import Client
+from archivebox.config.common import get_config
+from archivebox.core.models import Snapshot
+from archivebox.core.routes_util import get_admin_host, get_api_host, get_snapshot_host
+
+config = get_config(resolve_plugins=False)
+assert config.SERVER_SECURITY_MODE == 'safe-subdomains-fullreplay'
+assert config.BASE_URL == 'http://archivebox.mydomain'
+snapshot = Snapshot.objects.get(id='{snapshot["id"]}')
+client = Client()
+assert client.get('/admin/login/', HTTP_HOST=get_admin_host(config=config)).status_code == 200
+assert client.get('/api/v1/docs', HTTP_HOST=get_api_host(config=config)).status_code == 200
+client.force_login(get_user_model().objects.get(username='admin'))
+replay = client.get('/output.html', HTTP_HOST=get_snapshot_host(str(snapshot.id), config=config))
+assert replay.status_code == 200
+assert replay['X-ArchiveBox-Security-Mode'] == 'safe-subdomains-fullreplay'
+assert "script-src 'none'" not in (replay.headers.get('Content-Security-Policy') or '')
+print('ISOLATED_OK')
+"""
+    result = run_archivebox_migration_cmd(
+        work_dir,
+        ["manage", "shell", "-c", isolated_script],
+        timeout=60,
+        env={
+            "BASE_URL": "http://archivebox.mydomain",
+            "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+            "ALLOWED_HOSTS": "archivebox.mydomain",
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "ISOLATED_OK" in result.stdout
 
 
 def test_migration_preserves_foreign_keys(archive_07):

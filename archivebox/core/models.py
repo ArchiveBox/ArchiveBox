@@ -1,66 +1,70 @@
 __package__ = "archivebox.core"
 
-from typing import TYPE_CHECKING, Optional, Any
-from collections.abc import Iterable, Mapping, Sequence
-import uuid
-from archivebox.uuid_compat import CompactUUIDField, uuid7
-from datetime import datetime, timedelta
-
-import os
 import json
+import os
+import uuid
+from collections.abc import Iterable, Mapping, Sequence
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 from urllib.parse import urlparse
 
-from statemachine import State, registry
-
+from django.conf import settings
+from django.contrib import admin
+from django.core.cache import cache
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
 from django.db import models, transaction
 from django.db.models import Case, F, Q, QuerySet, Sum, Value, When
-from django.db.models.functions import Coalesce, Concat
 from django.db.models.fields.json import KT
-from django.utils.functional import cached_property
-from django.utils.text import slugify
-from django.utils import timezone
-from django.core.cache import cache
+from django.db.models.functions import Coalesce, Concat
 from django.urls import reverse_lazy
-from django.contrib import admin
-from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.utils import timezone
+from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
+from django.utils.text import slugify
+from statemachine import State, registry
 
+from archivebox.base_models.models import (
+    ModelWithConfig,
+    ModelWithDeleteAfter,
+    ModelWithHealthStats,
+    ModelWithNotes,
+    ModelWithOutputDir,
+    ModelWithUUID,
+    get_or_create_system_user_pk,
+)
 from archivebox.config import CONSTANTS
 from archivebox.config.common import get_config, rprint
+from archivebox.crawls.models import Crawl
+from archivebox.machine.models import Binary
 from archivebox.misc.system import atomic_write
 from archivebox.misc.util import (
-    parse_date,
     domain as url_domain,
+)
+from archivebox.misc.util import (
+    htmldecode,
+    parse_date,
+    sanitize_html_text,
     to_json,
     ts_to_date_str,
-    urlencode,
-    htmldecode,
-    sanitize_html_text,
     urldecode,
+    urlencode,
     validate_url,
 )
 from archivebox.plugins.discovery import (
-    get_plugins,
-    get_plugin_name,
     get_plugin_icon,
+    get_plugin_name,
+    get_plugins,
 )
-from archivebox.base_models.models import (
-    ModelWithUUID,
-    ModelWithDeleteAfter,
-    ModelWithOutputDir,
-    ModelWithConfig,
-    ModelWithNotes,
-    ModelWithHealthStats,
-    get_or_create_system_user_pk,
-)
-from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, ModelWithStateMachine, BaseStateMachine
-from archivebox.crawls.models import Crawl
-from archivebox.machine.models import Binary
+from archivebox.uuid_compat import CompactUUIDField, uuid7
+from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, BaseStateMachine, ModelWithStateMachine
 
 if TYPE_CHECKING:
     from archivebox.config.common import ArchiveBoxBaseConfig
+
+
+class SnapshotMigrationError(RuntimeError):
+    """Raised when a snapshot filesystem migration fails validation."""
 
 
 class UngroupedSubquery(models.Subquery):
@@ -156,7 +160,7 @@ class SnapshotTag(models.Model):
     class Meta:
         app_label = "core"
         db_table = "core_snapshot_tags"
-        unique_together = [("snapshot", "tag")]
+        unique_together: ClassVar[list[tuple[str, str]]] = [("snapshot", "tag")]
 
 
 class SnapshotQuerySet(models.QuerySet):
@@ -226,7 +230,7 @@ class SnapshotQuerySet(models.QuerySet):
                 field_name = pk_field
             ordering.append(f"-{field_name}" if descending else field_name)
 
-        ordered_field_names = [term[1:] if term.startswith("-") else term for term in ordering]
+        ordered_field_names = [term.removeprefix("-") for term in ordering]
         try:
             if any(self.model._meta.get_field(field_name).null for field_name in ordered_field_names):
                 offset = 0
@@ -237,7 +241,7 @@ class SnapshotQuerySet(models.QuerySet):
                     yield from batch
                     offset += chunk_size
                 return
-        except Exception:
+        except (AttributeError, FieldDoesNotExist):
             offset = 0
             while True:
                 batch = list(self[offset : offset + chunk_size])
@@ -292,7 +296,7 @@ class SnapshotQuerySet(models.QuerySet):
     # Filtering Methods
     # =========================================================================
 
-    FILTER_TYPES = {
+    FILTER_TYPES: ClassVar[dict[str, Any]] = {
         "exact": lambda pattern: models.Q(url=pattern),
         "substring": lambda pattern: models.Q(url__icontains=pattern),
         "regex": lambda pattern: models.Q(url__iregex=pattern),
@@ -337,7 +341,6 @@ class SnapshotQuerySet(models.QuerySet):
         return self.filter(q_filter)
 
     def search(self, **kwargs) -> "SnapshotQuerySet":
-        from datetime import timezone as dt_timezone
 
         from archivebox.core.snapshot_status import filter_snapshots_by_status
         from archivebox.search.query import apply_snapshot_search
@@ -364,9 +367,9 @@ class SnapshotQuerySet(models.QuerySet):
         if kwargs.get("tag"):
             queryset = queryset.filter(tags__name__iexact=kwargs["tag"])
         if kwargs.get("before") is not None:
-            queryset = queryset.filter(bookmarked_at__lt=datetime.fromtimestamp(float(kwargs["before"]), tz=dt_timezone.utc))
+            queryset = queryset.filter(bookmarked_at__lt=datetime.fromtimestamp(float(kwargs["before"]), tz=UTC))
         if kwargs.get("after") is not None:
-            queryset = queryset.filter(bookmarked_at__gt=datetime.fromtimestamp(float(kwargs["after"]), tz=dt_timezone.utc))
+            queryset = queryset.filter(bookmarked_at__gt=datetime.fromtimestamp(float(kwargs["after"]), tz=UTC))
 
         if query:
             queryset = apply_snapshot_search(
@@ -399,7 +402,8 @@ class SnapshotQuerySet(models.QuerySet):
     def to_json(self, with_headers: bool = False) -> str:
         """Generate JSON index from snapshots"""
         import sys
-        from datetime import datetime, timezone as tz
+        from datetime import datetime
+
         from archivebox.config import VERSION
 
         config = get_config()
@@ -430,7 +434,7 @@ class SnapshotQuerySet(models.QuerySet):
             output = {
                 **MAIN_INDEX_HEADER,
                 "num_links": len(snapshot_dicts),
-                "updated": datetime.now(tz.utc),
+                "updated": datetime.now(UTC),
                 "last_run_cmd": sys.argv,
                 "links": snapshot_dicts,
             }
@@ -447,8 +451,10 @@ class SnapshotQuerySet(models.QuerySet):
 
     def to_html(self, with_headers: bool = True) -> str:
         """Generate main index HTML from snapshots"""
-        from datetime import datetime, timezone as tz
+        from datetime import datetime
+
         from django.template.loader import render_to_string
+
         from archivebox.config import VERSION
         from archivebox.config.version import get_COMMIT_HASH
 
@@ -463,8 +469,8 @@ class SnapshotQuerySet(models.QuerySet):
                 "version": VERSION,
                 "git_sha": get_COMMIT_HASH() or VERSION,
                 "num_links": str(len(snapshot_list)),
-                "date_updated": datetime.now(tz.utc).strftime("%Y-%m-%d"),
-                "time_updated": datetime.now(tz.utc).strftime("%Y-%m-%d %H:%M"),
+                "date_updated": datetime.now(UTC).strftime("%Y-%m-%d"),
+                "time_updated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
                 "links": snapshot_list,
                 "FOOTER_INFO": config.FOOTER_INFO,
             },
@@ -603,11 +609,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         app_label = "core"
         verbose_name = "Snapshot"
         verbose_name_plural = "Snapshots"
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
             models.Index(fields=["crawl", "status", "modified_at"], name="snapshot_progress_idx"),
         ]
-        constraints = [
+        constraints: ClassVar[list[models.BaseConstraint]] = [
             # Allow same URL in different crawls, but not duplicates within same crawl
             models.UniqueConstraint(fields=["url", "crawl"], name="unique_url_per_crawl"),
             # Global timestamp uniqueness for 1:1 symlink mapping
@@ -899,9 +905,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from archivebox.core.permissions import PERMISSIONS_PUBLIC, PERMISSIONS_VALUES, normalize_permissions
 
         if permission not in PERMISSIONS_VALUES:
-            if self.crawl_id:
-                if not crawl_permissions:
-                    crawl_permissions = Crawl.objects.filter(pk=self.crawl_id).values_list("permissions", flat=True).first()
+            if self.crawl_id and not crawl_permissions:
+                crawl_permissions = Crawl.objects.filter(pk=self.crawl_id).values_list("permissions", flat=True).first()
             config["PERMISSIONS"] = normalize_permissions(
                 crawl_permissions,
                 default=PERMISSIONS_PUBLIC,
@@ -940,9 +945,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 crawl_config_for_save = crawl_row.get("config") or {}
                 crawl_permissions_for_save = crawl_row.get("permissions")
 
-        if self.ensure_permissions_config(crawl_permissions=crawl_permissions_for_save):
-            if update_fields is not None:
-                kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
+        if self.ensure_permissions_config(crawl_permissions=crawl_permissions_for_save) and update_fields is not None:
+            kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
 
         if validate_url_field:
             self.validate_url_for_archiving(config=crawl_config_for_save if self.crawl_id else None)
@@ -1191,9 +1195,16 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             new_file = new_dir / rel_path
 
             # Skip if already copied
-            if new_file.exists():
-                if new_file.stat().st_size == old_file.stat().st_size and filecmp.cmp(old_file, new_file, shallow=False):
-                    continue
+            if (
+                new_file.exists()
+                and new_file.stat().st_size == old_file.stat().st_size
+                and filecmp.cmp(
+                    old_file,
+                    new_file,
+                    shallow=False,
+                )
+            ):
+                continue
 
             new_file.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(old_file, new_file)
@@ -1206,15 +1217,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             missing = old_files.keys() - new_files.keys()
             missing.discard(Path(CONSTANTS.JSON_INDEX_FILENAME))
             if missing:
-                raise Exception(f"Migration incomplete: missing {missing}")
+                raise SnapshotMigrationError(f"Migration incomplete: missing {missing}")
 
         for rel_path, old_size in old_files.items():
             if rel_path == Path(CONSTANTS.JSON_INDEX_FILENAME):
                 continue
             if new_files.get(rel_path) != old_size:
-                raise Exception(f"Migration incomplete: size mismatch for {rel_path}")
+                raise SnapshotMigrationError(f"Migration incomplete: size mismatch for {rel_path}")
             if not filecmp.cmp(old_dir / rel_path, new_dir / rel_path, shallow=False):
-                raise Exception(f"Migration incomplete: content mismatch for {rel_path}")
+                raise SnapshotMigrationError(f"Migration incomplete: content mismatch for {rel_path}")
 
         # Convert index.json to index.jsonl in the new directory.
         self.convert_index_json_to_jsonl(output_dir=new_dir)
@@ -1225,14 +1236,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """
         Delete old directory and create symlink after successful migration.
         """
-        import shutil
         import logging
+        import shutil
 
         # Delete old directory
         if old_dir.exists() and not old_dir.is_symlink():
             try:
                 shutil.rmtree(old_dir)
-            except Exception as e:
+            except OSError as e:
                 logging.getLogger("archivebox.migration").warning(
                     f"Could not remove old migration directory {old_dir}: {e}",
                 )
@@ -1246,7 +1257,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if not symlink_path.exists():
             try:
                 symlink_path.symlink_to(new_dir, target_is_directory=True)
-            except Exception as e:
+            except OSError as e:
                 logging.getLogger("archivebox.migration").warning(
                     f"Could not create symlink from {symlink_path} to {new_dir}: {e}",
                 )
@@ -1282,7 +1293,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 return parsed.scheme
             else:
                 return "unknown"
-        except Exception:
+        except (TypeError, ValueError):
             return "unknown"
 
     def get_storage_path_for_version(self, version: str) -> Path:
@@ -1722,6 +1733,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """Create ArchiveResult if not already in DB."""
         from dateutil import parser
         from django.db import transaction
+
         from archivebox.machine.models import Machine, Process
 
         # Support both old 'extractor' and new 'plugin' keys for backwards compat
@@ -1909,11 +1921,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """
         from archivebox.machine.models import Process
         from archivebox.misc.jsonl import (
-            TYPE_SNAPSHOT,
             TYPE_ARCHIVERESULT,
-            TYPE_BINARYREQUEST,
             TYPE_BINARY,
+            TYPE_BINARYREQUEST,
             TYPE_PROCESS,
+            TYPE_SNAPSHOT,
         )
 
         output_dir = Path(output_dir) if output_dir is not None else Path(self.output_dir)
@@ -2059,10 +2071,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         Used by: archivebox update (when encountering invalid directories)
         """
-        from datetime import datetime
         import shutil
 
-        invalid_dir = CONSTANTS.DATA_DIR / "invalid" / datetime.now().strftime("%Y%m%d")
+        invalid_dir = CONSTANTS.DATA_DIR / "invalid" / datetime.now(UTC).strftime("%Y%m%d")
         invalid_dir.mkdir(parents=True, exist_ok=True)
 
         dest = invalid_dir / snapshot_dir.name
@@ -2073,8 +2084,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         try:
             shutil.move(str(snapshot_dir), str(dest))
-        except Exception:
-            pass
+        except OSError:
+            return
 
     @classmethod
     def find_and_merge_duplicates(cls) -> int:
@@ -2098,8 +2109,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 try:
                     cls._merge_snapshots(snapshots)
                     merged += 1
-                except Exception:
-                    pass
+                except OSError:
+                    continue
 
         return merged
 
@@ -2134,8 +2145,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
                 try:
                     shutil.rmtree(dup_dir)
-                except Exception:
-                    pass
+                except OSError:
+                    continue
 
             # Merge tags
             for tag in dup.tags.all():
@@ -2200,6 +2211,29 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 running = int(progress_stats.get("running") or 0)
                 completed = succeeded + failed + skipped + noresults
                 percent = int((completed / total * 100) if total > 0 else 0)
+                successful_plugins = sorted(self.__dict__.get("_icons_archive_results") or ())
+                visible_plugins = successful_plugins[:8]
+                successful_icons = format_html(
+                    '<div class="snapshot-successful-plugin-icons" style="display:flex; flex-wrap:wrap; gap:2px; margin-top:4px;">{}</div>',
+                    mark_safe(
+                        "".join(
+                            str(format_html('<span title="{}">{}</span>', plugin, mark_safe(get_plugin_icon(plugin))))
+                            for plugin in visible_plugins
+                            if str(get_plugin_icon(plugin)).strip()
+                        )
+                        + (
+                            str(
+                                format_html(
+                                    '<span title="{} more successful plugins">+{}</span>',
+                                    len(successful_plugins) - 8,
+                                    len(successful_plugins) - 8,
+                                ),
+                            )
+                            if len(successful_plugins) > 8
+                            else ""
+                        ),
+                    ),
+                )
                 return format_html(
                     '<div class="snapshot-files-progress" title="{} of {} hooks complete" style="min-width: 96px;">'
                     '<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">'
@@ -2212,6 +2246,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     '<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">'
                     "✓{} ✗{} ⏳{}"
                     "</div>"
+                    "{}"
                     "</div>",
                     completed,
                     total,
@@ -2221,6 +2256,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     succeeded,
                     failed,
                     running,
+                    successful_icons,
                 )
 
             precomputed_archive_results = self.__dict__.get("_icons_archive_results")
@@ -2363,7 +2399,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         try:
             data = json.loads(hashes_path.read_text(encoding="utf-8"))
-        except Exception:
+        except (json.JSONDecodeError, OSError, TypeError, ValueError):
             return {}
 
         index: dict[str, dict[str, Any]] = {}
@@ -2524,7 +2560,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         output_dir = Path(self.output_dir).resolve()
         try:
             rel_users_path = output_dir.relative_to(CONSTANTS.USERS_DIR)
-        except Exception:
+        except ValueError:
             rel_users_path = None
 
         if rel_users_path:
@@ -2541,7 +2577,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         try:
             rel_path = output_dir.relative_to(CONSTANTS.DATA_DIR)
-        except Exception:
+        except ValueError:
             return self.legacy_archive_path
 
         parts = rel_path.parts
@@ -2687,7 +2723,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             Snapshot instance or None
         """
         import re
+
         from django.utils import timezone
+
         from archivebox.base_models.models import get_or_create_system_user_pk
 
         config = get_config()
@@ -2712,9 +2750,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                         continue
 
                     # Special parsing for date fields
-                    if field_name in ("bookmarked_at", "retry_at", "created_at", "modified_at"):
-                        if value and isinstance(value, str):
-                            value = parse_date(value)
+                    if field_name in ("bookmarked_at", "retry_at", "created_at", "modified_at") and value and isinstance(value, str):
+                        value = parse_date(value)
 
                     # Update field if value is provided and different
                     if value is not None and getattr(snapshot, field_name) != value:
@@ -2758,8 +2795,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 crawl = parent_snapshot.crawl
             else:
                 # Auto-create a single-URL crawl
-                from archivebox.crawls.models import Crawl
                 from archivebox.config import CONSTANTS
+                from archivebox.crawls.models import Crawl
 
                 timestamp_str = timezone.now().strftime("%Y-%m-%d__%H-%M-%S")
                 sources_file = CONSTANTS.SOURCES_DIR / f"{timestamp_str}__auto_crawl.txt"
@@ -2876,8 +2913,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return []
 
         if hooks is None:
-            from archivebox.plugins.hooks import discover_hooks
             from archivebox.config.common import get_config
+            from archivebox.plugins.hooks import discover_hooks
 
             # Compatibility path for direct model callers. The runner passes its
             # abx-dl hook inventory explicitly so queued rows match execution.
@@ -3127,8 +3164,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def latest_outputs(self, status: str | None = None) -> dict[str, Any]:
         """Get the latest output that each plugin produced"""
-        from archivebox.plugins.discovery import get_plugins
         from django.db.models import Q
+
+        from archivebox.plugins.discovery import get_plugins
 
         latest: dict[str, Any] = {}
         for plugin in get_plugins():
@@ -3388,6 +3426,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def write_html_details(self, out_dir: Path | str | None = None) -> None:
         """Write HTML detail page for this snapshot to its output directory"""
         from django.template.loader import render_to_string
+
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
 
@@ -3427,7 +3466,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "snapshot": self,
             "title": htmldecode(self.resolved_title or (self.base_url if is_archived else TITLE_LOADING_MSG)),
             "url_str": htmldecode(urldecode(self.base_url)),
-            "archive_url": urlencode(f"warc/{self.timestamp}" or (self.domain if is_archived else "")) or "about:blank",
+            "archive_url": urlencode(f"warc/{self.timestamp}") or "about:blank",
             "extension": self.extension or "html",
             "tags": self.tags_str() or "untagged",
             "size": printable_filesize(output_size) if output_size else "pending",
@@ -3861,12 +3900,12 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         app_label = "core"
         verbose_name = "Archive Result"
         verbose_name_plural = "Archive Results Log"
-        indexes = [
+        indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["snapshot", "status"], name="archiveresult_snap_status_idx"),
             models.Index(fields=["status", "snapshot"], name="archiveresult_status_snap_idx"),
             models.Index(fields=["-start_ts", "-id"], name="archiveresult_start_idx"),
         ]
-        constraints = [
+        constraints: ClassVar[list[models.BaseConstraint]] = [
             models.UniqueConstraint(fields=["snapshot", "plugin", "hook_name"], name="unique_archiveresult_per_snapshot_hook"),
         ]
 
@@ -4228,6 +4267,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True) -> bool:
         from collections import defaultdict
+
         from abx_dl.output_files import guess_mimetype
 
         if self.plugin == "title":
@@ -4582,10 +4622,12 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         """
         from collections import defaultdict
         from pathlib import Path
-        from django.utils import timezone
+
         from abx_dl.output_files import guess_mimetype
-        from archivebox.plugins.hooks import process_hook_records, extract_records_from_process
+        from django.utils import timezone
+
         from archivebox.machine.models import Process
+        from archivebox.plugins.hooks import extract_records_from_process, process_hook_records
 
         plugin_dir = Path(self.pwd) if self.pwd else None
         if not plugin_dir or not plugin_dir.exists():
@@ -4637,8 +4679,8 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 from archivebox.plugins.hooks import is_background_hook
 
                 is_background = bool(self.hook_name and is_background_hook(self.hook_name))
-            except Exception:
-                pass
+            except (ImportError, TypeError, ValueError):
+                is_background = False
 
             if is_background or (process and process.exit_code == 0):
                 self.status = self.StatusChoices.SKIPPED

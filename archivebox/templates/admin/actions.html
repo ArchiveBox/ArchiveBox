@@ -24,11 +24,10 @@
             selected
           </span>
           <span class="action-counter hidden" data-actions-icnt="{{ cl.result_list|length }}" style="display: none !important;" aria-hidden="true">{{ selection_note }}</span>
-          {% if cl.opts.model_name == 'snapshot' %}
           <span class="action-total-count">
             {% if cl.full_result_count and cl.full_result_count != cl.result_count %}
               <a class="action-match-count-static action-total-select" href="#" title="{% translate "Select all matching rows across all pages" %}">{{ cl.result_count|intcomma }}</a>
-              /
+              filtered /
               <a class="action-total-reset" href="?" title="{% translate "Show all rows" %}">{{ cl.full_result_count|intcomma }}</a>
               total
             {% else %}
@@ -36,7 +35,6 @@
               total
             {% endif %}
           </span>
-          {% endif %}
           {% if cl.result_count != cl.result_list|length %}
           <span class="all hidden">{{ selection_note_all }}</span>
           <span class="question hidden">

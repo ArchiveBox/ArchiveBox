@@ -1,28 +1,40 @@
 {% load i18n static %}
 
 <div id="user-tools">
-    <a href="{% url 'add' %}" class="navbar-add-link">Add ➕</a> &nbsp; &nbsp;
-    <a href="/admin/crawls/crawl/">Crawls</a> |
-    <a href="{% url 'Home' %}">Snapshots</a> |
-    <a href="/admin/core/archiveresult/?o=-1">Log</a> |
-    <a href="/admin/core/tag/">Tags</a> &nbsp; &nbsp;
+    <a href="{% url 'add' %}" class="navbar-item navbar-add-link">Add ➕</a>
+    <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
+    <a href="/admin/crawls/crawl/" class="navbar-item navbar-crawls">Crawls</a>
+    <span class="navbar-separator" aria-hidden="true">|</span>
+    <a href="{% url 'Home' %}" class="navbar-item navbar-snapshots">Snapshots</a>
+    <span class="navbar-separator" aria-hidden="true">|</span>
+    <a href="/admin/core/archiveresult/?o=-1" class="navbar-item navbar-log">Log</a>
+    <span class="navbar-separator" aria-hidden="true">|</span>
+    <a href="/admin/core/tag/" class="navbar-item navbar-tags">Tags</a>
+    <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
     {% if user.is_authenticated and user.is_superuser and request.archivebox_config.OPENCODE_ENABLED %}
-        <a href="/admin/agent">💬 AI</a> |
+        <a href="/admin/agent" class="navbar-item navbar-ai">💬 AI</a>
+        <span class="navbar-separator" aria-hidden="true">|</span>
     {% endif %}
-    <a href="{% url 'Docs' %}" target="_blank" rel="noopener noreferrer">Docs</a> |
-    <a href="/api/v1/docs">API</a> |
-    <a href="/admin/">Admin</a>
-     &nbsp; &nbsp;
+    <a href="{% url 'Docs' %}" class="navbar-item navbar-docs" target="_blank" rel="noopener noreferrer">Docs</a>
+    <span class="navbar-separator" aria-hidden="true">|</span>
+    <a href="/api/v1/docs" class="navbar-item navbar-api">API</a>
+    <span class="navbar-separator" aria-hidden="true">|</span>
+    <a href="/admin/" class="navbar-item navbar-admin">Admin</a>
+    <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
     {% if user.is_authenticated %}
         {% block welcome-msg %}
-            {% trans 'User' %}
-            <strong>{% firstof user.get_short_name user.get_username %}</strong> &nbsp; &nbsp;
+            <span class="navbar-item navbar-user">
+                <span class="navbar-user-label">{% trans 'User' %}</span>
+                <strong class="navbar-username" title="{% firstof user.get_short_name user.get_username %}">{% firstof user.get_short_name user.get_username %}</strong>
+            </span>
+            <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
         {% endblock %}
         {% block userlinks %}
             {% if user.has_usable_password %}
-                <a href="{% url 'admin:password_change' %}" title="Change your account password">Account</a> /
+                <a href="{% url 'admin:password_change' %}" class="navbar-item navbar-account" title="Change your account password">Account</a>
+                <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
             {% endif %}
-            <a href="{% url 'admin:logout' %}">{% trans 'Log out' %}</a>
+            <a href="{% url 'admin:logout' %}" class="navbar-item navbar-logout">{% trans 'Log out' %}</a>
         {% endblock %}
     {% elif request.COOKIES.archivebox_admin_logged_in == "1" %}
         {% comment %}
@@ -32,9 +44,10 @@
         logged-out state's `Account` / `Log out` links pointing at admin host
         so the user can still reach those pages from web.*.
         {% endcomment %}
-        <a href="/admin/password_change/" title="Change your account password">Account</a> /
-        <a href="/admin/logout/">{% trans 'Log out' %}</a>
+        <a href="/admin/password_change/" class="navbar-item navbar-account" title="Change your account password">Account</a>
+        <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
+        <a href="/admin/logout/" class="navbar-item navbar-logout">{% trans 'Log out' %}</a>
     {% else %}
-        <a href="{% url 'admin:login' %}">{% trans 'Log in' %}</a>
+        <a href="{% url 'admin:login' %}" class="navbar-item navbar-login">{% trans 'Log in' %}</a>
     {% endif %}
 </div>

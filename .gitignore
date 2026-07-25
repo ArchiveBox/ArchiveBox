@@ -8,6 +8,8 @@ __pycache__/
 .mypy_cache/
 .eggs/
 tests/out/
+/docs/screenshots/
+/publicsite/screenshots/
 
 # Coverage
 .coverage

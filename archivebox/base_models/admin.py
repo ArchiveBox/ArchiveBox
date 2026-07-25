@@ -5,11 +5,11 @@ __package__ = "archivebox.base_models"
 import json
 import uuid
 from collections.abc import Mapping
-from typing import NotRequired, TypedDict, cast
+from typing import ClassVar, NotRequired, TypedDict, cast
 
 from django import forms
 from django.contrib import admin
-from django.db import models
+from django.db import DatabaseError, models
 from django.forms.renderers import BaseRenderer
 from django.http import HttpRequest, QueryDict
 from django.urls import path, register_converter
@@ -68,10 +68,10 @@ class KeyValueWidget(forms.Widget):
     template_name = ""  # We render manually
 
     class Media:
-        css = {
+        css: ClassVar[dict[str, list[str]]] = {
             "all": [],
         }
-        js = []
+        js: ClassVar[list[str]] = []
 
     def _get_config_options(self) -> dict[str, ConfigOption]:
         """Get available config options from plugins."""
@@ -94,7 +94,7 @@ class KeyValueWidget(forms.Widget):
                             option[schema_key] = schema[schema_key]
                 options[key] = option
             return options
-        except Exception:
+        except (ImportError, KeyError, TypeError, ValueError):
             return {}
 
     def _parse_value(self, value: object) -> dict[str, object]:
@@ -644,41 +644,64 @@ class KeyValueWidget(forms.Widget):
 
                     window.updateHiddenField_{widget_id} = updateHiddenField_{widget_id};
 
-                    function focusConfigKeyFromHash_{widget_id}() {{
-                        // Deep-link affordance: ``…/change/#SOME_KEY`` jumps directly
-                        // to (or creates) the matching row in this editor. Used by
-                        // the in-banner "pin via admin" link and the
-                        // ``→ Edit <KEY> in Machine.config`` shortcut on the live
-                        // config detail page.
-                        var hash = (window.location.hash || '').replace(/^#/, '').trim();
-                        if (!hash || !/^[A-Z][A-Z0-9_]*$/.test(hash)) {{
-                            return;
-                        }}
+                    function configRowForKey_{widget_id}(key) {{
                         var container = document.getElementById('{widget_id}_rows');
                         if (!container) {{
-                            return;
+                            return null;
                         }}
                         var match = null;
                         container.querySelectorAll('.key-value-row').forEach(function(row) {{
                             if (match) {{ return; }}
                             var keyInput = row.querySelector('.kv-key');
-                            if (keyInput && keyInput.value.trim() === hash) {{
+                            if (keyInput && keyInput.value.trim() === key) {{
                                 match = row;
                             }}
                         }});
                         if (!match) {{
-                            // No existing row for this key — prepopulate one with the
-                            // key filled in but value left blank so the operator just
-                            // types/pastes the value and hits save.
                             window.addKeyValueRow_{widget_id}();
                             var rows = container.querySelectorAll('.key-value-row');
                             match = rows[rows.length - 1];
                             var keyInput = match.querySelector('.kv-key');
                             if (keyInput) {{
-                                keyInput.value = hash;
+                                keyInput.value = key;
                                 keyInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
                             }}
                         }}
+                        return match;
+                    }}
+
+                    function prefillConfigFromQuery_{widget_id}() {{
+                        var params = new URLSearchParams(window.location.search);
+                        var consumedConfigKeys = [];
+                        params.forEach(function(value, key) {{
+                            if (!/^[A-Z][A-Z0-9_]*$/.test(key) || !configMeta_{widget_id}[key]) {{
+                                return;
+                            }}
+                            consumedConfigKeys.push(key);
+                            var match = configRowForKey_{widget_id}(key);
+                            var valueInput = match && match.querySelector('.kv-value');
+                            if (valueInput) {{
+                                valueInput.value = value;
+                                valueInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                            }}
+                        }});
+                        updateHiddenField_{widget_id}();
+                        if (consumedConfigKeys.length) {{
+                            var cleanUrl = new URL(window.location.href);
+                            consumedConfigKeys.forEach(function(key) {{ cleanUrl.searchParams.delete(key); }});
+                            window.history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+                        }}
+                    }}
+
+                    function focusConfigKeyFromHash_{widget_id}() {{
+                        // Deep-link affordance: ``…/change/#SOME_KEY`` jumps directly
+                        // to (or creates) the matching row in this editor. Used by
+                        // the setup wizard and live-config detail pages.
+                        var hash = (window.location.hash || '').replace(/^#/, '').trim();
+                        if (!hash || !/^[A-Z][A-Z0-9_]*$/.test(hash)) {{
+                            return;
+                        }}
+                        var match = configRowForKey_{widget_id}(hash);
                         if (!match) {{
                             return;
                         }}
@@ -700,12 +723,14 @@ class KeyValueWidget(forms.Widget):
                     // Initialize on load
                     document.addEventListener('DOMContentLoaded', function() {{
                         initializeRows_{widget_id}();
+                        prefillConfigFromQuery_{widget_id}();
                         updateHiddenField_{widget_id}();
                         focusConfigKeyFromHash_{widget_id}();
                     }});
                     // Also run immediately in case DOM is already ready
                     if (document.readyState !== 'loading') {{
                         initializeRows_{widget_id}();
+                        prefillConfigFromQuery_{widget_id}();
                         updateHiddenField_{widget_id}();
                         focusConfigKeyFromHash_{widget_id}();
                     }}
@@ -826,7 +851,7 @@ class ConfigEditorMixin(admin.ModelAdmin):
         if change and obj.pk and obj.config is not None:
             try:
                 stored = type(obj).objects.filter(pk=obj.pk).values_list("config", flat=True).first() or {}
-            except Exception:
+            except (AttributeError, DatabaseError, TypeError, ValueError):
                 stored = {}
             if isinstance(stored, dict):
                 new_config = dict(obj.config or {})
@@ -845,6 +870,20 @@ class BaseModelAdmin(DjangoObjectActions, admin.ModelAdmin):
     list_display = ("id", "created_at", "created_by")
     readonly_fields = ("id", "created_at", "modified_at")
     show_search_mode_selector = False
+    change_form_template = "admin/archivebox_change_form.html"
+
+    def get_admin_toolbar_actions(self, request, obj):
+        """Return extra action button dicts for the shared change-form toolbar.
+
+        See ``templates/admin/includes/archivebox_toolbar.html`` for the
+        accepted keys. Default: no extras (toolbar renders Save/History/Delete
+        plus any ``django-object-actions`` change_actions).
+        """
+        return []
+
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
+        context.setdefault("archivebox_admin_actions", self.get_admin_toolbar_actions(request, obj))
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def get_default_search_mode(self) -> str:
         # The shared changelist template always asks every admin for a default
@@ -877,9 +916,9 @@ class BaseModelAdmin(DjangoObjectActions, admin.ModelAdmin):
         """
         info = self.opts.app_label, self.opts.model_name
         object_routes = [
-            path("<hexuuid:object_id>/history/", self.admin_site.admin_view(self.history_view), name="%s_%s_history" % info),
-            path("<hexuuid:object_id>/delete/", self.admin_site.admin_view(self.delete_view), name="%s_%s_delete" % info),
-            path("<hexuuid:object_id>/change/", self.admin_site.admin_view(self.change_view), name="%s_%s_change" % info),
+            path("<hexuuid:object_id>/history/", self.admin_site.admin_view(self.history_view), name="{}_{}_history".format(*info)),
+            path("<hexuuid:object_id>/delete/", self.admin_site.admin_view(self.delete_view), name="{}_{}_delete".format(*info)),
+            path("<hexuuid:object_id>/change/", self.admin_site.admin_view(self.change_view), name="{}_{}_change".format(*info)),
         ]
         # Append after super().get_urls() so our patterns are the
         # *last-registered* ones with the canonical admin URL names — Django's

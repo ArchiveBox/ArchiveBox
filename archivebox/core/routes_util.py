@@ -6,8 +6,7 @@ from urllib.parse import urlparse
 
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from archivebox.config.common import get_config
-
+from archivebox.config.common import get_config, get_request_config
 
 _SNAPSHOT_ID_RE = re.compile(r"^[0-9a-fA-F-]{8,36}$")
 _SNAPSHOT_SUBDOMAIN_RE = re.compile(r"^snap-(?P<suffix>[0-9a-fA-F]{12})$")
@@ -153,7 +152,7 @@ def _root_host_from_listen(config: dict[str, Any] | None = None, **config_kwargs
 
 
 def get_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     override = _normalize_base_url(config.BASE_URL)
     if override:
         return override
@@ -281,9 +280,7 @@ def host_matches(request_host: str, target_host: str) -> bool:
     target_host_only, target_port = split_host_port(target_host)
     if req_host != target_host_only:
         return False
-    if target_port and req_port and target_port != req_port:
-        return False
-    return True
+    return not (target_port and req_port and target_port != req_port)
 
 
 def is_allowed_archivebox_redirect_url(url: str | None, request=None, config: dict[str, Any] | None = None) -> bool:
@@ -352,28 +349,28 @@ def _build_base_url_for_host(host: str, request=None, config: dict[str, Any] | N
 
 
 def get_admin_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_url(request=request, config=config)
     return _build_base_url_for_host(_build_base_host("admin", request=request, config=config), request=request, config=config)
 
 
 def get_web_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_url(request=request, config=config)
     return _build_base_url_for_host(_build_base_host("web", request=request, config=config), request=request, config=config)
 
 
 def get_api_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_url(request=request, config=config)
     return _build_base_url_for_host(_build_base_host("api", request=request, config=config), request=request, config=config)
 
 
 def get_snapshot_base_url(snapshot_id: str, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return _build_url(get_web_base_url(request=request, config=config), f"/snapshot/{str(snapshot_id).replace('-', '')}")
     return _build_base_url_for_host(
@@ -384,7 +381,7 @@ def get_snapshot_base_url(snapshot_id: str, request=None, config: dict[str, Any]
 
 
 def get_original_base_url(domain: str, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
     return _build_base_url_for_host(_build_base_host(domain, request=request, config=config), request=request, config=config)

@@ -3,71 +3,50 @@ __package__ = "archivebox.core"
 import json
 import os
 import posixpath
-from glob import glob, escape
-from django.utils import timezone
-from typing import cast
+from glob import escape, glob
 from pathlib import Path
+from typing import ClassVar, cast
 from urllib.parse import quote, urlparse
 
-from django.shortcuts import render, redirect
-from django.http import HttpRequest, HttpResponse, Http404, HttpResponseForbidden, QueryDict
-from django.utils.html import format_html, format_html_join
-from django.utils.safestring import mark_safe
-from django.views import View
-from django.views.generic.list import ListView
-from django.views.generic import FormView
-from django.db.models import Case, IntegerField, Q, Value, When
-from django.core.paginator import InvalidPage
-from django.contrib import messages
+from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
+from admin_data_views.typing import ItemContext, SectionData, TableContext
+from admin_data_views.utils import ItemLink, render_with_item_view, render_with_table_view
+from django import template
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY, get_user_model
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.sessions.models import Session
 from django.core import signing
-from django.views.decorators.csrf import csrf_exempt
+from django.core.paginator import InvalidPage
+from django.db.models import Case, IntegerField, Q, Value, When
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
+from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.utils.decorators import method_decorator
-
-from admin_data_views.typing import TableContext, ItemContext, SectionData
-from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
-
-from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
+from django.utils.html import format_html, format_html_join
+from django.utils.safestring import mark_safe
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+from django.views.generic import FormView
+from django.views.generic.list import ListView
 
 from archivebox.config import CONSTANTS, CONSTANTS_CONFIG, VERSION
 from archivebox.config.common import (
+    PLUGIN_CONFIG_SCHEMAS,
     SENSITIVE_CONFIG_VALUE_REDACTED,
+    _plugin_config_properties,
     find_config_default,
     find_config_section,
     find_config_source,
     find_config_type,
-    get_config,
     get_all_configs,
+    get_config,
     get_request_config,
-    _plugin_config_properties,
     redact_sensitive_config,
 )
-from archivebox.config.common import PLUGIN_CONFIG_SCHEMAS
 from archivebox.config.configset import BaseConfigSet
-from archivebox.misc.paginators import AcceleratedPaginator
-from archivebox.misc.util import (
-    base_url,
-    filter_queryset_by_uuid_substring,
-    htmldecode,
-    sanitize_html_text,
-    ts_to_date_str,
-    urldecode,
-    validate_url,
-    without_fragment,
-)
-from archivebox.misc.serve_static import serve_static_with_byterange_support
-from archivebox.misc.logging_util import printable_filesize
-from archivebox.search.config import (
-    get_search_mode,
-    get_search_mode_backend,
-    get_search_mode_base,
-    get_search_mode_options,
-)
-from archivebox.search.views import get_cached_public_search_state
-
+from archivebox.core.forms import AddLinkForm
 from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag
 from archivebox.core.permissions import (
     PERMISSIONS_PRIVATE,
@@ -90,11 +69,31 @@ from archivebox.core.routes_util import (
     get_web_host,
     host_matches,
 )
-from archivebox.core.forms import AddLinkForm
-from archivebox.plugins.forms import get_plugin_config_binary_urls
 from archivebox.crawls.models import Crawl
+from archivebox.misc.logging_util import printable_filesize
+from archivebox.misc.paginators import AcceleratedPaginator
+from archivebox.misc.serve_static import serve_static_with_byterange_support
+from archivebox.misc.util import (
+    base_url,
+    filter_queryset_by_uuid_substring,
+    htmldecode,
+    sanitize_html_text,
+    ts_to_date_str,
+    urldecode,
+    validate_url,
+    without_fragment,
+)
+from archivebox.plugins.discovery import get_plugin_name, get_plugin_template
+from archivebox.plugins.forms import get_plugin_config_binary_urls
 from archivebox.plugins.views import get_config_definition_link
 from archivebox.progressmonitor.views import live_progress_view, progress_endpoint
+from archivebox.search.config import (
+    get_search_mode,
+    get_search_mode_backend,
+    get_search_mode_base,
+    get_search_mode_options,
+)
+from archivebox.search.views import get_cached_public_search_state
 
 
 def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
@@ -169,7 +168,7 @@ def _replay_payload_is_valid(payload: dict, snapshot: Snapshot) -> bool:
         user_id = str(session_data.get(SESSION_KEY) or "")
         auth_hash = str(session_data.get(HASH_SESSION_KEY) or "")
         user = get_user_model().objects.get(pk=user_id)
-    except Exception:
+    except (Session.DoesNotExist, get_user_model().DoesNotExist, KeyError, TypeError, ValueError):
         return False
     return (
         str(payload.get("user_id")) == user_id
@@ -343,7 +342,11 @@ class SnapshotView(View):
             for out in snapshot.discover_outputs(include_filesystem_fallback=True)
             if (out.get("size") or 0) > 0 and out.get("name") not in hidden_card_plugins
         ]
-        archiveresults = {out["name"]: out for out in outputs}
+        archiveresults = {}
+        for output in outputs:
+            current = archiveresults.get(output["name"])
+            if current is None or (output.get("size") or 0) > (current.get("size") or 0):
+                archiveresults[output["name"]] = output
         hash_index = snapshot.hashes_index
         accounted_entries: set[str] = set()
         for output in outputs:
@@ -446,6 +449,7 @@ class SnapshotView(View):
             "id": str(snapshot.id),
             "snapshot_id": str(snapshot.id),
             "progress_endpoint": progress_endpoint("snapshot", snapshot.id),
+            "progress_auto_expand": snapshot_status in {"queued", "started", "paused"},
             "url": snapshot.url,
             "archive_path": snapshot.archive_path_from_db,
             "title": htmldecode(snapshot.resolved_title or (snapshot.base_url if is_archived else TITLE_LOADING_MSG)),
@@ -632,10 +636,7 @@ class SnapshotView(View):
             return SnapshotView.find_snapshots_for_url(slug)
 
         try:
-            try:
-                snapshot = direct_snapshots_queryset(request, _resolve_snapshots_for_slug(path)).get()
-            except Snapshot.DoesNotExist:
-                raise
+            snapshot = direct_snapshots_queryset(request, _resolve_snapshots_for_slug(path)).get()
         except Snapshot.DoesNotExist:
             return HttpResponse(
                 format_html(
@@ -827,21 +828,23 @@ def _safe_archive_relpath(path: str) -> str | None:
     return cleaned
 
 
-def _resolve_archiveresult_relpath(snapshot: Snapshot, rel_path: str) -> tuple[str, bool]:
+def _resolve_archiveresult_relpath(snapshot: Snapshot, rel_path: str) -> tuple[str, ArchiveResult | None]:
     """Resolve plugin-relative output paths through ArchiveResult.output_files."""
     parts = Path(rel_path).parts
     if len(parts) < 2:
-        return rel_path, False
+        return rel_path, None
 
     plugin = parts[0]
     plugin_relpath = posixpath.join(*parts[1:])
     result = (
         ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED)
-        .only("output_files")
+        .only("plugin", "output_files")
         .first()
     )
-    if not result or not result.output_files:
-        return rel_path, False
+    if not result:
+        return rel_path, None
+    if not result.output_files:
+        return rel_path, result
 
     output_files = result.output_files or {}
     for candidate in (plugin_relpath, rel_path):
@@ -849,10 +852,79 @@ def _resolve_archiveresult_relpath(snapshot: Snapshot, rel_path: str) -> tuple[s
         if not isinstance(file_info, dict):
             continue
         if file_info.get("root_relative"):
-            return candidate, True
-        return rel_path, True
+            return candidate, result
+        return rel_path, result
 
-    return rel_path, True
+    return rel_path, result
+
+
+def _plugin_full_preview_response(
+    request: HttpRequest,
+    snapshot: Snapshot,
+    rel_path: str,
+    result: ArchiveResult | None,
+) -> HttpResponse | None:
+    """Render an explicit plugin full template as a trusted preview wrapper."""
+    if not request.GET.get("preview"):
+        return None
+
+    path_parts = Path(rel_path).parts
+    plugin = get_plugin_name(result.plugin) if result else (path_parts[0] if len(path_parts) > 1 else "")
+    if not plugin:
+        return None
+
+    # ReplayWeb.page needs plugin-owned WACZ inspection and service-worker
+    # context, so it remains the one narrow preview exception below.
+    if plugin == "archivewebpage" and archivewebpage_replay.is_replay_target(rel_path):
+        return None
+
+    template_str = get_plugin_template(plugin, "full", fallback=False)
+    if not template_str:
+        return None
+
+    raw_query = request.GET.copy()
+    raw_query.pop("preview", None)
+    output_url = request.path
+    if raw_query:
+        output_url = f"{output_url}?{raw_query.urlencode()}"
+
+    rendered = (
+        template.Engine(debug=False)
+        .from_string(template_str)
+        .render(
+            template.Context(
+                {
+                    "result": result,
+                    "snapshot": snapshot,
+                    "output_path": output_url,
+                    "output_path_raw": rel_path,
+                    "plugin": plugin,
+                    "preview_base": f"{request.path.rsplit('/', 1)[0]}/",
+                },
+            ),
+        )
+    )
+    response = HttpResponse(rendered, content_type="text/html; charset=utf-8")
+    response.headers["Content-Disposition"] = f'inline; filename="{Path(rel_path).stem}.html"'
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-ArchiveBox-Security-Mode"] = request.archivebox_config.SERVER_SECURITY_MODE
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self' data: blob:; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; "
+        "style-src 'self' 'unsafe-inline' data: blob:; "
+        "connect-src 'self' data: blob:; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' data: blob:; "
+        "font-src 'self' data: blob:; "
+        "frame-src 'self' data: blob:; "
+        "worker-src 'self' blob:; "
+        "object-src 'none'; "
+        "base-uri 'none'; "
+        "form-action 'none'; "
+        "frame-ancestors 'self';"
+    )
+    return response
 
 
 def _coerce_sort_timestamp(value: str | float | None) -> float:
@@ -872,7 +944,7 @@ def _snapshot_sort_key(match_path: str, cache: dict[str, float]) -> tuple[float,
         idx = parts.index("snapshots")
         date_str = parts[idx + 1]
         snapshot_id = parts[idx + 3]
-    except Exception:
+    except (IndexError, ValueError):
         return (_coerce_sort_timestamp(date_str), match_path)
 
     if snapshot_id not in cache:
@@ -1048,7 +1120,11 @@ def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str =
     if rel_path is None:
         raise Http404
 
-    rel_path, _is_known_plugin_output = _resolve_archiveresult_relpath(snapshot, rel_path)
+    rel_path, archive_result = _resolve_archiveresult_relpath(snapshot, rel_path)
+
+    plugin_preview = _plugin_full_preview_response(request, snapshot, rel_path, archive_result)
+    if plugin_preview is not None:
+        return plugin_preview
 
     try:
         return serve_static_with_byterange_support(
@@ -1172,7 +1248,7 @@ class OriginalDomainReplayView(View):
 class PublicIndexView(ListView):
     template_name = "public_index.html"
     model = Snapshot
-    ordering = ["-bookmarked_at", "-created_at"]
+    ordering: ClassVar[list[str]] = ["-bookmarked_at", "-created_at"]
     paginator_class = AcceleratedPaginator
     public_page_scan_chunk_size = 50
 
@@ -1634,13 +1710,16 @@ class WebAddView(AddView):
                 return redirect(f"/{snapshot.url_path}")
 
         request_host = (request.get_host() or "").lower()
-        if request.user.is_authenticated and not get_request_config(request).PUBLIC_ADD_VIEW and host_matches(request_host, get_web_host()):
+        request_config = get_request_config(request)
+        web_host = get_web_host(config=request_config)
+        admin_host = get_admin_host(config=request_config)
+        if request.user.is_authenticated and not request_config.PUBLIC_ADD_VIEW and host_matches(request_host, web_host):
             return redirect(build_admin_url(request.get_full_path(), request=request))
 
         if not self.test_func():
-            if host_matches(request_host, get_web_host()):
+            if host_matches(request_host, web_host):
                 return redirect(build_admin_url(request.get_full_path(), request=request))
-            if host_matches(request_host, get_admin_host()):
+            if host_matches(request_host, admin_host):
                 next_url = quote(request.get_full_path(), safe="/:?=&")
                 return redirect(f"{build_admin_url('/admin/login/', request=request)}?next={next_url}")
             return HttpResponse(
@@ -1733,7 +1812,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
     }
 
     for section_id, section in reversed(list(CONFIGS.items())):
-        for key in dict(section).keys():
+        for key in dict(section):
             rows["Section"].append(section_id)  # section.replace('_', ' ').title().replace(' Config', '')
             rows["Key"].append(ItemLink(key, key=key))
             rows["Type"].append(format_html("<code>{}</code>", find_config_type(key)))
@@ -1756,7 +1835,7 @@ def live_config_list_view(request: HttpRequest, **kwargs) -> TableContext:
             )
 
     section = "CONSTANT"
-    for key in CONSTANTS_CONFIG.keys():
+    for key in CONSTANTS_CONFIG:
         rows["Section"].append(section)  # section.replace('_', ' ').title().replace(' Config', '')
         rows["Key"].append(ItemLink(key, key=key))
         rows["Type"].append(format_html("<code>{}</code>", type(CONSTANTS_CONFIG[key]).__name__))

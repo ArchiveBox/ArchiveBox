@@ -1,27 +1,25 @@
 __package__ = "archivebox.crawls"
 
-from copy import copy
 import json
+from copy import copy
+from typing import ClassVar
 from urllib.parse import urlencode, urlparse
 
 from django import forms
-from django.core.paginator import Paginator
-from django.http import JsonResponse, HttpRequest, HttpResponseBadRequest, HttpResponseNotAllowed
-from django.shortcuts import get_object_or_404, redirect
-from django.template.response import TemplateResponse
-from django.template.loader import render_to_string
-from django.urls import path, reverse
-from django.utils.html import escape, format_html, format_html_join
-from django.utils import timezone
-from django.utils.safestring import mark_safe
 from django.contrib import admin, messages
+from django.core.paginator import Paginator
 from django.db.models import Count, F, Q
-
-
+from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
+from django.shortcuts import get_object_or_404, redirect
+from django.template.loader import render_to_string
+from django.template.response import TemplateResponse
+from django.urls import path, reverse
+from django.utils import timezone
+from django.utils.html import escape, format_html, format_html_join
+from django.utils.safestring import mark_safe
 from django_object_actions import action
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
-
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.permissions import (
     PERMISSIONS_CHOICES,
@@ -397,7 +395,7 @@ class CrawlAdminForm(forms.ModelForm):
     class Meta:
         model = Crawl
         fields = "__all__"
-        widgets = {
+        widgets: ClassVar[dict[str, forms.Widget]] = {
             "urls": forms.Textarea(
                 attrs={
                     "rows": 8,
@@ -704,16 +702,16 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     )
 
     list_filter = (MaxDepthListFilter, "schedule", "created_by", "status", "retry_at")
-    ordering = ["-created_at", "-retry_at"]
+    ordering = ("-created_at", "-retry_at")
     list_per_page = 50
-    actions = [
+    actions = (
         "pause_selected_crawls",
         "resume_selected_crawls",
         "seal_selected_crawls",
         "delete_selected_batched",
         "set_crawl_permissions",
-    ]
-    change_actions = ["recrawl"]
+    )
+    change_actions = ("recrawl",)
 
     def __init__(self, model, admin_site):
         super().__init__(model, admin_site)
@@ -721,8 +719,8 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         self.stop_reason_cache = {}
 
     class Media:
-        css = {"all": ("admin/crawls/crawl_change.css",)}
-        js = ("admin/crawls/crawl_admin.js",)
+        css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("admin/crawls/crawl_change.css",)}
+        js: ClassVar[tuple[str, ...]] = ("admin/crawls/crawl_admin.js",)
 
     def changelist_view(self, request, extra_context=None):
         self.request = request
@@ -1219,6 +1217,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     search_fields = ("id", "created_by__username", "label", "notes", "schedule_id", "template_id", "template__urls")
 
     readonly_fields = ("created_at", "modified_at", "crawls", "snapshots")
+    autocomplete_fields = ("template", "created_by")
 
     fieldsets = (
         (
@@ -1259,9 +1258,9 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     )
 
     list_filter = ("created_by",)
-    ordering = ["-created_at"]
+    ordering = ("-created_at",)
     list_per_page = 100
-    actions = ["delete_selected"]
+    actions = ("delete_selected",)
 
     def get_queryset(self, request):
         self.request = request

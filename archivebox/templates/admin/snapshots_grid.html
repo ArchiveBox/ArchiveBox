@@ -47,11 +47,31 @@
       height: auto;
       border: 0;
   }
+  .cards .card .card-thumbnail img.loading-preview {
+      width: 48px;
+      height: 48px;
+      margin-top: 98px;
+      object-fit: contain;
+  }
   .cards .card .card-thumbnail.missing img {
-      opacity: 0.03;
-      width: 20%;
-      height: auto;
-      margin-top: 84px;
+      display: none;
+  }
+  .cards .card .card-thumbnail.missing::after {
+      content: "No preview captured";
+      display: grid;
+      place-items: center;
+      height: 100%;
+      color: #94a3b8;
+      font-size: 12px;
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  }
+  .cards .card .card-thumbnail .missing-preview {
+      display: grid;
+      place-items: center;
+      height: 100%;
+      color: #94a3b8;
+      font-size: 12px;
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
   }
 
   .cards .card .card-tags {
@@ -233,12 +253,18 @@
               {% snapshot_archiveresult_url obj 'chrome_extension_screenshot' 'screenshot-1.png' as extension_screenshot_1_url %}
               {% snapshot_archiveresult_url obj 'chrome_extension_screenshot' 'screenshot.png' as extension_screenshot_url %}
               {% snapshot_archiveresult_url obj 'favicon' 'favicon.ico' as favicon_url %}
-              <img
-                src="{% firstof screenshot_url extension_screenshot_1_url extension_screenshot_url favicon_url '/static/spinner.gif' %}"
-                alt="{{obj.title|default:'Not yet archived...'}}"
-                data-fallbacks="{{ extension_screenshot_1_url }},{{ extension_screenshot_url }},{{ favicon_url }}"
-                onerror="const fallbacks=(this.dataset.fallbacks || '').split(',').filter(Boolean); if (fallbacks.length) { this.dataset.fallbacks=fallbacks.slice(1).join(','); this.src=fallbacks[0]; } else { this.onerror=null; this.closest('.card-thumbnail').classList.add('missing'); this.src='/static/spinner.gif'; }"
-              />
+              {% if screenshot_url or extension_screenshot_1_url or extension_screenshot_url or favicon_url %}
+                <img
+                  src="{% firstof screenshot_url extension_screenshot_1_url extension_screenshot_url favicon_url %}"
+                  alt="{{obj.title|default:'Not yet archived...'}}"
+                  data-fallbacks="{{ extension_screenshot_1_url }},{{ extension_screenshot_url }},{{ favicon_url }}"
+                  onerror="const fallbacks=(this.dataset.fallbacks || '').split(',').filter(Boolean); if (fallbacks.length) { this.dataset.fallbacks=fallbacks.slice(1).join(','); this.src=fallbacks[0]; } else { this.onerror=null; this.closest('.card-thumbnail').classList.add('missing'); this.remove(); }"
+                />
+              {% elif obj.status == 'started' %}
+                <img src="{% static 'spinner.gif' %}" class="loading-preview" alt="Archiving in progress"/>
+              {% else %}
+                <span class="missing-preview">No preview captured</span>
+              {% endif %}
             </a>
               {% if obj.tags_str %}
                 <div class="card-tags">

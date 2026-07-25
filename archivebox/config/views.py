@@ -1,25 +1,32 @@
 __package__ = "archivebox.config"
 
-import os
 import inspect
+import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlencode
+
+from admin_data_views.typing import ItemContext, SectionData, TableContext
+from admin_data_views.utils import ItemLink, render_with_item_view, render_with_table_view
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from admin_data_views.typing import TableContext, ItemContext, SectionData
-from admin_data_views.utils import render_with_table_view, render_with_item_view, ItemLink
-
 from archivebox.config import CONSTANTS
-from archivebox.misc.util import parse_date
-
 from archivebox.machine.models import Binary
+from archivebox.misc.util import parse_date
 
 ENVIRONMENT_BINARIES_BASE_URL = "/admin/environment/binaries/"
 INSTALLED_BINARIES_BASE_URL = "/admin/machine/binary/"
+LOG_DETAIL_TAIL_BYTES = 100_000
+
+
+def _read_text_tail(path: Path, max_bytes: int = LOG_DETAIL_TAIL_BYTES) -> str:
+    with path.open("rb") as log_file:
+        size = path.stat().st_size
+        log_file.seek(max(size - max_bytes, 0))
+        return log_file.read(max_bytes).decode("utf-8", errors="replace")
 
 
 def is_superuser(request: HttpRequest) -> bool:
@@ -87,7 +94,7 @@ def obj_to_yaml(obj: Any, indent: int = 0) -> str:
             return f" {obj}"
 
     elif isinstance(obj, (int, float, bool)):
-        return f" {str(obj)}"
+        return f" {obj!s}"
 
     elif callable(obj):
         source = (
@@ -98,7 +105,7 @@ def obj_to_yaml(obj: Any, indent: int = 0) -> str:
         return f" {indent_str}  " + source.replace("\n", f"\n{indent_str}  ")
 
     else:
-        return f" {str(obj)}"
+        return f" {obj!s}"
 
 
 def _binary_sort_key(binary: Binary) -> tuple[int, int, int, Any]:
@@ -300,7 +307,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
                 pid_to_process_id[row.pid] = str(row.id)
                 pid_to_process_type[row.pid] = row.process_type
 
-        except Exception:
+        except (ImportError, RuntimeError, TypeError, ValueError):
             pass
 
     def _pid_cell(pid_value: int | None, uptime_str: str = ""):
@@ -341,7 +348,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
         hours, remainder = divmod(seconds, 3600)
         minutes, secs = divmod(remainder, 60)
         supervisor_uptime = f"{hours}:{minutes:02d}:{secs:02d}"
-    except Exception:
+    except (ImportError, RuntimeError, TypeError, ValueError):
         try:
             from archivebox.machine.models import Machine, Process
 
@@ -360,7 +367,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
                 hours, remainder = divmod(seconds, 3600)
                 minutes, secs = divmod(remainder, 60)
                 supervisor_uptime = f"{hours}:{minutes:02d}:{secs:02d}"
-        except Exception:
+        except (RuntimeError, TypeError, ValueError):
             pass
 
     rows["PID"].append(_pid_cell(supervisor_pid if isinstance(supervisor_pid, int) else None, supervisor_uptime))
@@ -415,7 +422,7 @@ def worker_list_view(request: HttpRequest, **kwargs) -> TableContext:
 def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert is_superuser(request), "Must be a superuser to view configuration settings."
 
-    from archivebox.workers.supervisord_util import get_existing_supervisord_process, get_worker, get_sock_file, CONFIG_FILE_NAME
+    from archivebox.workers.supervisord_util import CONFIG_FILE_NAME, get_existing_supervisord_process, get_sock_file, get_worker
 
     SOCK_FILE = get_sock_file()
     CONFIG_FILE = SOCK_FILE.parent / CONFIG_FILE_NAME
@@ -438,8 +445,12 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
 
     if key == "supervisord":
         relevant_config = CONFIG_FILE.read_text()
-        relevant_logs = str(supervisor.readLog(0, 10_000_000))
-        start_ts = [line for line in relevant_logs.split("\n") if "RPC interface 'supervisor' initialized" in line][-1].split(",", 1)[0]
+        supervisor_log = CONSTANTS.LOGS_DIR / "supervisord.log"
+        with supervisor_log.open("rb") as log_file:
+            startup_logs = log_file.read(LOG_DETAIL_TAIL_BYTES).decode("utf-8", errors="replace")
+        relevant_logs = _read_text_tail(supervisor_log)
+        startup_lines = [line for line in startup_logs.split("\n") if "RPC interface 'supervisor' initialized" in line]
+        start_ts = startup_lines[-1].split(",", 1)[0] if startup_lines else ""
         start_dt = parse_date(start_ts)
         uptime = str(timezone.now() - start_dt).split(".")[0] if start_dt else ""
         supervisor_state = supervisor.getState()
@@ -458,7 +469,7 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
         worker_data = get_worker(supervisor, key)
         proc = worker_data if isinstance(worker_data, dict) else {}
         relevant_config = next((config for config in all_config if config.get("name") == key), {})
-        log_result = supervisor.tailProcessStdoutLog(key, 0, 10_000_000)
+        log_result = supervisor.tailProcessStdoutLog(key, -LOG_DETAIL_TAIL_BYTES, LOG_DETAIL_TAIL_BYTES)
         relevant_logs = str(log_result[0] if isinstance(log_result, tuple) else log_result)
 
     section: SectionData = {
@@ -474,7 +485,7 @@ def worker_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
             "Logfile": str(proc.get("stdout_logfile") or ""),
             "Uptime": str(str(proc.get("description") or "").split("uptime ", 1)[-1]),
             "Config": obj_to_yaml(relevant_config) if isinstance(relevant_config, dict) else str(relevant_config),
-            "Logs": relevant_logs,
+            "Recent Logs (last 100 KB)": relevant_logs,
         },
         "help_texts": {"Uptime": "How long the process has been running ([days:]hours:minutes:seconds)"},
     }
@@ -528,9 +539,9 @@ def log_list_view(request: HttpRequest, **kwargs) -> TableContext:
 def log_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert is_superuser(request), "Must be a superuser to view configuration settings."
 
-    log_file = [logfile for logfile in CONSTANTS.LOGS_DIR.glob("*.log") if key in logfile.name][0]
+    log_file = next(logfile for logfile in CONSTANTS.LOGS_DIR.glob("*.log") if key in logfile.name)
 
-    log_text = log_file.read_text()
+    log_text = _read_text_tail(log_file)
     log_stat = log_file.stat()
 
     section: SectionData = {
@@ -540,8 +551,8 @@ def log_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
             "Path": str(log_file),
             "Size": f"{log_stat.st_size // 1000} kb",
             "Last Updated": format_parsed_datetime(log_stat.st_mtime),
-            "Tail": "\n".join(log_text[-10_000:].split("\n")[-20:]),
-            "Full Log": log_text,
+            "Tail": "\n".join(log_text.split("\n")[-20:]),
+            "Recent Log (last 100 KB)": log_text,
         },
     }
 

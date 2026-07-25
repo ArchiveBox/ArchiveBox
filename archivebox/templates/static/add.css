@@ -4,6 +4,21 @@ header {
     color: white;
     height: 30px;
 }
+
+.add-page {
+  width: 100%;
+  max-width: 1440px;
+  min-width: 0;
+  margin: auto;
+  float: none;
+}
+
+#add-form,
+#add-form .form-section,
+#add-form .form-field {
+  min-width: 0;
+  max-width: 100%;
+}
 .header-top {
   color: white;
 }
@@ -658,6 +673,10 @@ select {
   margin-bottom: 0;
 }
 
+.url-filters-column {
+  min-width: 0;
+}
+
 .url-filter-label-main {
   font-weight: 600;
   white-space: nowrap;
@@ -735,6 +754,19 @@ select {
   color: #155724;
   background-color: #d4edda;
   border-color: #c3e6cb;
+}
+
+@media (max-width: 1100px) {
+  .url-filter-label-row {
+    flex-wrap: wrap;
+  }
+
+  .url-filter-label-note {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+    white-space: normal;
+  }
 }
 
 @media (max-width: 1020px) {
@@ -927,6 +959,49 @@ input:focus, select:focus, textarea:focus, button:focus {
 
 /* Responsive layout */
 @media (max-width: 768px) {
+  .add-page {
+    overflow-x: hidden;
+  }
+
+  #add-form > center h1 {
+    font-size: 26px;
+    line-height: 1.2;
+  }
+
+  .crawl-explanation,
+  .form-section {
+    padding: 12px;
+  }
+
+  .crawl-tip > span[style*="float"] {
+    display: block;
+    float: none !important;
+    margin-bottom: 8px;
+  }
+
+  .crawl-tip-url {
+    display: block;
+    max-width: 100%;
+    margin-top: 6px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .url-editor-shell textarea[name="url"] {
+    max-width: 100%;
+  }
+
+  .url-filter-label-row {
+    flex-wrap: wrap;
+  }
+
+  .url-filter-label-note {
+    width: 100%;
+    margin-left: 0;
+    text-align: left;
+    white-space: normal;
+  }
+
   .crawl-limit-grid {
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   }

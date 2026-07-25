@@ -1,16 +1,17 @@
 __package__ = "archivebox.core"
 
 import re
-from decimal import Decimal, InvalidOperation, ROUND_CEILING
+from decimal import ROUND_CEILING, Decimal, InvalidOperation
 
 from django import forms
 
-from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes
 from archivebox.base_models.admin import KeyValueWidget
-from archivebox.crawls.schedule_util import validate_schedule
 from archivebox.config.common import get_config, parse_delete_after
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
+from archivebox.crawls.schedule_util import validate_schedule
+from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes
+from archivebox.personas.models import Persona
 from archivebox.plugins.discovery import get_plugins
 from archivebox.plugins.forms import (
     PLUGIN_GROUP_DEFINITIONS,
@@ -18,7 +19,6 @@ from archivebox.plugins.forms import (
     PluginConfigFormMixin,
     get_choice_field,
 )
-from archivebox.personas.models import Persona
 
 DEPTH_CHOICES = (
     ("0", "depth = 0 (archive just these URLs)"),
@@ -101,12 +101,11 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             attrs={
                 "data-url-regex": URL_REGEX.pattern,
                 "placeholder": (
-                    "\n",
-                    "Enter URL(s) to archive. Any format is ok: one per line, CSV, JSON, embedded in text, etc."
+                    "Enter URL(s) to archive. Any format is ok: one per line, CSV, JSON, embedded in text, etc.\n\n"
                     "Examples:\n\n"
                     "https://example.com\n\n"
                     "https://news.ycombinator.com,https://news.google.com\n\n"
-                    "Or any text-based content [containing URLs](https://github.com/ArchiveBox/ArchiveBox)...",
+                    "Or any text-based content [containing URLs](https://github.com/ArchiveBox/ArchiveBox)..."
                 ),
             },
         ),

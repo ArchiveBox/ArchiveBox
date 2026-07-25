@@ -1,26 +1,17 @@
-{% extends "admin/change_form.html" %}
+{% extends "admin/archivebox_change_form.html" %}
 {% load core_tags %}
 
-{% block extrastyle %}
-{{ block.super }}
+{% block extrastyle %}{{ block.super }}
 <style>
-  .archivebox-rss-object-tool a {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .archivebox-rss-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 2px 7px;
-    border-radius: 4px;
+  .archivebox-rss-toolbar-btn {
     background: #fff3e0;
-    border: 1px solid #f59e0b;
+    border-color: #f59e0b;
     color: #7c2d12;
-    font-weight: 700;
-    font-size: 12px;
-    line-height: 1.2;
+  }
+  .archivebox-rss-toolbar-btn:hover {
+    background: #ffe0b2;
+    border-color: #d97706;
+    color: #7c2d12;
   }
   .archivebox-rss-dot {
     display: inline-block;
@@ -33,15 +24,17 @@
 </style>
 {% endblock %}
 
-{% block object-tools-items %}
+{% block toolbar_extras %}
 {% if original %}
   {% api_token as api_token %}
-  <li class="archivebox-rss-object-tool">
-    <a href="/api/v1/core/snapshots.rss?created_by={{ original.username|urlencode }}&amp;limit=50{% if api_token %}&amp;api_key={{ api_token|urlencode }}{% endif %}" title="Snapshot RSS feed for {{ original.username }}">
-      <span class="archivebox-rss-badge"><span class="archivebox-rss-dot" aria-hidden="true"></span>RSS</span>
+  <div class="ab-toolbar-group">
+    <a class="ab-btn archivebox-rss-toolbar-btn"
+       role="button"
+       href="/api/v1/core/snapshots.rss?created_by={{ original.username|urlencode }}&amp;limit=50{% if api_token %}&amp;api_key={{ api_token|urlencode }}{% endif %}"
+       title="Snapshot RSS feed for {{ original.username }}">
+      <span class="archivebox-rss-dot" aria-hidden="true"></span>
       Snapshot Feed
     </a>
-  </li>
+  </div>
 {% endif %}
-{{ block.super }}
 {% endblock %}

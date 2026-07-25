@@ -1,35 +1,34 @@
-import html
-import json
-import re
-import os
-import sys
-import stat
 import asyncio
-import posixpath
-import mimetypes
+import html
 import importlib
+import json
+import mimetypes
+import os
+import posixpath
 import queue
+import re
+import stat
+import sys
 import threading
 import time
 import zipfile
-from datetime import datetime
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
-from django import template
-from django.core.handlers.asgi import ASGIRequest
+from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
 from django.contrib.staticfiles import finders
+from django.core.handlers.asgi import ASGIRequest
+from django.http import Http404, HttpResponse, HttpResponseNotModified, StreamingHttpResponse
 from django.template import TemplateDoesNotExist, loader
-from django.views import static
-from django.http import StreamingHttpResponse, Http404, HttpResponse, HttpResponseNotModified
 from django.utils._os import safe_join
 from django.utils.http import http_date
 from django.utils.translation import gettext as _
-from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
+from django.views import static
+
 from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
-
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 
@@ -49,7 +48,7 @@ def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
 
     try:
         data = json.loads(hashes_path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError, TypeError, ValueError):
         return None
 
     file_map = {str(entry.get("path")): entry.get("hash") for entry in data.get("files", []) if entry.get("path")}
@@ -99,28 +98,9 @@ def _cache_policy(config=None, **config_kwargs) -> str:
     return "private" if config.PERMISSIONS == "private" else "public"
 
 
-def _render_mhtml_preview_document(filename: str, output_path: str) -> str:
-    from archivebox.plugins.discovery import get_plugin_template
-
-    template_str = get_plugin_template("chrome_mhtml", "full", fallback=False)
-    if not template_str:
-        raise FileNotFoundError("chrome_mhtml/templates/full.html")
-
-    tpl = template.Engine(debug=False).from_string(template_str)
-    return tpl.render(
-        template.Context(
-            {
-                "output_path": output_path,
-                "output_path_raw": filename,
-                "plugin": "chrome_mhtml",
-            },
-        ),
-    )
-
-
 def _format_direntry_timestamp(stat_result: os.stat_result) -> str:
     timestamp = stat_result.st_birthtime if sys.platform == "darwin" else stat_result.st_mtime
-    return datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M")
+    return datetime.fromtimestamp(timestamp, tz=UTC).strftime("%Y-%m-%d %H:%M")
 
 
 def _safe_zip_stem(name: str) -> str:
@@ -190,7 +170,7 @@ def _build_directory_zip_response(
                     rel_parts = entry.relative_to(fullpath).parts
                     arcname = Path(root_name, *rel_parts).as_posix()
                     zip_file.write(entry, arcname)
-        except BaseException as err:
+        except (OSError, RuntimeError, TypeError, ValueError, zipfile.BadZipFile) as err:
             output_queue.put(err)
         finally:
             output_queue.put(sentinel)
@@ -490,7 +470,7 @@ def _render_markdown_fallback(text: str) -> str:
                 extensions=["extra", "toc", "sane_lists"],
                 output_format="html",
             )
-        except Exception:
+        except (ImportError, RuntimeError, ValueError):
             pass
 
     lines = text.splitlines()
@@ -668,7 +648,7 @@ def _is_risky_replay_document(fullpath: Path, content_type: str) -> bool:
     # so one-domain no-JS mode still catches HTML/SVG documents.
     try:
         head = fullpath.read_bytes()[:4096].decode("utf-8", errors="ignore").lower()
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         return False
 
     return any(marker in head for marker in RISKY_REPLAY_MARKERS)
@@ -690,7 +670,9 @@ def _apply_archive_replay_headers(
     config = config or get_config(resolve_plugins=False, **config_kwargs)
     response.headers.setdefault("X-ArchiveBox-Security-Mode", config.SERVER_SECURITY_MODE)
 
-    if config.SHOULD_NEUTER_RISKY_REPLAY and _is_risky_replay_document(fullpath, content_type):
+    is_risky_replay = _is_risky_replay_document(fullpath, content_type)
+
+    if config.SHOULD_NEUTER_RISKY_REPLAY and is_risky_replay and "Content-Security-Policy" not in response.headers:
         response.headers["Content-Security-Policy"] = (
             "sandbox; "
             "default-src 'self' data: blob:; "
@@ -797,19 +779,20 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     preview_as_image_html = (
         bool(request.GET.get("preview")) and content_type.startswith("image/") and not content_type.startswith("image/svg+xml")
     )
-    preview_as_mhtml_html = bool(request.GET.get("preview")) and fullpath.suffix.lower() in {".mhtml", ".mht"}
     preview_as_archivewebpage_html = bool(request.GET.get("preview")) and archivewebpage_replay.is_replay_target(fullpath.name)
 
     # Respect the If-Modified-Since header for non-markdown responses.
-    if not (content_type.startswith("text/plain") or content_type.startswith("text/html")):
-        if not static.was_modified_since(request.META.get("HTTP_IF_MODIFIED_SINCE"), statobj.st_mtime):
-            return _apply_archive_replay_headers(
-                HttpResponseNotModified(),
-                fullpath=fullpath,
-                content_type=content_type,
-                is_archive_replay=is_archive_replay,
-                config=config,
-            )
+    if not content_type.startswith(("text/plain", "text/html")) and not static.was_modified_since(
+        request.META.get("HTTP_IF_MODIFIED_SINCE"),
+        statobj.st_mtime,
+    ):
+        return _apply_archive_replay_headers(
+            HttpResponseNotModified(),
+            fullpath=fullpath,
+            content_type=content_type,
+            is_archive_replay=is_archive_replay,
+            config=config,
+        )
 
     # Wrap text-like outputs in HTML when explicitly requested for iframe previewing.
     if preview_as_text_html:
@@ -835,8 +818,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     is_archive_replay=is_archive_replay,
                     config=config,
                 )
-        except Exception:
-            pass
+        except (OSError, UnicodeDecodeError, ValueError):
+            preview_as_text_html = False
 
     if preview_as_image_html:
         try:
@@ -863,8 +846,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 is_archive_replay=is_archive_replay,
                 config=config,
             )
-        except Exception:
-            pass
+        except (OSError, ValueError):
+            preview_as_image_html = False
 
     if preview_as_archivewebpage_html:
         try:
@@ -890,46 +873,19 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             response = HttpResponse(body, content_type=preview_content_type)
             for key, value in headers.items():
                 response.headers[key] = value
-            return response
-        except Exception:
-            pass
-
-    if preview_as_mhtml_html:
-        try:
-            raw_query = request.GET.copy()
-            raw_query.pop("preview", None)
-            raw_output_path = request.path
-            if raw_query:
-                raw_output_path = f"{raw_output_path}?{raw_query.urlencode()}"
-            rendered = _render_mhtml_preview_document(fullpath.name, raw_output_path)
-            response = HttpResponse(rendered, content_type="text/html; charset=utf-8")
-            response.headers["Last-Modified"] = http_date(statobj.st_mtime)
-            if etag:
-                response.headers["ETag"] = etag
-                response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
-            else:
-                response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
-            response.headers["Content-Disposition"] = f'inline; filename="{fullpath.stem}.html"'
-            response.headers["X-Content-Type-Options"] = "nosniff"
-            response.headers["Content-Security-Policy"] = (
-                "default-src 'self' data: blob:; "
-                "script-src 'unsafe-inline'; "
-                "style-src 'unsafe-inline' data: blob:; "
-                "connect-src 'self'; "
-                "frame-src 'self' data: blob:; "
-                "object-src 'none'; "
-                "base-uri 'none'; "
-                "form-action 'none';"
+            return _apply_archive_replay_headers(
+                response,
+                fullpath=fullpath,
+                content_type=preview_content_type,
+                is_archive_replay=is_archive_replay,
+                config=config,
             )
-            if encoding:
-                response.headers["Content-Encoding"] = encoding
-            return response
-        except Exception:
-            pass
+        except (OSError, RuntimeError, ValueError):
+            preview_as_archivewebpage_html = False
 
     # Heuristic fix: some archived HTML outputs (e.g. mercury content.html)
     # are stored with HTML-escaped markup or markdown sources. If so, render sensibly.
-    if content_type.startswith("text/plain") or content_type.startswith("text/html"):
+    if content_type.startswith(("text/plain", "text/html")):
         try:
             max_unescape_size = 10 * 1024 * 1024  # 10MB cap to avoid heavy memory use
             if statobj.st_size <= max_unescape_size:
@@ -977,11 +933,11 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         is_archive_replay=is_archive_replay,
                         config=config,
                     )
-        except Exception:
+        except (OSError, UnicodeDecodeError, ValueError):
             pass
 
     # setup response object
-    ranged_file = RangedFileReader(open(fullpath, "rb"))
+    ranged_file = RangedFileReader(fullpath.open("rb"))
     response = StreamingHttpResponse(
         _stream_ranged_file_async(ranged_file) if _is_asgi_request(request) else ranged_file,
         content_type=content_type,
@@ -1018,7 +974,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     return HttpResponse(status=416)
                 ranged_file.start = start
                 ranged_file.stop = stop
-                response["Content-Range"] = "bytes %d-%d/%d" % (start, stop - 1, size)
+                response["Content-Range"] = f"bytes {start}-{stop - 1}/{size}"
                 response["Content-Length"] = stop - start
                 response.status_code = 206
     if encoding:
@@ -1053,7 +1009,7 @@ def serve_static(request, path, **kwargs):
     if not absolute_path:
         if path.endswith("/") or path == "":
             raise Http404("Directory indexes are not allowed here.")
-        raise Http404("'%s' could not be found" % path)
+        raise Http404(f"'{path}' could not be found")
     document_root, path = os.path.split(absolute_path)
     return serve_static_with_byterange_support(request, path, document_root=document_root, **kwargs)
 
@@ -1085,8 +1041,7 @@ def parse_range_header(header, resource_size):
             # suffix-byte-range-spec: this form specifies the last N bytes of an
             # entity-body
             start = resource_size + int(val)
-            if start < 0:
-                start = 0
+            start = max(start, 0)
             stop = resource_size
         else:
             # byte-range-spec: first-byte-pos "-" [last-byte-pos]

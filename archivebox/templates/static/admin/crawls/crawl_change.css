@@ -281,6 +281,21 @@ body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .
 }
 
 @media (max-width: 900px) {
+    body.model-crawl.change-form #content .object-tools .archivebox-crawl-resume-tool {
+        display: flex;
+        flex: 1 1 100%;
+        min-width: 0;
+        margin: 0;
+        gap: 8px;
+        justify-content: flex-start;
+    }
+
+    body.model-crawl.change-form #content .object-tools .crawl-stop-reason-inline {
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
     body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-multiline,
     body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-row.field-notes.field-tags_editor .form-multiline,
     body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .key-value-rows {
@@ -290,5 +305,12 @@ body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .
     body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .kv-inputs {
         grid-template-columns: 1fr;
         align-items: stretch !important;
+    }
+
+    body.model-crawl.change-form #content-main form fieldset.crawl-admin-config *,
+    body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview * {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 }

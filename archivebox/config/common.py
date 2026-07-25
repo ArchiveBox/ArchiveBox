@@ -2,32 +2,31 @@ from __future__ import annotations
 
 __package__ = "archivebox.config"
 
+import inspect
 import json
 import os
 import re
 import secrets
-import sys
 import shutil
-import inspect
-from functools import lru_cache
+import sys
 from collections.abc import Mapping
 from datetime import timedelta
-from typing import Any, ClassVar, cast
+from functools import cache, lru_cache
 from pathlib import Path
-from urllib.parse import quote
+from typing import Any, ClassVar, cast
+from urllib.parse import quote, urlparse
 
-from rich.console import Console
+from abx_plugins.plugins.base.utils import BASE_CONFIG_PATH, build_config_model, resolve_plugin_configs
 from pydantic import BaseModel, Field, PrivateAttr, create_model, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
-from abx_plugins.plugins.base.utils import BASE_CONFIG_PATH, build_config_model, resolve_plugin_configs
+from rich.console import Console
 
-from archivebox.config.configset import BaseConfigSet, IniConfigSettingsSource
-from archivebox.config.configset import COMPUTED_CONFIG_KEYS
+from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, IniConfigSettingsSource
 
 from .constants import CONSTANTS
 from .ldap import LDAPConfig
-from .version import get_COMMIT_HASH, get_BUILD_TIME, VERSION
 from .permissions import IN_DOCKER
+from .version import VERSION, get_BUILD_TIME, get_COMMIT_HASH
 
 ConfigOverrides = Mapping[str, object]
 ConfigPayload = dict[str, object]
@@ -65,6 +64,40 @@ def permissions_from_legacy_public_flags(raw_config: Mapping[str, object]) -> st
     if public_snapshots is True or public_index is True:
         return "public"
     return None
+
+
+def base_url_from_legacy_server_config(raw_config: Mapping[str, object]) -> str:
+    """Derive the current canonical URL from the pre-0.9 server settings."""
+
+    def normalize(value: object) -> str:
+        raw = str(value or "").strip()
+        if not raw:
+            return ""
+        parsed = urlparse(raw if "://" in raw else f"http://{raw}")
+        return f"{parsed.scheme}://{parsed.netloc}" if parsed.netloc else ""
+
+    for key in ("ARCHIVE_BASE_URL", "ADMIN_BASE_URL"):
+        candidate = normalize(raw_config.get(key))
+        if candidate:
+            return candidate
+
+    listen_host = str(raw_config.get("LISTEN_HOST") or "").strip()
+    if listen_host and listen_host.lower() != "archivebox.localhost:8000":
+        return normalize(listen_host)
+
+    csrf_origins = [normalize(origin) for origin in str(raw_config.get("CSRF_TRUSTED_ORIGINS") or "").split(",")]
+    csrf_origins = [origin for origin in csrf_origins if origin]
+    nondefault_csrf_origins = [origin for origin in csrf_origins if origin != "http://admin.archivebox.localhost:8000"]
+    if len(nondefault_csrf_origins) == 1:
+        return nondefault_csrf_origins[0]
+
+    allowed_hosts = [host.strip() for host in str(raw_config.get("ALLOWED_HOSTS") or "").split(",") if host.strip() != "*"]
+    if len(allowed_hosts) == 1:
+        return normalize(allowed_hosts[0])
+
+    if len(csrf_origins) == 1:
+        return csrf_origins[0]
+    return normalize(listen_host)
 
 
 def resolve_delete_after_config_value(*configs: Mapping[str, Any] | None) -> str:
@@ -272,6 +305,7 @@ class ServerConfig(BaseConfigSet):
     _scope: str = PrivateAttr(default=_SCOPE_SERVER)
 
     SERVER_SECURITY_MODES: ClassVar[tuple[str, ...]] = (
+        "auto",
         "safe-subdomains-fullreplay",
         "safe-onedomain-nojsreplay",
         "unsafe-onedomain-noadmin",
@@ -283,7 +317,7 @@ class ServerConfig(BaseConfigSet):
     BASE_URL: str = Field(default="")
     ALLOWED_HOSTS: str = Field(default="*")
     CSRF_TRUSTED_ORIGINS: str = Field(default="")
-    SERVER_SECURITY_MODE: str = Field(default="safe-subdomains-fullreplay")
+    SERVER_SECURITY_MODE: str = Field(default="auto")
 
     SNAPSHOTS_PER_PAGE: int = Field(default=50, ge=1)
     FOOTER_INFO: str = Field(
@@ -308,11 +342,21 @@ class ServerConfig(BaseConfigSet):
 
     @property
     def USES_SUBDOMAIN_ROUTING(self) -> bool:
-        return self.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay"
+        if self.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay":
+            return True
+        if self.SERVER_SECURITY_MODE != "auto":
+            return False
+
+        base_host = (urlparse(self.BASE_URL if "://" in self.BASE_URL else f"//{self.BASE_URL}").hostname or "").lower()
+        if base_host:
+            return base_host.endswith(".localhost")
+
+        bind_host = (urlparse(f"//{self.BIND_ADDR}").hostname or "").lower()
+        return bind_host in {"", "0.0.0.0", "127.0.0.1", "::", "::1", "localhost"}
 
     @property
     def ENABLES_FULL_JS_REPLAY(self) -> bool:
-        return self.SERVER_SECURITY_MODE in (
+        return self.USES_SUBDOMAIN_ROUTING or self.SERVER_SECURITY_MODE in (
             "safe-subdomains-fullreplay",
             "unsafe-onedomain-noadmin",
             "danger-onedomain-fullreplay",
@@ -328,7 +372,7 @@ class ServerConfig(BaseConfigSet):
 
     @property
     def SHOULD_NEUTER_RISKY_REPLAY(self) -> bool:
-        return self.SERVER_SECURITY_MODE == "safe-onedomain-nojsreplay"
+        return self.SERVER_SECURITY_MODE in ("auto", "safe-onedomain-nojsreplay")
 
     @property
     def IS_UNSAFE_MODE(self) -> bool:
@@ -643,7 +687,7 @@ class ArchiveBoxBaseConfig(
     @classmethod
     def _plugin_field_scope(cls, key: str) -> str | None:
         scope = None
-        for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
+        for schema in PLUGIN_CONFIG_SCHEMAS.values():
             properties = schema.get("properties") if isinstance(schema, dict) else None
             if not isinstance(properties, dict) or key not in properties:
                 continue
@@ -655,7 +699,7 @@ class ArchiveBoxBaseConfig(
         return scope
 
     @classmethod
-    @lru_cache(maxsize=None)
+    @cache
     def scope_for_key(cls, key: str) -> str:
         for plugin_name, schema in PLUGIN_CONFIG_SCHEMAS.items():
             properties = schema.get("properties") if isinstance(schema, dict) else None
@@ -995,8 +1039,12 @@ def get_request_config(request: Any, *, resolve_plugins: bool = False) -> Archiv
     request_config_resolves_plugins = bool(request_state.get("_archivebox_config_resolves_plugins", False))
     if request_config is None or (resolve_plugins and not request_config_resolves_plugins):
         request_config = get_config(resolve_plugins=resolve_plugins)
-        request.archivebox_config = request_config
         request._archivebox_config_resolves_plugins = resolve_plugins
+    if request_config.SERVER_SECURITY_MODE == "auto":
+        request_host = (urlparse(f"//{request.get_host()}").hostname or "").lower().rstrip(".")
+        effective_mode = "safe-subdomains-fullreplay" if request_host.endswith(".localhost") else "safe-onedomain-nojsreplay"
+        request_config = request_config.model_copy(update={"SERVER_SECURITY_MODE": effective_mode})
+    request.archivebox_config = request_config
     return request_config
 
 
@@ -1036,7 +1084,7 @@ def get_config(
                 from archivebox.machine.models import Machine
 
                 machine = Machine.current()
-        except Exception:
+        except (ImportError, RuntimeError, TypeError, ValueError):
             machine = None
 
     if persona is None and crawl is not None:
@@ -1062,9 +1110,14 @@ def get_config(
         config_data.update(
             normalize_runtime_config(base_config_model.model_dump(mode="json"), exclude_runtime_derived=True, json_safe=False),
         )
-        legacy_permissions = permissions_from_legacy_public_flags({**BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE), **os.environ})
+        legacy_config = {**BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE), **os.environ}
+        legacy_permissions = permissions_from_legacy_public_flags(legacy_config)
         if legacy_permissions:
             config_data["PERMISSIONS"] = legacy_permissions
+        if not str(config_data.get("BASE_URL") or "").strip():
+            legacy_base_url = base_url_from_legacy_server_config(legacy_config)
+            if legacy_base_url:
+                config_data["BASE_URL"] = legacy_base_url
 
     scope_overrides: ConfigPayload = {}
 

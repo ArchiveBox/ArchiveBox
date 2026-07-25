@@ -3,21 +3,19 @@ __package__ = "archivebox.plugins"
 import html
 import json
 import re
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 from urllib.parse import quote
 
-from django.http import HttpRequest
+from admin_data_views.typing import TableContext
+from admin_data_views.utils import ItemLink, render_with_table_view
+from django.http import HttpRequest, HttpResponseRedirect
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-
-from admin_data_views.typing import ItemContext, SectionData, TableContext
-from admin_data_views.utils import ItemLink, render_with_item_view, render_with_table_view
 
 from archivebox.config.common import get_live_config_url
 from archivebox.config.views import get_environment_binary_url, is_superuser
 from archivebox.plugins.discovery import BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR, discover_plugin_configs, iter_plugin_dirs
-
 
 ABX_PLUGINS_DOCS_BASE_URL = "https://archivebox.github.io/abx-plugins/"
 ABX_PLUGINS_GITHUB_BASE_URL = "https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/"
@@ -372,83 +370,8 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
     )
 
 
-@render_with_item_view
-def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
+def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> HttpResponseRedirect:
     assert is_superuser(request), "Must be a superuser to view configuration settings."
 
-    plugins = get_filesystem_plugins()
-
-    plugin = plugins.get(key)
-    if not plugin:
-        return ItemContext(
-            slug=key,
-            title=f"Plugin not found: {key}",
-            data=[],
-        )
-
-    docs_url = get_plugin_docs_url(plugin["name"])
-    machine_admin_url = get_machine_admin_url()
-    fields = {
-        "id": plugin["id"],
-        "name": plugin["name"],
-        "source": plugin["source"],
-    }
-
-    sections: list[SectionData] = [
-        {
-            "name": plugin["name"],
-            "description": format_html(
-                '<code>{}</code><br/><a href="{}" target="_blank" rel="noopener noreferrer">ABX Plugin Docs</a>',
-                plugin["path"],
-                docs_url,
-            ),
-            "fields": fields,
-            "help_texts": {},
-        },
-    ]
-
-    if plugin["hooks"]:
-        sections.append(
-            {
-                "name": "Hooks",
-                "description": mark_safe(render_hook_links_html(plugin["name"], plugin["hooks"], plugin["source"])),
-                "fields": {},
-                "help_texts": {},
-            },
-        )
-
-    if plugin.get("config"):
-        sections.append(
-            {
-                "name": "Plugin Metadata",
-                "description": mark_safe(render_plugin_metadata_html(plugin["config"])),
-                "fields": {},
-                "help_texts": {},
-            },
-        )
-
-        sections.append(
-            {
-                "name": "config.json",
-                "description": mark_safe(render_highlighted_json_block(plugin["config"])),
-                "fields": {},
-                "help_texts": {},
-            },
-        )
-
-        config_properties = plugin["config"].get("properties", {})
-        if config_properties:
-            sections.append(
-                {
-                    "name": "Config Properties",
-                    "description": mark_safe(render_config_properties_html(config_properties, machine_admin_url)),
-                    "fields": {},
-                    "help_texts": {},
-                },
-            )
-
-    return ItemContext(
-        slug=key,
-        title=plugin["name"],
-        data=sections,
-    )
+    plugin_name = key.removeprefix("builtin.").removeprefix("user.")
+    return HttpResponseRedirect(get_plugin_docs_url(plugin_name))

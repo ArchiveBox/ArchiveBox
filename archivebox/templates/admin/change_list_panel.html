@@ -63,7 +63,7 @@
 {% if cl.has_filters and not embedded_changelist %}
   <script>
     window.archiveboxInitChangelistFilters = function() {
-      var storageKey = 'admin-filters-collapsed:{{ opts.app_label }}.{{ opts.model_name }}';
+      var storageKey = 'admin-filters-collapsed';
       var toggle = document.getElementById('changelist-filter-toggle');
       var toolbarToggle = document.getElementById('changelist-toolbar-filter-toggle');
       if (!toggle) return;

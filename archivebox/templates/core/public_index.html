@@ -193,6 +193,10 @@
         font-size: 11px;
     }
 
+    .snapshot-mobile-saved {
+        display: none;
+    }
+
     .snapshot-preview-cell {
         width: 116px;
         min-width: 116px;
@@ -225,14 +229,14 @@
         object-position: top;
     }
 
-    #content .snapshot-preview-cell .snapshot-preview-spinner {
+    #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview-spinner {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         object-fit: unset;
     }
 
-    #content .snapshot-preview-cell .snapshot-preview-spinner img {
+    #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview-spinner img {
         display: block;
         width: 18px;
         height: 18px;
@@ -455,6 +459,74 @@
         .public-search-input {
             width: 100%;
             flex-basis: auto;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .public-snapshot-toolbar {
+            padding: 8px;
+        }
+
+        .public-snapshot-toolbar form {
+            width: 100%;
+        }
+
+        .public-search-input {
+            min-width: 0;
+        }
+
+        .public-snapshot-toolbar input[type="submit"] {
+            display: none;
+        }
+
+        #table-bookmarks {
+            min-width: 0;
+        }
+
+        #table-bookmarks th:nth-child(n + 4),
+        #table-bookmarks td:nth-child(n + 4) {
+            display: none;
+        }
+
+        #table-bookmarks th.snapshot-time,
+        #table-bookmarks td.snapshot-time {
+            display: none;
+        }
+
+        #table-bookmarks .snapshot-preview-cell {
+            width: 92px;
+            min-width: 92px;
+            padding-left: 5px;
+            padding-right: 5px;
+        }
+
+        .snapshot-preview-cell a {
+            width: 82px;
+            height: 82px;
+        }
+
+        #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview,
+        #content .public-snapshot-list .snapshot-preview-cell img.snapshot-preview.screenshot {
+            width: 80px;
+            height: 80px;
+            max-width: 80px;
+            max-height: 80px;
+        }
+
+        .snapshot-mobile-saved {
+            display: block;
+            margin: 4px 0 0 30px;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        #table-bookmarks thead th,
+        #table-bookmarks tbody td {
+            padding-top: 7px;
+            padding-bottom: 7px;
         }
     }
 </style>

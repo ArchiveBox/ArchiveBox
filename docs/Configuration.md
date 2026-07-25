@@ -388,14 +388,14 @@ ArchiveBox automatically derives the underlying Django `ALLOWED_HOSTS` and `CSRF
 > **Pin `BASE_URL` explicitly on any deployment using `safe-subdomains-fullreplay` mode.** A misconfig banner will surface in the rendered UI until you do.
 
 > [!NOTE]
-> **Legacy upgrade path (0.7.3 → 0.9):** older deployments that set `CSRF_TRUSTED_ORIGINS=https://archive.example.com` for their reverse-proxy login but never set `BASE_URL` still work — when exactly one CSRF origin is present and `BASE_URL` is empty, ArchiveBox uses that origin as the implicit base URL. New installs should set `BASE_URL` directly; `CSRF_TRUSTED_ORIGINS` is no longer a user-settable knob.
+> **Legacy upgrade path (0.7.3 → 0.9):** `archivebox init` preserves the complete legacy config and migrates the old `ARCHIVE_BASE_URL`, `ADMIN_BASE_URL`, or documented `LISTEN_HOST` hostname to `BASE_URL`. A single non-default `CSRF_TRUSTED_ORIGINS` or `ALLOWED_HOSTS` entry is used as a fallback when those settings are absent. New installs should set `BASE_URL` directly; the legacy hostname settings are no longer user-settable knobs.
 
 *Related options:*
 [`SERVER_SECURITY_MODE`](#server_security_mode), [`BIND_ADDR`](#bind_addr)
 
 ---
 #### `SERVER_SECURITY_MODE`
-**Possible Values:** [`safe-subdomains-fullreplay`]/`safe-onedomain-nojsreplay`/`unsafe-onedomain-noadmin`/`danger-onedomain-fullreplay`
+**Possible Values:** [`auto`]/`safe-subdomains-fullreplay`/`safe-onedomain-nojsreplay`/`unsafe-onedomain-noadmin`/`danger-onedomain-fullreplay`
 
 The top-level security posture of the server. Controls how archived content is served, whether the admin/API control plane is reachable, and which host(s) the UI is split across. **This is the most important security knob** — pick the most restrictive mode that still works for your use case.
 
@@ -403,16 +403,22 @@ ArchiveBox splits its surfaces across three logical hosts: `admin.*` (Django adm
 
 | Mode | Host layout | JS replay | Control plane | Use when |
 |---|---|---|---|---|
-| **`safe-subdomains-fullreplay`** *(default, recommended)* | admin/web/api/snap-* on separate subdomains | Full JS replay enabled | Enabled on `admin.*` only | You have wildcard DNS (`*.archive.example.com`) and a TLS cert that covers it. Archived JS runs sandboxed away from the admin origin. |
-| **`safe-onedomain-nojsreplay`** | Everything on one host | JS in replays is neutered (served as `text/plain` or stripped) | Enabled | You can't get wildcard DNS. Trades replay fidelity for same-origin safety — archived pages won't execute scripts. |
+| **`auto`** *(default, recommended)* | Subdomains for any `*.localhost` request; otherwise one host | Full raw replay on `*.localhost`; otherwise raw archived HTML uses no-JS replay. Plugins can opt into a trusted viewer with an explicit `full.html` preview template. | Enabled | The zero-configuration default. Localhost gets the highest-fidelity isolated setup; ordinary public/LAN hostnames do not require wildcard DNS or TLS. |
+| **`safe-subdomains-fullreplay`** | admin/web/api/snap-* on separate subdomains | Full JS replay enabled | Enabled on `admin.*` only | You have wildcard DNS (`*.archive.example.com`) and a TLS cert that covers it. Archived JS runs sandboxed away from the admin origin. |
+| **`safe-onedomain-nojsreplay`** | Everything on one host | Raw archived HTML cannot run JS. Explicit trusted plugin preview templates can run the JS needed by their viewer. | Enabled | You can't get wildcard DNS. Trades raw replay fidelity for same-origin safety while retaining trusted viewer formats. |
 | **`unsafe-onedomain-noadmin`** | Everything on one host | Full JS replay enabled | **Disabled** — `/admin`, `/accounts`, `/api`, `/add`, `/web` return 403; only GET/HEAD/OPTIONS allowed | Read-only public archive on a single host. Operate the instance via CLI only; the web admin is unreachable. |
 | **`danger-onedomain-fullreplay`** | Everything on one host | Full JS replay enabled | Enabled | Local dev / trusted-network only. Archived JS runs on the **same origin as the admin UI** — a malicious archived page can call admin endpoints with your session. **Do not expose this mode to the internet.** |
+
+SingleFile output is served as ordinary HTML in every mode; it remains usable in no-JS modes because SingleFile removes the page's scripts during capture. ArchiveWeb.page/ReplayWeb.page and MHTML use their existing trusted preview templates. ArchiveBox always attempts to load these viewers, including when the incoming request is plain HTTP, because HTTPS may be terminated by an upstream proxy. Browser service-worker rules still require ReplayWeb.page to be reached through HTTPS or localhost for replay to initialize.
 
 > [!WARNING]
 > Switching to any mode whose name starts with `unsafe-` or `danger-` is logged at startup and surfaces a banner in the UI. **Don't use these modes on a public hostname** — archived JavaScript will run on the same origin as your admin session.
 
 > [!NOTE]
-> Subdomain mode requires both wildcard DNS (`*.archive.example.com`) and (if using TLS) a wildcard certificate. Without those, fall back to `safe-onedomain-nojsreplay`.
+> Explicit subdomain mode requires both wildcard DNS (`*.archive.example.com`) and (if using TLS) a wildcard certificate. The default `auto` mode only selects subdomain routing for `*.localhost`, which browsers resolve locally without custom DNS or TLS setup.
+
+> [!NOTE]
+> In one-domain `auto` mode, read-only requests are accepted through any valid ingress hostname, but POST/PUT/PATCH/DELETE requests are accepted only on the canonical `BASE_URL` host. Canonical links always use `BASE_URL`. Explicit subdomain mode continues to allow state-changing requests on its derived admin/API hosts.
 
 *Related options:*
 [`BASE_URL`](#base_url), [`PERMISSIONS`](#permissions)

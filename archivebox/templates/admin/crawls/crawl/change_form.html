@@ -1,10 +1,31 @@
-{% extends "admin/change_form.html" %}
+{% extends "admin/archivebox_change_form.html" %}
 {% load add_preserved_filters from admin_urls %}
 
-{% block object-tools-items %}
+{% block extrastyle %}{{ block.super }}
+<style>
+  .crawl-toolbar-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    height: 34px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .crawl-toolbar-status strong { color: #0f172a; }
+  .archivebox-toolbar .ab-btn-form { margin: 0; }
+</style>
+{% endblock %}
+
+{% block toolbar_extras %}
 {% if original %}
-  <li class="archivebox-crawl-resume-tool">
-    <span class="crawl-stop-reason-inline">
+  <div class="ab-toolbar-group">
+    <span class="crawl-toolbar-status" title="Stop reason for this crawl">
       Stop reason:
       {% if crawl_stop_reason %}
         <strong>{{ crawl_stop_reason }}</strong>
@@ -13,32 +34,25 @@
       {% endif %}
     </span>
     {% if original.status != "sealed" and not original.is_paused %}
-      <form method="post" action="{% url 'admin:crawls_crawl_changelist' %}" class="crawl-resume-action-form">
+      <form method="post" action="{% url 'admin:crawls_crawl_changelist' %}" class="ab-btn-form">
         {% csrf_token %}
         <input type="hidden" name="action" value="pause_selected_crawls">
         <input type="hidden" name="_selected_action" value="{{ original.pk }}">
         <input type="hidden" name="index" value="0">
-        <button type="submit" class="button crawl-pause-submit">Pause</button>
+        <button type="submit" class="ab-btn ab-btn-warning" title="Pause this crawl">⏸ Pause</button>
       </form>
     {% endif %}
     {% if original.status == "sealed" or original.is_paused %}
-      <form method="post" action="{% url 'admin:crawls_crawl_changelist' %}" class="crawl-resume-action-form">
+      <form method="post" action="{% url 'admin:crawls_crawl_changelist' %}" class="ab-btn-form">
         {% csrf_token %}
         <input type="hidden" name="action" value="resume_selected_crawls">
         <input type="hidden" name="_selected_action" value="{{ original.pk }}">
         <input type="hidden" name="index" value="0">
-        <button type="submit" class="button default crawl-resume-submit">Resume</button>
+        <button type="submit" class="ab-btn ab-btn-success" title="Resume this crawl">▶ Resume</button>
       </form>
     {% endif %}
-  </li>
+  </div>
 {% endif %}
-{% for tool in objectactions %}
-  <li class="objectaction-item" data-tool-name="{{ tool.name }}">
-    {% url tools_view_name pk=object_id tool=tool.name as action_url %}
-    {% include 'django_object_actions/action_trigger.html' %}
-  </li>
-{% endfor %}
-{{ block.super }}
 {% endblock %}
 
 {% block content %}

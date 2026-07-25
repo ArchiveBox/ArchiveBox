@@ -4,31 +4,29 @@ import html
 import json
 import os
 import shlex
-from pathlib import Path
-from urllib.parse import quote
 from functools import reduce
 from operator import and_
+from pathlib import Path
+from urllib.parse import quote
 
 from django.contrib import admin
+from django.core.exceptions import ValidationError
 from django.db.models import Min, Prefetch, Q, TextField
 from django.db.models.functions import Cast
+from django.urls import resolve, reverse
+from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.core.exceptions import ValidationError
-from django.urls import reverse, resolve
-from django.utils import timezone
 from django.utils.text import smart_split
 
-from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.base_models.admin import BaseModelAdmin
-from archivebox.plugins.discovery import get_plugin_icon
-from archivebox.plugins.views import LIVE_PLUGIN_BASE_URL
+from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.routes_util import build_snapshot_url
 from archivebox.core.widgets import InlineTagEditorWidget
 from archivebox.machine.env_util import env_to_shell_exports
-
-
-from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.misc.paginators import AcceleratedPaginator
+from archivebox.plugins.discovery import get_plugin_icon
+from archivebox.plugins.views import LIVE_PLUGIN_BASE_URL
 
 
 def _get_replay_source_url(result: ArchiveResult) -> str:
@@ -120,15 +118,13 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
         status = result.status or "queued"
         color, bg = status_colors.get(status, ("#6b7280", "#f3f4f6"))
         output_files = result.output_files or {}
-        if isinstance(output_files, dict):
-            output_file_count = len(output_files)
-        elif isinstance(output_files, (list, tuple, set)):
+        if isinstance(output_files, (dict, list, tuple, set)):
             output_file_count = len(output_files)
         elif isinstance(output_files, str):
             try:
                 parsed = json.loads(output_files)
                 output_file_count = len(parsed) if isinstance(parsed, (dict, list, tuple, set)) else 0
-            except Exception:
+            except (TypeError, ValueError):
                 output_file_count = 0
         else:
             output_file_count = 0
@@ -258,7 +254,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                         </summary>
                         <div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; max-height: 200px; overflow: auto;">
                             <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
-                                <span style="margin-right: 16px;"><b>ID:</b> <code>{str(result.id)}</code></span>
+                                <span style="margin-right: 16px;"><b>ID:</b> <code>{result.id!s}</code></span>
                                 <span style="margin-right: 16px;"><b>Version:</b> <code>{version}</code></span>
                                 <span style="margin-right: 16px;"><b>PWD:</b> <code>{pwd_text}</code></span>
                             </div>
@@ -413,7 +409,6 @@ class ArchiveResultAdmin(BaseModelAdmin):
     list_display_links = None
     sort_fields = ("id", "created_at", "plugin", "status")
     readonly_fields = (
-        "admin_actions",
         "cmd",
         "cmd_version",
         "pwd",
@@ -437,16 +432,9 @@ class ArchiveResultAdmin(BaseModelAdmin):
         "output_json",
         "process__cmd",
     )
-    autocomplete_fields = ["snapshot"]
+    autocomplete_fields = ("snapshot",)
 
     fieldsets = (
-        (
-            "Actions",
-            {
-                "fields": ("admin_actions",),
-                "classes": ("card", "wide"),
-            },
-        ),
         (
             "Snapshot",
             {
@@ -485,14 +473,14 @@ class ArchiveResultAdmin(BaseModelAdmin):
     )
 
     list_filter = ("status", "plugin", "start_ts")
-    ordering = ["-start_ts"]
+    ordering = ("-start_ts",)
     list_per_page = 50
 
     paginator = AcceleratedPaginator
     save_on_top = True
     show_full_result_count = False
 
-    actions = ["delete_selected"]
+    actions = ("delete_selected",)
 
     class Meta:
         verbose_name = "Archive Result"
@@ -501,6 +489,36 @@ class ArchiveResultAdmin(BaseModelAdmin):
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
         return super().change_view(request, object_id, form_url, extra_context)
+
+    def get_admin_toolbar_actions(self, request, obj):
+        if obj is None:
+            return []
+        self.request = request
+        return [
+            {
+                "label": "View Output",
+                "icon": "📄",
+                "url": self.get_output_view_url(obj),
+                "title": "Open the archived output for this result",
+            },
+            {
+                "label": "Output files",
+                "icon": "📁",
+                "url": self.get_output_files_url(obj),
+                "title": "Browse the output files for this result",
+            },
+            {
+                "label": "Download Zip",
+                "icon": "⬇",
+                "url": self.get_output_zip_url(obj),
+                "kind": "accent",
+                "css_classes": "archivebox-zip-button",
+                "onclick": "return window.archiveboxHandleZipClick(this, event);",
+                "extra_attrs": [("data-loading-label", "Preparing...")],
+                "title": "Download all output files as a zip",
+            },
+            {"label": "Snapshot", "icon": "🗂", "url": self.get_snapshot_view_url(obj), "title": "Open the parent snapshot view"},
+        ]
 
     def changelist_view(self, request, extra_context=None):
         self.request = request
@@ -747,46 +765,6 @@ class ArchiveResultAdmin(BaseModelAdmin):
             '<span title="{}">{}</span>',
             output_text,
             output_text,
-        )
-
-    @admin.display(description="")
-    def admin_actions(self, result):
-        return format_html(
-            """
-            <div style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
-                <a class="btn" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; color:#334155; text-decoration:none; font-size:14px; font-weight:500; transition:all 0.15s;"
-                   href="{}"
-                   onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
-                   onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
-                    📄 View Output
-                </a>
-                <a class="btn" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; color:#334155; text-decoration:none; font-size:14px; font-weight:500; transition:all 0.15s;"
-                   href="{}"
-                   onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
-                   onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
-                    📁 Output files
-                </a>
-                <a class="btn archivebox-zip-button" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; color:#1d4ed8; text-decoration:none; font-size:14px; font-weight:500; transition:all 0.15s;"
-                   href="{}"
-                   data-loading-label="Preparing..."
-                   onclick="return window.archiveboxHandleZipClick(this, event);"
-                   onmouseover="this.style.background='#dbeafe'; this.style.borderColor='#93c5fd';"
-                   onmouseout="this.style.background='#eff6ff'; this.style.borderColor='#bfdbfe';">
-                    <span class="archivebox-zip-spinner" aria-hidden="true"></span>
-                    <span class="archivebox-zip-label">⬇ Download Zip</span>
-                </a>
-                <a class="btn" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; color:#334155; text-decoration:none; font-size:14px; font-weight:500; transition:all 0.15s;"
-                   href="{}"
-                   onmouseover="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';"
-                   onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#e2e8f0';">
-                    🗂 Snapshot
-                </a>
-            </div>
-            """,
-            self.get_output_view_url(result),
-            self.get_output_files_url(result),
-            self.get_output_zip_url(result),
-            self.get_snapshot_view_url(result),
         )
 
     def output_summary(self, result):

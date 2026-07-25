@@ -1,0 +1,260 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls %}
+{% load add_preserved_filters from admin_urls %}
+
+{% comment %}
+Shared ArchiveBox admin change-form template.
+
+Renders a single unified action toolbar at the top of every admin detail
+page so admins stop scattering the same actions across the built-in
+object-tools list, an "Actions" fieldset, and the built-in submit row.
+
+Extension points:
+  {% block toolbar_extras %}  - inject custom widgets (badges, status pills,
+                                 forms) between the model actions and the
+                                 django-object-actions group.
+
+Context inputs used by the toolbar:
+  original                     - the edited model instance (empty on add)
+  opts                         - the model's admin opts
+  has_change_permission        - Django admin context flag
+  has_add_permission           - Django admin context flag
+  has_delete_permission        - Django admin context flag
+  archivebox_admin_actions     - list[dict] from BaseModelAdmin.get_admin_toolbar_actions
+  objectactions                - django-object-actions per-object tools (optional)
+  tools_view_name              - django-object-actions URL name (optional)
+
+Each action dict may set:
+  label, icon, title           - visible text
+  url                          - href for anchor buttons
+  submit_name                  - if set, renders <button type=submit name=...>
+  formaction, formmethod       - optional POST target for submit buttons
+  onclick                      - inline handler
+  target                       - anchor target (e.g. "_blank")
+  css_classes                  - extra class names (space separated)
+  kind                         - primary | default | accent | success | warning | danger
+  extra_attrs                  - list of (name, value) tuples
+{% endcomment %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  /* !important overrides base.html's "body #content-main form > div" card-grid
+     rule (specificity 1,1,3), which otherwise forces this toolbar back to a
+     20px-gap stretch flexbox and breaks the mobile grid below. */
+  .archivebox-toolbar {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center !important;
+    gap: 8px !important;
+    margin: 0 0 20px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  /* Groups (used only by a couple of child-template toolbar_extras) and the
+     <form> wrappers around django-object-actions buttons are transparent: their
+     buttons flow as direct children of the toolbar in both the desktop flex row
+     and the mobile grid, so every button lines up on the same axis. */
+  .archivebox-toolbar .ab-toolbar-group,
+  .archivebox-toolbar .ab-btn-form { display: contents; }
+  .archivebox-toolbar .ab-toolbar-spacer { flex: 1 1 auto; }
+  .archivebox-toolbar .ab-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 34px;
+    padding: 0 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #1f2937;
+    font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    text-decoration: none;
+    cursor: pointer;
+    box-sizing: border-box;
+    white-space: nowrap;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+  }
+  .archivebox-toolbar .ab-btn:hover { background: #eef2f7; border-color: #94a3b8; text-decoration: none; }
+  .archivebox-toolbar .ab-btn:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
+  .archivebox-toolbar .ab-btn-primary { background: #1d4ed8; border-color: #1d4ed8; color: #f8fafc; }
+  .archivebox-toolbar .ab-btn-primary:hover { background: #1e40af; border-color: #1e40af; color: #ffffff; }
+  .archivebox-toolbar .ab-btn-accent { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .archivebox-toolbar .ab-btn-accent:hover { background: #dbeafe; border-color: #93c5fd; }
+  .archivebox-toolbar .ab-btn-success { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+  .archivebox-toolbar .ab-btn-success:hover { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+  .archivebox-toolbar .ab-btn-warning { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+  .archivebox-toolbar .ab-btn-warning:hover { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
+  .archivebox-toolbar .ab-btn-danger { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+  .archivebox-toolbar .ab-btn-danger:hover { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+  /* Dropdown (native <details>, no JS) — groups related actions like the
+     changelist action <select> does. */
+  .archivebox-toolbar .ab-dropdown { position: relative; display: inline-flex; }
+  .archivebox-toolbar .ab-dropdown > summary { list-style: none; }
+  .archivebox-toolbar .ab-dropdown > summary::-webkit-details-marker { display: none; }
+  .archivebox-toolbar .ab-dropdown > summary .ab-caret { font-size: 10px; opacity: 0.75; }
+  .archivebox-toolbar .ab-dropdown[open] > summary .ab-caret { transform: rotate(180deg); }
+  .archivebox-toolbar .ab-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    z-index: 40;
+    min-width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+  }
+  .archivebox-toolbar .ab-dropdown-form { margin: 0; }
+  .archivebox-toolbar .ab-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #1f2937;
+    font: 600 13px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .archivebox-toolbar .ab-dropdown-item:hover { background: #f1f5f9; }
+  .archivebox-toolbar .ab-dropdown-item-icon { width: 18px; text-align: center; }
+  @media (max-width: 640px) {
+    /* One uniform 2-column grid: every action button is the same size,
+       regardless of which logical group it came from. */
+    .archivebox-toolbar {
+      display: grid !important;
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 8px !important;
+      padding: 8px;
+    }
+    .archivebox-toolbar .ab-toolbar-spacer { display: none; }
+    .archivebox-toolbar .ab-btn {
+      width: 100%;
+      height: 40px;
+      padding: 0 12px;
+    }
+    /* Dropdown trigger fills its grid cell like the other buttons. */
+    .archivebox-toolbar .ab-dropdown { width: 100%; }
+    .archivebox-toolbar .ab-dropdown > summary { width: 100%; }
+    .archivebox-toolbar .ab-dropdown-menu { min-width: 100%; }
+  }
+</style>
+{% endblock %}
+
+{# Render the toolbar in object-tools (OUTSIDE the main <form>). It must not be
+   inside the form: the toolbar contains its own <form> elements (the Re-Archive
+   dropdown, django-object-actions, crawl pause/resume) and nested forms are
+   invalid HTML — the browser closes the outer form early and ejects the
+   fieldsets, breaking the card layout and every field widget. The Save button
+   re-associates with the main form via the HTML form="…" attribute. #}
+{% block object-tools %}
+{% if not is_popup %}
+<div class="archivebox-toolbar" role="toolbar" aria-label="Actions">
+  {% if original and has_change_permission %}
+    <button type="submit" form="{{ opts.model_name }}_form" name="_continue" class="ab-btn ab-btn-primary" title="{% translate 'Save changes' %}">💾 {% translate 'Save' %}</button>
+  {% elif not original and has_add_permission %}
+    <button type="submit" form="{{ opts.model_name }}_form" name="_save" class="ab-btn ab-btn-primary" title="{% translate 'Save' %}">💾 {% translate 'Save' %}</button>
+  {% endif %}
+  {% if original %}
+    {% url opts|admin_urlname:'history' original.pk|admin_urlquote as history_url %}
+    <a class="ab-btn" role="button" href="{{ history_url }}" title="{% translate 'View change history' %}">🕘 {% translate 'History' %}</a>
+  {% endif %}
+
+  {% for action in archivebox_admin_actions %}
+    {% if action.dropdown %}
+      <details class="ab-dropdown">
+        <summary class="ab-btn ab-btn-{{ action.kind|default:'default' }}"{% if action.title %} title="{{ action.title }}"{% endif %}>
+          {% if action.icon %}{{ action.icon }} {% endif %}{{ action.label }} <span class="ab-caret" aria-hidden="true">▾</span>
+        </summary>
+        <div class="ab-dropdown-menu" role="menu">
+          {% for item in action.items %}
+            <form method="post" action="{{ action.post_url }}" class="ab-dropdown-form">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="{{ item.action }}">
+              <input type="hidden" name="_selected_action" value="{{ original.pk }}">
+              <input type="hidden" name="index" value="0">
+              <input type="hidden" name="select_across" value="0">
+              <button type="submit" class="ab-dropdown-item"{% if item.title %} title="{{ item.title }}"{% endif %}>
+                {% if item.icon %}<span class="ab-dropdown-item-icon">{{ item.icon }}</span>{% endif %}{{ item.label }}
+              </button>
+            </form>
+          {% endfor %}
+        </div>
+      </details>
+    {% elif action.submit_name or action.formaction %}
+      <button type="submit"
+              form="{{ opts.model_name }}_form"
+              {% if action.submit_name %}name="{{ action.submit_name }}"{% endif %}
+              {% if action.formaction %}formaction="{{ action.formaction }}"{% endif %}
+              {% if action.formmethod %}formmethod="{{ action.formmethod }}"{% endif %}
+              formnovalidate
+              class="ab-btn ab-btn-{{ action.kind|default:'default' }}{% if action.css_classes %} {{ action.css_classes }}{% endif %}"
+              {% if action.title %}title="{{ action.title }}"{% endif %}
+              {% if action.onclick %}onclick="{{ action.onclick }}"{% endif %}
+              {% for attr, value in action.extra_attrs %}{{ attr }}="{{ value }}" {% endfor %}>
+        {% if action.icon %}{{ action.icon }} {% endif %}{{ action.label }}
+      </button>
+    {% else %}
+      <a class="ab-btn ab-btn-{{ action.kind|default:'default' }}{% if action.css_classes %} {{ action.css_classes }}{% endif %}"
+         role="button"
+         href="{{ action.url }}"
+         {% if action.target %}target="{{ action.target }}"{% endif %}
+         {% if action.title %}title="{{ action.title }}"{% endif %}
+         {% if action.onclick %}onclick="{{ action.onclick }}"{% endif %}
+         {% for attr, value in action.extra_attrs %}{{ attr }}="{{ value }}" {% endfor %}>
+        {% if action.icon %}{{ action.icon }} {% endif %}{{ action.label }}
+      </a>
+    {% endif %}
+  {% endfor %}
+
+  {% block toolbar_extras %}{% endblock %}
+
+  {% for tool in objectactions %}
+    {% url tools_view_name pk=object_id tool=tool.name as action_url %}
+    {% if tool.button_type == 'form' %}
+      <form method="post" action="{% add_preserved_filters action_url %}" class="ab-btn-form">
+        {% csrf_token %}
+        <button type="submit"
+                class="ab-btn"
+                title="{{ tool.standard_attrs.title }}"
+                {% for k, v in tool.custom_attrs.items %}{{ k }}="{{ v }}" {% endfor %}>
+          {{ tool.label|capfirst }}
+        </button>
+      </form>
+    {% else %}
+      <a class="ab-btn"
+         role="button"
+         href="{% add_preserved_filters action_url %}"
+         title="{{ tool.standard_attrs.title }}"
+         {% for k, v in tool.custom_attrs.items %}{{ k }}="{{ v }}" {% endfor %}>
+        {{ tool.label|capfirst }}
+      </a>
+    {% endif %}
+  {% endfor %}
+
+  <div class="ab-toolbar-spacer"></div>
+
+  {% if original and has_delete_permission %}
+    {% url opts|admin_urlname:'delete' original.pk|admin_urlquote as delete_url %}
+    <a class="ab-btn ab-btn-danger" role="button" href="{{ delete_url }}" title="{% translate 'Delete this object' %}">🗑 {% translate 'Delete' %}</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block submit_buttons_top %}{% endblock %}
+{% block submit_buttons_bottom %}{% endblock %}

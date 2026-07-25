@@ -2,6 +2,15 @@ __package__ = "archivebox.core"
 
 from typing import TYPE_CHECKING, Any
 
+from admin_data_views.admin import (
+    admin_data_index_view as adv_admin_data_index_view,
+)
+from admin_data_views.admin import (
+    get_admin_data_urls as adv_get_admin_data_urls,
+)
+from admin_data_views.admin import (
+    get_app_list as adv_get_app_list,
+)
 from django.contrib import admin
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import login_not_required
@@ -12,22 +21,16 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
-from admin_data_views.admin import (
-    admin_data_index_view as adv_admin_data_index_view,
-    get_admin_data_urls as adv_get_admin_data_urls,
-    get_app_list as adv_get_app_list,
-)
 
 from archivebox.config import VERSION
-from archivebox.config.version import get_COMMIT_HASH
+from archivebox.core.context_processors import get_static_cache_key
 from archivebox.core.routes_util import is_allowed_archivebox_redirect_url
 
 if TYPE_CHECKING:
+    from admin_data_views.typing import AppDict
     from django.http import HttpRequest
     from django.template.response import TemplateResponse
     from django.urls import URLPattern, URLResolver
-
-    from admin_data_views.typing import AppDict
 
 
 class ArchiveBoxLoginView(LoginView):
@@ -50,7 +53,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
     def each_context(self, request: "HttpRequest") -> dict[str, Any]:
         context = super().each_context(request)
         context["VERSION"] = VERSION
-        context["STATIC_CACHE_KEY"] = (get_COMMIT_HASH() or VERSION or "dev").strip()
+        context["STATIC_CACHE_KEY"] = get_static_cache_key()
         return context
 
     @staticmethod
@@ -183,9 +186,9 @@ def register_admin_site():
 
     # Register admin views for each app
     # (Previously handled by ABX plugin system, now called directly)
+    from archivebox.api.admin import register_admin as register_api_admin
     from archivebox.core.admin import register_admin as register_core_admin
     from archivebox.crawls.admin import register_admin as register_crawls_admin
-    from archivebox.api.admin import register_admin as register_api_admin
     from archivebox.machine.admin import register_admin as register_machine_admin
     from archivebox.personas.admin import register_admin as register_personas_admin
     from archivebox.workers.admin import register_admin as register_workers_admin

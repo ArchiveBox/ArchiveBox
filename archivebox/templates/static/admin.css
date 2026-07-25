@@ -42,6 +42,10 @@
     border-radius: 4px;
     padding: 2px 6px;
 }
+.navbar-separator-wide {
+    display: inline-block;
+    width: 1em;
+}
 
 div.breadcrumbs {
     background: #772948;
@@ -156,26 +160,86 @@ body.change-list #content .object-tools {
     background-blend-mode: difference;
 }
 
+@media (max-width: 900px) {
+    body.change-form div.breadcrumbs {
+        overflow-wrap: anywhere;
+    }
+
+    body.change-form #content .object-tools {
+        display: flex;
+        float: none;
+        clear: both;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 0 16px;
+        padding: 0;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        box-sizing: border-box;
+    }
+
+    body.change-form #content .object-tools li {
+        min-width: 0;
+        margin: 0;
+    }
+
+    body.change-form #content .object-tools a,
+    body.change-form #content .object-tools form button {
+        white-space: normal;
+        text-align: center;
+    }
+}
+
 #content #changelist #toolbar {
     padding: 0px;
     background: none;
     margin-bottom: 10px;
     border-top: 0px; 
     border-bottom: 0px;
-    display: inline-flex;
-    width: auto;
+    display: block;
+    width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     position: relative;
     z-index: 1;
 }
 
+body.change-list:not(.model-snapshot) #content #changelist #toolbar .changelist-toolbar-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: start;
+    width: 100%;
+    min-width: 0;
+}
+
 #content #changelist #toolbar #changelist-search,
 #content #changelist #toolbar #changelist-search > div {
-    width: auto;
+    width: 100%;
+    min-width: 0;
     max-width: 100%;
-    flex: 0 1 auto;
     box-sizing: border-box;
+}
+
+#content #changelist #toolbar #changelist-search > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+}
+
+#content #changelist #toolbar .changelist-search-submit {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    min-width: 0 !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    clip-path: inset(50%) !important;
+    border: 0 !important;
+    white-space: nowrap !important;
 }
 
 #content #changelist #toolbar #searchbar {
@@ -422,25 +486,18 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 
     body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search > div {
         display: grid !important;
-        grid-template-columns: 24px minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) auto;
         gap: 7px;
         align-items: center;
     }
 
-    body.change-list:not(.model-snapshot) #content #changelist #toolbar label[for="searchbar"] {
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar .search-input-wrap {
         grid-column: 1;
-        justify-content: center;
-    }
-
-    body.change-list:not(.model-snapshot) #content #changelist #toolbar #searchbar {
-        grid-column: 2;
-        flex: none !important;
-        width: 100% !important;
         min-width: 0;
     }
 
-    body.change-list:not(.model-snapshot) #content #changelist #toolbar form input[type="submit"] {
-        grid-column: 3;
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar .changelist-search-submit {
+        grid-column: 2;
         flex: none !important;
         width: auto !important;
         min-width: 76px;
@@ -553,6 +610,263 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
         white-space: normal;
     }
 
+}
+
+@media (max-width: 520px) {
+    #container {
+        width: 100%;
+        min-width: 0 !important;
+    }
+
+    #header {
+        height: auto !important;
+        min-height: 0;
+        flex-shrink: 0 !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 4px;
+    }
+
+    #branding {
+        flex: none !important;
+        width: 100%;
+        text-align: center;
+    }
+
+    #user-tools {
+        width: 100%;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.8;
+        text-align: center;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+}
+
+@media (max-width: 430px) {
+    #user-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        line-height: 1.2;
+        overflow-wrap: normal;
+    }
+
+    #user-tools .navbar-item {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 5px 8px;
+        border-radius: 5px;
+        white-space: nowrap;
+    }
+
+    #user-tools a.navbar-add-link,
+    #user-tools a.navbar-add-link:link,
+    #user-tools a.navbar-add-link:visited {
+        padding: 5px 8px;
+    }
+
+    #user-tools .navbar-item:where(
+        .navbar-log,
+        .navbar-tags,
+        .navbar-docs,
+        .navbar-api,
+        .navbar-admin,
+        .navbar-user,
+        .navbar-account
+    ),
+    #user-tools .navbar-separator {
+        display: none;
+    }
+}
+
+body.change-list:not(.model-snapshot) #changelist #toolbar,
+    body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search,
+    body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search > div {
+        width: 100%;
+        min-width: 0;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #toolbar .search-input-wrap {
+        height: 40px;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar #searchbar {
+        height: 100%;
+    }
+}
+
+/* Keep the global admin navigation on one compact row at tablet/mobile sizes. */
+@media (max-width: 1180px) {
+    #archivebox-system-warning-banner {
+        position: relative !important;
+        inset: auto !important;
+        transform: none !important;
+        width: 100%;
+        max-width: none !important;
+        padding: 6px 8px !important;
+        border-radius: 0 !important;
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    #header {
+        display: grid !important;
+        grid-template-columns: 30px minmax(0, 1fr);
+        align-items: center !important;
+        column-gap: clamp(4px, 1vw, 12px);
+        width: 100%;
+        height: auto !important;
+        min-height: 42px;
+        padding: 5px 8px;
+        box-sizing: border-box;
+    }
+
+    #branding {
+        width: auto !important;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        text-align: left;
+    }
+
+    #site-name {
+        margin: 0;
+        line-height: 1;
+    }
+
+    #site-name a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        overflow: hidden;
+    }
+
+    #site-name .branding-label {
+        display: none;
+    }
+
+    #site-name #logo,
+    #site-name img {
+        display: block;
+        width: auto;
+        height: auto !important;
+        max-width: 28px;
+        max-height: 28px;
+        margin: 0;
+        padding: 0;
+        object-fit: contain;
+    }
+
+    #user-tools {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center;
+        justify-content: flex-end;
+        gap: clamp(3px, 0.7vw, 10px);
+        width: 100%;
+        min-width: 0;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+        line-height: 1.2;
+        text-align: right;
+        white-space: nowrap !important;
+    }
+
+    #user-tools .navbar-item {
+        flex: 0 0 auto;
+        min-width: 0;
+        white-space: nowrap;
+    }
+
+    #user-tools .navbar-user {
+        display: inline-flex;
+        flex: 0 1 min(18vw, 180px);
+        min-width: 0;
+        max-width: min(18vw, 180px);
+        gap: 4px;
+        overflow: hidden;
+    }
+
+    #user-tools .navbar-user-label {
+        display: none;
+    }
+
+    #user-tools .navbar-username {
+        display: block;
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #user-tools .navbar-separator {
+        display: none;
+    }
+}
+
+@media (max-width: 520px) {
+    #header {
+        grid-template-columns: 26px minmax(0, 1fr);
+        column-gap: 4px;
+        min-height: 38px;
+        padding: 4px 6px;
+    }
+
+    #site-name a,
+    #site-name #logo,
+    #site-name img {
+        width: 26px;
+        height: 26px !important;
+    }
+
+    #site-name #logo,
+    #site-name img {
+        width: auto;
+        height: auto !important;
+        max-width: 24px;
+        max-height: 24px;
+    }
+
+    #user-tools {
+        justify-content: space-between;
+        gap: 2px;
+        font-size: 11px;
+    }
+
+    #user-tools .navbar-item {
+        min-height: 28px;
+        padding: 4px 3px;
+        border-radius: 4px;
+    }
+
+    #user-tools a.navbar-add-link,
+    #user-tools a.navbar-add-link:link,
+    #user-tools a.navbar-add-link:visited {
+        padding: 4px 5px;
+    }
+
+    #user-tools .navbar-item:where(
+        .navbar-log,
+        .navbar-tags,
+        .navbar-docs,
+        .navbar-api,
+        .navbar-admin,
+        .navbar-user,
+        .navbar-account
+    ) {
+        display: none;
+    }
 }
 
 /* Filter Sidebar - Improved Layout */
@@ -674,6 +988,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
     max-width: 100px;
     max-height: 100px;
     object-fit: cover;
+    object-position: top center;
 }
 
 #content th.field-preview_icon,
@@ -729,6 +1044,32 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 #content td.action-checkbox {
     padding-left: 2px;
     padding-right: 2px;
+}
+
+body.change-list:not(.model-snapshot) #result_list th.action-checkbox-column,
+body.change-list:not(.model-snapshot) #result_list td.action-checkbox {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    box-sizing: border-box;
+    text-align: center;
+    background: inherit;
+}
+
+body.change-list:not(.model-snapshot) #result_list th.action-checkbox-column {
+    z-index: 3;
+    background: #f8fafc;
+}
+
+body.change-list:not(.model-snapshot) #result_list th.action-checkbox-column input,
+body.change-list:not(.model-snapshot) #result_list td.action-checkbox input {
+    display: block;
+    margin: 0 auto;
 }
 
 #content th.field-preview_icon,
@@ -1164,6 +1505,14 @@ body.model-archiveresult.change-list #result_list {
     width: 100%;
 }
 
+body.model-archiveresult.change-list #result_list th,
+body.model-archiveresult.change-list #result_list td {
+    box-sizing: border-box;
+    padding-left: 8px;
+    padding-right: 8px;
+    overflow: hidden;
+}
+
 body.model-archiveresult.change-list #result_list th.column-cmd_str,
 body.model-archiveresult.change-list #result_list td.field-cmd_str {
     width: 180px !important;
@@ -1188,8 +1537,10 @@ body.model-archiveresult.change-list #result_list td.field-zip_link {
 
 body.model-archiveresult.change-list #result_list th.column-created_at,
 body.model-archiveresult.change-list #result_list td.field-created_at {
-    width: 96px;
-    max-width: 96px;
+    width: 128px;
+    max-width: 128px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 body.model-archiveresult.change-list #result_list th.column-snapshot_info,
@@ -1385,7 +1736,7 @@ tbody .output-link:hover {opacity: 1;}
     border-radius: 4px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1500px) {
     .model-snapshot.change-list #result_list {
         display: block;
         min-width: 0 !important;
@@ -1406,12 +1757,12 @@ tbody .output-link:hover {opacity: 1;}
 
     .model-snapshot.change-list #result_list tbody tr {
         display: grid;
-        grid-template-columns: 24px minmax(0, 1fr) auto;
+        grid-template-columns: 24px 84px minmax(0, 1fr) auto;
         grid-template-areas:
-            "check date status"
-            "check title title"
-            "check tags tags"
-            "check files size";
+            "check preview date status"
+            "check preview title title"
+            "check preview tags tags"
+            "check preview files size";
         gap: 5px 8px;
         align-items: start;
         min-width: 0;
@@ -1454,7 +1805,19 @@ tbody .output-link:hover {opacity: 1;}
     }
 
     .model-snapshot.change-list #result_list tbody td.field-preview_icon {
-        display: none;
+        display: grid;
+        grid-area: preview;
+        align-self: stretch;
+        place-items: center;
+        min-height: 84px;
+        overflow: hidden;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-preview_icon img.snapshot-preview.screenshot {
+        width: 80px;
+        height: 80px;
+        max-width: 80px;
+        max-height: 80px;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-title_str {
@@ -1667,14 +2030,21 @@ tbody .output-link:hover {opacity: 1;}
     }
 
     .model-snapshot.change-list #result_list tbody tr {
-        grid-template-columns: 24px minmax(0, 1fr);
+        grid-template-columns: 24px 72px minmax(0, 1fr);
         grid-template-areas:
-            "check date"
-            "check title"
-            "check tags"
-            "check status"
-            "check files"
-            "check size";
+            "check preview date"
+            "check preview title"
+            "check preview tags"
+            "check preview status"
+            "check preview files"
+            "check preview size";
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-preview_icon img.snapshot-preview.screenshot {
+        width: 68px;
+        height: 68px;
+        max-width: 68px;
+        max-height: 68px;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-status_with_progress,
@@ -1961,7 +2331,7 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1180px) {
     .model-snapshot.change-list #changelist .changelist-form-container > div {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -1976,10 +2346,6 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary {
-        overflow-x: auto;
-        max-width: 100%;
-    }
 }
 
 @media (max-width: 520px) {
@@ -2002,23 +2368,51 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
 #toolbar .search-input-wrap {
     position: relative;
     display: block;
+    width: 100%;
     min-width: 0;
+    height: 40px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+#toolbar .search-input-wrap:focus-within {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 1px #93c5fd;
+}
+
+#toolbar .filter-pane-toggle {
+    display: inline-flex;
+    align-self: start;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    margin: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: none;
+    background: #ffffff;
+    box-sizing: border-box;
+    line-height: 1;
 }
 
 #toolbar .search-input-addon {
     position: absolute;
-    left: 1px;
-    top: 1px;
-    bottom: 1px;
+    left: 0;
+    top: 0;
+    bottom: 0;
     z-index: 2;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
     box-sizing: border-box;
     max-width: calc(100% - 2px);
     padding: 0 8px;
     border-right: 1px solid #cbd5e1;
-    border-radius: 7px 0 0 7px;
+    border-radius: 0;
     background: #f8fafc;
 }
 
@@ -2062,7 +2456,14 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
 
 #toolbar .search-input-wrap #searchbar,
 .model-snapshot.change-list #content #changelist #toolbar .search-input-wrap #searchbar {
-    padding-left: 42px !important;
+    height: 100%;
+    margin: 0 !important;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    box-sizing: border-box;
+    padding-left: 48px !important;
 }
 
 #toolbar .search-input-wrap-with-mode #searchbar,
@@ -2090,22 +2491,11 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     box-sizing: border-box;
 }
 
-#content form .search-input-addon {
-    position: absolute !important;
-    left: 1px !important;
-    top: 1px !important;
-    bottom: 1px !important;
-    width: 112px !important;
-    padding: 0 8px !important;
-}
-
-#content form .search-mode-select {
-    position: static !important;
-    width: auto !important;
-    max-width: 82px !important;
-    min-width: 0 !important;
-    height: 28px !important;
-    padding-left: 0 !important;
+#content form .search-input-wrap:not(.search-input-wrap-with-mode) .search-input-addon {
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    padding: 0 !important;
 }
 
 #content form .search-input-wrap #searchbar {
@@ -2264,7 +2654,61 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     display: none !important;
 }
 
+body.change-list #changelist #changelist-form > .actions-top .action-summary {
+    display: inline-flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 2px;
+    margin-left: auto;
+    min-width: 0;
+    text-align: right;
+}
+
+body.change-list #changelist #changelist-form > .actions-top .action-selected-count,
+body.change-list #changelist #changelist-form > .actions-top .action-total-count {
+    display: inline-flex;
+    flex: 0 0 auto !important;
+    align-items: baseline;
+    gap: 3px;
+    width: auto !important;
+    white-space: nowrap;
+}
+
+body.change-list #changelist #changelist-form > .actions-top .action-selected-current {
+    flex: 0 0 auto !important;
+    width: auto !important;
+}
+
 @media (max-width: 1180px) {
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary {
+        grid-column: 1;
+        grid-row: 1;
+        width: 100%;
+        max-width: 100%;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        align-items: flex-end;
+        justify-content: flex-start;
+        justify-self: stretch;
+        gap: 2px;
+        overflow: visible;
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-selected-count,
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-total-count {
+        display: inline-flex !important;
+        flex: 0 0 auto !important;
+        width: auto !important;
+        overflow: visible;
+    }
+
     .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
         grid-template-columns: repeat(4, minmax(78px, 1fr));
     }
@@ -2311,9 +2755,9 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     justify-content: center;
     gap: 2px;
     height: 100%;
-    width: 46px;
-    min-width: 46px;
-    max-width: 46px;
+    width: 54px;
+    min-width: 54px;
+    max-width: 54px;
     padding: 0;
     border-right: 1px solid #e2e8f0;
     border-radius: 0;
@@ -2327,7 +2771,7 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     position: absolute;
     left: 12px;
     top: 10px;
-    z-index: 4;
+    z-index: 6;
     display: block;
     width: 11px;
     height: 11px;
@@ -2342,7 +2786,7 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     position: absolute;
     left: 25px;
     top: 24px;
-    z-index: 4;
+    z-index: 6;
     display: block;
     width: 7px;
     height: 2px;
@@ -2379,11 +2823,11 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     -webkit-appearance: none;
     position: absolute;
     inset: 0 auto 0 0;
-    width: 46px !important;
-    min-width: 46px !important;
-    max-width: 46px !important;
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
     height: 100%;
-    padding: 0;
+    padding: 0 26px 0 10px !important;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -2395,7 +2839,7 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     opacity: 1;
     text-indent: -9999px;
     cursor: pointer;
-    z-index: 3;
+    z-index: 5;
 }
 
 .model-snapshot.change-list #toolbar .search-mode-select option {
@@ -2408,15 +2852,20 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
 
 .model-snapshot.change-list #toolbar .search-mode-caret {
     position: absolute;
-    right: 9px;
-    top: 50%;
+    right: 8px;
+    top: 17px;
     display: block;
-    z-index: 2;
-    color: #64748b;
-    font-size: 10px;
-    line-height: 1;
+    z-index: 6;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #475569;
+    color: transparent;
+    font-size: 0;
+    line-height: 0;
     pointer-events: none;
-    transform: translateY(-45%);
+    transform: none;
 }
 
 .model-snapshot.change-list #toolbar .search-input-wrap #searchbar,
@@ -2440,19 +2889,11 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
 
 .model-snapshot.change-list #toolbar .search-input-wrap #searchbar:focus {
     outline: 0;
-    box-shadow: inset 0 0 0 1px #93c5fd;
+    box-shadow: none;
 }
 
 .model-snapshot.change-list #toolbar form input[type="submit"] {
-    grid-column: 2;
-    grid-row: 1;
-    height: 40px;
-    min-width: 86px;
-    padding: 0 16px;
-    margin: 0;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
+    position: absolute !important;
 }
 
 #content #changelist #toolbar .changelist-search-submit {
@@ -2464,16 +2905,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 }
 
 .model-snapshot.change-list #toolbar .changelist-search-submit {
-    grid-column: 2;
-    grid-row: 1;
-    height: 40px;
-    min-width: 86px;
-    padding: 0 16px;
-    margin: 0;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
+    position: absolute !important;
 }
 
 .snapshot-changelist-widget.model-snapshot.change-list #toolbar .changelist-toolbar-row {
@@ -2585,10 +3017,10 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 .model-crawl.change-list #content #changelist #toolbar #changelist-search > div,
 .model-crawl.change-list #toolbar #changelist-search > div {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
-        "search submit"
-        "count count";
+        "search"
+        "count";
     gap: 8px;
     align-items: center;
     width: 100% !important;
@@ -2692,9 +3124,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 }
 
 .model-crawl.change-list #toolbar .changelist-search-submit {
-    grid-area: submit;
-    min-width: 86px;
-    padding: 0 16px;
+    position: absolute !important;
 }
 
 .model-crawl.change-list #content #changelist #toolbar .small.quiet {
@@ -2828,12 +3258,12 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 
 .model-crawl.change-list #changelist #changelist-form > .actions-top .action-summary {
     display: inline-flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
-    height: 40px;
+    height: auto;
     min-height: 40px;
-    padding: 0 4px;
-    margin-left: 2px;
+    padding: 3px 4px;
+    margin-left: auto;
     color: #475569;
     font-size: 14px;
     font-weight: 500;
@@ -2845,7 +3275,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 .model-crawl.change-list #changelist #changelist-form > .actions-top .action-summary .action-selected-count {
     display: inline-flex;
     align-items: center;
-    height: 40px;
+    height: auto;
     color: inherit;
     font: inherit;
     line-height: 1;
@@ -2961,16 +3391,166 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 
 @media (max-width: 720px) {
     .model-crawl.change-list #toolbar .changelist-toolbar-row {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) 84px;
     }
 
     .model-crawl.change-list #toolbar .filter-pane-toggle {
-        width: 100%;
-        min-width: 0;
+        width: 84px;
+        min-width: 84px;
     }
 }
 
 body.change-list #changelist #changelist-form > .actions-top .action-buttons[hidden],
 body.change-list #changelist #changelist-form > .actions-top .actions-tags-with-buttons[hidden] {
     display: none !important;
+}
+
+/* Keep the search controls and the clickable selection totals in one compact
+   toolbar row on every changelist. The action form is rendered as a sibling of
+   #toolbar, so the shared wrapper owns the two-column layout. */
+body.change-list:not(.embedded-change-list) #changelist .changelist-form-container > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) max-content !important;
+    grid-template-areas:
+        "toolbar counts"
+        "results results"
+        "footer footer" !important;
+    gap: 10px 8px !important;
+    align-items: start;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #toolbar {
+    grid-area: toolbar !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+}
+
+/* The action summary already exposes selected, filtered, and total counts with
+   clickable values. Django's older search-result count duplicates that data
+   below the field and makes the toolbar row taller on large result sets. */
+body.change-list:not(.embedded-change-list) #changelist #toolbar .small.quiet {
+    display: none !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top {
+    grid-area: counts !important;
+    display: flex !important;
+    align-items: center !important;
+    align-self: start !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .actions-left {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: 40px !important;
+    padding: 0 !important;
+    gap: 4px !important;
+    overflow: visible !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    color: #475569;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1.15 !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary a,
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary span {
+    font-size: inherit !important;
+    line-height: inherit !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .cards,
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .results,
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .changelist-footer,
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-bottom,
+body.change-list:not(.embedded-change-list) #changelist .paginator,
+body.change-list:not(.embedded-change-list) #changelist .xfull {
+    grid-column: 1 / -1 !important;
+}
+
+/* Keep the grouped search control's outline above its absolutely positioned
+   icon/mode segment. Without this overlay that segment can paint over the
+   rounded upper-left border. */
+#toolbar .search-input-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+#toolbar .search-input-wrap:focus-within::after {
+    border-color: #93c5fd;
+}
+
+/* Django's stock change-form stylesheet is loaded after the card rules in the
+   template. Reassert the shared mobile geometry here so every admin detail
+   view fills the viewport instead of retaining the desktop 320px card width. */
+@media (max-width: 900px) {
+    body.change-form #content,
+    body.change-form #content-main,
+    body.change-form #content-main > form,
+    body.change-form #content-main > form > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+    }
+
+    body.change-form #content-main form fieldset,
+    body.change-form #content form fieldset,
+    body.change-form #content-main form .module:not(.inline-group),
+    body.change-form #content form .module:not(.inline-group) {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body.change-form #content-main form fieldset > div,
+    body.change-form #content form fieldset > div,
+    body.change-form #content-main form fieldset .form-row,
+    body.change-form #content form fieldset .form-row,
+    body.change-form #content-main form fieldset .form-row > div,
+    body.change-form #content form fieldset .form-row > div,
+    body.change-form #content-main form fieldset .flex-container,
+    body.change-form #content form fieldset .flex-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+    }
 }

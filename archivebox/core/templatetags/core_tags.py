@@ -1,36 +1,33 @@
+import os
+from pathlib import Path
 from typing import Any
 
+from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
 from django import template
 from django.contrib.admin.templatetags.base import InclusionAdminNode
-from django.utils.safestring import mark_safe
-from django.utils.html import escape
 from django.templatetags.static import static
 from django.utils import timezone
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 
-from pathlib import Path
-
-from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
-
+from archivebox.core.routes_util import (
+    build_snapshot_url,
+    get_admin_base_url,
+    get_snapshot_base_url,
+    get_web_base_url,
+)
+from archivebox.core.setup_wizard import get_base_url_mismatch_context, get_setup_wizard_context
 from archivebox.plugins.discovery import (
     get_plugin_icon,
-    get_plugin_template,
     get_plugin_name,
+    get_plugin_template,
 )
-from archivebox.core.routes_util import (
-    canonical_base_host_for_request,
-    get_admin_base_url,
-    get_web_base_url,
-    get_snapshot_base_url,
-    build_snapshot_url,
-)
-
 
 register = template.Library()
 
 _TEXT_PREVIEW_EXTS = (".json", ".jsonl", ".txt", ".csv", ".tsv", ".xml", ".yml", ".yaml", ".md", ".log")
 _IMAGE_PREVIEW_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".avif")
-_MHTML_PREVIEW_EXTS = (".mhtml", ".mht")
 
 _MEDIA_FILE_EXTS = {
     ".mp4",
@@ -94,15 +91,15 @@ def _coerce_output_file_size(value: Any) -> int | None:
 def _count_media_files(result) -> int:
     try:
         output_files = _normalize_output_files(result.output_files or {})
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         output_files = {}
 
     if output_files:
-        return sum(1 for path in output_files.keys() if Path(path).suffix.lower() in _MEDIA_FILE_EXTS)
+        return sum(1 for path in output_files if Path(path).suffix.lower() in _MEDIA_FILE_EXTS)
 
     try:
         plugin_dir = Path(result.snapshot_dir) / result.plugin
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return 0
 
     if not plugin_dir.exists():
@@ -126,7 +123,7 @@ def _list_media_files(result) -> list[dict]:
     media_files: list[dict] = []
     try:
         plugin_dir = Path(result.snapshot_dir) / result.plugin
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return media_files
 
     output_files = _normalize_output_files(result.output_files or {})
@@ -184,7 +181,7 @@ def _resolve_snapshot_output_file(snapshot_dir: str | Path | None, raw_output_pa
         snap_dir = Path(snapshot_dir).resolve()
         if snap_dir not in output_file.parents and output_file != snap_dir:
             return None
-    except Exception:
+    except (OSError, RuntimeError, TypeError, ValueError):
         return None
 
     if output_file.exists() and output_file.is_file():
@@ -209,17 +206,17 @@ def _build_snapshot_files_url(snapshot_id: str, request=None, config=None) -> st
     return build_snapshot_url(str(snapshot_id), "/?files=1", request=request, config=config)
 
 
-def _build_snapshot_preview_url(snapshot_id: str, path: str = "", request=None, config=None) -> str:
+def _build_snapshot_preview_url(snapshot_id: str, path: str = "", request=None, config=None, plugin: str = "") -> str:
     if path == "about:blank":
         return path
     if _is_root_snapshot_output_path(path):
         return _build_snapshot_files_url(snapshot_id, request=request, config=config)
     url = build_snapshot_url(str(snapshot_id), path, request=request, config=config)
+    path_parts = Path(path).parts
+    plugin = get_plugin_name(plugin) if plugin else (path_parts[0] if len(path_parts) > 1 else "")
+    has_plugin_preview = bool(plugin and get_plugin_template(plugin, "full", fallback=False))
     if not (
-        _is_text_preview_path(path)
-        or _is_image_preview_path(path)
-        or (path or "").lower().endswith(_MHTML_PREVIEW_EXTS)
-        or is_archivewebpage_replay_target(path or "")
+        _is_text_preview_path(path) or _is_image_preview_path(path) or has_plugin_preview or is_archivewebpage_replay_target(path or "")
     ):
         return url
     separator = "&" if "?" in url else "?"
@@ -268,7 +265,7 @@ def _render_text_file_preview(snapshot_dir: str | Path | None, raw_output_path: 
         lines = text.splitlines()[:6]
         snippet = "\n".join(lines)
         return _render_text_preview(plugin, icon_html, snippet)
-    except Exception:
+    except (OSError, UnicodeDecodeError, ValueError):
         return None
 
 
@@ -281,12 +278,12 @@ def split(value, separator: str = ","):
 def index(value, position):
     try:
         return value[int(position)]
-    except Exception:
+    except (IndexError, TypeError, ValueError):
         return None
 
 
 @register.filter
-def file_size(num_bytes: int | float) -> str:
+def file_size(num_bytes: float) -> str:
     for count in ["Bytes", "KB", "MB", "GB"]:
         if num_bytes > -1024.0 and num_bytes < 1024.0:
             return f"{num_bytes:3.1f} {count}"
@@ -359,7 +356,7 @@ def _machine_health_stats() -> dict:
         from archivebox.machine.detect import get_host_stats
 
         stats = get_host_stats() or {}
-    except Exception:
+    except (ImportError, RuntimeError, TypeError, ValueError):
         stats = {}
 
     _health_cache["checked_at"] = now
@@ -375,13 +372,15 @@ def system_warnings_banner(context):
     1. ``mode="unconfigured"``— ``BASE_URL`` is empty. Security/correctness
        issue: until it's pinned, generated URLs can echo any Host the client
        sends, and admin/web/api routing has no canonical anchor.
-    2. ``mode="unsafe"``      — ``SERVER_SECURITY_MODE`` is a non-subdomain
-       mode. Archived pages share an origin with privileged routes.
-    3. ``mode="low_disk"``    — ``DATA_DIR`` has <1 GiB free; new archive
+    2. ``mode="base_url_mismatch"`` — the browser reached ArchiveBox through
+       an origin that differs from the configured canonical ``BASE_URL``.
+    3. ``mode="unsafe"``      — ``SERVER_SECURITY_MODE`` explicitly enables
+       a lower-security replay mode.
+    4. ``mode="low_disk"``    — ``DATA_DIR`` has <1 GiB free; new archive
        jobs will start failing on ENOSPC.
-    4. ``mode="high_memory"`` — virtual memory utilization at/above 95%; the
+    5. ``mode="high_memory"`` — virtual memory utilization at/above 95%; the
        host is one OOM-kill from a crash.
-    5. ``mode="high_load"``   — 15-minute load average exceeds 3 × CPU count
+    6. ``mode="high_load"``   — 15-minute load average exceeds 3 × CPU count
        (the kernel's own sustained-load EMA, so no rolling buffer of ours is
        needed).
 
@@ -397,8 +396,11 @@ def system_warnings_banner(context):
         config = get_config(resolve_plugins=False)
 
     if not config.BASE_URL:
-        return _unconfigured_banner_context(context.get("request"))
-    if not config.USES_SUBDOMAIN_ROUTING:
+        return get_setup_wizard_context(context.get("request"), config)
+    mismatch = get_base_url_mismatch_context(context.get("request"), config)
+    if mismatch:
+        return mismatch
+    if config.IS_LOWER_SECURITY_MODE:
         return {"mode": "unsafe"}
 
     stats = _machine_health_stats()
@@ -417,6 +419,8 @@ def system_warnings_banner(context):
     # "sustained for 15min" and the kernel already maintains that EMA.
     load_15 = cpu_load[2] if isinstance(cpu_load, (list, tuple)) and len(cpu_load) >= 3 else None
     if isinstance(load_15, (int, float)) and load_15 > _HIGH_LOAD_MULTIPLE * cpu_count:
+        if os.environ.get("UI_SCREENSHOT_HIDE_HIGH_LOAD_WARNING") == "1":
+            return {"mode": ""}
         return {
             "mode": "high_load",
             "load_15": f"{load_15:.2f}",
@@ -425,49 +429,6 @@ def system_warnings_banner(context):
         }
 
     return {"mode": ""}
-
-
-def _unconfigured_banner_context(request) -> dict:
-    """Build the banner payload for the unset-BASE_URL case.
-
-    Always returns ``mode="unconfigured"`` — the user explicitly asked for
-    the banner to render whenever ``BASE_URL`` is empty, regardless of
-    whether the request host happens to match a CSRF-derived value. The
-    ``suggested_base_url`` is derived from the current request when one is
-    available so the user can copy/paste the right value straight into
-    their config.
-    """
-    if request is None:
-        return {
-            "mode": "unconfigured",
-            "actual_host": "",
-            "suggested_base_url": "",
-            "machine_admin_url": "",
-        }
-    scheme = request.scheme or "http"
-    actual_full_host = request.get_host() or ""
-    canonical_host = canonical_base_host_for_request(actual_full_host)
-    # Suggest the wildcard form ``http://*.<host>`` so the value lands in the
-    # operator's clipboard already aligned with subdomain routing. The config
-    # parser strips the leading ``*.`` so users can paste it verbatim.
-    suggested_base_url = f"{scheme}://*.{canonical_host}" if canonical_host else ""
-    user = request.user
-    is_superuser = bool(user and user.is_authenticated and user.is_superuser)
-    machine_admin_url = ""
-    if is_superuser:
-        try:
-            from archivebox.machine.models import Machine
-
-            machine = Machine.current()
-            machine_admin_url = f"/admin/machine/machine/{machine.id}/change/"
-        except Exception:
-            machine_admin_url = ""
-    return {
-        "mode": "unconfigured",
-        "actual_host": actual_full_host,
-        "suggested_base_url": suggested_base_url,
-        "machine_admin_url": machine_admin_url,
-    }
 
 
 @register.simple_tag(takes_context=True)
@@ -581,7 +542,7 @@ def snapshot_index_row(context, link) -> str:
     url = getattr(link, "url", "") or ""
     title = getattr(link, "title", "") or ""
     is_pending = status in {"queued", "started", "backoff"}
-    title_text = title or ("Loading..." if is_pending else url)
+    title_text = title or url
     tags_str = link.tags_str() if callable(getattr(link, "tags_str", None)) else getattr(link, "tags_str", "")
     tag_html = "".join(f'<span class="snapshot-tag">{escape(tag)}</span>' for tag in (tags_str or "").split(",") if tag)
     if tag_html:
@@ -682,6 +643,7 @@ def snapshot_index_row(context, link) -> str:
         <a href="{escape(url)}" class="snapshot-url" title="{escape(url)}" target="_blank" rel="noopener noreferrer">
             {escape(url)}
         </a>
+        <span class="snapshot-mobile-saved">Saved {escape(date_text)} at {escape(time_text)}</span>
     </td>
     <td class="snapshot-tags-cell">
         {tag_cell}
@@ -706,9 +668,16 @@ def snapshot_index_row(context, link) -> str:
 
 
 @register.simple_tag(takes_context=True)
-def snapshot_preview_url(context, snapshot, path: str = "") -> str:
+def snapshot_preview_url(context, snapshot, path: str = "", result=None) -> str:
     snapshot_id = _snapshot_id(snapshot)
-    return _build_snapshot_preview_url(str(snapshot_id), path, request=context.get("request"), config=context.get("CONFIG"))
+    plugin = getattr(result, "plugin", "") if result else ""
+    return _build_snapshot_preview_url(
+        str(snapshot_id),
+        path,
+        request=context.get("request"),
+        config=context.get("CONFIG"),
+        plugin=plugin,
+    )
 
 
 @register.simple_tag
@@ -789,8 +758,8 @@ def plugin_card(context, result) -> str:
             # Only return non-empty content (strip whitespace to check)
             if rendered.strip():
                 return mark_safe(rendered)
-    except Exception:
-        pass
+    except (template.TemplateSyntaxError, AttributeError, TypeError, ValueError):
+        rendered = ""
 
     if force_text_preview:
         preview = _render_text_file_preview(result.snapshot_dir, raw_output_path, plugin, icon_html)
@@ -865,7 +834,7 @@ def plugin_full(context, result) -> str:
         if rendered.strip():
             return mark_safe(rendered)
         return ""
-    except Exception:
+    except (template.TemplateSyntaxError, AttributeError, TypeError, ValueError):
         return ""
 
 

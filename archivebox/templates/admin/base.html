@@ -65,6 +65,8 @@
                 flex-wrap: wrap;
                 gap: 20px;
                 align-items: stretch;
+                width: 100%;
+                box-sizing: border-box;
             }
 
             /* Each fieldset becomes a card */
@@ -355,6 +357,40 @@
                 background: transparent !important;
             }
 
+            #content-main form fieldset.actions-card,
+            #content form fieldset.actions-card,
+            #content-main form fieldset:has(.field-snapshot_summary),
+            #content form fieldset:has(.field-snapshot_summary) {
+                flex: 1 1 calc(50% - 10px) !important;
+                max-width: calc(50% - 10px) !important;
+                min-width: min(520px, 100%);
+            }
+
+            .archivebox-snapshot-summary {
+                display: flex;
+                gap: 16px;
+                align-items: flex-start;
+                min-width: 0;
+            }
+
+            .archivebox-snapshot-summary-preview {
+                display: block;
+                flex: 0 1 220px;
+                width: 220px;
+                min-width: 140px;
+            }
+
+            .archivebox-snapshot-summary-meta {
+                flex: 1 1 180px;
+                min-width: 160px;
+            }
+
+            .archivebox-snapshot-summary-path {
+                display: inline;
+                overflow-wrap: anywhere;
+                word-break: normal;
+            }
+
             /* Readonly fields styling */
             #content-main form fieldset .readonly,
             #content form fieldset .readonly {
@@ -605,25 +641,77 @@
             }
 
             /* Responsive: 2 columns on medium screens */
-            @media (max-width: 1400px) {
+            @media (max-width: 1500px) {
                 #content-main form fieldset,
                 #content form fieldset {
                     max-width: calc(50% - 10px);
                     flex: 1 1 320px;
                 }
+
+                #content-main form fieldset.actions-card,
+                #content form fieldset.actions-card,
+                #content-main form fieldset:has(.field-snapshot_summary),
+                #content form fieldset:has(.field-snapshot_summary) {
+                    flex-basis: 520px;
+                    min-width: min(520px, 100%);
+                }
             }
 
             /* Responsive: stack on smaller screens */
             @media (max-width: 900px) {
+                body.change-form #content,
+                body.change-form #content-main,
+                body.change-form #content-main > form,
+                body.change-form #content-main > form > div {
+                    width: 100%;
+                    max-width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                }
+
                 #content-main form fieldset,
                 #content form fieldset {
                     flex: 1 1 100%;
                     max-width: 100%;
-                    min-width: auto;
+                    min-width: 0;
+                    width: 100%;
+                }
+
+                #content-main form fieldset fieldset,
+                #content form fieldset fieldset,
+                #content-main form fieldset .flex-container,
+                #content form fieldset .flex-container,
+                #content-main form .module fieldset,
+                #content form .module fieldset {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                }
+
+                #content-main form fieldset.actions-card,
+                #content form fieldset.actions-card,
+                #content-main form fieldset:has(.field-snapshot_summary),
+                #content form fieldset:has(.field-snapshot_summary) {
+                    flex-basis: 100% !important;
+                    max-width: 100% !important;
+                    min-width: 0;
                 }
 
                 #content {
                     padding: 16px;
+                }
+
+                .archivebox-snapshot-summary {
+                    flex-wrap: wrap;
+                }
+
+                .archivebox-snapshot-summary-preview {
+                    flex-basis: 100%;
+                    width: 100%;
+                    max-width: 320px;
+                }
+
+                .archivebox-snapshot-summary-meta {
+                    flex-basis: 100%;
                 }
             }
 
@@ -1693,7 +1781,7 @@
                         <h1 id="site-name">
                             <a href="{% url 'Home' %}">
                                 <img src="{% static 'archive.png' %}" id="logo">
-                                ArchiveBox
+                                <span class="branding-label">ArchiveBox</span>
                             </a>
                         </h1>
                     </div>

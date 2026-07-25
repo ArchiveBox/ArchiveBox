@@ -5,10 +5,9 @@ import re
 import pytest
 from django.urls import reverse
 
+from archivebox.core.models import Snapshot
 from archivebox.crawls.admin import CrawlAdminForm
 from archivebox.crawls.models import Crawl
-from archivebox.core.models import Snapshot
-
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 pytestmark = pytest.mark.django_db
@@ -32,6 +31,7 @@ class TestCrawlScheduleAdmin:
 
         assert get_response.status_code == 200
         assert b"Schedule Info" in get_response.content
+        assert get_response.content.count(b'class="admin-autocomplete"') == 2
         assert b"No Crawls yet..." not in get_response.content
         assert b"No Snapshots yet..." not in get_response.content
 
@@ -157,33 +157,46 @@ def test_crawl_admin_change_view_derives_url_filter_shortcut_toggles(client, adm
     assert b'id="id_url_filters_subpaths_only" name="url_filters_subpaths_only" value="1" checked' in response.content
 
 
-def test_admin_change_submit_row_uses_single_save_continue_button(admin_client, crawl):
+def test_admin_change_toolbar_uses_single_save_continue_button(admin_client, crawl):
     response = admin_client.get(
         reverse("admin:crawls_crawl_change", args=[crawl.pk]),
         HTTP_HOST=ADMIN_TEST_HOST,
     )
 
     assert response.status_code == 200
-    submit_rows = re.findall(r'<div class="submit-row">.*?</div>', response.content.decode(), flags=re.DOTALL)
-    assert submit_rows
-    for row in submit_rows:
-        assert 'name="_save"' not in row
-        assert 'name="_addanother"' not in row
-        assert 'value="Save and continue editing"' not in row
-        assert 'value="Save"' in row
-        assert 'name="_continue"' in row
+    toolbars = re.findall(
+        r'<div class="archivebox-toolbar".*?<div class="ab-toolbar-spacer"></div>',
+        response.content.decode(),
+        flags=re.DOTALL,
+    )
+    assert toolbars
+    for toolbar in toolbars:
+        assert 'name="_save"' not in toolbar
+        assert 'name="_addanother"' not in toolbar
+        assert 'value="Save and continue editing"' not in toolbar
+        assert toolbar.count('name="_continue"') == 1
+        assert "Save</button>" in toolbar
+    assert '<div class="submit-row">' not in response.content.decode()
 
 
-def test_admin_add_submit_row_hides_save_and_add_another(admin_client):
+def test_admin_add_toolbar_hides_save_and_add_another(admin_client):
     response = admin_client.get(
         reverse("admin:crawls_crawl_add"),
         HTTP_HOST=ADMIN_TEST_HOST,
     )
 
     assert response.status_code == 200
-    submit_rows = re.findall(r'<div class="submit-row">.*?</div>', response.content.decode(), flags=re.DOTALL)
-    assert submit_rows
-    assert all('name="_addanother"' not in row for row in submit_rows)
+    toolbars = re.findall(
+        r'<div class="archivebox-toolbar".*?<div class="ab-toolbar-spacer"></div>',
+        response.content.decode(),
+        flags=re.DOTALL,
+    )
+    assert toolbars
+    for toolbar in toolbars:
+        assert 'name="_addanother"' not in toolbar
+        assert 'name="_saveasnew"' not in toolbar
+        assert toolbar.count('type="submit"') == 1
+    assert '<div class="submit-row">' not in response.content.decode()
 
 
 def test_crawl_schedule_admin_add_redirects_to_add_page_schedule_field(admin_client):
@@ -346,13 +359,7 @@ def test_crawl_admin_delete_snapshot_action_removes_snapshot_and_url(client, adm
 
 def test_crawl_admin_exclude_domain_action_prunes_urls_and_pending_snapshots(client, admin_user):
     crawl = Crawl.objects.create(
-        urls="\n".join(
-            [
-                "https://cdn.example.com/asset.js",
-                "https://cdn.example.com/second.js",
-                "https://example.com/root",
-            ],
-        ),
+        urls=("https://cdn.example.com/asset.js\nhttps://cdn.example.com/second.js\nhttps://example.com/root"),
         created_by=admin_user,
     )
     queued_snapshot = Snapshot.objects.create(
@@ -399,14 +406,7 @@ def test_snapshot_from_json_trims_markdown_suffixes_on_discovered_urls(crawl):
 
 def test_create_snapshots_from_urls_skips_invalid_and_archivebox_internal_urls(admin_user):
     crawl = Crawl.objects.create(
-        urls="\n".join(
-            [
-                "https://example.com/root",
-                "http://127.0.0.1:8765/page-001.html",
-                "not-a-url",
-                "http://admin.archivebox.localhost:8000/admin/",
-            ],
-        ),
+        urls=("https://example.com/root\nhttp://127.0.0.1:8765/page-001.html\nnot-a-url\nhttp://admin.archivebox.localhost:8000/admin/"),
         created_by=admin_user,
     )
 
