@@ -13,6 +13,13 @@ def _repair_snapshot_permissions(apps, schema_editor):
     no underlying column. Fresh installs added the column via 0041 and
     this is a no-op.
     """
+    # sqlite-only legacy repair (PRAGMA table_xinfo + sqlite VIRTUAL generated
+    # column syntax). On postgres the permissions column was created by 0041's
+    # portable GeneratedField AddField (STORED generated column), so there is
+    # nothing to repair.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+
     cursor = schema_editor.connection.cursor()
     # ``table_xinfo`` lists STORED/VIRTUAL generated columns; ``table_info``
     # silently drops them, so a prior 0041 that landed the STORED column

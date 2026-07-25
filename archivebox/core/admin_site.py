@@ -122,8 +122,6 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
     def index(self, request: "HttpRequest", extra_context: dict[str, Any] | None = None) -> "TemplateResponse":
         response = super().index(request, extra_context)
-        if connection.vendor != "sqlite":
-            return response
 
         models_by_table: dict[str, list[dict[str, Any]]] = {}
         for app in response.context_data.get("app_list", []):
@@ -136,23 +134,18 @@ class ArchiveBoxAdmin(admin.AdminSite):
         if not models_by_table:
             return response
 
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT tbl, stat FROM sqlite_stat1")
-                for table, stat in cursor.fetchall():
-                    try:
-                        count = int(str(stat).split()[0])
-                    except (IndexError, TypeError, ValueError):
-                        continue
-                    self._set_model_object_count(
-                        models_by_table,
-                        table,
-                        count,
-                        title=f"Approximate count from SQLite stats: {count:,}",
-                    )
-                    models_by_table.pop(table, None)
-        except DatabaseError:
-            pass
+        from archivebox.misc.db import approximate_row_counts
+
+        for table, count in approximate_row_counts(connection).items():
+            if table not in models_by_table:
+                continue
+            self._set_model_object_count(
+                models_by_table,
+                table,
+                count,
+                title=f"Approximate count from database stats: {count:,}",
+            )
+            models_by_table.pop(table, None)
 
         for table in list(models_by_table):
             try:

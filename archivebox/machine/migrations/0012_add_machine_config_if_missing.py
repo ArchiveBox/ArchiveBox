@@ -2,6 +2,12 @@ from django.db import migrations
 
 
 def add_machine_config_if_missing(apps, schema_editor):
+    # sqlite-only: uses PRAGMA introspection. On a fresh non-sqlite install the
+    # config column already exists (created from 0001 migration state), so there
+    # is nothing to add.
+    if schema_editor.connection.vendor != "sqlite":
+        return
+
     cursor = schema_editor.connection.cursor()
     cursor.execute("PRAGMA table_info(machine_machine)")
     columns = {row[1] for row in cursor.fetchall()}

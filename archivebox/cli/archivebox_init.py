@@ -32,13 +32,13 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     from archivebox.config import CONSTANTS, VERSION
     from archivebox.config.common import get_config
     from archivebox.config.collection import write_config_file
-    from archivebox.misc.db import apply_migrations
+    from archivebox.misc.db import apply_migrations, database_exists, ensure_database_ready
     from archivebox.misc.checks import check_migrations
 
     config = get_config()
 
     is_empty = not len(set(os.listdir(CONSTANTS.DATA_DIR)) - CONSTANTS.ALLOWED_IN_DATA_DIR)
-    existing_index = os.path.isfile(CONSTANTS.DATABASE_FILE)
+    existing_index = database_exists()
     if is_empty and not existing_index:
         print(f"[turquoise4][+] Initializing a new ArchiveBox v{VERSION} collection...[/turquoise4]")
         print("[green]----------------------------------------------------------------------[/green]")
@@ -86,10 +86,14 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     # create the ArchiveBox.conf file
     write_config_file({"SECRET_KEY": config.SECRET_KEY})
 
-    if os.access(CONSTANTS.DATABASE_FILE, os.F_OK):
+    if existing_index:
         print("\n[green][*] Verifying main SQL index and running any migrations needed...[/green]")
     else:
         print("\n[green][+] Building main SQL index and running initial migrations...[/green]")
+
+    # For postgres, make sure the server is reachable and create the database
+    # if it doesn't exist yet (sqlite creates its file automatically).
+    ensure_database_ready()
 
     from archivebox.config.django import setup_django
 
@@ -107,9 +111,14 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
         else:
             os.environ["ARCHIVEBOX_WANTS_INIT"] = previous_wants_init
 
-    assert os.path.isfile(CONSTANTS.DATABASE_FILE) and os.access(CONSTANTS.DATABASE_FILE, os.R_OK)
+    from archivebox.misc.db import database_display_location, is_postgres
+
+    assert database_exists()
     print()
-    print(f"    √ {_display_data_path(CONSTANTS.DATABASE_FILE, CONSTANTS.DATA_DIR)}")
+    if is_postgres():
+        print(f"    √ {database_display_location()}")
+    else:
+        print(f"    √ {_display_data_path(CONSTANTS.DATABASE_FILE, CONSTANTS.DATA_DIR)}")
 
     print()
     print("[dodger_blue3][*] Checking links from indexes and archive folders (safe to Ctrl+C)...[/dodger_blue3]")

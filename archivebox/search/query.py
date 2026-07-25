@@ -16,31 +16,48 @@ MAX_SEARCH_RANK_IDS = 500
 
 
 def escape_like_query(query: str) -> str:
-    """Escape a string for SQLite LIKE matching."""
+    """Escape a string for SQL LIKE matching (used with ESCAPE '\\')."""
     return query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def crawl_config_values_search_wave(query: str) -> Q | None:
     """Build a Snapshot Q predicate matching values inside Crawl.config."""
-    if connection.vendor != "sqlite":
-        return None
-
     from archivebox.crawls.models import Crawl
 
     pattern = f"%{escape_like_query(query).lower()}%"
-    matching_crawls = Crawl.objects.extra(
-        where=[
-            """
-            EXISTS (
-                SELECT 1
-                FROM json_tree(config)
-                WHERE json_tree.atom IS NOT NULL
-                  AND LOWER(CAST(json_tree.atom AS TEXT)) LIKE %s ESCAPE '\\'
-            )
-            """,
-        ],
-        params=[pattern],
-    )
+    if connection.vendor == "sqlite":
+        matching_crawls = Crawl.objects.extra(
+            where=[
+                """
+                EXISTS (
+                    SELECT 1
+                    FROM json_tree(config)
+                    WHERE json_tree.atom IS NOT NULL
+                      AND LOWER(CAST(json_tree.atom AS TEXT)) LIKE %s ESCAPE '\\'
+                )
+                """,
+            ],
+            params=[pattern],
+        )
+    elif connection.vendor == "postgresql":
+        # Match only scalar config *values*, not keys (mirrors SQLite's
+        # json_tree.atom). jsonb_path_query('$.**') walks every nested node;
+        # keep the non-container leaves and compare their text form.
+        matching_crawls = Crawl.objects.extra(
+            where=[
+                """
+                EXISTS (
+                    SELECT 1
+                    FROM jsonb_path_query(config, '$.**') AS leaf
+                    WHERE jsonb_typeof(leaf) NOT IN ('object', 'array')
+                      AND LOWER(leaf #>> '{}') LIKE %s ESCAPE '\\'
+                )
+                """,
+            ],
+            params=[pattern],
+        )
+    else:
+        return None
     return Q(crawl_id__in=matching_crawls.values("pk"))
 
 

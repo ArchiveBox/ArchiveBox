@@ -152,9 +152,10 @@ def setup_django(check_db=False, in_memory_db=False) -> None:
             for conn in connections.all():
                 conn.close_if_unusable_or_obsolete()
 
-            sql_index_path = CONSTANTS.DATABASE_FILE
-            assert os.access(sql_index_path, os.F_OK), (
-                f"No database file {sql_index_path} found in: {CONSTANTS.DATA_DIR} (Are you in an ArchiveBox collection directory?)"
+            from archivebox.misc.db import database_display_location, database_exists
+
+            assert database_exists(), (
+                f"No database {database_display_location()} found for: {CONSTANTS.DATA_DIR} (Are you in an ArchiveBox collection directory?)"
             )
 
     except KeyboardInterrupt:
