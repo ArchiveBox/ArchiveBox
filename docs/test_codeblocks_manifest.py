@@ -370,10 +370,24 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
             snippet = snippets[snippet_id]
             record = records[snippet_id]
             snippet_env = env.copy()
+            launch_bash = Path(snippet_env.get("BASH_BINARY", env["BASH_BINARY"]))
             if record["scenario"] in {"system", "system-data"}:
                 system_home = temp_dir / f"system-home-{snippet_id}"
                 system_data_dir = system_home / "archivebox" / "data"
                 system_home.mkdir()
+                for inherited_binary in (
+                    "BASH_BINARY",
+                    "CURL_BINARY",
+                    "DOCKER_BINARY",
+                    "GIT_BINARY",
+                    "JQ_BINARY",
+                    "PYTHON_BINARY",
+                    "SUDO_BINARY",
+                    "UNAME_BINARY",
+                    "UV_BINARY",
+                    "WGET_BINARY",
+                ):
+                    snippet_env.pop(inherited_binary, None)
                 snippet_env.update(
                     {
                         "HOME": str(system_home),
@@ -388,8 +402,6 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 system_lib_dir.mkdir(parents=True, exist_ok=True)
                 system_lib_dir.chmod(0o777)
                 if record["environment"] == "root":
-                    for inherited_binary in ("BASH_BINARY", "UV_BINARY", "PYTHON_BINARY", "SUDO_BINARY", "DOCKER_BINARY"):
-                        snippet_env.pop(inherited_binary, None)
                     snippet_env["PATH"] = os.pathsep.join(
                         [
                             str(system_home / ".local" / "bin"),
@@ -403,15 +415,14 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                         ],
                     )
                 else:
+                    excluded_path_dirs = {Path(sys.executable).parent.resolve()}
+                    if env.get("ABXPKG_LIB_DIR"):
+                        excluded_path_dirs.add((Path(env["ABXPKG_LIB_DIR"]) / "env" / "bin").resolve())
                     snippet_env["PATH"] = os.pathsep.join(
                         [
                             str(system_home / ".local" / "bin"),
                             str(system_home / ".cargo" / "bin"),
-                            *(
-                                part
-                                for part in env["PATH"].split(os.pathsep)
-                                if Path(part).resolve() != Path(sys.executable).parent.resolve()
-                            ),
+                            *(part for part in env["PATH"].split(os.pathsep) if Path(part).resolve() not in excluded_path_dirs),
                         ],
                     )
                 workdirs["system"] = temp_dir / f"system-cwd-{snippet_id}"
@@ -419,7 +430,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 workdirs[record["scenario"]].mkdir(parents=True)
             print(f"Running {snippet.id}: {snippet.path}:{snippet.line} ({record['scenario']})", flush=True)
             if snippet.syntax in {"bash", "sh", "console"}:
-                bash = Path(snippet_env.get("BASH_BINARY", env["BASH_BINARY"]))
+                bash = launch_bash
                 assert bash.is_file() and os.access(bash, os.X_OK)
                 subprocess.run(
                     [bash, "-Eeuo", "pipefail", "-c", snippet.code],
