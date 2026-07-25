@@ -7,9 +7,9 @@ from collections.abc import Callable
 from typing import Any
 from urllib.parse import quote
 
-from admin_data_views.typing import TableContext
-from admin_data_views.utils import ItemLink, render_with_table_view
-from django.http import HttpRequest, HttpResponseRedirect
+from admin_data_views.typing import ItemContext, SectionData, TableContext
+from admin_data_views.utils import ItemLink, render_with_item_view, render_with_table_view
+from django.http import Http404, HttpRequest
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
@@ -370,8 +370,65 @@ def plugins_list_view(request: HttpRequest, **kwargs) -> TableContext:
     )
 
 
-def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> HttpResponseRedirect:
+@render_with_item_view
+def plugin_detail_view(request: HttpRequest, key: str, **kwargs) -> ItemContext:
     assert is_superuser(request), "Must be a superuser to view configuration settings."
 
-    plugin_name = key.removeprefix("builtin.").removeprefix("user.")
-    return HttpResponseRedirect(get_plugin_docs_url(plugin_name))
+    plugin = get_filesystem_plugins().get(key)
+    if plugin is None:
+        raise Http404(f"Plugin not found: {key}")
+
+    plugin_name = str(plugin["name"])
+    config = plugin.get("config") or {}
+    properties = config.get("properties") or {}
+    machine_admin_url = get_machine_admin_url()
+    docs_url = get_plugin_docs_url(plugin_name)
+
+    summary_section: SectionData = {
+        "name": "Summary",
+        "description": mark_safe(
+            str(format_html('<code>{}</code><br/><a href="{}">Plugin documentation</a>', plugin["path"], docs_url)),
+        ),
+        "fields": {
+            "id": key,
+            "name": plugin_name,
+            "source": plugin["source"],
+        },
+        "help_texts": {},
+    }
+    hooks_section: SectionData = {
+        "name": "Hooks",
+        "description": mark_safe(render_hook_links_html(plugin_name, plugin.get("hooks") or [], plugin["source"])),
+        "fields": {},
+        "help_texts": {},
+    }
+    metadata_section: SectionData = {
+        "name": "Plugin Metadata",
+        "description": mark_safe(render_plugin_metadata_html(config)),
+        "fields": {},
+        "help_texts": {},
+    }
+    config_section: SectionData = {
+        "name": "config.json",
+        "description": mark_safe(render_highlighted_json_block(config)),
+        "fields": {},
+        "help_texts": {},
+    }
+    properties_section: SectionData = {
+        "name": "Config Properties",
+        "description": mark_safe(render_config_properties_html(properties, machine_admin_url)),
+        "fields": {},
+        "help_texts": {},
+    }
+
+    return ItemContext(
+        slug=key,
+        title=plugin_name,
+        data=[
+            summary_section,
+            hooks_section,
+            metadata_section,
+            config_section,
+            properties_section,
+        ],
+    )
