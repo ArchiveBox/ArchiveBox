@@ -388,7 +388,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 system_lib_dir.mkdir(parents=True, exist_ok=True)
                 system_lib_dir.chmod(0o777)
                 if record["environment"] == "root":
-                    for inherited_binary in ("UV_BINARY", "PYTHON_BINARY", "SUDO_BINARY", "DOCKER_BINARY"):
+                    for inherited_binary in ("BASH_BINARY", "UV_BINARY", "PYTHON_BINARY", "SUDO_BINARY", "DOCKER_BINARY"):
                         snippet_env.pop(inherited_binary, None)
                     snippet_env["PATH"] = os.pathsep.join(
                         [
@@ -419,7 +419,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 workdirs[record["scenario"]].mkdir(parents=True)
             print(f"Running {snippet.id}: {snippet.path}:{snippet.line} ({record['scenario']})", flush=True)
             if snippet.syntax in {"bash", "sh", "console"}:
-                bash = Path(snippet_env["BASH_BINARY"])
+                bash = Path(snippet_env.get("BASH_BINARY", env["BASH_BINARY"]))
                 assert bash.is_file() and os.access(bash, os.X_OK)
                 subprocess.run(
                     [bash, "-Eeuo", "pipefail", "-c", snippet.code],
