@@ -13,6 +13,7 @@ import configparser
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -34,6 +35,26 @@ ENVIRONMENT_RUNNERS = {
     "freebsd": "ubuntu-24.04",
     "openbsd": "ubuntu-24.04",
 }
+
+
+class DocumentationTemporaryDirectory(tempfile.TemporaryDirectory):
+    """Remove docs harness temp trees even when snippets create root-owned files."""
+
+    def cleanup(self) -> None:
+        if not self._finalizer.detach() and not Path(self.name).exists():
+            return
+
+        sudo = os.environ.get("SUDO_BINARY")
+        if sudo and Path(sudo).is_file() and os.access(sudo, os.X_OK):
+            subprocess.run(
+                [sudo, "rm", "-rf", self.name],
+                check=False,
+            )
+            return
+
+        shutil.rmtree(self.name, ignore_errors=False)
+
+
 CI_ENVIRONMENTS = {"ubuntu", "root", "docker", "macos"}
 SCENARIOS = {"project", "collection", "system", "system-data", "docker", "docker-data"}
 FENCE_START = re.compile(r"^(?P<indent>[ \t]*)(?P<fence>`{3,}|~{3,})[ \t]*(?P<info>[^\n]*)$")
@@ -315,7 +336,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
         assert snippet_id in snippets, f"Unknown snippet ID: {snippet_id}"
         assert records[snippet_id]["disposition"] == "run", f"{snippet_id} is classified as {records[snippet_id]['disposition']}"
 
-    with tempfile.TemporaryDirectory(prefix="archivebox-docs-") as temp:
+    with DocumentationTemporaryDirectory(prefix="archivebox-docs-") as temp:
         temp_dir = Path(temp)
         temp_dir.chmod(0o755)
         env = os.environ.copy()
