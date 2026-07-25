@@ -344,6 +344,12 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
             CREATE_WEBHOOK="$CREATE_WEBHOOK" \
             node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME"
 
+        (
+            cd "$DATA_DIR"
+            uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                'from archivebox.machine.models import Machine; Machine.from_json({"config": {"OPENCODE_ENABLED": True}})'
+        )
+
         SWEETING_CAPTURE_STARTED_AT="$( (
             cd "$DATA_DIR"
             uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
