@@ -1962,7 +1962,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
             with live_ui if live_ui is not None else nullcontext():
                 try:
                     await abx_install_plugins(
-                        plugin_names=plugin_names,
+                        plugin_names=selected_plugins,
                         plugins=plugins,
                         output_dir=output_dir,
                         config_overrides=config,
