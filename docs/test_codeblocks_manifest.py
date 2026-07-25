@@ -327,37 +327,14 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
             },
         )
         Path(env["HOME"]).mkdir()
-        system_home = temp_dir / "system-home"
-        system_home.mkdir()
-        system_env = {
-            "HOME": str(system_home),
-            "XDG_CACHE_HOME": str(system_home / ".cache"),
-            "XDG_CONFIG_HOME": str(system_home / ".config"),
-            "XDG_DATA_HOME": str(system_home / ".local" / "share"),
-            "UV_TOOL_BIN_DIR": str(system_home / ".local" / "bin"),
-            "ABXPKG_LIB_DIR": str(temp_dir / "system-lib"),
-        }
-        system_path = os.pathsep.join(
-            [
-                str(system_home / ".local" / "bin"),
-                str(system_home / ".cargo" / "bin"),
-                *(part for part in env["PATH"].split(os.pathsep) if Path(part).resolve() != Path(sys.executable).parent.resolve()),
-            ],
-        )
         scenarios = {records[snippet_id]["scenario"] for snippet_id in snippet_ids}
-        system_cwd = temp_dir / "system-cwd"
-        system_cwd.mkdir()
         workdirs = {
             "project": ROOT,
-            "system": system_cwd,
-            "system-data": system_home / "archivebox" / "data",
             "collection": Path(env["HOME"]) / "archivebox" / "data",
             "docker": Path(env["HOME"]) / "archivebox",
             "docker-data": temp_dir / "data",
         }
 
-        if "system-data" in scenarios:
-            workdirs["system-data"].mkdir(parents=True)
         if "collection" in scenarios:
             workdirs["collection"].mkdir(parents=True, exist_ok=True)
             archivebox = Path(sys.executable).with_name("archivebox")
@@ -394,8 +371,28 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
             record = records[snippet_id]
             snippet_env = env.copy()
             if record["scenario"] in {"system", "system-data"}:
-                snippet_env.update(system_env)
-                snippet_env["PATH"] = system_path
+                system_home = temp_dir / f"system-home-{snippet_id}"
+                system_home.mkdir()
+                snippet_env.update(
+                    {
+                        "HOME": str(system_home),
+                        "XDG_CACHE_HOME": str(system_home / ".cache"),
+                        "XDG_CONFIG_HOME": str(system_home / ".config"),
+                        "XDG_DATA_HOME": str(system_home / ".local" / "share"),
+                        "UV_TOOL_BIN_DIR": str(system_home / ".local" / "bin"),
+                        "ABXPKG_LIB_DIR": str(temp_dir / "system-lib"),
+                    },
+                )
+                snippet_env["PATH"] = os.pathsep.join(
+                    [
+                        str(system_home / ".local" / "bin"),
+                        str(system_home / ".cargo" / "bin"),
+                        *(part for part in env["PATH"].split(os.pathsep) if Path(part).resolve() != Path(sys.executable).parent.resolve()),
+                    ],
+                )
+                workdirs["system"] = temp_dir / f"system-cwd-{snippet_id}"
+                workdirs["system-data"] = system_home / "archivebox" / "data"
+                workdirs[record["scenario"]].mkdir(parents=True)
             print(f"Running {snippet.id}: {snippet.path}:{snippet.line} ({record['scenario']})", flush=True)
             if snippet.syntax in {"bash", "sh", "console"}:
                 bash = Path(snippet_env["BASH_BINARY"])

@@ -157,7 +157,7 @@ jobs:
           run: |
             abxpkg_version="$(uv run --no-project python -c 'import tomllib; dependencies = tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]; print(next(dependency.split("==", 1)[1] for dependency in dependencies if dependency.startswith("abxpkg==")))')"
             export ABXPKG_LIB_DIR="/tmp/archivebox-docs-lib"
-            uvx --from "abxpkg[pyinfra]==$abxpkg_version" abxpkg env \
+            uvx --from "abxpkg==$abxpkg_version" abxpkg env \
               --install \
               --lib="$ABXPKG_LIB_DIR" \
               --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:bsd_binaries" \
@@ -172,7 +172,7 @@ jobs:
           run: |
             abxpkg_version="$(uv run --no-project python -c 'import tomllib; dependencies = tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]; print(next(dependency.split("==", 1)[1] for dependency in dependencies if dependency.startswith("abxpkg==")))')"
             export ABXPKG_LIB_DIR="/tmp/archivebox-docs-lib"
-            uvx --from "abxpkg[pyinfra]==$abxpkg_version" abxpkg env \
+            uvx --from "abxpkg==$abxpkg_version" abxpkg env \
               --install \
               --lib="$ABXPKG_LIB_DIR" \
               --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:bsd_binaries"

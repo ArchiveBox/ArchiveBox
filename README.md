@@ -297,14 +297,16 @@ sudo apt install archivebox
 </code></pre>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
+<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox
+sudo install -d -o archivebox -g archivebox ~/archivebox/data
+cd ~/archivebox/data
 archivebox init
 archivebox install
 archivebox add 'https://example.com'
 </code></pre>
 <br/>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost8000</a> ⇢ Admin.
+<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
