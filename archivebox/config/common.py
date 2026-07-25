@@ -17,6 +17,7 @@ from typing import Any, ClassVar, cast
 from urllib.parse import quote, urlparse
 
 from abx_plugins.plugins.base.utils import BASE_CONFIG_PATH, build_config_model, resolve_plugin_configs
+from django.db import DatabaseError
 from pydantic import BaseModel, Field, PrivateAttr, create_model, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 from rich.console import Console
@@ -1084,7 +1085,7 @@ def get_config(
                 from archivebox.machine.models import Machine
 
                 machine = Machine.current()
-        except (ImportError, RuntimeError, TypeError, ValueError):
+        except (DatabaseError, ImportError, RuntimeError, TypeError, ValueError):
             machine = None
 
     if persona is None and crawl is not None:
