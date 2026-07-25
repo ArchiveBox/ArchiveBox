@@ -1,0 +1,34 @@
+docs/Install.md
+  s_f8414d52051f83::t_f0b392c6509f56 143-145
+docs/codeblocks.toml
+  s_f8414d52051f83::t_5865239c39980c 19,103,132,257,296,338,377
+README.md
+  s_f8414d52051f83::t_f0b392c6509f56 300-302
+  s_f8414d52051f83::t_561e0548d655cc 309
+.github/workflows/docs.yml
+  s_f8414d52051f83::t_b4d828cb2f1672 160,175
+Dockerfile
+  s_f8414d52051f83::t_fe4852d7b4e277 13,16
+docs/test_codeblocks_manifest.py
+  s_f8414d52051f83::t_d679f621f8c175 374-395
+pyproject.toml
+  s_f8414d52051f83::t_cbda2bafca2a86 84-86
+uv.lock
+  s_f8414d52051f83::t_da7316ff84280f 27,42,44,49,59,61,80,89,91,226-227,229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "13c3a4aaf3c400264b4fc6b5e766f7fc7114df1c",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
