@@ -372,6 +372,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
             snippet_env = env.copy()
             if record["scenario"] in {"system", "system-data"}:
                 system_home = temp_dir / f"system-home-{snippet_id}"
+                system_data_dir = system_home / "archivebox" / "data"
                 system_home.mkdir()
                 snippet_env.update(
                     {
@@ -380,7 +381,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                         "XDG_CONFIG_HOME": str(system_home / ".config"),
                         "XDG_DATA_HOME": str(system_home / ".local" / "share"),
                         "UV_TOOL_BIN_DIR": str(system_home / ".local" / "bin"),
-                        "ABXPKG_LIB_DIR": str(temp_dir / "system-lib"),
+                        "ABXPKG_LIB_DIR": str(system_data_dir / "lib"),
                     },
                 )
                 system_lib_dir = Path(snippet_env["ABXPKG_LIB_DIR"])
@@ -394,7 +395,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                     ],
                 )
                 workdirs["system"] = temp_dir / f"system-cwd-{snippet_id}"
-                workdirs["system-data"] = system_home / "archivebox" / "data"
+                workdirs["system-data"] = system_data_dir
                 workdirs[record["scenario"]].mkdir(parents=True)
             print(f"Running {snippet.id}: {snippet.path}:{snippet.line} ({record['scenario']})", flush=True)
             if snippet.syntax in {"bash", "sh", "console"}:
