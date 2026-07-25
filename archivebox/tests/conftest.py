@@ -83,7 +83,7 @@ def _set_test_source_pythonpath(env: dict[str, str]) -> None:
     existing_entries = [
         str(Path(entry).expanduser().resolve(strict=False))
         for entry in (env.get("PYTHONPATH") or "").split(os.pathsep)
-        if entry and Path(entry).expanduser().is_absolute()
+        if entry and Path(entry).expanduser().is_absolute() and Path(entry).expanduser().exists()
     ]
     entries = [entry for entry in [*source_pythonpath.split(os.pathsep), *existing_entries] if entry]
     if entries:

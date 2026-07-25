@@ -218,8 +218,16 @@ def validate_non_running(snippet: Snippet, disposition: str) -> None:
             source = Path(temp) / "diagram.mmd"
             output = Path(temp) / "diagram.svg"
             source.write_text(snippet.code)
+            command = [mmdc, "--input", source, "--output", output]
+            if sys.platform.startswith("linux") and not os.environ.get("DISPLAY", "").strip():
+                command.extend(
+                    [
+                        "--puppeteerConfigFile",
+                        ROOT / "docs" / "mermaid-puppeteer-linux.json",
+                    ],
+                )
             result = subprocess.run(
-                [mmdc, "--input", source, "--output", output],
+                command,
                 text=True,
                 capture_output=True,
                 check=False,

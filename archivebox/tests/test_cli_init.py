@@ -6,6 +6,8 @@ Verify init creates correct database schema, filesystem structure, and config.
 
 import pytest
 import subprocess
+import sys
+from pathlib import Path
 from django.utils import timezone
 from django.db import connections
 from django.db.migrations.recorder import MigrationRecorder
@@ -23,6 +25,74 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 DIR_PERMISSIONS = get_config().OUTPUT_PERMISSIONS.replace("6", "7").replace("4", "5")
+
+
+def _runtime_artifact_state(source_root: Path) -> dict[str, tuple[int, int] | None]:
+    artifact_paths = (
+        "index.sqlite3",
+        ".archivebox_id",
+        "ArchiveBox.conf",
+        "archive.log",
+        "logs",
+        "cache",
+        "tmp",
+        "lib",
+    )
+    state = {}
+    for relative_path in artifact_paths:
+        path = source_root / relative_path
+        state[relative_path] = (path.stat().st_size, path.stat().st_mtime_ns) if path.exists() else None
+    return state
+
+
+def test_cli_refuses_source_root_without_side_effects_and_allows_separate_data_dir(tmp_path):
+    source_root = Path(__file__).resolve().parents[2]
+    archivebox = Path(sys.executable).with_name("archivebox")
+    assert archivebox.is_file()
+
+    env = cli_env(disable_extractors=True)
+    _set_test_source_pythonpath(env)
+    before = _runtime_artifact_state(source_root)
+
+    def run_from_source_root(*args: str):
+        return subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import os, sys; os.chdir(sys.argv[1]); os.execv(sys.argv[2], sys.argv[2:])",
+                source_root,
+                archivebox,
+                *args,
+            ],
+            cwd=tmp_path,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+    for metadata_args in (("--help",), ("--version",)):
+        result = run_from_source_root(*metadata_args)
+        assert result.returncode == 0, result.stderr or result.stdout
+
+    refused = run_from_source_root("init", "--quick")
+    assert refused.returncode != 0
+    assert "source checkout as a DATA_DIR" in refused.stderr
+    assert _runtime_artifact_state(source_root) == before
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    initialized = subprocess.run(
+        [archivebox, "init", "--quick"],
+        cwd=data_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert initialized.returncode == 0, initialized.stderr or initialized.stdout
+    assert (data_dir / "index.sqlite3").is_file()
+    assert (data_dir / "logs").is_dir()
 
 
 def test_init_creates_database_file(tmp_path):

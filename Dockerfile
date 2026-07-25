@@ -207,7 +207,6 @@ LABEL name="archivebox" \
 COPY --from=sonic /usr/local/bin/sonic /usr/local/bin/sonic
 COPY --chown=root:root --chmod=755 "etc/sonic.cfg" /etc/sonic.cfg
 
-COPY --from=archivebox-builder /opt/uv/python /opt/uv/python
 COPY --from=archivebox-builder /venv /venv
 COPY --from=archivebox-builder /app /app
 COPY --from=archivebox-builder /VERSION.txt /VERSION.txt
@@ -255,9 +254,6 @@ RUN --mount=type=cache,target=/tmp/abxpkg-cache,sharing=locked,mode=1777 \
     && stat -c "%U:%G %a %n" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$CONFIG_DIR" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$ABXPKG_LIB_DIR" \
-    && python3 -c 'from abx_dl.models import discover_plugins; [print(f"export {plugin.enabled_key}=True") for plugin in discover_plugins(runtime="archivebox").values() if plugin.enabled_key in plugin.config.properties]' > /tmp/archivebox-enable-plugins.env \
-    && sort /tmp/archivebox-enable-plugins.env | tee -a /VERSION.txt \
-    && source /tmp/archivebox-enable-plugins.env \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups env HOME=/tmp/abxpkg-cache ABXPKG_NO_CACHE=True ABXPKG_TMP_CACHE_DIR=/tmp/abxpkg-cache archivebox install \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups env HOME=/tmp/abxpkg-cache archivebox version 2>&1 | tee -a /VERSION.txt \
     && rm -rf /root/.cache /var/cache/apt/* /var/lib/apt/lists/*

@@ -287,6 +287,7 @@ jobs:
           trap cleanup EXIT
 
           "$SUDO_BINARY" "$MKDIR_BINARY" -p "$NFS_SOURCE" "$SMB_SOURCE" "$NFS_MOUNT" "$SMB_MOUNT"
+          "$SUDO_BINARY" "$MKDIR_BINARY" -p /etc/exports.d
           "$SUDO_BINARY" "$CHMOD_BINARY" 0777 "$NFS_SOURCE" "$SMB_SOURCE" "$NFS_MOUNT" "$SMB_MOUNT"
           "$SUDO_BINARY" "$BASH_BINARY" -c \
             "printf '%s *(rw,sync,no_subtree_check,no_root_squash,insecure)\\n' '$NFS_SOURCE' > /etc/exports.d/archivebox-ci.exports"

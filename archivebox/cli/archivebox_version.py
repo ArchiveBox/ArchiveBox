@@ -174,6 +174,7 @@ def version(
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
     from archivebox.config.permissions import ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, RUNNING_AS_UID, RUNNING_AS_GID, IN_DOCKER
     from archivebox.config.paths import get_data_locations, get_code_locations
+    from archivebox.misc.checks import is_archivebox_source_root
     from archivebox.misc.logging_util import printable_folder_status
     from archivebox.config.common import get_config, normalize_runtime_config
 
@@ -229,7 +230,11 @@ def version(
     )
     prnt()
 
-    in_data_dir = os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) and os.access(CONSTANTS.CONFIG_FILE, os.R_OK)
+    in_data_dir = (
+        not is_archivebox_source_root(CONSTANTS.DATA_DIR)
+        and os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK)
+        and os.access(CONSTANTS.CONFIG_FILE, os.R_OK)
+    )
     if isinstance(binaries, str):
         requested_names = {name.strip() for name in binaries.split(",") if name.strip()}
     else:

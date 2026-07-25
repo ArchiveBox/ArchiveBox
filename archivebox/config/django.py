@@ -32,12 +32,15 @@ DJANGO_SET_UP = False
 
 def setup_django(check_db=False, in_memory_db=False) -> None:
     from rich.panel import Panel
+    from archivebox.misc.checks import check_not_inside_source_dir
 
     global DJANGO_SET_UP
 
     if DJANGO_SET_UP:
         # TODO: figure out why CLI entrypoints with init_pending are running this twice sometimes
         return
+
+    check_not_inside_source_dir(CONSTANTS.DATA_DIR)
 
     # SQLite creates index.sqlite3 during django.setup()/migrate. Apply the
     # ArchiveBox file-mode policy before any DB connection can create the file,

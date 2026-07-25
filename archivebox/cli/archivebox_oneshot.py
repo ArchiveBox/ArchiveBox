@@ -17,6 +17,10 @@ from archivebox.config.common import get_config
 @click.argument("args", nargs=-1)
 def main(args: tuple[str, ...] = ()) -> None:
     """Download URLs using abx-dl"""
+    from archivebox.misc.checks import check_not_inside_source_dir
+
+    check_not_inside_source_dir()
+
     cwd = Path.cwd()
     if any((path / CONSTANTS.SQL_INDEX_FILENAME).exists() for path in (cwd, *cwd.parents)):
         raise click.ClickException(

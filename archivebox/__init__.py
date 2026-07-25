@@ -46,10 +46,9 @@ from .config.permissions import drop_privileges  # noqa
 
 drop_privileges()
 
-from .misc.checks import check_not_root, check_not_inside_source_dir, check_io_encoding  # noqa
+from .misc.checks import check_not_root, check_io_encoding  # noqa
 
 check_not_root()
-check_not_inside_source_dir()
 check_io_encoding()
 
 from .config.version import VERSION  # noqa

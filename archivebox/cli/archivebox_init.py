@@ -25,6 +25,10 @@ def _display_data_path(path: Path, data_dir: Path) -> str:
 def init(force: bool = False, quick: bool = False, install: bool = False) -> None:
     """Initialize a new ArchiveBox collection in the current directory"""
 
+    from archivebox.misc.checks import check_not_inside_source_dir
+
+    check_not_inside_source_dir()
+
     from archivebox.config import CONSTANTS, VERSION
     from archivebox.config.common import get_config
     from archivebox.config.collection import write_config_file

@@ -34,7 +34,9 @@ def test_cli_env_does_not_emit_relative_pythonpath_entries():
 
     old_pythonpath = os.environ.get("PYTHONPATH")
     try:
-        os.environ["PYTHONPATH"] = os.pathsep.join(["../abxpkg", "../abx-plugins", "../abx-dl"])
+        os.environ["PYTHONPATH"] = os.pathsep.join(
+            ["../abxpkg", "../abx-plugins", "../abx-dl", "/nonexistent/archivebox-pythonpath"],
+        )
 
         env = cli_env()
     finally:
@@ -43,12 +45,13 @@ def test_cli_env_does_not_emit_relative_pythonpath_entries():
         else:
             os.environ["PYTHONPATH"] = old_pythonpath
 
-    pythonpath_entries = env["PYTHONPATH"].split(os.pathsep)
+    pythonpath_entries = {Path(entry) for entry in env["PYTHONPATH"].split(os.pathsep)}
+    assert REPO_ROOT.resolve() in pythonpath_entries
     for repo_name in ("abxpkg", "abx-plugins", "abx-dl"):
-        repo_path = next(path for path in (WORKSPACE_ROOT / repo_name, REPO_ROOT / repo_name) if path.exists())
-        assert str(repo_path.resolve(strict=False)) in pythonpath_entries
-    assert all(Path(entry).is_absolute() for entry in pythonpath_entries)
-    assert not any(entry.startswith("..") for entry in pythonpath_entries)
+        repo_path = next((path for path in (WORKSPACE_ROOT / repo_name, REPO_ROOT / repo_name) if path.exists()), None)
+        if repo_path is not None:
+            assert repo_path.resolve() in pythonpath_entries
+    assert all(path.is_absolute() and path.exists() for path in pythonpath_entries)
 
 
 class TestBackgroundHookDetection:

@@ -194,14 +194,19 @@ def check_not_root():
         print("        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root", file=sys.stderr)
 
 
-def check_not_inside_source_dir():
-    """Prevent running ArchiveBox from inside its source directory (would pollute repo with data files)."""
-    cwd = Path(os.getcwd()).resolve()
-    is_source_dir = (cwd / "archivebox" / "__init__.py").exists() and (cwd / "pyproject.toml").exists()
-    is_testing = "pytest" in sys.modules or "unittest" in sys.modules
+def is_archivebox_source_root(path: Path | str | None = None) -> bool:
+    """Return whether path is the root of an ArchiveBox source checkout."""
+    path = Path(path or os.getcwd()).resolve()
+    return (path / ".git").exists() and (path / "archivebox" / "__init__.py").is_file() and (path / "pyproject.toml").is_file()
 
-    if is_source_dir and not is_testing:
-        raise SystemExit("[!] Cannot run from source dir, cd to a data folder first")
+
+def check_not_inside_source_dir(path: Path | str | None = None) -> None:
+    """Refuse data-producing execution from the ArchiveBox source checkout."""
+    if is_archivebox_source_root(path):
+        raise SystemExit(
+            "[!] Refusing to use the ArchiveBox source checkout as a DATA_DIR. "
+            "Create a separate data directory, cd into it, and run ArchiveBox there.",
+        )
 
 
 def check_data_dir_permissions(config=None, **config_kwargs):

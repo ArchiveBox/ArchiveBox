@@ -179,7 +179,12 @@ class ProcessService(BaseService):
 
     async def on_ProcessCompletedEvent__save_to_db(self, event: ProcessCompletedEvent) -> None:
         self._ensure_completed_worker()
+        completed_worker = self._completed_worker
+        assert completed_worker is not None
         await self._completed_queue.put(event)
+        await self.flush_completed()
+        if completed_worker.done():
+            await completed_worker
 
     async def flush_completed(self) -> None:
         await self._completed_queue.join()
