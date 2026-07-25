@@ -293,6 +293,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <pre lang="bash"><code style="white-space: pre-line">echo 'deb [trusted=yes] https://archivebox.github.io/debian-archivebox dev main' | sudo tee /etc/apt/sources.list.d/archivebox.list
 sudo apt update
 sudo apt install archivebox
+mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox version                         # make sure the package is installed
 </code></pre>
 </li>
