@@ -153,7 +153,7 @@ jobs:
         uses: vmactions/freebsd-vm@77ed28d336d03fe19a3f4f7266c1d2c4714dd79d # v1.5.2
         with:
           usesh: true
-          prepare: pkg install -y uv
+          prepare: pkg install -y uv rust
           run: |
             abxpkg_version="$(uv run --no-project python -c 'import tomllib; dependencies = tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"]; print(next(dependency.split("==", 1)[1] for dependency in dependencies if dependency.startswith("abxpkg==")))')"
             export ABXPKG_LIB_DIR="/tmp/archivebox-docs-lib"
