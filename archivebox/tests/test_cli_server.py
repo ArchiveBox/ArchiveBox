@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
 """
 Tests for archivebox server command.
 Verify server can start (basic smoke tests only, no full server testing).
 """
 
-import os
 import asyncio
 import json
-import signal
+import os
 import shlex
+import signal
 import socket
 import subprocess
 import sys
@@ -22,17 +21,17 @@ from archivebox.tests.conftest import (
     _wait_for_archivebox_workers,
     assert_no_processes_for_data_dir,
     assert_port_open,
+    cli_env,
     find_process,
     get_free_port,
     kill_processes_for_data_dir,
-    cli_env,
     pid_is_alive,
+    resolve_abxpkg_binary_env,
+    run_archivebox_cmd,
     start_archivebox_server,
     stop_archivebox_process,
     wait_for_log_count,
     wait_for_pid_to_disappear,
-    run_archivebox_cmd,
-    resolve_abxpkg_binary_env,
 )
 
 
@@ -158,6 +157,43 @@ def test_https_base_url_enables_proxy_ssl_header_and_secure_cookies(tmp_path):
     assert json.loads(result.stdout) == {
         "csrf_secure": True,
         "session_secure": True,
+        "proxy_ssl_header": ["HTTP_X_FORWARDED_PROTO", "https"],
+    }
+
+
+def test_unconfigured_base_url_enables_proxy_ssl_header_without_secure_cookies(tmp_path):
+    (tmp_path / ".archivebox_id").write_text("testcoll")
+    env = os.environ.copy()
+    env["BASE_URL"] = ""
+    env["DJANGO_SETTINGS_MODULE"] = "archivebox.core.settings"
+    repo_root = Path(__file__).resolve().parents[2]
+    env["PYTHONPATH"] = f"{repo_root}{os.pathsep}{env.get('PYTHONPATH', '')}"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import django, json;"
+                "django.setup();"
+                "from django.conf import settings;"
+                "print(json.dumps({"
+                "'csrf_secure': settings.CSRF_COOKIE_SECURE,"
+                "'session_secure': settings.SESSION_COOKIE_SECURE,"
+                "'proxy_ssl_header': settings.SECURE_PROXY_SSL_HEADER,"
+                "}))"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
+        cwd=tmp_path,
+    )
+
+    assert json.loads(result.stdout) == {
+        "csrf_secure": False,
+        "session_secure": False,
         "proxy_ssl_header": ["HTTP_X_FORWARDED_PROTO", "https"],
     }
 
@@ -336,6 +372,7 @@ def test_live_server_machine_search_engine_update_reaches_subsequent_snapshot_ru
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
     assert setup_result.returncode == 0, setup_result.stderr or setup_result.stdout
     snapshot_id = setup_result.stdout.strip().splitlines()[-1]
@@ -366,6 +403,7 @@ def test_live_server_machine_search_engine_update_reaches_subsequent_snapshot_ru
         capture_output=True,
         text=True,
         timeout=30,
+        check=False,
     )
     assert result.returncode == 0, result.stderr or result.stdout
     resolved = json.loads(result.stdout.strip().splitlines()[-1])
@@ -392,8 +430,9 @@ def test_sonic_worker_is_disabled_when_sonic_disabled(tmp_path):
 def test_sonic_daemon_event_handler_accepts_real_running_worker(initialized_archive, archivebox_daemon_server):
     from abx_dl.events import ProcessStdoutEvent
     from abx_dl.orchestrator import create_bus
-    from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
     from abx_plugins.plugins.search_backend_sonic.daemon import prepare_sonic_daemon
+
+    from archivebox.search.sonic_daemon import register_sonic_daemon_event_handler
 
     sonic_port = get_free_port()
     sonic_env = _resolve_sonic_env(initialized_archive)
@@ -434,6 +473,7 @@ def test_sonic_daemon_event_handler_accepts_real_running_worker(initialized_arch
 
 def test_supervisord_sync_does_not_start_duplicate_sonic_listener(initialized_archive, db):
     from abx_plugins.plugins.search_backend_sonic.daemon import get_sonic_supervisord_worker
+
     from archivebox.tests.test_orm_helpers import use_archivebox_db
     from archivebox.workers.supervisord_util import (
         get_or_create_supervisord_process,

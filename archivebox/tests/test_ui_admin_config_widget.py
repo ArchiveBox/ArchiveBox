@@ -1,12 +1,15 @@
 from pathlib import Path
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
+from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.test import RequestFactory
 
 from archivebox.base_models.admin import KeyValueWidget
 from archivebox.config.common import get_config
+from archivebox.core.middleware import AdminCookieIsolationMiddleware
 from archivebox.core.setup_wizard import get_base_url_mismatch_context, get_setup_wizard_context
 from archivebox.core.templatetags.core_tags import system_warnings_banner
 
@@ -222,6 +225,27 @@ def test_unconfigured_banner_honors_forwarded_https_from_ingress():
     context = get_setup_wizard_context(request, get_config(include_machine=False))
 
     assert context["suggested_base_url"] == "https://archivebox.example.test"
+
+
+@pytest.mark.parametrize(
+    ("base_url", "request_host"),
+    (
+        ("", "archivebox.example.test:18443"),
+        ("http://archivebox.localhost:8000", "admin.archivebox.localhost:18010"),
+    ),
+)
+def test_admin_cookie_isolation_accepts_first_run_and_external_port_mapping(base_url, request_host):
+    config = get_config(include_machine=False).model_copy(
+        update={"BASE_URL": base_url, "SERVER_SECURITY_MODE": "auto"},
+    )
+    request = RequestFactory().get("/admin/login/", HTTP_HOST=request_host)
+    request.archivebox_config = config
+    response = HttpResponse()
+    response.set_cookie(settings.CSRF_COOKIE_NAME, "test-token")
+
+    actual_response = AdminCookieIsolationMiddleware(lambda _request: response)(request)
+
+    assert settings.CSRF_COOKIE_NAME in actual_response.cookies
 
 
 def test_unconfigured_banner_does_not_show_setup_wizard_to_non_superusers():

@@ -3,25 +3,26 @@ __package__ = "archivebox.core"
 import ipaddress
 import re
 from pathlib import Path
+
 from django.conf import settings
-from django.utils import timezone
 from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.contrib.auth.models import AnonymousUser
-from django.core.exceptions import ImproperlyConfigured
-from django.shortcuts import redirect
 from django.contrib.staticfiles import finders
-from django.utils.http import http_date
+from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpResponseForbidden, HttpResponseNotModified
+from django.shortcuts import redirect
+from django.utils import timezone
+from django.utils.http import http_date
 
-from archivebox.config.common import get_config
 from archivebox.config import VERSION
+from archivebox.config.common import get_config
 from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.routes_util import (
-    build_snapshot_url,
     build_admin_url,
+    build_snapshot_url,
     build_web_url,
-    get_api_host,
     get_admin_host,
+    get_api_host,
     get_base_host,
     get_listen_host,
     get_listen_subdomain,
@@ -30,8 +31,7 @@ from archivebox.core.routes_util import (
     is_snapshot_subdomain,
     split_host_port,
 )
-from archivebox.core.views import SnapshotHostView, OriginalDomainHostView
-
+from archivebox.core.views import OriginalDomainHostView, SnapshotHostView
 
 ADMIN_LOGIN_HINT_COOKIE = "archivebox_admin_logged_in"
 
@@ -95,11 +95,15 @@ def AdminCookieIsolationMiddleware(get_response):
         if not config.USES_SUBDOMAIN_ROUTING:
             return response
 
-        request_host = (request.get_host() or "").lower()
-        if host_matches(request_host, get_admin_host(config=config)):
+        if not config.BASE_URL and request.path.startswith("/admin/"):
             return response
 
-        if host_matches(request_host, get_web_host(config=config)):
+        request_host = (request.get_host() or "").lower()
+        request_hostname, _request_port = split_host_port(request_host)
+        if host_matches(request_hostname, get_admin_host(config=config)):
+            return response
+
+        if host_matches(request_hostname, get_web_host(config=config)):
             for cookie_name in tuple(response.cookies.keys()):
                 if cookie_name != ADMIN_LOGIN_HINT_COOKIE:
                     response.cookies.pop(cookie_name, None)
@@ -144,14 +148,15 @@ def CacheControlMiddleware(get_response):
                     response.headers["Last-Modified"] = http_date(mtime)
                 return response
 
-        if "/archive/" in request.path or "/static/" in request.path or snapshot_path_re.match(request.path):
-            if not response.get("Cache-Control"):
-                config = request.__dict__.get("archivebox_config")
-                if config is None:
-                    config = get_config(resolve_plugins=False)
-                    request.archivebox_config = config
-                policy = "private" if config.PERMISSIONS == "private" else "public"
-                response["Cache-Control"] = f"{policy}, max-age=60, stale-while-revalidate=300"
+        if ("/archive/" in request.path or "/static/" in request.path or snapshot_path_re.match(request.path)) and not response.get(
+            "Cache-Control",
+        ):
+            config = request.__dict__.get("archivebox_config")
+            if config is None:
+                config = get_config(resolve_plugins=False)
+                request.archivebox_config = config
+            policy = "private" if config.PERMISSIONS == "private" else "public"
+            response["Cache-Control"] = f"{policy}, max-age=60, stale-while-revalidate=300"
         return response
 
     return middleware
@@ -244,12 +249,11 @@ def HostRoutingMiddleware(get_response):
 
             req_host, req_port = split_host_port(request_host)
             listen_host_only, listen_port = split_host_port(listen_host)
-            if req_host.endswith(f".{listen_host_only}"):
-                if not listen_port or not req_port or listen_port == req_port:
-                    target = build_web_url(request.path, request=request)
-                    if request.META.get("QUERY_STRING"):
-                        target = f"{target}?{request.META['QUERY_STRING']}"
-                    return redirect(target)
+            if req_host.endswith(f".{listen_host_only}") and (not listen_port or not req_port or listen_port == req_port):
+                target = build_web_url(request.path, request=request)
+                if request.META.get("QUERY_STRING"):
+                    target = f"{target}?{request.META['QUERY_STRING']}"
+                return redirect(target)
 
             return get_response(request)
 

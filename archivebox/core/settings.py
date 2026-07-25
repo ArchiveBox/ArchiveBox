@@ -1,25 +1,24 @@
 __package__ = "archivebox.core"
 
+import importlib
+import inspect
+import logging
 import os
 import sys
-import inspect
-import importlib
-
 from pathlib import Path
 
 from django.conf.locale.en import formats as en_formats  # type: ignore
 
 import archivebox
-
-from archivebox.config.constants import CONSTANTS
 from archivebox.config.common import get_config
-from archivebox.core.routes_util import get_api_base_url, get_admin_base_url, get_base_url, normalize_base_url
+from archivebox.config.constants import CONSTANTS
+from archivebox.core.routes_util import get_admin_base_url, get_api_base_url, get_base_url, normalize_base_url
 
 # DATABASE_ENGINE config selects the backend (sqlite by default); the
 # sqlite-vs-postgres helpers live in archivebox.misc.db.
 from archivebox.misc.db import is_postgres, postgres_db_params
-from .settings_logging import SETTINGS_LOGGING
 
+from .settings_logging import SETTINGS_LOGGING
 
 IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
 IS_TESTING = "test" in sys.argv[:3]
@@ -27,6 +26,7 @@ IS_SHELL = "shell" in sys.argv[:3] or "shell_plus" in sys.argv[:3]
 IS_GETTING_VERSION_OR_HELP = "version" in sys.argv or "help" in sys.argv or "--version" in sys.argv or "--help" in sys.argv
 CONFIG = get_config()
 PACKAGE_DIR = CONSTANTS.PACKAGE_DIR
+logger = logging.getLogger(__name__)
 
 ################################################################################
 ### ArchiveBox Plugin Settings
@@ -334,18 +334,18 @@ try:
 
     _persisted_keys = _BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
     _secret_persisted = bool((_persisted_keys.get("SECRET_KEY") or "").strip())
-except Exception:
+except (OSError, RuntimeError, ValueError):
     _secret_persisted = True  # err on the side of NOT touching disk
 if not _secret_persisted:
     try:
         from archivebox.config.collection import write_config_file
 
         write_config_file({"SECRET_KEY": SECRET_KEY})
-    except Exception:
+    except (OSError, RuntimeError, ValueError):
         # Read-only mount, missing data dir, mid-init race — fall back to the
         # in-memory random key. The user will get logged out on the next boot
         # but the server still comes up.
-        pass
+        logger.debug("Unable to persist generated SECRET_KEY", exc_info=True)
 
 ALLOWED_HOSTS = [host.strip() for host in CONFIG.ALLOWED_HOSTS.split(",") if host.strip()]
 CSRF_TRUSTED_ORIGINS = list({origin.strip() for origin in CONFIG.CSRF_TRUSTED_ORIGINS.split(",") if origin.strip()})
@@ -379,15 +379,15 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 # behind a TLS-terminating proxy/tunnel (the bundled traefik/cloudflared profiles,
 # or your own caddy/traefik/nginx) where the proxy -> archivebox hop is plain HTTP, so
 # request.is_secure() / request.scheme would otherwise report http. Honour the
-# proxy's X-Forwarded-Proto so request-derived schemes are correct, and mark the
-# admin session + CSRF cookies Secure so auth cookies are never sent in cleartext.
+# proxy's X-Forwarded-Proto so first-run URL detection and CSRF origin checks are
+# correct. Mark auth cookies Secure once the saved BASE_URL confirms HTTPS.
 # Derived from the RESOLVED base URL's scheme — no separate flag to keep in sync.
 # get_base_url() also covers deployments that only set CSRF_TRUSTED_ORIGINS (the
 # implicit-BASE_URL fallback used on 0.7.x->0.9.x upgrades), so HTTPS hardening
-# isn't lost until BASE_URL is migrated. A plain-http base (e.g. local
-# http://archivebox.localhost:8000) keeps the defaults below.
+# isn't lost until BASE_URL is migrated. An explicit plain-http base (e.g. local
+# http://archivebox.localhost:8000) disables proxy HTTPS handling.
 BASE_URL_IS_HTTPS = get_base_url(config=CONFIG).strip().lower().startswith("https://")
-if BASE_URL_IS_HTTPS:
+if BASE_URL_IS_HTTPS or not CONFIG.BASE_URL:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 CSRF_COOKIE_SECURE = BASE_URL_IS_HTTPS
