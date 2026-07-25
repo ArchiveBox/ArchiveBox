@@ -55,6 +55,14 @@ function chromePath() {
   return configured;
 }
 
+function needsNoSandbox() {
+  return process.platform === 'linux' && !String(process.env.DISPLAY || '').trim();
+}
+
+function addLaunchArg(args, arg) {
+  if (!args.includes(arg)) args.push(arg);
+}
+
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
     usage();
@@ -85,12 +93,17 @@ async function main() {
     headless: true,
     defaultViewport: { width, height },
     executablePath: chromePath(),
+    args: [],
   };
   if (process.env.SCREENSHOT_USER_DATA_DIR) {
     launchOptions.userDataDir = path.resolve(process.env.SCREENSHOT_USER_DATA_DIR);
   }
   if (process.env.SCREENSHOT_HOST_RESOLVER_RULES) {
-    launchOptions.args = [`--host-resolver-rules=${process.env.SCREENSHOT_HOST_RESOLVER_RULES}`];
+    addLaunchArg(launchOptions.args, `--host-resolver-rules=${process.env.SCREENSHOT_HOST_RESOLVER_RULES}`);
+  }
+  if (needsNoSandbox()) {
+    addLaunchArg(launchOptions.args, '--no-sandbox');
+    addLaunchArg(launchOptions.args, '--disable-setuid-sandbox');
   }
   const browser = await puppeteer.launch(launchOptions);
   try {

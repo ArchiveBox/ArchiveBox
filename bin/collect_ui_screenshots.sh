@@ -320,9 +320,9 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     # intentionally redirects authenticated personas away from /public/.
     if [[ "$capture_index" == "2" ]]; then
         ABXPKG_LIB_DIR="$(uv run --project "$REPO_DIR" abx-dl config --get ABXPKG_LIB_DIR | sed 's/^[^=]*=//; s/^"//; s/"$//')"
-        SCREENSHOT_CHROME_BINARY="$ABXPKG_LIB_DIR/bin/chromium"
+        SCREENSHOT_CHROME_BINARY="$ABXPKG_LIB_DIR/env/bin/chromium"
         if [[ ! -x "$SCREENSHOT_CHROME_BINARY" ]]; then
-            echo "[!] abx-dl managed Chromium was not found at $SCREENSHOT_CHROME_BINARY" >&2
+            echo "[!] abx-dl projected Chromium was not found at $SCREENSHOT_CHROME_BINARY" >&2
             exit 1
         fi
         echo "[*] Logging in through the real $ACTIVE_PERSONA browser persona"
