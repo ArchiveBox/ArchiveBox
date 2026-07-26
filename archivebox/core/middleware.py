@@ -174,7 +174,9 @@ def ServerSecurityModeMiddleware(get_response):
             if base_config.SERVER_SECURITY_MODE == "auto" and request.method.upper() not in allowed_methods:
                 request_host, _request_port = split_host_port((request.get_host() or "").lower())
                 base_host, _base_port = split_host_port(get_base_host(config=base_config))
-                if base_host and request_host != base_host:
+                api_host, _api_port = split_host_port(get_api_host(config=base_config))
+                control_hosts = {host for host in (base_host, api_host) if host}
+                if control_hosts and request_host not in control_hosts:
                     return HttpResponseForbidden("ArchiveBox is running with the control plane disabled on this host.")
 
             from archivebox.config.common import get_request_config
