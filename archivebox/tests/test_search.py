@@ -1,10 +1,11 @@
 import os
 import re
 import time
+from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from itertools import pairwise
 from pathlib import Path
 from threading import Thread
-from datetime import timedelta
 from urllib.parse import urlencode
 
 import pytest
@@ -14,19 +15,18 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.urls import reverse
 
-from archivebox.misc.logging import AttrDict
 from archivebox.machine.models import Machine
+from archivebox.misc.logging import AttrDict
 from archivebox.tests.conftest import (
     cli_env,
     create_admin_and_token,
     get_free_port,
-    run_archivebox_cmd,
+    get_http_response,
     resolve_abxpkg_binary_env,
+    run_archivebox_cmd,
     start_archivebox_server,
     stop_archivebox_process,
-    get_http_response,
 )
-
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -97,6 +97,25 @@ def populate_admin_search_cache(client, path, params):
     assert response.status_code == 200
     assert consume_streaming_response(response)
     return client.get(path, params, HTTP_HOST=ADMIN_HOST)
+
+
+def configure_ripgrep_search_backend(lib_dir: Path) -> None:
+    from abx_plugins import get_plugins_dir
+
+    binary_env = resolve_abxpkg_binary_env(
+        lib_dir,
+        deps_from=Path(get_plugins_dir()) / "search_backend_ripgrep" / "config.json",
+    )
+    rg_binary = Path(binary_env["RIPGREP_BINARY"])
+    assert rg_binary.is_file()
+    Machine.from_json(
+        {
+            "config": {
+                "SEARCH_BACKEND_ENGINE": "ripgrep",
+                "RIPGREP_BINARY": str(rg_binary),
+            },
+        },
+    )
 
 
 def test_search_backend_env_exposes_resolved_runtime_config(tmp_path):
@@ -225,10 +244,16 @@ class TestAdminSnapshotSearch:
         assert b'id="changelist"' in response.content
         assert b"search-mode-contents" in response.content
 
-    def test_admin_search_stream_uses_real_ripgrep_backend_for_deep_results(self, client, admin_user, crawl):
+    def test_admin_search_stream_uses_real_ripgrep_backend_for_deep_results(
+        self,
+        client,
+        admin_user,
+        crawl,
+        cached_abxpkg_lib_dir,
+    ):
         from archivebox.core.models import Snapshot
 
-        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
+        configure_ripgrep_search_backend(cached_abxpkg_lib_dir)
         fulltext_snapshot = Snapshot.objects.create(
             url="https://example.com/fulltext-only",
             title="Unrelated Title",
@@ -282,10 +307,16 @@ class TestAdminSnapshotSearch:
         assert result_ids[:3] == [prefix_snapshot.pk, title_snapshot.pk, contains_snapshot.pk]
         assert {title_snapshot.pk, contains_snapshot.pk, prefix_snapshot.pk}.issubset(result_ids)
 
-    def test_admin_contents_search_stream_uses_real_backend_results(self, client, admin_user, crawl):
+    def test_admin_contents_search_stream_uses_real_backend_results(
+        self,
+        client,
+        admin_user,
+        crawl,
+        cached_abxpkg_lib_dir,
+    ):
         from archivebox.core.models import Snapshot
 
-        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
+        configure_ripgrep_search_backend(cached_abxpkg_lib_dir)
         metadata_snapshot = Snapshot.objects.create(
             url="https://example.com/google-meta",
             title="Google Metadata Match",
@@ -410,10 +441,15 @@ class TestPublicIndexSearch:
         assert b'value="deep:ripgrep"' in response.content
         assert b">deep:ripgrep<" in response.content
 
-    def test_public_search_uses_streamed_metadata_order(self, client, crawl):
+    def test_public_search_uses_streamed_metadata_order(
+        self,
+        client,
+        crawl,
+        cached_abxpkg_lib_dir,
+    ):
         from archivebox.core.models import Snapshot
 
-        Machine.from_json({"config": {"SEARCH_BACKEND_ENGINE": "ripgrep"}})
+        configure_ripgrep_search_backend(cached_abxpkg_lib_dir)
         metadata_snapshot = Snapshot.objects.create(
             url="https://public-example.com/google-meta",
             title="Google Metadata Match",
@@ -1152,8 +1188,7 @@ class TestSearchBackendsE2E:
                     # there are multiple positive events, still verify progress stays live.
                     if len(positive_events) > 1:
                         max_progress_gap = max(
-                            later_elapsed - earlier_elapsed
-                            for (_, earlier_elapsed), (_, later_elapsed) in zip(positive_events, positive_events[1:])
+                            later_elapsed - earlier_elapsed for (_, earlier_elapsed), (_, later_elapsed) in pairwise(positive_events)
                         )
                         assert max_progress_gap < 1.0, (surface_name, search_mode, max_progress_gap, positive_events[:10])
                     assert first_positive_elapsed is not None and first_positive_elapsed < 0.75, (

@@ -66,7 +66,16 @@ def resolve_env_binary(name: str) -> Path:
 
     lib_dir = Path(os.environ.get("ABXPKG_LIB_DIR") or get_config().ABXPKG_LIB_DIR)
     env_root = lib_dir / "env"
-    provider = EnvProvider(install_root=env_root, PATH=os.environ["PATH"])
+    runtime_bin_dir = Path(sys.executable).parent
+    provider_path = os.pathsep.join(
+        str(path)
+        for path in (
+            *os.environ.get("PATH", "").split(os.pathsep),
+            str(runtime_bin_dir),
+        )
+        if path
+    )
+    provider = EnvProvider(install_root=env_root, PATH=provider_path)
     if name == "daphne":
         from importlib.metadata import version
 
