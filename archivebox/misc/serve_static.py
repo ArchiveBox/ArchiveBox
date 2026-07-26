@@ -515,6 +515,22 @@ def _rewrite_html_image_sources_to_responses(
     return IMG_SRC_ATTR_RE.sub(replace_src, html_text), rewrites
 
 
+def _rewrite_html_image_sources_for_request(
+    request,
+    html_text: str,
+    document_root: Path | None,
+    html_rel_path: str,
+) -> tuple[str, int]:
+    if not document_root:
+        return html_text, 0
+    return _rewrite_html_image_sources_to_responses(
+        html_text,
+        document_root,
+        html_rel_path,
+        request.__dict__.get("archivebox_snapshot_url"),
+    )
+
+
 def _render_markdown_fallback(text: str) -> str:
     if _markdown is not None and not HTML_TAG_RE.search(text):
         try:
@@ -950,15 +966,11 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     decoded = html.unescape(decoded)
                 rewritten_html, rewritten_count = ("", 0)
                 if content_type.startswith("text/html") and document_root:
-                    rewritten_html, rewritten_count = _rewrite_html_image_sources_to_responses(
-                        decoded,
-                        document_root,
-                        rel_path,
-                        request.__dict__.get("archivebox_snapshot_url"),
-                    )
+                    rewritten_html, rewritten_count = _rewrite_html_image_sources_for_request(request, decoded, document_root, rel_path)
                 markdown_candidate = _extract_markdown_candidate(decoded)
                 if _looks_like_markdown(markdown_candidate):
                     wrapped = _render_markdown_document(markdown_candidate)
+                    wrapped, _rewrite_count = _rewrite_html_image_sources_for_request(request, wrapped, document_root, rel_path)
                     response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
                     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
                     if etag:
