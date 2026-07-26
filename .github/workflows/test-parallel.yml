@@ -64,7 +64,7 @@ jobs:
           test "${#output[@]}" -eq 2
           echo "tests=${output[1]}" >> "$GITHUB_OUTPUT"
           echo "${output[0]}"
-          "$JQ_BINARY" -e 'length > 0 and length <= 32 and ([.[].paths[]] | length == (unique | length))' <<< "${output[1]}"
+          "$JQ_BINARY" -e 'length > 0 and length <= 256 and ([.[].paths[]] | length == (unique | length))' <<< "${output[1]}"
 
   tests:
     name: ${{ matrix.test.name }}
