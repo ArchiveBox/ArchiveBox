@@ -8,7 +8,7 @@ env:
   PYTHONLEGACYWINDOWSSTDIO: utf-8
   USE_COLOR: False
   UV_NO_SOURCES: "1"
-  CI_PYTHON_VERSION: "3.13.14"
+  CI_PYTHON_VERSION: "3.13"
 
 jobs:
   discover-tests:
