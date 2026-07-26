@@ -62,7 +62,7 @@ version = 2
 "49747d67b7e3ea8d-1" = "illustration"
 "fead0184493aab00-1" = "illustration"
 "256531ee2b730012-1" = "illustration"
-"399c370c70523428-1" = "run"
+"0b307d4f1033723f-1" = "run"
 "7d33d72cc96df65b-1" = "run"
 
 # skills/archivebox/SKILL.md
@@ -272,7 +272,7 @@ version = 2
 "396490664ce459e9-1" = "project"
 "d9ff84abeb97d380-1" = "collection"
 "aebc15190116f5cd-1" = "collection"
-"399c370c70523428-1" = "collection"
+"0b307d4f1033723f-1" = "collection"
 "7d33d72cc96df65b-1" = "collection"
 "2695777473e3a217-2" = "project"
 "b894a7c4f93e4e92-2" = "system"
@@ -353,7 +353,7 @@ version = 2
 "396490664ce459e9-1" = "ubuntu"
 "d9ff84abeb97d380-1" = "ubuntu"
 "aebc15190116f5cd-1" = "ubuntu"
-"399c370c70523428-1" = "ubuntu"
+"0b307d4f1033723f-1" = "ubuntu"
 "7d33d72cc96df65b-1" = "ubuntu"
 "2695777473e3a217-2" = "ubuntu"
 "b894a7c4f93e4e92-2" = "ubuntu"

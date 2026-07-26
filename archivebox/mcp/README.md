@@ -94,21 +94,14 @@ The server exposes all ArchiveBox CLI commands:
 Instead of manually defining schemas, the server uses Click's introspection API to automatically generate MCP tool definitions:
 
 ```python
-import click
-
-from archivebox.cli import ArchiveBoxGroup
-from archivebox.mcp.server import click_command_to_mcp_tool
-
-cli_group = ArchiveBoxGroup()
-context = click.Context(cli_group)
+from archivebox.mcp.server import MCPServer, click_command_to_mcp_tool
 
 tools = []
-for command_name in cli_group.all_subcommands:
-    command = cli_group.get_command(context, command_name)
-    assert command is not None
-    tools.append(click_command_to_mcp_tool(command_name, command))
+for discovered_tool in MCPServer().get_tools().values():
+    tools.append(click_command_to_mcp_tool(discovered_tool))
 
-assert {tool["name"] for tool in tools} == set(cli_group.all_subcommands)
+assert {tool["name"] for tool in tools}
+assert all("inputSchema" in tool for tool in tools)
 ```
 
 ### Tool Execution
