@@ -64,7 +64,7 @@ jobs:
           test "${#output[@]}" -eq 2
           echo "tests=${output[1]}" >> "$GITHUB_OUTPUT"
           echo "${output[0]}"
-          "$JQ_BINARY" -e 'length > 0 and length <= 256' <<< "${output[1]}"
+          "$JQ_BINARY" -e 'length > 0 and length <= 32 and ([.[].paths[]] | length == (unique | length))' <<< "${output[1]}"
 
   tests:
     name: ${{ matrix.test.name }}
@@ -124,7 +124,7 @@ jobs:
           uv sync --locked --dev "${extra_args[@]}"
 
       - name: Install PostgreSQL server binaries
-        if: contains(matrix.test.path, 'test_postgres_backend')
+        if: contains(matrix.test.paths_arg, 'test_postgres_backend')
         run: |
           set -Eeuo pipefail
           if ! ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1 && ! command -v initdb >/dev/null 2>&1; then
@@ -133,10 +133,13 @@ jobs:
 
       - name: Run ${{ matrix.test.name }}
         env:
-          TEST_PATH: ${{ matrix.test.path }}
+          TEST_PATHS: ${{ matrix.test.paths_arg }}
         run: |
           set -Eeuo pipefail
-          test -f "$TEST_PATH"
+          read -r -a test_paths <<< "$TEST_PATHS"
+          for test_path in "${test_paths[@]}"; do
+            test -f "$test_path"
+          done
           mkdir -p "$DATA_DIR"
-          uv run --no-sync --no-sources pytest -vs "$TEST_PATH" \
+          uv run --no-sync --no-sources pytest -vs "${test_paths[@]}" \
             --basetemp="$RUNNER_TEMP/pytest"
