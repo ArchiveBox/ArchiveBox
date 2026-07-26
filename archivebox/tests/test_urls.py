@@ -35,6 +35,16 @@ def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
     assert 'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in rewritten
     assert 'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fa.sweeting.me_2Fmatomo.php_3Fidsite_3D1_26rec_3D1_.gif"' in rewritten
 
+    rewritten_root, root_count = _rewrite_html_image_sources_to_responses(
+        '<img src="images/twitter.png">',
+        tmp_path,
+        "index.html",
+        "https://sweeting.me/",
+    )
+
+    assert root_count == 1
+    assert 'src="responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in rewritten_root
+
 
 @pytest.fixture
 def checked_in_static_site():
