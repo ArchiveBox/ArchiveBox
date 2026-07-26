@@ -1,0 +1,22 @@
+.github/scripts/discover_test_matrix.py
+  s_f8414d52051f83::t_af313c757f2ee0 2,7-25,34-42,44-46,49-53,57,60-61,63
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_af313c757f2ee0 127,136,139-142,144
+  s_f8414d52051f83::t_96de352974ae48 67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e9815f060ac042422f5db184964eaa41e882ed79",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
