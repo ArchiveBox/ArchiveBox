@@ -15,7 +15,7 @@ import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode, urljoin
 
 from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
 from django.contrib.staticfiles import finders
@@ -31,6 +31,7 @@ from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
+IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 
 
 def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
@@ -462,6 +463,58 @@ def _render_image_preview_document(image_url: str, title: str) -> str:
 </html>"""
 
 
+def _responses_path_for_html_image(
+    snapshot_root: Path,
+    html_rel_path: str,
+    image_url: str,
+    page_url: str | None,
+) -> str | None:
+    raw_url = str(image_url or "").strip()
+    if not raw_url or raw_url.startswith(("#", "data:", "blob:", "about:", "javascript:")):
+        return None
+
+    absolute_url = urljoin(page_url or "", raw_url)
+    if not absolute_url.startswith(("http://", "https://")):
+        return None
+
+    responses_root = snapshot_root / "responses"
+    if not responses_root.is_dir():
+        return None
+
+    encoded_url = quote(absolute_url, safe="").replace("%", "_")
+    best_match = None
+    for candidate in responses_root.rglob(f"*__GET__{encoded_url}*"):
+        if not candidate.is_file():
+            continue
+        try:
+            rel_path = candidate.relative_to(snapshot_root)
+        except ValueError:
+            continue
+        best_match = posixpath.relpath(rel_path.as_posix(), start=posixpath.dirname(html_rel_path) or ".")
+        if candidate.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"}:
+            return best_match
+    return best_match
+
+
+def _rewrite_html_image_sources_to_responses(
+    html_text: str,
+    snapshot_root: Path,
+    html_rel_path: str,
+    page_url: str | None,
+) -> tuple[str, int]:
+    rewrites = 0
+
+    def replace_src(match: re.Match[str]) -> str:
+        nonlocal rewrites
+        local_path = _responses_path_for_html_image(snapshot_root, html_rel_path, html.unescape(match.group(2)), page_url)
+        if not local_path:
+            return match.group(0)
+        rewrites += 1
+        return f"{match.group(1)}{html.escape(local_path, quote=True)}{match.group(3)}"
+
+    return IMG_SRC_ATTR_RE.sub(replace_src, html_text), rewrites
+
+
 def _render_markdown_fallback(text: str) -> str:
     if _markdown is not None and not HTML_TAG_RE.search(text):
         try:
@@ -883,8 +936,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         except (OSError, RuntimeError, ValueError):
             preview_as_archivewebpage_html = False
 
-    # Heuristic fix: some archived HTML outputs (e.g. mercury content.html)
-    # are stored with HTML-escaped markup or markdown sources. If so, render sensibly.
+    # Heuristic fix: some archived HTML outputs are stored with HTML-escaped markup
+    # or markdown sources. If so, render sensibly.
     if content_type.startswith(("text/plain", "text/html")):
         try:
             max_unescape_size = 10 * 1024 * 1024  # 10MB cap to avoid heavy memory use
@@ -895,6 +948,14 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 tag_count = decoded.count("<")
                 if escaped_count and escaped_count > tag_count * 2:
                     decoded = html.unescape(decoded)
+                rewritten_html, rewritten_count = ("", 0)
+                if content_type.startswith("text/html") and document_root:
+                    rewritten_html, rewritten_count = _rewrite_html_image_sources_to_responses(
+                        decoded,
+                        document_root,
+                        rel_path,
+                        request.__dict__.get("archivebox_snapshot_url"),
+                    )
                 markdown_candidate = _extract_markdown_candidate(decoded)
                 if _looks_like_markdown(markdown_candidate):
                     wrapped = _render_markdown_document(markdown_candidate)
@@ -912,6 +973,24 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         response,
                         fullpath=fullpath,
                         content_type="text/html; charset=utf-8",
+                        is_archive_replay=is_archive_replay,
+                        config=config,
+                    )
+                if rewritten_count:
+                    response = HttpResponse(rewritten_html, content_type=content_type)
+                    response.headers["Last-Modified"] = http_date(statobj.st_mtime)
+                    if etag:
+                        response.headers["ETag"] = etag
+                        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
+                    else:
+                        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
+                    response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
+                    if encoding:
+                        response.headers["Content-Encoding"] = encoding
+                    return _apply_archive_replay_headers(
+                        response,
+                        fullpath=fullpath,
+                        content_type=content_type,
                         is_archive_replay=is_archive_replay,
                         config=config,
                     )

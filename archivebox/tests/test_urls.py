@@ -1,6 +1,6 @@
 import os
-import sys
 import subprocess
+import sys
 import textwrap
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -11,8 +11,29 @@ import pytest
 
 from archivebox.tests.conftest import run_archivebox_cmd
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
+    from archivebox.misc.serve_static import _rewrite_html_image_sources_to_responses
+
+    responses_dir = tmp_path / "responses" / "all"
+    responses_dir.mkdir(parents=True)
+    local_image = responses_dir / "20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"
+    remote_image = responses_dir / "20260722T061544__GET__https_3A_2F_2Fa.sweeting.me_2Fmatomo.php_3Fidsite_3D1_26rec_3D1_.gif"
+    local_image.write_bytes(b"png")
+    remote_image.write_bytes(b"gif")
+
+    rewritten, count = _rewrite_html_image_sources_to_responses(
+        '<img src="images/twitter.png"><img src="https://a.sweeting.me/matomo.php?idsite=1&rec=1">',
+        tmp_path,
+        "defuddle/content.html",
+        "https://sweeting.me/",
+    )
+
+    assert count == 2
+    assert 'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in rewritten
+    assert 'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fa.sweeting.me_2Fmatomo.php_3Fidsite_3D1_26rec_3D1_.gif"' in rewritten
 
 
 @pytest.fixture
@@ -49,6 +70,7 @@ def _run_python(script: str, cwd: Path, timeout: int = 60, env_overrides: dict[s
         env=env,
         input=script,
         capture_output=True,
+        check=False,
         text=True,
         timeout=timeout,
     )
