@@ -30,7 +30,8 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.11.3"
-          enable-cache: false
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Resolve discovery tools through abxpkg
         env:
@@ -95,6 +96,8 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.11.3"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Resolve optional build dependencies through abxpkg
         if: matrix.test.extra != ''

@@ -26,6 +26,8 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.11.3"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
       - name: Install ArchiveBox development dependencies
         run: uv sync --locked --dev
       - name: Resolve documentation tools through abxpkg
@@ -79,6 +81,8 @@ jobs:
         if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
         with:
           version: "0.11.3"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
       - name: Install ArchiveBox
         if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
         run: uv sync --locked --dev

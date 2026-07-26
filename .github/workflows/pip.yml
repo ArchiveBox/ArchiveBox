@@ -23,7 +23,8 @@ jobs:
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
-          enable-cache: false
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Build every distribution
         run: |
@@ -86,7 +87,8 @@ jobs:
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
-          enable-cache: false
+          enable-cache: true
+          cache-dependency-glob: uv.lock
 
       - name: Download distributions
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
