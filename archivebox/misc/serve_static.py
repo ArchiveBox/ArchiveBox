@@ -32,6 +32,19 @@ from archivebox.misc.logging_util import printable_filesize
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
+TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
+img:not([width]):not([height]) {
+    max-width: min(100%, 12rem);
+    max-height: 12rem;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+a > img:not([width]):not([height]) {
+    max-width: min(100%, 2.5rem);
+    max-height: 2.5rem;
+}
+</style>"""
 
 
 def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
@@ -531,6 +544,14 @@ def _rewrite_html_image_sources_for_request(
     )
 
 
+def _apply_transformed_html_preview_style(html_text: str) -> str:
+    if "archivebox-static-html-preview-style" in html_text:
+        return html_text
+    if re.search(r"</head\s*>", html_text, flags=re.IGNORECASE):
+        return re.sub(r"</head\s*>", f"{TRANSFORMED_HTML_PREVIEW_STYLE}\\g<0>", html_text, count=1, flags=re.IGNORECASE)
+    return f"{TRANSFORMED_HTML_PREVIEW_STYLE}\n{html_text}"
+
+
 def _set_transformed_response_headers(response, fullpath: Path, statobj: os.stat_result, encoding: str | None, config) -> None:
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
     response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
@@ -963,6 +984,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 if _looks_like_markdown(markdown_candidate):
                     wrapped = _render_markdown_document(markdown_candidate)
                     wrapped, _rewrite_count = _rewrite_html_image_sources_for_request(request, wrapped, document_root, rel_path)
+                    wrapped = _apply_transformed_html_preview_style(wrapped)
                     response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
                     _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(
@@ -973,6 +995,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         config=config,
                     )
                 if rewritten_count:
+                    rewritten_html = _apply_transformed_html_preview_style(rewritten_html)
                     response = HttpResponse(rewritten_html, content_type=content_type)
                     _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(
@@ -983,6 +1006,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         config=config,
                     )
                 if escaped_count and escaped_count > tag_count * 2:
+                    decoded = _apply_transformed_html_preview_style(decoded)
                     response = HttpResponse(decoded, content_type=content_type)
                     _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(

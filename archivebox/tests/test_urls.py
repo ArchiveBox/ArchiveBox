@@ -57,7 +57,7 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
 
     html_path = tmp_path / "extractor" / "content.html"
     html_path.parent.mkdir()
-    html_path.write_text('<img src="images/twitter.png">', encoding="utf-8")
+    html_path.write_text('<img src="images/twitter.png"><img width="48" src="images/twitter.png">', encoding="utf-8")
 
     request = RequestFactory().get("/web/20260722/sweeting.me/snapshot/extractor/content.html")
     request.archivebox_snapshot_url = "https://sweeting.me/"
@@ -67,7 +67,14 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
     assert response.status_code == 200
     assert "ETag" not in response.headers
     assert "max-age=60" in response.headers["Cache-Control"]
+    assert b"archivebox-static-html-preview-style" in response.content
+    assert b"img:not([width]):not([height])" in response.content
+    assert b"a > img:not([width]):not([height])" in response.content
     assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
+    assert (
+        b'<img width="48" src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png">'
+        in response.content
+    )
 
     text_path = tmp_path / "article" / "content.txt"
     text_path.parent.mkdir()
@@ -89,6 +96,7 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
     assert response.status_code == 200
     assert "ETag" not in response.headers
     assert "max-age=60" in response.headers["Cache-Control"]
+    assert b"archivebox-static-html-preview-style" in response.content
     assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
 
 
