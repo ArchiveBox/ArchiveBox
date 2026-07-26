@@ -1063,7 +1063,7 @@
                 width: 100%;
                 max-width: 100%;
                 margin-left: 0;
-                padding: 0 6px;
+                padding: 2px 6px 0;
             }
             .thumb-card {
                 box-shadow: 2px 2px 7px 0px rgba(0, 0, 0, 0.1);
@@ -1141,6 +1141,9 @@
                 min-width: 0;
             }
             .thumb-card .thumb-body h4 {
+                display: flex;
+                align-items: center;
+                gap: 2px;
                 font-size: 0.8em;
                 text-transform: uppercase;
                 margin: 0 0 2px 0;
@@ -1149,6 +1152,12 @@
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+            }
+            .thumb-card .thumb-body h4 .abx-plugin-icon {
+                flex: 0 0 20px;
+                align-self: center;
+                line-height: 1;
+                vertical-align: middle;
             }
             .thumb-card .thumbnail-wrapper,
             .thumb-card iframe.card-img-top {

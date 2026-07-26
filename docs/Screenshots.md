@@ -71,7 +71,7 @@ View: [`/admin/core/snapshot/`](http://admin.archivebox.localhost:9292/admin/cor
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/07-snapshots-table-desktop.png?v=44e4e4defaf6" alt="Snapshots table — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/07-snapshots-table-tablet.png?v=dea2dd84f185" alt="Snapshots table — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/07-snapshots-table-mobile.png?v=1b54d78057ec" alt="Snapshots table — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/07-snapshots-table-desktop.png?v=b6ddb6e6bf39" alt="Snapshots table — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/07-snapshots-table-tablet.png?v=54472c18d79c" alt="Snapshots table — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/07-snapshots-table-mobile.png?v=07a93ed9a667" alt="Snapshots table — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshots grid
@@ -81,7 +81,7 @@ View: [`/admin/core/snapshot/grid/`](http://admin.archivebox.localhost:9292/admi
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/08-snapshots-grid-desktop.png?v=83d169132f2f" alt="Snapshots grid — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/08-snapshots-grid-tablet.png?v=e99cf5a12443" alt="Snapshots grid — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/08-snapshots-grid-mobile.png?v=c8f08e3e1ccd" alt="Snapshots grid — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/08-snapshots-grid-desktop.png?v=6c966024bd2e" alt="Snapshots grid — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/08-snapshots-grid-tablet.png?v=93c7c131e176" alt="Snapshots grid — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/08-snapshots-grid-mobile.png?v=b38ec248b867" alt="Snapshots grid — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot admin detail
@@ -91,7 +91,7 @@ View: [`/admin/core/snapshot/06a628b5939c74da8000f9864c2b39b4/change/`](http://a
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/09-snapshot-admin-detail-desktop.png?v=80972444fe6b" alt="Snapshot admin detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/09-snapshot-admin-detail-tablet.png?v=b3a0d6192b72" alt="Snapshot admin detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/09-snapshot-admin-detail-mobile.png?v=a698e02f0022" alt="Snapshot admin detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/09-snapshot-admin-detail-desktop.png?v=1fa38cc5869d" alt="Snapshot admin detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/09-snapshot-admin-detail-tablet.png?v=9fd684c89bc3" alt="Snapshot admin detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/09-snapshot-admin-detail-mobile.png?v=3da6d5120383" alt="Snapshot admin detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot files
@@ -111,7 +111,7 @@ View: [`/admin/core/archiveresult/`](http://admin.archivebox.localhost:9292/admi
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/11-archive-results-desktop.png?v=aa5f5690a6eb" alt="Archive results — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/11-archive-results-tablet.png?v=7dd0a4fd4822" alt="Archive results — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/11-archive-results-mobile.png?v=2eb5c0e9e90b" alt="Archive results — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/11-archive-results-desktop.png?v=50fdb3edac28" alt="Archive results — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/11-archive-results-tablet.png?v=01699de312a1" alt="Archive results — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/11-archive-results-mobile.png?v=2ffde3674a35" alt="Archive results — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Archive result detail
@@ -121,7 +121,7 @@ View: [`/admin/core/archiveresult/06a628b7a41d7052800070cd8ff47301/change/`](htt
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/12-archive-result-detail-desktop.png?v=af0f9fde6100" alt="Archive result detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/12-archive-result-detail-tablet.png?v=e64249ad8276" alt="Archive result detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/12-archive-result-detail-mobile.png?v=9ecc8a899e51" alt="Archive result detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/12-archive-result-detail-desktop.png?v=0de93311002b" alt="Archive result detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/12-archive-result-detail-tablet.png?v=18fd994a6e88" alt="Archive result detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/12-archive-result-detail-mobile.png?v=29449dbac9c4" alt="Archive result detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Tags
@@ -141,7 +141,7 @@ View: [`/admin/core/tag/10129/change/`](http://admin.archivebox.localhost:9292/a
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/14-tag-detail-desktop.png?v=9a3c63569c12" alt="Tag detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/14-tag-detail-tablet.png?v=8e89be23d4a7" alt="Tag detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/14-tag-detail-mobile.png?v=fbd296b927c3" alt="Tag detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/14-tag-detail-desktop.png?v=d97c180683b0" alt="Tag detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/14-tag-detail-tablet.png?v=5189f1815d1b" alt="Tag detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/14-tag-detail-mobile.png?v=c5cb35e0ddf6" alt="Tag detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Users
@@ -151,17 +151,17 @@ View: [`/admin/auth/user/`](http://admin.archivebox.localhost:9292/admin/auth/us
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/15-users-desktop.png?v=f22575a52b78" alt="Users — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/15-users-tablet.png?v=919fad92f5b0" alt="Users — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/15-users-mobile.png?v=5b9527481d34" alt="Users — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/15-users-desktop.png?v=7a54814710ee" alt="Users — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/15-users-tablet.png?v=6ad8d37fe8bd" alt="Users — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/15-users-mobile.png?v=e6b7cd821a45" alt="Users — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## User detail
 
-View: [`/admin/auth/user/106/change/`](http://admin.archivebox.localhost:9292/admin/auth/user/106/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_users.py)
+View: [`/admin/auth/user/49/change/`](http://admin.archivebox.localhost:9292/admin/auth/user/49/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_users.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/16-user-detail-desktop.png?v=dfb036823d49" alt="User detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/16-user-detail-tablet.png?v=96de791d1414" alt="User detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/16-user-detail-mobile.png?v=e349ed2bc83a" alt="User detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/16-user-detail-desktop.png?v=48838e56f4ba" alt="User detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/16-user-detail-tablet.png?v=4c99cc7ef844" alt="User detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/16-user-detail-mobile.png?v=896f01a31fd5" alt="User detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Crawls
@@ -181,7 +181,7 @@ View: [`/admin/crawls/crawl/06a628b548e575088000fd924686ae24/change/`](http://ad
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/18-crawl-detail-desktop.png?v=f0cb2729687b" alt="Crawl detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/18-crawl-detail-tablet.png?v=755a9bcaf1b6" alt="Crawl detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/18-crawl-detail-mobile.png?v=6ccf2f2c1df7" alt="Crawl detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/18-crawl-detail-desktop.png?v=46e175e46b5e" alt="Crawl detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/18-crawl-detail-tablet.png?v=378f9549f455" alt="Crawl detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/18-crawl-detail-mobile.png?v=4c35d812001f" alt="Crawl detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Crawl schedules
@@ -201,7 +201,7 @@ View: [`/admin/crawls/crawlschedule/06a5fc0c9ca870e080005b6823701cca/change/`](h
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/20-crawl-schedule-detail-desktop.png?v=5d24482e2f2d" alt="Crawl schedule detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/20-crawl-schedule-detail-tablet.png?v=5871c139173d" alt="Crawl schedule detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/20-crawl-schedule-detail-mobile.png?v=96441a266009" alt="Crawl schedule detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/20-crawl-schedule-detail-desktop.png?v=df3ba244a255" alt="Crawl schedule detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/20-crawl-schedule-detail-tablet.png?v=46dc54fedad9" alt="Crawl schedule detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/20-crawl-schedule-detail-mobile.png?v=ec032991acd7" alt="Crawl schedule detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Personas
@@ -221,7 +221,7 @@ View: [`/admin/personas/persona/019e84a0ffd376d98b410dfe1a409567/change/`](http:
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/22-persona-detail-desktop.png?v=af192139080c" alt="Persona detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/22-persona-detail-tablet.png?v=ce4a1d25c637" alt="Persona detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/22-persona-detail-mobile.png?v=3cad72acab61" alt="Persona detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/22-persona-detail-desktop.png?v=8ac3f4b4b403" alt="Persona detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/22-persona-detail-tablet.png?v=171c5f9849d7" alt="Persona detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/22-persona-detail-mobile.png?v=25baa1ac53be" alt="Persona detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Machines
@@ -231,7 +231,7 @@ View: [`/admin/machine/machine/`](http://admin.archivebox.localhost:9292/admin/m
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/23-machines-desktop.png?v=ba1907212f3d" alt="Machines — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/23-machines-tablet.png?v=607a68fc406a" alt="Machines — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/23-machines-mobile.png?v=002896c87527" alt="Machines — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/23-machines-desktop.png?v=f7d04a769688" alt="Machines — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/23-machines-tablet.png?v=a618fc786276" alt="Machines — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/23-machines-mobile.png?v=dd329d4b619e" alt="Machines — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Machine detail
@@ -241,7 +241,7 @@ View: [`/admin/machine/machine/019bd48b941f77fcafb2de79f2d2851e/change/`](http:/
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/24-machine-detail-desktop.png?v=949d1c8f5d67" alt="Machine detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/24-machine-detail-tablet.png?v=92d4e03d183c" alt="Machine detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/24-machine-detail-mobile.png?v=7ab196d10778" alt="Machine detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/24-machine-detail-desktop.png?v=fa892f8a69fa" alt="Machine detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/24-machine-detail-tablet.png?v=9a8d1c3e3ef5" alt="Machine detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/24-machine-detail-mobile.png?v=a2577d0afc83" alt="Machine detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Network interfaces
@@ -261,7 +261,7 @@ View: [`/admin/machine/networkinterface/06a2ee559ef570b080003f12b381ab42/change/
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/26-network-interface-detail-desktop.png?v=3b4b419f1e75" alt="Network interface detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/26-network-interface-detail-tablet.png?v=188726295cda" alt="Network interface detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/26-network-interface-detail-mobile.png?v=c62df5fff786" alt="Network interface detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/26-network-interface-detail-desktop.png?v=75e115dedda2" alt="Network interface detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/26-network-interface-detail-tablet.png?v=8e392788237f" alt="Network interface detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/26-network-interface-detail-mobile.png?v=c37b02deb323" alt="Network interface detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Binaries
@@ -281,7 +281,7 @@ View: [`/admin/machine/binary/06a14cf28b4a7b1d800008b92ca5b94a/change/`](http://
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/28-binary-detail-desktop.png?v=fe91fbec7e15" alt="Binary detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/28-binary-detail-tablet.png?v=f4d6a712abd5" alt="Binary detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/28-binary-detail-mobile.png?v=1964d3306078" alt="Binary detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/28-binary-detail-desktop.png?v=cbd32c6f1e34" alt="Binary detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/28-binary-detail-tablet.png?v=cdcae08bd87b" alt="Binary detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/28-binary-detail-mobile.png?v=bf0776c97706" alt="Binary detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Processes
@@ -301,7 +301,7 @@ View: [`/admin/machine/process/06a628ec064b72d980002aac0a1bedd1/change/`](http:/
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/30-process-detail-desktop.png?v=9465a1b0fa6b" alt="Process detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/30-process-detail-tablet.png?v=8cd71765efec" alt="Process detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/30-process-detail-mobile.png?v=97d6408d9991" alt="Process detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/30-process-detail-desktop.png?v=bfa2ebd7a4d4" alt="Process detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/30-process-detail-tablet.png?v=d19ca83ddbd7" alt="Process detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/30-process-detail-mobile.png?v=5051714ee998" alt="Process detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## API tokens
@@ -321,7 +321,7 @@ View: [`/admin/api/apitoken/06a628eae1477aae80008621afbbc237/change/`](http://ad
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/32-api-token-detail-desktop.png?v=c41949f7e2e6" alt="API token detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/32-api-token-detail-tablet.png?v=d32c6cfd3f13" alt="API token detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/32-api-token-detail-mobile.png?v=ce62dc154d1a" alt="API token detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/32-api-token-detail-desktop.png?v=92c8339c5404" alt="API token detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/32-api-token-detail-tablet.png?v=9462f25bd39f" alt="API token detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/32-api-token-detail-mobile.png?v=008c58201c27" alt="API token detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Webhooks
@@ -341,7 +341,7 @@ View: [`/admin/api/outboundwebhook/06a628eb2801724880009c7991a4a522/change/`](ht
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/34-webhook-detail-desktop.png?v=a4d7ca697171" alt="Webhook detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/34-webhook-detail-tablet.png?v=a20fcd1df718" alt="Webhook detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/34-webhook-detail-mobile.png?v=27cfcb36b03a" alt="Webhook detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/34-webhook-detail-desktop.png?v=be3b63e6681d" alt="Webhook detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/34-webhook-detail-tablet.png?v=0f0ae6887375" alt="Webhook detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/34-webhook-detail-mobile.png?v=eaf920f8e615" alt="Webhook detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Environment
@@ -371,7 +371,7 @@ View: [`/admin/environment/config/BASE_URL/`](http://admin.archivebox.localhost:
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/37-configuration-detail-desktop.png?v=8f661131748f" alt="Configuration detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/37-configuration-detail-tablet.png?v=b53d7c044477" alt="Configuration detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/37-configuration-detail-mobile.png?v=e14cbed02653" alt="Configuration detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/37-configuration-detail-desktop.png?v=ea45bfdf8e7f" alt="Configuration detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/37-configuration-detail-tablet.png?v=8fea2c327139" alt="Configuration detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/37-configuration-detail-mobile.png?v=e14cbed02653" alt="Configuration detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Dependencies
@@ -391,7 +391,7 @@ View: [`/admin/environment/binaries/abxbus/`](http://admin.archivebox.localhost:
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/39-dependency-detail-desktop.png?v=6e82400c4dcb" alt="Dependency detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/39-dependency-detail-tablet.png?v=68ef6883023d" alt="Dependency detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/39-dependency-detail-mobile.png?v=2a73641bc6a9" alt="Dependency detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/39-dependency-detail-desktop.png?v=dbe8d51ea234" alt="Dependency detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/39-dependency-detail-tablet.png?v=e4537b7c88bf" alt="Dependency detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/39-dependency-detail-mobile.png?v=2a73641bc6a9" alt="Dependency detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Plugins
@@ -421,7 +421,7 @@ View: [`/admin/environment/workers/supervisord/`](http://admin.archivebox.localh
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/42-worker-detail-desktop.png?v=0b3c9593ad0d" alt="Worker detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/42-worker-detail-tablet.png?v=cdb856641a60" alt="Worker detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/42-worker-detail-mobile.png?v=41254949e9dd" alt="Worker detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/42-worker-detail-desktop.png?v=48c9dbcb7a17" alt="Worker detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/42-worker-detail-tablet.png?v=2abb291955f3" alt="Worker detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/42-worker-detail-mobile.png?v=a73a036e7ef6" alt="Worker detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Logs
@@ -441,7 +441,7 @@ View: [`/admin/environment/logs/supervisord/`](http://admin.archivebox.localhost
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/44-log-detail-desktop.png?v=894f002c78da" alt="Log detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/44-log-detail-tablet.png?v=5f3800d02508" alt="Log detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/44-log-detail-mobile.png?v=ed1c3e492581" alt="Log detail — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/44-log-detail-desktop.png?v=4fb60e2897af" alt="Log detail — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/44-log-detail-tablet.png?v=f01584f5b4e5" alt="Log detail — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/44-log-detail-mobile.png?v=6534076e454e" alt="Log detail — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot View (singlefile)
@@ -491,7 +491,7 @@ View: [`/#pdf`](http://snap-f9864c2b39b4.archivebox.localhost:9292#pdf) · [View
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/49-snapshot-view-pdf-desktop.png?v=28f8ba2e15cd" alt="Snapshot View (pdf) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/49-snapshot-view-pdf-tablet.png?v=b35c504881fc" alt="Snapshot View (pdf) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/49-snapshot-view-pdf-mobile.png?v=a4331ab4dba9" alt="Snapshot View (pdf) — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/49-snapshot-view-pdf-desktop.png?v=d8517589a5de" alt="Snapshot View (pdf) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/49-snapshot-view-pdf-tablet.png?v=b5098c4c2f80" alt="Snapshot View (pdf) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/49-snapshot-view-pdf-mobile.png?v=1a854a8dde6b" alt="Snapshot View (pdf) — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot View (readability)
@@ -501,7 +501,7 @@ View: [`/#readability`](http://snap-f9864c2b39b4.archivebox.localhost:9292#reada
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/50-snapshot-view-readability-desktop.png?v=16a3d404bab2" alt="Snapshot View (readability) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/50-snapshot-view-readability-tablet.png?v=7ba06c169f33" alt="Snapshot View (readability) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/50-snapshot-view-readability-mobile.png?v=edb87552a2a3" alt="Snapshot View (readability) — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/50-snapshot-view-readability-desktop.png?v=77ea10fd3502" alt="Snapshot View (readability) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/50-snapshot-view-readability-tablet.png?v=a8e13fd160a1" alt="Snapshot View (readability) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/50-snapshot-view-readability-mobile.png?v=d0bdeb9711b6" alt="Snapshot View (readability) — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot View (ytdlp)
