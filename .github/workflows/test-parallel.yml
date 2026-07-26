@@ -30,7 +30,6 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.11.3"
-          manifest-file: .github/uv-manifest.ndjson
           enable-cache: true
           cache-dependency-glob: uv.lock
 
@@ -97,7 +96,6 @@ jobs:
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: "0.11.3"
-          manifest-file: .github/uv-manifest.ndjson
           enable-cache: true
           cache-dependency-glob: uv.lock
 
