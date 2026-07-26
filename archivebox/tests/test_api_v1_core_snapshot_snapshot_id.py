@@ -136,15 +136,18 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
             hook_name="on_Snapshot__93_hashes.py",
             lib_dir=lib_dir,
         )
-        Snapshot.objects.filter(pk=snapshot.pk).update(url="http://127.0.0.1:1/")
+        Snapshot.objects.filter(pk=snapshot.pk).update(url="file:///nonexistent/archivebox-test-repository.git")
         snapshot.refresh_from_db()
         _failed_process, failed_result = _run_shipped_snapshot_hook(
             snapshot,
-            plugin="title",
-            hook_name="on_Snapshot__54_title.js",
+            plugin="git",
+            hook_name="on_Snapshot__05_git.finite.bg.py",
+            event_hook_name=_snapshot_hook_name("git"),
             lib_dir=lib_dir,
             expected_exit_codes=(1,),
         )
+        assert failed_result.status == ArchiveResult.StatusChoices.FAILED
+        assert failed_result.output_str == "git fetch failed (exit=128)"
         now = timezone.now()
         Snapshot.objects.filter(pk=snapshot.pk).update(
             url=blocking_http_server.url,
@@ -224,8 +227,8 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
         assert finished_rows["hashes"][0] == ArchiveResult.StatusChoices.SUCCEEDED
         assert finished_rows["hashes"][1] is None
         assert finished_rows["hashes"][2] > 0
-        assert finished_rows["title"][0] == ArchiveResult.StatusChoices.FAILED
-        assert finished_rows["title"][1] is None
+        assert finished_rows["git"][0] == ArchiveResult.StatusChoices.FAILED
+        assert finished_rows["git"][1] is None
 
         succeeded_row = ArchiveResult.objects.get(id=succeeded_result.id)
         output_path = Path(snapshot.output_dir) / succeeded_row.plugin / next(iter(succeeded_row.output_files))

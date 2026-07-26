@@ -385,7 +385,7 @@ def test_recursive_crawl_depth_two_writes_real_outputs_and_process_records(tmp_p
 
 @pytest.mark.timeout(1200)
 def test_add_archivewebpage_installs_required_chrome_dependency(initialized_archive):
-    """archivebox add should install selected plugins' required_plugins and binaries before hooks run."""
+    """archivebox add should resolve selected plugins' required plugins and persist binary projections."""
 
     env = os.environ.copy()
     env.pop("CHROME_BINARY", None)

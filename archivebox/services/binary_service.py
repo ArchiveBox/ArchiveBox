@@ -12,6 +12,7 @@ from django.utils import timezone
 from abxpkg import Binary as AbxBinary
 from abxpkg import BinProvider, PROVIDER_CLASS_BY_NAME
 from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent
+from abxpkg.config import load_derived_cache
 from abxbus import BaseEvent, EventBus
 from abx_dl.services.base import BaseService
 
@@ -349,6 +350,139 @@ class ArchiveBoxBinaryService(BaseService):
         with index_path.open("w", encoding="utf-8") as f:
             f.write(json.dumps(binary.to_json()) + "\n")
             f.write(json.dumps(process.to_json()) + "\n")
+
+
+def project_abxpkg_derived_cache_to_db(lib_dir: Path | str | None) -> None:
+    """Mirror abxpkg subprocess-resolved binaries into ArchiveBox's DB.
+
+    Hook shebangs resolve binaries through the abxpkg CLI in subprocesses, so
+    those resolutions cannot emit in-process BinaryRequestEvent/BinaryEvent
+    objects on the ArchiveBox runner bus. abxpkg's generic cross-process
+    projection point is ``LIB_DIR/env/derived.env``; ArchiveBox imports those
+    resolved records here after hook execution.
+    """
+
+    if lib_dir is None:
+        return
+
+    lib_path = Path(lib_dir).expanduser()
+    derived_env_paths = sorted(lib_path.rglob("derived.env")) if lib_path.is_dir() else []
+    if not derived_env_paths:
+        return
+
+    from archivebox.machine.models import Binary, Machine, Process, _canonical_binary_name
+
+    machine = Machine.current()
+    for derived_env_path in derived_env_paths:
+        for record in load_derived_cache(derived_env_path).values():
+            if not isinstance(record, Mapping):
+                continue
+            binary_name = _canonical_binary_name(str(record.get("bin_name") or ""))
+            if not binary_name:
+                continue
+            abspath = str(record.get("abspath") or "").strip()
+            if not abspath:
+                continue
+            binary_path = Path(abspath).expanduser().resolve(strict=False)
+            if not binary_path.exists():
+                continue
+
+            version = str(record.get("loaded_version") or "")
+            sha256 = str(record.get("loaded_sha256") or "")
+            provider_name = str(record.get("provider_name") or "")
+            resolved_provider_name = str(record.get("resolved_provider_name") or provider_name)
+            installed_abspath = str(binary_path)
+
+            binary, _created = Binary.objects.get_or_create(
+                machine=machine,
+                name=binary_name,
+                defaults={
+                    "status": Binary.StatusChoices.QUEUED,
+                    "binproviders": provider_name or resolved_provider_name or "env",
+                },
+            )
+            previous_projection = (
+                binary.status,
+                binary.abspath,
+                binary.version,
+                binary.sha256,
+                binary.binprovider,
+            )
+            binary.abspath = installed_abspath
+            binary.version = version
+            binary.sha256 = sha256
+            binary.binproviders = provider_name or resolved_provider_name or binary.binproviders or "env"
+            binary.binprovider = resolved_provider_name or provider_name or binary.binprovider
+            binary.status = Binary.StatusChoices.INSTALLED
+            binary.retry_at = None
+            binary.save(
+                update_fields=[
+                    "abspath",
+                    "version",
+                    "sha256",
+                    "binproviders",
+                    "binprovider",
+                    "status",
+                    "retry_at",
+                    "modified_at",
+                ],
+            )
+
+            current_projection = (
+                binary.status,
+                binary.abspath,
+                binary.version,
+                binary.sha256,
+                binary.binprovider,
+            )
+            if current_projection == previous_projection:
+                continue
+
+            output_dir = binary.output_dir.parent
+            output_dir.mkdir(parents=True, exist_ok=True)
+            now = timezone.now()
+            process = Process.objects.create(
+                machine=machine,
+                iface=None,
+                process_type=Process.TypeChoices.BINARY,
+                worker_type="",
+                pwd=str(output_dir),
+                cmd=[
+                    "abxpkg",
+                    "run",
+                    "--script",
+                    f"--name={binary_name}",
+                    f"--binproviders={binary.binproviders}",
+                ],
+                env={},
+                timeout=0,
+                pid=None,
+                url=None,
+                started_at=now,
+                ended_at=now,
+                stdout=json.dumps(
+                    {
+                        "type": "Binary",
+                        "name": binary_name,
+                        "binproviders": binary.binproviders,
+                        "binprovider": binary.binprovider,
+                        "abspath": binary.abspath,
+                        "version": binary.version,
+                        "sha256": binary.sha256,
+                        "status": "installed",
+                    },
+                )
+                + "\n",
+                stderr="",
+                exit_code=0,
+                status=Process.StatusChoices.EXITED,
+                retry_at=None,
+                binary=binary,
+            )
+            index_path = output_dir / "index.jsonl"
+            with index_path.open("w", encoding="utf-8") as f:
+                f.write(json.dumps(binary.to_json()) + "\n")
+                f.write(json.dumps(process.to_json()) + "\n")
 
 
 def _provider_names(binproviders: str | list[str] | None) -> list[str]:

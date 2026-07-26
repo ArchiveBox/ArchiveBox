@@ -29,7 +29,6 @@ from abx_dl.events import (
     CrawlEvent,
     CrawlSetupEvent,
     CrawlStartEvent,
-    InstallEvent,
     MachineEvent,
     ProcessCompletedEvent,
     ProcessEvent,
@@ -41,15 +40,13 @@ from abx_dl.heartbeat import CrawlHeartbeat
 from abx_dl.limits import CrawlLimitState
 from abx_dl.models import Plugin, Snapshot as AbxSnapshot, discover_plugins, filter_plugins
 from abx_dl.orchestrator import (
-    compute_install_phase_timeout,
     compute_phase_timeout,
     create_bus,
-    get_install_plugins,
     install_plugins as abx_install_plugins,
     setup_services as setup_abx_services,
 )
 from abx_dl.services.process_service import ProcessService as HookProcessService
-from abx_dl.services.binary_service import PluginBinariesService, split_abxpkg_binary_request_overrides
+from abx_dl.services.binary_service import split_abxpkg_binary_request_overrides
 from abx_dl.services.snapshot_service import SnapshotService as HookSnapshotService
 from abx_dl.cli import LiveBusUI
 from abxbus import BaseEvent
@@ -68,7 +65,7 @@ from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 from archivebox.crawls.locks import crawl_lifecycle_lock
 
 from .archive_result_service import ArchiveResultService
-from .binary_service import ArchiveBoxBinaryService, ArchiveBoxDBBinaryCacheBackend
+from .binary_service import ArchiveBoxBinaryService, ArchiveBoxDBBinaryCacheBackend, project_abxpkg_derived_cache_to_db
 from .crawl_service import CrawlService
 from .machine_service import MachineService
 from .process_service import ProcessService as PersistedProcessService
@@ -393,6 +390,7 @@ class CrawlRunner:
                 except Exception:
                     pass
                 self._live_stream = None
+            await sync_to_async(project_abxpkg_derived_cache_to_db, thread_sensitive=True)(self.base_config.get("ABXPKG_LIB_DIR"))
             await sync_to_async(self.finalize_run_state, thread_sensitive=True)()
 
     async def enqueue_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
@@ -845,7 +843,6 @@ class CrawlRunner:
         )
         setup_hooks = [(plugin, hook) for plugin in plugins.values() for hook in plugin.filter_hooks("CrawlSetup")]
         crawl_setup_phase_timeout = compute_phase_timeout(setup_hooks, config)
-        install_phase_timeout = compute_install_phase_timeout(get_install_plugins(plugins), config)
         snapshot_hooks = [(plugin, hook) for plugin in plugins.values() for hook in plugin.filter_hooks("Snapshot")]
         max_snapshot_count = max(1, int(config.get("CRAWL_MAX_URLS") or len(snapshot_ids) or 1))
         snapshot_phase_timeout = compute_phase_timeout(snapshot_hooks, config) + 120.0
@@ -859,32 +856,13 @@ class CrawlRunner:
             + 30.0
         )
         await _emit_machine_config(self.bus, config=config, derived_config=derived_config)
-        install_cancel_watcher: asyncio.Task[None] | None = None
-        install_event = self.bus.emit(
-            InstallEvent(
-                url=snapshot["url"],
-                snapshot_id=snapshot["id"],
-                output_dir=str(output_dir),
-                event_timeout=install_phase_timeout,
-                event_handler_slow_timeout=slow_warning_timeout(install_phase_timeout),
-            ),
-        )
-
-        async def on_archivebox_InstallEvent(event: InstallEvent) -> None:
-            nonlocal install_cancel_watcher
-            if event.event_id != install_event.event_id:
-                return
-            install_cancel_watcher = asyncio.create_task(self.watch_for_cancelled_crawl(event))
-
-        on_archivebox_InstallEvent.__name__ = "on_archivebox_InstallEvent__cancel_watcher"
-        self.bus.on(InstallEvent, on_archivebox_InstallEvent)
         setup_abx_services(
             self.bus,
             plugins=plugins,
             url=snapshot["url"],
             snapshot=abx_snapshot,
             output_dir=output_dir,
-            install_enabled=True,
+            install_enabled=False,
             crawl_setup_enabled=True,
             crawl_event_enabled=False,
             crawl_start_enabled=False,
@@ -900,7 +878,7 @@ class CrawlRunner:
             emit_jsonl=False,
             abort_requested=self.crawl_is_cancelled,
             MachineService=None,
-            PluginBinariesService=PluginBinariesService,
+            PluginBinariesService=None,
             BinaryCacheService=None,
             BinaryService=None,
             ProcessService=None,
@@ -908,12 +886,6 @@ class CrawlRunner:
             TagService=None,
             SnapshotService=None,
         )
-        try:
-            await _run_event_now(install_event, install_phase_timeout)
-        finally:
-            if install_cancel_watcher is not None:
-                install_cancel_watcher.cancel()
-                await asyncio.gather(install_cancel_watcher, return_exceptions=True)
 
         async def on_archivebox_CrawlStartEvent(event: CrawlStartEvent) -> None:
             if event.event_id != self.root_crawl_start_event_id:
