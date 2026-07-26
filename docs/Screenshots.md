@@ -491,7 +491,7 @@ View: [`/#pdf`](http://snap-f9864c2b39b4.archivebox.localhost:9292#pdf) · [View
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/49-snapshot-view-pdf-desktop.png?v=d8517589a5de" alt="Snapshot View (pdf) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/49-snapshot-view-pdf-tablet.png?v=b5098c4c2f80" alt="Snapshot View (pdf) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/49-snapshot-view-pdf-mobile.png?v=1a854a8dde6b" alt="Snapshot View (pdf) — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/49-snapshot-view-pdf-desktop.png?v=81040a5c29e3" alt="Snapshot View (pdf) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/49-snapshot-view-pdf-tablet.png?v=f5b373cbc3a5" alt="Snapshot View (pdf) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/49-snapshot-view-pdf-mobile.png?v=3ae327e6bd47" alt="Snapshot View (pdf) — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot View (readability)
