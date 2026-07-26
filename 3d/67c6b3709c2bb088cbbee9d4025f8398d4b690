@@ -1,0 +1,33 @@
+archivebox/core/middleware.py
+  s_f8414d52051f83::t_17e4718e4c4e45 177,179-180
+.github/workflows/lint.yml
+  s_f8414d52051f83::t_23255a1784e9d5 28-29
+.github/workflows/ci.yml
+  s_f8414d52051f83::t_23255a1784e9d5 55
+.github/workflows/docs.yml
+  s_f8414d52051f83::t_23255a1784e9d5 29-30,84-85
+.github/workflows/pip.yml
+  s_f8414d52051f83::t_23255a1784e9d5 26-27,90-91
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_23255a1784e9d5 33-34,99-100
+.github/workflows/docker.yml
+  s_f8414d52051f83::t_23255a1784e9d5 52-53
+.github/workflows/test.yml
+  s_f8414d52051f83::t_23255a1784e9d5 49-50,200-201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "3d67c6b3709c2bb088cbbee9d4025f8398d4b690",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
