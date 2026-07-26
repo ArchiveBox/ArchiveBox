@@ -6,6 +6,12 @@
 #archivebox-setup-wizard .abx-setup-label { display:block; margin-bottom:7px; font-size:15px; font-weight:800; }
 #archivebox-setup-wizard .abx-question { margin:18px 0 0; padding:16px; border:1px solid #dbe3ee; border-radius:9px; }
 #archivebox-setup-wizard .abx-question legend { padding:0 6px; font-size:15px; font-weight:800; }
+#archivebox-setup-wizard .abx-question-toggle { display:flex; width:100%; align-items:center; justify-content:space-between; gap:12px; padding:0; border:0; background:transparent; color:inherit; font:inherit; text-align:left; cursor:pointer; }
+#archivebox-setup-wizard .abx-question-toggle-icon { color:#64748b; font-size:16px; transition:transform .15s ease; }
+#archivebox-setup-wizard .abx-question.is-collapsed .abx-question-toggle-icon { transform:rotate(-90deg); }
+#archivebox-setup-wizard .abx-question.is-collapsed .abx-question-options { display:none; }
+#archivebox-setup-wizard .abx-question.is-valid { border-color:#15803d; background:#f0fdf4; box-shadow:0 0 0 1px #15803d; }
+#archivebox-setup-wizard .abx-question.is-invalid { border-color:#dc2626; background:#fffafa; }
 #archivebox-setup-wizard .abx-question-options { display:grid; gap:9px; }
 #archivebox-setup-wizard .abx-question-option { display:flex; align-items:flex-start; gap:10px; padding:11px 12px; border:1px solid #dbe3ee; border-radius:7px; background:#f8fafc; color:#334155; cursor:pointer; }
 #archivebox-setup-wizard .abx-question-option:has(input:checked) { border-color:#15803d; background:#f0fdf4; box-shadow:0 0 0 1px #15803d; }
@@ -17,6 +23,8 @@
 #archivebox-setup-wizard .abx-url-comparison-status.is-match { color:#15803d; }
 #archivebox-setup-wizard .abx-url-comparison-status.is-warning { color:#b45309; }
 #archivebox-setup-wizard .abx-question-status { margin-top:9px; padding:9px 11px; border-radius:7px; background:#f8fafc; color:#475569; font-weight:700; }
+#archivebox-setup-wizard .abx-question.is-valid .abx-question-status { background:#dcfce7; color:#166534; }
+#archivebox-setup-wizard .abx-question.is-invalid .abx-question-status { background:#fef2f2; color:#991b1b; }
 #archivebox-setup-wizard .abx-setup-control { box-sizing:border-box; width:100%; height:44px !important; min-height:44px !important; margin:0; padding:0 12px !important; border:1px solid #b8c4d4 !important; border-radius:7px; background:#fff !important; color:#0f172a !important; font:14px/normal -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif !important; opacity:1 !important; }
 #archivebox-setup-wizard select.abx-setup-control { appearance:auto !important; -webkit-appearance:menulist !important; }
 #archivebox-setup-wizard select.abx-setup-control option { color:#0f172a !important; background:#fff !important; }

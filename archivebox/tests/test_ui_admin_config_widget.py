@@ -167,15 +167,30 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert "PERMISSIONS" in html
     assert "/admin/machine/machine/current/change/" in html
     assert "setup_wizard.css" in html
-    assert "setup_wizard.js?v=20260723-2" in html
+    assert 'data-status-id="archivebox-setup-hosting-status"' in html
+    assert 'aria-controls="archivebox-setup-hosting-options"' in html
+    assert 'data-status-id="archivebox-setup-dns-status"' in html
+    assert 'aria-controls="archivebox-setup-dns-options"' in html
+    assert 'data-status-id="archivebox-setup-tls-status"' in html
+    assert 'aria-controls="archivebox-setup-tls-options"' in html
+    assert "setup_wizard.js?v=20260726-1" in html
 
 
 def test_setup_wizard_assets_enforce_selection_and_access_requirements():
     assert "border-color:#15803d; background:#f0fdf4" in SETUP_WIZARD_CSS
     assert "accent-color:#15803d" in SETUP_WIZARD_CSS
     assert "#archivebox-setup-title code { font-size:inherit; line-height:inherit; }" in SETUP_WIZARD_CSS
+    assert ".abx-question.is-collapsed .abx-question-options { display:none; }" in SETUP_WIZARD_CSS
+    assert ".abx-question.is-valid { border-color:#15803d; background:#f0fdf4" in SETUP_WIZARD_CSS
+    assert ".abx-question.is-invalid { border-color:#dc2626;" in SETUP_WIZARD_CSS
 
     assert "updateQuestionDefaults" not in SETUP_WIZARD_JS
+    assert "function initializeQuestionSections()" in SETUP_WIZARD_JS
+    assert "var isValid = statusText.indexOf('✅') === 0" in SETUP_WIZARD_JS
+    assert "var isInvalid = statusText.indexOf('❌') === 0" in SETUP_WIZARD_JS
+    assert "if (isValid) setCollapsed(true)" in SETUP_WIZARD_JS
+    assert "if (isInvalid) setCollapsed(false)" in SETUP_WIZARD_JS
+    assert "toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true')" in SETUP_WIZARD_JS
     assert "canonicalHost" not in SETUP_WIZARD_JS
     assert "Browser URL matches BASE_URL." in SETUP_WIZARD_JS
     assert "Browser URL matches admin.BASE_URL as expected." in SETUP_WIZARD_JS

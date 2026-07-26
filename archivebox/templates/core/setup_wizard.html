@@ -10,9 +10,14 @@
       <h2 id="archivebox-setup-title">Setup access to your ArchiveBox Server: <code>{{ display_host|default:canonical_host }}</code></h2>
     </div>
 
-    <fieldset class="abx-question">
-      <legend><b>Hosting Location:</b> What machine are you hosting this ArchiveBox server on?</legend>
-      <div class="abx-question-options">
+    <fieldset class="abx-question" data-status-id="archivebox-setup-hosting-status">
+      <legend>
+        <button class="abx-question-toggle" type="button" aria-expanded="true" aria-controls="archivebox-setup-hosting-options">
+          <span><b>Hosting Location:</b> What machine are you hosting this ArchiveBox server on?</span>
+          <span class="abx-question-toggle-icon" aria-hidden="true">▾</span>
+        </button>
+      </legend>
+      <div class="abx-question-options" id="archivebox-setup-hosting-options">
         <label class="abx-question-option"><input type="radio" name="archivebox-hosting-location" value="localhost"> <span><b>Localhost</b><small>Same machine as you, such as a local laptop or desktop. Modern browsers support wildcard <code>*.archivebox.localhost</code> with no DNS or HTTPS setup required.</small></span></label>
         <label class="abx-question-option"><input type="radio" name="archivebox-hosting-location" value="private"> <span><b>Private Server</b><small>NAS, Docker host, private cloud, VPS behind NAT, or another server not directly accessible from the public internet.</small></span></label>
         <label class="abx-question-option"><input type="radio" name="archivebox-hosting-location" value="public"> <span><b>Public Server</b><small>A server with a public static IP and public domain, directly accessible from the internet.</small></span></label>
@@ -20,9 +25,14 @@
       <div class="abx-question-status" id="archivebox-setup-hosting-status">Choose where this server is hosted.</div>
     </fieldset>
 
-    <fieldset class="abx-question">
-      <legend><b>DNS mode:</b> How will DNS point to this ArchiveBox server?</legend>
-      <div class="abx-question-options">
+    <fieldset class="abx-question" data-status-id="archivebox-setup-dns-status">
+      <legend>
+        <button class="abx-question-toggle" type="button" aria-expanded="true" aria-controls="archivebox-setup-dns-options">
+          <span><b>DNS mode:</b> How will DNS point to this ArchiveBox server?</span>
+          <span class="abx-question-toggle-icon" aria-hidden="true">▾</span>
+        </button>
+      </legend>
+      <div class="abx-question-options" id="archivebox-setup-dns-options">
         <label class="abx-question-option"><input type="radio" name="archivebox-dns-mode" value="localhost"> <span><b>⭐ Localhost</b><small>No setup needed. <code id="archivebox-setup-localhost-dns-example">*.archivebox.localhost</code> works directly in modern browsers with all features.</small></span></label>
         <label class="abx-question-option"><input type="radio" name="archivebox-dns-mode" value="single"> <span><b>⚠️ Single-domain DNS</b><small>Register a DNS record like <code>A archivebox.example.com</code> → <code>your server's IP</code>, or add an equivalent <code>/etc/hosts</code> entry pointing to your server. Some archived content that depends on JavaScript may not display properly in this mode. JavaScript still runs during capture, but viewing HTML captured by <code>wget</code>, <code>dom</code>, <code>responses</code>, <code>staticfile</code>, and similar plugins will not replay JavaScript unless wildcard DNS is used.</small></span></label>
         <label class="abx-question-option"><input type="radio" name="archivebox-dns-mode" value="wildcard"> <span><b>⭐ Wildcard DNS</b><small>Point both the bare <code>BASE_URL</code> hostname and <code>*.BASE_URL</code> to this server using A/AAAA records or CNAME records. Ideal: safest isolation with all replay features. <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Modes" target="_blank" rel="noopener noreferrer">Setup instructions</a>.</small></span></label>
@@ -30,9 +40,14 @@
       <div class="abx-question-status" id="archivebox-setup-dns-status">Choose a DNS mode to begin testing.</div>
     </fieldset>
 
-    <fieldset class="abx-question">
-      <legend><b>Ingress &amp; TLS mode:</b> How will HTTPS traffic reach this ArchiveBox server?</legend>
-      <div class="abx-question-options">
+    <fieldset class="abx-question" data-status-id="archivebox-setup-tls-status">
+      <legend>
+        <button class="abx-question-toggle" type="button" aria-expanded="true" aria-controls="archivebox-setup-tls-options">
+          <span><b>Ingress &amp; TLS mode:</b> How will HTTPS traffic reach this ArchiveBox server?</span>
+          <span class="abx-question-toggle-icon" aria-hidden="true">▾</span>
+        </button>
+      </legend>
+      <div class="abx-question-options" id="archivebox-setup-tls-options">
         <label class="abx-question-option"><input type="radio" name="archivebox-tls-mode" value="localhost"> <span><b>⭐ Localhost</b><small>No setup needed. HTTPS is not required for local access; all replay features remain available.</small></span></label>
         <label class="abx-question-option"><input type="radio" name="archivebox-tls-mode" value="none"> <span><b>⚠️ No separate ingress service / SSL termination</b><small>Access ArchiveBox directly without an ingress service like Cloudflare/AWS/Nginx/Caddy/Traefik in front. In-browser WARC viewing will be disabled unless using <code>localhost</code> or HTTPS.</small></span></label>
         <label class="abx-question-option"><input type="radio" name="archivebox-tls-mode" value="single"> <span><b>⚠️ Single-domain HTTPS certificate</b><small>One certificate from Nginx + Let's Encrypt, Caddy, Traefik, Cloudflare, Tailscale, or another ingress provider. This mode is not allowed unless also using Single-domain DNS.</small></span></label>
@@ -118,4 +133,4 @@
     </div>
   </div>
 </div>
-<script src="{% static 'setup_wizard.js' %}?v=20260723-2" defer></script>
+<script src="{% static 'setup_wizard.js' %}?v=20260726-1" defer></script>

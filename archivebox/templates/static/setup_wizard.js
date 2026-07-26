@@ -33,6 +33,36 @@
     Array.prototype.forEach.call(inputs, function(input) { input.checked = input.value === value; });
   }
 
+  function initializeQuestionSections() {
+    document.querySelectorAll('.abx-question[data-status-id]').forEach(function(question) {
+      var status = document.getElementById(question.dataset.statusId);
+      var toggle = question.querySelector('.abx-question-toggle');
+
+      function setCollapsed(collapsed) {
+        question.classList.toggle('is-collapsed', collapsed);
+        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      }
+
+      function syncQuestionState() {
+        var statusText = status.textContent.trim();
+        var isValid = statusText.indexOf('✅') === 0;
+        var isInvalid = statusText.indexOf('❌') === 0;
+        question.classList.toggle('is-valid', isValid);
+        question.classList.toggle('is-invalid', isInvalid);
+        if (isValid) setCollapsed(true);
+        if (isInvalid) setCollapsed(false);
+      }
+
+      toggle.addEventListener('click', function() {
+        setCollapsed(!question.classList.contains('is-collapsed'));
+      });
+      new MutationObserver(syncQuestionState).observe(status, {childList: true, characterData: true, subtree: true});
+      syncQuestionState();
+    });
+  }
+
+  initializeQuestionSections();
+
   var detectedUrl = new URL(baseUrlInput.value);
   var detectedLocalhost = detectedUrl.hostname === 'localhost' || detectedUrl.hostname.endsWith('.localhost');
   if (detectedLocalhost) {
