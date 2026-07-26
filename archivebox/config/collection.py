@@ -194,6 +194,12 @@ def _coerce_from_str_dict(file_config: dict[str, str]) -> dict[str, Any]:
             decoded[key] = json.loads(raw)
         except (TypeError, ValueError):
             continue
+    if not str(decoded.get("BASE_URL") or "").strip():
+        from archivebox.config.common import base_url_from_legacy_server_config
+
+        legacy_base_url = base_url_from_legacy_server_config(decoded)
+        if legacy_base_url:
+            decoded["BASE_URL"] = legacy_base_url
     return decoded
 
 

@@ -16,12 +16,13 @@ def search_backend_env(config: dict[str, Any] | None = None, **config_kwargs: An
     config = config or get_config(**config_kwargs)
     updates = {}
     for key, value in config.items():
-        if not str(key).startswith("SEARCH_BACKEND_"):
+        key = str(key)
+        if not (key.startswith("SEARCH_BACKEND_") or key.endswith("_BINARY")):
             continue
         if value is None:
             continue
         if isinstance(value, (str, int, float, bool, os.PathLike)):
-            updates[str(key)] = str(value)
+            updates[key] = str(value)
     previous = {key: os.environ.get(key) for key in updates}
     os.environ.update(updates)
     try:

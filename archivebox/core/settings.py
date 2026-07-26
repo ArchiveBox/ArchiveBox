@@ -348,6 +348,12 @@ if not _secret_persisted:
         logger.debug("Unable to persist generated SECRET_KEY", exc_info=True)
 
 ALLOWED_HOSTS = [host.strip() for host in CONFIG.ALLOWED_HOSTS.split(",") if host.strip()]
+if (CONFIG.SERVER_SECURITY_MODE == "auto" or CONFIG.USES_SUBDOMAIN_ROUTING) and "*" not in ALLOWED_HOSTS:
+    # ArchiveBox owns the effective host policy at request time in auto and
+    # subdomain modes: canonical hosts keep the normal app surface, while
+    # alternate hosts are downgraded/rejected by get_request_config()/middleware.
+    # Django has to admit the Host header first for that existing boundary to run.
+    ALLOWED_HOSTS.append("*")
 CSRF_TRUSTED_ORIGINS = list({origin.strip() for origin in CONFIG.CSRF_TRUSTED_ORIGINS.split(",") if origin.strip()})
 
 admin_base_url = normalize_base_url(get_admin_base_url())

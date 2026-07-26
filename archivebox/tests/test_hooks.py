@@ -13,6 +13,7 @@ import json
 import hashlib
 import os
 import subprocess
+import sys
 from importlib.resources import files
 from pathlib import Path
 
@@ -626,14 +627,14 @@ def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_pat
 
 
 @pytest.mark.django_db(transaction=True)
-def test_run_hook_executes_python_hooks_through_script_shebang(tmp_path):
-    """Python hooks must execute through their abxpkg script header."""
+def test_run_hook_executes_python_hooks_with_resolved_runtime_env(tmp_path):
+    """ArchiveBox-run Python hooks use the active interpreter and resolved env."""
     from archivebox.plugins.hooks import run_hook
 
     snap_dir = tmp_path / "snapshot"
     output_dir = snap_dir / "hashes"
     output_dir.mkdir(parents=True)
-    (snap_dir / "source.txt").write_text("real shebang hook input", encoding="utf-8")
+    (snap_dir / "source.txt").write_text("real runtime hook input", encoding="utf-8")
     hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
     process = run_hook(
         hook_path,
@@ -643,18 +644,18 @@ def test_run_hook_executes_python_hooks_through_script_shebang(tmp_path):
             "SNAP_DIR": str(snap_dir),
         },
         timeout=30,
-        url="https://example.com/shebang",
+        url="https://example.com/runtime",
     )
     process.refresh_from_db()
 
-    assert process.cmd[0] == str(hook_path)
+    assert process.cmd[:2] == [sys.executable, str(hook_path)]
     assert process.exit_code == 0, process.stderr
-    assert process.env["ABXPKG_FAST_SCRIPT"] == "1"
+    assert process.env["SNAP_DIR"] == str(snap_dir)
     records = process.parse_records_from_text(process.stdout)
-    source_hash = hashlib.sha256(b"real shebang hook input").hexdigest()
+    source_hash = hashlib.sha256(b"real runtime hook input").hexdigest()
     assert records == [{"type": "ArchiveResult", "status": "succeeded", "output_str": f"0.0MB {source_hash[:12]}"}]
     hashes = json.loads((output_dir / "hashes.json").read_text())
     source = hashes["files"][0]
     assert source["path"] == "source.txt"
-    assert source["size"] == len("real shebang hook input")
+    assert source["size"] == len("real runtime hook input")
     assert source["hash"] == source_hash

@@ -413,6 +413,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
         "cmd_version",
         "pwd",
         "cmd_str",
+        "admin_actions",
         "snapshot_info",
         "tags_str",
         "created_at",
@@ -438,7 +439,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
         (
             "Snapshot",
             {
-                "fields": ("snapshot", "snapshot_info", "tags_str"),
+                "fields": ("snapshot", "snapshot_info", "tags_str", "admin_actions"),
                 "classes": ("card", "wide"),
             },
         ),
@@ -628,6 +629,38 @@ class ArchiveResultAdmin(BaseModelAdmin):
         return format_html(
             '<a href="{}" class="archivebox-zip-button" data-loading-mode="spinner-only" onclick="return window.archiveboxHandleZipClick(this, event);" style="display:inline-flex; align-items:center; justify-content:center; gap:4px; width:48px; min-width:48px; height:24px; padding:0; box-sizing:border-box; border-radius:999px; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:600; line-height:1; text-decoration:none;"><span class="archivebox-zip-spinner" aria-hidden="true"></span><span class="archivebox-zip-label">⬇ ZIP</span></a>',
             self.get_output_zip_url(result),
+        )
+
+    @admin.display(description="")
+    def admin_actions(self, result):
+        return format_html(
+            """
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500;"
+                   href="{}">
+                    📄 View Output
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500;"
+                   href="{}">
+                    📁 Output files
+                </a>
+                <a class="btn archivebox-zip-button" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; text-decoration: none; font-size: 14px; font-weight: 500;"
+                   href="{}"
+                   data-loading-label="Preparing..."
+                   onclick="return window.archiveboxHandleZipClick(this, event);">
+                    <span class="archivebox-zip-spinner" aria-hidden="true"></span>
+                    <span class="archivebox-zip-label">⬇ Download Zip</span>
+                </a>
+                <a class="btn" style="display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; color: #334155; text-decoration: none; font-size: 14px; font-weight: 500;"
+                   href="{}">
+                    🗂 Snapshot
+                </a>
+            </div>
+            """,
+            self.get_output_view_url(result),
+            self.get_output_files_url(result),
+            self.get_output_zip_url(result),
+            self.get_snapshot_view_url(result),
         )
 
     @admin.display(

@@ -912,7 +912,7 @@ def _plugin_full_preview_response(
     response.headers["Content-Security-Policy"] = (
         "default-src 'self' data: blob:; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; "
-        "style-src 'self' 'unsafe-inline' data: blob:; "
+        "style-src 'unsafe-inline' data: blob: 'self'; "
         "connect-src 'self' data: blob:; "
         "img-src 'self' data: blob:; "
         "media-src 'self' data: blob:; "

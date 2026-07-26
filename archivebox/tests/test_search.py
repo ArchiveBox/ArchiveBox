@@ -110,7 +110,9 @@ def test_search_backend_env_exposes_resolved_runtime_config(tmp_path):
             "SEARCH_BACKEND_SONIC_HOST_NAME": "sonic",
             "SEARCH_BACKEND_SONIC_PORT": 1491,
             "SEARCH_BACKEND_SONIC_PASSWORD": "SecretPassword",
+            "RIPGREP_BINARY": tmp_path / "env" / "bin" / "rg",
             "IGNORED_NONE_VALUE": None,
+            "UNRELATED_BINARY_NAME": "rg",
         },
     )
 
@@ -120,7 +122,9 @@ def test_search_backend_env_exposes_resolved_runtime_config(tmp_path):
             assert os.environ["SEARCH_BACKEND_SONIC_HOST_NAME"] == "sonic"
             assert os.environ["SEARCH_BACKEND_SONIC_PORT"] == "1491"
             assert os.environ["SEARCH_BACKEND_SONIC_PASSWORD"] == "SecretPassword"
+            assert os.environ["RIPGREP_BINARY"] == str(tmp_path / "env" / "bin" / "rg")
             assert "IGNORED_NONE_VALUE" not in os.environ
+            assert "UNRELATED_BINARY_NAME" not in os.environ
 
         assert os.environ["SEARCH_BACKEND_SONIC_HOST_NAME"] == "old-host"
     finally:

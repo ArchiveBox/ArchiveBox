@@ -234,11 +234,11 @@ def test_server_help_lists_runtime_options(initialized_archive):
     assert "--reload" in result.stdout
 
 
-def test_runner_worker_uses_abxpkg_projected_archivebox():
-    from archivebox.workers.supervisord_util import RUNNER_WORKER, resolve_env_binary
+def test_runner_worker_uses_active_archivebox_module():
+    from archivebox.workers.supervisord_util import RUNNER_WORKER, archivebox_cmd
 
     worker = RUNNER_WORKER()
-    assert shlex.split(worker["command"]) == [str(resolve_env_binary("archivebox")), "run", "--daemon"]
+    assert shlex.split(worker["command"]) == archivebox_cmd("run", "--daemon")
     assert worker["autorestart"] == "true"
     assert 'ARCHIVEBOX_RUNNER_DAEMON="1"' in worker["environment"]
 
@@ -252,26 +252,20 @@ def test_daphne_worker_uses_default_application_close_timeout():
     assert "--application-close-timeout=0" not in command
 
 
-def test_reload_workers_use_abxpkg_projected_archivebox():
-    from archivebox.workers.supervisord_util import RUNNER_WATCH_WORKER, RUNSERVER_WORKER, resolve_env_binary
+def test_reload_workers_use_active_archivebox_module():
+    from archivebox.workers.supervisord_util import RUNNER_WATCH_WORKER, RUNSERVER_WORKER, archivebox_cmd
 
     runserver = RUNSERVER_WORKER("127.0.0.1", "8000", reload=True)
     watcher = RUNNER_WATCH_WORKER("http://127.0.0.1:8000")
-    archivebox_binary = resolve_env_binary("archivebox")
 
     assert runserver["name"] == "worker_runserver"
-    assert shlex.split(runserver["command"]) == [str(archivebox_binary), "manage", "runserver", "127.0.0.1:8000"]
+    assert shlex.split(runserver["command"]) == archivebox_cmd("manage", "runserver", "127.0.0.1:8000")
     assert 'ARCHIVEBOX_RUNSERVER="1"' in runserver["environment"]
     assert 'ARCHIVEBOX_AUTORELOAD="1"' in runserver["environment"]
     assert 'ARCHIVEBOX_RUNSERVER_BIND_URL="http://127.0.0.1:8000"' in runserver["environment"]
 
     assert watcher["name"] == "worker_runner_watch"
-    assert shlex.split(watcher["command"]) == [
-        str(archivebox_binary),
-        "manage",
-        "runner_watch",
-        "--bind-url=http://127.0.0.1:8000",
-    ]
+    assert shlex.split(watcher["command"]) == archivebox_cmd("manage", "runner_watch", "--bind-url=http://127.0.0.1:8000")
 
 
 def test_server_daemon_starts_real_plugin_owned_sonic_worker(initialized_archive, archivebox_daemon_server):

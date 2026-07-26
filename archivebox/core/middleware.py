@@ -89,9 +89,10 @@ def AdminCookieIsolationMiddleware(get_response):
         response = get_response(request)
 
         config = request.__dict__.get("archivebox_config")
-        if config is None:
-            config = get_config(resolve_plugins=False)
-            request.archivebox_config = config
+        if config is None or config.SERVER_SECURITY_MODE == "auto":
+            from archivebox.config.common import get_request_config
+
+            config = get_request_config(request, resolve_plugins=False)
         if not config.USES_SUBDOMAIN_ROUTING:
             return response
 
@@ -168,9 +169,17 @@ def ServerSecurityModeMiddleware(get_response):
 
     def middleware(request):
         config = request.__dict__.get("archivebox_config")
-        if config is None:
-            config = get_config(resolve_plugins=False)
-            request.archivebox_config = config
+        if config is None or config.SERVER_SECURITY_MODE == "auto":
+            base_config = config or get_config(resolve_plugins=False)
+            if base_config.SERVER_SECURITY_MODE == "auto" and request.method.upper() not in allowed_methods:
+                request_host, _request_port = split_host_port((request.get_host() or "").lower())
+                base_host, _base_port = split_host_port(get_base_host(config=base_config))
+                if base_host and request_host != base_host:
+                    return HttpResponseForbidden("ArchiveBox is running with the control plane disabled on this host.")
+
+            from archivebox.config.common import get_request_config
+
+            config = get_request_config(request, resolve_plugins=False)
 
         if config.CONTROL_PLANE_ENABLED:
             return get_response(request)

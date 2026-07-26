@@ -48,11 +48,19 @@ def _shell_join(args: list[str]) -> str:
     return shlex.join(args)
 
 
+def archivebox_cmd(*args: str) -> list[str]:
+    executable = Path(sys.argv[0]).resolve() if sys.argv and sys.argv[0] else None
+    if executable and executable.name == "archivebox" and executable.is_file() and os.access(executable, os.X_OK):
+        return [str(executable), *args]
+    return [sys.executable, "-m", "archivebox", *args]
+
+
 def resolve_env_binary(name: str) -> Path:
     from abxpkg import EnvProvider
     from archivebox.config.common import get_config
 
-    env_root = get_config().ABXPKG_LIB_DIR / "env"
+    lib_dir = Path(os.environ.get("ABXPKG_LIB_DIR") or get_config().ABXPKG_LIB_DIR)
+    env_root = lib_dir / "env"
     provider = EnvProvider(install_root=env_root, PATH=os.environ["PATH"])
     if name == "daphne":
         from importlib.metadata import version
@@ -179,7 +187,7 @@ def _stop_older_supervisord_processes(*, current_pid: int, current_started_at: f
 def RUNNER_WORKER():
     return {
         "name": "worker_runner",
-        "command": _shell_join([str(resolve_env_binary("archivebox")), "run", "--daemon"]),
+        "command": _shell_join(archivebox_cmd("run", "--daemon")),
         "autostart": "false",
         "autorestart": "true",
         "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200",ARCHIVEBOX_RUNNER_DAEMON="1"',
@@ -194,7 +202,7 @@ def RUNNER_WORKER():
 RUNNER_ONCE_WORKER = lambda args, name="worker_runner_once": {
     **RUNNER_WORKER(),
     "name": name,
-    "command": _shell_join([str(resolve_env_binary("archivebox")), "run", "--no-stdin", *args]),
+    "command": _shell_join(archivebox_cmd("run", "--no-stdin", *args)),
     "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200"',
     "autorestart": "false",
     "stopwaitsecs": "1",
@@ -203,7 +211,7 @@ RUNNER_ONCE_WORKER = lambda args, name="worker_runner_once": {
 
 RUNNER_WATCH_WORKER = lambda bind_url: {
     "name": "worker_runner_watch",
-    "command": _shell_join([str(resolve_env_binary("archivebox")), "manage", "runner_watch", f"--bind-url={bind_url}"]),
+    "command": _shell_join(archivebox_cmd("manage", "runner_watch", f"--bind-url={bind_url}")),
     "autostart": "false",
     "autorestart": "true",
     "stdout_logfile": "logs/worker_runner_watch.log",
@@ -213,12 +221,7 @@ RUNNER_WATCH_WORKER = lambda bind_url: {
 SUPERVISORD_PARENT_WATCHDOG_WORKER = lambda supervisord_process_id: {
     "name": "worker_supervisord_parent_watchdog",
     "command": _shell_join(
-        [
-            str(resolve_env_binary("archivebox")),
-            "manage",
-            "supervisord_watchdog",
-            f"--supervisord-process-id={supervisord_process_id}",
-        ],
+        archivebox_cmd("manage", "supervisord_watchdog", f"--supervisord-process-id={supervisord_process_id}"),
     ),
     "autostart": "false",
     "autorestart": "false",
@@ -250,7 +253,7 @@ SERVER_WORKER = lambda host, port: {
 
 
 def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, nothreading: bool = False):
-    command = [str(resolve_env_binary("archivebox")), "manage", "runserver", f"{host}:{port}"]
+    command = archivebox_cmd("manage", "runserver", f"{host}:{port}")
     if not reload:
         command.append("--noreload")
     if nothreading:
@@ -1197,10 +1200,20 @@ def get_sonic_supervisord_worker_from_plugin(config) -> dict[str, str] | None:
     return cast(dict[str, str] | None, worker)
 
 
+_PROC_ACCESS_EXCEPTIONS = (
+    psutil.NoSuchProcess,
+    psutil.AccessDenied,
+    psutil.ZombieProcess,
+    PermissionError,
+    SystemError,
+)
+_PROC_INFO_EXCEPTIONS = (IndexError, *_PROC_ACCESS_EXCEPTIONS)
+
+
 def _proc_cmdline(proc: psutil.Process) -> list[str]:
     try:
         return proc.cmdline()
-    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+    except _PROC_ACCESS_EXCEPTIONS:
         return []
 
 
@@ -1257,7 +1270,7 @@ def _sonic_listeners(host: str, port: int) -> list[psutil.Process]:
             continue
         try:
             connections = proc.net_connections(kind="tcp")
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+        except _PROC_ACCESS_EXCEPTIONS:
             continue
         for conn in connections:
             if conn.status != psutil.CONN_LISTEN or not conn.laddr or conn.laddr.port != port:
@@ -1288,7 +1301,7 @@ def stop_stale_sonic_processes(
             if config_path is None or Path(cmdline[0]).name != "sonic" or str(config_path) not in cmdline:
                 continue
             stale.append(proc)
-        except (IndexError, psutil.NoSuchProcess, psutil.AccessDenied):
+        except _PROC_INFO_EXCEPTIONS:
             continue
 
     if host is not None and port is not None:

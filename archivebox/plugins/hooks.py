@@ -44,6 +44,7 @@ __package__ = "archivebox.plugins"
 
 import json
 import os
+import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Protocol, TypeGuard, runtime_checkable
@@ -326,10 +327,11 @@ def run_hook(
     if not script.is_file():
         raise FileNotFoundError(f"Hook script not found: {script}")
 
-    # Python hooks carry their runtime contract in the shebang
-    # (usually `abxpkg run --script python3`), so execute them directly.
-    # For shell/JS hooks we still dispatch through the conventional
-    # interpreter because those hooks do not need per-script Python env setup.
+    # ArchiveBox resolves hook dependencies before execution and exports the
+    # resolved *_BINARY env values below. Run Python hooks in the current Python
+    # environment so per-snapshot hook execution does not repeatedly pay the
+    # abxpkg script bootstrap cost from the standalone shebang.
+    # Shell/JS hooks still dispatch through abxpkg-resolved interpreters.
     ext = script.suffix.lower()
     if ext == ".sh":
         bash_projection = Path(hook_config["ABXPKG_LIB_DIR"]).expanduser() / "env" / "bin" / "bash"
@@ -337,7 +339,7 @@ def run_hook(
             raise RuntimeError(f"Bash must be resolved by abxpkg into {bash_projection}")
         cmd = [str(bash_projection), str(script)]
     elif ext == ".py":
-        cmd = [str(script)]
+        cmd = [sys.executable, str(script)]
     elif ext == ".js":
         node_projection = Path(hook_config["ABXPKG_LIB_DIR"]).expanduser() / "env" / "bin" / "node"
         if not node_projection.is_symlink() or not os.access(node_projection, os.X_OK):
@@ -377,7 +379,6 @@ def run_hook(
     env.pop("PLUGINS", None)
     env["DATA_DIR"] = str(CONSTANTS.DATA_DIR)
     env["LIBRARY_VERSION"] = VERSION
-    env.setdefault("ABXPKG_FAST_SCRIPT", "1")
     env.setdefault("MACHINE_ID", os.environ.get("MACHINE_ID", CONSTANTS.MACHINE_ID))
     snap_dir = hook_config.get("SNAP_DIR") or _model_output_dir_from_child_path(output_dir, CONSTANTS.SNAPSHOTS_DIR_NAME)
     crawl_dir = hook_config.get("CRAWL_DIR") or _model_output_dir_from_child_path(output_dir, CONSTANTS.CRAWLS_DIR_NAME)

@@ -1245,6 +1245,10 @@ def get_config(
             )
 
     config = ArchiveBoxConfig.model_validate(config_data)
+    if config.SERVER_SECURITY_MODE == "auto":
+        base_host = (urlparse(config.BASE_URL if "://" in config.BASE_URL else f"//{config.BASE_URL}").hostname or "").lower()
+        if base_host.endswith(".localhost"):
+            config = config.model_copy(update={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"})
     for key in explicit_plugin_enabled_keys:
         if key in config_data:
             setattr(config, key, config_data[key])

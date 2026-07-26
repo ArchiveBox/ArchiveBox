@@ -238,9 +238,18 @@ class Machine(ModelWithHealthStats):
         try:
             _CURRENT_MACHINE = cls.objects.get(guid=host_guid)
         except cls.DoesNotExist:
+            config = {}
+            try:
+                from archivebox.config.collection import _coerce_from_str_dict, _load_file_config_dict
+
+                file_config, _file_mtime = _load_file_config_dict()
+                config = _coerce_from_str_dict(file_config)
+            except Exception:
+                config = {}
             _CURRENT_MACHINE = cls.objects.create(
                 guid=host_guid,
                 hostname=socket.gethostname(),
+                config=config,
                 **get_os_info(),
                 **get_vm_info(),
                 stats=get_host_stats(),
