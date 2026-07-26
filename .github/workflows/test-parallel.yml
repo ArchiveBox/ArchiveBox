@@ -140,6 +140,13 @@ jobs:
           for test_path in "${test_paths[@]}"; do
             test -f "$test_path"
           done
-          mkdir -p "$DATA_DIR"
-          uv run --no-sync --no-sources pytest -vs "${test_paths[@]}" \
-            --basetemp="$RUNNER_TEMP/pytest"
+          for test_path in "${test_paths[@]}"; do
+            test_name="$(basename "$test_path" .py)"
+            test_slug="${test_name//[^A-Za-z0-9_.-]/_}"
+            export DATA_DIR="$RUNNER_TEMP/archivebox-test-data/$test_slug"
+            export PERSONAS_DIR="$RUNNER_TEMP/abx-personas/$test_slug"
+            export CHROME_USER_DATA_DIR="$PERSONAS_DIR/Default/chrome_profile"
+            mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest/$test_slug"
+            uv run --no-sync --no-sources pytest -vs "$test_path" \
+              --basetemp="$RUNNER_TEMP/pytest/$test_slug"
+          done

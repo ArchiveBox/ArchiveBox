@@ -841,6 +841,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         protected_subdomains = {"admin", "web", "api"}
         protected_hosts: set[tuple[str, str | None]] = set()
         protected_roots: set[tuple[str, str | None]] = set()
+        protected_local_roots: set[tuple[str, str | None]] = set()
         for host_value in (
             get_listen_host(config=config),
             get_base_host(config=config),
@@ -858,6 +859,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if protected_host in {"", "0.0.0.0", "::", "127.0.0.1", "::1", "localhost"}:
                 for local_alias in ("127.0.0.1", "localhost"):
                     protected_hosts.add((local_alias, protected_port))
+                protected_local_roots.add(("archivebox.localhost", protected_port))
+            elif protected_host == "archivebox.localhost":
+                protected_local_roots.add((protected_host, protected_port))
             parts = protected_host.split(".", 1)
             if len(parts) == 2 and (parts[0] in protected_subdomains or parts[0].startswith("snap-")):
                 protected_roots.add((parts[1], protected_port))
@@ -868,15 +872,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if host == protected_host and (protected_port is None or port == protected_port):
                 return True
 
-        if config.USES_SUBDOMAIN_ROUTING:
-            for protected_root, protected_port in protected_roots:
-                if protected_port is not None and port != protected_port:
-                    continue
-                if not protected_root or not host.endswith(f".{protected_root}"):
-                    continue
-                subdomain = host[: -(len(protected_root) + 1)]
-                if subdomain in protected_subdomains or subdomain.startswith("snap-"):
-                    return True
+        role_roots = protected_roots if config.USES_SUBDOMAIN_ROUTING else protected_local_roots
+        for protected_root, protected_port in role_roots:
+            if protected_port is not None and port != protected_port:
+                continue
+            if not protected_root or not host.endswith(f".{protected_root}"):
+                continue
+            subdomain = host[: -(len(protected_root) + 1)]
+            if subdomain in protected_subdomains or subdomain.startswith("snap-"):
+                return True
 
         return False
 
