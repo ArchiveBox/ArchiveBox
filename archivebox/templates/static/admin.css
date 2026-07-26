@@ -3443,7 +3443,8 @@ body.change-list:not(.embedded-change-list) #changelist #changelist-form > .acti
     height: 40px !important;
     min-height: 40px !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 3px 4px 3px 0 !important;
+    box-sizing: border-box !important;
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
@@ -3456,7 +3457,7 @@ body.change-list:not(.embedded-change-list) #changelist #changelist-form > .acti
     justify-content: flex-end !important;
     width: auto !important;
     min-width: 0 !important;
-    height: 40px !important;
+    height: 100% !important;
     padding: 0 !important;
     gap: 4px !important;
     overflow: visible !important;
@@ -3471,7 +3472,7 @@ body.change-list:not(.embedded-change-list) #changelist #changelist-form > .acti
     justify-content: center !important;
     width: auto !important;
     min-width: 0 !important;
-    height: auto !important;
+    height: 100% !important;
     min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -3479,7 +3480,7 @@ body.change-list:not(.embedded-change-list) #changelist #changelist-form > .acti
     color: #475569;
     font-size: 12px !important;
     font-weight: 500 !important;
-    line-height: 1.15 !important;
+    line-height: 1.2 !important;
     text-align: right !important;
     white-space: nowrap !important;
 }
@@ -3499,27 +3500,53 @@ body.change-list:not(.embedded-change-list) #changelist .xfull {
     grid-column: 1 / -1 !important;
 }
 
-/* Keep the grouped search control's outline above its absolutely positioned
-   icon/mode segment. Without this overlay that segment can paint over the
-   rounded upper-left border. */
-#toolbar .search-input-wrap::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 10;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    pointer-events: none;
+/* Keep the icon/mode background inside the grouped control's border box.
+   Painting it from inset 0 covered the anti-aliased upper-left border curve. */
+#toolbar .search-input-addon {
+    left: 1px;
+    top: 1px;
+    bottom: 1px;
+    border-radius: 7px 0 0 7px;
 }
 
-#toolbar .search-input-wrap:focus-within::after {
-    border-color: #93c5fd;
+/* Change forms use a dense grid so ordinary cards keep tiling even when a
+   full-width card appears earlier in document order. */
+body.change-form #content-main > form > div {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: dense;
+    gap: 20px;
+    align-items: stretch;
+}
+
+body.change-form #content-main > form > div > fieldset,
+body.change-form #content-main > form > div > .module:not(.inline-group) {
+    grid-column: span 1;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
+
+body.change-form #content-main > form > div > fieldset.wide,
+body.change-form #content-main > form > div > .inline-group,
+body.change-form #content-main > form > div > .submit-row {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 1500px) {
+    body.change-form #content-main > form > div {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 /* Django's stock change-form stylesheet is loaded after the card rules in the
    template. Reassert the shared mobile geometry here so every admin detail
    view fills the viewport instead of retaining the desktop 320px card width. */
 @media (max-width: 900px) {
+    body.change-form #content-main > form > div {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
     body.change-form #content,
     body.change-form #content-main,
     body.change-form #content-main > form,
