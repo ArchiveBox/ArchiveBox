@@ -52,7 +52,7 @@ version = 2
 # AGENTS.md
 "2695777473e3a217-1" = "run"
 "16f996904f0eaa96-1" = "run"
-"93dd34b605cd6775-1" = "run"
+"b894a7c4f93e4e92-1" = "run"
 "6a6234b63cd3d0ae-1" = "run"
 "396490664ce459e9-1" = "run"
 
@@ -67,7 +67,7 @@ version = 2
 
 # skills/archivebox/SKILL.md
 "2695777473e3a217-2" = "run"
-"93dd34b605cd6775-2" = "run"
+"b894a7c4f93e4e92-2" = "run"
 "46fe9d81940ea385-1" = "run"
 "396490664ce459e9-2" = "run"
 
@@ -267,7 +267,7 @@ version = 2
 "fab7ffa7e26bc3e5-1" = "collection"
 "2695777473e3a217-1" = "project"
 "16f996904f0eaa96-1" = "project"
-"93dd34b605cd6775-1" = "system"
+"b894a7c4f93e4e92-1" = "system"
 "6a6234b63cd3d0ae-1" = "collection"
 "396490664ce459e9-1" = "project"
 "d9ff84abeb97d380-1" = "collection"
@@ -275,7 +275,7 @@ version = 2
 "399c370c70523428-1" = "collection"
 "7d33d72cc96df65b-1" = "collection"
 "2695777473e3a217-2" = "project"
-"93dd34b605cd6775-2" = "system"
+"b894a7c4f93e4e92-2" = "system"
 "46fe9d81940ea385-1" = "collection"
 "396490664ce459e9-2" = "project"
 "201988374bff6d14-1" = "collection"
@@ -348,7 +348,7 @@ version = 2
 "fab7ffa7e26bc3e5-1" = "ubuntu"
 "2695777473e3a217-1" = "ubuntu"
 "16f996904f0eaa96-1" = "ubuntu"
-"93dd34b605cd6775-1" = "ubuntu"
+"b894a7c4f93e4e92-1" = "ubuntu"
 "6a6234b63cd3d0ae-1" = "ubuntu"
 "396490664ce459e9-1" = "ubuntu"
 "d9ff84abeb97d380-1" = "ubuntu"
@@ -356,7 +356,7 @@ version = 2
 "399c370c70523428-1" = "ubuntu"
 "7d33d72cc96df65b-1" = "ubuntu"
 "2695777473e3a217-2" = "ubuntu"
-"93dd34b605cd6775-2" = "ubuntu"
+"b894a7c4f93e4e92-2" = "ubuntu"
 "46fe9d81940ea385-1" = "ubuntu"
 "396490664ce459e9-2" = "ubuntu"
 "201988374bff6d14-1" = "ubuntu"

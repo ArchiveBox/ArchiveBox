@@ -4,20 +4,20 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from abx_dl.events import PROCESS_EXIT_SKIPPED
 from django.conf import settings
+from django.db import DatabaseError
 from django.db.models import CharField, Count, Q, Sum
 from django.db.models.functions import Cast
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
-from abx_dl.events import PROCESS_EXIT_SKIPPED
-
 from archivebox.config import CONSTANTS
 from archivebox.config.common import get_config
-from archivebox.core.routes_util import build_snapshot_url, build_web_url, get_api_base_url
 from archivebox.core.permissions import can_view_snapshot, is_admin_user
-from archivebox.plugins.discovery import discover_plugin_configs
+from archivebox.core.routes_util import build_snapshot_url, build_web_url, get_api_base_url
 from archivebox.misc.logging_util import printable_filesize
+from archivebox.plugins.discovery import discover_plugin_configs
 
 
 def progress_endpoint(scope: Literal["crawl", "snapshot"] | None = None, object_id: object | None = None) -> str:
@@ -42,9 +42,9 @@ def _live_progress_plugin_names() -> tuple[frozenset[str], frozenset[str]]:
 def live_progress_view(request):
     """Simple JSON endpoint for live progress status - used by admin progress monitor."""
     try:
+        from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot, ArchiveResult
-        from archivebox.machine.models import Process, Machine
+        from archivebox.machine.models import Machine, Process
 
         snapshot_id_filter = (request.GET.get("snapshot_id") or "").strip().replace("-", "")
         crawl_id_filter = (request.GET.get("crawl_id") or "").strip().replace("-", "")
@@ -251,7 +251,7 @@ def live_progress_view(request):
 
                 supervisor = get_existing_supervisord_process(quiet=True)
                 runner_worker = get_worker(supervisor, "worker_runner") if supervisor else None
-            except Exception:
+            except (OSError, RuntimeError, TimeoutError):
                 runner_worker = None
 
         runner_worker_running = bool(runner_worker and runner_worker.get("statename") in ("STARTING", "RUNNING"))
@@ -517,14 +517,14 @@ def live_progress_view(request):
 
         def find_snapshot_for_process(proc_pwd: Path) -> Snapshot | None:
             for path_part in reversed(proc_pwd.parts):
-                snapshot = snapshots_by_id.get(path_part)
+                snapshot = snapshots_by_id.get(path_part.replace("-", ""))
                 if snapshot:
                     return snapshot
             return None
 
         def find_crawl_for_process(proc_pwd: Path) -> Crawl | None:
             for path_part in reversed(proc_pwd.parts):
-                crawl = crawls_by_id.get(path_part)
+                crawl = crawls_by_id.get(path_part.replace("-", ""))
                 if crawl:
                     return crawl
             return None
@@ -938,7 +938,7 @@ def live_progress_view(request):
             return HttpResponse(ujson.dumps(payload), content_type="application/json")
         except ImportError:
             return JsonResponse(payload)
-    except Exception as e:
+    except (DatabaseError, OSError, RuntimeError, TypeError, ValueError) as e:
         error_payload = {
             "error": str(e),
             "orchestrator_running": False,

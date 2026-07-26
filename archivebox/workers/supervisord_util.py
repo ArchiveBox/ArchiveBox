@@ -1,23 +1,24 @@
 __package__ = "archivebox.workers"
 
-import sys
-import time
-import socket
-import os
 import csv
 import json
-import psutil
-import shutil
-import subprocess
+import os
 import shlex
+import shutil
 import signal
-
-from typing import cast
-from pathlib import Path
+import socket
+import subprocess
+import sys
+import time
 from functools import cache
-
-from supervisor.xmlrpc import SupervisorTransport
+from pathlib import Path
+from typing import cast
+from xmlrpc.client import Error as XmlRpcError
 from xmlrpc.client import Fault, ServerProxy
+
+import psutil
+from django.db import DatabaseError
+from supervisor.xmlrpc import SupervisorTransport
 
 from archivebox.config import CONSTANTS
 from archivebox.config.common import rprint as print
@@ -42,21 +43,25 @@ _supervisord_proc = None
 _desired_supervisord_workers: dict[str, dict[str, str]] = {}
 _ACTIVE_WORKER_STATES = {"STARTING", "RUNNING", "BACKOFF"}
 _RUNTIME_COMPONENT_ORDER = ("orchestrator", "server", "sonic")
+_SUPERVISORD_ERRORS = (XmlRpcError, OSError, RuntimeError, TimeoutError)
+_PROCESS_STATE_ERRORS = (DatabaseError, OSError, RuntimeError, ValueError, psutil.Error)
 
 
 def _shell_join(args: list[str]) -> str:
     return shlex.join(args)
 
 
+def _warn_background_cleanup(context: str, err: BaseException) -> None:
+    STDERR.print(f"[yellow][!] {context}: {err!s}[/yellow]")
+
+
 def archivebox_cmd(*args: str) -> list[str]:
-    executable = Path(sys.argv[0]).resolve() if sys.argv and sys.argv[0] else None
-    if executable and executable.name == "archivebox" and executable.is_file() and os.access(executable, os.X_OK):
-        return [str(executable), *args]
-    return [sys.executable, "-m", "archivebox", *args]
+    return [str(resolve_env_binary("archivebox")), *args]
 
 
 def resolve_env_binary(name: str) -> Path:
     from abxpkg import EnvProvider
+
     from archivebox.config.common import get_config
 
     lib_dir = Path(os.environ.get("ABXPKG_LIB_DIR") or get_config().ABXPKG_LIB_DIR)
@@ -79,7 +84,9 @@ def resolve_env_binary(name: str) -> Path:
 def _record_supervisord_process(proc: subprocess.Popen, config_file: Path, supervisord_binary: Path) -> None:
     try:
         from datetime import datetime
+
         from django.utils import timezone
+
         from archivebox.machine.models import Machine, Process
 
         try:
@@ -99,8 +106,8 @@ def _record_supervisord_process(proc: subprocess.Popen, config_file: Path, super
             status=Process.StatusChoices.RUNNING,
             timeout=CONSTANTS.MAX_HOOK_RUNTIME_SECONDS,
         )
-    except Exception:
-        pass
+    except _PROCESS_STATE_ERRORS as err:
+        _warn_background_cleanup("Could not record supervisord process", err)
 
 
 def _fallback_supervisord_process_from_db():
@@ -117,7 +124,7 @@ def _fallback_supervisord_process_from_db():
             if proc is not None:
                 return proc
             process.mark_exited(exit_code=0)
-    except Exception:
+    except _PROCESS_STATE_ERRORS:
         return None
     return None
 
@@ -149,7 +156,7 @@ def _live_supervisord_processes_from_db():
             else:
                 process.mark_exited(exit_code=0)
         return live
-    except Exception:
+    except _PROCESS_STATE_ERRORS:
         return []
 
 
@@ -461,7 +468,7 @@ def _current_foreground_supervisord_process_id():
         ).iterator(chunk_size=10):
             if process.is_running:
                 return process.id
-    except Exception:
+    except _PROCESS_STATE_ERRORS:
         return None
     return None
 
@@ -503,14 +510,14 @@ def sync_supervisord_workers(supervisor, workers: list[tuple[dict[str, str], boo
     for group in removed:
         try:
             supervisor.stopProcessGroup(group)
-        except Exception:
-            pass
+        except _SUPERVISORD_ERRORS as err:
+            _warn_background_cleanup(f"Could not stop removed supervisord group {group}", err)
         supervisor.removeProcessGroup(group)
     for group in changed:
         try:
             supervisor.stopProcessGroup(group)
-        except Exception:
-            pass
+        except _SUPERVISORD_ERRORS as err:
+            _warn_background_cleanup(f"Could not stop changed supervisord group {group}", err)
         supervisor.removeProcessGroup(group)
         supervisor.addProcessGroup(group)
     for group in added:
@@ -548,7 +555,7 @@ def sync_supervisord_workers(supervisor, workers: list[tuple[dict[str, str], boo
             procs_by_name[worker_name] = proc
             break
         else:
-            raise Exception(f"Failed to sync worker {worker_name}! Only found: {supervisor.getAllProcessInfo()}")
+            raise RuntimeError(f"Failed to sync worker {worker_name}! Only found: {supervisor.getAllProcessInfo()}")
 
     return procs_by_name
 
@@ -575,11 +582,11 @@ def get_existing_supervisord_process(*, quiet: bool = False):
                 print(f"[🦸‍♂️] Supervisord is already shutting down via unix://{pretty_path(SOCK_FILE)}.")
             return None
         if not quiet:
-            print(f"Error connecting to existing supervisord: {str(err)}")
+            print(f"Error connecting to existing supervisord: {err!s}")
         return None
-    except Exception as e:
+    except _SUPERVISORD_ERRORS as e:
         if not quiet:
-            print(f"Error connecting to existing supervisord: {str(e)}")
+            print(f"Error connecting to existing supervisord: {e!s}")
         return None
 
 
@@ -598,7 +605,7 @@ class SupervisordConnectionCache:
             try:
                 self.supervisor.getPID()
                 return self.supervisor
-            except Exception:
+            except _SUPERVISORD_ERRORS:
                 self.supervisor = None
 
         supervisor = get_existing_supervisord_process(quiet=self.quiet)
@@ -648,7 +655,7 @@ def stop_existing_supervisord_process():
     if supervisor is not None:
         try:
             supervisor_pid = supervisor.getPID()
-        except Exception:
+        except _SUPERVISORD_ERRORS:
             supervisor_pid = None
         # Ask supervisord to stop each worker first so child shutdown follows
         # each worker's own stopasgroup/killasgroup/stopwaitsecs settings. The
@@ -664,9 +671,9 @@ def stop_existing_supervisord_process():
                     time.sleep(0.2)
         except Fault as err:
             if err.faultCode != 6 or "SHUTDOWN_STATE" not in str(err):
-                print(f"Error stopping supervisord workers: {str(err)}")
-        except Exception as err:
-            print(f"Error stopping supervisord workers: {str(err)}")
+                print(f"Error stopping supervisord workers: {err!s}")
+        except _SUPERVISORD_ERRORS as err:
+            print(f"Error stopping supervisord workers: {err!s}")
 
         try:
             supervisor.shutdown()
@@ -675,8 +682,8 @@ def stop_existing_supervisord_process():
             if err.faultCode == 6 and "SHUTDOWN_STATE" in str(err):
                 supervisor_shutdown_requested = True
             else:
-                print(f"Error shutting down supervisord: {str(err)}")
-        except Exception:
+                print(f"Error shutting down supervisord: {err!s}")
+        except _SUPERVISORD_ERRORS:
             supervisor_shutdown_requested = True
 
     try:
@@ -733,8 +740,8 @@ def stop_existing_supervisord_process():
             # clear PID file and socket file
             PID_FILE.unlink(missing_ok=True)
             get_sock_file().unlink(missing_ok=True)
-        except BaseException:
-            pass
+        except OSError as err:
+            _warn_background_cleanup("Could not clear supervisord pid/socket files", err)
 
 
 def stop_own_supervisord_process(*, record_exit: bool = True):
@@ -780,8 +787,8 @@ def stop_own_supervisord_process(*, record_exit: bool = True):
                     pid=stopped_pid,
                 ).iterator(chunk_size=10):
                     process.mark_exited(exit_code=0)
-            except Exception:
-                pass
+            except _PROCESS_STATE_ERRORS as err:
+                _warn_background_cleanup("Could not mark supervisord process exited", err)
     except (BrokenPipeError, OSError, psutil.TimeoutExpired):
         pass
     finally:
@@ -791,8 +798,8 @@ def stop_own_supervisord_process(*, record_exit: bool = True):
             if PID_FILE.exists() and PID_FILE.read_text().strip() == str(stopped_pid):
                 PID_FILE.unlink(missing_ok=True)
                 SOCK_FILE.unlink(missing_ok=True)
-        except Exception:
-            pass
+        except (OSError, RuntimeError, ValueError) as err:
+            _warn_background_cleanup("Could not clear owned supervisord pid/socket files", err)
         _supervisord_proc = None
     return True
 
@@ -835,24 +842,24 @@ def start_new_supervisord_process(daemonize=False):
 
     # Open log file for supervisord output
     LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    log_handle = open(LOG_FILE, "a")
     supervisord_binary = resolve_env_binary("supervisord")
 
-    if daemonize:
-        # Start supervisord in background (daemon mode)
-        proc = subprocess.Popen(
-            [str(supervisord_binary), f"--configuration={CONFIG_FILE}"],
-            stdin=None,
-            stdout=log_handle,
-            stderr=log_handle,
-            start_new_session=True,
-        )
-        current_started_at = psutil.Process(proc.pid).create_time()
-        _record_supervisord_process(proc, CONFIG_FILE, supervisord_binary)
-        supervisor = wait_for_supervisord_ready()
-        _stop_older_supervisord_processes(current_pid=proc.pid, current_started_at=current_started_at, timeout=stop_grace_seconds)
-        return supervisor
-    else:
+    with open(LOG_FILE, "a") as log_handle:
+        if daemonize:
+            # Start supervisord in background (daemon mode)
+            proc = subprocess.Popen(
+                [str(supervisord_binary), f"--configuration={CONFIG_FILE}"],
+                stdin=None,
+                stdout=log_handle,
+                stderr=log_handle,
+                start_new_session=True,
+            )
+            current_started_at = psutil.Process(proc.pid).create_time()
+            _record_supervisord_process(proc, CONFIG_FILE, supervisord_binary)
+            supervisor = wait_for_supervisord_ready()
+            _stop_older_supervisord_processes(current_pid=proc.pid, current_started_at=current_started_at, timeout=stop_grace_seconds)
+            return supervisor
+
         # Keep supervisord foreground-owned by this process, but isolate it
         # from terminal Ctrl+C. The ArchiveBox parent owns user-facing server
         # signals and stops supervisord explicitly, so Ctrl+C does not also
@@ -997,8 +1004,8 @@ def run_runner_worker(
 def get_worker(supervisor, daemon_name):
     try:
         return supervisor.getProcessInfo(daemon_name)
-    except Exception:
-        pass
+    except _SUPERVISORD_ERRORS as err:
+        _warn_background_cleanup(f"Could not get supervisord worker {daemon_name}", err)
     return None
 
 
@@ -1029,7 +1036,7 @@ def active_supervisord_runtime_components(*, config=None, supervisor=None) -> li
         return []
     try:
         worker_names = {proc.get("name") for proc in supervisor.getAllProcessInfo() if proc.get("statename") in _ACTIVE_WORKER_STATES}
-    except Exception:
+    except _SUPERVISORD_ERRORS:
         return []
     return runtime_components_for_worker_names({str(name) for name in worker_names if name}, config=config)
 
@@ -1055,7 +1062,7 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
         try:
             current_sonic = get_worker(supervisor, sonic_worker["name"]) if supervisor is not None else None
             supervisor_pid = supervisor.getPID() if supervisor is not None else None
-        except Exception:
+        except _SUPERVISORD_ERRORS:
             current_sonic = None
             supervisor_pid = None
         sonic_host = str(config.SEARCH_BACKEND_SONIC_HOST_NAME or "127.0.0.1")
@@ -1099,7 +1106,7 @@ def stop_worker(supervisor, daemon_name):
         time.sleep(0.5)
         proc = get_worker(supervisor, daemon_name)
 
-    raise Exception(f"Failed to stop worker {daemon_name}!")
+    raise RuntimeError(f"Failed to stop worker {daemon_name}!")
 
 
 def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep_running=None):
@@ -1131,13 +1138,13 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
     file_handles = []
     for log_path in log_paths:
         try:
-            f = open(log_path)
+            f = log_path.open()
             # Seek to end - only show NEW logs from now on, not old logs
             f.seek(0, 2)  # Go to end
 
             file_handles.append((log_path, f))
             print(f"    [tailing {log_path.name}]")
-        except Exception as e:
+        except OSError as e:
             sys.stderr.write(f"Warning: Could not open {log_path}: {e}\n")
 
     if not file_handles:
@@ -1183,8 +1190,8 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
         for _, f in file_handles:
             try:
                 f.close()
-            except Exception:
-                pass
+            except OSError as err:
+                _warn_background_cleanup("Could not close worker log file", err)
     return "stopped"
 
 
@@ -1396,7 +1403,6 @@ def start_server_workers(
         except SystemExit:
             if daemonize:
                 raise
-            pass
         except BaseException as e:
             if daemonize:
                 raise
