@@ -1591,12 +1591,13 @@ def resolve_abxpkg_binary_env(
     env: dict[str, str] | None = None,
     deps_from: Path | list[Path] | tuple[Path, ...] | None = None,
 ) -> dict[str, str]:
-    """Resolve already-available test dependencies through abxpkg."""
+    """Resolve required test dependencies through abxpkg's normal install path."""
     command_env = dict(env) if env is not None else os.environ.copy()
     command_env["ABXPKG_LIB_DIR"] = str(lib_dir)
     command = [
         str(Path(sys.executable).with_name("abxpkg")),
         "env",
+        "--install",
         "--json",
         f"--lib={lib_dir}",
     ]
