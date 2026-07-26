@@ -743,7 +743,7 @@ def live_progress_view(request):
                     seen_plugin_keys.add(str(process.id) if process else f"{ar.plugin}:{hook_name}")
 
                 for proc_payload, proc_started_at in process_records_by_snapshot.get(str(snapshot["id"]), []):
-                    if not is_current_run_timestamp(proc_started_at, snapshot.get("created_at")):
+                    if not is_current_run_timestamp(proc_started_at, snapshot_run_started_at):
                         continue
                     proc_key = str(proc_payload.get("process_id") or f"{proc_payload.get('plugin')}:{proc_payload.get('hook_name')}")
                     if proc_key in seen_plugin_keys:
