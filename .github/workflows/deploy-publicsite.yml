@@ -46,6 +46,7 @@ jobs:
       - name: Setup Python and uv
         uses: astral-sh/setup-uv@v6
         with:
+          manifest-file: .github/uv-manifest.ndjson
           enable-cache: true
 
       - name: Install ArchiveBox and screenshot dependencies
