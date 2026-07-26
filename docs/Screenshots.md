@@ -541,7 +541,7 @@ View: [`/#defuddle`](http://snap-f9864c2b39b4.archivebox.localhost:9292#defuddle
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/54-snapshot-view-defuddle-desktop.png?v=ca9a2bef8e63" alt="Snapshot View (defuddle) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/54-snapshot-view-defuddle-tablet.png?v=cfa00139ef74" alt="Snapshot View (defuddle) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/54-snapshot-view-defuddle-mobile.png?v=619982c774d6" alt="Snapshot View (defuddle) — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/54-snapshot-view-defuddle-desktop.png?v=890389a6022f" alt="Snapshot View (defuddle) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/54-snapshot-view-defuddle-tablet.png?v=4e68ffdec070" alt="Snapshot View (defuddle) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/54-snapshot-view-defuddle-mobile.png?v=d8cd40f58043" alt="Snapshot View (defuddle) — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot View (mercury)

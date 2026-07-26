@@ -531,6 +531,14 @@ def _rewrite_html_image_sources_for_request(
     )
 
 
+def _set_transformed_response_headers(response, fullpath: Path, statobj: os.stat_result, encoding: str | None, config) -> None:
+    response.headers["Last-Modified"] = http_date(statobj.st_mtime)
+    response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
+    response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
+    if encoding:
+        response.headers["Content-Encoding"] = encoding
+
+
 def _render_markdown_fallback(text: str) -> str:
     if _markdown is not None and not HTML_TAG_RE.search(text):
         try:
@@ -871,15 +879,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 decoded = fullpath.read_text(encoding="utf-8", errors="replace")
                 wrapped = _render_text_preview_document(decoded, fullpath.name)
                 response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-                response.headers["Last-Modified"] = http_date(statobj.st_mtime)
-                if etag:
-                    response.headers["ETag"] = etag
-                    response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
-                else:
-                    response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
-                response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
-                if encoding:
-                    response.headers["Content-Encoding"] = encoding
+                _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                 return _apply_archive_replay_headers(
                     response,
                     fullpath=fullpath,
@@ -899,15 +899,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 raw_image_url = f"{raw_image_url}?{urlencode(list(preview_query.lists()), doseq=True)}"
             wrapped = _render_image_preview_document(raw_image_url, fullpath.name)
             response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-            response.headers["Last-Modified"] = http_date(statobj.st_mtime)
-            if etag:
-                response.headers["ETag"] = etag
-                response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
-            else:
-                response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
-            response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
-            if encoding:
-                response.headers["Content-Encoding"] = encoding
+            _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
             return _apply_archive_replay_headers(
                 response,
                 fullpath=fullpath,
@@ -972,15 +964,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     wrapped = _render_markdown_document(markdown_candidate)
                     wrapped, _rewrite_count = _rewrite_html_image_sources_for_request(request, wrapped, document_root, rel_path)
                     response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-                    response.headers["Last-Modified"] = http_date(statobj.st_mtime)
-                    if etag:
-                        response.headers["ETag"] = etag
-                        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
-                    else:
-                        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
-                    response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
-                    if encoding:
-                        response.headers["Content-Encoding"] = encoding
+                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
@@ -990,15 +974,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     )
                 if rewritten_count:
                     response = HttpResponse(rewritten_html, content_type=content_type)
-                    response.headers["Last-Modified"] = http_date(statobj.st_mtime)
-                    if etag:
-                        response.headers["ETag"] = etag
-                        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
-                    else:
-                        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
-                    response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
-                    if encoding:
-                        response.headers["Content-Encoding"] = encoding
+                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
@@ -1008,15 +984,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     )
                 if escaped_count and escaped_count > tag_count * 2:
                     response = HttpResponse(decoded, content_type=content_type)
-                    response.headers["Last-Modified"] = http_date(statobj.st_mtime)
-                    if etag:
-                        response.headers["ETag"] = etag
-                        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
-                    else:
-                        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
-                    response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
-                    if encoding:
-                        response.headers["Content-Encoding"] = encoding
+                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,

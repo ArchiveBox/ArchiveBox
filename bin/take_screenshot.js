@@ -112,6 +112,7 @@ async function main() {
     // admin requests and overwhelm the server being documented.
     const restoredPages = await browser.pages();
     const page = await browser.newPage();
+    await page.setCacheEnabled(false);
     await Promise.all(restoredPages.map((restoredPage) => restoredPage.close()));
     page.setDefaultTimeout(45000);
 
@@ -189,6 +190,21 @@ async function main() {
           && frame.getAttribute('src')
           && frame.getAttribute('src') !== 'about:blank';
       }, { timeout: 45000 }, expectedPlugin);
+      await page.waitForFunction(() => {
+        const frames = [document.querySelector('#main-frame'), document.querySelector('.thumb-card.selected-card iframe')]
+          .filter(Boolean);
+        if (!frames.length) return true;
+        return frames.every((frame) => {
+          try {
+            const doc = frame.contentDocument || frame.contentWindow?.document;
+            if (!doc || doc.readyState === 'loading') return false;
+            const images = Array.from(doc.images || []);
+            return images.every((img) => img.complete && (img.naturalWidth > 0 || img.currentSrc.startsWith('data:')));
+          } catch (err) {
+            return true;
+          }
+        });
+      }, { timeout: 45000, polling: 250 }).catch(() => {});
     }
 
     if (process.env.SCREENSHOT_EXPECT_LIVE_PROGRESS === '1') {

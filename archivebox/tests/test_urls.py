@@ -27,7 +27,7 @@ def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
     rewritten, count = _rewrite_html_image_sources_to_responses(
         '<img src="images/twitter.png"><img src="https://a.sweeting.me/matomo.php?idsite=1&rec=1">',
         tmp_path,
-        "defuddle/content.html",
+        "extractor/content.html",
         "https://sweeting.me/",
     )
 
@@ -44,6 +44,52 @@ def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
 
     assert root_count == 1
     assert 'src="responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in rewritten_root
+
+
+def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(tmp_path):
+    from django.test import RequestFactory
+
+    from archivebox.misc.serve_static import serve_static_with_byterange_support
+
+    responses_dir = tmp_path / "responses" / "all"
+    responses_dir.mkdir(parents=True)
+    (responses_dir / "20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png").write_bytes(b"png")
+
+    html_path = tmp_path / "extractor" / "content.html"
+    html_path.parent.mkdir()
+    html_path.write_text('<img src="images/twitter.png">', encoding="utf-8")
+
+    request = RequestFactory().get("/web/20260722/sweeting.me/snapshot/extractor/content.html")
+    request.archivebox_snapshot_url = "https://sweeting.me/"
+
+    response = serve_static_with_byterange_support(request, "extractor/content.html", document_root=tmp_path)
+
+    assert response.status_code == 200
+    assert "ETag" not in response.headers
+    assert "max-age=60" in response.headers["Cache-Control"]
+    assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
+
+    text_path = tmp_path / "article" / "content.txt"
+    text_path.parent.mkdir()
+    text_path.write_text(
+        "# Title\n\n"
+        "![Twitter](images/twitter.png)\n\n"
+        "- One\n"
+        "- Two\n"
+        "- Three\n"
+        "[A](https://example.com) [B](https://example.com/b) [C](https://example.com/c)\n",
+        encoding="utf-8",
+    )
+
+    request = RequestFactory().get("/web/20260722/sweeting.me/snapshot/article/content.txt")
+    request.archivebox_snapshot_url = "https://sweeting.me/"
+
+    response = serve_static_with_byterange_support(request, "article/content.txt", document_root=tmp_path)
+
+    assert response.status_code == 200
+    assert "ETag" not in response.headers
+    assert "max-age=60" in response.headers["Cache-Control"]
+    assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
 
 
 @pytest.fixture
