@@ -78,6 +78,16 @@ def test_core_api_workflow_uses_token_auth_and_persists_side_effects_over_server
         assert crawl_payload["tags_str"] == "api-depth-two"
         assert crawl_payload["config"]["PLUGINS"] == "wget,parse_html_urls"
         assert crawl_payload["config"]["CRAWL_MAX_URLS"] == 7
+        pause_crawl = live_api_request(
+            port,
+            "patch",
+            f"/api/v1/crawls/crawl/{crawl_id}",
+            api_token=api_token,
+            json={"action": "pause"},
+            timeout=10,
+        )
+        assert pause_crawl.status_code == 200, pause_crawl.text
+        assert pause_crawl.json()["status"] == "paused"
 
         snapshot_response = live_api_request(
             port,
