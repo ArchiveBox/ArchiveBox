@@ -32,7 +32,7 @@ jobs:
         run: uv lock --check
 
       - name: Install dependencies with uv
-        run: uv sync --locked --dev --extra sonic --extra debug
+        run: uv sync --no-cache --locked --dev --extra sonic --extra debug
 
       - name: Run prek
-        run: uv run --no-sync --no-sources prek run --all-files
+        run: uv run --no-cache --no-sync --no-sources prek run --all-files

@@ -39,7 +39,7 @@ jobs:
           [[ "${#wheels[@]}" -eq 1 ]]
           [[ "${#sdists[@]}" -eq 1 ]]
           printf '%s\n' "$GITHUB_SHA" > dist/COMMIT_SHA
-          uv run --no-project python - <<'PY'
+          uv run --no-cache --no-project python - <<'PY'
           import hashlib
           from pathlib import Path
 
@@ -124,7 +124,7 @@ jobs:
           dependency_artifacts=()
           while IFS= read -r dependency_artifact; do
             dependency_artifacts+=("$dependency_artifact")
-          done < <(uv run --no-project python - <<'PY'
+          done < <(uv run --no-cache --no-project python - <<'PY'
           import tomllib
 
           locked = {
@@ -141,7 +141,7 @@ jobs:
           )
 
           uv venv --python "${{ matrix.python }}" "$smoke_env"
-          uv pip install \
+          uv pip install --no-cache \
             --python "$smoke_env" \
             --no-cache \
             "${dependency_artifacts[@]}" \
@@ -149,7 +149,7 @@ jobs:
 
           unset PYTHONPATH
           cd "$data_dir"
-          VIRTUAL_ENV="$smoke_env" uv run --active --no-project --no-sync python - <<'PY'
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync python - <<'PY'
           import os
           from pathlib import Path
 
@@ -162,6 +162,6 @@ jobs:
           assert not installed_path.is_relative_to(workspace_path), (installed_path, workspace_path)
           print(installed_path)
           PY
-          VIRTUAL_ENV="$smoke_env" uv run --active --no-project --no-sync archivebox version
-          VIRTUAL_ENV="$smoke_env" uv run --active --no-project --no-sync archivebox init
-          VIRTUAL_ENV="$smoke_env" uv run --active --no-project --no-sync archivebox status
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox version
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox init
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox status

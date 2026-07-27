@@ -55,7 +55,7 @@ jobs:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          ABXPKG_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
           test -n "$ABXPKG_VERSION"
           mkdir -p "$LIB_DIR/env/bin"
           {
@@ -73,7 +73,7 @@ jobs:
           set -Eeuo pipefail
           export PATH="$LIB_DIR/env/bin:$PATH"
           tooling_env="$(
-            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
               --install \
               --json \
               --lib="$LIB_DIR" \
@@ -93,7 +93,7 @@ jobs:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -Eeuo pipefail
-          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
             --install \
             --no-cache \
             --json \
@@ -108,7 +108,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           brew_env="$(
-            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
               --install \
               --json \
               --lib="$LIB_DIR" \
@@ -130,14 +130,14 @@ jobs:
           brew_root="$(dirname "$(dirname "$brew_target")")"
           export ABXPKG_BREW_ROOT="$brew_root"
 
-          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
             --install \
             --json \
             --lib="$LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-macos-build.json:required_binaries"
 
           PATH="$brew_root/opt/openldap/bin:$PATH" \
-            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
               --install \
               --json \
               --lib="$LIB_DIR" \
@@ -166,14 +166,14 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Install dependencies with uv
-        run: uv sync --locked --dev --all-extras
+        run: uv sync --no-cache --locked --dev --all-extras
 
       - name: ArchiveBox full install check
         run: |
           set -Eeuo pipefail
           DATA_DIR="$PWD/tests/out/data"
           mkdir -p "$DATA_DIR"
-          uv run --directory "$DATA_DIR" --no-sync --no-sources archivebox init
-          uv run --directory "$DATA_DIR" --no-sync --no-sources archivebox install
-          uv run --directory "$DATA_DIR" --no-sync --no-sources archivebox version
-          uv run --directory "$DATA_DIR" --no-sync --no-sources archivebox status
+          uv run --no-cache --directory "$DATA_DIR" --no-sync --no-sources archivebox init
+          uv run --no-cache --directory "$DATA_DIR" --no-sync --no-sources archivebox install
+          uv run --no-cache --directory "$DATA_DIR" --no-sync --no-sources archivebox version
+          uv run --no-cache --directory "$DATA_DIR" --no-sync --no-sources archivebox status

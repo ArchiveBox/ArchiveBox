@@ -58,7 +58,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-project python - <<'PY'
+          ABXPKG_VERSION="$(uv run --no-cache --no-project python - <<'PY'
           import tomllib
           from pathlib import Path
 
@@ -77,7 +77,7 @@ jobs:
           echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
 
           docker_env="$(
-            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
               --install \
               --json \
               --lib="$ABXPKG_LIB_DIR" \
@@ -118,7 +118,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ABX_DL_VERSION="$("$UV_BINARY" run --no-project python - <<'PY'
+          ABX_DL_VERSION="$("$UV_BINARY" run --no-cache --no-project python - <<'PY'
           import tomllib
           from pathlib import Path
 
@@ -133,7 +133,7 @@ jobs:
           ABX_DL_REFERENCE="${ABX_DL_IMAGE:-archivebox/abx-dl:${ABX_DL_VERSION}}"
           INSPECT_OUTPUT="$("$DOCKER_BINARY" buildx imagetools inspect "$ABX_DL_REFERENCE")"
           printf '%s\n' "$INSPECT_OUTPUT"
-          ABX_DL_DIGEST="$(INSPECT_OUTPUT="$INSPECT_OUTPUT" "$UV_BINARY" run --no-project python - <<'PY'
+          ABX_DL_DIGEST="$(INSPECT_OUTPUT="$INSPECT_OUTPUT" "$UV_BINARY" run --no-cache --no-project python - <<'PY'
           import os
 
           digest = next(
@@ -167,7 +167,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          VERSION="$("$UV_BINARY" run --no-project python - <<'PY'
+          VERSION="$("$UV_BINARY" run --no-cache --no-project python - <<'PY'
           import tomllib
           from pathlib import Path
 
@@ -245,7 +245,7 @@ jobs:
           "$DOCKER_BINARY" run --rm --platform '${{ matrix.platform }}' -v "$DATA_DIR":/data "$IMAGE" archivebox status
           IMAGE_VERSION_OUTPUT="$("$DOCKER_BINARY" run --rm --platform '${{ matrix.platform }}' --entrypoint cat "$IMAGE" /VERSION.txt)"
           ARCHIVEBOX_VERSION_OUTPUT="$ARCHIVEBOX_VERSION_OUTPUT" IMAGE_VERSION_OUTPUT="$IMAGE_VERSION_OUTPUT" \
-            "$UV_BINARY" run --no-project python - \
+            "$UV_BINARY" run --no-cache --no-project python - \
             "ArchiveBox v${{ steps.docker_meta.outputs.version }}" \
             "COMMIT_HASH=${SHORT_SHA}" \
             "COMMIT_HASH=${GITHUB_SHA}" <<'PY'
@@ -268,7 +268,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           mount_env="$(
-            uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
               --install \
               --json \
               --lib="$ABXPKG_LIB_DIR" \
@@ -380,7 +380,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           LOCAL_IMAGE_ID="$("$DOCKER_BINARY" image inspect '${{ matrix.local_tag }}' --format '{{.Id}}')"
-          "$UV_BINARY" run --no-project python - \
+          "$UV_BINARY" run --no-cache --no-project python - \
             '${{ runner.temp }}/archivebox-image.tar' \
             '${{ steps.docker_build.outputs.digest }}' \
             "$LOCAL_IMAGE_ID" \

@@ -32,14 +32,14 @@ jobs:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -Eeuo pipefail
-          uv sync --locked --no-sources --no-install-project
-          OPENCODE_CONFIG="$(uv run --no-sync --no-sources python -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir() / "opencode" / "config.json")')"
+          uv sync --no-cache --locked --no-sources --no-install-project
+          OPENCODE_CONFIG="$(uv run --no-cache --no-sync --no-sources python -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir() / "opencode" / "config.json")')"
           mkdir -p "$ABXPKG_LIB_DIR/env/bin"
           export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
           echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
           echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
           opencode_env="$(
-            uv run --no-sync --no-sources abxpkg env \
+            uv run --no-cache --no-sync --no-sources abxpkg env \
               --install \
               --json \
               --lib="$ABXPKG_LIB_DIR" \

@@ -16,7 +16,7 @@ mkdir -p "$ABXPKG_LIB_DIR/env/bin"
 
 resolve_docs_binary() {
     local binary_name="$1"
-    uv run --project "$REPO_DIR" --no-sync --no-sources abxpkg env \
+    uv run --no-cache --project "$REPO_DIR" --no-sync --no-sources abxpkg env \
         --install \
         --lib="$ABXPKG_LIB_DIR" \
         --binproviders=env,apt,brew \

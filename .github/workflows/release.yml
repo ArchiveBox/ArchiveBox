@@ -55,9 +55,9 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          ABXPKG_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
           mkdir -p "$ABXPKG_LIB_DIR/env/bin"
-          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env --install \
+          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env --install \
             --lib="$ABXPKG_LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" >/dev/null
           for name in uv gh git jq curl; do
@@ -86,7 +86,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          VERSION="$($UV_BINARY run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          VERSION="$($UV_BINARY run --no-cache --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -123,9 +123,9 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          ABXPKG_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
           mkdir -p "$ABXPKG_LIB_DIR/env/bin"
-          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env --install \
+          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env --install \
             --lib="$ABXPKG_LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries" >/dev/null
@@ -170,7 +170,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          mapfile -t DIGESTS < <($UV_BINARY run --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
+          mapfile -t DIGESTS < <($UV_BINARY run --no-cache --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
           [[ "${#DIGESTS[@]}" -eq 2 ]]
           for digest in "${DIGESTS[@]}"; do [[ "$digest" =~ ^[0-9a-f]{64}$ ]]; done
 
@@ -199,7 +199,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          mapfile -t DIGESTS < <($UV_BINARY run --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
+          mapfile -t DIGESTS < <($UV_BINARY run --no-cache --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
           TAG_ARGS=()
           while IFS= read -r tag; do [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag"); done <<< '${{ steps.docker_meta.outputs.dockerhub_tags }}'
           REFS=()
@@ -210,7 +210,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          mapfile -t DIGESTS < <($UV_BINARY run --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
+          mapfile -t DIGESTS < <($UV_BINARY run --no-cache --no-project python -c 'from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file())))')
           TAG_ARGS=()
           while IFS= read -r tag; do [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag"); done <<< '${{ steps.docker_meta.outputs.ghcr_tags }}'
           REFS=()

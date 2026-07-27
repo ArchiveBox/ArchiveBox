@@ -5,6 +5,12 @@
     },
     "LDAPSEARCH_BINARY": {
       "default": "ldapsearch"
+    },
+    "INITDB_BINARY": {
+      "default": "initdb"
+    },
+    "PG_CTL_BINARY": {
+      "default": "pg_ctl"
     }
   },
   "required_binaries": [
@@ -43,6 +49,30 @@
           "version": [
             "ldapsearch",
             "-VV"
+          ]
+        }
+      }
+    }
+  ],
+  "postgres_binaries": [
+    {
+      "name": "{INITDB_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "postgresql"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{PG_CTL_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "postgresql"
           ]
         }
       }

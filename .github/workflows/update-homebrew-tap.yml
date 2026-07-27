@@ -54,7 +54,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-project python - <<'PY'
+          ABXPKG_VERSION="$(uv run --no-cache --no-project python - <<'PY'
           import tomllib
           from pathlib import Path
 
@@ -69,7 +69,7 @@ jobs:
           mkdir -p "$ABXPKG_LIB_DIR/env/bin"
           echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
 
-          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
             --install \
             --lib="$ABXPKG_LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:release_binaries" \
@@ -101,9 +101,9 @@ jobs:
           [[ "$RELEASE_TAG" == v* ]]
           VERSION="${RELEASE_TAG#v}"
 
-          TAG_TARGET="$("$GIT_BINARY" ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${RELEASE_TAG}^{}" | "$UV_BINARY" run --no-project python -c 'import sys; print(next((line.split()[0] for line in sys.stdin if line.strip()), ""))')"
+          TAG_TARGET="$("$GIT_BINARY" ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${RELEASE_TAG}^{}" | "$UV_BINARY" run --no-cache --no-project python -c 'import sys; print(next((line.split()[0] for line in sys.stdin if line.strip()), ""))')"
           if [[ -z "$TAG_TARGET" ]]; then
-            TAG_TARGET="$("$GIT_BINARY" ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${RELEASE_TAG}" | "$UV_BINARY" run --no-project python -c 'import sys; print(next((line.split()[0] for line in sys.stdin if line.strip()), ""))')"
+            TAG_TARGET="$("$GIT_BINARY" ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${RELEASE_TAG}" | "$UV_BINARY" run --no-cache --no-project python -c 'import sys; print(next((line.split()[0] for line in sys.stdin if line.strip()), ""))')"
           fi
           RELEASE_SHA="${INPUT_RELEASE_SHA:-${TAG_TARGET}}"
           [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]

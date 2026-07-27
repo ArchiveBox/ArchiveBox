@@ -29,13 +29,13 @@ jobs:
           enable-cache: true
           cache-dependency-glob: uv.lock
       - name: Install ArchiveBox development dependencies
-        run: uv sync --locked --dev
+        run: uv sync --no-cache --locked --dev
       - name: Resolve documentation tools through abxpkg
         env:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/archivebox-docs-lib
         run: |
           export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
-          uv run --no-sync abxpkg env \
+          uv run --no-cache --no-sync abxpkg env \
             --install \
             --lib="$ABXPKG_LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries" \
@@ -57,7 +57,7 @@ jobs:
       - id: inventory
         name: Validate the complete authored documentation inventory
         run: |
-          matrix="$(uv run --no-sync python docs/test_codeblocks_manifest.py matrix)"
+          matrix="$(uv run --no-cache --no-sync python docs/test_codeblocks_manifest.py matrix)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   examples:
@@ -85,7 +85,7 @@ jobs:
           cache-dependency-glob: uv.lock
       - name: Install ArchiveBox
         if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
-        run: uv sync --locked --dev
+        run: uv sync --no-cache --locked --dev
       - name: Resolve documentation runtime through abxpkg
         if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
         env:
@@ -105,7 +105,7 @@ jobs:
           elif [[ '${{ matrix.environment }}' == macos ]]; then
             dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-macos-brew.json:required_binaries")
           fi
-          uv run --no-sync abxpkg env \
+          uv run --no-cache --no-sync abxpkg env \
             --install \
             --lib="$ABXPKG_LIB_DIR" \
             "${dependency_sources[@]}"
@@ -147,10 +147,10 @@ jobs:
         run: '"$DOCKER_BINARY" build --tag archivebox/archivebox:dev .'
       - name: Run the Ubuntu, Docker, or macOS documentation lane
         if: ${{ !contains(fromJSON('["root", "freebsd", "openbsd"]'), matrix.environment) }}
-        run: uv run --no-sync python docs/test_codeblocks_manifest.py run-environment '${{ matrix.environment }}'
+        run: uv run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-environment '${{ matrix.environment }}'
       - name: Run the root documentation lane
         if: ${{ matrix.environment == 'root' }}
         run: |
           "$SUDO_BINARY" \
             --preserve-env=PATH,ABXPKG_LIB_DIR,BASH_BINARY,PYTHON_BINARY,SUDO_BINARY,UV_BINARY \
-            "$UV_BINARY" run --no-sync python docs/test_codeblocks_manifest.py run-environment root
+            "$UV_BINARY" run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-environment root

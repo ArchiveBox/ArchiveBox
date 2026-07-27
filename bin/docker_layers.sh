@@ -22,7 +22,7 @@ locked_abxpkg_version() {
 }
 ABXPKG_VERSION="$(locked_abxpkg_version)"
 mkdir -p "$ABXPKG_LIB_DIR/env/bin"
-uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
     --install \
     --lib="$ABXPKG_LIB_DIR" \
     --deps-from="$REPO_DIR/.github/configs/ci-tooling.json:docker_debug_binaries" \

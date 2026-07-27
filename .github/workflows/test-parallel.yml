@@ -38,12 +38,12 @@ jobs:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          ABXPKG_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
           test -n "$ABXPKG_VERSION"
           mkdir -p "$ABXPKG_LIB_DIR/env/bin"
           export PYTHON_BINARY="$pythonLocation/bin/python"
           test -x "$PYTHON_BINARY"
-          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
             --install \
             --lib="$ABXPKG_LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries"
@@ -100,17 +100,27 @@ jobs:
           cache-dependency-glob: uv.lock
 
       - name: Resolve optional build dependencies through abxpkg
-        if: matrix.test.extra != ''
+        if: matrix.test.extra != '' || contains(matrix.test.paths_arg, 'test_postgres_backend')
+        env:
+          TEST_EXTRA: ${{ matrix.test.extra }}
+          TEST_PATHS: ${{ matrix.test.paths_arg }}
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
+          ABXPKG_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
           test -n "$ABXPKG_VERSION"
-          uv run --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+          dependency_sources=()
+          if [[ -n "$TEST_EXTRA" ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries")
+          fi
+          if [[ "$TEST_PATHS" == *test_postgres_backend* ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:postgres_binaries")
+          fi
+          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
             --install \
             --no-cache \
             --json \
             --lib="$ABXPKG_LIB_DIR" \
-            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries"
+            "${dependency_sources[@]}"
 
       - name: Install test dependencies
         env:
@@ -121,15 +131,7 @@ jobs:
           if [[ -n "$TEST_EXTRA" ]]; then
             extra_args=(--extra "$TEST_EXTRA")
           fi
-          uv sync --locked --dev "${extra_args[@]}"
-
-      - name: Install PostgreSQL server binaries
-        if: contains(matrix.test.paths_arg, 'test_postgres_backend')
-        run: |
-          set -Eeuo pipefail
-          if ! ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1 && ! command -v initdb >/dev/null 2>&1; then
-            sudo apt-get update && sudo apt-get install -y postgresql
-          fi
+          uv sync --no-cache --locked --dev "${extra_args[@]}"
 
       - name: Run ${{ matrix.test.name }}
         env:
@@ -147,6 +149,6 @@ jobs:
             export PERSONAS_DIR="$RUNNER_TEMP/abx-personas/$test_slug"
             export CHROME_USER_DATA_DIR="$PERSONAS_DIR/Default/chrome_profile"
             mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest/$test_slug"
-            uv run --no-sync --no-sources pytest -vs "$test_path" \
+            uv run --no-cache --no-sync --no-sources pytest -vs "$test_path" \
               --basetemp="$RUNNER_TEMP/pytest/$test_slug"
           done

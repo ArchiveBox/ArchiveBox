@@ -49,7 +49,7 @@ jobs:
           enable-cache: true
 
       - name: Install ArchiveBox and screenshot dependencies
-        run: uv sync --frozen
+        run: uv sync --no-cache --frozen
 
       - name: Build UI screenshot gallery
         run: bin/collect_ui_screenshots.sh
