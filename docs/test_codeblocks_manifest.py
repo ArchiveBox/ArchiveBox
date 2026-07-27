@@ -425,9 +425,14 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 )
                 system_lib_dir = Path(snippet_env["ABXPKG_LIB_DIR"])
                 if record["environment"] == "root":
+                    current_archivebox = Path(sys.executable).with_name("archivebox")
+                    assert current_archivebox.is_file() and os.access(current_archivebox, os.X_OK)
+                    local_bin_dir = system_home / ".local" / "bin"
+                    local_bin_dir.mkdir(parents=True, exist_ok=True)
+                    (local_bin_dir / "archivebox").symlink_to(current_archivebox)
                     snippet_env["PATH"] = os.pathsep.join(
                         [
-                            str(system_home / ".local" / "bin"),
+                            str(local_bin_dir),
                             str(system_home / ".cargo" / "bin"),
                             "/usr/local/sbin",
                             "/usr/local/bin",
