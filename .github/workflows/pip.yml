@@ -121,7 +121,10 @@ jobs:
           data_dir="$smoke_root/data"
           mkdir -p "$data_dir"
 
-          mapfile -t dependency_artifacts < <(uv run --no-project python - <<'PY'
+          dependency_artifacts=()
+          while IFS= read -r dependency_artifact; do
+            dependency_artifacts+=("$dependency_artifact")
+          done < <(uv run --no-project python - <<'PY'
           import tomllib
 
           locked = {
