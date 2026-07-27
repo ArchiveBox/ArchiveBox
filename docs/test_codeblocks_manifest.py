@@ -452,7 +452,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                     )
                 workdirs["system"] = temp_dir / f"system-cwd-{snippet_id}"
                 workdirs["system-data"] = system_data_dir
-                workdirs[record["scenario"]].mkdir(parents=True)
+                workdirs[record["scenario"]].mkdir(parents=True, exist_ok=True)
             print(f"Running {snippet.id}: {snippet.path}:{snippet.line} ({record['scenario']})", flush=True)
             if snippet.syntax in {"bash", "sh", "console"}:
                 bash = launch_bash
