@@ -551,6 +551,7 @@ class TestLiveProgressView:
         process = real_second_snapshot_hook_process
         assert process.status == Process.StatusChoices.EXITED
         assert process.exit_code == 0
+        type(snapshot).objects.filter(pk=snapshot.pk).update(downloaded_at=process.started_at + timezone.timedelta(seconds=1))
 
         client.force_login(admin_user)
         response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)

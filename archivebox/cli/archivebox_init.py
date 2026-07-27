@@ -155,12 +155,12 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     CONSTANTS.PERSONAS_DIR.mkdir(parents=True, exist_ok=True)
     CONSTANTS.DEFAULT_TMP_DIR.mkdir(parents=True, exist_ok=True)
 
-    from archivebox.config.paths import get_or_create_working_tmp_dir, get_or_create_working_lib_dir
+    from archivebox.config.paths import create_and_chown_dir, get_or_create_working_tmp_dir, get_or_create_working_lib_dir
 
     config = get_config()
-    config.TMP_DIR.mkdir(parents=True, exist_ok=True)
-    config.ABXPKG_LIB_DIR.mkdir(parents=True, exist_ok=True)
-    (config.ABXPKG_LIB_DIR / "bin").mkdir(parents=True, exist_ok=True)
+    create_and_chown_dir(config.TMP_DIR)
+    create_and_chown_dir(config.ABXPKG_LIB_DIR)
+    create_and_chown_dir(config.ABXPKG_LIB_DIR / "bin")
 
     working_tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=True)
     if working_tmp_dir:
