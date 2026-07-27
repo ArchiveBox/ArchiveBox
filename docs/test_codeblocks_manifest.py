@@ -391,6 +391,19 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 check=True,
             )
 
+        root_checkout_import_root = temp_dir / "root-current-checkout"
+        root_checkout_venv = temp_dir / "root-current-venv"
+        root_checkout_python = root_checkout_venv / "bin" / "python"
+        if any(records[snippet_id]["environment"] == "root" for snippet_id in snippet_ids):
+            shutil.copytree(
+                ROOT / "archivebox",
+                root_checkout_import_root / "archivebox",
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.sqlite3", "*.sqlite3-*"),
+            )
+            for copied_path in root_checkout_import_root.rglob("*"):
+                copied_path.chmod(copied_path.stat().st_mode | (0o555 if copied_path.is_dir() else 0o444))
+            root_checkout_import_root.chmod(root_checkout_import_root.stat().st_mode | 0o555)
+
         for snippet_id in snippet_ids:
             snippet = snippets[snippet_id]
             record = records[snippet_id]
@@ -434,28 +447,17 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 if record["environment"] == "root":
                     current_uv = Path(env["UV_BINARY"])
                     assert current_uv.is_file() and os.access(current_uv, os.X_OK)
-                    checkout_import_root = system_home / "current-checkout"
-                    checkout_venv = system_home / "current-venv"
-                    checkout_python = checkout_venv / "bin" / "python"
-                    shutil.copytree(
-                        ROOT / "archivebox",
-                        checkout_import_root / "archivebox",
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.sqlite3", "*.sqlite3-*"),
-                    )
-                    for copied_path in checkout_import_root.rglob("*"):
-                        copied_path.chmod(copied_path.stat().st_mode | (0o555 if copied_path.is_dir() else 0o444))
-                    checkout_import_root.chmod(checkout_import_root.stat().st_mode | 0o555)
                     local_bin_dir = system_home / ".local" / "bin"
                     local_bin_dir.mkdir(parents=True, exist_ok=True)
                     archivebox_wrapper = local_bin_dir / "archivebox"
                     archivebox_wrapper.write_text(
                         "#!/usr/bin/env bash\n"
-                        f'if [[ ! -x "{checkout_python}" ]] || ! {checkout_python} -c "import rich.panel" >/dev/null 2>&1; then\n'
-                        f"  (cd {ROOT} && UV_PROJECT_ENVIRONMENT={checkout_venv} {current_uv} --no-cache sync --locked --dev >/dev/null)\n"
-                        f"  chmod -R a+rX {checkout_venv}\n"
+                        f'if [[ ! -x "{root_checkout_python}" ]] || ! {root_checkout_python} -c "import rich.panel" >/dev/null 2>&1; then\n'
+                        f"  (cd {ROOT} && UV_PROJECT_ENVIRONMENT={root_checkout_venv} {current_uv} --no-cache sync --locked --dev >/dev/null)\n"
+                        f"  chmod -R a+rX {root_checkout_venv}\n"
                         "fi\n"
-                        f'export PYTHONPATH="{checkout_import_root}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
-                        f'exec {checkout_python} -m archivebox "$@"\n',
+                        f'export PYTHONPATH="{root_checkout_import_root}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
+                        f'exec {root_checkout_python} -m archivebox "$@"\n',
                     )
                     archivebox_wrapper.chmod(0o755)
                     snippet_env["PATH"] = os.pathsep.join(
