@@ -439,6 +439,9 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                     archivebox_wrapper = local_bin_dir / "archivebox"
                     archivebox_wrapper.write_text(
                         "#!/usr/bin/env bash\n"
+                        'if [[ "${EUID:-$(id -u)}" == 0 && -n "${SUDO_USER:-}" && "${SUDO_USER}" != root ]]; then\n'
+                        f'  exec /usr/bin/sudo -H -u "${{SUDO_USER}}" env PYTHONPATH="{ROOT}" {current_python} -m archivebox "$@"\n'
+                        "fi\n"
                         f'export PYTHONPATH="{ROOT}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
                         f'exec {current_python} -m archivebox "$@"\n',
                     )
