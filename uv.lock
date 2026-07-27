@@ -224,7 +224,7 @@ dev = [
 requires-dist = [
     { name = "abx-dl", specifier = "==1.12.16" },
     { name = "abxbus", specifier = "==2.5.40" },
-    { name = "abxpkg", specifier = "==1.12.13" },
+    { name = "abxpkg" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
     { name = "atomicwrites", specifier = "==1.4.1" },
     { name = "base32-crockford", specifier = ">=0.3.0" },
