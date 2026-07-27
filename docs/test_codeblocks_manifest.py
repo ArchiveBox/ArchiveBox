@@ -432,13 +432,15 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 )
                 system_lib_dir = Path(snippet_env["ABXPKG_LIB_DIR"])
                 if record["environment"] == "root":
-                    current_uv = Path(env["UV_BINARY"])
-                    assert current_uv.is_file() and os.access(current_uv, os.X_OK)
+                    current_python = Path(sys.executable)
+                    assert current_python.is_file() and os.access(current_python, os.X_OK)
                     local_bin_dir = system_home / ".local" / "bin"
                     local_bin_dir.mkdir(parents=True, exist_ok=True)
                     archivebox_wrapper = local_bin_dir / "archivebox"
                     archivebox_wrapper.write_text(
-                        f'#!/usr/bin/env bash\nexec {current_uv} run --project {ROOT} --no-sync archivebox "$@"\n',
+                        "#!/usr/bin/env bash\n"
+                        f'export PYTHONPATH="{ROOT}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
+                        f'exec {current_python} -m archivebox "$@"\n',
                     )
                     archivebox_wrapper.chmod(0o755)
                     snippet_env["PATH"] = os.pathsep.join(
