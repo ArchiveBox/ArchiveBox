@@ -354,6 +354,7 @@ def create_supervisord_config():
     CONFIG_FILE = SOCK_FILE.parent / CONFIG_FILE_NAME
     PID_FILE = SOCK_FILE.parent / PID_FILE_NAME
     LOG_FILE = CONSTANTS.LOGS_DIR / LOG_FILE_NAME
+    user_config = f"user = {ARCHIVEBOX_USER}" if os.geteuid() == 0 and ARCHIVEBOX_USER != 0 else ""
     environment = ",".join(
         f"{key}={json.dumps(str(value))}"
         for key, value in {
@@ -375,7 +376,7 @@ childlogdir = {CONSTANTS.LOGS_DIR}
 directory = {CONSTANTS.DATA_DIR}
 strip_ansi = true
 nocleanup = true
-user = {ARCHIVEBOX_USER}
+{user_config}
 
 [unix_http_server]
 file = {SOCK_FILE}
