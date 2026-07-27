@@ -1,0 +1,20 @@
+archivebox/config/permissions.py
+  s_f8414d52051f83::t_482149483b4eba 108-110,112-119
+  s_f8414d52051f83::t_5f00048c7db6e5 105-107,111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "3fdb5a5d88abede3cf5e2dc803fdbf0a5c43f5fd",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
