@@ -434,15 +434,21 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 if record["environment"] == "root":
                     current_python = Path(sys.executable)
                     assert current_python.is_file() and os.access(current_python, os.X_OK)
+                    checkout_import_root = system_home / "current-checkout"
+                    shutil.copytree(
+                        ROOT / "archivebox",
+                        checkout_import_root / "archivebox",
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.sqlite3", "*.sqlite3-*"),
+                    )
+                    for copied_path in checkout_import_root.rglob("*"):
+                        copied_path.chmod(copied_path.stat().st_mode | (0o555 if copied_path.is_dir() else 0o444))
+                    checkout_import_root.chmod(checkout_import_root.stat().st_mode | 0o555)
                     local_bin_dir = system_home / ".local" / "bin"
                     local_bin_dir.mkdir(parents=True, exist_ok=True)
                     archivebox_wrapper = local_bin_dir / "archivebox"
                     archivebox_wrapper.write_text(
                         "#!/usr/bin/env bash\n"
-                        'if [[ "${EUID:-$(id -u)}" == 0 && -n "${SUDO_USER:-}" && "${SUDO_USER}" != root ]]; then\n'
-                        f'  exec /usr/bin/sudo -H -u "${{SUDO_USER}}" env PYTHONPATH="{ROOT}" {current_python} -m archivebox "$@"\n'
-                        "fi\n"
-                        f'export PYTHONPATH="{ROOT}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
+                        f'export PYTHONPATH="{checkout_import_root}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
                         f'exec {current_python} -m archivebox "$@"\n',
                     )
                     archivebox_wrapper.chmod(0o755)
