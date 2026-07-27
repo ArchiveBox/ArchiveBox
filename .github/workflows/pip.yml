@@ -121,13 +121,27 @@ jobs:
           data_dir="$smoke_root/data"
           mkdir -p "$data_dir"
 
+          mapfile -t dependency_artifacts < <(uv run --no-project python - <<'PY'
+          import tomllib
+
+          locked = {
+              package["name"]: package
+              for package in tomllib.load(open("uv.lock", "rb"))["package"]
+          }
+          for package_name in ("abx-dl", "abx-plugins", "abxpkg", "abxbus"):
+              package = locked[package_name]
+              wheels = package.get("wheels") or []
+              if len(wheels) != 1:
+                  raise SystemExit(f"Expected exactly one locked wheel for {package_name}")
+              print(wheels[0]["url"])
+          PY
+          )
+
           uv venv --python "${{ matrix.python }}" "$smoke_env"
           uv pip install \
             --python "$smoke_env" \
             --no-cache \
-            --refresh-package abx-dl \
-            --refresh-package abx-plugins \
-            --refresh-package abxpkg \
+            "${dependency_artifacts[@]}" \
             "$artifact"
 
           unset PYTHONPATH
