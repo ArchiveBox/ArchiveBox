@@ -28,6 +28,10 @@ def _run_abxpkg_host_binary(name: str, *args: str) -> subprocess.CompletedProces
         provider = provider.get_provider_with_overrides(
             overrides={name: {"version": platform.mac_ver()[0] or "0.0.0"}},
         )
+    elif name == "lsb_release":
+        provider = provider.get_provider_with_overrides(
+            overrides={name: {"version": "1.0.0"}},
+        )
     loaded = provider.load(name)
     if loaded is None or loaded.loaded_abspath is None:
         raise RuntimeError(f"abxpkg could not resolve {name}")

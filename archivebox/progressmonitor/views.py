@@ -469,7 +469,7 @@ def live_progress_view(request):
             snapshot["id"] for crawl_snapshots in displayed_snapshots_by_crawl.values() for snapshot in crawl_snapshots
         ]
         detailed_snapshot_ids = [snapshot["id"] for snapshot in snapshots if snapshot["status"] != Snapshot.StatusChoices.QUEUED]
-        process_value_fields = ("id", "process_type", "status", "pwd", "cmd", "pid", "exit_code", "started_at", "modified_at")
+        process_value_fields = ("id", "process_type", "status", "pwd", "cmd", "pid", "exit_code", "started_at", "ended_at", "modified_at")
         if active_crawl_ids or displayed_snapshot_ids:
             process_scope = Process.objects.filter(
                 machine_id=machine_id,
@@ -596,10 +596,15 @@ def live_progress_view(request):
             if status == "started" and proc["pid"]:
                 payload["pid"] = proc["pid"]
             proc_started_at = proc["started_at"] or proc["modified_at"]
+            proc_run_at = (
+                proc_started_at
+                if proc["status"] == Process.StatusChoices.RUNNING
+                else (proc["ended_at"] or proc["modified_at"] or proc_started_at)
+            )
             if phase == "snapshot" and snapshot_id:
-                process_records_by_snapshot.setdefault(snapshot_id, []).append((payload, proc_started_at))
+                process_records_by_snapshot.setdefault(snapshot_id, []).append((payload, proc_run_at))
             elif crawl_id:
-                process_records_by_crawl.setdefault(crawl_id, []).append((payload, proc_started_at))
+                process_records_by_crawl.setdefault(crawl_id, []).append((payload, proc_run_at))
 
         active_crawls = []
         total_workers = len(running_worker_ids)
