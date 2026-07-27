@@ -102,6 +102,21 @@ def drop_privileges():
             os.environ["HOME"] = pw_record.pw_dir
             os.environ["LOGNAME"] = pw_record.pw_name
             os.environ["USER"] = pw_record.pw_name
+            os.environ["XDG_CACHE_HOME"] = str(Path(pw_record.pw_dir) / ".cache")
+            os.environ["XDG_CONFIG_HOME"] = str(Path(pw_record.pw_dir) / ".config")
+            os.environ["XDG_DATA_HOME"] = str(Path(pw_record.pw_dir) / ".local" / "share")
+            os.environ.pop("XDG_RUNTIME_DIR", None)
+            os.environ.pop("ABXBUS_MULTIPROCESS_SEMAPHORE_DIR", None)
+
+            semaphore_dir = Path(pw_record.pw_dir) / ".cache" / "abxbus" / "semaphores"
+            os.environ["ABXBUS_MULTIPROCESS_SEMAPHORE_DIR"] = str(semaphore_dir)
+
+            try:
+                from abxbus import retry as abxbus_retry
+            except Exception:
+                pass
+            else:
+                abxbus_retry.MULTIPROCESS_SEMAPHORE_DIR = semaphore_dir
 
     if ARCHIVEBOX_USER == 0 or not ARCHIVEBOX_USER_EXISTS:
         print(
