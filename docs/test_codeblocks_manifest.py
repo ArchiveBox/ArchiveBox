@@ -413,6 +413,13 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                     "WGET_BINARY",
                 ):
                     snippet_env.pop(inherited_binary, None)
+                for inherited_python_env in (
+                    "PYTHONHOME",
+                    "PYTHONPATH",
+                    "UV_PROJECT_ENVIRONMENT",
+                    "VIRTUAL_ENV",
+                ):
+                    snippet_env.pop(inherited_python_env, None)
                 snippet_env.update(
                     {
                         "HOME": str(system_home),
