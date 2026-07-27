@@ -127,6 +127,7 @@ version = "0.9.35rc153"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl" },
+    { name = "abx-plugins" },
     { name = "abxbus" },
     { name = "abxpkg" },
     { name = "atomicwrites" },
@@ -223,6 +224,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abx-dl", specifier = "==1.12.16" },
+    { name = "abx-plugins" },
     { name = "abxbus", specifier = "==2.5.40" },
     { name = "abxpkg" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
