@@ -432,7 +432,9 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 )
                 system_lib_dir = Path(snippet_env["ABXPKG_LIB_DIR"])
                 if record["environment"] == "root":
-                    current_python = Path(sys.executable)
+                    current_python = ROOT / ".venv" / "bin" / "python"
+                    if not current_python.exists():
+                        current_python = Path(sys.executable)
                     assert current_python.is_file() and os.access(current_python, os.X_OK)
                     checkout_import_root = system_home / "current-checkout"
                     shutil.copytree(
