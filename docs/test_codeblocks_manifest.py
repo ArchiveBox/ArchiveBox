@@ -432,13 +432,11 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 )
                 system_lib_dir = Path(snippet_env["ABXPKG_LIB_DIR"])
                 if record["environment"] == "root":
-                    current_python = ROOT / ".venv" / "bin" / "python"
-                    if not current_python.exists():
-                        current_python = Path(sys.executable)
                     current_uv = Path(env["UV_BINARY"])
-                    assert current_python.is_file() and os.access(current_python, os.X_OK)
                     assert current_uv.is_file() and os.access(current_uv, os.X_OK)
                     checkout_import_root = system_home / "current-checkout"
+                    checkout_venv = system_home / "current-venv"
+                    checkout_python = checkout_venv / "bin" / "python"
                     shutil.copytree(
                         ROOT / "archivebox",
                         checkout_import_root / "archivebox",
@@ -452,11 +450,12 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                     archivebox_wrapper = local_bin_dir / "archivebox"
                     archivebox_wrapper.write_text(
                         "#!/usr/bin/env bash\n"
-                        f'if ! {current_python} -c "import rich.panel" >/dev/null 2>&1; then\n'
-                        f"  (cd {ROOT} && {current_uv} --no-cache sync --locked --dev >/dev/null)\n"
+                        f'if [[ ! -x "{checkout_python}" ]] || ! {checkout_python} -c "import rich.panel" >/dev/null 2>&1; then\n'
+                        f"  (cd {ROOT} && UV_PROJECT_ENVIRONMENT={checkout_venv} {current_uv} --no-cache sync --locked --dev >/dev/null)\n"
+                        f"  chmod -R a+rX {checkout_venv}\n"
                         "fi\n"
                         f'export PYTHONPATH="{checkout_import_root}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
-                        f'exec {current_python} -m archivebox "$@"\n',
+                        f'exec {checkout_python} -m archivebox "$@"\n',
                     )
                     archivebox_wrapper.chmod(0o755)
                     snippet_env["PATH"] = os.pathsep.join(
