@@ -143,7 +143,6 @@ jobs:
           uv venv --python "${{ matrix.python }}" "$smoke_env"
           uv pip install --no-cache \
             --python "$smoke_env" \
-            --no-cache \
             "${dependency_artifacts[@]}" \
             "$artifact"
 
