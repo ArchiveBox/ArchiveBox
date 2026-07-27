@@ -147,10 +147,10 @@ jobs:
         run: '"$DOCKER_BINARY" build --tag archivebox/archivebox:dev .'
       - name: Run the Ubuntu, Docker, or macOS documentation lane
         if: ${{ !contains(fromJSON('["root", "freebsd", "openbsd"]'), matrix.environment) }}
-        run: uv run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-environment '${{ matrix.environment }}'
+        run: uv run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-group '${{ matrix.snippet_ids }}'
       - name: Run the root documentation lane
         if: ${{ matrix.environment == 'root' }}
         run: |
           "$SUDO_BINARY" \
             --preserve-env=PATH,ABXPKG_LIB_DIR,BASH_BINARY,PYTHON_BINARY,SUDO_BINARY,UV_BINARY \
-            "$UV_BINARY" run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-environment root
+            "$UV_BINARY" run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-group '${{ matrix.snippet_ids }}'

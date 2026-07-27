@@ -295,22 +295,38 @@ def validate_all() -> tuple[Snippet, ...]:
 def matrix() -> dict[str, list[dict[str, str]]]:
     snippets = validate_all()
     records = load_manifest()
-    environments = {records[snippet.id]["environment"] for snippet in snippets if records[snippet.id]["disposition"] == "run"}
-    ci_environments = environments.intersection(CI_ENVIRONMENTS)
-    include = [
-        {
-            "name": environment,
-            "environment": environment,
-            "runner": ENVIRONMENT_RUNNERS[environment],
-        }
-        for environment in ENVIRONMENT_RUNNERS
-        if environment in ci_environments
-    ]
-    assigned_ids = [snippet.id for snippet in snippets if records[snippet.id]["disposition"] == "run"]
+    runnable_snippets = [snippet for snippet in snippets if records[snippet.id]["disposition"] == "run"]
+    by_environment = {
+        environment: [snippet for snippet in runnable_snippets if records[snippet.id]["environment"] == environment]
+        for environment in CI_ENVIRONMENTS
+    }
+    include: list[dict[str, str]] = []
+    assigned_ids: list[str] = []
+    for environment in ENVIRONMENT_RUNNERS:
+        environment_snippets = by_environment.get(environment, [])
+        if not environment_snippets:
+            continue
+        groups: dict[str, list[Snippet]] = {}
+        if environment == "docker":
+            groups[environment] = environment_snippets
+        else:
+            for snippet in environment_snippets:
+                groups.setdefault(snippet.path, []).append(snippet)
+        for group_name, group_snippets in groups.items():
+            name_suffix = re.sub(r"[^A-Za-z0-9_.-]+", "-", Path(group_name).with_suffix("").as_posix()).strip("-")
+            include.append(
+                {
+                    "name": environment if group_name == environment else f"{environment}-{name_suffix}",
+                    "environment": environment,
+                    "runner": ENVIRONMENT_RUNNERS[environment],
+                    "snippet_ids": " ".join(snippet.id for snippet in group_snippets),
+                },
+            )
+            assigned_ids.extend(snippet.id for snippet in group_snippets)
     assert include, "At least one deterministic documentation example must run in CI"
     assert len(set(assigned_ids)) == len(assigned_ids)
-    assert {entry["environment"] for entry in include} == ci_environments, (
-        "Every selected CI documentation environment must have exactly one lane"
+    assert set(assigned_ids) == {snippet.id for snippet in runnable_snippets if records[snippet.id]["environment"] in CI_ENVIRONMENTS}, (
+        "Every selected CI documentation snippet must have exactly one lane"
     )
     return {"include": include}
 
@@ -326,6 +342,12 @@ def run_environment(environment: str) -> None:
     )
     assert snippet_ids, f"No documentation snippets are assigned to {environment}"
     run_snippets(snippet_ids)
+
+
+def run_group(snippet_ids: str) -> None:
+    parsed_ids = tuple(snippet_id for snippet_id in snippet_ids.split() if snippet_id)
+    assert parsed_ids, "No documentation snippets were provided"
+    run_snippets(parsed_ids)
 
 
 def run_snippets(snippet_ids: tuple[str, ...]) -> None:
@@ -557,7 +579,7 @@ def render_manifest() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=("check", "matrix", "run", "run-environment", "render"))
+    parser.add_argument("command", choices=("check", "matrix", "run", "run-environment", "run-group", "render"))
     parser.add_argument("snippet_id", nargs="?")
     args = parser.parse_args()
 
@@ -572,6 +594,9 @@ def main() -> None:
     elif args.command == "run-environment":
         assert args.snippet_id, "run-environment requires an environment"
         run_environment(args.snippet_id)
+    elif args.command == "run-group":
+        assert args.snippet_id, "run-group requires one or more snippet IDs"
+        run_group(args.snippet_id)
     else:
         render_manifest()
 
