@@ -181,6 +181,11 @@ def test_setup_wizard_assets_enforce_selection_and_access_requirements():
     assert "accent-color:#15803d" in SETUP_WIZARD_CSS
     assert "#archivebox-setup-title code { font-size:inherit; line-height:inherit; }" in SETUP_WIZARD_CSS
     assert ".abx-question.is-collapsed .abx-question-options { display:none; }" in SETUP_WIZARD_CSS
+    assert ".abx-question.is-collapsed { padding:8px 12px 10px; }" in SETUP_WIZARD_CSS
+    assert ".abx-question.is-collapsed .abx-question-status { margin:0; padding:3px 6px 0; background:transparent; }" in SETUP_WIZARD_CSS
+    assert ".abx-question legend { box-sizing:border-box; width:100%;" in SETUP_WIZARD_CSS
+    assert "flex:0 0 22px" in SETUP_WIZARD_CSS
+    assert ".abx-question.is-valid legend { background:#f0fdf4; }" in SETUP_WIZARD_CSS
     assert ".abx-question.is-valid { border-color:#15803d; background:#f0fdf4" in SETUP_WIZARD_CSS
     assert ".abx-question.is-invalid { border-color:#dc2626;" in SETUP_WIZARD_CSS
 
@@ -191,6 +196,7 @@ def test_setup_wizard_assets_enforce_selection_and_access_requirements():
     assert "if (isValid) setCollapsed(true)" in SETUP_WIZARD_JS
     assert "if (isInvalid) setCollapsed(false)" in SETUP_WIZARD_JS
     assert "toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true')" in SETUP_WIZARD_JS
+    assert "toggleIcon.textContent = collapsed ? '▸' : '▾'" in SETUP_WIZARD_JS
     assert "canonicalHost" not in SETUP_WIZARD_JS
     assert "Browser URL matches BASE_URL." in SETUP_WIZARD_JS
     assert "Browser URL matches admin.BASE_URL as expected." in SETUP_WIZARD_JS

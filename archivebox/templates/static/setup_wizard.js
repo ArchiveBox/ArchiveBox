@@ -37,10 +37,12 @@
     document.querySelectorAll('.abx-question[data-status-id]').forEach(function(question) {
       var status = document.getElementById(question.dataset.statusId);
       var toggle = question.querySelector('.abx-question-toggle');
+      var toggleIcon = question.querySelector('.abx-question-toggle-icon');
 
       function setCollapsed(collapsed) {
         question.classList.toggle('is-collapsed', collapsed);
         toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        toggleIcon.textContent = collapsed ? '▸' : '▾';
       }
 
       function syncQuestionState() {
