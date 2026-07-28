@@ -90,6 +90,25 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Validate release branch and version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION='${{ steps.version.outputs.version }}'
+          case "$RELEASE_BRANCH" in
+            main) ;;
+            dev)
+              [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]] || {
+                echo "Refusing to publish ArchiveBox $VERSION from dev; only main may publish non-prerelease versions." >&2
+                exit 1
+              }
+              ;;
+            *)
+              echo "Refusing to publish ArchiveBox $VERSION from unsupported branch $RELEASE_BRANCH; only dev and main may publish." >&2
+              exit 1
+              ;;
+          esac
+
       - name: Publish the exact tested distributions
         env:
           GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
