@@ -1011,23 +1011,23 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
     action = payload.pop("action", None)
     tags = payload.pop("tags", None)
 
+    if action:
+        if action == "pause":
+            snapshot.pause()
+            setattr(request, "with_archiveresults", False)
+            return snapshot
+        if action in ("resume", "unpause"):
+            snapshot.resume()
+            setattr(request, "with_archiveresults", False)
+            return snapshot
+        if action == "cancel":
+            snapshot.cancel()
+            setattr(request, "with_archiveresults", False)
+            return snapshot
+        raise HttpError(400, f"Invalid action: {action}")
+
     with crawl_lifecycle_lock(crawl_id):
         snapshot = _get_snapshot_by_ref(snapshot_id)
-        if action:
-            if action == "pause":
-                snapshot.pause()
-                setattr(request, "with_archiveresults", False)
-                return snapshot
-            if action in ("resume", "unpause"):
-                snapshot.resume()
-                setattr(request, "with_archiveresults", False)
-                return snapshot
-            if action == "cancel":
-                snapshot.cancel()
-                setattr(request, "with_archiveresults", False)
-                return snapshot
-            raise HttpError(400, f"Invalid action: {action}")
-
         if "status" in payload:
             try:
                 snapshot.status = normalize_snapshot_status(payload["status"])
