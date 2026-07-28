@@ -505,12 +505,14 @@ def _run_browser_probe(
             wait=False,
         )
     try:
-        wait_for_log(server_log_path, "Listening on TCP", timeout=30)
+        runserver_log_path = data_dir / "logs" / "worker_runserver.log"
+        wait_for_log(runserver_log_path, "Listening on TCP", timeout=30)
         get_http_response(port, f"archivebox.localhost:{port}", process=process)
     except AssertionError as exc:
         stop_archivebox_process(process)
         server_log = server_log_path.read_text(encoding="utf-8", errors="replace")
-        raise AssertionError(f"{exc}\n\nSERVER LOG:\n{server_log}") from exc
+        runserver_log = runserver_log_path.read_text(encoding="utf-8", errors="replace") if runserver_log_path.exists() else ""
+        raise AssertionError(f"{exc}\n\nSERVER LOG:\n{server_log}\n\nRUNSERVER LOG:\n{runserver_log}") from exc
 
     probe_path = tmp_path / "server_security_probe.js"
     probe_path.write_text(PUPPETEER_PROBE_SCRIPT, encoding="utf-8")
