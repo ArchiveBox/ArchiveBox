@@ -1411,7 +1411,16 @@ def wait_for_snapshot_capture(cwd: Path, url: str, timeout: int = 180) -> str:
     assert result.returncode == 0, result.stderr or result.stdout
     index_path = Path(result.stdout.strip().splitlines()[-1])
     _wait_for_log_match(index_path, ".", fixed=False, count=1, timeout=timeout)
-    return get_snapshot_file_text(cwd, url)
+    deadline = time.monotonic() + timeout
+    last_error = ""
+    while True:
+        try:
+            return get_snapshot_file_text(cwd, url)
+        except AssertionError as err:
+            last_error = str(err)
+            remaining = deadline - time.monotonic()
+            assert remaining > 0, last_error
+            time.sleep(min(0.25, remaining))
 
 
 def get_counts(cwd: Path, scheduled_url: str, one_shot_url: str) -> tuple[int, int, int]:
