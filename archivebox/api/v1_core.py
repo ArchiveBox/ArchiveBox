@@ -50,6 +50,7 @@ from archivebox.core.tag_util import (
     rename_tag as rename_tag_record,
 )
 from archivebox.crawls.models import Crawl
+from archivebox.crawls.locks import crawl_lifecycle_lock
 from archivebox.api.v1_crawls import CrawlSchema, get_crawl_by_ref
 from archivebox.search.config import get_search_mode, get_search_mode_backend
 from archivebox.search.query import apply_snapshot_search
@@ -962,37 +963,38 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
             created_by=request.user if isinstance(request.user, User) else None,
         )
 
-    snapshot_defaults = {
-        "depth": data.depth,
-        "title": data.title,
-        "timestamp": str(timezone.now().timestamp()),
-        "status": status or Snapshot.StatusChoices.QUEUED,
-        "retry_at": timezone.now(),
-    }
-    snapshot, _ = Snapshot.objects.get_or_create(
-        url=data.url,
-        crawl=crawl,
-        defaults=snapshot_defaults,
-    )
+    with crawl_lifecycle_lock(str(crawl.id)):
+        snapshot_defaults = {
+            "depth": data.depth,
+            "title": data.title,
+            "timestamp": str(timezone.now().timestamp()),
+            "status": status or Snapshot.StatusChoices.QUEUED,
+            "retry_at": timezone.now(),
+        }
+        snapshot, _ = Snapshot.objects.get_or_create(
+            url=data.url,
+            crawl=crawl,
+            defaults=snapshot_defaults,
+        )
 
-    update_fields: list[str] = []
-    if data.title is not None and snapshot.title != data.title:
-        snapshot.title = data.title
-        update_fields.append("title")
-    if status is not None and snapshot.status != status:
-        snapshot.status = status
-        update_fields.append("status")
-    if update_fields:
-        update_fields.append("modified_at")
-        snapshot.save(update_fields=update_fields)
+        update_fields: list[str] = []
+        if data.title is not None and snapshot.title != data.title:
+            snapshot.title = data.title
+            update_fields.append("title")
+        if status is not None and snapshot.status != status:
+            snapshot.status = status
+            update_fields.append("status")
+        if update_fields:
+            update_fields.append("modified_at")
+            snapshot.save(update_fields=update_fields)
 
-    if tags:
-        snapshot.save_tags(tags)
+        if tags:
+            snapshot.save_tags(tags)
 
-    try:
-        snapshot.ensure_crawl_symlink()
-    except Exception:
-        pass
+        try:
+            snapshot.ensure_crawl_symlink()
+        except Exception:
+            pass
 
     setattr(request, "with_archiveresults", False)
     return snapshot
@@ -1002,47 +1004,50 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
 def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateSchema):
     """Update a snapshot (e.g., set status=sealed to cancel queued work)."""
     snapshot = _get_snapshot_by_ref(snapshot_id)
+    crawl_id = str(snapshot.crawl_id)
 
     payload = data.dict(exclude_unset=True)
     update_fields = ["modified_at"]
     action = payload.pop("action", None)
     tags = payload.pop("tags", None)
 
-    if action:
-        if action == "pause":
-            snapshot.pause()
-            setattr(request, "with_archiveresults", False)
-            return snapshot
-        if action in ("resume", "unpause"):
-            snapshot.resume()
-            setattr(request, "with_archiveresults", False)
-            return snapshot
-        if action == "cancel":
+    with crawl_lifecycle_lock(crawl_id):
+        snapshot = _get_snapshot_by_ref(snapshot_id)
+        if action:
+            if action == "pause":
+                snapshot.pause()
+                setattr(request, "with_archiveresults", False)
+                return snapshot
+            if action in ("resume", "unpause"):
+                snapshot.resume()
+                setattr(request, "with_archiveresults", False)
+                return snapshot
+            if action == "cancel":
+                snapshot.cancel()
+                setattr(request, "with_archiveresults", False)
+                return snapshot
+            raise HttpError(400, f"Invalid action: {action}")
+
+        if "status" in payload:
+            try:
+                snapshot.status = normalize_snapshot_status(payload["status"])
+            except ValueError as err:
+                raise HttpError(400, str(err)) from err
+            if snapshot.status == Snapshot.StatusChoices.SEALED and "retry_at" not in payload:
+                snapshot.retry_at = None
+            update_fields.append("status")
+
+        if "retry_at" in payload:
+            snapshot.retry_at = payload["retry_at"]
+            update_fields.append("retry_at")
+
+        if tags is not None:
+            snapshot.save_tags(normalize_tag_list(tags))
+
+        if payload.get("status") == Snapshot.StatusChoices.SEALED:
             snapshot.cancel()
-            setattr(request, "with_archiveresults", False)
-            return snapshot
-        raise HttpError(400, f"Invalid action: {action}")
-
-    if "status" in payload:
-        try:
-            snapshot.status = normalize_snapshot_status(payload["status"])
-        except ValueError as err:
-            raise HttpError(400, str(err)) from err
-        if snapshot.status == Snapshot.StatusChoices.SEALED and "retry_at" not in payload:
-            snapshot.retry_at = None
-        update_fields.append("status")
-
-    if "retry_at" in payload:
-        snapshot.retry_at = payload["retry_at"]
-        update_fields.append("retry_at")
-
-    if tags is not None:
-        snapshot.save_tags(normalize_tag_list(tags))
-
-    if payload.get("status") == Snapshot.StatusChoices.SEALED:
-        snapshot.cancel()
-    else:
-        snapshot.save(update_fields=update_fields)
+        else:
+            snapshot.save(update_fields=update_fields)
     setattr(request, "with_archiveresults", False)
     return snapshot
 
@@ -1054,7 +1059,6 @@ def delete_snapshot(request: HttpRequest, snapshot_id: str):
     crawl_id_str = str(snapshot.crawl.pk)
     snapshot.cancel()
 
-    from archivebox.crawls.locks import crawl_lifecycle_lock
     from archivebox.services.runner import run_pending_crawls
 
     with crawl_lifecycle_lock(crawl_id_str):
