@@ -36,6 +36,12 @@ PY
 )"
 SLUG="$($GH_BINARY repo view --json nameWithOwner --jq .nameWithOwner)"
 TAG="${TAG_PREFIX}${VERSION}"
+RELEASE_BRANCH="${RELEASE_BRANCH:-dev}"
+
+if [[ "$RELEASE_BRANCH" != main && ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]]; then
+    echo "Refusing to publish non-main ArchiveBox release $VERSION from $RELEASE_BRANCH; dev releases must be 0.9.XrcX prereleases" >&2
+    exit 1
+fi
 
 PYPI_VERSIONS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -r '.releases | keys[]')"
 GITHUB_TAGS="$($GH_BINARY api "repos/${SLUG}/releases?per_page=100" --jq '.[].tag_name')"
@@ -78,8 +84,8 @@ fi
 [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
 [[ "$($GIT_BINARY rev-parse HEAD)" == "$RELEASE_SHA" ]]
 [[ -z "$($GIT_BINARY status --short)" ]]
-$GIT_BINARY fetch --quiet --no-tags origin "+refs/heads/${RELEASE_BRANCH:-dev}:refs/remotes/origin/${RELEASE_BRANCH:-dev}"
-$GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" "refs/remotes/origin/${RELEASE_BRANCH:-dev}"
+$GIT_BINARY fetch --quiet --no-tags origin "+refs/heads/${RELEASE_BRANCH}:refs/remotes/origin/${RELEASE_BRANCH}"
+$GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" "refs/remotes/origin/${RELEASE_BRANCH}"
 
 [[ "$(<"$RELEASE_DISTRIBUTIONS_DIR/COMMIT_SHA")" == "$RELEASE_SHA" ]]
 $UV_BINARY run --no-project python - "$RELEASE_DISTRIBUTIONS_DIR" "$VERSION" <<'PY'
