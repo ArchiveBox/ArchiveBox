@@ -207,12 +207,9 @@ if [[ ( "$PYPI_STATE" != absent || "$GITHUB_EXISTS" == true ) && "$TAG_TARGET" !
     exit 1
 fi
 
-if [[ "$GITHUB_EXISTS" == false ]]; then
-    RELEASE_ARGS=(--target "$RELEASE_SHA")
-    [[ "$VERSION" == *rc* ]] && RELEASE_ARGS+=(--prerelease)
-    $GH_BINARY release create "$TAG" --repo "$SLUG" \
-        --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
-    GITHUB_EXISTS=true
+if [[ -z "$TAG_TARGET" ]]; then
+    $GIT_BINARY tag "$TAG" "$RELEASE_SHA"
+    $GIT_BINARY push origin "refs/tags/${TAG}"
     TAG_TARGET="$RELEASE_SHA"
 fi
 
@@ -224,6 +221,13 @@ if [[ "$PYPI_STATE" != complete ]]; then
     done
     [[ "${#PYPI_ARTIFACTS[@]}" -gt 0 ]]
     $UV_BINARY publish --trusted-publishing always "${PYPI_ARTIFACTS[@]}"
+fi
+
+if [[ "$GITHUB_EXISTS" == false ]]; then
+    RELEASE_ARGS=()
+    [[ "$VERSION" == *rc* ]] && RELEASE_ARGS+=(--prerelease)
+    $GH_BINARY release create "$TAG" --repo "$SLUG" --verify-tag \
+        --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
 fi
 
 $GH_BINARY release upload "$TAG" --repo "$SLUG" \
