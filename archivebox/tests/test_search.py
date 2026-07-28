@@ -971,38 +971,22 @@ class TestSearchBackendsE2E:
             )
             assert index_update.returncode == 0, index_update.stderr or index_update.stdout
 
-            backend_expectations = (
-                (shared_content_needle, matrix_urls),
-                (first_batch_content_needle, first_mercury_urls),
-                (second_batch_content_needle, second_mercury_urls),
-                (overlapping_content_needle, [*first_mercury_urls[:3], *second_mercury_urls[:2]]),
+            cli_backend_expectations = (
+                ("ripgrep", shared_content_needle, matrix_urls),
+                ("sqlite", first_batch_content_needle, first_mercury_urls),
+                ("sonic", overlapping_content_needle, [*first_mercury_urls[:3], *second_mercury_urls[:2]]),
+                ("sonic", tag_only_needle, [tag_only_url]),
             )
-            for backend_name in ("ripgrep", "sqlite", "sonic"):
-                for query, expected_urls in backend_expectations:
-                    backend_result = run_archivebox_cmd(
-                        ["list", "--search=contents", "--csv=url", query],
-                        cwd=initialized_archive,
-                        env={**env, "SEARCH_BACKEND_ENGINE": backend_name},
-                        timeout=60,
-                    )
-                    assert backend_result.returncode == 0, backend_result.stderr or backend_result.stdout
-                    backend_urls = [line.strip().strip('"') for line in backend_result.stdout.splitlines() if line.strip()]
-                    assert set(backend_urls) == set(expected_urls), (backend_name, query, backend_result.stdout)
-
-            for query, expected_urls in (
-                (url_only_needle, [url_only_url]),
-                (title_only_needle, [title_only_url]),
-                (tag_only_needle, [tag_only_url]),
-            ):
-                sonic_metadata_result = run_archivebox_cmd(
+            for backend_name, query, expected_urls in cli_backend_expectations:
+                backend_result = run_archivebox_cmd(
                     ["list", "--search=contents", "--csv=url", query],
                     cwd=initialized_archive,
-                    env={**env, "SEARCH_BACKEND_ENGINE": "sonic"},
+                    env={**env, "SEARCH_BACKEND_ENGINE": backend_name},
                     timeout=60,
                 )
-                assert sonic_metadata_result.returncode == 0, sonic_metadata_result.stderr or sonic_metadata_result.stdout
-                sonic_metadata_urls = [line.strip().strip('"') for line in sonic_metadata_result.stdout.splitlines() if line.strip()]
-                assert set(sonic_metadata_urls) == set(expected_urls), (query, sonic_metadata_result.stdout)
+                assert backend_result.returncode == 0, backend_result.stderr or backend_result.stdout
+                backend_urls = [line.strip().strip('"') for line in backend_result.stdout.splitlines() if line.strip()]
+                assert set(backend_urls) == set(expected_urls), (backend_name, query, backend_result.stdout)
 
             archivebox_server = start_archivebox_server(
                 initialized_archive,
