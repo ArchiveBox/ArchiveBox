@@ -730,7 +730,7 @@ class TestSearchBackendsE2E:
         plugins_dir = Path(get_plugins_dir())
         lib_dir = initialized_archive / "lib"
         install_result = run_archivebox_cmd(
-            ["install", "search_backend_ripgrep", "search_backend_sonic"],
+            ["install", "wget", "search_backend_ripgrep", "search_backend_sonic"],
             cwd=initialized_archive,
             env={"ABXPKG_LIB_DIR": str(lib_dir)},
             default_cli_env=True,
@@ -739,6 +739,7 @@ class TestSearchBackendsE2E:
         binary_env = resolve_abxpkg_binary_env(
             lib_dir,
             deps_from=[
+                plugins_dir / "wget" / "config.json",
                 plugins_dir / "search_backend_ripgrep" / "config.json",
                 plugins_dir / "search_backend_sonic" / "config.json",
             ],
@@ -746,8 +747,9 @@ class TestSearchBackendsE2E:
         assert Path(binary_env["RIPGREP_BINARY"]).is_file()
         assert Path(binary_env["SONIC_BINARY"]).is_file()
 
-        page_count = 93
-        total_snapshot_count = 100
+        page_count = 23
+        first_batch_count = 12
+        total_snapshot_count = page_count + 7
         url_only_path = "/urlonlymetaprecisionunique.html"
         title_only_path = "/title-only.html"
         tag_only_path = "/tag-only.html"
@@ -771,10 +773,10 @@ class TestSearchBackendsE2E:
                 f"<title>Search Matrix Page {index:03d}</title>"
                 "</head><body>"
                 f"archivebox-ui-stream-needle page-{index:03d} "
-                "real mercury output for public admin search matrix "
+                "real wget output for public admin search matrix "
                 f"{shared_content_needle} "
-                f"{first_batch_content_needle if index < 50 else second_batch_content_needle} "
-                f"{overlapping_content_needle if index in (0, 1, 2, 50, 51) else ''}"
+                f"{first_batch_content_needle if index < first_batch_count else second_batch_content_needle} "
+                f"{overlapping_content_needle if index in (0, 1, 2, first_batch_count, first_batch_count + 1) else ''}"
                 "</body></html>"
             ).encode()
             for index in range(page_count)
@@ -857,9 +859,9 @@ class TestSearchBackendsE2E:
             sonic_port = get_free_port()
             env = cli_env(
                 live=True,
-                PLUGINS="mercury,search_backend_ripgrep,search_backend_sqlite,search_backend_sonic",
+                PLUGINS="wget,search_backend_ripgrep,search_backend_sqlite,search_backend_sonic",
                 SAVE_TITLE="True",
-                MERCURY_ENABLED="True",
+                WGET_ENABLED="True",
                 TIMEOUT="20",
                 PUBLIC_INDEX="True",
                 PUBLIC_ADD_VIEW="True",
@@ -877,19 +879,19 @@ class TestSearchBackendsE2E:
             env.update(binary_env)
             create_admin_and_token(initialized_archive)
 
-            mercury_capture_urls = [*matrix_urls]
-            first_mercury_urls = mercury_capture_urls[:50]
-            second_mercury_urls = mercury_capture_urls[50:]
+            wget_capture_urls = [*matrix_urls]
+            first_wget_urls = wget_capture_urls[:first_batch_count]
+            second_wget_urls = wget_capture_urls[first_batch_count:]
             first_add_result = run_archivebox_cmd(
                 [
                     "add",
                     "--depth=0",
-                    f"--max-urls={len(first_mercury_urls)}",
+                    f"--max-urls={len(first_wget_urls)}",
                     "--crawl-max-concurrent-snapshots=4",
                     "--parser=url_list",
-                    "--plugins=mercury",
+                    "--plugins=wget",
                     "--tag=search-matrix",
-                    *first_mercury_urls,
+                    *first_wget_urls,
                 ],
                 cwd=initialized_archive,
                 env={
@@ -905,12 +907,12 @@ class TestSearchBackendsE2E:
                 [
                     "add",
                     "--depth=0",
-                    f"--max-urls={len(second_mercury_urls)}",
+                    f"--max-urls={len(second_wget_urls)}",
                     "--crawl-max-concurrent-snapshots=4",
                     "--parser=url_list",
-                    "--plugins=mercury",
+                    "--plugins=wget",
                     "--tag=search-matrix",
-                    *second_mercury_urls,
+                    *second_wget_urls,
                 ],
                 cwd=initialized_archive,
                 env=env,
@@ -973,8 +975,8 @@ class TestSearchBackendsE2E:
 
             cli_backend_expectations = (
                 ("ripgrep", shared_content_needle, matrix_urls),
-                ("sqlite", first_batch_content_needle, first_mercury_urls),
-                ("sonic", overlapping_content_needle, [*first_mercury_urls[:3], *second_mercury_urls[:2]]),
+                ("sqlite", first_batch_content_needle, first_wget_urls),
+                ("sonic", overlapping_content_needle, [*first_wget_urls[:3], *second_wget_urls[:2]]),
                 ("sonic", tag_only_needle, [tag_only_url]),
             )
             for backend_name, query, expected_urls in cli_backend_expectations:
@@ -1072,18 +1074,18 @@ class TestSearchBackendsE2E:
             ):
                 for search_mode, query, expected_urls in (
                     ("meta", "search-matrix", urls),
-                    ("deep:ripgrep", first_batch_content_needle, first_mercury_urls),
-                    ("deep:ripgrep", second_batch_content_needle, second_mercury_urls),
+                    ("deep:ripgrep", first_batch_content_needle, first_wget_urls),
+                    ("deep:ripgrep", second_batch_content_needle, second_wget_urls),
                     ("deep:ripgrep", shared_content_needle, matrix_urls),
-                    ("deep:ripgrep", overlapping_content_needle, [*first_mercury_urls[:3], *second_mercury_urls[:2]]),
-                    ("deep:sqlite", first_batch_content_needle, first_mercury_urls),
-                    ("deep:sqlite", second_batch_content_needle, second_mercury_urls),
+                    ("deep:ripgrep", overlapping_content_needle, [*first_wget_urls[:3], *second_wget_urls[:2]]),
+                    ("deep:sqlite", first_batch_content_needle, first_wget_urls),
+                    ("deep:sqlite", second_batch_content_needle, second_wget_urls),
                     ("deep:sqlite", shared_content_needle, matrix_urls),
-                    ("deep:sqlite", overlapping_content_needle, [*first_mercury_urls[:3], *second_mercury_urls[:2]]),
-                    ("deep:sonic", first_batch_content_needle, first_mercury_urls),
-                    ("deep:sonic", second_batch_content_needle, second_mercury_urls),
+                    ("deep:sqlite", overlapping_content_needle, [*first_wget_urls[:3], *second_wget_urls[:2]]),
+                    ("deep:sonic", first_batch_content_needle, first_wget_urls),
+                    ("deep:sonic", second_batch_content_needle, second_wget_urls),
                     ("deep:sonic", shared_content_needle, matrix_urls),
-                    ("deep:sonic", overlapping_content_needle, [*first_mercury_urls[:3], *second_mercury_urls[:2]]),
+                    ("deep:sonic", overlapping_content_needle, [*first_wget_urls[:3], *second_wget_urls[:2]]),
                     ("deep:sonic", url_only_needle, [url_only_url]),
                     ("deep:sonic", title_only_needle, [title_only_url]),
                     ("deep:sonic", tag_only_needle, [tag_only_url]),
