@@ -253,9 +253,16 @@ def iter_query_search_ids(
         return
 
     if "sonic" in backend_names:
+        import sys
+        from contextlib import redirect_stdout
+
         from archivebox.core.takeover_util import ensure_daemon_stack
 
-        ensure_daemon_stack(reason="search query")
+        # Search commands can produce structured stdout such as --csv/--json.
+        # Daemon bootstrap progress is diagnostic output and must not corrupt
+        # that user-facing data stream.
+        with redirect_stdout(sys.stderr):
+            ensure_daemon_stack(reason="search query")
 
     errors: list[Exception] = []
     successful_backends = 0

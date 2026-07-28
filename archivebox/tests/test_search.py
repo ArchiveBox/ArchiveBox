@@ -971,25 +971,6 @@ class TestSearchBackendsE2E:
             )
             assert index_update.returncode == 0, index_update.stderr or index_update.stdout
 
-            archivebox_server = start_archivebox_server(
-                initialized_archive,
-                port=archivebox_port,
-                log_name="search-matrix-server.log",
-                env=env,
-            )
-            get_http_response(
-                archivebox_port,
-                host=f"web.archivebox.localhost:{archivebox_port}",
-                path="/public/",
-                process=archivebox_server,
-            )
-            get_http_response(
-                archivebox_port,
-                host=f"admin.archivebox.localhost:{archivebox_port}",
-                path="/admin/login/",
-                process=archivebox_server,
-            )
-
             backend_expectations = (
                 (shared_content_needle, matrix_urls),
                 (first_batch_content_needle, first_mercury_urls),
@@ -1022,6 +1003,25 @@ class TestSearchBackendsE2E:
                 assert sonic_metadata_result.returncode == 0, sonic_metadata_result.stderr or sonic_metadata_result.stdout
                 sonic_metadata_urls = [line.strip().strip('"') for line in sonic_metadata_result.stdout.splitlines() if line.strip()]
                 assert set(sonic_metadata_urls) == set(expected_urls), (query, sonic_metadata_result.stdout)
+
+            archivebox_server = start_archivebox_server(
+                initialized_archive,
+                port=archivebox_port,
+                log_name="search-matrix-server.log",
+                env=env,
+            )
+            get_http_response(
+                archivebox_port,
+                host=f"web.archivebox.localhost:{archivebox_port}",
+                path="/public/",
+                process=archivebox_server,
+            )
+            get_http_response(
+                archivebox_port,
+                host=f"admin.archivebox.localhost:{archivebox_port}",
+                path="/admin/login/",
+                process=archivebox_server,
+            )
 
             session = requests.Session()
             login_page = session.get(
