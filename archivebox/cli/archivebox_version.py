@@ -79,48 +79,6 @@ def _render_binary_abspath(abspath: str):
     return Text(abspath, style="green")
 
 
-def _build_binary_table(rows: list[dict[str, object]]):
-    from rich import box
-    from rich.table import Table
-
-    table = Table(title="Binary Dependencies", box=box.SIMPLE_HEAVY, expand=True)
-    table.add_column("Binary", no_wrap=True, max_width=28)
-    table.add_column("Plugin", no_wrap=True, max_width=24)
-    table.add_column("State", no_wrap=True, width=8)
-    table.add_column("Status", justify="center", no_wrap=True, width=6)
-    table.add_column("Version", no_wrap=True, width=16)
-    table.add_column("Provider", no_wrap=True, width=8)
-    table.add_column("Path", overflow="fold", ratio=1)
-    for row in rows:
-        table.add_row(
-            str(row["binary"]),
-            str(row["plugin"]),
-            str(row["state"]),
-            str(row["status"]),
-            str(row["version"]),
-            str(row["provider"]),
-            row["path"],
-            style=str(row.get("style") or ""),
-        )
-    return table
-
-
-def _print_binary_row(prnt, row: dict[str, object]) -> None:
-    prnt(
-        "",
-        str(row["binary"]).ljust(28),
-        row["status"],
-        str(row["plugin"]).ljust(24),
-        str(row["state"]).ljust(8),
-        str(row["version"]).ljust(16),
-        str(row["provider"]).ljust(8),
-        row["path"],
-        overflow="ignore",
-        crop=False,
-        style=str(row.get("style") or ""),
-    )
-
-
 def _binary_record_matches_runtime(installed, lib_dir: Path) -> bool:
     if not installed or not installed.is_valid or not installed.version:
         return False
@@ -169,6 +127,7 @@ def version(
     from rich.panel import Panel
     from rich.console import Console
     from rich.live import Live
+    from abx_dl.tables import binary_dependency_status, binary_dependency_table
 
     from archivebox.config import CONSTANTS
     from archivebox.config.version import get_COMMIT_HASH, get_BUILD_TIME
@@ -367,16 +326,12 @@ def version(
     any_available = False
     compact_paths = console.is_terminal
     live_enabled = console.is_terminal
-    live_cm = Live(_build_binary_table(rows), console=console, refresh_per_second=8) if live_enabled else None
-    if not live_enabled:
-        prnt("", "Binary".ljust(28), "Status", "Plugin".ljust(24), "State".ljust(8), "Version".ljust(16), "Provider".ljust(8), "Path")
+    live_cm = Live(binary_dependency_table(rows), console=console, refresh_per_second=8) if live_enabled else None
 
     def emit_row(row: dict[str, object]) -> None:
         rows.append(row)
         if live_cm is not None:
-            live_cm.update(_build_binary_table(rows), refresh=True)
-        else:
-            _print_binary_row(prnt, row)
+            live_cm.update(binary_dependency_table(rows), refresh=True)
 
     if live_cm is not None:
         live_cm.start()
@@ -439,11 +394,9 @@ def version(
                         else abspath
                     )
                     rendered_path = _render_binary_abspath(display_path) if compact_paths else display_path
-                    status = "[green]√[/green]" if plugin_enabled else "[grey53]-[/grey53]"
                     any_available = True
                 else:
                     rendered_path = "[grey53]not installed[/grey53]"
-                    status = "[red]X[/red]" if plugin_enabled else "[grey53]-[/grey53]"
                     if plugin_enabled and display_name not in seen_failures:
                         failures.append(display_name)
                         seen_failures.add(display_name)
@@ -462,8 +415,7 @@ def version(
                 emit_row(
                     {
                         "plugin": plugin_name,
-                        "state": "enabled" if plugin_enabled else "disabled",
-                        "status": status,
+                        "status": binary_dependency_status(enabled=plugin_enabled, valid=valid),
                         "binary": display_name,
                         "version": version_str if valid else "-",
                         "provider": provider if valid else "-",
@@ -504,8 +456,7 @@ def version(
                 emit_row(
                     {
                         "plugin": "(database)",
-                        "state": "detected",
-                        "status": "[green]√[/green]",
+                        "status": binary_dependency_status(enabled=True, valid=True),
                         "binary": binary_name,
                         "version": version_str,
                         "provider": provider,
@@ -518,6 +469,8 @@ def version(
     finally:
         if live_cm is not None:
             live_cm.stop()
+        else:
+            prnt(binary_dependency_table(rows))
 
     if not any_rows:
         prnt("", "[grey53]No required binaries declared for discovered plugins.[/grey53]")
