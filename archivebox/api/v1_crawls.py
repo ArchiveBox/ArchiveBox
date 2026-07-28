@@ -23,7 +23,6 @@ from archivebox.core.permissions import (
 )
 from archivebox.config.common import get_config
 from archivebox.crawls.models import Crawl
-from archivebox.crawls.locks import crawl_lifecycle_lock
 from archivebox.misc.util import filter_queryset_by_uuid_substring
 
 from .auth import API_AUTH_METHODS, authenticated_user_from_request
@@ -207,46 +206,43 @@ def crawl_file_nested_2(request: HttpRequest, crawl_id: str, folder: str, subfol
 def patch_crawl(request: HttpRequest, crawl_id: str, data: CrawlUpdateSchema):
     """Update a crawl (e.g., set status=sealed to cancel queued work)."""
     crawl = get_crawl_by_ref(crawl_id)
-    crawl_id_str = str(crawl.id)
     payload = data.dict(exclude_unset=True)
     update_fields = ["modified_at"]
 
-    with crawl_lifecycle_lock(crawl_id_str):
-        crawl = get_crawl_by_ref(crawl_id_str)
-        action = payload.pop("action", None)
-        if action:
-            if action == "pause":
-                crawl.pause()
-                return crawl
-            if action in ("resume", "unpause"):
-                crawl.resume()
-                return crawl
-            if action == "cancel":
-                crawl.cancel()
-                return crawl
-            raise HttpError(400, f"Invalid action: {action}")
+    action = payload.pop("action", None)
+    if action:
+        if action == "pause":
+            crawl.pause()
+            return crawl
+        if action in ("resume", "unpause"):
+            crawl.resume()
+            return crawl
+        if action == "cancel":
+            crawl.cancel()
+            return crawl
+        raise HttpError(400, f"Invalid action: {action}")
 
-        tags = payload.pop("tags", None)
-        tags_str = payload.pop("tags_str", None)
-        if tags is not None or tags_str is not None:
-            crawl.tags_str = ",".join(normalize_tag_list(tags, tags_str or ""))
-            update_fields.append("tags_str")
+    tags = payload.pop("tags", None)
+    tags_str = payload.pop("tags_str", None)
+    if tags is not None or tags_str is not None:
+        crawl.tags_str = ",".join(normalize_tag_list(tags, tags_str or ""))
+        update_fields.append("tags_str")
 
-        if "status" in payload:
-            if payload["status"] not in Crawl.StatusChoices.values:
-                raise HttpError(400, f"Invalid status: {payload['status']}")
-            if payload["status"] == Crawl.StatusChoices.SEALED:
-                crawl.cancel()
-                return crawl
-            crawl.status = payload["status"]
-            update_fields.append("status")
+    if "status" in payload:
+        if payload["status"] not in Crawl.StatusChoices.values:
+            raise HttpError(400, f"Invalid status: {payload['status']}")
+        if payload["status"] == Crawl.StatusChoices.SEALED:
+            crawl.cancel()
+            return crawl
+        crawl.status = payload["status"]
+        update_fields.append("status")
 
-        if "retry_at" in payload:
-            crawl.retry_at = payload["retry_at"]
-            update_fields.append("retry_at")
+    if "retry_at" in payload:
+        crawl.retry_at = payload["retry_at"]
+        update_fields.append("retry_at")
 
-        crawl.save(update_fields=update_fields)
-        return crawl
+    crawl.save(update_fields=update_fields)
+    return crawl
 
 
 @router.delete("/crawl/{crawl_id}", response=CrawlDeleteResponseSchema, url_name="delete_crawl")
@@ -255,6 +251,7 @@ def delete_crawl(request: HttpRequest, crawl_id: str):
     crawl_id_str = str(crawl.id)
     crawl.cancel()
 
+    from archivebox.crawls.locks import crawl_lifecycle_lock
     from archivebox.services.runner import run_pending_crawls
 
     with crawl_lifecycle_lock(crawl_id_str):
