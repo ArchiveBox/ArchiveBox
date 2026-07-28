@@ -57,7 +57,16 @@ IMPORT_FORMAT_EXPECTATIONS = {
 }
 
 
-def write_import_format_files(base_dir: Path) -> dict[str, Path]:
+def write_import_format_files(base_dir: Path, urls: dict[str, str] | None = None) -> dict[str, Path]:
+    urls = {
+        "rss": "https://example.com/",
+        "netscape": "https://www.iana.org/domains/reserved",
+        "dom": "https://www.iana.org/help/example-domains",
+        "json": "https://example.com/?archivebox-json-import=1",
+        "jsonl": "https://example.com/?archivebox-jsonl-import=1",
+        "txt": "https://example.org/",
+        **(urls or {}),
+    }
     files = {
         "rss": base_dir / "test_rss.xml",
         "netscape": base_dir / "test_netscape.html",
@@ -67,16 +76,16 @@ def write_import_format_files(base_dir: Path) -> dict[str, Path]:
         "txt": base_dir / "test_urls.txt",
     }
     files["rss"].write_text(
-        """<?xml version="1.0" encoding="UTF-8"?>
+        f"""<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
     <title>ArchiveBox RSS import fixture</title>
-    <link>https://example.com/</link>
+    <link>{urls["rss"]}</link>
     <description>ArchiveBox RSS import fixture</description>
     <item>
       <title>RSS Example Import</title>
-      <link>https://example.com/</link>
-      <guid>https://example.com/</guid>
+      <link>{urls["rss"]}</link>
+      <guid>{urls["rss"]}</guid>
       <pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate>
       <category>rss-tag</category>
       <category>metadata</category>
@@ -87,22 +96,22 @@ def write_import_format_files(base_dir: Path) -> dict[str, Path]:
         encoding="utf-8",
     )
     files["netscape"].write_text(
-        """<!DOCTYPE NETSCAPE-Bookmark-file-1>
+        f"""<!DOCTYPE NETSCAPE-Bookmark-file-1>
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
 <TITLE>Bookmarks</TITLE>
 <H1>Bookmarks</H1>
 <DL><p>
-  <DT><A HREF="https://www.iana.org/domains/reserved" ADD_DATE="1704153600" TAGS="netscape-tag,metadata">IANA Reserved Domains</A>
+  <DT><A HREF="{urls["netscape"]}" ADD_DATE="1704153600" TAGS="netscape-tag,metadata">IANA Reserved Domains</A>
 </DL><p>
 """,
         encoding="utf-8",
     )
     files["dom"].write_text(
-        """<!doctype html>
+        f"""<!doctype html>
 <html>
   <head><title>DOM import fixture</title></head>
   <body>
-    <a href="https://www.iana.org/help/example-domains">IANA Example Domains</a>
+    <a href="{urls["dom"]}">IANA Example Domains</a>
   </body>
 </html>
 """,
@@ -111,7 +120,7 @@ def write_import_format_files(base_dir: Path) -> dict[str, Path]:
     files["json"].write_text(
         json.dumps(
             {
-                "url": "https://example.com/?archivebox-json-import=1",
+                "url": urls["json"],
                 "title": "JSON Import Example",
                 "tags": ["json-tag", "metadata"],
                 "bookmarked_at": "2024-01-03T00:00:00+00:00",
@@ -123,7 +132,7 @@ def write_import_format_files(base_dir: Path) -> dict[str, Path]:
     files["jsonl"].write_text(
         json.dumps(
             {
-                "url": "https://example.com/?archivebox-jsonl-import=1",
+                "url": urls["jsonl"],
                 "title": "JSONL Import Example",
                 "tags": "jsonl-tag,metadata",
                 "bookmarked_at": "2024-01-04T00:00:00+00:00",
@@ -133,7 +142,7 @@ def write_import_format_files(base_dir: Path) -> dict[str, Path]:
         encoding="utf-8",
     )
     files["txt"].write_text(
-        "Plain text import fixture containing https://example.org/ as a real live URL.\n",
+        f"Plain text import fixture containing {urls['txt']} as a real live URL.\n",
         encoding="utf-8",
     )
     return files
@@ -382,11 +391,20 @@ def test_public_add_view_depth_one_crawl_skips_unreadable_persona_profile_entrie
 
 
 @pytest.mark.timeout(420)
-def test_public_add_view_import_text_formats_preserve_metadata_and_resume_without_duplicates(tmp_path):
+def test_public_add_view_import_text_formats_preserve_metadata_and_resume_without_duplicates(tmp_path, recursive_test_site):
     """Public /add/ textarea should import rich text, survive runner restart, and preserve one row per URL."""
     init_archive(tmp_path)
-    import_files = write_import_format_files(tmp_path)
-    expected_urls = {case["url"] for case in IMPORT_FORMAT_EXPECTATIONS.values()}
+    import_urls = {
+        "rss": recursive_test_site["root_url"],
+        "netscape": recursive_test_site["child_urls"][0],
+        "dom": recursive_test_site["child_urls"][1],
+        "json": recursive_test_site["child_urls"][2],
+        "jsonl": recursive_test_site["deep_urls"][0],
+        "txt": recursive_test_site["deep_urls"][1],
+    }
+    import_files = write_import_format_files(tmp_path, import_urls)
+    import_expectations = {name: {**case, "url": import_urls[name]} for name, case in IMPORT_FORMAT_EXPECTATIONS.items()}
+    expected_urls = {case["url"] for case in import_expectations.values()}
 
     port = get_free_port()
     env = cli_env(
@@ -397,7 +415,7 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
         USE_CHROME="False",
         PUBLIC_INDEX="True",
         PUBLIC_ADD_VIEW="True",
-        URL_ALLOWLIST=r"example\.com|example\.org|iana\.org|www\.iana\.org",
+        URL_ALLOWLIST=r"127\.0\.0\.1[:/].*",
     )
     create_admin_and_token(tmp_path)
 
@@ -416,12 +434,12 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
                 headers={"Host": f"web.archivebox.localhost:{port}", "Referer": f"http://web.archivebox.localhost:{port}/add/"},
                 data={
                     "url": source_text,
-                    "depth": "0",
-                    "max_urls": "0",
+                    "depth": "1",
+                    "max_urls": str(len(expected_urls)),
                     "crawl_max_size": "0",
                     "snapshot_max_size": "0",
                     "tag": "public-ui-import",
-                    "url_filters_allowlist": r"example\.com|example\.org|iana\.org|www\.iana\.org",
+                    "url_filters_allowlist": r"127\.0\.0\.1[:/].*",
                     "url_filters_denylist": "",
                     "schedule": "",
                     "notes": "public add import formats",
@@ -475,7 +493,7 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
     assert all(crawl.status in {Crawl.StatusChoices.STARTED, Crawl.StatusChoices.SEALED} for crawl in crawls)
     assert len(snapshots_by_url) == len(expected_urls)
 
-    for import_name, expected in IMPORT_FORMAT_EXPECTATIONS.items():
+    for import_name, expected in import_expectations.items():
         snapshot = snapshots_by_url.get(expected["url"])
         assert snapshot is not None, f"{import_name} did not create Snapshot for {expected['url']}"
         assert snapshot.status in {Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED}
