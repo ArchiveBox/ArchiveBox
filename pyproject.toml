@@ -83,7 +83,7 @@ dependencies = [
     "abxbus==2.5.40",         # EventBus API
     "abxpkg",                # direct imports only; version constrained by abx-dl -> abx-plugins
     "abx-plugins",           # direct imports only; version constrained by abx-dl
-    "abx-dl==1.12.18",       # shared ArchiveBox downloader package with blocking install preflight
+    "abx-dl==1.12.19",       # shared ArchiveBox downloader package with blocking install preflight
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
