@@ -523,6 +523,8 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
             "CHROME_HEADLESS": "true",
             "CHROME_SANDBOX": "false",
             "CHROME_ISOLATION": "snapshot",
+            "LITEPARSE_OCR_ENABLED": "false",
+            "LITEPARSE_MAX_SOURCES": "4",
         },
     )
 
