@@ -52,7 +52,7 @@ jobs:
     name: Tested Docker images
     uses: ./.github/workflows/docker.yml
     with:
-      push_digests: false
+      push_digests: ${{ github.event_name == 'push' }}
     secrets: inherit
 
   required:
