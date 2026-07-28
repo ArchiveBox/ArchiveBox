@@ -4,12 +4,12 @@ import yaml
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-runner.yml"
+RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 
 
 def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert RELEASE_WORKFLOW.exists()
-    assert not (REPO_ROOT / ".github" / "workflows" / "release.yml").exists()
+    assert not (REPO_ROOT / ".github" / "workflows" / "release-runner.yml").exists()
 
     workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
     jobs = workflow["jobs"]
