@@ -19,7 +19,7 @@ done
 TAG_PREFIX=v
 PYPI_PACKAGE=archivebox
 
-VERSION="$($UV_BINARY run --no-project python - <<'PY'
+VERSION="$($UV_BINARY run --no-cache --no-project python - <<'PY'
 from pathlib import Path
 import json
 import re
@@ -53,7 +53,7 @@ fi
 
 PYPI_VERSIONS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -r '.releases | keys[]')"
 GITHUB_TAGS="$($GH_BINARY api "repos/${SLUG}/releases?per_page=100" --jq '.[].tag_name')"
-LATEST="$(PYPI_VERSIONS="$PYPI_VERSIONS" GITHUB_TAGS="$GITHUB_TAGS" TAG_PREFIX="$TAG_PREFIX" $UV_BINARY run --no-project python - <<'PY'
+LATEST="$(PYPI_VERSIONS="$PYPI_VERSIONS" GITHUB_TAGS="$GITHUB_TAGS" TAG_PREFIX="$TAG_PREFIX" $UV_BINARY run --no-cache --no-project python - <<'PY'
 import os
 import re
 
@@ -72,7 +72,7 @@ print(max(versions, key=parse) if versions else '')
 PY
 )"
 if [[ -n "$LATEST" ]]; then
-    ORDER="$(CURRENT="$VERSION" LATEST="$LATEST" $UV_BINARY run --no-project python - <<'PY'
+    ORDER="$(CURRENT="$VERSION" LATEST="$LATEST" $UV_BINARY run --no-cache --no-project python - <<'PY'
 import os
 import re
 
@@ -96,7 +96,7 @@ $GIT_BINARY fetch --quiet --no-tags origin "+refs/heads/${RELEASE_BRANCH}:refs/r
 $GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" "refs/remotes/origin/${RELEASE_BRANCH}"
 
 [[ "$(<"$RELEASE_DISTRIBUTIONS_DIR/COMMIT_SHA")" == "$RELEASE_SHA" ]]
-$UV_BINARY run --no-project python - "$RELEASE_DISTRIBUTIONS_DIR" "$VERSION" <<'PY'
+$UV_BINARY run --no-cache --no-project python - "$RELEASE_DISTRIBUTIONS_DIR" "$VERSION" <<'PY'
 from hashlib import sha256
 from pathlib import Path
 import re
@@ -155,7 +155,7 @@ fi
 }
 
 PYPI_URLS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -c --arg version "$VERSION" ".releases[\$version] // []")"
-PYPI_STATUS_OUTPUT="$(PYPI_URLS="$PYPI_URLS" RELEASE_DISTRIBUTIONS_DIR="$RELEASE_DISTRIBUTIONS_DIR" VERSION="$VERSION" $UV_BINARY run --no-project python - <<'PY'
+PYPI_STATUS_OUTPUT="$(PYPI_URLS="$PYPI_URLS" RELEASE_DISTRIBUTIONS_DIR="$RELEASE_DISTRIBUTIONS_DIR" VERSION="$VERSION" $UV_BINARY run --no-cache --no-project python - <<'PY'
 import json
 import os
 from pathlib import Path
@@ -207,9 +207,13 @@ if [[ ( "$PYPI_STATE" != absent || "$GITHUB_EXISTS" == true ) && "$TAG_TARGET" !
     exit 1
 fi
 
-if [[ -z "$TAG_TARGET" ]]; then
-    $GIT_BINARY tag "$TAG" "$RELEASE_SHA"
-    $GIT_BINARY push origin "refs/tags/${TAG}"
+if [[ "$GITHUB_EXISTS" == false ]]; then
+    RELEASE_ARGS=(--target "$RELEASE_SHA")
+    [[ "$VERSION" == *rc* ]] && RELEASE_ARGS+=(--prerelease)
+    $GH_BINARY release create "$TAG" --repo "$SLUG" \
+        --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
+    GITHUB_EXISTS=true
+    TAG_TARGET="$RELEASE_SHA"
 fi
 
 if [[ "$PYPI_STATE" != complete ]]; then
@@ -222,13 +226,6 @@ if [[ "$PYPI_STATE" != complete ]]; then
     $UV_BINARY publish --trusted-publishing always "${PYPI_ARTIFACTS[@]}"
 fi
 
-if [[ "$GITHUB_EXISTS" == false ]]; then
-    RELEASE_ARGS=()
-    [[ "$VERSION" == *rc* ]] && RELEASE_ARGS+=(--prerelease)
-    $GH_BINARY release create "$TAG" --repo "$SLUG" --verify-tag \
-        --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
-fi
-
 $GH_BINARY release upload "$TAG" --repo "$SLUG" \
     "$RELEASE_DISTRIBUTIONS_DIR/COMMIT_SHA" \
     "${WHEELS[0]}" \
@@ -237,7 +234,7 @@ $GH_BINARY release upload "$TAG" --repo "$SLUG" \
     --clobber
 
 RELEASE_JSON="$($GH_BINARY release view "$TAG" --repo "$SLUG" --json assets,tagName)"
-RELEASE_JSON="$RELEASE_JSON" RELEASE_DISTRIBUTIONS_DIR="$RELEASE_DISTRIBUTIONS_DIR" VERSION="$VERSION" TAG="$TAG" $UV_BINARY run --no-project python - <<'PY'
+RELEASE_JSON="$RELEASE_JSON" RELEASE_DISTRIBUTIONS_DIR="$RELEASE_DISTRIBUTIONS_DIR" VERSION="$VERSION" TAG="$TAG" $UV_BINARY run --no-cache --no-project python - <<'PY'
 from hashlib import sha256
 from pathlib import Path
 import json
