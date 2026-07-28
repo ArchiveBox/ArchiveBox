@@ -95,6 +95,68 @@ fi
 $GIT_BINARY fetch --quiet --no-tags origin "+refs/heads/${RELEASE_BRANCH}:refs/remotes/origin/${RELEASE_BRANCH}"
 $GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" "refs/remotes/origin/${RELEASE_BRANCH}"
 
+TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/${TAG}^{}")"
+TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
+if [[ -z "$TAG_TARGET" ]]; then
+    TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/${TAG}")"
+    TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
+fi
+
+if [[ -n "$TAG_TARGET" && "$TAG_TARGET" != "$RELEASE_SHA" ]]; then
+    $GIT_BINARY merge-base --is-ancestor "$TAG_TARGET" "refs/remotes/origin/${RELEASE_BRANCH}" || {
+        echo "Existing tag $TAG is not on $RELEASE_BRANCH" >&2
+        exit 1
+    }
+    PYPI_URLS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -c --arg version "$VERSION" ".releases[\$version] // []")"
+    PYPI_URLS="$PYPI_URLS" VERSION="$VERSION" $UV_BINARY run --no-cache --no-project python - <<'PY'
+import json
+import os
+import re
+
+version = os.environ["VERSION"]
+expected_names = {
+    f"archivebox-{version}-py3-none-any.whl",
+    f"archivebox-{version}.tar.gz",
+}
+published_files = json.loads(os.environ["PYPI_URLS"])
+published = {item["filename"]: item["digests"].get("sha256", "") for item in published_files}
+if set(published) != expected_names:
+    raise SystemExit(f"PyPI release {version} does not contain the exact wheel and sdist")
+for filename, digest in published.items():
+    if not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise SystemExit(f"PyPI release {version} has an invalid sha256 for {filename}")
+PY
+    RELEASE_JSON="$($GH_BINARY release view "$TAG" --repo "$SLUG" --json assets,isDraft,isPrerelease,tagName)"
+    RELEASE_JSON="$RELEASE_JSON" VERSION="$VERSION" TAG="$TAG" $UV_BINARY run --no-cache --no-project python - <<'PY'
+import json
+import os
+import re
+
+version = os.environ["VERSION"]
+release = json.loads(os.environ["RELEASE_JSON"])
+expected_names = {
+    "COMMIT_SHA",
+    "SHA256SUMS",
+    f"archivebox-{version}-py3-none-any.whl",
+    f"archivebox-{version}.tar.gz",
+}
+expected_prerelease = re.search(r"rc[0-9]+$", version) is not None
+assets = release["assets"]
+published = {asset["name"]: asset.get("digest", "") for asset in assets}
+if release["tagName"] != os.environ["TAG"]:
+    raise SystemExit("GitHub release tag does not match the source version")
+if release["isDraft"] or release["isPrerelease"] != expected_prerelease:
+    raise SystemExit("GitHub release draft/prerelease metadata is incorrect")
+if len(published) != len(assets) or set(published) != expected_names:
+    raise SystemExit("GitHub release asset set is incomplete or contains extras")
+for filename, digest in published.items():
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise SystemExit(f"GitHub release has an invalid digest for {filename}")
+PY
+    echo "${PYPI_PACKAGE} ${VERSION} is already fully released from ${TAG_TARGET}"
+    exit 0
+fi
+
 [[ "$(<"$RELEASE_DISTRIBUTIONS_DIR/COMMIT_SHA")" == "$RELEASE_SHA" ]]
 $UV_BINARY run --no-cache --no-project python - "$RELEASE_DISTRIBUTIONS_DIR" "$VERSION" <<'PY'
 from hashlib import sha256
@@ -142,13 +204,6 @@ SDISTS=("$RELEASE_DISTRIBUTIONS_DIR"/archivebox-*.tar.gz)
 [[ "${#SDISTS[@]}" -eq 1 ]]
 [[ "${WHEELS[0]##*/}" == "archivebox-${VERSION}-py3-none-any.whl" ]]
 [[ "${SDISTS[0]##*/}" == archivebox-${VERSION}.tar.gz ]]
-
-TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/${TAG}^{}")"
-TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
-if [[ -z "$TAG_TARGET" ]]; then
-    TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/${TAG}")"
-    TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
-fi
 [[ -z "$TAG_TARGET" || "$TAG_TARGET" == "$RELEASE_SHA" ]] || {
     echo "$TAG points to $TAG_TARGET, not $RELEASE_SHA" >&2
     exit 1
