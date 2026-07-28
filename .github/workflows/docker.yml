@@ -367,9 +367,11 @@ jobs:
           [[ "$index_html" == *ArchiveBox* ]]
           [[ "$admin_js" == *window.django* ]]
 
-          "$DOCKER_BINARY" compose run --rm archivebox add --plugins=parse_txt_urls 'http://example.com/#test_docker'
+          "$DOCKER_BINARY" compose run --rm \
+            --add-host www.test-nginx-compose.local:host-gateway \
+            archivebox add --plugins=parse_txt_urls 'http://www.test-nginx-compose.local/#test_docker'
           index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000')"
-          [[ "$index_html" == *'http://example.com/#test_docker'* ]]
+          [[ "$index_html" == *'http://www.test-nginx-compose.local/#test_docker'* ]]
           "$DOCKER_BINARY" compose down
 
       - name: Validate compressed image size
