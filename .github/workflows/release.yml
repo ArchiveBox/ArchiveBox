@@ -96,15 +96,16 @@ jobs:
           set -Eeuo pipefail
           VERSION='${{ steps.version.outputs.version }}'
           case "$RELEASE_BRANCH" in
-            main) ;;
+            main)
+              ;;
             dev)
               [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]] || {
-                echo "Refusing to publish ArchiveBox $VERSION from dev; only main may publish non-prerelease versions." >&2
+                echo "Refusing to publish ArchiveBox $VERSION from dev; only archivebox:main may publish non-prerelease versions." >&2
                 exit 1
               }
               ;;
             *)
-              echo "Refusing to publish ArchiveBox $VERSION from unsupported branch $RELEASE_BRANCH; only dev and main may publish." >&2
+              echo "Refusing to publish ArchiveBox $VERSION from unsupported branch $RELEASE_BRANCH; only archivebox:dev and archivebox:main may publish." >&2
               exit 1
               ;;
           esac
@@ -253,6 +254,7 @@ jobs:
 
   downstream-packages:
     name: Dispatch downstream packages
+    if: github.event.workflow_run.head_branch == 'main'
     needs:
       - python-release
       - docker-release
