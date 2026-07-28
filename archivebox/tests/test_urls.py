@@ -11,7 +11,7 @@ import pytest
 
 from archivebox.tests.conftest import run_archivebox_cmd
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
