@@ -11,7 +11,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from django.core.cache import cache
-from django.db import connections
+from django.db import close_old_connections, connections
 from django.db.models import Q
 from django.http import HttpResponseForbidden, QueryDict, StreamingHttpResponse
 
@@ -299,6 +299,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
         def run_search():
             iterator = None
             try:
+                close_old_connections()
                 iterator = iter_search_result_ids(query, base_queryset, search_mode=search_mode, config=config)
                 for snapshot_id in iterator:
                     if stop_event.is_set():
@@ -321,6 +322,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                     except AttributeError:
                         pass
                 cache.set(cache_key, {"ids": list(ids), "done": True}, SEARCH_RESULT_CACHE_TTL)
+                close_old_connections()
                 emit(None)
 
         threading.Thread(target=run_search, name=thread_name, daemon=True).start()
