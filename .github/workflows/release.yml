@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [CI]
     types: [completed]
-    branches: [dev]
+    branches: [dev, main]
 
 permissions:
   actions: read
@@ -19,7 +19,7 @@ concurrency:
 env:
   DOCKERHUB_IMAGE: archivebox/archivebox
   GHCR_IMAGE: ghcr.io/archivebox/archivebox
-  RELEASE_BRANCH: dev
+  RELEASE_BRANCH: ${{ github.event.workflow_run.head_branch }}
   RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
   CI_RUN_ID: ${{ github.event.workflow_run.id }}
 
@@ -184,12 +184,20 @@ jobs:
           fi
           {
             echo 'dockerhub_tags<<EOF'
-            echo "${DOCKERHUB_IMAGE}:dev"
+            if [[ "$RELEASE_BRANCH" == dev ]]; then
+              echo "${DOCKERHUB_IMAGE}:dev"
+            elif [[ "$RELEASE_BRANCH" == main ]]; then
+              echo "${DOCKERHUB_IMAGE}:latest"
+            fi
             echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"
             [[ "$TAG_TARGET" == "$RELEASE_SHA" ]] && echo "${DOCKERHUB_IMAGE}:${VERSION}"
             echo 'EOF'
             echo 'ghcr_tags<<EOF'
-            echo "${GHCR_IMAGE}:dev"
+            if [[ "$RELEASE_BRANCH" == dev ]]; then
+              echo "${GHCR_IMAGE}:dev"
+            elif [[ "$RELEASE_BRANCH" == main ]]; then
+              echo "${GHCR_IMAGE}:latest"
+            fi
             echo "${GHCR_IMAGE}:sha-${SHORT_SHA}"
             [[ "$TAG_TARGET" == "$RELEASE_SHA" ]] && echo "${GHCR_IMAGE}:${VERSION}"
             echo 'EOF'

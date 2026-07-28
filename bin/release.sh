@@ -38,6 +38,14 @@ SLUG="$($GH_BINARY repo view --json nameWithOwner --jq .nameWithOwner)"
 TAG="${TAG_PREFIX}${VERSION}"
 RELEASE_BRANCH="${RELEASE_BRANCH:-dev}"
 
+case "$RELEASE_BRANCH" in
+    dev|main) ;;
+    *)
+        echo "Refusing to publish ArchiveBox release $VERSION from unsupported branch $RELEASE_BRANCH; only dev and main may publish" >&2
+        exit 1
+        ;;
+esac
+
 if [[ "$RELEASE_BRANCH" != main && ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]]; then
     echo "Refusing to publish non-main ArchiveBox release $VERSION from $RELEASE_BRANCH; dev releases must be 0.9.XrcX prereleases" >&2
     exit 1
