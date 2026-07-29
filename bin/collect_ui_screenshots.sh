@@ -140,11 +140,15 @@ fi
 ROUTE_CONFIG="$( (
     cd "$DATA_DIR"
     uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-        'from urllib.parse import urlparse; from archivebox.config.common import get_config; from archivebox.core.routes_util import get_admin_base_url, get_web_base_url; config = get_config(); admin = get_admin_base_url(config=config); web = get_web_base_url(config=config); parsed = urlparse(admin); print(admin); print(web); print(parsed.port or (443 if parsed.scheme == "https" else 80))'
-) | tail -3)"
+        'from urllib.parse import urlparse; from archivebox.config.common import get_config; from archivebox.core.routes_util import get_admin_base_url, get_web_base_url; config = get_config(); admin = get_admin_base_url(config=config); web = get_web_base_url(config=config); admin_parsed = urlparse(admin); web_parsed = urlparse(web); print(admin); print(web); print(admin_parsed.port or (443 if admin_parsed.scheme == "https" else 80)); print(admin_parsed.hostname or ""); print(web_parsed.hostname or "")'
+) | tail -5)"
 ADMIN_BASE_URL="$(printf '%s\n' "$ROUTE_CONFIG" | sed -n '1p')"
 PUBLIC_BASE_URL="$(printf '%s\n' "$ROUTE_CONFIG" | sed -n '2p')"
 PORT="$(printf '%s\n' "$ROUTE_CONFIG" | sed -n '3p')"
+ADMIN_HOST="$(printf '%s\n' "$ROUTE_CONFIG" | sed -n '4p')"
+PUBLIC_HOST="$(printf '%s\n' "$ROUTE_CONFIG" | sed -n '5p')"
+SCREENSHOT_HOST_RESOLVER_RULES="${SCREENSHOT_HOST_RESOLVER_RULES:-MAP $ADMIN_HOST 127.0.0.1,MAP $PUBLIC_HOST 127.0.0.1}"
+export SCREENSHOT_HOST_RESOLVER_RULES
 
 if [[ -n "$REQUESTED_PORT" && "$REQUESTED_PORT" != "$PORT" ]]; then
     echo "[!] UI_SCREENSHOT_PORT=$REQUESTED_PORT conflicts with the canonical admin origin $ADMIN_BASE_URL" >&2
@@ -180,7 +184,7 @@ for _attempt in $(seq 1 60); do
         tail -100 "$DATA_DIR/ui-screenshot-server.log" >&2
         exit 1
     fi
-    if curl --fail --silent --show-error "$ADMIN_BASE_URL/admin/login/" >/dev/null; then
+    if curl --fail --silent --show-error --resolve "$ADMIN_HOST:$PORT:127.0.0.1" "$ADMIN_BASE_URL/admin/login/" >/dev/null; then
         ready=1
         break
     fi
