@@ -8,7 +8,7 @@ if [[ "$#" -ne 1 ]]; then
     exit 2
 fi
 
-uv run python - "$1" <<'PY'
+uv run --no-cache --no-project python - "$1" <<'PY'
 from pathlib import Path
 import json
 import re
@@ -41,4 +41,4 @@ package_path.write_text(json.dumps(package, indent=2) + '\n')
 print(version)
 PY
 
-uv lock
+uv lock --no-cache
