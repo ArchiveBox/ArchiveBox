@@ -414,10 +414,18 @@ def hermetic_lib_dir(tmp_path):
 
 @pytest.fixture
 def cached_abxpkg_lib_dir():
-    """Reuse the configured abxpkg cache when a test is not validating LIB_DIR isolation."""
-    from archivebox.config.common import get_config
-
-    return get_config().ABXPKG_LIB_DIR
+    """Reuse one real abxpkg installation cache for the current pytest session."""
+    lib_dir = SESSION_DATA_DIR / "lib"
+    lib_dir.mkdir(parents=True, exist_ok=True)
+    original_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
+    os.environ["ABXPKG_LIB_DIR"] = str(lib_dir)
+    try:
+        yield lib_dir
+    finally:
+        if original_lib_dir is None:
+            os.environ.pop("ABXPKG_LIB_DIR", None)
+        else:
+            os.environ["ABXPKG_LIB_DIR"] = original_lib_dir
 
 
 @pytest.fixture
