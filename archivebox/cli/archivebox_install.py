@@ -3,6 +3,7 @@
 __package__ = "archivebox.cli"
 
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -10,6 +11,40 @@ import rich_click as click
 from rich import print
 
 from archivebox.misc.util import docstring, enforce_types
+
+
+def _package_name_candidates(install_arg: object) -> set[str]:
+    """Return user-facing package tokens represented by a provider install arg."""
+    value = str(install_arg).strip()
+    if not value or value.startswith("-"):
+        return set()
+
+    candidates = {value}
+    package_name = re.split(r"==|>=|<=|~=|!=|>|<|\[", value, maxsplit=1)[0]
+    if "@" in package_name and not package_name.startswith("@"):
+        package_name = package_name.split("@", 1)[0]
+    if package_name:
+        candidates.add(package_name)
+        candidates.add(Path(package_name).name)
+    return candidates
+
+
+def _binary_record_candidates(binary_record: dict) -> set[str]:
+    """Return install-name tokens represented by an abx-dl binary request record."""
+    name = str(binary_record.get("name") or "")
+    display_name = Path(name).expanduser().name if ("/" in name or name.startswith("~")) else name
+    candidates = {name, display_name}
+    overrides = binary_record.get("overrides") or {}
+    if isinstance(overrides, dict):
+        for provider_overrides in overrides.values():
+            if not isinstance(provider_overrides, dict):
+                continue
+            install_args = provider_overrides.get("install_args") or ()
+            if isinstance(install_args, str):
+                install_args = (install_args,)
+            for install_arg in install_args:
+                candidates.update(_package_name_candidates(install_arg))
+    return {candidate for candidate in candidates if candidate}
 
 
 def _resolve_install_plugin_names(
@@ -51,10 +86,7 @@ def _resolve_install_plugin_names(
                 logical_names=False,
             )
             for logical_record, actual_record in zip(logical_records, actual_records, strict=False):
-                logical_name = str(logical_record["name"])
-                actual_name = str(actual_record["name"])
-                display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else actual_name
-                if requested_name in {logical_name, actual_name, display_name}:
+                if requested_name in _binary_record_candidates(logical_record) | _binary_record_candidates(actual_record):
                     matched_plugin_names.append(plugin_name)
                     break
 
