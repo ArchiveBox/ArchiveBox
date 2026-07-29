@@ -175,7 +175,7 @@ prepare_abxpkg_environment() {
 }
 
 resolve_setup_curl() {
-    resolve_setup_binary curl env,apt,brew true
+    resolve_setup_binary curl env,brew,apt true
     CURL_BINARY="$ABXPKG_LIB_DIR/env/bin/curl"
 }
 

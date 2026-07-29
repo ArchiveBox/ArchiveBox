@@ -32,7 +32,7 @@ OUTPUT_DIR="$(pwd)"
 : "${ABXPKG_LIB_DIR:?Set ABXPKG_LIB_DIR to the ArchiveBox package library directory}"
 
 for binary in python sqlite3 jq; do
-    abxpkg install "$binary" --lib "$ABXPKG_LIB_DIR" --binproviders env,apt,brew
+    abxpkg install "$binary" --lib "$ABXPKG_LIB_DIR" --binproviders env,brew,apt
 done
 
 PYTHON_BINARY="$ABXPKG_LIB_DIR/env/bin/python"

@@ -88,7 +88,7 @@
   "ci_binaries": [
     {
       "name": "{BASH_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{PYTHON_BINARY}",
@@ -96,7 +96,7 @@
     },
     {
       "name": "{JQ_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{UV_BINARY}",
@@ -122,7 +122,7 @@
     },
     {
       "name": "{GIT_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{PYTHON_BINARY}",
@@ -136,7 +136,7 @@
   "deploy_binaries": [
     {
       "name": "{GIT_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{PYTHON_BINARY}",
@@ -154,15 +154,15 @@
     },
     {
       "name": "{PV_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{TAR_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{TREE_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     }
   ],
   "docker_validation_binaries": [
@@ -278,7 +278,7 @@
   "docs_binaries": [
     {
       "name": "{CURL_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{SUDO_BINARY}",
@@ -288,13 +288,13 @@
   "git_binaries": [
     {
       "name": "{GIT_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     }
   ],
   "github_binaries": [
     {
       "name": "{GH_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     }
   ],
   "node_binaries": [
@@ -323,19 +323,19 @@
     },
     {
       "name": "{GH_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{GIT_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{JQ_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     },
     {
       "name": "{CURL_BINARY}",
-      "binproviders": "env,apt,brew"
+      "binproviders": "env,brew,apt"
     }
   ]
 }

@@ -2,7 +2,7 @@
   "required_binaries": [
     {
       "name": "nginx",
-      "binproviders": "env,apt,brew",
+      "binproviders": "env,brew,apt",
       "min_version": null
     }
   ]

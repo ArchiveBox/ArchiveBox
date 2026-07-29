@@ -19,7 +19,7 @@ resolve_docs_binary() {
     uv run --no-cache --project "$REPO_DIR" --no-sync --no-sources abxpkg env \
         --install \
         --lib="$ABXPKG_LIB_DIR" \
-        --binproviders=env,apt,brew \
+        --binproviders=env,brew,apt \
         "$binary_name" >/dev/null
     test -L "$ABXPKG_LIB_DIR/env/bin/$binary_name"
     test -x "$ABXPKG_LIB_DIR/env/bin/$binary_name"
