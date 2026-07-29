@@ -87,7 +87,7 @@ jobs:
             echo "CURL_BINARY=$ABXPKG_LIB_DIR/env/bin/curl"
           } >> "$GITHUB_ENV"
 
-      - name: Verify the exact release and dispatch downstream builds
+      - name: Verify the exact release and downstream builds
         env:
           DOWNSTREAM_TOKEN: ${{ secrets.RELEASE_GH_TOKEN || secrets.HOMEBREW_TAP_TOKEN }}
           INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
@@ -111,7 +111,13 @@ jobs:
 
           PAYLOAD_FILTER="{event_type: \"archivebox-dev-updated\", client_payload: {ref: \$ref, sha: \$sha, version: \$version}}"
           PAYLOAD="$("$JQ_BINARY" -nc --arg ref "$RELEASE_TAG" --arg sha "$RELEASE_SHA" --arg version "$VERSION" "$PAYLOAD_FILTER")"
-          for repo in homebrew-archivebox debian-archivebox; do
+
+          dispatch_and_wait() {
+            local repo="$1"
+            local workflow_name="$2"
+            local dispatched_at run_json status conclusion url
+
+            dispatched_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
             "$CURL_BINARY" --fail-with-body \
               -X POST \
               -H "Accept: application/vnd.github+json" \
@@ -119,4 +125,48 @@ jobs:
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "https://api.github.com/repos/ArchiveBox/${repo}/dispatches" \
               --data "$PAYLOAD"
+
+            local deadline=$((SECONDS + 1800))
+            while (( SECONDS < deadline )); do
+              run_json="$("$CURL_BINARY" --fail-with-body \
+                -H "Accept: application/vnd.github+json" \
+                -H "Authorization: Bearer ${DOWNSTREAM_TOKEN}" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "https://api.github.com/repos/ArchiveBox/${repo}/actions/runs?event=repository_dispatch&branch=main&per_page=20" \
+                | "$JQ_BINARY" -c \
+                  --arg workflow_name "$workflow_name" \
+                  --arg dispatched_at "$dispatched_at" \
+                  '.workflow_runs
+                    | map(select(.name == $workflow_name and .created_at >= $dispatched_at))
+                    | sort_by(.created_at)
+                    | reverse
+                    | .[0] // empty')"
+
+              if [[ -n "$run_json" ]]; then
+                status="$("$JQ_BINARY" -r '.status' <<< "$run_json")"
+                conclusion="$("$JQ_BINARY" -r '.conclusion // ""' <<< "$run_json")"
+                url="$("$JQ_BINARY" -r '.html_url' <<< "$run_json")"
+                echo "${repo}: ${status:-unknown} ${conclusion:-pending} ${url}"
+                if [[ "$status" == "completed" ]]; then
+                  [[ "$conclusion" == "success" ]] || {
+                    echo "${repo} downstream workflow failed: ${url}" >&2
+                    return 1
+                  }
+                  return 0
+                fi
+              else
+                echo "${repo}: waiting for ${workflow_name} repository_dispatch run"
+              fi
+              sleep 30
+            done
+
+            echo "${repo} downstream workflow did not complete within 30 minutes" >&2
+            return 1
+          }
+
+          for repo_and_workflow in \
+            "homebrew-archivebox|Update ArchiveBox dev formula" \
+            "debian-archivebox|Build Debian package"
+          do
+            dispatch_and_wait "${repo_and_workflow%%|*}" "${repo_and_workflow#*|}"
           done
