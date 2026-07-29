@@ -1132,7 +1132,8 @@ class TestUrlRouting:
         )
 
     def test_snapshot_pages_preview_filesystem_text_outputs(self, checked_in_static_site) -> None:
-        console_source_url = f"{checked_in_static_site}/archivebox/archivebox/templates/admin/base.html"
+        console_marker = "archivebox-consolelog-preview-fixture"
+        console_source_url = f"{checked_in_static_site}/archivebox/tests/fixtures/consolelog_preview.html"
         capture = run_archivebox_cmd(
             [
                 "add",
@@ -1153,6 +1154,7 @@ class TestUrlRouting:
             consolelog_file = next(path for path in consolelog_dir.rglob("*.jsonl") if path.is_file())
             consolelog_text = consolelog_file.read_text(encoding="utf-8")
             assert consolelog_text.strip()
+            assert "__CONSOLE_MARKER__" in consolelog_text
             console_result = ArchiveResult.objects.get(snapshot=snapshot, plugin="consolelog")
             assert consolelog_file.name in console_result.output_files
             snapshot.write_html_details()
@@ -1172,6 +1174,7 @@ class TestUrlRouting:
             import html, json
             first_console_record = json.loads(consolelog_text.splitlines()[0])
             assert html.escape(first_console_record["text"]) in preview_html
+            assert "__CONSOLE_MARKER__" in preview_html
 
             screenshot_dir = Path(snapshot.output_dir) / "screenshot"
             screenshot_file = next(path for path in screenshot_dir.rglob("*.png") if path.is_file())
@@ -1208,7 +1211,7 @@ class TestUrlRouting:
             assert "MHTML Preview" in preview_html
 
             print("OK")
-            """,
+            """.replace("__CONSOLE_MARKER__", console_marker),
         )
 
     def test_api_available_on_admin_and_api_hosts(self) -> None:
