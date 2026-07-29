@@ -1527,7 +1527,6 @@ def wait_for_archive_outputs(
     url: str,
     timeout: int = 120,
 ) -> bool:
-    wait_for_snapshot_capture(cwd, url, timeout=timeout)
     script = textwrap.dedent(
         f"""\
         from pathlib import Path
@@ -1540,8 +1539,10 @@ def wait_for_archive_outputs(
         from archivebox.core.models import Snapshot
 
         snapshot = Snapshot.objects.filter(url={url!r}).order_by('-created_at').first()
-        if snapshot is None or snapshot.status != 'sealed':
-            raise SystemExit(1)
+        if snapshot is None:
+            raise SystemExit('snapshot missing')
+        if snapshot.status != 'sealed':
+            raise SystemExit(f'snapshot status={{snapshot.status!r}}')
 
         output_rel = None
         for output in snapshot.discover_outputs():
@@ -1568,20 +1569,30 @@ def wait_for_archive_outputs(
                 output_rel = str(rel_path)
                 break
         if output_rel is None:
-            raise SystemExit(1)
+            raise SystemExit('snapshot output missing')
 
         responses_root = Path(snapshot.output_dir) / 'responses'
         if not responses_root.exists():
-            raise SystemExit(1)
+            raise SystemExit('responses directory missing')
         if not any(candidate.is_file() and snapshot.domain in candidate.relative_to(responses_root).parts for candidate in responses_root.rglob('*')):
-            raise SystemExit(1)
+            raise SystemExit(f'response file missing for domain={{snapshot.domain!r}}')
 
         print('READY')
         """,
     )
 
-    stdout, _stderr, returncode = run_python_cwd(script, cwd=cwd, timeout=30)
-    return returncode == 0 and "READY" in stdout
+    deadline = time.monotonic() + timeout
+    last_output = ""
+    while True:
+        stdout, stderr, returncode = run_python_cwd(script, cwd=cwd, timeout=30)
+        if returncode == 0 and "READY" in stdout:
+            return True
+
+        last_output = (stderr or stdout).strip()
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise AssertionError(last_output or "archive outputs not ready")
+        time.sleep(min(0.25, remaining))
 
 
 def _get_machine_type() -> str:
