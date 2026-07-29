@@ -32,6 +32,15 @@ if parse(version) <= parse(match.group(1)):
 updated, count = re.subn(r'^version = "[^"]+"$', f'version = "{version}"', text, count=1, flags=re.MULTILINE)
 if count != 1:
     raise SystemExit('Failed to update version in pyproject.toml')
+updated, count = re.subn(
+    r'^current_version = "v[^"]+"$',
+    f'current_version = "v{version}"',
+    updated,
+    count=1,
+    flags=re.MULTILINE,
+)
+if count != 1:
+    raise SystemExit('Failed to update tool.bumpver.current_version in pyproject.toml')
 pyproject.write_text(updated)
 
 package_path = Path('etc/package.json')
