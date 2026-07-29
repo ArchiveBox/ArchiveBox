@@ -1,0 +1,33 @@
+archivebox/tests/conftest.py
+  s_f8414d52051f83::t_7f23ba21746af3 417-428
+etc/package.json
+  s_f8414d52051f83::t_703b5081ab05cd 3
+pyproject.toml
+  s_f8414d52051f83::t_9380e6beca0755 3,347
+uv.lock
+  s_69ddf154c10e6f::t_35bef46ef64b8a 126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f8b7dad645466afd45d25fe63437aae04a0b164e",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
