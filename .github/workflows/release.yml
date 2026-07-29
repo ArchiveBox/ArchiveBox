@@ -126,7 +126,18 @@ jobs:
           TOOL_ROOT="$(mktemp -d)"
           export UV_TOOL_DIR="$TOOL_ROOT/tools"
           export UV_TOOL_BIN_DIR="$TOOL_ROOT/bin"
-          "$UV_BINARY" tool install --no-cache --prerelease allow --force "archivebox==${VERSION}"
+          WHEEL_URL="$("$UV_BINARY" run --no-cache --no-project python - "$VERSION" <<'PY'
+          import json
+          import sys
+          import urllib.request
+
+          version = sys.argv[1]
+          with urllib.request.urlopen(f"https://pypi.org/pypi/archivebox/{version}/json", timeout=20) as response:
+              data = json.load(response)
+          print(next(url["url"] for url in data["urls"] if url["filename"].endswith(".whl")))
+          PY
+          )"
+          "$UV_BINARY" tool install --no-cache --prerelease allow --force "$WHEEL_URL"
           INSTALLED_VERSION="$("$UV_TOOL_BIN_DIR/archivebox" --version)"
           test "$INSTALLED_VERSION" = "$VERSION"
 
