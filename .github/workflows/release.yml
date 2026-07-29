@@ -312,17 +312,17 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: archivebox/archivebox
 
-  downstream-packages:
-    name: Verify downstream packages
+  cascade:
+    name: Cascade verified stable release
     if: github.event.workflow_run.head_branch == 'main' && !contains(needs.python-release.outputs.tag, 'rc')
     needs:
       - python-release
       - docker-release
     permissions:
-      actions: read
       contents: read
-    uses: ./.github/workflows/update-homebrew-tap.yml
+    uses: ArchiveBox/monorepo/.github/workflows/cascade-release.yml@main
     with:
-      release_tag: ${{ needs.python-release.outputs.tag }}
-      release_sha: ${{ github.event.workflow_run.head_sha }}
-    secrets: inherit
+      upstream_package: archivebox
+      upstream_version: ${{ needs.python-release.outputs.version }}
+    secrets:
+      release_token: ${{ secrets.RELEASE_GH_TOKEN }}
