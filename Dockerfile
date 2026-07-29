@@ -93,7 +93,6 @@ FROM archivebox-runtime-base AS archivebox-builder
 
 WORKDIR "$CODE_DIR"
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
     --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
     <<'EOF'
 echo "[+] UV Installing ArchiveBox dependencies from pyproject.toml..."
@@ -104,8 +103,8 @@ rm -f /etc/apt/apt.conf.d/docker-clean
 apt-get update -qq
 apt-get install -qq -y --no-install-recommends \
     build-essential gcc libldap2-dev libsasl2-dev libssl-dev
-/usr/bin/uv venv --clear /venv --python "${PYTHON_VERSION}"
-/usr/bin/uv pip install setuptools pip wheel
+/usr/bin/uv venv --no-cache --clear /venv --python "${PYTHON_VERSION}"
+/usr/bin/uv pip install --no-cache setuptools pip wheel
 
 mkdir -p /tmp/archivebox-uv-project
 /venv/bin/python - <<'PY'
@@ -149,7 +148,7 @@ PY
 
 /usr/bin/uv sync \
     --project /tmp/archivebox-uv-project \
-    --refresh \
+    --no-cache \
     --no-dev \
     --inexact \
     --no-install-project \
@@ -172,8 +171,7 @@ rm -rf /var/lib/apt/lists/*
 EOF
 
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
-RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$TARGETVARIANT \
-    echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
+RUN echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
     && COMMIT_HASH="$( \
         if [[ "$ARCHIVEBOX_COMMIT_HASH" =~ ^[0-9a-fA-F]{40}$ ]]; then \
             echo "$ARCHIVEBOX_COMMIT_HASH"; \
@@ -187,7 +185,7 @@ RUN --mount=type=cache,target=/root/.cache/uv,sharing=locked,id=uv-$TARGETARCH$T
             fi; \
         fi)" \
     && if [[ "$COMMIT_HASH" =~ ^[0-9a-fA-F]{40}$ ]]; then echo "COMMIT_HASH=$COMMIT_HASH" | tee -a /VERSION.txt; fi \
-    && /usr/bin/uv pip install --no-deps "$CODE_DIR" \
+    && /usr/bin/uv pip install --no-cache --no-deps "$CODE_DIR" \
     && rm -f /venv/bin/uv /venv/bin/uvx \
     && /usr/bin/uv pip show archivebox | tee -a /VERSION.txt
 
