@@ -46,7 +46,7 @@ jobs:
       - name: Setup Python and uv
         uses: astral-sh/setup-uv@v6
         with:
-          enable-cache: true
+          enable-cache: false
 
       - name: Install ArchiveBox and screenshot dependencies
         run: uv sync --no-cache --frozen

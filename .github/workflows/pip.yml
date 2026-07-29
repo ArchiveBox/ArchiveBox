@@ -23,13 +23,13 @@ jobs:
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
-          enable-cache: true
+          enable-cache: false
           cache-dependency-glob: uv.lock
 
       - name: Build every distribution
         run: |
           set -Eeuo pipefail
-          uv build --all-packages --no-sources --out-dir dist --clear
+          uv build --no-cache --all-packages --no-sources --out-dir dist --clear
 
           shopt -s nullglob
           artifacts=(dist/*)
@@ -92,7 +92,7 @@ jobs:
         uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
           version: ${{ env.UV_VERSION }}
-          enable-cache: true
+          enable-cache: false
           cache-dependency-glob: uv.lock
 
       - name: Download distributions

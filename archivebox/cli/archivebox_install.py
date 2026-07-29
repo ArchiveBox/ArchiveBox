@@ -12,6 +12,63 @@ from rich import print
 from archivebox.misc.util import docstring, enforce_types
 
 
+def _resolve_install_plugin_names(
+    requested_names: tuple[str, ...],
+) -> list[str]:
+    """Resolve `archivebox install <name>` tokens to installable plugin names."""
+    from archivebox.config import CONSTANTS
+    from archivebox.config.common import get_config, normalize_runtime_config
+    from archivebox.machine.models import Machine
+    from abx_dl.config import get_required_binary_requests
+    from abx_dl.models import discover_plugins, filter_plugins
+
+    plugins = discover_plugins(runtime="archivebox")
+    config = get_config(include_machine=False)
+    runtime_config = normalize_runtime_config(config.for_crawl(), json_safe=False)
+    derived_config = normalize_runtime_config(Machine.current().config, json_safe=False)
+    selected_plugins = dict(filter_plugins(plugins, list(requested_names), include_providers=True))
+    unmatched_names: list[str] = []
+
+    for requested_name in requested_names:
+        if requested_name in selected_plugins:
+            continue
+
+        matched_plugin_names: list[str] = []
+        for plugin_name, plugin in plugins.items():
+            logical_records = get_required_binary_requests(
+                plugin,
+                plugin.config.required_binaries,
+                overrides=runtime_config,
+                derived_overrides=derived_config,
+                run_output_dir=CONSTANTS.DATA_DIR,
+            )
+            actual_records = get_required_binary_requests(
+                plugin,
+                plugin.config.required_binaries,
+                overrides=runtime_config,
+                derived_overrides=derived_config,
+                run_output_dir=CONSTANTS.DATA_DIR,
+                logical_names=False,
+            )
+            for logical_record, actual_record in zip(logical_records, actual_records, strict=False):
+                logical_name = str(logical_record["name"])
+                actual_name = str(actual_record["name"])
+                display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else actual_name
+                if requested_name in {logical_name, actual_name, display_name}:
+                    matched_plugin_names.append(plugin_name)
+                    break
+
+        if matched_plugin_names:
+            selected_plugins.update(filter_plugins(plugins, matched_plugin_names, include_providers=True))
+        else:
+            unmatched_names.append(requested_name)
+
+    if unmatched_names:
+        raise click.UsageError(f"No plugins or required binaries found matching: {', '.join(unmatched_names)}")
+
+    return sorted(selected_plugins)
+
+
 def ensure_data_dir_lib_symlink(data_dir: Path, abxpkg_lib_dir: Path) -> Path | None:
     """Expose the shared abxpkg lib dir at DATA_DIR/lib after install."""
     link_path = data_dir / "lib"
@@ -90,7 +147,7 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
 
     setup_django()
 
-    plugin_names = list(binaries)
+    plugin_names = _resolve_install_plugin_names(binaries) if binaries else []
     if binproviders != "*":
         plugin_names.extend(provider.strip() for provider in binproviders.split(",") if provider.strip())
 

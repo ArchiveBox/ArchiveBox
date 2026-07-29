@@ -27,7 +27,7 @@ CAPTURE_PROFILES=$'desktop|1600|1000\ntablet|1024|1366\nmobile|390|844'
 stop_background_runner() {
     (
         cd "$DATA_DIR"
-        uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+        uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
             'from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_worker; supervisor=get_existing_supervisord_process(quiet=True); supervisor is not None and stop_worker(supervisor, "worker_runner")'
     ) >/dev/null
 }
@@ -79,7 +79,7 @@ cleanup() {
     if [[ "$CREATED_TEMP_USER" == "1" && -f "$DATA_DIR/index.sqlite3" ]]; then
         (
             cd "$DATA_DIR"
-            UI_SCREENSHOT_USERNAME="$USERNAME" uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+            UI_SCREENSHOT_USERNAME="$USERNAME" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'import os; from django.contrib.auth import get_user_model; get_user_model().objects.filter(username=os.environ["UI_SCREENSHOT_USERNAME"]).delete()'
         ) >/dev/null 2>&1 || true
     fi
@@ -91,12 +91,12 @@ mkdir -p "$DATA_DIR" "$OUTPUT_DIR" "$PUBLIC_OUTPUT_DIR"
 echo "[*] Initializing the ArchiveBox collection at $DATA_DIR"
 (
     cd "$DATA_DIR"
-    uv run --project "$REPO_DIR" archivebox init --quick
+    uv run --no-cache --project "$REPO_DIR" archivebox init --quick
 )
 
 SEED_STATE="$( (
     cd "$DATA_DIR"
-    uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+    uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
         'from django.db.models import Count; from archivebox.core.models import Snapshot, ArchiveResult; from archivebox.crawls.models import CrawlSchedule; from archivebox.personas.models import Persona; from archivebox.api.models import APIToken; from signal_webhooks.utils import get_webhook_model; recent=list(Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED).order_by("-bookmarked_at").values_list("id", "status")[:100]); counts=dict(ArchiveResult.objects.filter(snapshot_id__in=[row[0] for row in recent], status="succeeded").values_list("snapshot_id").annotate(Count("id"))); screenshots=set(ArchiveResult.objects.filter(snapshot_id__in=[row[0] for row in recent], plugin="screenshot", status="succeeded").values_list("snapshot_id", flat=True)); useful=sum(counts.get(snapshot_id,0)>=8 and snapshot_id in screenshots for snapshot_id,status in recent)>=2; print(int(useful)); print(CrawlSchedule.objects.count()); print(Persona.objects.exclude(name="Default").count()); print(APIToken.objects.count()); print(get_webhook_model().objects.count())'
 ) | tail -5)"
 HAS_USEFUL_SNAPSHOT="$(printf '%s\n' "$SEED_STATE" | sed -n '1p')"
@@ -109,7 +109,7 @@ if [[ "$HAS_USEFUL_SNAPSHOT" == "0" ]]; then
     echo "[*] Archiving real reference sites so snapshot views have meaningful outputs"
     (
         cd "$DATA_DIR"
-        uv run --project "$REPO_DIR" archivebox add \
+        uv run --no-cache --project "$REPO_DIR" archivebox add \
             --depth=0 \
             --overwrite \
             --tag=documentation,reference \
@@ -122,7 +122,7 @@ if [[ "$HAS_SCHEDULE" == "0" ]]; then
     echo "[*] Creating a real weekly documentation crawl schedule"
     (
         cd "$DATA_DIR"
-        uv run --project "$REPO_DIR" archivebox schedule --every=weekly --depth=0 --tag=documentation https://archivebox.io/feed.xml
+        uv run --no-cache --project "$REPO_DIR" archivebox schedule --every=weekly --depth=0 --tag=documentation https://archivebox.io/feed.xml
     )
 fi
 
@@ -130,7 +130,7 @@ if [[ "$HAS_PERSONA" == "0" ]]; then
     echo "[*] Creating a real browser persona for the populated Persona views"
     (
         cd "$DATA_DIR"
-        uv run --project "$REPO_DIR" archivebox persona create "Research Browser"
+        uv run --no-cache --project "$REPO_DIR" archivebox persona create "Research Browser"
     )
 fi
 
@@ -139,7 +139,7 @@ fi
 
 ROUTE_CONFIG="$( (
     cd "$DATA_DIR"
-    uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+    uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
         'from urllib.parse import urlparse; from archivebox.config.common import get_config; from archivebox.core.routes_util import get_admin_base_url, get_web_base_url; config = get_config(); admin = get_admin_base_url(config=config); web = get_web_base_url(config=config); parsed = urlparse(admin); print(admin); print(web); print(parsed.port or (443 if parsed.scheme == "https" else 80))'
 ) | tail -3)"
 ADMIN_BASE_URL="$(printf '%s\n' "$ROUTE_CONFIG" | sed -n '1p')"
@@ -155,10 +155,10 @@ fi
 echo "[*] Creating a temporary screenshot admin"
 (
     cd "$DATA_DIR"
-    uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+    uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
         'from django.contrib.auth import get_user_model; get_user_model().objects.filter(username__startswith="archivebox-screenshots-").delete()'
     UI_SCREENSHOT_USERNAME="$USERNAME" UI_SCREENSHOT_PASSWORD="$PASSWORD" \
-        uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+        uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
         'import os; from django.contrib.auth import get_user_model; get_user_model().objects.create_superuser(username=os.environ["UI_SCREENSHOT_USERNAME"], password=os.environ["UI_SCREENSHOT_PASSWORD"])'
 )
 CREATED_TEMP_USER=1
@@ -169,7 +169,7 @@ echo "[*] Starting ArchiveBox on port $PORT"
     # Use the real server command so the runner, worker, and log views describe
     # the same persistent runtime that an operator sees.
     UI_SCREENSHOT_HIDE_HIGH_LOAD_WARNING=1 \
-        exec uv run --project "$REPO_DIR" archivebox server "127.0.0.1:$PORT"
+        exec uv run --no-cache --project "$REPO_DIR" archivebox server "127.0.0.1:$PORT"
 ) >"$DATA_DIR/ui-screenshot-server.log" 2>&1 &
 SERVER_PID=$!
 
@@ -265,7 +265,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
             fi
         elif [[ "$profile" == "desktop" || "$capture_mode" == wait-replay:* || -z "${ABXPKG_LIB_DIR:-}" ]]; then
             capture_log="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")-$profile-abx-dl.log"
-            if ! env "${capture_env[@]}" uv run --project "$REPO_DIR" abx-dl dl \
+            if ! env "${capture_env[@]}" uv run --no-cache --project "$REPO_DIR" abx-dl dl \
                 --plugins=screenshot \
                 --timeout=120 \
                 --dir "$capture_dir" \
@@ -281,7 +281,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                 echo "[!] Screenshot navigation metadata is missing for $profile $url" >&2
                 exit 1
             fi
-            uv run --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
+            uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
                 "$screenshot_metadata_path" "$expected_path"
         else
             screenshot_path="$capture_dir/screenshot.png"
@@ -300,7 +300,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                     SCREENSHOT_VARIANTS_JSON="$responsive_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
-                uv run --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
+                uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
                     "$capture_dir/report.json" "$expected_path"
             fi
         fi
@@ -312,14 +312,14 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
         cp "$screenshot_path" "$PUBLIC_OUTPUT_DIR/$filename"
         UI_SCREENSHOT_NAME="$name" UI_SCREENSHOT_URL="$url" UI_SCREENSHOT_SOURCE="$source" \
             UI_SCREENSHOT_FILENAME="$filename" UI_SCREENSHOT_PROFILE="$profile" \
-            uv run --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" append \
+            uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" append \
                 "$MANIFEST_FILE" "$OUTPUT_DIR/$filename"
     done <<<"$CAPTURE_PROFILES"
 
     # Capture the public views before login because the real admin-login hint
     # intentionally redirects authenticated personas away from /public/.
     if [[ "$capture_index" == "2" ]]; then
-        ABXPKG_LIB_DIR="$(uv run --project "$REPO_DIR" abx-dl config --get ABXPKG_LIB_DIR | sed 's/^[^=]*=//; s/^"//; s/"$//')"
+        ABXPKG_LIB_DIR="$(uv run --no-cache --project "$REPO_DIR" abx-dl config --get ABXPKG_LIB_DIR | sed 's/^[^=]*=//; s/^"//; s/"$//')"
         SCREENSHOT_CHROME_BINARY="$ABXPKG_LIB_DIR/env/bin/chromium"
         if [[ ! -x "$SCREENSHOT_CHROME_BINARY" ]]; then
             echo "[!] abx-dl projected Chromium was not found at $SCREENSHOT_CHROME_BINARY" >&2
@@ -344,7 +344,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
             CREATE_WEBHOOK="$CREATE_WEBHOOK" \
             node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME"
 
-        OPENCODE_PORT="$(uv run --project "$REPO_DIR" python - <<'PY'
+        OPENCODE_PORT="$(uv run --no-cache --project "$REPO_DIR" python - <<'PY'
 import socket
 
 with socket.socket() as sock:
@@ -354,20 +354,20 @@ PY
 )"
         (
             cd "$DATA_DIR"
-            OPENCODE_PORT="$OPENCODE_PORT" uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+            OPENCODE_PORT="$OPENCODE_PORT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'import os; from archivebox.machine.models import Machine; Machine.from_json({"config": {"OPENCODE_ENABLED": True, "OPENCODE_PORT": int(os.environ["OPENCODE_PORT"])}})'
-            uv run --project "$REPO_DIR" archivebox install opencode --binproviders=env,pnpm
+            uv run --no-cache --project "$REPO_DIR" archivebox install opencode --binproviders=env,pnpm
         )
 
         SWEETING_CAPTURE_STARTED_AT="$( (
             cd "$DATA_DIR"
-            uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+            uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'from django.utils import timezone; print(timezone.now().isoformat())'
         ) | tail -1)"
         echo "[*] Starting a real Sweeting.me capture for the live progress view"
         (
             cd "$DATA_DIR"
-            exec uv run --project "$REPO_DIR" archivebox add \
+            exec uv run --no-cache --project "$REPO_DIR" archivebox add \
                 --depth=0 \
                 --overwrite \
                 --tag=screenshot-gallery \
@@ -379,7 +379,7 @@ PY
         for _attempt in $(seq 1 120); do
             LIVE_SNAPSHOT_RECORD="$( (
                 cd "$DATA_DIR"
-                UI_SCREENSHOT_CAPTURE_STARTED_AT="$SWEETING_CAPTURE_STARTED_AT" uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                UI_SCREENSHOT_CAPTURE_STARTED_AT="$SWEETING_CAPTURE_STARTED_AT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                     'import os; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url__startswith="https://sweeting.me",bookmarked_at__gte=started_at).order_by("-bookmarked_at").first(); print(build_snapshot_url(str(snapshot.id), "") if snapshot else "")'
             ) | tail -1)"
             if [[ -n "$LIVE_SNAPSHOT_RECORD" ]]; then
@@ -403,7 +403,7 @@ PY
 
         RECORD_CONFIG="$( (
             cd "$DATA_DIR"
-            uv run --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+            uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                 'from django.db.models import Count; from archivebox.core.models import Snapshot, ArchiveResult, Tag; from archivebox.crawls.models import Crawl, CrawlSchedule; from archivebox.personas.models import Persona; from archivebox.machine.models import Machine, NetworkInterface, Binary, Process; from archivebox.api.models import APIToken; from django.contrib.auth import get_user_model; from signal_webhooks.utils import get_webhook_model; from archivebox.core.routes_util import build_snapshot_url; recent=list(Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED).order_by("-bookmarked_at").values_list("id", flat=True)[:1000]); counts=dict(ArchiveResult.objects.filter(snapshot_id__in=recent,status="succeeded").values_list("snapshot_id").annotate(Count("id"))); snapshot_id=str(max(recent,key=lambda item: counts.get(item,0))); snapshot=Snapshot.objects.get(id=snapshot_id); result=ArchiveResult.objects.filter(snapshot_id=snapshot_id,status="succeeded").order_by("-output_size").first() or ArchiveResult.objects.filter(snapshot_id=snapshot_id).first(); tag=snapshot.tags.first() or Tag.objects.first(); crawl=snapshot.crawl or Crawl.objects.order_by("-created_at").first(); schedule=CrawlSchedule.objects.order_by("-created_at").first(); persona=Persona.objects.exclude(name="Default").order_by("-created_at").first() or Persona.objects.first(); machine=Machine.objects.order_by("-modified_at").first(); interface=NetworkInterface.objects.order_by("-modified_at").first(); binary=Binary.objects.order_by("-modified_at").first(); process=Process.objects.order_by("-created_at").first(); token=APIToken.objects.order_by("-created_at").first(); webhook=get_webhook_model().objects.order_by("-created_at").first(); user=get_user_model().objects.get(username="'"$USERNAME"'"); values={"SNAPSHOT_ID":snapshot_id,"SNAPSHOT_VIEW_URL":build_snapshot_url(snapshot_id,""),"SNAPSHOT_FILES_URL":build_snapshot_url(snapshot_id,"/?files=1"),"ARCHIVERESULT_ID":str(result.id),"TAG_ID":str(tag.id),"USER_ID":str(user.id),"CRAWL_ID":str(crawl.id),"SCHEDULE_ID":str(schedule.id),"PERSONA_ID":str(persona.id),"MACHINE_ID":str(machine.id),"INTERFACE_ID":str(interface.id),"BINARY_ID":str(binary.id),"PROCESS_ID":str(process.id),"TOKEN_ID":str(token.id),"WEBHOOK_ID":str(webhook.id)}; [print(f"{key}={value}") for key,value in values.items()]'
         ) | tail -15)"
         eval "$RECORD_CONFIG"
@@ -474,7 +474,7 @@ PY
             SCREENSHOT_WIDTH=1600 \
             SCREENSHOT_HEIGHT=1000 \
             node "$REPO_DIR/bin/take_screenshot.js" "$LIVE_SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
-        SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --project "$REPO_DIR" python -c \
+        SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --no-cache --project "$REPO_DIR" python -c \
             'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}".format(output["plugin"], "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
         if [[ -z "$SNAPSHOT_OUTPUT_PLUGINS" ]]; then
             echo "[!] The Sweeting.me snapshot detail page exposed no selectable outputs" >&2
@@ -492,7 +492,7 @@ PY
 done
 
 [[ "$MAX_VIEWS" != "0" ]] && export UI_SCREENSHOT_ALLOW_PARTIAL=1
-uv run --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" build \
+uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" build \
     "$MANIFEST_FILE" "$REPO_DIR/docs/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
 
 echo "[+] Captured $capture_index views at desktop, tablet, and mobile sizes"
