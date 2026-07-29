@@ -1,0 +1,23 @@
+archivebox/tests/fixtures/consolelog_preview.html
+  s_f8414d52051f83::t_53abe944761cfc 1-13
+archivebox/tests/test_urls.py
+  s_f8414d52051f83::t_e949f34952004e 1157,1177,1214
+  s_f8414d52051f83::t_11d3e1403767b2 1135
+  s_f8414d52051f83::t_e406b80f965caa 1136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2706f9ff32788c8fd9d04edd9adf2bd0583fa61b",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
