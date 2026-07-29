@@ -80,7 +80,7 @@ dependencies = [
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
     ### Extractor dependencies (runtime binaries resolved through abxpkg)
     ### Binary/Package Management
-    "abxbus==2.5.40",         # EventBus API
+    "abxbus",                 # direct imports only; version constrained by abx-dl -> abx-plugins
     "abxpkg",                # direct imports only; version constrained by abx-dl -> abx-plugins
     "abx-plugins",           # direct imports only; version constrained by abx-dl
     "abx-dl==1.12.40",       # shared ArchiveBox downloader package
