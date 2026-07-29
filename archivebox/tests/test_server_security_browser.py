@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import subprocess
 import textwrap
 from pathlib import Path
 from urllib.parse import urlencode
 
 import pytest
+import requests
 
 from .conftest import resolve_abxpkg_chrome_env, run_python_cwd
 from .conftest import (
@@ -21,7 +23,7 @@ from .conftest import (
     stop_archivebox_process,
     stop_server as stop_daemon_server,
     get_http_response,
-    wait_for_log,
+    wait_for_log_pattern,
 )
 
 
@@ -506,8 +508,27 @@ def _run_browser_probe(
         )
     try:
         runserver_log_path = data_dir / "logs" / "worker_runserver.log"
-        wait_for_log(runserver_log_path, "Listening on TCP", timeout=30)
-        get_http_response(port, f"archivebox.localhost:{port}", process=process)
+        wait_for_log_pattern(
+            server_log_path,
+            r"Worker worker_runserver: started RUNNING \(pid [0-9]+,",
+            timeout=30,
+        )
+        deadline = time.monotonic() + 30
+        last_exc: Exception | None = None
+        while time.monotonic() < deadline:
+            try:
+                get_http_response(
+                    port,
+                    f"archivebox.localhost:{port}",
+                    timeout=2,
+                    process=process,
+                )
+                break
+            except (AssertionError, requests.RequestException) as exc:
+                last_exc = exc
+                time.sleep(0.2)
+        else:
+            raise AssertionError(f"server did not become HTTP-ready: {last_exc}")
     except AssertionError as exc:
         stop_archivebox_process(process)
         server_log = server_log_path.read_text(encoding="utf-8", errors="replace")
