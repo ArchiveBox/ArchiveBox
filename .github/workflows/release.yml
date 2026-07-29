@@ -32,6 +32,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
+      release_ready: ${{ steps.release-state.outputs.ready }}
     steps:
       - name: Checkout the tested commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -117,7 +118,23 @@ jobs:
           RELEASE_DISTRIBUTIONS_DIR: ${{ runner.temp }}/python-distributions
         run: ./bin/release.sh
 
+      - name: Confirm this tested commit owns the release tag
+        id: release-state
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          TARGET=""
+          while read -r sha _; do
+            TARGET="$sha"
+          done < <("$GIT_BINARY" ls-remote origin "refs/tags/${{ steps.version.outputs.tag }}")
+          if [[ "$TARGET" == "$RELEASE_SHA" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Verify published PyPI package installs and runs
+        if: steps.release-state.outputs.ready == 'true'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -143,7 +160,10 @@ jobs:
 
   docker-release:
     name: Publish tested multiarch image
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      needs.python-release.outputs.release_ready == 'true'
     needs: python-release
     runs-on: ubuntu-24.04
     permissions:
