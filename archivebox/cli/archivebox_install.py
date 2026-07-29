@@ -3,7 +3,6 @@
 __package__ = "archivebox.cli"
 
 import os
-import re
 import shutil
 from pathlib import Path
 
@@ -13,88 +12,17 @@ from rich import print
 from archivebox.misc.util import docstring, enforce_types
 
 
-def _package_name_candidates(install_arg: object) -> set[str]:
-    """Return user-facing package tokens represented by a provider install arg."""
-    value = str(install_arg).strip()
-    if not value or value.startswith("-"):
-        return set()
-
-    candidates = {value}
-    package_name = re.split(r"==|>=|<=|~=|!=|>|<|\[", value, maxsplit=1)[0]
-    if "@" in package_name and not package_name.startswith("@"):
-        package_name = package_name.split("@", 1)[0]
-    if package_name:
-        candidates.add(package_name)
-        candidates.add(Path(package_name).name)
-    return candidates
-
-
-def _binary_record_candidates(binary_record: dict) -> set[str]:
-    """Return install-name tokens represented by an abx-dl binary request record."""
-    name = str(binary_record.get("name") or "")
-    display_name = Path(name).expanduser().name if ("/" in name or name.startswith("~")) else name
-    candidates = {name, display_name}
-    overrides = binary_record.get("overrides") or {}
-    if isinstance(overrides, dict):
-        for provider_overrides in overrides.values():
-            if not isinstance(provider_overrides, dict):
-                continue
-            install_args = provider_overrides.get("install_args") or ()
-            if isinstance(install_args, str):
-                install_args = (install_args,)
-            for install_arg in install_args:
-                candidates.update(_package_name_candidates(install_arg))
-    return {candidate for candidate in candidates if candidate}
-
-
 def _resolve_install_targets(
     requested_names: tuple[str, ...],
 ) -> tuple[list[str], list[str]]:
-    """Resolve `archivebox install <name>` tokens to plugin names plus raw binary names."""
-    from archivebox.config import CONSTANTS
-    from archivebox.config.common import get_config, normalize_runtime_config
-    from archivebox.machine.models import Machine
-    from abx_dl.config import get_required_binary_requests
+    """Resolve exact plugin names and leave all other tokens as binary names."""
     from abx_dl.models import discover_plugins, filter_plugins
 
     plugins = discover_plugins(runtime="archivebox")
-    config = get_config(include_machine=False)
-    runtime_config = normalize_runtime_config(config.for_crawl(), json_safe=False)
-    derived_config = normalize_runtime_config(Machine.current().config, json_safe=False)
-    selected_plugins = dict(filter_plugins(plugins, list(requested_names), include_providers=True))
-    raw_binary_names: list[str] = []
-
-    for requested_name in requested_names:
-        if requested_name in selected_plugins:
-            continue
-
-        matched_plugin_names: list[str] = []
-        for plugin_name, plugin in plugins.items():
-            logical_records = get_required_binary_requests(
-                plugin,
-                plugin.config.required_binaries,
-                overrides=runtime_config,
-                derived_overrides=derived_config,
-                run_output_dir=CONSTANTS.DATA_DIR,
-            )
-            actual_records = get_required_binary_requests(
-                plugin,
-                plugin.config.required_binaries,
-                overrides=runtime_config,
-                derived_overrides=derived_config,
-                run_output_dir=CONSTANTS.DATA_DIR,
-                logical_names=False,
-            )
-            for logical_record, actual_record in zip(logical_records, actual_records, strict=False):
-                if requested_name in _binary_record_candidates(logical_record) | _binary_record_candidates(actual_record):
-                    matched_plugin_names.append(plugin_name)
-                    break
-
-        if matched_plugin_names:
-            selected_plugins.update(filter_plugins(plugins, matched_plugin_names, include_providers=True))
-        else:
-            raw_binary_names.append(requested_name)
-
+    requested_plugins = [name for name in requested_names if name.lower() in {plugin_name.lower() for plugin_name in plugins}]
+    selected_plugins = filter_plugins(plugins, requested_plugins, include_providers=True)
+    selected_plugin_names = {name.lower() for name in selected_plugins}
+    raw_binary_names = [name for name in requested_names if name.lower() not in selected_plugin_names]
     return sorted(selected_plugins), sorted(set(raw_binary_names))
 
 
