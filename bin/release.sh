@@ -93,7 +93,11 @@ fi
 [[ "$($GIT_BINARY rev-parse HEAD)" == "$RELEASE_SHA" ]]
 [[ -z "$($GIT_BINARY status --short)" ]]
 $GIT_BINARY fetch --quiet --no-tags origin "+refs/heads/${RELEASE_BRANCH}:refs/remotes/origin/${RELEASE_BRANCH}"
-$GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" "refs/remotes/origin/${RELEASE_BRANCH}"
+BRANCH_HEAD="$($GIT_BINARY rev-parse "refs/remotes/origin/${RELEASE_BRANCH}")"
+if [[ "$RELEASE_SHA" != "$BRANCH_HEAD" ]]; then
+    echo "Skipping ArchiveBox release $VERSION from obsolete CI SHA $RELEASE_SHA; current origin/${RELEASE_BRANCH} is $BRANCH_HEAD" >&2
+    exit 0
+fi
 
 TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/${TAG}^{}")"
 TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
