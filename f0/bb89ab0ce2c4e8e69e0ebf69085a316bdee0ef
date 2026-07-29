@@ -1,0 +1,27 @@
+.github/configs/ci-tooling.json
+  s_f8414d52051f83::t_e3e8f233463f51 91,99,125,139,157,161,165,281,291,297,326,330,334,338
+bin/build_docs.sh
+  s_f8414d52051f83::t_60e14974041c4a 22
+bin/export_browser_history.sh
+  s_f8414d52051f83::t_cb4e0c4b94a38c 35
+bin/setup.sh
+  s_f8414d52051f83::t_3163a99f82f4be 178
+docs/nginx-binary.json
+  s_f8414d52051f83::t_e18ff4510f1d9f 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "f0bb89ab0ce2c4e8e69e0ebf69085a316bdee0ef",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
