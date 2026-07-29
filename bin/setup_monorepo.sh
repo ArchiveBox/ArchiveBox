@@ -31,15 +31,18 @@ resolve_git_binary() {
     if [[ ! -f "$lock_file" && -f "$SCRIPT_REPO_ROOT/archivebox/uv.lock" ]]; then
         lock_file="$SCRIPT_REPO_ROOT/archivebox/uv.lock"
     fi
-    [[ -f "$lock_file" ]] || { printf 'Unable to find an ArchiveBox uv.lock for abxpkg bootstrap\n' >&2; exit 1; }
 
-    local abxpkg_version
-    abxpkg_version="$(locked_version "$lock_file" abxpkg)"
-    [[ -n "$abxpkg_version" ]] || { printf 'Unable to find abxpkg in %s\n' "$lock_file" >&2; exit 1; }
+    local abxpkg_requirement="abxpkg"
+    if [[ -f "$lock_file" ]]; then
+        local abxpkg_version
+        abxpkg_version="$(locked_version "$lock_file" abxpkg)"
+        [[ -n "$abxpkg_version" ]] || { printf 'Unable to find abxpkg in %s\n' "$lock_file" >&2; exit 1; }
+        abxpkg_requirement="abxpkg==$abxpkg_version"
+    fi
 
     export ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/archivebox/setup-monorepo-abxpkg}"
     mkdir -p "$ABXPKG_LIB_DIR/env/bin"
-    uv run --no-cache --no-project --with "abxpkg==$abxpkg_version" abxpkg env \
+    uv run --no-cache --no-project --with "$abxpkg_requirement" abxpkg env \
         --install \
         --lib="$ABXPKG_LIB_DIR" \
         --binproviders=env,brew,apt \
