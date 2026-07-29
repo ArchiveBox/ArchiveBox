@@ -47,10 +47,10 @@ def _binary_record_candidates(binary_record: dict) -> set[str]:
     return {candidate for candidate in candidates if candidate}
 
 
-def _resolve_install_plugin_names(
+def _resolve_install_targets(
     requested_names: tuple[str, ...],
-) -> list[str]:
-    """Resolve `archivebox install <name>` tokens to installable plugin names."""
+) -> tuple[list[str], list[str]]:
+    """Resolve `archivebox install <name>` tokens to plugin names plus raw binary names."""
     from archivebox.config import CONSTANTS
     from archivebox.config.common import get_config, normalize_runtime_config
     from archivebox.machine.models import Machine
@@ -62,7 +62,7 @@ def _resolve_install_plugin_names(
     runtime_config = normalize_runtime_config(config.for_crawl(), json_safe=False)
     derived_config = normalize_runtime_config(Machine.current().config, json_safe=False)
     selected_plugins = dict(filter_plugins(plugins, list(requested_names), include_providers=True))
-    unmatched_names: list[str] = []
+    raw_binary_names: list[str] = []
 
     for requested_name in requested_names:
         if requested_name in selected_plugins:
@@ -93,12 +93,39 @@ def _resolve_install_plugin_names(
         if matched_plugin_names:
             selected_plugins.update(filter_plugins(plugins, matched_plugin_names, include_providers=True))
         else:
-            unmatched_names.append(requested_name)
+            raw_binary_names.append(requested_name)
 
-    if unmatched_names:
-        raise click.UsageError(f"No plugins or required binaries found matching: {', '.join(unmatched_names)}")
+    return sorted(selected_plugins), sorted(set(raw_binary_names))
 
-    return sorted(selected_plugins)
+
+def _install_raw_binary_names(binary_names: list[str], binproviders: str) -> None:
+    """Install user-requested standalone binaries through the Binary state machine."""
+    from django.utils import timezone
+
+    from archivebox.machine.models import Binary, Machine, _canonical_binary_name
+    from archivebox.services.runner import run_due_binary
+
+    machine = Machine.current()
+    for requested_name in binary_names:
+        binary_name = _canonical_binary_name(requested_name)
+        if not binary_name:
+            raise click.UsageError(f"Invalid binary name: {requested_name}")
+        binary = Binary.objects.filter(machine=machine, name=binary_name).order_by("-modified_at").first()
+        if binary is None:
+            binary = Binary.objects.create(
+                machine=machine,
+                name=binary_name,
+                binproviders=binproviders,
+                overrides={},
+                status=Binary.StatusChoices.QUEUED,
+            )
+        elif not binary.is_valid or binary.binproviders != binproviders:
+            binary.binproviders = binproviders
+            binary.overrides = {}
+            binary.status = Binary.StatusChoices.QUEUED
+            binary.retry_at = timezone.now()
+            binary.save(update_fields=["binproviders", "overrides", "status", "retry_at", "modified_at"])
+        run_due_binary(binary, lock_seconds=60)
 
 
 def ensure_data_dir_lib_symlink(data_dir: Path, abxpkg_lib_dir: Path) -> Path | None:
@@ -179,16 +206,23 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
 
     setup_django()
 
-    plugin_names = _resolve_install_plugin_names(binaries) if binaries else []
+    plugin_names, raw_binary_names = _resolve_install_targets(binaries) if binaries else ([], [])
+    install_plugin_names = list(plugin_names)
     if binproviders != "*":
-        plugin_names.extend(provider.strip() for provider in binproviders.split(",") if provider.strip())
+        install_plugin_names.extend(provider.strip() for provider in binproviders.split(",") if provider.strip())
 
-    print("[+] Running installer via abx-dl bus...")
-    print()
+    if install_plugin_names or not binaries:
+        print("[+] Running plugin installer via abx-dl bus...")
+        print()
 
-    from archivebox.services.runner import run_install
+        from archivebox.services.runner import run_install
 
-    run_install(plugin_names=plugin_names or None)
+        run_install(plugin_names=install_plugin_names or None)
+
+    if raw_binary_names:
+        print(f"[+] Running direct binary installer via ArchiveBox binary state machine: {', '.join(raw_binary_names)}")
+        print()
+        _install_raw_binary_names(raw_binary_names, binproviders)
 
     from archivebox.config.common import get_config
 
