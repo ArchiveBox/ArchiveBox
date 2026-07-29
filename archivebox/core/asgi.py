@@ -7,10 +7,11 @@ For more information on this file, see
 https://docs.djangoproject.com/en/stable/howto/deployment/asgi/
 """
 
-from archivebox.config.django import setup_django
 from django.core.asgi import get_asgi_application
 
-setup_django(in_memory_db=False, check_db=True)
+from archivebox.config.django import setup_django
+
+setup_django(check_db=True)
 
 
 def _patch_thread_sensitive_context_shutdown() -> None:

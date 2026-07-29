@@ -1,16 +1,15 @@
 __package__ = "archivebox.config"
 
 import os
-import pwd
-import sys
-import socket
 import platform
+import pwd
+import socket
+import sys
+from contextlib import contextmanager, suppress
+from pathlib import Path
 from typing import cast
 
 from rich import print
-
-from pathlib import Path
-from contextlib import contextmanager
 
 #############################################################################################
 
@@ -30,13 +29,13 @@ RUNNING_AS_UID = os.getuid()
 RUNNING_AS_GID = os.getgid()
 EUID = os.geteuid()
 EGID = os.getegid()
-SUDO_UID = int(os.environ.get("SUDO_UID", 0))
-SUDO_GID = int(os.environ.get("SUDO_GID", 0))
+SUDO_UID = int(os.environ.get("SUDO_UID", "0"))
+SUDO_GID = int(os.environ.get("SUDO_GID", "0"))
 USER: str = Path("~").expanduser().resolve().name
 HOSTNAME: str = cast(str, max([socket.gethostname(), platform.node()], key=len))
 
 IS_ROOT = RUNNING_AS_UID == 0
-IN_DOCKER = os.environ.get("IN_DOCKER", False) in ("1", "true", "True", "TRUE", "yes")
+IN_DOCKER = os.environ.get("IN_DOCKER", "") in ("1", "true", "True", "TRUE", "yes")
 
 FALLBACK_UID = RUNNING_AS_UID or SUDO_UID
 FALLBACK_GID = RUNNING_AS_GID or SUDO_GID
@@ -45,7 +44,7 @@ try:
 except KeyError:
     ARCHIVEBOX_ACCOUNT = None
 
-if DATA_DIR_UID != 0:
+if RUNNING_AS_UID == 0 and DATA_DIR_UID == 0 or DATA_DIR_UID != 0:
     ARCHIVEBOX_USER = DATA_DIR_UID
     ARCHIVEBOX_GROUP = DATA_DIR_GID
 elif RUNNING_AS_UID == 0 and ARCHIVEBOX_ACCOUNT is not None:
@@ -58,8 +57,8 @@ if not USER:
     try:
         # alternative method 1 to get username
         USER = pwd.getpwuid(ARCHIVEBOX_USER).pw_name
-    except Exception:
-        pass
+    except (KeyError, OSError):
+        USER = ""
 
 if not USER:
     try:
@@ -67,21 +66,21 @@ if not USER:
         import getpass
 
         USER = getpass.getuser()
-    except Exception:
-        pass
+    except OSError:
+        USER = ""
 
 if not USER:
     try:
         # alternative method 3 to get username
         USER = os.getlogin() or "archivebox"
-    except Exception:
+    except OSError:
         USER = "archivebox"
 
 ARCHIVEBOX_USER_EXISTS = False
 try:
     pwd.getpwuid(ARCHIVEBOX_USER)
     ARCHIVEBOX_USER_EXISTS = True
-except Exception:
+except KeyError:
     ARCHIVEBOX_USER_EXISTS = False
 
 
@@ -93,30 +92,27 @@ def drop_privileges():
 
     # Always run ArchiveBox as the user that owns the data dir, or as the
     # archivebox service account when the data dir is root-owned.
-    if os.getuid() == 0:
-        if os.geteuid() != ARCHIVEBOX_USER and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
-            os.seteuid(ARCHIVEBOX_USER)
+    if os.getuid() == 0 and os.geteuid() != ARCHIVEBOX_USER and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
+        os.seteuid(ARCHIVEBOX_USER)
 
-            # update environment variables so that subprocesses dont try to write to /root
-            pw_record = pwd.getpwuid(ARCHIVEBOX_USER)
-            os.environ["HOME"] = pw_record.pw_dir
-            os.environ["LOGNAME"] = pw_record.pw_name
-            os.environ["USER"] = pw_record.pw_name
-            os.environ["XDG_CACHE_HOME"] = str(Path(pw_record.pw_dir) / ".cache")
-            os.environ["XDG_CONFIG_HOME"] = str(Path(pw_record.pw_dir) / ".config")
-            os.environ["XDG_DATA_HOME"] = str(Path(pw_record.pw_dir) / ".local" / "share")
-            os.environ.pop("XDG_RUNTIME_DIR", None)
-            os.environ.pop("ABXBUS_MULTIPROCESS_SEMAPHORE_DIR", None)
+        # update environment variables so that subprocesses dont try to write to /root
+        pw_record = pwd.getpwuid(ARCHIVEBOX_USER)
+        os.environ["HOME"] = pw_record.pw_dir
+        os.environ["LOGNAME"] = pw_record.pw_name
+        os.environ["USER"] = pw_record.pw_name
+        os.environ["XDG_CACHE_HOME"] = str(Path(pw_record.pw_dir) / ".cache")
+        os.environ["XDG_CONFIG_HOME"] = str(Path(pw_record.pw_dir) / ".config")
+        os.environ["XDG_DATA_HOME"] = str(Path(pw_record.pw_dir) / ".local" / "share")
+        os.environ.pop("XDG_RUNTIME_DIR", None)
+        os.environ.pop("ABXBUS_MULTIPROCESS_SEMAPHORE_DIR", None)
 
-            semaphore_dir = Path(pw_record.pw_dir) / ".cache" / "abxbus" / "semaphores"
-            os.environ["ABXBUS_MULTIPROCESS_SEMAPHORE_DIR"] = str(semaphore_dir)
+        semaphore_dir = Path(pw_record.pw_dir) / ".cache" / "abxbus" / "semaphores"
+        os.environ["ABXBUS_MULTIPROCESS_SEMAPHORE_DIR"] = str(semaphore_dir)
 
-            try:
-                from abxbus import retry as abxbus_retry
-            except Exception:
-                pass
-            else:
-                abxbus_retry.MULTIPROCESS_SEMAPHORE_DIR = semaphore_dir
+        with suppress(ImportError):
+            from abxbus import retry as abxbus_retry
+
+            abxbus_retry.MULTIPROCESS_SEMAPHORE_DIR = semaphore_dir
 
     if ARCHIVEBOX_USER == 0 or not ARCHIVEBOX_USER_EXISTS:
         print(
