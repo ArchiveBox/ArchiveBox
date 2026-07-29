@@ -1533,11 +1533,10 @@ def create_admin_and_token(cwd: Path) -> str:
     return stdout.strip().splitlines()[-1]
 
 
-def wait_for_archive_outputs(
+def assert_archive_outputs(
     cwd: Path,
     url: str,
-    timeout: int = 120,
-) -> bool:
+) -> None:
     script = textwrap.dedent(
         f"""\
         from pathlib import Path
@@ -1592,18 +1591,8 @@ def wait_for_archive_outputs(
         """,
     )
 
-    deadline = time.monotonic() + timeout
-    last_output = ""
-    while True:
-        stdout, stderr, returncode = run_python_cwd(script, cwd=cwd, timeout=30)
-        if returncode == 0 and "READY" in stdout:
-            return True
-
-        last_output = (stderr or stdout).strip()
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            raise AssertionError(last_output or "archive outputs not ready")
-        time.sleep(min(0.25, remaining))
+    stdout, stderr, returncode = run_python_cwd(script, cwd=cwd, timeout=30)
+    assert returncode == 0 and "READY" in stdout, (stderr or stdout).strip()
 
 
 def _get_machine_type() -> str:
@@ -1737,8 +1726,7 @@ def real_archive_with_example(tmp_path_factory, request):
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert returncode == 0, f"archivebox add failed:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
 
-    ready = wait_for_archive_outputs(tmp_path, "https://example.com", timeout=60)
-    assert ready, f"archivebox add did not produce required outputs within timeout:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+    assert_archive_outputs(tmp_path, "https://example.com")
 
     return tmp_path
 
