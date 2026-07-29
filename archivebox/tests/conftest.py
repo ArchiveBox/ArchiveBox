@@ -1401,18 +1401,29 @@ def get_snapshot_file_text(cwd: Path, url: str) -> str:
 def wait_for_snapshot_capture(cwd: Path, url: str, timeout: int = 180) -> str:
     script = textwrap.dedent(
         f"""
+        from pathlib import Path
+
         from archivebox.core.models import Snapshot
         snapshot = Snapshot.objects.filter(url={url!r}).order_by('-created_at').first()
         assert snapshot is not None
-        print(snapshot.output_dir / 'index.jsonl')
+        index_path = snapshot.output_dir / 'index.jsonl'
+        assert Path(index_path).exists()
+        print(index_path)
         """,
     )
-    result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=cwd, timeout=30)
-    assert result.returncode == 0, result.stderr or result.stdout
-    index_path = Path(result.stdout.strip().splitlines()[-1])
-    _wait_for_log_match(index_path, ".", fixed=False, count=1, timeout=timeout)
     deadline = time.monotonic() + timeout
     last_error = ""
+    while True:
+        result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=cwd, timeout=30)
+        if result.returncode == 0:
+            index_path = Path(result.stdout.strip().splitlines()[-1])
+            break
+        last_error = result.stderr or result.stdout
+        remaining = deadline - time.monotonic()
+        assert remaining > 0, last_error
+        time.sleep(min(0.25, remaining))
+
+    _wait_for_log_match(index_path, ".", fixed=False, count=1, timeout=timeout)
     while True:
         try:
             return get_snapshot_file_text(cwd, url)
