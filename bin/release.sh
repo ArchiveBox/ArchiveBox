@@ -279,7 +279,7 @@ if [[ "$PYPI_STATE" != complete ]]; then
         PYPI_ARTIFACTS+=("$RELEASE_DISTRIBUTIONS_DIR/$filename")
     done
     [[ "${#PYPI_ARTIFACTS[@]}" -gt 0 ]]
-    $UV_BINARY publish --trusted-publishing always "${PYPI_ARTIFACTS[@]}"
+    $UV_BINARY publish --no-cache --trusted-publishing always "${PYPI_ARTIFACTS[@]}"
 fi
 
 if [[ "$GITHUB_EXISTS" == false ]]; then
