@@ -41,7 +41,7 @@ def detect_installed_version(PACKAGE_DIR: Path = PACKAGE_DIR):
 
 @cache
 def get_COMMIT_HASH() -> str | None:
-    for env_var in ("ARCHIVEBOX_COMMIT_HASH", "COMMIT_HASH"):
+    for env_var in ("ARCHIVEBOX_COMMIT_HASH",):
         env_commit_hash = os.environ.get(env_var, "").strip()
         if re.fullmatch(r"[0-9a-fA-F]{40}", env_commit_hash):
             return env_commit_hash
@@ -54,6 +54,13 @@ def get_COMMIT_HASH() -> str | None:
                 return matches[-1]
         except Exception:
             pass
+
+    try:
+        packaged_commit_hash = (PACKAGE_DIR / "COMMIT_SHA").read_text().strip()
+        if re.fullmatch(r"[0-9a-fA-F]{40}", packaged_commit_hash):
+            return packaged_commit_hash
+    except Exception:
+        pass
 
     def _read_git_file(git_dir: Path, ref: str) -> str | None:
         try:
@@ -76,6 +83,13 @@ def get_COMMIT_HASH() -> str | None:
         return None
 
     try:
+        try:
+            pyproject_text = (PACKAGE_DIR.parent / "pyproject.toml").read_text()
+        except FileNotFoundError:
+            pyproject_text = ""
+        if not re.search(r'^name = "archivebox"$', pyproject_text, re.MULTILINE):
+            return None
+
         git_dir = PACKAGE_DIR.parent / ".git"
         if git_dir.is_file():
             gitdir_line = git_dir.read_text().strip()
@@ -92,11 +106,6 @@ def get_COMMIT_HASH() -> str | None:
         commit_hash = _read_git_file(git_dir, ref)
         if commit_hash:
             return commit_hash
-    except Exception:
-        pass
-
-    try:
-        return list((PACKAGE_DIR.parent / ".git/refs/heads/").glob("*"))[0].read_text().strip()
     except Exception:
         pass
 

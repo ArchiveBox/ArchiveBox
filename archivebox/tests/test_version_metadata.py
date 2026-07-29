@@ -45,7 +45,8 @@ def _create_git_repo(tmp_path: Path) -> tuple[Path, Path, str]:
     copied_version = repo / "archivebox" / "config" / "version.py"
     copied_version.parent.mkdir(parents=True)
     shutil.copyfile(version.__file__, copied_version)
-    _git(git, repo, "add", "archivebox/config/version.py")
+    (repo / "pyproject.toml").write_text('[project]\nname = "archivebox"\nversion = "0.0.0"\n')
+    _git(git, repo, "add", "archivebox/config/version.py", "pyproject.toml")
     _git(git, repo, "commit", "-m", "add ArchiveBox version module")
     return git, repo, _git(git, repo, "rev-parse", "HEAD")
 
