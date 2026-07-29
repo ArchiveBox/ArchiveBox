@@ -6,11 +6,7 @@ on:
     types: [completed]
     branches: [dev, main]
 
-permissions:
-  actions: read
-  contents: write
-  id-token: write
-  packages: write
+permissions: {}
 
 concurrency:
   group: release-${{ github.repository }}-${{ github.event.workflow_run.head_branch }}
@@ -29,6 +25,10 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-24.04
     environment: pypi
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -146,6 +146,10 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     needs: python-release
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      packages: write
     steps:
       - name: Checkout the tested commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -290,9 +294,13 @@ jobs:
 
   downstream-packages:
     name: Verify downstream packages
+    if: github.event.workflow_run.head_branch == 'main' && !contains(needs.python-release.outputs.tag, 'rc')
     needs:
       - python-release
       - docker-release
+    permissions:
+      actions: read
+      contents: read
     uses: ./.github/workflows/update-homebrew-tap.yml
     with:
       release_tag: ${{ needs.python-release.outputs.tag }}
