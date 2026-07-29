@@ -37,12 +37,6 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Checkout screenshot plugin
-        uses: actions/checkout@v4
-        with:
-          repository: ArchiveBox/abx-plugins
-          path: .ui-screenshot-deps/abx-plugins
-
       - name: Setup Python and uv
         uses: astral-sh/setup-uv@v6
         with:
@@ -54,7 +48,6 @@ jobs:
       - name: Build UI screenshot gallery
         run: bin/collect_ui_screenshots.sh
         env:
-          ABX_PLUGINS_DIR: ${{ github.workspace }}/.ui-screenshot-deps/abx-plugins/abx_plugins/plugins
           BASE_URL: http://archivebox.localhost:8000
 
       - name: Setup Pages
