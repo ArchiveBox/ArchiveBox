@@ -117,6 +117,19 @@ jobs:
           RELEASE_DISTRIBUTIONS_DIR: ${{ runner.temp }}/python-distributions
         run: ./bin/release.sh
 
+      - name: Verify published PyPI package installs and runs
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sleep 60
+          VERSION='${{ steps.version.outputs.version }}'
+          TOOL_ROOT="$(mktemp -d)"
+          export UV_TOOL_DIR="$TOOL_ROOT/tools"
+          export UV_TOOL_BIN_DIR="$TOOL_ROOT/bin"
+          "$UV_BINARY" tool install --no-cache --prerelease allow --force "archivebox==${VERSION}"
+          INSTALLED_VERSION="$("$UV_TOOL_BIN_DIR/archivebox" --version)"
+          test "$INSTALLED_VERSION" = "$VERSION"
+
   docker-release:
     name: Publish tested multiarch image
     if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
@@ -245,6 +258,17 @@ jobs:
           REFS=()
           for digest in "${DIGESTS[@]}"; do REFS+=("${GHCR_IMAGE}@sha256:${digest}"); done
           $DOCKER_BINARY buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
+
+      - name: Verify published Docker images run
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION='${{ needs.python-release.outputs.version }}'
+          for image in "${DOCKERHUB_IMAGE}:${VERSION}" "${GHCR_IMAGE}:${VERSION}"; do
+            "$DOCKER_BINARY" buildx imagetools inspect "$image" >/dev/null
+            INSTALLED_VERSION="$("$DOCKER_BINARY" run --rm "$image" --version)"
+            test "$INSTALLED_VERSION" = "$VERSION"
+          done
 
       - name: Update Docker Hub README
         uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4
