@@ -42,7 +42,7 @@ resolve_git_binary() {
     uv run --no-cache --no-project --with "abxpkg==$abxpkg_version" abxpkg env \
         --install \
         --lib="$ABXPKG_LIB_DIR" \
-        --binproviders=env,apt,brew \
+        --binproviders=env,brew,apt \
         git >/dev/null
     GIT_BINARY="$ABXPKG_LIB_DIR/env/bin/git"
     test -L "$GIT_BINARY"
@@ -214,25 +214,7 @@ bootstrap_build_dependencies() {
 }
 
 sync_workspace() {
-    uv sync --all-extras --no-cache --active
-
-    for repo_name in "${REPO_NAMES[@]}"; do
-        printf 'Syncing %s into monorepo environment\n' "$repo_name"
-        case "$repo_name" in
-            archivebox)
-                (
-                    cd "$ROOT_DIR/$repo_name"
-                    UV_PROJECT_ENVIRONMENT="$ROOT_DIR/.venv" uv sync --dev --all-extras --inexact --no-cache --active
-                )
-                ;;
-            *)
-                (
-                    cd "$ROOT_DIR/$repo_name"
-                    UV_PROJECT_ENVIRONMENT="$ROOT_DIR/.venv" uv sync --dev --inexact --no-cache --active
-                )
-                ;;
-        esac
-    done
+    uv sync --all-packages --all-extras --all-groups --no-cache --active
 }
 
 ensure_setup_link() {
@@ -364,5 +346,5 @@ echo "    VIRTUAL_ENV=$VIRTUAL_ENV"
 echo "    PYTHON_BIN=$VIRTUAL_ENV/bin/python"
 echo
 echo "TIPS:"
-echo " - Use 'uv run ...' inside subrepos for package work; their standalone uv.lock files remain authoritative for CI/release"
+echo " - Use 'uv run ...' inside member repos for package work; the root uv.lock owns this workspace"
 echo " - Always read $ROOT_DIR/README.md into context before starting any work"
