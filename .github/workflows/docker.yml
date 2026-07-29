@@ -346,14 +346,14 @@ jobs:
           "$MKDIR_BINARY" "${{ github.workspace }}/data"
           "$DOCKER_BINARY" run -v "${{ github.workspace }}/data":/data "$ARCHIVEBOX_IMAGE" init
 
-          "$SUDO_BINARY" "$BASH_BINARY" -c 'echo "127.0.0.1  www.test-nginx-1.local www.test-nginx-2.local" >> /etc/hosts'
+          "$SUDO_BINARY" "$BASH_BINARY" -c 'echo "127.0.0.1  www.test-nginx-2.local" >> /etc/hosts'
           "$DOCKER_BINARY" run --name www-nginx -p 80:80 -d nginx:1.29.5@sha256:0236ee02dcbce00b9bd83e0f5fbc51069e7e1161bd59d99885b3ae1734f3392e
 
-          "$DOCKER_BINARY" run -v "$PWD"/data:/data --network host "$ARCHIVEBOX_IMAGE" add http://www.test-nginx-1.local
+          "$DOCKER_BINARY" run -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" add https://sweeting.me
           echo "http://www.test-nginx-2.local" | "$DOCKER_BINARY" run -i --network host -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" add
 
           archive_list="$("$DOCKER_BINARY" run -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" list)"
-          [[ "$archive_list" == *"www.test-nginx-1.local"* ]] || { echo "The site 1 isn't in the list"; exit 1; }
+          [[ "$archive_list" == *"sweeting.me"* ]] || { echo "The site 1 isn't in the list"; exit 1; }
           [[ "$archive_list" == *"www.test-nginx-2.local"* ]] || { echo "The site 2 isn't in the list"; exit 1; }
 
           "$DOCKER_BINARY" compose run --rm archivebox init
