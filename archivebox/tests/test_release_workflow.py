@@ -1,4 +1,5 @@
 from pathlib import Path
+import shlex
 
 import yaml
 
@@ -27,9 +28,28 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert 'echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:${VERSION}"' in tag_script
 
-    release_script = (REPO_ROOT / "bin" / "release.sh").read_text()
-    create_tag = '$GIT_BINARY push origin "refs/tags/${TAG}"'
-    publish_pypi = "$UV_BINARY publish --trusted-publishing always"
-    create_release = '$GH_BINARY release create "$TAG" --repo "$SLUG" --verify-tag'
-    assert release_script.index(create_tag) < release_script.index(publish_pypi)
-    assert release_script.index(publish_pypi) < release_script.index(create_release)
+    logical_lines = []
+    current_line = ""
+    for line in (REPO_ROOT / "bin" / "release.sh").read_text().splitlines():
+        current_line = f"{current_line} {line.strip()}".strip()
+        if current_line.endswith("\\"):
+            current_line = current_line[:-1]
+            continue
+        logical_lines.append(current_line)
+        current_line = ""
+    assert not current_line
+
+    release_commands = [shlex.split(line) for line in logical_lines if line.startswith(("$GIT_BINARY ", "$UV_BINARY ", "$GH_BINARY "))]
+    create_tag = next(
+        index
+        for index, command in enumerate(release_commands)
+        if command[:3] == ["$GIT_BINARY", "push", "origin"] and command[3] == "refs/tags/${TAG}"
+    )
+    publish_pypi = next(index for index, command in enumerate(release_commands) if command[:2] == ["$UV_BINARY", "publish"])
+    create_release = next(index for index, command in enumerate(release_commands) if command[:3] == ["$GH_BINARY", "release", "create"])
+
+    publish_command = release_commands[publish_pypi]
+    assert "--no-cache" in publish_command
+    assert publish_command[publish_command.index("--trusted-publishing") + 1] == "always"
+    assert "--verify-tag" in release_commands[create_release]
+    assert create_tag < publish_pypi < create_release
