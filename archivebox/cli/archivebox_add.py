@@ -133,6 +133,17 @@ def add(
     )
 
     # 2. Create a new Crawl with inline URLs
+    # Foreground add must claim runner ownership before publishing runnable
+    # work. Otherwise an existing server runner can lease the new Crawl in the
+    # gap between Crawl.objects.create() and current_command(), then be killed
+    # by the newer add process halfway through its first Snapshot hook.
+    command = None
+    if not bg and not index_only:
+        from archivebox.machine.models import Process
+        from archivebox.core.takeover_util import current_command
+
+        command = current_command(Process.TypeChoices.ADD, data_dir=CONSTANTS.DATA_DIR)
+
     cli_args = [*sys.argv]
     if cli_args[0].lower().endswith("archivebox"):
         cli_args[0] = "archivebox"
@@ -173,25 +184,33 @@ def add(
     # this add path. Keeping it byte-for-byte readable is what lets API/UI/CLI
     # callers audit or resume imports without losing RSS/Netscape/JSON metadata
     # that is not representable as one plain URL per line.
-    crawl = Crawl.objects.create(
-        urls=source_text,
-        # Stdin/import text gets an extra hop because the synthetic
-        # archivebox://internal root lives at depth 0 and parser-discovered
-        # URLs land at depth 1; direct URL args become the depth=0 input
-        # snapshots themselves so --depth=N matches the deepest hop the user
-        # asked for.
-        max_depth=depth + 1 if use_internal_input_root else depth,
-        tags_str=tag,
-        persona_id=persona_obj.id,
-        label=f"{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]",
-        created_by_id=created_by_id,
-        status=Crawl.StatusChoices.QUEUED,
-        retry_at=None if index_only else timezone.now(),
-        config=crawl_config,
-    )
+    try:
+        crawl = Crawl.objects.create(
+            urls=source_text,
+            # Stdin/import text gets an extra hop because the synthetic
+            # archivebox://internal root lives at depth 0 and parser-discovered
+            # URLs land at depth 1; direct URL args become the depth=0 input
+            # snapshots themselves so --depth=N matches the deepest hop the user
+            # asked for.
+            max_depth=depth + 1 if use_internal_input_root else depth,
+            tags_str=tag,
+            persona_id=persona_obj.id,
+            label=f"{USER}@{HOSTNAME} $ {cmd_str} [{timestamp}]",
+            created_by_id=created_by_id,
+            status=Crawl.StatusChoices.QUEUED,
+            retry_at=None if index_only else timezone.now(),
+            config=crawl_config,
+        )
+        first_url = crawl.get_urls_list()[0] if crawl.get_urls_list() else ""
+    except BaseException:
+        if command is not None:
+            command.mark_exited(exit_code=1)
+        raise
+    if command is not None:
+        command.url = first_url
+        command.save(update_fields=["url", "modified_at"])
 
     print(f"[green]\\[+] Created Crawl {crawl.id} with max_depth={depth}[/green]")
-    first_url = crawl.get_urls_list()[0] if crawl.get_urls_list() else ""
     print(f"    [dim]First URL: {first_url}[/dim]")
 
     # 3. The CrawlMachine will create Snapshots from all URLs when started
@@ -220,11 +239,10 @@ def add(
     else:
         # Foreground mode: run full crawl runner until all work is done
         print("[green]\\[*] Starting crawl runner to process crawl...[/green]")
-        from archivebox.machine.models import Process
-        from archivebox.core.takeover_util import command_owns_foreground_runner, current_command, standby_until_foreground_runner_needed
+        from archivebox.core.takeover_util import command_owns_foreground_runner, standby_until_foreground_runner_needed
         from archivebox.workers.supervisord_util import get_existing_supervisord_process, run_runner_worker, stop_own_supervisord_process
 
-        command = current_command(Process.TypeChoices.ADD, data_dir=CONSTANTS.DATA_DIR, url=first_url)
+        assert command is not None
         exit_code = 0
         try:
             try:
