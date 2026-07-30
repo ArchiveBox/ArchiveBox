@@ -368,7 +368,7 @@ def server(
                     data_dir=CONSTANTS.DATA_DIR,
                     exclude_id=command.id,
                 )
-                takeover_components = active_supervisord_runtime_components(config=config)
+                takeover_components = active_supervisord_runtime_components()
                 if older_owner and takeover_components:
                     print(
                         "[yellow][*] Taking over "

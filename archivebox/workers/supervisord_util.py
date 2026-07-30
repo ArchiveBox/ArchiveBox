@@ -1023,24 +1023,22 @@ def format_runtime_components(components: list[str] | tuple[str, ...]) -> str:
     return ", ".join(component for component in components if component)
 
 
-def worker_runtime_component(worker_name: str, *, config=None) -> str | None:
+def worker_runtime_component(worker_name: str) -> str | None:
     if worker_name in {"worker_runner", "worker_runner_watch"} or worker_name.startswith("worker_runner_"):
         return "orchestrator"
     if worker_name in {"worker_daphne", "worker_runserver"}:
         return "server"
-    if config is not None:
-        sonic_worker = get_sonic_supervisord_worker_from_plugin(config)
-        if sonic_worker and worker_name == sonic_worker.get("name"):
-            return "sonic"
+    if worker_name == "worker_sonic":
+        return "sonic"
     return None
 
 
-def runtime_components_for_worker_names(worker_names: set[str] | list[str] | tuple[str, ...], *, config=None) -> list[str]:
-    components = {worker_runtime_component(worker_name, config=config) for worker_name in worker_names}
+def runtime_components_for_worker_names(worker_names: set[str] | list[str] | tuple[str, ...]) -> list[str]:
+    components = {worker_runtime_component(worker_name) for worker_name in worker_names}
     return [component for component in _RUNTIME_COMPONENT_ORDER if component in components]
 
 
-def active_supervisord_runtime_components(*, config=None, supervisor=None) -> list[str]:
+def active_supervisord_runtime_components(*, supervisor=None) -> list[str]:
     supervisor = supervisor or get_existing_supervisord_process(quiet=True)
     if supervisor is None:
         return []
@@ -1048,7 +1046,7 @@ def active_supervisord_runtime_components(*, config=None, supervisor=None) -> li
         worker_names = {proc.get("name") for proc in supervisor.getAllProcessInfo() if proc.get("statename") in _ACTIVE_WORKER_STATES}
     except _SUPERVISORD_ERRORS:
         return []
-    return runtime_components_for_worker_names({str(name) for name in worker_names if name}, config=config)
+    return runtime_components_for_worker_names({str(name) for name in worker_names if name})
 
 
 def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reload: bool, nothreading: bool, supervisor=None):
@@ -1091,7 +1089,7 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
             log_files.append(str(sonic_worker["stdout_logfile"]))
 
     workers = [(server_worker, False), *bg_workers]
-    components = runtime_components_for_worker_names([worker["name"] for worker, _lazy in workers], config=config)
+    components = runtime_components_for_worker_names([worker["name"] for worker, _lazy in workers])
     return workers, log_files, components
 
 

@@ -127,10 +127,9 @@ def command_owns_foreground_runner(command, *, data_dir: str | Path) -> bool:
 
 def runtime_stack_component_label(*, owner=None, data_dir: str | Path) -> str:
     try:
-        from archivebox.config.common import get_config
         from archivebox.workers.supervisord_util import active_supervisord_runtime_components
 
-        components = active_supervisord_runtime_components(config=get_config())
+        components = active_supervisord_runtime_components()
     except Exception:
         components = []
 
