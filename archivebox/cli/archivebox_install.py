@@ -4,6 +4,7 @@ __package__ = "archivebox.cli"
 
 import os
 import shutil
+import re
 from pathlib import Path
 
 import rich_click as click
@@ -15,14 +16,40 @@ from archivebox.misc.util import docstring, enforce_types
 def _resolve_install_targets(
     requested_names: tuple[str, ...],
 ) -> tuple[list[str], list[str]]:
-    """Resolve exact plugin names and leave all other tokens as binary names."""
+    """Resolve plugin names and declared binary aliases, leaving unknown tokens raw."""
     from abx_dl.models import discover_plugins, filter_plugins
 
     plugins = discover_plugins(runtime="archivebox")
-    requested_plugins = [name for name in requested_names if name.lower() in {plugin_name.lower() for plugin_name in plugins}]
-    selected_plugins = filter_plugins(plugins, requested_plugins, include_providers=True)
+    plugin_names_by_lower = {plugin_name.lower(): plugin_name for plugin_name in plugins}
+    plugin_names_by_binary_alias: dict[str, set[str]] = {}
+    for plugin_name, plugin in plugins.items():
+        for required_binary in plugin.config.required_binaries:
+            aliases = {required_binary.name.lower()}
+            template_match = re.fullmatch(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", required_binary.name)
+            if template_match:
+                config_key = template_match.group(1)
+                aliases.add(config_key.lower())
+                aliases.add(config_key.removesuffix("_BINARY").lower())
+                default = plugin.config.properties.get(config_key, {}).get("default")
+                if default:
+                    aliases.add(str(default).lower())
+            for alias in aliases:
+                plugin_names_by_binary_alias.setdefault(alias, set()).add(plugin_name)
+
+    requested_plugins: list[str] = []
+    raw_binary_names: list[str] = []
+    for name in requested_names:
+        normalized_name = name.lower()
+        if normalized_name in plugin_names_by_lower:
+            requested_plugins.append(plugin_names_by_lower[normalized_name])
+        elif normalized_name in plugin_names_by_binary_alias:
+            requested_plugins.extend(sorted(plugin_names_by_binary_alias[normalized_name]))
+        else:
+            raw_binary_names.append(name)
+
+    selected_plugins = filter_plugins(plugins, requested_plugins, include_providers=True) if requested_plugins else {}
     selected_plugin_names = {name.lower() for name in selected_plugins}
-    raw_binary_names = [name for name in requested_names if name.lower() not in selected_plugin_names]
+    raw_binary_names = [name for name in raw_binary_names if name.lower() not in selected_plugin_names]
     return sorted(selected_plugins), sorted(set(raw_binary_names))
 
 

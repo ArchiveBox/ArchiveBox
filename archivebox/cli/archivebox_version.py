@@ -7,6 +7,7 @@ import os
 import json
 import asyncio
 import platform
+import re
 from pathlib import Path
 from collections.abc import Iterable
 
@@ -202,6 +203,24 @@ def version(
     def binary_is_requested(logical_name: str, actual_name: str, display_name: str) -> bool:
         return not requested_names or bool({logical_name, actual_name, display_name} & requested_names)
 
+    def plugin_may_have_requested_binary(plugin) -> bool:
+        if not requested_names:
+            return True
+        aliases = {plugin.name}
+        for required_binary in plugin.config.required_binaries:
+            raw_name = str(required_binary.name)
+            aliases.add(raw_name)
+            template_match = re.fullmatch(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", raw_name)
+            if template_match:
+                config_key = template_match.group(1)
+                aliases.add(config_key)
+                aliases.add(config_key.removesuffix("_BINARY"))
+                default = plugin.config.properties.get(config_key, {}).get("default")
+                if default:
+                    aliases.add(str(default))
+        normalized_aliases = {alias.lower() for alias in aliases}
+        return bool({name.lower() for name in requested_names} & normalized_aliases)
+
     if not in_data_dir:
         PANEL_TEXT = "\n".join(
             (
@@ -280,6 +299,9 @@ def version(
 
     declared_binary_specs: dict[str, dict[str, object]] = {}
     for plugin_name, plugin in plugins.items():
+        if not plugin_may_have_requested_binary(plugin):
+            continue
+        plugin_requested = bool(requested_names)
         plugin_enabled = plugin_name in enabled_plugin_names
         logical_records = get_required_binary_requests(
             plugin,
@@ -300,7 +322,7 @@ def version(
             logical_name = str(logical_record["name"])
             actual_name = str(actual_record["name"])
             display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
-            if not binary_is_requested(logical_name, actual_name, display_name):
+            if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
                 continue
             if not plugin_enabled and not requested_names:
                 continue
@@ -337,6 +359,9 @@ def version(
         live_cm.start()
     try:
         for plugin_name, plugin in plugins.items():
+            if not plugin_may_have_requested_binary(plugin):
+                continue
+            plugin_requested = bool(requested_names)
             plugin_enabled = plugin_name in enabled_plugin_names
             logical_records = get_required_binary_requests(
                 plugin,
@@ -357,7 +382,7 @@ def version(
                 logical_name = str(logical_record["name"])
                 actual_name = str(actual_record["name"])
                 display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
-                if not binary_is_requested(logical_name, actual_name, display_name):
+                if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
                     continue
 
                 installed = db_binaries.get(logical_name) if db_available else None

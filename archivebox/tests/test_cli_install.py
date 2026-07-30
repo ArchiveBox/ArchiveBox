@@ -12,6 +12,7 @@ from archivebox.tests.conftest import run_archivebox_cmd
 import pytest
 
 from archivebox.cli.archivebox_install import ensure_data_dir_lib_symlink
+from archivebox.cli.archivebox_install import _resolve_install_targets
 from archivebox.config.paths import get_machine_type
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
@@ -67,6 +68,15 @@ def test_install_detects_system_binaries(initialized_archive):
 
     assert result.returncode == 0, result.stderr or result.stdout
     assert "ArchiveBox dependencies" in result.stdout
+
+
+def test_install_target_resolver_uses_declared_binary_aliases():
+    """Targeted plugin-owned binaries must not fan out to every plugin or raw '*' provider installs."""
+
+    assert _resolve_install_targets(("ripgrep",)) == (["search_backend_ripgrep"], [])
+    assert _resolve_install_targets(("rg",)) == (["search_backend_ripgrep"], [])
+    assert _resolve_install_targets(("sonic",)) == (["search_backend_sonic"], [])
+    assert _resolve_install_targets(("not-a-real-tool",)) == ([], ["not-a-real-tool"])
 
 
 def test_install_shows_binary_status(initialized_archive):
