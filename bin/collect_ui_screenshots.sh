@@ -242,6 +242,11 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                 "SCREENSHOT_WAIT_FOR_TEXT=${capture_mode#wait-replay:}"
                 "SCREENSHOT_WAIT_FOR_FRAME_URL=/replay/w/"
             )
+        elif [[ "$capture_mode" == wait-text:* ]]; then
+            capture_env+=(
+                "CHROME_WAIT_FOR=domcontentloaded"
+                "SCREENSHOT_WAIT_FOR_TEXT=${capture_mode#wait-text:}"
+            )
         fi
 
         screenshot_path=""
@@ -283,6 +288,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
             screenshot_metadata_path="$(find "$capture_dir" -type f -path '*/screenshot/screenshot.json' -print -quit)"
             if [[ -z "$screenshot_metadata_path" || ! -s "$screenshot_metadata_path" ]]; then
                 echo "[!] Screenshot navigation metadata is missing for $profile $url" >&2
+                tail -100 "$capture_log" >&2
                 exit 1
             fi
             uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
@@ -310,6 +316,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
         fi
         if [[ -z "$screenshot_path" || ! -s "$screenshot_path" ]]; then
             echo "[!] Screenshot plugin did not produce a $profile PNG for $url" >&2
+            [[ -n "${capture_log:-}" && -f "$capture_log" ]] && tail -100 "$capture_log" >&2
             exit 1
         fi
         cp "$screenshot_path" "$OUTPUT_DIR/$filename"
@@ -415,7 +422,7 @@ PY
         VIEWS+=(
             "Add URLs|$ADMIN_BASE_URL/add/|/add/|archivebox/core/views.py"
             "Admin dashboard|$ADMIN_BASE_URL/admin/|/admin/|archivebox/core/admin_site.py"
-            "AI agent|$ADMIN_BASE_URL/admin/agent/|/admin/agent/|abx_plugins/plugins/opencode/views.py"
+            "AI agent|$ADMIN_BASE_URL/admin/agent/|/admin/agent/|abx_plugins/plugins/opencode/views.py|wait-text:ArchiveBox AI Agent"
             "Snapshots table|$ADMIN_BASE_URL/admin/core/snapshot/|/admin/core/snapshot/|archivebox/core/admin_snapshots.py"
             "Snapshots grid|$ADMIN_BASE_URL/admin/core/snapshot/grid/|/admin/core/snapshot/grid/|archivebox/templates/admin/snapshots_grid.html"
             "Snapshot admin detail|$ADMIN_BASE_URL/admin/core/snapshot/$SNAPSHOT_ID/change/|/admin/core/snapshot/$SNAPSHOT_ID/change/|archivebox/core/admin_snapshots.py"
