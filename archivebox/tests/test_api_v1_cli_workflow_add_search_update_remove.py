@@ -1,8 +1,8 @@
 import pytest
 
 from archivebox.core.models import Snapshot
-from archivebox.crawls.models import Crawl
 from archivebox.tests.test_orm_helpers import use_archivebox_db
+
 from .conftest import (
     cli_env,
     create_admin_and_token,
@@ -109,18 +109,18 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
         )
         assert update_response.status_code == 200, update_response.text
         assert update_response.json()["success"] is True
-        stop_server(tmp_path)
-        start_archivebox_server(tmp_path, env=env, port=port)
-        wait_for_live_api(port)
 
-        with use_archivebox_db(tmp_path):
-            crawl_obj = Crawl.objects.filter(pk=crawl_id).first()
-            crawl = (crawl_obj.max_depth, crawl_obj.tags_str, crawl_obj.config) if crawl_obj else None
-
-        assert crawl is not None
-        assert crawl[0] == 0
-        assert crawl[1] == "api-cli"
-        assert crawl[2]["INDEX_ONLY"] is True
+        crawl_response = live_api_request(
+            port,
+            "get",
+            f"/api/v1/crawls/crawl/{crawl_id}",
+            api_token=api_token,
+        )
+        assert crawl_response.status_code == 200, crawl_response.text
+        crawl = crawl_response.json()
+        assert crawl["max_depth"] == 0
+        assert crawl["tags_str"] == "api-cli"
+        assert crawl["config"]["INDEX_ONLY"] is True
 
         remove_response = live_api_request(
             port,
@@ -142,6 +142,7 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
         assert remove_payload["result"]["removed_count"] == 1
         assert snapshot_id in remove_payload["result"]["removed_snapshot_ids"]
 
+        stop_server(tmp_path)
         with use_archivebox_db(tmp_path):
             snapshot_count = Snapshot.objects.filter(pk=snapshot_id).count()
 
