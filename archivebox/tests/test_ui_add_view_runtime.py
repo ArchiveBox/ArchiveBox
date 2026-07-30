@@ -409,9 +409,8 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
     port = get_free_port()
     env = cli_env(
         port=port,
-        PLUGINS="parse_html_urls,parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,parse_txt_urls,wget,headers",
+        PLUGINS="parse_html_urls,parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,parse_txt_urls,wget",
         SAVE_WGET="True",
-        SAVE_HEADERS="True",
         USE_CHROME="False",
         PUBLIC_INDEX="True",
         PUBLIC_ADD_VIEW="True",
@@ -515,9 +514,8 @@ def test_public_add_view_rejects_file_path_and_shell_injection_payloads(tmp_path
     port = get_free_port()
     env = cli_env(
         port=port,
-        PLUGINS="parse_html_urls,parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,parse_txt_urls,wget,headers",
+        PLUGINS="parse_html_urls,parse_jsonl_urls,parse_netscape_urls,parse_rss_urls,parse_txt_urls,wget",
         SAVE_WGET="True",
-        SAVE_HEADERS="True",
         USE_CHROME="False",
         PUBLIC_INDEX="True",
         PUBLIC_ADD_VIEW="True",

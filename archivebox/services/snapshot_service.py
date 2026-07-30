@@ -113,6 +113,11 @@ class SnapshotService(BaseService):
             if snapshot.is_paused:
                 return
             if snapshot.status == Snapshot.StatusChoices.QUEUED:
+                if not await snapshot.archiveresult_set.aexists():
+                    from archivebox.services.runner import snapshot_hooks_for_pending_archiveresults
+
+                    hooks = await sync_to_async(snapshot_hooks_for_pending_archiveresults, thread_sensitive=True)(snapshot)
+                    await sync_to_async(snapshot.create_pending_archiveresults, thread_sensitive=True)(hooks=hooks)
                 try:
                     await sync_to_async(snapshot.sm.tick, thread_sensitive=True)()
                 except ValidationError as err:
