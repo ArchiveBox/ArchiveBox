@@ -507,10 +507,11 @@ def _run_browser_probe(
             wait=False,
         )
     try:
+        supervisord_log_path = data_dir / "logs" / "supervisord.log"
         runserver_log_path = data_dir / "logs" / "worker_runserver.log"
         wait_for_log_pattern(
-            server_log_path,
-            r"Worker worker_runserver: started RUNNING \(pid [0-9]+,",
+            supervisord_log_path,
+            r"success: worker_runserver entered RUNNING state,",
             timeout=30,
         )
         deadline = time.monotonic() + 30
@@ -532,8 +533,11 @@ def _run_browser_probe(
     except AssertionError as exc:
         stop_archivebox_process(process)
         server_log = server_log_path.read_text(encoding="utf-8", errors="replace")
+        supervisord_log = supervisord_log_path.read_text(encoding="utf-8", errors="replace") if supervisord_log_path.exists() else ""
         runserver_log = runserver_log_path.read_text(encoding="utf-8", errors="replace") if runserver_log_path.exists() else ""
-        raise AssertionError(f"{exc}\n\nSERVER LOG:\n{server_log}\n\nRUNSERVER LOG:\n{runserver_log}") from exc
+        raise AssertionError(
+            f"{exc}\n\nSERVER LOG:\n{server_log}\n\nSUPERVISORD LOG:\n{supervisord_log}\n\nRUNSERVER LOG:\n{runserver_log}",
+        ) from exc
 
     probe_path = tmp_path / "server_security_probe.js"
     probe_path.write_text(PUPPETEER_PROBE_SCRIPT, encoding="utf-8")
