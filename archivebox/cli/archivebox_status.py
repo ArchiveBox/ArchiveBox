@@ -52,7 +52,10 @@ def status(out_dir: Path = CONSTANTS.DATA_DIR) -> None:
     print()
     print("[green]\\[*] Scanning archive data directories...[/green]")
     users_dir = CONSTANTS.USERS_DIR
-    scan_roots = [root for root in (archive_dir, users_dir) if root.exists()]
+    # The current users layout is nested below archive/, so scanning both
+    # archive/ and archive/users/ recursively counts every current snapshot
+    # twice. A single archive root includes both legacy and current layouts.
+    scan_roots = [archive_dir] if archive_dir.exists() else []
     scan_roots_display = ", ".join(str(root) for root in scan_roots) if scan_roots else str(archive_dir)
     print(f"[yellow]   {scan_roots_display}[/yellow]")
     do_precise_fs_scan = num_sql_links <= MAX_STATUS_FS_DIR_SCAN
