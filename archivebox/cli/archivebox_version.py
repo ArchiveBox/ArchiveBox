@@ -338,7 +338,10 @@ def version(
 
         async def resolve_declared_binaries() -> dict[str, BinaryEvent | None]:
             try:
-                return await resolve_binary_requests(binary_bus, declared_binary_specs)
+                loaded: dict[str, BinaryEvent | None] = {}
+                for signature, request in declared_binary_specs.items():
+                    loaded.update(await resolve_binary_requests(binary_bus, {signature: request}))
+                return loaded
             finally:
                 await binary_bus.wait_until_idle()
                 await binary_bus.destroy(clear=False)
