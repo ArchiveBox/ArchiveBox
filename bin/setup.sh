@@ -311,6 +311,32 @@ install_archivebox_with_uv() {
     fi
 }
 
+select_archivebox_lib_dir() {
+    local configured_lib_dir
+    configured_lib_dir="$(
+        COLUMNS=10000 env -u ABXPKG_LIB_DIR "$ARCHIVEBOX_BINARY" config --get ABXPKG_LIB_DIR \
+            | awk '
+                /^[[:space:]]*ABXPKG_LIB_DIR[[:space:]]*=/ {
+                    value = $0
+                    sub(/^[^=]*=[[:space:]]*/, "", value)
+                    sub(/^"/, "", value)
+                    sub(/"[[:space:]]*$/, "", value)
+                    print value
+                    exit
+                }
+            '
+    )"
+    if [ -z "$configured_lib_dir" ]; then
+        echo "[X] Could not resolve the ArchiveBox dependency library directory."
+        exit 1
+    fi
+
+    ABXPKG_LIB_DIR="$configured_lib_dir"
+    export ABXPKG_LIB_DIR
+    export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+    fix_root_install_ownership
+}
+
 prepare_abxpkg_environment
 if resolve_setup_binary docker env false 2>/dev/null; then
     DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
@@ -420,7 +446,7 @@ cd "$ARCHIVEBOX_HOME_DIR"
 migrate_legacy_collection_dir
 cd ./data
 : | "$ARCHIVEBOX_BINARY" init   # pipe in empty command to make sure stdin is closed
-"$ARCHIVEBOX_BINARY" config --set "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+select_archivebox_lib_dir
 "$ARCHIVEBOX_BINARY" install
 # init shows version output at the end too
 echo

@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -75,15 +76,70 @@ def test_setup_script_keeps_optional_binary_probes_quiet():
     assert 'if [ -n "$OPEN_BINARY" ] && [ -t 1 ]; then' in script
 
 
-def test_setup_script_persists_bootstrap_library_before_installing_dependencies():
+def test_setup_script_selects_collection_library_before_installing_dependencies():
     script = SETUP_SCRIPT.read_text()
     native_install = script.partition(': | "$ARCHIVEBOX_BINARY" init')[2]
 
-    persist_config = '"$ARCHIVEBOX_BINARY" config --set "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"'
+    select_library = "select_archivebox_lib_dir"
     install_dependencies = '"$ARCHIVEBOX_BINARY" install'
 
-    assert persist_config in native_install
-    assert native_install.index(persist_config) < native_install.index(install_dependencies)
+    assert select_library in native_install
+    assert native_install.index(select_library) < native_install.index(install_dependencies)
+
+
+def test_setup_script_preserves_existing_collection_library(tmp_path):
+    archivebox_binary = shutil.which("archivebox")
+    assert archivebox_binary
+
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    bootstrap_lib = tmp_path / "bootstrap-lib"
+    configured_lib = tmp_path / "configured-lib"
+    command_env = {**os.environ, "HOME": str(tmp_path), "ABXPKG_LIB_DIR": str(bootstrap_lib), "TERM": "dumb"}
+
+    init_result = subprocess.run(
+        [archivebox_binary, "init"],
+        cwd=data_dir,
+        capture_output=True,
+        text=True,
+        env=command_env,
+        timeout=60,
+    )
+    assert init_result.returncode == 0, init_result.stderr or init_result.stdout
+
+    config_result = subprocess.run(
+        [archivebox_binary, "config", "--set", f"ABXPKG_LIB_DIR={configured_lib}"],
+        cwd=data_dir,
+        capture_output=True,
+        text=True,
+        env=command_env,
+        timeout=60,
+    )
+    assert config_result.returncode == 0, config_result.stderr or config_result.stdout
+
+    script = SETUP_SCRIPT.read_text()
+    function_body = script.partition("select_archivebox_lib_dir() {")[2].partition("\n}")[0]
+    harness = tmp_path / "select-library.sh"
+    harness.write_text(f"select_archivebox_lib_dir() {{{function_body}\n}}\n")
+
+    select_result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            'source "$1"; ARCHIVEBOX_BINARY="$2"; select_archivebox_lib_dir; printf "%s" "$ABXPKG_LIB_DIR"',
+            "bash",
+            str(harness),
+            archivebox_binary,
+        ],
+        cwd=data_dir,
+        capture_output=True,
+        text=True,
+        env=command_env,
+        timeout=60,
+    )
+
+    assert select_result.returncode == 0, select_result.stderr or select_result.stdout
+    assert select_result.stdout == str(configured_lib)
 
 
 def test_setup_script_moves_legacy_collection_without_moving_compose(tmp_path):
