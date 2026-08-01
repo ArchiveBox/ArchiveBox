@@ -72,6 +72,7 @@ def test_setup_script_keeps_optional_binary_probes_quiet():
 
     assert "resolve_setup_binary open env false 2>/dev/null" in script
     assert "resolve_setup_binary docker env false 2>/dev/null" in script
+    assert 'if [ -n "$OPEN_BINARY" ] && [ -t 1 ]; then' in script
 
 
 def test_setup_script_moves_legacy_collection_without_moving_compose(tmp_path):
