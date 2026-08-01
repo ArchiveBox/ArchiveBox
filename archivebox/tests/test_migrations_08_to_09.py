@@ -545,8 +545,9 @@ def test_update_migrates_db_snapshot_when_legacy_index_missing(tmp_path):
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
-    assert result.returncode == 0, f"Update failed: {result.stderr}"
+    for pass_number in (1, 2):
+        result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
+        assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
 
     migrated_files = list((work_dir / "archive" / "users").glob("*/snapshots/*/*/*/screenshot.png"))
     assert len(migrated_files) == 1
@@ -692,8 +693,9 @@ def test_update_preserves_legacy_plugin_directory_without_output_files(migration
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
-    assert result.returncode == 0, f"Update failed: {result.stderr}"
+    for pass_number in (1, 2):
+        result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
+        assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
 
     migrated_outputs = list((work_dir / "archive" / "users").glob("*/snapshots/*/*/*/media/track.info.json"))
     assert len(migrated_outputs) == 1
