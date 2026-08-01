@@ -1,17 +1,21 @@
 # Upgrading Versions
 
 ```bash
-# cd /path/to/your/archivebox/data
+# Native uv, apt, or brew install
 cd ~/archivebox/data
-
 uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
-# or
-docker pull archivebox/archivebox:dev
-
-# upgrade the collection to a new version
 archivebox init
 archivebox install
 archivebox update
+archivebox status
+
+# Docker Compose install
+cd ~/archivebox
+docker compose pull
+docker compose run --rm archivebox init
+docker compose run --rm archivebox install
+docker compose run --rm archivebox update
+docker compose up -d
 ```
 
 
@@ -28,8 +32,7 @@ archivebox update
 
 ---
 
-*Note: It's recommended to only upgrade one major version at a time. e.g. if you're on `v0.4.14`, upgrade to `v0.5.6` next, then `v0.6.3`, and finally `v0.7.1` (as 3 separate steps).
-You can specify exact versions with uv like so: `uv tool install --python 3.13 --upgrade archivebox==0.6.3` or with docker `docker pull archivebox/archivebox:0.6.3`. Upgrading directly across multiple major versions may work in some cases, but is not recommended for maximum data safety.*
+*Note: It's recommended to only upgrade one major version at a time. Follow each intermediate release's upgrade instructions and Python requirements rather than installing old releases with the current Python version. Upgrading directly across multiple major versions may work in some cases, but is not recommended for maximum data safety.*
 
 
 ---
@@ -105,8 +108,9 @@ uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/Archi
 # or
 sudo apt update
 sudo apt install --only-upgrade archivebox
-# or with the optional auto-installer script
-curl -sSL 'https://get.archivebox.io' | sh
+# or
+brew update
+brew upgrade archivebox
 
 archivebox init        # run init to upgrade the collection to the latest version
 archivebox install     # refresh runtime dependencies if needed
