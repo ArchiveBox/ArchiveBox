@@ -1647,11 +1647,15 @@ class CrawlMachine(BaseStateMachine):
 
     @paused.enter
     def enter_paused(self):
-        self.crawl.update_and_requeue(
-            retry_at=RETRY_AT_MAX,
-            status=Crawl.StatusChoices.PAUSED,
+        paused = self.crawl.safe_update(
+            {
+                "retry_at": RETRY_AT_MAX,
+                "status": Crawl.StatusChoices.PAUSED,
+            },
+            extra_filter={"status__in": Crawl.RUNNABLE_STATES},
         )
-        self.crawl.schedule_child_snapshots_for_pause()
+        if paused:
+            self.crawl.schedule_child_snapshots_for_pause()
 
     @sealed.enter
     def enter_sealed(self):

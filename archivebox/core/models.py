@@ -3644,9 +3644,12 @@ class SnapshotMachine(BaseStateMachine):
 
     @paused.enter
     def enter_paused(self):
-        self.snapshot.update_and_requeue(
-            retry_at=RETRY_AT_MAX,
-            status=Snapshot.StatusChoices.PAUSED,
+        self.snapshot.safe_update(
+            {
+                "retry_at": RETRY_AT_MAX,
+                "status": Snapshot.StatusChoices.PAUSED,
+            },
+            extra_filter={"status__in": Snapshot.RUNNABLE_STATES},
         )
 
     @started.enter

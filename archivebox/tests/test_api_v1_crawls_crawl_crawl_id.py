@@ -114,6 +114,18 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
     assert response.status_code == 200, response.content
 
 
+def test_crawl_pause_wins_over_concurrent_runner_lease(api_admin_user):
+    crawl = Crawl.objects.create(urls="https://example.com/crawl-pause-race", created_by=api_admin_user)
+    claimed_until = timezone.now() + timedelta(seconds=60)
+    Crawl.objects.filter(pk=crawl.pk).update(retry_at=claimed_until)
+
+    assert crawl.pause() is True
+
+    crawl.refresh_from_db()
+    assert crawl.status == Crawl.StatusChoices.PAUSED
+    assert crawl.retry_at == RETRY_AT_MAX
+
+
 def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snapshot_results_alone(
     request,
     tmp_path,

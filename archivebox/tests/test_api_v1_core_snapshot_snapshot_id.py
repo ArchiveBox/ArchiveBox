@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from pathlib import Path
 from threading import Thread
 
@@ -96,6 +97,19 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
     response = client.get(f"/api/v1/core/snapshot/{snapshot.id}", **api_headers)
 
     assert response.status_code == 200, response.content
+
+
+def test_snapshot_pause_wins_over_concurrent_runner_lease(api_admin_user):
+    crawl = Crawl.objects.create(urls="https://example.com/snapshot-pause-race", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/snapshot-pause-race", crawl=crawl)
+    claimed_until = timezone.now() + timedelta(seconds=60)
+    Snapshot.objects.filter(pk=snapshot.pk).update(retry_at=claimed_until)
+
+    assert snapshot.pause() is True
+
+    snapshot.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.PAUSED
+    assert snapshot.retry_at == RETRY_AT_MAX
 
 
 def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_finished_rows(
