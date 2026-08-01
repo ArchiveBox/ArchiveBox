@@ -76,6 +76,8 @@ ARCHIVEBOX_PLATFORM="${ARCHIVEBOX_PLATFORM:-}"
 ARCHIVEBOX_COMPOSE_URL="${ARCHIVEBOX_COMPOSE_URL:-https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/${ARCHIVEBOX_BRANCH}/docker-compose.yml}"
 ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.41}"
 ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-$HOME/.cache/archivebox/setup-abxpkg}"
+ARCHIVEBOX_HOME_DIR="$HOME/archivebox"
+ARCHIVEBOX_DATA_DIR="$ARCHIVEBOX_HOME_DIR/data"
 BOOTSTRAP_UV_BINARY=""
 UV_BINARY=""
 DOCKER_BINARY=""
@@ -106,10 +108,28 @@ fix_root_install_ownership() {
 }
 
 ensure_archivebox_data_dir() {
-    mkdir -p "$HOME/archivebox/data"
+    mkdir -p "$ARCHIVEBOX_DATA_DIR"
     if [ "$RUNNING_AS_ROOT" = "true" ]; then
-        chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$HOME/archivebox" "$HOME/archivebox/data"
+        chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$ARCHIVEBOX_HOME_DIR" "$ARCHIVEBOX_DATA_DIR"
     fi
+}
+
+migrate_legacy_collection_dir() {
+    if [ ! -f "$ARCHIVEBOX_HOME_DIR/index.sqlite3" ]; then
+        return 0
+    fi
+
+    for path in "$ARCHIVEBOX_HOME_DIR"/* "$ARCHIVEBOX_HOME_DIR"/.[!.]* "$ARCHIVEBOX_HOME_DIR"/..?*; do
+        if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+            continue
+        fi
+        case "$(basename "$path")" in
+            data|docker-compose.yml|compose.yml|compose.yaml|.env|Caddyfile)
+                continue
+                ;;
+        esac
+        mv -n "$path" "$ARCHIVEBOX_DATA_DIR/"
+    done
 }
 
 docker_pull_archivebox() {
@@ -159,7 +179,7 @@ wait_for_archivebox() {
     attempt=1
 
     while [ "$attempt" -le "$attempts" ]; do
-        if "$CURL_BINARY" -fsS -H "Host: ${host_header}" "$url" >/dev/null 2>&1; then
+        if "$CURL_BINARY" -fsS --connect-timeout 1 --max-time 2 -H "Host: ${host_header}" "$url" >/dev/null 2>&1; then
             return 0
         fi
         sleep 1
@@ -167,7 +187,7 @@ wait_for_archivebox() {
     done
 
     echo "[!] Server process started, but health check did not become ready at $url after ${attempts}s."
-    echo "    Run the logs command below to inspect startup progress."
+    echo "    Inspect $ARCHIVEBOX_DATA_DIR/logs/ or run 'docker compose logs' to diagnose startup."
     return 1
 }
 
@@ -288,11 +308,14 @@ if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && do
     resolve_setup_curl
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
     ensure_archivebox_data_dir || exit 1
-    cd "$HOME/archivebox"
-    if [ -f "./index.sqlite3" ]; then
-        mv -i "$HOME"/archivebox/* "$HOME/archivebox/data/"
+    cd "$ARCHIVEBOX_HOME_DIR"
+    migrate_legacy_collection_dir
+    if [ ! -f docker-compose.yml ]; then
+        "$CURL_BINARY" -fsSL "$ARCHIVEBOX_COMPOSE_URL" > docker-compose.yml
+        if [ "$RUNNING_AS_ROOT" = "true" ]; then
+            chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" docker-compose.yml
+        fi
     fi
-    "$CURL_BINARY" -fsSL "$ARCHIVEBOX_COMPOSE_URL" > docker-compose.yml
     export ARCHIVEBOX_IMAGE ARCHIVEBOX_PLATFORM
     docker_compose_run_archivebox init
     docker_compose_run_archivebox install
@@ -303,7 +326,7 @@ if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && do
     open_archivebox
     echo
     echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
-    echo "    cd ~/archivebox"
+    echo "    cd $ARCHIVEBOX_HOME_DIR"
     echo "    docker compose ps"
     echo "    docker compose down"
     echo "    ARCHIVEBOX_IMAGE=$ARCHIVEBOX_IMAGE docker compose pull"
@@ -317,23 +340,22 @@ elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
     resolve_setup_curl
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker..."
     ensure_archivebox_data_dir || exit 1
-    cd "$HOME/archivebox"
-    if [ -f "./index.sqlite3" ]; then
-        mv -i "$HOME"/archivebox/* "$HOME/archivebox/data/"
-    fi
+    cd "$ARCHIVEBOX_HOME_DIR"
+    migrate_legacy_collection_dir
     cd ./data
     docker_run_archivebox_init
     docker_run_archivebox_install
     echo
     echo "[+] Starting ArchiveBox server using: docker run -d $ARCHIVEBOX_IMAGE..."
+    "$DOCKER_BINARY" rm -f archivebox >/dev/null 2>&1 || true
     docker_run_archivebox_server
     wait_for_archivebox
     open_archivebox
     echo
     echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
-    echo "    cd ~/archivebox/data"
+    echo "    cd $ARCHIVEBOX_DATA_DIR"
     echo "    docker ps --filter name=archivebox"
-    echo "    docker kill archivebox"
+    echo "    docker rm -f archivebox"
     echo "    docker pull $ARCHIVEBOX_IMAGE"
     echo "    docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -d -p 8000:8000 --name=archivebox $ARCHIVEBOX_IMAGE"
     echo "    docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE manage createsuperuser"
@@ -382,27 +404,25 @@ install_archivebox_with_uv
 echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox/data..."
 ensure_archivebox_data_dir || exit 1
-cd "$HOME/archivebox"
-if [ -f "./index.sqlite3" ]; then
-    mv -i "$HOME"/archivebox/* "$HOME/archivebox/data/"
-fi
+cd "$ARCHIVEBOX_HOME_DIR"
+migrate_legacy_collection_dir
 cd ./data
 : | "$ARCHIVEBOX_BINARY" init   # pipe in empty command to make sure stdin is closed
 "$ARCHIVEBOX_BINARY" install
 # init shows version output at the end too
 echo
-echo "[+] Starting ArchiveBox server using: nohup archivebox server &..."
-nohup "$ARCHIVEBOX_BINARY" server 0.0.0.0:8000 > ./logs/server.log 2>&1 &
+echo "[+] Starting ArchiveBox server using: archivebox server --daemonize..."
+"$ARCHIVEBOX_BINARY" server --daemonize 0.0.0.0:8000
 wait_for_archivebox
 open_archivebox
 echo
 echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
-echo "    cd ~/archivebox/data                               # see your data dir"
+echo "    cd $ARCHIVEBOX_DATA_DIR                            # see your data dir"
 echo "    archivebox server --quick-init 0.0.0.0:8000        # start server process"
 echo "    archivebox manage createsuperuser                  # add an admin user+pass"
 echo "    ps aux | grep archivebox                           # see server process pid"
 echo "    pkill -f archivebox                                # stop the server"
-echo "    uv tool install --python $ARCHIVEBOX_PYTHON --upgrade '$ARCHIVEBOX_PACKAGE'; archivebox init; archivebox install  # update versions"
+echo "    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash  # update versions"
 echo "    archivebox add 'https://example.com'"              # archive a new URL
 echo "    archivebox list                                    # see URLs archived"
 echo "    archivebox help                                    # see more help & examples"
