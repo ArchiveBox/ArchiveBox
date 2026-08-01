@@ -75,6 +75,17 @@ def test_setup_script_keeps_optional_binary_probes_quiet():
     assert 'if [ -n "$OPEN_BINARY" ] && [ -t 1 ]; then' in script
 
 
+def test_setup_script_persists_bootstrap_library_before_installing_dependencies():
+    script = SETUP_SCRIPT.read_text()
+    native_install = script.partition(': | "$ARCHIVEBOX_BINARY" init')[2]
+
+    persist_config = '"$ARCHIVEBOX_BINARY" config --set "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"'
+    install_dependencies = '"$ARCHIVEBOX_BINARY" install'
+
+    assert persist_config in native_install
+    assert native_install.index(persist_config) < native_install.index(install_dependencies)
+
+
 def test_setup_script_moves_legacy_collection_without_moving_compose(tmp_path):
     script = SETUP_SCRIPT.read_text()
     function_prefix = script.partition("\ndocker_pull_archivebox() {")[0]

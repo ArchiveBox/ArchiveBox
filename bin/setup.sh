@@ -420,6 +420,7 @@ cd "$ARCHIVEBOX_HOME_DIR"
 migrate_legacy_collection_dir
 cd ./data
 : | "$ARCHIVEBOX_BINARY" init   # pipe in empty command to make sure stdin is closed
+"$ARCHIVEBOX_BINARY" config --set "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
 "$ARCHIVEBOX_BINARY" install
 # init shows version output at the end too
 echo
