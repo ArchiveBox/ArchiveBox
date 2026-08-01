@@ -68,7 +68,7 @@ docker compose run archivebox init
 docker compose run archivebox manage createsuperuser
 ```
 
-To use [Sonic](https://github.com/valeriansaliou/sonic) for improved full-text search, select it as the search backend. ArchiveBox installs and starts the managed service automatically:
+ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). To make Sonic the default engine selected in the UI while keeping both backends available:
 ```bash
 docker compose run archivebox config --set SEARCH_BACKEND_ENGINE=sonic
 docker compose run archivebox update --index-only

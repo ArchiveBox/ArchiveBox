@@ -40,7 +40,7 @@ archivebox manage createsuperuser
 archivebox manage changepassword <username>
 
 # equivalent: docker compose run archivebox manage [...]
-# equivalent: docker run -v $PWD:/data archivebox/archivebox manage [...]
+# equivalent: docker run -v $PWD:/data archivebox/archivebox:dev manage [...]
 ```
 
 > [!TIP]

@@ -14,13 +14,13 @@ version = 2
 "16f90085b2eb8756-1" = "illustration"
 "811eaaada5eb1861-1" = "run"
 "8e6f975ced292777-1" = "run"
-"588be84a1f0fda9a-1" = "illustration"
+"4da22c86e09ce7d4-1" = "illustration"
 "a7a123ba522227be-1" = "run"
 "fcdd073a5440f5ca-1" = "run"
-"588be84a1f0fda9a-2" = "illustration"
+"4da22c86e09ce7d4-2" = "illustration"
 "05be9e44a8ae9875-1" = "run"
 "2b08779e4d24d305-1" = "run"
-"588be84a1f0fda9a-3" = "illustration"
+"4da22c86e09ce7d4-3" = "illustration"
 "c6e77a7ea47549e5-1" = "illustration"
 "6392c7b5f3593d07-1" = "run"
 "5d43b3d527ac69c6-1" = "run"
@@ -128,7 +128,7 @@ version = 2
 
 # docs/Install.md
 "662be0691524555c-1" = "illustration"
-"fb630418e789bca8-1" = "run"
+"5f7f9732e0ae5a62-1" = "run"
 "73f9f36a369f2398-1" = "run"
 "39d6e53c2e53ef77-1" = "run"
 "6a149b1a387f76cc-1" = "run"
@@ -138,7 +138,7 @@ version = 2
 "035ecb710f7fc2a8-1" = "illustration"
 "e4e22c56cb720344-1" = "illustration"
 "2905d7f9dece0b61-1" = "run"
-"e1c3e8b9016a71a9-1" = "illustration"
+"a64c69417bb98a93-1" = "illustration"
 "0dc947d99d081ca3-1" = "run"
 
 # docs/Merging-Collections.md
@@ -161,7 +161,7 @@ version = 2
 
 # docs/Quickstart.md
 "9900ea0b79f00814-1" = "illustration"
-"4972b2ae112247f0-1" = "illustration"
+"40cbdd365d234433-1" = "illustration"
 "c84835e713d1c625-1" = "run"
 
 # docs/Scheduled-Archiving.md
@@ -197,7 +197,7 @@ version = 2
 "74e75b4a84bbb636-1" = "run"
 
 # docs/Setting-up-Authentication.md
-"c2de5f67fd56b58c-1" = "illustration"
+"38914ce4a10f4d3f-1" = "illustration"
 "9821835f15ad67b2-1" = "illustration"
 "83c90c1a23a33f90-2" = "run"
 "7caaf25736e20132-1" = "illustration"
@@ -250,12 +250,12 @@ version = 2
 "85f531841ec3e169-1" = "run"
 
 [scenarios]
+"5f7f9732e0ae5a62-1" = "system"
 "976dcb4e461d60bb-1" = "docker"
-"fcdd073a5440f5ca-1" = "system"
-"73f9f36a369f2398-1" = "system"
 "811eaaada5eb1861-1" = "system"
 "8e6f975ced292777-1" = "collection"
 "a7a123ba522227be-1" = "system"
+"fcdd073a5440f5ca-1" = "system"
 "05be9e44a8ae9875-1" = "system"
 "2b08779e4d24d305-1" = "system"
 "6392c7b5f3593d07-1" = "collection"
@@ -293,7 +293,7 @@ version = 2
 "b0032c4cfcac6915-1" = "docker"
 "c46afe2bbd31a239-1" = "docker"
 "4c9a12d2d0a26431-1" = "docker"
-"fb630418e789bca8-1" = "system"
+"73f9f36a369f2398-1" = "system"
 "39d6e53c2e53ef77-1" = "system"
 "6a149b1a387f76cc-1" = "system"
 "73e5b1670430202c-1" = "system"
@@ -331,12 +331,12 @@ version = 2
 "85f531841ec3e169-1" = "collection"
 
 [environments]
+"5f7f9732e0ae5a62-1" = "macos"
 "976dcb4e461d60bb-1" = "docker"
-"fcdd073a5440f5ca-1" = "root"
-"73f9f36a369f2398-1" = "root"
 "811eaaada5eb1861-1" = "ubuntu"
 "8e6f975ced292777-1" = "ubuntu"
 "a7a123ba522227be-1" = "root"
+"fcdd073a5440f5ca-1" = "root"
 "05be9e44a8ae9875-1" = "macos"
 "2b08779e4d24d305-1" = "macos"
 "6392c7b5f3593d07-1" = "ubuntu"
@@ -374,7 +374,7 @@ version = 2
 "b0032c4cfcac6915-1" = "docker"
 "c46afe2bbd31a239-1" = "docker"
 "4c9a12d2d0a26431-1" = "docker"
-"fb630418e789bca8-1" = "macos"
+"73f9f36a369f2398-1" = "root"
 "39d6e53c2e53ef77-1" = "freebsd"
 "6a149b1a387f76cc-1" = "openbsd"
 "73e5b1670430202c-1" = "ubuntu"

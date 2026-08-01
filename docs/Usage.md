@@ -26,7 +26,7 @@
 All three of these ways of running ArchiveBox are equivalent and interchangeable:
 
 - `archivebox [subcommand] [...args]`  
-  *Using the Python package via `uv tool install archivebox`*
+  *Using the Python package via the current `uv` instructions in [[Install]]*
 - `docker run ... archivebox/archivebox [subcommand] [...args]`  
   *Using the official Docker image*
 - `docker compose run archivebox [subcommand] [...args]`

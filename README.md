@@ -271,8 +271,9 @@ archivebox init     # instantialize a new collection
 archivebox install  # install all the runtime dependencies (e.g. chrome, single-file, yt-dlp, etc.)
 </code></pre>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+<li>Create an admin account, then optionally start the server and log in to the Web UI at <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
+<pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help
@@ -307,8 +308,9 @@ archivebox add 'https://example.com'
 </code></pre>
 <br/>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+<li>Create an admin account, then optionally start the server and log in to the Web UI at <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
+<pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help
@@ -339,8 +341,9 @@ archivebox init
 archivebox install
 </code></pre>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+<li>Create an admin account, then optionally start the server and log in to the Web UI at <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
+<pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
+archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help

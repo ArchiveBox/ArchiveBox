@@ -71,7 +71,7 @@ docker compose up -d
 # or without Docker:
 archivebox server
 
-open http://web.archivebox.localhost:8000
+# Visit http://web.archivebox.localhost:8000 in a browser
 ```
 
 ---

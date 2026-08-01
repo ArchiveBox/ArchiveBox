@@ -126,7 +126,6 @@ Make sure you have [Homebrew](https://brew.sh/) installed first.
 ```bash
 brew install uv
 uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
-archivebox install
 ```
 
 <img src="https://assets.ubuntu.com/v1/c5cb0f8e-picto-ubuntu.svg" width="30px" align="right"/>
@@ -236,8 +235,7 @@ archivebox help
 ```
 (ensure the version shown is the most recent available from [Releases](https://github.com/ArchiveBox/ArchiveBox/releases))  
   
-Make sure to run `archivebox` **as an unprivileged user** (i.e. without `sudo` / not logged in as `root`).  
-Make sure to run all commands, including `archivebox version`, `archivebox help`, etc. **inside a data directory** (or a new empty dir that will become a data dir).
+ArchiveBox can be launched as `root` by setup and package-manager flows; it creates or selects the `archivebox` service account and drops privileges before writing collection data. Run collection commands such as `init`, `install`, `add`, and `status` inside the data directory. Informational commands such as `version` and `help` can run anywhere.
 
 If you have issues getting Chromium / Google Chrome or other dependencies working with ArchiveBox, see the [[Chromium Install]] and [[Troubleshooting]] pages for more detailed instructions.
 
@@ -264,7 +262,7 @@ archivebox status
 ```bash
 # OR start the webserver and view them in the Web UI
 archivebox server 0.0.0.0:8000
-open http://web.archivebox.localhost:8000
+# Visit http://web.archivebox.localhost:8000 in a browser
 ```
 See our [[Usage]] Wiki documentation page for more examples.
 
