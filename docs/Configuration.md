@@ -770,7 +770,7 @@ Lower values retry more aggressively (useful if you expect locks to clear quickl
 
 *Options for full-text search backend configuration.*
 
-ArchiveBox can index Snapshot text/HTML output into a searchable index that powers the search bar in the Web UI and the `archivebox search <query>` CLI command. Multiple backend engines are supported — pick the one that best matches your collection size, available system resources, and tolerance for extra moving parts.
+ArchiveBox can index Snapshot text/HTML output into searchable indexes that power the search bar in the Web UI and the `archivebox search <query>` CLI command. Multiple backend engines can be enabled at once; `SEARCH_BACKEND_ENGINE` selects the default used by the UI and CLI.
 
 > [!NOTE]
 > Each backend has its own tuning knobs (e.g. [Sonic](https://archivebox.github.io/abx-plugins/#search_backend_sonic) host/port, [ripgrep](https://archivebox.github.io/abx-plugins/#search_backend_ripgrep) flags, [SQLite FTS](https://archivebox.github.io/abx-plugins/#search_backend_sqlite) database path). Those backend-specific options now live with the plugin that implements them — see the [abx-plugins docs](https://archivebox.github.io/abx-plugins/) for the full per-backend schema.
@@ -781,9 +781,9 @@ ArchiveBox can index Snapshot text/HTML output into a searchable index that powe
 
 Which search backend engine to use when running `archivebox search` and rendering the Web UI search bar.
 
-- **`ripgrep`** *(default)* — Pure filesystem grep across each Snapshot's archived output (HTML, text, metadata) via the [`search_backend_ripgrep`](https://archivebox.github.io/abx-plugins/#search_backend_ripgrep) plugin. No extra daemon, no extra database to maintain — just install `rg` and it works. Slow on very large collections (each query re-scans the disk) but always 100% correct: results reflect what's actually on disk *right now*, no stale index. Best choice for small-to-medium collections (≲50k snapshots) and for users who don't want to run extra services.
+- **`ripgrep`** — Pure filesystem grep across each Snapshot's archived output (HTML, text, metadata) via the [`search_backend_ripgrep`](https://archivebox.github.io/abx-plugins/#search_backend_ripgrep) plugin. No extra daemon, no extra database to maintain — just install `rg` and it works. Slow on very large collections (each query re-scans the disk) but always 100% correct: results reflect what's actually on disk *right now*, no stale index. ArchiveBox keeps it enabled as the fallback when Sonic is unavailable.
 
-- **`sonic`** — Fast, suggest-style fuzzy search via a running [Sonic](https://github.com/valeriansaliou/sonic) daemon (configured via the [`search_backend_sonic`](https://archivebox.github.io/abx-plugins/#search_backend_sonic) plugin). ArchiveBox pushes text into Sonic at index time and queries it at search time. Sub-millisecond queries even at very large scale; ArchiveBox starts the managed service automatically when this backend is selected. Best choice for large collections (≳100k snapshots) when query latency matters.
+- **`sonic`** *(default)* — Fast, suggest-style fuzzy search via a running [Sonic](https://github.com/valeriansaliou/sonic) daemon (configured via the [`search_backend_sonic`](https://archivebox.github.io/abx-plugins/#search_backend_sonic) plugin). ArchiveBox pushes text into Sonic at index time and queries it at search time. Sub-millisecond queries even at very large scale; ArchiveBox starts the managed service automatically when this backend is selected.
 
 - **`sqlite`** — FTS5 full-text index stored alongside ArchiveBox's main `index.sqlite3`, configured via the [`search_backend_sqlite`](https://archivebox.github.io/abx-plugins/#search_backend_sqlite) plugin. No extra processes, no extra binary — uses the SQLite already shipped with Python. Faster than `ripgrep` on large collections, slightly slower than `sonic`, but no daemon to babysit. Good middle ground for users who want a real index without operational overhead.
 

@@ -68,10 +68,9 @@ docker compose run archivebox init
 docker compose run archivebox manage createsuperuser
 ```
 
-ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). To make Sonic the default engine selected in the UI while keeping both backends available:
+ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). Sonic is selected by default in the UI, while ripgrep remains available as the fallback. To select ripgrep explicitly:
 ```bash
-docker compose run archivebox config --set SEARCH_BACKEND_ENGINE=sonic
-docker compose run archivebox update --index-only
+docker compose run archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
 ```
 
 <br/>

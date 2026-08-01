@@ -546,7 +546,7 @@ class SearchBackendConfig(BaseConfigSet):
     toml_section_header: str = "SEARCH_BACKEND_CONFIG"
     _scope: str = PrivateAttr(default=_SCOPE_SERVER)
 
-    SEARCH_BACKEND_ENGINE: str = Field(default="ripgrep", json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
+    SEARCH_BACKEND_ENGINE: str = Field(default="sonic", json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
 
 
 def _plugin_user_config_value(value: Any) -> str:

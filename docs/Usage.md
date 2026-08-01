@@ -175,7 +175,7 @@ Click the Favicon under the "Files" column to go to the details page for each li
 
 A logged-in admin user may select ☑️ one or more snapshots from the list and perform Snapshot actions:
 
-- <kbd>Search</kbd> Search text in the Snapshot title, URL, tags, or archived content (supports regex with the default ripgrep search backend, or enable the [Sonic](https://github.com/ArchiveBox/ArchiveBox/blob/dev/docker-compose.yml#L35) full-text search backend in `docker-compose.yml` and set `SEARCH_BACKEND_ENGINE=sonic`, `SEARCH_BACKEND_HOST`, `SEARCH_BACKEND_PASSWORD` for full-text fuzzy searching) https://github.com/ArchiveBox/ArchiveBox/issues/956
+- <kbd>Search</kbd> Search text in the Snapshot title, URL, tags, or archived content. [Sonic](https://github.com/valeriansaliou/sonic) is the default indexed search backend, with ripgrep enabled as the filesystem fallback and regex-search option. https://github.com/ArchiveBox/ArchiveBox/issues/956
 - <kbd>Tags</kbd> Start typing in the field to select some tags, then click `+` to add them or `-` remove them from the checked snapshots (`Tags` can be created/edited from the `/admin/core/tag/` page)
 - <kbd>Title</kbd> Pull the latest title and favicon without doing a full snapshot. (helpful to quickly ping any URLs that are stuck showing up as `Pending...` or are missing a title)
 - <kbd>Pull</kbd> Finish downloading the Snapshot, pulls any missing/failed outputs/extractors methods (pdf, wget... etc). Resumes running the same archiving steps as when you add new URL. Useful to finish pulling when previous import was paused or interrupted by a reboot or something.  https://github.com/ArchiveBox/ArchiveBox#output-formats

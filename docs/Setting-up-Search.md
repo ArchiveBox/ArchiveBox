@@ -31,31 +31,27 @@ ArchiveBox search works by doing substring matches in `Snapshot` metadata fields
 ArchiveBox provides a number of "Search Backend Engines" to tune its performance & behavior for different use-cases.
 ```bash
 # this setting controls which search backend ArchiveBox uses
-archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
+archivebox config --set SEARCH_BACKEND_ENGINE=sonic
 
 # to see information about the backend you are currently using, run:
 archivebox version
 archivebox config --get SEARCH_BACKEND_ENGINE
 ```
 
-By default out-of-the-box, the selected engine is a simple but efficient tool similar to `grep -r` called [`ripgrep`](https://github.com/BurntSushi/ripgrep).
-
-Ripgrep is [currently the fastest](https://blog.burntsushi.net/ripgrep/) available *filesystem search* tool that scans over the raw archived files on every search. We chose it as the default so that beginners and 95% of users with small collections can have an experience that "just works", without needing to install and maintain complex additional dependencies or background workers.
-
-However, there are some fundamental limitations of scanning through every file on disk each time a search is done, so ArchiveBox provides a number of additional search backend options for when users outgrow `ripgrep`.
+ArchiveBox installs and enables both [Sonic](https://github.com/valeriansaliou/sonic) and [`ripgrep`](https://github.com/BurntSushi/ripgrep). Sonic is selected by default for fast indexed search, while ripgrep remains available as the filesystem fallback when Sonic is unavailable or explicitly selected.
 
 > [!TIP]
-> **You should consider switching ArchiveBox to use `sonic` or another backend IF:**
+> **You should consider selecting `ripgrep` instead of Sonic if:**
 > 
-> - you have more than 1,000 Snapshots saved in your archive
-> - your archive data is stored on a slower filesystem like a spinning hard drive or remote network mount
-> - you want more advanced search features like stemming, boolean operators, and ability to search PDFs, eBooks, ZIP/tar files, etc.
+> - Sonic is unavailable on your platform
+> - you prefer filesystem scanning without a background daemon
+> - you need ripgrep-compatible regular expressions
 
 <br/>
 
 <a name="ripgrep"></a>
 
-### `ripgrep` *(the default)*
+### `ripgrep` *(fallback)*
 
 ArchiveBox resolves `ripgrep` through `abxpkg`: a compatible host installation is used first, otherwise a managed copy is installed.
 

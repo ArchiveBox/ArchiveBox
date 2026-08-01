@@ -144,7 +144,10 @@ def test_config_scopes_are_derived_from_section_and_field_metadata():
 def test_search_backend_engine_derives_default_backend_enabled_without_entering_hook_env():
     from archivebox.config.common import ArchiveBoxConfig
 
-    default_runtime_config = ArchiveBoxConfig().for_crawl_runtime(extra_context={"snapshot_id": "default-runtime-config"})
+    default_config = ArchiveBoxConfig()
+    assert default_config.SEARCH_BACKEND_ENGINE == "sonic"
+
+    default_runtime_config = default_config.for_crawl_runtime(extra_context={"snapshot_id": "default-runtime-config"})
     assert default_runtime_config["SEARCH_BACKEND_RIPGREP_ENABLED"] is True
     assert default_runtime_config["SEARCH_BACKEND_SQLITE_ENABLED"] is False
     assert default_runtime_config["SEARCH_BACKEND_SONIC_ENABLED"] is True
