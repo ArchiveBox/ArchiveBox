@@ -116,25 +116,15 @@ def test_process_migration_rolls_back_all_rows_and_preserves_legacy_metadata_on_
         insert_archiveresult(
             db,
             result_id=2,
-            command=["/broken/wget", "https://example.com"],
+            command=[],
             pwd="/data/archive/malformed",
             version="broken-version",
             status="failed",
         )
-        db.execute(
-            """
-            CREATE TRIGGER reject_malformed_process
-            BEFORE INSERT ON machine_process
-            WHEN NEW.cmd LIKE '%/broken/wget%'
-            BEGIN
-                SELECT RAISE(ABORT, 'malformed process metadata');
-            END
-            """,
-        )
 
     result = run_migration(tmp_path, MIGRATION_0027)
     assert result.returncode != 0, result.stdout + result.stderr
-    assert "malformed process metadata" in result.stdout + result.stderr
+    assert "has cmd_version metadata but no command" in result.stdout + result.stderr
 
     with sqlite3.connect(db_path) as db:
         assert {"cmd", "cmd_version", "pwd"} <= table_columns(db, "core_archiveresult")
@@ -151,7 +141,7 @@ def test_process_migration_rolls_back_all_rows_and_preserves_legacy_metadata_on_
             ),
             (
                 2,
-                json.dumps(["/broken/wget", "https://example.com"]),
+                json.dumps([]),
                 "/data/archive/malformed",
                 "broken-version",
                 None,
