@@ -494,6 +494,160 @@ INSERT INTO django_content_type (app_label, model) VALUES
 # =============================================================================
 
 
+AUTH_TABLE_COLUMNS = {
+    "django_content_type": ("id", "app_label", "model"),
+    "auth_permission": ("id", "name", "content_type_id", "codename"),
+    "auth_group": ("id", "name"),
+    "auth_group_permissions": ("id", "group_id", "permission_id"),
+    "auth_user": (
+        "id",
+        "password",
+        "last_login",
+        "is_superuser",
+        "username",
+        "first_name",
+        "last_name",
+        "email",
+        "is_staff",
+        "is_active",
+        "date_joined",
+    ),
+    "auth_user_groups": ("id", "user_id", "group_id"),
+    "auth_user_user_permissions": ("id", "user_id", "permission_id"),
+}
+
+API_TABLE_COLUMNS = {
+    "api_apitoken": ("id", "created_by_id", "created_at", "modified_at", "token", "expires"),
+    "api_outboundwebhook": (
+        "id",
+        "created_by_id",
+        "created_at",
+        "modified_at",
+        "name",
+        "signal",
+        "ref",
+        "endpoint",
+        "headers",
+        "auth_token",
+        "enabled",
+        "keep_last_response",
+        "last_response",
+        "last_success",
+        "last_failure",
+        "num_uses_failed",
+        "num_uses_succeeded",
+    ),
+}
+
+
+def capture_rows(conn: sqlite3.Connection, tables: dict[str, tuple[str, ...]]) -> dict[str, list[tuple]]:
+    """Capture complete legacy rows so migrations can be checked field-for-field."""
+    return {
+        table: conn.execute(f"SELECT {', '.join(columns)} FROM {table} ORDER BY {columns[0]}").fetchall()
+        for table, columns in tables.items()
+    }
+
+
+def seed_security_metadata(conn: sqlite3.Connection, *, include_api: bool) -> dict[str, list[tuple]]:
+    """Add realistic users, permissions, groups, and optional 0.8 API secrets."""
+    admin_id = conn.execute("SELECT id FROM auth_user WHERE username = 'admin'").fetchone()[0]
+    conn.execute(
+        """
+        UPDATE auth_user
+        SET password = ?, last_login = ?, first_name = ?, last_name = ?, email = ?, date_joined = ?
+        WHERE id = ?
+        """,
+        (
+            "pbkdf2_sha256$390000$legacy-admin$sensitive-admin-password-hash",
+            "2024-01-02 03:04:05.123456",
+            "Legacy",
+            "Administrator",
+            "legacy-admin@example.com",
+            "2019-02-03 04:05:06.654321",
+            admin_id,
+        ),
+    )
+    conn.execute(
+        """
+        INSERT INTO auth_user (
+            password, last_login, is_superuser, username, first_name, last_name,
+            email, is_staff, is_active, date_joined
+        ) VALUES (?, ?, 0, 'legacy-reader', 'Legacy', 'Reader', ?, 0, 1, ?)
+        """,
+        (
+            "pbkdf2_sha256$390000$legacy-reader$sensitive-reader-password-hash",
+            "2023-11-12 13:14:15.111222",
+            "legacy-reader@example.com",
+            "2020-06-07 08:09:10.333444",
+        ),
+    )
+    reader_id = conn.execute("SELECT id FROM auth_user WHERE username = 'legacy-reader'").fetchone()[0]
+    content_type_id = conn.execute(
+        "SELECT id FROM django_content_type WHERE app_label = 'core' AND model = 'snapshot'",
+    ).fetchone()[0]
+    conn.execute(
+        "INSERT INTO auth_permission (name, content_type_id, codename) VALUES (?, ?, ?)",
+        ("Can export legacy snapshots", content_type_id, "export_legacy_snapshot"),
+    )
+    permission_id = conn.execute("SELECT id FROM auth_permission WHERE codename = 'export_legacy_snapshot'").fetchone()[0]
+    conn.execute("INSERT INTO auth_group (name) VALUES ('Legacy Operators')")
+    group_id = conn.execute("SELECT id FROM auth_group WHERE name = 'Legacy Operators'").fetchone()[0]
+    conn.execute("INSERT INTO auth_group_permissions (group_id, permission_id) VALUES (?, ?)", (group_id, permission_id))
+    conn.execute("INSERT INTO auth_user_groups (user_id, group_id) VALUES (?, ?)", (reader_id, group_id))
+    conn.execute("INSERT INTO auth_user_user_permissions (user_id, permission_id) VALUES (?, ?)", (admin_id, permission_id))
+
+    if include_api:
+        conn.execute(
+            """
+            INSERT INTO api_apitoken (id, created_by_id, created_at, modified_at, token, expires)
+            VALUES ('12345678123456781234567812345678', ?, ?, ?, ?, ?)
+            """,
+            (
+                admin_id,
+                "2022-01-02 03:04:05.123456",
+                "2023-02-03 04:05:06.234567",
+                "0123456789abcdef0123456789abcdef",
+                "2032-03-04 05:06:07.345678",
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO api_outboundwebhook (
+                id, created_by_id, created_at, modified_at, name, signal, ref, endpoint,
+                headers, auth_token, enabled, keep_last_response, last_response,
+                last_success, last_failure, num_uses_failed, num_uses_succeeded
+            ) VALUES ('87654321876543218765432187654321', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?, ?, ?, 17, 31)
+            """,
+            (
+                reader_id,
+                "2021-04-05 06:07:08.456789",
+                "2023-05-06 07:08:09.567890",
+                "Legacy Snapshot Audit",
+                "CREATE_UPDATE_OR_DELETE",
+                "core.Snapshot",
+                "https://hooks.example.com/archivebox/legacy",
+                '{"X-ArchiveBox-Origin":"legacy","X-Webhook-Version":"0.8"}',
+                "legacy-webhook-auth-token",
+                '{"status":"preserved","request_id":"legacy-123"}',
+                "2023-06-07 08:09:10.678901",
+                "2023-07-08 09:10:11.789012",
+            ),
+        )
+
+    tables = {**AUTH_TABLE_COLUMNS, **(API_TABLE_COLUMNS if include_api else {})}
+    return capture_rows(conn, tables)
+
+
+def verify_preserved_rows(db_path: Path, expected: dict[str, list[tuple]]) -> None:
+    """Assert every captured legacy row still exists unchanged after migration."""
+    with sqlite3.connect(db_path) as conn:
+        for table, expected_rows in expected.items():
+            columns = {**AUTH_TABLE_COLUMNS, **API_TABLE_COLUMNS}[table]
+            current_rows = {row[0]: row for row in conn.execute(f"SELECT {', '.join(columns)} FROM {table}").fetchall()}
+            for expected_row in expected_rows:
+                assert current_rows.get(expected_row[0]) == expected_row, f"{table} row {expected_row[0]!r} changed"
+
+
 def generate_uuid() -> str:
     """Generate a UUID string without dashes for SQLite."""
     return uuid7().hex
@@ -717,6 +871,8 @@ def seed_0_7_data(db_path: Path) -> dict[str, list[dict]]:
         """,
             (app, name),
         )
+
+    created_data["preserved_rows"] = seed_security_metadata(conn, include_api=False)
 
     conn.commit()
     conn.close()
@@ -1009,6 +1165,8 @@ def seed_0_8_data(db_path: Path) -> dict[str, list[dict]]:
         """,
             (app, name),
         )
+
+    created_data["preserved_rows"] = seed_security_metadata(conn, include_api=True)
 
     conn.commit()
     conn.close()

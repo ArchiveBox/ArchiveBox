@@ -10,6 +10,7 @@ Migration tests from 0.7.x to 0.9.x.
 import json
 import sqlite3
 import zipfile
+from uuid import UUID
 
 import pytest
 
@@ -25,6 +26,7 @@ from .migrations_helpers import (
     verify_snapshot_titles,
     verify_snapshot_urls,
     verify_tag_count,
+    verify_preserved_rows,
 )
 
 
@@ -123,6 +125,46 @@ def test_migration_preserves_archiveresults(archive_07):
     assert migrated_counts == expected_counts
     assert missing_process_count == 0
     assert process_count == expected_count
+
+
+def test_migration_preserves_users_groups_permissions_and_repeated_init(archive_07):
+    work_dir, db_path, original_data = archive_07
+
+    for init_number in (1, 2):
+        result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+        assert result.returncode == 0, f"Init {init_number} failed: {result.stderr}"
+        verify_preserved_rows(db_path, original_data["preserved_rows"])
+
+
+def test_migration_preserves_duplicate_and_malformed_archiveresult_uuids(archive_07):
+    work_dir, db_path, _original_data = archive_07
+    duplicate_uuid = "12345678123456781234567812345678"
+
+    with sqlite3.connect(db_path) as conn:
+        source_rows = conn.execute(
+            "SELECT id, snapshot_id, extractor, status, output FROM core_archiveresult ORDER BY id",
+        ).fetchall()
+        for row_number, (result_id, *_metadata) in enumerate(source_rows, start=1):
+            conn.execute("UPDATE core_archiveresult SET uuid = ? WHERE id = ?", (f"{row_number:032x}", result_id))
+        conn.execute(
+            "UPDATE core_archiveresult SET uuid = ? WHERE id IN (?, ?)",
+            (duplicate_uuid, source_rows[0][0], source_rows[1][0]),
+        )
+        conn.execute("UPDATE core_archiveresult SET uuid = ? WHERE id = ?", ("not-a-valid-uuid", source_rows[2][0]))
+
+    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert result.returncode == 0, f"Init failed: {result.stderr}"
+
+    with sqlite3.connect(db_path) as conn:
+        migrated_rows = conn.execute(
+            "SELECT id, snapshot_id, plugin, status, output_str FROM core_archiveresult ORDER BY snapshot_id, plugin",
+        ).fetchall()
+
+    migrated_ids = [row[0] for row in migrated_rows]
+    assert len(migrated_rows) == len(source_rows)
+    assert len(set(migrated_ids)) == len(source_rows)
+    assert all(UUID(result_id).hex == result_id for result_id in migrated_ids)
+    assert sorted(row[1:] for row in migrated_rows) == sorted(row[1:] for row in source_rows)
 
 
 def test_legacy_onedomain_server_upgrade_works_in_auto_mode(archive_07):

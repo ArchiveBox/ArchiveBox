@@ -35,6 +35,7 @@ from .migrations_helpers import (
     verify_all_snapshots_in_output,
     verify_crawl_count,
     verify_process_migration,
+    verify_preserved_rows,
 )
 
 
@@ -52,6 +53,132 @@ def migration_08_data(tmp_path):
 
     original_data = seed_0_8_data(db_path)
     return work_dir, db_path, original_data
+
+
+def convert_legacy_tags_to_uuid(conn: sqlite3.Connection) -> None:
+    """Reproduce the alternate UUID-tag schema shipped by later 0.8 betas."""
+    tags = conn.execute("SELECT id, name, slug, created_at, modified_at, created_by_id FROM core_tag ORDER BY id").fetchall()
+    snapshot_tags = conn.execute("SELECT id, snapshot_id, tag_id FROM core_snapshot_tags ORDER BY id").fetchall()
+    id_map = {tag[0]: uuid.uuid4().hex for tag in tags}
+    conn.executescript(
+        """
+        ALTER TABLE core_tag RENAME TO core_tag_integer;
+        ALTER TABLE core_snapshot_tags RENAME TO core_snapshot_tags_integer;
+        CREATE TABLE core_tag (
+            id CHAR(36) PRIMARY KEY, name VARCHAR(100) NOT NULL UNIQUE, slug VARCHAR(100) NOT NULL UNIQUE,
+            created_at DATETIME, modified_at DATETIME, created_by_id INTEGER REFERENCES auth_user(id)
+        );
+        CREATE TABLE core_snapshot_tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            snapshot_id CHAR(36) NOT NULL REFERENCES core_snapshot(id),
+            tag_id CHAR(36) NOT NULL REFERENCES core_tag(id),
+            UNIQUE(snapshot_id, tag_id)
+        );
+        """,
+    )
+    conn.executemany(
+        "INSERT INTO core_tag (id, name, slug, created_at, modified_at, created_by_id) VALUES (?, ?, ?, ?, ?, ?)",
+        [
+            (id_map[tag_id], name, slug, created_at, modified_at, created_by_id)
+            for tag_id, name, slug, created_at, modified_at, created_by_id in tags
+        ],
+    )
+    conn.executemany(
+        "INSERT INTO core_snapshot_tags (id, snapshot_id, tag_id) VALUES (?, ?, ?)",
+        [(row_id, snapshot_id, id_map[tag_id]) for row_id, snapshot_id, tag_id in snapshot_tags],
+    )
+    conn.executescript("DROP TABLE core_snapshot_tags_integer; DROP TABLE core_tag_integer;")
+
+
+@pytest.mark.parametrize("uuid_tags", (False, True), ids=("integer-tags", "uuid-tags"))
+def test_migration_preserves_extended_08_metadata(migration_08_data, uuid_tags):
+    work_dir, db_path, original_data = migration_08_data
+    snapshot = original_data["snapshots"][1]
+    parent = original_data["snapshots"][0]
+    archiveresult = next(row for row in original_data["archiveresults"] if row["snapshot_id"] == snapshot["id"])
+    tag = original_data["tags"][0]
+    user_id = original_data["users"][0]["id"]
+    metadata = {
+        "depth": 7,
+        "config": {"USER_AGENT": "legacy-agent", "SAVE_SCREENSHOT": False},
+        "notes": "legacy snapshot notes",
+        "num_uses_failed": 11,
+        "num_uses_succeeded": 23,
+        "current_step": 6,
+        "fs_version": "0.8.5",
+    }
+    tag_metadata = ("2020-01-02 03:04:05", "2021-06-07 08:09:10", user_id)
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("ALTER TABLE core_snapshot ADD COLUMN parent_snapshot_id CHAR(36) REFERENCES core_snapshot(id)")
+        conn.execute("ALTER TABLE core_snapshot ADD COLUMN current_step INTEGER NOT NULL DEFAULT 0")
+        conn.execute("ALTER TABLE core_snapshot ADD COLUMN fs_version VARCHAR(10) NOT NULL DEFAULT '0.8.0'")
+        conn.execute(
+            """
+            UPDATE core_snapshot
+            SET depth = ?, config = ?, notes = ?, num_uses_failed = ?, num_uses_succeeded = ?,
+                parent_snapshot_id = ?, current_step = ?, fs_version = ?
+            WHERE id = ?
+            """,
+            (
+                metadata["depth"],
+                json.dumps(metadata["config"]),
+                metadata["notes"],
+                metadata["num_uses_failed"],
+                metadata["num_uses_succeeded"],
+                parent["id"],
+                metadata["current_step"],
+                metadata["fs_version"],
+                snapshot["id"],
+            ),
+        )
+        conn.execute("UPDATE core_archiveresult SET notes = 'legacy archive result notes' WHERE uuid = ?", (archiveresult["uuid"],))
+        conn.execute(
+            "UPDATE core_tag SET created_at = ?, modified_at = ?, created_by_id = ? WHERE id = ?",
+            (*tag_metadata, tag["id"]),
+        )
+        if uuid_tags:
+            convert_legacy_tags_to_uuid(conn)
+        expected_counts = {
+            table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            for table in ("core_snapshot", "core_archiveresult", "core_tag", "core_snapshot_tags")
+        }
+
+    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert result.returncode == 0, f"Init failed: {result.stderr}"
+
+    with sqlite3.connect(db_path) as conn:
+        snapshot_row = conn.execute(
+            """
+            SELECT depth, config, notes, num_uses_failed, num_uses_succeeded,
+                   parent_snapshot_id, current_step, fs_version
+            FROM core_snapshot WHERE id = ?
+            """,
+            (snapshot["id"],),
+        ).fetchone()
+        result_notes = conn.execute(
+            "SELECT notes FROM core_archiveresult WHERE id = REPLACE(?, '-', '')",
+            (archiveresult["uuid"],),
+        ).fetchone()
+        migrated_tag = conn.execute(
+            "SELECT created_at, modified_at, created_by_id FROM core_tag WHERE name = ?",
+            (tag["name"],),
+        ).fetchone()
+        migrated_counts = {table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in expected_counts}
+
+    assert json.loads(snapshot_row[1]) | metadata["config"] == json.loads(snapshot_row[1])
+    assert (snapshot_row[0], *snapshot_row[2:]) == (
+        metadata["depth"],
+        metadata["notes"],
+        metadata["num_uses_failed"],
+        metadata["num_uses_succeeded"],
+        parent["id"],
+        metadata["current_step"],
+        metadata["fs_version"],
+    )
+    assert result_notes == ("legacy archive result notes",)
+    assert migrated_tag == tag_metadata
+    assert migrated_counts == expected_counts
 
 
 def test_migration_preserves_snapshot_count(migration_08_data):
@@ -160,6 +287,43 @@ def test_migration_preserves_archiveresults(migration_08_data):
     assert migrated_counts == expected_counts
     assert missing_process_count == 0
     assert process_count == expected_count
+
+
+def test_migration_preserves_users_groups_permissions_api_secrets_and_repeated_init(migration_08_data):
+    work_dir, db_path, original_data = migration_08_data
+
+    for init_number in (1, 2):
+        result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+        assert result.returncode == 0, f"Init {init_number} failed: {result.stderr}"
+        verify_preserved_rows(db_path, original_data["preserved_rows"])
+
+
+def test_process_metadata_migration_rolls_back_completely_on_malformed_row(migration_08_data):
+    work_dir, db_path, original_data = migration_08_data
+    malformed_uuid = original_data["archiveresults"][0]["uuid"]
+
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            "UPDATE core_archiveresult SET cmd = '[]', cmd_version = 'broken-version' WHERE uuid = ?",
+            (malformed_uuid,),
+        )
+        source_rows = conn.execute(
+            "SELECT uuid, cmd, pwd, cmd_version FROM core_archiveresult ORDER BY uuid",
+        ).fetchall()
+
+    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert result.returncode != 0
+    assert "has cmd_version metadata but no command" in result.stdout + result.stderr
+
+    with sqlite3.connect(db_path) as conn:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(core_archiveresult)")}
+        current_rows = conn.execute(
+            "SELECT uuid, cmd, pwd, cmd_version FROM core_archiveresult ORDER BY uuid",
+        ).fetchall()
+        assert {"cmd", "pwd", "cmd_version"} <= columns
+        assert current_rows == source_rows
+        assert conn.execute("SELECT COUNT(*) FROM machine_process").fetchone()[0] == 0
+        assert conn.execute("SELECT COUNT(*) FROM machine_binary").fetchone()[0] == 0
 
 
 def test_migration_preserves_archiveresult_status(migration_08_data):
