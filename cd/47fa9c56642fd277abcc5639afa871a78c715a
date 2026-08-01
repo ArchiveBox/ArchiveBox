@@ -1,0 +1,31 @@
+docs/Usage.md
+  s_69ddf154c10e6f::t_a80eaba9310037 178
+docs/Setting-up-Search.md
+  s_69ddf154c10e6f::t_a80eaba9310037 34,41,54
+  s_69ddf154c10e6f::t_13be82cd7f7730 44,46-48
+docs/Docker.md
+  s_69ddf154c10e6f::t_a80eaba9310037 71,73
+archivebox/tests/test_frozen_crawl_config.py
+  s_69ddf154c10e6f::t_2f70957acffbbc 147-150
+archivebox/config/common.py
+  s_69ddf154c10e6f::t_a80eaba9310037 549
+docs/Configuration.md
+  s_69ddf154c10e6f::t_13be82cd7f7730 773
+  s_69ddf154c10e6f::t_a80eaba9310037 784,786
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "cd47fa9c56642fd277abcc5639afa871a78c715a",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
