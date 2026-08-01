@@ -47,6 +47,12 @@ def test_setup_script_prints_root_safe_runtime_commands():
     assert "--connect-timeout 1 --max-time 2" in script
 
 
+def test_setup_script_does_not_clear_without_a_terminal():
+    script = SETUP_SCRIPT.read_text()
+
+    assert "if [ -t 1 ]; then\n    clear\nfi" in script
+
+
 def test_setup_script_moves_legacy_collection_without_moving_compose(tmp_path):
     script = SETUP_SCRIPT.read_text()
     function_prefix = script.partition("\ndocker_pull_archivebox() {")[0]

@@ -17,7 +17,9 @@ fi
 if (set -o errtrace) 2>/dev/null; then
     set -o errtrace
 fi
-clear
+if [ -t 1 ]; then
+    clear
+fi
 
 RUNNING_AS_ROOT="false"
 ARCHIVEBOX_SYSTEM_USER="archivebox"
