@@ -19,13 +19,62 @@ if (set -o errtrace) 2>/dev/null; then
 fi
 clear
 
+RUNNING_AS_ROOT="false"
+ARCHIVEBOX_SYSTEM_USER="archivebox"
+ARCHIVEBOX_SYSTEM_UID=""
+ARCHIVEBOX_SYSTEM_GID=""
+
+if [ "$(id -u)" -eq 0 ]; then
+    RUNNING_AS_ROOT="true"
+    if ! id "$ARCHIVEBOX_SYSTEM_USER" >/dev/null 2>&1; then
+        echo "[+] Creating the archivebox system user..."
+        case "$(uname -s)" in
+            Linux)
+                useradd --system --create-home --home-dir /var/lib/archivebox --shell /bin/bash "$ARCHIVEBOX_SYSTEM_USER"
+                ;;
+            FreeBSD)
+                pw useradd "$ARCHIVEBOX_SYSTEM_USER" -m -d /var/db/archivebox -s /bin/sh
+                ;;
+            Darwin)
+                archivebox_uid=499
+                while dscl . -search /Users UniqueID "$archivebox_uid" 2>/dev/null | grep -q .; do
+                    archivebox_uid=$((archivebox_uid - 1))
+                done
+                dscl . -create "/Users/$ARCHIVEBOX_SYSTEM_USER"
+                dscl . -create "/Users/$ARCHIVEBOX_SYSTEM_USER" RealName ArchiveBox
+                dscl . -create "/Users/$ARCHIVEBOX_SYSTEM_USER" UserShell /bin/bash
+                dscl . -create "/Users/$ARCHIVEBOX_SYSTEM_USER" UniqueID "$archivebox_uid"
+                dscl . -create "/Users/$ARCHIVEBOX_SYSTEM_USER" PrimaryGroupID 20
+                dscl . -create "/Users/$ARCHIVEBOX_SYSTEM_USER" NFSHomeDirectory "/Users/$ARCHIVEBOX_SYSTEM_USER"
+                mkdir -p "/Users/$ARCHIVEBOX_SYSTEM_USER"
+                chown "$archivebox_uid:20" "/Users/$ARCHIVEBOX_SYSTEM_USER"
+                ;;
+            *)
+                echo "[X] Cannot create the archivebox system user on $(uname -s)."
+                exit 2
+                ;;
+        esac
+    fi
+
+    ARCHIVEBOX_SYSTEM_UID="$(id -u "$ARCHIVEBOX_SYSTEM_USER")"
+    ARCHIVEBOX_SYSTEM_GID="$(id -g "$ARCHIVEBOX_SYSTEM_USER")"
+    if command -v getent >/dev/null 2>&1; then
+        HOME="$(getent passwd "$ARCHIVEBOX_SYSTEM_USER" | cut -d: -f6)"
+    elif [ "$(uname -s)" = "FreeBSD" ]; then
+        HOME="$(pw usershow "$ARCHIVEBOX_SYSTEM_USER" | cut -d: -f9)"
+    else
+        HOME="$(dscl . -read "/Users/$ARCHIVEBOX_SYSTEM_USER" NFSHomeDirectory | awk '{print $2}')"
+    fi
+    export HOME
+fi
+
 ARCHIVEBOX_BRANCH="${ARCHIVEBOX_BRANCH:-dev}"
 ARCHIVEBOX_IMAGE="${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}"
 ARCHIVEBOX_PYTHON="${ARCHIVEBOX_PYTHON:-3.13}"
 ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-git+https://github.com/ArchiveBox/ArchiveBox.git@${ARCHIVEBOX_BRANCH}}"
 ARCHIVEBOX_PLATFORM="${ARCHIVEBOX_PLATFORM:-}"
 ARCHIVEBOX_COMPOSE_URL="${ARCHIVEBOX_COMPOSE_URL:-https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/${ARCHIVEBOX_BRANCH}/docker-compose.yml}"
-ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.11.293}"
+ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.40}"
 ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-$HOME/.cache/archivebox/setup-abxpkg}"
 BOOTSTRAP_UV_BINARY=""
 UV_BINARY=""
@@ -43,6 +92,25 @@ if [ -t 0 ]; then
     DOCKER_RUN_TTY_ARG="-it"
     DOCKER_COMPOSE_RUN_TTY_ARG=""
 fi
+
+fix_root_install_ownership() {
+    if [ "$RUNNING_AS_ROOT" != "true" ]; then
+        return 0
+    fi
+
+    for path in "$HOME/.local/bin" "$HOME/.local/share/uv" "$HOME/.cache/uv" "$ABXPKG_LIB_DIR"; do
+        if [ -e "$path" ]; then
+            chown -R "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$path"
+        fi
+    done
+}
+
+ensure_archivebox_data_dir() {
+    mkdir -p "$HOME/archivebox/data"
+    if [ "$RUNNING_AS_ROOT" = "true" ]; then
+        chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$HOME/archivebox" "$HOME/archivebox/data"
+    fi
+}
 
 docker_pull_archivebox() {
     if [ -n "$ARCHIVEBOX_PLATFORM" ]; then
@@ -114,12 +182,25 @@ ensure_uv() {
 
     if command -v uv > /dev/null 2>&1; then
         BOOTSTRAP_UV_BINARY="$(command -v uv)"
+        if [ "$RUNNING_AS_ROOT" = "true" ] && [ "${BOOTSTRAP_UV_BINARY#/root/}" != "$BOOTSTRAP_UV_BINARY" ]; then
+            mkdir -p "$HOME/.local/bin"
+            install -m 0755 "$BOOTSTRAP_UV_BINARY" "$HOME/.local/bin/uv"
+            if command -v uvx >/dev/null 2>&1; then
+                install -m 0755 "$(command -v uvx)" "$HOME/.local/bin/uvx"
+            fi
+            fix_root_install_ownership
+            BOOTSTRAP_UV_BINARY="$HOME/.local/bin/uv"
+        fi
         return 0
     fi
 
     echo "[+] Installing uv..."
     if command -v curl > /dev/null 2>&1; then
-        curl -LsSf https://astral.sh/uv/install.sh | sh
+        if [ "$RUNNING_AS_ROOT" = "true" ]; then
+            curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
+        else
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+        fi
     elif command -v wget > /dev/null 2>&1; then
         wget -qO- https://astral.sh/uv/install.sh | sh
     else
@@ -134,6 +215,7 @@ ensure_uv() {
         exit 1
     fi
     BOOTSTRAP_UV_BINARY="$(command -v uv)"
+    fix_root_install_ownership
 }
 
 resolve_setup_binary() {
@@ -187,20 +269,15 @@ install_archivebox_with_uv() {
     uv_tool_bin_dir="$("$UV_BINARY" --no-config tool dir --bin)"
     ARCHIVEBOX_BINARY="$uv_tool_bin_dir/archivebox"
     test -x "$ARCHIVEBOX_BINARY"
-    "$UV_BINARY" --no-config tool update-shell || true
+    if [ "$RUNNING_AS_ROOT" != "true" ]; then
+        "$UV_BINARY" --no-config tool update-shell || true
+    fi
+    fix_root_install_ownership
+    if [ "$RUNNING_AS_ROOT" = "true" ]; then
+        ln -sf "$ARCHIVEBOX_BINARY" /usr/local/bin/archivebox
+        ARCHIVEBOX_BINARY="/usr/local/bin/archivebox"
+    fi
 }
-
-if [ "$(id -u)" -eq 0 ]; then
-    echo
-    echo "[X] You cannot run this script as root. You must run it as a non-root user with sudo ability."
-    echo "    Create a new non-privileged user 'archivebox' if necessary."
-    echo "      adduser archivebox && usermod -a archivebox -G sudo && su archivebox"
-    echo "    https://www.digitalocean.com/community/tutorials/how-to-create-a-new-sudo-enabled-user-on-ubuntu-20-04-quickstart"
-    echo "    https://www.vultr.com/docs/create-a-sudo-user-on-freebsd"
-    echo "    Then re-run this script as the non-root user."
-    echo
-    exit 2
-fi
 
 prepare_abxpkg_environment
 if resolve_setup_binary docker env false; then
@@ -210,10 +287,10 @@ fi
 if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && docker_pull_archivebox; then
     resolve_setup_curl
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
-    mkdir -p ~/archivebox/data || exit 1
-    cd ~/archivebox
+    ensure_archivebox_data_dir || exit 1
+    cd "$HOME/archivebox"
     if [ -f "./index.sqlite3" ]; then
-        mv -i ~/archivebox/* ~/archivebox/data/
+        mv -i "$HOME"/archivebox/* "$HOME/archivebox/data/"
     fi
     "$CURL_BINARY" -fsSL "$ARCHIVEBOX_COMPOSE_URL" > docker-compose.yml
     export ARCHIVEBOX_IMAGE ARCHIVEBOX_PLATFORM
@@ -239,10 +316,10 @@ if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && do
 elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
     resolve_setup_curl
     echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker..."
-    mkdir -p ~/archivebox/data || exit 1
-    cd ~/archivebox
+    ensure_archivebox_data_dir || exit 1
+    cd "$HOME/archivebox"
     if [ -f "./index.sqlite3" ]; then
-        mv -i ~/archivebox/* ~/archivebox/data/
+        mv -i "$HOME"/archivebox/* "$HOME/archivebox/data/"
     fi
     cd ./data
     docker_run_archivebox_init
@@ -304,10 +381,10 @@ install_archivebox_with_uv
 
 echo
 echo "[+] Initializing ArchiveBox data folder at ~/archivebox/data..."
-mkdir -p ~/archivebox/data || exit 1
-cd ~/archivebox
+ensure_archivebox_data_dir || exit 1
+cd "$HOME/archivebox"
 if [ -f "./index.sqlite3" ]; then
-    mv -i ~/archivebox/* ~/archivebox/data/
+    mv -i "$HOME"/archivebox/* "$HOME/archivebox/data/"
 fi
 cd ./data
 : | "$ARCHIVEBOX_BINARY" init   # pipe in empty command to make sure stdin is closed
