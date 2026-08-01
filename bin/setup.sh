@@ -316,13 +316,13 @@ select_archivebox_lib_dir() {
     configured_lib_dir="$(
         COLUMNS=10000 env -u ABXPKG_LIB_DIR "$ARCHIVEBOX_BINARY" config --get ABXPKG_LIB_DIR \
             | awk '
-                /^[[:space:]]*ABXPKG_LIB_DIR[[:space:]]*=/ {
+                !found && /^[[:space:]]*ABXPKG_LIB_DIR[[:space:]]*=/ {
                     value = $0
                     sub(/^[^=]*=[[:space:]]*/, "", value)
                     sub(/^"/, "", value)
                     sub(/"[[:space:]]*$/, "", value)
                     print value
-                    exit
+                    found = 1
                 }
             '
     )"
