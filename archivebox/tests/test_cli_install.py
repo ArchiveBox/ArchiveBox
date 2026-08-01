@@ -79,6 +79,22 @@ def test_install_target_resolver_uses_declared_binary_aliases():
     assert _resolve_install_targets(("not-a-real-tool",)) == ([], ["not-a-real-tool"])
 
 
+def test_default_dependency_install_memory_preflight_fails_before_installers(capsys):
+    from archivebox.workers.supervisord_util import (
+        MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES,
+        require_dependency_install_memory,
+    )
+
+    require_dependency_install_memory(MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES)
+    with pytest.raises(SystemExit) as err:
+        require_dependency_install_memory(MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES - 1)
+
+    assert err.value.code == 1
+    output = capsys.readouterr().err
+    assert "Not enough available memory to install ArchiveBox dependencies" in output
+    assert "No plugin dependency installers were started" in output
+
+
 def test_install_shows_binary_status(initialized_archive):
     """Test that install shows status of binaries."""
 

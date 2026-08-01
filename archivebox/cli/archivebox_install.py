@@ -167,6 +167,10 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
         install_plugin_names.extend(provider.strip() for provider in binproviders.split(",") if provider.strip())
 
     if install_plugin_names or not binaries:
+        if not binaries:
+            from archivebox.workers.supervisord_util import require_dependency_install_memory
+
+            require_dependency_install_memory()
         print("[+] Running plugin installer via abx-dl bus...")
         print()
 

@@ -46,6 +46,7 @@ _RUNTIME_COMPONENT_ORDER = ("orchestrator", "server", "sonic")
 _SUPERVISORD_ERRORS = (XmlRpcError, OSError, RuntimeError, TimeoutError)
 _PROCESS_STATE_ERRORS = (DatabaseError, OSError, RuntimeError, ValueError, psutil.Error)
 MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES = 256 * 1024 * 1024
+MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES = MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
 
 
 def _shell_join(args: list[str]) -> str:
@@ -81,20 +82,39 @@ def effective_available_memory_bytes() -> int:
     return available
 
 
-def require_server_worker_memory(available_bytes: int | None = None) -> None:
-    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
-    if available_bytes >= MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES:
+def _require_available_memory(operation: str, idle_message: str, available_bytes: int, required_bytes: int) -> None:
+    if available_bytes >= required_bytes:
         return
 
     available_mib = available_bytes // (1024 * 1024)
-    required_mib = MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES // (1024 * 1024)
-    STDERR.print("[red][X] Not enough available memory to start ArchiveBox safely.[/red]")
+    required_mib = required_bytes // (1024 * 1024)
+    STDERR.print(f"[red][X] Not enough available memory to {operation} safely.[/red]")
     STDERR.print(
-        f"    Available RAM + swap: {available_mib} MiB; at least {required_mib} MiB must be free before starting the server workers.",
+        f"    Available RAM + swap: {available_mib} MiB; at least {required_mib} MiB must be free before this operation.",
     )
-    STDERR.print("    No server, runner, or Sonic workers were started.")
+    STDERR.print(idle_message)
     STDERR.print("    Use a host/container with at least 1 GB RAM or configure swap, then run the same command again.")
     raise SystemExit(1)
+
+
+def require_server_worker_memory(available_bytes: int | None = None) -> None:
+    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
+    _require_available_memory(
+        "start ArchiveBox",
+        "    No server, runner, or Sonic workers were started.",
+        available_bytes,
+        MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES,
+    )
+
+
+def require_dependency_install_memory(available_bytes: int | None = None) -> None:
+    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
+    _require_available_memory(
+        "install ArchiveBox dependencies",
+        "    No plugin dependency installers were started.",
+        available_bytes,
+        MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES,
+    )
 
 
 def archivebox_cmd(*args: str) -> list[str]:
