@@ -394,6 +394,10 @@ def main(**kwargs):
             raise click.BadParameter(str(err), param_hint="--snapshot-max-size") from err
         if kwargs.get("crawl_max_concurrent_snapshots") is not None and int(kwargs["crawl_max_concurrent_snapshots"]) < 1:
             raise click.BadParameter("crawl_max_concurrent_snapshots must be at least 1.", param_hint="--crawl-max-concurrent-snapshots")
+        if not kwargs.get("index_only"):
+            from archivebox.workers.supervisord_util import require_crawl_memory
+
+            require_crawl_memory()
 
         # Translate --only-new/--no-only-new into a crawl config override.
         # add() takes config overrides as a dict; no per-flag kwargs.

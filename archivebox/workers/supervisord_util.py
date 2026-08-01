@@ -47,6 +47,7 @@ _SUPERVISORD_ERRORS = (XmlRpcError, OSError, RuntimeError, TimeoutError)
 _PROCESS_STATE_ERRORS = (DatabaseError, OSError, RuntimeError, ValueError, psutil.Error)
 MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES = 256 * 1024 * 1024
 MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES = MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
+MIN_CRAWL_AVAILABLE_MEMORY_BYTES = 512 * 1024 * 1024
 
 
 def _shell_join(args: list[str]) -> str:
@@ -114,6 +115,16 @@ def require_dependency_install_memory(available_bytes: int | None = None) -> Non
         "    No plugin dependency installers were started.",
         available_bytes,
         MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES,
+    )
+
+
+def require_crawl_memory(available_bytes: int | None = None) -> None:
+    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
+    _require_available_memory(
+        "archive a crawl",
+        "    No crawl, runner, or Sonic workers were started.",
+        available_bytes,
+        MIN_CRAWL_AVAILABLE_MEMORY_BYTES,
     )
 
 

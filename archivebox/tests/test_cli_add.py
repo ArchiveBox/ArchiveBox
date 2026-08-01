@@ -230,6 +230,29 @@ def test_add_single_url_records_url_in_crawl(initialized_archive):
     assert snapshots == []
 
 
+def test_add_memory_preflight_fails_before_creating_crawl(initialized_archive, capsys):
+    from archivebox.workers.supervisord_util import MIN_CRAWL_AVAILABLE_MEMORY_BYTES, require_crawl_memory
+
+    assert MIN_CRAWL_AVAILABLE_MEMORY_BYTES == 512 * 1024 * 1024
+    require_crawl_memory(MIN_CRAWL_AVAILABLE_MEMORY_BYTES)
+
+    with use_archivebox_db(initialized_archive):
+        before_crawls = Crawl.objects.count()
+        before_processes = Process.objects.count()
+
+        with pytest.raises(SystemExit) as err:
+            require_crawl_memory(MIN_CRAWL_AVAILABLE_MEMORY_BYTES - 1)
+
+        assert Crawl.objects.count() == before_crawls
+        assert Process.objects.count() == before_processes
+
+    assert err.value.code == 1
+    output = capsys.readouterr().err
+    assert "Not enough available memory to archive a crawl" in output
+    assert "No crawl, runner, or Sonic workers were started" in output
+    assert "configure swap" in output
+
+
 def test_initial_crawl_creation_does_not_warn_as_an_outside_runner_update(initialized_archive, caplog):
     from archivebox.core.takeover_util import current_command
 
