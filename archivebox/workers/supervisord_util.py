@@ -234,19 +234,36 @@ RUNNER_WATCH_WORKER = lambda bind_url: {
     "redirect_stderr": "true",
 }
 
-SUPERVISORD_PARENT_WATCHDOG_WORKER = lambda supervisord_process_id: {
-    "name": "worker_supervisord_parent_watchdog",
-    "command": _shell_join(
-        archivebox_cmd("manage", "supervisord_watchdog", f"--supervisord-process-id={supervisord_process_id}"),
-    ),
-    "autostart": "false",
-    "autorestart": "false",
-    "stopasgroup": "true",
-    "killasgroup": "true",
-    "stopwaitsecs": "1",
-    "stdout_logfile": "logs/worker_supervisord_parent_watchdog.log",
-    "redirect_stderr": "true",
-}
+
+def SUPERVISORD_PARENT_WATCHDOG_WORKER(
+    *,
+    owner_pid: int,
+    owner_started_at: float,
+    supervisord_pid: int,
+    supervisord_started_at: float,
+):
+    watchdog_script = Path(__file__).with_name("supervisord_parent_watchdog.py")
+    return {
+        "name": "worker_supervisord_parent_watchdog",
+        "command": _shell_join(
+            [
+                sys.executable,
+                str(watchdog_script),
+                f"--owner-pid={owner_pid}",
+                f"--owner-started-at={owner_started_at}",
+                f"--supervisord-pid={supervisord_pid}",
+                f"--supervisord-started-at={supervisord_started_at}",
+            ],
+        ),
+        "autostart": "false",
+        "autorestart": "false",
+        "stopasgroup": "true",
+        "killasgroup": "true",
+        "stopwaitsecs": "1",
+        "stdout_logfile": "logs/worker_supervisord_parent_watchdog.log",
+        "redirect_stderr": "true",
+    }
+
 
 SERVER_WORKER = lambda host, port: {
     "name": "worker_daphne",
@@ -460,7 +477,7 @@ def create_worker_config(daemon):
     worker_conf.write_text(worker_str)
 
 
-def _current_foreground_supervisord_process_id():
+def _current_foreground_supervisord_watchdog_args():
     if not _supervisord_proc or _supervisord_proc.poll() is not None:
         return None
 
@@ -477,7 +494,14 @@ def _current_foreground_supervisord_process_id():
             parent=current,
         ).iterator(chunk_size=10):
             if process.is_running:
-                return process.id
+                owner = psutil.Process(current.pid)
+                supervisord = psutil.Process(process.pid)
+                return {
+                    "owner_pid": owner.pid,
+                    "owner_started_at": owner.create_time(),
+                    "supervisord_pid": supervisord.pid,
+                    "supervisord_started_at": supervisord.create_time(),
+                }
     except _PROCESS_STATE_ERRORS:
         return None
     return None
@@ -498,9 +522,9 @@ def sync_supervisord_workers(supervisor, workers: list[tuple[dict[str, str], boo
 
     global _desired_supervisord_workers
 
-    supervisord_process_id = _current_foreground_supervisord_process_id()
-    if supervisord_process_id is not None:
-        watchdog = SUPERVISORD_PARENT_WATCHDOG_WORKER(supervisord_process_id)
+    watchdog_args = _current_foreground_supervisord_watchdog_args()
+    if watchdog_args is not None:
+        watchdog = SUPERVISORD_PARENT_WATCHDOG_WORKER(**watchdog_args)
         if all(worker["name"] != watchdog["name"] for worker, _lazy in workers):
             workers = [*workers, (watchdog, False)]
 

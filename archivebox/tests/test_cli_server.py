@@ -252,6 +252,31 @@ def test_daphne_worker_uses_default_application_close_timeout():
     assert "--application-close-timeout=0" not in command
 
 
+def test_supervisord_parent_watchdog_does_not_start_another_archivebox_runtime():
+    from archivebox.workers import supervisord_util
+
+    worker = supervisord_util.SUPERVISORD_PARENT_WATCHDOG_WORKER(
+        owner_pid=101,
+        owner_started_at=1001.5,
+        supervisord_pid=202,
+        supervisord_started_at=2002.5,
+    )
+    command = shlex.split(worker["command"])
+    watchdog_script = Path(supervisord_util.__file__).with_name("supervisord_parent_watchdog.py")
+
+    assert command == [
+        sys.executable,
+        str(watchdog_script),
+        "--owner-pid=101",
+        "--owner-started-at=1001.5",
+        "--supervisord-pid=202",
+        "--supervisord-started-at=2002.5",
+    ]
+    assert Path(command[1]).name == "supervisord_parent_watchdog.py"
+    assert "archivebox" not in Path(command[0]).name
+    assert "manage" not in command
+
+
 def test_reload_workers_use_active_archivebox_module():
     from archivebox.workers.supervisord_util import RUNNER_WATCH_WORKER, RUNSERVER_WORKER, archivebox_cmd
 
