@@ -13,6 +13,32 @@ from rich import print
 
 #############################################################################################
 
+
+def select_archivebox_user(
+    *,
+    running_uid: int,
+    running_gid: int,
+    effective_uid: int,
+    effective_gid: int,
+    sudo_uid: int,
+    sudo_gid: int,
+    data_dir_uid: int,
+    data_dir_gid: int,
+    account_uid: int | None,
+    account_gid: int | None,
+) -> tuple[int, int]:
+    if running_uid == 0:
+        if data_dir_uid != 0:
+            return data_dir_uid, data_dir_gid
+        if account_uid is not None and account_gid is not None:
+            return account_uid, account_gid
+
+    return (
+        effective_uid or running_uid or sudo_uid,
+        effective_gid or running_gid or sudo_gid,
+    )
+
+
 DATA_DIR = Path(os.getcwd())
 
 try:
@@ -44,15 +70,18 @@ try:
 except KeyError:
     ARCHIVEBOX_ACCOUNT = None
 
-if RUNNING_AS_UID == 0 and DATA_DIR_UID == 0 or DATA_DIR_UID != 0:
-    ARCHIVEBOX_USER = DATA_DIR_UID
-    ARCHIVEBOX_GROUP = DATA_DIR_GID
-elif RUNNING_AS_UID == 0 and ARCHIVEBOX_ACCOUNT is not None:
-    ARCHIVEBOX_USER = ARCHIVEBOX_ACCOUNT.pw_uid
-    ARCHIVEBOX_GROUP = ARCHIVEBOX_ACCOUNT.pw_gid
-else:
-    ARCHIVEBOX_USER = EUID or RUNNING_AS_UID or FALLBACK_UID
-    ARCHIVEBOX_GROUP = EGID or RUNNING_AS_GID or FALLBACK_GID
+ARCHIVEBOX_USER, ARCHIVEBOX_GROUP = select_archivebox_user(
+    running_uid=RUNNING_AS_UID,
+    running_gid=RUNNING_AS_GID,
+    effective_uid=EUID,
+    effective_gid=EGID,
+    sudo_uid=SUDO_UID,
+    sudo_gid=SUDO_GID,
+    data_dir_uid=DATA_DIR_UID,
+    data_dir_gid=DATA_DIR_GID,
+    account_uid=ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None,
+    account_gid=ARCHIVEBOX_ACCOUNT.pw_gid if ARCHIVEBOX_ACCOUNT is not None else None,
+)
 if not USER:
     try:
         # alternative method 1 to get username
