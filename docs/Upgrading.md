@@ -9,7 +9,7 @@ uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/Archi
 cd ~/archivebox/data
 archivebox init
 archivebox install
-archivebox update
+archivebox update --migrate-only
 archivebox status
 
 # Docker Compose install
@@ -17,7 +17,7 @@ cd ~/archivebox
 docker compose pull
 docker compose run --rm archivebox init
 docker compose run --rm archivebox install
-docker compose run --rm archivebox update
+docker compose run --rm archivebox update --migrate-only
 docker compose up -d
 ```
 
@@ -28,7 +28,7 @@ docker compose up -d
 2. **Read the release notes carefully** for any instructions or extra steps around upgrading for each release you're skipping or installing
 3. **Stop any running ArchiveBox server, scheduler, and worker processes**, then make a full backup of your `index.sqlite3` and `archive/` content before upgrading!
    `gzip -9 < index.sqlite3 > "index.sqlite3.$(date +%s).bak"`
-4. Follow the steps below for your installation method, then run `archivebox init`, `archivebox install`, and `archivebox update` inside the collection
+4. Follow the steps below for your installation method, then run `archivebox init`, `archivebox install`, and `archivebox update --migrate-only` inside the collection
 5. Confirm the upgrade succeeded and check for any orphan/corrupted snapshots with `archivebox status`
 
 💬 [Open an issue](https://github.com/ArchiveBox/ArchiveBox/issues/new/choose) in our bug tracker if you experience any problems with upgrading/merging/modifying collections.
@@ -42,11 +42,11 @@ docker compose up -d
 
 **ℹ️ How it works internally:**
 
-The same command is used for initializing a new archive and upgrading an existing database. `archivebox init` is idempotent and can safely be run multiple times; it applies database migrations and prepares collection-level state. `archivebox install` resolves runtime dependencies for the new version. `archivebox update` performs filesystem migrations and reconciles Snapshot metadata with the current layout. `archivebox status` checks collection health afterward.
+The same command is used for initializing a new archive and upgrading an existing database. `archivebox init` is idempotent and can safely be run multiple times; it applies database migrations and prepares collection-level state. `archivebox install` resolves runtime dependencies for the new version. `archivebox update --migrate-only` performs filesystem migrations and reconciles Snapshot metadata with the current layout without scheduling normal archive maintenance jobs. `archivebox status` checks collection health afterward.
 
 There are three main areas on disk that ArchiveBox modifies during upgrades:
 - `index.sqlite3` contains the SQLite3 DB index that gets upgraded automatically by Django based on the changes in [`archivebox/core/models.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py).
-- `archive/users/<user>/snapshots/<date>/<domain>/<uuid>/index.jsonl` stores per-Snapshot metadata alongside plugin-namespaced output. `archivebox update` may rewrite metadata, migrate older layouts, and maintain legacy timestamp compatibility symlinks.
+- `archive/users/<user>/snapshots/<date>/<domain>/<uuid>/index.jsonl` stores per-Snapshot metadata alongside plugin-namespaced output. `archivebox update --migrate-only` may rewrite metadata, migrate older layouts, and maintain legacy timestamp compatibility symlinks.
 - Snapshot output directories and plugin paths can move as filesystem schemas evolve, so the entire `archive/` tree must be backed up with the database.
 
 `ArchiveBox.conf` is migrated through the normal config loader/writer when options are renamed or normalized. Back it up with the rest of the collection and review release notes for config changes.
@@ -88,7 +88,7 @@ docker stop CONTAINER_ID
 docker pull archivebox/archivebox:dev
 docker run -v $PWD:/data -it archivebox/archivebox:dev init
 docker run -v $PWD:/data -it archivebox/archivebox:dev install
-docker run -v $PWD:/data -it archivebox/archivebox:dev update
+docker run -v $PWD:/data -it archivebox/archivebox:dev update --migrate-only
 
 # restart the archivebox server container if needed
 docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev server 0.0.0.0:8000
@@ -118,7 +118,7 @@ brew upgrade archivebox
 archivebox init        # run init to upgrade the collection to the latest version
 archivebox install     # refresh runtime dependencies if needed
 
-archivebox update       # migrate/reconcile Snapshot files and metadata
+archivebox update --migrate-only  # migrate/reconcile Snapshot files and metadata
 
 archivebox status      # check that everything succeeded
 ```
