@@ -12,6 +12,8 @@ def test_setup_script_creates_archivebox_user_instead_of_rejecting_root():
     assert "You cannot run this script as root" not in script
     assert "useradd --system --create-home" in script
     assert 'ARCHIVEBOX_SYSTEM_USER="archivebox"' in script
+    assert "${BOOTSTRAP_UV_BINARY#/var/root/}" in script
+    assert "mkdir -p /usr/local/bin" in script
 
 
 def test_setup_script_never_recursively_chowns_collection_data():

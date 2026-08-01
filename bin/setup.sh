@@ -211,7 +211,7 @@ ensure_uv() {
 
     if command -v uv > /dev/null 2>&1; then
         BOOTSTRAP_UV_BINARY="$(command -v uv)"
-        if [ "$RUNNING_AS_ROOT" = "true" ] && [ "${BOOTSTRAP_UV_BINARY#/root/}" != "$BOOTSTRAP_UV_BINARY" ]; then
+        if [ "$RUNNING_AS_ROOT" = "true" ] && { [ "${BOOTSTRAP_UV_BINARY#/root/}" != "$BOOTSTRAP_UV_BINARY" ] || [ "${BOOTSTRAP_UV_BINARY#/var/root/}" != "$BOOTSTRAP_UV_BINARY" ]; }; then
             mkdir -p "$HOME/.local/bin"
             install -m 0755 "$BOOTSTRAP_UV_BINARY" "$HOME/.local/bin/uv"
             if command -v uvx >/dev/null 2>&1; then
@@ -305,6 +305,7 @@ install_archivebox_with_uv() {
     fi
     fix_root_install_ownership
     if [ "$RUNNING_AS_ROOT" = "true" ]; then
+        mkdir -p /usr/local/bin
         ln -sf "$ARCHIVEBOX_BINARY" /usr/local/bin/archivebox
         ARCHIVEBOX_BINARY="/usr/local/bin/archivebox"
     fi
