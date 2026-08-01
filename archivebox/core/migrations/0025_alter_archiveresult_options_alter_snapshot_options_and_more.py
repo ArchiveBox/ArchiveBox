@@ -80,8 +80,8 @@ class Migration(migrations.Migration):
         ),
         # NOTE: RemoveField for cmd, cmd_version, pwd moved to migration 0027
         # to allow data migration to Process records first
-        # NOTE: created_at/modified_at are created by migration 0023 so they can
-        # preserve old ArchiveResult row metadata before SQLite table rebuilds.
+        # NOTE: created_at/modified_at/notes are created by migration 0023 so
+        # they can preserve old ArchiveResult metadata before SQLite rebuilds.
         # Update Django's state here before the AddField operations below.
         migrations.SeparateDatabaseAndState(
             database_operations=[],
@@ -95,6 +95,11 @@ class Migration(migrations.Migration):
                     model_name="archiveresult",
                     name="modified_at",
                     field=models.DateTimeField(auto_now=True),
+                ),
+                migrations.AddField(
+                    model_name="archiveresult",
+                    name="notes",
+                    field=models.TextField(blank=True, default=""),
                 ),
             ],
         ),
@@ -113,11 +118,6 @@ class Migration(migrations.Migration):
                 help_text="Full filename of the hook that executed (e.g., on_Snapshot__50_wget.py)",
                 max_length=255,
             ),
-        ),
-        migrations.AddField(
-            model_name="archiveresult",
-            name="notes",
-            field=models.TextField(blank=True, default=""),
         ),
         migrations.AddField(
             model_name="archiveresult",
@@ -237,26 +237,33 @@ class Migration(migrations.Migration):
                 ),
             ],
         ),
-        migrations.AddField(
-            model_name="tag",
-            name="created_at",
-            field=models.DateTimeField(db_index=True, default=django.utils.timezone.now, null=True),
-        ),
-        migrations.AddField(
-            model_name="tag",
-            name="created_by",
-            field=models.ForeignKey(
-                default=archivebox.base_models.models.get_or_create_system_user_pk,
-                null=True,
-                on_delete=django.db.models.deletion.CASCADE,
-                related_name="tag_set",
-                to=settings.AUTH_USER_MODEL,
-            ),
-        ),
-        migrations.AddField(
-            model_name="tag",
-            name="modified_at",
-            field=models.DateTimeField(auto_now=True),
+        # 0023 creates these columns before rebuilding the legacy Tag table so
+        # their values survive. Declare them in state without rebuilding it.
+        migrations.SeparateDatabaseAndState(
+            database_operations=[],
+            state_operations=[
+                migrations.AddField(
+                    model_name="tag",
+                    name="created_at",
+                    field=models.DateTimeField(db_index=True, default=django.utils.timezone.now, null=True),
+                ),
+                migrations.AddField(
+                    model_name="tag",
+                    name="created_by",
+                    field=models.ForeignKey(
+                        default=archivebox.base_models.models.get_or_create_system_user_pk,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="tag_set",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                migrations.AddField(
+                    model_name="tag",
+                    name="modified_at",
+                    field=models.DateTimeField(auto_now=True),
+                ),
+            ],
         ),
         # Copy data from old field names to new field names after AddField operations
         migrations.RunPython(

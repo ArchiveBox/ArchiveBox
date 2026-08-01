@@ -19,6 +19,19 @@ def get_table_columns(table_name):
     return {row[1] for row in cursor.fetchall()}
 
 
+def assert_rebuild_row_count(cursor, source_table, destination_table, expected_count=None):
+    """Refuse to drop a legacy table unless every source row was copied."""
+    if expected_count is None:
+        cursor.execute(f"SELECT COUNT(*) FROM {source_table}")
+        expected_count = cursor.fetchone()[0]
+    cursor.execute(f"SELECT COUNT(*) FROM {destination_table}")
+    destination_count = cursor.fetchone()[0]
+    if destination_count != expected_count:
+        raise RuntimeError(
+            f"Refusing to replace {source_table}: copied {destination_count} of {expected_count} rows",
+        )
+
+
 def normalize_cmd(cmd):
     if not cmd:
         return "[]"
@@ -99,6 +112,7 @@ def upgrade_core_tables(apps, schema_editor):
             output VARCHAR(1024),
             created_at DATETIME,
             modified_at DATETIME,
+            notes TEXT NOT NULL DEFAULT '',
 
             FOREIGN KEY (snapshot_id) REFERENCES core_snapshot(id) ON DELETE CASCADE
         );
@@ -123,6 +137,8 @@ def upgrade_core_tables(apps, schema_editor):
             archiveresult_select_cols.append("created_at")
         if has_archiveresult_modified_at:
             archiveresult_select_cols.append("modified_at")
+        if "notes" in archiveresult_cols:
+            archiveresult_select_cols.append("notes")
 
         if has_uuid and not has_abid:
             # Migrating from v0.7.2+ (has uuid column)
@@ -132,6 +148,8 @@ def upgrade_core_tables(apps, schema_editor):
                 select_cols.append("created_at")
             if has_archiveresult_modified_at:
                 select_cols.append("modified_at")
+            if "notes" in archiveresult_cols:
+                select_cols.append("notes")
             cursor.execute(f"SELECT {', '.join(select_cols)} FROM core_archiveresult")
             old_records = cursor.fetchall()
             for i, record in enumerate(old_records, start=1):
@@ -147,8 +165,8 @@ def upgrade_core_tables(apps, schema_editor):
                     INSERT OR IGNORE INTO core_archiveresult_new (
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
-                        created_at, modified_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        created_at, modified_at, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         values["id"],
@@ -164,6 +182,7 @@ def upgrade_core_tables(apps, schema_editor):
                         values["output"] or "",
                         values.get("created_at") or start_ts,
                         values.get("modified_at") or end_ts,
+                        values.get("notes") or "",
                     ),
                 )
                 if i % PROGRESS_EVERY == 0:
@@ -186,8 +205,8 @@ def upgrade_core_tables(apps, schema_editor):
                     INSERT OR IGNORE INTO core_archiveresult_new (
                         uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
-                        created_at, modified_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        created_at, modified_at, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         new_uuid,
@@ -202,6 +221,7 @@ def upgrade_core_tables(apps, schema_editor):
                         values["output"] or "",
                         values.get("created_at") or start_ts,
                         values.get("modified_at") or end_ts,
+                        values.get("notes") or "",
                     ),
                 )
                 if i % PROGRESS_EVERY == 0:
@@ -221,8 +241,8 @@ def upgrade_core_tables(apps, schema_editor):
                     INSERT OR IGNORE INTO core_archiveresult_new (
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
-                        created_at, modified_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        created_at, modified_at, notes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         values["id"],
@@ -238,12 +258,14 @@ def upgrade_core_tables(apps, schema_editor):
                         values["output"] or "",
                         values.get("created_at") or start_ts,
                         values.get("modified_at") or end_ts,
+                        values.get("notes") or "",
                     ),
                 )
                 if i % PROGRESS_EVERY == 0:
                     print(f"        copied {i}/{len(old_records)} ArchiveResults...")
         print(f"      copied {len(old_records)} ArchiveResults")
 
+    assert_rebuild_row_count(cursor, "core_archiveresult", "core_archiveresult_new", row_count)
     cursor.execute("DROP TABLE IF EXISTS core_archiveresult;")
     cursor.execute("ALTER TABLE core_archiveresult_new RENAME TO core_archiveresult;")
 
@@ -352,6 +374,9 @@ def upgrade_core_tables(apps, schema_editor):
                 if has_crawl_id:
                     insert_cols.append("crawl_id")
                     select_cols.append("REPLACE(crawl_id, '-', '')")
+                if "parent_snapshot_id" in snapshot_cols:
+                    insert_cols.append("parent_snapshot_id")
+                    select_cols.append("REPLACE(parent_snapshot_id, '-', '')")
                 if has_status:
                     insert_cols.append("status")
                     select_cols.append(
@@ -376,6 +401,18 @@ def upgrade_core_tables(apps, schema_editor):
                 if has_retry_at:
                     insert_cols.append("retry_at")
                     select_cols.append("retry_at")
+                for field_name in (
+                    "depth",
+                    "fs_version",
+                    "config",
+                    "notes",
+                    "num_uses_succeeded",
+                    "num_uses_failed",
+                    "current_step",
+                ):
+                    if field_name in snapshot_cols:
+                        insert_cols.append(field_name)
+                        select_cols.append(field_name)
 
                 cursor.execute(f"""
                     INSERT OR IGNORE INTO core_snapshot_new ({", ".join(insert_cols)})
@@ -386,6 +423,7 @@ def upgrade_core_tables(apps, schema_editor):
             else:
                 print(f"Warning: Unexpected Snapshot schema - has_added={has_added}, has_bookmarked_at={has_bookmarked_at}")
 
+    assert_rebuild_row_count(cursor, "core_snapshot", "core_snapshot_new")
     cursor.execute("DROP TABLE IF EXISTS core_snapshot;")
     cursor.execute("ALTER TABLE core_snapshot_new RENAME TO core_snapshot;")
 
@@ -424,6 +462,7 @@ def upgrade_core_tables(apps, schema_editor):
         tag_has_data = cursor.fetchone()[0] > 0
 
         if tag_has_data:
+            tag_cols = get_table_columns("core_tag")
             cursor.execute("PRAGMA table_info(core_tag)")
             tag_id_type = None
             for row in cursor.fetchall():
@@ -435,22 +474,23 @@ def upgrade_core_tables(apps, schema_editor):
                 # v0.8.6rc0: Tag IDs are UUIDs, need to convert to INTEGER
                 print("      converting Tag IDs from UUID to integers...")
 
-                # Get all tags with their UUIDs
-                cursor.execute("SELECT id, name, slug, created_at, modified_at, created_by_id FROM core_tag ORDER BY name")
+                # Get all tags with their UUIDs and any available audit fields.
+                tag_select_cols = ["id", "name", "slug"]
+                tag_select_cols.extend(field for field in ("created_at", "modified_at", "created_by_id") if field in tag_cols)
+                cursor.execute(f"SELECT {', '.join(tag_select_cols)} FROM core_tag ORDER BY name")
                 tags = cursor.fetchall()
 
                 # Create mapping from old UUID to new INTEGER ID
                 uuid_to_int_map = {}
                 for i, tag in enumerate(tags, start=1):
-                    old_id, name, slug, created_at, modified_at, created_by_id = tag
+                    values = dict(zip(tag_select_cols, tag))
+                    old_id = values.pop("id")
                     uuid_to_int_map[old_id] = i
                     # Insert with new INTEGER ID
+                    insert_values = {"id": i, **values}
                     cursor.execute(
-                        """
-                        INSERT OR IGNORE INTO core_tag_new (id, name, slug, created_at, modified_at, created_by_id)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                        (i, name, slug, created_at, modified_at, created_by_id),
+                        f"INSERT OR IGNORE INTO core_tag_new ({', '.join(insert_values)}) VALUES ({', '.join('?' for _ in insert_values)})",
+                        tuple(insert_values.values()),
                     )
                     if i % PROGRESS_EVERY == 0:
                         print(f"        copied {i}/{len(tags)} Tags...")
@@ -477,17 +517,27 @@ def upgrade_core_tables(apps, schema_editor):
                             )
                         if i % PROGRESS_EVERY == 0:
                             print(f"        copied {i}/{len(snapshot_tags)} SnapshotTag rows...")
+                    cursor.execute("SELECT COUNT(*) FROM core_snapshot_tags")
+                    copied_snapshot_tags = cursor.fetchone()[0]
+                    if copied_snapshot_tags != len(snapshot_tags):
+                        raise RuntimeError(
+                            f"Refusing to replace Tag IDs: copied {copied_snapshot_tags} of {len(snapshot_tags)} SnapshotTag rows",
+                        )
                 print(f"      copied {len(tags)} Tags")
             else:
-                # v0.7.2: Tag IDs are already INTEGER
-                print("      copying Tags from 0.7.x schema...")
-                cursor.execute("""
-                    INSERT OR IGNORE INTO core_tag_new (id, name, slug)
-                    SELECT id, name, slug
+                # v0.7.x and early v0.8.x use INTEGER IDs. Preserve audit
+                # metadata when the source schema has it.
+                print("      copying Tags with integer IDs...")
+                copy_cols = ["id", "name", "slug"]
+                copy_cols.extend(field for field in ("created_at", "modified_at", "created_by_id") if field in tag_cols)
+                cursor.execute(f"""
+                    INSERT OR IGNORE INTO core_tag_new ({", ".join(copy_cols)})
+                    SELECT {", ".join(copy_cols)}
                     FROM core_tag;
                 """)
                 print(f"      copied {cursor.rowcount} Tags")
 
+    assert_rebuild_row_count(cursor, "core_tag", "core_tag_new")
     cursor.execute("DROP TABLE IF EXISTS core_tag;")
     cursor.execute("ALTER TABLE core_tag_new RENAME TO core_tag;")
 
