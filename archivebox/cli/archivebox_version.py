@@ -326,6 +326,8 @@ def version(
                 continue
             if not plugin_enabled and not requested_names:
                 continue
+            if _binary_record_matches_runtime(db_binaries.get(logical_name), config.ABXPKG_LIB_DIR):
+                continue
             signature = json.dumps(actual_record, sort_keys=True, default=str)
             declared_binary_specs.setdefault(signature, actual_record)
 
