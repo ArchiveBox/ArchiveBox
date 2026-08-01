@@ -3017,17 +3017,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def retry_failed_archiveresults(self) -> int:
         """
-        Reset failed/skipped ArchiveResults to queued for retry.
+        Reset failed ArchiveResults to queued for retry.
 
         Returns count of ArchiveResults reset.
         """
         retryable_results = ArchiveResult.objects.filter(
             snapshot=self,
-            status__in=[
-                ArchiveResult.StatusChoices.FAILED,
-                ArchiveResult.StatusChoices.SKIPPED,
-                ArchiveResult.StatusChoices.NORESULTS,
-            ],
+            status=ArchiveResult.StatusChoices.FAILED,
         )
         legacy_result_count = retryable_results.filter(hook_name="").count()
         now = timezone.now()

@@ -385,6 +385,20 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
         output_size=123,
         output_mimetypes="text/plain",
     )
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="ublock",
+        hook_name="on_Snapshot__12_ublock",
+        status=ArchiveResult.StatusChoices.SKIPPED,
+        output_str="not applicable",
+    )
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="forumdl",
+        hook_name="on_Snapshot__50_forumdl",
+        status=ArchiveResult.StatusChoices.NORESULTS,
+        output_str="0 outputs",
+    )
 
     reset_count = snapshot.retry_failed_archiveresults()
 
@@ -402,6 +416,8 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
     assert result.output_mimetypes == ""
     assert result.start_ts is None
     assert result.end_ts is None
+    assert ArchiveResult.objects.get(snapshot=snapshot, plugin="ublock").status == ArchiveResult.StatusChoices.SKIPPED
+    assert ArchiveResult.objects.get(snapshot=snapshot, plugin="forumdl").status == ArchiveResult.StatusChoices.NORESULTS
     snapshot.refresh_from_db()
     assert snapshot.title in (None, "")
     _cleanup_machine_process_rows()

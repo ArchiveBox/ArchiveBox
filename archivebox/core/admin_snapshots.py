@@ -610,12 +610,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             if retried:
                 messages.success(
                     request,
-                    f"Queued {retried} failed/skipped extractors for retry on this snapshot.",
+                    f"Queued {retried} failed extractors for retry on this snapshot.",
                 )
             else:
                 messages.info(
                     request,
-                    "No failed/skipped extractors were found on this snapshot.",
+                    "No failed extractors were found on this snapshot.",
                 )
 
         return redirect(snapshot.admin_change_url)
@@ -1377,10 +1377,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         if queued:
             messages.success(
                 request,
-                f"Queued {queued} failed/skipped extractors for retry. The background runner will process them.",
+                f"Queued {queued} failed extractors for retry. The background runner will process them.",
             )
         else:
-            messages.info(request, "No failed/skipped extractors were found in the selected snapshots.")
+            messages.info(request, "No failed extractors were found in the selected snapshots.")
 
     @admin.action(
         description="🆕 Archive Now",
