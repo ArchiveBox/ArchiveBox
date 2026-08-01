@@ -1,9 +1,12 @@
 # Upgrading Versions
 
 ```bash
-# Native uv, apt, or brew install
-cd ~/archivebox/data
+# Update ArchiveBox using the package manager you originally installed it with
 uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+# or: sudo apt update && sudo apt install --only-upgrade archivebox
+# or: brew update && brew upgrade archivebox
+
+cd ~/archivebox/data
 archivebox init
 archivebox install
 archivebox update
