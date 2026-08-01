@@ -17,3 +17,9 @@ def test_setup_script_never_recursively_chowns_collection_data():
 
     assert 'chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$HOME/archivebox" "$HOME/archivebox/data"' in script
     assert "chown -R" not in "\n".join(line for line in script.splitlines() if "archivebox/data" in line)
+
+
+def test_setup_script_bootstraps_locked_abxpkg_version():
+    script = SETUP_SCRIPT.read_text()
+
+    assert 'ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.41}"' in script
