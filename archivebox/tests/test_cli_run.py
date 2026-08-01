@@ -1469,6 +1469,48 @@ class TestRecoverOrchestratorState:
         assert legacy_dir.is_symlink()
 
     @pytest.mark.django_db(transaction=True)
+    def test_run_due_snapshot_migrates_filesystem_after_sealed_parent_reconciliation(self):
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import run_due_snapshot
+
+        crawl = Crawl.objects.create(
+            urls="https://example.com/legacy-parent-sealed",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(
+            url="https://example.com/legacy-parent-sealed",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=timezone.now(),
+        )
+        Snapshot.objects.filter(pk=snapshot.pk).update(fs_version="0.8.0")
+        snapshot.refresh_from_db()
+        legacy_dir = snapshot.output_dir
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        (legacy_dir / "index.html").write_text("legacy archive", encoding="utf-8")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="wget",
+            hook_name="on_Snapshot__06_wget",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="index.html",
+        )
+
+        assert run_due_snapshot(snapshot, lock_seconds=60) is True
+
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.fs_version == Snapshot._fs_current_version()
+        assert snapshot.output_dir.joinpath("index.html").read_text(encoding="utf-8") == "legacy archive"
+        assert legacy_dir.is_symlink()
+
+    @pytest.mark.django_db(transaction=True)
     def test_run_due_snapshot_runs_queued_plugin_after_fs_migration(self):
         from django.utils import timezone
 

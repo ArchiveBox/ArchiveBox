@@ -1695,6 +1695,10 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         return False
     parent_reconciled = snapshot.reconcile_parent_lifecycle(lock_seconds=lock_seconds)
     if parent_reconciled is not None:
+        if parent_reconciled:
+            snapshot.refresh_from_db()
+            if snapshot.status == Snapshot.StatusChoices.SEALED and snapshot.fs_migration_needed:
+                return run_snapshot_maintenance(str(snapshot.id))
         return parent_reconciled
 
     if snapshot.is_paused:
