@@ -280,7 +280,7 @@ prepare_abxpkg_environment() {
     UV_BINARY="$ABXPKG_LIB_DIR/env/bin/uv"
     BOOTSTRAP_UV_BINARY="$UV_BINARY"
 
-    if resolve_setup_binary open env false; then
+    if resolve_setup_binary open env false 2>/dev/null; then
         OPEN_BINARY="$ABXPKG_LIB_DIR/env/bin/open"
     fi
 }
@@ -309,7 +309,7 @@ install_archivebox_with_uv() {
 }
 
 prepare_abxpkg_environment
-if resolve_setup_binary docker env false; then
+if resolve_setup_binary docker env false 2>/dev/null; then
     DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
 fi
 

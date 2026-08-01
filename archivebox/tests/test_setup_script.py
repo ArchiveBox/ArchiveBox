@@ -60,6 +60,13 @@ def test_setup_script_does_not_clear_without_a_terminal():
     assert "if [ -t 1 ]; then\n    clear\nfi" in script
 
 
+def test_setup_script_keeps_optional_binary_probes_quiet():
+    script = SETUP_SCRIPT.read_text()
+
+    assert "resolve_setup_binary open env false 2>/dev/null" in script
+    assert "resolve_setup_binary docker env false 2>/dev/null" in script
+
+
 def test_setup_script_moves_legacy_collection_without_moving_compose(tmp_path):
     script = SETUP_SCRIPT.read_text()
     function_prefix = script.partition("\ndocker_pull_archivebox() {")[0]
