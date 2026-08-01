@@ -1054,19 +1054,23 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """Get current ArchiveBox filesystem layout version."""
         return "0.9.4"
 
+    _FS_VERSION_MIGRATION_PATHS: ClassVar[dict[str, str]] = {
+        "0.7.0": "0.9.0",
+        "0.8.0": "0.9.0",
+        "0.9.0": "0.9.4",
+        "0.9.1": "0.9.4",
+        "0.9.2": "0.9.4",
+        "0.9.3": "0.9.4",
+    }
+
     @property
     def fs_migration_needed(self) -> bool:
         """Check if snapshot needs filesystem migration"""
         return self.fs_version != self._fs_current_version()
 
     def _fs_next_version(self, version: str) -> str:
-        """Get next version in migration chain (0.7/0.8 had same layout, only 0.8→0.9 migration needed)"""
-        # Treat 0.7.0 and 0.8.0 as equivalent (both used archive/{timestamp})
-        if version in ("0.7.0", "0.8.0"):
-            return "0.9.0"
-        if version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3"):
-            return "0.9.4"
-        return self._fs_current_version()
+        """Get the next declared version in the filesystem migration chain."""
+        return self._FS_VERSION_MIGRATION_PATHS.get(version, self._fs_current_version())
 
     @staticmethod
     def is_legacy_archive_dir(path: Path) -> bool:
@@ -1176,6 +1180,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return None
 
         if old_dir.is_symlink():
+            try:
+                points_to_target = new_dir.exists() and old_dir.resolve() == new_dir.resolve()
+            except OSError:
+                points_to_target = False
+            if not points_to_target:
+                raise SnapshotMigrationError(f"Legacy output symlink does not point to the expected target: {old_dir}")
+            self.convert_index_json_to_jsonl(output_dir=new_dir)
+            self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
             return None
 
         if not old_dir.exists():
@@ -1189,56 +1201,53 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             new_dir.parent.mkdir(parents=True, exist_ok=True)
             try:
                 old_dir.rename(new_dir)
+            except OSError:
+                pass
+            else:
                 self.convert_index_json_to_jsonl(output_dir=new_dir)
                 self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
                 return (old_dir, new_dir)
-            except OSError:
-                pass
 
-        new_dir.mkdir(parents=True, exist_ok=True)
+        def copy_file_without_overwriting(source: str, destination: str):
+            destination_path = Path(destination)
+            if os.path.lexists(destination_path):
+                if not destination_path.is_symlink() and destination_path.is_file() and filecmp.cmp(source, destination, shallow=False):
+                    return destination
+                raise SnapshotMigrationError(f"Migration would overwrite a different output: {destination_path}")
+            return shutil.copy2(source, destination)
 
-        # Copy all files idempotently. If a previous attempt already converted
-        # index.json to index.jsonl, recopying index.json is harmless; conversion
-        # below removes it again after ensuring index.jsonl exists.
-        for old_file in old_dir.rglob("*"):
-            if not old_file.is_file():
+        # copytree preserves unknown directories and symlinks. Remove only
+        # already-copied identical symlinks so interrupted migrations can retry.
+        for source in old_dir.rglob("*"):
+            if not source.is_symlink():
                 continue
+            destination = new_dir / source.relative_to(old_dir)
+            if destination.is_symlink() and destination.readlink() == source.readlink():
+                destination.unlink()
+            elif os.path.lexists(destination):
+                raise SnapshotMigrationError(f"Migration would overwrite a different output: {destination}")
 
-            rel_path = old_file.relative_to(old_dir)
-            new_file = new_dir / rel_path
+        shutil.copytree(
+            old_dir,
+            new_dir,
+            copy_function=copy_file_without_overwriting,
+            dirs_exist_ok=True,
+            symlinks=True,
+        )
 
-            # Skip if already copied
-            if (
-                new_file.exists()
-                and new_file.stat().st_size == old_file.stat().st_size
-                and filecmp.cmp(
-                    old_file,
-                    new_file,
-                    shallow=False,
-                )
-            ):
-                continue
-
-            new_file.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(old_file, new_file)
-
-        # Verify all copied
-        old_files = {f.relative_to(old_dir): f.stat().st_size for f in old_dir.rglob("*") if f.is_file()}
-        new_files = {f.relative_to(new_dir): f.stat().st_size for f in new_dir.rglob("*") if f.is_file()}
-
-        if old_files.keys() != new_files.keys():
-            missing = old_files.keys() - new_files.keys()
-            missing.discard(Path(CONSTANTS.JSON_INDEX_FILENAME))
-            if missing:
-                raise SnapshotMigrationError(f"Migration incomplete: missing {missing}")
-
-        for rel_path, old_size in old_files.items():
-            if rel_path == Path(CONSTANTS.JSON_INDEX_FILENAME):
-                continue
-            if new_files.get(rel_path) != old_size:
-                raise SnapshotMigrationError(f"Migration incomplete: size mismatch for {rel_path}")
-            if not filecmp.cmp(old_dir / rel_path, new_dir / rel_path, shallow=False):
-                raise SnapshotMigrationError(f"Migration incomplete: content mismatch for {rel_path}")
+        # Verify every source entry before the old tree is eligible for cleanup.
+        for source in old_dir.rglob("*"):
+            destination = new_dir / source.relative_to(old_dir)
+            if source.is_symlink():
+                copied = destination.is_symlink() and destination.readlink() == source.readlink()
+            elif source.is_dir():
+                copied = destination.is_dir() and not destination.is_symlink()
+            elif source.is_file():
+                copied = destination.is_file() and not destination.is_symlink() and filecmp.cmp(source, destination, shallow=False)
+            else:
+                raise SnapshotMigrationError(f"Migration cannot safely copy special output: {source}")
+            if not copied:
+                raise SnapshotMigrationError(f"Migration incomplete: {source.relative_to(old_dir)}")
 
         # Convert index.json to index.jsonl in the new directory.
         self.convert_index_json_to_jsonl(output_dir=new_dir)
@@ -1365,7 +1374,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                         break
             except OSError:
                 pass
-        elif json_path.exists():
+        if data is None and json_path.exists():
             try:
                 with open(json_path) as f:
                     data = json.load(f)
@@ -1464,7 +1473,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                         break
             except OSError:
                 pass
-        elif json_path.exists():
+        if data is None and json_path.exists():
             try:
                 with open(json_path) as f:
                     data = json.load(f)
@@ -1972,7 +1981,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """
         Convert index.json to index.jsonl format.
 
-        Reads existing index.json, creates index.jsonl, and removes index.json.
+        Reads existing index.json and creates index.jsonl while preserving the
+        original JSON byte-for-byte for unknown legacy metadata.
         Returns True if conversion was performed, False if no conversion needed.
         """
         import json
@@ -1981,9 +1991,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         json_path = output_dir / CONSTANTS.JSON_INDEX_FILENAME
         jsonl_path = output_dir / CONSTANTS.JSONL_INDEX_FILENAME
 
-        # Skip if already converted or no json file exists
+        # Skip if already converted or no json file exists. Keep a divergent
+        # legacy JSON index intact instead of silently discarding its metadata.
         if jsonl_path.exists():
-            json_path.unlink(missing_ok=True)
             return False
         if not json_path.exists():
             return False
@@ -2065,12 +2075,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         with open(tmp_jsonl_path, "w", encoding="utf-8") as f:
             f.write("".join(json.dumps(record) + "\n" for record in records))
         os.replace(tmp_jsonl_path, jsonl_path)
-
-        # Remove old index.json after successful conversion
-        try:
-            json_path.unlink()
-        except OSError:
-            pass
 
         return True
 
@@ -2656,7 +2660,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         Clean up background ArchiveResult hooks and empty results.
 
         Called by the state machine when entering the 'sealed' state.
-        Deletes empty ArchiveResults after the abx-dl cleanup phase has finished.
+        Reconcile late background outputs and hydrate result metadata.
         """
         # Clean up .pid files from output directory.
         output_dir = Path(self.output_dir)
@@ -2675,22 +2679,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         self.hydrate_archiveresult_output_metadata(snapshot_dir=output_dir)
 
-        # Delete ArchiveResults that produced no output files
-        empty_ars = (
-            self.archiveresult_set.filter(
-                output_files={},  # No output files
-            )
-            .filter(
-                status__in=ArchiveResult.FINAL_STATES,  # Only delete finished ones
-            )
-            .exclude(
-                status=ArchiveResult.StatusChoices.FAILED,
-            )
-        )
-
-        if empty_ars.exists():
-            deleted_count, _ = empty_ars.delete()
-            rprint(f"[yellow]🗑️  Deleted {deleted_count} empty ArchiveResults for {self.url}[/yellow]")
+        # Keep empty historical rows. ArchiveResults for the same plugin share
+        # one output directory, so deleting any row can remove another row's
+        # files, including log-only and otherwise unrecognized outputs.
 
     def to_json(self) -> dict:
         """
@@ -3921,11 +3912,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             models.Index(fields=["-start_ts", "-id"], name="archiveresult_start_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [
-            models.UniqueConstraint(
-                fields=["snapshot", "plugin", "hook_name"],
-                condition=~models.Q(hook_name=""),
-                name="unique_archiveresult_per_snapshot_hook",
-            ),
+            models.UniqueConstraint(fields=["snapshot", "plugin", "hook_name"], name="unique_archiveresult_per_snapshot_hook"),
         ]
 
     def __str__(self):

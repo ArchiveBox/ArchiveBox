@@ -94,7 +94,7 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
     Create a default crawl for migrated snapshots and assign all snapshots without a crawl to it.
     Uses raw SQL because the app registry isn't fully populated during migrations.
     """
-    # Legacy-data-only, sqlite-specific (PRAGMA + '?' placeholders). On a fresh
+    # Legacy-data-only and sqlite-specific because it uses PRAGMA introspection.
     # postgres install core_snapshot has no crawl_id column yet and there are no
     # unassigned snapshots, so gate before touching any SQL.
     if schema_editor.connection.vendor != "sqlite":
@@ -123,7 +123,7 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
         cursor.execute(
             """
             INSERT INTO auth_user (id, password, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined)
-            VALUES (1, '!', 1, 'system', '', '', '', 1, 1, ?)
+            VALUES (1, '!', 1, 'system', '', '', '', 1, 1, %s)
         """,
             [datetime.now().isoformat()],
         )
@@ -153,15 +153,15 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
             id, created_at, modified_at, num_uses_succeeded, num_uses_failed,
             urls, max_depth, tags_str, label, notes, {default_columns_sql}
             status, retry_at, created_by_id, schedule_id, config, persona_id
-        ) VALUES (?, ?, ?, 0, 0, ?, 0, '', 'Migrated from v0.7.2/v0.8.6',
+        ) VALUES (%s, %s, %s, 0, 0, %s, 0, '', 'Migrated from v0.7.2/v0.8.6',
                   'Auto-created crawl for migrated snapshots', {default_values_sql}
-                  'sealed', ?, 1, NULL, '{{}}', NULL)
+                  'sealed', %s, 1, NULL, '{{}}', NULL)
     """,
         [crawl_id, now, now, crawl_urls, now],
     )
 
     # Assign all snapshots without a crawl to the default crawl
-    cursor.execute("UPDATE core_snapshot SET crawl_id = ? WHERE crawl_id IS NULL", [crawl_id])
+    cursor.execute("UPDATE core_snapshot SET crawl_id = %s WHERE crawl_id IS NULL", [crawl_id])
 
     print(f"✓ Assigned {snapshots_without_crawl} snapshots to default crawl {crawl_id}")
 

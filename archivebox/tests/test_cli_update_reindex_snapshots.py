@@ -1,12 +1,13 @@
 import json
 import os
 from datetime import datetime, timedelta
-from archivebox.tests.conftest import run_archivebox_cmd, cli_env
+from archivebox.tests.conftest import cli_env, run_archivebox_cmd
 
 import pytest
 from django.utils import timezone
 
 from archivebox.core.models import Snapshot
+from archivebox.tests.migrations_helpers import filesystem_manifest
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -97,6 +98,7 @@ def test_update_imports_orphaned_snapshots(tmp_path, initialized_archive):
     legacy_dir = tmp_path / "archive" / legacy_timestamp
     legacy_dir.mkdir(parents=True, exist_ok=True)
     (legacy_dir / "singlefile.html").write_text("<html>example</html>")
+    (legacy_dir / "index.jsonl").write_text('{"type":"Process","id":"incomplete"}\n')
     (legacy_dir / "index.json").write_text(
         json.dumps(
             {
@@ -127,6 +129,55 @@ def test_update_imports_orphaned_snapshots(tmp_path, initialized_archive):
     assert migrated_dir.exists()
     assert (migrated_dir / "index.jsonl").exists()
     assert (migrated_dir / "singlefile.html").exists()
+
+
+@pytest.mark.parametrize("source_version", tuple(Snapshot._FS_VERSION_MIGRATION_PATHS))
+def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized_archive, source_version):
+    """Every declared hop must complete through the public maintenance command."""
+    env = cli_env(disable_extractors=True)
+    url = f"https://example.com/fs-{source_version}"
+    legacy_layout = source_version in ("0.7.0", "0.8.0")
+    if legacy_layout:
+        timestamp = f"170000000{list(Snapshot._FS_VERSION_MIGRATION_PATHS).index(source_version)}"
+        source_dir = tmp_path / "archive" / timestamp
+        source_dir.mkdir(parents=True, exist_ok=True)
+        (source_dir / "index.json").write_text(
+            json.dumps(
+                {
+                    "url": url,
+                    "timestamp": timestamp,
+                    "title": f"Filesystem {source_version}",
+                    "fs_version": source_version,
+                    "archive_results": [],
+                },
+            ),
+        )
+    else:
+        add_process = run_archivebox_cmd(["add", url], env=env, timeout=90)
+        assert add_process.returncode == 0, add_process.stderr
+        with use_archivebox_db(tmp_path):
+            snapshot = Snapshot.objects.get(url=url)
+            Snapshot.objects.filter(pk=snapshot.pk).update(fs_version=source_version)
+            snapshot.refresh_from_db()
+            source_dir = snapshot.output_dir
+
+    (source_dir / "unknown" / "empty").mkdir(parents=True, exist_ok=True)
+    (source_dir / "unknown" / "payload.bin").write_bytes(b"filesystem migration payload\x00\xff")
+    (source_dir / "unknown" / "payload-link").symlink_to("payload.bin")
+    original_tree = filesystem_manifest(source_dir)
+
+    for pass_number in (1, 2):
+        update_process = run_archivebox_cmd(["update", "--migrate-only"], env=env, timeout=90)
+        assert update_process.returncode == 0, f"Update pass {pass_number} failed: {update_process.stderr}"
+
+    with use_archivebox_db(tmp_path):
+        snapshot = Snapshot.objects.get(url=url)
+        assert snapshot.fs_version == Snapshot._fs_current_version()
+        migrated_tree = filesystem_manifest(snapshot.output_dir.resolve())
+
+    assert {path: migrated_tree.get(path) for path in original_tree} == original_tree
+    if legacy_layout:
+        assert source_dir.is_symlink()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -358,7 +409,7 @@ def test_reconcile_with_index_json_imports_legacy_archive_results_and_process(tm
     assert result.process is not None
     assert result.cmd == ["screenshot", snapshot.url]
     assert result.pwd == str(output_dir / "screenshot")
-    assert (output_dir / "index.json").exists() is False
+    assert (output_dir / "index.json").exists()
     jsonl_text = (output_dir / "index.jsonl").read_text()
     assert '"type": "ArchiveResult"' in jsonl_text
     assert '"type": "Process"' in jsonl_text

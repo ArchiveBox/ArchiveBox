@@ -1,189 +1,125 @@
-#!/usr/bin/env python3
-"""
-Migration tests from 0.4.x to 0.9.x.
+"""End-to-end migration coverage from the oldest Django ArchiveBox schema."""
 
-0.4.x was the first Django-powered version with a simpler schema:
-- No Tag model (tags stored as comma-separated string in Snapshot)
-- No ArchiveResult model (results stored in JSON files)
-"""
-
+import json
 import sqlite3
-
-import pytest
 
 from .migrations_helpers import (
     SCHEMA_0_4,
     create_data_dir_structure,
+    filesystem_manifest,
     run_archivebox_migration_cmd,
     seed_0_4_data,
-    verify_snapshot_count,
-    verify_snapshot_urls,
-    verify_tag_count,
 )
 
 
-@pytest.fixture
-def archive_04(tmp_path):
-    """Create a temporary directory with 0.4.x schema and data."""
-    db_path = tmp_path / "index.sqlite3"
+LEGACY_OUTPUTS = {
+    "title": ("title/title.txt", b"Example Domain\n"),
+    "favicon": ("favicon/favicon.ico", b"\x00\x00\x01\x00legacy-icon"),
+    "wget": ("wget/example.com/index.html", b"<html><body>legacy wget</body></html>"),
+    "singlefile": ("singlefile/singlefile.html", b"<html><body>legacy singlefile</body></html>"),
+    "pdf": ("pdf/output.pdf", b"%PDF-1.4\n% legacy pdf\n"),
+    "screenshot": ("screenshot/screenshot.png", b"\x89PNG\r\n\x1a\nlegacy screenshot"),
+    "dom": ("dom/output.html", b"<html><body>legacy dom</body></html>"),
+    "readability": ("readability/content.html", b"<article>legacy readability</article>"),
+    "mercury": ("mercury/content.html", b"<article>legacy mercury</article>"),
+    "git": ("git/repository/HEAD", b"ref: refs/heads/main\n"),
+    "media": ("media/video.info.json", b'{"title":"legacy media"}'),
+    "headers": ("headers/headers.json", b'{"Content-Type":"text/html"}'),
+    "archivedotorg": ("archivedotorg/location.txt", b"https://web.archive.org/example"),
+}
 
-    # Create directory structure
+
+def test_oldest_django_collection_migrates_end_to_end_without_data_loss(tmp_path):
+    """Exercise the same init/update/status/list sequence used by an upgrading user."""
     create_data_dir_structure(tmp_path)
+    db_path = tmp_path / "index.sqlite3"
+    with sqlite3.connect(db_path) as connection:
+        connection.executescript(SCHEMA_0_4)
+    original = seed_0_4_data(db_path)
 
-    # Create database with 0.4.x schema
-    conn = sqlite3.connect(str(db_path))
-    conn.executescript(SCHEMA_0_4)
-    conn.close()
+    # DEBUG=True is common in old ArchiveBox.conf files and exercises Django's
+    # debug cursor while every historical data migration runs.
+    (tmp_path / "ArchiveBox.conf").write_text("[SERVER_CONFIG]\nDEBUG = True\n")
 
-    # Seed with test data
-    original_data = seed_0_4_data(db_path)
+    original_trees = {}
+    for index, snapshot in enumerate(original["snapshots"]):
+        snapshot_dir = tmp_path / "archive" / snapshot["timestamp"]
+        snapshot_dir.mkdir(parents=True)
+        history = {}
+        if index == 0:
+            for offset, (extractor, (relative_path, payload)) in enumerate(LEGACY_OUTPUTS.items()):
+                output_path = snapshot_dir / relative_path
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_bytes(payload)
+                history[extractor] = [
+                    {
+                        "cmd": [extractor, "--version"],
+                        "cmd_version": "legacy-1.0",
+                        "pwd": str(snapshot_dir),
+                        "start_ts": f"2024-01-01T12:00:{offset:02d}+00:00",
+                        "end_ts": f"2024-01-01T12:01:{offset:02d}+00:00",
+                        "status": "succeeded",
+                        "output": relative_path,
+                    },
+                ]
 
-    return tmp_path, db_path, original_data
+            (snapshot_dir / "unknown-plugin" / "duplicate-output").mkdir(parents=True)
+            (snapshot_dir / "unknown-plugin" / "duplicate-output" / "payload.bin").write_bytes(b"unknown payload\x00\xff")
+            (snapshot_dir / "unknown-plugin" / "duplicate-output" / "payload-link").symlink_to("payload.bin")
+            (snapshot_dir / "unknown-empty-dir" / "nested").mkdir(parents=True)
 
+        legacy_index = {
+            "url": snapshot["url"],
+            "timestamp": snapshot["timestamp"],
+            "title": snapshot["title"],
+            "tags": snapshot["tags"],
+            "history": history,
+            "custom_legacy_metadata": {"must": "survive"},
+        }
+        (snapshot_dir / "index.json").write_text(json.dumps(legacy_index, indent=2, sort_keys=True))
+        original_trees[snapshot["timestamp"]] = filesystem_manifest(snapshot_dir)
 
-def test_migration_preserves_snapshot_count(archive_04):
-    """Migration should preserve all snapshots from 0.4.x."""
-    work_dir, db_path, original_data = archive_04
-    expected_count = len(original_data["snapshots"])
+    result = run_archivebox_migration_cmd(tmp_path, ["init"], timeout=90)
+    assert result.returncode == 0, result.stderr
+    for pass_number in (1, 2):
+        result = run_archivebox_migration_cmd(tmp_path, ["update"], timeout=180)
+        assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
 
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
+    for command in (["status"], ["list", "--json"]):
+        result = run_archivebox_migration_cmd(tmp_path, command, timeout=60)
+        assert result.returncode == 0, result.stderr
 
-    ok, msg = verify_snapshot_count(db_path, expected_count)
-    assert ok, msg
+    for timestamp, expected_tree in original_trees.items():
+        legacy_dir = tmp_path / "archive" / timestamp
+        assert legacy_dir.is_symlink()
+        migrated_tree = filesystem_manifest(legacy_dir.resolve())
+        assert {path: migrated_tree.get(path) for path in expected_tree} == expected_tree
 
+    with sqlite3.connect(db_path) as connection:
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert connection.execute("SELECT COUNT(*) FROM core_snapshot").fetchone()[0] == len(original["snapshots"])
+        assert connection.execute("SELECT COUNT(*) FROM core_archiveresult WHERE hook_name = ''").fetchone()[0] == len(LEGACY_OUTPUTS)
+        assert connection.execute("SELECT COUNT(*) FROM core_archiveresult WHERE hook_name = '' AND process_id IS NOT NULL").fetchone()[
+            0
+        ] == len(
+            LEGACY_OUTPUTS,
+        )
+        migrated_plugins = {
+            plugin
+            for (plugin,) in connection.execute(
+                "SELECT plugin FROM core_archiveresult WHERE hook_name = ''",
+            )
+        }
+        assert migrated_plugins == set(LEGACY_OUTPUTS)
 
-def test_migration_preserves_snapshot_urls(archive_04):
-    """Migration should preserve all snapshot URLs from 0.4.x."""
-    work_dir, db_path, original_data = archive_04
-    expected_urls = [s["url"] for s in original_data["snapshots"]]
+        expected_tags = {tag.strip() for tags in original["tags_str"] for tag in tags.split(",")}
+        assert {name for (name,) in connection.execute("SELECT name FROM core_tag")} == expected_tags
 
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_snapshot_urls(db_path, expected_urls)
-    assert ok, msg
-
-
-def test_migration_converts_string_tags_to_model(archive_04):
-    """Migration should convert comma-separated tags to Tag model instances."""
-    work_dir, db_path, original_data = archive_04
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    # Collect unique tags from original data
-    original_tags = set()
-    for tags_str in original_data["tags_str"]:
-        if tags_str:
-            for tag in tags_str.split(","):
-                original_tags.add(tag.strip())
-
-    # Tags should have been created
-    ok, msg = verify_tag_count(db_path, len(original_tags))
-    assert ok, msg
-
-
-def test_migration_preserves_snapshot_titles(archive_04):
-    """Migration should preserve all snapshot titles."""
-    work_dir, db_path, original_data = archive_04
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT url, title FROM core_snapshot")
-    actual = {row[0]: row[1] for row in cursor.fetchall()}
-    conn.close()
-
-    for snapshot in original_data["snapshots"]:
-        assert actual.get(snapshot["url"]) == snapshot["title"], f"Title mismatch for {snapshot['url']}"
-
-
-def test_status_works_after_migration(archive_04):
-    """Status command should work after migration."""
-    work_dir, _db_path, _original_data = archive_04
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    result = run_archivebox_migration_cmd(work_dir, ["status"])
-    assert result.returncode == 0, f"Status failed after migration: {result.stderr}"
-
-
-def test_list_works_after_migration(archive_04):
-    """List command should work and show ALL migrated snapshots."""
-    work_dir, _db_path, original_data = archive_04
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    result = run_archivebox_migration_cmd(work_dir, ["list"])
-    assert result.returncode == 0, f"List failed after migration: {result.stderr}"
-
-    # Verify ALL snapshots appear in output
-    output = result.stdout + result.stderr
-    for snapshot in original_data["snapshots"]:
-        url_fragment = snapshot["url"][:30]
-        assert url_fragment in output, f"Snapshot {snapshot['url']} not found in list output"
-
-
-def test_add_works_after_migration(archive_04):
-    """Adding new URLs should work after migration from 0.4.x."""
-    work_dir, db_path, _original_data = archive_04
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    # Try to add a new URL after migration
-    result = run_archivebox_migration_cmd(work_dir, ["add", "--index-only", "https://example.com/new-page"], timeout=45)
-    assert result.returncode == 0, f"Add failed after migration: {result.stderr}"
-    result = run_archivebox_migration_cmd(work_dir, ["run"], timeout=90)
-    assert result.returncode == 0, f"Run failed after migration: {result.stderr}"
-
-    # Verify add queued the new crawl after migration.
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM crawls_crawl WHERE urls LIKE '%example.com/new-page%'")
-    count = cursor.fetchone()[0]
-    conn.close()
-
-    assert count == 1, "New crawl was not created after migration"
-
-
-def test_new_schema_elements_created(archive_04):
-    """Migration should create new 0.9.x schema elements."""
-    work_dir, db_path, _original_data = archive_04
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-    tables = {row[0] for row in cursor.fetchall()}
-    conn.close()
-
-    # New tables should exist
-    assert "crawls_crawl" in tables, "crawls_crawl table not created"
-    assert "core_tag" in tables, "core_tag table not created"
-    assert "core_archiveresult" in tables, "core_archiveresult table not created"
-
-
-def test_snapshots_have_new_fields(archive_04):
-    """Migrated snapshots should have new 0.9.x fields."""
-    work_dir, db_path, _original_data = archive_04
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("PRAGMA table_info(core_snapshot)")
-    columns = {row[1] for row in cursor.fetchall()}
-    conn.close()
-
-    required_columns = {"status", "depth", "created_at", "modified_at"}
-    for col in required_columns:
-        assert col in columns, f"Snapshot missing new column: {col}"
+        migrated_snapshots = {
+            url: title
+            for url, title in connection.execute(
+                "SELECT url, title FROM core_snapshot",
+            )
+        }
+        assert migrated_snapshots == {snapshot["url"]: snapshot["title"] for snapshot in original["snapshots"]}

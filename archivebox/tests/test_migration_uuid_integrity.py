@@ -21,7 +21,6 @@ def test_0029_preserves_duplicate_and_malformed_legacy_uuids(tmp_path):
 
     duplicate_uuid = "12345678123456781234567812345678"
     conn = sqlite3.connect(db_path)
-    conn.execute("ALTER TABLE core_archiveresult ADD COLUMN uuid CHAR(32) NOT NULL DEFAULT ''")
     source_rows = conn.execute(
         "SELECT id, snapshot_id, extractor, status, output FROM core_archiveresult ORDER BY id",
     ).fetchall()

@@ -2,22 +2,17 @@ from django.db import migrations, models
 
 
 def deduplicate_archiveresults_per_hook(apps, schema_editor):
-    """Drop duplicate modern ArchiveResult rows per hook.
+    """Give historical duplicate rows unique hook identities.
 
     Real long-lived collections (cabbage's demo, beta-tester DBs) accumulated
-    multiple rows per hook over the dev rc chain. The next operation adds a
-    conditional UniqueConstraint on that tuple; without this cleanup pass the
-    constraint fails with ``UNIQUE constraint failed`` mid-migration and bricks
-    startup. Legacy rows all have an empty hook_name and represent extractor
-    history, so preserve them. Keep the row with the highest id for each modern
-    non-empty hook.
+    multiple rows per hook. Preserve every row while keeping the newest row on
+    the canonical hook identity expected by the current scheduler. Older rows
+    receive deterministic historical identities before the existing unique
+    constraint is added.
     """
     ArchiveResult = apps.get_model("core", "ArchiveResult")
     duplicate_groups = (
-        ArchiveResult.objects.exclude(hook_name="")
-        .values("snapshot_id", "plugin", "hook_name")
-        .annotate(count=models.Count("id"))
-        .filter(count__gt=1)
+        ArchiveResult.objects.values("snapshot_id", "plugin", "hook_name").annotate(count=models.Count("id")).filter(count__gt=1)
     )
     for group in duplicate_groups.iterator(chunk_size=200):
         lookup = {
@@ -25,9 +20,10 @@ def deduplicate_archiveresults_per_hook(apps, schema_editor):
             "plugin": group["plugin"],
             "hook_name": group["hook_name"],
         }
-        keep = ArchiveResult.objects.filter(**lookup).order_by("-id").values_list("id", flat=True).first()
-        if keep is not None:
-            ArchiveResult.objects.filter(**lookup).exclude(id=keep).delete()
+        rows = list(ArchiveResult.objects.filter(**lookup).order_by("-id").values_list("id", flat=True))
+        for row_id in rows[1:]:
+            historical_name = f"__legacy_history__{row_id}"[:255]
+            ArchiveResult.objects.filter(id=row_id).update(hook_name=historical_name)
 
 
 class Migration(migrations.Migration):
@@ -44,7 +40,6 @@ class Migration(migrations.Migration):
             model_name="archiveresult",
             constraint=models.UniqueConstraint(
                 fields=("snapshot", "plugin", "hook_name"),
-                condition=~models.Q(hook_name=""),
                 name="unique_archiveresult_per_snapshot_hook",
             ),
         ),

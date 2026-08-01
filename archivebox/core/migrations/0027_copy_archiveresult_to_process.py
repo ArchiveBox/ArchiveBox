@@ -51,7 +51,7 @@ def get_or_create_current_machine(cursor):
     guid = f"host_{hostname}"  # Simple but stable identifier
 
     # Check if machine exists
-    cursor.execute("SELECT id FROM machine_machine WHERE guid = ?", [guid])
+    cursor.execute("SELECT id FROM machine_machine WHERE guid = %s", [guid])
     row = cursor.fetchone()
 
     if row:
@@ -76,7 +76,7 @@ def get_or_create_current_machine(cursor):
                 hw_in_docker, hw_in_vm, hw_manufacturer, hw_product, hw_uuid,
                 os_arch, os_family, os_platform, os_release, os_kernel,
                 stats, config, num_uses_failed, num_uses_succeeded
-            ) VALUES (?, ?, ?, ?, ?, 0, 0, '', '', '',
+            ) VALUES (%s, %s, %s, %s, %s, 0, 0, '', '', '',
                       '', '', '', '', '', '{}', '{}', 0, 0)
         """,
             [machine_id, now, now, guid, hostname],
@@ -90,7 +90,7 @@ def get_or_create_current_machine(cursor):
                 hw_in_docker, hw_in_vm, hw_manufacturer, hw_product, hw_uuid,
                 os_arch, os_family, os_platform, os_release, os_kernel,
                 stats, num_uses_failed, num_uses_succeeded
-            ) VALUES (?, ?, ?, ?, ?, 0, 0, '', '', '',
+            ) VALUES (%s, %s, %s, %s, %s, 0, 0, '', '', '',
                       '', '', '', '', '', '{}', 0, 0)
         """,
             [machine_id, now, now, guid, hostname],
@@ -125,7 +125,7 @@ def get_or_create_binary(cursor, machine_id, name, abspath, version):
     cursor.execute(
         """
         SELECT id FROM machine_binary
-        WHERE machine_id = ? AND name = ? AND abspath = ? AND version = ?
+        WHERE machine_id = %s AND name = %s AND abspath = %s AND version = %s
     """,
         [machine_id, name, abspath, version],
     )
@@ -162,7 +162,7 @@ def get_or_create_binary(cursor, machine_id, name, abspath, version):
         "num_uses_succeeded": 0,
     }
     insert_cols = [col for col in values_by_col if col in binary_cols]
-    placeholders = ", ".join(["?"] * len(insert_cols))
+    placeholders = ", ".join(["%s"] * len(insert_cols))
     cursor.execute(
         f"""
         INSERT INTO machine_binary ({", ".join(insert_cols)})
@@ -244,7 +244,7 @@ def create_process(cursor, machine_id, pwd, cmd, status, exit_code, started_at, 
         "num_uses_succeeded": 0,
     }
     insert_cols = [col for col in values_by_col if col in process_cols]
-    placeholders = ", ".join(["?"] * len(insert_cols))
+    placeholders = ", ".join(["%s"] * len(insert_cols))
     cursor.execute(
         f"""
         INSERT INTO machine_process ({", ".join(insert_cols)})
@@ -275,7 +275,7 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
     - failed → exited (exit_code=1)
     - skipped → exited (exit_code=None)
     """
-    # sqlite-only legacy data copy (PRAGMA introspection, '?' placeholders).
+    # sqlite-only legacy data copy because it uses PRAGMA introspection.
     # A postgres install can never contain legacy ArchiveResult cmd/pwd data at
     # this point, so there is nothing to copy into machine_process. The
     # RemoveField ops below are real (non-state-only) and drop the now-empty
@@ -364,7 +364,7 @@ def copy_archiveresult_data_to_process(apps, schema_editor):
 
         # Link ArchiveResult to Process
         cursor.execute(
-            "UPDATE core_archiveresult SET process_id = ? WHERE id = ?",
+            "UPDATE core_archiveresult SET process_id = %s WHERE id = %s",
             [process_id, ar_id],
         )
         if cursor.rowcount != 1:

@@ -166,7 +166,7 @@ def upgrade_core_tables(apps, schema_editor):
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
                         created_at, modified_at, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                     (
                         values["id"],
@@ -206,7 +206,7 @@ def upgrade_core_tables(apps, schema_editor):
                         uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
                         created_at, modified_at, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                     (
                         new_uuid,
@@ -242,7 +242,7 @@ def upgrade_core_tables(apps, schema_editor):
                         id, uuid, snapshot_id, cmd, pwd, cmd_version,
                         start_ts, end_ts, status, extractor, output,
                         created_at, modified_at, notes
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                     (
                         values["id"],
@@ -489,7 +489,7 @@ def upgrade_core_tables(apps, schema_editor):
                     # Insert with new INTEGER ID
                     insert_values = {"id": i, **values}
                     cursor.execute(
-                        f"INSERT OR IGNORE INTO core_tag_new ({', '.join(insert_values)}) VALUES ({', '.join('?' for _ in insert_values)})",
+                        f"INSERT OR IGNORE INTO core_tag_new ({', '.join(insert_values)}) VALUES ({', '.join('%s' for _ in insert_values)})",
                         tuple(insert_values.values()),
                     )
                     if i % PROGRESS_EVERY == 0:
@@ -511,7 +511,7 @@ def upgrade_core_tables(apps, schema_editor):
                             cursor.execute(
                                 """
                                 INSERT OR IGNORE INTO core_snapshot_tags (id, snapshot_id, tag_id)
-                                VALUES (?, ?, ?)
+                                VALUES (%s, %s, %s)
                             """,
                                 (st_id, snapshot_id, new_tag_id),
                             )

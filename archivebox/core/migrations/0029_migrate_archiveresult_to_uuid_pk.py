@@ -170,7 +170,7 @@ def migrate_archiveresult_id_to_uuid(apps, schema_editor):
         # Build INSERT statement (only copy fields that exist in source)
         existing_fields = [f for f in fields_to_copy if f in values]
 
-        placeholders = ", ".join(["?"] * (len(existing_fields) + 1))  # +1 for id
+        placeholders = ", ".join(["%s"] * (len(existing_fields) + 1))  # +1 for id
         field_list = "id, " + ", ".join(existing_fields)
 
         insert_values = [new_uuid] + [values.get(f) for f in existing_fields]

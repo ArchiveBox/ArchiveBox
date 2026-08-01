@@ -9,6 +9,7 @@ This module provides:
 """
 
 import json
+import hashlib
 import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
@@ -33,7 +34,7 @@ CREATE TABLE IF NOT EXISTS django_migrations (
 -- Core tables for 0.4.x
 CREATE TABLE IF NOT EXISTS core_snapshot (
     id CHAR(32) PRIMARY KEY,
-    url VARCHAR(2000) NOT NULL UNIQUE,
+    url VARCHAR(200) NOT NULL UNIQUE,
     timestamp VARCHAR(32) NOT NULL UNIQUE,
     title VARCHAR(128),
     tags VARCHAR(256),
@@ -135,7 +136,7 @@ CREATE TABLE IF NOT EXISTS core_tag (
 
 CREATE TABLE IF NOT EXISTS core_snapshot (
     id CHAR(32) PRIMARY KEY,
-    url VARCHAR(2000) NOT NULL UNIQUE,
+    url VARCHAR(200) NOT NULL UNIQUE,
     timestamp VARCHAR(32) NOT NULL UNIQUE,
     title VARCHAR(512),
     added DATETIME NOT NULL,
@@ -155,6 +156,7 @@ CREATE TABLE IF NOT EXISTS core_snapshot_tags (
 
 CREATE TABLE IF NOT EXISTS core_archiveresult (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid CHAR(32) NOT NULL,
     snapshot_id CHAR(32) NOT NULL REFERENCES core_snapshot(id),
     extractor VARCHAR(32) NOT NULL,
     cmd TEXT,
@@ -638,10 +640,11 @@ def seed_0_7_data(db_path: Path) -> dict[str, list[dict]]:
             cursor.execute(
                 """
                 INSERT INTO core_archiveresult
-                (snapshot_id, extractor, cmd, pwd, cmd_version, output, start_ts, end_ts, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (uuid, snapshot_id, extractor, cmd, pwd, cmd_version, output, start_ts, end_ts, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
+                    generate_uuid(),
                     snapshot_id,
                     extractor,
                     json.dumps([extractor, "--version"]),
@@ -1041,6 +1044,23 @@ def create_data_dir_structure(data_dir: Path):
     (data_dir / "archive").mkdir(parents=True, exist_ok=True)
     (data_dir / "sources").mkdir(parents=True, exist_ok=True)
     (data_dir / "logs").mkdir(parents=True, exist_ok=True)
+
+
+def filesystem_manifest(root: Path) -> dict[str, tuple[str, str | int]]:
+    """Describe every file, directory, and symlink below a snapshot output directory."""
+    manifest = {}
+    for path in root.rglob("*"):
+        relative_path = str(path.relative_to(root))
+        if path.is_symlink():
+            manifest[relative_path] = ("symlink", str(path.readlink()))
+        elif path.is_dir():
+            manifest[relative_path] = ("directory", 0)
+        elif path.is_file():
+            with path.open("rb") as file:
+                manifest[relative_path] = ("file", hashlib.file_digest(file, "sha256").hexdigest())
+        else:
+            manifest[relative_path] = ("special", path.lstat().st_mode)
+    return manifest
 
 
 def verify_snapshot_count(db_path: Path, expected: int) -> tuple[bool, str]:

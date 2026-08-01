@@ -13,12 +13,15 @@ Migration tests from 0.8.x to 0.9.x.
 import sqlite3
 import json
 import uuid
+from datetime import datetime
+from urllib.parse import urlparse
 
 import pytest
 
 from .migrations_helpers import (
     SCHEMA_0_7,
     SCHEMA_0_8,
+    filesystem_manifest,
     seed_0_8_data,
     seed_0_7_data,
     run_archivebox_migration_cmd,
@@ -676,20 +679,37 @@ def test_update_preserves_distinct_legacy_dirs_with_integer_and_float_timestamps
 
 
 def test_update_preserves_legacy_plugin_directory_without_output_files(migration_08_data):
-    """Legacy plugin files must survive while empty output_files metadata is hydrated."""
+    """Duplicate empty rows must not delete shared log-only plugin outputs."""
     work_dir, db_path, original_data = migration_08_data
     snapshot = original_data["snapshots"][0]
     conn = sqlite3.connect(str(db_path))
     conn.execute(
-        "UPDATE core_archiveresult SET extractor = 'media', output = 'media/' WHERE snapshot_id = ? AND extractor = 'singlefile'",
+        "UPDATE core_archiveresult SET extractor = 'media', output = '' WHERE snapshot_id = ? AND extractor = 'singlefile'",
+        (snapshot["id"],),
+    )
+    conn.execute(
+        """
+        INSERT INTO core_archiveresult (
+            uuid, created_by_id, created_at, modified_at, snapshot_id, extractor,
+            pwd, cmd, cmd_version, output, start_ts, end_ts, status, retry_at,
+            notes, output_dir, iface_id, config, num_uses_failed, num_uses_succeeded
+        )
+        SELECT lower(hex(randomblob(16))), created_by_id, created_at, modified_at,
+            snapshot_id, extractor, pwd, cmd, cmd_version, output, start_ts,
+            end_ts, status, retry_at, notes, output_dir, iface_id, config,
+            num_uses_failed, num_uses_succeeded
+        FROM core_archiveresult
+        WHERE snapshot_id = ? AND extractor = 'media'
+        """,
         (snapshot["id"],),
     )
     conn.commit()
     conn.close()
 
-    legacy_output = work_dir / "archive" / snapshot["timestamp"] / "media" / "track.info.json"
+    legacy_output = work_dir / "archive" / snapshot["timestamp"] / "media" / "stderr.log"
     legacy_output.parent.mkdir(parents=True, exist_ok=True)
-    legacy_output.write_text('{"title": "legacy media payload"}')
+    legacy_output.write_text("legacy diagnostic output")
+    (legacy_output.parent / "empty" / "nested").mkdir(parents=True)
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
@@ -697,299 +717,129 @@ def test_update_preserves_legacy_plugin_directory_without_output_files(migration
         result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
         assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
 
-    migrated_outputs = list((work_dir / "archive" / "users").glob("*/snapshots/*/*/*/media/track.info.json"))
+    migrated_outputs = list((work_dir / "archive" / "users").glob("*/snapshots/*/*/*/media/stderr.log"))
     assert len(migrated_outputs) == 1
-    assert migrated_outputs[0].read_text() == '{"title": "legacy media payload"}'
+    assert migrated_outputs[0].read_text() == "legacy diagnostic output"
+    assert (migrated_outputs[0].parent / "empty" / "nested").is_dir()
 
     conn = sqlite3.connect(str(db_path))
-    row = conn.execute(
-        "SELECT output_files FROM core_archiveresult WHERE snapshot_id = ? AND plugin = 'media'",
+    rows = conn.execute(
+        "SELECT output_str, output_files, hook_name FROM core_archiveresult WHERE snapshot_id = ? AND plugin = 'media'",
         (snapshot["id"],),
-    ).fetchone()
+    ).fetchall()
     conn.close()
-    assert row is not None
-    assert "track.info.json" in json.loads(row[0])
+    assert len(rows) == 2
+    assert all(output_str == "" for output_str, _output_files, _hook_name in rows)
+    assert len({hook_name for _output_str, _output_files, hook_name in rows}) == 2
+    assert sum(not hook_name for _output_str, _output_files, hook_name in rows) == 1
 
 
-def test_archiveresult_files_preserved_after_migration(tmp_path):
-    """
-    Test that ArchiveResult output files are reorganized into new structure.
+def test_07_filesystem_hop_preserves_complete_output_tree(tmp_path):
+    """Validate the public init/update path, including the merge fallback and retry."""
+    db_path = tmp_path / "index.sqlite3"
+    create_data_dir_structure(tmp_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.executescript(SCHEMA_0_7)
+    original = seed_0_7_data(db_path)
 
-    This test verifies that:
-    1. Migration preserves ArchiveResult data in Process/Binary records
-    2. Running `archivebox update` reorganizes files into new structure
-    3. New structure: archive/users/username/snapshots/YYYYMMDD/example.com/snap-uuid-here/output.ext
-    4. All files are moved (no data loss)
-    5. Old archive/timestamp/ directories are cleaned up
-    """
-    work_dir = tmp_path
-    db_path = work_dir / "index.sqlite3"
-    create_data_dir_structure(work_dir)
-    conn = sqlite3.connect(str(db_path))
-    conn.executescript(SCHEMA_0_7)
-    conn.close()
-    original_data = seed_0_7_data(db_path)
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    for i, snapshot in enumerate(original_data["snapshots"]):
-        legacy_timestamp = "1609459200.123456" if i == 0 else str(1704110400 + (i * 86400))
-        cursor.execute(
-            "UPDATE core_snapshot SET timestamp = ? WHERE id = ?",
-            (legacy_timestamp, snapshot["id"]),
+    with sqlite3.connect(db_path) as connection:
+        connection.execute(
+            "UPDATE core_archiveresult SET output = 'Legacy Title Only' WHERE snapshot_id = ? AND extractor = 'title'",
+            (original["snapshots"][0]["id"],),
         )
-        cursor.execute(
-            "UPDATE core_archiveresult SET pwd = ? WHERE snapshot_id = ?",
-            (f"/data/archive/{legacy_timestamp}", snapshot["id"]),
-        )
-        snapshot["timestamp"] = legacy_timestamp
-    conn.commit()
-    conn.close()
+        original_results = connection.execute(
+            """
+            SELECT snapshot_id, extractor, status, output, start_ts, end_ts
+            FROM core_archiveresult
+            ORDER BY snapshot_id, extractor, start_ts
+            """,
+        ).fetchall()
 
-    sample_files = [
-        "favicon.ico",
-        "screenshot.png",
-        "singlefile.html",
-        "headers.json",
-    ]
-    for snapshot in original_data["snapshots"]:
-        snapshot_dir = work_dir / "archive" / snapshot["timestamp"]
-        snapshot_dir.mkdir(parents=True, exist_ok=True)
-        (snapshot_dir / "index.json").write_text(
-            json.dumps(
-                {
-                    "url": snapshot["url"],
-                    "timestamp": snapshot["timestamp"],
-                    "title": snapshot["title"],
-                },
-            ),
-        )
-        for sample_file in sample_files:
-            (snapshot_dir / sample_file).write_text(f"{snapshot['url']}::{sample_file}")
+    output_payloads = {
+        "favicon.ico": b"\x00\x00\x01\x00legacy icon",
+        "screenshot.png": b"\x89PNG\r\n\x1a\nlegacy screenshot",
+        "singlefile.html": b"<html><body>legacy singlefile</body></html>",
+        "wget/example.com/index.html": b"<html><body>legacy wget</body></html>",
+    }
+    original_trees = {}
+    for index, snapshot in enumerate(original["snapshots"]):
+        snapshot_dir = tmp_path / "archive" / snapshot["timestamp"]
+        snapshot_dir.mkdir(parents=True)
+        for relative_path, payload in output_payloads.items():
+            output_path = snapshot_dir / relative_path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_bytes(payload + snapshot["url"].encode())
+        legacy_index = {
+            "url": snapshot["url"],
+            "timestamp": snapshot["timestamp"],
+            "title": snapshot["title"],
+            "sources": ["sources/legacy-import.txt"],
+            "history": {},
+            "custom_legacy_metadata": {"must": "survive"},
+        }
+        (snapshot_dir / "index.json").write_text(json.dumps(legacy_index, indent=2, sort_keys=True))
+        if index == 0:
+            unknown_dir = snapshot_dir / "unknown-plugin" / "duplicate-output"
+            unknown_dir.mkdir(parents=True)
+            (unknown_dir / "payload.bin").write_bytes(b"unknown payload\x00\xff")
+            (unknown_dir / "payload-link").symlink_to("payload.bin")
+            (snapshot_dir / "unknown-empty-dir" / "nested").mkdir(parents=True)
+        original_trees[snapshot["timestamp"]] = filesystem_manifest(snapshot_dir)
 
-    # Count archive directories and files BEFORE migration
-    archive_dir = work_dir / "archive"
-    dirs_before = [d for d in archive_dir.glob("*") if d.name.replace(".", "").isdigit()] if archive_dir.exists() else []
-    dirs_before_count = len([d for d in dirs_before if d.is_dir()])
+    result = run_archivebox_migration_cmd(tmp_path, ["init"], timeout=90)
+    assert result.returncode == 0, result.stderr
 
-    # Count total files in all archive directories
-    files_before = []
-    for d in dirs_before:
-        if d.is_dir():
-            files_before.extend([f for f in d.rglob("*") if f.is_file()])
-    files_before_count = len(files_before)
-    generated_metadata_names = {"index.html", "index.json", "index.jsonl"}
-    generated_search_backends = {"search_backend_sqlite", "search_backend_sonic"}
+    first_snapshot = original["snapshots"][0]
+    with sqlite3.connect(db_path) as connection:
+        username, bookmarked_at, snapshot_id, url = connection.execute(
+            """
+            SELECT u.username, s.bookmarked_at, s.id, s.url
+            FROM core_snapshot s
+            JOIN crawls_crawl c ON c.id = s.crawl_id
+            JOIN auth_user u ON u.id = c.created_by_id
+            WHERE s.id = ?
+            """,
+            (first_snapshot["id"],),
+        ).fetchone()
 
-    def is_generated_file(path) -> bool:
-        return path.name in generated_metadata_names or any(part in generated_search_backends for part in path.parts)
+    date_bucket = datetime.fromisoformat(bookmarked_at).strftime("%Y%m%d")
+    destination = tmp_path / "archive" / "users" / username / "snapshots" / date_bucket / urlparse(url).hostname / snapshot_id
+    partial_unknown = destination / "unknown-plugin" / "duplicate-output"
+    partial_unknown.mkdir(parents=True)
+    (partial_unknown / "payload.bin").write_bytes(b"unknown payload\x00\xff")
+    (partial_unknown / "payload-link").symlink_to("payload.bin")
+    (destination / "preexisting-output.bin").write_bytes(b"destination-only output")
 
-    original_payloads = sorted(path.read_text() for path in files_before if not is_generated_file(path))
+    for pass_number in (1, 2):
+        result = run_archivebox_migration_cmd(tmp_path, ["update"], timeout=180)
+        assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
 
-    # Sample some specific files to check they're preserved
-    sample_paths_before = {}
-    for d in dirs_before:
-        if d.is_dir():
-            for sample_file in sample_files:
-                matching = list(d.glob(sample_file))
-                if matching:
-                    sample_paths_before[f"{d.name}/{sample_file}"] = matching[0]
+    for timestamp, expected_tree in original_trees.items():
+        legacy_dir = tmp_path / "archive" / timestamp
+        assert legacy_dir.is_symlink()
+        migrated_tree = filesystem_manifest(legacy_dir.resolve())
+        assert {path: migrated_tree.get(path) for path in expected_tree} == expected_tree
+    assert (destination / "preexisting-output.bin").read_bytes() == b"destination-only output"
 
-    print(f"\n[*] Archive directories before migration: {dirs_before_count}")
-    print(f"[*] Total files before migration: {files_before_count}")
-    print(f"[*] Sample files found: {len(sample_paths_before)}")
+    with sqlite3.connect(db_path) as connection:
+        migrated_results = connection.execute(
+            """
+            SELECT snapshot_id, plugin, status, output_str, start_ts, end_ts
+            FROM core_archiveresult
+            WHERE hook_name = ''
+            ORDER BY snapshot_id, plugin, start_ts
+            """,
+        ).fetchall()
+        assert migrated_results == original_results
+        assert connection.execute(
+            "SELECT COUNT(*) FROM core_archiveresult WHERE hook_name = '' AND process_id IS NOT NULL",
+        ).fetchone()[0] == len(original_results)
+        assert connection.execute(
+            "SELECT output_str FROM core_archiveresult WHERE plugin = 'title' AND hook_name = '' ORDER BY start_ts LIMIT 1",
+        ).fetchone() == ("Legacy Title Only",)
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
 
-    # Run init to trigger migration
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
-    assert result.returncode == 0, f"Init (migration) failed: {result.stderr}"
-
-    # Count archive directories and files AFTER migration
-    dirs_after = [d for d in archive_dir.glob("*") if d.name.replace(".", "").isdigit()] if archive_dir.exists() else []
-    dirs_after_count = len([d for d in dirs_after if d.is_dir()])
-
-    files_after = []
-    for d in dirs_after:
-        if d.is_dir():
-            files_after.extend([f for f in d.rglob("*") if f.is_file()])
-    files_after_count = len(files_after)
-
-    # Verify sample files still exist
-    sample_paths_after = {}
-    for d in dirs_after:
-        if d.is_dir():
-            for sample_file in sample_files:
-                matching = list(d.glob(sample_file))
-                if matching:
-                    sample_paths_after[f"{d.name}/{sample_file}"] = matching[0]
-
-    print(f"[*] Archive directories after migration: {dirs_after_count}")
-    print(f"[*] Total files after migration: {files_after_count}")
-    print(f"[*] Sample files found: {len(sample_paths_after)}")
-
-    # Verify files still in old structure after migration (not moved yet)
-    assert dirs_before_count == dirs_after_count, f"Archive directories lost during migration: {dirs_before_count} -> {dirs_after_count}"
-    assert files_before_count == files_after_count, f"Files lost during migration: {files_before_count} -> {files_after_count}"
-
-    # Run update to trigger filesystem reorganization
-    print("\n[*] Running archivebox update to reorganize filesystem...")
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
-    assert result.returncode == 0, f"Update failed: {result.stderr}"
-
-    # Check new filesystem structure
-    # New structure: archive/users/username/snapshots/YYYYMMDD/example.com/snap-uuid-here/output.ext
-    users_dir = work_dir / "archive" / "users"
-    snapshots_base = None
-
-    if users_dir.exists():
-        # Find the snapshots directory
-        for user_dir in users_dir.iterdir():
-            if user_dir.is_dir():
-                user_snapshots = user_dir / "snapshots"
-                if user_snapshots.exists():
-                    snapshots_base = user_snapshots
-                    break
-
-    print(f"[*] New structure base: {snapshots_base}")
-
-    # Count files in new structure
-    # Structure: archive/users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/files...
-    files_new_structure = []
-    new_sample_files = {}
-
-    if snapshots_base and snapshots_base.exists():
-        for date_dir in snapshots_base.iterdir():
-            if date_dir.is_dir():
-                for domain_dir in date_dir.iterdir():
-                    if domain_dir.is_dir():
-                        for snap_dir in domain_dir.iterdir():
-                            if snap_dir.is_dir():
-                                # Files are directly in snap-uuid/ directory (no plugin subdirs)
-                                for f in snap_dir.rglob("*"):
-                                    if f.is_file():
-                                        files_new_structure.append(f)
-                                        # Track sample files
-                                        if f.name in sample_files:
-                                            new_sample_files[f"{snap_dir.name}/{f.name}"] = f
-
-    files_new_count = len(files_new_structure)
-    print(f"[*] Files in new structure: {files_new_count}")
-    print(f"[*] Sample files in new structure: {len(new_sample_files)}")
-
-    migrated_2021_files = list(users_dir.glob("*/snapshots/20210101/*/*/favicon.ico"))
-    assert len(migrated_2021_files) > 0, "Legacy snapshot should be bucketed by normalized bookmarked_at, not created_at/import time"
-
-    crawl_snapshot_links = list(users_dir.glob("*/crawls/*/*/*/snapshots/*/*"))
-    crawl_snapshot_symlinks = [path for path in crawl_snapshot_links if path.is_symlink()]
-    crawl_dirs = list(users_dir.glob("*/crawls/*/*/*"))
-    print(f"[*] Crawl snapshot symlinks: {len(crawl_snapshot_symlinks)}")
-
-    # Check old structure (should be gone or empty)
-    old_archive_dir = work_dir / "archive"
-    old_files_remaining = []
-    unmigrated_dirs = []
-    if old_archive_dir.exists():
-        for d in old_archive_dir.glob("*"):
-            # Only count REAL directories, not symlinks (symlinks are the migrated ones)
-            if d.is_dir(follow_symlinks=False) and d.name.replace(".", "").isdigit():
-                # This is a timestamp directory (old structure)
-                files_in_dir = [f for f in d.rglob("*") if f.is_file()]
-                if files_in_dir:
-                    unmigrated_dirs.append((d.name, len(files_in_dir)))
-                    old_files_remaining.extend(files_in_dir)
-
-    old_files_count = len(old_files_remaining)
-    print(f"[*] Files remaining in old structure: {old_files_count}")
-    if unmigrated_dirs:
-        print(f"[*] Unmigrated directories: {unmigrated_dirs}")
-
-    # CRITICAL: Verify files were moved to new structure
-    assert files_new_count > 0, "No files found in new structure after update"
-
-    assert len(crawl_snapshot_symlinks) > 0, "No crawl snapshot symlinks created for migrated snapshots"
-
-    assert not any((crawl_dir / "index.jsonl").exists() for crawl_dir in crawl_dirs), (
-        "Migrated crawl dirs should match normal 0.9 crawl dirs and not add crawl index.jsonl files"
-    )
-
-    # CRITICAL: Verify old structure is cleaned up
-    assert old_files_count == 0, f"Old structure not cleaned up: {old_files_count} files still in archive/timestamp/ directories"
-
-    # CRITICAL: Verify all original payload files were moved. The 0.9 lazy
-    # maintenance pass also writes fresh index.jsonl/index.html metadata from
-    # the hydrated DB row, so raw file counts are allowed to increase; compare
-    # the legacy payload contents after excluding those generated metadata
-    # files to keep the no-data-loss assertion strict.
-    migrated_payloads = sorted(path.read_text() for path in [*files_new_structure, *old_files_remaining] if not is_generated_file(path))
-    assert original_payloads == migrated_payloads, "Legacy payload files changed or were lost during reorganization"
-    assert files_new_count >= files_before_count, "New 0.9 metadata should not replace legacy payload files"
-
-    # CRITICAL: Verify sample files exist in new structure
-    assert len(new_sample_files) > 0, "Sample files not found in new structure"
-
-    # Verify new path format
-    for path_key, file_path in new_sample_files.items():
-        # Path should contain: snapshots/YYYYMMDD/domain/snap-uuid/plugin/file
-        path_parts = file_path.parts
-        assert "snapshots" in path_parts, f"New path should contain 'snapshots': {file_path}"
-        assert "users" in path_parts, f"New path should contain 'users': {file_path}"
-        print(f"    ✓ {path_key} → {file_path.relative_to(work_dir)}")
-
-    # Verify Process and Binary records were created
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT COUNT(*) FROM core_archiveresult")
-    archiveresult_count = cursor.fetchone()[0]
-
-    original_plugins = sorted({row["extractor"] for row in original_data["archiveresults"]})
-    cursor.execute(
-        f"SELECT COUNT(*) FROM core_archiveresult WHERE plugin IN ({','.join('?' for _ in original_plugins)})",
-        original_plugins,
-    )
-    legacy_archiveresult_count = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM machine_process")
-    process_count = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM machine_binary")
-    binary_count = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE process_id IS NOT NULL")
-    linked_count = cursor.fetchone()[0]
-
-    cursor.execute(
-        f"SELECT COUNT(*) FROM core_archiveresult WHERE plugin IN ({','.join('?' for _ in original_plugins)}) AND process_id IS NOT NULL",
-        original_plugins,
-    )
-    legacy_linked_count = cursor.fetchone()[0]
-
-    conn.close()
-
-    print(f"[*] ArchiveResults: {archiveresult_count}")
-    print(f"[*] Process records created: {process_count}")
-    print(f"[*] Binary records created: {binary_count}")
-    print(f"[*] ArchiveResults linked to Process: {linked_count}")
-
-    # Verify data migration happened correctly. A full `archivebox update` may
-    # add new maintenance ArchiveResults (e.g. search index backfills), so keep
-    # the strict preservation assertion scoped to the legacy extractor plugins
-    # that came from the old DB rows.
-    assert archiveresult_count >= len(original_data["archiveresults"]), "Full update should not delete ArchiveResult rows"
-    assert legacy_archiveresult_count == len(original_data["archiveresults"]), (
-        f"Expected {len(original_data['archiveresults'])} migrated legacy ArchiveResults, got {legacy_archiveresult_count}"
-    )
-
-    # Each legacy ArchiveResult should create one linked Process record. The
-    # command/worker rows created by `archivebox update` itself can increase the
-    # total process count, but they must not replace or orphan migrated process
-    # metadata.
-    assert process_count >= len(original_data["archiveresults"]), (
-        f"Expected at least {len(original_data['archiveresults'])} Process records, got {process_count}"
-    )
-
-    assert binary_count == 5, f"Expected 5 unique Binary records, got {binary_count}"
-
-    # ALL legacy ArchiveResults should be linked to Process records
-    assert linked_count >= len(original_data["archiveresults"]), "Full update should not unlink migrated ArchiveResult processes"
-    assert legacy_linked_count == len(original_data["archiveresults"]), (
-        f"Expected all {len(original_data['archiveresults'])} legacy ArchiveResults linked to Process, got {legacy_linked_count}"
-    )
+    crawl_snapshot_links = list((tmp_path / "archive" / "users").glob("*/crawls/*/*/*/snapshots/*/*"))
+    assert crawl_snapshot_links
+    assert all(path.is_symlink() for path in crawl_snapshot_links)
