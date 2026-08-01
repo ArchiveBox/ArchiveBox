@@ -657,7 +657,7 @@ def test_live_daemonized_server_keeps_supervisord_owned_by_archivebox_parent(ini
             lambda proc, command: proc.ppid() == server_process.pid and "supervisord" in command,
         )
         find_process(
-            lambda proc, command: proc.ppid() == supervisord.pid and "supervisord_watchdog" in command,
+            lambda proc, command: proc.ppid() == supervisord.pid and "supervisord_parent_watchdog.py" in command,
         )
 
         os.kill(server_process.pid, signal.SIGTERM)
