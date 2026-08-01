@@ -3921,7 +3921,11 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             models.Index(fields=["-start_ts", "-id"], name="archiveresult_start_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [
-            models.UniqueConstraint(fields=["snapshot", "plugin", "hook_name"], name="unique_archiveresult_per_snapshot_hook"),
+            models.UniqueConstraint(
+                fields=["snapshot", "plugin", "hook_name"],
+                condition=~models.Q(hook_name=""),
+                name="unique_archiveresult_per_snapshot_hook",
+            ),
         ]
 
     def __str__(self):
