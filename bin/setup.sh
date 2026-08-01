@@ -283,6 +283,7 @@ prepare_abxpkg_environment() {
     if resolve_setup_binary open env false 2>/dev/null; then
         OPEN_BINARY="$ABXPKG_LIB_DIR/env/bin/open"
     fi
+    fix_root_install_ownership
 }
 
 resolve_setup_curl() {
@@ -291,6 +292,7 @@ resolve_setup_curl() {
 }
 
 install_archivebox_with_uv() {
+    resolve_setup_binary git env,brew,apt true
     echo
     echo "[+] Installing ArchiveBox python tool using uv from $ARCHIVEBOX_PACKAGE..."
     "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" --upgrade "$ARCHIVEBOX_PACKAGE"
