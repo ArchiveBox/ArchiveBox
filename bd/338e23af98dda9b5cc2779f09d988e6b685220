@@ -1,0 +1,23 @@
+archivebox/tests/test_migration_uuid_integrity.py
+  s_69ddf154c10e6f::t_55f14071db0f6b 33-36
+  s_69ddf154c10e6f::t_16cf27ce8adceb 1-32,37-56
+archivebox/core/migrations/0029_migrate_archiveresult_to_uuid_pk.py
+  s_69ddf154c10e6f::t_55f14071db0f6b 140
+  s_69ddf154c10e6f::t_a911423639d69d 4,35,104-123,127,132,178-184,189-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "bd338e23af98dda9b5cc2779f09d988e6b685220",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

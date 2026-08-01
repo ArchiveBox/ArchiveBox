@@ -1,0 +1,58 @@
+archivebox/core/migrations/0027_copy_archiveresult_to_process.py
+  s_69ddf154c10e6f::t_123699557da8e0 54,79,93,128,165,247,278,367
+archivebox/tests/test_migrations_08_to_09.py
+  s_69ddf154c10e6f::t_124538fc10a0db 682,687-703,709,711-712,720,722-723,726,729,731
+  s_69ddf154c10e6f::t_179411b6c1a44c 16-17,24,737-748,750-811,813-815,817-845
+  s_69ddf154c10e6f::t_306a3a5760c30e 727,732-734
+  s_69ddf154c10e6f::t_2ab636e9286a20 735-736
+archivebox/core/migrations/0024_assign_default_crawl.py
+  s_69ddf154c10e6f::t_123699557da8e0 97,126,156,158,164
+archivebox/core/migrations/0029_migrate_archiveresult_to_uuid_pk.py
+  s_69ddf154c10e6f::t_123699557da8e0 173
+archivebox/core/migrations/0023_upgrade_to_0_9_0.py
+  s_69ddf154c10e6f::t_123699557da8e0 169,209,245,492,514
+archivebox/tests/migrations_helpers.py
+  s_69ddf154c10e6f::t_a6b80fe164bc90 12,1049-1063
+  s_69ddf154c10e6f::t_d1b1bb6a686ee9 37,159,643-644,647
+  s_69ddf154c10e6f::t_f3783383d70a5f 139
+  s_69ddf154c10e6f::t_5b96e42af2d41e 1064-1065
+archivebox/tests/test_migrations_04_to_09.py
+  s_69ddf154c10e6f::t_4dc569c3000f55 1,3,9,15-33,35-123
+  s_69ddf154c10e6f::t_6dce5e7fe9ee25 124-125
+archivebox/core/models.py
+  s_69ddf154c10e6f::t_d84760acfc8f89 1377,1476
+  s_69ddf154c10e6f::t_16dc44755877fb 1057-1065,1072-1073
+  s_69ddf154c10e6f::t_3a491ed5632c21 1211-1222,1224-1236,1238-1250
+  s_69ddf154c10e6f::t_a9510abd37604b 1984-1985,1994-1995
+  s_69ddf154c10e6f::t_27323c5fa24f05 3915
+  s_69ddf154c10e6f::t_124538fc10a0db 2682-2684
+  s_69ddf154c10e6f::t_5365ad09974fa4 1183-1190,1204-1206
+  s_69ddf154c10e6f::t_f5a56bebbb70ba 2663
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_69ddf154c10e6f::t_db4e7b34f419f9 139-163,179-180
+  s_69ddf154c10e6f::t_16dc44755877fb 4,10,134-138,164-178
+  s_69ddf154c10e6f::t_a9510abd37604b 412
+  s_69ddf154c10e6f::t_d84760acfc8f89 101
+  s_69ddf154c10e6f::t_7edd4d9784e361 181-182
+docs/Upgrading.md
+  s_69ddf154c10e6f::t_7dbe94fbde3827 29
+  s_69ddf154c10e6f::t_131bc20d02774f 30
+archivebox/core/migrations/0045_archiveresult_unique_hook.py
+  s_69ddf154c10e6f::t_27323c5fa24f05 5,8-11,15,23-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "7611a57917e721bff509f6d2854251e628f058d7",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
