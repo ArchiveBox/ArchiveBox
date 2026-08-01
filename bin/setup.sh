@@ -102,6 +102,13 @@ fix_root_install_ownership() {
         return 0
     fi
 
+    # Keep shared runtime parents writable after ArchiveBox drops privileges.
+    for path in "$HOME/.local" "$HOME/.local/share" "$HOME/.cache" "$HOME/.cache/archivebox"; do
+        if [ -e "$path" ]; then
+            chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$path"
+        fi
+    done
+
     for path in "$HOME/.local/bin" "$HOME/.local/share/uv" "$HOME/.cache/uv" "$ABXPKG_LIB_DIR"; do
         if [ -e "$path" ]; then
             chown -R "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$path"

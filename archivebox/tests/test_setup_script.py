@@ -21,6 +21,13 @@ def test_setup_script_never_recursively_chowns_collection_data():
     assert "chown -R" not in "\n".join(line for line in script.splitlines() if "archivebox/data" in line)
 
 
+def test_setup_script_gives_archivebox_user_ownership_of_runtime_parent_dirs():
+    script = SETUP_SCRIPT.read_text()
+
+    assert 'for path in "$HOME/.local" "$HOME/.local/share" "$HOME/.cache" "$HOME/.cache/archivebox"; do' in script
+    assert 'chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$path"' in script
+
+
 def test_setup_script_bootstraps_locked_abxpkg_version():
     script = SETUP_SCRIPT.read_text()
 
