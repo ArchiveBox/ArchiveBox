@@ -45,6 +45,7 @@ _ACTIVE_WORKER_STATES = {"STARTING", "RUNNING", "BACKOFF"}
 _RUNTIME_COMPONENT_ORDER = ("orchestrator", "server", "sonic")
 _SUPERVISORD_ERRORS = (XmlRpcError, OSError, RuntimeError, TimeoutError)
 _PROCESS_STATE_ERRORS = (DatabaseError, OSError, RuntimeError, ValueError, psutil.Error)
+MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES = 256 * 1024 * 1024
 
 
 def _shell_join(args: list[str]) -> str:
@@ -53,6 +54,47 @@ def _shell_join(args: list[str]) -> str:
 
 def _warn_background_cleanup(context: str, err: BaseException) -> None:
     STDERR.print(f"[yellow][!] {context}: {err!s}[/yellow]")
+
+
+def _read_cgroup_limit(path: Path) -> int | None:
+    try:
+        raw_value = path.read_text().strip()
+        return None if raw_value == "max" else int(raw_value)
+    except (OSError, ValueError):
+        return None
+
+
+def effective_available_memory_bytes() -> int:
+    available = psutil.virtual_memory().available + psutil.swap_memory().free
+
+    cgroup_root = Path("/sys/fs/cgroup")
+    memory_max = _read_cgroup_limit(cgroup_root / "memory.max")
+    memory_current = _read_cgroup_limit(cgroup_root / "memory.current")
+    swap_max = _read_cgroup_limit(cgroup_root / "memory.swap.max")
+    swap_current = _read_cgroup_limit(cgroup_root / "memory.swap.current")
+    if memory_max is not None and memory_current is not None:
+        cgroup_available = max(memory_max - memory_current, 0)
+        if swap_max is not None and swap_current is not None:
+            cgroup_available += max(swap_max - swap_current, 0)
+        available = min(available, cgroup_available)
+
+    return available
+
+
+def require_server_worker_memory(available_bytes: int | None = None) -> None:
+    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
+    if available_bytes >= MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES:
+        return
+
+    available_mib = available_bytes // (1024 * 1024)
+    required_mib = MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES // (1024 * 1024)
+    STDERR.print("[red][X] Not enough available memory to start ArchiveBox safely.[/red]")
+    STDERR.print(
+        f"    Available RAM + swap: {available_mib} MiB; at least {required_mib} MiB must be free before starting the server workers.",
+    )
+    STDERR.print("    No server, runner, or Sonic workers were started.")
+    STDERR.print("    Use a host/container with at least 1 GB RAM or configure swap, then run the same command again.")
+    raise SystemExit(1)
 
 
 def archivebox_cmd(*args: str) -> list[str]:
@@ -1383,6 +1425,7 @@ def start_server_workers(
 ):
     from archivebox.config.common import get_config
 
+    require_server_worker_memory()
     config = get_config()
     shutdown_state = None
     tail_result = "stopped"

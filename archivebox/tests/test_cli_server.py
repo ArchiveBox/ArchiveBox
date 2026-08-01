@@ -277,6 +277,22 @@ def test_supervisord_parent_watchdog_does_not_start_another_archivebox_runtime()
     assert "manage" not in command
 
 
+def test_server_worker_memory_preflight_fails_before_starting_supervisord(capsys):
+    from archivebox.workers.supervisord_util import (
+        MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES,
+        require_server_worker_memory,
+    )
+
+    require_server_worker_memory(MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES)
+    with pytest.raises(SystemExit) as err:
+        require_server_worker_memory(MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES - 1)
+
+    assert err.value.code == 1
+    output = capsys.readouterr().err
+    assert "Not enough available memory" in output
+    assert "No server, runner, or Sonic workers were started" in output
+
+
 def test_reload_workers_use_active_archivebox_module():
     from archivebox.workers.supervisord_util import RUNNER_WATCH_WORKER, RUNSERVER_WORKER, archivebox_cmd
 
