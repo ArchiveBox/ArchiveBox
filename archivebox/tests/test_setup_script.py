@@ -1,3 +1,5 @@
+import os
+import subprocess
 from pathlib import Path
 
 
@@ -43,3 +45,32 @@ def test_setup_script_prints_root_safe_runtime_commands():
     assert 'nohup "$ARCHIVEBOX_BINARY" server' not in script
     assert '"$DOCKER_BINARY" rm -f archivebox' in script
     assert "--connect-timeout 1 --max-time 2" in script
+
+
+def test_setup_script_moves_legacy_collection_without_moving_compose(tmp_path):
+    script = SETUP_SCRIPT.read_text()
+    function_prefix = script.partition("\ndocker_pull_archivebox() {")[0]
+    harness = tmp_path / "setup-functions.sh"
+    harness.write_text(function_prefix)
+
+    archivebox_home = tmp_path / "archivebox"
+    data_dir = archivebox_home / "data"
+    data_dir.mkdir(parents=True)
+    (data_dir / "existing.txt").write_text("keep")
+    (archivebox_home / "index.sqlite3").write_text("legacy-db")
+    (archivebox_home / ".archivebox_id").write_text("legacy-id")
+    (archivebox_home / "docker-compose.yml").write_text("services: {}")
+
+    result = subprocess.run(
+        ["bash", "-c", 'source "$1"; migrate_legacy_collection_dir', "bash", str(harness)],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "HOME": str(tmp_path), "TERM": "xterm"},
+        timeout=10,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert (data_dir / "existing.txt").read_text() == "keep"
+    assert (data_dir / "index.sqlite3").read_text() == "legacy-db"
+    assert (data_dir / ".archivebox_id").read_text() == "legacy-id"
+    assert (archivebox_home / "docker-compose.yml").read_text() == "services: {}"
