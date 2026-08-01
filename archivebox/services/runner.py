@@ -1783,6 +1783,9 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
             finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
             snapshot.refresh_from_db()
             if snapshot.status == Snapshot.StatusChoices.SEALED:
+                if snapshot.fs_migration_needed:
+                    run_snapshot_maintenance(str(snapshot.id))
+                    snapshot.refresh_from_db()
                 _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
                 return True
         # A Snapshot with no hook rows is fresh lifecycle work; materialize its
@@ -1799,6 +1802,9 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
         snapshot.refresh_from_db()
         if snapshot.status == Snapshot.StatusChoices.SEALED:
+            if snapshot.fs_migration_needed:
+                run_snapshot_maintenance(str(snapshot.id))
+                snapshot.refresh_from_db()
             _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
             return True
     if snapshot.status == Snapshot.StatusChoices.STARTED:
