@@ -4,7 +4,7 @@
 #   - Install Documentation: https://github.com/ArchiveBox/ArchiveBox/wiki/Install
 # Script Usage:
 #    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash
-#           (aka https://docker-compose.archivebox.io)
+#           (aka https://get.archivebox.io)
 
 ### Bash Environment Setup
 # http://redsymbol.net/articles/unofficial-bash-strict-mode/

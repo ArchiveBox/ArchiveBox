@@ -63,7 +63,7 @@ mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 # (shortcut for getting https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml)
 
-# initialize your collection and create an admin user for the Web UI (or set ADMIN_USERNAME/ADMIN_PASSWORD env vars)
+# initialize your collection, then create an admin user for the Web UI (or set ADMIN_USERNAME/ADMIN_PASSWORD env vars)
 docker compose run archivebox init
 docker compose run archivebox manage createsuperuser
 ```

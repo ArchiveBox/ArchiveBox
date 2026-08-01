@@ -72,6 +72,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
 docker compose run archivebox init
+docker compose run archivebox manage createsuperuser
 # docker compose run archivebox add 'https://example.com'
 # docker compose run archivebox help
 # docker compose up
@@ -183,8 +184,9 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 # Read and edit docker-compose.yml options as-needed after downloading
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 </code></pre></li>
-<li>Run the initial setup to create an admin user (or set ADMIN_USER/PASS in docker-compose.yml)
+<li>Initialize the collection, then create an admin user (or set ADMIN_USERNAME/ADMIN_PASSWORD in docker-compose.yml)
 <pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init
+docker compose run archivebox manage createsuperuser
 </code></pre></li>
 <li>Next steps: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up
@@ -297,8 +299,7 @@ sudo apt install archivebox
 </code></pre>
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
-<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox
-sudo install -d -o archivebox -g archivebox ~/archivebox/data
+<pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
 archivebox install
@@ -320,7 +321,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" height="28px" align="top"/> <code>brew</code></b> (macOS only)</summary>
+<summary><b><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" height="28px" align="top"/> <code>brew</code></b> (macOS and Linux)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://brew.sh/#install">Homebrew</a> on your system (if not already installed).</li>

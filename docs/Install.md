@@ -140,8 +140,7 @@ echo 'deb [trusted=yes] https://archivebox.github.io/debian-archivebox dev main'
 sudo apt update
 sudo apt install archivebox
 
-mkdir -p ~/archivebox
-sudo install -d -o archivebox -g archivebox ~/archivebox/data
+mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
 archivebox install
