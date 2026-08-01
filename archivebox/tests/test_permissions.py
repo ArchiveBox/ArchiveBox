@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from archivebox.config.permissions import select_archivebox_user
 
 
@@ -44,3 +46,35 @@ def test_non_root_uses_current_effective_identity():
         account_uid=None,
         account_gid=None,
     ) == (501, 20)
+
+
+def test_root_init_hands_off_only_an_empty_data_dir(tmp_path):
+    from archivebox.config.permissions import root_data_dir_handoff_paths
+
+    assert root_data_dir_handoff_paths(tmp_path, ["archivebox", "init"]) == (tmp_path,)
+
+    unrelated = tmp_path / "unrelated.txt"
+    unrelated.write_text("keep root ownership")
+    assert root_data_dir_handoff_paths(tmp_path, ["archivebox", "init"]) == ()
+
+
+def test_existing_collection_handoff_is_bounded_to_known_top_level_paths(tmp_path):
+    from archivebox.config.permissions import root_data_dir_handoff_paths
+
+    database = tmp_path / "index.sqlite3"
+    archive = tmp_path / "archive"
+    nested = archive / "large-existing-snapshot"
+    database.touch()
+    nested.mkdir(parents=True)
+
+    paths = root_data_dir_handoff_paths(tmp_path, ["archivebox", "status"])
+
+    assert paths == (tmp_path, database, archive)
+    assert nested not in paths
+    assert all(path == tmp_path or path.parent == tmp_path for path in paths)
+
+
+def test_root_handoff_never_selects_filesystem_root():
+    from archivebox.config.permissions import root_data_dir_handoff_paths
+
+    assert root_data_dir_handoff_paths(Path("/"), ["archivebox", "init"]) == ()

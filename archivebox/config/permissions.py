@@ -113,19 +113,73 @@ except KeyError:
     ARCHIVEBOX_USER_EXISTS = False
 
 
+ROOT_HANDOFF_NAMES = (
+    ".archivebox_id",
+    "ArchiveBox.conf",
+    "index.sqlite3",
+    "index.sqlite3-shm",
+    "index.sqlite3-wal",
+    "archive",
+    "cache",
+    "lib",
+    "logs",
+    "personas",
+    "sonic",
+    "sources",
+    "tmp",
+    "users",
+)
+
+
+def root_data_dir_handoff_paths(data_dir: Path, argv: list[str]) -> tuple[Path, ...]:
+    """Return bounded top-level paths safe to hand from root to archivebox."""
+
+    data_dir = data_dir.resolve()
+    if data_dir == Path("/"):
+        return ()
+
+    try:
+        children = tuple(data_dir.iterdir())
+    except (FileNotFoundError, PermissionError):
+        return ()
+
+    is_init = "init" in argv[1:]
+    collection_exists = any((data_dir / marker).exists() for marker in (".archivebox_id", "ArchiveBox.conf", "index.sqlite3"))
+    if not collection_exists and not (is_init and not children):
+        return ()
+
+    return (data_dir, *(data_dir / name for name in ROOT_HANDOFF_NAMES if (data_dir / name).exists()))
+
+
+def handoff_root_owned_data_dir() -> None:
+    if not (IS_ROOT and DATA_DIR_UID == 0 and ARCHIVEBOX_ACCOUNT is not None):
+        return
+
+    for path in root_data_dir_handoff_paths(DATA_DIR, sys.argv):
+        try:
+            os.chown(path, ARCHIVEBOX_ACCOUNT.pw_uid, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
+        except (FileNotFoundError, PermissionError):
+            pass
+
+
 #############################################################################################
 
 
 def drop_privileges():
     """If running as root, drop privileges to the data dir owner or archivebox user."""
 
+    handoff_root_owned_data_dir()
+
     # Always run ArchiveBox as the user that owns the data dir, or as the
     # archivebox service account when the data dir is root-owned.
-    if os.getuid() == 0 and os.geteuid() != ARCHIVEBOX_USER and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
-        os.seteuid(ARCHIVEBOX_USER)
+    if os.getuid() == 0 and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
+        pw_record = pwd.getpwuid(ARCHIVEBOX_USER)
+        if os.getegid() != ARCHIVEBOX_GROUP:
+            os.setegid(ARCHIVEBOX_GROUP)
+        if os.geteuid() != ARCHIVEBOX_USER:
+            os.seteuid(ARCHIVEBOX_USER)
 
         # update environment variables so that subprocesses dont try to write to /root
-        pw_record = pwd.getpwuid(ARCHIVEBOX_USER)
         os.environ["HOME"] = pw_record.pw_dir
         os.environ["LOGNAME"] = pw_record.pw_name
         os.environ["USER"] = pw_record.pw_name

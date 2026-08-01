@@ -183,12 +183,10 @@ def check_io_encoding():
 
 
 def check_not_root():
-    from archivebox.config.permissions import IS_ROOT
-
     is_getting_help = "-h" in sys.argv or "--help" in sys.argv or "help" in sys.argv
     is_getting_version = "--version" in sys.argv or "version" in sys.argv
 
-    if IS_ROOT and not (is_getting_help or is_getting_version):
+    if os.geteuid() == 0 and not (is_getting_help or is_getting_version):
         print("[yellow][!] Running ArchiveBox as root is not recommended.[/yellow]", file=sys.stderr)
         print("    Root-owned DATA_DIR files may be inaccessible to non-root users later.", file=sys.stderr)
         print("        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root", file=sys.stderr)
