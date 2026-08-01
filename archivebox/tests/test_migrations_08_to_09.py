@@ -674,6 +674,41 @@ def test_update_preserves_distinct_legacy_dirs_with_integer_and_float_timestamps
     assert not (work_dir / "invalid").exists()
 
 
+def test_update_preserves_legacy_plugin_directory_without_output_files(migration_08_data):
+    """Legacy plugin files must survive while empty output_files metadata is hydrated."""
+    work_dir, db_path, original_data = migration_08_data
+    snapshot = original_data["snapshots"][0]
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        "UPDATE core_archiveresult SET extractor = 'media', output = 'media/' WHERE snapshot_id = ? AND extractor = 'singlefile'",
+        (snapshot["id"],),
+    )
+    conn.commit()
+    conn.close()
+
+    legacy_output = work_dir / "archive" / snapshot["timestamp"] / "media" / "track.info.json"
+    legacy_output.parent.mkdir(parents=True, exist_ok=True)
+    legacy_output.write_text('{"title": "legacy media payload"}')
+
+    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
+    assert result.returncode == 0, f"Init failed: {result.stderr}"
+    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
+    assert result.returncode == 0, f"Update failed: {result.stderr}"
+
+    migrated_outputs = list((work_dir / "archive" / "users").glob("*/snapshots/*/*/*/media/track.info.json"))
+    assert len(migrated_outputs) == 1
+    assert migrated_outputs[0].read_text() == '{"title": "legacy media payload"}'
+
+    conn = sqlite3.connect(str(db_path))
+    row = conn.execute(
+        "SELECT output_files FROM core_archiveresult WHERE snapshot_id = ? AND plugin = 'media'",
+        (snapshot["id"],),
+    ).fetchone()
+    conn.close()
+    assert row is not None
+    assert "track.info.json" in json.loads(row[0])
+
+
 def test_archiveresult_files_preserved_after_migration(tmp_path):
     """
     Test that ArchiveResult output files are reorganized into new structure.

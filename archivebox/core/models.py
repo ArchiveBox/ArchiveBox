@@ -1147,6 +1147,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             old_crawl_dir.rename(crawl_dir)
         return cleanup
 
+    def hydrate_archiveresult_output_metadata(self, snapshot_dir: Path | None = None) -> int:
+        """Populate missing ArchiveResult file metadata from existing outputs."""
+        hydrated = 0
+        for result in self.archiveresult_set.filter(output_files={}).iterator():
+            hydrated += int(result.update_output_metadata_from_filesystem(snapshot_dir=snapshot_dir))
+        return hydrated
+
     def _fs_migrate_legacy_to_0_9_0(
         self,
         source_dir: Path | None = None,
@@ -1174,6 +1181,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if not old_dir.exists():
             if new_dir.exists():
                 self.convert_index_json_to_jsonl(output_dir=new_dir)
+                self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
                 return None
             return None
 
@@ -1182,6 +1190,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             try:
                 old_dir.rename(new_dir)
                 self.convert_index_json_to_jsonl(output_dir=new_dir)
+                self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
                 return (old_dir, new_dir)
             except OSError:
                 pass
@@ -1233,6 +1242,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         # Convert index.json to index.jsonl in the new directory.
         self.convert_index_json_to_jsonl(output_dir=new_dir)
+        self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
 
         return (old_dir, new_dir)
 
@@ -2662,6 +2672,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 ar.update_from_output()
         else:
             return
+
+        self.hydrate_archiveresult_output_metadata(snapshot_dir=output_dir)
 
         # Delete ArchiveResults that produced no output files
         empty_ars = (
