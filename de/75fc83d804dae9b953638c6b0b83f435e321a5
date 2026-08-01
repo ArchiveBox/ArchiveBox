@@ -1,0 +1,21 @@
+archivebox/tests/test_setup_script.py
+  s_69ddf154c10e6f::t_99e3d997b58e8f 15-16
+bin/setup.sh
+  s_69ddf154c10e6f::t_76c4fc1a31e82f 214,308
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "de75fc83d804dae9b953638c6b0b83f435e321a5",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
