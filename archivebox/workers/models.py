@@ -298,7 +298,7 @@ class BaseModelWithStateMachine(models.Model):
         from archivebox.machine.models import Process
 
         process = Process.current()
-        if self.warn_on_save_outside_runner and process.process_type != Process.TypeChoices.ORCHESTRATOR:
+        if self.warn_on_save_outside_runner and not self._state.adding and process.process_type != Process.TypeChoices.ORCHESTRATOR:
             root_type = getattr(process.root, "process_type", None)
             if root_type != Process.TypeChoices.ORCHESTRATOR:
                 caller = "<unknown>"

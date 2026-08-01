@@ -219,6 +219,7 @@ def test_add_single_url_records_url_in_crawl(initialized_archive):
     )
 
     assert result.returncode == 0
+    assert "Crawl.save() outside runner process" not in result.stderr
 
     with use_archivebox_db(initialized_archive):
         crawl = Crawl.objects.get()
@@ -227,6 +228,24 @@ def test_add_single_url_records_url_in_crawl(initialized_archive):
     assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": "https://example.com", "depth": 0}
     assert crawl.get_urls_list() == ["https://example.com"]
     assert snapshots == []
+
+
+def test_initial_crawl_creation_does_not_warn_as_an_outside_runner_update(initialized_archive, caplog):
+    from archivebox.core.takeover_util import current_command
+
+    with use_archivebox_db(initialized_archive):
+        command = current_command(Process.TypeChoices.ADD, data_dir=initialized_archive)
+        caplog.clear()
+        with caplog.at_level("WARNING", logger="archivebox.workers.models"):
+            crawl = Crawl.objects.create(urls="https://example.com", status=Crawl.StatusChoices.QUEUED)
+        assert "Crawl.save() outside runner process" not in caplog.text
+
+        caplog.clear()
+        with caplog.at_level("WARNING", logger="archivebox.workers.models"):
+            crawl.save(update_fields=["modified_at"])
+        command.mark_exited(exit_code=0)
+
+    assert "Crawl.save() outside runner process" in caplog.text
 
 
 @pytest.mark.timeout(360)
@@ -526,6 +545,7 @@ def test_add_title_hook_env_gets_canonical_runtime_config_without_archivebox_sel
         timeout=180,
     )
     assert result.returncode == 0, result.stderr or result.stdout
+    assert "Crawl.save() outside runner process" not in result.stdout + result.stderr
 
     with use_archivebox_db(initialized_archive):
         crawl = Crawl.objects.get()
