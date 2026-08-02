@@ -79,9 +79,7 @@ If you're importing private links or authenticated content, you probably don't w
 > [!CAUTION]
 > Re-hosting untrusted archived content on the same origin as an authenticated application can compromise that application.
 
-Make sure you understand the dangers of [hosting untrusted HTML/JS/CSS](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy). The default `SERVER_SECURITY_MODE=safe-subdomains-fullreplay` separates admin, web, and API control-plane origins from replay content, and gives each Snapshot its own replay subdomain so archived JavaScript cannot share admin cookies.
-
-This mode requires wildcard DNS and TLS for your configured `BASE_URL`. If your deployment cannot provide wildcard subdomains, use `SERVER_SECURITY_MODE=safe-onedomain-nojsreplay`, which keeps one origin but disables JavaScript replay.
+Make sure you understand the dangers of [hosting untrusted HTML/JS/CSS](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy). The default `SERVER_SECURITY_MODE=auto` uses isolated subdomains with full replay on `*.localhost`, and a one-domain no-JS replay policy on ordinary public or LAN hostnames. Choose `safe-subdomains-fullreplay` only when wildcard DNS and TLS are configured; it separates admin, web, and API control-plane origins from replay content and gives each Snapshot its own replay subdomain.
 
 Do not serve ArchiveBox from a shared subdirectory such as `myapps.example.com/archivebox/`; it cannot provide the required origin isolation.
 
@@ -106,21 +104,8 @@ More info:
 
 <img src="https://imgur.zervice.io/yDqJc4I.jpg" width="150px" align="right"/>
 
-> [!WARNING]
-> **Did you run a command in Docker with `exec` instead of `run` by accident and end up here?**  
-> Make sure you use `docker run` instead of `docker exec` to run ArchiveBox commands.  
->   
-> *For example:*  
-> ✅ `docker compose run archivebox manage createsuperuser`  
-> ✅ `docker run -it -v $PWD:/data archivebox/archivebox manage createsuperuser`  
-> (`docker run` automatically uses the correct `archivebox` user & file permissions enforced via [`./bin/docker_entrypoint.sh`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/docker_entrypoint.sh))  
->   
-> *instead of:*  
-> ❌ `docker compose exec archivebox manage createsuperuser`  
-> ❌ `docker exec -it archivebox manage createsuperuser`  
-> (`docker exec` will skip the [entrypoint](https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/docker_entrypoint.sh) and attempt to run everything as root and fail)  
->   
-> If you must use `exec` for some reason (e.g. if you only have access to a live container shell), you can run `su archivebox` within the shell, or add the arg `--user=archivebox` after `exec`.
+> [!NOTE]
+> Use `docker compose run archivebox ...` for normal one-shot CLI commands. `docker compose exec archivebox ...` is also supported against a running container; if it starts as root, ArchiveBox drops to the dedicated `archivebox` account before operating on the collection.
 
 ArchiveBox drops privileges to the collection owner when it starts as root and can do so safely, including in the official Docker image. Do not bypass that boundary or force runtime dependencies to stay privileged:
  - Browser sandboxing cannot provide its normal protection when the browser itself runs as root
@@ -128,13 +113,12 @@ ArchiveBox drops privileges to the collection owner when it starts as root and c
  - ArchiveBox does lots of HTML parsing, filesystem access, and shell command execution.  A bug in any one of those subsystems could potentially lead to deleted/damaged data on your hard drive, or full system compromise unless restricted to a user that only has permissions to access the directories needed
  - Do you really trust a project created by a Github user called `@pirate` 😉? Why give a random program off the internet root access to your entire system? (I don't have malicious intent, I'm just saying in principle you should not be running random Github projects as root)
 
-**Instead, you should run ArchiveBox under a separate user account with less privileged access:**
+**ArchiveBox creates and drops privileges to a dedicated `archivebox` account when run as root on Linux. Existing non-root users can run it directly:**
 ```bash
-useradd -r -g archivebox -G audio,video archivebox  # the audio & video groups are used by chrome
-mkdir -p /home/archivebox/data
-chown -R archivebox:archivebox /home/archivebox
-...
-sudo -u archivebox archivebox add ...
+mkdir -p ~/archivebox/data
+cd ~/archivebox/data
+archivebox init
+archivebox install
 ```
 
 <img src="https://imgur.zervice.io/ca1he6I.png" width="40px" align="right"/>

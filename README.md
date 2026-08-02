@@ -71,6 +71,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 <pre lang="bash"><code style="white-space: pre-line"># Option A: Get ArchiveBox with Docker Compose (recommended):
 mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
+docker compose pull
 docker compose run archivebox init
 docker compose run archivebox install
 docker compose run archivebox manage createsuperuser
@@ -185,9 +186,11 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox
 # Read and edit docker-compose.yml options as-needed after downloading
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
+docker compose pull
 </code></pre></li>
 <li>Initialize the collection, then create an admin user (or set ADMIN_USERNAME/ADMIN_PASSWORD in docker-compose.yml)
 <pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init
+docker compose run archivebox install
 docker compose run archivebox manage createsuperuser
 </code></pre></li>
 <li>Next steps: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
@@ -269,7 +272,7 @@ archivebox version
 </li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data   # for example
-archivebox init     # instantialize a new collection
+archivebox init     # initialize a new collection
 archivebox install  # install all the runtime dependencies (e.g. chrome, single-file, yt-dlp, etc.)
 </code></pre>
 </li>

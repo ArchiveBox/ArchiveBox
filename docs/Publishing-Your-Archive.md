@@ -70,9 +70,7 @@ Legacy timestamp URLs remain available through compatibility symlinks, for examp
 > [!CAUTION]
 > Re-hosting untrusted archived content on the same origin as an authenticated application can compromise that application.
 
-Make sure you understand the dangers of [hosting untrusted HTML/JS/CSS](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy). The default `SERVER_SECURITY_MODE=safe-subdomains-fullreplay` separates the admin, web, and API control planes from replay content, and gives each Snapshot its own replay subdomain. Admin cookies are scoped away from those replay origins.
-
-This mode requires wildcard DNS and TLS for `*.archive.example.com`. If your deployment cannot provide wildcard subdomains, use `SERVER_SECURITY_MODE=safe-onedomain-nojsreplay`, which keeps one origin but disables JavaScript replay.
+Make sure you understand the dangers of [hosting untrusted HTML/JS/CSS](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy). The default `SERVER_SECURITY_MODE=auto` uses isolated subdomains with full replay on `*.localhost`, and a one-domain no-JS replay policy on ordinary public or LAN hostnames. Choose `safe-subdomains-fullreplay` only when wildcard DNS and TLS for `*.archive.example.com` are configured; it separates the admin, web, and API control planes from replay content and gives each Snapshot its own replay subdomain.
 
 Do not serve ArchiveBox from a shared subdirectory such as `myapps.example.com/archivebox/`; it cannot provide the required origin isolation. If you do not need JavaScript-capable replay, you can also disable the relevant extractors with `WGET_ENABLED=False` and `DOM_ENABLED=False`.
 
