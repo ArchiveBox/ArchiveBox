@@ -365,7 +365,7 @@ if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && do
     wait_for_archivebox
     open_archivebox
     echo
-    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
+    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
     echo "    cd $ARCHIVEBOX_HOME_DIR"
     echo "    docker compose ps"
     echo "    docker compose down"
@@ -392,7 +392,7 @@ elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
     wait_for_archivebox
     open_archivebox
     echo
-    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
+    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
     echo "    cd $ARCHIVEBOX_DATA_DIR"
     echo "    docker ps --filter name=archivebox"
     echo "    docker rm -f archivebox"
@@ -457,7 +457,7 @@ echo "[+] Starting ArchiveBox server using: archivebox server --daemonize..."
 wait_for_archivebox
 open_archivebox
 echo
-echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in ~/archivebox/data. Usage:"
+echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
 echo "    cd $ARCHIVEBOX_DATA_DIR                            # see your data dir"
 echo "    archivebox server --quick-init 0.0.0.0:8000        # start server process"
 echo "    archivebox manage createsuperuser                  # add an admin user+pass"
