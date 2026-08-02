@@ -109,7 +109,7 @@ def test_version_flag_outputs_version_number(tmp_path):
 
 def test_version_shows_system_info_in_initialized_dir(tmp_path, initialized_archive):
     """Test that version shows system metadata in initialized directory."""
-    result = run_archivebox_cmd(["version"])
+    result = run_archivebox_cmd(["version", "--binaries=curl"])
 
     output = result.stdout
     assert "ArchiveBox" in output

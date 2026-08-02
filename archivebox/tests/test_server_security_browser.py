@@ -22,7 +22,6 @@ from .conftest import (
     run_archivebox_cmd,
     start_archivebox_server as start_daemon_server,
     stop_archivebox_process,
-    stop_server as stop_daemon_server,
     get_http_response,
     wait_for_log_pattern,
 )
@@ -927,7 +926,13 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
             f"archivebox install archivewebpage failed:\nSTDOUT:\n{install_result.stdout}\nSTDERR:\n{install_result.stderr}"
         )
 
-        start_daemon_server(initialized_archive, env=env, port=port)
+        process = start_daemon_server(
+            initialized_archive,
+            env=env,
+            port=port,
+            daemonize=False,
+            log_name="archivewebpage_server.log",
+        )
         get_http_response(port, host=f"archivebox.localhost:{port}", path="/")
         _cmd_result = run_archivebox_cmd(
             ["add", "--depth=0", "--max-urls=1", "--plugins=archivewebpage", url],
@@ -943,7 +948,7 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
         detail_url = f"http://{snapshot_host}/#archivewebpage/archivewebpage.wacz"
         result = _run_wacz_preview_probe(initialized_archive, browser_runtime, detail_url, tmp_path)
     finally:
-        stop_daemon_server(initialized_archive)
+        stop_archivebox_process(process)
 
     assert result["status"] == 200
     assert result["previewResult"]["matched"], json.dumps(result, indent=2)

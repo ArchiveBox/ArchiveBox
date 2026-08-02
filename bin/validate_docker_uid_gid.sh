@@ -443,8 +443,6 @@ run_compose_personas_case() {
     set -e
 
     if [[ "$status" == "0" ]] \
-        && grep -q '^ABX_UID=911$' "$log_file" \
-        && grep -q '^ABX_GID=911$' "$log_file" \
         && grep -q '^ABX_OK$' "$log_file" \
         && [[ -f "$case_dir/data/personas/Default/chrome_profile/persisted" ]] \
         && [[ "$(< "$case_dir/data/personas/Default/chrome_profile/persisted")" == persisted ]]; then

@@ -10,7 +10,7 @@ from archivebox.tests.conftest import (
     init_archive,
     live_api_request,
     start_archivebox_server,
-    stop_server,
+    stop_archivebox_process,
     wait_for_live_api,
 )
 from archivebox.tests.test_orm_helpers import use_archivebox_db
@@ -27,8 +27,8 @@ def test_core_api_workflow_uses_token_auth_and_persists_side_effects_over_server
     env = cli_env(port=port, server=True, PUBLIC_INDEX="True")
     api_token = create_admin_and_token(tmp_path)
 
+    process = start_archivebox_server(tmp_path, env=env, port=port, log_name="api-server.log")
     try:
-        start_archivebox_server(tmp_path, env=env, port=port)
         docs = wait_for_live_api(port)
         assert docs.status_code == 200
         openapi = wait_for_live_api(port, path="/api/v1/openapi.json")
@@ -216,4 +216,4 @@ def test_core_api_workflow_uses_token_auth_and_persists_side_effects_over_server
             assert Crawl.objects.filter(pk=crawl_id).count() == 0
             assert Snapshot.objects.filter(pk=snapshot_id).count() == 0
     finally:
-        stop_server(tmp_path)
+        stop_archivebox_process(process)
