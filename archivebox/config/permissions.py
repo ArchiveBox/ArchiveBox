@@ -186,8 +186,15 @@ def root_data_dir_handoff_paths(data_dir: Path, argv: list[str]) -> tuple[Path, 
     return (data_dir, *(data_dir / name for name in ROOT_HANDOFF_NAMES if (data_dir / name).exists()))
 
 
+def root_should_handoff_data_dir(*, is_root: bool, data_dir_uid: int, account_uid: int | None) -> bool:
+    """Allow bounded handoff only for root or archivebox-owned collection roots."""
+
+    return is_root and account_uid is not None and data_dir_uid in (0, account_uid)
+
+
 def handoff_root_owned_data_dir() -> None:
-    if not (IS_ROOT and DATA_DIR_UID == 0 and ARCHIVEBOX_ACCOUNT is not None):
+    account_uid = ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None
+    if not root_should_handoff_data_dir(is_root=IS_ROOT, data_dir_uid=DATA_DIR_UID, account_uid=account_uid):
         return
 
     for path in root_data_dir_handoff_paths(DATA_DIR, sys.argv):

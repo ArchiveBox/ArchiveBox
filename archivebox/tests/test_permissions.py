@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from archivebox.config.permissions import is_root_identity, select_archivebox_user
+from archivebox.config.permissions import is_root_identity, root_should_handoff_data_dir, select_archivebox_user
 
 
 def test_root_identity_includes_real_or_effective_root():
@@ -68,6 +68,14 @@ def test_effective_root_drops_back_to_real_user():
         account_uid=None,
         account_gid=None,
     ) == (1001, 1002)
+
+
+def test_root_hands_off_root_or_archivebox_owned_collection_boundaries():
+    assert root_should_handoff_data_dir(is_root=True, data_dir_uid=0, account_uid=911)
+    assert root_should_handoff_data_dir(is_root=True, data_dir_uid=911, account_uid=911)
+    assert not root_should_handoff_data_dir(is_root=True, data_dir_uid=1001, account_uid=911)
+    assert not root_should_handoff_data_dir(is_root=False, data_dir_uid=911, account_uid=911)
+    assert not root_should_handoff_data_dir(is_root=True, data_dir_uid=911, account_uid=None)
 
 
 def test_root_init_hands_off_only_an_empty_data_dir(tmp_path):
