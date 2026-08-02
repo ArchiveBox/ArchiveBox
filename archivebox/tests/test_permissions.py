@@ -96,6 +96,12 @@ def test_existing_collection_handoff_is_bounded_to_known_top_level_paths(tmp_pat
     assert all(path == tmp_path or path.parent == tmp_path for path in paths)
 
 
+def test_permission_repair_hint_avoids_recursive_collection_chown():
+    from archivebox.misc import checks
+
+    assert "chown -R" not in Path(checks.__file__).read_text(encoding="utf-8")
+
+
 def test_root_handoff_never_selects_filesystem_root():
     from archivebox.config.permissions import root_data_dir_handoff_paths
 

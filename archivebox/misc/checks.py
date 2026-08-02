@@ -239,8 +239,8 @@ def check_data_dir_permissions(config=None, **config_kwargs):
         STDERR.print(
             f"[violet]Hint:[/violet] Change the current ownership [red]{data_dir_uid}[/red]:{data_dir_gid} to the user & group that will run ArchiveBox, e.g.:",
         )
-        STDERR.print(f"    [grey53]sudo[/grey53] chown -R [blue]{DEFAULT_UID}:{DEFAULT_GID}[/blue] {DATA_DIR.resolve()}")
-        STDERR.print("    Avoid recursive chown on very large archives unless you know the full tree needs repair.")
+        STDERR.print(f"    [grey53]sudo[/grey53] chown [blue]{DEFAULT_UID}:{DEFAULT_GID}[/blue] {DATA_DIR.resolve()}")
+        STDERR.print("    Repair only specific nested paths if needed; do not recursively chown a large archive.")
         STDERR.print()
         STDERR.print("[blue]More info:[/blue]")
         STDERR.print(
