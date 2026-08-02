@@ -1127,7 +1127,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             migration = migrations.get((current, next_ver))
             if migration is None:
                 raise ValueError(f"No filesystem migration path from {current} to {next_ver}")
-            cleanup = migration(source_dir=source_dir, config=runtime_config)
+            cleanup = migration(source_dir=source_dir, config=runtime_config) or cleanup
 
             current = next_ver
             source_dir = None
@@ -1329,7 +1329,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         0.7.x/0.8.x: archive/{timestamp}
         0.9.x: archive/users/{username}/snapshots/YYYYMMDD/{domain}/{uuid}/
         """
-        if version in ("0.7.0", "0.8.0"):
+        if version in ("0.7.0", "0.8.0", "0.8.5"):
             return CONSTANTS.ARCHIVE_DIR / self.timestamp
 
         elif version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):

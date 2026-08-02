@@ -137,7 +137,19 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
     env = cli_env(disable_extractors=True)
     url = f"https://example.com/fs-{source_version}"
     legacy_layout = source_version.startswith(("0.7.", "0.8."))
-    if legacy_layout:
+    destination = None
+    if source_version == "0.8.5":
+        add_process = run_archivebox_cmd(["add", url], env=env, timeout=90)
+        assert add_process.returncode == 0, add_process.stderr
+        with use_archivebox_db(tmp_path):
+            snapshot = Snapshot.objects.get(url=url)
+            destination = snapshot.output_dir
+            timestamp = snapshot.timestamp
+            Snapshot.objects.filter(pk=snapshot.pk).update(fs_version=source_version)
+        source_dir = tmp_path / "archive" / timestamp
+        source_dir.mkdir(parents=True, exist_ok=True)
+        (destination / "existing-user-output.bin").write_bytes(b"preserve interrupted migration output")
+    elif legacy_layout:
         timestamp = "1700000000"
         source_dir = tmp_path / "archive" / timestamp
         source_dir.mkdir(parents=True, exist_ok=True)
@@ -172,7 +184,10 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.get(url=url)
         assert snapshot.fs_version == Snapshot._fs_current_version()
-        migrated_tree = filesystem_manifest(snapshot.output_dir.resolve())
+        migrated_dir = snapshot.output_dir.resolve()
+        migrated_tree = filesystem_manifest(migrated_dir)
+        if source_version == "0.8.5":
+            assert (migrated_dir / "existing-user-output.bin").read_bytes() == b"preserve interrupted migration output"
 
     assert {path: migrated_tree.get(path) for path in original_tree} == original_tree
     if legacy_layout:
