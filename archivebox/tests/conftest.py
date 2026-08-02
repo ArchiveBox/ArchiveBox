@@ -1028,7 +1028,9 @@ def start_archivebox_server(
         log.close()
     proc.log_path = log_path
     if daemonize:
-        assert proc.returncode == 0, proc.stderr or proc.stdout
+        server_log_path = cwd / "logs" / "server.log"
+        server_log = server_log_path.read_text(encoding="utf-8", errors="replace") if server_log_path.exists() else ""
+        assert proc.returncode == 0, f"{proc.stderr or proc.stdout}\n\nSERVER LOG:\n{server_log[-12000:]}"
         return proc
 
     deadline = time.monotonic() + 30.0
