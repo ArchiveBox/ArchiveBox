@@ -166,9 +166,8 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
     (source_dir / "unknown" / "payload-link").symlink_to("payload.bin")
     original_tree = filesystem_manifest(source_dir)
 
-    for pass_number in (1, 2):
-        update_process = run_archivebox_cmd(["update", "--migrate-only"], env=env, timeout=90)
-        assert update_process.returncode == 0, f"Update pass {pass_number} failed: {update_process.stderr}"
+    update_process = run_archivebox_cmd(["update", "--migrate-only"], env=env, timeout=90)
+    assert update_process.returncode == 0, f"Initial update failed: {update_process.stderr}"
 
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.get(url=url)
@@ -178,6 +177,13 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
     assert {path: migrated_tree.get(path) for path in original_tree} == original_tree
     if legacy_layout:
         assert source_dir.is_symlink()
+
+    update_process = run_archivebox_cmd(["update", "--migrate-only"], env=env, timeout=90)
+    assert update_process.returncode == 0, f"Idempotency update failed: {update_process.stderr}"
+    with use_archivebox_db(tmp_path):
+        snapshot.refresh_from_db()
+        assert snapshot.fs_version == Snapshot._fs_current_version()
+        assert filesystem_manifest(snapshot.output_dir.resolve()) == migrated_tree
 
 
 @pytest.mark.django_db(transaction=True)
