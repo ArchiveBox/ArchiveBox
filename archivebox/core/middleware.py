@@ -19,6 +19,7 @@ from archivebox.config.common import get_config
 from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.routes_util import (
     build_admin_url,
+    build_original_url,
     build_snapshot_url,
     build_web_url,
     get_admin_host,
@@ -214,6 +215,10 @@ def HostRoutingMiddleware(get_response):
     snapshot_path_re = re.compile(
         r"^/(?P<username>[^/]+)/(?P<date>\d{4}(?:\d{2})?(?:\d{2})?)/(?P<domain>[^/]+)/(?P<snapshot_id>[0-9a-fA-F-]{8,36})(?:/(?P<path>.*))?$",
     )
+    snapshot_replay_path_re = re.compile(
+        r"^/snapshot/(?P<snapshot_id>[0-9a-fA-F-]{8,36})(?:/(?P<path>.*))?$",
+    )
+    original_replay_path_re = re.compile(r"^/original/(?P<domain>[^/]+)(?:/(?P<path>.*))?$")
 
     def middleware(request):
         if request.path in {"/health", "/health/"}:
@@ -262,6 +267,29 @@ def HostRoutingMiddleware(get_response):
         # to pin BASE_URL so the redirects can resume.
         if config.USES_SUBDOMAIN_ROUTING and not config.BASE_URL:
             return get_response(request)
+
+        if config.USES_SUBDOMAIN_ROUTING:
+            snapshot_replay_match = snapshot_replay_path_re.match(request.path)
+            if snapshot_replay_match:
+                target = build_snapshot_url(
+                    snapshot_replay_match.group("snapshot_id"),
+                    (snapshot_replay_match.group("path") or "").strip("/"),
+                    request=request,
+                )
+                if request.META.get("QUERY_STRING"):
+                    target = f"{target}?{request.META['QUERY_STRING']}"
+                return redirect(target)
+
+            original_replay_match = original_replay_path_re.match(request.path)
+            if original_replay_match:
+                target = build_original_url(
+                    original_replay_match.group("domain"),
+                    (original_replay_match.group("path") or "").strip("/"),
+                    request=request,
+                )
+                if request.META.get("QUERY_STRING"):
+                    target = f"{target}?{request.META['QUERY_STRING']}"
+                return redirect(target)
 
         if not config.USES_SUBDOMAIN_ROUTING:
             if host_matches(request_host, listen_host):

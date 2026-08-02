@@ -443,6 +443,15 @@ class TestUrlRouting:
             assert resp.status_code in (301, 302)
             assert resp["Location"] == f"http://{snapshot_host}"
 
+            for control_host in (admin_host, web_host):
+                resp = client.get(f"/snapshot/{snapshot.id}/index.jsonl?download=1", HTTP_HOST=control_host)
+                assert resp.status_code in (301, 302)
+                assert resp["Location"] == f"http://{snapshot_host}/index.jsonl?download=1"
+
+                resp = client.get(f"/original/{snapshot.domain}/index.html", HTTP_HOST=control_host)
+                assert resp.status_code in (301, 302)
+                assert resp["Location"] == f"http://{original_host}/index.html"
+
             resp = client.get("/static/jquery.min.js", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert "javascript" in (resp.headers.get("Content-Type") or "")
