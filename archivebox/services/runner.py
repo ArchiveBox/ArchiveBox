@@ -1551,12 +1551,13 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     # retry_at is the scheduler signal for both lifecycle work and targeted
     # maintenance. Filesystem migration/json rewriting is independent from
     # queued ArchiveResult rows, so run it whenever this helper is called.
-    # The only thing queued rows change is the next scheduler value:
-    # - no queued rows left: clear retry_at because maintenance is done
+    # The only thing queued work changes is the next scheduler value:
+    # - open lifecycle rows: leave them due for extraction after maintenance
+    # - no queued work left on a sealed row: clear retry_at
     # - queued rows remain on a sealed Snapshot: leave it due so the search
     #   backfill exception can process them on the next tick
     current_retry_at = snapshot.retry_at
-    next_retry_at = timezone.now() if has_queued_results else None
+    next_retry_at = timezone.now() if has_queued_results or snapshot.status in Snapshot.OPEN_STATES else None
     snapshot.retry_at = next_retry_at
     if snapshot.fs_migration_needed:
         snapshot.save(update_fields=["retry_at", "modified_at"])

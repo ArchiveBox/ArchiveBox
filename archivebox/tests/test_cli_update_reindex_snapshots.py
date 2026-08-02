@@ -183,6 +183,7 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
         migrated_dir = snapshot.output_dir.resolve()
         migrated_tree = filesystem_manifest(migrated_dir)
         assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert snapshot.retry_at is not None
         assert snapshot.archiveresult_set.count() == 0
         if source_version == "0.8.5":
             assert (migrated_dir / "existing-user-output.bin").read_bytes() == b"preserve interrupted migration output"
@@ -196,6 +197,7 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
     with use_archivebox_db(tmp_path):
         snapshot.refresh_from_db()
         assert snapshot.fs_version == Snapshot._fs_current_version()
+        assert snapshot.retry_at is not None
         assert filesystem_manifest(snapshot.output_dir.resolve()) == migrated_tree
 
 
