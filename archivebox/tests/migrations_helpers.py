@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS django_migrations (
 CREATE TABLE IF NOT EXISTS core_snapshot (
     id CHAR(32) PRIMARY KEY,
     url VARCHAR(200) NOT NULL UNIQUE,
-    timestamp VARCHAR(32) NOT NULL UNIQUE,
+    timestamp VARCHAR(32) UNIQUE,
     title VARCHAR(128),
     tags VARCHAR(256),
     added DATETIME NOT NULL,
@@ -712,6 +712,29 @@ def seed_0_4_data(db_path: Path) -> dict[str, list[dict]]:
             },
         )
         created_data["tags_str"].append(tags)
+
+    # ArchiveBox's original Django schema allowed NULL timestamps. Preserve a
+    # real row from that valid state so the oldest-schema migration cannot
+    # silently narrow the historical schema exercised by this fixture.
+    snapshot_id = generate_uuid()
+    tags = "legacy,null-timestamp"
+    cursor.execute(
+        """
+        INSERT INTO core_snapshot (id, url, timestamp, title, tags, added, updated)
+        VALUES (?, ?, NULL, ?, ?, ?, NULL)
+        """,
+        (snapshot_id, "https://example.net/no-timestamp", "Legacy Missing Timestamp", tags, "2019-05-01 03:27:00"),
+    )
+    created_data["snapshots"].append(
+        {
+            "id": snapshot_id,
+            "url": "https://example.net/no-timestamp",
+            "timestamp": None,
+            "title": "Legacy Missing Timestamp",
+            "tags": tags,
+        },
+    )
+    created_data["tags_str"].append(tags)
 
     cursor.execute("""
         INSERT INTO django_migrations (app, name, applied)

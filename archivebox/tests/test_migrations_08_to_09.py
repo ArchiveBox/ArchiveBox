@@ -1007,3 +1007,54 @@ def test_07_filesystem_hop_preserves_complete_output_tree(tmp_path):
     crawl_snapshot_links = list((tmp_path / "archive" / "users").glob("*/crawls/*/*/*/snapshots/*/*"))
     assert crawl_snapshot_links
     assert all(path.is_symlink() for path in crawl_snapshot_links)
+
+
+@pytest.mark.parametrize("fs_version", ("0.7.0", "0.8.0", "0.8.5", "0.9.0", "0.9.1", "0.9.2", "0.9.3"))
+def test_each_declared_filesystem_hop_preserves_outputs(migration_08_data, fs_version):
+    """Every declared source version must migrate through the public update command."""
+    work_dir, db_path, original_data = migration_08_data
+    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert result.returncode == 0, result.stderr
+
+    snapshot = original_data["snapshots"][0]
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("UPDATE core_snapshot SET fs_version = ? WHERE id = ?", (fs_version, snapshot["id"]))
+        username, bookmarked_at = connection.execute(
+            """
+            SELECT u.username, s.bookmarked_at
+            FROM core_snapshot s
+            JOIN crawls_crawl c ON c.id = s.crawl_id
+            JOIN auth_user u ON u.id = c.created_by_id
+            WHERE s.id = ?
+            """,
+            (snapshot["id"],),
+        ).fetchone()
+
+    if fs_version in ("0.7.0", "0.8.0", "0.8.5"):
+        source_dir = work_dir / "archive" / snapshot["timestamp"]
+    else:
+        source_dir = (
+            work_dir
+            / "archive"
+            / "users"
+            / username
+            / "snapshots"
+            / datetime.fromisoformat(bookmarked_at).strftime("%Y%m%d")
+            / urlparse(snapshot["url"]).hostname
+            / snapshot["id"]
+        )
+
+    output = source_dir / "unknown-plugin" / "payload.bin"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(b"migration payload\x00\xff")
+    (output.parent / "payload-link").symlink_to("payload.bin")
+    (source_dir / "unknown-empty-dir" / "nested").mkdir(parents=True)
+    expected_tree = filesystem_manifest(source_dir)
+
+    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=180)
+    assert result.returncode == 0, result.stderr
+
+    migrated_dir = source_dir.resolve()
+    assert {path: filesystem_manifest(migrated_dir).get(path) for path in expected_tree} == expected_tree
+    with sqlite3.connect(db_path) as connection:
+        assert connection.execute("SELECT fs_version FROM core_snapshot WHERE id = ?", (snapshot["id"],)).fetchone() == ("0.9.4",)

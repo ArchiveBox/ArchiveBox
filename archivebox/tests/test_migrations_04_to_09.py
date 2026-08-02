@@ -43,6 +43,8 @@ def test_oldest_django_collection_migrates_end_to_end_without_data_loss(tmp_path
 
     original_trees = {}
     for index, snapshot in enumerate(original["snapshots"]):
+        if snapshot["timestamp"] is None:
+            continue
         snapshot_dir = tmp_path / "archive" / snapshot["timestamp"]
         snapshot_dir.mkdir(parents=True)
         history = {}
@@ -124,3 +126,8 @@ def test_oldest_django_collection_migrates_end_to_end_without_data_loss(tmp_path
             )
         }
         assert migrated_snapshots == {snapshot["url"]: snapshot["title"] for snapshot in original["snapshots"]}
+        missing_timestamp_snapshot = next(snapshot for snapshot in original["snapshots"] if snapshot["timestamp"] is None)
+        assert connection.execute(
+            "SELECT timestamp FROM core_snapshot WHERE url = ?",
+            (missing_timestamp_snapshot["url"],),
+        ).fetchone() == (missing_timestamp_snapshot["id"],)

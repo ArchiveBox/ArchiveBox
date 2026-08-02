@@ -9,6 +9,12 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # The original schema allowed NULL timestamps. Use the already-unique
+        # 32-character snapshot ID before enforcing the later NOT NULL field.
+        migrations.RunSQL(
+            sql="UPDATE core_snapshot SET timestamp = id WHERE timestamp IS NULL",
+            reverse_sql=migrations.RunSQL.noop,
+        ),
         migrations.AlterField(
             model_name="snapshot",
             name="timestamp",
