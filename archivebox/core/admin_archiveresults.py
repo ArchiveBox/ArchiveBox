@@ -221,7 +221,8 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 </td>
                 <td style="padding: 10px 12px; max-width: 280px; white-space: nowrap; word-break: normal;">
                     <span onclick="document.getElementById('{row_id}').open = !document.getElementById('{row_id}').open"
-                          style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 12px; cursor: pointer;"
+                          style="display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+                                 color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 12px; cursor: pointer;"
                           title="Click to expand full output">
                         {output_display}
                     </span>

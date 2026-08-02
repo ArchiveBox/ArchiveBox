@@ -198,6 +198,7 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert "overflow-x: auto; overflow-y: hidden" in inline_html
     assert "min-width: 1100px" in inline_html
     assert inline_html.count("white-space: nowrap; word-break: normal") == 2
+    assert "display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis;" in inline_html
     assert '<wbr> <span style="white-space: nowrap;">' in inline_html
 
 
