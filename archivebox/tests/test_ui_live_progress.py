@@ -521,8 +521,10 @@ class TestLiveProgressView:
         process = real_second_snapshot_hook_process
         process.status = Process.StatusChoices.RUNNING
         process.pid = os.getpid()
+        process.exit_code = None
+        process.started_at = timezone.now()
         process.ended_at = None
-        process.save(update_fields=["status", "pid", "ended_at"])
+        process.save(update_fields=["status", "pid", "exit_code", "started_at", "ended_at", "modified_at"])
 
         client.force_login(admin_user)
         response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)

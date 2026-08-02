@@ -230,10 +230,10 @@ version = 2
 "03803c44e54399c4-1" = "illustration"
 
 # docs/Upgrading.md
-"ff239d3d24a06b47-1" = "illustration"
+"2b06ac7469637678-1" = "illustration"
 "e566c21263033134-1" = "illustration"
-"5d39ef7a4a12e290-1" = "illustration"
-"7dade7e037424d0c-1" = "illustration"
+"093c9dd57ba523aa-1" = "illustration"
+"611ff525e9208d7a-1" = "illustration"
 
 # docs/Usage.md
 "865eeba3c03d1e2d-1" = "run"
@@ -250,7 +250,6 @@ version = 2
 "85f531841ec3e169-1" = "run"
 
 [scenarios]
-"5f7f9732e0ae5a62-1" = "system"
 "976dcb4e461d60bb-1" = "docker"
 "811eaaada5eb1861-1" = "system"
 "8e6f975ced292777-1" = "collection"
@@ -293,6 +292,7 @@ version = 2
 "b0032c4cfcac6915-1" = "docker"
 "c46afe2bbd31a239-1" = "docker"
 "4c9a12d2d0a26431-1" = "docker"
+"5f7f9732e0ae5a62-1" = "system"
 "73f9f36a369f2398-1" = "system"
 "39d6e53c2e53ef77-1" = "system"
 "6a149b1a387f76cc-1" = "system"
@@ -331,7 +331,6 @@ version = 2
 "85f531841ec3e169-1" = "collection"
 
 [environments]
-"5f7f9732e0ae5a62-1" = "macos"
 "976dcb4e461d60bb-1" = "docker"
 "811eaaada5eb1861-1" = "ubuntu"
 "8e6f975ced292777-1" = "ubuntu"
@@ -374,6 +373,7 @@ version = 2
 "b0032c4cfcac6915-1" = "docker"
 "c46afe2bbd31a239-1" = "docker"
 "4c9a12d2d0a26431-1" = "docker"
+"5f7f9732e0ae5a62-1" = "macos"
 "73f9f36a369f2398-1" = "root"
 "39d6e53c2e53ef77-1" = "freebsd"
 "6a149b1a387f76cc-1" = "openbsd"

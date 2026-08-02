@@ -55,11 +55,12 @@ def _pg_sync_schema(apps, schema_editor):
     # retry_at/status columns and archiveresult created_at/modified_at were
     # created on sqlite by 0023's raw rebuild, so here they are state-only).
     # On postgres those columns would never land, desyncing the real schema.
-    # Resync to this migration's final state (empty tables on pg). Snapshot is
-    # referenced by SnapshotTag and ArchiveResult, so rebuild those too.
+    # Resync to this migration's final state (empty tables on pg). Tag and
+    # Snapshot both gain state-only fields; Snapshot is referenced by
+    # SnapshotTag and ArchiveResult, so rebuild those too.
     from archivebox.misc.db import rebuild_models_from_migration_state
 
-    rebuild_models_from_migration_state(apps, schema_editor, "core", ["Snapshot", "SnapshotTag", "ArchiveResult"])
+    rebuild_models_from_migration_state(apps, schema_editor, "core", ["Tag", "Snapshot", "SnapshotTag", "ArchiveResult"])
 
 
 class Migration(migrations.Migration):

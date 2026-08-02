@@ -9,6 +9,7 @@ from .conftest import (
     get_free_port,
     init_archive,
     live_api_request,
+    run_archivebox_cmd,
     start_archivebox_server,
     stop_server,
     wait_for_live_api,
@@ -20,6 +21,8 @@ pytestmark = pytest.mark.django_db(transaction=True)
 @pytest.mark.timeout(180)
 def test_cli_api_add_search_update_remove_over_server(tmp_path):
     init_archive(tmp_path)
+    install_result = run_archivebox_cmd(["install", "search_backend_sonic"], cwd=tmp_path)
+    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
 
     port = get_free_port()
     env = cli_env(port=port, server=True, PUBLIC_INDEX="True")

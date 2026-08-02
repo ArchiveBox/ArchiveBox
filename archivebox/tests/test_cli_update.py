@@ -128,7 +128,7 @@ def test_update_preserves_snapshot_count(initialized_archive):
 
 
 def test_update_seals_migrated_snapshots(initialized_archive):
-    """Test that full update reconciles migrated snapshots without re-queuing them."""
+    """Test that migrate-only update reconciles snapshots without search backfill."""
     env = cli_env(disable_extractors=True)
 
     run_archivebox_cmd(
@@ -138,16 +138,17 @@ def test_update_seals_migrated_snapshots(initialized_archive):
     )
     run_queued_crawls(initialized_archive, env)
 
-    # Run update
+    # Run the documented upgrade path without scheduling normal maintenance jobs.
     result = run_archivebox_cmd(
-        ["update"],
+        ["update", "--migrate-only"],
         env=env,
         timeout=120,
     )
 
     output = result.stdout + result.stderr
     assert result.returncode == 0, output
-    assert "No queued/interrupted crawl work found" in output
+    assert "Phase 2: Processing all database snapshots" in output
+    assert "Reindexing" not in output
 
     # Check that snapshot remains archived instead of being queued for a full re-crawl.
     with use_archivebox_db(initialized_archive):
