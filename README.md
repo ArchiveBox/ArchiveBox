@@ -216,6 +216,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
 docker run -v $PWD:/data -it archivebox/archivebox:dev init
+docker run -v $PWD:/data -it archivebox/archivebox:dev install
 </code></pre>
 </li>
 <li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
@@ -593,7 +594,7 @@ nano docker-compose.yml                        # setup initial ADMIN_USERNAME & 
 docker compose up                              # start the server
 <br/>
 # Or with a Docker container:
-docker run -v $PWD:/data -it archivebox/archivebox:dev archivebox manage createsuperuser
+docker run -v $PWD:/data -it archivebox/archivebox:dev manage createsuperuser
 docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
 </code></pre>
 
