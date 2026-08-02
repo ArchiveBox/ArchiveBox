@@ -1000,7 +1000,7 @@ Archived JavaScript is untrusted content. The default <code>SERVER_SECURITY_MODE
 <summary><i>Expand to see risks and mitigations...</i></summary>
 
 
-<pre lang="bash"><code style="white-space: pre-line"># Default: full replay on isolated snapshot subdomains
+<pre lang="bash"><code style="white-space: pre-line"># Explicit wildcard mode: full replay on isolated snapshot subdomains
 archivebox config --set SERVER_SECURITY_MODE=safe-subdomains-fullreplay
 
 # Alternative for deployments without wildcard subdomains: disable JS replay

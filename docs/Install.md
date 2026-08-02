@@ -75,7 +75,7 @@ It's also recommended to use a filesystem with compression and/or [deduplication
 
 ## Option B. Automatic Setup Script
 
-If you're on Linux with `apt` or FreeBSD with `pkg` there is an optional auto-setup script provided.
+If you're on macOS, Linux with `apt`, or FreeBSD with `pkg`, there is an optional auto-setup script provided.
 
 *(or scroll further down for manual install instructions)*
 
