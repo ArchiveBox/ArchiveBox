@@ -5,6 +5,7 @@ import inspect
 import logging
 import os
 import sys
+from importlib.util import find_spec
 from pathlib import Path
 
 from django.conf.locale.en import formats as en_formats  # type: ignore
@@ -603,8 +604,7 @@ if DEBUG:
 # https://github.com/bensi94/Django-Requests-Tracker (improved version of django-debug-toolbar)
 # Must delete archivebox/templates/admin to use because it relies on some things we override
 # visit /__requests_tracker__/ to access
-DEBUG_REQUESTS_TRACKER = True
-DEBUG_REQUESTS_TRACKER = DEBUG_REQUESTS_TRACKER and DEBUG
+DEBUG_REQUESTS_TRACKER = DEBUG and find_spec("requests_tracker") is not None
 if DEBUG_REQUESTS_TRACKER:
     import requests_tracker
 

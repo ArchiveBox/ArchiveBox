@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from pathlib import Path
 
 from .migrations_helpers import (
     SCHEMA_0_4,
@@ -27,6 +28,12 @@ LEGACY_OUTPUTS = {
     "headers": ("headers/headers.json", b'{"Content-Type":"text/html"}'),
     "archivedotorg": ("archivedotorg/location.txt", b"https://web.archive.org/example"),
 }
+
+
+def test_legacy_debug_config_does_not_require_optional_requests_tracker():
+    settings_source = (Path(__file__).parents[1] / "core" / "settings.py").read_text()
+
+    assert 'find_spec("requests_tracker") is not None' in settings_source
 
 
 def test_oldest_django_collection_migrates_end_to_end_without_data_loss(tmp_path):
