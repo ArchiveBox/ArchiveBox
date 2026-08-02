@@ -1,0 +1,27 @@
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_69ddf154c10e6f::t_5e96c333cf1c25 150
+  s_69ddf154c10e6f::t_64121267aa5544 154
+  s_69ddf154c10e6f::t_e8bdb04f7916ef 162
+  s_69ddf154c10e6f::t_95a03c33592e1b 172
+  s_69ddf154c10e6f::t_1f7a40b796a526 180-181
+  s_69ddf154c10e6f::t_ab275d4f0dd89f 140-149,151,159
+archivebox/services/runner.py
+  s_69ddf154c10e6f::t_1f7a40b796a526 2258,2261-2270
+  s_69ddf154c10e6f::t_ea2b83c9f5d5b6 2259-2260
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "bd70c98d6fc4049b1c5495dd836afcc741ffee5d",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
