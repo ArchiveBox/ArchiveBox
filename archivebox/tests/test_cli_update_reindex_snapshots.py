@@ -136,9 +136,9 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
     """Every declared hop must complete through the public maintenance command."""
     env = cli_env(disable_extractors=True)
     url = f"https://example.com/fs-{source_version}"
-    legacy_layout = source_version in ("0.7.0", "0.8.0")
+    legacy_layout = source_version.startswith(("0.7.", "0.8."))
     if legacy_layout:
-        timestamp = f"170000000{list(Snapshot._FS_VERSION_MIGRATION_PATHS).index(source_version)}"
+        timestamp = "1700000000"
         source_dir = tmp_path / "archive" / timestamp
         source_dir.mkdir(parents=True, exist_ok=True)
         (source_dir / "index.json").write_text(

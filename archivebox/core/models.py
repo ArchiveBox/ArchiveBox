@@ -1057,6 +1057,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     _FS_VERSION_MIGRATION_PATHS: ClassVar[dict[str, str]] = {
         "0.7.0": "0.9.0",
         "0.8.0": "0.9.0",
+        "0.8.5": "0.9.0",
         "0.9.0": "0.9.4",
         "0.9.1": "0.9.4",
         "0.9.2": "0.9.4",
@@ -1116,6 +1117,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             migrations = {
                 ("0.7.0", "0.9.0"): self._fs_migrate_from_0_7_0_to_0_9_0,
                 ("0.8.0", "0.9.0"): self._fs_migrate_from_0_8_0_to_0_9_0,
+                ("0.8.5", "0.9.0"): self._fs_migrate_from_0_8_0_to_0_9_0,
                 ("0.9.0", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
                 ("0.9.1", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
                 ("0.9.2", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
