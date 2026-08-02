@@ -128,10 +128,13 @@ def upgrade_crawl_table_from_v086(apps, schema_editor):
                 status, retry_at, created_by_id, schedule_id
             )
             SELECT
-                REPLACE(id, '-', ''), created_at, modified_at, num_uses_succeeded, num_uses_failed,
-                '', config, max_depth, tags_str, REPLACE(persona_id, '-', ''), '', '', '',
-                status, retry_at, created_by_id, REPLACE(schedule_id, '-', '')
-            FROM crawls_crawl;
+                REPLACE(old_crawl.id, '-', ''), old_crawl.created_at, old_crawl.modified_at,
+                old_crawl.num_uses_succeeded, old_crawl.num_uses_failed,
+                COALESCE(old_seed.uri, ''), old_crawl.config, old_crawl.max_depth, old_crawl.tags_str,
+                NULL, '', '', '', old_crawl.status, old_crawl.retry_at,
+                old_crawl.created_by_id, old_crawl.schedule_id
+            FROM crawls_crawl AS old_crawl
+            LEFT JOIN seeds_seed AS old_seed ON old_seed.id = old_crawl.seed_id;
         """)
 
     cursor.execute("DROP TABLE crawls_crawl;")

@@ -372,6 +372,20 @@ CREATE TABLE IF NOT EXISTS core_tag (
 );
 
 -- Crawls tables (new in 0.8.x)
+CREATE TABLE IF NOT EXISTS seeds_seed (
+    num_uses_failed INTEGER NOT NULL DEFAULT 0,
+    num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
+    id CHAR(36) PRIMARY KEY,
+    abid VARCHAR(30) UNIQUE,
+    uri VARCHAR(2000) NOT NULL,
+    extractor VARCHAR(32) NOT NULL DEFAULT 'auto',
+    tags_str VARCHAR(255) NOT NULL DEFAULT '',
+    config TEXT DEFAULT '{}',
+    created_at DATETIME NOT NULL,
+    modified_at DATETIME NOT NULL,
+    created_by_id INTEGER NOT NULL REFERENCES auth_user(id)
+);
+
 CREATE TABLE IF NOT EXISTS crawls_crawlschedule (
     id CHAR(36) PRIMARY KEY,
     created_at DATETIME NOT NULL,
@@ -387,23 +401,22 @@ CREATE TABLE IF NOT EXISTS crawls_crawlschedule (
 );
 
 CREATE TABLE IF NOT EXISTS crawls_crawl (
+    num_uses_failed INTEGER NOT NULL DEFAULT 0,
+    num_uses_succeeded INTEGER NOT NULL DEFAULT 0,
     id CHAR(36) PRIMARY KEY,
+    abid VARCHAR(30) UNIQUE,
     created_at DATETIME NOT NULL,
     created_by_id INTEGER NOT NULL REFERENCES auth_user(id),
     modified_at DATETIME,
-    urls TEXT NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'queued',
+    retry_at DATETIME,
     config TEXT DEFAULT '{}',
     max_depth SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     tags_str VARCHAR(1024) NOT NULL DEFAULT '',
-    persona_id CHAR(36),
-    label VARCHAR(64) NOT NULL DEFAULT '',
-    notes TEXT NOT NULL DEFAULT '',
+    persona VARCHAR(32) NOT NULL DEFAULT 'auto',
+    seed_id CHAR(36) NOT NULL REFERENCES seeds_seed(id),
     schedule_id CHAR(36),
-    output_dir VARCHAR(256) NOT NULL DEFAULT '',
-    status VARCHAR(16) NOT NULL DEFAULT 'queued',
-    retry_at DATETIME,
-    num_uses_failed INTEGER NOT NULL DEFAULT 0,
-    num_uses_succeeded INTEGER NOT NULL DEFAULT 0
+    FOREIGN KEY (schedule_id) REFERENCES crawls_crawlschedule(id)
 );
 
 -- Core Snapshot table (0.8.x with UUID PK, status, crawl FK)
@@ -887,6 +900,7 @@ def seed_0_8_data(db_path: Path) -> dict[str, list[dict]]:
 
     created_data = {
         "users": [],
+        "seeds": [],
         "crawls": [],
         "snapshots": [],
         "tags": [],
@@ -916,30 +930,43 @@ def seed_0_8_data(db_path: Path) -> dict[str, list[dict]]:
         tag_id = cursor.lastrowid
         created_data["tags"].append({"id": tag_id, "name": name, "slug": name.lower()})
 
-    # Create 2 Crawls (0.9.0 schema - no seeds)
+    # Create two real 0.8.x Seed/Crawl pairs. Crawl.urls replaced Seed.uri in 0.9.
     test_crawls = [
-        ("https://example.com\nhttps://example.org", 0, "Example Crawl"),
-        ("https://github.com/ArchiveBox", 1, "GitHub Crawl"),
+        ("https://example.com", 0),
+        ("https://github.com/ArchiveBox", 1),
     ]
 
-    for i, (urls, max_depth, label) in enumerate(test_crawls):
+    for uri, max_depth in test_crawls:
+        seed_id = generate_uuid()
+        cursor.execute(
+            """
+            INSERT INTO seeds_seed (
+                id, created_at, created_by_id, modified_at, uri, extractor,
+                tags_str, config, num_uses_failed, num_uses_succeeded
+            )
+            VALUES (?, datetime('now'), ?, datetime('now'), ?, 'auto', '', '{}', 0, 0)
+            """,
+            (seed_id, user_id, uri),
+        )
+        created_data["seeds"].append({"id": seed_id, "uri": uri})
+
         crawl_id = generate_uuid()
         cursor.execute(
             """
-            INSERT INTO crawls_crawl (id, created_at, created_by_id, modified_at, urls,
-                                      config, max_depth, tags_str, label, status, retry_at,
+            INSERT INTO crawls_crawl (id, created_at, created_by_id, modified_at, seed_id,
+                                      config, max_depth, tags_str, persona, status, retry_at,
                                       num_uses_failed, num_uses_succeeded)
-            VALUES (?, datetime('now'), ?, datetime('now'), ?, '{}', ?, '', ?, 'queued', datetime('now'), 0, 0)
+            VALUES (?, datetime('now'), ?, datetime('now'), ?, '{}', ?, '', 'auto', 'queued', datetime('now'), 0, 0)
         """,
-            (crawl_id, user_id, urls, max_depth, label),
+            (crawl_id, user_id, seed_id, max_depth),
         )
 
         created_data["crawls"].append(
             {
                 "id": crawl_id,
-                "urls": urls,
+                "urls": uri,
                 "max_depth": max_depth,
-                "label": label,
+                "label": "",
             },
         )
 
