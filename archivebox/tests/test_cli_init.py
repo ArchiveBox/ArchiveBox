@@ -270,6 +270,8 @@ def test_init_recovers_from_pre_squash_dev_history(tmp_path):
         ("core", "0023_alter_archiveresult_options_archiveresult_abid_and_more"),
         ("core", "0074_alter_snapshot_downloaded_at"),
         ("core", "0075_crawl"),
+        ("core", "0075_archiveresult_retry_at"),
+        ("core", "0076_snapshot_crawl_snapshot_retry_at_snapshot_status_and_more"),
         ("machine", "0002_alter_machine_stats_installedbinary"),
         ("machine", "0004_alter_installedbinary_abspath_and_more"),
     ]

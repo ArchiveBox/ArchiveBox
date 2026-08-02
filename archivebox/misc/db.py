@@ -516,6 +516,8 @@ HISTORICAL_GHOST_MIGRATIONS: frozenset[tuple[str, str]] = frozenset(
         ("core", "0073_rename_created_archiveresult_created_at_and_more"),
         ("core", "0074_alter_snapshot_downloaded_at"),
         ("core", "0075_crawl"),
+        ("core", "0075_archiveresult_retry_at"),
+        ("core", "0076_snapshot_crawl_snapshot_retry_at_snapshot_status_and_more"),
         # api: pre-squash 0001_squashed plus 0002→0009 chain
         ("api", "0001_squashed"),
         ("api", "0002_alter_apitoken_options"),
