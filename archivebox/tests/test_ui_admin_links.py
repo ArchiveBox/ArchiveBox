@@ -190,10 +190,15 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert f"/admin/machine/machine/{iface.machine.id}/change" in machine_html
     assert machine_html == f'<a href="/admin/machine/machine/{iface.machine.id}/change/">{iface.machine.hostname}</a>'
 
+    ArchiveResult.objects.filter(id=result.id).update(end_ts=datetime(2026, 8, 1, 12, 34, 56, tzinfo=dt_timezone.utc))
     inline_html = str(render_archiveresults_list(ArchiveResult.objects.filter(id=result.id)))
     assert f"/admin/machine/process/{process.id}/change" in inline_html
     assert f">{process.pid}</a>" in inline_html
     assert ">-</a>" not in inline_html
+    assert "overflow-x: auto; overflow-y: hidden" in inline_html
+    assert "min-width: 1100px" in inline_html
+    assert inline_html.count("white-space: nowrap; word-break: normal") == 2
+    assert '<wbr> <span style="white-space: nowrap;">' in inline_html
 
 
 @pytest.mark.django_db(transaction=True)

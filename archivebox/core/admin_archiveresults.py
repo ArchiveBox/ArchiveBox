@@ -132,8 +132,14 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
         # Get plugin icon
         icon = get_plugin_icon(result.plugin)
 
-        # Format timestamp
-        end_time = result.end_ts.strftime("%Y-%m-%d %H:%M:%S") if result.end_ts else "-"
+        # Keep each timestamp component intact while allowing one wrap between them.
+        if result.end_ts:
+            end_time = (
+                f'<span style="white-space: nowrap;">{result.end_ts:%Y-%m-%d}</span>'
+                f'<wbr> <span style="white-space: nowrap;">{result.end_ts:%H:%M:%S}</span>'
+            )
+        else:
+            end_time = "-"
 
         process = result.process_record
         process_display = "-"
@@ -204,7 +210,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 <td style="padding: 10px 12px; white-space: nowrap; font-size: 20px;" title="{plugin_text}">
                     {icon}
                 </td>
-                <td style="padding: 10px 12px; font-weight: 500; color: #334155;">
+                <td style="padding: 10px 12px; white-space: nowrap; word-break: normal; font-weight: 500; color: #334155;">
                         <a href="{output_link_attr}" target="_blank"
                            style="color: #334155; text-decoration: none;"
                        title="View output fullscreen"
@@ -213,7 +219,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                         {plugin_text}
                     </a>
                 </td>
-                <td style="padding: 10px 12px; max-width: 280px;">
+                <td style="padding: 10px 12px; max-width: 280px; white-space: nowrap; word-break: normal;">
                     <span onclick="document.getElementById('{row_id}').open = !document.getElementById('{row_id}').open"
                           style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 12px; cursor: pointer;"
                           title="Click to expand full output">
@@ -223,7 +229,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 <td style="padding: 10px 12px; white-space: nowrap; color: #64748b; font-size: 12px; text-align: right;">
                     {output_file_count}
                 </td>
-                <td style="padding: 10px 12px; white-space: nowrap; color: #64748b; font-size: 12px;">
+                <td style="padding: 10px 12px; white-space: normal; word-break: normal; overflow-wrap: normal; color: #64748b; font-size: 12px;">
                     {end_time}
                 </td>
                 <td style="padding: 10px 12px; white-space: nowrap;">
@@ -294,8 +300,8 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
         """
 
     return mark_safe(f"""
-        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fff; width: 100%;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; overflow-y: hidden; background: #fff; width: 100%;">
+            <table style="width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 14px;">
                 <thead>
                     <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Details</th>
