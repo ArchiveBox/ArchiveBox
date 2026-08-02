@@ -1038,6 +1038,10 @@ def start_archivebox_server(
         if proc.poll() is not None:
             output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
             raise AssertionError(f"ArchiveBox server exited before opening port {port}:\n{output}")
+        output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
+        if not re.search(r"Worker worker_daphne: started RUNNING \(pid \d+,", output):
+            time.sleep(0.1)
+            continue
         try:
             assert_port_open("127.0.0.1", port, timeout=0.25)
             break
