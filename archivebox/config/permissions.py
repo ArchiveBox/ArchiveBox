@@ -4,6 +4,7 @@ import os
 import platform
 import pwd
 import socket
+import subprocess
 import sys
 from contextlib import contextmanager, suppress
 from pathlib import Path
@@ -12,6 +13,10 @@ from typing import cast
 from rich import print
 
 #############################################################################################
+
+
+def is_root_identity(running_uid: int, effective_uid: int) -> bool:
+    return running_uid == 0 or effective_uid == 0
 
 
 def select_archivebox_user(
@@ -60,15 +65,45 @@ SUDO_GID = int(os.environ.get("SUDO_GID", "0"))
 USER: str = Path("~").expanduser().resolve().name
 HOSTNAME: str = cast(str, max([socket.gethostname(), platform.node()], key=len))
 
-IS_ROOT = RUNNING_AS_UID == 0
+IS_ROOT = is_root_identity(RUNNING_AS_UID, EUID)
 IN_DOCKER = os.environ.get("IN_DOCKER", "") in ("1", "true", "True", "TRUE", "yes")
 
 FALLBACK_UID = RUNNING_AS_UID or SUDO_UID
 FALLBACK_GID = RUNNING_AS_GID or SUDO_GID
-try:
-    ARCHIVEBOX_ACCOUNT = pwd.getpwnam("archivebox")
-except KeyError:
-    ARCHIVEBOX_ACCOUNT = None
+
+
+def get_or_create_archivebox_account():
+    try:
+        return pwd.getpwnam("archivebox")
+    except KeyError:
+        pass
+
+    if RUNNING_AS_UID != 0 or platform.system() != "Linux":
+        return None
+
+    useradd = "/usr/sbin/useradd" if Path("/usr/sbin/useradd").exists() else "useradd"
+    command = [
+        useradd,
+        "--system",
+        "--create-home",
+        "--home-dir",
+        "/var/lib/archivebox",
+        "--shell",
+        "/bin/bash",
+        "archivebox",
+    ]
+    try:
+        subprocess.run(command, check=True)
+    except (OSError, subprocess.CalledProcessError) as err:
+        # Another concurrently starting process may have created it first.
+        try:
+            return pwd.getpwnam("archivebox")
+        except KeyError:
+            raise RuntimeError(f"Failed to create the archivebox system user with: {' '.join(command)}") from err
+    return pwd.getpwnam("archivebox")
+
+
+ARCHIVEBOX_ACCOUNT = get_or_create_archivebox_account()
 
 ARCHIVEBOX_USER, ARCHIVEBOX_GROUP = select_archivebox_user(
     running_uid=RUNNING_AS_UID,
@@ -172,8 +207,9 @@ def drop_privileges():
 
     # Always run ArchiveBox as the user that owns the data dir, or as the
     # archivebox service account when the data dir is root-owned.
-    if os.getuid() == 0 and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
+    if os.geteuid() == 0 and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
         pw_record = pwd.getpwuid(ARCHIVEBOX_USER)
+        os.initgroups(pw_record.pw_name, ARCHIVEBOX_GROUP)
         if os.getegid() != ARCHIVEBOX_GROUP:
             os.setegid(ARCHIVEBOX_GROUP)
         if os.geteuid() != ARCHIVEBOX_USER:

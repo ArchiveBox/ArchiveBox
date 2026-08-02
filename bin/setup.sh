@@ -76,7 +76,7 @@ ARCHIVEBOX_PYTHON="${ARCHIVEBOX_PYTHON:-3.13}"
 ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-git+https://github.com/ArchiveBox/ArchiveBox.git@${ARCHIVEBOX_BRANCH}}"
 ARCHIVEBOX_PLATFORM="${ARCHIVEBOX_PLATFORM:-}"
 ARCHIVEBOX_COMPOSE_URL="${ARCHIVEBOX_COMPOSE_URL:-https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/${ARCHIVEBOX_BRANCH}/docker-compose.yml}"
-ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.43}"
+ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.45}"
 ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-$HOME/.cache/archivebox/setup-abxpkg}"
 ARCHIVEBOX_HOME_DIR="$HOME/archivebox"
 ARCHIVEBOX_DATA_DIR="$ARCHIVEBOX_HOME_DIR/data"
@@ -109,9 +109,11 @@ fix_root_install_ownership() {
         fi
     done
 
-    for path in "$HOME/.local/bin" "$HOME/.local/share/uv" "$HOME/.cache/uv" "$HOME/.config/uv" "$ABXPKG_LIB_DIR"; do
+    # Only hand off bounded runtime roots. Provider libraries can be very large,
+    # and their existing contents only need to remain readable/executable.
+    for path in "$HOME/.local/bin" "$HOME/.local/share/uv" "$HOME/.cache/uv" "$HOME/.config/uv" "$ABXPKG_LIB_DIR" "$ABXPKG_LIB_DIR/env" "$ABXPKG_LIB_DIR/env/bin"; do
         if [ -e "$path" ]; then
-            chown -R "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$path"
+            chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$path"
         fi
     done
 }

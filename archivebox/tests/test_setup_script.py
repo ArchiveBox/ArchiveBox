@@ -21,7 +21,7 @@ def test_setup_script_never_recursively_chowns_collection_data():
     script = SETUP_SCRIPT.read_text()
 
     assert 'chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$ARCHIVEBOX_HOME_DIR" "$ARCHIVEBOX_DATA_DIR"' in script
-    assert "chown -R" not in "\n".join(line for line in script.splitlines() if "archivebox/data" in line)
+    assert "chown -R" not in script
 
 
 def test_setup_script_gives_archivebox_user_ownership_of_runtime_parent_dirs():
@@ -37,7 +37,7 @@ def test_setup_script_bootstraps_locked_abxpkg_version():
     prepare_function = script.partition("prepare_abxpkg_environment() {")[2].partition("\n}")[0]
     install_function = script.partition("install_archivebox_with_uv() {")[2].partition("\n}")[0]
 
-    assert 'ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.43}"' in script
+    assert 'ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.45}"' in script
     assert "fix_root_install_ownership" in prepare_function
     assert "resolve_setup_binary git env,brew,apt true" in install_function
 
