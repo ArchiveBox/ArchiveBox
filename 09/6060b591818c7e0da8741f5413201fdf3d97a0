@@ -4,6 +4,7 @@ archivebox/tests/test_cli_update_reindex_snapshots.py
   s_69ddf154c10e6f::t_95a03c33592e1b 175
   s_69ddf154c10e6f::t_1f7a40b796a526 185-186
   s_69ddf154c10e6f::t_ab275d4f0dd89f 140-143,145-150,152,160
+  s_69ddf154c10e6f::t_dbbad6af481b20 144,151,153,168-169
 archivebox/services/runner.py
   s_69ddf154c10e6f::t_1f7a40b796a526 2258,2261-2270
   s_69ddf154c10e6f::t_ea2b83c9f5d5b6 2259-2260
