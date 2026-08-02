@@ -895,6 +895,7 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
     port = get_free_port()
     env = cli_env(
         port=port,
+        server=True,
         PLUGINS="archivewebpage",
         BASE_URL=f"http://archivebox.localhost:{port}",
         URL_ALLOWLIST="",
