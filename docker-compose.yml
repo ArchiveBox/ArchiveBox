@@ -16,7 +16,7 @@ services:
     archivebox:
         image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}
         ports:
-            - 8000:8000
+            - "${ARCHIVEBOX_PORT:-8000}:8000"
         volumes:
             - ./data:/data
             # Override abx-dl's nested VOLUME so profiles persist across containers.
@@ -82,6 +82,7 @@ services:
     # .env file next to this one, then `docker compose up -d`). Both want:
     #     BASE_URL=https://archive.example.com
     #     SERVER_SECURITY_MODE=safe-subdomains-fullreplay
+    #     ARCHIVEBOX_PORT=127.0.0.1:8000   # keep direct HTTP local; expose only the ingress publicly
 
     ### Option A — Cloudflare Tunnel (no public IP / behind NAT, e.g. home/NAS).
     # Cloudflare's edge terminates TLS and resolves *.your.domain to a SINGLE tunnel;

@@ -724,6 +724,7 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
     archivebox_environment = compose["services"]["archivebox"]["environment"]
     assert "BASE_URL" in archivebox_environment
     assert "SERVER_SECURITY_MODE" in archivebox_environment
+    assert compose["services"]["archivebox"]["ports"] == ["${ARCHIVEBOX_PORT:-8000}:8000"]
     assert "--entrypoints.websecure.http.tls=true" in compose["services"]["traefik"]["entrypoint"][-1]
 
 
