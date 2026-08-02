@@ -56,8 +56,8 @@ def test_oldest_django_collection_migrates_end_to_end_without_data_loss(tmp_path
                         "cmd": [extractor, "--version"],
                         "cmd_version": "legacy-1.0",
                         "pwd": str(snapshot_dir),
-                        "start_ts": f"2024-01-01T12:00:{offset:02d}+00:00",
-                        "end_ts": f"2024-01-01T12:01:{offset:02d}+00:00",
+                        "start_ts": f"2024-01-01T12:00:{offset:02d}",
+                        "end_ts": f"2024-01-01T12:01:{offset:02d}",
                         "status": "succeeded",
                         "output": relative_path,
                     },
@@ -81,6 +81,7 @@ def test_oldest_django_collection_migrates_end_to_end_without_data_loss(tmp_path
 
     result = run_archivebox_migration_cmd(tmp_path, ["init"], timeout=90)
     assert result.returncode == 0, result.stderr
+    assert "received a naive datetime" not in result.stderr
     for pass_number in (1, 2):
         result = run_archivebox_migration_cmd(tmp_path, ["update"], timeout=180)
         assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
