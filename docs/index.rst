@@ -26,8 +26,9 @@ ArchiveBox
     uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
 
     archivebox init
+    archivebox install
     archivebox add https://example.com
-    archivebox info
+    archivebox status
 
 
 =============

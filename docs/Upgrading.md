@@ -62,14 +62,16 @@ More info:
 
 ### Upgrading with Docker Compose ⭐️
 
-Using Docker Compose is recommended because it makes upgrading a breeze! ✨  
-Pulling and running the latest version automatically upgrades the ArchiveBox collection and all of ArchiveBox's internal dependencies.
+Using Docker Compose keeps the image and migration commands consistent across upgrades.
 
 ```bash
 cd ~/archivebox        # or wherever your folder containing docker-compose.yml is
 docker compose down    # stop the currently running ArchiveBox containers
 docker compose pull    # pull the latest image version from Docker Hub
-docker compose up      # collection will be automatically upgraded as it starts
+docker compose run --rm archivebox init
+docker compose run --rm archivebox install
+docker compose run --rm archivebox update --migrate-only
+docker compose up -d
 ```
 
 More info:

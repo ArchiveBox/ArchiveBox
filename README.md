@@ -72,6 +72,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
 docker compose run archivebox init
+docker compose run archivebox install
 docker compose run archivebox manage createsuperuser
 # docker compose run archivebox add 'https://example.com'
 # docker compose run archivebox help
@@ -81,6 +82,7 @@ docker compose run archivebox manage createsuperuser
 # Option B: Or use it as a plain Docker container:
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
 docker run -it -v $PWD:/data archivebox/archivebox:dev init
+docker run -it -v $PWD:/data archivebox/archivebox:dev install
 # docker run -it -v $PWD:/data archivebox/archivebox:dev add 'https://example.com'
 # docker run -it -v $PWD:/data archivebox/archivebox:dev help
 # docker run -it -v $PWD:/data -p 8000:8000 archivebox/archivebox:dev
@@ -986,7 +988,7 @@ archivebox manage createsuperuser
 
 ### Security Risks of Viewing Archived JS
 
-Archived JavaScript is untrusted content. The default <code>SERVER_SECURITY_MODE=safe-subdomains-fullreplay</code> serves replay content on isolated snapshot subdomains so it cannot share the admin UI's cookies or origin. If your deployment cannot use wildcard <code>*.archivebox.localhost</code> subdomains, use <code>safe-onedomain-nojsreplay</code>, which keeps one origin but disables JavaScript replay. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview) and [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239) for details.
+Archived JavaScript is untrusted content. The default <code>SERVER_SECURITY_MODE=auto</code> uses isolated subdomains with full replay on <code>*.localhost</code>, and a one-domain no-JS replay policy on ordinary public or LAN hostnames. Choose <code>safe-subdomains-fullreplay</code> only when wildcard DNS and TLS are configured. See the [Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview) and [Issue #239](https://github.com/ArchiveBox/ArchiveBox/issues/239) for details.
 
 
 <br/>

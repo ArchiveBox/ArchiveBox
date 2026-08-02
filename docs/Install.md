@@ -83,7 +83,7 @@ If you're on Linux with `apt` or FreeBSD with `pkg` there is an optional auto-se
 curl -fsSL 'https://get.archivebox.io' | bash
 # shortcut to run https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh
 ``` 
-The script explains what it installs beforehand, and will prompt for user confirmation before making any changes to your system. The script uses Docker if already installed, but you can decline and it will install ArchiveBox using `uv` instead.
+The script uses Docker automatically when a working Docker Compose installation is available. Otherwise it shows the native `uv` install plan and pauses so you can cancel before continuing. It initializes the collection, installs ArchiveBox's runtime dependencies, and starts the server; create the first admin afterward with the command printed at the end.
 
 <img src="https://imgur.zervice.io/VMTzm0G.png" width="99%"/>
 
