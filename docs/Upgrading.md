@@ -81,12 +81,13 @@ More info:
 
 ### Upgrading with plain Docker
 
-Upgrading with plain Docker is similar to the process with Docker Compose, but you have to run `archivebox init` manually at the end to finish the process.
+Upgrading with plain Docker is similar to the process with Docker Compose, but each command must mount the existing collection directory.
 
 ```bash
 docker ps -a -q  --filter ancestor=archivebox/archivebox  # find any currently running archivebox containers
 docker stop CONTAINER_ID
 
+cd ~/archivebox/data  # or wherever your existing collection is stored
 docker pull archivebox/archivebox:dev
 docker run -v $PWD:/data -it archivebox/archivebox:dev init
 docker run -v $PWD:/data -it archivebox/archivebox:dev install

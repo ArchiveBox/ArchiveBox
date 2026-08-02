@@ -280,6 +280,8 @@ uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/Archi
 cd ~/archivebox/data
 archivebox init          # update collection index & apply any migrations
 archivebox install       # update runtime dependencies to latest versions
+archivebox update --migrate-only  # migrate/reconcile Snapshot files and metadata
+archivebox status        # check collection health after the upgrade
 ```
 
 Check our more detailed [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives) documentation and [Release Notes](https://github.com/ArchiveBox/ArchiveBox/releases) if you run into any problems. ➡️

@@ -150,7 +150,7 @@ Database and filesystem issues are uncommon but do come up from time to time (es
 ```bash
 archivebox init                 # upgrade the archivebox collection
 archivebox install              # upgrade the archivebox runtime dependencies
-archivebox update --index-only  # force an upgrade of some of the archivebox index/collection files
+archivebox update --migrate-only  # migrate/reconcile Snapshot files and metadata
 archivebox server --debug       # run the server with more verbose debug log output
 archivebox shell                # access the Python API / Django management shell
 sqlite3 index.sqlite3           # access the SQLite3 SQL database shell
