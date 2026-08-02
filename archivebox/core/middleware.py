@@ -178,7 +178,14 @@ def ServerSecurityModeMiddleware(get_response):
                 api_host, _api_port = split_host_port(get_api_host(config=base_config))
                 web_host, _web_port = split_host_port(get_web_host(config=base_config))
                 control_hosts = {host for host in (base_host, admin_host, api_host, web_host) if host}
-                if control_hosts and request_host not in control_hosts:
+                first_run_setup_request = not base_config.BASE_URL and (
+                    request.path == "/admin/login/"
+                    or (
+                        bool(getattr(request.user, "is_superuser", False))
+                        and re.fullmatch(r"/admin/machine/machine/[0-9a-f-]{32,36}/change/", request.path)
+                    )
+                )
+                if control_hosts and request_host not in control_hosts and not first_run_setup_request:
                     return HttpResponseForbidden("ArchiveBox is running with the control plane disabled on this host.")
 
             from archivebox.config.common import get_request_config

@@ -13,6 +13,7 @@ from urllib.parse import urlencode
 
 import pytest
 import requests
+import yaml
 
 from .conftest import resolve_abxpkg_chrome_env, run_python_cwd
 from .conftest import (
@@ -136,6 +137,66 @@ async function main() {
   };
 
   console.log(JSON.stringify(output));
+  await browser.close();
+}
+
+main().catch((error) => {
+  console.error(String(error));
+  process.exit(1);
+});
+"""
+
+
+PUPPETEER_FIRST_RUN_SETUP_SCRIPT = """\
+const fs = require("node:fs");
+const puppeteer = require("puppeteer");
+
+async function main() {
+  const config = JSON.parse(fs.readFileSync(0, "utf8"));
+  const browser = await puppeteer.launch({
+    executablePath: config.chromePath,
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      `--host-resolver-rules=MAP ${config.hostname} 127.0.0.1`,
+    ],
+  });
+  const page = await browser.newPage();
+
+  await page.goto(config.loginUrl, {waitUntil: "networkidle2", timeout: 15000});
+  await page.type('input[name="username"]', config.username);
+  await page.type('input[name="password"]', config.password);
+  await Promise.all([
+    page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
+    page.click('button[type="submit"], input[type="submit"]'),
+  ]);
+  await page.waitForSelector("#archivebox-setup-wizard", {timeout: 15000});
+
+  await page.click('input[name="archivebox-hosting-location"][value="public"]');
+  await page.click('input[name="archivebox-dns-mode"][value="single"]');
+  await page.click('input[name="archivebox-tls-mode"][value="none"]');
+  await page.select("#archivebox-setup-security-mode", "safe-onedomain-nojsreplay");
+  await page.waitForFunction(
+    () => !document.querySelector("#archivebox-setup-review").disabled,
+    {timeout: 30000},
+  );
+  await Promise.all([
+    page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
+    page.click("#archivebox-setup-review"),
+  ]);
+
+  await page.waitForFunction(() => {
+    const value = document.querySelector('input[name="config"]')?.value || "{}";
+    const saved = JSON.parse(value);
+    return saved.BASE_URL && saved.SERVER_SECURITY_MODE === "safe-onedomain-nojsreplay";
+  }, {timeout: 15000});
+  await Promise.all([
+    page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
+    page.click('button[name="_continue"][form="machine_form"]'),
+  ]);
+
+  console.log(JSON.stringify({finalUrl: page.url(), bodyText: await page.$eval("body", el => el.innerText.slice(0, 500))}));
   await browser.close();
 }
 
@@ -586,6 +647,84 @@ def _get_archivewebpage_capture(data_dir: Path, url: str) -> dict[str, str]:
             "snapshot_id": str(snapshot.id),
             "wacz_path": str(wacz_path),
         }
+
+
+@pytest.mark.timeout(180)
+def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Path, browser_runtime) -> None:
+    port = get_free_port()
+    public_hostname = "archivebox.example.test"
+    public_host = f"{public_hostname}:{port}"
+    env = cli_env(
+        port=port,
+        disable_extractors=True,
+        ADMIN_USERNAME="testadmin",
+        ADMIN_PASSWORD="testpassword",
+        ALLOWED_HOSTS="*",
+        BIND_ADDR=f"127.0.0.1:{port}",
+    )
+    env.pop("BASE_URL", None)
+    env.pop("SERVER_SECURITY_MODE", None)
+    init_result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=60)
+    assert init_result.returncode == 0, init_result.stderr or init_result.stdout
+
+    process = start_daemon_server(
+        tmp_path,
+        port=port,
+        env=env,
+        daemonize=False,
+        log_name="first_run_public_host.log",
+    )
+    probe_path = tmp_path / "first_run_setup.js"
+    probe_path.write_text(PUPPETEER_FIRST_RUN_SETUP_SCRIPT, encoding="utf-8")
+    browser_env = os.environ.copy()
+    browser_env["NODE_PATH"] = str(browser_runtime["node_path"])
+
+    try:
+        for blocked_path in (
+            "/api/v1/auth/get_api_token",
+            "/admin/machine/machine/00000000-0000-0000-0000-000000000000/change/",
+        ):
+            blocked_response = requests.post(
+                f"http://127.0.0.1:{port}{blocked_path}",
+                headers={"Host": public_host},
+                timeout=15,
+            )
+            assert blocked_response.status_code == 403
+            assert "control plane disabled" in blocked_response.text.lower()
+
+        result = subprocess.run(
+            [str(browser_runtime["node_binary"]), str(probe_path)],
+            cwd=tmp_path,
+            env=browser_env,
+            input=json.dumps(
+                {
+                    "chromePath": str(browser_runtime["chrome_binary"]),
+                    "hostname": public_hostname,
+                    "loginUrl": f"http://{public_host}/admin/login/?next=/admin/",
+                    "username": "testadmin",
+                    "password": "testpassword",
+                },
+            ),
+            capture_output=True,
+            text=True,
+            timeout=90,
+        )
+        assert result.returncode == 0, result.stderr or result.stdout
+    finally:
+        stop_archivebox_process(process)
+
+    for key, expected in (
+        ("BASE_URL", f"http://{public_host}"),
+        ("SERVER_SECURITY_MODE", "safe-onedomain-nojsreplay"),
+    ):
+        config_result = run_archivebox_cmd(["config", "--get", key], cwd=tmp_path, env=env, timeout=60)
+        assert config_result.returncode == 0, config_result.stderr or config_result.stdout
+        assert expected in config_result.stdout
+
+    compose = yaml.safe_load((Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text())
+    archivebox_environment = compose["services"]["archivebox"]["environment"]
+    assert "BASE_URL" in archivebox_environment
+    assert "SERVER_SECURITY_MODE" in archivebox_environment
 
 
 def _run_wacz_preview_probe(
