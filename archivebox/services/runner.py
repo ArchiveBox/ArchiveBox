@@ -2255,6 +2255,19 @@ def run_pending_crawls(
         if _fast_forward_same_path_snapshot_fs_versions():
             continue
 
+        if maintenance_only:
+            # Filesystem migration is independent of lifecycle status; do not
+            # tick queued snapshots or start their extraction work here.
+            filesystem_snapshot = (
+                Snapshot.objects.filter(retry_at__lte=timezone.now())
+                .exclude(fs_version=Snapshot._fs_current_version())
+                .order_by("retry_at", "created_at")
+                .first()
+            )
+            if filesystem_snapshot and Snapshot.claim_for_worker(filesystem_snapshot, lock_seconds=60):
+                if run_snapshot_maintenance(str(filesystem_snapshot.id)):
+                    continue
+
         if not maintenance_only:
             active_snapshots = Snapshot.objects.filter(
                 retry_at__lte=timezone.now(),

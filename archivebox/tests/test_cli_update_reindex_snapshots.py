@@ -137,46 +137,42 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
     env = cli_env(disable_extractors=True)
     url = f"https://example.com/fs-{source_version}"
     legacy_layout = source_version.startswith(("0.7.", "0.8."))
-    destination = None
-    if source_version == "0.8.5":
-        add_process = run_archivebox_cmd(["add", url], env=env, timeout=90)
-        assert add_process.returncode == 0, add_process.stderr
-        with use_archivebox_db(tmp_path):
-            snapshot = Snapshot.objects.get(url=url)
-            destination = snapshot.output_dir
-            timestamp = snapshot.timestamp
-            Snapshot.objects.filter(pk=snapshot.pk).update(fs_version=source_version)
-        source_dir = tmp_path / "archive" / timestamp
+    add_process = run_archivebox_cmd(["add", url], env=env, timeout=90)
+    assert add_process.returncode == 0, add_process.stderr
+    with use_archivebox_db(tmp_path):
+        snapshot = Snapshot.objects.get(url=url)
+        destination = snapshot.output_dir
+        Snapshot.objects.filter(pk=snapshot.pk).update(
+            fs_version=source_version,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=None,
+        )
+        snapshot.refresh_from_db()
+        source_dir = tmp_path / "archive" / snapshot.timestamp if legacy_layout else destination
+
+    if legacy_layout:
         source_dir.mkdir(parents=True, exist_ok=True)
-        (destination / "existing-user-output.bin").write_bytes(b"preserve interrupted migration output")
-    elif legacy_layout:
-        timestamp = "1700000000"
-        source_dir = tmp_path / "archive" / timestamp
-        source_dir.mkdir(parents=True, exist_ok=True)
+        (source_dir / "index.jsonl").unlink(missing_ok=True)
         (source_dir / "index.json").write_text(
             json.dumps(
                 {
                     "url": url,
-                    "timestamp": timestamp,
+                    "timestamp": snapshot.timestamp,
                     "title": f"Filesystem {source_version}",
                     "fs_version": source_version,
+                    "status": "queued",
                     "archive_results": [],
                 },
             ),
         )
-    else:
-        add_process = run_archivebox_cmd(["add", url], env=env, timeout=90)
-        assert add_process.returncode == 0, add_process.stderr
-        with use_archivebox_db(tmp_path):
-            snapshot = Snapshot.objects.get(url=url)
-            Snapshot.objects.filter(pk=snapshot.pk).update(fs_version=source_version)
-            snapshot.refresh_from_db()
-            source_dir = snapshot.output_dir
+    if source_version == "0.8.5":
+        (destination / "existing-user-output.bin").write_bytes(b"preserve interrupted migration output")
 
     (source_dir / "unknown" / "empty").mkdir(parents=True, exist_ok=True)
     (source_dir / "unknown" / "payload.bin").write_bytes(b"filesystem migration payload\x00\xff")
     (source_dir / "unknown" / "payload-link").symlink_to("payload.bin")
     original_tree = filesystem_manifest(source_dir)
+    original_tree.pop("index.jsonl", None)
 
     update_process = run_archivebox_cmd(["update", "--migrate-only"], env=env, timeout=90)
     assert update_process.returncode == 0, f"Initial update failed: {update_process.stderr}"
@@ -186,6 +182,8 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
         assert snapshot.fs_version == Snapshot._fs_current_version()
         migrated_dir = snapshot.output_dir.resolve()
         migrated_tree = filesystem_manifest(migrated_dir)
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert snapshot.archiveresult_set.count() == 0
         if source_version == "0.8.5":
             assert (migrated_dir / "existing-user-output.bin").read_bytes() == b"preserve interrupted migration output"
 
