@@ -915,6 +915,7 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
         browser_runtime["lib_dir"] / "chromewebstore" / "extensions",
     )
 
+    process = None
     try:
         install_result = run_archivebox_cmd(
             ["install", "archivewebpage"],
@@ -948,7 +949,8 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
         detail_url = f"http://{snapshot_host}/#archivewebpage/archivewebpage.wacz"
         result = _run_wacz_preview_probe(initialized_archive, browser_runtime, detail_url, tmp_path)
     finally:
-        stop_archivebox_process(process)
+        if process is not None:
+            stop_archivebox_process(process)
 
     assert result["status"] == 200
     assert result["previewResult"]["matched"], json.dumps(result, indent=2)

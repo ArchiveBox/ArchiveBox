@@ -302,7 +302,14 @@ def server(
             except OSError:
                 time.sleep(0.1)
         else:
-            print(f"[yellow][!] ArchiveBox daemon server pid={proc.pid} is still starting. See {log_path}[/yellow]")
+            print(f"[red][X] ArchiveBox daemon server pid={proc.pid} did not become ready. See {log_path}[/red]")
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+            sys.exit(1)
         return
 
     os.environ["BIND_ADDR"] = f"{host}:{port}"

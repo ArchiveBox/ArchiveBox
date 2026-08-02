@@ -742,6 +742,7 @@ def cli_env(
                 "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*|example\.com",
                 "SAVE_WGET": "True",
                 "USE_CHROME": "False",
+                "SEARCH_BACKEND_SONIC_ENABLED": "False",
             },
         )
 
@@ -1003,7 +1004,6 @@ def start_archivebox_server(
     env: dict[str, str] | None = None,
     daemonize: bool | None = None,
     log_name: str | None = None,
-    wait_for_log_text: str | None = "Listening on TCP",
 ):
     if daemonize is None:
         daemonize = log_name is None
@@ -1030,9 +1030,20 @@ def start_archivebox_server(
     if daemonize:
         assert proc.returncode == 0, proc.stderr or proc.stdout
         return proc
-    if log_path is not None and wait_for_log_text is not None:
-        wait_for_log(log_path, wait_for_log_text, timeout=30.0)
-    assert_port_open("127.0.0.1", port)
+
+    deadline = time.monotonic() + 30.0
+    while time.monotonic() < deadline:
+        if proc.poll() is not None:
+            output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
+            raise AssertionError(f"ArchiveBox server exited before opening port {port}:\n{output}")
+        try:
+            assert_port_open("127.0.0.1", port, timeout=0.25)
+            break
+        except OSError:
+            time.sleep(0.1)
+    else:
+        output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
+        raise AssertionError(f"ArchiveBox server did not open port {port} within 30 seconds:\n{output}")
     return proc
 
 
