@@ -143,8 +143,8 @@ def resolve_env_binary(name: str) -> Path:
     provider_path = os.pathsep.join(
         str(path)
         for path in (
-            *os.environ.get("PATH", "").split(os.pathsep),
             str(runtime_bin_dir),
+            *os.environ.get("PATH", "").split(os.pathsep),
         )
         if path
     )

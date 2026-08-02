@@ -243,6 +243,25 @@ def test_runner_worker_uses_active_archivebox_module():
     assert 'ARCHIVEBOX_RUNNER_DAEMON="1"' in worker["environment"]
 
 
+def test_runtime_binary_wins_over_ambient_system_path(tmp_path):
+    env = os.environ.copy()
+    env["ABXPKG_LIB_DIR"] = str(tmp_path / "lib")
+    env["PATH"] = "/usr/bin:/bin"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from archivebox.workers.supervisord_util import resolve_env_binary; print(resolve_env_binary('python3').resolve())",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env=env,
+    )
+
+    assert Path(result.stdout.strip().splitlines()[-1]) == Path(sys.executable).resolve()
+
+
 def test_daphne_worker_uses_default_application_close_timeout():
     from archivebox.workers.supervisord_util import SERVER_WORKER
 
