@@ -196,6 +196,7 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
     port = get_free_port()
     env = cli_env(
         port=port,
+        server=True,
         PLUGINS="wget",
         PUBLIC_ADD_VIEW="True",
     )
@@ -203,6 +204,7 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
+        assert _worker_state(tmp_path, "worker_sonic") is None
         assert _worker_state(tmp_path, "worker_runner") == "RUNNING"
         _stop_worker(tmp_path, "worker_runner")
         assert _worker_state(tmp_path, "worker_runner") != "RUNNING"
