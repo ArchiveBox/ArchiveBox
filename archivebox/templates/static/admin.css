@@ -35,6 +35,19 @@
     font-size: 13px;
 
 }
+#user-tools .navbar-logout-form {
+    display: inline;
+    margin: 0;
+}
+#user-tools button.navbar-logout {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: var(--header-link-color);
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+}
 #user-tools a.navbar-add-link,
 #user-tools a.navbar-add-link:link,
 #user-tools a.navbar-add-link:visited {

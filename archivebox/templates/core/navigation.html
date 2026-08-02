@@ -34,19 +34,19 @@
                 <a href="{% url 'admin:password_change' %}" class="navbar-item navbar-account" title="Change your account password">Account</a>
                 <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
             {% endif %}
-            <a href="{% url 'admin:logout' %}" class="navbar-item navbar-logout">{% trans 'Log out' %}</a>
+            <form method="post" action="{% url 'admin:logout' %}" class="navbar-logout-form">
+                {% csrf_token %}
+                <button type="submit" class="navbar-item navbar-logout">{% trans 'Log out' %}</button>
+            </form>
         {% endblock %}
     {% elif request.COOKIES.archivebox_admin_logged_in == "1" %}
         {% comment %}
         Authenticated on the admin host but the session cookie is admin-host-
         scoped (security boundary — web.* must NEVER see the session).
-        The hint cookie is the only signal that crosses, so we render the
-        logged-out state's `Account` / `Log out` links pointing at admin host
-        so the user can still reach those pages from web.*.
+        The hint cookie is the only signal that crosses, so link back to the
+        admin host where the session and CSRF cookie are available.
         {% endcomment %}
-        <a href="/admin/password_change/" class="navbar-item navbar-account" title="Change your account password">Account</a>
-        <span class="navbar-separator navbar-account-separator" aria-hidden="true">/</span>
-        <a href="/admin/logout/" class="navbar-item navbar-logout">{% trans 'Log out' %}</a>
+        <a href="/admin/" class="navbar-item navbar-account">Account</a>
     {% else %}
         <a href="{% url 'admin:login' %}" class="navbar-item navbar-login">{% trans 'Log in' %}</a>
     {% endif %}

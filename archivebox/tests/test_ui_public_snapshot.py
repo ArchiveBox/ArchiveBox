@@ -130,6 +130,15 @@ def _create_private_snapshot_over_full_server(
 
 
 def _logout_admin_over_full_server(session: requests.Session, port: int) -> None:
+    admin_page = session.get(
+        f"http://admin.archivebox.localhost:{port}/admin/",
+        timeout=10,
+    )
+    assert admin_page.status_code == 200, admin_page.text
+    assert 'class="navbar-logout-form"' in admin_page.text
+    assert 'method="post"' in admin_page.text
+    assert 'action="/admin/logout/"' in admin_page.text
+
     csrf_token = next((cookie.value for cookie in session.cookies if cookie.name.startswith("archivebox_csrftoken_")), "")
     assert csrf_token
     response = session.post(
