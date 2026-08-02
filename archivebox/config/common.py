@@ -858,6 +858,8 @@ class ArchiveBoxBaseConfig(
         search_backend = self.SEARCH_BACKEND_ENGINE.strip().lower()
         if search_backend:
             selected_plugins.add(f"search_backend_{search_backend}")
+        if respect_current_enabled:
+            selected_plugins.difference_update(disabled_plugins)
         for plugin_name, enabled_key in enabled_config_keys.items():
             if plugin_names or plugin_name in selected_plugins:
                 setattr(self, enabled_key, plugin_name in selected_plugins)

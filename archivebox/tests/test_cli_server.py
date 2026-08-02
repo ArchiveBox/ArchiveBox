@@ -445,21 +445,14 @@ def test_live_server_machine_search_engine_update_reaches_subsequent_snapshot_ru
     assert resolved == {"sqlite_enabled": True, "engine_in_runtime": False}
 
 
-def test_sonic_worker_is_disabled_when_sonic_disabled(tmp_path):
-    from archivebox.workers.supervisord_util import get_sonic_supervisord_worker_from_plugin
-
-    worker = get_sonic_supervisord_worker_from_plugin(
-        SimpleNamespace(
-            DATA_DIR=str(tmp_path),
-            SEARCH_BACKEND_SONIC_ENABLED=False,
-            SEARCH_BACKEND_SONIC_HOST_NAME="127.0.0.1",
-            SEARCH_BACKEND_SONIC_PORT=get_free_port(),
-            SEARCH_BACKEND_SONIC_PASSWORD="SecretPassword",
-            SONIC_BINARY="sonic",
-        ),
+def test_sonic_worker_is_disabled_when_sonic_disabled(archivebox_daemon_server):
+    server = archivebox_daemon_server(
+        SEARCH_BACKEND_ENGINE="sonic",
+        SEARCH_BACKEND_SONIC_ENABLED="False",
     )
+    state = server.worker_state()
 
-    assert worker is None
+    assert state["worker_sonic"] is None, state
 
 
 def test_sonic_daemon_event_handler_accepts_real_running_worker(initialized_archive, archivebox_daemon_server):
