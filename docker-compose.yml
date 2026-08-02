@@ -17,6 +17,8 @@ services:
             - 8000:8000
         volumes:
             - ./data:/data
+            # Override abx-dl's nested VOLUME so profiles persist across containers.
+            - ./data/personas:/data/personas
         environment:
             # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword

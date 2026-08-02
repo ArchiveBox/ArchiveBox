@@ -6,6 +6,7 @@ IMAGE="${IMAGE:-archivebox/archivebox:dev}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENTRYPOINT_PATH="${ENTRYPOINT_PATH:-$REPO_DIR/bin/docker_entrypoint.sh}"
+COMPOSE_PATH="${COMPOSE_PATH:-$REPO_DIR/docker-compose.yml}"
 RUN_ID="${RUN_ID:-${EPOCHSECONDS:-0}-$$}"
 VALIDATION_ROOT="${VALIDATION_ROOT:-$REPO_DIR/tmp/docker-uid-gid-validation/$RUN_ID}"
 KEEP_VALIDATION_ROOT="${KEEP_VALIDATION_ROOT:-0}"
@@ -78,7 +79,8 @@ if [[ -n "$REMOTE_HOST" && "$LOCAL_ONLY" != "1" ]]; then
     "$SSH_BINARY" "$REMOTE_HOST" "mkdir -p '$remote_dir'"
     "$SSH_BINARY" "$REMOTE_HOST" "cat > '$remote_dir/$script_name'" < "$0"
     "$SSH_BINARY" "$REMOTE_HOST" "cat > '$remote_dir/$entrypoint_name'" < "$ENTRYPOINT_PATH"
-    "$SSH_BINARY" "$REMOTE_HOST" "cd '$remote_dir' && IMAGE='$IMAGE' ENTRYPOINT_PATH='$remote_dir/$entrypoint_name' bash './$script_name' --local-only --entrypoint '$remote_dir/$entrypoint_name' --workdir '$remote_dir/work'"
+    "$SSH_BINARY" "$REMOTE_HOST" "cat > '$remote_dir/docker-compose.yml'" < "$COMPOSE_PATH"
+    "$SSH_BINARY" "$REMOTE_HOST" "cd '$remote_dir' && IMAGE='$IMAGE' ENTRYPOINT_PATH='$remote_dir/$entrypoint_name' COMPOSE_PATH='$remote_dir/docker-compose.yml' bash './$script_name' --local-only --entrypoint '$remote_dir/$entrypoint_name' --workdir '$remote_dir/work'"
     exit $?
 fi
 
@@ -421,6 +423,40 @@ run_mount_case() {
     VALIDATION_ROOT="$previous_root"
 }
 
+run_compose_personas_case() {
+    total=$((total + 1))
+    local case_dir="$VALIDATION_ROOT/compose-personas-persist"
+    local log_file="$case_dir/output.log"
+    local status
+    mkdir -p "$case_dir/data"
+
+    set +e
+    # shellcheck disable=SC2016
+    ARCHIVEBOX_IMAGE="$IMAGE" "$DOCKER_BINARY" compose \
+        --project-directory "$case_dir" \
+        -f "$COMPOSE_PATH" \
+        run --rm -T archivebox sh -c \
+        'printf "ABX_UID=%s\nABX_GID=%s\n" "$(id -u)" "$(id -g)"; archivebox init; printf persisted > "$PERSONAS_DIR/Default/chrome_profile/persisted"; echo ABX_OK' \
+        >"$log_file" 2>&1
+    status=$?
+    "$DOCKER_BINARY" compose --project-directory "$case_dir" -f "$COMPOSE_PATH" down --volumes --remove-orphans >/dev/null 2>&1
+    set -e
+
+    if [[ "$status" == "0" ]] \
+        && grep -q '^ABX_UID=911$' "$log_file" \
+        && grep -q '^ABX_GID=911$' "$log_file" \
+        && grep -q '^ABX_OK$' "$log_file" \
+        && [[ -f "$case_dir/data/personas/Default/chrome_profile/persisted" ]] \
+        && [[ "$(< "$case_dir/data/personas/Default/chrome_profile/persisted")" == persisted ]]; then
+        passed=$((passed + 1))
+        log "PASS compose persists persona data outside the inherited anonymous volume"
+    else
+        failed=$((failed + 1))
+        log "FAIL compose persists persona data outside the inherited anonymous volume (status=$status log=$log_file)"
+        sed -n '1,160p' "$log_file"
+    fi
+}
+
 log "Running UID/GID validation on ${HOSTNAME:-unknown-host} using image=$IMAGE entrypoint=$ENTRYPOINT_PATH root=$VALIDATION_ROOT platform=${DOCKER_PLATFORM:-native}"
 
 run_case "root-owned empty data auto-detect default" \
@@ -470,6 +506,8 @@ run_case "1001-owned data auto-detected" \
 run_case "root-owned ArchiveBox.conf only is repaired" \
     "chown 911:911 /case/data && chmod 755 /case/data && touch /case/data/ArchiveBox.conf /case/data/index.sqlite3 && chown 0:0 /case/data/ArchiveBox.conf /case/data/index.sqlite3" \
     "-" "-" pass 911 911 "$default_cmd" config-files-repaired
+
+run_compose_personas_case
 
 run_mount_case "NFS" "${NFS_TEST_DIR:-}"
 run_mount_case "SMB" "${SMB_TEST_DIR:-}"
