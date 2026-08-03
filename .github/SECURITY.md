@@ -64,5 +64,5 @@ Non-logged in users should be tightly limited to prevent attacks like SQL/shell 
 
 ### SSRF / URL Validation
 
-Note archivebox is **designed to be able to archive any URL the server can reach**, including internal intranet URLs, private IPs, and localhost. Users are expected to configure `URL_ALLOWLIST`/`URL_DENYLIST` accordingly if they need to limit what the server should archive.
+Note archivebox is **designed to be able to archive any URL the server can reach**, including internal intranet URLs, private IPs, and localhost. Users are expected to configure `URL_ALLOWLIST`/`URL_DENYLIST` or proper firewall/ACL-level blocking at the network level if they need to limit what the server should see.
 It does a basic check to try and avoid recursively archiving snapshots hosted by the archivebox server itself, but it's not a strict security check, it's just to prevent wasted CPU/disk from recursively archiving snapshots in a browser that has the ArchiveBox Browser Extension turned on.
