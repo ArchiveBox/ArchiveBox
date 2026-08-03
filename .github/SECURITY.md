@@ -20,15 +20,9 @@ Please start by reading these links to understand our existing security model, k
 
 ## Reporting a Vulnerability
 
-We use Github's built-in [Private Reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability) feature to accept vulnerability reports.
+~We use Github's built-in [Private Reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability) feature to accept vulnerability reports.~ We no longer offer CVEs or accept private reporting, 95% of the reports we received were low quality AI slop, so now we just ask for normal Github Issues or PRs.
 
-1. Go to the Security tab on our Github repo: https://github.com/ArchiveBox/ArchiveBox/security
-
-2. Click the ["Report a Vulnerability"](https://github.com/ArchiveBox/ArchiveBox/security/advisories/new) button
-
-3. Fill out the form to submit the details of the report and it will be securely sent to the maintainers
-
-You can also contact the maintainers via our public [Zulip Chat Server zulip.archivebox.io](https://zulip.archivebox.io) or [Twitter DMs @ArchiveBoxApp](https://twitter.com/ArchiveBoxApp).
+You can contact the maintainers via our public [Zulip Chat Server zulip.archivebox.io](https://zulip.archivebox.io) or [Twitter DMs @ArchiveBoxApp](https://twitter.com/ArchiveBoxApp) if you have a truly urgent security report, but we do not issue public CVEs.
 
 ---
 
@@ -39,7 +33,7 @@ You can also contact the maintainers via our public [Zulip Chat Server zulip.arc
 > Reporters **will still receive credit in release notes** however.
 
 > [!TIP]
-> Reports that affect **stable published versions will be issued CVEs** and published w/ full credit.
+> ~Reports that affect **stable published versions will be issued CVEs** and published w/ full credit.~
 
 Please read our existing published [security advisories](https://github.com/ArchiveBox/ArchiveBox/security/advisories), [Security Overview Docs](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview), and [issues](https://github.com/ArchiveBox/ArchiveBox/issues) and avoid creating duplicates.
 
