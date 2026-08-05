@@ -40,7 +40,7 @@ Other systems are not officially supported but may work with degraded functional
 
 <br/>
 
-You will also need at least 1GB of RAM, and 2GB or greater is recommended. You may be able to reduce crawl-time RAM pressure if you disable all the chrome-based archiving methods with [`CHROME_ENABLED=False`](https://archivebox.github.io/abx-plugins/#chrome) (or its `USE_CHROME` alias).
+**Memory:** 1GB of RAM minimum; 2GB or more is recommended. On a 1GB host, configure at least 4GB of swap before running full default crawls. You can reduce crawl-time memory pressure by disabling all Chrome-based archiving methods with [`CHROME_ENABLED=False`](https://archivebox.github.io/abx-plugins/#chrome) (or its `USE_CHROME` alias).
 
 It's also recommended to use a filesystem with compression and/or [deduplication](https://www.ixsystems.com/blog/ixsystems-and-klara-systems-celebrate-valentines-day-with-a-heartfelt-donation-of-fast-dedupe-to-openzfs-and-truenas/) (e.g. [ZFS](https://openzfs.github.io/openzfs-docs/Getting%20Started/index.html) or BTRFS) for maximum efficiency.
 
