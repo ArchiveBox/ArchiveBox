@@ -43,7 +43,7 @@ def _read_ini_config_cached(config_path_str: str) -> dict[str, Any]:
     config_path = Path(config_path_str)
     try:
         mtime = config_path.stat().st_mtime
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         return {}
     cache_key = (str(config_path), mtime)
     cached = _INI_CACHE.get(cache_key)

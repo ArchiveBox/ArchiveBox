@@ -5,6 +5,7 @@ Verify config reads/writes ArchiveBox.conf file correctly.
 """
 
 from archivebox.tests.conftest import run_archivebox_cmd
+from archivebox.config.configset import _read_ini_config_cached
 
 
 def test_config_displays_all_config(initialized_archive):
@@ -255,6 +256,18 @@ SEARCH_BACKEND_PASSWORD = "SecretPassword"
 
     assert result.returncode == 0, result.stderr
     assert "Extra inputs are not permitted" not in result.stderr
+
+
+def test_inaccessible_config_file_is_ignored(tmp_path):
+    private_dir = tmp_path / "private"
+    private_dir.mkdir()
+    config_file = private_dir / "ArchiveBox.conf"
+    config_file.write_text("[SERVER_CONFIG]\nDEBUG = True\n")
+    private_dir.chmod(0o000)
+    try:
+        assert _read_ini_config_cached(str(config_file)) == {}
+    finally:
+        private_dir.chmod(0o700)
 
 
 class TestConfigCLI:
