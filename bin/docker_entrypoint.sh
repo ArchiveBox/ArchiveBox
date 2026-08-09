@@ -112,16 +112,6 @@ ensure_file_owner() {
     chmod_if_possible "$path"
 }
 
-ensure_runtime_tree() {
-    local path="$1"
-    mkdir -p "$path" 2>/dev/null || true
-    [[ -e "$path" ]] || return 0
-    if [[ "$(id -u)" == "0" ]] && [[ "$(stat -c '%u:%g' "$path" 2>/dev/null || true)" != "$TARGET_UID:$TARGET_GID" ]]; then
-        chown -R "$TARGET_UID:$TARGET_GID" "$path" 2>/dev/null || true
-    fi
-    chmod_if_possible "$path"
-}
-
 ensure_runtime_tmp_tree() {
     mkdir -p "$TMP_DIR" 2>/dev/null || true
     [[ -e "$TMP_DIR" ]] || return 0
@@ -206,9 +196,9 @@ ensure_dir "/home/$ARCHIVEBOX_USER"
 ensure_small_runtime_tree "$ABXBUS_CACHE_DIR"
 ensure_small_runtime_tree "$ABXBUS_CACHE_DIR/semaphores"
 ensure_small_runtime_tree "$UV_CACHE_DIR"
-ensure_runtime_tree "$PLAYWRIGHT_BROWSERS_PATH"
+ensure_dir "$PLAYWRIGHT_BROWSERS_PATH"
 ensure_runtime_tmp_tree
-ensure_runtime_tree "$ABXPKG_LIB_DIR"
+ensure_dir "$ABXPKG_LIB_DIR"
 run_as_archivebox touch "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$ABXBUS_CACHE_DIR/semaphores"
 rm -f "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete"
 run_as_archivebox touch "$UV_CACHE_DIR/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$UV_CACHE_DIR"

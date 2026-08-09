@@ -260,6 +260,11 @@ run_case() {
         local nested_stat
         nested_stat="$("${docker_base[@]}" -v "$case_dir/data:/data" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /data/archive/existing/file" 2>/dev/null || true)"
         [[ "$nested_stat" == "0:0" ]] || ok=0
+    elif [[ "$post_assert" == runtime-nested-root-stays ]]; then
+        local lib_stat browsers_stat
+        lib_stat="$("${docker_base[@]}" -v "$case_dir/lib:/libdir" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /libdir/existing/file" 2>/dev/null || true)"
+        browsers_stat="$("${docker_base[@]}" -v "$case_dir/browsers:/browsers" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /browsers/existing/file" 2>/dev/null || true)"
+        [[ "$lib_stat" == "0:0" && "$browsers_stat" == "0:0" ]] || ok=0
     elif [[ "$post_assert" == users-dir-repaired ]]; then
         local users_stat
         users_stat="$("${docker_base[@]}" -v "$case_dir/data:/data" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /data/users" 2>/dev/null || true)"
@@ -480,6 +485,10 @@ run_case "root-owned data falls back to default archivebox user" \
 run_case "nested root-owned archive content is not recursively chowned" \
     "chown 0:0 /case/data && chmod 755 /case/data && mkdir -p /case/data/archive/existing && touch /case/data/archive/existing/file && chown -R 0:0 /case/data/archive/existing" \
     "-" "-" pass 911 911 "$default_cmd" nested-root-stays
+
+run_case "bundled dependency trees are not recursively chowned" \
+    "chown 501:20 /case/data && mkdir -p /case/lib/existing /case/browsers/existing && touch /case/lib/existing/file /case/browsers/existing/file && chown -R 0:0 /case/lib/existing /case/browsers/existing" \
+    "-" "-" pass 501 20 "$default_cmd" runtime-nested-root-stays
 
 run_case "root start fixes read-only top-level data when chmod works" \
     "chown 0:0 /case/data && chmod 555 /case/data" \
