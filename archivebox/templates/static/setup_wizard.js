@@ -218,7 +218,6 @@
       webHealthUrl: webOrigin + '/health/',
       snapshotHealthUrl: (usesSubdomains ? snapshotOrigin : webOrigin) + '/health/',
       originalHealthUrl: (usesSubdomains ? originalOrigin : webOrigin) + '/health/',
-      wildcardHealthUrl: usesSubdomains ? parsed.protocol + '//abx-probe-' + Math.random().toString(36).slice(2, 12) + '.' + baseHost + '/health/' : webOrigin + '/health/',
       expectedBrowserOrigin: usesSubdomains ? adminOrigin : parsed.origin,
     };
     updateOptionGuidance();
@@ -378,7 +377,6 @@
       web: probeUrl(preview.webHealthUrl, generation),
       snapshot: probeUrl(preview.snapshotHealthUrl, generation),
       original: probeUrl(preview.originalHealthUrl, generation),
-      wildcard: probeUrl(preview.wildcardHealthUrl, generation),
     };
     Promise.all(Object.keys(checks).map(function(key) { return checks[key].then(function(ok) { return [key, ok]; }); })).then(function(entries) {
       if (generation !== probeGeneration || preview !== currentPreview) return;
@@ -391,7 +389,7 @@
       setRouteCheck('archivebox-preview-save-status', results.web, preview.routeSemantics.save, 'Web host');
       setRouteCheck('archivebox-preview-last-status', results.original, preview.routeSemantics.last, 'Last-save host');
 
-      var coreReachable = results.admin && results.api && results.index && results.web && results.snapshot && results.wildcard;
+      var coreReachable = results.admin && results.api && results.index && results.web && results.snapshot;
       document.getElementById('archivebox-setup-dns-status').textContent = coreReachable
         ? '✅ Browser requests reached the configured ' + (dnsMode === 'wildcard' || dnsMode === 'localhost' ? 'role and snapshot subdomains.' : 'single ArchiveBox hostname.')
         : dnsGuidance + ' One or more configured ArchiveBox hosts are still unreachable.';

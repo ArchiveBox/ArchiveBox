@@ -209,8 +209,11 @@ def test_setup_wizard_assets_enforce_selection_and_access_requirements():
     assert "Waiting for a matching browser URL and valid setup options" in SETUP_WIZARD_JS
     assert "Finish the selected DNS, ingress, and TLS setup" in SETUP_WIZARD_JS
 
-    for target in ("adminUrl", "apiUrl", "indexUrl", "snapshotHealthUrl", "originalHealthUrl", "wildcardHealthUrl"):
+    for target in ("adminUrl", "apiUrl", "indexUrl", "webHealthUrl", "snapshotHealthUrl", "originalHealthUrl"):
         assert f"probeUrl(preview.{target}" in SETUP_WIZARD_JS
+    assert "wildcardHealthUrl" not in SETUP_WIZARD_JS
+    assert "results.wildcard" not in SETUP_WIZARD_JS
+    assert "var coreReachable = results.admin && results.api && results.index && results.web && results.snapshot;" in SETUP_WIZARD_JS
     assert "probeUrl(webOrigin + '/web/https://example.com'" not in SETUP_WIZARD_JS
     assert "credentials: 'omit'" in SETUP_WIZARD_JS
 
