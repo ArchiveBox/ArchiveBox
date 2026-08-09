@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from archivebox.config.permissions import is_root_identity, root_should_handoff_data_dir, select_archivebox_user
+from archivebox.config.permissions import (
+    is_root_identity,
+    root_parent_can_grant_group_traversal,
+    root_should_handoff_data_dir,
+    select_archivebox_user,
+)
 
 
 def test_root_identity_includes_real_or_effective_root():
@@ -115,16 +120,20 @@ def test_existing_collection_handoff_is_bounded_to_known_top_level_paths(tmp_pat
 
     database = tmp_path / "index.sqlite3"
     archive = tmp_path / "archive"
+    custom_plugins = tmp_path / "custom_plugins"
+    custom_templates = tmp_path / "custom_templates"
     nested = archive / "large-existing-snapshot"
     errors_log = tmp_path / "logs" / "errors.log"
     database.touch()
     nested.mkdir(parents=True)
+    custom_plugins.mkdir()
+    custom_templates.mkdir()
     errors_log.parent.mkdir()
     errors_log.touch()
 
     paths = root_data_dir_handoff_paths(tmp_path, ["archivebox", "status"])
 
-    assert paths == (tmp_path, database, archive, errors_log.parent, errors_log)
+    assert paths == (tmp_path, database, archive, custom_plugins, custom_templates, errors_log.parent, errors_log)
     assert nested not in paths
     assert all(path == tmp_path or path.parent in (tmp_path, errors_log.parent) for path in paths)
 
@@ -139,3 +148,11 @@ def test_root_handoff_never_selects_filesystem_root():
     from archivebox.config.permissions import root_data_dir_handoff_paths
 
     assert root_data_dir_handoff_paths(Path("/"), ["archivebox", "init"]) == ()
+
+
+def test_root_private_parent_grants_only_archivebox_group_traversal():
+    assert root_parent_can_grant_group_traversal(parent_uid=0, parent_gid=0, parent_mode=0o700, account_gid=911)
+    assert not root_parent_can_grant_group_traversal(parent_uid=0, parent_gid=0, parent_mode=0o701, account_gid=911)
+    assert not root_parent_can_grant_group_traversal(parent_uid=0, parent_gid=911, parent_mode=0o710, account_gid=911)
+    assert not root_parent_can_grant_group_traversal(parent_uid=0, parent_gid=100, parent_mode=0o750, account_gid=911)
+    assert not root_parent_can_grant_group_traversal(parent_uid=1000, parent_gid=1000, parent_mode=0o700, account_gid=911)

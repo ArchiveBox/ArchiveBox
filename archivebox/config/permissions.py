@@ -4,6 +4,7 @@ import os
 import platform
 import pwd
 import socket
+import stat
 import subprocess
 import sys
 from contextlib import contextmanager, suppress
@@ -164,6 +165,8 @@ ROOT_HANDOFF_NAMES = (
     "index.sqlite3-wal",
     "archive",
     "cache",
+    "custom_plugins",
+    "custom_templates",
     "lib",
     "logs",
     "personas",
@@ -208,6 +211,16 @@ def root_should_handoff_data_dir(
     return is_root and account_uid is not None and (not data_dir_owner_exists or data_dir_uid in (0, account_uid))
 
 
+def root_parent_can_grant_group_traversal(*, parent_uid: int, parent_gid: int, parent_mode: int, account_gid: int) -> bool:
+    """Return whether adding archivebox traversal preserves existing parent access."""
+
+    if parent_uid != 0 or parent_mode & stat.S_IXOTH:
+        return False
+    if parent_gid == account_gid:
+        return not bool(parent_mode & stat.S_IXGRP)
+    return not bool(parent_mode & stat.S_IRWXG)
+
+
 def handoff_root_owned_data_dir() -> None:
     account_uid = ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None
     if not root_should_handoff_data_dir(
@@ -218,7 +231,27 @@ def handoff_root_owned_data_dir() -> None:
     ):
         return
 
-    for path in root_data_dir_handoff_paths(DATA_DIR, sys.argv):
+    handoff_paths = root_data_dir_handoff_paths(DATA_DIR, sys.argv)
+    if not handoff_paths:
+        return
+
+    # A root user's collection commonly lives below /root, which the archivebox
+    # account cannot traverse after EUID is dropped. Grant only that group the
+    # missing execute bit on root-owned parents; never walk collection contents.
+    for parent in DATA_DIR.resolve().parents:
+        if parent == Path("/"):
+            continue
+        parent_stat = parent.stat(follow_symlinks=False)
+        if root_parent_can_grant_group_traversal(
+            parent_uid=parent_stat.st_uid,
+            parent_gid=parent_stat.st_gid,
+            parent_mode=parent_stat.st_mode,
+            account_gid=ARCHIVEBOX_ACCOUNT.pw_gid,
+        ):
+            os.chown(parent, -1, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
+            os.chmod(parent, stat.S_IMODE(parent_stat.st_mode) | stat.S_IXGRP, follow_symlinks=False)
+
+    for path in handoff_paths:
         try:
             os.chown(path, ARCHIVEBOX_ACCOUNT.pw_uid, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
         except (FileNotFoundError, PermissionError):
