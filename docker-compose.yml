@@ -209,6 +209,7 @@ services:
               set -eu
               DOMAIN=$$(printf '%s' "$$BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*##')
               # catch-all router -> archivebox (Host-routed); domain-free, so no docker socket needed
+              mkdir -p /etc/traefik
               printf 'http:\n  routers:\n    archivebox:\n      rule: "HostRegexp(`^.+$$`)"\n      service: archivebox\n  services:\n    archivebox:\n      loadBalancer:\n        servers:\n          - url: "http://archivebox:8000"\n' > /etc/traefik/dynamic.yml
               set -- --entrypoints.web.address=:80 --entrypoints.websecure.address=:443 \
                 --entrypoints.web.http.redirections.entrypoint.to=websecure \
