@@ -55,3 +55,25 @@ def test_manage_check_works(initialized_archive):
 
     assert result.returncode == 0, result.stderr or result.stdout
     assert "System check identified no issues" in result.stdout
+
+
+def test_manage_noninteractive_createsuperuser_does_not_request_docker_tty(initialized_archive):
+    result = run_archivebox_cmd(
+        [
+            "manage",
+            "createsuperuser",
+            "--noinput",
+            "--username",
+            "noninteractive-admin",
+            "--email",
+            "admin@example.com",
+        ],
+        env={
+            "IN_DOCKER": "True",
+            "DJANGO_SUPERUSER_PASSWORD": "test-password",
+        },
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "need to pass -it" not in result.stderr

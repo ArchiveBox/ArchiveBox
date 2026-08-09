@@ -14,7 +14,7 @@ def manage(args: list[str] | None = None) -> None:
     from archivebox.misc.logging import stderr
 
     config = get_config()
-    if (args and "createsuperuser" in args) and (config.IN_DOCKER and not config.IS_TTY):
+    if (args and "createsuperuser" in args and "--noinput" not in args) and (config.IN_DOCKER and not config.IS_TTY):
         stderr("[!] Warning: you need to pass -it to use interactive commands in docker", color="lightyellow")
         stderr("    docker run -it archivebox manage {}".format(" ".join(args or ["..."])), color="lightyellow")
         stderr("")
