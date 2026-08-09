@@ -18,7 +18,7 @@ if (set -o errtrace) 2>/dev/null; then
     set -o errtrace
 fi
 if [ -t 1 ]; then
-    clear
+    clear || true
 fi
 
 RUNNING_AS_ROOT="false"

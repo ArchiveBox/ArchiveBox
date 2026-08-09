@@ -62,10 +62,10 @@ def test_setup_script_prints_root_safe_runtime_commands():
     assert "--connect-timeout 1 --max-time 2" in script
 
 
-def test_setup_script_does_not_clear_without_a_terminal():
+def test_setup_script_does_not_fail_when_clear_cannot_use_terminal():
     script = SETUP_SCRIPT.read_text()
 
-    assert "if [ -t 1 ]; then\n    clear\nfi" in script
+    assert "if [ -t 1 ]; then\n    clear || true\nfi" in script
 
 
 def test_setup_script_keeps_optional_binary_probes_quiet():
