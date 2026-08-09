@@ -26,7 +26,7 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 
 **Memory:** 1GB RAM minimum; 2GB+ is recommended. On a 1GB VPS, configure at least 4GB of swap before running full default crawls.
 
-* [**macOS:**](#macos) >=10.12 (with `uv` or Homebrew)
+* [**macOS:**](#macos) >=13 (with `uv` or Homebrew)
 * [**Linux:**](#ubuntudebian) Ubuntu (>= 18.04), Debian (>= 10), etc. (with `apt`)
 * [**BSD:**](#bsd) FreeBSD, OpenBSD, NetBSD etc (with `pkg`)
 
