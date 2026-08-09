@@ -31,9 +31,10 @@ def select_archivebox_user(
     data_dir_gid: int,
     account_uid: int | None,
     account_gid: int | None,
+    data_dir_owner_exists: bool = True,
 ) -> tuple[int, int]:
     if running_uid == 0:
-        if data_dir_uid != 0:
+        if data_dir_uid != 0 and data_dir_owner_exists:
             return data_dir_uid, data_dir_gid
         if account_uid is not None and account_gid is not None:
             return account_uid, account_gid
@@ -53,6 +54,12 @@ try:
 except PermissionError:
     DATA_DIR_UID = 0
     DATA_DIR_GID = 0
+
+try:
+    pwd.getpwuid(DATA_DIR_UID)
+    DATA_DIR_OWNER_EXISTS = True
+except KeyError:
+    DATA_DIR_OWNER_EXISTS = False
 
 DEFAULT_UID = 911
 DEFAULT_GID = 911
@@ -116,6 +123,7 @@ ARCHIVEBOX_USER, ARCHIVEBOX_GROUP = select_archivebox_user(
     data_dir_gid=DATA_DIR_GID,
     account_uid=ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None,
     account_gid=ARCHIVEBOX_ACCOUNT.pw_gid if ARCHIVEBOX_ACCOUNT is not None else None,
+    data_dir_owner_exists=DATA_DIR_OWNER_EXISTS,
 )
 if not USER:
     try:
@@ -186,15 +194,26 @@ def root_data_dir_handoff_paths(data_dir: Path, argv: list[str]) -> tuple[Path, 
     return (data_dir, *(data_dir / name for name in ROOT_HANDOFF_NAMES if (data_dir / name).exists()))
 
 
-def root_should_handoff_data_dir(*, is_root: bool, data_dir_uid: int, account_uid: int | None) -> bool:
+def root_should_handoff_data_dir(
+    *,
+    is_root: bool,
+    data_dir_uid: int,
+    account_uid: int | None,
+    data_dir_owner_exists: bool = True,
+) -> bool:
     """Allow bounded handoff only for root or archivebox-owned collection roots."""
 
-    return is_root and account_uid is not None and data_dir_uid in (0, account_uid)
+    return is_root and account_uid is not None and (not data_dir_owner_exists or data_dir_uid in (0, account_uid))
 
 
 def handoff_root_owned_data_dir() -> None:
     account_uid = ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None
-    if not root_should_handoff_data_dir(is_root=IS_ROOT, data_dir_uid=DATA_DIR_UID, account_uid=account_uid):
+    if not root_should_handoff_data_dir(
+        is_root=IS_ROOT,
+        data_dir_uid=DATA_DIR_UID,
+        account_uid=account_uid,
+        data_dir_owner_exists=DATA_DIR_OWNER_EXISTS,
+    ):
         return
 
     for path in root_data_dir_handoff_paths(DATA_DIR, sys.argv):

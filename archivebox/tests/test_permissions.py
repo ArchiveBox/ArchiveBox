@@ -40,6 +40,22 @@ def test_root_preserves_existing_non_root_data_dir_owner():
     ) == (1001, 1002)
 
 
+def test_root_uses_archivebox_account_for_unknown_data_dir_owner():
+    assert select_archivebox_user(
+        running_uid=0,
+        running_gid=0,
+        effective_uid=0,
+        effective_gid=0,
+        sudo_uid=0,
+        sudo_gid=0,
+        data_dir_uid=502,
+        data_dir_gid=20,
+        account_uid=911,
+        account_gid=911,
+        data_dir_owner_exists=False,
+    ) == (911, 911)
+
+
 def test_non_root_uses_current_effective_identity():
     assert select_archivebox_user(
         running_uid=501,
@@ -76,6 +92,12 @@ def test_root_hands_off_root_or_archivebox_owned_collection_boundaries():
     assert not root_should_handoff_data_dir(is_root=True, data_dir_uid=1001, account_uid=911)
     assert not root_should_handoff_data_dir(is_root=False, data_dir_uid=911, account_uid=911)
     assert not root_should_handoff_data_dir(is_root=True, data_dir_uid=911, account_uid=None)
+    assert root_should_handoff_data_dir(
+        is_root=True,
+        data_dir_uid=502,
+        account_uid=911,
+        data_dir_owner_exists=False,
+    )
 
 
 def test_root_init_hands_off_only_an_empty_data_dir(tmp_path):
