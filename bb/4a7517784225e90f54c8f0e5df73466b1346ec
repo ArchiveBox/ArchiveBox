@@ -1,0 +1,21 @@
+archivebox/tests/test_migrations_08_to_09.py
+  s_69ddf154c10e6f::t_e2a74b6b0836d0 907,985
+  s_69ddf154c10e6f::t_c222b2780ab0f0 905-906,981,984
+  s_69ddf154c10e6f::t_eaa47eedbd0928 986
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "bb4a7517784225e90f54c8f0e5df73466b1346ec",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
