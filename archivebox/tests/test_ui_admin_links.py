@@ -197,9 +197,19 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert ">-</a>" not in inline_html
     assert "overflow-x: auto; overflow-y: hidden" in inline_html
     assert "min-width: 1100px" in inline_html
-    assert inline_html.count("white-space: nowrap; word-break: normal") == 2
+    assert inline_html.count('class="archive-results-plugin"') == 2
+    assert inline_html.count('class="archive-results-output"') == 2
+    assert inline_html.count('class="archive-results-files"') == 2
+    assert inline_html.count('class="archive-results-completed"') == 2
     assert "display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis;" in inline_html
     assert '<wbr> <span style="white-space: nowrap;">' in inline_html
+
+    admin_css = (Path(__file__).parents[1] / "templates" / "static" / "admin.css").read_text()
+    assert ".archive-results-table th,\n.archive-results-table td {\n    word-break: normal;" in admin_css
+    assert ".archive-results-table .archive-results-plugin {\n    min-width: 120px;" in admin_css
+    assert ".archive-results-table .archive-results-output {\n    min-width: 180px;" in admin_css
+    assert ".archive-results-table .archive-results-files {\n    width: 52px;\n    min-width: 52px;" in admin_css
+    assert ".archive-results-table .archive-results-completed {\n    min-width: 96px;\n    white-space: normal;" in admin_css
 
 
 @pytest.mark.django_db(transaction=True)

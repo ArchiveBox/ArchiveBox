@@ -210,7 +210,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 <td style="padding: 10px 12px; white-space: nowrap; font-size: 20px;" title="{plugin_text}">
                     {icon}
                 </td>
-                <td style="padding: 10px 12px; white-space: nowrap; word-break: normal; font-weight: 500; color: #334155;">
+                <td class="archive-results-plugin" style="padding: 10px 12px; font-weight: 500; color: #334155;">
                         <a href="{output_link_attr}" target="_blank"
                            style="color: #334155; text-decoration: none;"
                        title="View output fullscreen"
@@ -219,7 +219,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                         {plugin_text}
                     </a>
                 </td>
-                <td style="padding: 10px 12px; max-width: 280px; white-space: nowrap; word-break: normal;">
+                <td class="archive-results-output" style="padding: 10px 12px; max-width: 280px;">
                     <span onclick="document.getElementById('{row_id}').open = !document.getElementById('{row_id}').open"
                           style="display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
                                  color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 12px; cursor: pointer;"
@@ -227,10 +227,10 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                         {output_display}
                     </span>
                 </td>
-                <td style="padding: 10px 12px; white-space: nowrap; color: #64748b; font-size: 12px; text-align: right;">
+                <td class="archive-results-files" style="padding: 10px 12px; color: #64748b; font-size: 12px; text-align: right;">
                     {output_file_count}
                 </td>
-                <td style="padding: 10px 12px; white-space: normal; word-break: normal; overflow-wrap: normal; color: #64748b; font-size: 12px;">
+                <td class="archive-results-completed" style="padding: 10px 12px; color: #64748b; font-size: 12px;">
                     {end_time}
                 </td>
                 <td style="padding: 10px 12px; white-space: nowrap;">
@@ -302,16 +302,16 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
 
     return mark_safe(f"""
         <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; overflow-y: hidden; background: #fff; width: 100%;">
-            <table style="width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 14px;">
+            <table class="archive-results-table" style="width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 14px;">
                 <thead>
                     <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Details</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; width: 32px;"></th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Plugin</th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Output</th>
-                        <th style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Files</th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Completed</th>
+                        <th class="archive-results-plugin" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Plugin</th>
+                        <th class="archive-results-output" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Output</th>
+                        <th class="archive-results-files" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Files</th>
+                        <th class="archive-results-completed" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Completed</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Process</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Machine</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Version</th>

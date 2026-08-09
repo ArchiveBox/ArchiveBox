@@ -1434,6 +1434,33 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     filter: grayscale(100%);
 }
 
+.archive-results-table th,
+.archive-results-table td {
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+.archive-results-table .archive-results-plugin {
+    min-width: 120px;
+    white-space: nowrap;
+}
+
+.archive-results-table .archive-results-output {
+    min-width: 180px;
+    white-space: nowrap;
+}
+
+.archive-results-table .archive-results-files {
+    width: 52px;
+    min-width: 52px;
+    white-space: nowrap;
+}
+
+.archive-results-table .archive-results-completed {
+    min-width: 96px;
+    white-space: normal;
+}
+
 
 #result_list tbody td.field-cmd_str pre,
 #result_list tbody td.field-output_str pre {
