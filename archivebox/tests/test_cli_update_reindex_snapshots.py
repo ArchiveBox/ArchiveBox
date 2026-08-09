@@ -165,7 +165,8 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
                 },
             ),
         )
-    if source_version == "0.8.5":
+    if legacy_layout:
+        destination.mkdir(parents=True, exist_ok=True)
         (destination / "existing-user-output.bin").write_bytes(b"preserve interrupted migration output")
 
     (source_dir / "unknown" / "empty").mkdir(parents=True, exist_ok=True)
@@ -185,7 +186,7 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
         assert snapshot.status == Snapshot.StatusChoices.QUEUED
         assert snapshot.retry_at is not None
         assert snapshot.archiveresult_set.count() == 0
-        if source_version == "0.8.5":
+        if legacy_layout:
             assert (migrated_dir / "existing-user-output.bin").read_bytes() == b"preserve interrupted migration output"
 
     assert {path: migrated_tree.get(path) for path in original_tree} == original_tree

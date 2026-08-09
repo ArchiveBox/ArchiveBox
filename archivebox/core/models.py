@@ -1264,10 +1264,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         import logging
         import shutil
 
+        from archivebox.config.permissions import SudoPermission
+
         # Delete old directory
         if old_dir.exists() and not old_dir.is_symlink():
             try:
-                shutil.rmtree(old_dir)
+                # Root-launched commands retain a saved root EUID after dropping
+                # privileges, which is needed for legacy trees owned by old UIDs.
+                with SudoPermission(uid=0, fallback=True):
+                    shutil.rmtree(old_dir)
             except OSError as e:
                 logging.getLogger("archivebox.migration").warning(
                     f"Could not remove old migration directory {old_dir}: {e}",
