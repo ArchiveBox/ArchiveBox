@@ -334,6 +334,15 @@ def test_public_add_view_depth_one_crawl_skips_unreadable_persona_profile_entrie
         URL_ALLOWLIST=r"127\.0\.0\.1[:/].*",
     )
 
+    # Normal setup installs enabled runtime dependencies before starting the server.
+    install_result = run_archivebox_cmd(
+        ["install", "search_backend_sonic"],
+        cwd=tmp_path,
+        env=env,
+        timeout=180,
+    )
+    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
+
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
         add_page = get_http_response(port, host=f"web.archivebox.localhost:{port}", path="/add/")
