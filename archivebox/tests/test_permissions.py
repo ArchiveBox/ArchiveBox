@@ -116,14 +116,17 @@ def test_existing_collection_handoff_is_bounded_to_known_top_level_paths(tmp_pat
     database = tmp_path / "index.sqlite3"
     archive = tmp_path / "archive"
     nested = archive / "large-existing-snapshot"
+    errors_log = tmp_path / "logs" / "errors.log"
     database.touch()
     nested.mkdir(parents=True)
+    errors_log.parent.mkdir()
+    errors_log.touch()
 
     paths = root_data_dir_handoff_paths(tmp_path, ["archivebox", "status"])
 
-    assert paths == (tmp_path, database, archive)
+    assert paths == (tmp_path, database, archive, errors_log.parent, errors_log)
     assert nested not in paths
-    assert all(path == tmp_path or path.parent == tmp_path for path in paths)
+    assert all(path == tmp_path or path.parent in (tmp_path, errors_log.parent) for path in paths)
 
 
 def test_permission_repair_hint_avoids_recursive_collection_chown():

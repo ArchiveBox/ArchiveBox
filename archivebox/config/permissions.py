@@ -191,7 +191,9 @@ def root_data_dir_handoff_paths(data_dir: Path, argv: list[str]) -> tuple[Path, 
     if not collection_exists and not (is_init and not children):
         return ()
 
-    return (data_dir, *(data_dir / name for name in ROOT_HANDOFF_NAMES if (data_dir / name).exists()))
+    top_level_paths = tuple(data_dir / name for name in ROOT_HANDOFF_NAMES if (data_dir / name).exists())
+    log_files = tuple((data_dir / "logs").glob("*.log"))
+    return (data_dir, *top_level_paths, *log_files)
 
 
 def root_should_handoff_data_dir(
