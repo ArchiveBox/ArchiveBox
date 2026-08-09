@@ -104,7 +104,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 </code></pre>
 <br/>
 <sub>Open <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI and <a href="http://admin.archivebox.localhost:8000"><code>http://admin.archivebox.localhost:8000</code></a> for the admin UI ➡️</sub><br/>
-<sub>Set <code>BASE_URL</code> to change the public base domain; <code>web.</code> and <code>admin.</code> subdomains are used automatically. <code>BIND_ADDR</code> only controls the local listen address.</sub>
+<sub>Set <code>BASE_URL</code> to change the public base domain. The default <code>auto</code> mode uses <code>web.</code> and <code>admin.</code> subdomains on <code>*.localhost</code>, but one host for ordinary DNS names. <code>BIND_ADDR</code> only controls the local listen address.</sub>
 </details>
 <br/>
 
@@ -599,7 +599,7 @@ docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
 </code></pre>
 
 <sup>Open <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI and <a href="http://admin.archivebox.localhost:8000"><code>http://admin.archivebox.localhost:8000</code></a> for the admin UI ➡️</sup><br/>
-<sup>Set <code>BASE_URL</code> to change the public base domain; <code>web.</code> and <code>admin.</code> subdomains are used automatically. <code>BIND_ADDR</code> only controls the local listen address.</sup>
+<sup>Set <code>BASE_URL</code> to change the public base domain. The default <code>auto</code> mode uses <code>web.</code> and <code>admin.</code> subdomains on <code>*.localhost</code>, but one host for ordinary DNS names. <code>BIND_ADDR</code> only controls the local listen address.</sup>
 <br/><br/>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage">Usage: Web UI</a> wiki. ➡️</i>
 <br/><br/>
