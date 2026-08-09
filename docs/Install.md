@@ -24,6 +24,8 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 **CPU Architectures:** `amd64` (`x86_64`), `arm64` (`aarch64`), `arm7`  
 *(Including 64-bit Intel/AMD, M1/M2/etc. Macs, Raspberry Pi >= 3)*
 
+**Memory:** 1GB RAM minimum; 2GB+ is recommended. On a 1GB VPS, configure at least 4GB of swap before running full default crawls.
+
 * [**macOS:**](#macos) >=10.12 (with `uv` or Homebrew)
 * [**Linux:**](#ubuntudebian) Ubuntu (>= 18.04), Debian (>= 10), etc. (with `apt`)
 * [**BSD:**](#bsd) FreeBSD, OpenBSD, NetBSD etc (with `pkg`)
@@ -40,7 +42,7 @@ Other systems are not officially supported but may work with degraded functional
 
 <br/>
 
-**Memory:** 1GB of RAM minimum; 2GB or more is recommended. On a 1GB host, configure at least 4GB of swap before running full default crawls. You can reduce crawl-time memory pressure by disabling all Chrome-based archiving methods with [`CHROME_ENABLED=False`](https://archivebox.github.io/abx-plugins/#chrome) (or its `USE_CHROME` alias).
+You can reduce crawl-time memory pressure by disabling all Chrome-based archiving methods with [`CHROME_ENABLED=False`](https://archivebox.github.io/abx-plugins/#chrome) (or its `USE_CHROME` alias).
 
 It's also recommended to use a filesystem with compression and/or [deduplication](https://www.ixsystems.com/blog/ixsystems-and-klara-systems-celebrate-valentines-day-with-a-heartfelt-donation-of-fast-dedupe-to-openzfs-and-truenas/) (e.g. [ZFS](https://openzfs.github.io/openzfs-docs/Getting%20Started/index.html) or BTRFS) for maximum efficiency.
 
