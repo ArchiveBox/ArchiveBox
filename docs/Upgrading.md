@@ -1,6 +1,8 @@
 # Upgrading Versions
 
 ```bash
+# Stop any running ArchiveBox server/workers first (Ctrl+C, or stop the service/process manager that started them)
+
 # Update ArchiveBox using the package manager you originally installed it with
 uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
 # or: sudo apt update && sudo apt install --only-upgrade archivebox
@@ -14,6 +16,7 @@ archivebox status
 
 # Docker Compose install
 cd ~/archivebox
+docker compose down
 docker compose pull
 docker compose run --rm archivebox init
 docker compose run --rm archivebox install
@@ -26,8 +29,8 @@ docker compose up -d
 
 1. Find the version you want to upgrade to on https://github.com/ArchiveBox/ArchiveBox/releases
 2. **Read the release notes carefully** for any instructions or extra steps around upgrading for each release you're skipping or installing
-3. **Stop any running ArchiveBox server, scheduler, and worker processes**, then make a full backup of your `index.sqlite3` and `archive/` content before upgrading!
-   `gzip -9 < index.sqlite3 > "index.sqlite3.$(date +%s).bak"`
+3. **Stop any running ArchiveBox server, scheduler, and worker processes**, then back up the entire collection data directory before upgrading. `archivebox config --get ...` and a database-only backup do not include archived outputs.
+   `cd ~/archivebox && tar -czf "archivebox-data-$(date +%s).tar.gz" data/`
 4. Follow the steps below for your installation method, then run `archivebox init`, `archivebox install`, and `archivebox update --migrate-only` inside the collection
 5. Confirm the upgrade succeeded and check for any orphan/corrupted snapshots with `archivebox status`
 
