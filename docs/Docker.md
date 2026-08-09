@@ -256,7 +256,7 @@ docker run -it -v /media/USB-DRIVE/archivebox/data:/data archivebox/archivebox:d
 
 Then to view your data, you can look in the folder on the host `/media/USB-DRIVE/archivebox/data`, or use the Web UI:
 ```bash
-docker run -it -v /media/USB_DRIVE/archivebox/data:/data -p 8000:8000 archivebox/archivebox:dev
+docker run -it -v /media/USB-DRIVE/archivebox/data:/data -p 8000:8000 archivebox/archivebox:dev
 # then open http://web.archivebox.localhost:8000
 ```
 
