@@ -39,7 +39,7 @@ Published [Docker tags](https://hub.docker.com/r/archivebox/archivebox/tags):
 
 > [!IMPORTANT]
 > *Make sure Docker is **[installed](https://docs.docker.com/install/#supported-platforms)** and up-to-date before following any instructions below!*  ➡️  
-> To check installed version, run: `docker --version` (must be `>=17.04.0`)
+> Check both commands before continuing: `docker --version` and `docker compose version` (Compose v2 is required).
 
 <br/>
 

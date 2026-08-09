@@ -21,8 +21,8 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 <img src="https://assets.ubuntu.com/v1/c5cb0f8e-picto-ubuntu.svg" width="5%" align="right"/>
 <img src="https://imgur.zervice.io/Ue9BI7n.png" width="5%" align="right"/>
 
-**CPU Architectures:** `amd64` (`x86_64`), `arm64` (`aarch64`), `arm7`  
-*(Including 64-bit Intel/AMD, M1/M2/etc. Macs, Raspberry Pi >= 3)*
+**CPU Architectures:** `amd64` (`x86_64`), `arm64` (`aarch64`)<br/>
+*(Including 64-bit Intel/AMD and Apple Silicon Macs)*
 
 **Memory:** 1GB RAM minimum; 2GB+ is recommended. On a 1GB VPS, configure at least 4GB of swap before running full default crawls.
 
@@ -37,8 +37,6 @@ Other systems are not officially supported but may work with degraded functional
 
  * **Windows:** Via [[Docker]], Docker in WSL2, or WSL2 without Docker (not recommended)
  * [Other UNIX systems:](https://github.com/ArchiveBox/ArchiveBox#-package-manager-setup) Arch, Nix, Guix, Fedora, SUSE, Arch, CentOS, etc.
-
-<sub>Note: Some managed binary providers do not publish `arm7` builds. Run `archivebox install` to see which compatible host or managed providers are available for your platform.</sub>
 
 <br/>
 
