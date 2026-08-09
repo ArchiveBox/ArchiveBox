@@ -902,6 +902,9 @@ def test_07_filesystem_hop_preserves_complete_output_tree(tmp_path):
     """Validate the public init/update path, including the merge fallback and retry."""
     db_path = tmp_path / "index.sqlite3"
     create_data_dir_structure(tmp_path)
+    loose_archive_file = tmp_path / "archive" / ".DS_Store"
+    loose_archive_file.write_bytes(b"legacy archive root metadata\x00\xff")
+    loose_archive_file_manifest = filesystem_manifest(tmp_path / "archive")[".DS_Store"]
     with sqlite3.connect(db_path) as connection:
         connection.executescript(SCHEMA_0_7)
     original = seed_0_7_data(db_path)
@@ -975,8 +978,11 @@ def test_07_filesystem_hop_preserves_complete_output_tree(tmp_path):
     (destination / "preexisting-output.bin").write_bytes(b"destination-only output")
 
     for pass_number in (1, 2):
-        result = run_archivebox_migration_cmd(tmp_path, ["update"], timeout=180)
+        result = run_archivebox_migration_cmd(tmp_path, ["update", "--migrate-only"], timeout=180)
         assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
+
+    assert loose_archive_file.is_file()
+    assert filesystem_manifest(tmp_path / "archive")[".DS_Store"] == loose_archive_file_manifest
 
     for timestamp, expected_tree in original_trees.items():
         legacy_dir = tmp_path / "archive" / timestamp
