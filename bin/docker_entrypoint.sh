@@ -201,7 +201,13 @@ ensure_runtime_tmp_tree
 ensure_dir "$ABXPKG_LIB_DIR"
 ensure_dir "$ABXPKG_LIB_DIR/env"
 ensure_dir "$ABXPKG_LIB_DIR/env/bin"
-ensure_file_owner "$ABXPKG_LIB_DIR/env/derived.env"
+# abxpkg writes one small derived.env projection per provider. Repair only the
+# provider directory and projection file; package/cache contents can be large.
+for provider_dir in "$ABXPKG_LIB_DIR"/*; do
+    [[ -d "$provider_dir" ]] || continue
+    ensure_dir "$provider_dir"
+    ensure_file_owner "$provider_dir/derived.env"
+done
 run_as_archivebox touch "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$ABXBUS_CACHE_DIR/semaphores"
 rm -f "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete"
 run_as_archivebox touch "$UV_CACHE_DIR/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$UV_CACHE_DIR"
