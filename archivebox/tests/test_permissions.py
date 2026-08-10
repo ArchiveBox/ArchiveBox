@@ -138,10 +138,16 @@ def test_existing_collection_handoff_is_bounded_to_known_top_level_paths(tmp_pat
     assert all(path == tmp_path or path.parent in (tmp_path, errors_log.parent) for path in paths)
 
 
-def test_permission_repair_hint_avoids_recursive_collection_chown():
+def test_permission_repairs_avoid_recursive_collection_and_abxpkg_chown():
     from archivebox.misc import checks
 
     assert "chown -R" not in Path(checks.__file__).read_text(encoding="utf-8")
+    entrypoint = (Path(__file__).parents[2] / "bin" / "docker_entrypoint.sh").read_text(encoding="utf-8")
+    abxpkg_repairs = entrypoint.partition('ensure_dir "$ABXPKG_LIB_DIR"')[2].partition("run_as_archivebox touch")[0]
+
+    assert 'for package_dir in "$provider_dir"/packages/*; do' in abxpkg_repairs
+    assert 'ensure_file_owner "$package_dir/derived.env"' in abxpkg_repairs
+    assert "chown -R" not in abxpkg_repairs
 
 
 def test_root_handoff_never_selects_filesystem_root():
