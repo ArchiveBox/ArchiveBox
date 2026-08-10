@@ -115,7 +115,7 @@ def status(out_dir: Path = CONSTANTS.DATA_DIR) -> None:
 
     if orphaned_dirs:
         print("    [violet]Hint:[/violet] To automatically import orphaned data directories into the main index, run:")
-        print("        [green]archivebox init[/green]")
+        print("        [green]archivebox update[/green]")
 
     print()
     print("[green]\\[*] Scanning recent archive changes and user logins:[/green]")

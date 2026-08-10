@@ -98,12 +98,13 @@ def test_status_detects_orphaned_directories(initialized_archive):
     _create_snapshot_rows(initialized_archive, env, "https://example.com")
 
     # Create an orphaned directory
-    (initialized_archive / "archive" / "fake_orphaned_dir").mkdir(parents=True, exist_ok=True)
+    (initialized_archive / "archive" / "1234567890").mkdir(parents=True, exist_ok=True)
 
     result = run_archivebox_cmd(["status"], cwd=initialized_archive)
 
     # Should mention orphaned dirs
-    assert "orphan" in result.stdout.lower() or "1" in result.stdout
+    assert "orphan" in result.stdout.lower()
+    assert "archivebox update" in result.stdout
 
 
 def test_status_counts_new_snapshot_output_dirs_as_archived(initialized_archive):
