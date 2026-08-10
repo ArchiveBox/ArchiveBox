@@ -199,6 +199,8 @@ ensure_small_runtime_tree "$UV_CACHE_DIR"
 ensure_dir "$PLAYWRIGHT_BROWSERS_PATH"
 ensure_runtime_tmp_tree
 ensure_dir "$ABXPKG_LIB_DIR"
+ensure_dir "$ABXPKG_LIB_DIR/env"
+ensure_dir "$ABXPKG_LIB_DIR/env/bin"
 ensure_file_owner "$ABXPKG_LIB_DIR/env/derived.env"
 run_as_archivebox touch "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$ABXBUS_CACHE_DIR/semaphores"
 rm -f "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete"
