@@ -37,6 +37,10 @@ PY
 SLUG="$($GH_BINARY repo view --json nameWithOwner --jq .nameWithOwner)"
 TAG="${TAG_PREFIX}${VERSION}"
 RELEASE_BRANCH="${RELEASE_BRANCH:-dev}"
+IS_RC=false
+if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]]; then
+    IS_RC=true
+fi
 
 case "$RELEASE_BRANCH" in
     dev|main) ;;
@@ -46,14 +50,14 @@ case "$RELEASE_BRANCH" in
         ;;
 esac
 
-if [[ "$RELEASE_BRANCH" != main && ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]]; then
+if [[ "$RELEASE_BRANCH" != main && "$IS_RC" != true ]]; then
     echo "Refusing to publish ArchiveBox release $VERSION from $RELEASE_BRANCH; only archivebox:main may publish non-prerelease versions" >&2
     exit 1
 fi
 
 PYPI_VERSIONS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -r '.releases | keys[]')"
-GITHUB_TAGS="$($GH_BINARY api "repos/${SLUG}/releases?per_page=100" --jq '.[].tag_name')"
-LATEST="$(PYPI_VERSIONS="$PYPI_VERSIONS" GITHUB_TAGS="$GITHUB_TAGS" TAG_PREFIX="$TAG_PREFIX" $UV_BINARY run --no-cache --no-project python - <<'PY'
+GIT_TAGS="$($GIT_BINARY ls-remote --tags origin "refs/tags/${TAG_PREFIX}*" | while read -r _ ref; do ref="${ref#refs/tags/}"; ref="${ref%\^\{\}}"; echo "$ref"; done | sort -u)"
+LATEST="$(PYPI_VERSIONS="$PYPI_VERSIONS" GIT_TAGS="$GIT_TAGS" TAG_PREFIX="$TAG_PREFIX" $UV_BINARY run --no-cache --no-project python - <<'PY'
 import os
 import re
 
@@ -66,7 +70,7 @@ def parse(version):
 
 versions = set(os.environ['PYPI_VERSIONS'].splitlines())
 prefix = os.environ['TAG_PREFIX']
-versions.update(tag[len(prefix):] if tag.startswith(prefix) else tag for tag in os.environ['GITHUB_TAGS'].splitlines())
+versions.update(tag[len(prefix):] if tag.startswith(prefix) else tag for tag in os.environ['GIT_TAGS'].splitlines())
 versions = [version for version in versions if parse(version)[0] >= 0]
 print(max(versions, key=parse) if versions else '')
 PY
@@ -130,6 +134,13 @@ for filename, digest in published.items():
     if not re.fullmatch(r"[0-9a-f]{64}", digest):
         raise SystemExit(f"PyPI release {version} has an invalid sha256 for {filename}")
 PY
+    if [[ "$IS_RC" == true ]]; then
+        # Never create GitHub Releases for automated rc builds. GitHub emails
+        # every subscribed user for release publications, and dev can cut many
+        # rc builds per day while packaging catches up.
+        echo "${PYPI_PACKAGE} ${VERSION} is already tagged and published to PyPI from ${TAG_TARGET}; skipping GitHub Release for rc version"
+        exit 0
+    fi
     RELEASE_JSON="$($GH_BINARY release view "$TAG" --repo "$SLUG" --json assets,isDraft,isPrerelease,tagName)"
     RELEASE_JSON="$RELEASE_JSON" VERSION="$VERSION" TAG="$TAG" $UV_BINARY run --no-cache --no-project python - <<'PY'
 import json
@@ -144,12 +155,11 @@ expected_names = {
     f"archivebox-{version}-py3-none-any.whl",
     f"archivebox-{version}.tar.gz",
 }
-expected_prerelease = re.search(r"rc[0-9]+$", version) is not None
 assets = release["assets"]
 published = {asset["name"]: asset.get("digest", "") for asset in assets}
 if release["tagName"] != os.environ["TAG"]:
     raise SystemExit("GitHub release tag does not match the source version")
-if release["isDraft"] or release["isPrerelease"] != expected_prerelease:
+if release["isDraft"] or release["isPrerelease"]:
     raise SystemExit("GitHub release draft/prerelease metadata is incorrect")
 if len(published) != len(assets) or set(published) != expected_names:
     raise SystemExit("GitHub release asset set is incomplete or contains extras")
@@ -258,7 +268,7 @@ PYPI_MISSING=("${PYPI_STATUS_LINES[@]:1}")
 [[ "$PYPI_STATE" == absent || "$PYPI_STATE" == partial || "$PYPI_STATE" == complete ]]
 
 GITHUB_EXISTS=false
-if $GH_BINARY release view "$TAG" --repo "$SLUG" >/dev/null 2>&1; then
+if [[ "$IS_RC" != true ]] && $GH_BINARY release view "$TAG" --repo "$SLUG" >/dev/null 2>&1; then
     GITHUB_EXISTS=true
 fi
 if [[ ( "$PYPI_STATE" != absent || "$GITHUB_EXISTS" == true ) && "$TAG_TARGET" != "$RELEASE_SHA" ]]; then
@@ -282,11 +292,17 @@ if [[ "$PYPI_STATE" != complete ]]; then
     $UV_BINARY publish --no-cache --trusted-publishing always "${PYPI_ARTIFACTS[@]}"
 fi
 
+if [[ "$IS_RC" == true ]]; then
+    # Never create GitHub Releases for automated rc builds. GitHub emails
+    # every subscribed user for release publications, and dev can cut many
+    # rc builds per day while packaging catches up.
+    echo "Released ${PYPI_PACKAGE} ${VERSION} from ${RELEASE_SHA} using CI run ${CI_RUN_ID:-unknown}; skipped GitHub Release for rc version"
+    exit 0
+fi
+
 if [[ "$GITHUB_EXISTS" == false ]]; then
-    RELEASE_ARGS=()
-    [[ "$VERSION" == *rc* ]] && RELEASE_ARGS+=(--prerelease)
     $GH_BINARY release create "$TAG" --repo "$SLUG" --verify-tag \
-        --title "$TAG" --generate-notes "${RELEASE_ARGS[@]}"
+        --title "$TAG" --generate-notes
 fi
 
 $GH_BINARY release upload "$TAG" --repo "$SLUG" \

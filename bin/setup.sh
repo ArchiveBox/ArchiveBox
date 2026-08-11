@@ -371,10 +371,10 @@ if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && do
     echo "    docker compose down"
     echo "    ARCHIVEBOX_IMAGE=$ARCHIVEBOX_IMAGE docker compose pull"
     echo "    docker compose up"
-    echo "    docker compose run archivebox manage createsuperuser"
-    echo "    docker compose run archivebox add 'https://example.com'"
-    echo "    docker compose run archivebox list"
-    echo "    docker compose run archivebox help"
+    echo "    docker compose run --rm archivebox manage createsuperuser"
+    echo "    docker compose run --rm archivebox add 'https://example.com'"
+    echo "    docker compose run --rm archivebox list"
+    echo "    docker compose run --rm archivebox help"
     exit 0
 elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
     resolve_setup_curl

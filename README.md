@@ -72,11 +72,11 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
 docker compose pull
-docker compose run archivebox init
-docker compose run archivebox install
-docker compose run archivebox manage createsuperuser
-# docker compose run archivebox add 'https://example.com'
-# docker compose run archivebox help
+docker compose run --rm archivebox init
+docker compose run --rm archivebox install
+docker compose run --rm archivebox manage createsuperuser
+# docker compose run --rm archivebox add 'https://example.com'
+# docker compose run --rm archivebox help
 # docker compose up
 <br/>
 <br/>
@@ -189,16 +189,16 @@ curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 docker compose pull
 </code></pre></li>
 <li>Initialize the collection, then create an admin user (or set ADMIN_USERNAME/ADMIN_PASSWORD in docker-compose.yml)
-<pre lang="bash"><code style="white-space: pre-line">docker compose run archivebox init
-docker compose run archivebox install
-docker compose run archivebox manage createsuperuser
+<pre lang="bash"><code style="white-space: pre-line">docker compose run --rm archivebox init
+docker compose run --rm archivebox install
+docker compose run --rm archivebox manage createsuperuser
 </code></pre></li>
 <li>Next steps: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up -d
 # completely optional, CLI can always be used without running a server
-# docker compose run [-T] archivebox [subcommand] [--help]
-docker compose run archivebox add 'https://example.com'
-docker compose run archivebox help
+# docker compose run --rm [-T] archivebox [subcommand] [--help]
+docker compose run --rm archivebox add 'https://example.com'
+docker compose run --rm archivebox help
 </code></pre>
 <i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker Compose</a> in the Wiki. ➡️</i>
 </li>
@@ -222,7 +222,7 @@ docker run -v $PWD:/data -it archivebox/archivebox:dev install
 <li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox:dev
 # completely optional, CLI can always be used without running a server
-# docker run -v $PWD:/data -it [subcommand] [--help]
+# docker run -v $PWD:/data -it archivebox/archivebox:dev [subcommand] [--help]
 docker run -v $PWD:/data -it archivebox/archivebox:dev help
 </code></pre>
 <i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker Compose</a> in the Wiki. ➡️</i>
@@ -491,8 +491,8 @@ cd ~/archivebox/data         # IMPORTANT: cd into the directory
 archivebox version
 archivebox help
 
-# equivalent: docker compose run archivebox [subcommand] [--help]
-docker compose run archivebox help
+# equivalent: docker compose run --rm archivebox [subcommand] [--help]
+docker compose run --rm archivebox help
 
 # equivalent: docker run -it -v $PWD:/data archivebox/archivebox:dev [subcommand] [--help]
 docker run -it -v $PWD:/data archivebox/archivebox:dev help
@@ -537,12 +537,12 @@ archivebox help              # get list of archivebox subcommands that can be ru
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
 <br/>
-# docker compose run archivebox [subcommand] [--help]
-docker compose run archivebox init
-docker compose run archivebox install
-docker compose run archivebox version
-docker compose run archivebox help
-docker compose run archivebox add 'https://example.com'
+# docker compose run --rm archivebox [subcommand] [--help]
+docker compose run --rm archivebox init
+docker compose run --rm archivebox install
+docker compose run --rm archivebox version
+docker compose run --rm archivebox help
+docker compose run --rm archivebox add 'https://example.com'
 # to start webserver: docker compose up
 </code></pre>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage">Usage: Docker Compose CLI</a> wiki. ➡️</i>
@@ -610,7 +610,7 @@ archivebox config --set PUBLIC_ADD_VIEW=True   # allow guests to submit URLs
 archivebox config --set PERMISSIONS=public     # make newly added snapshots public
 archivebox config --set PUBLIC_INDEX=True      # allow guests to see list of all snapshots
 # or
-docker compose run archivebox config --set PERMISSIONS=public
+docker compose run --rm archivebox config --set PERMISSIONS=public
 
 # restart the server to apply any config changes
 </code></pre>
@@ -628,7 +628,7 @@ docker compose run archivebox config --set PERMISSIONS=public
 
 <pre lang="bash"><code style="white-space: pre-line">
 archivebox add --depth=1 'https://example.com'                     # add a URL with uv-installed archivebox on the host
-docker compose run archivebox add --depth=1 'https://example.com'                       # or w/ Docker Compose
+docker compose run --rm archivebox add --depth=1 'https://example.com'                  # or w/ Docker Compose
 docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://example.com'  # or w/ Docker, all equivalent
 </code></pre>
 
@@ -771,7 +771,7 @@ The configuration is documented here: **[Configuration Wiki](https://github.com/
 <summary><i>Expand to see the most common options to tweak...</i></summary>
 <pre lang="bash"><code style="white-space: pre-line">
 # e.g. archivebox config --set TIMEOUT=120
-# or   docker compose run archivebox config --set TIMEOUT=120
+# or   docker compose run --rm archivebox config --set TIMEOUT=120
 <br/>
 TIMEOUT=240                # default: 60    add more seconds on slower networks
 CHECK_SSL_VALIDITY=False   # default: True  False = allow saving URLs w/ bad SSL

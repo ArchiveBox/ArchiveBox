@@ -26,7 +26,7 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 **Memory:** 1GB RAM minimum; 2GB+ is recommended. On a 1GB VPS, configure at least 4GB of swap before running full default crawls.
 
 * [**macOS:**](#macos) >=13 on Intel or Apple Silicon (with `uv` or Homebrew)
-* [**Ubuntu:**](#ubuntudebian-based-systems) on `amd64` or `arm64` (with `apt` or `uv`)
+* [**Ubuntu:**](#ubuntudebian-based-systems) on `amd64` or `arm64` (with `apt`, `uv`, or Homebrew)
 * **Docker:** on `amd64` or `arm64` Linux/macOS
 
 Other operating systems are not tested or supported for this release.
@@ -117,6 +117,12 @@ ArchiveBox itself is the only tool you need to bootstrap manually. After that, `
 Make sure you have [Homebrew](https://brew.sh/) installed first.
 
 ```bash
+# install ArchiveBox directly with Homebrew
+brew tap archivebox/archivebox
+brew trust archivebox/archivebox
+brew install archivebox
+
+# or use Homebrew to install uv, then install ArchiveBox with uv
 brew install uv
 uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
 ```
@@ -144,6 +150,19 @@ flow. Runtime extractor
 dependencies such as Chromium, yt-dlp, SingleFile, and other plugin-managed
 tools are installed by `archivebox install`; use `sudo archivebox install` only
 if you want it to install missing system packages via apt.
+
+Alternatively, install with `uv` or [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux):
+
+```bash
+# uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+
+# or Homebrew, after installing Linuxbrew
+brew tap archivebox/archivebox
+brew trust archivebox/archivebox
+brew install archivebox
+```
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/65315723-adae-42e4-b8c6-e44b79165ae5" width="55px" align="right"/>
 

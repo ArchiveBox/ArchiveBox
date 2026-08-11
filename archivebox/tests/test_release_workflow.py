@@ -28,9 +28,16 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert 'echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:${VERSION}"' in tag_script
 
+    release_script = (REPO_ROOT / "bin" / "release.sh").read_text()
+    assert "Never create GitHub Releases for automated rc builds" in release_script
+    assert "--prerelease" not in release_script
+    assert "repos/${SLUG}/releases?per_page=100" not in release_script
+    assert 'if [[ "$IS_RC" != true ]] && $GH_BINARY release view' in release_script
+    assert "subscribed user" in release_script
+
     logical_lines = []
     current_line = ""
-    for line in (REPO_ROOT / "bin" / "release.sh").read_text().splitlines():
+    for line in release_script.splitlines():
         current_line = f"{current_line} {line.strip()}".strip()
         if current_line.endswith("\\"):
             current_line = current_line[:-1]
@@ -53,3 +60,11 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert publish_command[publish_command.index("--trusted-publishing") + 1] == "always"
     assert "--verify-tag" in release_commands[create_release]
     assert create_tag < publish_pypi < create_release
+
+    publish_line = logical_lines.index(next(line for line in logical_lines if line.startswith("$UV_BINARY publish ")))
+    rc_skip_line = logical_lines.index(
+        next(line for line in logical_lines if "skipped GitHub Release for rc version" in line and "CI_RUN_ID" in line),
+    )
+    create_release_line = logical_lines.index(next(line for line in logical_lines if line.startswith("$GH_BINARY release create ")))
+    upload_release_line = logical_lines.index(next(line for line in logical_lines if line.startswith("$GH_BINARY release upload ")))
+    assert publish_line < rc_skip_line < create_release_line < upload_release_line
