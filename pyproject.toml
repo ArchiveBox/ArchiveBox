@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.35rc212"
+version = "0.9.35rc213"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -83,7 +83,7 @@ dependencies = [
     "abxbus",                 # direct imports only; version constrained by abx-dl -> abx-plugins
     "abxpkg",                # direct imports only; version constrained by abx-dl -> abx-plugins
     "abx-plugins",           # direct imports only; version constrained by abx-dl
-    "abx-dl==1.12.81",       # shared ArchiveBox downloader package
+    "abx-dl==1.12.82",       # shared ArchiveBox downloader package
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
@@ -344,7 +344,7 @@ Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
 
 
 [tool.bumpver]
-current_version = "v0.9.35rc212"
+current_version = "v0.9.35rc213"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 tag_message = "{new_version}"
