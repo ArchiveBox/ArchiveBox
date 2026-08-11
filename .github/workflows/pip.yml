@@ -164,3 +164,26 @@ jobs:
           VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox version
           VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox init
           VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox status
+
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            root_tool_dir="/root/archivebox-package-smoke-${{ matrix.artifact }}-${{ matrix.python }}"
+            sudo rm -rf "$root_tool_dir"
+            sudo mkdir -p "$root_tool_dir/data"
+
+            root_install_args=()
+            for dependency_artifact in "${dependency_artifacts[@]}"; do
+              root_install_args+=(--with "$dependency_artifact")
+            done
+            sudo UV_TOOL_DIR="$root_tool_dir/tools" UV_TOOL_BIN_DIR="$root_tool_dir/bin" \
+              uv tool install --no-cache --python "${{ matrix.python }}" \
+              "${root_install_args[@]}" "$artifact"
+
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data' && archivebox init"
+            sudo stat -c %U "$root_tool_dir/data" | grep -qx archivebox
+            if sudo find "$root_tool_dir/data" -xdev -user root -print -quit | grep -q .; then
+              echo "Root-owned files remain in $root_tool_dir/data" >&2
+              exit 1
+            fi
+            sudo rm -rf "$root_tool_dir"
+          fi

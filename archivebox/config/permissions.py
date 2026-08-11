@@ -221,6 +221,26 @@ def root_parent_can_grant_group_traversal(*, parent_uid: int, parent_gid: int, p
     return not bool(parent_mode & stat.S_IRWXG)
 
 
+def grant_archivebox_group_traversal(path: Path) -> None:
+    """Let the archivebox account traverse private root-owned parents."""
+
+    if not IS_ROOT or ARCHIVEBOX_ACCOUNT is None:
+        return
+
+    for parent in path.resolve().parents:
+        if parent == Path("/"):
+            continue
+        parent_stat = parent.stat(follow_symlinks=False)
+        if root_parent_can_grant_group_traversal(
+            parent_uid=parent_stat.st_uid,
+            parent_gid=parent_stat.st_gid,
+            parent_mode=parent_stat.st_mode,
+            account_gid=ARCHIVEBOX_ACCOUNT.pw_gid,
+        ):
+            os.chown(parent, -1, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
+            os.chmod(parent, stat.S_IMODE(parent_stat.st_mode) | stat.S_IXGRP, follow_symlinks=False)
+
+
 def handoff_root_owned_data_dir() -> None:
     account_uid = ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None
     if not root_should_handoff_data_dir(
@@ -235,21 +255,9 @@ def handoff_root_owned_data_dir() -> None:
     if not handoff_paths:
         return
 
-    # A root user's collection commonly lives below /root, which the archivebox
-    # account cannot traverse after EUID is dropped. Grant only that group the
-    # missing execute bit on root-owned parents; never walk collection contents.
-    for parent in DATA_DIR.resolve().parents:
-        if parent == Path("/"):
-            continue
-        parent_stat = parent.stat(follow_symlinks=False)
-        if root_parent_can_grant_group_traversal(
-            parent_uid=parent_stat.st_uid,
-            parent_gid=parent_stat.st_gid,
-            parent_mode=parent_stat.st_mode,
-            account_gid=ARCHIVEBOX_ACCOUNT.pw_gid,
-        ):
-            os.chown(parent, -1, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
-            os.chmod(parent, stat.S_IMODE(parent_stat.st_mode) | stat.S_IXGRP, follow_symlinks=False)
+    # Never walk collection contents. This only grants execute-only traversal
+    # on private parents such as /root so the handed-off data remains reachable.
+    grant_archivebox_group_traversal(DATA_DIR)
 
     for path in handoff_paths:
         try:
@@ -264,6 +272,9 @@ def handoff_root_owned_data_dir() -> None:
 def drop_privileges():
     """If running as root, drop privileges to the data dir owner or archivebox user."""
 
+    # Root-owned uv tools commonly live below /root. Keep the installed package
+    # importable after dropping EUID without changing ownership of the tool env.
+    grant_archivebox_group_traversal(Path(__file__))
     handoff_root_owned_data_dir()
 
     # Always run ArchiveBox as the user that owns the data dir, or as the
