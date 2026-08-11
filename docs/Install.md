@@ -17,7 +17,6 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 
 ## Supported Systems
 
-<img src="https://cdn0.iconfinder.com/data/icons/flat-round-system/512/freebsd-512.png" width="5%" align="right"/>
 <img src="https://assets.ubuntu.com/v1/c5cb0f8e-picto-ubuntu.svg" width="5%" align="right"/>
 <img src="https://imgur.zervice.io/Ue9BI7n.png" width="5%" align="right"/>
 
@@ -26,17 +25,11 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 
 **Memory:** 1GB RAM minimum; 2GB+ is recommended. On a 1GB VPS, configure at least 4GB of swap before running full default crawls.
 
-* [**macOS:**](#macos) >=13 (with `uv` or Homebrew)
-* [**Linux:**](#ubuntudebian) Ubuntu (>= 18.04), Debian (>= 10), etc. (with `apt`)
-* [**BSD:**](#bsd) FreeBSD, OpenBSD, NetBSD etc (with `pkg`)
+* [**macOS:**](#macos) >=13 on Intel or Apple Silicon (with `uv` or Homebrew)
+* [**Ubuntu:**](#ubuntudebian-based-systems) on `amd64` or `arm64` (with `apt` or `uv`)
+* **Docker:** on `amd64` or `arm64` Linux/macOS
 
-Other systems are not officially supported but may work with degraded functionality:
-
-<img src="https://imgur.zervice.io/WYSb96z.png" width="6%" align="right"/>
-<img src="http://files.softicons.com/download/system-icons/web0.2ama-icons-by-chrfb/png/256x256/Operating%20System%20-%20Windows.png" width="5%" align="right"/>
-
- * **Windows:** Via [[Docker]], Docker in WSL2, or WSL2 without Docker (not recommended)
- * [Other UNIX systems:](https://github.com/ArchiveBox/ArchiveBox#-package-manager-setup) Arch, Nix, Guix, Fedora, SUSE, Arch, CentOS, etc.
+Other operating systems are not tested or supported for this release.
 
 <br/>
 
@@ -54,7 +47,7 @@ It's also recommended to use a filesystem with compression and/or [deduplication
 
 *Docker Compose is the recommended way to get ArchiveBox, as it includes all the extras out-of-the-box and provides the best security and upgrade UX.*
 
-1. If you don't already have docker installed, follow the official instructions to get Docker on Linux, macOS, or Windows:  
+1. If you don't already have Docker installed, follow the official instructions for Linux or macOS:
   https://docs.docker.com/install/#supported-platforms ➡️
 
 2. Then follow the [Quickstart](https://github.com/ArchiveBox/ArchiveBox#quickstart) guide and read the [[Docker]] wiki page for next steps. ➡️
@@ -75,7 +68,7 @@ It's also recommended to use a filesystem with compression and/or [deduplication
 
 ## Option B. Automatic Setup Script
 
-If you're on macOS, Linux with `apt`, or FreeBSD with `pkg`, there is an optional auto-setup script provided.
+If you're on macOS or Ubuntu, there is an optional auto-setup script provided.
 
 *(or scroll further down for manual install instructions)*
 
@@ -99,7 +92,7 @@ After running the setup script, continue with the [Quickstart](https://github.co
 
 ## Option C. Bare Metal Setup
 
-If you'd rather not use [Docker](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup) or our [auto-install script](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup), you can follow these manual setup instructions to install ArchiveBox and its dependencies using `uv` & your system package manager of choice (e.g. `apt`, `brew`, `pkg`, `nix`, etc.).
+If you'd rather not use [Docker](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup) or our [auto-install script](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup), you can follow these manual setup instructions to install ArchiveBox and its dependencies using `uv`, `apt`, or Homebrew.
 
 See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) documentation to see the full list of dependencies and how they're used. Not all the dependencies are required for all modes. If you disable some archive methods you can skip installing those dependencies — for example, if you set [`MEDIA_ENABLED=False`](https://archivebox.github.io/abx-plugins/#media) you don't need to install `yt-dlp`, and if you set [`PDF_ENABLED=False`](https://archivebox.github.io/abx-plugins/#pdf), [`SCREENSHOT_ENABLED=False`](https://archivebox.github.io/abx-plugins/#screenshot), and [`DOM_ENABLED=False`](https://archivebox.github.io/abx-plugins/#dom) you don't need `chromium`.
 
@@ -151,34 +144,6 @@ flow. Runtime extractor
 dependencies such as Chromium, yt-dlp, SingleFile, and other plugin-managed
 tools are installed by `archivebox install`; use `sudo archivebox install` only
 if you want it to install missing system packages via apt.
-
-<img src="https://cdn0.iconfinder.com/data/icons/flat-round-system/512/freebsd-512.png" width="30px" align="right"/>
-
-
-#### FreeBSD
-
-```bash
-sudo pkg install curl
-curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
-archivebox install
-```
-
-#### OpenBSD
-
-```bash
-doas pkg_add uv
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
-archivebox install
-```
-
-#### Arch Linux / Nix / Guix / etc. Other OSs
-
-See the [Quickstart](https://github.com/ArchiveBox/ArchiveBox#-package-manager-setup) instructions for other operating systems and release channels. ➡️
-
-<br/>
-
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/65315723-adae-42e4-b8c6-e44b79165ae5" width="55px" align="right"/>
 
