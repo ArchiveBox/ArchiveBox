@@ -167,6 +167,7 @@ jobs:
 
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             root_tool_dir="/root/archivebox-package-smoke-${{ matrix.artifact }}-${{ matrix.python }}"
+            uv_binary="$(command -v uv)"
             sudo rm -rf "$root_tool_dir"
             sudo mkdir -p "$root_tool_dir/data"
 
@@ -175,7 +176,7 @@ jobs:
               root_install_args+=(--with "$dependency_artifact")
             done
             sudo UV_TOOL_DIR="$root_tool_dir/tools" UV_TOOL_BIN_DIR="$root_tool_dir/bin" \
-              uv tool install --no-cache --python "${{ matrix.python }}" \
+              "$uv_binary" tool install --no-cache --python "${{ matrix.python }}" \
               "${root_install_args[@]}" "$artifact"
 
             sudo env PATH="$root_tool_dir/bin:$PATH" \
