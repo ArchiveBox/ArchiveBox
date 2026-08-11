@@ -29,7 +29,7 @@ All three of these ways of running ArchiveBox are equivalent and interchangeable
   *Using the Python package via the current `uv` instructions in [[Install]]*
 - `docker run ... archivebox/archivebox [subcommand] [...args]`  
   *Using the official Docker image*
-- `docker compose run archivebox [subcommand] [...args]`
+- `docker compose run --rm archivebox [subcommand] [...args]`
   *Using the official Docker image w/ Docker Compose*
 
 You can share a single archivebox data directory between Docker and non-Docker instances as well, allowing you to run the server in a container but still execute CLI commands on the host for example.

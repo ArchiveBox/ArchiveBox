@@ -2,13 +2,13 @@
 #     mkdir -p ~/archivebox/data && cd ~/archivebox
 #     curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 #     docker compose pull
-#     docker compose run archivebox init
-#     docker compose run archivebox install
+#     docker compose run --rm archivebox init
+#     docker compose run --rm archivebox install
 #     docker compose up -d && open 'http://admin.archivebox.localhost:8000'
 
-#     docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
-#     docker compose run -T archivebox add < ~/Downloads/bookmarks.txt
-#     docker compose run archivebox help
+#     docker compose run --rm archivebox add --depth=1 'https://news.ycombinator.com'
+#     docker compose run --rm -T archivebox add < ~/Downloads/bookmarks.txt
+#     docker compose run --rm archivebox help
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
@@ -43,14 +43,14 @@ services:
 
     ### `archivebox server` now runs the orchestrator itself, so scheduled crawls and queued UI/API jobs
     # are processed by the main container without needing a separate scheduler sidecar. To add a new job:
-    #   $ docker compose run archivebox schedule --add --every=day --depth=1 'https://example.com/some/rss/feed.xml'
+    #   $ docker compose run --rm archivebox schedule --add --every=day --depth=1 'https://example.com/some/rss/feed.xml'
     # the running server orchestrator will pick it up automatically at the next due time.
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving
 
 
     ### ArchiveBox now starts and uses Sonic automatically when SEARCH_BACKEND_ENGINE=sonic.
     # If Sonic is ever started after not running for a while, update its full-text index by running:
-    #   $ docker compose run archivebox update --index-only
+    #   $ docker compose run --rm archivebox update --index-only
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search
 
 

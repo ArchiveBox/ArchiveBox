@@ -39,7 +39,7 @@ You need a user account to access the Admin UI, you can run the commands below t
 archivebox manage createsuperuser
 archivebox manage changepassword <username>
 
-# equivalent: docker compose run archivebox manage [...]
+# equivalent: docker compose run --rm archivebox manage [...]
 # equivalent: docker run -v $PWD:/data archivebox/archivebox:dev manage [...]
 ```
 

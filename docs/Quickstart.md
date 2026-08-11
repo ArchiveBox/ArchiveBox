@@ -49,7 +49,7 @@ archivebox add < your_urls.txt
 docker run -v $PWD:/data -i archivebox/archivebox:dev add < your_urls.txt
 
 # or if using Docker Compose
-docker compose run -T archivebox add < your_urls.txt
+docker compose run --rm -T archivebox add < your_urls.txt
 
 # any text containing URLs can ingested via stdin or as args
 curl -fsSL 'https://getpocket.com/users/YOURUSERNAME/feed/all' | archivebox add

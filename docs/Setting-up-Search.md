@@ -131,7 +131,7 @@ archivebox update --index-only
 archivebox search 'some text to search'
 ```
 
-Run the same commands as `docker compose run archivebox ...` when using Docker Compose.
+Run the same commands as `docker compose run --rm archivebox ...` when using Docker Compose.
 
 *Fore more detailed instructions [see here](https://github.com/ArchiveBox/ArchiveBox/issues/956#issuecomment-1320587158)...*
 

@@ -698,7 +698,7 @@ echo 'any text with <a href="https://example.com">urls</a> in it' | archivebox a
 # if using Docker, add -i when piping stdin:
 # echo 'https://example.com' | docker run -v $PWD:/data -i archivebox/archivebox:dev add
 # if using Docker Compose, add -T when piping stdin / stdout:
-# echo 'https://example.com' | docker compose run -T archivebox add
+# echo 'https://example.com' | docker compose run --rm -T archivebox add
 ```
 
 See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage) page for documentation and examples.
@@ -925,7 +925,7 @@ archivebox list --json --with-headers > index.json     # export to json blob
 archivebox list --csv=timestamp,url,title > index.csv  # export to csv spreadsheet
 
 # (if using Docker Compose, add the -T flag when piping)
-# docker compose run -T archivebox list --html 'https://example.com' > index.html
+# docker compose run --rm -T archivebox list --html 'https://example.com' > index.html
 </code></pre>
 
 The paths in the static exports are relative, make sure to keep them next to your `./archive` folder when backing them up or viewing them.

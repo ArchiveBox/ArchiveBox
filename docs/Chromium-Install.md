@@ -73,8 +73,8 @@ docker compose up -d novnc
 
 3. Start ArchiveBox's Chrome inside Docker
 ```bash
-docker compose run archivebox persona create personal
-docker compose run archivebox /data/lib/env/bin/chromium --user-data-dir=/data/personas/personal/chrome_profile --profile-directory=Default --disable-gpu --disable-features=dbus --disable-dev-shm-usage --start-maximized --no-sandbox --disable-setuid-sandbox --no-zygote --disable-sync --no-first-run
+docker compose run --rm archivebox persona create personal
+docker compose run --rm archivebox /data/lib/env/bin/chromium --user-data-dir=/data/personas/personal/chrome_profile --profile-directory=Default --disable-gpu --disable-features=dbus --disable-dev-shm-usage --start-maximized --no-sandbox --disable-setuid-sandbox --no-zygote --disable-sync --no-first-run
 ```
 <small>(make sure you set `DISPLAY` and keep the normal persistent `/data` volume from the Compose setup!)</small>
 
@@ -89,7 +89,7 @@ docker compose down --remove-orphans
 # edit docker-compose.yml to remove/comment out the novnc: section
 
 # test it all out by archiving something hosted on one of the domains you logged in to
-docker compose run archivebox add --persona=personal 'https://private.example.com/some/site/requiring/login.html'
+docker compose run --rm archivebox add --persona=personal 'https://private.example.com/some/site/requiring/login.html'
 # check the SingleFile, Screenshot, DOM, or PDF snapshot output (only these use the Chrome profile)
 # make sure the content appears as your logged-in user would see it
 ```
