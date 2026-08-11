@@ -1,0 +1,31 @@
+docs/Docker.md
+  s_69ddf154c10e6f::t_e88dd17887d2d9 69-71,76,89,93,98,100,106,109,112-113,119,122,148,153
+bin/setup.sh
+  s_69ddf154c10e6f::t_31362949b732a0 374-377
+docs/Install.md
+  s_69ddf154c10e6f::t_02ff67898b9a3e 29,120-125,154-165
+  s_69ddf154c10e6f::t_67e19a8575cf42 166
+README.md
+  s_69ddf154c10e6f::t_3f32fa7ed06276 75-77,200-201,225
+  s_69ddf154c10e6f::t_e88dd17887d2d9 78-79,192-194,199,494-495,540-545,613,631,774
+bin/release.sh
+  s_69ddf154c10e6f::t_e56a46dc43b943 40-43,53,59-60,73,137-143,162,271,295-302,305
+archivebox/tests/test_release_workflow.py
+  s_69ddf154c10e6f::t_e56a46dc43b943 31-37,40,63-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "65b673d10e6c588cd9078e3169a8e207b7d8f546",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
