@@ -179,8 +179,11 @@ jobs:
               "$uv_binary" tool install --no-cache --python "${{ matrix.python }}" \
               "${root_install_args[@]}" "$artifact"
 
+            sudo useradd --system --create-home --home-dir /var/lib/archivebox --shell /bin/bash archivebox 2>/dev/null || true
+            sudo rm -rf /var/lib/archivebox
             sudo env PATH="$root_tool_dir/bin:$PATH" \
               bash -c "cd '$root_tool_dir/data' && archivebox init"
+            sudo stat -c %U /var/lib/archivebox | grep -qx archivebox
             sudo stat -c %U "$root_tool_dir/data" | grep -qx archivebox
             if sudo find "$root_tool_dir/data" -xdev -user root -print -quit | grep -q .; then
               echo "Root-owned files remain in $root_tool_dir/data" >&2

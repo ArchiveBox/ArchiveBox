@@ -82,33 +82,49 @@ FALLBACK_GID = RUNNING_AS_GID or SUDO_GID
 
 def get_or_create_archivebox_account():
     try:
-        return pwd.getpwnam("archivebox")
+        account = pwd.getpwnam("archivebox")
     except KeyError:
-        pass
+        account = None
 
-    if RUNNING_AS_UID != 0 or platform.system() != "Linux":
+    if account is None and (RUNNING_AS_UID != 0 or platform.system() != "Linux"):
         return None
 
-    useradd = "/usr/sbin/useradd" if Path("/usr/sbin/useradd").exists() else "useradd"
-    command = [
-        useradd,
-        "--system",
-        "--create-home",
-        "--home-dir",
-        "/var/lib/archivebox",
-        "--shell",
-        "/bin/bash",
-        "archivebox",
-    ]
-    try:
-        subprocess.run(command, check=True)
-    except (OSError, subprocess.CalledProcessError) as err:
-        # Another concurrently starting process may have created it first.
+    if account is None:
+        useradd = "/usr/sbin/useradd" if Path("/usr/sbin/useradd").exists() else "useradd"
+        command = [
+            useradd,
+            "--system",
+            "--create-home",
+            "--home-dir",
+            "/var/lib/archivebox",
+            "--shell",
+            "/bin/bash",
+            "archivebox",
+        ]
         try:
-            return pwd.getpwnam("archivebox")
-        except KeyError:
-            raise RuntimeError(f"Failed to create the archivebox system user with: {' '.join(command)}") from err
-    return pwd.getpwnam("archivebox")
+            subprocess.run(command, check=True)
+        except (OSError, subprocess.CalledProcessError) as err:
+            # Another concurrently starting process may have created it first.
+            try:
+                account = pwd.getpwnam("archivebox")
+            except KeyError:
+                raise RuntimeError(f"Failed to create the archivebox system user with: {' '.join(command)}") from err
+        else:
+            account = pwd.getpwnam("archivebox")
+
+    if RUNNING_AS_UID == 0 and platform.system() == "Linux":
+        # Package removal may preserve the account but remove its home. Repair
+        # only this directory entry; never recursively chown existing data.
+        account_home = Path(account.pw_dir)
+        try:
+            account_home.mkdir(parents=True, exist_ok=True)
+            home_stat = account_home.stat()
+            if (home_stat.st_uid, home_stat.st_gid) != (account.pw_uid, account.pw_gid):
+                os.chown(account_home, account.pw_uid, account.pw_gid)
+        except OSError as err:
+            raise RuntimeError(f"Failed to prepare archivebox account home: {account_home}") from err
+
+    return account
 
 
 ARCHIVEBOX_ACCOUNT = get_or_create_archivebox_account()
