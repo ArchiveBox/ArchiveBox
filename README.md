@@ -1102,7 +1102,7 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout">Wiki: Usage (Disk Layout)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder">Wiki: Security Overview (Output-Folder)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives">Wiki: Usage (Large Archives)</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root">Wiki: Security Overview (Do Not Run as Root)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#run-archivebox-as-an-unprivileged-user">Wiki: Security Overview (Privilege Dropping)</a></li>
 </ul>
 
 
