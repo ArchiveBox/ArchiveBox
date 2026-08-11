@@ -213,6 +213,14 @@ for provider_dir in "$ABXPKG_LIB_DIR"/*; do
         ensure_file_owner "$package_dir/derived.env"
     done
 done
+# Chromium persists compiled declarativeNetRequest rules under each unpacked
+# extension's _metadata directory. Repair this bounded provider tree when the
+# container maps the archivebox account to a different bind-mount UID/GID.
+chromewebstore_extensions_dir="$ABXPKG_LIB_DIR/chromewebstore/extensions"
+if [[ -d "$chromewebstore_extensions_dir" \
+    && "$(stat -c '%u:%g' "$chromewebstore_extensions_dir" 2>/dev/null || true)" != "$TARGET_UID:$TARGET_GID" ]]; then
+    ensure_small_runtime_tree "$chromewebstore_extensions_dir"
+fi
 run_as_archivebox touch "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$ABXBUS_CACHE_DIR/semaphores"
 rm -f "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete"
 run_as_archivebox touch "$UV_CACHE_DIR/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$UV_CACHE_DIR"

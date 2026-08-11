@@ -130,6 +130,8 @@ docker_setup() {
 # shellcheck disable=SC2016
 default_cmd='printf "ABX_UID=%s\nABX_GID=%s\nABX_USER=%s\nABX_GROUPS=%s\n" "$(id -u)" "$(id -g)" "$(whoami 2>/dev/null || true)" "$(id -Gn)"; touch /data/logs/probe /data/archive/probe "$ABXPKG_LIB_DIR/probe" "$PERSONAS_DIR/Default/chrome_profile/probe"; stat -c "ABX_STAT %u:%g:%a %n" /data /data/logs /data/archive "$ABXPKG_LIB_DIR" "$PERSONAS_DIR" "$PERSONAS_DIR/Default" "$PERSONAS_DIR/Default/chrome_profile"; echo ABX_PERSONA_PROFILE_OK; echo ABX_OK'
 # shellcheck disable=SC2016
+runtime_dependency_cmd="$default_cmd"'; mkdir -p "$ABXPKG_LIB_DIR/chromewebstore/extensions/cookie/_metadata"; touch "$ABXPKG_LIB_DIR/chromewebstore/extensions/cookie/_metadata/rules.fbs"; echo ABX_CHROME_EXTENSION_CACHE_OK'
+# shellcheck disable=SC2016
 full_flow_cmd='set -Eeuo pipefail
 printf "ABX_UID=%s\nABX_GID=%s\nABX_USER=%s\nABX_GROUPS=%s\n" "$(id -u)" "$(id -g)" "$(whoami 2>/dev/null || true)" "$(id -Gn)"
 id -Gn | grep -qw audio
@@ -261,10 +263,15 @@ run_case() {
         nested_stat="$("${docker_base[@]}" -v "$case_dir/data:/data" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /data/archive/existing/file" 2>/dev/null || true)"
         [[ "$nested_stat" == "0:0" ]] || ok=0
     elif [[ "$post_assert" == runtime-nested-root-stays ]]; then
-        local lib_stat browsers_stat
+        local lib_stat browsers_stat chrome_rules_stat chrome_metadata_stat
         lib_stat="$("${docker_base[@]}" -v "$case_dir/lib:/libdir" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /libdir/existing/file" 2>/dev/null || true)"
         browsers_stat="$("${docker_base[@]}" -v "$case_dir/browsers:/browsers" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /browsers/existing/file" 2>/dev/null || true)"
-        [[ "$lib_stat" == "0:0" && "$browsers_stat" == "0:0" ]] || ok=0
+        chrome_rules_stat="$("${docker_base[@]}" -v "$case_dir/lib:/libdir" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /libdir/chromewebstore/extensions/cookie/rules.json" 2>/dev/null || true)"
+        chrome_metadata_stat="$("${docker_base[@]}" -v "$case_dir/lib:/libdir" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /libdir/chromewebstore/extensions/cookie/_metadata/rules.fbs" 2>/dev/null || true)"
+        [[ "$lib_stat" == "0:0" \
+            && "$browsers_stat" == "0:0" \
+            && "$chrome_rules_stat" == "$expected_uid:$expected_gid" \
+            && "$chrome_metadata_stat" == "$expected_uid:$expected_gid" ]] || ok=0
     elif [[ "$post_assert" == users-dir-repaired ]]; then
         local users_stat
         users_stat="$("${docker_base[@]}" -v "$case_dir/data:/data" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /data/users" 2>/dev/null || true)"
@@ -486,9 +493,9 @@ run_case "nested root-owned archive content is not recursively chowned" \
     "chown 0:0 /case/data && chmod 755 /case/data && mkdir -p /case/data/archive/existing && touch /case/data/archive/existing/file && chown -R 0:0 /case/data/archive/existing" \
     "-" "-" pass 911 911 "$default_cmd" nested-root-stays
 
-run_case "bundled dependency trees are not recursively chowned" \
-    "chown 501:20 /case/data && mkdir -p /case/lib/existing /case/browsers/existing && touch /case/lib/existing/file /case/browsers/existing/file && chown -R 0:0 /case/lib/existing /case/browsers/existing" \
-    "-" "-" pass 501 20 "$default_cmd" runtime-nested-root-stays
+run_case "only the writable Chrome extension cache is recursively repaired" \
+    "chown 501:20 /case/data && mkdir -p /case/lib/existing /case/lib/chromewebstore/extensions/cookie /case/browsers/existing && touch /case/lib/existing/file /case/lib/chromewebstore/extensions/cookie/rules.json /case/browsers/existing/file && chown -R 0:0 /case/lib/existing /case/lib/chromewebstore /case/browsers/existing" \
+    "-" "-" pass 501 20 "$runtime_dependency_cmd" runtime-nested-root-stays
 
 run_case "root start fixes read-only top-level data when chmod works" \
     "chown 0:0 /case/data && chmod 555 /case/data" \
