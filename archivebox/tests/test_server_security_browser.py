@@ -722,6 +722,7 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
 
     compose = yaml.safe_load((Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text())
     archivebox_environment = compose["services"]["archivebox"]["environment"]
+    assert compose["services"]["archivebox"]["restart"] == "unless-stopped"
     assert "BASE_URL" in archivebox_environment
     assert "SERVER_SECURITY_MODE" in archivebox_environment
     assert all("ARCHIVEBOX_INGRESS_BASE_URL" not in value for value in archivebox_environment)

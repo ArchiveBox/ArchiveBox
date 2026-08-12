@@ -15,6 +15,7 @@
 services:
     archivebox:
         image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}
+        restart: unless-stopped
         ports:
             - "${ARCHIVEBOX_PORT:-8000}:8000"
         volumes:
