@@ -181,8 +181,8 @@ async function main() {
     (input) => input.checked,
   );
   if (!publicHostingSelected) throw new Error("Public Server option was not selected");
-  await page.click('input[name="archivebox-dns-mode"][value="single"]');
-  await page.click('input[name="archivebox-tls-mode"][value="none"]');
+  await page.$eval('input[name="archivebox-dns-mode"][value="single"]', (input) => input.click());
+  await page.$eval('input[name="archivebox-tls-mode"][value="none"]', (input) => input.click());
   await page.select("#archivebox-setup-security-mode", "safe-onedomain-nojsreplay");
   await page.waitForFunction(
     () => !document.querySelector("#archivebox-setup-review").disabled,
