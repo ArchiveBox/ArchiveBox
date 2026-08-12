@@ -87,6 +87,7 @@ def test_config_set_writes_to_file(initialized_archive):
     )
 
     assert result.returncode == 0
+    assert "TIMEOUT=120" in result.stdout
 
     # Verify config file was updated
     config_file = initialized_archive / "ArchiveBox.conf"
@@ -104,12 +105,19 @@ def test_config_set_and_get_roundtrip(initialized_archive):
         ["config", "--set", "TIMEOUT=987"],
     )
 
+    updated = run_archivebox_cmd(
+        ["config", "--set", "TIMEOUT=654"],
+    )
+
+    assert updated.returncode == 0
+    assert "TIMEOUT=654" in updated.stdout
+
     # Get the value back
     result = run_archivebox_cmd(
         ["config", "--get", "TIMEOUT"],
     )
 
-    assert "987" in result.stdout
+    assert "654" in result.stdout
 
 
 def test_config_set_multiple_values(initialized_archive):

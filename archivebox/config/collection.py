@@ -326,7 +326,7 @@ def write_config_file(config: dict[str, str]) -> AttrDict:
         # validate the updated_config by attempting to re-parse it
         from archivebox.config.common import get_config
 
-        updated_config = get_config().as_dict()
+        updated_config = get_config(include_machine=False).as_dict()
     except BaseException:  # lgtm [py/catch-base-exception]
         # something went horribly wrong, revert to the previous version
         with open(f"{config_path}.bak", encoding="utf-8") as old:
