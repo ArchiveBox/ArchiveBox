@@ -172,7 +172,15 @@ async function main() {
   ]);
   await page.waitForSelector("#archivebox-setup-wizard", {timeout: 15000});
 
-  await page.click('input[name="archivebox-hosting-location"][value="public"]');
+  await page.$eval(
+    'input[name="archivebox-hosting-location"][value="public"]',
+    (input) => input.click(),
+  );
+  const publicHostingSelected = await page.$eval(
+    'input[name="archivebox-hosting-location"][value="public"]',
+    (input) => input.checked,
+  );
+  if (!publicHostingSelected) throw new Error("Public Server option was not selected");
   await page.click('input[name="archivebox-dns-mode"][value="single"]');
   await page.click('input[name="archivebox-tls-mode"][value="none"]');
   await page.select("#archivebox-setup-security-mode", "safe-onedomain-nojsreplay");
@@ -182,7 +190,7 @@ async function main() {
   );
   await Promise.all([
     page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
-    page.click("#archivebox-setup-review"),
+    page.$eval("#archivebox-setup-review", (button) => button.click()),
   ]);
 
   await page.waitForFunction(() => {
@@ -192,7 +200,7 @@ async function main() {
   }, {timeout: 15000});
   await Promise.all([
     page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
-    page.click('button[name="_continue"][form="machine_form"]'),
+    page.$eval('button[name="_continue"][form="machine_form"]', (button) => button.click()),
   ]);
 
   console.log(JSON.stringify({finalUrl: page.url(), bodyText: await page.$eval("body", el => el.innerText.slice(0, 500))}));
