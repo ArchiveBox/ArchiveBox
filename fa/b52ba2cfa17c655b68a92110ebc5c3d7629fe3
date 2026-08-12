@@ -1,0 +1,20 @@
+archivebox/tests/test_server_security_browser.py
+  h_923c208e183a7b 738
+docs/Docker.md
+  h_923c208e183a7b 181
+docs/Publishing-Your-Archive.md
+  h_923c208e183a7b 26
+etc/README.md
+  h_923c208e183a7b 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "fab52ba2cfa17c655b68a92110ebc5c3d7629fe3",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
