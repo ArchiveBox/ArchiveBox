@@ -1,0 +1,14 @@
+archivebox/templates/static/admin.css
+  h_923c208e183a7b 3570
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "01d2da25b6721799269684ac19423103490c2857",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
