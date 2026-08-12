@@ -3567,7 +3567,7 @@ body.change-form #content-main > form > div > .module:not(.inline-group) {
     min-width: 0 !important;
 }
 
-body.change-form #content-main > form > div > fieldset.wide,
+body.change-form #content-main > form > div > fieldset.module.wide,
 body.change-form #content-main > form > div > .inline-group,
 body.change-form #content-main > form > div > .submit-row {
     grid-column: 1 / -1;
