@@ -826,7 +826,7 @@
             #main-frame {
                 border-top: 1px solid #ddd;
                 width: 100%;
-                height: calc(100vh - 210px);
+                height: 100%;
                 margin: 0px;
                 border: 0px;
                 border-top: 3px solid #aa1e55;
@@ -1027,7 +1027,7 @@
                 height: 32px;
                 max-height: 32px;
             }
-            .iframe-large {
+            #main-frame-wrapper.iframe-large {
                 height: calc(100vh - 70px);
             }
             .preview-hidden {
@@ -1948,9 +1948,6 @@
                 frame.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
                 frame.loading = 'eager'
                 frame.setAttribute('fetchpriority', 'high')
-                if (previousFrame && previousFrame.classList.contains('iframe-large')) {
-                    frame.classList.add('iframe-large')
-                }
                 attachPreviewFrameHandlers(frame)
                 return frame
             }
@@ -2097,7 +2094,7 @@
                 console.log('Collapsing Snapshot header...')
                 jQuery('.header-toggle').text('▸')
                 jQuery('.header-bottom').hide()
-                jQuery('#main-frame').addClass('iframe-large')
+                jQuery('#main-frame-wrapper').addClass('iframe-large')
                 try {
                     localStorage.setItem("archivebox-snapshot-header-visible", "false")
                 } catch (e) {
@@ -2108,7 +2105,7 @@
                 console.log('Expanding Snapshot header...')
                 jQuery('.header-toggle').text('▾')
                 jQuery('.header-bottom').show()
-                jQuery('#main-frame').removeClass('iframe-large')
+                jQuery('#main-frame-wrapper').removeClass('iframe-large')
                 try {
                     localStorage.setItem("archivebox-snapshot-header-visible", "true")
                 } catch (e) {
