@@ -28,7 +28,8 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     install_script = published_install["run"]
     assert "sleep 60" not in install_script
     assert "for attempt in {1..40}" in install_script
-    assert 'tool install --no-cache --prerelease allow --force "archivebox==$VERSION"' in install_script
+    assert 'tool install --no-cache --force "archivebox==$VERSION"' in install_script
+    assert "--prerelease" not in install_script
     assert "did not become installable from PyPI within 10 minutes" in install_script
 
     docker_meta = next(step for step in docker_release["steps"] if step.get("id") == "docker_meta")

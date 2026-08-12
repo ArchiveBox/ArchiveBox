@@ -143,7 +143,7 @@ jobs:
           export UV_TOOL_DIR="$TOOL_ROOT/tools"
           export UV_TOOL_BIN_DIR="$TOOL_ROOT/bin"
           for attempt in {1..40}; do
-            if "$UV_BINARY" tool install --no-cache --prerelease allow --force "archivebox==$VERSION"; then
+            if "$UV_BINARY" tool install --no-cache --force "archivebox==$VERSION"; then
               break
             fi
             if [[ "$attempt" == 40 ]]; then
