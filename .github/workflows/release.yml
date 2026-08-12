@@ -138,12 +138,20 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          sleep 60
           VERSION='${{ steps.version.outputs.version }}'
           TOOL_ROOT="$(mktemp -d)"
           export UV_TOOL_DIR="$TOOL_ROOT/tools"
           export UV_TOOL_BIN_DIR="$TOOL_ROOT/bin"
-          "$UV_BINARY" tool install --no-cache --prerelease allow --force "archivebox==$VERSION"
+          for attempt in {1..40}; do
+            if "$UV_BINARY" tool install --no-cache --prerelease allow --force "archivebox==$VERSION"; then
+              break
+            fi
+            if [[ "$attempt" == 40 ]]; then
+              echo "archivebox==$VERSION did not become installable from PyPI within 10 minutes" >&2
+              exit 1
+            fi
+            sleep 15
+          done
           INSTALLED_VERSION="$("$UV_TOOL_BIN_DIR/archivebox" --version)"
           test "$INSTALLED_VERSION" = "$VERSION"
 

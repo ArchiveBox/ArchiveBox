@@ -22,6 +22,15 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert checkout["with"]["token"] == "${{ secrets.RELEASE_GH_TOKEN || github.token }}"
     assert docker_release["needs"] == "python-release"
 
+    published_install = next(
+        step for step in python_release["steps"] if step.get("name") == "Verify published PyPI package installs and runs"
+    )
+    install_script = published_install["run"]
+    assert "sleep 60" not in install_script
+    assert "for attempt in {1..40}" in install_script
+    assert 'tool install --no-cache --prerelease allow --force "archivebox==$VERSION"' in install_script
+    assert "did not become installable from PyPI within 10 minutes" in install_script
+
     docker_meta = next(step for step in docker_release["steps"] if step.get("id") == "docker_meta")
     tag_script = docker_meta["run"]
     assert 'echo "${DOCKERHUB_IMAGE}:dev"' in tag_script
