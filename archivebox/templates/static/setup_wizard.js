@@ -229,7 +229,7 @@
     var dnsMode = selectedValue(dnsInputs);
     var tlsMode = selectedValue(tlsInputs);
     var desiredScheme = tlsMode === 'wildcard' || tlsMode === 'single' ? 'https://' : 'http://';
-    var exampleBaseHost = 'archivebox.example.com';
+    var exampleBaseHost = currentPreview ? currentPreview.parsed.hostname : 'archivebox.example.com';
     var exampleWildcardHost = '*.' + exampleBaseHost;
     var exampleBaseUrl = desiredScheme + exampleBaseHost;
     var exampleWildcardUrl = desiredScheme + exampleWildcardHost;
@@ -253,9 +253,9 @@
     document.getElementById('archivebox-setup-tls-status').textContent = tlsMode === 'localhost'
       ? '❌ Visit ' + localhostAdminUrl + ' from this machine to continue setup. No certificate is needed.'
       : (tlsMode === 'wildcard'
-        ? '❌ Configure your SSL ingress service in front of this ArchiveBox server with a browser-trusted certificate covering ' + exampleBaseHost + ' and ' + exampleWildcardHost + '. Visit ' + exampleAdminUrl + ' to continue setup.'
+        ? '❌ In your ingress provider, proxy to ArchiveBox on port 8000 and configure one browser-trusted certificate covering ' + exampleBaseHost + ' and ' + exampleWildcardHost + ', normally through DNS-01. Never enable on-demand TLS or request individual snapshot certificates. Visit ' + exampleAdminUrl + ' to continue setup.'
         : (tlsMode === 'single'
-          ? '❌ Configure your SSL ingress service in front of this ArchiveBox server with a browser-trusted certificate for ' + exampleBaseHost + '. Visit ' + exampleAdminUrl + ' to continue setup.'
+          ? '❌ In your ingress provider, proxy to ArchiveBox on port 8000 and configure one browser-trusted certificate for ' + exampleBaseHost + '. Visit ' + exampleAdminUrl + ' to continue setup.'
           : (tlsMode === 'none'
             ? '❌ Expose this ArchiveBox server directly over HTTP without a separate ingress or SSL termination service. Visit ' + exampleAdminUrl + ' to continue setup. In-browser WARC viewing will remain disabled unless browsing through localhost or HTTPS.'
             : '❌ Choose an ingress and TLS mode. Your choice will not be changed automatically.')));

@@ -173,12 +173,14 @@ services:
 
 You can also specify an env file via CLI when running compose using `docker compose --env-file=/path/to/config.env ...` although you must specify the variables in the `environment:` section that you want to have passed down to the ArchiveBox container from the passed env file.
 
-If you want to access your archive server with HTTPS, the bundled `docker-compose.yml` includes two opt-in ingress profiles:
+For public HTTPS, start the default stack with `docker compose up -d`, open the admin UI on port `8000`, and follow the first-run wizard. It gives the DNS, upstream, and certificate settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI, then verifies the public URLs before saving `BASE_URL` and `SERVER_SECURITY_MODE`.
 
-- `COMPOSE_PROFILES=https` runs Traefik in front of ArchiveBox for HTTPS/TLS, with optional wildcard certificates via DNS-01.
-- `COMPOSE_PROFILES=tunnel` runs a Cloudflare Tunnel for deployments without a public IP.
+Use exactly one of these certificate layouts:
 
-Set `ARCHIVEBOX_INGRESS_BASE_URL=https://archive.example.com` and `ARCHIVEBOX_PORT=127.0.0.1:8000` in the `.env` file next to `docker-compose.yml`, then follow the inline comments in the compose file for the profile you choose. Log in through the resulting public admin URL and the first-run wizard will verify the DNS/TLS routes before saving `BASE_URL` and `SERVER_SECURITY_MODE`. The localhost port binding prevents direct HTTP access from bypassing the public HTTPS ingress. You can still bring your own reverse proxy such as Nginx or Caddy in front of `http://127.0.0.1:8000`; [`etc/nginx.conf`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/etc/nginx.conf) remains a standalone example.
+- **Single-domain mode:** one certificate for the `BASE_URL` hostname, proxied to ArchiveBox port `8000`.
+- **Isolated-subdomain mode:** one certificate covering both the `BASE_URL` hostname and `*.BASE_URL`, normally obtained through DNS-01.
+
+Never enable on-demand TLS or request individual certificates for `snap-*` hostnames. The bundled Compose file also contains opt-in Cloudflare Tunnel and Traefik examples for users who prefer them; they follow the same certificate rules.
 
 <br/>
 

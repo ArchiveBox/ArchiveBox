@@ -153,6 +153,8 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert "JavaScript still runs during capture" in html
     assert "will not replay JavaScript unless wildcard DNS is used" in html
     assert "Wildcard TLS" in html
+    assert "Never enable on-demand TLS or request individual certificates for snapshot subdomains." in html
+    assert "Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale" in html
     assert "How will HTTPS traffic reach this ArchiveBox server?" in html
     assert "This mode is not allowed unless also using Single-domain DNS." in html
     assert "No separate ingress service / SSL termination" in html
@@ -205,6 +207,7 @@ def test_setup_wizard_assets_enforce_selection_and_access_requirements():
     assert "archive intranet URLs" in SETUP_WIZARD_JS
     assert "tlsMode === 'single' && dnsMode !== 'single'" in SETUP_WIZARD_JS
     assert "Single-domain HTTPS is only allowed with Single-domain DNS." in SETUP_WIZARD_JS
+    assert "Never enable on-demand TLS or request individual snapshot certificates." in SETUP_WIZARD_JS
     assert "expectedBrowserOrigin: usesSubdomains ? adminOrigin : parsed.origin" in SETUP_WIZARD_JS
     assert "Waiting for a matching browser URL and valid setup options" in SETUP_WIZARD_JS
     assert "Finish the selected DNS, ingress, and TLS setup" in SETUP_WIZARD_JS

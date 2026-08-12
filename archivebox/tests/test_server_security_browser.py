@@ -736,6 +736,9 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
     assert "mkdir -p /etc/traefik" in traefik_entrypoint
     assert traefik_entrypoint.index("mkdir -p /etc/traefik") < traefik_entrypoint.index("> /etc/traefik/dynamic.yml")
     assert "--entrypoints.websecure.http.tls=true" in traefik_entrypoint
+    assert '--entrypoints.websecure.http.tls.domains[0].sans="*.$$DOMAIN"' in traefik_entrypoint
+    assert "on-demand" not in traefik_entrypoint.lower()
+    assert "ondemand" not in traefik_entrypoint.lower()
 
 
 def _run_wacz_preview_probe(
