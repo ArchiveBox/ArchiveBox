@@ -1018,6 +1018,7 @@
 
     let pollInterval = null;
     let pollDelayMs = 1000;
+    let progressFetchInFlight = false;
     let idleTicks = 0;
     let isCollapsed = monitor.dataset.autoExpand !== '1';
     const snapshotMedia = new Map();
@@ -1806,6 +1807,8 @@
     const progressEndpoint = monitor.dataset.progressEndpoint || '/progress.json';
 
     function fetchProgress() {
+        if (progressFetchInFlight) return;
+        progressFetchInFlight = true;
         fetch(progressEndpoint, { credentials: 'same-origin' })
             .then(response => {
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1827,6 +1830,9 @@
                 setOrchestratorState('error', 'Backend not responding');
                 idleMessage.textContent = 'Fetch Error: ' + error.message;
                 idleMessage.style.color = '#f85149';
+            })
+            .finally(() => {
+                progressFetchInFlight = false;
             });
     }
 

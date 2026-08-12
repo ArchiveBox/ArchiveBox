@@ -132,6 +132,8 @@ def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_wa
     assert response.context["cl"].queryset.query.order_by[0] == "-created_at"
     assert b"archivebox-search-stream-status" in response.content
     assert b"Searching matching snapshots..." in response.content
+    assert b"if (progressFetchInFlight) return" in response.content
+    assert b"progressFetchInFlight = false" in response.content
 
 
 def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, snapshot, real_hash_projection):
