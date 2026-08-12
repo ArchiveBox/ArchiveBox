@@ -80,9 +80,9 @@ services:
     # needs wildcard DNS + TLS for *.your.domain. Pick ONE of the two ingress options
     # below by activating its profile (e.g. put COMPOSE_PROFILES=https or =tunnel in a
     # .env file next to this one, then `docker compose up -d`). Both want:
-    #     BASE_URL=https://archive.example.com
-    #     SERVER_SECURITY_MODE=safe-subdomains-fullreplay
+    #     ARCHIVEBOX_INGRESS_BASE_URL=https://archive.example.com
     #     ARCHIVEBOX_PORT=127.0.0.1:8000   # keep direct HTTP local; expose only the ingress publicly
+    # The first-run wizard saves BASE_URL and SERVER_SECURITY_MODE after it verifies the public URLs.
 
     ### Option A — Cloudflare Tunnel (no public IP / behind NAT, e.g. home/NAS).
     # Cloudflare's edge terminates TLS and resolves *.your.domain to a SINGLE tunnel;
@@ -97,7 +97,8 @@ services:
         profiles: ["tunnel"]
         restart: "no"
         environment:
-            - BASE_URL=${BASE_URL:-https://archive.example.com}
+            - BASE_URL=${BASE_URL:-}
+            - ARCHIVEBOX_INGRESS_BASE_URL=${ARCHIVEBOX_INGRESS_BASE_URL:-}
             - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY:-}   # a Cloudflare API *Token* (used as a Bearer token), NOT the legacy global API key
             - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}   # optional; first account used if unset
             - TUNNEL_SERVICE=http://archivebox:8000
@@ -111,7 +112,8 @@ services:
               import os, json, base64, secrets, urllib.request, urllib.error
               API = "https://api.cloudflare.com/client/v4"
               TOKEN = os.environ["CLOUDFLARE_API_KEY"]
-              DOMAIN = os.environ.get("BASE_URL", "").split("://")[-1].split("/")[0].split(":")[0]
+              INGRESS_BASE_URL = os.environ.get("ARCHIVEBOX_INGRESS_BASE_URL") or os.environ.get("BASE_URL") or "https://archive.example.com"
+              DOMAIN = INGRESS_BASE_URL.split("://")[-1].split("/")[0].split(":")[0]
               SERVICE = os.environ.get("TUNNEL_SERVICE", "http://archivebox:8000")
               OUT = os.environ.get("TUNNEL_TOKEN_OUT", "/shared/token")
               H = {"Authorization": "Bearer " + TOKEN, "Content-Type": "application/json"}
@@ -121,7 +123,7 @@ services:
                   try:
                       with urllib.request.urlopen(req, timeout=30) as r: return json.load(r)
                   except urllib.error.HTTPError as e: return json.load(e)
-              assert DOMAIN and TOKEN, "set BASE_URL (https://archive.example.com) + CLOUDFLARE_API_KEY"
+              assert DOMAIN and TOKEN, "set ARCHIVEBOX_INGRESS_BASE_URL (https://archive.example.com) + CLOUDFLARE_API_KEY"
               acct = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip() or call("GET", "/accounts")["result"][0]["id"]
               labels = DOMAIN.split("."); zone = None   # DOMAIN may be a subdomain; find its registrable zone
               for i in range(len(labels) - 1):
@@ -194,7 +196,8 @@ services:
             - "80:80"
             - "443:443"
         environment:
-            - BASE_URL=${BASE_URL:-https://archive.example.com}
+            - BASE_URL=${BASE_URL:-}
+            - ARCHIVEBOX_INGRESS_BASE_URL=${ARCHIVEBOX_INGRESS_BASE_URL:-}
             - ARCHIVEBOX_ACME_EMAIL=${ARCHIVEBOX_ACME_EMAIL:-admin@example.com}
             - ARCHIVEBOX_ACME_DNS=${ARCHIVEBOX_ACME_DNS:-}
         env_file:
@@ -207,7 +210,8 @@ services:
             - -c
             - |
               set -eu
-              DOMAIN=$$(printf '%s' "$$BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*##')
+              INGRESS_BASE_URL=$${ARCHIVEBOX_INGRESS_BASE_URL:-$${BASE_URL:-https://archive.example.com}}
+              DOMAIN=$$(printf '%s' "$$INGRESS_BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*##')
               # catch-all router -> archivebox (Host-routed); domain-free, so no docker socket needed
               mkdir -p /etc/traefik
               printf 'http:\n  routers:\n    archivebox:\n      rule: "HostRegexp(`^.+$$`)"\n      service: archivebox\n  services:\n    archivebox:\n      loadBalancer:\n        servers:\n          - url: "http://archivebox:8000"\n' > /etc/traefik/dynamic.yml

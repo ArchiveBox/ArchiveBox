@@ -724,8 +724,14 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
     archivebox_environment = compose["services"]["archivebox"]["environment"]
     assert "BASE_URL" in archivebox_environment
     assert "SERVER_SECURITY_MODE" in archivebox_environment
+    assert all("ARCHIVEBOX_INGRESS_BASE_URL" not in value for value in archivebox_environment)
     assert compose["services"]["archivebox"]["ports"] == ["${ARCHIVEBOX_PORT:-8000}:8000"]
+    tunnel_environment = compose["services"]["tunnel-init"]["environment"]
+    traefik_environment = compose["services"]["traefik"]["environment"]
+    assert "ARCHIVEBOX_INGRESS_BASE_URL=${ARCHIVEBOX_INGRESS_BASE_URL:-}" in tunnel_environment
+    assert "ARCHIVEBOX_INGRESS_BASE_URL=${ARCHIVEBOX_INGRESS_BASE_URL:-}" in traefik_environment
     traefik_entrypoint = compose["services"]["traefik"]["entrypoint"][-1]
+    assert "ARCHIVEBOX_INGRESS_BASE_URL" in traefik_entrypoint
     assert "mkdir -p /etc/traefik" in traefik_entrypoint
     assert traefik_entrypoint.index("mkdir -p /etc/traefik") < traefik_entrypoint.index("> /etc/traefik/dynamic.yml")
     assert "--entrypoints.websecure.http.tls=true" in traefik_entrypoint
