@@ -694,9 +694,8 @@ class TestSnapshotProgressStats:
 
         assert "full-page-iframe" in rendered
         assert "index.jsonl?preview=1" in rendered
-        assert "#main-frame-wrapper.iframe-large" in rendered
-        assert "jQuery('#main-frame-wrapper').addClass('iframe-large')" in rendered
-        assert "jQuery('#main-frame-wrapper').removeClass('iframe-large')" in rendered
+        assert "height: calc(100vh - 210px)" not in rendered
+        assert "iframe-large" not in rendered
 
 
 class TestAdminSnapshotListView:

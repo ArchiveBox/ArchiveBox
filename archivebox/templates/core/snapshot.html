@@ -833,11 +833,12 @@
             }
             #main-frame-wrapper {
                 width: 100%;
-                height: calc(100vh - 210px);
+                height: auto;
                 border-top: 3px solid #aa1e55;
                 overflow: hidden;
                 order: 2;
-                flex: 0 0 auto;
+                flex: 1 1 auto;
+                min-height: 0;
                 display: flex;
                 flex-direction: column;
             }
@@ -857,7 +858,7 @@
             }
             .full-page-wrapper {
                 width: 100%;
-                height: calc(100vh - 210px);
+                min-height: 0;
             }
             .snapshot-empty-state {
                 display: flex;
@@ -1026,9 +1027,6 @@
             .thumb-compact .thumbnail-text {
                 height: 32px;
                 max-height: 32px;
-            }
-            #main-frame-wrapper.iframe-large {
-                height: calc(100vh - 70px);
             }
             .preview-hidden {
                 display: none !important;
@@ -2094,7 +2092,6 @@
                 console.log('Collapsing Snapshot header...')
                 jQuery('.header-toggle').text('▸')
                 jQuery('.header-bottom').hide()
-                jQuery('#main-frame-wrapper').addClass('iframe-large')
                 try {
                     localStorage.setItem("archivebox-snapshot-header-visible", "false")
                 } catch (e) {
@@ -2105,7 +2102,6 @@
                 console.log('Expanding Snapshot header...')
                 jQuery('.header-toggle').text('▾')
                 jQuery('.header-bottom').show()
-                jQuery('#main-frame-wrapper').removeClass('iframe-large')
                 try {
                     localStorage.setItem("archivebox-snapshot-header-visible", "true")
                 } catch (e) {
