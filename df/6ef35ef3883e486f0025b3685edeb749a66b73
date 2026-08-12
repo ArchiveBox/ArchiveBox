@@ -1,0 +1,16 @@
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  h_923c208e183a7b 1184-1187,1199-1204
+docker-compose.yml
+  h_923c208e183a7b 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "df6ef35ef3883e486f0025b3685edeb749a66b73",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
