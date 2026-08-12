@@ -171,8 +171,6 @@ services:
         ...
 ```
 
-You can also specify an env file via CLI when running compose using `docker compose --env-file=/path/to/config.env ...` although you must specify the variables in the `environment:` section that you want to have passed down to the ArchiveBox container from the passed env file.
-
 For public HTTPS, start the default stack with `docker compose up -d`, open the admin UI on port `8000`, and follow the first-run wizard. It gives the DNS, upstream, and certificate settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI, then verifies the public URLs before saving `BASE_URL` and `SERVER_SECURITY_MODE`.
 
 Use exactly one of these certificate layouts:
@@ -180,7 +178,7 @@ Use exactly one of these certificate layouts:
 - **Single-domain mode:** one certificate for the `BASE_URL` hostname, proxied to ArchiveBox port `8000`.
 - **Isolated-subdomain mode:** one certificate covering both the `BASE_URL` hostname and `*.BASE_URL`, normally obtained through DNS-01.
 
-Never enable on-demand TLS or request individual certificates for `snap-*` hostnames. The bundled Compose file also contains opt-in Cloudflare Tunnel and Traefik examples for users who prefer them; they follow the same certificate rules.
+Never enable on-demand TLS or request individual certificates for `snap-*` hostnames.
 
 <br/>
 

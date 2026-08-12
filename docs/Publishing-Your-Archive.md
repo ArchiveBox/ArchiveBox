@@ -23,7 +23,7 @@ open https://web.archive.example.com
 ```
 
 This server is enabled out-of-the-box if you're using `docker-compose` to run ArchiveBox.
-If hosting publicly, it's essential to place an SSL termination server in front of ArchiveBox. The bundled compose file includes opt-in `https` (Traefik) and `tunnel` (Cloudflare Tunnel) profiles, or you can bring your own reverse proxy such as [`traefik`](https://github.com/traefik/traefik), [`caddy`](https://caddyserver.com/docs/automatic-https#activation), or [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/).
+If hosting publicly, place an SSL termination server in front of ArchiveBox. Start ArchiveBox normally, then follow the first-run wizard for the settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI.
 
 > [!TIP]
 > Advanced: You can use nginx to serve a static export directly from the filesystem. Do not proxy live replay paths back onto the admin origin; use ArchiveBox's security-mode routing.
