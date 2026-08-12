@@ -22,6 +22,7 @@ services:
             - ./data:/data
             # Override abx-dl's nested VOLUME so profiles persist across containers.
             - ./data/personas:/data/personas
+        pids_limit: 2048                       # avoids low systemd task caps with Chrome and parallel extractors
         environment:
             # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword

@@ -1181,7 +1181,10 @@
             if (fallback) continue;
 
             const setupPlugins = crawl.setup_plugins || [];
-            if (setupPlugins.some((item) => item.status === 'started' && hookText(item).includes('chrome launch'))) {
+            const browserReady = setupPlugins.some((item) => (
+                item.status === 'succeeded' && hookText(item).includes('chrome wait')
+            ));
+            if (!browserReady && setupPlugins.some((item) => item.status === 'started' && hookText(item).includes('chrome launch'))) {
                 fallback = {
                     type: 'placeholder',
                     crawl,
@@ -1193,7 +1196,12 @@
                 continue;
             }
             const openingSnapshot = (crawl.active_snapshots || []).find((snapshot) => {
-                return !Array.isArray(snapshot) && (snapshot.all_plugins || []).some((item) => (
+                if (Array.isArray(snapshot)) return false;
+                const plugins = snapshot.all_plugins || [];
+                const tabReady = plugins.some((item) => (
+                    item.status === 'succeeded' && hookText(item).includes('chrome wait')
+                ));
+                return !tabReady && plugins.some((item) => (
                     item.status === 'started' && hookText(item).includes('chrome tab')
                 ));
             });
