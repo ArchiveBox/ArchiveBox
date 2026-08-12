@@ -92,6 +92,7 @@ echo "[*] Initializing the ArchiveBox collection at $DATA_DIR"
 (
     cd "$DATA_DIR"
     uv run --no-cache --project "$REPO_DIR" archivebox init --quick
+    uv run --no-cache --project "$REPO_DIR" archivebox install
 )
 
 SEED_STATE="$( (
