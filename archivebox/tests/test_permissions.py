@@ -143,10 +143,12 @@ def test_permission_repairs_avoid_recursive_collection_and_abxpkg_chown():
 
     assert "chown -R" not in Path(checks.__file__).read_text(encoding="utf-8")
     entrypoint = (Path(__file__).parents[2] / "bin" / "docker_entrypoint.sh").read_text(encoding="utf-8")
+    permission_error = entrypoint.partition("permission_error() {")[2].partition("\n}")[0]
     abxpkg_repairs = entrypoint.partition('ensure_dir "$ABXPKG_LIB_DIR"')[2].partition("run_as_archivebox touch")[0]
 
     assert 'for package_dir in "$provider_dir"/packages/*; do' in abxpkg_repairs
     assert 'ensure_file_owner "$package_dir/derived.env"' in abxpkg_repairs
+    assert "chown -R" not in permission_error
     assert "chown -R" not in abxpkg_repairs
 
 

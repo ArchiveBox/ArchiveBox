@@ -143,8 +143,9 @@ permission_error() {
     local path="$1"
     echo -e "\n[X] Error: archivebox user (uid=$TARGET_UID gid=$TARGET_GID) cannot write to $path." > /dev/stderr
     echo -e "    Current owner is $(stat -c '%u:%g' "$path" 2>/dev/null || echo 'unknown')." > /dev/stderr
-    echo -e "    Fix ownership on the host so /data is writable by the intended archivebox user:" > /dev/stderr
-    echo -e "       chown -R $TARGET_UID:$TARGET_GID ./data   # only if you intentionally want to repair the full tree" > /dev/stderr
+    echo -e "    Fix ownership of the matching host path for the intended archivebox user, e.g.:" > /dev/stderr
+    echo -e "       sudo chown $TARGET_UID:$TARGET_GID ./data" > /dev/stderr
+    echo -e "    Repair any nested path named above explicitly; never recursively chown a large archive." > /dev/stderr
     exit 3
 }
 
