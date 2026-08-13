@@ -204,6 +204,7 @@ def test_install_updates_binary_table(initialized_archive):
 
     output = result.stdout + result.stderr
     assert result.returncode == 0, output
+    assert "0 succeeded, 0 noresult, 0 failed, 0 skipped" not in output
 
     with use_archivebox_db(initialized_archive):
         binary_counts = {
