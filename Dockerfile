@@ -252,7 +252,7 @@ RUN --mount=type=cache,target=/tmp/abxpkg-cache,sharing=locked,mode=1777 \
     && stat -c "%U:%G %a %n" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$CONFIG_DIR" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$ABXPKG_LIB_DIR" \
-    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups env HOME=/tmp/abxpkg-cache ABXPKG_NO_CACHE=True ABXPKG_TMP_CACHE_DIR=/tmp/abxpkg-cache archivebox install \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups env HOME=/tmp/abxpkg-cache ABXPKG_TMP_CACHE_DIR=/tmp/abxpkg-cache archivebox install \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups env HOME=/tmp/abxpkg-cache archivebox version 2>&1 | tee -a /VERSION.txt \
     && rm -rf /root/.cache /var/cache/apt/* /var/lib/apt/lists/*
 
