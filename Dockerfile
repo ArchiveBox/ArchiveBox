@@ -250,6 +250,8 @@ RUN for forbidden_bin in gcc g++ make; do ! abxpkg load --binproviders=env "$for
     && stat -c "%U:%G %a %n" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$CONFIG_DIR" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$ABXPKG_LIB_DIR" \
+    && NORMALIZED_MTIME="@$(date +%s)" \
+    && find /venv /opt/node /opt/uv "$ABXPKG_LIB_DIR" /usr/local/bin/sonic -exec touch -h -d "$NORMALIZED_MTIME" {} + \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox install \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox version 2>&1 | tee -a /VERSION.txt \
     && rm -rf /root/.cache /var/cache/apt/* /var/lib/apt/lists/*
