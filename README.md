@@ -589,7 +589,7 @@ archivebox manage createsuperuser              # create a new admin user via CLI
 archivebox server 0.0.0.0:8000                 # start the server
 <br/>
 # Or with Docker Compose:
-nano docker-compose.yml                        # setup initial ADMIN_USERNAME & ADMIN_PASSWORD
+docker compose run --rm archivebox manage createsuperuser
 docker compose up                              # start the server
 <br/>
 # Or with a Docker container:
