@@ -1167,6 +1167,19 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
         html_path = f"{rel_path}.html"
         match = _latest_response_match(request, domain, html_path, data_root=CONSTANTS.USERS_DIR)
 
+    responses_root = match[0] if match else _latest_responses_root(request, domain, data_root=CONSTANTS.USERS_DIR)
+    if request_config.USES_SUBDOMAIN_ROUTING:
+        snapshot_id = _snapshot_id_from_replay_path(responses_root) if responses_root else None
+        snapshot = Snapshot.objects.filter(id=snapshot_id).first() if snapshot_id else None
+        if snapshot is None and requested_root_index:
+            snapshot = _latest_snapshot_for_domain(request, domain)
+        if snapshot:
+            snapshot_path = f"responses/{match[1]}" if match else path
+            target = build_snapshot_url(str(snapshot.id), snapshot_path, request=request, config=request_config)
+            if request.META.get("QUERY_STRING"):
+                target = f"{target}?{request.META['QUERY_STRING']}"
+            return redirect(target)
+
     show_indexes = bool(request.GET.get("files"))
     if match:
         responses_root, rel_to_root = match
@@ -1174,7 +1187,6 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
         if response is not None:
             return response
 
-    responses_root = _latest_responses_root(request, domain, data_root=CONSTANTS.USERS_DIR)
     if responses_root:
         response = _serve_responses_path(request, responses_root, rel_path, show_indexes)
         if response is not None:

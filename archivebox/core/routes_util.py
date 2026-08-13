@@ -382,9 +382,7 @@ def get_snapshot_base_url(snapshot_id: str, request=None, config: dict[str, Any]
 
 def get_original_base_url(domain: str, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
-    if not config.USES_SUBDOMAIN_ROUTING:
-        return _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
-    return _build_base_url_for_host(_build_base_host(domain, request=request, config=config), request=request, config=config)
+    return _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
 
 
 def build_admin_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:

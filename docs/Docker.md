@@ -172,7 +172,7 @@ services:
         ...
 ```
 
-For public HTTPS, start the default stack with `docker compose up -d`, open the admin UI on port `8000`, and follow the first-run wizard. It gives the DNS, upstream, and certificate settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI, then verifies the public URLs before saving `BASE_URL` and `SERVER_SECURITY_MODE`.
+For public HTTPS, start the default stack with `docker compose up -d`, use port `8000` only as the temporary setup/upstream endpoint, and follow the first-run wizard. It gives the DNS, upstream, and certificate settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI, then verifies the public HTTPS URLs before saving `BASE_URL` and `SERVER_SECURITY_MODE`.
 
 Use exactly one of these certificate layouts:
 

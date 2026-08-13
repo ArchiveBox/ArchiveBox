@@ -158,8 +158,8 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert "Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale" in html
     assert "How will HTTPS traffic reach this ArchiveBox server?" in html
     assert "This mode is not allowed unless also using Single-domain DNS." in html
-    assert "No separate ingress service / SSL termination" in html
-    assert "Cloudflare/AWS/Nginx/Caddy/Traefik" in html
+    assert "No TLS, private networks only" in html
+    assert "trusted LAN, VPN, or private network" in html
     assert "In-browser WARC viewing will be disabled unless using <code>localhost</code> or HTTPS" in html
     assert "BASE_URL" in html
     assert "SERVER_SECURITY_MODE" in html

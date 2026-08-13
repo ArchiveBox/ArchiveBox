@@ -450,7 +450,7 @@ class TestUrlRouting:
 
                 resp = client.get(f"/original/{snapshot.domain}/index.html", HTTP_HOST=control_host)
                 assert resp.status_code in (301, 302)
-                assert resp["Location"] == f"http://{original_host}/index.html"
+                assert resp["Location"] == f"http://{snapshot_host}/responses/{snapshot.domain}/index.html"
 
             resp = client.get("/static/jquery.min.js", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
@@ -576,6 +576,9 @@ class TestUrlRouting:
 
             original_response_rel = response_rel.split(f"responses/{snapshot.domain}/", 1)[-1]
             resp = client.get(f"/{original_response_rel}", HTTP_HOST=original_host)
+            assert resp.status_code in (301, 302)
+            assert resp["Location"] == f"http://{snapshot_host}/responses/{snapshot.domain}/{original_response_rel}"
+            resp = client.get(f"/responses/{snapshot.domain}/{original_response_rel}", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert response_body(resp) == response_file.read_bytes()
 
@@ -666,12 +669,12 @@ class TestUrlRouting:
                     (responses_root / rel_path).write_bytes(content)
 
                 resp = client.get("/", HTTP_HOST=original_host)
-                assert resp.status_code == 200
-                assert response_body(resp) == real_output_bodies[1]
+                assert resp.status_code in (301, 302)
+                assert resp["Location"] == f"http://{get_snapshot_host(str(fixtures[1][0].id))}/responses/example.com/index.html"
 
                 resp = client.get("/about.html", HTTP_HOST=original_host)
-                assert resp.status_code == 200
-                assert response_body(resp) == real_output_bodies[3]
+                assert resp.status_code in (301, 302)
+                assert resp["Location"] == f"http://{get_snapshot_host(str(fixtures[3][0].id))}/responses/example.com/about.html"
             finally:
                 for snap in created_snapshots:
                     shutil.rmtree(snap.output_dir, ignore_errors=True)
@@ -713,6 +716,9 @@ class TestUrlRouting:
                 shutil.rmtree(Path(latest_snapshot.output_dir) / "responses", ignore_errors=True)
 
                 resp = client.get("/", HTTP_HOST=original_host)
+                assert resp.status_code in (301, 302)
+                assert resp["Location"] == f"http://{get_snapshot_host(str(latest_snapshot.id))}"
+                resp = client.get("/", HTTP_HOST=get_snapshot_host(str(latest_snapshot.id)))
                 assert resp.status_code == 200
                 html = response_body(resp).decode("utf-8", "ignore")
                 assert latest_snapshot.url in html
@@ -1026,7 +1032,7 @@ class TestUrlRouting:
                 assert SERVER_CONFIG.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay"
                 assert get_web_base_url() == "https://web.archivebox.example"
                 assert build_snapshot_url(snapshot_id, "index.html") == f"https://{snapshot_host}/index.html"
-                assert build_original_url("example.com", "index.html") == f"https://{get_original_host('example.com')}/index.html"
+                assert build_original_url("example.com", "index.html") == "https://web.archivebox.example/original/example.com/index.html"
 
                 print("OK")
                 """,

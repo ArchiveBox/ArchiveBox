@@ -383,8 +383,8 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # When BASE_URL is an https:// URL the deployment is HTTPS end-to-end, typically
-# behind a TLS-terminating proxy/tunnel (the bundled traefik/cloudflared profiles,
-# or your own caddy/traefik/nginx) where the proxy -> archivebox hop is plain HTTP, so
+# behind a TLS-terminating proxy/tunnel (such as Cloudflare, Caddy, Traefik, or nginx)
+# where the proxy -> archivebox hop is plain HTTP, so
 # request.is_secure() / request.scheme would otherwise report http. Honour the
 # proxy's X-Forwarded-Proto so first-run URL detection and CSRF origin checks are
 # correct. Mark auth cookies Secure once the saved BASE_URL confirms HTTPS.

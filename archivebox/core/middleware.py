@@ -19,7 +19,6 @@ from archivebox.config.common import get_config
 from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.routes_util import (
     build_admin_url,
-    build_original_url,
     build_snapshot_url,
     build_web_url,
     get_admin_host,
@@ -282,14 +281,12 @@ def HostRoutingMiddleware(get_response):
 
             original_replay_match = original_replay_path_re.match(request.path)
             if original_replay_match:
-                target = build_original_url(
-                    original_replay_match.group("domain"),
-                    (original_replay_match.group("path") or "").strip("/"),
-                    request=request,
+                view = OriginalDomainHostView.as_view()
+                return view(
+                    request,
+                    domain=original_replay_match.group("domain"),
+                    path=(original_replay_match.group("path") or "").strip("/"),
                 )
-                if request.META.get("QUERY_STRING"):
-                    target = f"{target}?{request.META['QUERY_STRING']}"
-                return redirect(target)
 
         if not config.USES_SUBDOMAIN_ROUTING:
             if host_matches(request_host, listen_host):

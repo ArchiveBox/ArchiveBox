@@ -173,14 +173,14 @@ async function main() {
   await page.waitForSelector("#archivebox-setup-wizard", {timeout: 15000});
 
   await page.$eval(
-    'input[name="archivebox-hosting-location"][value="public"]',
+    'input[name="archivebox-hosting-location"][value="private"]',
     (input) => input.click(),
   );
-  const publicHostingSelected = await page.$eval(
-    'input[name="archivebox-hosting-location"][value="public"]',
+  const privateHostingSelected = await page.$eval(
+    'input[name="archivebox-hosting-location"][value="private"]',
     (input) => input.checked,
   );
-  if (!publicHostingSelected) throw new Error("Public Server option was not selected");
+  if (!privateHostingSelected) throw new Error("Private Server option was not selected");
   await page.$eval('input[name="archivebox-dns-mode"][value="single"]', (input) => input.click());
   await page.$eval('input[name="archivebox-tls-mode"][value="none"]', (input) => input.click());
   await page.select("#archivebox-setup-security-mode", "safe-onedomain-nojsreplay");
