@@ -340,7 +340,7 @@ def upgrade_core_tables(apps, schema_editor):
                 print("      copying Snapshots from 0.7.x schema...")
                 # timestamp is the legacy bookmark/import timestamp and archive/{timestamp} identity.
                 # added is the DB row creation/import time, and updated was renamed to downloaded_at in 0.8.x.
-                cursor.execute("""
+                cursor.execute(f"""
                     INSERT OR IGNORE INTO core_snapshot_new (
                         id, url, timestamp, title,
                         bookmarked_at, created_at, modified_at, downloaded_at,
