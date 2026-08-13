@@ -3,9 +3,20 @@ import os
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 from archivebox.config import version
+
+
+REPO_DIR = Path(__file__).resolve().parents[2]
+
+
+def test_release_metadata_versions_match() -> None:
+    project_version = tomllib.loads((REPO_DIR / "pyproject.toml").read_text())["project"]["version"]
+    package_version = json.loads((REPO_DIR / "etc/package.json").read_text())["version"]
+
+    assert package_version == project_version
 
 
 def _resolve_git_with_abxpkg(tmp_path: Path) -> Path:
