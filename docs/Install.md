@@ -78,6 +78,8 @@ curl -fsSL 'https://get.archivebox.io' | bash
 ``` 
 The script uses Docker automatically when a working Docker Compose installation is available. Otherwise it shows the native `uv` install plan and pauses so you can cancel before continuing. It initializes the collection, installs ArchiveBox's runtime dependencies, and starts the server; create the first admin afterward with the command printed at the end.
 
+Run it as your normal user unless you want a system-owned deployment. When run as root, the script creates the `archivebox` service user and places the collection under `/var/lib/archivebox/`; it prints the exact path and follow-up commands when finished.
+
 <img src="https://imgur.zervice.io/VMTzm0G.png" width="99%"/>
 
 After running the setup script, continue with the [Quickstart](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-next-steps) guide... ➡️
@@ -121,8 +123,11 @@ Make sure you have [Homebrew](https://brew.sh/) installed first.
 brew tap archivebox/archivebox
 brew trust archivebox/archivebox
 brew install archivebox
+```
 
-# or use Homebrew to install uv, then install ArchiveBox with uv
+Or use Homebrew to install `uv`, then install ArchiveBox with `uv`:
+
+```bash
 brew install uv
 uv tool install --python 3.13 --prerelease allow --upgrade archivebox
 ```
@@ -151,17 +156,17 @@ dependencies such as Chromium, yt-dlp, SingleFile, and other plugin-managed
 tools are installed by `archivebox install`; use `sudo archivebox install` only
 if you want it to install missing system packages via apt.
 
-Alternatively, install with `uv` or [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux):
-
-Run Homebrew as your normal non-root user; Homebrew does not support `sudo brew` or root installs.
+Alternatively, install with `uv`:
 
 ```bash
-# uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source "$HOME/.local/bin/env"
 uv tool install --python 3.13 --prerelease allow --upgrade archivebox
+```
 
-# or Homebrew, after installing Linuxbrew
+Or install with [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux). Run Homebrew as your normal non-root user; Homebrew does not support `sudo brew` or root installs.
+
+```bash
 brew tap archivebox/archivebox
 brew trust archivebox/archivebox
 brew install archivebox

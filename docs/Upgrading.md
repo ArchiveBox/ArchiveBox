@@ -118,13 +118,27 @@ cd ~/archivebox/data   # or wherever your data folder is
 
 # upgrade ArchiveBox using the package manager you originally used to install it
 uv tool install --python 3.13 --prerelease allow --upgrade archivebox
-# or
+```
+
+Or, for apt:
+
+```bash
+cd ~/archivebox/data   # or wherever your data folder is
 sudo apt update
 sudo apt install --only-upgrade archivebox
-# or
+```
+
+Or, for Homebrew:
+
+```bash
+cd ~/archivebox/data   # or wherever your data folder is
 brew update
 brew upgrade archivebox
+```
 
+Then finish the collection upgrade:
+
+```bash
 archivebox init        # run init to upgrade the collection to the latest version
 archivebox install     # refresh runtime dependencies if needed
 
