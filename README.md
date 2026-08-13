@@ -193,7 +193,7 @@ docker compose pull
 docker compose run --rm archivebox install
 docker compose run --rm archivebox manage createsuperuser
 </code></pre></li>
-<li>Next steps: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
+<li>Next steps: Start the server then log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up -d
 # completely optional, CLI can always be used without running a server
 # docker compose run --rm [-T] archivebox [subcommand] [--help]
@@ -219,7 +219,7 @@ docker run -v $PWD:/data -it archivebox/archivebox:dev init
 docker run -v $PWD:/data -it archivebox/archivebox:dev install
 </code></pre>
 </li>
-<li>Optional: Start the server then login to the Web UI <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
+<li>Optional: Start the server then log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox:dev
 # completely optional, CLI can always be used without running a server
 # docker run -v $PWD:/data -it archivebox/archivebox:dev [subcommand] [--help]
@@ -275,7 +275,7 @@ archivebox init     # initialize a new collection
 archivebox install  # install all the runtime dependencies (e.g. chrome, single-file, yt-dlp, etc.)
 </code></pre>
 </li>
-<li>Create an admin account, then optionally start the server and log in to the Web UI at <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
+<li>Create an admin account, then optionally start the server and log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
@@ -312,7 +312,7 @@ archivebox add 'https://example.com'
 </code></pre>
 <br/>
 </li>
-<li>Create an admin account, then optionally start the server and log in to the Web UI at <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
+<li>Create an admin account, then optionally start the server and log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
@@ -346,7 +346,7 @@ archivebox init
 archivebox install
 </code></pre>
 </li>
-<li>Create an admin account, then optionally start the server and log in to the Web UI at <a href="http://archivebox.localhost:8000">http://archivebox.localhost:8000</a> ⇢ Admin.
+<li>Create an admin account, then optionally start the server and log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
 archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server

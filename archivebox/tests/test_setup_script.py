@@ -41,7 +41,7 @@ def test_setup_script_bootstraps_locked_abxpkg_version():
     assert 'ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox}"' in script
     assert '--prerelease allow --upgrade "$ARCHIVEBOX_PACKAGE"' in install_function
     assert "fix_root_install_ownership" in prepare_function
-    assert "resolve_setup_binary git env,brew,apt true" in install_function
+    assert "resolve_setup_binary git env,brew,apt true" not in install_function
 
 
 def test_setup_script_preserves_collection_and_compose_ownership_boundaries():

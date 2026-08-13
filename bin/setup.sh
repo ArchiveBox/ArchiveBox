@@ -299,7 +299,6 @@ resolve_setup_curl() {
 }
 
 install_archivebox_with_uv() {
-    resolve_setup_binary git env,brew,apt true
     echo
     echo "[+] Installing ArchiveBox python tool using uv from $ARCHIVEBOX_PACKAGE..."
     "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" --prerelease allow --upgrade "$ARCHIVEBOX_PACKAGE"
