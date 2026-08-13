@@ -405,7 +405,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <summary><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0c46e949-00fe-49c8-a613-ee14501c014c" alt="Self-hosting Platforms" height="28px" align="top"/><b> TrueNAS / UNRAID / YunoHost / Cloudron / etc.</b> (self-hosting solutions)</summary>
 <br/>
 
-> *Warning: These are contributed by external volunteers and may lag behind the official `pip` channel.*
+> *Warning: These are contributed by external volunteers and may lag behind the official Docker and `uv` channels.*
 
 <ul>
 <li><s>TrueNAS: <a href="https://truecharts.org/charts/stable/archivebox/">Official ArchiveBox TrueChart</a> / <a href="https://dev.to/finloop/setting-up-archivebox-on-truenas-scale-1788">Custom App Guide</a></s> (<a href="https://truecharts.org/news/scale-deprecation/">TrueCharts is discontinued</a>, wait for <a href="https://forums.truenas.com/t/the-future-of-electric-eel-and-apps/5409/">Electric Eel</a>)</li>
@@ -584,7 +584,7 @@ find ./archive/users -path '*/snapshots/*/*/*/index.html'  # inspect snapshot da
 <details>
 <summary><b>🖥&nbsp; Web UI & API Usage</b></summary>
 <pre lang="bash"><code style="white-space: pre-line">
-# Start the server on bare metal (pip/apt/brew/etc):
+# Start the server on bare metal (uv/apt/brew):
 archivebox manage createsuperuser              # create a new admin user via CLI
 archivebox server 0.0.0.0:8000                 # start the server
 <br/>
