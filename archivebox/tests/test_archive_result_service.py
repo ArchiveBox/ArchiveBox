@@ -539,8 +539,8 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
     )
     mercury_path = Path(mercury_env["MERCURY_BINARY"])
     provider_path = Path(binary.abspath)
-    assert binary.binprovider == "pnpm"
-    assert provider_path == lib_dir / "pnpm" / "packages" / "mercury" / "node_modules" / ".bin" / "postlight-parser"
+    assert binary.binprovider == "npm"
+    assert provider_path == lib_dir / "npm" / "packages" / "mercury" / "node_modules" / ".bin" / "postlight-parser"
     assert provider_path.is_file()
     assert os.access(provider_path, os.X_OK)
     assert mercury_path == lib_dir / "env" / "bin" / "postlight-parser"
