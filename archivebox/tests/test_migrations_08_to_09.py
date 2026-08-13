@@ -667,11 +667,12 @@ def test_crawl_data_preserved_after_migration(migration_08_data):
 
     # Check each crawl's data is preserved
     for crawl in original_data["crawls"]:
-        cursor.execute("SELECT urls, label FROM crawls_crawl WHERE id = ?", (crawl["id"],))
+        cursor.execute("SELECT urls, label, status FROM crawls_crawl WHERE id = ?", (crawl["id"],))
         row = cursor.fetchone()
         assert row is not None, f"Crawl {crawl['id']} not found after migration"
         assert row[0] == crawl["urls"], f"URLs mismatch for crawl {crawl['id']}"
         assert row[1] == crawl["label"], f"Label mismatch for crawl {crawl['id']}"
+        assert row[2] == crawl["status"], f"Status mismatch for crawl {crawl['id']}"
 
     conn.close()
 

@@ -990,6 +990,7 @@ def seed_0_8_data(db_path: Path) -> dict[str, list[dict]]:
                 "urls": uri,
                 "max_depth": max_depth,
                 "label": "",
+                "status": "queued",
             },
         )
 
