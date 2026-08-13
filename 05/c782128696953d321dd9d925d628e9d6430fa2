@@ -1,0 +1,16 @@
+docs/codeblocks.toml
+  h_923c208e183a7b 69-70,276-277,355-356
+skills/archivebox/SKILL.md
+  h_923c208e183a7b 28-29,40-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "05c782128696953d321dd9d925d628e9d6430fa2",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
