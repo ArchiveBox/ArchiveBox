@@ -78,7 +78,7 @@ fi
 ARCHIVEBOX_BRANCH="${ARCHIVEBOX_BRANCH:-dev}"
 ARCHIVEBOX_IMAGE="${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}"
 ARCHIVEBOX_PYTHON="${ARCHIVEBOX_PYTHON:-3.13}"
-ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox}"
+ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox>=0.9.0rc0,<0.10}"
 ARCHIVEBOX_PLATFORM="${ARCHIVEBOX_PLATFORM:-}"
 ARCHIVEBOX_COMPOSE_URL="${ARCHIVEBOX_COMPOSE_URL:-https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/${ARCHIVEBOX_BRANCH}/docker-compose.yml}"
 ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.62}"
@@ -301,7 +301,7 @@ resolve_setup_curl() {
 install_archivebox_with_uv() {
     echo
     echo "[+] Installing ArchiveBox python tool using uv from $ARCHIVEBOX_PACKAGE..."
-    "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" --prerelease allow --upgrade "$ARCHIVEBOX_PACKAGE"
+    "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" --prerelease explicit --upgrade "$ARCHIVEBOX_PACKAGE"
 
     uv_tool_bin_dir="$("$UV_BINARY" --no-config tool dir --bin)"
     ARCHIVEBOX_BINARY="$uv_tool_bin_dir/archivebox"

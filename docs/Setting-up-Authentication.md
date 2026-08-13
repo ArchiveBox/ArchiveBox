@@ -84,7 +84,7 @@ LOGOUT_REDIRECT_URL=https://auth.yourcompany.example.com/after/logout
 
 First, install the `ldap` add-on to use this feature (not needed for Docker Archivebox).
 ```bash
-uv tool install --python 3.13 --prerelease allow --upgrade 'archivebox[ldap]'
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox[ldap]>=0.9.0rc0,<0.10'
 ```
 
 Then set these configuration values to finish configuring LDAP:

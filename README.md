@@ -23,7 +23,7 @@ Without active preservation effort, everything on the internet eventually disapp
 *ArchiveBox is an open source tool that lets organizations & individuals archive both public & private web content while retaining control over their data. It can be used to save copies of bookmarks, preserve evidence for legal cases, backup photos from FB/Insta/Flickr or media from YT/Soundcloud/etc., save research papers, and more...*
 <br/>
 
-> ➡️ Get ArchiveBox with `uv tool install --python 3.13 --prerelease allow --upgrade archivebox` on [Linux](#quickstart)/[macOS](#quickstart), or via **[Docker](#quickstart)** ⭐️ on any OS.
+> ➡️ Get ArchiveBox with `uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'` on [Linux](#quickstart)/[macOS](#quickstart), or via **[Docker](#quickstart)** ⭐️ on any OS.
 
 *Once installed, you can interact with it through the: [Browser Extension](https://github.com/ArchiveBox/archivebox-browser-extension), [CLI](#usage), [self-hosted web interface](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive), [Python API](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage), or [filesystem](#static-archive-exporting).*
 
@@ -90,7 +90,7 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev install
 <br/>
 <br/>
 # Option C: Or install it with uv (see Quickstart below for apt, brew, and more)
-uv tool install --python 3.13 --prerelease allow --upgrade archivebox
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
 archivebox init
 archivebox install
@@ -264,7 +264,7 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 
 <li>Install <a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>uv</code>.
-<pre lang="bash"><code style="white-space: pre-line">uv tool install --python 3.13 --prerelease allow --upgrade archivebox
+<pre lang="bash"><code style="white-space: pre-line">uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 archivebox version
 </code></pre>
 <i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Install: Bare Metal</a> Wiki for full install instructions for each OS...</i>

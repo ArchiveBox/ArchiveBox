@@ -129,7 +129,7 @@ Or use Homebrew to install `uv`, then install ArchiveBox with `uv`:
 
 ```bash
 brew install uv
-uv tool install --python 3.13 --prerelease allow --upgrade archivebox
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 ```
 
 <img src="https://assets.ubuntu.com/v1/c5cb0f8e-picto-ubuntu.svg" width="30px" align="right"/>
@@ -161,7 +161,7 @@ Alternatively, install with `uv`:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source "$HOME/.local/bin/env"
-uv tool install --python 3.13 --prerelease allow --upgrade archivebox
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 ```
 
 Or install with [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux). Run Homebrew as your normal non-root user; Homebrew does not support `sudo brew` or root installs.
@@ -180,7 +180,7 @@ If you are not using the apt package above, install ArchiveBox with `uv`.
 
 ```bash
 # get the dev version of ArchiveBox
-uv tool install --python 3.13 --prerelease allow --upgrade archivebox
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 
 # if the optional ldap extra must compile locally on Debian/Ubuntu, install its headers and retry
 # sudo apt install build-essential libldap2-dev libsasl2-dev
@@ -266,7 +266,7 @@ Upgrade ArchiveBox itself first; `archivebox install` will then re-resolve compa
 
 ```bash
 # get the dev version of ArchiveBox
-uv tool install --python 3.13 --prerelease allow --upgrade archivebox
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 
 # run init inside any data directories to migrate the index to the latest version
 cd ~/archivebox/data

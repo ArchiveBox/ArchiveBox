@@ -34,7 +34,7 @@ uv run --project .. archivebox install
 Recommended CLI install:
 
 ```bash
-uv tool install --python 3.13 --prerelease allow --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+uv tool install --python 3.13 --prerelease explicit --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
 mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
