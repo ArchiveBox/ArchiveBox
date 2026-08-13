@@ -25,6 +25,7 @@ RUNNING_AS_ROOT="false"
 ARCHIVEBOX_SYSTEM_USER="archivebox"
 ARCHIVEBOX_SYSTEM_UID=""
 ARCHIVEBOX_SYSTEM_GID=""
+FOLLOWUP_SUDO=""
 
 if [ "$(id -u)" -eq 0 ]; then
     RUNNING_AS_ROOT="true"
@@ -70,13 +71,17 @@ if [ "$(id -u)" -eq 0 ]; then
     export HOME
 fi
 
+if [ "$RUNNING_AS_ROOT" = "true" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    FOLLOWUP_SUDO="sudo "
+fi
+
 ARCHIVEBOX_BRANCH="${ARCHIVEBOX_BRANCH:-dev}"
 ARCHIVEBOX_IMAGE="${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}"
 ARCHIVEBOX_PYTHON="${ARCHIVEBOX_PYTHON:-3.13}"
 ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox}"
 ARCHIVEBOX_PLATFORM="${ARCHIVEBOX_PLATFORM:-}"
 ARCHIVEBOX_COMPOSE_URL="${ARCHIVEBOX_COMPOSE_URL:-https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/${ARCHIVEBOX_BRANCH}/docker-compose.yml}"
-ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.58}"
+ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.59}"
 ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-$HOME/.cache/archivebox/setup-abxpkg}"
 ARCHIVEBOX_HOME_DIR="$HOME/archivebox"
 ARCHIVEBOX_DATA_DIR="$ARCHIVEBOX_HOME_DIR/data"
@@ -344,7 +349,12 @@ if resolve_setup_binary docker env false 2>/dev/null; then
     DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
 fi
 
-if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && docker_pull_archivebox; then
+DOCKER_IMAGE_READY="false"
+if [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
+    DOCKER_IMAGE_READY="true"
+fi
+
+if [ "$DOCKER_IMAGE_READY" = "true" ] && "$DOCKER_BINARY" compose version > /dev/null; then
     resolve_setup_curl
     echo "[+] Initializing an ArchiveBox data folder at $ARCHIVEBOX_DATA_DIR using Docker Compose..."
     ensure_archivebox_data_dir || exit 1
@@ -367,16 +377,16 @@ if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && do
     echo
     echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
     echo "    cd $ARCHIVEBOX_HOME_DIR"
-    echo "    docker compose ps"
-    echo "    docker compose down"
-    echo "    ARCHIVEBOX_IMAGE=$ARCHIVEBOX_IMAGE docker compose pull"
-    echo "    docker compose up"
-    echo "    docker compose run --rm archivebox manage createsuperuser"
-    echo "    docker compose run --rm archivebox add 'https://example.com'"
-    echo "    docker compose run --rm archivebox list"
-    echo "    docker compose run --rm archivebox help"
+    echo "    ${FOLLOWUP_SUDO}docker compose ps"
+    echo "    ${FOLLOWUP_SUDO}docker compose down"
+    echo "    ${FOLLOWUP_SUDO}env ARCHIVEBOX_IMAGE=$ARCHIVEBOX_IMAGE docker compose pull"
+    echo "    ${FOLLOWUP_SUDO}docker compose up"
+    echo "    ${FOLLOWUP_SUDO}docker compose run --rm archivebox manage createsuperuser"
+    echo "    ${FOLLOWUP_SUDO}docker compose run --rm archivebox add 'https://example.com'"
+    echo "    ${FOLLOWUP_SUDO}docker compose run --rm archivebox list"
+    echo "    ${FOLLOWUP_SUDO}docker compose run --rm archivebox help"
     exit 0
-elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
+elif [ "$DOCKER_IMAGE_READY" = "true" ]; then
     resolve_setup_curl
     echo "[+] Initializing an ArchiveBox data folder at $ARCHIVEBOX_DATA_DIR using Docker..."
     ensure_archivebox_data_dir || exit 1
@@ -394,23 +404,23 @@ elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
     echo
     echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
     echo "    cd $ARCHIVEBOX_DATA_DIR"
-    echo "    docker ps --filter name=archivebox"
-    echo "    docker rm -f archivebox"
-    echo "    docker pull $ARCHIVEBOX_IMAGE"
-    echo "    docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -d -p 8000:8000 --name=archivebox $ARCHIVEBOX_IMAGE"
-    echo "    docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE manage createsuperuser"
-    echo "    docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE add 'https://example.com'"
-    echo "    docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE list"
-    echo "    docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE help"
+    echo "    ${FOLLOWUP_SUDO}docker ps --filter name=archivebox"
+    echo "    ${FOLLOWUP_SUDO}docker rm -f archivebox"
+    echo "    ${FOLLOWUP_SUDO}docker pull $ARCHIVEBOX_IMAGE"
+    echo "    ${FOLLOWUP_SUDO}docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -d -p 8000:8000 --name=archivebox $ARCHIVEBOX_IMAGE"
+    echo "    ${FOLLOWUP_SUDO}docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE manage createsuperuser"
+    echo "    ${FOLLOWUP_SUDO}docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE add 'https://example.com'"
+    echo "    ${FOLLOWUP_SUDO}docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE list"
+    echo "    ${FOLLOWUP_SUDO}docker run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE help"
     exit 0
 fi
 
 echo
-echo "[!] It's highly recommended to use ArchiveBox with Docker, but Docker wasn't found."
+echo "[!] It's highly recommended to use ArchiveBox with Docker, but Docker is unavailable (not installed, not running, or not accessible to this user)."
 echo
 echo "    ⚠️ If you want to use Docker, press [Ctrl-C] to cancel now. ⚠️"
-echo "        Get Docker: https://docs.docker.com/get-docker/"
-echo "        After you've installed Docker, run this script again."
+echo "        Check 'docker info'. Start Docker Desktop on macOS, or rerun this script with sudo on Ubuntu if Docker reports a socket permission error."
+echo "        Install Docker if needed: https://docs.docker.com/get-docker/"
 echo
 echo "Otherwise, install will continue with uv in 12s... (press [Ctrl+C] to cancel)"
 echo
@@ -459,11 +469,11 @@ open_archivebox
 echo
 echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
 echo "    cd $ARCHIVEBOX_DATA_DIR                            # see your data dir"
-echo "    archivebox server --quick-init 0.0.0.0:8000        # start server process"
-echo "    archivebox manage createsuperuser                  # add an admin user+pass"
+echo "    ${FOLLOWUP_SUDO}archivebox server --quick-init 0.0.0.0:8000        # start server process"
+echo "    ${FOLLOWUP_SUDO}archivebox manage createsuperuser                  # add an admin user+pass"
 echo "    ps aux | grep archivebox                           # see server process pid"
-echo "    pkill -f archivebox                                # stop the server"
-echo "    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash  # update versions"
-echo "    archivebox add 'https://example.com'"              # archive a new URL
-echo "    archivebox list                                    # see URLs archived"
-echo "    archivebox help                                    # see more help & examples"
+echo "    ${FOLLOWUP_SUDO}pkill -f archivebox                                # stop the server"
+echo "    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | ${FOLLOWUP_SUDO}bash  # update versions"
+echo "    ${FOLLOWUP_SUDO}archivebox add 'https://example.com'"              # archive a new URL
+echo "    ${FOLLOWUP_SUDO}archivebox list                                    # see URLs archived"
+echo "    ${FOLLOWUP_SUDO}archivebox help                                    # see more help & examples"

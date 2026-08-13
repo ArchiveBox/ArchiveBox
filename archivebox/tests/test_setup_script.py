@@ -37,7 +37,7 @@ def test_setup_script_bootstraps_locked_abxpkg_version():
     prepare_function = script.partition("prepare_abxpkg_environment() {")[2].partition("\n}")[0]
     install_function = script.partition("install_archivebox_with_uv() {")[2].partition("\n}")[0]
 
-    assert 'ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.58}"' in script
+    assert 'ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.59}"' in script
     assert 'ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox}"' in script
     assert '--prerelease allow --upgrade "$ARCHIVEBOX_PACKAGE"' in install_function
     assert "fix_root_install_ownership" in prepare_function
@@ -58,12 +58,24 @@ def test_setup_script_prints_root_safe_runtime_commands():
     script = SETUP_SCRIPT.read_text()
 
     assert 'echo "    cd $ARCHIVEBOX_DATA_DIR' in script
+    assert 'FOLLOWUP_SUDO="sudo "' in script
+    assert '${FOLLOWUP_SUDO}docker compose run --rm archivebox add' in script
+    assert '${FOLLOWUP_SUDO}archivebox add' in script
     assert "at ~/archivebox/data" not in script
     assert "Server started on http://0.0.0.0" not in script
     assert "server --daemonize 0.0.0.0:8000" in script
     assert 'nohup "$ARCHIVEBOX_BINARY" server' not in script
     assert '"$DOCKER_BINARY" rm -f archivebox' in script
     assert "--connect-timeout 1 --max-time 2" in script
+
+
+def test_setup_script_pulls_docker_image_once_and_reports_unavailable_docker_accurately():
+    script = SETUP_SCRIPT.read_text()
+    install_flow = script.partition("prepare_abxpkg_environment")[2]
+
+    assert install_flow.count("docker_pull_archivebox") == 1
+    assert "Docker wasn't found" not in install_flow
+    assert "not installed, not running, or not accessible to this user" in install_flow
 
 
 def test_setup_script_does_not_fail_when_clear_cannot_use_terminal():
