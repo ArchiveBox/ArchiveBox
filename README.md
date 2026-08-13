@@ -266,8 +266,6 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 <li>Install the ArchiveBox package using <code>uv</code>.
 <pre lang="bash"><code style="white-space: pre-line">uv tool install --python 3.13 --prerelease allow --upgrade archivebox
 archivebox version
-# install any missing extras shown using apt/brew/pkg/etc. see Wiki for instructions
-#    python@3.13 node curl wget git ripgrep ...
 </code></pre>
 <i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Install: Bare Metal</a> Wiki for full install instructions for each OS...</i>
 </li>
