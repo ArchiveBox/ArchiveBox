@@ -246,14 +246,12 @@ RUN echo "[+] Initializing image collection..." \
 RUN chmod +x "$CODE_DIR"/bin/*.sh \
     && chmod g+w "$TMP_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH"
 
-RUN --mount=type=cache,target=/tmp/abxpkg-cache,sharing=locked,mode=1777 \
-    chmod 1777 /tmp/abxpkg-cache \
-    && for forbidden_bin in gcc g++ make; do ! abxpkg load --binproviders=env "$forbidden_bin" >/dev/null 2>&1 || (echo "Unexpected build tool in runtime: $forbidden_bin" >&2 && exit 1); done \
+RUN for forbidden_bin in gcc g++ make; do ! abxpkg load --binproviders=env "$forbidden_bin" >/dev/null 2>&1 || (echo "Unexpected build tool in runtime: $forbidden_bin" >&2 && exit 1); done \
     && stat -c "%U:%G %a %n" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$CONFIG_DIR" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$ABXPKG_LIB_DIR" \
-    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups env HOME=/tmp/abxpkg-cache archivebox install \
-    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups env HOME=/tmp/abxpkg-cache archivebox version 2>&1 | tee -a /VERSION.txt \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox install \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox version 2>&1 | tee -a /VERSION.txt \
     && rm -rf /root/.cache /var/cache/apt/* /var/lib/apt/lists/*
 
 RUN (echo -e "\n\n[√] Finished ArchiveBox multistage Docker build successfully." \
