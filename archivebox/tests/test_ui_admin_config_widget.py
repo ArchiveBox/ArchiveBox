@@ -154,6 +154,7 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert "will not replay JavaScript unless wildcard DNS is used" in html
     assert "Wildcard TLS" in html
     assert "Never enable on-demand TLS or request individual certificates for snapshot subdomains." in html
+    assert "Restart ArchiveBox after saving an HTTPS <code>BASE_URL</code> for the first time." in html
     assert "Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale" in html
     assert "How will HTTPS traffic reach this ArchiveBox server?" in html
     assert "This mode is not allowed unless also using Single-domain DNS." in html
