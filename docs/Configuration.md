@@ -476,7 +476,7 @@ URL users are redirected to after logging out. The default `/` keeps users on Ar
 
 ### LDAP Settings
 
-*Options for LDAP / Active Directory authentication via [django-auth-ldap](https://github.com/django-auth-ldap/django-auth-ldap). Requires `uv tool install --python 3.13 --upgrade 'archivebox[ldap] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev'` (which also pulls in the system `libldap` / `libsasl` headers).*
+*Options for LDAP / Active Directory authentication via [django-auth-ldap](https://github.com/django-auth-ldap/django-auth-ldap). Requires `uv tool install --python 3.13 --prerelease allow --upgrade 'archivebox[ldap]'` (which also pulls in the system `libldap` / `libsasl` headers).*
 
 ---
 #### `LDAP_ENABLED`
@@ -485,7 +485,7 @@ URL users are redirected to after logging out. The default `/` keeps users on Ar
 Master switch for LDAP authentication. When `True`, ArchiveBox loads the `django-auth-ldap` backend and validates that `LDAP_SERVER_URI`, `LDAP_BIND_DN`, `LDAP_BIND_PASSWORD`, and `LDAP_USER_BASE` are all set — startup fails fast otherwise.
 
 ```bash
-uv tool install --python 3.13 --upgrade 'archivebox[ldap] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+uv tool install --python 3.13 --prerelease allow --upgrade 'archivebox[ldap]'
 ```
 
 Then set these configuration values:

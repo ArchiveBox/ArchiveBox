@@ -8,7 +8,7 @@ cd ~/archivebox
 tar -czf "archivebox-data-$(date +%s).tar.gz" data/
 
 # Update ArchiveBox using the package manager you originally installed it with
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+uv tool install --python 3.13 --prerelease allow --upgrade archivebox
 # or: sudo apt update && sudo apt install --only-upgrade archivebox
 # or: brew update && brew upgrade archivebox
 
@@ -117,7 +117,7 @@ Package manager releases take a lot of effort to maintain ([contributions welcom
 cd ~/archivebox/data   # or wherever your data folder is
 
 # upgrade ArchiveBox using the package manager you originally used to install it
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+uv tool install --python 3.13 --prerelease allow --upgrade archivebox
 # or
 sudo apt update
 sudo apt install --only-upgrade archivebox
