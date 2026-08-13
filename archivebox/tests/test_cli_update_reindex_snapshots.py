@@ -6,7 +6,7 @@ from archivebox.tests.conftest import cli_env, run_archivebox_cmd
 import pytest
 from django.utils import timezone
 
-from archivebox.core.models import Snapshot
+from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.tests.migrations_helpers import filesystem_manifest
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -127,7 +127,7 @@ def test_update_imports_orphaned_snapshots(tmp_path, initialized_archive):
 
     migrated_dir = legacy_dir.resolve()
     assert migrated_dir.exists()
-    assert (migrated_dir / "index.jsonl").exists()
+    assert '{"type":"Process","id":"incomplete"}\n' in (migrated_dir / "index.jsonl").read_text()
     assert (migrated_dir / "singlefile.html").exists()
 
 
@@ -149,6 +149,12 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
         )
         snapshot.refresh_from_db()
         source_dir = tmp_path / "archive" / snapshot.timestamp if legacy_layout else destination
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="singlefile",
+            hook_name="on_Snapshot__singlefile",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+        )
 
     if legacy_layout:
         source_dir.mkdir(parents=True, exist_ok=True)
@@ -172,6 +178,8 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
     (source_dir / "unknown" / "empty").mkdir(parents=True, exist_ok=True)
     (source_dir / "unknown" / "payload.bin").write_bytes(b"filesystem migration payload\x00\xff")
     (source_dir / "unknown" / "payload-link").symlink_to("payload.bin")
+    (source_dir / "singlefile").mkdir(exist_ok=True)
+    (source_dir / "singlefile" / "singlefile.html").write_text("<html>preserved output</html>")
     original_tree = filesystem_manifest(source_dir)
     original_tree.pop("index.jsonl", None)
 
@@ -185,7 +193,9 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
         migrated_tree = filesystem_manifest(migrated_dir)
         assert snapshot.status == Snapshot.StatusChoices.QUEUED
         assert snapshot.retry_at is not None
-        assert snapshot.archiveresult_set.count() == 0
+        result.refresh_from_db()
+        assert result.output_files
+        assert result.output_size > 0
         if legacy_layout:
             assert (migrated_dir / "existing-user-output.bin").read_bytes() == b"preserve interrupted migration output"
 

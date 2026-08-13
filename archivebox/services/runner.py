@@ -2163,53 +2163,6 @@ def _run_due_binary() -> bool:
     return True
 
 
-def _fast_forward_same_path_snapshot_fs_versions(batch_size: int = 10000) -> bool:
-    from django.db import connection
-
-    from archivebox.core.models import Snapshot, ArchiveResult
-
-    now = timezone.now()
-    current_version = Snapshot._fs_current_version()
-    same_path_versions = ("0.9.0", "0.9.1", "0.9.2", "0.9.3")
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """
-            UPDATE core_snapshot
-               SET fs_version = %s,
-                   retry_at = CASE
-                       WHEN EXISTS (
-                           SELECT 1
-                             FROM core_archiveresult
-                            WHERE core_archiveresult.snapshot_id = core_snapshot.id
-                              AND core_archiveresult.status = %s
-                       )
-                       THEN retry_at
-                       ELSE NULL
-                   END,
-                   modified_at = %s
-             WHERE id IN (
-                   SELECT id
-                     FROM core_snapshot
-                    WHERE status = %s
-                      AND retry_at <= %s
-                      AND fs_version IN (%s, %s, %s, %s)
-                    ORDER BY retry_at, created_at
-                    LIMIT %s
-             )
-            """,
-            [
-                current_version,
-                ArchiveResult.StatusChoices.QUEUED,
-                now,
-                Snapshot.StatusChoices.SEALED,
-                now,
-                *same_path_versions,
-                batch_size,
-            ],
-        )
-        return bool(cursor.rowcount)
-
-
 def run_pending_crawls(
     *,
     daemon: bool = False,
@@ -2252,9 +2205,6 @@ def run_pending_crawls(
             for schedule in CrawlSchedule.objects.filter(is_enabled=True).select_related("template", "template__created_by"):
                 if schedule.is_due(now):
                     schedule.enqueue(queued_at=now)
-
-        if _fast_forward_same_path_snapshot_fs_versions():
-            continue
 
         if maintenance_only:
             # Filesystem migration is independent of lifecycle status; do not

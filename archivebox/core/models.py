@@ -1130,9 +1130,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             cleanup = migration(source_dir=source_dir, config=runtime_config) or cleanup
 
             current = next_ver
+            self.fs_version = current
             source_dir = None
 
-        self.fs_version = target
         if cleanup:
             self._pending_fs_migration_cleanup = cleanup
 
@@ -1179,6 +1179,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         new_dir = Path(target_dir) if target_dir else self.get_storage_path_for_version("0.9.0")
 
         if old_dir == new_dir:
+            self.convert_index_json_to_jsonl(output_dir=new_dir)
+            self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
             return None
 
         if old_dir.is_symlink():
@@ -1916,31 +1918,50 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         index_path = output_dir / CONSTANTS.JSONL_INDEX_FILENAME
         index_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Track unique binaries and processes to avoid duplicates
+        archive_results = list(self.archiveresult_set.select_related("process__binary").order_by("start_ts"))
+
+        # Build canonical records before replacing the file so legacy records
+        # without a corresponding DB row can be retained byte-for-byte.
         binaries_seen = set()
         processes_seen = set()
+        records = [self.to_json()]
+        for ar in archive_results:
+            process = ar.process_record
+            if process and process.binary and process.binary_id not in binaries_seen:
+                binaries_seen.add(process.binary_id)
+                records.append(process.binary.to_json())
+            if process and process.id not in processes_seen:
+                processes_seen.add(process.id)
+                records.append(process.to_json())
+            records.append(ar.to_json(snapshot_output_dir=output_dir))
+
+        canonical_keys = {
+            (record.get("type"), str(record.get("id"))) for record in records if record.get("type") and record.get("id") is not None
+        }
+        preserved_lines = []
+        if index_path.exists():
+            for line in index_path.read_text(encoding="utf-8").splitlines(keepends=True):
+                try:
+                    existing_record = json.loads(line)
+                except json.JSONDecodeError:
+                    preserved_lines.append(line)
+                    continue
+                if existing_record.get("type") == "Snapshot":
+                    records[0] = {**existing_record, **records[0]}
+                    continue
+                key = (existing_record.get("type"), str(existing_record.get("id")))
+                if existing_record.get("id") is None or key not in canonical_keys:
+                    preserved_lines.append(line)
 
         tmp_index_path = index_path.with_name(f".{index_path.name}.tmp")
-        with open(tmp_index_path, "w") as f:
-            # Write Snapshot record first (to_json includes crawl_id, fs_version)
-            f.write(json.dumps(self.to_json()) + "\n")
-
-            # Write ArchiveResult records with their associated Binary and Process
-            # Use select_related to optimize queries
-            for ar in self.archiveresult_set.select_related("process__binary").order_by("start_ts"):
-                process = ar.process_record
-                # Write Binary record if not already written
-                if process and process.binary and process.binary_id not in binaries_seen:
-                    binaries_seen.add(process.binary_id)
-                    f.write(json.dumps(process.binary.to_json()) + "\n")
-
-                # Write Process record if not already written
-                if process and process.id not in processes_seen:
-                    processes_seen.add(process.id)
-                    f.write(json.dumps(process.to_json()) + "\n")
-
-                # Write ArchiveResult record
-                f.write(json.dumps(ar.to_json(snapshot_output_dir=output_dir)) + "\n")
+        with open(tmp_index_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(records[0]) + "\n")
+            for line in preserved_lines:
+                f.write(line)
+                if not line.endswith("\n"):
+                    f.write("\n")
+            for record in records[1:]:
+                f.write(json.dumps(record) + "\n")
         os.replace(tmp_index_path, index_path)
 
     def read_index_jsonl(self, output_dir: Path | None = None) -> dict:
