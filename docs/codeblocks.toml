@@ -12,7 +12,7 @@ version = 2
 "1754491b1b6255de-1" = "illustration"
 "778c693286d7b895-1" = "illustration"
 "16f90085b2eb8756-1" = "illustration"
-"1e89c84643ba6572-1" = "run"
+"50b37bfc08509639-1" = "run"
 "d5ae3240405670bb-1" = "run"
 "4da22c86e09ce7d4-1" = "illustration"
 "a7a123ba522227be-1" = "run"
@@ -250,7 +250,7 @@ version = 2
 
 [scenarios]
 "c6654ae1f15bca88-1" = "docker"
-"1e89c84643ba6572-1" = "system"
+"50b37bfc08509639-1" = "system"
 "d5ae3240405670bb-1" = "collection"
 "a7a123ba522227be-1" = "system"
 "fcdd073a5440f5ca-1" = "system"
@@ -329,7 +329,7 @@ version = 2
 
 [environments]
 "c6654ae1f15bca88-1" = "docker"
-"1e89c84643ba6572-1" = "ubuntu"
+"50b37bfc08509639-1" = "ubuntu"
 "d5ae3240405670bb-1" = "ubuntu"
 "a7a123ba522227be-1" = "root"
 "fcdd073a5440f5ca-1" = "root"
