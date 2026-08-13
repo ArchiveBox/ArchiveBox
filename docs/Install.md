@@ -153,6 +153,8 @@ if you want it to install missing system packages via apt.
 
 Alternatively, install with `uv` or [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux):
 
+Run Homebrew as your normal non-root user; Homebrew does not support `sudo brew` or root installs.
+
 ```bash
 # uv
 curl -LsSf https://astral.sh/uv/install.sh | sh

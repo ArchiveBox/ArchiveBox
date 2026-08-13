@@ -329,6 +329,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" height="28px" align="top"/> <code>brew</code></b> (macOS and Linux)</summary>
 <br/>
+Run Homebrew as your normal non-root user on both macOS and Linux; do not use <code>sudo brew</code>.
 <ol>
 <li>Install <a href="https://brew.sh/#install">Homebrew</a> on your system (if not already installed).</li>
 <li>Install the ArchiveBox package using <code>brew</code>.
