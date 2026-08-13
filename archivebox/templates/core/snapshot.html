@@ -1577,7 +1577,7 @@
                                     <span class="tag-pill permission-pill">{{ snapshot_permissions_icon }} {{ snapshot_permissions }}</span>
                                 </span>
                             {% endif %}
-                            <a href="#" class="header-toggle header-toggle-trigger">▾</a>
+                            <a href="#" class="header-toggle">▾</a>
                         </div>
                     </div>
                     <div class="header-col header-meta">
@@ -2120,7 +2120,8 @@
                     hideSnapshotHeader()
                 }
             }
-            function handleSnapshotHeaderToggle() {
+            function handleSnapshotHeaderToggle(event) {
+                event.preventDefault()
                 if (jQuery('.header-toggle').text().includes('▾')) {
                     hideSnapshotHeader()
                 } else {
@@ -2129,8 +2130,7 @@
                 return true
             }
 
-            // hide header when collapse icon is clicked
-            jQuery('.header-toggle').on('click', handleSnapshotHeaderToggle)
+            // Hide or show the header once when its title row or collapse icon is clicked.
             jQuery('.header-toggle-trigger').on('click', handleSnapshotHeaderToggle)
 
             // check URL for hash e.g. #git and load relevant preview

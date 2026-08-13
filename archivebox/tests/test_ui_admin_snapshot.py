@@ -696,6 +696,9 @@ class TestSnapshotProgressStats:
         assert "index.jsonl?preview=1" in rendered
         assert "height: calc(100vh - 210px)" not in rendered
         assert "iframe-large" not in rendered
+        assert 'class="header-toggle header-toggle-trigger"' not in rendered
+        assert "event.preventDefault()" in rendered
+        assert rendered.count(".on('click', handleSnapshotHeaderToggle)") == 1
 
 
 class TestAdminSnapshotListView:
