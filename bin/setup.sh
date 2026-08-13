@@ -346,7 +346,7 @@ fi
 
 if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && docker_pull_archivebox; then
     resolve_setup_curl
-    echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker Compose..."
+    echo "[+] Initializing an ArchiveBox data folder at $ARCHIVEBOX_DATA_DIR using Docker Compose..."
     ensure_archivebox_data_dir || exit 1
     cd "$ARCHIVEBOX_HOME_DIR"
     migrate_legacy_collection_dir
@@ -365,7 +365,7 @@ if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && do
     wait_for_archivebox
     open_archivebox
     echo
-    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
+    echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
     echo "    cd $ARCHIVEBOX_HOME_DIR"
     echo "    docker compose ps"
     echo "    docker compose down"
@@ -378,7 +378,7 @@ if [ -n "$DOCKER_BINARY" ] && "$DOCKER_BINARY" compose version > /dev/null && do
     exit 0
 elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
     resolve_setup_curl
-    echo "[+] Initializing an ArchiveBox data folder at ~/archivebox/data using Docker..."
+    echo "[+] Initializing an ArchiveBox data folder at $ARCHIVEBOX_DATA_DIR using Docker..."
     ensure_archivebox_data_dir || exit 1
     cd "$ARCHIVEBOX_HOME_DIR"
     migrate_legacy_collection_dir
@@ -392,7 +392,7 @@ elif [ -n "$DOCKER_BINARY" ] && docker_pull_archivebox; then
     wait_for_archivebox
     open_archivebox
     echo
-    echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
+    echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
     echo "    cd $ARCHIVEBOX_DATA_DIR"
     echo "    docker ps --filter name=archivebox"
     echo "    docker rm -f archivebox"
@@ -442,7 +442,7 @@ resolve_setup_curl
 install_archivebox_with_uv
 
 echo
-echo "[+] Initializing ArchiveBox data folder at ~/archivebox/data..."
+echo "[+] Initializing ArchiveBox data folder at $ARCHIVEBOX_DATA_DIR..."
 ensure_archivebox_data_dir || exit 1
 cd "$ARCHIVEBOX_HOME_DIR"
 migrate_legacy_collection_dir
@@ -457,7 +457,7 @@ echo "[+] Starting ArchiveBox server using: archivebox server --daemonize..."
 wait_for_archivebox
 open_archivebox
 echo
-echo "[√] Server started on http://0.0.0.0:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
+echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
 echo "    cd $ARCHIVEBOX_DATA_DIR                            # see your data dir"
 echo "    archivebox server --quick-init 0.0.0.0:8000        # start server process"
 echo "    archivebox manage createsuperuser                  # add an admin user+pass"

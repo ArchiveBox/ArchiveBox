@@ -58,6 +58,8 @@ def test_setup_script_prints_root_safe_runtime_commands():
     script = SETUP_SCRIPT.read_text()
 
     assert 'echo "    cd $ARCHIVEBOX_DATA_DIR' in script
+    assert "at ~/archivebox/data" not in script
+    assert "Server started on http://0.0.0.0" not in script
     assert "server --daemonize 0.0.0.0:8000" in script
     assert 'nohup "$ARCHIVEBOX_BINARY" server' not in script
     assert '"$DOCKER_BINARY" rm -f archivebox' in script
