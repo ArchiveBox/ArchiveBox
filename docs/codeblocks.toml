@@ -66,8 +66,8 @@ version = 2
 "7d33d72cc96df65b-1" = "run"
 
 # skills/archivebox/SKILL.md
-"2695777473e3a217-2" = "run"
-"b894a7c4f93e4e92-2" = "run"
+"ac2c1555d3b9cd8f-1" = "run"
+"6b5798897504b1c8-1" = "run"
 "46fe9d81940ea385-1" = "run"
 "396490664ce459e9-2" = "run"
 
@@ -273,8 +273,8 @@ version = 2
 "aebc15190116f5cd-1" = "collection"
 "0b307d4f1033723f-1" = "collection"
 "7d33d72cc96df65b-1" = "collection"
-"2695777473e3a217-2" = "project"
-"b894a7c4f93e4e92-2" = "system"
+"ac2c1555d3b9cd8f-1" = "project"
+"6b5798897504b1c8-1" = "system"
 "46fe9d81940ea385-1" = "collection"
 "396490664ce459e9-2" = "project"
 "201988374bff6d14-1" = "collection"
@@ -352,8 +352,8 @@ version = 2
 "aebc15190116f5cd-1" = "ubuntu"
 "0b307d4f1033723f-1" = "ubuntu"
 "7d33d72cc96df65b-1" = "ubuntu"
-"2695777473e3a217-2" = "ubuntu"
-"b894a7c4f93e4e92-2" = "ubuntu"
+"ac2c1555d3b9cd8f-1" = "ubuntu"
+"6b5798897504b1c8-1" = "ubuntu"
 "46fe9d81940ea385-1" = "ubuntu"
 "396490664ce459e9-2" = "ubuntu"
 "201988374bff6d14-1" = "ubuntu"

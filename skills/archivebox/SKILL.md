@@ -25,7 +25,8 @@ ArchiveBox is the full self-hosted web archiving app. Use this skill for collect
 uv sync --dev --all-extras
 mkdir -p data
 cd data
-uv run --project .. archivebox init --install
+uv run --project .. archivebox init
+uv run --project .. archivebox install
 ```
 
 ## User-Facing Setup
@@ -36,7 +37,8 @@ Recommended CLI install:
 uv tool install --python 3.13 --prerelease allow --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
 mkdir -p ~/archivebox/data
 cd ~/archivebox/data
-archivebox init --install
+archivebox init
+archivebox install
 archivebox add --plugins=parse_txt_urls 'https://example.com/'
 ```
 
