@@ -187,6 +187,7 @@ RUN echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
     && if [[ "$COMMIT_HASH" =~ ^[0-9a-fA-F]{40}$ ]]; then echo "COMMIT_HASH=$COMMIT_HASH" | tee -a /VERSION.txt; fi \
     && /usr/bin/uv pip install --no-cache --no-deps "$CODE_DIR" \
     && rm -f /venv/bin/uv /venv/bin/uvx \
+    && find /venv -exec touch -h -d "@$(date +%s)" {} + \
     && /usr/bin/uv pip show archivebox | tee -a /VERSION.txt
 
 FROM archivebox-runtime-base
@@ -250,8 +251,6 @@ RUN for forbidden_bin in gcc g++ make; do ! abxpkg load --binproviders=env "$for
     && stat -c "%U:%G %a %n" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$CONFIG_DIR" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$ABXPKG_LIB_DIR" \
-    && NORMALIZED_MTIME="@$(date +%s)" \
-    && find /venv /opt/node /opt/uv "$ABXPKG_LIB_DIR" /usr/local/bin/sonic -exec touch -h -d "$NORMALIZED_MTIME" {} + \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox install \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox version 2>&1 | tee -a /VERSION.txt \
     && rm -rf /root/.cache /var/cache/apt/* /var/lib/apt/lists/*
