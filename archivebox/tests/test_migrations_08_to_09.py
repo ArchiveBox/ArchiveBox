@@ -408,7 +408,8 @@ def test_migration_preserves_foreign_keys(migration_08_data):
     assert ok, msg
 
 
-def test_migration_preserves_08_timestamp_meanings(migration_08_data):
+@pytest.mark.parametrize("has_snapshot_status", (True, False), ids=("with-status", "without-status"))
+def test_migration_preserves_08_timestamp_meanings(migration_08_data, has_snapshot_status):
     """0.8.x already has separated timestamp/bookmarked_at/created_at/downloaded_at fields."""
     work_dir, db_path, original_data = migration_08_data
     snapshot = original_data["snapshots"][0]
@@ -420,6 +421,8 @@ def test_migration_preserves_08_timestamp_meanings(migration_08_data):
 
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
+    if not has_snapshot_status:
+        cursor.execute("ALTER TABLE core_snapshot DROP COLUMN status")
     cursor.execute(
         """
         UPDATE core_snapshot
@@ -437,7 +440,7 @@ def test_migration_preserves_08_timestamp_meanings(migration_08_data):
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT timestamp, bookmarked_at, created_at, modified_at, downloaded_at FROM core_snapshot WHERE id = ?",
+        "SELECT timestamp, bookmarked_at, created_at, modified_at, downloaded_at, status FROM core_snapshot WHERE id = ?",
         (snapshot["id"],),
     )
     migrated = cursor.fetchone()
@@ -448,6 +451,7 @@ def test_migration_preserves_08_timestamp_meanings(migration_08_data):
     assert migrated[2].startswith("2024-08-28"), migrated[2]
     assert migrated[3].startswith("2024-08-29"), migrated[3]
     assert migrated[4].startswith("2024-08-30"), migrated[4]
+    assert migrated[5] == "sealed"
 
 
 def test_hyphenated_crawl_ids_are_normalized_before_snapshot_saves(migration_08_data):
