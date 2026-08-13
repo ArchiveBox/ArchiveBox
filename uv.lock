@@ -13,11 +13,11 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-08T06:51:30.905770234Z"
+exclude-newer = "2026-08-08T07:42:37.516101Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-08-13T06:51:29.90578716Z", span = "PT1S" }
+abxbus = { timestamp = "2026-08-13T07:42:36.516587Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
@@ -39,9 +39,9 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/59/ad/177f703d0adc17b84ce4715c65ebd43b6981e103c88394ca4a1b4501a46f/abx_dl-1.12.100.tar.gz", hash = "sha256:69099025f73072904bd003ef2759ed395145a49f44c81a30ffe0ebe2b99da4fb", size = 88297, upload-time = "2026-08-13T06:45:15.459222Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/59/ad/177f703d0adc17b84ce4715c65ebd43b6981e103c88394ca4a1b4501a46f/abx_dl-1.12.100.tar.gz", hash = "sha256:69099025f73072904bd003ef2759ed395145a49f44c81a30ffe0ebe2b99da4fb", size = 88297, upload-time = "2026-08-13T06:45:15.459Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/98/16ac7966cc7df03c0a6420cfd595db64109f4ea5bdf4e2c6fa60d745959a/abx_dl-1.12.100-py3-none-any.whl", hash = "sha256:1d19d38f2403b49dea539074ccbb4d9597ef2ba0d95d892ccefef9932d47fbbf", size = 92354, upload-time = "2026-08-13T06:45:14.116477Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/98/16ac7966cc7df03c0a6420cfd595db64109f4ea5bdf4e2c6fa60d745959a/abx_dl-1.12.100-py3-none-any.whl", hash = "sha256:1d19d38f2403b49dea539074ccbb4d9597ef2ba0d95d892ccefef9932d47fbbf", size = 92354, upload-time = "2026-08-13T06:45:14.116Z" },
 ]
 
 [[package]]
@@ -122,7 +122,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.35rc230"
+version = "0.9.35rc231"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
