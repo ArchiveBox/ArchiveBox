@@ -37,7 +37,7 @@ def test_setup_script_bootstraps_locked_abxpkg_version():
     prepare_function = script.partition("prepare_abxpkg_environment() {")[2].partition("\n}")[0]
     install_function = script.partition("install_archivebox_with_uv() {")[2].partition("\n}")[0]
 
-    assert 'ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.59}"' in script
+    assert 'ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg==1.12.61}"' in script
     assert 'ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox}"' in script
     assert '--prerelease allow --upgrade "$ARCHIVEBOX_PACKAGE"' in install_function
     assert "fix_root_install_ownership" in prepare_function
