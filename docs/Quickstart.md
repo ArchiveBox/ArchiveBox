@@ -6,7 +6,7 @@
 
 ▶️ *It only takes about 5 minutes to get up and running with ArchiveBox.*
 
-ArchiveBox [officially supports](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#supported-systems) **macOS**, **Ubuntu/Debian**, and **BSD**, but likely runs on many other systems.  You can run it on any system that supports **Docker** and/or Python. Windows *is not supported* unless you run it inside Docker Desktop, Docker in WSL2, or WSL2.
+ArchiveBox [officially supports](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#supported-systems) **macOS** and **Ubuntu** on `amd64` or `arm64`, plus **Docker** on those architectures. Windows is supported only through Docker Desktop or Docker in WSL2.
 
 For more detailed Docker and Docker Compose-specific instructions, see the [[Docker]] page.
 

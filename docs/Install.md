@@ -156,6 +156,7 @@ Alternatively, install with `uv` or [Homebrew on Linux](https://docs.brew.sh/Hom
 ```bash
 # uv
 curl -LsSf https://astral.sh/uv/install.sh | sh
+source "$HOME/.local/bin/env"
 uv tool install --python 3.13 --prerelease allow --upgrade archivebox
 
 # or Homebrew, after installing Linuxbrew

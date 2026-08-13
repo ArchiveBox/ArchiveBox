@@ -69,6 +69,7 @@ docker compose pull
 docker compose run --rm archivebox init
 docker compose run --rm archivebox install
 docker compose run --rm archivebox manage createsuperuser
+docker compose up -d
 ```
 
 ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). Sonic is selected by default in the UI, while ripgrep remains available as the fallback. To select ripgrep explicitly:
