@@ -11,8 +11,16 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_extract_runs_on_existing_snapshots(initialized_archive):
+@pytest.fixture
+def archive_with_extractors(initialized_archive):
+    result = run_archivebox_cmd(["install", "wget", "title"], cwd=initialized_archive, timeout=600)
+    assert result.returncode == 0, result.stderr or result.stdout
+    return initialized_archive
+
+
+def test_extract_runs_on_existing_snapshots(archive_with_extractors):
     """Extract runs a requested plugin for an existing snapshot."""
+    initialized_archive = archive_with_extractors
     env = cli_env(PLUGINS="wget,title")
 
     create_result = run_archivebox_cmd(
@@ -66,8 +74,9 @@ def test_extract_runs_on_existing_snapshots(initialized_archive):
     assert archiveresults["wget"].output_files["example.com/index.html"]["size"] == wget_path.stat().st_size
 
 
-def test_extract_preserves_snapshot_count(initialized_archive):
+def test_extract_preserves_snapshot_count(archive_with_extractors):
     """Extract queues work without creating duplicate snapshots."""
+    initialized_archive = archive_with_extractors
     env = cli_env(PLUGINS="wget,title")
 
     create_result = run_archivebox_cmd(

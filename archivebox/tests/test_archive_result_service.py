@@ -123,8 +123,9 @@ def _run_real_title_crawl(url: str, lib_dir: Path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.services.runner import CrawlRunner, run_install
 
+    run_install(plugin_names=["title"])
     crawl = Crawl.objects.create(
         urls=url,
         config={"ABXPKG_LIB_DIR": str(lib_dir), "PLUGINS": "title"},

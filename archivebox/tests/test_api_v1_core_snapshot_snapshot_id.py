@@ -162,6 +162,8 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
         )
         assert failed_result.status == ArchiveResult.StatusChoices.FAILED
         assert failed_result.output_str == "git fetch failed (exit=128)"
+        install_result = run_archivebox_cmd(["install"], cwd=tmp_path, timeout=600)
+        assert install_result.returncode == 0, install_result.stderr or install_result.stdout
         now = timezone.now()
         Snapshot.objects.filter(pk=snapshot.pk).update(
             url=blocking_http_server.url,
