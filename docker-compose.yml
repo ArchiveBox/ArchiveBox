@@ -2,9 +2,9 @@
 #     mkdir -p ~/archivebox/data && cd ~/archivebox
 #     curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 #     docker compose pull
-#     docker compose run --rm archivebox init
-#     docker compose run --rm archivebox install
-#     docker compose up -d && open 'http://admin.archivebox.localhost:8000'
+#     docker compose up -d --wait
+#     docker compose exec archivebox archivebox manage createsuperuser
+#     open 'http://admin.archivebox.localhost:8000'
 
 #     docker compose run --rm archivebox add --depth=1 'https://news.ycombinator.com'
 #     docker compose run --rm -T archivebox add < ~/Downloads/bookmarks.txt

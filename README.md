@@ -72,21 +72,19 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
 docker compose pull
-docker compose run --rm archivebox init
-docker compose run --rm archivebox install
-docker compose run --rm archivebox manage createsuperuser
+docker compose up -d --wait                                                # initializes new collections automatically
+docker compose exec archivebox archivebox manage createsuperuser          # create the first Web UI user
 # docker compose run --rm archivebox add 'https://example.com'
 # docker compose run --rm archivebox help
-# docker compose up
 <br/>
 <br/>
 # Option B: Or use it as a plain Docker container:
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -it -v $PWD:/data archivebox/archivebox:dev init
-docker run -it -v $PWD:/data archivebox/archivebox:dev install
+docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev init
+docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev manage createsuperuser
+docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
 # docker run -it -v $PWD:/data archivebox/archivebox:dev add 'https://example.com'
 # docker run -it -v $PWD:/data archivebox/archivebox:dev help
-# docker run -it -v $PWD:/data -p 8000:8000 archivebox/archivebox:dev
 <br/>
 <br/>
 # Option C: Or install it with uv (see Quickstart below for apt, brew, and more)
@@ -188,13 +186,12 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 docker compose pull
 </code></pre></li>
-<li>Initialize the collection, then create an admin user (or set ADMIN_USERNAME/ADMIN_PASSWORD in docker-compose.yml)
-<pre lang="bash"><code style="white-space: pre-line">docker compose run --rm archivebox init
-docker compose run --rm archivebox install
-docker compose run --rm archivebox manage createsuperuser
+<li>Start the server, which initializes a new collection automatically, then create the first admin user.
+<pre lang="bash"><code style="white-space: pre-line">docker compose up -d --wait
+docker compose exec archivebox archivebox manage createsuperuser
 </code></pre></li>
-<li>Next steps: Start the server then log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
-<pre lang="bash"><code style="white-space: pre-line">docker compose up -d
+<li>Next steps: Log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
+<pre lang="bash"><code style="white-space: pre-line">
 # completely optional, CLI can always be used without running a server
 # docker compose run --rm [-T] archivebox [subcommand] [--help]
 docker compose run --rm archivebox add 'https://example.com'
