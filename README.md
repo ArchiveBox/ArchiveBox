@@ -336,7 +336,7 @@ Run Homebrew as your normal non-root user on both macOS and Linux; do not use <c
 <pre lang="bash"><code style="white-space: pre-line">brew tap archivebox/archivebox
 brew trust archivebox/archivebox
 brew install archivebox
-archivebox version                         # make sure all dependencies are installed
+archivebox version                         # verify the installed version
 </code></pre>
 <i>See the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup">Install: Bare Metal</a> Wiki for more granular instructions for macOS... ➡️</i>
 </li>

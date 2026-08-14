@@ -468,7 +468,7 @@ open_archivebox
 echo
 echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
 echo "    cd $ARCHIVEBOX_DATA_DIR                            # see your data dir"
-echo "    ${FOLLOWUP_SUDO}archivebox server --quick-init 0.0.0.0:8000        # start server process"
+echo "    ${FOLLOWUP_SUDO}archivebox server 0.0.0.0:8000                     # start server process"
 echo "    ${FOLLOWUP_SUDO}archivebox manage createsuperuser                  # add an admin user+pass"
 echo "    ps aux | grep archivebox                           # see server process pid"
 echo "    ${FOLLOWUP_SUDO}pkill -f archivebox                                # stop the server"
