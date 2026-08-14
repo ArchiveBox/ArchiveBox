@@ -1,0 +1,14 @@
+archivebox/tests/test_migrations_08_to_09.py
+  h_923c208e183a7b 1065
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "28bdc5902d15deab706602c37de04440b07b5325",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
