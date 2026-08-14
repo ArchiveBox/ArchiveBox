@@ -70,7 +70,7 @@ The goal is to sleep soundly knowing the part of the internet you care about wil
 <br/>
 <pre lang="bash"><code style="white-space: pre-line"># Option A: Get ArchiveBox with Docker Compose (recommended):
 mkdir -p ~/archivebox/data && cd ~/archivebox
-curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml   # edit options in this file as-needed
+curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 docker compose pull
 docker compose up -d --wait                                                # initializes new collections automatically
 docker compose exec archivebox archivebox manage createsuperuser          # create the first Web UI user
@@ -182,7 +182,6 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Download the <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml" download><code>docker-compose.yml</code></a> file into a new empty directory (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox
-# Read and edit docker-compose.yml options as-needed after downloading
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 docker compose pull
 </code></pre></li>
