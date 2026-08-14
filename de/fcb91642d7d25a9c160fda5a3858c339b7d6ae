@@ -1,0 +1,16 @@
+README.md
+  h_923c208e183a7b 26,84,178,208
+docs/Install.md
+  h_923c208e183a7b 81,179,216,265,268-271,274-275
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "defcb91642d7d25a9c160fda5a3858c339b7d6ae",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
