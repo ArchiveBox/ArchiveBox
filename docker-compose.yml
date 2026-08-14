@@ -6,9 +6,9 @@
 #     docker compose exec archivebox archivebox manage createsuperuser
 #     open 'http://admin.archivebox.localhost:8000'
 
-#     docker compose run --rm archivebox add --depth=1 'https://news.ycombinator.com'
-#     docker compose run --rm -T archivebox add < ~/Downloads/bookmarks.txt
-#     docker compose run --rm archivebox help
+#     docker compose exec archivebox archivebox add --depth=1 'https://news.ycombinator.com'
+#     docker compose exec -T archivebox archivebox add < ~/Downloads/bookmarks.txt
+#     docker compose exec archivebox archivebox help
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 

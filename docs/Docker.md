@@ -72,7 +72,7 @@ docker compose exec archivebox archivebox manage createsuperuser
 
 ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). Sonic is selected by default in the UI, while ripgrep remains available as the fallback. To select ripgrep explicitly:
 ```bash
-docker compose run --rm archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
+docker compose exec archivebox archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
 ```
 
 <br/>
@@ -85,40 +85,40 @@ See the wiki page on [Upgrading or Merging Archives: Upgrading with Docker Compo
 
 ### Usage
 
-You can use `docker compose run --rm archivebox [subcommand]` just like the non-Docker `archivebox [subcommand]` CLI.
+With the server running from the setup steps above, use `docker compose exec archivebox archivebox [subcommand]` just like the non-Docker `archivebox [subcommand]` CLI. If the server is stopped, use `docker compose run --rm archivebox [subcommand]` instead.
 
 First, make sure you're `cd`'ed into the same folder as your `docker-compose.yml` file (e.g. `~/archivebox`):
 ```bash
-docker compose run --rm archivebox help
+docker compose exec archivebox archivebox help
 ```
 
 To add an individual URL, pass it in as an arg or via stdin:
 ```bash
-docker compose run --rm archivebox add 'https://example.com'
+docker compose exec archivebox archivebox add 'https://example.com'
 # OR
-echo 'https://example.com' | docker compose run --rm -T archivebox add
+echo 'https://example.com' | docker compose exec -T archivebox archivebox add
 ```
 
 To add multiple URLs at once, pipe them in via stdin, or place them in a file inside `./data/sources` so that ArchiveBox can access it from within the container:
 ```bash
 # pipe URLs in from a file outside Docker
-docker compose run --rm -T archivebox add < ~/Downloads/example_urls.txt
+docker compose exec -T archivebox archivebox add < ~/Downloads/example_urls.txt
 
 # OR ingest URLs from a file mounted inside Docker
-docker compose run --rm archivebox add --depth=1 /data/sources/example_urls.txt
+docker compose exec archivebox archivebox add --depth=1 /data/sources/example_urls.txt
 
 # OR pipe in URLs from a remote source
-curl 'https://example.com/some/rss/feed.xml' | docker compose run --rm -T archivebox add
-docker compose run --rm archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
+curl 'https://example.com/some/rss/feed.xml' | docker compose exec -T archivebox archivebox add
+docker compose exec archivebox archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
 ```
 
 The `--depth=1` flag tells ArchiveBox to look inside the provided source and archive all the URLs within:
 ```bash
 # this archives just the RSS file itself (probably not what you want)
-docker compose run --rm archivebox add 'https://example.com/some/feed.rss'
+docker compose exec archivebox archivebox add 'https://example.com/some/feed.rss'
 
 # this archives the RSS feed file + all the URLs mentioned inside of it
-docker compose run --rm archivebox add --depth=1 'https://example.com/some/feed.rss'
+docker compose exec archivebox archivebox add --depth=1 'https://example.com/some/feed.rss'
 ```
 
 <br/>
@@ -144,12 +144,12 @@ ArchiveBox running with `docker compose` accepts all the same config options as 
 
 The recommended way configure ArchiveBox in Docker Compose is using `archivebox config --set ...` or by editing `ArchiveBox.conf`.
 ```bash
-docker compose run --rm archivebox config --set TIMEOUT=120
+docker compose exec archivebox archivebox config --set TIMEOUT=120
 # OR edit ./data/ArchiveBox.conf and add this under its existing [ARCHIVING_CONFIG] section:
 TIMEOUT=120
 
 # plugin-specific options work the same way (see https://archivebox.github.io/abx-plugins/)
-docker compose run --rm archivebox config --set YTDLP_MAX_SIZE=750m
+docker compose exec archivebox archivebox config --set YTDLP_MAX_SIZE=750m
 ```
 This will apply the config to all containers or archivebox instances that access the collection.
 

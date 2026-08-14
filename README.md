@@ -192,10 +192,9 @@ docker compose exec archivebox archivebox manage createsuperuser
 </code></pre></li>
 <li>Next steps: Log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
 <pre lang="bash"><code style="white-space: pre-line">
-# completely optional, CLI can always be used without running a server
-# docker compose run --rm [-T] archivebox [subcommand] [--help]
-docker compose run --rm archivebox add 'https://example.com'
-docker compose run --rm archivebox help
+# run CLI commands inside the server container started above
+docker compose exec archivebox archivebox add 'https://example.com'
+docker compose exec archivebox archivebox help
 </code></pre>
 <i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker Compose</a> in the Wiki. ➡️</i>
 </li>
