@@ -380,10 +380,10 @@ if [ "$DOCKER_IMAGE_READY" = "true" ] && "$DOCKER_BINARY" compose version > /dev
     echo "    ${FOLLOWUP_SUDO}docker compose down"
     echo "    ${FOLLOWUP_SUDO}env ARCHIVEBOX_IMAGE=$ARCHIVEBOX_IMAGE docker compose pull"
     echo "    ${FOLLOWUP_SUDO}docker compose up"
-    echo "    ${FOLLOWUP_SUDO}docker compose run --rm archivebox manage createsuperuser"
-    echo "    ${FOLLOWUP_SUDO}docker compose run --rm archivebox add 'https://example.com'"
-    echo "    ${FOLLOWUP_SUDO}docker compose run --rm archivebox list"
-    echo "    ${FOLLOWUP_SUDO}docker compose run --rm archivebox help"
+    echo "    ${FOLLOWUP_SUDO}docker compose exec archivebox archivebox manage createsuperuser"
+    echo "    ${FOLLOWUP_SUDO}docker compose exec archivebox archivebox add 'https://example.com'"
+    echo "    ${FOLLOWUP_SUDO}docker compose exec archivebox archivebox list"
+    echo "    ${FOLLOWUP_SUDO}docker compose exec archivebox archivebox help"
     exit 0
 elif [ "$DOCKER_IMAGE_READY" = "true" ]; then
     resolve_setup_curl

@@ -59,7 +59,7 @@ def test_setup_script_prints_root_safe_runtime_commands():
 
     assert 'echo "    cd $ARCHIVEBOX_DATA_DIR' in script
     assert 'FOLLOWUP_SUDO="sudo "' in script
-    assert "${FOLLOWUP_SUDO}docker compose run --rm archivebox add" in script
+    assert "${FOLLOWUP_SUDO}docker compose exec archivebox archivebox add" in script
     assert "${FOLLOWUP_SUDO}archivebox add" in script
     assert "at ~/archivebox/data" not in script
     assert "Server started on http://0.0.0.0" not in script
