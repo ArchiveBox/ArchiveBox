@@ -189,5 +189,33 @@ jobs:
               echo "Root-owned files remain in $root_tool_dir/data" >&2
               exit 1
             fi
+
+            sudo mkdir "$root_tool_dir/external"
+            sudo ln -s "$root_tool_dir/external" "$root_tool_dir/data/external-link"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data' && archivebox status"
+            sudo stat -c %U "$root_tool_dir/external" | grep -qx root
+
+            sudo mkdir "$root_tool_dir/data-universal-init"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-universal-init' && archivebox status --init"
+            sudo stat -c %U "$root_tool_dir/data-universal-init" | grep -qx archivebox
+
+            sudo mkdir "$root_tool_dir/data-install"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-install' && archivebox install --dry-run"
+            sudo stat -c %U "$root_tool_dir/data-install" | grep -qx archivebox
+
+            sudo useradd --create-home archivebox-smoke-user
+            smoke_user_group="$(id -gn archivebox-smoke-user)"
+            sudo mkdir "$root_tool_dir/data-mixed-owner"
+            sudo chown archivebox-smoke-user:root "$root_tool_dir/data-mixed-owner"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-mixed-owner' && archivebox init"
+            sudo stat -c %U:%G "$root_tool_dir/data-mixed-owner" | grep -qx "archivebox-smoke-user:$smoke_user_group"
+            if sudo find "$root_tool_dir/data-mixed-owner" -xdev -user root -print -quit | grep -q .; then
+              echo "Root-owned files remain in $root_tool_dir/data-mixed-owner" >&2
+              exit 1
+            fi
             sudo rm -rf "$root_tool_dir"
           fi

@@ -32,11 +32,13 @@ def select_archivebox_user(
     data_dir_gid: int,
     account_uid: int | None,
     account_gid: int | None,
+    data_dir_owner_gid: int | None = None,
     data_dir_owner_exists: bool = True,
 ) -> tuple[int, int]:
     if running_uid == 0:
         if data_dir_uid != 0 and data_dir_owner_exists:
-            return data_dir_uid, data_dir_gid
+            owner_gid = data_dir_owner_gid if data_dir_gid == 0 and data_dir_owner_gid is not None else data_dir_gid
+            return data_dir_uid, owner_gid
         if account_uid is not None and account_gid is not None:
             return account_uid, account_gid
 
@@ -57,9 +59,10 @@ except PermissionError:
     DATA_DIR_GID = 0
 
 try:
-    pwd.getpwuid(DATA_DIR_UID)
+    DATA_DIR_OWNER_GID = pwd.getpwuid(DATA_DIR_UID).pw_gid
     DATA_DIR_OWNER_EXISTS = True
 except KeyError:
+    DATA_DIR_OWNER_GID = None
     DATA_DIR_OWNER_EXISTS = False
 
 DEFAULT_UID = 911
@@ -138,6 +141,7 @@ ARCHIVEBOX_USER, ARCHIVEBOX_GROUP = select_archivebox_user(
     sudo_gid=SUDO_GID,
     data_dir_uid=DATA_DIR_UID,
     data_dir_gid=DATA_DIR_GID,
+    data_dir_owner_gid=DATA_DIR_OWNER_GID,
     account_uid=ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None,
     account_gid=ARCHIVEBOX_ACCOUNT.pw_gid if ARCHIVEBOX_ACCOUNT is not None else None,
     data_dir_owner_exists=DATA_DIR_OWNER_EXISTS,
@@ -205,7 +209,7 @@ def root_data_dir_handoff_paths(data_dir: Path, argv: list[str]) -> tuple[Path, 
     except (FileNotFoundError, PermissionError):
         return ()
 
-    is_init = "init" in argv[1:]
+    is_init = any(arg in ("init", "install", "--init", "--quick-init") for arg in argv[1:])
     collection_exists = any((data_dir / marker).exists() for marker in (".archivebox_id", "ArchiveBox.conf", "index.sqlite3"))
     if not collection_exists and not (is_init and not children):
         return ()
@@ -238,9 +242,9 @@ def root_parent_can_grant_group_traversal(*, parent_uid: int, parent_gid: int, p
 
 
 def grant_archivebox_group_traversal(path: Path) -> None:
-    """Let the archivebox account traverse private root-owned parents."""
+    """Let the selected runtime user traverse private root-owned parents."""
 
-    if not IS_ROOT or ARCHIVEBOX_ACCOUNT is None:
+    if not IS_ROOT or not ARCHIVEBOX_USER_EXISTS:
         return
 
     for parent in path.resolve().parents:
@@ -251,9 +255,9 @@ def grant_archivebox_group_traversal(path: Path) -> None:
             parent_uid=parent_stat.st_uid,
             parent_gid=parent_stat.st_gid,
             parent_mode=parent_stat.st_mode,
-            account_gid=ARCHIVEBOX_ACCOUNT.pw_gid,
+            account_gid=ARCHIVEBOX_GROUP,
         ):
-            os.chown(parent, -1, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
+            os.chown(parent, -1, ARCHIVEBOX_GROUP, follow_symlinks=False)
             os.chmod(parent, stat.S_IMODE(parent_stat.st_mode) | stat.S_IXGRP, follow_symlinks=False)
 
 

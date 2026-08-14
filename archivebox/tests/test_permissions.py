@@ -45,6 +45,22 @@ def test_root_preserves_existing_non_root_data_dir_owner():
     ) == (1001, 1002)
 
 
+def test_root_uses_owner_primary_group_for_mixed_user_root_data_dir():
+    assert select_archivebox_user(
+        running_uid=0,
+        running_gid=0,
+        effective_uid=0,
+        effective_gid=0,
+        sudo_uid=1001,
+        sudo_gid=1002,
+        data_dir_uid=1001,
+        data_dir_gid=0,
+        data_dir_owner_gid=1002,
+        account_uid=911,
+        account_gid=911,
+    ) == (1001, 1002)
+
+
 def test_root_uses_archivebox_account_for_unknown_data_dir_owner():
     assert select_archivebox_user(
         running_uid=0,
@@ -105,14 +121,23 @@ def test_root_hands_off_root_or_archivebox_owned_collection_boundaries():
     )
 
 
-def test_root_init_hands_off_only_an_empty_data_dir(tmp_path):
+def test_root_setup_commands_hand_off_only_an_empty_data_dir(tmp_path):
     from archivebox.config.permissions import root_data_dir_handoff_paths
 
-    assert root_data_dir_handoff_paths(tmp_path, ["archivebox", "init"]) == (tmp_path,)
+    setup_commands = (
+        ["archivebox", "init"],
+        ["archivebox", "install"],
+        ["archivebox", "server", "--init"],
+        ["archivebox", "server", "--quick-init"],
+        ["archivebox", "add", "--init", "https://example.com"],
+    )
+    for argv in setup_commands:
+        assert root_data_dir_handoff_paths(tmp_path, argv) == (tmp_path,)
 
     unrelated = tmp_path / "unrelated.txt"
     unrelated.write_text("keep root ownership")
-    assert root_data_dir_handoff_paths(tmp_path, ["archivebox", "init"]) == ()
+    for argv in setup_commands:
+        assert root_data_dir_handoff_paths(tmp_path, argv) == ()
 
 
 def test_existing_collection_handoff_is_bounded_to_known_top_level_paths(tmp_path):
