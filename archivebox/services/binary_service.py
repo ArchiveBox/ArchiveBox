@@ -538,7 +538,4 @@ async def _mark_binary_queued(binary) -> None:
 def _persisted_overrides_for_request(request: BinaryRequestEvent | None) -> dict[str, Any]:
     if request is None:
         return {}
-    raw_overrides = request.extra_context.get("raw_overrides")
-    if isinstance(raw_overrides, Mapping):
-        return dict(raw_overrides)
     return dict(request.overrides or {})

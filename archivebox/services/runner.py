@@ -46,7 +46,6 @@ from abx_dl.orchestrator import (
     setup_services as setup_abx_services,
 )
 from abx_dl.services.process_service import ProcessService as HookProcessService
-from abx_dl.services.binary_service import split_abxpkg_binary_request_overrides
 from abx_dl.services.snapshot_service import SnapshotService as HookSnapshotService
 from abx_dl.cli import LiveBusUI
 from abxbus import BaseEvent
@@ -1358,21 +1357,18 @@ async def _run_binary(binary_id: str) -> None:
     )
     await _emit_machine_config(bus, config=config, derived_config=derived_config)
 
-    native_overrides, override_extra_context = split_abxpkg_binary_request_overrides(binary.overrides or None)
-
     try:
         await bus.emit(
             BinaryRequestEvent(
                 name=binary.name,
                 binproviders=binary.binproviders,
-                overrides=native_overrides or None,
+                overrides=binary.overrides or None,
                 extra_context={
                     "plugin_name": "archivebox",
                     "hook_name": "archivebox_binary_run",
                     "output_dir": str(binary.output_dir),
                     "binary_id": str(binary.id),
                     "machine_id": str(binary.machine_id),
-                    **override_extra_context,
                 },
             ),
         ).now(first_result=True)

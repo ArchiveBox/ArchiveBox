@@ -39,23 +39,22 @@ def _run_real_binary_state_machine(data_dir: Path, *, name: str, binproviders: s
     )
 
 
-def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event():
+def test_binary_request_preserves_native_overrides_in_db():
     from abxpkg.binary_service import BinaryCacheService, BinaryEvent, BinaryRequestEvent, BinaryService
     from abx_dl.orchestrator import create_bus
     from archivebox.services.binary_service import ArchiveBoxDBBinaryCacheBackend
 
     machine = Machine.current()
-    raw_overrides = {
+    overrides = {
         "pip": {
             "install_args": ["imagesize>=2.0.0"],
-            "module_name": "imagesize",
         },
     }
     binary = Binary.objects.create(
         machine=machine,
         name="python3",
         binproviders="env,pip",
-        overrides=raw_overrides,
+        overrides=overrides,
         status=Binary.StatusChoices.QUEUED,
         retry_at=timezone.now(),
     )
@@ -63,7 +62,7 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event()
     binary.refresh_from_db()
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert Path(binary.abspath).resolve() == Path(sys.executable).resolve()
-    bus = create_bus(name=f"test_binary_raw_overrides_{uuid.uuid4().hex[:8]}")
+    bus = create_bus(name=f"test_binary_native_overrides_{uuid.uuid4().hex[:8]}")
     BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
     BinaryService(bus)
     binary_events: list[BinaryEvent] = []
@@ -78,11 +77,7 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event()
             BinaryRequestEvent(
                 name="python3",
                 binproviders="env,pip",
-                overrides={"pip": {"install_args": ["imagesize>=2.0.0"]}},
-                extra_context={
-                    "raw_overrides": raw_overrides,
-                    "provider_metadata": {"pip": {"module_name": "imagesize"}},
-                },
+                overrides=overrides,
             ),
         ).now()
         await bus.wait_until_idle()
@@ -91,10 +86,9 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event()
 
     binary.refresh_from_db()
     assert binary.status == Binary.StatusChoices.INSTALLED
-    assert binary.overrides == raw_overrides
+    assert binary.overrides == overrides
     assert binary_events
-    assert binary_events[-1].overrides == {"pip": {"install_args": ["imagesize>=2.0.0"]}}
-    assert binary_events[-1].extra_context["raw_overrides"] == raw_overrides
+    assert binary_events[-1].overrides == overrides
 
 
 def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized_archive, tmp_path):

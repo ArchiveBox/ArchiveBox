@@ -5,7 +5,7 @@ version = 2
 [snippets]
 
 # README.md
-"1eb17a53f3b42bb0-1" = "illustration"
+"72fddf697c7b0142-1" = "illustration"
 "fe1f06a0a6b02c01-1" = "illustration"
 "220882ff87e9c738-1" = "run"
 "698f2b0f88796c9b-1" = "illustration"
@@ -140,7 +140,7 @@ version = 2
 "e4e22c56cb720344-1" = "illustration"
 "2905d7f9dece0b61-1" = "run"
 "a64c69417bb98a93-1" = "illustration"
-"1e69cfc0c05471e0-1" = "run"
+"a5bb45966ec97884-1" = "run"
 
 # docs/Merging-Collections.md
 "befadadb67c37c7b-1" = "illustration"
@@ -303,7 +303,7 @@ version = 2
 "77b61fd52c4c3c32-1" = "collection"
 "a8f16f6be4f2b3c0-1" = "collection"
 "2905d7f9dece0b61-1" = "collection"
-"1e69cfc0c05471e0-1" = "system-data"
+"a5bb45966ec97884-1" = "system-data"
 "9bbf385bf2eb1160-1" = "collection"
 "c84835e713d1c625-1" = "collection"
 "302de01a4a1490f0-1" = "docker"
@@ -383,7 +383,7 @@ version = 2
 "77b61fd52c4c3c32-1" = "ubuntu"
 "a8f16f6be4f2b3c0-1" = "ubuntu"
 "2905d7f9dece0b61-1" = "ubuntu"
-"1e69cfc0c05471e0-1" = "ubuntu"
+"a5bb45966ec97884-1" = "ubuntu"
 "9bbf385bf2eb1160-1" = "ubuntu"
 "c84835e713d1c625-1" = "ubuntu"
 "302de01a4a1490f0-1" = "docker"
