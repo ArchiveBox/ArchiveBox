@@ -1062,7 +1062,7 @@ def test_each_declared_filesystem_hop_preserves_outputs(migration_08_data, fs_ve
     (source_dir / "unknown-empty-dir" / "nested").mkdir(parents=True)
     expected_tree = filesystem_manifest(source_dir)
 
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=180)
+    result = run_archivebox_migration_cmd(work_dir, ["update", "--migrate-only"], timeout=180)
     assert result.returncode == 0, result.stderr
 
     migrated_dir = source_dir.resolve()
