@@ -242,9 +242,9 @@ def root_parent_can_grant_group_traversal(*, parent_uid: int, parent_gid: int, p
 
 
 def grant_archivebox_group_traversal(path: Path) -> None:
-    """Let the selected runtime user traverse private root-owned parents."""
+    """Let the archivebox account traverse private root-owned parents."""
 
-    if not IS_ROOT or not ARCHIVEBOX_USER_EXISTS:
+    if not IS_ROOT or ARCHIVEBOX_ACCOUNT is None:
         return
 
     for parent in path.resolve().parents:
@@ -255,9 +255,9 @@ def grant_archivebox_group_traversal(path: Path) -> None:
             parent_uid=parent_stat.st_uid,
             parent_gid=parent_stat.st_gid,
             parent_mode=parent_stat.st_mode,
-            account_gid=ARCHIVEBOX_GROUP,
+            account_gid=ARCHIVEBOX_ACCOUNT.pw_gid,
         ):
-            os.chown(parent, -1, ARCHIVEBOX_GROUP, follow_symlinks=False)
+            os.chown(parent, -1, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
             os.chmod(parent, stat.S_IMODE(parent_stat.st_mode) | stat.S_IXGRP, follow_symlinks=False)
 
 
@@ -301,7 +301,8 @@ def drop_privileges():
     # archivebox service account when the data dir is root-owned.
     if os.geteuid() == 0 and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
         pw_record = pwd.getpwuid(ARCHIVEBOX_USER)
-        os.initgroups(pw_record.pw_name, ARCHIVEBOX_GROUP)
+        supplemental_gid = ARCHIVEBOX_ACCOUNT.pw_gid if ARCHIVEBOX_ACCOUNT is not None else ARCHIVEBOX_GROUP
+        os.initgroups(pw_record.pw_name, supplemental_gid)
         if os.getegid() != ARCHIVEBOX_GROUP:
             os.setegid(ARCHIVEBOX_GROUP)
         if os.geteuid() != ARCHIVEBOX_USER:
