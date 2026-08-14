@@ -78,7 +78,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 ``` 
 The script uses Docker automatically when a working Docker Compose installation is available. Otherwise it shows the native `uv` install plan and pauses so you can cancel before continuing. It initializes the collection, installs ArchiveBox's runtime dependencies, and starts the server; create the first admin afterward with the command printed at the end.
 
-Run it as your normal user unless you want a system-owned deployment. When run as root, the script creates the `archivebox` service user and places the collection under `/var/lib/archivebox/`; it prints the exact path and follow-up commands when finished.
+Run it as your normal user unless you want a system-owned deployment. When run as root, the script creates the `archivebox` service user and places the collection under that account's home directory; it prints the exact path and follow-up commands when finished.
 
 <img src="https://imgur.zervice.io/VMTzm0G.png" width="99%"/>
 
@@ -176,7 +176,7 @@ brew install archivebox
 
 ### 2. Install ArchiveBox using `uv`
 
-If you are not using the apt package above, install ArchiveBox with `uv`.
+If you are not using the apt or Homebrew packages above, install ArchiveBox with `uv`.
 
 ```bash
 # get the dev version of ArchiveBox
@@ -213,7 +213,7 @@ archivebox help
 
 ### Troubleshooting
 
-Make sure the `uv`-installed version of `archivebox` is available in your `$PATH`.
+For `uv` installs, make sure the `uv`-installed version of `archivebox` is available in your `$PATH`.
 ```bash
 uv tool list             # show info about uv-installed tools
 
@@ -262,11 +262,17 @@ See our [[Usage]] Wiki documentation page for more examples.
 
 ### Next Steps: *Upgrading Archivebox to a new version*
 
-Upgrade ArchiveBox itself first; `archivebox install` will then re-resolve compatible host binaries and update any managed runtime dependencies.
+Stop any running ArchiveBox processes and back up the entire collection first. Upgrade ArchiveBox with the same package manager you originally used; `archivebox install` will then re-resolve compatible host binaries and update any managed runtime dependencies.
 
 ```bash
+# back up the full collection before upgrading
+cd ~/archivebox
+tar -czf "archivebox-data-$(date +%s).tar.gz" data/
+
 # get the dev version of ArchiveBox
 uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
+# or: sudo apt update && sudo apt install --only-upgrade archivebox
+# or: brew update && brew upgrade archivebox
 
 # run init inside any data directories to migrate the index to the latest version
 cd ~/archivebox/data
