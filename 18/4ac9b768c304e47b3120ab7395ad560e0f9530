@@ -1,0 +1,16 @@
+archivebox/tests/test_setup_script.py
+  h_923c208e183a7b 40
+bin/setup.sh
+  h_923c208e183a7b 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "184ac9b768c304e47b3120ab7395ad560e0f9530",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
