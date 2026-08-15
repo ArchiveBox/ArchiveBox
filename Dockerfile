@@ -155,7 +155,7 @@ PY
     --no-install-workspace \
     --no-sources
 ABXPKG_NO_CACHE=True abxpkg env --install --binproviders=env,apt --lib="$ABXPKG_LIB_DIR" --overrides='{"apt":{"install_args":["binutils"]}}' strip >/dev/null
-"$ABXPKG_LIB_DIR/env/bin/find" /venv/lib/python3.*/site-packages -type f -name '*.so' -print0 > /tmp/archivebox-native-libraries
+/usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print0 > /tmp/archivebox-native-libraries
 while IFS= read -r -d '' native_library; do
     magic=''
     if IFS= read -r -N 4 magic < "$native_library" && [[ "$magic" == $'\x7fELF' ]]; then
@@ -166,7 +166,7 @@ rm -f /tmp/archivebox-native-libraries
 rm -f /venv/bin/uv /venv/bin/uvx
 abxpkg run --binproviders=env --lib="$ABXPKG_LIB_DIR" apt-get purge -y binutils build-essential gcc libldap2-dev libsasl2-dev libssl-dev
 abxpkg run --binproviders=env --lib="$ABXPKG_LIB_DIR" apt-get autoremove -y
-"$ABXPKG_LIB_DIR/env/bin/find" "$ABXPKG_LIB_DIR/env/bin" -maxdepth 1 -type l -name strip -delete
+/usr/bin/find "$ABXPKG_LIB_DIR/env/bin" -maxdepth 1 -type l -name strip -delete
 rm -rf /var/lib/apt/lists/*
 EOF
 
