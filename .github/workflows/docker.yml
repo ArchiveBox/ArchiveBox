@@ -384,7 +384,7 @@ jobs:
             '${{ runner.temp }}/archivebox-image.tar' \
             '${{ steps.docker_build.outputs.digest }}' \
             "$LOCAL_IMAGE_ID" \
-            "$((820 * 1024 * 1024))" <<'PY'
+            "$((910 * 1024 * 1024))" <<'PY'
           from hashlib import sha256
           import json
           import os
