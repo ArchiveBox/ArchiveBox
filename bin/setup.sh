@@ -423,7 +423,8 @@ echo
 echo "[!] It's highly recommended to use ArchiveBox with Docker, but Docker is unavailable (not installed, not running, or not accessible to this user)."
 echo
 echo "    ⚠️ If you want to use Docker, press [Ctrl-C] to cancel now. ⚠️"
-echo "        Check 'docker info'. Start Docker Desktop on macOS, or rerun this script with sudo on Ubuntu if Docker reports a socket permission error."
+echo "        Check 'docker info'. Start Docker Desktop on macOS, or fix Docker socket access and rerun as your normal Ubuntu user."
+echo "        Rerunning with sudo intentionally creates a system-owned deployment under /var/lib/archivebox/archivebox instead of ~/archivebox."
 echo "        Install Docker if needed: https://docs.docker.com/get-docker/"
 echo
 echo "Otherwise, install will continue with uv in 12s... (press [Ctrl+C] to cancel)"
