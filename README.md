@@ -211,8 +211,8 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Create a new empty directory and initialize your collection (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -v $PWD:/data -it archivebox/archivebox:dev init
-docker run -v $PWD:/data -it archivebox/archivebox:dev install
+docker run --rm -v $PWD:/data -it archivebox/archivebox:dev init
+docker run --rm -v $PWD:/data -it archivebox/archivebox:dev install
 </code></pre>
 </li>
 <li>Optional: Start the server then log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.

@@ -96,9 +96,9 @@ docker stop CONTAINER_ID
 
 cd ~/archivebox/data  # or wherever your existing collection is stored
 docker pull archivebox/archivebox:dev
-docker run -v $PWD:/data -it archivebox/archivebox:dev init
-docker run -v $PWD:/data -it archivebox/archivebox:dev install
-docker run -v $PWD:/data -it archivebox/archivebox:dev update --migrate-only
+docker run --rm -v $PWD:/data -it archivebox/archivebox:dev init
+docker run --rm -v $PWD:/data -it archivebox/archivebox:dev install
+docker run --rm -v $PWD:/data -it archivebox/archivebox:dev update --migrate-only
 
 # restart the archivebox server container if needed
 docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev server 0.0.0.0:8000
