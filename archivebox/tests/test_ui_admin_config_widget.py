@@ -12,6 +12,7 @@ from archivebox.config.common import get_config
 from archivebox.core.middleware import AdminCookieIsolationMiddleware
 from archivebox.core.setup_wizard import get_base_url_mismatch_context, get_setup_wizard_context
 from archivebox.core.templatetags.core_tags import system_warnings_banner
+from archivebox.core.views import HealthCheckView
 
 STATIC_DIR = Path(__file__).parents[1] / "templates" / "static"
 SETUP_WIZARD_CSS = (STATIC_DIR / "setup_wizard.css").read_text()
@@ -213,13 +214,28 @@ def test_setup_wizard_assets_enforce_selection_and_access_requirements():
     assert "Waiting for a matching browser URL and valid setup options" in SETUP_WIZARD_JS
     assert "Finish the selected DNS, ingress, and TLS setup" in SETUP_WIZARD_JS
 
-    for target in ("adminUrl", "apiUrl", "indexUrl", "webHealthUrl", "snapshotHealthUrl", "originalHealthUrl"):
+    for target in ("adminUrl", "apiUrl", "indexUrl"):
         assert f"probeUrl(preview.{target}" in SETUP_WIZARD_JS
     assert "wildcardHealthUrl" not in SETUP_WIZARD_JS
     assert "results.wildcard" not in SETUP_WIZARD_JS
     assert "var coreReachable = results.admin && results.api && results.index && results.web && results.snapshot;" in SETUP_WIZARD_JS
     assert "probeUrl(webOrigin + '/web/https://example.com'" not in SETUP_WIZARD_JS
     assert "credentials: 'omit'" in SETUP_WIZARD_JS
+    assert "function probeUrl(url, generation, requireArchiveBoxHealth)" in SETUP_WIZARD_JS
+    assert "mode: requireArchiveBoxHealth ? 'cors' : 'no-cors'" in SETUP_WIZARD_JS
+    assert "response.ok && response.headers.get('X-ArchiveBox-Health') === 'OK'" in SETUP_WIZARD_JS
+    for target in ("webHealthUrl", "snapshotHealthUrl", "originalHealthUrl"):
+        assert f"probeUrl(preview.{target}, generation, true)" in SETUP_WIZARD_JS
+
+
+def test_health_check_is_identifiable_across_ingress_origins():
+    response = HealthCheckView.as_view()(RequestFactory().get("/health/"))
+
+    assert response.status_code == 200
+    assert response.content == b"OK"
+    assert response["Access-Control-Allow-Origin"] == "*"
+    assert response["Access-Control-Expose-Headers"] == "X-ArchiveBox-Health"
+    assert response["X-ArchiveBox-Health"] == "OK"
 
 
 @pytest.mark.parametrize(

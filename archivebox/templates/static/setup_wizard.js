@@ -262,21 +262,23 @@
     document.getElementById('archivebox-setup-wildcard-help').hidden = dnsMode === 'localhost';
   }
 
-  function probeUrl(url, generation) {
+  function probeUrl(url, generation, requireArchiveBoxHealth) {
     var controller = new AbortController();
     var timeout = window.setTimeout(function() { controller.abort(); }, 5000);
     var target = new URL(url);
     target.searchParams.set('archivebox_setup_probe', String(generation));
     return fetch(target.toString(), {
       method: 'GET',
-      mode: 'no-cors',
+      mode: requireArchiveBoxHealth ? 'cors' : 'no-cors',
       credentials: 'omit',
       cache: 'no-store',
       redirect: 'follow',
       signal: controller.signal,
-    }).then(function() {
+    }).then(function(response) {
       window.clearTimeout(timeout);
-      return true;
+      return requireArchiveBoxHealth
+        ? response.ok && response.headers.get('X-ArchiveBox-Health') === 'OK'
+        : true;
     }).catch(function() {
       window.clearTimeout(timeout);
       return false;
@@ -378,9 +380,9 @@
       admin: probeUrl(preview.adminUrl, generation),
       api: probeUrl(preview.apiUrl, generation),
       index: probeUrl(preview.indexUrl, generation),
-      web: probeUrl(preview.webHealthUrl, generation),
-      snapshot: probeUrl(preview.snapshotHealthUrl, generation),
-      original: probeUrl(preview.originalHealthUrl, generation),
+      web: probeUrl(preview.webHealthUrl, generation, true),
+      snapshot: probeUrl(preview.snapshotHealthUrl, generation, true),
+      original: probeUrl(preview.originalHealthUrl, generation, true),
     };
     Promise.all(Object.keys(checks).map(function(key) { return checks[key].then(function(ok) { return [key, ok]; }); })).then(function(entries) {
       if (generation !== probeGeneration || preview !== currentPreview) return;

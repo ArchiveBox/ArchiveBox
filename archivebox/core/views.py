@@ -1801,7 +1801,11 @@ class HealthCheckView(View):
         """
         Handle a GET request
         """
-        return HttpResponse("OK", content_type="text/plain", status=200)
+        response = HttpResponse("OK", content_type="text/plain", status=200)
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Expose-Headers"] = "X-ArchiveBox-Health"
+        response["X-ArchiveBox-Health"] = "OK"
+        return response
 
 
 @render_with_table_view
