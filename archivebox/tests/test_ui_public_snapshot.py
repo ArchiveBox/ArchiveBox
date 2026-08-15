@@ -215,6 +215,7 @@ def _login_admin_session_over_http(port: int, host: str) -> requests.Session:
         timeout=10,
     )
     assert login_page.status_code == 200, login_page.text[:500]
+    assert "docker compose exec archivebox archivebox manage createsuperuser" in login_page.text
     csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', login_page.text)
     assert csrf_match, login_page.text[:500]
     login_response = session.post(

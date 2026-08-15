@@ -73,7 +73,12 @@
   <br/>
   To create a new admin user or reset a password, run:<br/>
 <pre>
-cd data/   # run commands inside your data folder
+# Docker Compose
+docker compose exec archivebox archivebox manage createsuperuser --username &lt;username&gt;
+docker compose exec archivebox archivebox manage changepassword &lt;username&gt;
+
+# Native installs (run inside your data folder)
+cd data/
 archivebox manage createsuperuser --username &lt;username&gt;
 archivebox manage changepassword &lt;username&gt;
 </pre>
