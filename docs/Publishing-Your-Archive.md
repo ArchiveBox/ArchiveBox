@@ -7,23 +7,24 @@ There are two ways to publish your archive: using the `archivebox server` or by 
 ## 1. Use the built-in web server
 
 ```bash
-# set the permissions depending on how public/locked down you want it to be
-archivebox config --set PUBLIC_INDEX=True
-archivebox config --set PUBLIC_ADD_VIEW=True
-archivebox config --set PERMISSIONS=public        # default visibility of newly created snapshots (was: PUBLIC_SNAPSHOTS=True)
-archivebox config --set BASE_URL=https://archive.example.com
-archivebox config --set SERVER_SECURITY_MODE=safe-subdomains-fullreplay
-
 # create an admin username and password for yourself
 archivebox manage createsuperuser
 
-# then start the webserver and open the web UI in your browser
+# start the webserver and open the local admin UI
 archivebox server 0.0.0.0:8000
-open https://web.archive.example.com
+open http://admin.archivebox.localhost:8000
 ```
 
 This server is enabled out-of-the-box if you're using `docker-compose` to run ArchiveBox.
-If hosting publicly, place an SSL termination server in front of ArchiveBox. Start ArchiveBox normally, then follow the first-run wizard for the settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI.
+If hosting publicly, complete the first-run wizard before exposing ArchiveBox. It guides you through choosing a security mode and shows the settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI. Configure HTTPS there, then open the canonical URL you chose in the wizard.
+
+After ingress is working, set the permissions depending on how public you want the archive to be:
+
+```bash
+archivebox config --set PUBLIC_INDEX=True
+archivebox config --set PUBLIC_ADD_VIEW=True
+archivebox config --set PERMISSIONS=public
+```
 
 > [!TIP]
 > Advanced: You can use nginx to serve a static export directly from the filesystem. Do not proxy live replay paths back onto the admin origin; use ArchiveBox's security-mode routing.
