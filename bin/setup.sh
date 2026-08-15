@@ -360,7 +360,12 @@ if [ "$DOCKER_IMAGE_READY" = "true" ] && "$DOCKER_BINARY" compose version > /dev
     cd "$ARCHIVEBOX_HOME_DIR"
     migrate_legacy_collection_dir
     if [ ! -f docker-compose.yml ]; then
-        "$CURL_BINARY" -fsSL "$ARCHIVEBOX_COMPOSE_URL" > docker-compose.yml
+        compose_download="$(mktemp "$ARCHIVEBOX_HOME_DIR/.docker-compose.yml.XXXXXX")"
+        if ! "$CURL_BINARY" -fsSL "$ARCHIVEBOX_COMPOSE_URL" -o "$compose_download"; then
+            rm -f "$compose_download"
+            exit 1
+        fi
+        mv "$compose_download" docker-compose.yml
         if [ "$RUNNING_AS_ROOT" = "true" ]; then
             chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" docker-compose.yml
         fi
