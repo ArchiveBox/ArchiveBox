@@ -872,13 +872,10 @@ class CrawlRunner:
             snapshot_phase_timeout=crawl_setup_phase_timeout,
             snapshot_cleanup_phase_timeout=crawl_setup_phase_timeout,
             crawl_cleanup_phase_timeout=crawl_setup_phase_timeout,
-            persist_derived=False,
             auto_install=True,
             emit_jsonl=False,
             abort_requested=self.crawl_is_cancelled,
-            MachineService=None,
             PluginBinariesService=None,
-            BinaryCacheService=None,
             BinaryService=None,
             ProcessService=None,
             ArchiveResultService=None,
@@ -1349,10 +1346,8 @@ async def _run_binary(binary_id: str) -> None:
         crawl_start_enabled=False,
         snapshot_cleanup_enabled=False,
         crawl_cleanup_enabled=False,
-        persist_derived=False,
         auto_install=True,
         emit_jsonl=False,
-        BinaryCacheService=None,
         BinaryService=None,
     )
     await _emit_machine_config(bus, config=config, derived_config=derived_config)
@@ -1948,8 +1943,6 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                         derived_config_overrides=derived_config,
                         emit_jsonl=False,
                         bus=bus,
-                        MachineService=None,
-                        BinaryCacheService=None,
                         BinaryService=None,
                     )
                 finally:

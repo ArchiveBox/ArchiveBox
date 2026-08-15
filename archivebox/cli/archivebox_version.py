@@ -303,33 +303,29 @@ def version(
             continue
         plugin_requested = bool(requested_names)
         plugin_enabled = plugin_name in enabled_plugin_names
-        logical_records = get_required_binary_requests(
+        binary_records = get_required_binary_requests(
             plugin,
             plugin.config.required_binaries,
             overrides=runtime_config,
             derived_overrides=derived_config,
             run_output_dir=CONSTANTS.DATA_DIR,
         )
-        actual_records = get_required_binary_requests(
-            plugin,
-            plugin.config.required_binaries,
-            overrides=runtime_config,
-            derived_overrides=derived_config,
-            run_output_dir=CONSTANTS.DATA_DIR,
-            logical_names=False,
-        )
-        for logical_record, actual_record in zip(logical_records, actual_records, strict=False):
-            logical_name = str(logical_record["name"])
-            actual_name = str(actual_record["name"])
-            display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
+        for binary_record in binary_records:
+            actual_name = str(binary_record["name"])
+            logical_name = (
+                Path(actual_name).expanduser().name
+                if ("/" in actual_name or "\\" in actual_name or actual_name.startswith("~"))
+                else actual_name
+            )
+            display_name = logical_name
             if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
                 continue
             if not plugin_enabled and not requested_names:
                 continue
             if _binary_record_matches_runtime(db_binaries.get(logical_name), config.ABXPKG_LIB_DIR):
                 continue
-            signature = json.dumps(actual_record, sort_keys=True, default=str)
-            declared_binary_specs.setdefault(signature, actual_record)
+            signature = json.dumps(binary_record, sort_keys=True, default=str)
+            declared_binary_specs.setdefault(signature, binary_record)
 
     loaded_binaries: dict[str, BinaryEvent | None] = {}
     if declared_binary_specs:
@@ -365,25 +361,21 @@ def version(
                 continue
             plugin_requested = bool(requested_names)
             plugin_enabled = plugin_name in enabled_plugin_names
-            logical_records = get_required_binary_requests(
+            binary_records = get_required_binary_requests(
                 plugin,
                 plugin.config.required_binaries,
                 overrides=runtime_config,
                 derived_overrides=derived_config,
                 run_output_dir=CONSTANTS.DATA_DIR,
             )
-            actual_records = get_required_binary_requests(
-                plugin,
-                plugin.config.required_binaries,
-                overrides=runtime_config,
-                derived_overrides=derived_config,
-                run_output_dir=CONSTANTS.DATA_DIR,
-                logical_names=False,
-            )
-            for logical_record, actual_record in zip(logical_records, actual_records, strict=False):
-                logical_name = str(logical_record["name"])
-                actual_name = str(actual_record["name"])
-                display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
+            for binary_record in binary_records:
+                actual_name = str(binary_record["name"])
+                logical_name = (
+                    Path(actual_name).expanduser().name
+                    if ("/" in actual_name or "\\" in actual_name or actual_name.startswith("~"))
+                    else actual_name
+                )
+                display_name = logical_name
                 if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
                     continue
 
@@ -401,7 +393,7 @@ def version(
                     # providers the current collection will never execute.
                     continue
                 else:
-                    loaded = loaded_binaries[json.dumps(actual_record, sort_keys=True, default=str)]
+                    loaded = loaded_binaries[json.dumps(binary_record, sort_keys=True, default=str)]
                     abspath = loaded.abspath if loaded is not None else ""
                     version_str = str(loaded.version or "unknown")[:15] if loaded is not None else "unknown"
                     provider = str(loaded.binprovider or "env")[:8] if loaded is not None else "env"
