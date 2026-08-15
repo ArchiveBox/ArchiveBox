@@ -719,7 +719,8 @@ def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path):
     assert Snapshot.objects.filter(crawl=crawl, status=Snapshot.StatusChoices.SEALED).count() == 1
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert binary.retry_at is None
-    assert Path(binary.abspath).is_symlink()
+    assert Path(binary.abspath).is_file()
+    assert binary.version
     assert binary.binprovider == "env"
 
 
@@ -877,7 +878,8 @@ def test_run_pending_crawls_resolves_real_binary_through_abxpkg(tmp_path):
     assert result == 0
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert binary.retry_at is None
-    assert Path(binary.abspath).is_symlink()
+    assert Path(binary.abspath).is_file()
+    assert binary.version
     assert binary.binprovider == "env"
 
 

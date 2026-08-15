@@ -1334,7 +1334,7 @@ async def _run_binary(binary_id: str) -> None:
     process_service = PersistedProcessService(bus)
     binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
-    BinaryService(bus)
+    BinaryService(bus, lib_dir=Path(config["ABXPKG_LIB_DIR"]))
     TagService(bus)
     ArchiveResultService(bus)
     MachineService(bus)
