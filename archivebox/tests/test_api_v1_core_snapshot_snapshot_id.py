@@ -9,7 +9,7 @@ from django.utils import timezone
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.tests.conftest import run_archivebox_cmd
-from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 from archivebox.workers.models import RETRY_AT_MAX
 
@@ -28,16 +28,6 @@ from .conftest import (
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
-
-
-def _snapshot_hook_name(plugin_name: str) -> str:
-    from abx_dl.models import discover_plugins
-
-    plugin = discover_plugins().get(plugin_name)
-    assert plugin is not None, f"missing test plugin {plugin_name}"
-    hooks = plugin.filter_hooks("Snapshot")
-    assert hooks, f"missing Snapshot hooks for {plugin_name}"
-    return hooks[0].name
 
 
 def _snapshot_state(cwd: Path, url: str) -> dict[str, object]:
@@ -155,7 +145,7 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
         _failed_process, failed_result = _run_shipped_snapshot_hook(
             snapshot,
             plugin="git",
-            hook_name="on_Snapshot__05_git.finite.bg.py",
+            hook_name=_snapshot_hook_name("git"),
             event_hook_name=_snapshot_hook_name("git"),
             lib_dir=lib_dir,
             expected_exit_codes=(1,),
@@ -172,7 +162,7 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
         )
         Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED, retry_at=now)
         snapshot.refresh_from_db()
-        [started_result] = snapshot.create_pending_archiveresults(hooks=[("wget", "on_Snapshot__06_wget.finite.bg")])
+        [started_result] = snapshot.create_pending_archiveresults(hooks=[("wget", _snapshot_hook_name("wget"))])
         errors = []
 
         def run_snapshot():
@@ -317,7 +307,7 @@ def test_targeted_extract_retries_one_failed_archiveresult_through_normal_snapsh
         _wget_process, wget_result = _run_shipped_snapshot_hook(
             snapshot,
             plugin="wget",
-            hook_name="on_Snapshot__06_wget.finite.bg.py",
+            hook_name=_snapshot_hook_name("wget"),
             event_hook_name=_snapshot_hook_name("wget"),
             lib_dir=lib_dir,
             env={"WGET_WARC_ENABLED": "False"},

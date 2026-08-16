@@ -13,7 +13,7 @@ from django.test import RequestFactory
 from django.urls import reverse
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST
-from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
 
 pytestmark = pytest.mark.django_db(transaction=True)
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -85,7 +85,7 @@ def running_wget_projection(snapshot, blocking_http_server):
         url=blocking_http_server.url,
     )
     snapshot.refresh_from_db()
-    [result] = snapshot.create_pending_archiveresults(hooks=[("wget", "on_Snapshot__06_wget.finite.bg")])
+    [result] = snapshot.create_pending_archiveresults(hooks=[("wget", _snapshot_hook_name("wget"))])
     errors = []
 
     def run_snapshot():

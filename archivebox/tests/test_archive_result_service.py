@@ -17,6 +17,16 @@ from archivebox.tests.conftest import install_real_binary
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def _snapshot_hook_name(plugin_name: str) -> str:
+    from abx_dl.models import discover_plugins
+
+    plugin = discover_plugins().get(plugin_name)
+    assert plugin is not None, f"missing test plugin {plugin_name}"
+    hooks = plugin.filter_hooks("Snapshot")
+    assert hooks, f"missing Snapshot hooks for {plugin_name}"
+    return hooks[0].name
+
+
 def _cleanup_machine_process_rows() -> None:
     from archivebox.machine.models import Process
 

@@ -136,7 +136,7 @@ def test_plugin_detail_view_renders_shipped_plugin_config_in_dedicated_sections(
 
     assert hooks_section["name"] == "Hooks"
     assert hooks_section["fields"] == {}
-    assert "on_Snapshot__06_wget.finite.bg.py" in hooks_section["description"]
+    assert "on_Snapshot__35_wget.finite.bg.py" in hooks_section["description"]
 
     assert metadata_section["name"] == "Plugin Metadata"
     assert metadata_section["fields"] == {}

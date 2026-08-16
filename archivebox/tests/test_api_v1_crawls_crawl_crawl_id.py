@@ -12,7 +12,7 @@ from django.utils import timezone
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.tests.test_orm_helpers import use_archivebox_db
-from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
 from archivebox.workers.models import RETRY_AT_MAX
 
 from .conftest import (
@@ -212,7 +212,7 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         Crawl.objects.filter(pk=crawl_id).update(status=Crawl.StatusChoices.STARTED, retry_at=now)
         Snapshot.objects.filter(pk=active_snapshot.pk).update(status=Snapshot.StatusChoices.QUEUED, retry_at=now)
         active_snapshot.refresh_from_db()
-        [active_started] = active_snapshot.create_pending_archiveresults(hooks=[("wget", "on_Snapshot__06_wget.finite.bg")])
+        [active_started] = active_snapshot.create_pending_archiveresults(hooks=[("wget", _snapshot_hook_name("wget"))])
         errors = []
 
         def run_snapshot():

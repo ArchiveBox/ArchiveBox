@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 from archivebox.tests.conftest import cli_env, resolve_abxpkg_binary_env, run_archivebox_cmd
-from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -220,7 +220,7 @@ class TestLiveProgressView:
             url=blocking_http_server.url,
         )
         snapshot.refresh_from_db()
-        [result] = snapshot.create_pending_archiveresults(hooks=[("wget", "on_Snapshot__06_wget.finite.bg")])
+        [result] = snapshot.create_pending_archiveresults(hooks=[("wget", _snapshot_hook_name("wget"))])
         errors = []
 
         def run_snapshot():

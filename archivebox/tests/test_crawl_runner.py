@@ -663,7 +663,7 @@ def test_crawl_runner_resolves_persona_and_crawl_config_for_each_live_snapshot()
     favicon_processes = [
         process
         for process in Process.objects.filter(process_type=Process.TypeChoices.HOOK).order_by("started_at")
-        if process.cmd and "on_Snapshot__11_favicon.finite.bg.py" in str(process.cmd[0])
+        if process.cmd and "on_Snapshot__37_favicon.finite.bg.py" in str(process.cmd[0])
     ]
     providers = [process.env.get("FAVICON_PROVIDER") for process in favicon_processes]
 
@@ -810,7 +810,7 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
     snap_dir = tmp_path / "snapshot"
     plugin_output_dir = snap_dir / "wget"
     plugin_output_dir.mkdir(parents=True)
-    hook_path = Path(str(files("abx_plugins.plugins.wget").joinpath("on_Snapshot__06_wget.finite.bg.py")))
+    hook_path = Path(str(files("abx_plugins.plugins.wget").joinpath("on_Snapshot__35_wget.finite.bg.py")))
     wget_config = Path(str(files("abx_plugins.plugins.wget").joinpath("config.json")))
     install_real_binary("wget", binproviders="env,apt,brew")
     hook_env = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=wget_config)

@@ -71,7 +71,7 @@ class TestBackgroundHookDetection:
         assert all(".bg." in hook.name for hook in background_hooks)
         assert all(".bg." not in hook.name for hook in foreground_hooks)
         assert any(hook.name == "on_Snapshot__01_chrome_tab.daemon.bg.js" for hook in background_hooks)
-        assert any(hook.name == "on_Snapshot__06_wget.finite.bg.py" for hook in background_hooks)
+        assert any(hook.name == "on_Snapshot__35_wget.finite.bg.py" for hook in background_hooks)
         assert any(hook.name == "on_Snapshot__93_hashes.py" for hook in foreground_hooks)
 
 
@@ -229,7 +229,7 @@ class TestHookDiscovery:
         hook_names = [h.name for h in hooks]
         assert "on_Snapshot__01_chrome_tab.daemon.bg.js" in hook_names
         assert "on_Snapshot__21_consolelog.daemon.bg.js" in hook_names
-        assert "on_Snapshot__06_wget.finite.bg.py" in hook_names
+        assert "on_Snapshot__35_wget.finite.bg.py" in hook_names
         assert all(hook.is_file() for hook in hooks)
 
     def test_discover_hooks_sorted_by_name(self):
@@ -292,7 +292,7 @@ class TestHookDiscovery:
             "snapshot": [hook.name for hook in discover_hooks("SnapshotEvent", filter_disabled=False)],
         }
         assert "on_CrawlSetup__90_chrome_launch.daemon.bg.js" in hook_names["crawl_setup"]
-        assert "on_Snapshot__06_wget.finite.bg.py" in hook_names["snapshot"]
+        assert "on_Snapshot__35_wget.finite.bg.py" in hook_names["snapshot"]
 
     def test_discover_hooks_returns_empty_for_non_hook_lifecycle_events(self):
         """Lifecycle events without a hook family should return no hooks."""
