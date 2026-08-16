@@ -1660,7 +1660,7 @@ class TestRecoverOrchestratorState:
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.timeout(300)
     @pytest.mark.parametrize("chrome_isolation", ["crawl", "snapshot"])
-    def test_resume_queued_chrome_wait_reruns_background_prerequisites(
+    def test_resume_queued_chrome_navigate_reruns_background_prerequisites(
         self,
         initialized_archive,
         recursive_test_site,
@@ -1700,21 +1700,25 @@ class TestRecoverOrchestratorState:
         )
         assert list_process.returncode == 0, list_process.stderr or list_process.stdout
         chrome_results = parse_jsonl_output(list_process.stdout)
-        wait_record = next(record for record in chrome_results if record["hook_name"] == "on_Snapshot__11_chrome_wait")
-        snapshot_id = wait_record["snapshot_id"]
+        navigate_record = next(
+            record
+            for record in chrome_results
+            if record["hook_name"] == "on_Snapshot__30_chrome_navigate"
+        )
+        snapshot_id = navigate_record["snapshot_id"]
 
         with use_archivebox_db(initialized_archive):
             tab_result = ArchiveResult.objects.get(
                 snapshot_id=snapshot_id,
                 plugin="chrome",
-                hook_name="on_Snapshot__10_chrome_tab.daemon.bg",
+                hook_name="on_Snapshot__01_chrome_tab.daemon.bg",
             )
             first_tab_process_id = tab_result.process_id
             assert first_tab_process_id is not None
 
         update_process = run_archivebox_cmd(
             ["archiveresult", "update", "--status=queued"],
-            stdin=next(line for line in list_process.stdout.splitlines() if wait_record["id"] in line) + "\n",
+            stdin=next(line for line in list_process.stdout.splitlines() if navigate_record["id"] in line) + "\n",
             cwd=initialized_archive,
             env=env,
             timeout=60,
@@ -1741,19 +1745,19 @@ class TestRecoverOrchestratorState:
             cleanup_process_group(run_process.pid)
 
         with use_archivebox_db(initialized_archive):
-            wait_result = ArchiveResult.objects.get(
+            navigate_result = ArchiveResult.objects.get(
                 snapshot_id=snapshot_id,
                 plugin="chrome",
-                hook_name="on_Snapshot__11_chrome_wait",
+                hook_name="on_Snapshot__30_chrome_navigate",
             )
             tab_result = ArchiveResult.objects.get(
                 snapshot_id=snapshot_id,
                 plugin="chrome",
-                hook_name="on_Snapshot__10_chrome_tab.daemon.bg",
+                hook_name="on_Snapshot__01_chrome_tab.daemon.bg",
             )
 
         assert run_process.returncode == 0
-        assert wait_result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert navigate_result.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert tab_result.process_id is not None
         assert tab_result.process_id != first_tab_process_id
 

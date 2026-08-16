@@ -70,7 +70,7 @@ class TestBackgroundHookDetection:
         assert foreground_hooks
         assert all(".bg." in hook.name for hook in background_hooks)
         assert all(".bg." not in hook.name for hook in foreground_hooks)
-        assert any(hook.name == "on_Snapshot__10_chrome_tab.daemon.bg.js" for hook in background_hooks)
+        assert any(hook.name == "on_Snapshot__01_chrome_tab.daemon.bg.js" for hook in background_hooks)
         assert any(hook.name == "on_Snapshot__06_wget.finite.bg.py" for hook in background_hooks)
         assert any(hook.name == "on_Snapshot__93_hashes.py" for hook in foreground_hooks)
 
@@ -227,7 +227,7 @@ class TestHookDiscovery:
         hooks = discover_hooks("Snapshot", filter_disabled=False)
 
         hook_names = [h.name for h in hooks]
-        assert "on_Snapshot__10_chrome_tab.daemon.bg.js" in hook_names
+        assert "on_Snapshot__01_chrome_tab.daemon.bg.js" in hook_names
         assert "on_Snapshot__21_consolelog.daemon.bg.js" in hook_names
         assert "on_Snapshot__06_wget.finite.bg.py" in hook_names
         assert all(hook.is_file() for hook in hooks)
