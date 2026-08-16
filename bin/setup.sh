@@ -123,6 +123,19 @@ fix_root_install_ownership() {
     done
 }
 
+run_as_archivebox_user() {
+    if [ "$RUNNING_AS_ROOT" != "true" ]; then
+        "$@"
+        return
+    fi
+
+    if command -v runuser >/dev/null 2>&1; then
+        runuser -u "$ARCHIVEBOX_SYSTEM_USER" -- env HOME="$HOME" PATH="$PATH" ABXPKG_LIB_DIR="$ABXPKG_LIB_DIR" "$@"
+    else
+        sudo -u "$ARCHIVEBOX_SYSTEM_USER" env HOME="$HOME" PATH="$PATH" ABXPKG_LIB_DIR="$ABXPKG_LIB_DIR" "$@"
+    fi
+}
+
 ensure_archivebox_data_dir() {
     mkdir -p "$ARCHIVEBOX_DATA_DIR"
     if [ "$RUNNING_AS_ROOT" = "true" ]; then
@@ -227,18 +240,24 @@ ensure_uv() {
             fix_root_install_ownership
             BOOTSTRAP_UV_BINARY="$HOME/.local/bin/uv"
         fi
+        if [ "$RUNNING_AS_ROOT" = "true" ] && [ "${BOOTSTRAP_UV_BINARY#"$HOME"/}" != "$BOOTSTRAP_UV_BINARY" ]; then
+            chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$BOOTSTRAP_UV_BINARY"
+            if [ -e "$HOME/.local/bin/uvx" ]; then
+                chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$HOME/.local/bin/uvx"
+            fi
+        fi
         return 0
     fi
 
     echo "[+] Installing uv..."
     if command -v curl > /dev/null 2>&1; then
         if [ "$RUNNING_AS_ROOT" = "true" ]; then
-            curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh
+            curl -LsSf https://astral.sh/uv/install.sh | run_as_archivebox_user env UV_NO_MODIFY_PATH=1 sh
         else
             curl -LsSf https://astral.sh/uv/install.sh | sh
         fi
     elif command -v wget > /dev/null 2>&1; then
-        wget -qO- https://astral.sh/uv/install.sh | sh
+        wget -qO- https://astral.sh/uv/install.sh | run_as_archivebox_user sh
     else
         echo "[X] curl or wget is required to install uv."
         exit 1
@@ -270,7 +289,7 @@ resolve_setup_binary() {
     fi
     abxpkg_args+=("$binary_name")
 
-    "$BOOTSTRAP_UV_BINARY" tool run --from "$ABXPKG_PACKAGE" abxpkg "${abxpkg_args[@]}" >/dev/null
+    run_as_archivebox_user "$BOOTSTRAP_UV_BINARY" tool run --from "$ABXPKG_PACKAGE" abxpkg "${abxpkg_args[@]}" >/dev/null
 
     resolved_binary="$ABXPKG_LIB_DIR/env/bin/$binary_name"
     test -L "$resolved_binary"
@@ -280,6 +299,7 @@ resolve_setup_binary() {
 prepare_abxpkg_environment() {
     ensure_uv
     mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+    fix_root_install_ownership
     export ABXPKG_LIB_DIR
     export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
 
@@ -301,9 +321,9 @@ resolve_setup_curl() {
 install_archivebox_with_uv() {
     echo
     echo "[+] Installing ArchiveBox python tool using uv from $ARCHIVEBOX_PACKAGE..."
-    "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" --prerelease explicit --upgrade "$ARCHIVEBOX_PACKAGE"
+    run_as_archivebox_user "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" --prerelease explicit --upgrade "$ARCHIVEBOX_PACKAGE"
 
-    uv_tool_bin_dir="$("$UV_BINARY" --no-config tool dir --bin)"
+    uv_tool_bin_dir="$(run_as_archivebox_user "$UV_BINARY" --no-config tool dir --bin)"
     ARCHIVEBOX_BINARY="$uv_tool_bin_dir/archivebox"
     test -x "$ARCHIVEBOX_BINARY"
     if [ "$RUNNING_AS_ROOT" != "true" ]; then
