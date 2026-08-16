@@ -24,7 +24,7 @@ def _snapshot_hook_name(plugin_name: str) -> str:
     assert plugin is not None, f"missing test plugin {plugin_name}"
     hooks = plugin.filter_hooks("Snapshot")
     assert hooks, f"missing Snapshot hooks for {plugin_name}"
-    return hooks[0].name
+    return hooks[0].path.name
 
 
 def _cleanup_machine_process_rows() -> None:
