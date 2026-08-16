@@ -187,7 +187,14 @@ RUN echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
     && if [[ "$COMMIT_HASH" =~ ^[0-9a-fA-F]{40}$ ]]; then echo "COMMIT_HASH=$COMMIT_HASH" | tee -a /VERSION.txt; fi \
     && /usr/bin/uv pip install --no-cache --no-deps "$CODE_DIR" \
     && rm -f /venv/bin/uv /venv/bin/uvx \
+    && STDLIB_DIR="$(/venv/bin/python -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')" \
+    && PURELIB_DIR="$(/venv/bin/python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')" \
+    && /venv/bin/python -m compileall -q "$STDLIB_DIR" "$PURELIB_DIR" \
     && find /venv -exec touch -h -d "@$(date +%s)" {} + \
+    && cd / \
+    && test -f "$(/venv/bin/python -c 'import archivebox; print(archivebox.__cached__)')" \
+    && test -f "$(/venv/bin/python -c 'import abxpkg.cli; print(abxpkg.cli.__cached__)')" \
+    && test -f "$(/venv/bin/python -c 'import pydantic; print(pydantic.__cached__)')" \
     && /usr/bin/uv pip show archivebox | tee -a /VERSION.txt
 
 FROM archivebox-runtime-base
