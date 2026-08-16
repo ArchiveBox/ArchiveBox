@@ -24,7 +24,7 @@ def _snapshot_hook_name(plugin_name: str) -> str:
     assert plugin is not None, f"missing test plugin {plugin_name}"
     hooks = plugin.filter_hooks("Snapshot")
     assert hooks, f"missing Snapshot hooks for {plugin_name}"
-    return hooks[0].path.name
+    return hooks[0].name
 
 
 def _cleanup_machine_process_rows() -> None:
@@ -46,6 +46,7 @@ def _run_shipped_snapshot_hook(
     """Run one shipped hook through the production process/result bus services."""
     import asyncio
 
+    from abx_dl.models import discover_plugins
     from abx_dl.services.process_service import ProcessService as HookProcessService
     from abx_plugins.plugins.base.utils import get_hydrated_required_binaries
     from archivebox.core.models import ArchiveResult
@@ -53,7 +54,11 @@ def _run_shipped_snapshot_hook(
     from archivebox.services.archive_result_service import ArchiveResultService
     from archivebox.services.process_service import ProcessService as PersistedProcessService
 
-    hook_path = Path(str(files(f"abx_plugins.plugins.{plugin}").joinpath(hook_name)))
+    discovered_plugin = discover_plugins().get(plugin)
+    assert discovered_plugin is not None, f"missing test plugin {plugin}"
+    matching_hooks = [hook for hook in discovered_plugin.filter_hooks("Snapshot") if hook.name == hook_name or hook.path.name == hook_name]
+    assert len(matching_hooks) == 1, f"missing or ambiguous Snapshot hook {plugin}:{hook_name}"
+    hook_path = matching_hooks[0].path
     projected_hook_name = event_hook_name or hook_name
     hook_config = hook_path.parent / "config.json"
     for required_binary in get_hydrated_required_binaries(
