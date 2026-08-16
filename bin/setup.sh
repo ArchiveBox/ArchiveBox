@@ -130,9 +130,9 @@ run_as_archivebox_user() {
     fi
 
     if command -v runuser >/dev/null 2>&1; then
-        runuser -u "$ARCHIVEBOX_SYSTEM_USER" -- env HOME="$HOME" PATH="$PATH" ABXPKG_LIB_DIR="$ABXPKG_LIB_DIR" "$@"
+        (cd "$HOME" && runuser -u "$ARCHIVEBOX_SYSTEM_USER" -- env HOME="$HOME" PATH="$PATH" ABXPKG_LIB_DIR="$ABXPKG_LIB_DIR" "$@")
     else
-        sudo -u "$ARCHIVEBOX_SYSTEM_USER" env HOME="$HOME" PATH="$PATH" ABXPKG_LIB_DIR="$ABXPKG_LIB_DIR" "$@"
+        (cd "$HOME" && sudo -u "$ARCHIVEBOX_SYSTEM_USER" env HOME="$HOME" PATH="$PATH" ABXPKG_LIB_DIR="$ABXPKG_LIB_DIR" "$@")
     fi
 }
 

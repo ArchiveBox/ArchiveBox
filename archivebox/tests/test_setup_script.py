@@ -32,6 +32,7 @@ def test_setup_script_gives_archivebox_user_ownership_of_runtime_parent_dirs():
     assert 'chown "$ARCHIVEBOX_SYSTEM_UID:$ARCHIVEBOX_SYSTEM_GID" "$path"' in script
     assert '"$HOME/.config/uv"' in script
     assert 'runuser -u "$ARCHIVEBOX_SYSTEM_USER"' in script
+    assert '(cd "$HOME" && runuser' in script
     assert 'run_as_archivebox_user "$BOOTSTRAP_UV_BINARY" tool run' in script
     assert 'run_as_archivebox_user "$UV_BINARY" --no-config tool install' in script
 
