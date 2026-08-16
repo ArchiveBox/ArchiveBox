@@ -1700,11 +1700,7 @@ class TestRecoverOrchestratorState:
         )
         assert list_process.returncode == 0, list_process.stderr or list_process.stdout
         chrome_results = parse_jsonl_output(list_process.stdout)
-        navigate_record = next(
-            record
-            for record in chrome_results
-            if record["hook_name"] == "on_Snapshot__30_chrome_navigate"
-        )
+        navigate_record = next(record for record in chrome_results if record["hook_name"] == "on_Snapshot__30_chrome_navigate")
         snapshot_id = navigate_record["snapshot_id"]
 
         with use_archivebox_db(initialized_archive):
