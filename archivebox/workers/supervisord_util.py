@@ -156,11 +156,7 @@ def resolve_env_binary(name: str) -> Path:
     loaded = provider.load(name)
     if loaded is None or loaded.loaded_abspath is None:
         raise RuntimeError(f"abxpkg could not resolve {name}")
-    projection = Path(loaded.loaded_abspath)
-    expected_projection = env_root / "bin" / name
-    if projection != expected_projection or not projection.is_symlink() or not os.access(projection, os.X_OK):
-        raise RuntimeError(f"abxpkg did not project {name} into {expected_projection}")
-    return projection
+    return Path(loaded.loaded_abspath)
 
 
 def _record_supervisord_process(proc: subprocess.Popen, config_file: Path, supervisord_binary: Path) -> None:

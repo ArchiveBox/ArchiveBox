@@ -1,6 +1,7 @@
 import sys
 import uuid
 import asyncio
+import shutil
 from pathlib import Path
 
 import pytest
@@ -92,8 +93,10 @@ def test_binary_request_preserves_native_overrides_in_db():
 
 
 def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized_archive, tmp_path):
-    name = "python"
+    name = "archivebox"
     provider_bin_dir = initialized_archive / "lib" / "env" / "bin"
+    host_binary = shutil.which(name)
+    assert host_binary is not None
     runtime_env = _runtime_env(initialized_archive)
     _cmd_result = _run_real_binary_state_machine(initialized_archive, name=name, binproviders="env", env=runtime_env)
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
@@ -114,7 +117,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert binary.binproviders == "env"
     assert first_abspath.exists()
     assert first_abspath == provider_bin_dir / name
-    assert first_abspath.resolve() == Path(sys.executable).resolve()
+    assert first_abspath.resolve() == Path(host_binary).resolve()
     assert first_abspath.is_relative_to(initialized_archive / "lib")
     assert (initialized_archive / "lib" / "env" / "bin" / name).exists()
     assert (initialized_archive / "machines" / machine_id / "binaries" / name / "index.jsonl").exists()
@@ -158,7 +161,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert recovered.status == Binary.StatusChoices.INSTALLED
     assert recovered.version == binary.version
     assert Path(recovered.abspath).exists()
-    assert Path(recovered.abspath).resolve() == Path(sys.executable).resolve()
+    assert Path(recovered.abspath).resolve() == Path(host_binary).resolve()
     assert process_count >= 2
 
     changed_lib_dir = tmp_path / "changed-lib"
@@ -192,7 +195,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert relibbed.version == binary.version
     assert Path(relibbed.abspath) == changed_provider_bin_dir / name
     assert Path(relibbed.abspath).exists()
-    assert Path(relibbed.abspath).resolve() == Path(sys.executable).resolve()
+    assert Path(relibbed.abspath).resolve() == Path(host_binary).resolve()
 
 
 def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_resolve(initialized_archive, tmp_path):
