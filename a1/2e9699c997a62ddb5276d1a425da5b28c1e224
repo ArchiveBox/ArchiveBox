@@ -1,0 +1,21 @@
+bin/bump_version.sh
+  s_69ddf154c10e6f::t_b065f501b33d5c 54-74
+bin/setup.sh
+  s_69ddf154c10e6f::t_b065f501b33d5c 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "a12e9699c997a62ddb5276d1a425da5b28c1e224",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
