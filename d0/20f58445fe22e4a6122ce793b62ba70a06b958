@@ -1,0 +1,14 @@
+Dockerfile
+  h_923c208e183a7b 13,16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d020f58445fe22e4a6122ce793b62ba70a06b958",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

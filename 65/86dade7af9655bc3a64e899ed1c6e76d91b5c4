@@ -1,0 +1,18 @@
+README.md
+  h_923c208e183a7b 73
+archivebox/tests/test_setup_script.py
+  h_923c208e183a7b 40
+bin/setup.sh
+  h_923c208e183a7b 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6586dade7af9655bc3a64e899ed1c6e76d91b5c4",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

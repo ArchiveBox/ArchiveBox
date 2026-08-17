@@ -1,0 +1,26 @@
+archivebox/cli/archivebox_pluginmap.py
+  h_923c208e183a7b 21
+archivebox/plugins/hooks.py
+  h_923c208e183a7b 329-331
+archivebox/services/__init__.py
+  h_923c208e183a7b 2
+archivebox/services/runner.py
+  h_923c208e183a7b 23,67
+archivebox/tests/test_archive_result_service.py
+  h_923c208e183a7b 5,702,704-705,710-714,717,737-740
+archivebox/tests/test_binary_service.py
+  h_923c208e183a7b 44,46,67
+archivebox/tests/test_hooks.py
+  h_923c208e183a7b 419,444,628-629,649
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "f21902df9577bec54814fbc2332137d4bb7de3e4",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
