@@ -10,10 +10,10 @@
 #       --build-context abx-plugins=../abx-plugins \
 #       -t archivebox/abx-dl:dev
 #   docker buildx build . -f Dockerfile \
-#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.12.158 \
+#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.12.177 \
 #       -t archivebox:multistage
 
-ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.158
+ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.177
 
 FROM archivebox/sonic:1.4.9 AS sonic
 FROM ${ABX_DL_IMAGE} AS archivebox-runtime-base
@@ -187,14 +187,11 @@ RUN echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
     && if [[ "$COMMIT_HASH" =~ ^[0-9a-fA-F]{40}$ ]]; then echo "COMMIT_HASH=$COMMIT_HASH" | tee -a /VERSION.txt; fi \
     && /usr/bin/uv pip install --no-cache --no-deps "$CODE_DIR" \
     && rm -f /venv/bin/uv /venv/bin/uvx \
-    && STDLIB_DIR="$(/venv/bin/python -c 'import sysconfig; print(sysconfig.get_path("stdlib"))')" \
-    && PURELIB_DIR="$(/venv/bin/python -c 'import sysconfig; print(sysconfig.get_path("purelib"))')" \
-    && /venv/bin/python -m compileall -q "$STDLIB_DIR" "$PURELIB_DIR" \
+    && ARCHIVEBOX_PY_DIR="$(/venv/bin/python -c 'import pathlib, archivebox; print(pathlib.Path(archivebox.__file__).parent)')" \
+    && /venv/bin/python -m compileall --invalidation-mode checked-hash -q "$ARCHIVEBOX_PY_DIR" \
     && find /venv -exec touch -h -d "@$(date +%s)" {} + \
     && cd / \
     && test -f "$(/venv/bin/python -c 'import archivebox; print(archivebox.__cached__)')" \
-    && test -f "$(/venv/bin/python -c 'import abxpkg.cli; print(abxpkg.cli.__cached__)')" \
-    && test -f "$(/venv/bin/python -c 'import pydantic; print(pydantic.__cached__)')" \
     && /usr/bin/uv pip show archivebox | tee -a /VERSION.txt
 
 FROM archivebox-runtime-base
