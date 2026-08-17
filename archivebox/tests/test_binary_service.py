@@ -41,9 +41,9 @@ def _run_real_binary_state_machine(data_dir: Path, *, name: str, binproviders: s
 
 
 def test_binary_request_preserves_native_overrides_in_db():
-    from abxpkg.binary_service import BinaryCacheService, BinaryEvent, BinaryRequestEvent, BinaryService
+    from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
     from abx_dl.orchestrator import create_bus
-    from archivebox.services.binary_service import ArchiveBoxDBBinaryCacheBackend
+    from archivebox.services.binary_service import ArchiveBoxBinaryService
 
     machine = Machine.current()
     overrides = {
@@ -64,7 +64,7 @@ def test_binary_request_preserves_native_overrides_in_db():
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert Path(binary.abspath).resolve() == Path(sys.executable).resolve()
     bus = create_bus(name=f"test_binary_native_overrides_{uuid.uuid4().hex[:8]}")
-    BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
+    ArchiveBoxBinaryService(bus)
     BinaryService(bus)
     binary_events: list[BinaryEvent] = []
 

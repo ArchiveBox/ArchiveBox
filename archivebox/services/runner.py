@@ -20,7 +20,7 @@ from django.utils import timezone
 from rich.console import Console
 from rich.text import Text
 
-from abxpkg.binary_service import BinaryCacheService, BinaryRequestEvent, BinaryService
+from abxpkg.binary_service import BinaryRequestEvent, BinaryService
 from abx_dl.config import GlobalConfig, RuntimeConfig
 from abx_dl.events import (
     CrawlAbortEvent,
@@ -64,7 +64,7 @@ from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 from archivebox.crawls.locks import crawl_lifecycle_lock
 
 from .archive_result_service import ArchiveResultService
-from .binary_service import ArchiveBoxBinaryService, ArchiveBoxDBBinaryCacheBackend, project_abxpkg_derived_cache_to_db
+from .binary_service import ArchiveBoxBinaryService, project_abxpkg_derived_cache_to_db
 from .crawl_service import CrawlService
 from .machine_service import MachineService
 from .process_service import ProcessService as PersistedProcessService
@@ -222,7 +222,6 @@ class CrawlRunner:
         register_sonic_daemon_event_handler(self.bus)
         PersistedProcessService(self.bus)
         ArchiveBoxBinaryService(self.bus)
-        BinaryCacheService(self.bus, backend=ArchiveBoxDBBinaryCacheBackend())
         BinaryService(self.bus)
         TagService(self.bus)
         CrawlService(self.bus, crawl_id=str(crawl.id))
@@ -1333,7 +1332,6 @@ async def _run_binary(binary_id: str) -> None:
     bus = create_bus(name=_bus_name("ArchiveBox_binary", str(binary.id)), total_timeout=1800.0)
     process_service = PersistedProcessService(bus)
     binary_process_service = ArchiveBoxBinaryService(bus)
-    BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
     BinaryService(bus, lib_dir=Path(config["ABXPKG_LIB_DIR"]))
     TagService(bus)
     ArchiveResultService(bus)
@@ -1867,7 +1865,6 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
     PersistedProcessService(bus)
     ArchiveBoxBinaryService(bus)
-    BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
     BinaryService(bus)
     TagService(bus)
     ArchiveResultService(bus)

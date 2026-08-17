@@ -44,7 +44,6 @@ __package__ = "archivebox.plugins"
 
 import json
 import os
-import sys
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Protocol, TypeGuard, runtime_checkable
@@ -327,28 +326,9 @@ def run_hook(
     if not script.is_file():
         raise FileNotFoundError(f"Hook script not found: {script}")
 
-    # ArchiveBox resolves hook dependencies before execution and exports the
-    # resolved *_BINARY env values below. Run Python hooks in the current Python
-    # environment so per-snapshot hook execution does not repeatedly pay the
-    # abxpkg script bootstrap cost from the standalone shebang.
-    # Shell/JS hooks still dispatch through abxpkg-resolved interpreters.
-    ext = script.suffix.lower()
-    if ext == ".sh":
-        bash_projection = Path(hook_config["ABXPKG_LIB_DIR"]).expanduser() / "env" / "bin" / "bash"
-        if not bash_projection.is_symlink() or not os.access(bash_projection, os.X_OK):
-            raise RuntimeError(f"Bash must be resolved by abxpkg into {bash_projection}")
-        cmd = [str(bash_projection), str(script)]
-    elif ext == ".py":
-        cmd = [sys.executable, str(script)]
-    elif ext == ".js":
-        node_projection = Path(hook_config["ABXPKG_LIB_DIR"]).expanduser() / "env" / "bin" / "node"
-        if not node_projection.is_symlink() or not os.access(node_projection, os.X_OK):
-            raise RuntimeError(f"Node.js must be resolved by abxpkg into {node_projection}")
-        hook_config["NODE_BINARY"] = str(node_projection)
-        cmd = [str(node_projection), str(script)]
-    else:
-        # Try to execute directly (assumes shebang)
-        cmd = [str(script)]
+    # Hooks are opaque executables. Their shipped abxpkg shebang owns runtime
+    # and dependency resolution just as it does under abx-dl.
+    cmd = [str(script)]
 
     # Build CLI arguments from kwargs
     for key, value in kwargs.items():

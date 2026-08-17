@@ -2,6 +2,7 @@ from pathlib import Path
 from importlib.resources import files
 import json
 import os
+import shutil
 
 import pytest
 
@@ -698,20 +699,22 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp
     assert "chrome zombies. cpu usage:" in process.stdout
 
 
-def test_binary_event_reuses_existing_installed_binary_row():
+def test_binary_event_updates_existing_row_from_native_abxpkg_resolution():
     from archivebox.machine.models import Binary, Machine
-    from archivebox.services.binary_service import ArchiveBoxDBBinaryCacheBackend
-    from abxpkg.binary_service import BinaryCacheService, BinaryService
+    from archivebox.services.binary_service import ArchiveBoxBinaryService
+    from abxpkg.binary_service import BinaryService
     import asyncio
 
     machine = Machine.current()
     binary = install_real_binary("wget", machine=machine, binproviders="env,apt,brew")
-    installed_abspath = binary.abspath
-    installed_version = binary.version
-    installed_provider = binary.binprovider
+    native_wget = shutil.which("wget")
+    assert native_wget is not None
+    binary.abspath = "/bin/sh"
+    binary.save(update_fields=["abspath", "modified_at"])
+    stale_abspath = binary.abspath
 
     bus = create_bus(name="test_binary_event_reuses_existing_installed_binary_row")
-    BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
+    ArchiveBoxBinaryService(bus)
     BinaryService(bus)
     event = BinaryRequestEvent(
         name="wget",
@@ -731,7 +734,8 @@ def test_binary_event_reuses_existing_installed_binary_row():
     binary.refresh_from_db()
     assert Binary.objects.filter(machine=machine, name="wget").count() == 1
     assert binary.status == Binary.StatusChoices.INSTALLED
-    assert binary.abspath == installed_abspath
-    assert binary.version == installed_version
-    assert binary.binprovider == installed_provider
+    assert Path(binary.abspath).resolve() == Path(native_wget).resolve()
+    assert binary.abspath != stale_abspath
+    assert binary.version
+    assert binary.binprovider == "env"
     assert binary.binproviders == "env,apt,brew"

@@ -13,7 +13,6 @@ import json
 import hashlib
 import os
 import subprocess
-import sys
 from importlib.resources import files
 from pathlib import Path
 
@@ -417,14 +416,13 @@ class TestHookExecution:
         assert "chrome zombies" in result.stdout
 
     @pytest.mark.django_db(transaction=True)
-    def test_real_js_hook_runs_through_abxpkg_node_projection(self, tmp_path, hermetic_lib_dir):
+    def test_real_js_hook_runs_through_abxpkg_shebang(self, tmp_path, hermetic_lib_dir):
         from archivebox.plugins.hooks import run_hook
         from archivebox.services.runner import run_install
 
         lib_dir = hermetic_lib_dir
         run_install(plugin_names=["chrome"])
         node_env = resolve_abxpkg_binary_env(lib_dir, deps_from=CHROME_CONFIG)
-        node_projection = lib_dir / "env" / "bin" / "node"
         crawl_dir = tmp_path / "crawl"
         snap_dir = crawl_dir / "snapshot"
         hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
@@ -443,7 +441,7 @@ class TestHookExecution:
         )
         process.refresh_from_db()
 
-        assert process.cmd[0] == str(node_projection)
+        assert process.cmd == [str(hook_path)]
         assert process.exit_code == 0, process.stderr
         assert "chrome zombies" in process.stdout
 
@@ -627,8 +625,8 @@ def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_pat
 
 
 @pytest.mark.django_db(transaction=True)
-def test_run_hook_executes_python_hooks_with_resolved_runtime_env(tmp_path):
-    """ArchiveBox-run Python hooks use the active interpreter and resolved env."""
+def test_run_hook_executes_python_hooks_through_abxpkg_shebang(tmp_path):
+    """ArchiveBox treats Python hooks as opaque abxpkg-launched executables."""
     from archivebox.plugins.hooks import run_hook
 
     snap_dir = tmp_path / "snapshot"
@@ -648,7 +646,7 @@ def test_run_hook_executes_python_hooks_with_resolved_runtime_env(tmp_path):
     )
     process.refresh_from_db()
 
-    assert process.cmd[:2] == [sys.executable, str(hook_path)]
+    assert process.cmd == [str(hook_path), "--url=https://example.com/runtime"]
     assert process.exit_code == 0, process.stderr
     assert process.env["SNAP_DIR"] == str(snap_dir)
     records = process.parse_records_from_text(process.stdout)

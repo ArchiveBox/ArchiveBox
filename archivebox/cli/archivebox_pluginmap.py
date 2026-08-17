@@ -18,7 +18,7 @@ EVENT_FLOW_DIAGRAM = """
 │         └─ BinaryRequestEvent                                               │
 │              └─ abxpkg BinaryService builtin providers                      │
 │                   └─ BinaryEvent                                            │
-│                        └─ BinaryCacheService / project cache backend        │
+│                        └─ ArchiveBox DB history projection                  │
 │                                                                             │
 │  CrawlEvent                                                                 │
 │    └─ CrawlSetupEvent                                                       │
