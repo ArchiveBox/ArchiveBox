@@ -22,6 +22,8 @@ services:
             - ./data:/data
             # Override abx-dl's nested VOLUME so profiles persist across containers.
             - ./data/personas:/data/personas
+            # Let one-off `docker compose run` commands reuse the server's supervisor.
+            - tmp:/tmp/archivebox
         pids_limit: 2048                       # avoids low systemd task caps with Chrome and parallel extractors
         environment:
             # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
@@ -122,3 +124,6 @@ services:
 #             allow_other: 'true'
 #             vfs_cache_mode: full
 #             poll_interval: 0
+
+volumes:
+    tmp:

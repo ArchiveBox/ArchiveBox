@@ -1579,7 +1579,12 @@ class Process(ModelWithDeleteAfter, models.Model):
         """
         cleaned = 0
 
-        stale = cls.objects.filter(status=cls.StatusChoices.RUNNING)
+        # Top-level commands own their lifecycle and may run in another Docker
+        # PID namespace while sharing this database. Their takeover helpers
+        # validate and finalize them; local psutil cannot do so safely.
+        stale = cls.objects.filter(status=cls.StatusChoices.RUNNING).exclude(
+            process_type__in=(cls.TypeChoices.SERVER, cls.TypeChoices.ADD, cls.TypeChoices.UPDATE),
+        )
         if machine is not None:
             stale = stale.filter(machine=machine)
 
