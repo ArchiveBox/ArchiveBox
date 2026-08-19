@@ -132,8 +132,8 @@ def status(out_dir: Path = CONSTANTS.DATA_DIR) -> None:
 
     if not users:
         print()
-        print("    [violet]Hint:[/violet] You can create an admin user by running:")
-        print("        [green]archivebox manage createsuperuser[/green]")
+        print("    [violet]Hint:[/violet] Open the Admin UI to create the first admin and finish web setup:")
+        print("        [green]http://admin.archivebox.localhost:8000/admin/[/green]")
 
     print()
     recent_snapshots = snapshots_qs.order_by(

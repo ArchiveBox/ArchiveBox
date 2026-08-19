@@ -76,6 +76,8 @@ def test_setup_script_prints_root_safe_runtime_commands():
     assert "pkill -f archivebox " not in script
     assert '"$DOCKER_BINARY" rm -f archivebox' in script
     assert "--connect-timeout 1 --max-time 2" in script
+    assert "manage createsuperuser" not in script
+    assert "Open http://localhost:8000/admin/ to create the first admin and finish web setup." in script
 
 
 def test_setup_script_pulls_docker_image_once_and_reports_unavailable_docker_accurately():

@@ -251,20 +251,20 @@ def server(
         manage(args=["createsuperuser"])
         print()
 
-    if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
-        print()
-        print(
-            "[violet]Hint:[/violet] To create an [bold]admin username & password[/bold] for the [deep_sky_blue3][underline][link=http://{host}:{port}/admin]Admin UI[/link][/underline][/deep_sky_blue3], run:",
-        )
-        print("      [green]archivebox manage createsuperuser[/green]")
-        print()
-
     # First non-empty positional arg is the bind spec; otherwise inherit from
     # config (which defaults to "127.0.0.1:8000"). _parse_and_validate_bind_spec
     # hard-errors on hostnames so the rest of the server can assume a numeric
     # bind host.
     bind_spec = next((arg for arg in runserver_args if arg), "")
     host, port = _parse_and_validate_bind_spec(bind_spec)
+
+    if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
+        print()
+        print("[violet]Hint:[/violet] Open the Admin UI to create the first admin and finish web setup:")
+        print(f"      [green]http://localhost:{port}/admin/[/green]")
+        if host not in ("127.0.0.1", "localhost"):
+            print("      (When running remotely, replace localhost with this server's IP address or hostname.)")
+        print()
 
     if daemonize and os.environ.get("ARCHIVEBOX_SERVER_DAEMON_CHILD") != "1":
         from archivebox.workers.supervisord_util import resolve_env_binary
