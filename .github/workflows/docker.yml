@@ -362,13 +362,13 @@ jobs:
           "$DOCKER_BINARY" compose run --rm archivebox init
           "$DOCKER_BINARY" compose up -d --wait
           "$DOCKER_BINARY" network connect archivebox_default www-nginx
-          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000')"
+          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000/public/')"
           admin_js="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js')"
           [[ "$index_html" == *ArchiveBox* ]]
           [[ "$admin_js" == *window.django* ]]
 
           "$DOCKER_BINARY" compose run --rm archivebox add --plugins=parse_txt_urls 'http://www-nginx/#test_docker'
-          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000')"
+          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000/public/')"
           [[ "$index_html" == *'http://www-nginx/#test_docker'* ]]
           "$DOCKER_BINARY" compose down
 
