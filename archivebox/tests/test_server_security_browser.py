@@ -170,6 +170,9 @@ async function main() {
   if (firstAdminText.includes("archivebox manage createsuperuser")) {
     throw new Error("First admin setup showed the alternate CLI account flow");
   }
+  if (firstAdminText.includes("Ask an ArchiveBox superuser")) {
+    throw new Error("First admin setup incorrectly asked for an existing superuser");
+  }
   await page.type('input[name="username"]', config.username);
   await page.type('input[name="password1"]', config.password);
   await page.type('input[name="password2"]', config.password);

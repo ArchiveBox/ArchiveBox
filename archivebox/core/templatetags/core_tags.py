@@ -389,6 +389,9 @@ def system_warnings_banner(context):
     after and reuse ``machine.detect.get_host_stats`` (the same function that
     populates the Machine admin page), cached for 30s.
     """
+    if context.get("first_admin_setup"):
+        return {"mode": ""}
+
     config = context.get("CONFIG")
     if config is None:
         from archivebox.config.common import get_config

@@ -252,6 +252,13 @@ def _assert_only_hint_cookie_set(response: requests.Response) -> None:
 class TestPublicIndex:
     """Tests for public index visibility and redirects."""
 
+    @override_settings(BASE_URL="", PUBLIC_INDEX=True)
+    def test_unconfigured_homepage_starts_admin_setup(self, client):
+        response = client.get("/", HTTP_HOST="archivebox.example.test", follow=False)
+
+        assert response.status_code == 302
+        assert response["Location"] == "/admin/login/?next=/"
+
     @pytest.mark.timeout(120)
     @pytest.mark.django_db(transaction=True)
     def test_base_url_redirect_target_is_reachable_over_full_server(self, tmp_path):

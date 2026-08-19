@@ -180,6 +180,10 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert "setup_wizard.js?v=20260726-1" in html
 
 
+def test_first_admin_setup_suppresses_unconfigured_warning():
+    assert system_warnings_banner({"first_admin_setup": True}) == {"mode": ""}
+
+
 def test_setup_wizard_assets_enforce_selection_and_access_requirements():
     assert "border-color:#15803d; background:#f0fdf4" in SETUP_WIZARD_CSS
     assert "accent-color:#15803d" in SETUP_WIZARD_CSS

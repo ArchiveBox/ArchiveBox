@@ -255,6 +255,9 @@ class SnapshotReplayAuthView(View):
 class HomepageView(View):
     def get(self, request):
         request_config = get_request_config(request)
+        if not request_config.BASE_URL:
+            return _admin_login_redirect_or_forbidden(request)
+
         if request.user.is_authenticated and request_config.CONTROL_PLANE_ENABLED:
             return redirect("/admin/core/snapshot/")
 
