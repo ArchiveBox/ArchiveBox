@@ -189,7 +189,7 @@ docker compose pull
 <li>Start the server, which initializes a new collection automatically.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up -d --wait
 </code></pre></li>
-<li>Open <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a> and follow the setup wizard to create the first admin and configure web access.
+<li>Open <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a> to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the web setup wizard.
 <pre lang="bash"><code style="white-space: pre-line">
 # run CLI commands inside the server container started above
 docker compose exec archivebox archivebox add 'https://example.com'
@@ -214,7 +214,7 @@ docker run --rm -v $PWD:/data -it archivebox/archivebox:dev init
 docker run --rm -v $PWD:/data -it archivebox/archivebox:dev install
 </code></pre>
 </li>
-<li>Optional: Start the server then log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
+<li>Optional: Start the server, then open <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a> to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the web setup wizard.
 <pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox:dev
 # completely optional, CLI can always be used without running a server
 # docker run -v $PWD:/data -it archivebox/archivebox:dev [subcommand] [--help]
@@ -270,7 +270,7 @@ archivebox init     # initialize a new collection
 archivebox install  # install all the runtime dependencies (e.g. chrome, single-file, yt-dlp, etc.)
 </code></pre>
 </li>
-<li>Optionally start the server, then open the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a> and follow the same setup wizard used by Docker installs.
+<li>Optionally start the server, then open <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a> to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
@@ -306,7 +306,7 @@ archivebox add 'https://example.com'
 </code></pre>
 <br/>
 </li>
-<li>Optionally start the server, then open the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a> and follow the same setup wizard used by Docker installs.
+<li>Optionally start the server, then open <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a> to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
@@ -339,7 +339,7 @@ archivebox init
 archivebox install
 </code></pre>
 </li>
-<li>Optionally start the server, then open the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a> and follow the same setup wizard used by Docker installs.
+<li>Optionally start the server, then open <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a> to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
 <pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]

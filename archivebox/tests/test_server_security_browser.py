@@ -166,6 +166,10 @@ async function main() {
   await page.goto(config.loginUrl, {waitUntil: "networkidle2", timeout: 15000});
   const firstAdminForm = await page.$("#first-admin-form");
   if (!firstAdminForm) throw new Error("First admin setup form was not shown");
+  const firstAdminText = await page.$eval("body", (element) => element.innerText);
+  if (firstAdminText.includes("archivebox manage createsuperuser")) {
+    throw new Error("First admin setup showed the alternate CLI account flow");
+  }
   await page.type('input[name="username"]', config.username);
   await page.type('input[name="password1"]', config.password);
   await page.type('input[name="password2"]', config.password);

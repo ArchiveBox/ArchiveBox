@@ -71,7 +71,8 @@ docker compose up -d
 # or without Docker:
 archivebox server
 
-# Visit http://web.archivebox.localhost:8000 in a browser
+# Visit http://admin.archivebox.localhost:8000/admin/ to create the first admin.
+# If BASE_URL is not configured yet, continue through the web setup wizard.
 ```
 
 ---

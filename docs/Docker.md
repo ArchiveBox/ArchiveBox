@@ -202,7 +202,7 @@ docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev init
 docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
 ```
 
-Then open <http://admin.archivebox.localhost:8000> and follow the setup wizard.
+Then open <http://admin.archivebox.localhost:8000/admin/> to create the first admin. If `BASE_URL` is not configured yet, continue through the web setup wizard.
 
 *(You can create a collection in any directory you want, `~/archivebox/data` is just used as an example here)*
 

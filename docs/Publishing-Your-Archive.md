@@ -14,7 +14,7 @@ archivebox server 0.0.0.0:8000
 Open <http://admin.archivebox.localhost:8000/admin/> in a browser to create the first admin and finish web setup. To create additional accounts from the CLI, use `archivebox manage createsuperuser`.
 
 This server is enabled out-of-the-box if you're using `docker-compose` to run ArchiveBox.
-If hosting publicly, complete the first-run wizard before exposing ArchiveBox. It guides you through choosing a security mode and shows the settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI. Configure HTTPS there, then open the canonical URL you chose in the wizard.
+If `BASE_URL` is not configured yet, complete the first-run wizard before exposing ArchiveBox. It guides you through choosing a security mode and shows the settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI. Configure HTTPS there, then open the canonical URL you chose in the wizard. Existing `BASE_URL` and security settings are trusted, so configured servers skip this wizard.
 
 After ingress is working, set the permissions depending on how public you want the archive to be:
 

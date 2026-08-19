@@ -76,7 +76,7 @@ If you're on macOS or Ubuntu, there is an optional auto-setup script provided.
 curl -fsSL 'https://get.archivebox.io' | bash
 # shortcut to run https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh
 ``` 
-The script uses Docker Compose when available, otherwise plain Docker when it can pull the released image. If Docker is unavailable, it shows the native `uv` install plan and pauses so you can cancel before continuing. It initializes the collection, installs ArchiveBox's runtime dependencies, and starts the server. Open the printed Admin UI URL and follow the setup wizard to create the first admin and configure web access.
+The script uses Docker Compose when available, otherwise plain Docker when it can pull the released image. If Docker is unavailable, it shows the native `uv` install plan and pauses so you can cancel before continuing. It initializes the collection, installs ArchiveBox's runtime dependencies, and starts the server. Open the printed Admin UI URL to create the first admin. If `BASE_URL` is not configured yet, continue through the web setup wizard.
 
 Run it as your normal user unless you want a system-owned deployment. When run as root, the script creates the `archivebox` service user and places the collection under that account's home directory; it prints the exact path and follow-up commands when finished.
 
