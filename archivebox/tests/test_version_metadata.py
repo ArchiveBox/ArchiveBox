@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,10 +14,18 @@ REPO_DIR = Path(__file__).resolve().parents[2]
 
 
 def test_release_metadata_versions_match() -> None:
-    project_version = tomllib.loads((REPO_DIR / "pyproject.toml").read_text())["project"]["version"]
+    project = tomllib.loads((REPO_DIR / "pyproject.toml").read_text())["project"]
+    project_version = project["version"]
     package_version = json.loads((REPO_DIR / "etc/package.json").read_text())["version"]
+    abx_dl_version = next(
+        dependency.removeprefix("abx-dl==") for dependency in project["dependencies"] if dependency.startswith("abx-dl==")
+    )
+    dockerfile = (REPO_DIR / "Dockerfile").read_text()
+    docker_abx_dl_version = re.search(r"^ARG ABX_DL_IMAGE=archivebox/abx-dl:([^\s]+)$", dockerfile, re.MULTILINE)
 
     assert package_version == project_version
+    assert docker_abx_dl_version
+    assert docker_abx_dl_version.group(1) == abx_dl_version
 
 
 def _resolve_git_with_abxpkg(tmp_path: Path) -> Path:
