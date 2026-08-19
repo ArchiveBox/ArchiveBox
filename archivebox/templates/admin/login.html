@@ -2,6 +2,9 @@
 {% load i18n static %}
 
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
+<style>
+.login .form-row #id_password1, .login .form-row #id_password2 { padding: 8px; width: 100%; box-sizing: border-box; }
+</style>
 {{ form.media }}
 {% endblock %}
 
