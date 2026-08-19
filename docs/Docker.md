@@ -63,12 +63,13 @@ mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 # (shortcut for getting https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml)
 
-# pull and start the current image, then create an admin user for the Web UI
+# pull and start the current image
 # (the server initializes a new collection automatically)
 docker compose pull
 docker compose up -d --wait
-docker compose exec archivebox archivebox manage createsuperuser
 ```
+
+Open <http://admin.archivebox.localhost:8000> and follow the setup wizard to create the first admin and configure web access. Existing `BASE_URL` and security settings are used as-is, so configured servers skip the web-access wizard.
 
 ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). Sonic is selected by default in the UI, while ripgrep remains available as the fallback. To select ripgrep explicitly:
 ```bash
@@ -198,9 +199,10 @@ docker pull archivebox/archivebox:dev
 
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
 docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev init
-docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev manage createsuperuser
 docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
 ```
+
+Then open <http://admin.archivebox.localhost:8000> and follow the setup wizard.
 
 *(You can create a collection in any directory you want, `~/archivebox/data` is just used as an example here)*
 

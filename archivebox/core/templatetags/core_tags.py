@@ -438,16 +438,6 @@ def url_replace(context, **kwargs):
     return dict_.urlencode()
 
 
-@register.simple_tag
-def has_real_admin_users() -> bool:
-    """True if any non-``system`` superuser exists. Used by the login page to
-    only show the bootstrap hint (createsuperuser / ADMIN_USERNAME env vars)
-    when the collection still has no real admin."""
-    from django.contrib.auth.models import User
-
-    return User.objects.filter(is_superuser=True).exclude(username="system").exists()
-
-
 @register.simple_tag(takes_context=True)
 def admin_base_url(context) -> str:
     return get_admin_base_url(request=context.get("request"), config=context.get("CONFIG"))

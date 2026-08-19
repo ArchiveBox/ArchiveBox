@@ -73,7 +73,7 @@ mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 docker compose pull
 docker compose up -d --wait                                                # initializes new collections automatically
-docker compose exec archivebox archivebox manage createsuperuser          # create the first Web UI user
+# open http://admin.archivebox.localhost:8000 to finish setup
 # docker compose run --rm archivebox add 'https://example.com'
 # docker compose run --rm archivebox help
 <br/>
@@ -82,8 +82,8 @@ docker compose exec archivebox archivebox manage createsuperuser          # crea
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
 docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev init
 docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev install
-docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev manage createsuperuser
 docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
+# open http://admin.archivebox.localhost:8000 to finish setup
 # docker run -it -v $PWD:/data archivebox/archivebox:dev add 'https://example.com'
 # docker run -it -v $PWD:/data archivebox/archivebox:dev help
 <br/>
@@ -186,11 +186,10 @@ ArchiveBox is free for everyone to self-host, but we also provide support, secur
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 docker compose pull
 </code></pre></li>
-<li>Start the server, which initializes a new collection automatically, then create the first admin user.
+<li>Start the server, which initializes a new collection automatically.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up -d --wait
-docker compose exec archivebox archivebox manage createsuperuser
 </code></pre></li>
-<li>Next steps: Log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
+<li>Open <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a> and follow the setup wizard to create the first admin and configure web access.
 <pre lang="bash"><code style="white-space: pre-line">
 # run CLI commands inside the server container started above
 docker compose exec archivebox archivebox add 'https://example.com'
@@ -271,9 +270,8 @@ archivebox init     # initialize a new collection
 archivebox install  # install all the runtime dependencies (e.g. chrome, single-file, yt-dlp, etc.)
 </code></pre>
 </li>
-<li>Create an admin account, then optionally start the server and log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
-<pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
+<li>Optionally start the server, then open the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a> and follow the same setup wizard used by Docker installs.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help
@@ -308,9 +306,8 @@ archivebox add 'https://example.com'
 </code></pre>
 <br/>
 </li>
-<li>Create an admin account, then optionally start the server and log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
-<pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
+<li>Optionally start the server, then open the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a> and follow the same setup wizard used by Docker installs.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help
@@ -342,9 +339,8 @@ archivebox init
 archivebox install
 </code></pre>
 </li>
-<li>Create an admin account, then optionally start the server and log in to the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a>.
-<pre lang="bash"><code style="white-space: pre-line">archivebox manage createsuperuser
-archivebox server 0.0.0.0:8000
+<li>Optionally start the server, then open the Admin UI at <a href="http://admin.archivebox.localhost:8000">http://admin.archivebox.localhost:8000</a> and follow the same setup wizard used by Docker installs.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help

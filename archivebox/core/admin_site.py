@@ -12,11 +12,13 @@ from admin_data_views.admin import (
     get_app_list as adv_get_app_list,
 )
 from django.contrib import admin
-from django.contrib.auth import REDIRECT_FIELD_NAME
+from django.contrib.auth import REDIRECT_FIELD_NAME, get_user_model, login as auth_login
 from django.contrib.auth.decorators import login_not_required
+from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.views import LoginView
-from django.db import DatabaseError, connection
+from django.db import DatabaseError, connection, transaction
 from django.http import HttpResponseRedirect
+from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.utils.translation import gettext as _
@@ -103,12 +105,15 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
         from django.contrib.admin.forms import AdminAuthenticationForm
 
+        User = get_user_model()
+        first_admin_setup = not User.objects.filter(is_superuser=True).exclude(username="system").exists()
         context = {
             **self.each_context(request),
-            "title": _("Log in"),
+            "title": _("Set up ArchiveBox") if first_admin_setup else _("Log in"),
             "subtitle": None,
             "app_path": request.get_full_path(),
             "username": request.user.get_username(),
+            "first_admin_setup": first_admin_setup,
         }
         if REDIRECT_FIELD_NAME not in request.GET and REDIRECT_FIELD_NAME not in request.POST:
             context[REDIRECT_FIELD_NAME] = reverse("admin:index", current_app=self.name)
@@ -116,6 +121,30 @@ class ArchiveBoxAdmin(admin.AdminSite):
 
         index_path = reverse("admin:index", current_app=self.name)
         request.current_app = self.name
+        if first_admin_setup:
+            form = UserCreationForm(request.POST or None)
+            if request.method == "POST" and form.is_valid():
+                with transaction.atomic():
+                    # Fresh collections contain the system superuser, which also
+                    # provides a row lock while the first real admin is created.
+                    list(User.objects.select_for_update().filter(is_superuser=True).values_list("pk", flat=True))
+                    if User.objects.filter(is_superuser=True).exclude(username="system").exists():
+                        form.add_error(None, _("An admin account was already created. Log in instead."))
+                    else:
+                        user = form.save(commit=False)
+                        user.is_staff = True
+                        user.is_superuser = True
+                        user.save()
+                        auth_login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+                        return HttpResponseRedirect(index_path)
+
+            context["form"] = form
+            return TemplateResponse(
+                request,
+                self.login_template or "admin/login.html",
+                context,
+            )
+
         return ArchiveBoxLoginView.as_view(
             extra_context=context,
             authentication_form=self.login_form or AdminAuthenticationForm,

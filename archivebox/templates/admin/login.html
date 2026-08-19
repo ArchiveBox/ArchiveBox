@@ -1,5 +1,5 @@
 {% extends "admin/base_site.html" %}
-{% load i18n static core_tags %}
+{% load i18n static %}
 
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
 {{ form.media }}
@@ -18,7 +18,11 @@
 
 {% block content_title %}
   <center>
+    {% if first_admin_setup %}
+    Create your first admin account to continue setup.
+    {% else %}
     Log in to add, edit, and remove links from your archive.
+    {% endif %}
   </center><br/><br/>
   <img src="{% static 'archive.png' %}" style="width: 80px; display: block; margin: auto"/><br/>
 {% endblock %}
@@ -42,6 +46,28 @@
 
 <div id="content-main">
 
+{% if first_admin_setup %}
+<form action="{{ app_path }}" method="post" id="first-admin-form">{% csrf_token %}
+  <input type="hidden" name="create_first_admin" value="1">
+  <div class="form-row" style="gap: 0;">
+    {{ form.username.errors }}
+    {{ form.username.label_tag }} {{ form.username }}
+  </div>
+  <div class="form-row" style="gap: 0;">
+    {{ form.password1.errors }}
+    {{ form.password1.label_tag }} {{ form.password1 }}
+    {% if form.password1.help_text %}<div class="help">{{ form.password1.help_text|safe }}</div>{% endif %}
+  </div>
+  <div class="form-row" style="gap: 0;">
+    {{ form.password2.errors }}
+    {{ form.password2.label_tag }} {{ form.password2 }}
+    {% if form.password2.help_text %}<div class="help">{{ form.password2.help_text|safe }}</div>{% endif %}
+  </div>
+  <div class="submit-row" style="border: none;">
+    <label>&nbsp;</label><input type="submit" value="{% trans 'Create admin and continue' %}">
+  </div>
+</form>
+{% else %}
 {% if user.is_authenticated %}
 <p class="errornote">
 {% blocktrans trimmed %}
@@ -66,6 +92,7 @@
     <label>&nbsp;</label><input type="submit" value="{% trans 'Log in' %}">
   </div>
 </form>
+{% endif %}
 
 <center>
   <br/><br/>
@@ -85,10 +112,6 @@ archivebox manage changepassword &lt;username&gt;
 <pre>
 
 </pre>
-  {% has_real_admin_users as real_admins_exist %}
-  {% if not real_admins_exist %}
-  (or set env vars <code>ADMIN_USERNAME</code> + <code>ADMIN_PASSWORD</code>)
-  {% endif %}
   <br/>
 </center>
 
