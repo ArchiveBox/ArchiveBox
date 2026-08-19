@@ -301,7 +301,7 @@ sudo apt install archivebox
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
-archivebox install
+sudo archivebox install
 archivebox add 'https://example.com'
 </code></pre>
 <br/>
@@ -315,7 +315,7 @@ archivebox help
 </li>
 </ol>
 See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-<sub>The apt package is a thin dev-channel wrapper around the normal Python install flow. See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for details, and run <code>sudo archivebox install</code> only if you want it to install missing system packages via apt.</sub>
+<sub>The apt package is a thin dev-channel wrapper around the normal Python install flow. <code>sudo archivebox install</code> uses apt for missing system dependencies while preserving ownership of the user-owned collection. See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for details.</sub>
 <br/><br/>
 </details>
 
