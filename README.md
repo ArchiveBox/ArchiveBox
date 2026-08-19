@@ -577,19 +577,17 @@ find ./archive/users -path '*/snapshots/*/*/*/index.html'  # inspect snapshot da
 <summary><b>🖥&nbsp; Web UI & API Usage</b></summary>
 <pre lang="bash"><code style="white-space: pre-line">
 # Start the server on bare metal (uv/apt/brew):
-archivebox manage createsuperuser              # create a new admin user via CLI
 archivebox server 0.0.0.0:8000                 # start the server
 <br/>
 # Or with Docker Compose:
-docker compose run --rm archivebox manage createsuperuser
 docker compose up                              # start the server
 <br/>
 # Or with a Docker container:
-docker run -v $PWD:/data -it archivebox/archivebox:dev manage createsuperuser
 docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
 </code></pre>
 
-<sup>Open <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI and <a href="http://admin.archivebox.localhost:8000"><code>http://admin.archivebox.localhost:8000</code></a> for the admin UI ➡️</sup><br/>
+<sup>Open <a href="http://admin.archivebox.localhost:8000/admin/"><code>http://admin.archivebox.localhost:8000/admin/</code></a> to create the first admin and finish web setup. Use <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI. ➡️</sup><br/>
+<sup>Advanced: <code>archivebox manage createsuperuser</code> remains available for creating accounts from the CLI.</sup><br/>
 <sup>Set <code>BASE_URL</code> to change the public base domain. The default <code>auto</code> mode uses <code>web.</code> and <code>admin.</code> subdomains on <code>*.localhost</code>, but one host for ordinary DNS names. <code>BIND_ADDR</code> only controls the local listen address.</sup>
 <br/><br/>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#ui-usage">Usage: Web UI</a> wiki. ➡️</i>

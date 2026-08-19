@@ -33,7 +33,7 @@ Use these options to set up your desired permissions for non-admin guest users:
 
 ### Username & Password (the default)
 
-You need a user account to access the Admin UI, you can run the commands below to create/edit a user from the CLI:
+On a new server, open <http://admin.archivebox.localhost:8000/admin/> to create the first admin through the setup UI. Existing users can be created or edited from the CLI:
 
 ```bash
 archivebox manage createsuperuser

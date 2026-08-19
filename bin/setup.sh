@@ -222,7 +222,7 @@ wait_for_archivebox() {
 
 open_archivebox() {
     if [ -n "$OPEN_BINARY" ] && [ -t 1 ]; then
-        "$OPEN_BINARY" "http://127.0.0.1:8000" || true
+        "$OPEN_BINARY" "http://admin.archivebox.localhost:8000/admin/" || true
     fi
 }
 

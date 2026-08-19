@@ -150,11 +150,10 @@ archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_ADD_VIEW=False
 archivebox config --set PERMISSIONS=private        # default visibility of newly created snapshots (was: PUBLIC_SNAPSHOTS=False)
 
-archivebox manage createsuperuser  # set an admin password to use for any areas requiring login
 archivebox server 0.0.0.0:8000     # start the archivebox web server
-
-open http://admin.archivebox.localhost:8000  # open the admin UI
 ```
+
+Open <http://admin.archivebox.localhost:8000/admin/> in a browser to create the first admin and finish web setup. To create additional accounts from the CLI, use `archivebox manage createsuperuser`.
 
 *See the [Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#permissions) and [Security Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#archiving-private-content) for more info...*
 

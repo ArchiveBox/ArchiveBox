@@ -7,13 +7,11 @@ There are two ways to publish your archive: using the `archivebox server` or by 
 ## 1. Use the built-in web server
 
 ```bash
-# create an admin username and password for yourself
-archivebox manage createsuperuser
-
-# start the webserver and open the local admin UI
+# start the webserver
 archivebox server 0.0.0.0:8000
-open http://admin.archivebox.localhost:8000
 ```
+
+Open <http://admin.archivebox.localhost:8000/admin/> in a browser to create the first admin and finish web setup. To create additional accounts from the CLI, use `archivebox manage createsuperuser`.
 
 This server is enabled out-of-the-box if you're using `docker-compose` to run ArchiveBox.
 If hosting publicly, complete the first-run wizard before exposing ArchiveBox. It guides you through choosing a security mode and shows the settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI. Configure HTTPS there, then open the canonical URL you chose in the wizard.

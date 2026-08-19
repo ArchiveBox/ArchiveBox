@@ -196,8 +196,10 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
     User = get_user_model()
 
     if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
+        from archivebox.core.routes_util import build_admin_url
+
         stderr("\n[+] Open the Admin UI to create the first admin and finish web setup:", color="green")
-        stderr("    http://admin.archivebox.localhost:8000/admin/")
+        stderr(f"    {build_admin_url('/admin/', config=get_config(resolve_plugins=False))}")
 
     print()
 

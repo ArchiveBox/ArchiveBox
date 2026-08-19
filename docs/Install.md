@@ -254,7 +254,7 @@ archivebox status
 ```bash
 # OR start the webserver and view them in the Web UI
 archivebox server 0.0.0.0:8000
-# Visit http://web.archivebox.localhost:8000 in a browser
+# Visit http://admin.archivebox.localhost:8000/admin/ in a browser to finish setup
 ```
 See our [[Usage]] Wiki documentation page for more examples.
 

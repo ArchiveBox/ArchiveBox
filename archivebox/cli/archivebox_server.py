@@ -259,10 +259,13 @@ def server(
     host, port = _parse_and_validate_bind_spec(bind_spec)
 
     if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
+        from archivebox.core.routes_util import build_admin_url
+
         print()
         print("[violet]Hint:[/violet] Open the Admin UI to create the first admin and finish web setup:")
-        print(f"      [green]http://localhost:{port}/admin/[/green]")
-        if host not in ("127.0.0.1", "localhost"):
+        runtime_config = config.model_copy(update={"BIND_ADDR": f"{host}:{port}"})
+        print(f"      [green]{build_admin_url('/admin/', config=runtime_config)}[/green]")
+        if not config.BASE_URL and host not in ("127.0.0.1", "localhost"):
             print("      (When running remotely, replace localhost with this server's IP address or hostname.)")
         print()
 

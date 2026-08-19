@@ -100,7 +100,7 @@ VALUES ('GENERATED_PASSWORD_HASH', NULL, 0, 'someUsername', '', '', 'someEmail@e
   Replace the values above with the desired username, email, and password hash from python output^.
 
 3. Log in using the new generated user to confirm it works
-    https://localhost:8000/admin/login/ user: `someUsername` pass:`somePasswordHere`
+    http://admin.archivebox.localhost:8000/admin/login/ user: `someUsername` pass:`somePasswordHere`
 
 More info:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage
