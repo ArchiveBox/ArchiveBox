@@ -244,11 +244,22 @@ def add(
 
         assert command is not None
         exit_code = 0
+
+        def crawl_is_complete() -> bool:
+            crawl.refresh_from_db(fields=["status"])
+            return crawl.status not in crawl.RUNNABLE_STATES
+
         try:
             try:
                 with foreground_shutdown_signals(first_signal_message=None), foreground_parent_watchdog():
                     while True:
-                        standby_until_foreground_runner_needed(command, data_dir=CONSTANTS.DATA_DIR)
+                        standby = standby_until_foreground_runner_needed(
+                            command,
+                            data_dir=CONSTANTS.DATA_DIR,
+                            work_is_complete=crawl_is_complete,
+                        )
+                        if standby["work_completed"]:
+                            break
                         exit_code = run_runner_worker(
                             ["--crawl-id", str(crawl.id)],
                             name=f"worker_runner_add_{os.getpid()}",

@@ -217,8 +217,9 @@ def test_behavior_foreground_add_keeps_existing_server_http_visible(tmp_path, in
         add = run_archivebox_cmd(
             [
                 "add",
-                "--depth=0",
-                "--plugins=wget",
+                "--depth=2",
+                "--max-urls=10",
+                "--plugins=wget,parse_html_urls",
                 recursive_test_site["root_url"],
             ],
             cwd=tmp_path,

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from django.db import IntegrityError
@@ -323,12 +324,22 @@ def standby_until_runtime_stack_needed(command, *, data_dir: str | Path, interva
     return {"resumed": announced, "previous_owner_pid": previous_owner_pid}
 
 
-def standby_until_foreground_runner_needed(command, *, data_dir: str | Path, interval: float = 2.0) -> dict[str, object]:
+def standby_until_foreground_runner_needed(
+    command,
+    *,
+    data_dir: str | Path,
+    interval: float = 2.0,
+    work_is_complete: Callable[[], bool] | None = None,
+) -> dict[str, object]:
     from archivebox.workers.supervisord_util import reap_foreground_supervisord_process
 
     announced = False
     previous_owner_pid = None
-    while not command_owns_foreground_runner(command, data_dir=data_dir):
+    while True:
+        if work_is_complete is not None and work_is_complete():
+            return {"resumed": announced, "previous_owner_pid": previous_owner_pid, "work_completed": True}
+        if command_owns_foreground_runner(command, data_dir=data_dir):
+            break
         reap_foreground_supervisord_process()
         if not announced:
             owner = foreground_runner_owner(data_dir=data_dir)
@@ -343,4 +354,4 @@ def standby_until_foreground_runner_needed(command, *, data_dir: str | Path, int
         time.sleep(interval)
     command.modified_at = timezone.now()
     command.save(update_fields=["modified_at"])
-    return {"resumed": announced, "previous_owner_pid": previous_owner_pid}
+    return {"resumed": announced, "previous_owner_pid": previous_owner_pid, "work_completed": False}
