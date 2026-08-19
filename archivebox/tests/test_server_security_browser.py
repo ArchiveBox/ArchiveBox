@@ -733,8 +733,11 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
         assert config_result.returncode == 0, config_result.stderr or config_result.stdout
         assert expected in config_result.stdout
 
-    compose = yaml.safe_load((Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text())
+    compose_text = (Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text()
+    compose = yaml.safe_load(compose_text)
     archivebox_environment = compose["services"]["archivebox"]["environment"]
+    assert "Open http://admin.archivebox.localhost:8000/admin/ to create the first admin and finish web setup." in compose_text
+    assert "manage createsuperuser" not in compose_text
     assert compose["services"]["archivebox"]["restart"] == "unless-stopped"
     assert "BASE_URL" in archivebox_environment
     assert "SERVER_SECURITY_MODE" in archivebox_environment

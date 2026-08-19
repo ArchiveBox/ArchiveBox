@@ -3,8 +3,7 @@
 #     curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 #     docker compose pull
 #     docker compose up -d --wait
-#     docker compose exec archivebox archivebox manage createsuperuser
-#     open 'http://admin.archivebox.localhost:8000'
+#     Open http://admin.archivebox.localhost:8000/admin/ to create the first admin and finish web setup.
 
 #     docker compose exec archivebox archivebox add --depth=1 'https://news.ycombinator.com'
 #     docker compose exec -T archivebox archivebox add < ~/Downloads/bookmarks.txt
