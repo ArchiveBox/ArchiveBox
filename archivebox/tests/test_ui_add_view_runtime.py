@@ -482,7 +482,7 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
         start_archivebox_server(tmp_path, env=env, port=port)
 
         public_index = requests.get(
-            f"http://127.0.0.1:{port}/",
+            f"http://127.0.0.1:{port}/public/",
             headers={"Host": f"web.archivebox.localhost:{port}"},
             timeout=10,
         )
@@ -572,7 +572,7 @@ def test_public_add_view_rejects_file_path_and_shell_injection_payloads(tmp_path
         start_archivebox_server(tmp_path, env=env, port=port)
 
         public_index = requests.get(
-            f"http://127.0.0.1:{port}/",
+            f"http://127.0.0.1:{port}/public/",
             headers={"Host": f"web.archivebox.localhost:{port}"},
             timeout=10,
         )
@@ -771,7 +771,7 @@ def test_add_view_depth_two_crawl_renders_outputs_over_server(tmp_path, recursiv
         assert "active_crawls" in progress.json()
 
         index_page = requests.get(
-            f"http://web.archivebox.localhost:{port}/",
+            f"http://web.archivebox.localhost:{port}/public/",
             timeout=10,
         )
         assert index_page.status_code == 200
