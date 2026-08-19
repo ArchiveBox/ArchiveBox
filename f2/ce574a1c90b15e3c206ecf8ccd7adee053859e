@@ -1,0 +1,25 @@
+archivebox/cli/archivebox_add.py
+  s_69ddf154c10e6f::t_876c2e068f374a 256-258,260-262
+  s_69ddf154c10e6f::t_db6048a49466f8 247-251,259
+archivebox/core/takeover_util.py
+  s_69ddf154c10e6f::t_876c2e068f374a 327-331,333,338-342,357
+  s_69ddf154c10e6f::t_57e4111b6682c7 5,332
+archivebox/tests/test_takeover_util.py
+  s_69ddf154c10e6f::t_876c2e068f374a 220-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "f2ce574a1c90b15e3c206ecf8ccd7adee053859e",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
