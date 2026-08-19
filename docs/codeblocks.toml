@@ -5,22 +5,22 @@ version = 2
 [snippets]
 
 # README.md
-"72fddf697c7b0142-1" = "illustration"
+"c718250c7a8decb0-1" = "illustration"
 "fe1f06a0a6b02c01-1" = "illustration"
-"220882ff87e9c738-1" = "run"
+"dbbcf99c3829e104-1" = "run"
 "698f2b0f88796c9b-1" = "illustration"
 "398611ab1880ef51-1" = "illustration"
 "778c693286d7b895-1" = "illustration"
 "16f90085b2eb8756-1" = "illustration"
 "39bc0d99ed165be2-1" = "run"
 "d5ae3240405670bb-1" = "run"
-"4da22c86e09ce7d4-1" = "illustration"
+"588be84a1f0fda9a-1" = "illustration"
 "a7a123ba522227be-1" = "run"
 "fcdd073a5440f5ca-1" = "run"
-"4da22c86e09ce7d4-2" = "illustration"
+"588be84a1f0fda9a-2" = "illustration"
 "8fe4a2c15abb0ab2-1" = "run"
 "2b08779e4d24d305-1" = "run"
-"4da22c86e09ce7d4-3" = "illustration"
+"588be84a1f0fda9a-3" = "illustration"
 "1b9438e093866ff0-1" = "illustration"
 "6392c7b5f3593d07-1" = "run"
 "e244b54155aa0bff-1" = "run"
@@ -107,7 +107,7 @@ version = 2
 
 # docs/Docker.md
 "03a42395e6560eba-1" = "illustration"
-"4deb738714bdbd33-1" = "illustration"
+"6673b633d132353b-1" = "illustration"
 "affb9c5d5980ed1c-1" = "run"
 "0e9c1f41ef579e79-1" = "run"
 "746a3e228d29f9d2-1" = "run"
@@ -116,7 +116,7 @@ version = 2
 "150ae2c7f6d012ab-1" = "illustration"
 "8d86727108f1dbad-1" = "run"
 "6bcb6c2e8770907a-1" = "illustration"
-"d093b42a06e0485e-1" = "illustration"
+"6414a1bfaf0da999-1" = "illustration"
 "6353a7cf3014612e-1" = "illustration"
 "d66324df4c7f97c7-1" = "illustration"
 "17ed06e5b75aac1b-1" = "illustration"
@@ -255,7 +255,7 @@ version = 2
 "85f531841ec3e169-1" = "run"
 
 [scenarios]
-"220882ff87e9c738-1" = "docker"
+"dbbcf99c3829e104-1" = "docker"
 "39bc0d99ed165be2-1" = "system"
 "d5ae3240405670bb-1" = "collection"
 "a7a123ba522227be-1" = "system"
@@ -335,7 +335,7 @@ version = 2
 "85f531841ec3e169-1" = "collection"
 
 [environments]
-"220882ff87e9c738-1" = "docker"
+"dbbcf99c3829e104-1" = "docker"
 "39bc0d99ed165be2-1" = "ubuntu"
 "d5ae3240405670bb-1" = "ubuntu"
 "a7a123ba522227be-1" = "root"
