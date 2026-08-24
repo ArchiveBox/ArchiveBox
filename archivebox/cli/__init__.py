@@ -186,6 +186,10 @@ def cli(ctx, help=False):
 
 
 def main(args=None, prog_name=None):
+    from archivebox.config.constants import CONSTANTS
+
+    os.environ.setdefault("ABX_PLUGINS_DIR", str(CONSTANTS.USER_PLUGINS_DIR))
+
     # show `docker run archivebox xyz` in help messages if running in docker
     IN_DOCKER = os.environ.get("IN_DOCKER", False) in ("1", "true", "True", "TRUE", "yes")
     IS_TTY = sys.stdin.isatty()
