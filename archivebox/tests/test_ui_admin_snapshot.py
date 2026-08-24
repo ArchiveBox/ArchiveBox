@@ -782,13 +782,15 @@ class TestAdminSnapshotListView:
         ]
         assert per_row_tag_queries == []
 
-    def test_grid_view_renders(self, client, admin_user):
+    def test_grid_view_renders(self, client, admin_user, snapshot):
         """Test that the grid view renders successfully."""
         client.force_login(admin_user)
         url = reverse("admin:grid")
         response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert response.status_code == 200
+        assert b'<section class="cards">' in response.content
+        assert snapshot.url.encode() in response.content
 
     def test_grid_card_component_order(self, client, admin_user, snapshot, real_hash_projection):
         """Snapshot cards should keep metadata, title, URL, preview, and outputs in scan order."""

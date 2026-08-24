@@ -4,7 +4,6 @@ from typing import Any
 
 from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
 from django import template
-from django.contrib.admin.templatetags.base import InclusionAdminNode
 from django.templatetags.static import static
 from django.utils import timezone
 from django.utils.html import escape
@@ -299,6 +298,7 @@ def intcomma(value: int | str | None) -> str:
         return str(value or "")
 
 
+@register.inclusion_tag("admin/snapshots_grid.html", takes_context=True, name="snapshots_grid")
 def result_list(context, cl):
     """
     Monkey patched result
@@ -317,17 +317,6 @@ def result_list(context, cl):
         "request": request,
         "CONFIG": config,
     }
-
-
-@register.tag(name="snapshots_grid")
-def result_list_tag(parser, token):
-    return InclusionAdminNode(
-        parser,
-        token,
-        func=result_list,
-        template_name="snapshots_grid.html",
-        takes_context=True,
-    )
 
 
 _LOW_DISK_THRESHOLD_GB = 1.0
