@@ -296,9 +296,9 @@
     <main class="directory-shell">
       <nav class="directory-toolbar" aria-label="Directory navigation">
         {% if directory != "/" %}
-          <a class="toolbar-link" href="../">↩ Up One Level</a>
+          <a class="toolbar-link" href="../{{ directory_query }}">↩ Up One Level</a>
         {% endif %}
-        <a class="toolbar-link primary" href="/">⌂ Snapshot Page</a>
+        <a class="toolbar-link primary" href="{{ snapshot_page_url }}">⌂ Snapshot Page</a>
         <a
           class="toolbar-link archivebox-zip-button"
           href="{{ zip_url }}"
@@ -324,7 +324,7 @@
           <ul class="directory-list">
             {% if directory != "/" %}
               <li class="directory-entry parent">
-                <a class="directory-link" href="../">
+                <a class="directory-link" href="../{{ directory_query }}">
                   <span class="entry-icon" aria-hidden="true">↩</span>
                   <span class="entry-label">
                     <span class="entry-name">../</span>
@@ -336,7 +336,7 @@
 
             {% for f in file_list %}
               <li class="directory-entry{% if f|slice:'-1:' == '/' %} folder{% endif %}">
-                <a class="directory-link" href="{{ f|urlencode }}">
+                <a class="directory-link" href="{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% endif %}">
                   <span class="entry-icon" aria-hidden="true">{% if f|slice:'-1:' == '/' %}📁{% else %}📄{% endif %}</span>
                   <span class="entry-label">
                     <span class="entry-name">{{ f }}</span>

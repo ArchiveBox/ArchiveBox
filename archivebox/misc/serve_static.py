@@ -302,11 +302,19 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
     if zip_query:
         zip_url = f"{zip_url}?{zip_query.urlencode()}"
 
+    directory_query = "?files=1" if request.GET.get("files") else ""
+    path_suffix = f"{path.strip('/')}/" if path.strip("/") else ""
+    snapshot_page_url = request.path
+    if path_suffix and snapshot_page_url.endswith(path_suffix):
+        snapshot_page_url = snapshot_page_url[: -len(path_suffix)]
+
     context = {
         "directory": f"{path}/",
         "file_list": file_list,
         "entries": entries,
         "zip_url": zip_url,
+        "directory_query": directory_query,
+        "snapshot_page_url": snapshot_page_url,
     }
     return HttpResponse(template.render(context))
 
