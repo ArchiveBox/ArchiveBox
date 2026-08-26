@@ -963,6 +963,20 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
             created_by=request.user if isinstance(request.user, User) else None,
         )
 
+    # Browser clients sync metadata and upload capture artifacts immediately
+    # after queueing a URL. The runner holds the crawl lifecycle lock for the
+    # whole crawl, so idempotently posting an already-created snapshot must not
+    # wait behind that potentially long-running archive job.
+    existing_snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
+    if existing_snapshot is not None and (status is None or existing_snapshot.status == status):
+        if data.title is not None and existing_snapshot.title != data.title:
+            Snapshot.objects.filter(pk=existing_snapshot.pk).update(title=data.title, modified_at=timezone.now())
+            existing_snapshot.title = data.title
+        if tags:
+            existing_snapshot.save_tags(tags)
+        setattr(request, "with_archiveresults", False)
+        return existing_snapshot
+
     with crawl_lifecycle_lock(str(crawl.id)):
         snapshot_defaults = {
             "depth": data.depth,
