@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.utils.http import http_date
 
 from archivebox.config import VERSION
-from archivebox.config.common import get_config
+from archivebox.config.common import get_config, get_request_config
 from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.routes_util import (
     build_admin_url,
@@ -225,14 +225,13 @@ def HostRoutingMiddleware(get_response):
 
         request_host = (request.get_host() or "").lower()
         config = request.__dict__.get("archivebox_config")
-        if config is None:
-            config = get_config(resolve_plugins=False)
-            request.archivebox_config = config
-        admin_host = get_admin_host(config=config)
-        web_host = get_web_host(config=config)
-        api_host = get_api_host(config=config)
+        if config is None or config.SERVER_SECURITY_MODE == "auto":
+            config = get_request_config(request, resolve_plugins=False)
+        admin_host = get_admin_host(config=config, request=request)
+        web_host = get_web_host(config=config, request=request)
+        api_host = get_api_host(config=config, request=request)
         listen_host = get_listen_host(config=config)
-        subdomain = get_listen_subdomain(request_host, config=config)
+        subdomain = get_listen_subdomain(request_host, config=config, request=request)
 
         # Framework-owned assets must bypass snapshot/original-domain replay routing.
         # Otherwise pages on snapshot subdomains can receive HTML for JS/CSS requests.

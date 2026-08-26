@@ -199,25 +199,25 @@ def _build_base_host(subdomain: str | None, request=None, config: dict[str, Any]
     return _with_port(full_host, port)
 
 
-def get_admin_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+def get_admin_host(config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
-        return get_base_host(config=config)
-    return _build_base_host("admin", config=config)
+        return get_base_host(request=request, config=config)
+    return _build_base_host("admin", request=request, config=config)
 
 
-def get_web_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+def get_web_host(config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
-        return get_base_host(config=config)
-    return _build_base_host("web", config=config)
+        return get_base_host(request=request, config=config)
+    return _build_base_host("web", request=request, config=config)
 
 
-def get_api_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+def get_api_host(config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
-        return get_base_host(config=config)
-    return _build_base_host("api", config=config)
+        return get_base_host(request=request, config=config)
+    return _build_base_host("api", request=request, config=config)
 
 
 def get_snapshot_subdomain(snapshot_id: str) -> str:
@@ -226,18 +226,18 @@ def get_snapshot_subdomain(snapshot_id: str) -> str:
     return f"snap-{suffix}"
 
 
-def get_snapshot_host(snapshot_id: str, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+def get_snapshot_host(snapshot_id: str, config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
-        return get_base_host(config=config)
-    return _build_base_host(get_snapshot_subdomain(snapshot_id), config=config)
+        return get_base_host(request=request, config=config)
+    return _build_base_host(get_snapshot_subdomain(snapshot_id), request=request, config=config)
 
 
-def get_original_host(domain: str, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+def get_original_host(domain: str, config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
-        return get_base_host(config=config)
-    return _build_base_host(domain, config=config)
+        return get_base_host(request=request, config=config)
+    return _build_base_host(domain, request=request, config=config)
 
 
 def is_snapshot_subdomain(subdomain: str) -> bool:
@@ -255,12 +255,12 @@ def get_snapshot_lookup_key(snapshot_ref: str) -> str:
     return value
 
 
-def get_listen_subdomain(request_host: str, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or get_config(**config_kwargs)
+def get_listen_subdomain(request_host: str, config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return ""
     req_host, req_port = split_host_port(request_host)
-    base_host, base_port = split_host_port(get_base_host(config=config))
+    base_host, base_port = split_host_port(get_base_host(request=request, config=config))
     if not base_host:
         return ""
     if base_port and req_port and base_port != req_port:

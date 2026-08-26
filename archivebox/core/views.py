@@ -1726,15 +1726,17 @@ class WebAddView(AddView):
 
         request_host = (request.get_host() or "").lower()
         request_config = get_request_config(request)
-        web_host = get_web_host(config=request_config)
-        admin_host = get_admin_host(config=request_config)
-        if request.user.is_authenticated and not request_config.PUBLIC_ADD_VIEW and host_matches(request_host, web_host):
+        web_host = get_web_host(config=request_config, request=request)
+        admin_host = get_admin_host(config=request_config, request=request)
+        is_web_host = host_matches(request_host, web_host)
+        is_admin_host = host_matches(request_host, admin_host)
+        if request.user.is_authenticated and not request_config.PUBLIC_ADD_VIEW and is_web_host and not is_admin_host:
             return redirect(build_admin_url(request.get_full_path(), request=request))
 
         if not self.test_func():
-            if host_matches(request_host, web_host):
+            if is_web_host and not is_admin_host:
                 return redirect(build_admin_url(request.get_full_path(), request=request))
-            if host_matches(request_host, admin_host):
+            if is_admin_host:
                 next_url = quote(request.get_full_path(), safe="/:?=&")
                 return redirect(f"{build_admin_url('/admin/login/', request=request)}?next={next_url}")
             return HttpResponse(
