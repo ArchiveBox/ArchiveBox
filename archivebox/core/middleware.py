@@ -178,6 +178,11 @@ def ServerSecurityModeMiddleware(get_response):
                 api_host, _api_port = split_host_port(get_api_host(config=base_config))
                 web_host, _web_port = split_host_port(get_web_host(config=base_config))
                 control_hosts = {host for host in (base_host, admin_host, api_host, web_host) if host}
+                credentialed_api_request = request.path == "/api/v1/auth/check_api_token" or bool(
+                    request.META.get("HTTP_X_ARCHIVEBOX_API_KEY") or request.META.get("HTTP_AUTHORIZATION"),
+                )
+                if not base_config.BASE_URL and credentialed_api_request:
+                    control_hosts.add(request_host)
                 first_run_setup_request = not base_config.BASE_URL and (
                     request.path == "/admin/login/"
                     or (

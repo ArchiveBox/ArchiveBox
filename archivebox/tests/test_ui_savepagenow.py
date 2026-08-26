@@ -155,7 +155,31 @@ def _run_onedomain_api_archive_script(initialized_archive: Path, request_url: st
         assert web_resp['Location'] != expected_web_url
         assert Snapshot.objects.count() == 0
 
-        user = get_user_model().objects.create_user(username='tester', password='pw')
+        user = get_user_model().objects.create_superuser(username='tester', password='pw')
+        from archivebox.api.auth import get_or_create_api_token
+        token = get_or_create_api_token(user)
+
+        token_resp = client.post(
+            '/api/v1/auth/check_api_token',
+            data={{'token': token.token}},
+            content_type='application/json',
+            HTTP_HOST='digestbox.io',
+            secure=True,
+        )
+        assert token_resp.status_code == 200, token_resp.content
+        assert token_resp.json()['success'] is True
+
+        tag_resp = client.post(
+            '/api/v1/core/tags/create/',
+            data={{'name': 'browser-extension'}},
+            content_type='application/json',
+            HTTP_X_ARCHIVEBOX_API_KEY=token.token,
+            HTTP_HOST='digestbox.io',
+            secure=True,
+        )
+        assert tag_resp.status_code == 200, tag_resp.content
+        assert tag_resp.json()['success'] is True
+
         client.force_login(user)
         auth_resp = client.get('/web/' + target_url, HTTP_HOST='digestbox.io', secure=True)
         assert auth_resp.status_code == 302, auth_resp.status_code
