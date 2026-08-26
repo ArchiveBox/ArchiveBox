@@ -350,6 +350,20 @@ def test_snapshot_save_normalizes_url_title_to_none():
     _cleanup_machine_process_rows()
 
 
+@pytest.mark.parametrize(
+    ("candidate", "expected"),
+    (
+        ("Nick Sweeting: Blog & Projects", "Nick Sweeting: Blog & Projects"),
+        ("Nick Sweeting: Blog &amp; Projects", "Nick Sweeting: Blog & Projects"),
+        ("Safe &lt;script&gt;alert(1)&lt;/script&gt; title", "Safe alert(1) title"),
+    ),
+)
+def test_snapshot_title_normalization_decodes_entities_without_restoring_markup(candidate, expected):
+    from archivebox.core.models import Snapshot
+
+    assert Snapshot._normalize_title_candidate(candidate, snapshot_url="https://example.com") == expected
+
+
 def test_process_completed_projects_noresults_archiveresult(tmp_path, hermetic_lib_dir):
     from archivebox.core.models import ArchiveResult
 

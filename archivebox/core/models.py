@@ -2394,7 +2394,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     @staticmethod
     def _normalize_title_candidate(candidate: str | None, *, snapshot_url: str) -> str:
-        title = " ".join(line.strip() for line in sanitize_html_text(candidate).splitlines() if line.strip()).strip()
+        decoded_candidate = htmldecode(candidate)
+        title = htmldecode(sanitize_html_text(decoded_candidate))
+        title = " ".join(line.strip() for line in title.splitlines() if line.strip()).strip()
         if not title:
             return ""
         if title.lower() in {"pending...", "no title found", "unable to detect page title"}:

@@ -1,4 +1,5 @@
 import os
+from html import unescape
 from pathlib import Path
 from typing import Any
 
@@ -522,7 +523,7 @@ def snapshot_index_row(context, link) -> str:
         title_time = f"Bookmarked: ({timestamp})"
 
     url = getattr(link, "url", "") or ""
-    title = getattr(link, "title", "") or ""
+    title = unescape(getattr(link, "title", "") or "")
     is_pending = status in {"queued", "started", "backoff"}
     title_text = title or url
     tags_str = link.tags_str() if callable(getattr(link, "tags_str", None)) else getattr(link, "tags_str", "")

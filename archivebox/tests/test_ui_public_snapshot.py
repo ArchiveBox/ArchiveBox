@@ -342,6 +342,35 @@ class TestPublicIndex:
         assert b"Private Snapshot" not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
+    def test_public_index_renders_title_html_entities_once(self, client, admin_user):
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        crawl = Crawl.objects.create(
+            urls="https://title-entities.example",
+            created_by=admin_user,
+            config={"PERMISSIONS": "public"},
+        )
+        snapshot = Snapshot.objects.create(
+            url="https://title-entities.example",
+            title="Nick Sweeting: Blog &amp; Projects - HedgeDoc",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+        )
+
+        snapshot.refresh_from_db()
+        assert snapshot.title == "Nick Sweeting: Blog & Projects - HedgeDoc"
+
+        # Rows created before title normalization was fixed must render correctly
+        # without requiring a database rewrite.
+        Snapshot.objects.filter(pk=snapshot.pk).update(title="Nick Sweeting: Blog &amp; Projects - HedgeDoc")
+        response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+
+        assert response.status_code == 200
+        assert b"Nick Sweeting: Blog &amp; Projects - HedgeDoc" in response.content
+        assert b"Nick Sweeting: Blog &amp;amp; Projects - HedgeDoc" not in response.content
+
+    @override_settings(PUBLIC_INDEX=True)
     def test_public_snapshot_surfaces_escape_legacy_raw_title_and_tag_values(self, client, admin_user):
         from archivebox.core.models import ArchiveResult, Snapshot, Tag
         from archivebox.crawls.models import Crawl
