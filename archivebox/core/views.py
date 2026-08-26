@@ -575,7 +575,7 @@ class SnapshotView(View):
                         slug,
                     )
                     + snapshot_hrefs
-                    + format_html('</pre><br/>Choose a Snapshot to proceed or go back to the <a href="/" target="_top">Main Index</a>'),
+                    + mark_safe('</pre><br/>Choose a Snapshot to proceed or go back to the <a href="/" target="_top">Main Index</a>'),
                     content_type="text/html",
                     status=404,
                 )
@@ -677,7 +677,7 @@ class SnapshotView(View):
                     base_url(path),
                 )
                 + snapshot_hrefs
-                + format_html('</pre><br/>Choose a Snapshot to proceed or go back to the <a href="/" target="_top">Main Index</a>'),
+                + mark_safe('</pre><br/>Choose a Snapshot to proceed or go back to the <a href="/" target="_top">Main Index</a>'),
                 content_type="text/html",
                 status=404,
             )
