@@ -638,8 +638,14 @@ class SnapshotView(View):
                 return id_qs
             return SnapshotView.find_snapshots_for_url(slug)
 
+        snapshots = direct_snapshots_queryset(request, _resolve_snapshots_for_slug(path))
         try:
-            snapshot = direct_snapshots_queryset(request, _resolve_snapshots_for_slug(path)).get()
+            if "://" in path:
+                snapshot = snapshots.order_by("-bookmarked_at").first()
+                if snapshot is None:
+                    raise Snapshot.DoesNotExist
+            else:
+                snapshot = snapshots.get()
         except Snapshot.DoesNotExist:
             return HttpResponse(
                 format_html(
@@ -658,7 +664,6 @@ class SnapshotView(View):
                 status=404,
             )
         except Snapshot.MultipleObjectsReturned:
-            snapshots = direct_snapshots_queryset(request, _resolve_snapshots_for_slug(path))
             snapshot_hrefs = mark_safe("<br/>").join(
                 format_html(
                     '{} <code style="font-size: 0.8em">{}</code> <a href="/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',

@@ -209,22 +209,20 @@ def _create_public_snapshot_with_cli(data_dir, url: str) -> str:
 
 
 @override_settings(PUBLIC_INDEX=True)
-def test_archive_url_with_multiple_snapshots_shows_snapshot_picker(client, admin_user):
+def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client, admin_user):
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
 
     url = "https://multiple-public-snapshots.example/page"
     first_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
     second_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
-    first = Snapshot.objects.create(url=url, title="First copy", crawl=first_crawl, status=Snapshot.StatusChoices.SEALED)
+    Snapshot.objects.create(url=url, title="First copy", crawl=first_crawl, status=Snapshot.StatusChoices.SEALED)
     second = Snapshot.objects.create(url=url, title="Second copy", crawl=second_crawl, status=Snapshot.StatusChoices.SEALED)
 
     response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST)
 
-    assert response.status_code == 404
-    assert b"Multiple Snapshots match the given URL" in response.content
-    assert first.archive_path.encode() in response.content
-    assert second.archive_path.encode() in response.content
+    assert response.status_code == 302
+    assert response["Location"] == f"/{second.archive_path}/index.html"
 
 
 def _login_admin_session_over_http(port: int, host: str) -> requests.Session:
