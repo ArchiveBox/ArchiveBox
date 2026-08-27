@@ -36,12 +36,12 @@ class CaseConfigParser(ConfigParser):
 def read_ini_config(config_path: str | Path) -> dict[str, Any]:
     """Read and flatten an ArchiveBox INI config file."""
     config_path = Path(config_path)
-    if not config_path.exists():
-        return {}
-    parser = CaseConfigParser(interpolation=None)
     try:
+        if not config_path.exists():
+            return {}
+        parser = CaseConfigParser(interpolation=None)
         parser.read(config_path)
-    except (OSError, PermissionError):
+    except OSError:
         return {}
     return {key.upper(): value for section in parser.sections() for key, value in parser.items(section)}
 
