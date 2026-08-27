@@ -1816,7 +1816,41 @@
                 } catch (err) {}
             }
 
+            function resetPreviewFrameSize(frame) {
+                const wrapper = document.getElementById('main-frame-wrapper')
+                if (!wrapper || !frame) return
+                wrapper.style.height = ''
+                wrapper.style.overflow = ''
+                frame.style.height = ''
+            }
+
+            function fitPreviewFrameToContent(frame) {
+                const wrapper = document.getElementById('main-frame-wrapper')
+                if (!wrapper || !frame || frame.src.includes('.pdf')) return
+                try {
+                    const doc = frame.contentDocument || frame.contentWindow.document
+                    if (!doc || !doc.documentElement) return
+                    const candidates = [
+                        doc.documentElement,
+                        doc.body,
+                        ...doc.querySelectorAll('main, [role="main"], #doc, .ui-content, .markdown-body'),
+                    ].filter(Boolean)
+                    const contentHeight = Math.ceil(Math.max(...candidates.map((element) => element.scrollHeight || 0)))
+                    const minimumHeight = Math.max(window.innerHeight - wrapper.getBoundingClientRect().top, 320)
+                    if (!Number.isFinite(contentHeight) || contentHeight <= minimumHeight + 4) {
+                        resetPreviewFrameSize(frame)
+                        return
+                    }
+                    wrapper.style.height = `${contentHeight}px`
+                    wrapper.style.overflow = 'visible'
+                    frame.style.height = `${contentHeight}px`
+                } catch (err) {
+                    resetPreviewFrameSize(frame)
+                }
+            }
+
             function attachPreviewFrameHandlers(frame) {
+                resetPreviewFrameSize(frame)
                 if (frame.src.endsWith('.pdf')) {
                     frame.removeAttribute('sandbox')
                     frame.src = frame.src + '#toolbar=0'
@@ -1831,6 +1865,14 @@
                         // doesnt work if frame origin rules prevent accessing its DOM via JS
                         this.contentWindow.scrollTo(0, 0);
                     } catch(err) {}
+                    requestAnimationFrame(() => {
+                        fitPreviewFrameToContent(this)
+                        try {
+                            if (this._archiveboxResizeObserver) this._archiveboxResizeObserver.disconnect()
+                            this._archiveboxResizeObserver = new ResizeObserver(() => fitPreviewFrameToContent(this))
+                            this._archiveboxResizeObserver.observe(this.contentDocument.documentElement)
+                        } catch (err) {}
+                    })
                 }
             }
 

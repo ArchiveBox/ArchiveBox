@@ -1772,8 +1772,10 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         return False
     snapshot.refresh_from_db()
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
-        has_archiveresults = snapshot.archiveresult_set.exists()
-        if has_archiveresults and snapshot.is_finished_processing():
+        has_server_archiveresults = snapshot.archiveresult_set.exclude(
+            hook_name=Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
+        ).exists()
+        if has_server_archiveresults and snapshot.is_finished_processing():
             finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
             snapshot.refresh_from_db()
             if snapshot.status == Snapshot.StatusChoices.SEALED:
@@ -1782,10 +1784,10 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
                     snapshot.refresh_from_db()
                 _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
                 return True
-        # A Snapshot with no hook rows is fresh lifecycle work; materialize its
-        # configured hook set. Existing rows are already the durable requested
-        # work set and must not be broadened during retry/recovery.
-        if not has_archiveresults:
+        # A Snapshot with no server hook rows is fresh lifecycle work; materialize
+        # its configured hook set. Browser-extension uploads are completed external
+        # outputs, not the durable server workset, and must coexist with these rows.
+        if not has_server_archiveresults:
             snapshot.create_pending_archiveresults(hooks=snapshot_hooks_for_pending_archiveresults(snapshot))
         snapshot.sm.tick()
         snapshot.refresh_from_db()

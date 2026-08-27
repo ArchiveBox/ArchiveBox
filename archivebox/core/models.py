@@ -507,6 +507,8 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):  # ty: ig
 
 
 class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
+    BROWSER_EXTENSION_UPLOAD_HOOK_NAME = "on_Snapshot__archivebox_browser_extension_upload"
+
     INTERNAL_INPUT_URL = "archivebox://internal"
 
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
@@ -757,7 +759,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         upload_results = (
             self.archiveresult_set.filter(
                 status=ArchiveResult.StatusChoices.QUEUED,
-                hook_name="on_Snapshot__archivebox_browser_extension_upload",
+                hook_name=self.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
                 output_size__gt=0,
             )
             .exclude(output_files={})

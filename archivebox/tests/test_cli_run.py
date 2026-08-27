@@ -1426,6 +1426,61 @@ class TestRecoverOrchestratorState:
         assert snapshot.retry_at is None
 
     @pytest.mark.django_db(transaction=True)
+    def test_run_due_snapshot_keeps_extension_upload_and_runs_server_hooks(self):
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.core.recovery_util import recover_orchestrator_state
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import run_due_snapshot
+
+        crawl = Crawl.objects.create(
+            urls="https://example.com/extension-upload",
+            created_by_id=get_or_create_system_user_pk(),
+            config={"PLUGINS": "parse_txt_urls"},
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(
+            url="https://example.com/extension-upload",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        uploaded_result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="chrome_mhtml",
+            hook_name="on_Snapshot__archivebox_browser_extension_upload",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="snapshot.mhtml",
+            output_files={"snapshot.mhtml": {"extension": "mhtml", "mimetype": "multipart/related", "size": 42}},
+            output_size=42,
+        )
+
+        recovered = recover_orchestrator_state()
+        snapshot.refresh_from_db()
+        crawl.refresh_from_db()
+        assert recovered["snapshots_sealed_with_extension_uploads_only"] == 1
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert snapshot.retry_at is not None
+        assert crawl.status == Crawl.StatusChoices.STARTED
+        assert crawl.retry_at is not None
+
+        assert run_due_snapshot(snapshot, lock_seconds=60) is True
+
+        snapshot.refresh_from_db()
+        uploaded_result.refresh_from_db()
+        server_results = snapshot.archiveresult_set.exclude(
+            hook_name="on_Snapshot__archivebox_browser_extension_upload",
+        )
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert uploaded_result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert server_results.filter(plugin="parse_txt_urls").exists()
+        assert not server_results.filter(
+            status__in=(ArchiveResult.StatusChoices.QUEUED, ArchiveResult.StatusChoices.STARTED),
+        ).exists()
+
+    @pytest.mark.django_db(transaction=True)
     def test_run_due_snapshot_migrates_filesystem_before_returning_after_fast_finalize(self):
         from django.utils import timezone
 

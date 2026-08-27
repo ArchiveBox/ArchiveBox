@@ -30,6 +30,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         "chrome_processes_orphaned": Process.cleanup_orphaned_chrome() if include_chrome and not crawl_id else 0,
         "crawls_queued_without_retry_at": 0,
         "snapshots_queued_without_retry_at": 0,
+        "snapshots_sealed_with_extension_uploads_only": 0,
         "archiveresults_backoff": 0,
         "snapshots_queued_plugin_rows_waiting_on_stale_lease": 0,
         "archiveresults_started_without_running_process": 0,
@@ -69,6 +70,40 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         crawl__status__in=Crawl.RUNNABLE_STATES,
         **snapshot_filter,
     ).update(retry_at=now, modified_at=now)
+
+    extension_upload_results = ArchiveResult.objects.filter(
+        snapshot_id=OuterRef("pk"),
+        hook_name=Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
+    )
+    server_results = ArchiveResult.objects.filter(snapshot_id=OuterRef("pk")).exclude(
+        hook_name=Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
+    )
+    extension_only_snapshots = (
+        Snapshot.objects.filter(
+            status=Snapshot.StatusChoices.SEALED,
+            crawl__status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED, Crawl.StatusChoices.SEALED],
+            **snapshot_filter,
+        )
+        .annotate(
+            has_extension_upload=Exists(extension_upload_results),
+            has_server_result=Exists(server_results),
+        )
+        .filter(has_extension_upload=True, has_server_result=False)
+    )
+    # Older browser-extension uploads could win a race with runner startup:
+    # their successful external rows made the fresh Snapshot look finished
+    # before its configured server-hook workset was materialized. Reopen only
+    # that exact, recognizable state so the normal runner adds the missing
+    # server rows to the same Snapshot and preserves the uploaded outputs.
+    Crawl.objects.filter(
+        id__in=Subquery(extension_only_snapshots.values("crawl_id")),
+        status=Crawl.StatusChoices.SEALED,
+    ).update(status=Crawl.StatusChoices.STARTED, retry_at=now, modified_at=now)
+    cleaned["snapshots_sealed_with_extension_uploads_only"] = extension_only_snapshots.update(
+        status=Snapshot.StatusChoices.QUEUED,
+        retry_at=now,
+        modified_at=now,
+    )
     backoff_results = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.BACKOFF, **result_filter)
     orphaned_results = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.STARTED, **result_filter).exclude(
         process__status=Process.StatusChoices.RUNNING,
@@ -267,6 +302,10 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         "snapshots_queued_without_retry_at": (
             "Starting {count} Snapshot(s) that were queued but never started "
             "(ArchiveBox may have been interrupted before it was able to archive those URLs)."
+        ),
+        "snapshots_sealed_with_extension_uploads_only": (
+            "Finishing {count} browser-extension Snapshot(s) that received uploaded files before server extractors started "
+            "(uploaded and server-created results will remain together on the same Snapshot)."
         ),
         "archiveresults_backoff": (
             "Retrying {count} extractor result(s) that were waiting to retry "

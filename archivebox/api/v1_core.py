@@ -59,7 +59,7 @@ from archivebox.core.snapshot_status import filter_snapshots_by_status, normaliz
 
 router = Router(tags=["Core Models"])
 
-ARCHIVERESULT_UPLOAD_HOOK_NAME = "on_Snapshot__archivebox_browser_extension_upload"
+ARCHIVERESULT_UPLOAD_HOOK_NAME = Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME
 ARCHIVERESULT_UPLOAD_PLUGIN_RE = re.compile(r"^[A-Za-z0-9_.-]{1,32}$")
 
 
