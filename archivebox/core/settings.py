@@ -250,7 +250,7 @@ SQLITE_CONNECTION_OPTIONS = {
     },
 }
 
-if is_postgres():
+if is_postgres(CONFIG):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",

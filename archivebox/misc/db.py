@@ -31,11 +31,22 @@ from archivebox.misc.util import enforce_types
 # ``CONSTANTS.DATABASE_FILE`` directly.
 
 
-def is_postgres() -> bool:
-    """True if DATABASE_ENGINE selects postgres (sqlite is the default)."""
-    from archivebox.config.common import get_config
+_IS_POSTGRES: bool | None = None
 
-    return (get_config().DATABASE_ENGINE or "sqlite").strip().lower().startswith("postgres")
+
+def is_postgres(config: Any | None = None) -> bool:
+    """True if this process started with the PostgreSQL database backend."""
+    global _IS_POSTGRES
+
+    if _IS_POSTGRES is None:
+        if config is None:
+            from archivebox.config.common import get_config
+
+            config = get_config()
+
+        _IS_POSTGRES = (config.DATABASE_ENGINE or "sqlite").strip().lower().startswith("postgres")
+
+    return _IS_POSTGRES
 
 
 def postgres_db_params() -> dict[str, str]:

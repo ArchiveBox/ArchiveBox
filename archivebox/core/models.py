@@ -2417,15 +2417,26 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if stored_title:
             return stored_title
 
-        title_results = (
-            self.archiveresult_set.filter(
-                plugin="title",
-                status=ArchiveResult.StatusChoices.SUCCEEDED,
+        loaded_results = self.__dict__.get("_admin_archiveresults")
+        if loaded_results is None:
+            title_results = (
+                self.archiveresult_set.filter(
+                    plugin="title",
+                    status=ArchiveResult.StatusChoices.SUCCEEDED,
+                )
+                .exclude(output_str="")
+                .order_by("-start_ts", "-end_ts", "-created_at")
+                .only("output_str")
             )
-            .exclude(output_str="")
-            .order_by("-start_ts", "-end_ts", "-created_at")
-        )
-        for title_result in title_results.only("output_str"):
+        else:
+            title_results = reversed(
+                [
+                    result
+                    for result in loaded_results
+                    if result.plugin == "title" and result.status == ArchiveResult.StatusChoices.SUCCEEDED and result.output_str
+                ],
+            )
+        for title_result in title_results:
             result_title = self._normalize_title_candidate(title_result.output_str, snapshot_url=self.url)
             if result_title:
                 return result_title

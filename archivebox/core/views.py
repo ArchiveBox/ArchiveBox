@@ -273,7 +273,7 @@ class SnapshotView(View):
     # render static html index from filesystem archive/<timestamp>/index.html
 
     @staticmethod
-    def find_snapshots_for_url(path: str):
+    def find_snapshots_for_url(path: str, *, allow_fallback: bool = True):
         """Return a queryset of snapshots matching a URL-ish path. URL only — never tries ID matching.
 
         Use ``find_snapshots_for_id`` separately if you also want to match by snapshot UUID.
@@ -299,7 +299,7 @@ class SnapshotView(View):
         if path.startswith(("http://", "https://")):
             # exact url match (indexed) — fastest path
             qs = Snapshot.objects.filter(_fragmentless_url_query(path))
-            if qs.exists():
+            if not allow_fallback or qs.exists():
                 return qs
             normalized = normalized.split("://", 1)[1]
 
@@ -359,18 +359,6 @@ class SnapshotView(View):
             if current is None or (output.get("size") or 0) > (current.get("size") or 0):
                 archiveresults[output["name"]] = output
         hash_index = snapshot.hashes_index
-        accounted_entries: set[str] = set()
-        for output in outputs:
-            output_name = output.get("name") or ""
-            if output_name:
-                accounted_entries.add(output_name)
-            output_path = output.get("path") or ""
-            if not output_path:
-                continue
-            parts = Path(output_path).parts
-            if parts:
-                accounted_entries.add(parts[0])
-
         loose_items, failed_items = snapshot.get_detail_page_auxiliary_items(
             outputs,
             hidden_card_plugins=hidden_card_plugins,
@@ -393,14 +381,10 @@ class SnapshotView(View):
                 best_result = archiveresults[result_type]
                 break
 
-        related_snapshots_qs = (
-            SnapshotView.find_snapshots_for_url(snapshot.url)
-            .select_related("crawl", "crawl__created_by")
-            .annotate(
-                num_outputs_cached=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SUCCEEDED),
-                num_failures_cached=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.FAILED),
-            )
-        )
+        related_snapshots_qs = SnapshotView.find_snapshots_for_url(
+            snapshot.url,
+            allow_fallback=False,
+        ).only("id", "url", "bookmarked_at", "created_at", "downloaded_at", "output_size")
         related_snapshots = list(
             related_snapshots_qs.exclude(id=snapshot.id).order_by("-bookmarked_at", "-created_at", "-timestamp")[:25],
         )

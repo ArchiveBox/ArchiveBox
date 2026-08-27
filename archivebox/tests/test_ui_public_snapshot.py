@@ -219,7 +219,7 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
     first_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
     second_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
     first = Snapshot.objects.create(url=url, title="First copy", crawl=first_crawl, status=Snapshot.StatusChoices.SEALED)
-    second = Snapshot.objects.create(url=url, title="Second copy", crawl=second_crawl, status=Snapshot.StatusChoices.SEALED)
+    second = Snapshot.objects.create(url=url, title="", crawl=second_crawl, status=Snapshot.StatusChoices.SEALED)
     for plugin, output_size in (("screenshot", 1536), ("singlefile", 2560)):
         ArchiveResult.objects.create(
             snapshot=first,
@@ -229,16 +229,24 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
             output_size=output_size,
         )
     ArchiveResult.refresh_snapshot_output_sizes({first.id})
+    ArchiveResult.objects.create(
+        snapshot=second,
+        plugin="title",
+        hook_name="on_Snapshot__10_title.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="Resolved second copy",
+    )
 
     with CaptureQueriesContext(connection) as captured_queries:
         response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
-    assert len(captured_queries) <= 8
+    assert len(captured_queries) <= 7
 
     assert (
         f"/snapshot/{second.id.hex}/index.html" in response.redirect_chain[0][0]
         or f"snap-{second.id.hex[-12:]}" in response.redirect_chain[0][0]
     )
     assert response.status_code == 200
+    assert b"Resolved second copy" in response.content
     assert b"Click to see other snapshots for this URL" in response.content
     assert re.search(rb'snapshot-count-badge">\s*1\s*</span>', response.content)
     chooser = re.search(
@@ -249,6 +257,7 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
     assert chooser
     assert b"4.0\xc2\xa0KB" in chooser.group()
     assert b"\xf0\x9f\x93\x81 2" not in chooser.group()
+    assert b"\xf0\x9f\x93\x81 2" not in response.content
 
 
 def _login_admin_session_over_http(port: int, host: str) -> requests.Session:
