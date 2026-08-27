@@ -138,27 +138,6 @@ curl -fsSL 'https://get.archivebox.io' | bash
 
 <br/>
 
-## 🤝 Professional Integration
-
-ArchiveBox is free for everyone to self-host, but we also provide support, security review, and custom integrations to help NGOs, governments, and other organizations [run ArchiveBox professionally](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102):
-
-- **Journalists:**
-  `crawling during research`, `preserving cited pages`, `fact-checking & review`  
-- **Lawyers:**
-  `collecting & preserving evidence`, `detecting changes`, `tagging & review`  
-- **Researchers:**
-  `analyzing social media trends`, `getting LLM training data`, `crawling pipelines`
-- **Individuals:**
-  `saving bookmarks`, `preserving portfolio content`, `legacy / memoirs archival`
-- **Governments:**
-  `snapshotting public service sites`, `recordkeeping compliance`
-
-> ***[Contact us](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102)** if your org wants help using ArchiveBox professionally.*  
-> We offer: setup & support, CAPTCHA/ratelimit unblocking, SSO, audit logging/chain-of-custody, and more  
-> *ArchiveBox is a 🏛️ 501(c)(3) [nonprofit FSP](https://hackclub.com/hcb/) and all our work supports open-source development.* 
-
-<br/>
-
 <div align="center" style="text-align: center">
 <br/>
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0db52ea7-4a2c-441d-b47f-5553a5d8fe96" width="49%" alt="grass"/><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0db52ea7-4a2c-441d-b47f-5553a5d8fe96" width="49%" alt="grass"/>
@@ -418,18 +397,9 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 </details>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="27px" align="top"/> Paid hosting solutions (cloud VPS)</summary>
+<summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="27px" align="top"/> Third-party paid hosting options (cloud VPS)</summary>
 <br/>
 <ul>
-<li><a href="https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102">
- <img src="https://img.shields.io/badge/Custom_Development-ArchiveBox.io-%231a1a1a.svg?style=flat" height="22px"/>
-</a> (<a href="https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102">get hosting, support, and feature customization directly from us</a>)</li>
-<li><a href="https://monadical.com">
- <img src="https://img.shields.io/badge/General_Dev_Consulting-Monadical.com-%231a1a1a.svg?style=flat" height="22px"/>
-</a> (<a href="https://monadical.com/contact-us.html">generalist consultancy that has ArchiveBox experience</a>)</li>
-<br/>
-Other providers of paid ArchiveBox hosting (not officially endorsed):<br/>
-<br/><br/>
 <li><a href="https://elest.io/open-source/archivebox"><img src="https://img.shields.io/badge/Managed_Hosting-Elest.io-%23193f7e.svg?style=flat" height="22px"/></a></li>
 <li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
 <li><a href="https://www.pikapods.com/pods?run=archivebox"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-PikaPods.com-%2343a047.svg?style=flat" height="22px"/></a> (from USD $2.6/mo)</li>
@@ -451,7 +421,7 @@ Other providers of paid ArchiveBox hosting (not officially endorsed):<br/>
 <sub><i>Referral links marked 🎗 provide $5-10 of free credit for new users and help pay for our <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></sub>
 </ul>
 
-For more discussion on managed and paid hosting options see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
+For more discussion on third-party hosting options see here: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/531">Issue #531</a>.
 
 </details>
 
@@ -1015,7 +985,7 @@ archivebox config --set SERVER_SECURITY_MODE=safe-onedomain-nojsreplay
 
 ### Working Around Sites that Block Archiving
 
-For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) actively block archiving or bots in general. There are a number of approaches to work around this, and we also provide <a href="https://docs.monadical.com/s/archivebox-consulting-services">consulting services</a> to help here.
+For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) actively block archiving or bots in general. There are a number of approaches to work around this.
 
 <br/>
 <details>
@@ -1254,13 +1224,6 @@ ArchiveBox is neither the highest fidelity nor the simplest tool available for s
 </details>
 
 <br/>
-
-**Need help building a custom archiving solution?**
-
-> ✨ **[Hire the team that built Archivebox](https://zulip.archivebox.io/#narrow/stream/167-enterprise/topic/welcome/near/1191102) to solve archiving for your org.** ([@ArchiveBoxApp](https://twitter.com/ArchiveBoxApp))
-
-<br/>
-
 
 <div align="center" style="text-align: center">
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/897f7a88-1265-4aab-b80c-b1640afaad1f" width="100%" alt="documentation graphic">
@@ -1564,8 +1527,6 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 
 <br/>
 <div align="center" style="text-align: center">
-<b><a href="https://docs.sweeting.me/s/archivebox-consulting-services">🏛️ Contact us for professional support 💬</a></b><br/>
-<br/><br/>
 <a href="https://hcb.hackclub.com/donations/start/archivebox"><img src="https://img.shields.io/badge/Donate-Directly-%13DE5D26.svg"/></a> &nbsp;
 <a href="https://github.com/sponsors/pirate"><img src="https://img.shields.io/badge/Github_Sponsors-%23B7CDFE.svg"/></a> &nbsp;
 <a href="https://www.patreon.com/theSquashSH"><img src="https://img.shields.io/badge/Patreon-%23DD5D76.svg"/></a> &nbsp;

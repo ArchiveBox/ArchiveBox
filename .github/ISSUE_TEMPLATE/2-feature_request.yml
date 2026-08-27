@@ -109,9 +109,6 @@ body:
           required: false
         - label: "I've had a lot of difficulty getting ArchiveBox set up"
           required: false
-        - label: "I would pay $10/mo for a hosted version of ArchiveBox if it had this feature"
-          required: false
-
   - type: markdown
     attributes:
       value: |
@@ -123,6 +120,5 @@ body:
         In the meantime please consider:  
           
           - 💰 [Donating to support ArchiveBox open-source](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
-          - 📊 [Hiring us for corporate deployments](https://docs.monadical.com/s/archivebox-consulting-services) with professional support, custom feature development, and help with CAPTCHAs/rate-limits
           - 🔍 [Searching the Documentation](https://docs.archivebox.io/) for answers to common questions
           - ✨ Testing out a newer [`BETA` release](https://github.com/ArchiveBox/ArchiveBox/releases) (issues are often already fixed in our latest `BETA` releases)
