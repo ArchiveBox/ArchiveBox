@@ -210,14 +210,23 @@ def _create_public_snapshot_with_cli(data_dir, url: str) -> str:
 
 @override_settings(PUBLIC_INDEX=True)
 def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client, admin_user):
-    from archivebox.core.models import Snapshot
+    from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl
 
     url = "https://multiple-public-snapshots.example/page"
     first_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
     second_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
-    Snapshot.objects.create(url=url, title="First copy", crawl=first_crawl, status=Snapshot.StatusChoices.SEALED)
+    first = Snapshot.objects.create(url=url, title="First copy", crawl=first_crawl, status=Snapshot.StatusChoices.SEALED)
     second = Snapshot.objects.create(url=url, title="Second copy", crawl=second_crawl, status=Snapshot.StatusChoices.SEALED)
+    for plugin, output_size in (("screenshot", 1536), ("singlefile", 2560)):
+        ArchiveResult.objects.create(
+            snapshot=first,
+            plugin=plugin,
+            hook_name=f"on_Snapshot__50_{plugin}.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_size=output_size,
+        )
+    ArchiveResult.refresh_snapshot_output_sizes({first.id})
 
     response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
 
@@ -228,6 +237,14 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
     assert response.status_code == 200
     assert b"Click to see other snapshots for this URL" in response.content
     assert re.search(rb'snapshot-count-badge">\s*1\s*</span>', response.content)
+    chooser = re.search(
+        rb'<details class="snapshot-variants">.*?Click to see other snapshots for this URL.*?</details>',
+        response.content,
+        re.DOTALL,
+    )
+    assert chooser
+    assert b"4.0\xc2\xa0KB" in chooser.group()
+    assert b"\xf0\x9f\x93\x81 2" not in chooser.group()
 
 
 def _login_admin_session_over_http(port: int, host: str) -> requests.Session:

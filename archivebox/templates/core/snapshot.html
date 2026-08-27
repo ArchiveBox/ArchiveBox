@@ -1660,7 +1660,7 @@
                                 <div class="snapshot-variants-list">
                                     {% for snap in related_snapshots %}
                                         <a href="{% web_base_url %}/{{ snap.archive_path }}/index.html" title="{{ snap.url }}">
-                                            {{ snap.bookmarked_at|default:snap.created_at|default:snap.downloaded_at|date:"Y-m-d H:i:s" }} &nbsp; 📁 {{ snap.num_outputs }}
+                                            {{ snap.bookmarked_at|default:snap.created_at|default:snap.downloaded_at|date:"Y-m-d H:i:s" }} &nbsp; 💾 {{ snap.output_size|filesizeformat }}
                                         </a>
                                     {% endfor %}
                                 </div>
