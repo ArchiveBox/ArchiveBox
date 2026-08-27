@@ -1,0 +1,28 @@
+archivebox/config/configset.py
+  s_5e83b7ac3f0fa4::t_0033b8890aa54c 110,112
+  s_5e83b7ac3f0fa4::t_ae6f9b5eb27ee2 9,11,108
+archivebox/config/common.py
+  s_5e83b7ac3f0fa4::t_ae6f9b5eb27ee2 22,888-890,893,1108,1241,1266,1268-1275
+  s_5e83b7ac3f0fa4::t_df7fb0020200e0 891-892
+archivebox/tests/test_core_config.py
+  s_5e83b7ac3f0fa4::t_0033b8890aa54c 13,32,51
+  s_5e83b7ac3f0fa4::t_037f895ca5b714 33,44,52,55
+  s_5e83b7ac3f0fa4::t_bac7d62e706ffb 15,22
+  s_5e83b7ac3f0fa4::t_ae6f9b5eb27ee2 14,20-21,23-24,45,57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "41056e0b773a0668ada6669524726cccc4033911",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
