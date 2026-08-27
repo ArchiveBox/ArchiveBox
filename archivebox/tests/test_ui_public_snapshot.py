@@ -375,6 +375,46 @@ class TestPublicIndex:
         assert b"Private Snapshot" not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
+    def test_public_index_only_loads_output_files_for_preview_plugins(self, client, admin_user):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.crawls.models import Crawl
+
+        crawl = Crawl.objects.create(urls="https://public-results.example", created_by=admin_user, config={"PERMISSIONS": "public"})
+        snapshot = Snapshot.objects.create(
+            url="https://public-results.example",
+            title="Public result loading",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+        )
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="readability",
+            hook_name="on_Snapshot__50_readability.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"content.html": {"size": 100_000}},
+            output_str="unused" * 10_000,
+        )
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="screenshot",
+            hook_name="on_Snapshot__50_screenshot.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"screenshot.png": {"size": 2048}},
+        )
+
+        with CaptureQueriesContext(connection) as captured_queries:
+            response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+
+        result_queries = [query["sql"].lower() for query in captured_queries if "core_archiveresult" in query["sql"].lower()]
+        assert len(result_queries) == 2
+        assert sum("output_files" in query for query in result_queries) == 1
+        assert all("output_str" not in query for query in result_queries)
+        assert response.status_code == 200
+        assert b"screenshot.png" in response.content
+
+    @override_settings(PUBLIC_INDEX=True)
     def test_public_index_renders_title_html_entities_once(self, client, admin_user):
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl

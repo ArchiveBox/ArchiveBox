@@ -3,7 +3,6 @@ __package__ = "archivebox.core"
 import json
 import os
 import posixpath
-from glob import escape, glob
 from pathlib import Path
 from typing import ClassVar, cast
 from urllib.parse import quote, urlparse
@@ -932,111 +931,57 @@ def _plugin_full_preview_response(
     return response
 
 
-def _coerce_sort_timestamp(value: str | float | None) -> float:
-    if value is None:
-        return 0.0
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _snapshot_sort_key(match_path: str, cache: dict[str, float]) -> tuple[float, str]:
-    parts = Path(match_path).parts
-    date_str = ""
-    snapshot_id = ""
-    try:
-        idx = parts.index("snapshots")
-        date_str = parts[idx + 1]
-        snapshot_id = parts[idx + 3]
-    except (IndexError, ValueError):
-        return (_coerce_sort_timestamp(date_str), match_path)
-
-    if snapshot_id not in cache:
-        snapshot = Snapshot.objects.filter(id=snapshot_id).only("bookmarked_at", "created_at", "downloaded_at", "timestamp").first()
-        if snapshot:
-            snap_dt = snapshot.bookmarked_at or snapshot.created_at or snapshot.downloaded_at
-            cache[snapshot_id] = snap_dt.timestamp() if snap_dt else _coerce_sort_timestamp(snapshot.timestamp)
-        else:
-            cache[snapshot_id] = _coerce_sort_timestamp(date_str)
-
-    return (cache[snapshot_id], match_path)
-
-
-def _snapshot_id_from_replay_path(path: Path) -> str | None:
-    parts = path.parts
-    try:
-        responses_idx = parts.index("responses")
-    except ValueError:
-        return None
-    return parts[responses_idx - 1] if responses_idx > 0 else None
-
-
-def _replay_path_visible(request: HttpRequest, path: Path) -> bool:
-    snapshot_id = _snapshot_id_from_replay_path(path)
-    if not snapshot_id:
-        return False
-    snapshot = Snapshot.objects.filter(id=snapshot_id).select_related("crawl", "crawl__created_by").first()
-    if not snapshot or (not can_view_snapshot(request, snapshot) and not _has_replay_cookie(request, snapshot)):
-        return False
-    request.archivebox_config = get_request_config(request, resolve_plugins=False)
-    return True
-
-
-def _latest_response_match(request: HttpRequest, domain: str, rel_path: str, *, data_root: Path) -> tuple[Path, Path] | None:
-    if not domain or not rel_path:
-        return None
-    domain = domain.split(":", 1)[0].lower()
-    # TODO: optimize by querying output_files in DB instead of globbing filesystem
-    escaped_domain = escape(domain)
-    escaped_path = escape(rel_path)
-    pattern = str(data_root / "*" / "snapshots" / "*" / escaped_domain / "*" / "responses" / escaped_domain / escaped_path)
-    matches = glob(pattern)
-    if not matches:
-        return None
-
-    sort_cache: dict[str, float] = {}
-    best_paths = sorted(matches, key=lambda match_path: _snapshot_sort_key(match_path, sort_cache), reverse=True)
-    best_path = next((Path(match_path) for match_path in best_paths if _replay_path_visible(request, Path(match_path))), None)
-    if best_path is None:
-        return None
-    parts = best_path.parts
-    try:
-        responses_idx = parts.index("responses")
-    except ValueError:
-        return None
-    responses_root = Path(*parts[: responses_idx + 1])
-    rel_to_root = Path(*parts[responses_idx + 1 :])
-    return responses_root, rel_to_root
-
-
-def _latest_responses_root(request: HttpRequest, domain: str, *, data_root: Path) -> Path | None:
+def _visible_response_snapshots_for_domain(request: HttpRequest, domain: str) -> list[Snapshot]:
     if not domain:
-        return None
-    domain = domain.split(":", 1)[0].lower()
-    escaped_domain = escape(domain)
-    pattern = str(data_root / "*" / "snapshots" / "*" / escaped_domain / "*" / "responses" / escaped_domain)
-    matches = glob(pattern)
-    if not matches:
-        return None
-
-    sort_cache: dict[str, float] = {}
-    best_paths = sorted(matches, key=lambda match_path: _snapshot_sort_key(match_path, sort_cache), reverse=True)
-    return next((Path(match_path) for match_path in best_paths if _replay_path_visible(request, Path(match_path))), None)
-
-
-def _latest_snapshot_for_domain(request: HttpRequest, domain: str) -> Snapshot | None:
-    if not domain:
-        return None
+        return []
 
     requested_domain = domain.split(":", 1)[0].lower()
-    snapshots = direct_snapshots_queryset(
-        request,
-        SnapshotView.find_snapshots_for_url(f"https://{requested_domain}"),
-    ).order_by("-bookmarked_at", "-created_at", "-timestamp")
+    roots = (f"http://{requested_domain}", f"https://{requested_domain}")
+    domain_query = Q(url__in=roots)
+
+    from archivebox.misc.db import is_postgres
+
+    postgres = is_postgres()
+    for root in roots:
+        for separator in ("/", "?", "#"):
+            prefix = f"{root}{separator}"
+            if postgres:
+                domain_query |= Q(url__startswith=prefix)
+            else:
+                domain_query |= Q(url__gte=prefix, url__lt=f"{prefix}\U0010ffff")
+
+    candidates = (
+        Snapshot.objects.filter(domain_query)
+        .select_related("crawl", "crawl__created_by")
+        .order_by("-bookmarked_at", "-created_at", "-timestamp")
+    )
+    return [snapshot for snapshot in candidates if can_view_snapshot(request, snapshot) or _has_replay_cookie(request, snapshot)]
+
+
+def _latest_response_match(
+    snapshots: list[Snapshot],
+    domain: str,
+    rel_path: str,
+) -> tuple[Snapshot, Path, Path] | None:
+    if not domain or not rel_path:
+        return None
+    requested_domain = domain.split(":", 1)[0].lower()
+    rel_to_root = Path(rel_path)
     for snapshot in snapshots:
-        if Snapshot.extract_domain_from_url(snapshot.url).lower() == requested_domain:
-            return snapshot
+        responses_root = Path(snapshot.output_dir) / "responses" / requested_domain
+        if (responses_root / rel_to_root).exists():
+            return snapshot, responses_root, rel_to_root
+    return None
+
+
+def _latest_responses_root(snapshots: list[Snapshot], domain: str) -> tuple[Snapshot, Path] | None:
+    if not domain:
+        return None
+    requested_domain = domain.split(":", 1)[0].lower()
+    for snapshot in snapshots:
+        responses_root = Path(snapshot.output_dir) / "responses" / requested_domain
+        if responses_root.is_dir():
+            return snapshot, responses_root
     return None
 
 
@@ -1163,23 +1108,22 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
     if rel_path is None:
         raise Http404
 
-    domain = domain.lower()
-    match = _latest_response_match(request, domain, rel_path, data_root=CONSTANTS.USERS_DIR)
+    domain = domain.split(":", 1)[0].lower()
+    snapshots = _visible_response_snapshots_for_domain(request, domain)
+    match = _latest_response_match(snapshots, domain, rel_path)
     if not match and "." not in Path(rel_path).name:
         index_path = f"{rel_path.rstrip('/')}/index.html"
-        match = _latest_response_match(request, domain, index_path, data_root=CONSTANTS.USERS_DIR)
+        match = _latest_response_match(snapshots, domain, index_path)
     if not match and "." not in Path(rel_path).name:
         html_path = f"{rel_path}.html"
-        match = _latest_response_match(request, domain, html_path, data_root=CONSTANTS.USERS_DIR)
+        match = _latest_response_match(snapshots, domain, html_path)
 
-    responses_root = match[0] if match else _latest_responses_root(request, domain, data_root=CONSTANTS.USERS_DIR)
+    root_match = (match[0], match[1]) if match else _latest_responses_root(snapshots, domain)
+    responses_root = root_match[1] if root_match else None
     if request_config.USES_SUBDOMAIN_ROUTING:
-        snapshot_id = _snapshot_id_from_replay_path(responses_root) if responses_root else None
-        snapshot = Snapshot.objects.filter(id=snapshot_id).first() if snapshot_id else None
-        if snapshot is None and requested_root_index:
-            snapshot = _latest_snapshot_for_domain(request, domain)
+        snapshot = root_match[0] if root_match else (snapshots[0] if requested_root_index and snapshots else None)
         if snapshot:
-            snapshot_path = f"responses/{match[1]}" if match else path
+            snapshot_path = f"responses/{domain}/{match[2]}" if match else path
             target = build_snapshot_url(str(snapshot.id), snapshot_path, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
@@ -1187,7 +1131,7 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
 
     show_indexes = bool(request.GET.get("files"))
     if match:
-        responses_root, rel_to_root = match
+        _snapshot, responses_root, rel_to_root = match
         response = _serve_responses_path(request, responses_root, str(rel_to_root), show_indexes)
         if response is not None:
             return response
@@ -1198,9 +1142,8 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
             return response
 
     if requested_root_index and not show_indexes:
-        snapshot = _latest_snapshot_for_domain(request, domain)
-        if snapshot:
-            return SnapshotView.render_live_index(request, snapshot)
+        if snapshots:
+            return SnapshotView.render_live_index(request, snapshots[0])
 
     if request_config.PUBLIC_ADD_VIEW or request.user.is_authenticated:
         target_url = _original_request_url(domain, path, request.META.get("QUERY_STRING", ""))
@@ -1396,33 +1339,20 @@ class PublicIndexView(ListView):
                     return filename
                 return f"{result.plugin}/{filename}"
 
-            for result in (
+            for snapshot_id, plugin, status in (
                 ArchiveResult.objects.filter(
                     snapshot_id__in=icons_by_snapshot.keys(),
                 )
                 .exclude(plugin="")
-                .only("snapshot_id", "plugin", "status", "output_files", "output_str")
+                .values_list("snapshot_id", "plugin", "status")
                 .iterator(chunk_size=1000)
             ):
-                snapshot_id = result.snapshot_id
-                plugin = result.plugin
-                status = result.status
                 snapshot_key = str(snapshot_id)
                 progress = progress_by_snapshot[snapshot_key]
                 progress["total"] += 1
                 if status == ArchiveResult.StatusChoices.SUCCEEDED:
                     icons_by_snapshot[snapshot_key].add(plugin)
                     progress["succeeded"] += 1
-                    if plugin in preview_candidates:
-                        plugin_rank = preview_plugin_order[plugin]
-                        for filename_rank, filename in enumerate(preview_candidates[plugin]):
-                            output_path = result_output_path(result, filename)
-                            if output_path:
-                                preview_paths_by_snapshot[snapshot_key].append((plugin_rank, filename_rank, output_path))
-                    elif plugin == "favicon":
-                        output_path = result_output_path(result, "favicon.ico")
-                        if output_path:
-                            favicon_paths_by_snapshot[snapshot_key].append(output_path)
                 elif status == ArchiveResult.StatusChoices.FAILED:
                     progress["failed"] += 1
                 elif status == ArchiveResult.StatusChoices.STARTED:
@@ -1431,6 +1361,27 @@ class PublicIndexView(ListView):
                     progress["skipped"] += 1
                 elif status == ArchiveResult.StatusChoices.NORESULTS:
                     progress["noresults"] += 1
+
+            for result in (
+                ArchiveResult.objects.filter(
+                    snapshot_id__in=icons_by_snapshot.keys(),
+                    status=ArchiveResult.StatusChoices.SUCCEEDED,
+                    plugin__in=(*preview_candidates, "favicon"),
+                )
+                .only("snapshot_id", "plugin", "output_files")
+                .iterator(chunk_size=1000)
+            ):
+                snapshot_key = str(result.snapshot_id)
+                if result.plugin in preview_candidates:
+                    plugin_rank = preview_plugin_order[result.plugin]
+                    for filename_rank, filename in enumerate(preview_candidates[result.plugin]):
+                        output_path = result_output_path(result, filename)
+                        if output_path:
+                            preview_paths_by_snapshot[snapshot_key].append((plugin_rank, filename_rank, output_path))
+                elif result.plugin == "favicon":
+                    output_path = result_output_path(result, "favicon.ico")
+                    if output_path:
+                        favicon_paths_by_snapshot[snapshot_key].append(output_path)
 
         for snapshot in snapshots:
             snapshot._icons_compact = True
@@ -1536,8 +1487,8 @@ class AddView(UserPassesTestMixin, FormView):
             persona_queryset = filter_personas_by_permissions(persona_queryset, {PERMISSIONS_PUBLIC})
         persona_config_map = {}
         for persona in persona_queryset.order_by("name"):
-            effective_config = get_config(persona=persona)
-            effective_config_redacted = get_config(persona=persona, redact_sensitive=True).model_dump(mode="json")
+            effective_config = get_config(base_config=request_config, persona=persona, include_machine=False)
+            effective_config_redacted = redact_sensitive_config(effective_config.model_dump(mode="json"))
             if can_override_crawl_config:
                 raw_config = redact_sensitive_config(persona.config or {})
                 effective_config_json = effective_config_redacted
