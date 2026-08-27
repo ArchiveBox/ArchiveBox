@@ -225,11 +225,7 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
 
                 # Rare statuses are faster status-first: use the
                 # (status, snapshot_id) index to find candidate snapshots.
-                snapshot_ids = ArchiveResult.cached_snapshot_ids_with_majority_status(status)
-                queryset = queryset.filter(pk__in=snapshot_ids)
-                queryset._archivebox_count_hint = len(snapshot_ids)
-                queryset.query._archivebox_count_hint = queryset._archivebox_count_hint
-                return queryset
+                return queryset.filter(pk__in=ArchiveResult.snapshot_ids_with_majority_status(status))
         return queryset
 
 

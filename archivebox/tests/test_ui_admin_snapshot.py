@@ -152,6 +152,47 @@ def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, 
     assert b"screenshot.png" in response.content
 
 
+def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snapshot):
+    from archivebox.core.models import ArchiveResult
+
+    for plugin, status in (
+        ("title", ArchiveResult.StatusChoices.FAILED),
+        ("wget", ArchiveResult.StatusChoices.FAILED),
+        ("hashes", ArchiveResult.StatusChoices.SUCCEEDED),
+    ):
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin=plugin,
+            hook_name=f"on_Snapshot__50_{plugin}.py",
+            status=status,
+        )
+
+    response = admin_client.get(
+        reverse("admin:core_snapshot_changelist"),
+        {"archiveresult_status": "failed"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+
+    assert response.status_code == 200
+    assert snapshot in response.context["cl"].queryset
+
+
+def test_snapshot_icons_reflect_live_results_without_stale_html_cache(snapshot):
+    from archivebox.core.models import ArchiveResult
+
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="hashes",
+        hook_name="on_Snapshot__93_hashes.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={"hashes.json": {"size": 10}},
+    )
+
+    assert "hashes" in str(snapshot.icons())
+    ArchiveResult.objects.filter(pk=result.pk).update(status=ArchiveResult.StatusChoices.FAILED)
+    assert "hashes" not in str(snapshot.icons())
+
+
 def test_snapshot_admin_tag_editor_escapes_tag_json_script_breakout(admin_client, snapshot):
     from archivebox.core.models import Tag
 

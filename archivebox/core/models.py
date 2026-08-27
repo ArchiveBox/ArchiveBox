@@ -11,7 +11,6 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib import admin
-from django.core.cache import cache
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
 from django.db import models, transaction
 from django.db.models import Case, F, Q, QuerySet, Sum, Value, When
@@ -2231,22 +2230,20 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return int(self.update_and_requeue(**updates))
 
     @admin.display(description="Tags")
-    def tags_str(self, nocache=True) -> str | None:
+    def tags_str(self) -> str | None:
         if "_tags_str_cached" in self.__dict__:
             return self.__dict__["_tags_str_cached"]
         calc_tags_str = lambda: ",".join(sorted(tag.name for tag in self.tags.all()))
         prefetched_cache = self.__dict__.get("_prefetched_objects_cache", {})
         if "tags" in prefetched_cache:
             return calc_tags_str()
-        cache_key = f"{self.pk}-tags"
-        return cache.get_or_set(cache_key, calc_tags_str) if not nocache else calc_tags_str()
+        return calc_tags_str()
 
     def icons(self, path: str | None = None) -> str:
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
         from django.utils.html import format_html
 
         compact_icons = self.__dict__.get("_icons_compact", False)
-        cache_key = f"result_icons:{self.pk}:{'compact' if compact_icons else 'full'}:{(self.downloaded_at or self.modified_at or self.created_at or self.bookmarked_at).timestamp()}"
 
         def calc_icons():
             if compact_icons and self.status == self.StatusChoices.STARTED:
@@ -2261,14 +2258,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 percent = int((completed / total * 100) if total > 0 else 0)
                 successful_plugins = sorted(self.__dict__.get("_icons_archive_results") or ())
                 visible_plugins = successful_plugins[:8]
+                plugin_icon_spans = []
+                for plugin in visible_plugins:
+                    icon = get_plugin_icon(plugin)
+                    if str(icon).strip():
+                        plugin_icon_spans.append(str(format_html('<span title="{}">{}</span>', plugin, mark_safe(icon))))
                 successful_icons = format_html(
                     '<div class="snapshot-successful-plugin-icons" style="display:flex; flex-wrap:wrap; gap:2px; margin-top:4px;">{}</div>',
                     mark_safe(
-                        "".join(
-                            str(format_html('<span title="{}">{}</span>', plugin, mark_safe(get_plugin_icon(plugin))))
-                            for plugin in visible_plugins
-                            if str(get_plugin_icon(plugin)).strip()
-                        )
+                        "".join(plugin_icon_spans)
                         + (
                             str(
                                 format_html(
@@ -2368,16 +2366,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 mark_safe(output),
             )
 
-        if compact_icons and self.status == self.StatusChoices.STARTED:
-            return calc_icons()
-
-        cache_result = cache.get(cache_key)
-        if cache_result:
-            return cache_result
-
-        fresh_result = calc_icons()
-        cache.set(cache_key, fresh_result, timeout=60 * 60 * 24)
-        return fresh_result
+        return calc_icons()
 
     @property
     def api_url(self) -> str:
@@ -3880,29 +3869,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             .values("snapshot_id")
         )
 
-    @classmethod
-    def cached_snapshot_ids_with_majority_status(cls, status: str | Iterable[str], *, timeout: int = 60) -> tuple[str, ...]:
-        statuses = tuple(status) if not isinstance(status, str) else (status,)
-        cache_key = f"archivebox:archiveresult:majority_status:{':'.join(sorted(statuses))}"
-        cached_ids = cache.get(cache_key)
-        if cached_ids is not None:
-            return tuple(cached_ids)
-
-        snapshot_ids = tuple(
-            str(snapshot_id) for snapshot_id in cls.snapshot_ids_with_majority_status(statuses).values_list("snapshot_id", flat=True)
-        )
-        cache.set(cache_key, snapshot_ids, timeout=timeout)
-        return snapshot_ids
-
-    @classmethod
-    def clear_majority_status_cache(cls) -> None:
-        cache.delete_many(
-            [
-                *(f"archivebox:archiveresult:majority_status:{status}" for status in cls.StatusChoices.values),
-                f"archivebox:archiveresult:majority_status:{':'.join(sorted((cls.StatusChoices.BACKOFF, cls.StatusChoices.QUEUED)))}",
-            ],
-        )
-
     # UUID primary key (migrated from integer in 0029)
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -4145,15 +4111,12 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                             modified_at=timezone.now(),
                         ),
                     )
-        if is_new or update_fields is None or "status" in update_fields or "snapshot" in update_fields or "snapshot_id" in update_fields:
-            transaction.on_commit(type(self).clear_majority_status_cache)
 
     def delete(self, *args, **kwargs):
         snapshot_id = self.snapshot_id
         deleted = super().delete(*args, **kwargs)
         if snapshot_id:
             transaction.on_commit(lambda: type(self).refresh_snapshot_output_sizes({snapshot_id}))
-            transaction.on_commit(type(self).clear_majority_status_cache)
         return deleted
 
     @staticmethod
