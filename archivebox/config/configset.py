@@ -2,9 +2,11 @@
 
 __package__ = "archivebox.config"
 
-from pathlib import Path
-from typing import Any, ClassVar
+import json
+from collections.abc import Mapping
 from configparser import ConfigParser
+from pathlib import Path
+from typing import Any, ClassVar, Self
 
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
@@ -61,20 +63,7 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
         return field_value, field_name, value_is_complex
 
     def __call__(self) -> dict[str, Any]:
-        # Load the file once, then retain pydantic-settings' per-field complex
-        # value decoding without reopening the same file for every field.
-        result: dict[str, Any] = {}
-        config_vals = self._load_config_file()
-        for field_name, field in self.settings_cls.model_fields.items():
-            value = config_vals.get(field_name.upper())
-            if value is None:
-                continue
-            key = field_name
-            value_is_complex = self.field_is_complex(field)
-            prepared = self.prepare_field_value(field_name, field, value, value_is_complex)
-            if prepared is not None:
-                result[key] = prepared
-        return result
+        return decode_config_inputs(self.settings_cls, self._load_config_file())
 
     def _load_config_file(self) -> dict[str, Any]:
         try:
@@ -85,6 +74,34 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
             return {}
 
         return read_ini_config(config_path)
+
+
+def decode_config_inputs(
+    settings_cls: type[BaseSettings],
+    config: Mapping[str, Any],
+    *,
+    decode_unknown_json: bool = False,
+) -> dict[str, Any]:
+    """Decode string-only config values once at the boundary to typed config."""
+    decoder = IniConfigSettingsSource(settings_cls)
+    decoded: dict[str, Any] = dict(config)
+    for source_key, raw in list(decoded.items()):
+        if not isinstance(raw, str) or not raw:
+            continue
+        field_name = source_key if source_key in settings_cls.model_fields else source_key.upper()
+        field = settings_cls.model_fields.get(field_name)
+        if field is None:
+            if decode_unknown_json and raw[:1] in ("{", "["):
+                try:
+                    decoded[source_key] = json.loads(raw)
+                except (TypeError, ValueError):
+                    pass
+            continue
+        if decoder.field_is_complex(field):
+            decoded[field_name] = decoder.prepare_field_value(field_name, field, raw, True)
+            if source_key != field_name:
+                decoded.pop(source_key, None)
+    return decoded
 
 
 class BaseConfigSet(BaseSettings):
@@ -110,6 +127,12 @@ class BaseConfigSet(BaseSettings):
         populate_by_name=True,
     )
     computed_config_keys: ClassVar[tuple[str, ...]] = ()
+
+    @classmethod
+    def model_validate_resolved(cls, values: Mapping[str, Any]) -> Self:
+        """Validate merged values without running env and INI sources a second time."""
+        instance = cls.model_construct()
+        return cls.__pydantic_validator__.validate_python(values, self_instance=instance)
 
     @classmethod
     def settings_customise_sources(

@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field, PrivateAttr, create_model, field_validato
 from pydantic_settings import SettingsConfigDict
 from rich.console import Console
 
-from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, IniConfigSettingsSource
+from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, decode_config_inputs
 
 from .constants import CONSTANTS
 from .ldap import LDAPConfig
@@ -1098,6 +1098,7 @@ def get_config(
     config_data: ConfigPayload = dict(defaults or {})
     config_data["PERSONAS_DIR"] = str(CONSTANTS.PERSONAS_DIR)
     base_config_payload: ConfigPayload = {}
+    file_config: dict[str, Any] | None = None
     base_config_model = ArchiveBoxConfig() if base_config is None else None
 
     if crawl_config_base:
@@ -1117,7 +1118,8 @@ def get_config(
         config_data.update(
             normalize_runtime_config(base_config_model.model_dump(mode="json"), exclude_runtime_derived=True, json_safe=False),
         )
-        legacy_config = {**BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE), **os.environ}
+        file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
+        legacy_config = {**file_config, **os.environ}
         legacy_permissions = permissions_from_legacy_public_flags(legacy_config)
         if legacy_permissions:
             config_data["PERMISSIONS"] = legacy_permissions
@@ -1191,7 +1193,8 @@ def get_config(
             },
         )
         if not crawl_config_base:
-            file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
+            if file_config is None:
+                file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
             explicit_plugin_enabled_keys.update(_explicit_plugin_enabled_keys(file_config))
             plugin_user_config = {
                 **_plugin_user_config(_plugin_input_config(file_config)),
@@ -1227,30 +1230,9 @@ def get_config(
             for enabled_key in _plugin_enabled_config_keys().values():
                 config_data.pop(enabled_key, None)
 
-    # Decode JSON-encoded complex values (dict/list fields) that came from
-    # string-only sources before validation. ``IniConfigSettingsSource`` does
-    # this for the ArchiveBox.conf path, but Machine.config (mirrored from the
-    # INI via ``_coerce_to_str_dict``) and plugin/env scope overrides bypass
-    # pydantic-settings sources entirely — they feed JSON strings directly
-    # into ``model_validate``, which rejects ``"{...}"`` for a ``dict[str, str]``
-    # field. Run pydantic-settings' own complex-value decoder here so every
-    # source converges on the same shape before validation.
-    _complex_decoder = IniConfigSettingsSource(ArchiveBoxConfig)
-    for _field_name, _field in ArchiveBoxConfig.model_fields.items():
-        if _field_name not in config_data:
-            continue
-        _raw = config_data[_field_name]
-        if not isinstance(_raw, str) or not _raw:
-            continue
-        if _complex_decoder.field_is_complex(_field):
-            config_data[_field_name] = _complex_decoder.prepare_field_value(
-                _field_name,
-                _field,
-                _raw,
-                True,
-            )
+    config_data = decode_config_inputs(ArchiveBoxConfig, config_data)
 
-    config = ArchiveBoxConfig.model_validate(config_data)
+    config = ArchiveBoxConfig.model_validate_resolved(config_data)
     if config.SERVER_SECURITY_MODE == "auto":
         base_host = (urlparse(config.BASE_URL if "://" in config.BASE_URL else f"//{config.BASE_URL}").hostname or "").lower()
         if base_host.endswith(".localhost"):

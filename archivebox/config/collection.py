@@ -7,7 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from archivebox.config.constants import CONSTANTS
-from archivebox.config.configset import CaseConfigParser
+from archivebox.config.configset import CaseConfigParser, decode_config_inputs
 from archivebox.misc.logging import AttrDict
 
 
@@ -169,31 +169,8 @@ def _coerce_from_str_dict(file_config: dict[str, str]) -> dict[str, Any]:
     shape ``_coerce_to_str_dict`` writes them as.
     """
     from archivebox.config.common import ArchiveBoxConfig
-    from archivebox.config.configset import IniConfigSettingsSource
 
-    decoder = IniConfigSettingsSource(ArchiveBoxConfig)
-    decoded: dict[str, Any] = dict(file_config)
-    declared_fields = set(ArchiveBoxConfig.model_fields)
-    for field_name, field in ArchiveBoxConfig.model_fields.items():
-        if field_name not in decoded:
-            continue
-        raw = decoded[field_name]
-        if not isinstance(raw, str) or not raw:
-            continue
-        if decoder.field_is_complex(field):
-            decoded[field_name] = decoder.prepare_field_value(field_name, field, raw, True)
-    for key, raw in list(decoded.items()):
-        if key in declared_fields:
-            continue
-        if not isinstance(raw, str) or not raw:
-            continue
-        first = raw[:1]
-        if first not in ("{", "["):
-            continue
-        try:
-            decoded[key] = json.loads(raw)
-        except (TypeError, ValueError):
-            continue
+    decoded = decode_config_inputs(ArchiveBoxConfig, file_config, decode_unknown_json=True)
     if not str(decoded.get("BASE_URL") or "").strip():
         from archivebox.config.common import base_url_from_legacy_server_config
 
