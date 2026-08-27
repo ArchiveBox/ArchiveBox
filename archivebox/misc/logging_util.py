@@ -15,16 +15,14 @@ from multiprocessing import Process
 from pathlib import Path
 
 from datetime import datetime, timezone
-from typing import Any, Optional, IO, TYPE_CHECKING, cast
-from collections.abc import Iterable
+from typing import Any, Optional, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot
 
 from rich import print
-from rich.panel import Panel
 
-from archivebox.config import CONSTANTS, VERSION
+from archivebox.config import CONSTANTS
 from archivebox.config.common import get_config
 from archivebox.misc.util import enforce_types
 from archivebox.misc.logging import ANSI
@@ -134,17 +132,6 @@ def progress_bar(seconds: int, prefix: str = "", ANSI: dict[str, str] = ANSI, co
         sys.stdout.flush()
     except (KeyboardInterrupt, BrokenPipeError):
         print()
-
-
-def log_cli_command(subcommand: str, subcommand_args: Iterable[str] = (), stdin: str | IO | None = None, pwd: str = "."):
-    args = " ".join(subcommand_args)
-    version_msg = "[dark_magenta]\\[{now}][/dark_magenta] [dark_red]ArchiveBox[/dark_red] [dark_goldenrod]v{VERSION}[/dark_goldenrod]: [green4]archivebox [green3]{subcommand}[green2] {args}[/green2]".format(
-        now=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-        VERSION=VERSION,
-        subcommand=subcommand,
-        args=args,
-    )
-    print(Panel(version_msg), file=sys.stderr)
 
 
 def log_list_started(filter_patterns: list[str] | None, filter_type: str):

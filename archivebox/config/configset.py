@@ -30,31 +30,17 @@ class CaseConfigParser(ConfigParser):
         return optionstr
 
 
-# ``IniConfigSettingsSource.get_field_value`` is called once per pydantic field
-# (hundreds of fields across the GlobalConfig + plugin configs). Without
-# caching, every field re-opens and re-parses ``ArchiveBox.conf`` from disk —
-# that's the dominant cost of ``get_config()`` (each call was ~130ms; profile
-# showed 632 ``parser.read(config_path)`` invocations per call). The cache is
-# keyed on (path, mtime) so external edits to the file still get picked up.
-_INI_CACHE: dict[tuple[str, float], dict[str, Any]] = {}
-
-
-def _read_ini_config_cached(config_path_str: str) -> dict[str, Any]:
-    config_path = Path(config_path_str)
-    try:
-        mtime = config_path.stat().st_mtime
-    except (FileNotFoundError, PermissionError):
+def read_ini_config(config_path: str | Path) -> dict[str, Any]:
+    """Read and flatten an ArchiveBox INI config file."""
+    config_path = Path(config_path)
+    if not config_path.exists():
         return {}
-    cache_key = (str(config_path), mtime)
-    cached = _INI_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
-    parser = CaseConfigParser()
-    parser.read(config_path)
-    flat = {key.upper(): value for section in parser.sections() for key, value in parser.items(section)}
-    _INI_CACHE.clear()
-    _INI_CACHE[cache_key] = flat
-    return flat
+    parser = CaseConfigParser(interpolation=None)
+    try:
+        parser.read(config_path)
+    except (OSError, PermissionError):
+        return {}
+    return {key.upper(): value for section in parser.sections() for key, value in parser.items(section)}
 
 
 class IniConfigSettingsSource(PydanticBaseSettingsSource):
@@ -75,14 +61,16 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
         return field_value, field_name, value_is_complex
 
     def __call__(self) -> dict[str, Any]:
-        # Use the per-field path (``get_field_value`` + ``prepare_field_value``)
-        # so complex types get JSON-decoded. The previous flat-dict return
-        # skipped pydantic-settings' complex-value handling entirely.
+        # Load the file once, then retain pydantic-settings' per-field complex
+        # value decoding without reopening the same file for every field.
         result: dict[str, Any] = {}
+        config_vals = self._load_config_file()
         for field_name, field in self.settings_cls.model_fields.items():
-            value, key, value_is_complex = self.get_field_value(field, field_name)
+            value = config_vals.get(field_name.upper())
             if value is None:
                 continue
+            key = field_name
+            value_is_complex = self.field_is_complex(field)
             prepared = self.prepare_field_value(field_name, field, value, value_is_complex)
             if prepared is not None:
                 result[key] = prepared
@@ -96,7 +84,7 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
         except ImportError:
             return {}
 
-        return _read_ini_config_cached(str(config_path))
+        return read_ini_config(config_path)
 
 
 class BaseConfigSet(BaseSettings):
@@ -146,14 +134,7 @@ class BaseConfigSet(BaseSettings):
     @classmethod
     def load_from_file(cls, config_path: Path) -> dict[str, str]:
         """Load config values from INI file."""
-        if not config_path.exists():
-            return {}
-
-        parser = CaseConfigParser()
-        parser.read(config_path)
-
-        # Flatten all sections into single namespace
-        return {key.upper(): value for section in parser.sections() for key, value in parser.items(section)}
+        return read_ini_config(config_path)
 
     def __getitem__(self, key: str) -> Any:
         if key in type(self).model_fields:

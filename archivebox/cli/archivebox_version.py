@@ -162,7 +162,8 @@ def version(
     )
 
     try:
-        OUTPUT_IS_REMOTE_FS = get_data_locations().DATA_DIR.is_mount or get_data_locations().ARCHIVE_DIR.is_mount
+        data_locations = get_data_locations(config=config)
+        OUTPUT_IS_REMOTE_FS = data_locations.DATA_DIR.is_mount or data_locations.ARCHIVE_DIR.is_mount
     except Exception:
         OUTPUT_IS_REMOTE_FS = False
 
@@ -249,7 +250,7 @@ def version(
         prnt()
         prnt("[deep_sky_blue3][i] Code locations:[/deep_sky_blue3]")
         try:
-            for name, path in get_code_locations().items():
+            for name, path in get_code_locations(config=config).items():
                 if isinstance(name, str) and isinstance(path, dict):
                     prnt(printable_folder_status(name, path), overflow="ignore", crop=False)
         except Exception as e:
@@ -501,7 +502,7 @@ def version(
         prnt()
         prnt("[deep_sky_blue3][i] Code locations:[/deep_sky_blue3]")
         try:
-            for name, path in get_code_locations().items():
+            for name, path in get_code_locations(config=config).items():
                 if isinstance(name, str) and isinstance(path, dict):
                     prnt(printable_folder_status(name, path), overflow="ignore", crop=False)
         except Exception as e:
@@ -511,7 +512,7 @@ def version(
         if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) or os.access(CONSTANTS.CONFIG_FILE, os.R_OK):
             prnt("[bright_yellow][i] Data locations:[/bright_yellow]")
             try:
-                for name, path in get_data_locations().items():
+                for name, path in get_data_locations(config=config).items():
                     if isinstance(name, str) and isinstance(path, dict):
                         prnt(printable_folder_status(name, path), overflow="ignore", crop=False)
             except Exception as e:

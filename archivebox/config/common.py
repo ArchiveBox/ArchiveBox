@@ -1041,7 +1041,9 @@ def get_request_config(request: Any, *, resolve_plugins: bool = False) -> Archiv
     request_config = request_state.get("archivebox_config")
     request_config_resolves_plugins = bool(request_state.get("_archivebox_config_resolves_plugins", False))
     if request_config is None or (resolve_plugins and not request_config_resolves_plugins):
-        request_config = get_config(resolve_plugins=resolve_plugins)
+        from django.conf import settings
+
+        request_config = get_config(base_config=settings.CONFIG, resolve_plugins=resolve_plugins)
         request._archivebox_config_resolves_plugins = resolve_plugins
     if request_config.SERVER_SECURITY_MODE == "auto":
         request_host = (urlparse(f"//{request.get_host()}").hostname or "").lower().rstrip(".")
@@ -1096,9 +1098,10 @@ def get_config(
     config_data: ConfigPayload = dict(defaults or {})
     config_data["PERSONAS_DIR"] = str(CONSTANTS.PERSONAS_DIR)
     base_config_payload: ConfigPayload = {}
-    base_config_model = ArchiveBoxConfig()
+    base_config_model = ArchiveBoxConfig() if base_config is None else None
 
     if crawl_config_base:
+        assert base_config_model is not None
         config_data.update(
             normalize_runtime_config(base_config_model.model_dump(mode="json"), exclude_runtime_derived=True, json_safe=False),
         )
@@ -1110,6 +1113,7 @@ def get_config(
             base_config_payload.update(dict(base_config))
         config_data.update(normalize_runtime_config(base_config_payload, exclude_runtime_derived=True, json_safe=False))
     else:
+        assert base_config_model is not None
         config_data.update(
             normalize_runtime_config(base_config_model.model_dump(mode="json"), exclude_runtime_derived=True, json_safe=False),
         )

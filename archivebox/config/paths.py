@@ -222,7 +222,7 @@ def get_or_create_working_tmp_dir(autofix=True, quiet=True, config: "ArchiveBoxC
             create_and_chown_dir(candidate)
         except Exception:
             pass
-        if check_tmp_dir(candidate, throw=False, quiet=True, must_exist=True):
+        if check_tmp_dir(candidate, throw=False, quiet=True, must_exist=True, config=config):
             if autofix and config.TMP_DIR != candidate:
                 os.environ["TMP_DIR"] = str(candidate)
             return candidate
@@ -263,7 +263,7 @@ def get_or_create_working_lib_dir(autofix=True, quiet=False, config: "ArchiveBox
             create_and_chown_dir(candidate)
         except Exception:
             pass
-        if check_lib_dir(candidate, throw=False, quiet=True, must_exist=True):
+        if check_lib_dir(candidate, throw=False, quiet=True, must_exist=True, config=config):
             if autofix and config.ABXPKG_LIB_DIR != candidate:
                 os.environ["ABXPKG_LIB_DIR"] = str(candidate)
             return candidate
@@ -272,10 +272,10 @@ def get_or_create_working_lib_dir(autofix=True, quiet=False, config: "ArchiveBox
         raise OSError(f"ArchiveBox is unable to find a writable ABXPKG_LIB_DIR, tried {CANDIDATES}!")
 
 
-def _sql_index_location() -> dict:
+def _sql_index_location(config: "ArchiveBoxConfig") -> dict:
     from archivebox.misc.db import database_display_location, database_exists, is_postgres
 
-    if is_postgres():
+    if is_postgres(config):
         return {
             "path": database_display_location(),
             "enabled": True,
@@ -316,7 +316,7 @@ def get_data_locations(config: "ArchiveBoxConfig | None" = None, **config_kwargs
                 and os.access(CONSTANTS.CONFIG_FILE, os.R_OK)
                 and os.access(CONSTANTS.CONFIG_FILE, os.W_OK),
             },
-            "SQL_INDEX": _sql_index_location(),
+            "SQL_INDEX": _sql_index_location(config),
             "ARCHIVE_DIR": {
                 "path": CONSTANTS.ARCHIVE_DIR.resolve(),
                 "enabled": True,

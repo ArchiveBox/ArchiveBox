@@ -11,7 +11,7 @@ from pathlib import Path
 from django.conf.locale.en import formats as en_formats  # type: ignore
 
 import archivebox
-from archivebox.config.common import get_config
+from archivebox.config.django import CONFIG
 from archivebox.config.constants import CONSTANTS
 from archivebox.core.routes_util import get_admin_base_url, get_api_base_url, get_base_url, normalize_base_url
 
@@ -25,7 +25,6 @@ IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
 IS_TESTING = "test" in sys.argv[:3]
 IS_SHELL = "shell" in sys.argv[:3] or "shell_plus" in sys.argv[:3]
 IS_GETTING_VERSION_OR_HELP = "version" in sys.argv or "help" in sys.argv or "--version" in sys.argv or "--help" in sys.argv
-CONFIG = get_config()
 PACKAGE_DIR = CONSTANTS.PACKAGE_DIR
 logger = logging.getLogger(__name__)
 
