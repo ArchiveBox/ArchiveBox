@@ -219,10 +219,15 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
     Snapshot.objects.create(url=url, title="First copy", crawl=first_crawl, status=Snapshot.StatusChoices.SEALED)
     second = Snapshot.objects.create(url=url, title="Second copy", crawl=second_crawl, status=Snapshot.StatusChoices.SEALED)
 
-    response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST)
+    response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
 
-    assert response.status_code == 302
-    assert response["Location"] == f"/{second.archive_path}/index.html"
+    assert (
+        f"/snapshot/{second.id.hex}/index.html" in response.redirect_chain[0][0]
+        or f"snap-{second.id.hex[-12:]}" in response.redirect_chain[0][0]
+    )
+    assert response.status_code == 200
+    assert b"Click to see other snapshots for this URL" in response.content
+    assert re.search(rb'snapshot-count-badge">\s*1\s*</span>', response.content)
 
 
 def _login_admin_session_over_http(port: int, host: str) -> requests.Session:

@@ -687,7 +687,7 @@ class SnapshotView(View):
                 status=404,
             )
 
-        target_path = f"/{snapshot.archive_path}/index.html"
+        target_path = build_snapshot_url(str(snapshot.id), "index.html", request=request)
         query = request.META.get("QUERY_STRING")
         if query:
             target_path = f"{target_path}?{query}"
