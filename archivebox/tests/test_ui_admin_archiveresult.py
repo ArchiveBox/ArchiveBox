@@ -94,3 +94,22 @@ class TestArchiveResultAdminListView:
         from archivebox.core.models import ArchiveResult
 
         assert "retry_at" in {field.name for field in ArchiveResult._meta.fields}
+
+    def test_change_view_loads_output_json_with_main_result_query(self, client, admin_user, projected_noresults):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        projected_noresults.output_json = {"detail": "output-json-loaded-once"}
+        projected_noresults.save(update_fields=["output_json", "modified_at"])
+        client.force_login(admin_user)
+
+        with CaptureQueriesContext(connection) as captured_queries:
+            response = client.get(
+                reverse("admin:core_archiveresult_change", args=[projected_noresults.pk]),
+                HTTP_HOST=ADMIN_TEST_HOST,
+            )
+
+        result_queries = [query for query in captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
+        assert response.status_code == 200
+        assert b"output-json-loaded-once" in response.content
+        assert len(result_queries) == 1

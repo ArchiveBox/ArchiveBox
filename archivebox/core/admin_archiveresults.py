@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 from django.contrib import admin
 from django.core.exceptions import ValidationError
-from django.db.models import Min, Prefetch, Q, TextField
+from django.db.models import Count, Min, Prefetch, Q, TextField, Window
 from django.db.models.functions import Cast
 from django.urls import resolve, reverse
 from django.utils import timezone
@@ -82,21 +82,18 @@ def get_process_link_label(process) -> str:
 def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
     """Render a nice inline list view of archive results with status, plugin, output, and actions."""
 
-    result_ids = list(archiveresults_qs.order_by("plugin").values_list("pk", flat=True)[:limit])
-    if not result_ids:
-        return mark_safe('<div style="color: #64748b; font-style: italic; padding: 16px 0;">No Archive Results yet...</div>')
-
-    results_by_id = {
-        result.pk: result
-        for result in ArchiveResult.objects.filter(pk__in=result_ids).select_related(
+    results = list(
+        archiveresults_qs.order_by("plugin")
+        .annotate(_inline_total_count=Window(expression=Count("pk")))
+        .select_related(
             "snapshot",
             "snapshot__crawl",
             "snapshot__crawl__created_by",
             "process",
             "process__machine",
         )
-    }
-    results = [results_by_id[result_id] for result_id in result_ids if result_id in results_by_id]
+        .all()[:limit],
+    )
 
     if not results:
         return mark_safe('<div style="color: #64748b; font-style: italic; padding: 16px 0;">No Archive Results yet...</div>')
@@ -287,7 +284,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
             </tr>
         ''')
 
-    total_count = archiveresults_qs.count()
+    total_count = results[0]._inline_total_count
     footer = ""
     if total_count > limit:
         footer = f"""
@@ -554,10 +551,6 @@ class ArchiveResultAdmin(BaseModelAdmin):
         qs = (
             super()
             .get_queryset(request)
-            .defer(
-                "notes",
-                "output_json",
-            )
             .prefetch_related(
                 Prefetch(
                     "snapshot",
@@ -566,6 +559,10 @@ class ArchiveResultAdmin(BaseModelAdmin):
                 "process__machine",
             )
         )
+        if request.resolver_match.url_name == "core_archiveresult_change":
+            qs = qs.defer("notes")
+        else:
+            qs = qs.defer("notes", "output_json")
         if "tags_inline" in ordering_fields:
             qs = qs.annotate(snapshot_first_tag=Min("snapshot__tags__name"))
         return qs
