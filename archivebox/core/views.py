@@ -1487,7 +1487,7 @@ class AddView(UserPassesTestMixin, FormView):
             persona_queryset = filter_personas_by_permissions(persona_queryset, {PERMISSIONS_PUBLIC})
         persona_config_map = {}
         for persona in persona_queryset.order_by("name"):
-            effective_config = get_config(base_config=request_config, persona=persona, include_machine=False)
+            effective_config = get_config(persona=persona)
             effective_config_redacted = redact_sensitive_config(effective_config.model_dump(mode="json"))
             if can_override_crawl_config:
                 raw_config = redact_sensitive_config(persona.config or {})
