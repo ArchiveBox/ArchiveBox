@@ -3215,7 +3215,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             latest[plugin] = result.embed_path() if result else None
         return latest
 
-    def discover_outputs(self, include_filesystem_fallback: bool = True) -> list[dict]:
+    def discover_outputs(
+        self,
+        include_filesystem_fallback: bool = True,
+        archive_results: list["ArchiveResult"] | None = None,
+    ) -> list[dict]:
         """Discover output files from ArchiveResults and filesystem."""
         from archivebox.misc.util import ts_to_date_str
 
@@ -3235,7 +3239,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return lower.endswith(text_exts)
 
         hashes_index = self.hashes_index if include_filesystem_fallback else {}
-        for result in self.archiveresult_set.all().order_by("start_ts"):
+        results = archive_results if archive_results is not None else self.archiveresult_set.all().order_by("start_ts")
+        for result in results:
             output_file_map = result.output_file_map()
             embed_path = result.embed_path_db(output_file_map=output_file_map)
             if not embed_path and include_filesystem_fallback:
@@ -3528,6 +3533,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self,
         outputs: list[dict] | None = None,
         hidden_card_plugins: set[str] | None = None,
+        archive_results: list["ArchiveResult"] | None = None,
     ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
         if outputs is None:
             outputs = self.discover_outputs(include_filesystem_fallback=True)
@@ -3571,7 +3577,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         ArchiveResult = self.archiveresult_set.model
         failed_items: list[dict[str, object]] = []
         seen_failed: set[str] = set()
-        for result in self.archiveresult_set.all().order_by("start_ts"):
+        results = archive_results if archive_results is not None else self.archiveresult_set.all().order_by("start_ts")
+        for result in results:
             if result.status != ArchiveResult.StatusChoices.FAILED:
                 continue
             root = str(result.plugin or "").strip()

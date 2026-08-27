@@ -113,18 +113,20 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
     if not lookup:
         return None
 
+    snapshots = Snapshot.objects.select_related("crawl", "crawl__created_by")
+
     if len(lookup) == 12 and "-" not in lookup:
-        return Snapshot.objects.filter(id__endswith=lookup).order_by("-created_at", "-downloaded_at").first()
+        return snapshots.filter(id__endswith=lookup).order_by("-created_at", "-downloaded_at").first()
 
     try:
-        return Snapshot.objects.get(pk=lookup)
+        return snapshots.get(pk=lookup)
     except Snapshot.DoesNotExist:
         try:
-            return Snapshot.objects.get(id__startswith=lookup)
+            return snapshots.get(id__startswith=lookup)
         except Snapshot.DoesNotExist:
             return None
         except Snapshot.MultipleObjectsReturned:
-            return Snapshot.objects.filter(id__startswith=lookup).first()
+            return snapshots.filter(id__startswith=lookup).first()
 
 
 def _admin_login_redirect_or_forbidden(request: HttpRequest):
@@ -339,10 +341,16 @@ class SnapshotView(View):
         runtime_config = get_request_config(request)
         snapshot._runtime_config = runtime_config
         snapshot_permissions = get_snapshot_permissions(snapshot)
+        archive_results = list(snapshot.archiveresult_set.all().order_by("start_ts"))
+        tags = list(snapshot.tags.all())
+        snapshot.__dict__["_admin_archiveresults"] = archive_results
+        snapshot.__dict__["_tags_str_cached"] = ",".join(sorted(tag.name for tag in tags))
+        snapshot.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
+        snapshot.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
         hidden_card_plugins = {"archivedotorg", "favicon", "title"}
         outputs = [
             out
-            for out in snapshot.discover_outputs(include_filesystem_fallback=True)
+            for out in snapshot.discover_outputs(include_filesystem_fallback=True, archive_results=archive_results)
             if (out.get("size") or 0) > 0 and out.get("name") not in hidden_card_plugins
         ]
         archiveresults = {}
@@ -363,7 +371,11 @@ class SnapshotView(View):
             if parts:
                 accounted_entries.add(parts[0])
 
-        loose_items, failed_items = snapshot.get_detail_page_auxiliary_items(outputs, hidden_card_plugins=hidden_card_plugins)
+        loose_items, failed_items = snapshot.get_detail_page_auxiliary_items(
+            outputs,
+            hidden_card_plugins=hidden_card_plugins,
+            archive_results=archive_results,
+        )
         preview_priority = [
             "singlefile",
             "screenshot",
@@ -432,6 +444,7 @@ class SnapshotView(View):
         compact_outputs = [out for out in ordered_outputs if out.get("is_compact") or out.get("is_metadata")]
         tag_widget = TagEditorWidget()
         output_size = sum(int(out.get("size") or 0) for out in ordered_outputs)
+        archive_dates = [result.start_ts for result in archive_results if result.start_ts]
         has_outputs = bool(ordered_outputs)
         is_archived = has_outputs or snapshot.status == Snapshot.StatusChoices.SEALED
         snapshot_status = str(snapshot.status or "").lower()
@@ -473,7 +486,7 @@ class SnapshotView(View):
             "downloaded_datestr": snapshot.downloaded_datestr,
             "num_outputs": snapshot.num_outputs,
             "num_failures": snapshot.num_failures,
-            "oldest_archive_date": ts_to_date_str(snapshot.oldest_archive_date),
+            "oldest_archive_date": ts_to_date_str(min(archive_dates) if archive_dates else None),
             "warc_path": warc_path,
             "archiveresults": [*non_compact_outputs, *compact_outputs],
             "best_result": best_result,
@@ -483,7 +496,7 @@ class SnapshotView(View):
             "related_years": related_years,
             "loose_items": loose_items,
             "failed_items": failed_items,
-            "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in snapshot.tags.all().order_by("name")],
+            "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in sorted(tags, key=lambda tag: tag.name)],
         }
         return render(template_name="core/snapshot.html", request=request, context=context)
 
