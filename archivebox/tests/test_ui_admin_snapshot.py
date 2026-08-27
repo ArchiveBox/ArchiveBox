@@ -755,6 +755,79 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert result.plugin.encode() in response.content
 
+    def test_list_view_uses_complete_bulk_progress_stats_without_per_snapshot_queries(self, client, admin_user, snapshot, crawl):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from archivebox.core.models import ArchiveResult, Snapshot
+
+        snapshot.status = Snapshot.StatusChoices.STARTED
+        snapshot.save(update_fields=["status", "modified_at"])
+        for plugin, status, output_size in (
+            ("screenshot", ArchiveResult.StatusChoices.SUCCEEDED, 1024),
+            ("title", ArchiveResult.StatusChoices.FAILED, 0),
+            ("wget", ArchiveResult.StatusChoices.STARTED, 0),
+            ("hashes", ArchiveResult.StatusChoices.SKIPPED, 0),
+        ):
+            ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin=plugin,
+                hook_name=f"on_Snapshot__50_{plugin}.py",
+                status=status,
+                output_size=output_size,
+                output_files={"screenshot.png": {"size": output_size}} if output_size else {},
+            )
+
+        client.force_login(admin_user)
+        url = reverse("admin:core_snapshot_changelist")
+        with CaptureQueriesContext(connection) as single_snapshot_queries:
+            response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert response.status_code == 200
+        rendered_snapshot = next(obj for obj in response.context["cl"].result_list if obj.pk == snapshot.pk)
+        assert rendered_snapshot.__dict__["_admin_progress_stats"] == {
+            "total": 4,
+            "succeeded": 1,
+            "failed": 1,
+            "running": 1,
+            "pending": 0,
+            "skipped": 1,
+            "noresults": 0,
+            "percent": 75,
+            "output_size": rendered_snapshot.output_size,
+            "is_sealed": False,
+        }
+        assert "_admin_archiveresults" not in rendered_snapshot.__dict__
+        assert [result.plugin for result in rendered_snapshot.__dict__["_admin_output_results"]] == ["screenshot"]
+
+        additional_snapshots = [
+            Snapshot.objects.create(
+                url=f"https://progress-{index}.example.com",
+                crawl=crawl,
+                status=Snapshot.StatusChoices.STARTED,
+                title=f"Progress {index}",
+            )
+            for index in range(5)
+        ]
+        ArchiveResult.objects.bulk_create(
+            [
+                ArchiveResult(
+                    snapshot=additional_snapshot,
+                    plugin="wget",
+                    hook_name="on_Snapshot__50_wget.py",
+                    status=ArchiveResult.StatusChoices.STARTED,
+                )
+                for additional_snapshot in additional_snapshots
+            ],
+        )
+        with CaptureQueriesContext(connection) as many_snapshot_queries:
+            many_response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert many_response.status_code == 200
+        single_result_queries = [query for query in single_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
+        many_result_queries = [query for query in many_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
+        assert len(single_result_queries) == len(many_result_queries) == 2
+
     def test_list_view_uses_prefetched_tags_without_row_queries(self, client, admin_user, crawl, db):
         """Changelist tag rendering should reuse the prefetched tag cache."""
         from django.db import connection
