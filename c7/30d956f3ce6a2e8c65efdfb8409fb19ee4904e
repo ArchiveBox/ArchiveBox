@@ -1,0 +1,27 @@
+docs/Donations.md
+  s_30b13335afa97f::t_5105977622a905 7
+docs/Roadmap.md
+  s_30b13335afa97f::t_5105977622a905 46
+docs/Setting-up-Authentication.md
+  s_30b13335afa97f::t_5105977622a905 13
+README.md
+  s_30b13335afa97f::t_5105977622a905 400,424,988
+docs/Home.md
+  s_30b13335afa97f::t_5105977622a905 33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c730d956f3ce6a2e8c65efdfb8409fb19ee4904e",
+  "prompts": {},
+  "sessions": {
+    "s_30b13335afa97f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0385c-e651-77c1-9a53-8ed5f8d94dcd",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
