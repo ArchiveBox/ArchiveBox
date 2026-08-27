@@ -74,3 +74,24 @@ def test_string_config_values_are_decoded_at_one_boundary():
 
     assert decoded["CHROME_ARGS"] == ["--headless", "--no-sandbox"]
     assert decoded["UNKNOWN_COMPLEX"] == {"source": "plugin"}
+
+
+def test_resolving_scoped_config_does_not_mutate_process_environment(tmp_path):
+    from archivebox.config.common import ArchiveBoxConfig, get_config
+
+    active_lib_dir = tmp_path / "active-lib"
+    stale_lib_dir = tmp_path / "stale-lib"
+    previous_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
+    try:
+        os.environ["ABXPKG_LIB_DIR"] = str(active_lib_dir)
+        stale_process_config = ArchiveBoxConfig(ABXPKG_LIB_DIR=stale_lib_dir)
+
+        resolved = get_config(base_config=stale_process_config, include_machine=False, resolve_plugins=False)
+
+        assert resolved.ABXPKG_LIB_DIR == stale_lib_dir
+        assert os.environ["ABXPKG_LIB_DIR"] == str(active_lib_dir)
+    finally:
+        if previous_lib_dir is None:
+            os.environ.pop("ABXPKG_LIB_DIR", None)
+        else:
+            os.environ["ABXPKG_LIB_DIR"] = previous_lib_dir

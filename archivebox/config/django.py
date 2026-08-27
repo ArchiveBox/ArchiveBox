@@ -15,6 +15,7 @@ from .common import get_config
 from .constants import CONSTANTS
 
 CONFIG = get_config()
+os.environ.setdefault("ABXPKG_LIB_DIR", str(CONFIG.ABXPKG_LIB_DIR))
 
 if not CONFIG.USE_COLOR:
     os.environ["NO_COLOR"] = "1"

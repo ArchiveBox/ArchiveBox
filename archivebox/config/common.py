@@ -1253,7 +1253,6 @@ def get_config(
             value = config[key]
             if is_sensitive_config_key(key) and value not in (None, ""):
                 setattr(config, key, SENSITIVE_CONFIG_VALUE_REDACTED)
-    os.environ["ABXPKG_LIB_DIR"] = str(config.ABXPKG_LIB_DIR)
     archiving_warning_key = (config.TIMEOUT, config.USE_COLOR)
     if archiving_warning_key not in _WARNED_ARCHIVING_CONFIGS:
         config.warn_if_invalid()
