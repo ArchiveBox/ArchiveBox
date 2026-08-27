@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 from django.contrib import admin
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Min, Prefetch, Q, TextField, Window
+from django.db.models import Count, Min, Prefetch, Q, Subquery, TextField, Window
 from django.db.models.functions import Cast
 from django.urls import resolve, reverse
 from django.utils import timezone
@@ -83,7 +83,8 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
     """Render a nice inline list view of archive results with status, plugin, output, and actions."""
 
     results = list(
-        archiveresults_qs.order_by("plugin")
+        ArchiveResult.objects.filter(pk__in=Subquery(archiveresults_qs.order_by().values("pk")))
+        .order_by("plugin")
         .annotate(_inline_total_count=Window(expression=Count("pk")))
         .select_related(
             "snapshot",
