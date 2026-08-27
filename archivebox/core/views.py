@@ -3,7 +3,6 @@ __package__ = "archivebox.core"
 import json
 import os
 import posixpath
-from hashlib import sha256
 from glob import escape, glob
 from pathlib import Path
 from typing import ClassVar, cast
@@ -19,9 +18,8 @@ from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY, get_user_model
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.sessions.models import Session
 from django.core import signing
-from django.core.cache import cache
 from django.core.paginator import InvalidPage
-from django.db.models import Case, Count, IntegerField, Max, Q, Value, When
+from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -343,48 +341,8 @@ class SnapshotView(View):
         runtime_config = get_request_config(request)
         snapshot._runtime_config = runtime_config
         snapshot_permissions = get_snapshot_permissions(snapshot)
-        tags = list(snapshot.tags.all())
-        related_snapshots_qs = (
-            SnapshotView.find_snapshots_for_url(snapshot.url)
-            .select_related("crawl", "crawl__created_by")
-            .annotate(
-                num_outputs_cached=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SUCCEEDED),
-                num_failures_cached=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.FAILED),
-            )
-        )
-        related_snapshots = list(
-            related_snapshots_qs.exclude(id=snapshot.id).order_by("-bookmarked_at", "-created_at", "-timestamp")[:25],
-        )
-        result_state = ArchiveResult.objects.filter(snapshot_id=snapshot.id).aggregate(
-            count=Count("id"),
-            max_modified=Max("modified_at"),
-        )
-        cache_key = (
-            "snapshot-detail:"
-            + sha256(
-                repr(
-                    (
-                        snapshot.id,
-                        snapshot.modified_at,
-                        snapshot.status,
-                        result_state,
-                        tuple(sorted(tag.name for tag in tags)),
-                        tuple((snap.id, snap.modified_at, snap.num_outputs, snap.num_failures) for snap in related_snapshots),
-                        "admin" if is_admin_user(request) else "direct",
-                        request.get_host(),
-                        request.is_secure(),
-                        runtime_config.USES_SUBDOMAIN_ROUTING,
-                        runtime_config.BASE_URL,
-                    ),
-                ).encode(),
-            ).hexdigest()
-        )
-        if snapshot.status == Snapshot.StatusChoices.SEALED:
-            cached_content = cache.get(cache_key)
-            if cached_content is not None:
-                return HttpResponse(cached_content, content_type="text/html")
-
         archive_results = list(snapshot.archiveresult_set.all().order_by("start_ts"))
+        tags = list(snapshot.tags.all())
         snapshot.__dict__["_admin_archiveresults"] = archive_results
         snapshot.__dict__["_tags_str_cached"] = ",".join(sorted(tag.name for tag in tags))
         snapshot.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
@@ -435,6 +393,17 @@ class SnapshotView(View):
                 best_result = archiveresults[result_type]
                 break
 
+        related_snapshots_qs = (
+            SnapshotView.find_snapshots_for_url(snapshot.url)
+            .select_related("crawl", "crawl__created_by")
+            .annotate(
+                num_outputs_cached=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SUCCEEDED),
+                num_failures_cached=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.FAILED),
+            )
+        )
+        related_snapshots = list(
+            related_snapshots_qs.exclude(id=snapshot.id).order_by("-bookmarked_at", "-created_at", "-timestamp")[:25],
+        )
         related_years_map: dict[int, list[Snapshot]] = {}
         for snap in [snapshot, *related_snapshots]:
             snap_dt = snap.bookmarked_at or snap.created_at or snap.downloaded_at
@@ -529,10 +498,7 @@ class SnapshotView(View):
             "failed_items": failed_items,
             "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in sorted(tags, key=lambda tag: tag.name)],
         }
-        response = render(template_name="core/snapshot.html", request=request, context=context)
-        if snapshot.status == Snapshot.StatusChoices.SEALED:
-            cache.set(cache_key, response.content, timeout=15 * 60)
-        return response
+        return render(template_name="core/snapshot.html", request=request, context=context)
 
     def get(self, request, path):
         snapshot = None

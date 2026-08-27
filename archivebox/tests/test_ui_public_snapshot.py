@@ -250,12 +250,6 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
     assert b"4.0\xc2\xa0KB" in chooser.group()
     assert b"\xf0\x9f\x93\x81 2" not in chooser.group()
 
-    with CaptureQueriesContext(connection) as cached_queries:
-        cached_response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
-    assert len(cached_queries) < len(captured_queries)
-    assert cached_response.status_code == 200
-    assert cached_response.content == response.content
-
 
 def _login_admin_session_over_http(port: int, host: str) -> requests.Session:
     session = requests.Session()
