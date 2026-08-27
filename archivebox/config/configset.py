@@ -6,8 +6,9 @@ import json
 from collections.abc import Mapping
 from configparser import ConfigParser
 from pathlib import Path
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar
 
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 COMPUTED_CONFIG_KEYS = (
@@ -104,11 +105,11 @@ def decode_config_inputs(
     return decoded
 
 
-class BaseConfigSet(BaseSettings):
+class BaseConfigSet(BaseModel):
     """
-    Base class for config sections.
+    Pure typed runtime model for config sections.
 
-    Automatically loads values from (highest to lowest priority):
+    Source-loading subclasses combine this model with ``BaseSettings`` and load:
     1. Environment variables
     2. ArchiveBox.conf file (INI format, flattened)
     3. Default values
@@ -127,12 +128,6 @@ class BaseConfigSet(BaseSettings):
         populate_by_name=True,
     )
     computed_config_keys: ClassVar[tuple[str, ...]] = ()
-
-    @classmethod
-    def model_validate_resolved(cls, values: Mapping[str, Any]) -> Self:
-        """Validate merged values without running env and INI sources a second time."""
-        instance = cls.model_construct()
-        return cls.__pydantic_validator__.validate_python(values, self_instance=instance)
 
     @classmethod
     def settings_customise_sources(

@@ -19,7 +19,7 @@ from urllib.parse import quote, urlparse
 from abx_plugins.plugins.base.utils import BASE_CONFIG_PATH, build_config_model, resolve_plugin_configs
 from django.db import DatabaseError
 from pydantic import BaseModel, Field, PrivateAttr, create_model, field_validator, model_validator
-from pydantic_settings import SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich.console import Console
 
 from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, decode_config_inputs
@@ -885,6 +885,12 @@ PLUGIN_CONFIG_SCHEMAS = _discover_plugin_config_schemas()
 ArchiveBoxConfig = _build_archivebox_config_model(PLUGIN_CONFIG_SCHEMAS)
 
 
+class ArchiveBoxSourceSettings(ArchiveBoxConfig, BaseSettings):
+    """Environment and INI source loader for the pure runtime config model."""
+
+    model_config = SettingsConfigDict(**{**ArchiveBoxConfig.model_config, "extra": "ignore"})
+
+
 def _normalize_plugins_config_value(value: Any) -> set[str]:
     if value is None:
         return set()
@@ -1099,7 +1105,7 @@ def get_config(
     config_data["PERSONAS_DIR"] = str(CONSTANTS.PERSONAS_DIR)
     base_config_payload: ConfigPayload = {}
     file_config: dict[str, Any] | None = None
-    base_config_model = ArchiveBoxConfig() if base_config is None else None
+    base_config_model = ArchiveBoxSourceSettings() if base_config is None else None
 
     if crawl_config_base:
         assert base_config_model is not None
@@ -1232,7 +1238,7 @@ def get_config(
 
     config_data = decode_config_inputs(ArchiveBoxConfig, config_data)
 
-    config = ArchiveBoxConfig.model_validate_resolved(config_data)
+    config = ArchiveBoxConfig.model_validate(config_data)
     if config.SERVER_SECURITY_MODE == "auto":
         base_host = (urlparse(config.BASE_URL if "://" in config.BASE_URL else f"//{config.BASE_URL}").hostname or "").lower()
         if base_host.endswith(".localhost"):
@@ -1257,13 +1263,14 @@ def get_config(
 
 def get_all_configs() -> dict[str, BaseConfigSet]:
     """Get all config section objects as a dictionary."""
+    resolved = ArchiveBoxSourceSettings().model_dump(mode="json")
     return {
-        "SHELL_CONFIG": ShellConfig(),
-        "STORAGE_CONFIG": StorageConfig(),
-        "GENERAL_CONFIG": GeneralConfig(),
-        "SERVER_CONFIG": ServerConfig(),
-        "DATABASE_CONFIG": DatabaseConfig(),
-        "ARCHIVING_CONFIG": ArchivingConfig(),
-        "SEARCH_BACKEND_CONFIG": SearchBackendConfig(),
-        "LDAP_CONFIG": LDAPConfig(),
+        "SHELL_CONFIG": ShellConfig.model_validate(resolved),
+        "STORAGE_CONFIG": StorageConfig.model_validate(resolved),
+        "GENERAL_CONFIG": GeneralConfig.model_validate(resolved),
+        "SERVER_CONFIG": ServerConfig.model_validate(resolved),
+        "DATABASE_CONFIG": DatabaseConfig.model_validate(resolved),
+        "ARCHIVING_CONFIG": ArchivingConfig.model_validate(resolved),
+        "SEARCH_BACKEND_CONFIG": SearchBackendConfig.model_validate(resolved),
+        "LDAP_CONFIG": LDAPConfig.model_validate(resolved),
     }
