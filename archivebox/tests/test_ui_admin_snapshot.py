@@ -912,6 +912,28 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert f"/admin/core/snapshot/{snapshot.pk}/redo-failed/".encode() in response.content
 
+    def test_change_view_reuses_resolved_snapshot_for_progress_context(self, client, admin_user, snapshot):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        snapshot.status = snapshot.StatusChoices.STARTED
+        snapshot.__class__.objects.filter(pk=snapshot.pk).update(status=snapshot.status)
+        client.force_login(admin_user)
+        url = reverse("admin:core_snapshot_change", args=[snapshot.pk])
+
+        with CaptureQueriesContext(connection) as captured_queries:
+            response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+
+        snapshot_reads = [
+            query["sql"]
+            for query in captured_queries
+            if 'FROM "core_snapshot"' in query["sql"] and '"core_snapshot"."id" =' in query["sql"]
+        ]
+        assert response.status_code == 200
+        assert response.context["progress_auto_expand"] is True
+        assert response.context["progress_endpoint"].endswith(f"?snapshot_id={snapshot.pk}")
+        assert len(snapshot_reads) == 1
+
     def test_snapshot_view_url_uses_canonical_replay_url_for_mode(self, snapshot):
         from archivebox.core.admin_site import archivebox_admin
         from archivebox.core.admin_snapshots import SnapshotAdmin

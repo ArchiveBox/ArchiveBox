@@ -509,19 +509,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return []
         return super().get_ordering(request)
 
-    def change_view(self, request, object_id, form_url="", extra_context=None):
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         self.request = request
-        extra_context = extra_context or {}
-        extra_context["CONFIG"] = request.archivebox_config
-        snapshot = self.get_object(request, object_id)
-        if snapshot and snapshot.status in {
+        context["CONFIG"] = request.archivebox_config
+        if obj and obj.status in {
             Snapshot.StatusChoices.QUEUED,
             Snapshot.StatusChoices.STARTED,
             Snapshot.StatusChoices.PAUSED,
         }:
-            extra_context["progress_auto_expand"] = True
-            extra_context["progress_endpoint"] = progress_endpoint("snapshot", snapshot.id)
-        return super().change_view(request, object_id, form_url, extra_context | GLOBAL_CONTEXT)
+            context["progress_auto_expand"] = True
+            context["progress_endpoint"] = progress_endpoint("snapshot", obj.id)
+        context.update(GLOBAL_CONTEXT)
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def changelist_view(self, request, extra_context=None):
         self.request = request
