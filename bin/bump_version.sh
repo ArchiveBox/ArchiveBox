@@ -13,6 +13,7 @@ from pathlib import Path
 import json
 import re
 import sys
+import tomllib
 
 version = sys.argv[1]
 if not re.fullmatch(r'\d+\.\d+\.\d+(?:-?rc\d*)?', version):
@@ -58,10 +59,11 @@ lock, count = re.subn(
 if count != 1:
     raise SystemExit('Failed to update ArchiveBox version in uv.lock')
 lock_path.write_text(lock)
+locked = tomllib.loads(lock)
+if next(package['version'] for package in locked['package'] if package['name'] == 'archivebox') != version:
+    raise SystemExit('Updated ArchiveBox lock version does not match the requested version')
 print(version)
 PY
-
-uv lock --check --offline --no-cache
 
 uv run --no-cache --no-project python - <<'PY'
 from pathlib import Path
