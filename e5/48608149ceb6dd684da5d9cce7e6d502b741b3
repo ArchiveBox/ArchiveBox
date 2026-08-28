@@ -1,0 +1,43 @@
+archivebox/core/models.py
+  s_624973e8d96ff6::t_ce237bcbfac09f 4115-4116,4118-4125,4126-4127
+  s_624973e8d96ff6::t_bd240c17374ea9 3303
+archivebox/core/views.py
+  s_624973e8d96ff6::t_2dda5f023d3a1e 487
+  s_624973e8d96ff6::t_e2e8c6daddfd54 356,358-359,363-364
+archivebox/tests/test_ui_admin_snapshot.py
+  s_624973e8d96ff6::t_74b3d6dfc035af 797-802,809,812-813,815-816,831
+  s_624973e8d96ff6::t_63bdc091b5bbad 3,749-776,778-779,782-785,787-796,817-818,821-823,825-830,832
+  s_624973e8d96ff6::t_f84c35b13eef12 11
+  s_624973e8d96ff6::t_8b4d00306abb31 777,786,803-808,810-811,814,819-820,824
+  s_624973e8d96ff6::t_4316c3895752c6 780-781
+  s_624973e8d96ff6::t_7eecd83d3ebb06 833-834
+archivebox/templates/core/snapshot.html
+  s_624973e8d96ff6::t_5aa4f6eee06ff2 1144,1802,1809-1810,1812-1815,1817-1821,1826-1832,1837-1846,1855,1859-1862,1864-1874
+  s_624973e8d96ff6::t_f10064ac32d675 1822-1825,1833,1847,1863
+  s_624973e8d96ff6::t_a97f1e524bc689 1120-1121,1131-1132,1134-1135,1139-1143,1714
+  s_624973e8d96ff6::t_2b03c4ccd37b60 1715,1811,1816,1834-1836,1848-1854,1856-1858
+  s_624973e8d96ff6::t_cadd9087ca0fad 1259-1260
+  s_624973e8d96ff6::t_c638585ce6a969 1265-1267
+  s_624973e8d96ff6::t_3a186baecd2079 1716
+  s_624973e8d96ff6::t_c0db2916af8523 1875
+archivebox/tests/test_ui_admin_archiveresult.py
+  s_624973e8d96ff6::t_f9f37c3a8838a7 97,117-143
+archivebox/base_models/models.py
+  s_624973e8d96ff6::t_3ec3de7378807b 287-291,297,300
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "e548608149ceb6dd684da5d9cce7e6d502b741b3",
+  "prompts": {},
+  "sessions": {
+    "s_624973e8d96ff6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04665-7101-78e0-9990-1b95ac628717",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
