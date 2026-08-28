@@ -831,6 +831,30 @@ class TestSnapshotOutputDeletion:
         assert "screenshot" not in {output["name"] for output in snapshot.discover_outputs()}
         assert '"plugin": "screenshot"' not in (Path(snapshot.output_dir) / "index.jsonl").read_text()
 
+    def test_admin_inline_shows_sortable_output_sizes_and_delete_controls(self, client, snapshot, admin_user):
+        first = self._create_output(snapshot, plugin="screenshot", size=11)
+        second = self._create_output(snapshot, plugin="pdf", hook_name="on_Snapshot__60_pdf.py", size=2048)
+        assert client.login(username=admin_user.username, password="testpassword")
+
+        response = client.get(
+            reverse("admin:core_snapshot_change", args=[snapshot.pk]),
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        html = response.content.decode()
+
+        assert response.status_code == 200
+        assert "data-output-size-sort" in html
+        assert 'data-output-size="11"' in html
+        assert 'data-output-size="2048"' in html
+        assert "11.0 Bytes" in html
+        assert "2.0 KB" in html
+        assert f'data-archive-result-ids="{first.id}"' in html
+        assert f'data-archive-result-ids="{second.id}"' in html
+        assert html.count('title="Delete this output"') == 2
+        assert reverse("admin:core_archiveresult_changelist") in html
+        assert "const queuedOutputIds = new Set()" in html
+        assert "action: 'delete_selected'" in html
+
 
 class TestAdminSnapshotListView:
     """Tests for the admin snapshot list view."""

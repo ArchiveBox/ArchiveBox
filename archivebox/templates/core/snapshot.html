@@ -1712,7 +1712,7 @@
                                             <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
                                         {% endif %}
                                         {% if can_delete_outputs and result.result %}
-                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" title="Delete this output">❌</button>
+                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" title="Delete this output">❌</button>
                                         {% endif %}
                                     </div>
                                     {% if display_path %}
@@ -1801,77 +1801,11 @@
 
         {% if can_delete_outputs %}<input type="hidden" id="delete-output-csrf" value="{{csrf_token}}">{% endif %}
         <script src="{% static 'jquery.min.js' %}" type="text/javascript"></script>
+        {% if can_delete_outputs %}{% include "includes/output_delete_controls.html" %}{% endif %}
 
         <script>
             const snapshotBaseUrl = "{% snapshot_base_url snapshot %}";
             const snapshotFilesUrl = `${snapshotBaseUrl}/?files=1`;
-
-            {% if can_delete_outputs %}
-            const queuedOutputIds = new Set()
-            const deleteOutputButtons = [...document.querySelectorAll('[data-archive-result-ids]')]
-            let deleteOutputTimer = null
-
-            function renderDeleteCountdown(label='') {
-                for (const button of deleteOutputButtons) {
-                    const queued = button.dataset.archiveResultIds.split(',').every((id) => queuedOutputIds.has(id))
-                    button.textContent = queued ? label : '❌'
-                    button.classList.toggle('delete-pending', queued)
-                }
-            }
-
-            function runDeleteCountdown(count=3) {
-                if (count) {
-                    renderDeleteCountdown(`[${count}]`)
-                    deleteOutputTimer = window.setTimeout(() => runDeleteCountdown(count - 1), 1000)
-                    return
-                }
-                renderDeleteCountdown('[deleting]')
-                deleteOutputTimer = window.setTimeout(deleteQueuedOutputs, 1000)
-            }
-
-            function toggleOutputDeletion(button) {
-                if (button.disabled) return
-                const resultIds = button.dataset.archiveResultIds.split(',')
-                const remove = resultIds.every((id) => queuedOutputIds.has(id))
-                resultIds.forEach((id) => remove ? queuedOutputIds.delete(id) : queuedOutputIds.add(id))
-                window.clearTimeout(deleteOutputTimer)
-                if (!queuedOutputIds.size) {
-                    renderDeleteCountdown()
-                    return
-                }
-                renderDeleteCountdown('[4]')
-                deleteOutputTimer = window.setTimeout(runDeleteCountdown, 1000)
-            }
-
-            function deleteQueuedOutputs() {
-                deleteOutputButtons.forEach((button) => button.disabled = true)
-                const body = new URLSearchParams({
-                    action: 'delete_selected',
-                    post: 'yes',
-                    csrfmiddlewaretoken: document.getElementById('delete-output-csrf').value,
-                })
-                queuedOutputIds.forEach((id) => body.append('_selected_action', id))
-                fetch("{% admin_base_url %}/admin/core/archiveresult/", {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                    body,
-                }).then((response) => {
-                    if (!response.ok) throw new Error(`Delete failed (${response.status})`)
-                    window.location.reload()
-                }).catch((error) => {
-                    deleteOutputButtons.forEach((button) => button.disabled = false)
-                    queuedOutputIds.clear()
-                    renderDeleteCountdown()
-                    window.alert(error.message)
-                })
-            }
-
-            for (const button of deleteOutputButtons) {
-                button.addEventListener('click', () => toggleOutputDeletion(button))
-            }
-            window.addEventListener('pagehide', () => window.clearTimeout(deleteOutputTimer))
-            {% endif %}
 
             function tryCenterImageFrame(frame) {
                 try {

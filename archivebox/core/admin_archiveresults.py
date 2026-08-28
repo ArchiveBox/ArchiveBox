@@ -24,6 +24,7 @@ from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.routes_util import build_snapshot_url
 from archivebox.core.widgets import InlineTagEditorWidget
 from archivebox.machine.env_util import env_to_shell_exports
+from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.plugins.discovery import get_plugin_icon
 from archivebox.plugins.views import LIVE_PLUGIN_BASE_URL
@@ -79,7 +80,7 @@ def get_process_link_label(process) -> str:
     return str(process.id)[-8:]
 
 
-def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
+def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_delete=False):
     """Render a nice inline list view of archive results with status, plugin, output, and actions."""
 
     results = list(
@@ -112,6 +113,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
     }
 
     rows = []
+    delete_url = html.escape(reverse("admin:core_archiveresult_changelist"), quote=True)
     for idx, result in enumerate(results):
         status = result.status or "queued"
         color, bg = status_colors.get(status, ("#6b7280", "#f3f4f6"))
@@ -126,6 +128,8 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 output_file_count = 0
         else:
             output_file_count = 0
+        output_size = int(result.output_size or 0)
+        output_size_display = html.escape(printable_filesize(output_size))
 
         # Get plugin icon
         icon = get_plugin_icon(result.plugin)
@@ -190,9 +194,16 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
 
         # Unique ID for this row's expandable output
         row_id = f"output_{idx}_{str(result.id)[:8]}"
+        delete_button = ""
+        if can_delete:
+            delete_button = f'''
+                <button type="button" data-archive-result-ids="{result.id}" data-delete-url="{delete_url}"
+                        style="padding: 4px 8px; border: 0; background: #f1f5f9; border-radius: 4px; color: #475569; font-size: 11px; cursor: pointer;"
+                        title="Delete this output">❌</button>
+            '''
 
         rows.append(f'''
-            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+            <tr data-output-size="{output_size}" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                 <td style="padding: 10px 12px; white-space: nowrap;">
                     <a href="{reverse("admin:core_archiveresult_change", args=[result.id])}"
                        style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 11px;"
@@ -228,6 +239,9 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 <td class="archive-results-files" style="padding: 10px 12px; color: #64748b; font-size: 12px; text-align: right;">
                     {output_file_count}
                 </td>
+                <td class="archive-results-size" style="padding: 10px 12px; color: #64748b; font-size: 12px; text-align: right; white-space: nowrap;">
+                    {output_size_display}
+                </td>
                 <td class="archive-results-completed" style="padding: 10px 12px; color: #64748b; font-size: 12px;">
                     {end_time}
                 </td>
@@ -248,11 +262,12 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                         <a href="{reverse("admin:core_archiveresult_change", args=[result.id])}"
                            style="padding: 4px 8px; background: #f1f5f9; border-radius: 4px; color: #475569; text-decoration: none; font-size: 11px;"
                            title="Edit">✏️</a>
+                        {delete_button}
                     </div>
                 </td>
             </tr>
             <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td colspan="11" style="padding: 0 12px 10px 12px;">
+                <td colspan="12" style="padding: 0 12px 10px 12px;">
                     <details id="{row_id}" style="margin: 0;">
                         <summary style="cursor: pointer; font-size: 11px; color: #94a3b8; user-select: none;">
                             Details &amp; Output
@@ -289,8 +304,8 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
     footer = ""
     if total_count > limit:
         footer = f"""
-            <tr>
-                <td colspan="11" style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
+            <tr data-output-footer>
+                <td colspan="12" style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
                     Showing {limit} of {total_count} results &nbsp;
                     <a href="/admin/core/archiveresult/?snapshot__id__exact={results[0].snapshot_id if results else ""}"
                        style="color: #2563eb;">View all →</a>
@@ -309,6 +324,9 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                         <th class="archive-results-plugin" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Plugin</th>
                         <th class="archive-results-output" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Output</th>
                         <th class="archive-results-files" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Files</th>
+                        <th class="archive-results-size" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <button type="button" data-output-size-sort style="all: unset; cursor: pointer;">Size ↕</button>
+                        </th>
                         <th class="archive-results-completed" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Completed</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Process</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Machine</th>

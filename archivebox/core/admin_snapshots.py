@@ -873,7 +873,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     @admin.display(description="Archive Results")
     def archiveresults_list(self, obj):
         request = self.request
-        return render_archiveresults_list(obj.archiveresult_set.all(), limit=8, config=request.archivebox_config)
+        return render_archiveresults_list(
+            obj.archiveresult_set.all(),
+            limit=8,
+            config=request.archivebox_config,
+            can_delete=request.user.is_superuser,
+        )
 
     @admin.display(
         description="Title",
