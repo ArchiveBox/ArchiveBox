@@ -14,41 +14,39 @@ from archivebox.tests.conftest import api_client_request
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_archiveresult_upload_upserts_one_row_per_plugin(client, api_admin_user, api_headers):
+def test_archiveresult_upload_upserts_by_snapshot_plugin_and_hook(client, api_admin_user, api_headers):
     crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
     snapshot = Snapshot.objects.create(url="https://example.com/unified-result", crawl=crawl)
 
-    first_response = client.post(
-        "/api/v1/core/archiveresults",
-        {
-            "snapshot_id": str(snapshot.id),
-            "plugin": "screenshot",
-            "hook_name": "on_Snapshot__archivebox_browser_extension_upload",
-            "files": SimpleUploadedFile("browser.png", b"browser", content_type="image/png"),
-            "output_paths": "browser.png",
-        },
-        **api_headers,
-    )
-    second_response = client.post(
-        "/api/v1/core/archiveresults",
-        {
-            "snapshot_id": str(snapshot.id),
-            "plugin": "screenshot",
-            "hook_name": "on_Snapshot__50_screenshot.py",
-            "files": SimpleUploadedFile("server.png", b"server", content_type="image/png"),
-            "output_paths": "server.png",
-        },
-        **api_headers,
-    )
+    def upload(hook_name, filename, contents):
+        return client.post(
+            "/api/v1/core/archiveresults",
+            {
+                "snapshot_id": str(snapshot.id),
+                "plugin": "screenshot",
+                "hook_name": hook_name,
+                "files": SimpleUploadedFile(filename, contents, content_type="image/png"),
+                "output_paths": filename,
+            },
+            **api_headers,
+        )
 
-    assert first_response.status_code == 200, first_response.content
-    assert second_response.status_code == 200, second_response.content
-    assert second_response.json()["id"] == first_response.json()["id"]
-    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="screenshot")
-    assert result.hook_name == "on_Snapshot__50_screenshot.py"
-    assert set(result.output_files) == {"browser.png", "server.png"}
-    assert (result.output_dir / "browser.png").read_bytes() == b"browser"
-    assert (result.output_dir / "server.png").read_bytes() == b"server"
+    extension_response = upload("on_Snapshot__archivebox_browser_extension_upload", "browser.png", b"browser")
+    server_response = upload("on_Snapshot__50_screenshot", "server.png", b"server")
+    extension_update = upload("on_Snapshot__archivebox_browser_extension_upload", "browser-2.png", b"browser-2")
+
+    assert extension_response.status_code == 200, extension_response.content
+    assert server_response.status_code == 200, server_response.content
+    assert extension_update.status_code == 200, extension_update.content
+    assert extension_update.json()["id"] == extension_response.json()["id"]
+    assert server_response.json()["id"] != extension_response.json()["id"]
+
+    results = ArchiveResult.objects.filter(snapshot=snapshot, plugin="screenshot").order_by("hook_name")
+    assert results.count() == 2
+    extension_result = results.get(hook_name="on_Snapshot__archivebox_browser_extension_upload")
+    server_result = results.get(hook_name="on_Snapshot__50_screenshot")
+    assert set(extension_result.output_files) == {"browser.png", "browser-2.png"}
+    assert set(server_result.output_files) == {"server.png"}
 
 
 def test_archiveresult_upload_api_queues_snapshot_maintenance_without_finalizing(client, api_admin_user, api_headers):

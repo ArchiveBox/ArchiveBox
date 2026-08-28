@@ -14,6 +14,35 @@ from archivebox.tests.conftest import run_archivebox_cmd
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.django_db
+def test_archiveresult_relpath_uses_sibling_hook_that_owns_output(admin_user):
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.core.views import _resolve_archiveresult_relpath
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com", crawl=crawl)
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="screenshot",
+        hook_name="on_Snapshot__archivebox_browser_extension_upload",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={"browser.png": {"size": 7}},
+    )
+    server_result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="screenshot",
+        hook_name="on_Snapshot__50_screenshot",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={"screenshot.png": {"size": 6, "root_relative": True}},
+    )
+
+    resolved_path, result = _resolve_archiveresult_relpath(snapshot, "screenshot/screenshot.png")
+
+    assert resolved_path == "screenshot.png"
+    assert result == server_result
+
+
 def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
     from archivebox.misc.serve_static import _rewrite_html_image_sources_to_responses
 

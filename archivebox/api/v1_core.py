@@ -528,7 +528,12 @@ def create_archiveresult(
     normalized_status = ArchiveResult.normalize_status(status)
     parsed_output_json = _parse_archiveresult_output_json(output_json)
     hook = hook_name or ARCHIVERESULT_UPLOAD_HOOK_NAME
-    existing_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin_name).first()
+    result_lookup = {
+        "snapshot": snapshot,
+        "plugin": plugin_name,
+        "hook_name": hook,
+    }
+    existing_result = ArchiveResult.objects.filter(**result_lookup).first()
     existing_output_files = dict(existing_result.output_files or {}) if existing_result else {}
     output_files = _write_archiveresult_files(
         request,
@@ -541,7 +546,7 @@ def create_archiveresult(
 
     with transaction.atomic():
         Snapshot.objects.select_for_update().get(pk=snapshot.pk)
-        existing_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin_name).first()
+        existing_result = ArchiveResult.objects.filter(**result_lookup).first()
         if existing_result:
             output_files = {
                 **dict(existing_result.output_files or {}),
@@ -565,7 +570,6 @@ def create_archiveresult(
         output_size, output_mimetypes = _summarize_archiveresult_output_files(output_files)
         output_file_paths = list(output_files.keys())
         result.status = normalized_status
-        result.hook_name = hook
         result.output_str = output_str or (output_file_paths[0] if output_file_paths else "")
         result.output_json = parsed_output_json
         result.output_files = output_files

@@ -10,6 +10,11 @@ def _is_signal_interrupted_exit(exit_code: int | None) -> bool:
     return exit_code is not None and (exit_code < 0 or exit_code >= 128)
 
 
+def _canonical_hook_name(hook_name: str) -> str:
+    hook_name = Path(hook_name).name
+    return Path(hook_name).stem if Path(hook_name).suffix in {".py", ".js", ".sh"} else hook_name
+
+
 def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | None = None) -> dict[str, int]:
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import ArchiveResult, Snapshot
@@ -168,14 +173,23 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             orphaned_hook_processes = orphaned_hook_processes.filter(snapshot_pwd_filter)
         else:
             orphaned_hook_processes = orphaned_hook_processes.none()
-    for process in orphaned_hook_processes.only("id", "pwd", "cmd", "process_type", "status", "started_at", "ended_at").order_by(
-        "-started_at",
-        "-id",
-    ):
+    for process in orphaned_hook_processes.only(
+        "id",
+        "pwd",
+        "cmd",
+        "process_type",
+        "status",
+        "exit_code",
+        "stdout",
+        "stderr",
+        "started_at",
+        "ended_at",
+    ).order_by("-started_at", "-id"):
         hook_script_name = process.hook_script_name
         if not hook_script_name or not process.pwd:
             continue
         plugin_dir = Path(process.pwd)
+        hook_name = _canonical_hook_name(hook_script_name)
         if crawl_snapshot_ids is not None and plugin_dir.parent.name not in crawl_snapshot_ids:
             continue
         try:
@@ -190,24 +204,26 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         result, created = ArchiveResult.objects.get_or_create(
             snapshot=snapshot,
             plugin=plugin_dir.name,
+            hook_name=hook_name,
             defaults={
-                "hook_name": Path(hook_script_name).stem,
                 "status": ArchiveResult.StatusChoices.QUEUED,
             },
         )
-        if created or result.status == ArchiveResult.StatusChoices.QUEUED:
+        process_is_newer = bool(process.started_at and (result.start_ts is None or process.started_at >= result.start_ts))
+        if result.status == ArchiveResult.StatusChoices.QUEUED or process_is_newer:
             requeue_snapshot = False
             # A runner can die after the hook Process exits but before the
             # ProcessCompletedEvent projector links/finalizes ArchiveResult.
-            # Reconstruct the plugin row from its newest durable Process row.
+            # Reconstruct only that exact hook row from the durable Process row.
             output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
             emitted_records = [
                 record
                 for record in Process.parse_records_from_text(process.stdout or "")
-                if record.get("type") == "ArchiveResult" and (record.get("plugin") or plugin_dir.name) == plugin_dir.name
+                if record.get("type") == "ArchiveResult"
+                and (record.get("plugin") or plugin_dir.name) == plugin_dir.name
+                and _canonical_hook_name(str(record.get("hook_name") or hook_name)) == hook_name
             ]
             emitted_result = emitted_records[-1] if emitted_records else {}
-            result.hook_name = Path(hook_script_name).stem
             result.process = process
             result.start_ts = process.started_at
             result.end_ts = process.ended_at
@@ -220,6 +236,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
                 result.output_size = 0
                 result.output_mimetypes = ""
                 result.output_str = ""
+                result.output_json = None
                 result.status = ArchiveResult.StatusChoices.QUEUED
                 requeue_snapshot = True
             else:
@@ -244,7 +261,6 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
                 )
             result.save(
                 update_fields=[
-                    "hook_name",
                     "process",
                     "start_ts",
                     "end_ts",

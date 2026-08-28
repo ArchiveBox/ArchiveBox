@@ -141,3 +141,29 @@ class TestArchiveResultAdminListView:
         assert not output_dir.exists()
         snapshot.refresh_from_db()
         assert snapshot.output_size == 0
+
+    def test_deleting_sibling_hook_preserves_shared_plugin_output(self, snapshot):
+        from archivebox.core.models import ArchiveResult
+
+        output_dir = Path(snapshot.output_dir) / "responses"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = output_dir / "index.jsonl"
+        output_file.write_text("captured response\n")
+        primary = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="responses",
+            hook_name="on_Snapshot__24_responses.daemon.bg",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_size=18,
+        )
+        duplicate = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="responses",
+            hook_name="on_Snapshot__24_responses.daemon.bg.replayed",
+            status=ArchiveResult.StatusChoices.NORESULTS,
+        )
+
+        duplicate.delete()
+
+        assert ArchiveResult.objects.filter(pk=primary.pk).exists()
+        assert output_file.read_text() == "captured response\n"

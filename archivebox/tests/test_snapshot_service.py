@@ -40,6 +40,50 @@ def _snapshot_state(cwd: Path, url: str) -> dict[str, object]:
         }
 
 
+def test_snapshot_merge_consolidates_only_exact_hook_identity(admin_user):
+    from archivebox.crawls.models import Crawl
+
+    keeper_crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    duplicate_crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    keeper = Snapshot.objects.create(url="https://example.com", crawl=keeper_crawl)
+    duplicate = Snapshot.objects.create(url="https://example.com", crawl=duplicate_crawl)
+    ArchiveResult.objects.create(
+        snapshot=keeper,
+        plugin="archivewebpage",
+        hook_name="on_Snapshot__65_archivewebpage_stop",
+        status=ArchiveResult.StatusChoices.NORESULTS,
+        output_files={"older.wacz": {"size": 5}},
+        output_size=5,
+    )
+    ArchiveResult.objects.create(
+        snapshot=duplicate,
+        plugin="archivewebpage",
+        hook_name="on_Snapshot__65_archivewebpage_stop",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="archivewebpage.wacz",
+        output_files={"archivewebpage.wacz": {"size": 7}},
+        output_size=7,
+    )
+    ArchiveResult.objects.create(
+        snapshot=duplicate,
+        plugin="archivewebpage",
+        hook_name="on_Snapshot__16_archivewebpage_start",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="recording started",
+    )
+
+    Snapshot._merge_snapshots([keeper, duplicate])
+
+    assert not Snapshot.objects.filter(pk=duplicate.pk).exists()
+    results = ArchiveResult.objects.filter(snapshot=keeper, plugin="archivewebpage")
+    assert results.count() == 2
+    stop_result = results.get(hook_name="on_Snapshot__65_archivewebpage_stop")
+    assert stop_result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    assert stop_result.output_str == "archivewebpage.wacz"
+    assert set(stop_result.output_files) == {"older.wacz", "archivewebpage.wacz"}
+    assert results.filter(hook_name="on_Snapshot__16_archivewebpage_start").exists()
+
+
 @pytest.mark.timeout(180)
 def test_snapshot_service_cli_add_seals_snapshot_and_writes_indexes(tmp_path, recursive_test_site):
     init_archive(tmp_path)

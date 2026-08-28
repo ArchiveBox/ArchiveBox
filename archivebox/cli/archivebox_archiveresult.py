@@ -67,7 +67,7 @@ def create_archiveresults(
     Reads Snapshot records from stdin and emits ArchiveResult request JSONL.
     Pass-through: Non-Snapshot/ArchiveResult records are output unchanged.
     If --plugin is specified, only emits requests for that plugin.
-    Otherwise, emits one request for each enabled Snapshot plugin.
+    Otherwise, emits requests for all enabled snapshot hooks.
 
     Exit codes:
         0: Success
@@ -144,17 +144,14 @@ def create_archiveresults(
 
     created_count = 0
     for snapshot in snapshots:
-        if plugin:
+        config = get_config(crawl=snapshot.crawl, snapshot=snapshot)
+        hooks = [hook for hook in discover_hooks("Snapshot", config=config) if not plugin or hook.parent.name == plugin]
+        for hook_path in hooks:
+            hook_name = hook_path.stem
+            plugin_name = hook_path.parent.name
             if not is_tty:
-                write_record(build_archiveresult_request(snapshot.id, plugin, status=status))
+                write_record(build_archiveresult_request(snapshot.id, plugin_name, hook_name=hook_name, status=status))
             created_count += 1
-        else:
-            config = get_config(crawl=snapshot.crawl, snapshot=snapshot)
-            hooks = discover_hooks("Snapshot", config=config)
-            for plugin_name in dict.fromkeys(hook_path.parent.name for hook_path in hooks):
-                if not is_tty:
-                    write_record(build_archiveresult_request(snapshot.id, plugin_name, status=status))
-                created_count += 1
 
     rprint(f"[green]Created {created_count} archive result request records[/green]", file=sys.stderr)
     return 0
@@ -254,11 +251,9 @@ def update_archiveresults(
 
             # Apply updates from CLI flags
             if status:
-                if status == ArchiveResult.StatusChoices.QUEUED:
-                    result.reset_for_retry()
-                else:
-                    result.status = status
-                    result.save(update_fields=["status", "modified_at"])
+                result.status = status
+
+            result.save()
             updated_count += 1
 
             if not is_tty:
