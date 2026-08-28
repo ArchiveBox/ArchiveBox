@@ -281,6 +281,12 @@ jobs:
           DIGEST='${{ steps.docker_build.outputs.digest }}'
           [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           MANIFEST="$("$DOCKER_BINARY" buildx imagetools inspect --raw "${DOCKERHUB_IMAGE}@${DIGEST}")"
+          # Provenance wraps the real platform image and its attestation in an
+          # OCI index. Measure the image manifest, not the index/attestation.
+          IMAGE_DIGEST="$(MANIFEST="$MANIFEST" PLATFORM='${{ matrix.platform }}' "$UV_BINARY" run --no-cache --no-project python -c 'import json, os; manifest = json.loads(os.environ["MANIFEST"]); platform_os, platform_arch = os.environ["PLATFORM"].split("/")[:2]; print(next((item["digest"] for item in manifest.get("manifests", []) if item.get("platform", {}).get("os") == platform_os and item.get("platform", {}).get("architecture") == platform_arch), ""))')"
+          if [[ -n "$IMAGE_DIGEST" ]]; then
+            MANIFEST="$("$DOCKER_BINARY" buildx imagetools inspect --raw "${DOCKERHUB_IMAGE}@${IMAGE_DIGEST}")"
+          fi
           COMPRESSED_SIZE="$(MANIFEST="$MANIFEST" "$UV_BINARY" run --no-cache --no-project python -c 'import json, os; manifest = json.loads(os.environ["MANIFEST"]); print(manifest["config"]["size"] + sum(layer["size"] for layer in manifest["layers"]))')"
           LIMIT=$((750 * 1024 * 1024))
           echo "${DIGEST} compressed_size=$((COMPRESSED_SIZE / 1024 / 1024)) MiB limit=750 MiB"
