@@ -4115,10 +4115,13 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def schedule_delete_cleanup(self, *, using: str | None = None) -> None:
         """Remove shared plugin output and refresh persisted Snapshot metadata after commit."""
         snapshot_id = self.snapshot_id
+        plugin = self.plugin
         paths = self.validate_output_paths_for_delete(self.output_paths_for_delete())
 
         def cleanup() -> None:
-            type(self).delete_output_paths(paths)
+            results = type(self).objects.using(using) if using else type(self).objects
+            if not results.filter(snapshot_id=snapshot_id, plugin=plugin).exists():
+                type(self).delete_output_paths(paths)
             type(self).refresh_snapshot_output_sizes({snapshot_id})
             snapshot = Snapshot.objects.filter(pk=snapshot_id).first()
             if snapshot:
