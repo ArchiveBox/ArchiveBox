@@ -353,10 +353,15 @@ class SnapshotView(View):
             if (out.get("size") or 0) > 0 and out.get("name") not in hidden_card_plugins
         ]
         archiveresults = {}
+        result_ids_by_name = {}
         for output in outputs:
+            if output.get("result"):
+                result_ids_by_name.setdefault(output["name"], []).append(str(output["result"].id))
             current = archiveresults.get(output["name"])
             if current is None or (output.get("size") or 0) > (current.get("size") or 0):
                 archiveresults[output["name"]] = output
+        for name, output in archiveresults.items():
+            output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
         hash_index = snapshot.hashes_index
         loose_items, failed_items = snapshot.get_detail_page_auxiliary_items(
             outputs,
@@ -479,6 +484,7 @@ class SnapshotView(View):
             "related_years": related_years,
             "loose_items": loose_items,
             "failed_items": failed_items,
+            "can_delete_outputs": bool(request.user.is_authenticated and request.user.is_active and request.user.is_superuser),
             "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in sorted(tags, key=lambda tag: tag.name)],
         }
         return render(template_name="core/snapshot.html", request=request, context=context)

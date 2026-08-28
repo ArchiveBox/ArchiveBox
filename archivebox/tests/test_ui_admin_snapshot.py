@@ -1,5 +1,6 @@
 """Snapshot model and admin UI tests."""
 
+import json
 import shutil
 import warnings
 from pathlib import Path
@@ -7,6 +8,7 @@ from threading import Thread
 from types import SimpleNamespace
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.core.paginator import UnorderedObjectListWarning
 from django.test import RequestFactory
@@ -742,6 +744,92 @@ class TestSnapshotProgressStats:
         assert 'class="header-toggle header-toggle-trigger"' not in rendered
         assert "event.preventDefault()" in rendered
         assert rendered.count(".on('click', handleSnapshotHeaderToggle)") == 1
+
+
+class TestSnapshotOutputDeletion:
+    @staticmethod
+    def _create_output(snapshot, *, plugin="screenshot", hook_name="on_Snapshot__50_screenshot.py", size=11):
+        from archivebox.core.models import ArchiveResult
+
+        output_dir = Path(snapshot.output_dir) / plugin
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "output.png"
+        output_path.write_bytes(b"x" * size)
+        return ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin=plugin,
+            hook_name=hook_name,
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="output.png",
+            output_files={"output.png": {"size": size, "mimetype": "image/png"}},
+            output_size=size,
+        )
+
+    def test_snapshot_detail_only_shows_delete_controls_to_superusers(self, snapshot, admin_user):
+        from archivebox.core.views import SnapshotView
+
+        result = self._create_output(snapshot)
+        request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
+        request.user = admin_user
+
+        html = SnapshotView.render_live_index(request, snapshot).content.decode()
+
+        assert f'data-archive-result-ids="{result.id}"' in html
+        assert 'title="Delete this output"' in html
+        assert "const queuedOutputIds = new Set()" in html
+        assert "action: 'delete_selected'" in html
+        assert "/admin/core/archiveresult/" in html
+        assert "[deleting]" in html
+
+        request.user = AnonymousUser()
+        anonymous_html = SnapshotView.render_live_index(request, snapshot).content.decode()
+        assert "data-archive-result-ids" not in anonymous_html
+        assert 'title="Delete this output"' not in anonymous_html
+
+    def test_batch_delete_removes_plugin_rows_files_and_refreshes_snapshot_size(self, client, snapshot, admin_user):
+        from archivebox.core.models import ArchiveResult
+
+        first = self._create_output(snapshot, size=11)
+        second = self._create_output(snapshot, hook_name="on_Snapshot__51_screenshot_retry.py", size=13)
+        kept = self._create_output(snapshot, plugin="pdf", hook_name="on_Snapshot__60_pdf.py", size=7)
+        deleted_dir = Path(first.output_dir)
+        kept_dir = Path(kept.output_dir)
+        hashes_dir = Path(snapshot.output_dir) / "hashes"
+        hashes_dir.mkdir(parents=True, exist_ok=True)
+        (hashes_dir / "hashes.json").write_text(
+            json.dumps({"files": [{"path": "screenshot/output.png", "size": 13}]}),
+        )
+
+        delete_url = reverse("admin:core_archiveresult_changelist")
+        delete_data = {
+            "action": "delete_selected",
+            "post": "yes",
+            ACTION_CHECKBOX_NAME: [str(first.id), str(second.id)],
+        }
+        denied = client.post(
+            delete_url,
+            delete_data,
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert denied.status_code == 302
+        assert deleted_dir.exists()
+
+        client.force_login(admin_user)
+        response = client.post(
+            delete_url,
+            delete_data,
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+
+        assert response.status_code == 302
+        assert not ArchiveResult.objects.filter(pk__in=[first.pk, second.pk]).exists()
+        assert ArchiveResult.objects.filter(pk=kept.pk).exists()
+        assert not deleted_dir.exists()
+        assert kept_dir.exists()
+        snapshot.refresh_from_db()
+        assert snapshot.output_size == 7
+        assert "screenshot" not in {output["name"] for output in snapshot.discover_outputs()}
+        assert '"plugin": "screenshot"' not in (Path(snapshot.output_dir) / "index.jsonl").read_text()
 
 
 class TestAdminSnapshotListView:

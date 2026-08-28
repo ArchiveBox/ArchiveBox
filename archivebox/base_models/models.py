@@ -284,16 +284,20 @@ class ModelWithOutputDir(ModelWithUUID):
             elif path.is_dir():
                 shutil.rmtree(path, ignore_errors=True)
 
+    def schedule_delete_cleanup(self, *, using: str | None = None) -> None:
+        """Capture output paths before DB deletion and remove them after commit."""
+        paths = self.validate_output_paths_for_delete(self.output_paths_for_delete())
+        transaction.on_commit(lambda: self.delete_output_paths(paths), using=using)
+
     @classmethod
     def register_delete_signal(cls) -> None:
         if cls._delete_signal_registered:
             return
 
-        def schedule_output_dir_cleanup(sender, instance, **kwargs):
+        def schedule_output_dir_cleanup(sender, instance, using, **kwargs):
             if not isinstance(instance, ModelWithOutputDir):
                 return
-            paths = instance.validate_output_paths_for_delete(instance.output_paths_for_delete())
-            transaction.on_commit(lambda paths=paths: instance.delete_output_paths(paths))
+            instance.schedule_delete_cleanup(using=using)
 
         pre_delete.connect(
             schedule_output_dir_cleanup,

@@ -3300,7 +3300,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             fallback_ts = ts_to_date_str(self.downloaded_at or self.created_at)
             for root, root_entries in grouped_hash_outputs.items():
                 fallback_path = ArchiveResult._fallback_output_file_path(list(root_entries.keys()), root, root_entries)
-                if not fallback_path:
+                if not fallback_path or not (snap_dir / root / fallback_path).exists():
                     continue
                 fallback_meta = root_entries.get(fallback_path, {})
                 outputs.append(
@@ -4112,12 +4112,19 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                         ),
                     )
 
-    def delete(self, *args, **kwargs):
+    def schedule_delete_cleanup(self, *, using: str | None = None) -> None:
+        """Remove shared plugin output and refresh persisted Snapshot metadata after commit."""
         snapshot_id = self.snapshot_id
-        deleted = super().delete(*args, **kwargs)
-        if snapshot_id:
-            transaction.on_commit(lambda: type(self).refresh_snapshot_output_sizes({snapshot_id}))
-        return deleted
+        paths = self.validate_output_paths_for_delete(self.output_paths_for_delete())
+
+        def cleanup() -> None:
+            type(self).delete_output_paths(paths)
+            type(self).refresh_snapshot_output_sizes({snapshot_id})
+            snapshot = Snapshot.objects.filter(pk=snapshot_id).first()
+            if snapshot:
+                snapshot.write_index_jsonl()
+
+        transaction.on_commit(cleanup, using=using)
 
     @staticmethod
     def refresh_snapshot_output_sizes(snapshot_ids):

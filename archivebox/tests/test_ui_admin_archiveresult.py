@@ -113,3 +113,31 @@ class TestArchiveResultAdminListView:
         assert response.status_code == 200
         assert b"output-json-loaded-once" in response.content
         assert len(result_queries) == 1
+
+    def test_admin_delete_removes_output_directory_and_refreshes_snapshot_size(self, client, admin_user, snapshot):
+        from archivebox.core.models import ArchiveResult
+
+        output_dir = Path(snapshot.output_dir) / "screenshot"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "output.png").write_bytes(b"archive output")
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="screenshot",
+            hook_name="on_Snapshot__50_screenshot.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"output.png": {"size": 14, "mimetype": "image/png"}},
+            output_size=14,
+        )
+        client.force_login(admin_user)
+
+        response = client.post(
+            reverse("admin:core_archiveresult_delete", args=[result.pk]),
+            {"post": "yes"},
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+
+        assert response.status_code == 302
+        assert not ArchiveResult.objects.filter(pk=result.pk).exists()
+        assert not output_dir.exists()
+        snapshot.refresh_from_db()
+        assert snapshot.output_size == 0
