@@ -658,10 +658,10 @@ def _get_archivewebpage_capture(data_dir: Path, url: str) -> dict[str, str]:
         result = ArchiveResult.objects.get(
             snapshot=snapshot,
             plugin="archivewebpage",
-            hook_name="on_Snapshot__65_archivewebpage_stop",
         )
         wacz_path = Path(snapshot.output_dir) / "archivewebpage" / "archivewebpage.wacz"
         assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert result.hook_name == "on_Snapshot__65_archivewebpage_stop"
         assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert wacz_path.is_file()
         return {
