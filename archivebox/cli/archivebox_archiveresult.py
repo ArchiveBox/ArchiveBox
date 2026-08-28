@@ -145,7 +145,11 @@ def create_archiveresults(
     created_count = 0
     for snapshot in snapshots:
         config = get_config(crawl=snapshot.crawl, snapshot=snapshot)
-        hooks = [hook for hook in discover_hooks("Snapshot", config=config) if not plugin or hook.parent.name == plugin]
+        hooks = [
+            hook
+            for hook in discover_hooks("Snapshot", filter_disabled=not plugin, config=config)
+            if not plugin or hook.parent.name == plugin
+        ]
         for hook_path in hooks:
             hook_name = hook_path.stem
             plugin_name = hook_path.parent.name

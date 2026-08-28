@@ -61,6 +61,7 @@ class TestArchiveResultCreate:
 
         ar = next(r for r in records if r["type"] == "ArchiveResult")
         assert ar["plugin"] == "title"
+        assert ar["hook_name"].startswith("on_Snapshot__")
         assert "id" not in ar
 
     def test_create_with_specific_plugin(self, initialized_archive):
@@ -88,7 +89,8 @@ class TestArchiveResultCreate:
         records = parse_jsonl_output(stdout2)
         ar_records = [r for r in records if r.get("type") == "ArchiveResult"]
         assert len(ar_records) >= 1
-        assert ar_records[0]["plugin"] == "screenshot"
+        assert all(record["plugin"] == "screenshot" for record in ar_records)
+        assert all(record["hook_name"].startswith("on_Snapshot__") for record in ar_records)
 
     def test_create_pass_through_crawl(self, initialized_archive):
         """Pass-through Crawl records unchanged."""
