@@ -209,21 +209,19 @@ jobs:
           pull: true
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
+          cache-to: ${{ inputs.full_tests && format('type=gha,mode=max,scope={0}', matrix.cache_scope) || '' }}
           outputs: |
-            type=docker,name=${{ matrix.local_tag }}
             ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar', runner.temp) || '' }}
-            type=image,"name=${{ env.DOCKERHUB_IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
+            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
 
       - name: Build pull request image
+        id: docker_build_pr
         if: ${{ !inputs.push_digests }}
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ./
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
-          load: true
-          tags: ${{ matrix.local_tag }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           build-args: |
             ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
@@ -232,12 +230,16 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
           cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
+          outputs: |
+            type=docker,name=${{ matrix.local_tag }}
+            type=oci,dest=${{ runner.temp }}/archivebox-image.tar
 
       - name: Image digest
         if: inputs.push_digests
         run: echo ${{ steps.docker_build.outputs.digest }}
 
       - name: Validate exact built image version and commit
+        if: ${{ !inputs.push_digests }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -270,6 +272,19 @@ jobs:
 
           "$DOCKER_BINARY" run --rm --user 911:911 --platform '${{ matrix.platform }}' --entrypoint /venv/bin/python3 "$IMAGE" -c \
             'import json, pathlib, stat; cache_file = "/opt/archivebox/lib/env/derived.env"; raw = open(cache_file).read().strip(); records = json.loads(raw[len("ABXPKG_DERIVED_CACHE=\x27"):-1]); projections = [projection for record in records.values() for projection in record.get("request_exec_projections", {}).values()]; plans = [projection["validation"] for projection in projections]; fingerprints = [fingerprint for plan in plans for fingerprint in plan["fingerprint"]]; actual = lambda fingerprint: (lambda path, value: {"path": str(path.resolve(strict=False)), "size": value.st_size, "mtime_ns": value.st_mtime_ns, "mode": stat.S_IMODE(value.st_mode), "euid": value.st_uid})(pathlib.Path(fingerprint["path"]), pathlib.Path(fingerprint["path"]).stat()); mismatches = [(fingerprint, actual(fingerprint)) for fingerprint in fingerprints if fingerprint != actual(fingerprint)]; assert projections and {plan.get("euid") for plan in plans} == {911}; assert all(not record.get("script_exec_plans") for record in records.values()); assert "ABXPKG_TMP_CACHE_DIR" not in json.dumps(projections); assert not mismatches, mismatches[:3]'
+
+      - name: Validate compressed candidate size
+        if: inputs.push_digests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          DIGEST='${{ steps.docker_build.outputs.digest }}'
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          MANIFEST="$("$DOCKER_BINARY" buildx imagetools inspect --raw "${DOCKERHUB_IMAGE}@${DIGEST}")"
+          COMPRESSED_SIZE="$(MANIFEST="$MANIFEST" "$UV_BINARY" run --no-cache --no-project python -c 'import json, os; manifest = json.loads(os.environ["MANIFEST"]); print(manifest["config"]["size"] + sum(layer["size"] for layer in manifest["layers"]))')"
+          LIMIT=$((750 * 1024 * 1024))
+          echo "${DIGEST} compressed_size=$((COMPRESSED_SIZE / 1024 / 1024)) MiB limit=750 MiB"
+          (( COMPRESSED_SIZE < LIMIT ))
 
       - name: Resolve real Docker CLI test dependencies through abxpkg
         if: inputs.full_tests && matrix.platform == 'linux/amd64'
@@ -383,18 +398,18 @@ jobs:
           "$DOCKER_BINARY" compose down
 
       - name: Validate compressed image size
-        if: inputs.full_tests && inputs.push_digests
+        if: inputs.full_tests && !inputs.push_digests
         env:
-          BUILD_METADATA: ${{ steps.docker_build.outputs.metadata }}
+          BUILD_METADATA: ${{ steps.docker_build_pr.outputs.metadata }}
         shell: bash
         run: |
           set -Eeuo pipefail
           LOCAL_IMAGE_ID="$("$DOCKER_BINARY" image inspect '${{ matrix.local_tag }}' --format '{{.Id}}')"
           "$UV_BINARY" run --no-cache --no-project python - \
             '${{ runner.temp }}/archivebox-image.tar' \
-            '${{ steps.docker_build.outputs.digest }}' \
+            '${{ steps.docker_build_pr.outputs.digest }}' \
             "$LOCAL_IMAGE_ID" \
-            "$((910 * 1024 * 1024))" <<'PY'
+            "$((750 * 1024 * 1024))" <<'PY'
           from hashlib import sha256
           import json
           import os
