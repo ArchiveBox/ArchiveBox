@@ -320,10 +320,12 @@ jobs:
       - python-release
       - docker-release
     permissions:
+      actions: read
       contents: read
     uses: ArchiveBox/monorepo/.github/workflows/cascade-release.yml@main
     with:
       upstream_package: archivebox
       upstream_version: ${{ needs.python-release.outputs.version }}
+      upstream_artifact_name: python-distributions
     secrets:
       release_token: ${{ secrets.RELEASE_GH_TOKEN }}
