@@ -210,9 +210,11 @@ jobs:
           platforms: ${{ matrix.platform }}
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
           cache-to: ${{ inputs.full_tests && format('type=gha,mode=max,scope={0}', matrix.cache_scope) || '' }}
+          # Keep the abx-dl base layers in zstd form: it is both smaller and
+          # faster to export than gzip, and ArchiveBox can reuse them by digest.
           outputs: |
-            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar', runner.temp) || '' }}
-            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
+            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=3,force-compression=true', runner.temp) || '' }}
+            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=3,force-compression=true', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
 
       - name: Build pull request image
         id: docker_build_pr

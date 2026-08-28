@@ -75,6 +75,15 @@ docker/
 website/
 typings/
 
+# The runtime COPY needs ArchiveBox's package and bin/ entrypoint, not the
+# development UI screenshots or test trees. PNGs are already compressed, so
+# including them creates a large image layer that later cleanup cannot remove.
+publicsite/
+old/
+test/
+tests/
+archivebox/tests/
+
 tmp/
 .tmp/
 data/
