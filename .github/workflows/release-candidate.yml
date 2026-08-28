@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: release-candidate-dev
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   prepare:
