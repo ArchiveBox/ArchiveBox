@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-23T23:25:54.534892529Z"
+exclude-newer = "2026-08-23T23:48:58.298624257Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-08-28T23:25:53.534907532Z", span = "PT1S" }
+abxbus = { timestamp = "2026-08-28T23:48:57.2986399Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.12.205"
+version = "1.12.206"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -38,9 +38,9 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2e/b8/b0c843cc8db57faade66d761df64caf64e31a201f22020e7b11694e151d2/abx_dl-1.12.205.tar.gz", hash = "sha256:a457e988e6380dd8ccc2ac886d3cec264657b6a7ce2b8d0ca009aea48eed3df4", size = 84053 }
+sdist = { url = "https://files.pythonhosted.org/packages/20/4e/d9f56408024269f13498e0c64bcdff4e832f2a0ad7e5371beaa769340534/abx_dl-1.12.206.tar.gz", hash = "sha256:d54595168a0d64134fd0cda1175ce4afcde591f59421bd95ae8c9cecce06a0e9", size = 84040 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/0c/54327d1f3388a1094b96b2080ada45aaed568296d74688163491d8d6a824/abx_dl-1.12.205-py3-none-any.whl", hash = "sha256:8b65417c59afe6aaec2877a59f22e0f912dee83f7caf750ba87334ce17b3158d", size = 87728 },
+    { url = "https://files.pythonhosted.org/packages/65/47/9ebd3fd0aeed42fe9d318b41de93327f4d9059116c91d0a12316f614767c/abx_dl-1.12.206-py3-none-any.whl", hash = "sha256:52dce266472fe338dcfd95da0acdf098ba29160f0e896ba0fc24a072812b933c", size = 87729 },
 ]
 
 [[package]]
@@ -220,7 +220,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.12.205" },
+    { name = "abx-dl", specifier = "==1.12.206" },
     { name = "abx-plugins", specifier = "==1.12.192" },
     { name = "abxbus", specifier = "==2.5.56" },
     { name = "abxpkg", specifier = "==1.12.109" },
