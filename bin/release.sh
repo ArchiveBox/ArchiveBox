@@ -20,21 +20,9 @@ TAG_PREFIX=v
 PYPI_PACKAGE=archivebox
 
 pypi_release_json() {
-    "$CURL_BINARY" -fsSL --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
+    "$CURL_BINARY" -fsSL \
         -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
         "https://pypi.org/pypi/${PYPI_PACKAGE}/$1/json?cache_bust=$(date +%s)-${RANDOM}"
-}
-
-pypi_wait_for_release() {
-    local version="$1"
-    pypi_release_json "${version}" >/dev/null
-    for _ in {1..30}; do
-        "$CURL_BINARY" -fsSL -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
-            "https://pypi.org/simple/${PYPI_PACKAGE}/?cache_bust=$(date +%s)-${RANDOM}" | \
-            grep -Fq ">archivebox-${version}-py3-none-any.whl<" && return
-        sleep 2
-    done
-    return 1
 }
 
 VERSION="$($UV_BINARY run --no-cache --no-project python - <<'PY'
@@ -133,7 +121,7 @@ if [[ -n "$TAG_TARGET" && "$TAG_TARGET" != "$RELEASE_SHA" ]]; then
         echo "Existing tag $TAG is not on $RELEASE_BRANCH" >&2
         exit 1
     }
-    PYPI_URLS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -c --arg version "$VERSION" ".releases[\$version] // []")"
+    PYPI_URLS="$(pypi_release_json "$VERSION" | $JQ_BINARY -c '.urls')"
     PYPI_URLS="$PYPI_URLS" VERSION="$VERSION" $UV_BINARY run --no-cache --no-project python - <<'PY'
 import json
 import os
@@ -241,7 +229,7 @@ SDISTS=("$RELEASE_DISTRIBUTIONS_DIR"/archivebox-*.tar.gz)
     exit 1
 }
 
-PYPI_URLS="$($CURL_BINARY -fsSL "https://pypi.org/pypi/${PYPI_PACKAGE}/json" | $JQ_BINARY -c --arg version "$VERSION" ".releases[\$version] // []")"
+PYPI_URLS="$(pypi_release_json "$VERSION" | $JQ_BINARY -c '.urls')" || PYPI_URLS='[]'
 PYPI_STATUS_OUTPUT="$(PYPI_URLS="$PYPI_URLS" RELEASE_DISTRIBUTIONS_DIR="$RELEASE_DISTRIBUTIONS_DIR" VERSION="$VERSION" $UV_BINARY run --no-cache --no-project python - <<'PY'
 import json
 import os
@@ -308,7 +296,6 @@ if [[ "$PYPI_STATE" != complete ]]; then
     done
     [[ "${#PYPI_ARTIFACTS[@]}" -gt 0 ]]
     $UV_BINARY publish --no-cache --trusted-publishing always "${PYPI_ARTIFACTS[@]}"
-    pypi_wait_for_release "$VERSION"
 fi
 
 if [[ "$IS_RC" == true ]]; then

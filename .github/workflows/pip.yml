@@ -72,13 +72,12 @@ jobs:
           shopt -s nullglob
           wheels=(dist/archivebox-*.whl)
           [[ "${#wheels[@]}" -eq 1 ]]
-          smoke_env="$(mktemp -d)/.venv"
-          uv venv --python 3.13 "$smoke_env"
-          uv pip install --no-cache --python "$smoke_env" "${wheels[0]}"
+          uv sync --locked --no-cache --no-sources --no-dev --no-install-project
+          uv pip install --no-cache --no-deps --python .venv/bin/python "${wheels[0]}"
           unset PYTHONPATH
           cd "$(mktemp -d)"
-          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync python -c 'import archivebox'
-          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox version
+          VIRTUAL_ENV="$GITHUB_WORKSPACE/.venv" uv run --no-cache --active --no-project python -c 'import archivebox'
+          VIRTUAL_ENV="$GITHUB_WORKSPACE/.venv" uv run --no-cache --active --no-project archivebox version
 
       - name: Upload every distribution
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
