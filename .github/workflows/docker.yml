@@ -207,6 +207,8 @@ jobs:
             ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
           outputs: |
             type=docker,name=${{ matrix.local_tag }}
             type=oci,dest=${{ runner.temp }}/archivebox-image.tar
@@ -227,6 +229,8 @@ jobs:
             ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
 
       - name: Image digest
         if: inputs.push_digests

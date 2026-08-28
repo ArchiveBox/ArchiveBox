@@ -30,9 +30,8 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     candidate = yaml.safe_load(RELEASE_CANDIDATE_WORKFLOW.read_text())
     assert candidate["jobs"]["python-artifacts"]["with"]["full_tests"] is False
     pip_workflow = yaml.safe_load(PIP_WORKFLOW.read_text())
-    release_smoke = pip_workflow["jobs"]["release-smoke"]
     install_script = next(
-        step["run"] for step in release_smoke["steps"] if step.get("name") == "Install the wheel and verify import and CLI version"
+        step["run"] for step in pip_workflow["jobs"]["build"]["steps"] if step.get("name") == "Release wheel import and CLI smoke"
     )
     assert "uv pip install --no-cache" in install_script
     assert "import archivebox" in install_script

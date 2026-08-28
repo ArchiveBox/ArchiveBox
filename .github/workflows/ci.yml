@@ -19,36 +19,43 @@ concurrency:
 
 jobs:
   lint:
+    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Linters
     uses: ./.github/workflows/lint.yml
     secrets: inherit
 
   install-cli-platform:
+    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Install and CLI platform compatibility
     uses: ./.github/workflows/test.yml
     secrets: inherit
 
   tests:
+    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Discovered test matrix
     uses: ./.github/workflows/test-parallel.yml
     secrets: inherit
 
   documentation:
+    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Documentation and root tests
     uses: ./.github/workflows/docs.yml
     secrets: inherit
 
   codeql:
+    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: CodeQL
     uses: ./.github/workflows/codeql.yml
     secrets: inherit
 
   python-artifacts:
+    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Tested Python artifacts
     uses: ./.github/workflows/pip.yml
     secrets: inherit
 
   docker-digests:
+    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     name: Tested Docker images
     uses: ./.github/workflows/docker.yml
     with:
@@ -57,7 +64,7 @@ jobs:
 
   required:
     name: All required CI lanes
-    if: ${{ always() }}
+    if: ${{ always() && (github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io') }}
     needs:
       - lint
       - install-cli-platform
