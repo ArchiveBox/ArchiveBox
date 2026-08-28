@@ -38,12 +38,12 @@ jobs:
           ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
-          test -n "$ABXPKG_VERSION"
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+          test -n "$ABXPKG_SPEC"
           mkdir -p "$ABXPKG_LIB_DIR/env/bin"
           export PYTHON_BINARY="$pythonLocation/bin/python"
           test -x "$PYTHON_BINARY"
-          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+          uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env \
             --install \
             --lib="$ABXPKG_LIB_DIR" \
             --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries"
@@ -106,8 +106,8 @@ jobs:
           TEST_PATHS: ${{ matrix.test.paths_arg }}
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(package["version"] for package in tomllib.load(open("uv.lock", "rb"))["package"] if package["name"] == "abxpkg"))')"
-          test -n "$ABXPKG_VERSION"
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+          test -n "$ABXPKG_SPEC"
           dependency_sources=()
           if [[ -n "$TEST_EXTRA" ]]; then
             dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries")
@@ -115,7 +115,7 @@ jobs:
           if [[ "$TEST_PATHS" == *test_postgres_backend* ]]; then
             dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:postgres_binaries")
           fi
-          uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+          uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env \
             --install \
             --no-cache \
             --json \
