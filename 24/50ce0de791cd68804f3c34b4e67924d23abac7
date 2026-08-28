@@ -1,0 +1,21 @@
+bin/release.sh
+  s_3155555fdbdae3::t_1a654777b3084b 22-27,299
+.github/workflows/release-candidate.yml
+  s_3155555fdbdae3::t_3c618cfced9111 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2450ce0de791cd68804f3c34b4e67924d23abac7",
+  "prompts": {},
+  "sessions": {
+    "s_3155555fdbdae3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0467b-ccd7-7a30-a1bb-9d99d3bf7584",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
