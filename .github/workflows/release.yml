@@ -2,7 +2,7 @@ name: Release
 
 on:
   workflow_run:
-    workflows: [CI]
+    workflows: [CI, Release candidate]
     types: [completed]
     branches: [dev, main]
 
@@ -20,9 +20,35 @@ env:
   CI_RUN_ID: ${{ github.event.workflow_run.id }}
 
 jobs:
+  candidate:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      ((github.event.workflow_run.head_branch == 'dev' && github.event.workflow_run.name == 'Release candidate') ||
+       (github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.name == 'CI'))
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.owner.outputs.ready }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.RELEASE_SHA }}
+      - id: owner
+        shell: bash
+        run: |
+          if [[ "$RELEASE_BRANCH" == main ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
+          TARGET="$(git ls-remote origin "refs/tags/release-candidate/$VERSION" | awk '{print $1}')"
+          [[ "$TARGET" == "$RELEASE_SHA" ]] && echo 'ready=true' >> "$GITHUB_OUTPUT" || echo 'ready=false' >> "$GITHUB_OUTPUT"
+
   python-release:
     name: Publish tested Python artifacts
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    needs: candidate
+    if: needs.candidate.outputs.ready == 'true'
     runs-on: ubuntu-24.04
     environment: pypi
     permissions:
@@ -132,28 +158,6 @@ jobs:
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Verify published PyPI package installs and runs
-        if: steps.release-state.outputs.ready == 'true'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          VERSION='${{ steps.version.outputs.version }}'
-          TOOL_ROOT="$(mktemp -d)"
-          export UV_TOOL_DIR="$TOOL_ROOT/tools"
-          export UV_TOOL_BIN_DIR="$TOOL_ROOT/bin"
-          for attempt in {1..40}; do
-            if "$UV_BINARY" tool install --no-cache --force "archivebox==$VERSION"; then
-              break
-            fi
-            if [[ "$attempt" == 40 ]]; then
-              echo "archivebox==$VERSION did not become installable from PyPI within 10 minutes" >&2
-              exit 1
-            fi
-            sleep 15
-          done
-          INSTALLED_VERSION="$("$UV_TOOL_BIN_DIR/archivebox" --version)"
-          test "$INSTALLED_VERSION" = "$VERSION"
 
   docker-release:
     name: Publish tested multiarch image

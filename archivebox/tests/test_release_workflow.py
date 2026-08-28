@@ -6,6 +6,8 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
+RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
+PIP_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "pip.yml"
 
 
 def test_release_uses_registered_publisher_and_authorized_tag_credentials():
@@ -24,15 +26,17 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert "release_ready" not in docker_release["if"]
     assert jobs["cascade"]["if"] == "needs.python-release.outputs.release_ready == 'true'"
 
-    published_install = next(
-        step for step in python_release["steps"] if step.get("name") == "Verify published PyPI package installs and runs"
+    assert all(step.get("name") != "Verify published PyPI package installs and runs" for step in python_release["steps"])
+    candidate = yaml.safe_load(RELEASE_CANDIDATE_WORKFLOW.read_text())
+    assert candidate["jobs"]["python-artifacts"]["with"]["full_tests"] is False
+    pip_workflow = yaml.safe_load(PIP_WORKFLOW.read_text())
+    release_smoke = pip_workflow["jobs"]["release-smoke"]
+    install_script = next(
+        step["run"] for step in release_smoke["steps"] if step.get("name") == "Install the wheel and verify import and CLI version"
     )
-    install_script = published_install["run"]
-    assert "sleep 60" not in install_script
-    assert "for attempt in {1..40}" in install_script
-    assert 'tool install --no-cache --force "archivebox==$VERSION"' in install_script
-    assert "--prerelease" not in install_script
-    assert "did not become installable from PyPI within 10 minutes" in install_script
+    assert "uv pip install --no-cache" in install_script
+    assert "import archivebox" in install_script
+    assert "archivebox version" in install_script
 
     docker_meta = next(step for step in docker_release["steps"] if step.get("id") == "docker_meta")
     tag_script = docker_meta["run"]

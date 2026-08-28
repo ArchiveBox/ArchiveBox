@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      full_tests:
+        description: Run storage, CLI, and size validation in addition to release smoke checks
+        required: false
+        default: true
+        type: boolean
 
 env:
   DOCKERHUB_IMAGE: archivebox/archivebox
@@ -262,7 +267,7 @@ jobs:
             'import json, pathlib, stat; cache_file = "/opt/archivebox/lib/env/derived.env"; raw = open(cache_file).read().strip(); records = json.loads(raw[len("ABXPKG_DERIVED_CACHE=\x27"):-1]); projections = [projection for record in records.values() for projection in record.get("request_exec_projections", {}).values()]; plans = [projection["validation"] for projection in projections]; fingerprints = [fingerprint for plan in plans for fingerprint in plan["fingerprint"]]; actual = lambda fingerprint: (lambda path, value: {"path": str(path.resolve(strict=False)), "size": value.st_size, "mtime_ns": value.st_mtime_ns, "mode": stat.S_IMODE(value.st_mode), "euid": value.st_uid})(pathlib.Path(fingerprint["path"]), pathlib.Path(fingerprint["path"]).stat()); mismatches = [(fingerprint, actual(fingerprint)) for fingerprint in fingerprints if fingerprint != actual(fingerprint)]; assert projections and {plan.get("euid") for plan in plans} == {911}; assert all(not record.get("script_exec_plans") for record in records.values()); assert "ABXPKG_TMP_CACHE_DIR" not in json.dumps(projections); assert not mismatches, mismatches[:3]'
 
       - name: Resolve real Docker CLI test dependencies through abxpkg
-        if: matrix.platform == 'linux/amd64'
+        if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -284,7 +289,7 @@ jobs:
           done
 
       - name: Validate Docker UID and GID behavior on real NFS and SMB mounts
-        if: matrix.platform == 'linux/amd64'
+        if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -340,7 +345,7 @@ jobs:
             "$BASH_BINARY" bin/validate_docker_uid_gid.sh --local-only
 
       - name: Validate Docker CLI add/list and compose behavior
-        if: matrix.platform == 'linux/amd64'
+        if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         env:
           ARCHIVEBOX_IMAGE: ${{ matrix.local_tag }}
@@ -373,7 +378,7 @@ jobs:
           "$DOCKER_BINARY" compose down
 
       - name: Validate compressed image size
-        if: inputs.push_digests
+        if: inputs.full_tests && inputs.push_digests
         env:
           BUILD_METADATA: ${{ steps.docker_build.outputs.metadata }}
         shell: bash

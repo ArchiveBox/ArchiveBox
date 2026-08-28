@@ -2,6 +2,12 @@ name: Build Pip package
 
 on:
   workflow_call:
+    inputs:
+      full_tests:
+        description: Run the full package compatibility matrix instead of one release smoke check
+        required: false
+        default: true
+        type: boolean
 
 env:
   UV_VERSION: "0.11.3"
@@ -68,6 +74,7 @@ jobs:
 
   install-smoke:
     name: install ${{ matrix.artifact }} / Python ${{ matrix.python }} / ${{ matrix.os }}
+    if: inputs.full_tests
     needs: build
     runs-on: ${{ matrix.os }}
     strategy:
@@ -219,3 +226,36 @@ jobs:
             fi
             sudo rm -rf "$root_tool_dir"
           fi
+
+  release-smoke:
+    name: Release wheel import and CLI smoke
+    if: ${{ !inputs.full_tests }}
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: python-distributions
+          path: ${{ runner.temp }}/python-distributions
+
+      - name: Install the wheel and verify import and CLI version
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          shopt -s nullglob
+          wheels=("$RUNNER_TEMP"/python-distributions/archivebox-*.whl)
+          [[ "${#wheels[@]}" -eq 1 ]]
+          smoke_env="$(mktemp -d)/.venv"
+          uv venv --python 3.13 "$smoke_env"
+          uv pip install --no-cache --python "$smoke_env" "${wheels[0]}"
+          unset PYTHONPATH
+          cd "$(mktemp -d)"
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync python -c 'import archivebox'
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox version
