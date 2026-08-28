@@ -202,6 +202,12 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             # ProcessCompletedEvent projector links/finalizes ArchiveResult.
             # Reconstruct the plugin row from its newest durable Process row.
             output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
+            emitted_records = [
+                record
+                for record in Process.parse_records_from_text(process.stdout or "")
+                if record.get("type") == "ArchiveResult" and (record.get("plugin") or plugin_dir.name) == plugin_dir.name
+            ]
+            emitted_result = emitted_records[-1] if emitted_records else {}
             result.hook_name = Path(hook_script_name).stem
             result.process = process
             result.start_ts = process.started_at
@@ -221,11 +227,21 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
                 result.output_files = output_files
                 result.output_size = output_size
                 result.output_mimetypes = output_mimetypes
-                result.output_str = process.stderr if process.exit_code not in (0, None) else ""
+                result.output_str = (
+                    emitted_result.get("output_str")
+                    or emitted_result.get("output")
+                    or (process.stderr if process.exit_code not in (0, None) else "")
+                )
+                result.output_json = emitted_result.get("output_json") if isinstance(emitted_result.get("output_json"), dict) else None
+                emitted_status = emitted_result.get("status")
                 result.status = (
-                    ArchiveResult.StatusChoices.FAILED
-                    if process.exit_code not in (0, None)
-                    else (ArchiveResult.StatusChoices.SUCCEEDED if output_files else ArchiveResult.StatusChoices.NORESULTS)
+                    emitted_status
+                    if emitted_status in ArchiveResult.StatusChoices.values
+                    else (
+                        ArchiveResult.StatusChoices.FAILED
+                        if process.exit_code not in (0, None)
+                        else (ArchiveResult.StatusChoices.SUCCEEDED if output_files else ArchiveResult.StatusChoices.NORESULTS)
+                    )
                 )
             result.save(
                 update_fields=[
@@ -237,6 +253,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
                     "output_size",
                     "output_mimetypes",
                     "output_str",
+                    "output_json",
                     "status",
                     "modified_at",
                 ],

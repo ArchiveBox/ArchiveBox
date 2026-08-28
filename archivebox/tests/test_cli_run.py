@@ -2303,6 +2303,7 @@ class TestRunDueCrawlState:
 @pytest.mark.django_db
 class TestRecoverOrchestratorStateRedFailureModes:
     def test_recovery_uses_newest_orphaned_hook_process_for_one_plugin_result(self):
+        import json
         from datetime import timedelta
 
         from django.utils import timezone
@@ -2324,9 +2325,9 @@ class TestRecoverOrchestratorStateRedFailureModes:
         iface = NetworkInterface.current(refresh=True)
         older_start = timezone.now() - timedelta(minutes=2)
         newer_start = timezone.now() - timedelta(minutes=1)
-        for hook_name, started_at in (
-            ("on_Snapshot__01_title.py", older_start),
-            ("on_Snapshot__02_title.py", newer_start),
+        for hook_name, started_at, output_str in (
+            ("on_Snapshot__01_title.py", older_start, "older title"),
+            ("on_Snapshot__02_title.py", newer_start, "newer title"),
         ):
             Process.objects.create(
                 machine=machine,
@@ -2340,6 +2341,15 @@ class TestRecoverOrchestratorStateRedFailureModes:
                 exit_code=0,
                 started_at=started_at,
                 ended_at=started_at + timedelta(seconds=1),
+                stdout=json.dumps(
+                    {
+                        "type": "ArchiveResult",
+                        "plugin": "title",
+                        "hook_name": hook_name.removesuffix(".py"),
+                        "status": "succeeded",
+                        "output_str": output_str,
+                    },
+                ),
             )
 
         recover_orchestrator_state()
@@ -2347,6 +2357,8 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="title").count() == 1
         result = ArchiveResult.objects.get(snapshot=snapshot, plugin="title")
         assert result.hook_name == "on_Snapshot__02_title"
+        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert result.output_str == "newer title"
         assert result.start_ts == newer_start
         assert result.process.started_at == newer_start
 
