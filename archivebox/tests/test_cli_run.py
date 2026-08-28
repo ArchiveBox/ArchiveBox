@@ -1945,6 +1945,43 @@ class TestRunDueCrawlState:
         assert crawl.retry_at == now
         assert crawl.snapshot_set.count() == 0
 
+    def test_maintenance_only_runner_ignores_disabled_queued_results_on_sealed_snapshots(self):
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import run_pending_crawls
+
+        now = timezone.now()
+        crawl = Crawl.objects.create(
+            urls="https://example.com/disabled-result",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(
+            url="https://example.com/disabled-result",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+            retry_at=now,
+        )
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="disabled_plugin",
+            hook_name="on_Snapshot__50_disabled",
+            status=ArchiveResult.StatusChoices.QUEUED,
+        )
+
+        assert run_pending_crawls(daemon=False, maintenance_only=True) == 0
+
+        snapshot.refresh_from_db()
+        result.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.fs_version == Snapshot._fs_current_version()
+        assert snapshot.retry_at is not None
+        assert result.status == ArchiveResult.StatusChoices.QUEUED
+
     def test_snapshot_start_writes_short_future_lease(self):
         from django.utils import timezone
 

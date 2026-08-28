@@ -2313,31 +2313,32 @@ def run_pending_crawls(
         ):
             continue
 
-        # Broad final-state maintenance is intentionally a fallback. Specific
-        # queued plugin work above can use ArchiveResult's scheduler indexes;
-        # this branch may need to prove that no due sealed snapshot remains, so
-        # avoid paying that scan while targeted work is already available.
-        sealed_snapshots = Snapshot.objects.filter(
-            retry_at__lte=timezone.now(),
-            status=Snapshot.StatusChoices.SEALED,
-        )
-        if search_plugin_names:
-            queued_search_snapshot_ids = ArchiveResult.objects.filter(
-                status=ArchiveResult.StatusChoices.QUEUED,
-                plugin__in=search_plugin_names,
-            ).values("snapshot_id")
-            sealed_snapshots = sealed_snapshots.exclude(
-                id__in=queued_search_snapshot_ids,
+        if not maintenance_only:
+            # Broad final-state maintenance is intentionally a fallback. Specific
+            # queued plugin work above can use ArchiveResult's scheduler indexes;
+            # this branch may need to prove that no due sealed snapshot remains, so
+            # avoid paying that scan while targeted work is already available.
+            sealed_snapshots = Snapshot.objects.filter(
+                retry_at__lte=timezone.now(),
+                status=Snapshot.StatusChoices.SEALED,
             )
-        if crawl_id:
-            sealed_snapshots = sealed_snapshots.filter(crawl_id=crawl_id)
-        if _run_due_snapshot_query(
-            sealed_snapshots,
-            lock_seconds=60,
-            interactive_interrupts=interactive_interrupts,
-            runtime_config=runtime_config,
-        ):
-            continue
+            if search_plugin_names:
+                queued_search_snapshot_ids = ArchiveResult.objects.filter(
+                    status=ArchiveResult.StatusChoices.QUEUED,
+                    plugin__in=search_plugin_names,
+                ).values("snapshot_id")
+                sealed_snapshots = sealed_snapshots.exclude(
+                    id__in=queued_search_snapshot_ids,
+                )
+            if crawl_id:
+                sealed_snapshots = sealed_snapshots.filter(crawl_id=crawl_id)
+            if _run_due_snapshot_query(
+                sealed_snapshots,
+                lock_seconds=60,
+                interactive_interrupts=interactive_interrupts,
+                runtime_config=runtime_config,
+            ):
+                continue
 
         if not maintenance_only:
             if _run_due_crawl_status(
