@@ -21,6 +21,8 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     checkout = python_release["steps"][0]
     assert checkout["with"]["token"] == "${{ secrets.RELEASE_GH_TOKEN || github.token }}"
     assert docker_release["needs"] == "python-release"
+    assert "release_ready" not in docker_release["if"]
+    assert jobs["cascade"]["if"] == "needs.python-release.outputs.release_ready == 'true'"
 
     published_install = next(
         step for step in python_release["steps"] if step.get("name") == "Verify published PyPI package installs and runs"
@@ -37,6 +39,12 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert 'echo "${DOCKERHUB_IMAGE}:dev"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:${VERSION}"' in tag_script
+
+    docker_verify = next(step for step in docker_release["steps"] if step.get("name") == "Verify published Docker images run")
+    verify_script = docker_verify["run"]
+    assert '"${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in verify_script
+    assert '"${GHCR_IMAGE}:sha-${SHORT_SHA}"' in verify_script
+    assert '"${DOCKERHUB_IMAGE}:${VERSION}"' not in verify_script
 
     release_script = (REPO_ROOT / "bin" / "release.sh").read_text()
     assert "Never create GitHub Releases for automated rc builds" in release_script

@@ -159,8 +159,7 @@ jobs:
     name: Publish tested multiarch image
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
-      needs.python-release.outputs.release_ready == 'true'
+      github.event.workflow_run.event == 'push'
     needs: python-release
     runs-on: ubuntu-24.04
     permissions:
@@ -296,7 +295,8 @@ jobs:
         run: |
           set -Eeuo pipefail
           VERSION='${{ needs.python-release.outputs.version }}'
-          for image in "${DOCKERHUB_IMAGE}:${VERSION}" "${GHCR_IMAGE}:${VERSION}"; do
+          SHORT_SHA="${RELEASE_SHA::12}"
+          for image in "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}" "${GHCR_IMAGE}:sha-${SHORT_SHA}"; do
             "$DOCKER_BINARY" buildx imagetools inspect "$image" >/dev/null
             INSTALLED_VERSION="$("$DOCKER_BINARY" run --rm "$image" --version)"
             test "$INSTALLED_VERSION" = "$VERSION"
@@ -311,6 +311,7 @@ jobs:
 
   cascade:
     name: Cascade verified release
+    if: needs.python-release.outputs.release_ready == 'true'
     needs:
       - python-release
       - docker-release
