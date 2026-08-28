@@ -1,0 +1,31 @@
+bin/build_docker.sh
+  s_3155555fdbdae3::t_343676dbd10b33 16,18
+bin/validate_docker_uid_gid.sh
+  s_3155555fdbdae3::t_db69a04f5ff9d4 42,44
+bin/kill_chrome.sh
+  s_3155555fdbdae3::t_0d981dc3b9eeaa 7,9
+bin/deploy_dev_demo.sh
+  s_3155555fdbdae3::t_b0a82d0890b59f 18,20
+bin/setup_monorepo.sh
+  s_3155555fdbdae3::t_180ddf679ca0dd 11-12,23-24
+bin/docker_layers.sh
+  s_3155555fdbdae3::t_9acec9e513c6c3 7,9
+bin/build_git.sh
+  s_3155555fdbdae3::t_945971ab8bee82 16,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f093e59eb6cbb62133530acaff247578395a662c",
+  "prompts": {},
+  "sessions": {
+    "s_3155555fdbdae3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0467b-ccd7-7a30-a1bb-9d99d3bf7584",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
