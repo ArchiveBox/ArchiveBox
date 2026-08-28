@@ -15,7 +15,6 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from asgiref.sync import sync_to_async
-from django.db import IntegrityError
 from django.utils import timezone
 
 from abx_dl.events import PROCESS_EXIT_SKIPPED, ArchiveResultEvent, ProcessCompletedEvent, ProcessStartedEvent, SnapshotEvent
@@ -340,21 +339,13 @@ def _save_archiveresult_event_to_db(
             hook_name=event.hook_name,
         ).first()
     if result is None:
-        try:
-            with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_create"):
-                result = ArchiveResult.objects.create(
-                    snapshot=snapshot,
-                    plugin=event.plugin,
-                    hook_name=event.hook_name,
-                    **defaults,
-                )
-        except IntegrityError:
-            with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_get_after_integrity"):
-                result = ArchiveResult.objects.get(
-                    snapshot=snapshot,
-                    plugin=event.plugin,
-                    hook_name=event.hook_name,
-                )
+        with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_create"):
+            result, _created = ArchiveResult.get_or_create_by_hook(
+                snapshot,
+                event.plugin,
+                event.hook_name,
+                defaults=defaults,
+            )
 
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.diff_fields"):
         update_fields = []

@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 from django.conf import settings
 from django.contrib import admin
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import Case, F, Q, QuerySet, Sum, Value, When
 from django.db.models.fields.json import KT
 from django.db.models.functions import Coalesce, Concat
@@ -88,6 +88,19 @@ class Tag(ModelWithUUID):
     modified_at = models.DateTimeField(auto_now=True)
     name = models.CharField(unique=True, blank=False, max_length=100)
 
+    @classmethod
+    def get_or_create_by_name(cls, name: str, *, defaults: Mapping[str, Any] | None = None) -> tuple["Tag", bool]:
+        tag = cls.objects.filter(name__iexact=name).first()
+        if tag:
+            return tag, False
+        try:
+            return cls.objects.create(name=name, **(defaults or {})), True
+        except IntegrityError:
+            tag = cls.objects.filter(name__iexact=name).first()
+            if tag is None:
+                raise
+            return tag, False
+
     snapshot_set: models.Manager["Snapshot"]
 
     class Meta(ModelWithUUID.Meta):
@@ -142,7 +155,7 @@ class Tag(ModelWithUUID):
         if not name:
             return None
 
-        tag, _ = Tag.objects.get_or_create(name=name)
+        tag, _ = Tag.get_or_create_by_name(name)
 
         # Auto-attach to snapshot if in overrides
         if overrides and "snapshot" in overrides and tag:
@@ -592,12 +605,22 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def add_tag_ids(self, tag_ids: Iterable[int | str]) -> None:
         tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
+        for tag_id in tag_ids:
+            try:
+                SnapshotTag(snapshot_id=self.pk, tag_id=tag_id).save(force_insert=True)
+            except IntegrityError:
+                # The unique (snapshot, tag) row already exists. In autocommit
+                # mode the failed INSERT is fully rolled back before continuing.
+                continue
+
+    def remove_tag_ids(self, tag_ids: Iterable[int | str]) -> int:
+        tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
         if not tag_ids:
-            return
-        SnapshotTag.objects.bulk_create(
-            [SnapshotTag(snapshot_id=self.pk, tag_id=tag_id) for tag_id in tag_ids],
-            ignore_conflicts=True,
-        )
+            return 0
+        # QuerySet.delete() wraps even a fast through-table DELETE in atomic().
+        # SnapshotTag has no delete hooks or child rows, so issue the same
+        # idempotent DELETE as one autocommit statement.
+        return SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id__in=tag_ids)._raw_delete(SnapshotTag.objects.db)
 
     class Meta(
         ModelWithDeleteAfter.Meta,
@@ -1725,8 +1748,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def _merge_tags_from_index(self, index_data: dict):
         """Merge tags - union of both sources."""
-        from django.db import transaction
-
         index_tags = set(index_data.get("tags", "").split(",")) if index_data.get("tags") else set()
         index_tags = {t.strip() for t in index_tags if t.strip()}
 
@@ -1734,10 +1755,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         new_tags = index_tags - db_tags
         if new_tags:
-            with transaction.atomic():
-                for tag_name in new_tags:
-                    tag, _ = Tag.objects.get_or_create(name=tag_name)
-                    self.add_tag_ids([tag.pk])
+            for tag_name in new_tags:
+                tag, _ = Tag.get_or_create_by_name(tag_name)
+                self.add_tag_ids([tag.pk])
 
     def _merge_archive_results_from_index(self, index_data: dict, update_existing: bool = True):
         """Merge ArchiveResults one row per hook; retries update the existing row."""
@@ -2707,9 +2727,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return int(self.output_size or 0)
 
     def save_tags(self, tags: Iterable[str] = ()) -> None:
-        tags_id = [Tag.objects.get_or_create(name=tag)[0].pk for tag in tags if tag.strip()]
-        self.tags.clear()
-        self.add_tag_ids(tags_id)
+        from archivebox.core.tag_util import get_or_create_tag
+
+        tag_ids = {get_or_create_tag(tag)[0].pk for tag in tags if tag.strip()}
+        existing_tag_ids = set(SnapshotTag.objects.filter(snapshot_id=self.pk).values_list("tag_id", flat=True))
+        self.remove_tag_ids(existing_tag_ids - tag_ids)
+        self.add_tag_ids(tag_ids - existing_tag_ids)
 
     def pending_archiveresults(self) -> QuerySet["ArchiveResult"]:
         return self.archiveresult_set.exclude(status__in=ArchiveResult.FINAL_OR_ACTIVE_STATES)
@@ -3000,10 +3023,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         for plugin, hook_name in hooks:
             # Hooks in one plugin share a filesystem directory, but each hook has
             # its own durable result row and retries update that exact row.
-            archiveresult, _created = ArchiveResult.objects.get_or_create(
-                snapshot=self,
-                plugin=plugin,
-                hook_name=hook_name,
+            archiveresult, _created = ArchiveResult.get_or_create_by_hook(
+                self,
+                plugin,
+                hook_name,
                 defaults={
                     "status": ArchiveResult.INITIAL_STATE,
                 },
@@ -3830,6 +3853,27 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             "backoff": cls.StatusChoices.BACKOFF,
         }.get(str(status or "").strip().lower(), cls.StatusChoices.FAILED)
 
+    @classmethod
+    def get_or_create_by_hook(
+        cls,
+        snapshot: Snapshot,
+        plugin: str,
+        hook_name: str,
+        *,
+        defaults: Mapping[str, Any] | None = None,
+    ) -> tuple["ArchiveResult", bool]:
+        lookup = {"snapshot": snapshot, "plugin": plugin, "hook_name": hook_name}
+        result = cls.objects.filter(**lookup).first()
+        if result:
+            return result, False
+        try:
+            return cls.objects.create(**lookup, **(defaults or {})), True
+        except IntegrityError:
+            result = cls.objects.filter(**lookup).first()
+            if result is None:
+                raise
+            return result, False
+
     @staticmethod
     def output_files_upload_complete(output_files: dict[str, dict[str, Any]]) -> bool:
         if not output_files:
@@ -4080,10 +4124,10 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         try:
             snapshot = Snapshot.objects.get(id=snapshot_id)
 
-            result, _ = ArchiveResult.objects.get_or_create(
-                snapshot=snapshot,
-                plugin=plugin,
-                hook_name=record.get("hook_name", ""),
+            result, _ = ArchiveResult.get_or_create_by_hook(
+                snapshot,
+                plugin,
+                record.get("hook_name", ""),
                 defaults={
                     "status": record.get("status", "queued"),
                     "output_str": record.get("output_str", ""),
@@ -4147,6 +4191,30 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                             modified_at=timezone.now(),
                         ),
                     )
+
+    def safe_update(self, update_fields: Mapping[str, Any], *, refresh: bool = True) -> bool:
+        """Compare-and-swap one loaded ArchiveResult without opening a transaction."""
+        expected_modified_at = self.modified_at
+        previous_output_size = int(self.output_size or 0)
+        values = dict(update_fields)
+        values.setdefault("modified_at", timezone.now())
+        updated = type(self).objects.filter(pk=self.pk, modified_at=expected_modified_at).update(**values)
+        if updated == 1:
+            for field, value in values.items():
+                setattr(self, field, value)
+            if "output_size" in values:
+                size_delta = int(values["output_size"] or 0) - previous_output_size
+                if size_delta:
+                    Snapshot.objects.filter(pk=self.snapshot_id).update(
+                        output_size=F("output_size") + size_delta,
+                        modified_at=timezone.now(),
+                    )
+        if refresh:
+            try:
+                self.refresh_from_db()
+            except type(self).DoesNotExist:
+                pass
+        return updated == 1
 
     def schedule_delete_cleanup(self, *, using: str | None = None) -> None:
         """Remove shared plugin output and refresh persisted Snapshot metadata after commit."""

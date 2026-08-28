@@ -346,19 +346,8 @@ class SnapshotAdminForm(forms.ModelForm):
 
             # Parse and save tags from tags_editor
             tags_str = self.cleaned_data.get("tags_editor", "")
-            if tags_str:
-                tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
-                tags = []
-                for name in tag_names:
-                    tag, _ = Tag.objects.get_or_create(
-                        name__iexact=name,
-                        defaults={"name": name},
-                    )
-                    tag = Tag.objects.filter(name__iexact=name).first() or tag
-                    tags.append(tag)
-                instance.tags.set(tags)
-            else:
-                instance.tags.clear()
+            tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
+            instance.save_tags(tag_names)
 
         return instance
 

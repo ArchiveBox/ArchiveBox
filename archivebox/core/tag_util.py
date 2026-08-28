@@ -152,15 +152,7 @@ def get_or_create_tag(name: str, created_by: User | None = None) -> tuple[Tag, b
     if not normalized_name:
         raise ValueError("Tag name is required")
 
-    existing = Tag.objects.filter(name__iexact=normalized_name).first()
-    if existing:
-        return existing, False
-
-    tag = Tag.objects.create(
-        name=normalized_name,
-        created_by=created_by,
-    )
-    return tag, True
+    return Tag.get_or_create_by_name(normalized_name, defaults={"created_by": created_by})
 
 
 def rename_tag(tag: Tag, name: str) -> Tag:

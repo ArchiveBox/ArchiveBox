@@ -201,10 +201,10 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             continue
         if snapshot is None:
             continue
-        result, created = ArchiveResult.objects.get_or_create(
-            snapshot=snapshot,
-            plugin=plugin_dir.name,
-            hook_name=hook_name,
+        result, created = ArchiveResult.get_or_create_by_hook(
+            snapshot,
+            plugin_dir.name,
+            hook_name,
             defaults={
                 "status": ArchiveResult.StatusChoices.QUEUED,
             },
