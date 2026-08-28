@@ -211,7 +211,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
           outputs: |
             type=docker,name=${{ matrix.local_tag }}
-            type=oci,dest=${{ runner.temp }}/archivebox-image.tar
+            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar', runner.temp) || '' }}
             type=image,"name=${{ env.DOCKERHUB_IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Build pull request image
