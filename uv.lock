@@ -13,11 +13,11 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-23T20:27:25.793271406Z"
+exclude-newer = "2026-08-23T20:27:41.711606219Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-08-28T20:27:24.793308783Z", span = "PT1S" }
+abxbus = { timestamp = "2026-08-28T20:27:40.711619794Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
@@ -38,9 +38,9 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/06/a0aeb358a63ee5ac86bc8c05f7485951f5e5c8c9f7c64dbe4fe1e401802e/abx_dl-1.12.191.tar.gz", hash = "sha256:f9f7f66adf1f4b6a72351550bd0c34861ec18702500064fc8e76e3a97944465a", size = 83754, upload-time = "2026-08-28T20:25:26.046133Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e0/06/a0aeb358a63ee5ac86bc8c05f7485951f5e5c8c9f7c64dbe4fe1e401802e/abx_dl-1.12.191.tar.gz", hash = "sha256:f9f7f66adf1f4b6a72351550bd0c34861ec18702500064fc8e76e3a97944465a", size = 83754, upload-time = "2026-08-28T20:25:26.046Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/bc/abd6fb3863459f1df4c794be5b24b9952b768f8c50f270921e2c0f5bc4dd/abx_dl-1.12.191-py3-none-any.whl", hash = "sha256:fa593e916f30a38e772fe0e197231b6205c5ad760da8a98aa6d849892f12a752", size = 87398, upload-time = "2026-08-28T20:25:27.449420Z" },
+    { url = "https://files.pythonhosted.org/packages/67/bc/abd6fb3863459f1df4c794be5b24b9952b768f8c50f270921e2c0f5bc4dd/abx_dl-1.12.191-py3-none-any.whl", hash = "sha256:fa593e916f30a38e772fe0e197231b6205c5ad760da8a98aa6d849892f12a752", size = 87398, upload-time = "2026-08-28T20:25:27.449Z" },
 ]
 
 [[package]]
@@ -120,7 +120,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.35rc309"
+version = "0.9.35rc310"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
