@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-14T12:13:02.797456714Z"
+exclude-newer = "2026-08-23T04:03:40.02609681Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-08-19T12:13:01.797471627Z", span = "PT1S" }
+abxbus = { timestamp = "2026-08-28T04:03:39.026111963Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.12.183"
+version = "1.12.184"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -38,9 +38,9 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/9f/70/f8ff6fc50c1ef6706de01877e4080dec10c55a32f30e8257a67601c89f36/abx_dl-1.12.183.tar.gz", hash = "sha256:42e35c297ef1f9f2919fb1963c403b9c123db8a35eb23a9c3004e4f93aa2fd4d", size = 83713, upload-time = "2026-08-19T12:07:57.728032Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/61/0e/333a21180535444078f6f89d4056cc4919bb6390d12e726c89847452454b/abx_dl-1.12.184.tar.gz", hash = "sha256:36980625e0bbe724647091dad022a3e5fb6002ff012a462e1909d418bb611d76", size = 83706, upload-time = "2026-08-28T03:58:34.985706Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/cb/bca4b00a1b28ff8b7045b4c52e8270938e851a2b0c8033340a89490b86cc/abx_dl-1.12.183-py3-none-any.whl", hash = "sha256:d50dd5803c510f8895c08f966727946bd2276658266a6d8809a75e996260cfb5", size = 87323, upload-time = "2026-08-19T12:07:59.035127Z" },
+    { url = "https://files.pythonhosted.org/packages/64/5a/5c4a7c04cc4bec05d8d618620140d78d8fac1acdf31fc0f16b720c2f87c7/abx_dl-1.12.184-py3-none-any.whl", hash = "sha256:59b35496b7936ddf75d44a8d81193ab5a341e23fdb5504ec99d47fb19e282fc8", size = 87389, upload-time = "2026-08-28T03:58:35.958196Z" },
 ]
 
 [[package]]
@@ -120,7 +120,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.35rc304"
+version = "0.9.35rc305"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -220,7 +220,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.12.183" },
+    { name = "abx-dl", specifier = "==1.12.184" },
     { name = "abx-plugins" },
     { name = "abxbus" },
     { name = "abxpkg" },
@@ -821,15 +821,15 @@ wheels = [
 
 [[package]]
 name = "django-ninja"
-version = "1.6.2"
+version = "1.6.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "django", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d5/7c/3307e17b872f545c88314b2737a22f965785dfb5a120d739b0131d0492c3/django_ninja-1.6.2.tar.gz", hash = "sha256:d56ae5aa4791068ef4ac9a66cfdf2fc11f507413ded35abb79c51d0d52ad6412", size = 3685599, upload-time = "2026-03-18T20:06:47.284Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a2/57/71cc769a7410ade9bd1cddee16132e3da7718fcce1386c67ade7ea939677/django_ninja-1.6.3.tar.gz", hash = "sha256:a65a5016bbf044702fb1f1ff702f96dc3c806fbd7c918290512659531873039f", size = 2340438, upload-time = "2026-08-17T08:45:42.703Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/21/0c/25f72060a39632fbd2d90e9c8b6052a09cd45b0598fc06c0758d313f0052/django_ninja-1.6.2-py3-none-any.whl", hash = "sha256:20095f5900bada22ea00cf1a58af50bdb285b2354c61a9d9b47d0dc89ac462d6", size = 2374994, upload-time = "2026-03-18T20:06:45.676Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/de/061d08265951765835166a2c69f0b99a8f49dfbea85d7d204ac87a236679/django_ninja-1.6.3-py3-none-any.whl", hash = "sha256:e83ba573e0f17b1d2fddca078613e2aaad512acb3d3c6bc9a5f1a0d9257dd70c", size = 2375010, upload-time = "2026-08-17T08:45:40.473Z" },
 ]
 
 [[package]]
