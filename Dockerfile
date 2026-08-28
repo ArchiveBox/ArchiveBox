@@ -13,7 +13,7 @@
 #       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.12.186 \
 #       -t archivebox:multistage
 
-ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.186
+ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.187
 
 FROM archivebox/sonic:1.4.9 AS sonic
 FROM ${ABX_DL_IMAGE} AS archivebox-runtime-base
