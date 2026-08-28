@@ -34,6 +34,8 @@ from archivebox.machine.models import (
     MACHINE_RECHECK_INTERVAL,
     PID_REUSE_WINDOW,
     PROCESS_TIMEOUT_GRACE,
+    PROCESS_PID_NAMESPACE_KEY,
+    get_current_pid_namespace,
 )
 from archivebox.machine.detect import unknown_if_blank
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
@@ -605,6 +607,7 @@ class TestProcessCurrent:
         assert proc.iface is not None
         assert proc.iface.machine_id == proc.machine_id
         assert proc.started_at is not None
+        assert proc.env[PROCESS_PID_NAMESPACE_KEY] == get_current_pid_namespace()
 
     def test_process_current_caches(self):
         """Process.current() should cache the result."""
@@ -798,6 +801,24 @@ class TestProcessLifecycle:
         )
 
         assert not proc.is_running
+
+    def test_cross_namespace_process_is_not_resolved_or_signaled_by_local_pid(self):
+        proc = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            pid=os.getpid(),
+            started_at=_current_process_started_at(),
+            env={PROCESS_PID_NAMESPACE_KEY: f"{get_current_pid_namespace()}-other"},
+        )
+
+        assert not proc.shares_pid_namespace
+        assert proc.proc is None
+        assert proc.is_running
+        assert proc.kill() is False
+        assert proc.kill_tree() == 0
+
+        proc.refresh_from_db()
+        assert proc.status == Process.StatusChoices.RUNNING
 
     def test_process_poll_detects_exit(self):
         """poll() should detect exited process."""

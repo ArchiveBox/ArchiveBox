@@ -263,8 +263,14 @@ def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout:
         older_runners = [process for process in runners if process.id != command.id]
         if older_runners:
             for process in older_runners:
-                rprint(f"[yellow][*] Stopping older ArchiveBox runner process (pid={process.pid})...[/yellow]", file=sys.stderr)
-                process.kill_tree(graceful_timeout=graceful_timeout)
+                if process.shares_pid_namespace:
+                    rprint(f"[yellow][*] Stopping older ArchiveBox runner process (pid={process.pid})...[/yellow]", file=sys.stderr)
+                    process.kill_tree(graceful_timeout=graceful_timeout)
+                else:
+                    rprint(
+                        "[yellow][*] Waiting for older ArchiveBox runner in another PID namespace to stop...[/yellow]",
+                        file=sys.stderr,
+                    )
             time.sleep(0.1)
             continue
 

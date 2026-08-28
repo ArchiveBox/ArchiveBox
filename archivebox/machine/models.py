@@ -54,6 +54,15 @@ PROCESS_RECHECK_INTERVAL = 60  # Re-validate every 60 seconds
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
+PROCESS_PID_NAMESPACE_KEY = "_ARCHIVEBOX_PID_NAMESPACE"
+
+
+def get_current_pid_namespace() -> str:
+    """Return the OS PID namespace that makes numeric PIDs meaningful."""
+    try:
+        return os.readlink("/proc/self/ns/pid")
+    except OSError:
+        return f"host:{socket.gethostname()}"
 
 
 def _default_exit_code_for_unowned_process(process_type: str) -> int:
@@ -900,7 +909,10 @@ class ProcessManager(models.Manager):
             started_at__gte=timezone.now() - PID_REUSE_WINDOW,
         ).order_by("-started_at")
 
+        current_pid_namespace = get_current_pid_namespace()
         for candidate in candidates:
+            if candidate.env.get(PROCESS_PID_NAMESPACE_KEY) not in (None, current_pid_namespace):
+                continue
             # Validate start time matches (within tolerance)
             if candidate.started_at:
                 db_start_time = candidate.started_at.timestamp()
@@ -1328,6 +1340,10 @@ class Process(ModelWithDeleteAfter, models.Model):
         updates = ["status", "retry_at", "modified_at"]
         self.status = self.StatusChoices.RUNNING
         self.retry_at = None
+        pid_namespace = get_current_pid_namespace()
+        if self.env.get(PROCESS_PID_NAMESPACE_KEY) != pid_namespace:
+            self.env = {**self.env, PROCESS_PID_NAMESPACE_KEY: pid_namespace}
+            updates.append("env")
         if process_type is not None and self.process_type != process_type:
             self.process_type = process_type
             updates.append("process_type")
@@ -1426,17 +1442,18 @@ class Process(ModelWithDeleteAfter, models.Model):
         # Try to find existing Process for this PID on this machine
         # Filter by: machine + PID + RUNNING + recent + start time matches
         if os_start_time:
-            existing = (
-                cls.objects.filter(
-                    machine=machine,
-                    pid=current_pid,
-                    status=cls.StatusChoices.RUNNING,
-                    started_at__gte=timezone.now() - PID_REUSE_WINDOW,
-                )
-                .order_by("-started_at")
-                .first()
-            )
+            candidates = cls.objects.filter(
+                machine=machine,
+                pid=current_pid,
+                status=cls.StatusChoices.RUNNING,
+                started_at__gte=timezone.now() - PID_REUSE_WINDOW,
+            ).order_by("-started_at")
 
+            current_pid_namespace = get_current_pid_namespace()
+            existing = next(
+                (candidate for candidate in candidates if candidate.env.get(PROCESS_PID_NAMESPACE_KEY) in (None, current_pid_namespace)),
+                None,
+            )
             if existing and existing.started_at:
                 db_start_time = existing.started_at.timestamp()
                 if abs(db_start_time - os_start_time) < START_TIME_TOLERANCE:
@@ -1472,6 +1489,7 @@ class Process(ModelWithDeleteAfter, models.Model):
             parent=parent,
             process_type=process_type,
             cmd=cmd,
+            env={PROCESS_PID_NAMESPACE_KEY: get_current_pid_namespace()},
             pwd=os.getcwd(),
             pid=current_pid,
             started_at=started_at,
@@ -1514,7 +1532,10 @@ class Process(ModelWithDeleteAfter, models.Model):
             started_at__gte=timezone.now() - PID_REUSE_WINDOW,
         ).order_by("-started_at")
 
+        current_pid_namespace = get_current_pid_namespace()
         for candidate in candidates:
+            if candidate.env.get(PROCESS_PID_NAMESPACE_KEY) not in (None, current_pid_namespace):
+                continue
             if candidate.started_at:
                 db_start_time = candidate.started_at.timestamp()
                 time_diff = abs(db_start_time - os_parent_start)
@@ -1591,7 +1612,8 @@ class Process(ModelWithDeleteAfter, models.Model):
         # Recovery can run against damaged DB state; stream rows so a large
         # stale Process backlog cannot be materialized in memory at once.
         for proc in stale.iterator(chunk_size=100):
-            if proc.poll() is not None:
+            shares_pid_namespace = proc.shares_pid_namespace
+            if shares_pid_namespace and proc.poll() is not None:
                 cleaned += 1
                 continue
 
@@ -1606,7 +1628,7 @@ class Process(ModelWithDeleteAfter, models.Model):
             # Check if too old (PID definitely reused)
             if not is_stale and proc.started_at and proc.started_at < timezone.now() - PID_REUSE_WINDOW:
                 is_stale = True
-            elif not is_stale and PSUTIL_AVAILABLE and proc.pid is not None:
+            elif not is_stale and shares_pid_namespace and PSUTIL_AVAILABLE and proc.pid is not None:
                 # Check if OS process still exists with matching start time
                 try:
                     os_proc = psutil.Process(proc.pid)
@@ -1672,6 +1694,11 @@ class Process(ModelWithDeleteAfter, models.Model):
     # =========================================================================
 
     @property
+    def shares_pid_namespace(self) -> bool:
+        recorded_namespace = self.env.get(PROCESS_PID_NAMESPACE_KEY)
+        return recorded_namespace in (None, get_current_pid_namespace())
+
+    @property
     def proc(self) -> psutil.Process | None:
         """
         Get validated psutil.Process for this record.
@@ -1690,6 +1717,9 @@ class Process(ModelWithDeleteAfter, models.Model):
         This prevents accidentally matching a stale/recycled PID.
         """
         if not PSUTIL_AVAILABLE:
+            return None
+
+        if not self.shares_pid_namespace:
             return None
 
         # Can't get psutil.Process if we don't have a PID
@@ -1738,6 +1768,9 @@ class Process(ModelWithDeleteAfter, models.Model):
         More reliable than checking status field since it validates
         the actual OS process exists and matches our record.
         """
+        if not self.shares_pid_namespace:
+            return self.status == self.StatusChoices.RUNNING
+
         proc = self.proc
         if proc is None:
             return False
@@ -2087,6 +2120,9 @@ class Process(ModelWithDeleteAfter, models.Model):
         Returns:
             True if killed successfully, False otherwise
         """
+        if not self.shares_pid_namespace:
+            return False
+
         # Use validated psutil.Process to ensure we're killing the right process
         proc = self.proc
         if proc is None:
@@ -2269,6 +2305,9 @@ class Process(ModelWithDeleteAfter, models.Model):
         import signal
         import time
         import os
+
+        if not self.shares_pid_namespace:
+            return 0
 
         killed_count = 0
         used_sigkill = False
