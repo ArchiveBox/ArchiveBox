@@ -13,11 +13,11 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-23T21:08:41.6864662Z"
+exclude-newer = "2026-08-23T21:08:57.992510205Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-08-28T21:08:40.686478372Z", span = "PT1S" }
+abxbus = { timestamp = "2026-08-28T21:08:56.992525968Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
@@ -38,9 +38,9 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/e3/692c6f45202998e9ed5d75386ee5ebdf2b3dfc4ca902e2d20014c08f686a/abx_dl-1.12.194.tar.gz", hash = "sha256:76caa5eba0b7c5680743c3fe7c452e4f1bee12eec950319c3479079f0feb6f3e", size = 83935 }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/e3/692c6f45202998e9ed5d75386ee5ebdf2b3dfc4ca902e2d20014c08f686a/abx_dl-1.12.194.tar.gz", hash = "sha256:76caa5eba0b7c5680743c3fe7c452e4f1bee12eec950319c3479079f0feb6f3e", size = 83935, upload-time = "2026-08-28T21:06:55.337Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/b9/777447a8c1aeb95b1165c6b879f84eca2dd962f09df6e85121e92c65b793/abx_dl-1.12.194-py3-none-any.whl", hash = "sha256:8c0afd8e66d7e3933155b0ffed9daa8436f4542513e7d2a8a4c7f1adbb7298a7", size = 87615 },
+    { url = "https://files.pythonhosted.org/packages/0a/b9/777447a8c1aeb95b1165c6b879f84eca2dd962f09df6e85121e92c65b793/abx_dl-1.12.194-py3-none-any.whl", hash = "sha256:8c0afd8e66d7e3933155b0ffed9daa8436f4542513e7d2a8a4c7f1adbb7298a7", size = 87615, upload-time = "2026-08-28T21:06:56.684Z" },
 ]
 
 [[package]]
@@ -120,7 +120,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.35rc312"
+version = "0.9.35rc313"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
