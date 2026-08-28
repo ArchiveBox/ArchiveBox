@@ -234,6 +234,29 @@ def test_server_help_lists_runtime_options(initialized_archive):
     assert "--reload" in result.stdout
 
 
+@pytest.mark.timeout(120)
+def test_server_starts_with_legacy_ipv6_listen_host(initialized_archive):
+    """IPv6 brackets in a legacy LISTEN_HOST must not break the startup banner."""
+
+    port = get_free_port()
+    env = cli_env(live=True, BASE_URL="", LISTEN_HOST=f"[::]:{port}")
+    server = None
+    try:
+        server = start_archivebox_server(
+            initialized_archive,
+            port=port,
+            log_name="server-legacy-ipv6-listen-host.log",
+            env=env,
+        )
+        log_text = server.log_path.read_text(encoding="utf-8", errors="replace")
+        assert f"http://[::]:{port}/admin/" in log_text
+        assert "MarkupError" not in log_text
+    finally:
+        if server is not None:
+            stop_archivebox_process(server, signal.SIGTERM)
+        kill_processes_for_data_dir(initialized_archive)
+
+
 def test_runner_worker_uses_active_archivebox_module():
     from archivebox.workers.supervisord_util import RUNNER_WORKER, archivebox_cmd
 
