@@ -2362,6 +2362,85 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert result.start_ts == newer_start
         assert result.process.started_at == newer_start
 
+    def test_recovery_does_not_replace_final_plugin_result_with_older_unlinked_hook(self):
+        import json
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.core.recovery_util import recover_orchestrator_state
+        from archivebox.crawls.models import Crawl
+        from archivebox.machine.models import Machine, NetworkInterface, Process
+
+        crawl = Crawl.objects.create(
+            urls="https://example.com",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(url="https://example.com", crawl=crawl, status=Snapshot.StatusChoices.SEALED, retry_at=None)
+        machine = Machine.current(refresh=True)
+        iface = NetworkInterface.current(refresh=True)
+        start_ts = timezone.now() - timedelta(minutes=2)
+        stop_ts = timezone.now() - timedelta(minutes=1)
+        start_process = Process.objects.create(
+            machine=machine,
+            iface=iface,
+            process_type=Process.TypeChoices.HOOK,
+            worker_type="archiveresult",
+            pwd=str(snapshot.output_dir / "archivewebpage"),
+            cmd=["on_Snapshot__16_archivewebpage_start.js"],
+            status=Process.StatusChoices.EXITED,
+            retry_at=None,
+            exit_code=0,
+            started_at=start_ts,
+            ended_at=start_ts + timedelta(seconds=1),
+            stdout=json.dumps(
+                {
+                    "type": "ArchiveResult",
+                    "plugin": "archivewebpage",
+                    "hook_name": "on_Snapshot__16_archivewebpage_start",
+                    "status": "succeeded",
+                    "output_str": "recording started",
+                },
+            ),
+        )
+        stop_process = Process.objects.create(
+            machine=machine,
+            iface=iface,
+            process_type=Process.TypeChoices.HOOK,
+            worker_type="archiveresult",
+            pwd=str(snapshot.output_dir / "archivewebpage"),
+            cmd=["on_Snapshot__65_archivewebpage_stop.js"],
+            status=Process.StatusChoices.EXITED,
+            retry_at=None,
+            exit_code=0,
+            started_at=stop_ts,
+            ended_at=stop_ts + timedelta(seconds=1),
+        )
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="archivewebpage",
+            hook_name="on_Snapshot__65_archivewebpage_stop",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="archivewebpage/archivewebpage.wacz",
+            start_ts=start_ts,
+            end_ts=stop_ts + timedelta(seconds=1),
+            process=stop_process,
+        )
+
+        recover_orchestrator_state()
+
+        result.refresh_from_db()
+        assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="archivewebpage").count() == 1
+        assert result.hook_name == "on_Snapshot__65_archivewebpage_stop"
+        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert result.output_str == "archivewebpage/archivewebpage.wacz"
+        assert result.process == stop_process
+        assert not ArchiveResult.objects.filter(process=start_process).exists()
+
     def test_recovery_does_not_seal_queued_snapshot_waiting_for_future_retry_even_with_final_results(self):
         from datetime import timedelta
 

@@ -195,8 +195,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
                 "status": ArchiveResult.StatusChoices.QUEUED,
             },
         )
-        process_is_newer = bool(process.started_at and (result.start_ts is None or process.started_at >= result.start_ts))
-        if result.status == ArchiveResult.StatusChoices.QUEUED or process_is_newer:
+        if created or result.status == ArchiveResult.StatusChoices.QUEUED:
             requeue_snapshot = False
             # A runner can die after the hook Process exits but before the
             # ProcessCompletedEvent projector links/finalizes ArchiveResult.
