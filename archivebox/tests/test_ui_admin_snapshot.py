@@ -790,9 +790,10 @@ class TestSnapshotOutputDeletion:
         from archivebox.core.models import ArchiveResult
 
         first = self._create_output(snapshot, size=11)
-        second = self._create_output(snapshot, hook_name="on_Snapshot__51_screenshot_retry.py", size=13)
+        second = self._create_output(snapshot, plugin="wget", hook_name="on_Snapshot__06_wget.py", size=13)
         kept = self._create_output(snapshot, plugin="pdf", hook_name="on_Snapshot__60_pdf.py", size=7)
         deleted_dir = Path(first.output_dir)
+        second_deleted_dir = Path(second.output_dir)
         kept_dir = Path(kept.output_dir)
         hashes_dir = Path(snapshot.output_dir) / "hashes"
         hashes_dir.mkdir(parents=True, exist_ok=True)
@@ -825,6 +826,7 @@ class TestSnapshotOutputDeletion:
         assert not ArchiveResult.objects.filter(pk__in=[first.pk, second.pk]).exists()
         assert ArchiveResult.objects.filter(pk=kept.pk).exists()
         assert not deleted_dir.exists()
+        assert not second_deleted_dir.exists()
         assert kept_dir.exists()
         snapshot.refresh_from_db()
         assert snapshot.output_size == 7
