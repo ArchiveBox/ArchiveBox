@@ -199,7 +199,7 @@ def test_process_completed_projects_inline_archiveresult(tmp_path, hermetic_lib_
     _cleanup_machine_process_rows()
 
 
-def test_archiveresult_event_retry_updates_existing_hook_row(tmp_path, hermetic_lib_dir):
+def test_archiveresult_events_from_multiple_hooks_update_one_plugin_row(tmp_path, hermetic_lib_dir):
     from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
@@ -221,16 +221,61 @@ def test_archiveresult_event_retry_updates_existing_hook_row(tmp_path, hermetic_
         snapshot,
         plugin="hashes",
         hook_name="on_Snapshot__93_hashes.py",
+        event_hook_name="on_Snapshot__99_hashes_followup.py",
         lib_dir=hermetic_lib_dir,
         env={"HASHES_ENABLED": "True"},
     )
     assert retry_result.id == first_result_id
     assert retry_result.status == ArchiveResult.StatusChoices.SUCCEEDED
-    assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="hashes", hook_name="on_Snapshot__93_hashes.py").count() == 1
+    assert retry_result.hook_name == "on_Snapshot__99_hashes_followup.py"
+    assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="hashes").count() == 1
     _cleanup_machine_process_rows()
 
 
-def test_archiveresult_duplicate_hook_rows_are_rejected():
+def test_late_background_event_cannot_overwrite_plugin_result():
+    from django.utils import timezone
+    from abx_dl.events import ArchiveResultEvent
+    from archivebox.core.models import ArchiveResult
+    from archivebox.services.archive_result_service import _save_archiveresult_event_to_db
+
+    snapshot = _create_snapshot()
+    now = timezone.now().isoformat()
+    _save_archiveresult_event_to_db(
+        ArchiveResultEvent(
+            snapshot_id=str(snapshot.id),
+            plugin="chrome",
+            hook_name="on_Snapshot__30_chrome_navigate.js",
+            status="succeeded",
+            output_str="navigation complete",
+            output_files=[OutputFile(path="navigate.json", extension="json", mimetype="application/json", size=7)],
+            start_ts=now,
+            end_ts=now,
+        ),
+        None,
+    )
+    _save_archiveresult_event_to_db(
+        ArchiveResultEvent(
+            snapshot_id=str(snapshot.id),
+            plugin="chrome",
+            hook_name="on_Snapshot__01_chrome_tab.daemon.bg.js",
+            status="skipped",
+            output_str="background cleanup",
+            output_files=[OutputFile(path="tab.json", extension="json", mimetype="application/json", size=3)],
+            start_ts=now,
+            end_ts=now,
+        ),
+        None,
+    )
+
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="chrome")
+    assert result.hook_name == "on_Snapshot__30_chrome_navigate.js"
+    assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    assert result.output_str == "navigation complete"
+    assert set(result.output_files) == {"navigate.json", "tab.json"}
+    assert result.output_size == 10
+
+
+def test_archiveresult_duplicate_plugin_rows_are_rejected():
     from django.db import IntegrityError, transaction
     from archivebox.core.models import ArchiveResult
 
@@ -246,9 +291,59 @@ def test_archiveresult_duplicate_hook_rows_are_rejected():
         ArchiveResult.objects.create(
             snapshot=snapshot,
             plugin="wget",
-            hook_name="on_Snapshot__06_wget.finite.bg",
+            hook_name="on_Snapshot__99_other_wget_hook",
             status=ArchiveResult.StatusChoices.SUCCEEDED,
         )
+
+
+def test_pending_archiveresults_create_one_row_per_plugin():
+    from archivebox.core.models import ArchiveResult
+
+    snapshot = _create_snapshot()
+    results = snapshot.create_pending_archiveresults(
+        hooks=[
+            ("chrome", "on_Snapshot__00_chrome_launch.daemon.bg.js"),
+            ("chrome", "on_Snapshot__01_chrome_tab.daemon.bg.js"),
+            ("chrome", "on_Snapshot__30_chrome_navigate.js"),
+        ],
+    )
+
+    assert len(results) == 1
+    assert results[0].plugin == "chrome"
+    assert results[0].hook_name == ""
+    assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="chrome").count() == 1
+
+
+def test_snapshot_merge_preserves_one_combined_plugin_result():
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    keeper = _create_snapshot()
+    duplicate = Snapshot.objects.create(
+        url="https://example.com/duplicate",
+        crawl=keeper.crawl,
+        status=Snapshot.StatusChoices.STARTED,
+    )
+    ArchiveResult.objects.create(
+        snapshot=keeper,
+        plugin="responses",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={"browser.png": {"size": 7}},
+        output_size=7,
+    )
+    ArchiveResult.objects.create(
+        snapshot=duplicate,
+        plugin="responses",
+        status=ArchiveResult.StatusChoices.NORESULTS,
+        output_files={"server.json": {"size": 3}},
+        output_size=3,
+    )
+
+    Snapshot._merge_snapshots([keeper, duplicate])
+
+    result = ArchiveResult.objects.get(snapshot=keeper, plugin="responses")
+    assert set(result.output_files) == {"browser.png", "server.json"}
+    assert result.output_size == 10
+    assert not Snapshot.objects.filter(pk=duplicate.pk).exists()
 
 
 def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_path, hermetic_lib_dir):
@@ -434,12 +529,13 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
     reset_count = snapshot.retry_failed_archiveresults()
 
     snapshot.refresh_from_db()
-    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="chrome", hook_name="on_Snapshot__11_chrome_wait")
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="chrome")
     assert reset_count == 1
     assert snapshot.status == Snapshot.StatusChoices.QUEUED
     assert snapshot.retry_at is not None
     assert snapshot.current_step == 0
     assert result.status == ArchiveResult.StatusChoices.QUEUED
+    assert result.hook_name == ""
     assert result.output_str == ""
     assert result.output_json is None
     assert result.output_files == {}

@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -11,6 +12,43 @@ from archivebox.tests.conftest import api_client_request
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_archiveresult_upload_upserts_one_row_per_plugin(client, api_admin_user, api_headers):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/unified-result", crawl=crawl)
+
+    first_response = client.post(
+        "/api/v1/core/archiveresults",
+        {
+            "snapshot_id": str(snapshot.id),
+            "plugin": "screenshot",
+            "hook_name": "on_Snapshot__archivebox_browser_extension_upload",
+            "files": SimpleUploadedFile("browser.png", b"browser", content_type="image/png"),
+            "output_paths": "browser.png",
+        },
+        **api_headers,
+    )
+    second_response = client.post(
+        "/api/v1/core/archiveresults",
+        {
+            "snapshot_id": str(snapshot.id),
+            "plugin": "screenshot",
+            "hook_name": "on_Snapshot__50_screenshot.py",
+            "files": SimpleUploadedFile("server.png", b"server", content_type="image/png"),
+            "output_paths": "server.png",
+        },
+        **api_headers,
+    )
+
+    assert first_response.status_code == 200, first_response.content
+    assert second_response.status_code == 200, second_response.content
+    assert second_response.json()["id"] == first_response.json()["id"]
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="screenshot")
+    assert result.hook_name == "on_Snapshot__50_screenshot.py"
+    assert set(result.output_files) == {"browser.png", "server.png"}
+    assert (result.output_dir / "browser.png").read_bytes() == b"browser"
+    assert (result.output_dir / "server.png").read_bytes() == b"server"
 
 
 def test_archiveresult_upload_api_queues_snapshot_maintenance_without_finalizing(client, api_admin_user, api_headers):

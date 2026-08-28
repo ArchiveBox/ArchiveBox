@@ -389,13 +389,6 @@ def _queue_archiveresult_snapshot_maintenance(snapshot: Snapshot) -> None:
     snapshot.safe_update(updates, refresh=False)
 
 
-def _merge_archiveresult_output_file_maps(results: list[ArchiveResult]) -> dict[str, dict[str, Any]]:
-    output_files: dict[str, dict[str, Any]] = {}
-    for result in results:
-        output_files.update(result.output_file_map())
-    return output_files
-
-
 def _write_archiveresult_files(
     request: HttpRequest,
     snapshot: Snapshot,
@@ -535,15 +528,8 @@ def create_archiveresult(
     normalized_status = ArchiveResult.normalize_status(status)
     parsed_output_json = _parse_archiveresult_output_json(output_json)
     hook = hook_name or ARCHIVERESULT_UPLOAD_HOOK_NAME
-    matching_results = list(
-        ArchiveResult.objects.filter(
-            snapshot=snapshot,
-            plugin=plugin_name,
-            hook_name=hook,
-        ).order_by("created_at", "id"),
-    )
-    existing_result = matching_results[0] if matching_results else None
-    existing_output_files = _merge_archiveresult_output_file_maps(matching_results)
+    existing_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin_name).first()
+    existing_output_files = dict(existing_result.output_files or {}) if existing_result else {}
     output_files = _write_archiveresult_files(
         request,
         snapshot,
@@ -554,22 +540,13 @@ def create_archiveresult(
     now = timezone.now()
 
     with transaction.atomic():
-        matching_results = list(
-            ArchiveResult.objects.filter(
-                snapshot=snapshot,
-                plugin=plugin_name,
-                hook_name=hook,
-            ).order_by("created_at", "id"),
-        )
-        if matching_results:
-            existing_result = matching_results[0]
+        Snapshot.objects.select_for_update().get(pk=snapshot.pk)
+        existing_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin_name).first()
+        if existing_result:
             output_files = {
-                **_merge_archiveresult_output_file_maps(matching_results),
+                **dict(existing_result.output_files or {}),
                 **output_files,
             }
-            duplicate_ids = [result.id for result in matching_results[1:]]
-            if duplicate_ids:
-                ArchiveResult.objects.filter(id__in=duplicate_ids).delete()
             result = existing_result
         else:
             existing_result = None
@@ -588,6 +565,7 @@ def create_archiveresult(
         output_size, output_mimetypes = _summarize_archiveresult_output_files(output_files)
         output_file_paths = list(output_files.keys())
         result.status = normalized_status
+        result.hook_name = hook
         result.output_str = output_str or (output_file_paths[0] if output_file_paths else "")
         result.output_json = parsed_output_json
         result.output_files = output_files
