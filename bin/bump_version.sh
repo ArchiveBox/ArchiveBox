@@ -47,10 +47,21 @@ package_path = Path('etc/package.json')
 package = json.loads(package_path.read_text())
 package['version'] = version
 package_path.write_text(json.dumps(package, indent=2) + '\n')
+
+lock_path = Path('uv.lock')
+lock, count = re.subn(
+    r'(?m)^(name = "archivebox"\nversion = ")[^"]+("$)',
+    rf'\g<1>{version}\2',
+    lock_path.read_text(),
+    count=1,
+)
+if count != 1:
+    raise SystemExit('Failed to update ArchiveBox version in uv.lock')
+lock_path.write_text(lock)
 print(version)
 PY
 
-uv lock --no-cache
+uv lock --check --offline --no-cache
 
 uv run --no-cache --no-project python - <<'PY'
 from pathlib import Path
