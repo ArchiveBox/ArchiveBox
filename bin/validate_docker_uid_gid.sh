@@ -39,25 +39,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${LIB_DIR:-$HOME/.config/archivebox/lib}}"
-locked_abxpkg_version() {
-    local line package=""
-    while IFS= read -r line; do
-        case "$line" in
-            '[[package]]') package="" ;;
-            'name = "abxpkg"') package="abxpkg" ;;
-            'version = "'*'"')
-                [[ "$package" == "abxpkg" ]] || continue
-                line="${line#version = \"}"
-                printf '%s\n' "${line%\"}"
-                return 0
-                ;;
-        esac
-    done < "$REPO_DIR/uv.lock"
-    return 1
-}
-ABXPKG_VERSION="$(locked_abxpkg_version)"
+ABXPKG_SPEC="$(UV_LOCK_PATH="$REPO_DIR/uv.lock" uv run --no-cache --no-project python -c 'import os, tomllib; package = next(item for item in tomllib.load(open(os.environ["UV_LOCK_PATH"], "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
 mkdir -p "$ABXPKG_LIB_DIR/env/bin"
-uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env \
     --install \
     --lib="$ABXPKG_LIB_DIR" \
     --deps-from="$REPO_DIR/.github/configs/ci-tooling.json:docker_validation_binaries" \
