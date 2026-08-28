@@ -19,6 +19,12 @@ done
 TAG_PREFIX=v
 PYPI_PACKAGE=archivebox
 
+pypi_release_json() {
+    "$CURL_BINARY" -fsSL --retry 30 --retry-all-errors --retry-delay 2 --retry-max-time 60 \
+        -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
+        "https://pypi.org/pypi/${PYPI_PACKAGE}/$1/json?cache_bust=$(date +%s)-${RANDOM}"
+}
+
 VERSION="$($UV_BINARY run --no-cache --no-project python - <<'PY'
 from pathlib import Path
 import json
@@ -290,6 +296,7 @@ if [[ "$PYPI_STATE" != complete ]]; then
     done
     [[ "${#PYPI_ARTIFACTS[@]}" -gt 0 ]]
     $UV_BINARY publish --no-cache --trusted-publishing always "${PYPI_ARTIFACTS[@]}"
+    pypi_release_json "$VERSION" >/dev/null
 fi
 
 if [[ "$IS_RC" == true ]]; then

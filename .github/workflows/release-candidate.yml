@@ -26,7 +26,7 @@ jobs:
           token: ${{ secrets.RELEASE_GH_TOKEN }}
 
       - id: version
-        uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@baf93a10cdadc0c4cebfe610d49261fb549a90ee
+        uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@afb379c6279fdeeca7aa4408d9589cd969b64ae7
         with:
           package: archivebox
           branch: dev
