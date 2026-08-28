@@ -168,7 +168,10 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             orphaned_hook_processes = orphaned_hook_processes.filter(snapshot_pwd_filter)
         else:
             orphaned_hook_processes = orphaned_hook_processes.none()
-    for process in orphaned_hook_processes.only("id", "pwd", "cmd", "process_type", "status"):
+    for process in orphaned_hook_processes.only("id", "pwd", "cmd", "process_type", "status", "started_at", "ended_at").order_by(
+        "-started_at",
+        "-id",
+    ):
         hook_script_name = process.hook_script_name
         if not hook_script_name or not process.pwd:
             continue
@@ -187,18 +190,22 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         result, created = ArchiveResult.objects.get_or_create(
             snapshot=snapshot,
             plugin=plugin_dir.name,
-            hook_name=Path(hook_script_name).stem,
             defaults={
+                "hook_name": Path(hook_script_name).stem,
                 "status": ArchiveResult.StatusChoices.QUEUED,
             },
         )
-        if result.status == ArchiveResult.StatusChoices.QUEUED:
+        process_is_newer = bool(process.started_at and (result.start_ts is None or process.started_at >= result.start_ts))
+        if result.status == ArchiveResult.StatusChoices.QUEUED or process_is_newer:
             requeue_snapshot = False
             # A runner can die after the hook Process exits but before the
             # ProcessCompletedEvent projector links/finalizes ArchiveResult.
-            # Reconstruct only that exact hook row from the durable Process row.
+            # Reconstruct the plugin row from its newest durable Process row.
             output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
+            result.hook_name = Path(hook_script_name).stem
             result.process = process
+            result.start_ts = process.started_at
+            result.end_ts = process.ended_at
             if _is_signal_interrupted_exit(process.exit_code):
                 # The owning runner died or was asked to stop while the hook was
                 # still active. Keep the work item queued so takeover retries the
@@ -222,7 +229,10 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
                 )
             result.save(
                 update_fields=[
+                    "hook_name",
                     "process",
+                    "start_ts",
+                    "end_ts",
                     "output_files",
                     "output_size",
                     "output_mimetypes",

@@ -2302,6 +2302,54 @@ class TestRunDueCrawlState:
 
 @pytest.mark.django_db
 class TestRecoverOrchestratorStateRedFailureModes:
+    def test_recovery_uses_newest_orphaned_hook_process_for_one_plugin_result(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.core.recovery_util import recover_orchestrator_state
+        from archivebox.crawls.models import Crawl
+        from archivebox.machine.models import Machine, NetworkInterface, Process
+
+        crawl = Crawl.objects.create(
+            urls="https://example.com",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.SEALED,
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(url="https://example.com", crawl=crawl, status=Snapshot.StatusChoices.SEALED, retry_at=None)
+        machine = Machine.current(refresh=True)
+        iface = NetworkInterface.current(refresh=True)
+        older_start = timezone.now() - timedelta(minutes=2)
+        newer_start = timezone.now() - timedelta(minutes=1)
+        for hook_name, started_at in (
+            ("on_Snapshot__01_title.py", older_start),
+            ("on_Snapshot__02_title.py", newer_start),
+        ):
+            Process.objects.create(
+                machine=machine,
+                iface=iface,
+                process_type=Process.TypeChoices.HOOK,
+                worker_type="archiveresult",
+                pwd=str(snapshot.output_dir / "title"),
+                cmd=[hook_name],
+                status=Process.StatusChoices.EXITED,
+                retry_at=None,
+                exit_code=0,
+                started_at=started_at,
+                ended_at=started_at + timedelta(seconds=1),
+            )
+
+        recover_orchestrator_state()
+
+        assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="title").count() == 1
+        result = ArchiveResult.objects.get(snapshot=snapshot, plugin="title")
+        assert result.hook_name == "on_Snapshot__02_title"
+        assert result.start_ts == newer_start
+        assert result.process.started_at == newer_start
+
     def test_recovery_does_not_seal_queued_snapshot_waiting_for_future_retry_even_with_final_results(self):
         from datetime import timedelta
 
