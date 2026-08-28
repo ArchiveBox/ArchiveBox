@@ -510,6 +510,23 @@ class TestPublicIndex:
         assert private_response.status_code == 302
         assert "/admin/core/snapshot/replay-auth/" in private_response["Location"]
 
+    def test_requested_url_snapshot_path_does_not_expose_private_snapshot(self, client, admin_user):
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        private_url = "https://private-url-path.example/secret"
+        private_crawl = Crawl.objects.create(urls=private_url, created_by=admin_user, config={"PERMISSIONS": "private"})
+        private_snapshot = Snapshot.objects.create(url=private_url, crawl=private_crawl, status=Snapshot.StatusChoices.SEALED)
+        date = private_snapshot.bookmarked_at.strftime("%Y%m%d")
+
+        response = client.get(
+            f"/{admin_user.username}/{date}/{private_url}",
+            HTTP_HOST=WEB_TEST_HOST,
+        )
+
+        assert response.status_code == 404
+        assert str(private_snapshot.id) not in response.content.decode()
+
     @pytest.mark.timeout(180)
     @pytest.mark.django_db(transaction=True)
     def test_private_snapshot_bookmark_authorizes_logged_in_admin_with_snap_scoped_replay_cookie(

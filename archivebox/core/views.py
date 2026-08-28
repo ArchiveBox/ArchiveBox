@@ -26,7 +26,7 @@ from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django.views import View
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.generic import FormView
 from django.views.generic.list import ListView
 
@@ -729,12 +729,13 @@ class SnapshotPathView(View):
             # fuzzy lookup by date + domain/url (most recent)
             username_lookup = "system" if username == "web" else username
             if requested_url:
-                qs = (
+                qs = direct_snapshots_queryset(
+                    request,
                     SnapshotView.find_snapshots_for_url(requested_url)
                     .select_related("crawl", "crawl__created_by")
                     .filter(
                         crawl__created_by__username=username_lookup,
-                    )
+                    ),
                 )
             else:
                 qs = snapshots_qs.filter(crawl__created_by__username=username_lookup)
@@ -1440,6 +1441,8 @@ class PublicIndexView(ListView):
             return _admin_login_redirect_or_forbidden(self.request)
 
 
+# The public web host intentionally has no CSRF cookie. Authenticated POSTs are
+# re-protected in post(); integrations should use the token-authenticated API.
 @method_decorator(csrf_exempt, name="dispatch")
 class AddView(UserPassesTestMixin, FormView):
     template_name = "add.html"
@@ -1461,6 +1464,11 @@ class AddView(UserPassesTestMixin, FormView):
 
     def test_func(self):
         return get_request_config(self.request).PUBLIC_ADD_VIEW or self.request.user.is_authenticated
+
+    def post(self, request: HttpRequest, *args: object, **kwargs: object):
+        if request.user.is_authenticated:
+            return csrf_protect(super().post)(request, *args, **kwargs)
+        return super().post(request, *args, **kwargs)
 
     def _can_override_crawl_config(self) -> bool:
         user = self.request.user
