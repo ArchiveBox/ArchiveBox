@@ -847,8 +847,8 @@ def test_update_preserves_distinct_legacy_dirs_with_integer_and_float_timestamps
     assert not (work_dir / "invalid").exists()
 
 
-def test_update_preserves_legacy_plugin_directory_without_output_files(migration_08_data):
-    """Duplicate empty rows must not delete shared log-only plugin outputs."""
+def test_update_consolidates_legacy_duplicate_rows_without_deleting_plugin_directory(migration_08_data):
+    """Duplicate legacy rows become one plugin result without deleting log-only outputs."""
     work_dir, db_path, original_data = migration_08_data
     snapshot = original_data["snapshots"][0]
     conn = sqlite3.connect(str(db_path))
@@ -897,10 +897,11 @@ def test_update_preserves_legacy_plugin_directory_without_output_files(migration
         (snapshot["id"],),
     ).fetchall()
     conn.close()
-    assert len(rows) == 2
-    assert all(output_str == "" for output_str, _output_files, _hook_name in rows)
-    assert len({hook_name for _output_str, _output_files, hook_name in rows}) == 2
-    assert sum(not hook_name for _output_str, _output_files, hook_name in rows) == 1
+    assert len(rows) == 1
+    output_str, output_files, hook_name = rows[0]
+    assert output_str == ""
+    assert json.loads(output_files) == {}
+    assert hook_name == ""
 
 
 def test_07_filesystem_hop_preserves_complete_output_tree(tmp_path):
