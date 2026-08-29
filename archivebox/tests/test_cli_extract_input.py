@@ -22,7 +22,7 @@ def create_extract_snapshot(initialized_archive, env, url="https://example.com")
     )
 
 
-def test_extract_archiveresult_record_queues_one_plugin_result(initialized_archive):
+def test_extract_archiveresult_record_queues_only_exact_hook(initialized_archive):
     env = cli_env(PLUGINS="archivewebpage")
     create_extract_snapshot(initialized_archive, env)
 
@@ -52,7 +52,7 @@ def test_extract_archiveresult_record_queues_one_plugin_result(initialized_archi
         rows = list(
             ArchiveResult.objects.filter(snapshot_id=snapshot_id, plugin="archivewebpage").values_list("hook_name", "status"),
         )
-    assert rows == [("", ArchiveResult.StatusChoices.QUEUED)]
+    assert rows == [(hook_name, ArchiveResult.StatusChoices.QUEUED)]
 
 
 def test_extract_runs_on_snapshot_id(initialized_archive):

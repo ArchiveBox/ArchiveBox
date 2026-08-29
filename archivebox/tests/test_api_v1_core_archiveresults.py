@@ -14,7 +14,7 @@ from archivebox.tests.conftest import api_client_request
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_archiveresult_upload_upserts_one_snapshot_plugin_result(client, api_admin_user, api_headers):
+def test_archiveresult_upload_upserts_by_snapshot_plugin_and_hook(client, api_admin_user, api_headers):
     crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
     snapshot = Snapshot.objects.create(url="https://example.com/unified-result", crawl=crawl)
 
@@ -39,13 +39,14 @@ def test_archiveresult_upload_upserts_one_snapshot_plugin_result(client, api_adm
     assert server_response.status_code == 200, server_response.content
     assert extension_update.status_code == 200, extension_update.content
     assert extension_update.json()["id"] == extension_response.json()["id"]
-    assert server_response.json()["id"] == extension_response.json()["id"]
+    assert server_response.json()["id"] != extension_response.json()["id"]
 
-    results = ArchiveResult.objects.filter(snapshot=snapshot, plugin="screenshot")
-    assert results.count() == 1
-    result = results.get()
-    assert result.hook_name == "on_Snapshot__archivebox_browser_extension_upload"
-    assert set(result.output_files) == {"browser.png", "server.png", "browser-2.png"}
+    results = ArchiveResult.objects.filter(snapshot=snapshot, plugin="screenshot").order_by("hook_name")
+    assert results.count() == 2
+    extension_result = results.get(hook_name="on_Snapshot__archivebox_browser_extension_upload")
+    server_result = results.get(hook_name="on_Snapshot__50_screenshot")
+    assert set(extension_result.output_files) == {"browser.png", "browser-2.png"}
+    assert set(server_result.output_files) == {"server.png"}
 
 
 def test_archiveresult_upload_api_queues_snapshot_maintenance_without_finalizing(client, api_admin_user, api_headers):
