@@ -33,12 +33,10 @@ jobs:
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
-            cache_scope: docker-amd64
             artifact_name: digest-linux-amd64
             local_tag: archivebox-ci:amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
-            cache_scope: docker-arm64
             artifact_name: digest-linux-arm64
             local_tag: archivebox-ci:arm64
     steps:
@@ -208,17 +206,17 @@ jobs:
             ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
-          cache-from: |
-            type=gha,scope=${{ matrix.cache_scope }}
-            type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
-          # The abx-dl base and prior ArchiveBox release already contain the
-          # compressed blobs we want. Inline metadata lets BuildKit reuse them
-          # directly; force-compression would counter-intuitively recompress
-          # the whole ~740 MiB image even when every filesystem layer is cached.
-          # The existing compressed-size gate remains the regression guard.
+          # Keep the released image as the one cache authority. A second GHA
+          # cache can hold gzip variants of identical layers, and BuildKit may
+          # prefer those over :dev's zstd blobs. That counter-intuitively makes
+          # a cache hit larger than the released image. :dev advances only
+          # after both architectures pass the release checks.
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
+          # Inline metadata reuses the released compressed blobs directly;
+          # force-compression would recompress the whole ~740 MiB image. The
+          # compressed-size gate below remains the regression guard.
           cache-to: |
             ${{ inputs.push_digests && 'type=inline' || '' }}
-            ${{ inputs.full_tests && format('type=gha,mode=max,scope={0}', matrix.cache_scope) || '' }}
           outputs: |
             ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=3', runner.temp) || '' }}
             ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=3', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
@@ -237,8 +235,9 @@ jobs:
             ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
-          cache-from: type=gha,scope=${{ matrix.cache_scope }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.cache_scope }}
+          # Test the same layer lineage users receive. Reusing :dev avoids a
+          # second cache whose compression can drift from the released image.
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
           outputs: |
             type=docker,name=${{ matrix.local_tag }}
             type=oci,dest=${{ runner.temp }}/archivebox-image.tar
