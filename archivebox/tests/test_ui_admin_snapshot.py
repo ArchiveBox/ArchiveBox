@@ -745,6 +745,15 @@ class TestSnapshotProgressStats:
         assert "event.preventDefault()" in rendered
         assert rendered.count(".on('click', handleSnapshotHeaderToggle)") == 1
 
+    def test_compact_output_cards_pack_into_columns(self):
+        template = (REPO_ROOT / "archivebox" / "templates" / "core" / "snapshot.html").read_text()
+        thumb_grid_css = template.split(".thumb-grid {", 1)[1].split("}", 1)[0]
+
+        assert "display: block;" in thumb_grid_css
+        assert "column-width: clamp(180px, 14vw, 250px);" in thumb_grid_css
+        assert "column-gap: 6px;" in thumb_grid_css
+        assert "grid-template-columns" not in thumb_grid_css
+
 
 class TestSnapshotOutputDeletion:
     @staticmethod

@@ -1054,10 +1054,9 @@
                 object-position: top center;
             }
             .thumb-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 14vw, 250px), 1fr));
-                gap: 6px;
-                align-content: start;
+                display: block;
+                column-width: clamp(180px, 14vw, 250px);
+                column-gap: 6px;
                 width: 100%;
                 max-width: 100%;
                 margin-left: 0;
