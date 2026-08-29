@@ -9,7 +9,7 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
  - *[Supported Systems](#supported-systems)*
  - Install Instructions
    - **[Option A. Docker / Docker Compose ⭐️](#option-a-docker--docker-compose-setup-%EF%B8%8F)**
-   - [Option B. Automatic Setup Script](#option-b-automatic-setup-script)
+   - [Option B. uv Install Shortcut](#option-b-uv-install-shortcut)
    - [Option C. System Package Manager Setup](#option-c-bare-metal-setup)
      - *[Upgrading ArchiveBox to a new version](#upgrading-archivebox-to-a-new-version)*
  - *[Next Steps](#next-steps)*
@@ -66,9 +66,9 @@ It's also recommended to use a filesystem with compression and/or [deduplication
 <br/>
 
 
-## Option B. Automatic Setup Script
+## Option B. uv Install Shortcut
 
-If you're on macOS or Ubuntu, there is an optional auto-setup script provided.
+On macOS, Linux, or BSD, `get.archivebox.io` is a shortcut for the `uv` install method.
 
 *(or scroll further down for manual install instructions)*
 
@@ -76,9 +76,7 @@ If you're on macOS or Ubuntu, there is an optional auto-setup script provided.
 curl -fsSL 'https://get.archivebox.io' | bash
 # shortcut to run https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh
 ``` 
-The script uses Docker Compose when available, otherwise plain Docker when it can pull the released image. If Docker is unavailable, it shows the native `uv` install plan and pauses so you can cancel before continuing. It initializes the collection, installs ArchiveBox's runtime dependencies, and starts the server. Open the printed Admin UI URL to create the first admin. If `BASE_URL` is not configured yet, continue through the web setup wizard.
-
-Run it as your normal user unless you want a system-owned deployment. When run as root, the script creates the `archivebox` service user and places the collection under that account's home directory; it prints the exact path and follow-up commands when finished.
+The script installs `uv` when needed, then runs the same `uv tool install` command documented below. It does not initialize a collection, install runtime dependencies, or start a server; continue with the Quickstart after it finishes.
 
 <img src="https://imgur.zervice.io/VMTzm0G.png" width="99%"/>
 
@@ -94,7 +92,7 @@ After running the setup script, continue with the [Quickstart](https://github.co
 
 ## Option C. Bare Metal Setup
 
-If you'd rather not use [Docker](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup) or our [auto-install script](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup), you can follow these manual setup instructions to install ArchiveBox and its dependencies using `uv`, `apt`, or Homebrew.
+If you'd rather not use [Docker](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup) or our [`uv` install shortcut](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup), you can follow these manual setup instructions to install ArchiveBox and its dependencies using `uv`, `apt`, or Homebrew.
 
 See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) documentation to see the full list of dependencies and how they're used. Not all the dependencies are required for all modes. If you disable some archive methods you can skip installing those dependencies — for example, if you set [`MEDIA_ENABLED=False`](https://archivebox.github.io/abx-plugins/#media) you don't need to install `yt-dlp`, and if you set [`PDF_ENABLED=False`](https://archivebox.github.io/abx-plugins/#pdf), [`SCREENSHOT_ENABLED=False`](https://archivebox.github.io/abx-plugins/#screenshot), and [`DOM_ENABLED=False`](https://archivebox.github.io/abx-plugins/#dom) you don't need `chromium`.
 

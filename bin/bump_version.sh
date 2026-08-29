@@ -64,24 +64,3 @@ if next(package['version'] for package in locked['package'] if package['name'] =
     raise SystemExit('Updated ArchiveBox lock version does not match the requested version')
 print(version)
 PY
-
-uv run --no-cache --no-project python - <<'PY'
-from pathlib import Path
-import re
-import tomllib
-
-packages = tomllib.loads(Path('uv.lock').read_text())['package']
-abxpkg_version = next(package['version'] for package in packages if package['name'] == 'abxpkg')
-setup_path = Path('bin/setup.sh')
-setup = setup_path.read_text()
-updated, count = re.subn(
-    r'^(ABXPKG_PACKAGE="\$\{ABXPKG_PACKAGE:-abxpkg==)[^}"]+(\}")$',
-    rf'\g<1>{abxpkg_version}\g<2>',
-    setup,
-    count=1,
-    flags=re.MULTILINE,
-)
-if count != 1:
-    raise SystemExit('Failed to update ABXPKG_PACKAGE in bin/setup.sh')
-setup_path.write_text(updated)
-PY
