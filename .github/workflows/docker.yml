@@ -208,13 +208,20 @@ jobs:
             ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
-          cache-from: type=gha,scope=${{ matrix.cache_scope }}
-          cache-to: ${{ inputs.full_tests && format('type=gha,mode=max,scope={0}', matrix.cache_scope) || '' }}
-          # Keep the abx-dl base layers in zstd form: it is both smaller and
-          # faster to export than gzip, and ArchiveBox can reuse them by digest.
+          cache-from: |
+            type=gha,scope=${{ matrix.cache_scope }}
+            type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
+          # The abx-dl base and prior ArchiveBox release already contain the
+          # compressed blobs we want. Inline metadata lets BuildKit reuse them
+          # directly; force-compression would counter-intuitively recompress
+          # the whole ~740 MiB image even when every filesystem layer is cached.
+          # The existing compressed-size gate remains the regression guard.
+          cache-to: |
+            ${{ inputs.push_digests && 'type=inline' || '' }}
+            ${{ inputs.full_tests && format('type=gha,mode=max,scope={0}', matrix.cache_scope) || '' }}
           outputs: |
-            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=3,force-compression=true', runner.temp) || '' }}
-            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=3,force-compression=true', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
+            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=3', runner.temp) || '' }}
+            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=3', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
 
       - name: Build pull request image
         id: docker_build_pr
