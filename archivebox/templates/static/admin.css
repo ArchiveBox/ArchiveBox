@@ -1461,6 +1461,38 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     white-space: normal;
 }
 
+.archive-results-table .archive-results-actions-cell {
+    width: 100px;
+    min-width: 100px;
+    padding: 10px 8px;
+    white-space: nowrap;
+}
+
+.archive-results-table .archive-results-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.archive-results-table .archive-results-actions a,
+.archive-results-table .archive-results-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
+}
+
 
 #result_list tbody td.field-cmd_str pre,
 #result_list tbody td.field-output_str pre {

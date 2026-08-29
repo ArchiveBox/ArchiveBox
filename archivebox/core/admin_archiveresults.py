@@ -198,7 +198,6 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
         if can_delete:
             delete_button = f'''
                 <button type="button" data-archive-result-ids="{result.id}" data-delete-url="{delete_url}"
-                        style="padding: 4px 8px; border: 0; background: #f1f5f9; border-radius: 4px; color: #475569; font-size: 11px; cursor: pointer;"
                         title="Delete this output">❌</button>
             '''
 
@@ -254,13 +253,11 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
                 <td style="padding: 10px 12px; white-space: nowrap; font-family: ui-monospace, monospace; font-size: 11px; color: #64748b;">
                     {version}
                 </td>
-                <td style="padding: 10px 8px; white-space: nowrap;">
-                    <div style="display: flex; gap: 4px;">
+                <td class="archive-results-actions-cell">
+                    <div class="archive-results-actions">
                         <a href="{output_link_attr}" target="_blank"
-                           style="padding: 4px 8px; background: #f1f5f9; border-radius: 4px; color: #475569; text-decoration: none; font-size: 11px;"
                            title="View output">📄</a>
                         <a href="{reverse("admin:core_archiveresult_change", args=[result.id])}"
-                           style="padding: 4px 8px; background: #f1f5f9; border-radius: 4px; color: #475569; text-decoration: none; font-size: 11px;"
                            title="Edit">✏️</a>
                         {delete_button}
                     </div>
@@ -331,7 +328,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Process</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Machine</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Version</th>
-                        <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Actions</th>
+                        <th class="archive-results-actions-cell" style="text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>

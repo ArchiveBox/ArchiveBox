@@ -206,6 +206,7 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert inline_html.count('class="archive-results-output"') == 2
     assert inline_html.count('class="archive-results-files"') == 2
     assert inline_html.count('class="archive-results-completed"') == 2
+    assert 'class="archive-results-actions"' in inline_html
     assert "display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis;" in inline_html
     assert '<wbr> <span style="white-space: nowrap;">' in inline_html
 
@@ -215,6 +216,8 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert ".archive-results-table .archive-results-output {\n    min-width: 180px;" in admin_css
     assert ".archive-results-table .archive-results-files {\n    width: 52px;\n    min-width: 52px;" in admin_css
     assert ".archive-results-table .archive-results-completed {\n    min-width: 96px;\n    white-space: normal;" in admin_css
+    assert ".archive-results-table .archive-results-actions a,\n.archive-results-table .archive-results-actions button {" in admin_css
+    assert "margin: 0;\n    width: 28px;\n    height: 28px;" in admin_css
 
 
 @pytest.mark.django_db(transaction=True)
