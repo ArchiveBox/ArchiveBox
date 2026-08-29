@@ -230,7 +230,7 @@ def test_archiveresult_event_retry_updates_existing_hook_row(tmp_path, hermetic_
     _cleanup_machine_process_rows()
 
 
-def test_archiveresult_duplicate_hook_rows_are_rejected():
+def test_archiveresult_duplicate_plugin_rows_are_rejected():
     from django.db import IntegrityError, transaction
     from archivebox.core.models import ArchiveResult
 
@@ -246,9 +246,45 @@ def test_archiveresult_duplicate_hook_rows_are_rejected():
         ArchiveResult.objects.create(
             snapshot=snapshot,
             plugin="wget",
-            hook_name="on_Snapshot__06_wget.finite.bg",
+            hook_name="on_Snapshot__99_other_wget_hook",
             status=ArchiveResult.StatusChoices.SUCCEEDED,
         )
+
+
+def test_archivewebpage_lifecycle_hooks_project_one_plugin_output():
+    from abx_dl.events import ArchiveResultEvent
+    from archivebox.core.models import ArchiveResult
+    from archivebox.services.archive_result_service import _save_archiveresult_event_to_db
+
+    snapshot = _create_snapshot()
+    _save_archiveresult_event_to_db(
+        ArchiveResultEvent(
+            snapshot_id=str(snapshot.id),
+            plugin="archivewebpage",
+            hook_name="on_Snapshot__16_archivewebpage_start",
+            status="succeeded",
+            output_str="recording started",
+            output_files=[OutputFile(path="recording.json", extension="json", mimetype="application/json", size=175)],
+        ),
+        None,
+    )
+    _save_archiveresult_event_to_db(
+        ArchiveResultEvent(
+            snapshot_id=str(snapshot.id),
+            plugin="archivewebpage",
+            hook_name="on_Snapshot__65_archivewebpage_stop",
+            status="succeeded",
+            output_str="archivewebpage.wacz",
+            output_files=[OutputFile(path="archivewebpage.wacz", extension="wacz", size=2048)],
+        ),
+        None,
+    )
+
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="archivewebpage")
+    assert result.hook_name == "on_Snapshot__65_archivewebpage_stop"
+    assert result.output_str == "archivewebpage.wacz"
+    assert set(result.output_files) == {"recording.json", "archivewebpage.wacz"}
+    assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="archivewebpage").count() == 1
 
 
 def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_path, hermetic_lib_dir):
@@ -434,12 +470,13 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
     reset_count = snapshot.retry_failed_archiveresults()
 
     snapshot.refresh_from_db()
-    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="chrome", hook_name="on_Snapshot__11_chrome_wait")
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="chrome")
     assert reset_count == 1
     assert snapshot.status == Snapshot.StatusChoices.QUEUED
     assert snapshot.retry_at is not None
     assert snapshot.current_step == 0
     assert result.status == ArchiveResult.StatusChoices.QUEUED
+    assert result.hook_name == ""
     assert result.output_str == ""
     assert result.output_json is None
     assert result.output_files == {}

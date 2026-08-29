@@ -151,7 +151,18 @@ def process_stdin_records() -> int:
                     queued_count += 1
 
             elif record_type == TYPE_ARCHIVERESULT:
-                archiveresult = ArchiveResult.from_json(record)
+                if record_id:
+                    # Existing archiveresult - re-queue
+                    try:
+                        archiveresult = ArchiveResult.objects.get(id=record_id)
+                    except ArchiveResult.DoesNotExist:
+                        archiveresult = None
+                else:
+                    archiveresult = None
+
+                snapshot_id = record.get("snapshot_id")
+                plugin_name = record.get("plugin")
+                snapshot = None
                 if archiveresult:
                     if archiveresult.status in [
                         ArchiveResult.StatusChoices.FAILED,
@@ -161,10 +172,12 @@ def process_stdin_records() -> int:
                     ]:
                         archiveresult.reset_for_retry()
                     snapshot = archiveresult.snapshot
-                    plugin_name = archiveresult.plugin
-                else:
-                    snapshot = None
-                    plugin_name = None
+                    plugin_name = plugin_name or archiveresult.plugin
+                elif snapshot_id:
+                    try:
+                        snapshot = Snapshot.objects.get(id=snapshot_id)
+                    except Snapshot.DoesNotExist:
+                        snapshot = None
 
                 if snapshot:
                     snapshot.queue_for_extraction()
