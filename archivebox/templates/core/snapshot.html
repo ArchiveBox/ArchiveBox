@@ -1054,9 +1054,11 @@
                 object-position: top center;
             }
             .thumb-grid {
-                display: block;
-                column-width: clamp(180px, 14vw, 250px);
-                column-gap: 6px;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 14vw, 250px), 1fr));
+                grid-auto-flow: row dense;
+                grid-auto-rows: 42px;
+                gap: 6px;
                 width: 100%;
                 max-width: 100%;
                 margin-left: 0;
@@ -1076,17 +1078,19 @@
                 display: inline-flex;
                 flex-direction: column;
                 align-items: stretch;
+                grid-row: span 3;
                 break-inside: avoid;
-                margin-bottom: 6px;
+                margin-bottom: 0;
                 vertical-align: top;
                 content-visibility: auto;
                 contain-intrinsic-size: 138px;
             }
             .thumb-card:has([data-compact]) {
-                height: 46px;
-                min-height: 46px;
-                max-height: 46px;
-                contain-intrinsic-size: 46px;
+                height: 42px;
+                min-height: 42px;
+                max-height: 42px;
+                grid-row: span 1;
+                contain-intrinsic-size: 42px;
             }
             .thumb-card .thumb-body {
                 display: grid;
@@ -1246,7 +1250,7 @@
             }
             .thumb-card:has([data-compact]) .thumbnail-wrapper,
             .thumb-card:has([data-compact]) .thumbnail-wrapper.compact {
-                height: 24px;
+                height: 20px;
                 flex: 0 0 auto;
             }
             .thumb-card:has([data-compact]) .thumb-body {
