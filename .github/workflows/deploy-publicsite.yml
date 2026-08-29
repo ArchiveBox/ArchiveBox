@@ -27,7 +27,6 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name != 'push' || github.event.head_commit.author.email != 'release-bot@archivebox.io'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
