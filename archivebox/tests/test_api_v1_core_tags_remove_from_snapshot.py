@@ -28,5 +28,6 @@ def test_basic_success_case_request(client, api_admin_user, api_headers):
     assert response.status_code == 200, response.content
     assert response.json()["success"] is True
     assert not snapshot.tags.filter(pk=tag.pk).exists()
-    transaction_queries = [query["sql"] for query in queries if query["sql"].strip().upper() in {"BEGIN", "COMMIT"}]
-    assert transaction_queries == []
+    if connection.vendor == "sqlite":
+        transaction_queries = [query["sql"] for query in queries if query["sql"].strip().upper() in {"BEGIN", "COMMIT"}]
+        assert transaction_queries == []

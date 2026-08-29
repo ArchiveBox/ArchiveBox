@@ -332,20 +332,13 @@ def _save_archiveresult_event_to_db(
         if event.error:
             defaults["notes"] = event.error
 
-    with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_lookup"):
-        result = ArchiveResult.objects.filter(
-            snapshot=snapshot,
-            plugin=event.plugin,
-            hook_name=event.hook_name,
-        ).first()
-    if result is None:
-        with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_create"):
-            result, _created = ArchiveResult.get_or_create_by_hook(
-                snapshot,
-                event.plugin,
-                event.hook_name,
-                defaults=defaults,
-            )
+    with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_get_or_create"):
+        result, _created = ArchiveResult.get_or_create_by_hook(
+            snapshot,
+            event.plugin,
+            event.hook_name,
+            defaults=defaults,
+        )
 
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.diff_fields"):
         update_fields = []

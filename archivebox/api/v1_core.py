@@ -944,6 +944,9 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
             created_by=request.user if isinstance(request.user, User) else None,
         )
 
+    # Browser uploads must not wait behind the runner's crawl-wide lifecycle
+    # lock. The unique insert recovery and CAS update below are the request-side
+    # coordination boundary for this idempotent metadata sync.
     snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
     if snapshot is None:
         try:
@@ -973,7 +976,10 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
         raise HttpError(409, "Snapshot changed while metadata was being updated")
 
     if tags:
-        snapshot.save_tags(tags)
+        snapshot.save_tags(
+            tags,
+            created_by=request.user if isinstance(request.user, User) else None,
+        )
 
     try:
         snapshot.ensure_crawl_symlink()
@@ -1026,7 +1032,10 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
             update_fields.append("retry_at")
 
         if tags is not None:
-            snapshot.save_tags(normalize_tag_list(tags))
+            snapshot.save_tags(
+                normalize_tag_list(tags),
+                created_by=request.user if isinstance(request.user, User) else None,
+            )
 
         if payload.get("status") == Snapshot.StatusChoices.SEALED:
             snapshot.cancel()

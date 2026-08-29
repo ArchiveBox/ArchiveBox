@@ -311,6 +311,35 @@ def test_snapshot_admin_preview_uses_extension_screenshot_when_standard_screensh
     assert "chrome_extension_screenshot/screenshot-2.png" not in preview["fallback_list"]
 
 
+def test_snapshot_admin_attributes_new_tags_to_authenticated_user(client, snapshot, admin_user):
+    from archivebox.core.models import Tag
+
+    client.force_login(admin_user)
+    response = client.post(
+        reverse("admin:core_snapshot_change", args=[snapshot.pk]),
+        {
+            "url": snapshot.url,
+            "title": snapshot.title or "",
+            "tags_editor": "admin-created-tag",
+            "permissions_config": "private",
+            "status": snapshot.status,
+            "retry_at": "",
+            "bookmarked_at_0": snapshot.bookmarked_at.date().isoformat(),
+            "bookmarked_at_1": snapshot.bookmarked_at.time().isoformat(),
+            "crawl": str(snapshot.crawl_id),
+            "config": '{"SAVE_ARCHIVE_DOT_ORG": "false"}',
+            "notes": "",
+            "_save": "Save",
+        },
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+
+    assert response.status_code == 302, response.context and response.context["adminform"].form.errors
+    tag = Tag.objects.get(name="admin-created-tag")
+    assert tag.created_by == admin_user
+    assert snapshot.tags.filter(pk=tag.pk).exists()
+
+
 class TestSnapshotProgressStats:
     """Tests for Snapshot.get_progress_stats() method."""
 

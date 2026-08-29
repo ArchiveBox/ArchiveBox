@@ -609,9 +609,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             try:
                 SnapshotTag(snapshot_id=self.pk, tag_id=tag_id).save(force_insert=True)
             except IntegrityError:
-                # The unique (snapshot, tag) row already exists. In autocommit
-                # mode the failed INSERT is fully rolled back before continuing.
-                continue
+                # Only the unique (snapshot, tag) conflict is idempotent. Do
+                # not hide foreign-key or other integrity failures.
+                if SnapshotTag.objects.filter(snapshot_id=self.pk, tag_id=tag_id).exists():
+                    continue
+                raise
 
     def remove_tag_ids(self, tag_ids: Iterable[int | str]) -> int:
         tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
@@ -2726,10 +2728,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def archive_size(self):
         return int(self.output_size or 0)
 
-    def save_tags(self, tags: Iterable[str] = ()) -> None:
+    def save_tags(self, tags: Iterable[str] = (), *, created_by: Any = None) -> None:
         from archivebox.core.tag_util import get_or_create_tag
 
-        tag_ids = {get_or_create_tag(tag)[0].pk for tag in tags if tag.strip()}
+        tag_ids = {get_or_create_tag(tag, created_by=created_by)[0].pk for tag in tags if tag.strip()}
         existing_tag_ids = set(SnapshotTag.objects.filter(snapshot_id=self.pk).values_list("tag_id", flat=True))
         self.remove_tag_ids(existing_tag_ids - tag_ids)
         self.add_tag_ids(tag_ids - existing_tag_ids)

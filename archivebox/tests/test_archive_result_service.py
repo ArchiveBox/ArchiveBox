@@ -251,6 +251,32 @@ def test_archiveresult_duplicate_hook_rows_are_rejected():
         )
 
 
+def test_archiveresult_event_create_uses_one_result_lookup():
+    from abx_dl.events import ArchiveResultEvent
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from archivebox.services.archive_result_service import _save_archiveresult_event_to_db
+
+    snapshot = _create_snapshot()
+    event = ArchiveResultEvent(
+        snapshot_id=str(snapshot.id),
+        plugin="review-query-count",
+        hook_name="on_Snapshot__99_review.py",
+        status="failed",
+    )
+
+    with CaptureQueriesContext(connection) as queries:
+        _save_archiveresult_event_to_db(event, None)
+
+    result_lookups = [
+        query["sql"]
+        for query in queries
+        if query["sql"].lstrip().upper().startswith("SELECT") and 'FROM "core_archiveresult"' in query["sql"]
+    ]
+    assert len(result_lookups) == 1
+
+
 def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_path, hermetic_lib_dir):
     from archivebox.core.models import ArchiveResult
 

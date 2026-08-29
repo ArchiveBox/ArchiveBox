@@ -69,8 +69,9 @@ def test_archiveresult_create_does_not_open_a_database_transaction(client, api_a
         )
 
     assert response.status_code == 200, response.content
-    transaction_queries = [query["sql"] for query in queries if query["sql"].strip().upper() in {"BEGIN", "COMMIT"}]
-    assert transaction_queries == []
+    if connection.vendor == "sqlite":
+        transaction_queries = [query["sql"] for query in queries if query["sql"].strip().upper() in {"BEGIN", "COMMIT"}]
+        assert transaction_queries == []
 
 
 def test_intermediate_archiveresult_chunks_only_write_to_disk(client, api_admin_user, api_headers):

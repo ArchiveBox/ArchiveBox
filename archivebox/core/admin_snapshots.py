@@ -356,6 +356,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     form = SnapshotAdminForm
     raw_id_fields = ("crawl", "parent_snapshot")
     list_select_related = ()
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        tags_str = form.cleaned_data.get("tags_editor", "")
+        tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
+        form.instance.save_tags(
+            tag_names,
+            created_by=request.user if request.user.is_authenticated else None,
+        )
+
     list_display = (
         "permissions_badge",
         "created_at",
