@@ -780,6 +780,10 @@ class TestSnapshotOutputDeletion:
         assert "action: 'delete_selected'" in html
         assert "/admin/core/archiveresult/" in html
         assert "[deleting]" in html
+        assert ">×</button>" in html
+        assert "[data-archive-result-ids]:hover" in html
+        assert "[data-archive-result-ids].delete-pending" in html
+        assert "button.classList.toggle('delete-pending', queued)" in html
 
         request.user = AnonymousUser()
         anonymous_html = SnapshotView.render_live_index(request, snapshot).content.decode()
@@ -856,6 +860,8 @@ class TestSnapshotOutputDeletion:
         assert reverse("admin:core_archiveresult_changelist") in html
         assert "const queuedOutputIds = new Set()" in html
         assert "action: 'delete_selected'" in html
+        assert ">×</button>" in html
+        assert "button.classList.toggle('delete-pending', queued)" in html
 
 
 class TestAdminSnapshotListView:

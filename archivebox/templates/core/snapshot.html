@@ -1712,7 +1712,7 @@
                                             <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
                                         {% endif %}
                                         {% if can_delete_outputs and result.result %}
-                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" title="Delete this output">❌</button>
+                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" title="Delete this output">×</button>
                                         {% endif %}
                                     </div>
                                     {% if display_path %}

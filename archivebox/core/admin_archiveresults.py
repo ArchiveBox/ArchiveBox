@@ -198,7 +198,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
         if can_delete:
             delete_button = f'''
                 <button type="button" data-archive-result-ids="{result.id}" data-delete-url="{delete_url}"
-                        title="Delete this output">❌</button>
+                        title="Delete this output">×</button>
             '''
 
         rows.append(f'''

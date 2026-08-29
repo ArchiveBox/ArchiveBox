@@ -1,3 +1,8 @@
+<style>
+    [data-archive-result-ids] { color: #64748b; }
+    [data-archive-result-ids]:hover,
+    [data-archive-result-ids].delete-pending { color: #b91c1c; }
+</style>
 <script>
     (() => {
         for (const sortButton of document.querySelectorAll('[data-output-size-sort]')) {
@@ -23,8 +28,8 @@
         function renderDeleteCountdown(label='') {
             for (const button of deleteOutputButtons) {
                 const queued = button.dataset.archiveResultIds.split(',').every((id) => queuedOutputIds.has(id))
-                button.textContent = queued ? label : '❌'
-                button.style.color = queued ? '#b91c1c' : ''
+                button.textContent = queued ? label : '×'
+                button.classList.toggle('delete-pending', queued)
             }
         }
 
