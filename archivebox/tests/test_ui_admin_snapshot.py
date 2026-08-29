@@ -749,6 +749,7 @@ class TestSnapshotProgressStats:
         template = (REPO_ROOT / "archivebox" / "templates" / "core" / "snapshot.html").read_text()
         thumb_grid_css = template.split(".thumb-grid {", 1)[1].split("}", 1)[0]
         thumb_card_css = template.split(".thumb-card {", 1)[1].split("}", 1)[0]
+        auxiliary_card_css = template.split(".thumb-card:not([data-plugin-name]) {", 1)[1].split("}", 1)[0]
         compact_card_css = template.split(".thumb-card:has([data-compact]) {", 1)[1].split("}", 1)[0]
 
         assert "display: grid;" in thumb_grid_css
@@ -756,7 +757,9 @@ class TestSnapshotProgressStats:
         assert "grid-auto-flow: row dense;" in thumb_grid_css
         assert "grid-auto-rows: 42px;" in thumb_grid_css
         assert "grid-row: span 3;" in thumb_card_css
+        assert "order: 1;" in auxiliary_card_css
         assert "grid-row: span 1;" in compact_card_css
+        assert "order: 2;" in compact_card_css
 
 
 class TestSnapshotOutputDeletion:

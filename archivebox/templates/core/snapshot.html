@@ -1085,11 +1085,15 @@
                 content-visibility: auto;
                 contain-intrinsic-size: 138px;
             }
+            .thumb-card:not([data-plugin-name]) {
+                order: 1;
+            }
             .thumb-card:has([data-compact]) {
                 height: 42px;
                 min-height: 42px;
                 max-height: 42px;
                 grid-row: span 1;
+                order: 2;
                 contain-intrinsic-size: 42px;
             }
             .thumb-card .thumb-body {
