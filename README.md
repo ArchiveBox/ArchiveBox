@@ -682,7 +682,7 @@ It uses all available methods out-of-the-box, but you can disable extractors and
 <summary><i>Expand to see the full list of ways it saves each page...</i></summary>
 
 
-<code>data/archive/{Snapshot.id}/</code><br/>
+<code>data/archive/users/{username}/snapshots/{YYYYMMDD}/{domain}/{Snapshot.id}/</code><br/>
 <ul>
 <li><strong>Index:</strong> <code>index.html</code> &amp; <code>index.json</code> HTML and JSON index files containing metadata and details</li>
 <li><strong>Title</strong>, <strong>Favicon</strong>, <strong>Headers</strong> Response headers, site favicon, and parsed site title</li>
@@ -849,7 +849,7 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
                                 ...
 </code></pre>
 
-Each snapshot subfolder includes static metadata and plain extractor output files. ArchiveBox also maintains a backwards-compatible <code>data/archive/TIMESTAMP</code> symlink for each snapshot.
+Each snapshot subfolder includes static metadata and plain extractor output files. Current releases do not create top-level <code>data/archive/TIMESTAMP</code> projections; legacy timestamp directories are migrated into the user-scoped tree by <code>archivebox update --migrate-only</code>.
 
 <h4>Learn More</h4>
 <ul>

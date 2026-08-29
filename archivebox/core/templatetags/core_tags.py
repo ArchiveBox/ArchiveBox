@@ -2,6 +2,7 @@ import os
 from html import unescape
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
 from django import template
@@ -11,6 +12,7 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 
+from archivebox.config import CONSTANTS
 from archivebox.core.routes_util import (
     build_snapshot_url,
     get_admin_base_url,
@@ -28,6 +30,7 @@ register = template.Library()
 
 _TEXT_PREVIEW_EXTS = (".json", ".jsonl", ".txt", ".csv", ".tsv", ".xml", ".yml", ".yaml", ".md", ".log")
 _IMAGE_PREVIEW_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".avif")
+_STATIC_URL_SAFE = "/@-._~!$&'()*+,;="
 
 _MEDIA_FILE_EXTS = {
     ".mp4",
@@ -202,16 +205,70 @@ def _is_root_snapshot_output_path(raw_output_path: str | None) -> bool:
     return normalized in ("", ".", "./", "/", "index.html", "index.json")
 
 
-def _build_snapshot_files_url(snapshot_id: str, request=None, config=None) -> str:
-    return build_snapshot_url(str(snapshot_id), "/?files=1", request=request, config=config)
+def _static_snapshot_base_url(context, snapshot) -> str:
+    start_dir = Path(context["STATIC_EXPORT_DIR"])
+    relative_path = os.path.relpath(Path(snapshot.output_dir), start=start_dir).replace(os.sep, "/")
+    if relative_path == ".":
+        return "."
+    return f"./{quote(relative_path, safe=_STATIC_URL_SAFE)}"
 
 
-def _build_snapshot_preview_url(snapshot_id: str, path: str = "", request=None, config=None, plugin: str = "") -> str:
+def _snapshot_base_url_for_context(context, snapshot) -> str:
+    if context.get("STATIC_EXPORT"):
+        return _static_snapshot_base_url(context, snapshot)
+    return get_snapshot_base_url(
+        str(_snapshot_id(snapshot)),
+        request=context.get("request"),
+        config=context.get("CONFIG"),
+    )
+
+
+def _snapshot_url_for_context(context, snapshot, path: str = "") -> str:
+    if not context.get("STATIC_EXPORT"):
+        return build_snapshot_url(
+            str(_snapshot_id(snapshot)),
+            path,
+            request=context.get("request"),
+            config=context.get("CONFIG"),
+        )
+
+    base_url = _static_snapshot_base_url(context, snapshot)
+    raw_path = str(path or "")
+    if not raw_path:
+        return base_url
+    path_part, separator, query = raw_path.lstrip("/").partition("?")
+    quoted_path = quote(path_part, safe=_STATIC_URL_SAFE)
+    suffix = f"?{query}" if separator else ""
+    return f"{base_url.rstrip('/')}/{quoted_path}{suffix}"
+
+
+def _build_snapshot_files_url(snapshot_id: str, request=None, config=None, base_url: str | None = None) -> str:
+    return (
+        f"{base_url.rstrip('/')}/?files=1"
+        if base_url
+        else build_snapshot_url(str(snapshot_id), "/?files=1", request=request, config=config)
+    )
+
+
+def _build_snapshot_preview_url(
+    snapshot_id: str,
+    path: str = "",
+    request=None,
+    config=None,
+    plugin: str = "",
+    base_url: str | None = None,
+) -> str:
     if path == "about:blank":
         return path
     if _is_root_snapshot_output_path(path):
-        return _build_snapshot_files_url(snapshot_id, request=request, config=config)
-    url = build_snapshot_url(str(snapshot_id), path, request=request, config=config)
+        return _build_snapshot_files_url(snapshot_id, request=request, config=config, base_url=base_url)
+    if base_url:
+        path_part, separator, query = str(path).lstrip("/").partition("?")
+        url = f"{base_url.rstrip('/')}/{quote(path_part, safe=_STATIC_URL_SAFE)}"
+        if separator:
+            url = f"{url}?{query}"
+    else:
+        url = build_snapshot_url(str(snapshot_id), path, request=request, config=config)
     path_parts = Path(path).parts
     plugin = get_plugin_name(plugin) if plugin else (path_parts[0] if len(path_parts) > 1 else "")
     has_plugin_preview = bool(plugin and get_plugin_template(plugin, "full", fallback=False))
@@ -442,22 +499,34 @@ def web_base_url(context) -> str:
 
 
 @register.simple_tag(takes_context=True)
+def static_export_root_url(context) -> str:
+    if not context.get("STATIC_EXPORT"):
+        return ""
+    relative_path = os.path.relpath(CONSTANTS.DATA_DIR, start=Path(context["STATIC_EXPORT_DIR"]))
+    relative_path = relative_path.replace(os.sep, "/")
+    return "./" if relative_path == "." else f"{quote(relative_path, safe=_STATIC_URL_SAFE)}/"
+
+
+@register.simple_tag(takes_context=True)
 def snapshot_base_url(context, snapshot) -> str:
-    snapshot_id = _snapshot_id(snapshot)
-    return get_snapshot_base_url(str(snapshot_id), request=context.get("request"), config=context.get("CONFIG"))
+    return _snapshot_base_url_for_context(context, snapshot)
 
 
 @register.simple_tag(takes_context=True)
 def snapshot_url(context, snapshot, path: str = "") -> str:
-    snapshot_id = _snapshot_id(snapshot)
-    return build_snapshot_url(str(snapshot_id), path, request=context.get("request"), config=context.get("CONFIG"))
+    return _snapshot_url_for_context(context, snapshot, path)
 
 
 @register.simple_tag(takes_context=True)
 def snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) -> str:
     snapshot_id = str(_snapshot_id(snapshot))
     url_cache = snapshot.__dict__.setdefault("_snapshot_archiveresult_url_cache", {})
-    cache_key = (plugin, filename)
+    cache_key = (
+        plugin,
+        filename,
+        bool(context.get("STATIC_EXPORT")),
+        str(context.get("STATIC_EXPORT_DIR") or ""),
+    )
     if cache_key in url_cache:
         return url_cache[cache_key]
 
@@ -493,7 +562,7 @@ def snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) ->
         if not isinstance(file_info, dict) or int(file_info.get("size") or 0) <= 0:
             continue
         output_path = filename if file_info.get("root_relative") else f"{plugin}/{filename}"
-        url_cache[cache_key] = build_snapshot_url(snapshot_id, output_path, request=context.get("request"), config=context.get("CONFIG"))
+        url_cache[cache_key] = _snapshot_url_for_context(context, snapshot, output_path)
         return url_cache[cache_key]
 
     url_cache[cache_key] = ""
@@ -502,10 +571,7 @@ def snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) ->
 
 @register.simple_tag(takes_context=True)
 def snapshot_index_row(context, link) -> str:
-    snapshot_id = str(_snapshot_id(link))
-    request = context.get("request")
-    config = context.get("CONFIG")
-    snapshot_base = get_snapshot_base_url(snapshot_id, request=request, config=config)
+    snapshot_base = _snapshot_base_url_for_context(context, link)
 
     status = getattr(link, "status", None) or "unknown"
     bookmarked_at = getattr(link, "bookmarked_at", None)
@@ -534,22 +600,28 @@ def snapshot_index_row(context, link) -> str:
         tag_cell = '<span class="empty-value">...</span>'
 
     num_outputs = int(getattr(link, "num_outputs", 0) or 0)
-    icons = link.icons() if callable(getattr(link, "icons", None)) else getattr(link, "icons", "")
+    if context.get("STATIC_EXPORT") and callable(getattr(link, "icons", None)):
+        icons = link.icons(path=quote(link.static_archive_path, safe=_STATIC_URL_SAFE), prefix="./")
+    else:
+        icons = link.icons() if callable(getattr(link, "icons", None)) else getattr(link, "icons", "")
     icons_cell = str(icons) if icons else '<span class="empty-value">...</span>'
     archive_size = int(getattr(link, "archive_size", 0) or 0)
     size_cell = file_size(archive_size) if archive_size else '<span class="empty-value">...</span>'
     output_plural = "" if num_outputs == 1 else "s"
+    files_url = _snapshot_url_for_context(context, link, "index.jsonl") if context.get("STATIC_EXPORT") else f"{snapshot_base}/?files=1"
 
     if is_pending:
-        preview_html = (
-            '<span class="snapshot-preview snapshot-preview-spinner" aria-label="Archiving in progress">'
-            f'<img src="{escape(static("spinner.gif"))}" alt="" decoding="async" loading="lazy">'
-            "</span>"
-        )
+        preview_html = '<span class="snapshot-preview snapshot-preview-spinner" aria-label="Archiving in progress"></span>'
+        if not context.get("STATIC_EXPORT"):
+            preview_html = (
+                '<span class="snapshot-preview snapshot-preview-spinner" aria-label="Archiving in progress">'
+                f'<img src="{escape(static("spinner.gif"))}" alt="" decoding="async" loading="lazy">'
+                "</span>"
+            )
     elif "_public_preview_paths" in link.__dict__:
         preview_paths = list(getattr(link, "_public_preview_paths", []) or [])
         if preview_paths:
-            preview_urls = [build_snapshot_url(snapshot_id, path, request=request, config=config) for path in preview_paths]
+            preview_urls = [_snapshot_url_for_context(context, link, path) for path in preview_paths]
             preview_html = (
                 f'<img src="{escape(preview_urls[0])}" '
                 f'data-fallbacks="{escape(",".join(preview_urls[1:]))}" '
@@ -579,7 +651,7 @@ def snapshot_index_row(context, link) -> str:
     if "_public_favicon_paths" in link.__dict__:
         favicon_paths = list(getattr(link, "_public_favicon_paths", []) or [])
         if favicon_paths:
-            favicon_urls = [build_snapshot_url(snapshot_id, path, request=request, config=config) for path in favicon_paths]
+            favicon_urls = [_snapshot_url_for_context(context, link, path) for path in favicon_paths]
             favicon_html = (
                 f'<img src="{escape(favicon_urls[0])}" '
                 f'data-fallbacks="{escape(",".join(favicon_urls[1:]))}" '
@@ -640,7 +712,7 @@ def snapshot_index_row(context, link) -> str:
         </span>
     </td>
     <td class="snapshot-size-cell">
-        <a href="{escape(snapshot_base)}/?files=1" title="View archived files">
+        <a href="{escape(files_url)}" title="View archived file manifest">
             {size_cell}
         </a>
         <small>{num_outputs} output{output_plural}</small>
@@ -660,6 +732,7 @@ def snapshot_preview_url(context, snapshot, path: str = "", result=None) -> str:
         request=context.get("request"),
         config=context.get("CONFIG"),
         plugin=plugin,
+        base_url=_snapshot_base_url_for_context(context, snapshot) if context.get("STATIC_EXPORT") else None,
     )
 
 
@@ -699,24 +772,16 @@ def plugin_card(context, result) -> str:
 
     # Use embed_path() for the display path
     raw_output_path = result.embed_path() or ""
-    output_url = build_snapshot_url(
-        str(result.snapshot_id),
-        raw_output_path or "",
-        request=context.get("request"),
-        config=context.get("CONFIG"),
-    )
+    output_url = _snapshot_url_for_context(context, result.snapshot, raw_output_path or "")
 
     icon_html = get_plugin_icon(plugin)
     plugin_lower = (plugin or "").lower()
     media_file_count = _count_media_files(result) if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else 0
     media_files = _list_media_files(result) if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else []
     if media_files:
-        snapshot_id = str(result.snapshot_id)
-        request = context.get("request")
-        config = context.get("CONFIG")
         for item in media_files:
             path = item.get("path") or ""
-            item["url"] = build_snapshot_url(snapshot_id, path, request=request, config=config) if path else ""
+            item["url"] = _snapshot_url_for_context(context, result.snapshot, path) if path else ""
 
     output_lower = (raw_output_path or "").lower()
     force_text_preview = output_lower.endswith(_TEXT_PREVIEW_EXTS)
@@ -794,12 +859,7 @@ def plugin_full(context, result) -> str:
         raw_output_path = result.embed_path() or ""
     if _is_root_snapshot_output_path(raw_output_path):
         return ""
-    output_url = build_snapshot_url(
-        str(result.snapshot_id),
-        raw_output_path,
-        request=context.get("request"),
-        config=context.get("CONFIG"),
-    )
+    output_url = _snapshot_url_for_context(context, result.snapshot, raw_output_path)
 
     try:
         tpl = template.Template(template_str)

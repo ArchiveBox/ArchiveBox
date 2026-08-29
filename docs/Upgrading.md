@@ -53,7 +53,7 @@ The same command is used for initializing a new archive and upgrading an existin
 
 There are three main areas on disk that ArchiveBox modifies during upgrades:
 - `index.sqlite3` contains the SQLite3 DB index that gets upgraded automatically by Django based on the changes in [`archivebox/core/models.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py).
-- `archive/users/<user>/snapshots/<date>/<domain>/<uuid>/index.jsonl` stores per-Snapshot metadata alongside plugin-namespaced output. `archivebox update --migrate-only` may rewrite metadata, migrate older layouts, and maintain legacy timestamp compatibility symlinks.
+- `archive/users/<user>/snapshots/<date>/<domain>/<uuid>/index.jsonl` stores per-Snapshot metadata alongside plugin-namespaced output. `archivebox update --migrate-only` may rewrite metadata, migrate older layouts, and remove obsolete timestamp projections after verified migration.
 - Snapshot output directories and plugin paths can move as filesystem schemas evolve, so the entire `archive/` tree must be backed up with the database.
 
 `ArchiveBox.conf` is migrated through the normal config loader/writer when options are renamed or normalized. Back it up with the rest of the collection and review release notes for config changes.

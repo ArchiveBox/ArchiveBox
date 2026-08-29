@@ -4,12 +4,15 @@ import hashlib
 import html
 import json
 import os
+import subprocess
 import struct
 import sys
+import tomllib
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
-SOURCE_BASE_URL = "https://github.com/ArchiveBox/ArchiveBox/blob/dev/"
+REPO_DIR = Path(__file__).resolve().parents[1]
 CAPTURE_PROFILES = {
     "desktop": (1600, 1000),
     "tablet": (1024, 1366),
@@ -55,6 +58,24 @@ REQUIRED_VIEW_NAMES = {
 }
 
 
+def build_provenance() -> dict[str, str]:
+    version = tomllib.loads((REPO_DIR / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+    revision = os.environ.get("GITHUB_SHA", "").strip()
+    if not revision:
+        revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=REPO_DIR,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    return {
+        "version": version,
+        "revision": revision,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+
+
 def validate_navigation(metadata_path: Path, expected_path: str) -> None:
     navigation = json.loads(metadata_path.read_text(encoding="utf-8"))
     navigation = navigation.get("checks", navigation)
@@ -96,6 +117,8 @@ def append_manifest(manifest_path: Path, screenshot_path: Path) -> None:
 
 
 def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -> None:
+    provenance = build_provenance()
+    source_base_url = f"https://github.com/ArchiveBox/ArchiveBox/blob/{provenance['revision']}/"
     captures = [json.loads(line) for line in manifest_path.read_text(encoding="utf-8").splitlines() if line]
     allow_partial = os.environ.get("UI_SCREENSHOT_ALLOW_PARTIAL") == "1"
     grouped_captures: list[dict[str, object]] = []
@@ -155,7 +178,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         route = parsed_url.path or "/"
         if parsed_url.fragment:
             route = f"{route}#{parsed_url.fragment}"
-        source_url = f"{SOURCE_BASE_URL}{capture['source']}"
+        source_url = f"{source_base_url}{capture['source']}"
         markdown_cells = []
         html_figures = []
         for profile, (width, height) in CAPTURE_PROFILES.items():
@@ -211,6 +234,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
                     "These desktop, tablet, and mobile screenshots cover ArchiveBox's major public and authenticated UI views. "
                     "Raw API endpoints, API documentation, health-check, and error routes are intentionally excluded."
                 ),
+                f"Generated from ArchiveBox `{provenance['version']}` at revision `{provenance['revision']}`.",
                 "",
                 "\n\n".join(markdown_sections),
                 "",
@@ -229,9 +253,30 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         "border:1px solid #cbd5e1;border-radius:8px;background:white;box-shadow:0 8px 24px #0f172a18}code{overflow-wrap:anywhere}"
         "@media(max-width:900px){.shots{grid-template-columns:1fr}body{padding:12px}}"
         '</style></head><body><header><p><a href="../">← ArchiveBox</a></p><h1>ArchiveBox UI Screenshots</h1>'
-        "<p>Generated from the current <code>dev</code> UI at desktop, tablet, and mobile viewports.</p></header><main>"
+        f"<p>Generated from ArchiveBox <code>{html.escape(provenance['version'])}</code> at "
+        f'<a href="https://github.com/ArchiveBox/ArchiveBox/commit/{html.escape(provenance["revision"])}">'
+        f"<code>{html.escape(provenance['revision'][:12])}</code></a> on "
+        f'<time datetime="{html.escape(provenance["generated_at"])}">{html.escape(provenance["generated_at"])}</time>. '
+        "Desktop, tablet, and mobile viewports are captured from the same build.</p></header><main>"
         + "".join(html_sections)
         + "</main></body></html>\n",
+        encoding="utf-8",
+    )
+
+    file_hashes = {
+        capture["filename"]: hashlib.sha256((html_path.parent / capture["filename"]).read_bytes()).hexdigest() for capture in captures
+    }
+    (html_path.parent / "build.json").write_text(
+        json.dumps(
+            {
+                **provenance,
+                "capture_count": len(captures),
+                "files": file_hashes,
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
         encoding="utf-8",
     )
 

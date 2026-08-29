@@ -13,6 +13,7 @@ import hashlib
 import sqlite3
 from pathlib import Path
 from datetime import datetime, timezone
+from urllib.parse import urlparse
 
 from archivebox.tests.conftest import cli_env, run_archivebox_cmd
 from archivebox.uuid_compat import uuid7
@@ -1270,6 +1271,24 @@ def filesystem_manifest(root: Path) -> dict[str, tuple[str, str | int]]:
         else:
             manifest[relative_path] = ("special", path.lstat().st_mode)
     return manifest
+
+
+def current_snapshot_dir(data_dir: Path, db_path: Path, timestamp: str) -> Path:
+    """Resolve a migrated snapshot's canonical archive/users/... directory."""
+    with sqlite3.connect(db_path) as connection:
+        username, bookmarked_at, snapshot_id, url = connection.execute(
+            """
+            SELECT u.username, s.bookmarked_at, s.id, s.url
+            FROM core_snapshot s
+            JOIN crawls_crawl c ON c.id = s.crawl_id
+            JOIN auth_user u ON u.id = c.created_by_id
+            WHERE s.timestamp = ?
+            """,
+            (timestamp,),
+        ).fetchone()
+    date_bucket = datetime.fromisoformat(bookmarked_at).strftime("%Y%m%d")
+    domain = urlparse(url).hostname or "unknown"
+    return data_dir / "archive" / "users" / username / "snapshots" / date_bucket / domain / snapshot_id
 
 
 def verify_snapshot_count(db_path: Path, expected: int) -> tuple[bool, str]:

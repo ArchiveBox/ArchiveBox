@@ -1,6 +1,8 @@
 """Snapshot model and admin UI tests."""
 
 import json
+import os
+import re
 import shutil
 import warnings
 from pathlib import Path
@@ -19,6 +21,16 @@ from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_h
 
 pytestmark = pytest.mark.django_db(transaction=True)
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_current_snapshot_layout_has_no_top_level_timestamp_projection(snapshot):
+    from archivebox.config import CONSTANTS
+
+    legacy_path = CONSTANTS.ARCHIVE_DIR / snapshot.timestamp
+
+    assert Path(snapshot.output_dir).is_relative_to(CONSTANTS.ARCHIVE_DIR / "users")
+    assert not legacy_path.exists()
+    assert not legacy_path.is_symlink()
 
 
 @pytest.fixture
@@ -743,7 +755,61 @@ class TestSnapshotProgressStats:
         assert "wrapper.style.height = `${contentHeight}px`" in rendered
         assert 'class="header-toggle header-toggle-trigger"' not in rendered
         assert "event.preventDefault()" in rendered
-        assert rendered.count(".on('click', handleSnapshotHeaderToggle)") == 1
+        assert rendered.count("addEventListener('click', handleSnapshotHeaderToggle)") == 1
+
+    def test_static_snapshot_detail_uses_same_output_cards_with_relative_files(self, snapshot):
+        from archivebox.config import CONSTANTS
+        from archivebox.core.models import ArchiveResult
+        from archivebox.core.views import SnapshotView
+
+        output_dir = Path(snapshot.output_dir)
+        singlefile_dir = output_dir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+        output_file = singlefile_dir / "singlefile.html"
+        output_file.write_text("<html><body>real static output</body></html>", encoding="utf-8")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="singlefile",
+            hook_name="on_Snapshot__50_singlefile.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="singlefile.html",
+            output_files={"singlefile.html": {"size": output_file.stat().st_size}},
+            output_size=output_file.stat().st_size,
+        )
+        favicon_dir = output_dir / "favicon"
+        favicon_dir.mkdir(parents=True, exist_ok=True)
+        favicon_file = favicon_dir / "favicon.ico"
+        favicon_file.write_bytes(b"real favicon")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="favicon",
+            hook_name="on_Snapshot__50_favicon.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="favicon.ico",
+            output_files={"favicon.ico": {"size": favicon_file.stat().st_size}},
+            output_size=favicon_file.stat().st_size,
+        )
+
+        request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
+        request.user = AnonymousUser()
+        live_html = SnapshotView.render_live_index(request, snapshot).content.decode()
+
+        snapshot.write_html_details()
+        snapshot.write_json_details()
+        static_html = (output_dir / "index.html").read_text(encoding="utf-8")
+        static_json = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
+
+        assert re.findall(r'data-plugin-name="([^"]+)"', static_html) == re.findall(r'data-plugin-name="([^"]+)"', live_html)
+        assert 'data-plugin-name="singlefile"' in static_html
+        assert 'href="./singlefile/singlefile.html"' in static_html
+        assert 'data-default-src="./singlefile/singlefile.html"' in static_html
+        assert 'src="./favicon/favicon.ico"' in static_html
+        root_href = os.path.relpath(CONSTANTS.DATA_DIR, start=output_dir).replace(os.sep, "/")
+        assert f'href="{root_href}/index.html" class="header-archivebox"' in static_html
+        assert f"/snapshot/{snapshot.id.hex}" not in static_html
+        assert "/static/jquery.min.js" not in static_html
+        assert static_json["archive_path"].startswith("archive/users/")
+        assert static_json["archive_url"] == f"./{static_json['archive_path']}/index.html"
 
     def test_compact_output_cards_pack_into_dense_grid_rows(self):
         template = (REPO_ROOT / "archivebox" / "templates" / "core" / "snapshot.html").read_text()

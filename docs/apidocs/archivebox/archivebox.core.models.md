@@ -1396,14 +1396,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} ensure_legacy_archive_symlink() -> None
-:canonical: archivebox.core.models.Snapshot.ensure_legacy_archive_symlink
-
-```{autodoc2-docstring} archivebox.core.models.Snapshot.ensure_legacy_archive_symlink
-```
-
-````
-
 ````{py:method} ensure_crawl_symlink(*, crawl_dir: pathlib.Path | None = None, snapshot_dir: pathlib.Path | None = None) -> None
 :canonical: archivebox.core.models.Snapshot.ensure_crawl_symlink
 

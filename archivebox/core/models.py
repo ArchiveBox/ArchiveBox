@@ -46,8 +46,6 @@ from archivebox.misc.util import (
     sanitize_html_text,
     to_json,
     ts_to_date_str,
-    urldecode,
-    urlencode,
     validate_url,
 )
 from archivebox.plugins.discovery import (
@@ -427,7 +425,7 @@ class SnapshotQuerySet(models.QuerySet):
             else {}
         )
 
-        snapshot_dicts = [s.to_dict(extended=True) for s in self.iterator(chunk_size=500)]
+        snapshot_dicts = [s.to_dict(extended=True, static_export=True) for s in self.iterator(chunk_size=500)]
 
         if with_headers:
             output = {
@@ -461,6 +459,13 @@ class SnapshotQuerySet(models.QuerySet):
 
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
+        for snapshot in snapshot_list:
+            outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
+            output_paths = [str(output.get("path") or "") for output in outputs]
+            snapshot._public_preview_paths = [
+                path for preferred in ("screenshot/screenshot.png", "screenshot.png") for path in output_paths if path == preferred
+            ]
+            snapshot._public_favicon_paths = [path for path in output_paths if path in ("favicon/favicon.ico", "favicon.ico")]
 
         return render_to_string(
             template,
@@ -472,6 +477,8 @@ class SnapshotQuerySet(models.QuerySet):
                 "time_updated": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
                 "links": snapshot_list,
                 "FOOTER_INFO": config.FOOTER_INFO,
+                "STATIC_EXPORT": True,
+                "STATIC_EXPORT_DIR": CONSTANTS.DATA_DIR,
             },
         )
 
@@ -984,7 +991,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from django.db import transaction
 
         def finish_snapshot_save():
-            self.ensure_legacy_archive_symlink()
+            self.remove_legacy_archive_symlink()
             self.ensure_crawl_symlink()
             crawl = Crawl.objects.filter(pk=self.crawl_id).first()
             if crawl is None:
@@ -1261,9 +1268,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return (old_dir, new_dir)
 
     def _cleanup_old_migration_dir(self, old_dir: Path, new_dir: Path):
-        """
-        Delete old directory and create symlink after successful migration.
-        """
+        """Delete the old directory after its contents are verified at the new path."""
         import logging
         import shutil
 
@@ -1280,20 +1285,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 logging.getLogger("archivebox.migration").warning(
                     f"Could not remove old migration directory {old_dir}: {e}",
                 )
-                return  # Don't create symlink if cleanup failed
+                return
 
-        # Create backwards-compat symlink (after old dir is deleted)
-        symlink_path = old_dir  # Same path as old_dir
-        if symlink_path.is_symlink():
-            symlink_path.unlink()
-
-        if not symlink_path.exists():
-            try:
-                symlink_path.symlink_to(new_dir, target_is_directory=True)
-            except OSError as e:
-                logging.getLogger("archivebox.migration").warning(
-                    f"Could not create symlink from {symlink_path} to {new_dir}: {e}",
-                )
+        # Older migration runs may already have left a timestamp projection.
+        if old_dir.is_symlink():
+            old_dir.unlink(missing_ok=True)
 
     # =========================================================================
     # Path Calculation and Migration Helpers
@@ -2273,7 +2269,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return calc_tags_str()
         return calc_tags_str()
 
-    def icons(self, path: str | None = None) -> str:
+    def icons(self, path: str | None = None, prefix: str = "/") -> str:
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
         from django.utils.html import format_html
 
@@ -2360,7 +2356,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
             archive_path = path or self.archive_path
             output = ""
-            output_template = '<a href="/{}/{}" class="exists-{}" title="{}">{}</a>'
+            output_template = '<a href="{}{}/{}" class="exists-{}" title="{}">{}</a>'
 
             # Get all plugins from hooks system (sorted by numeric prefix)
             all_plugins = self.__dict__.get("_icons_plugin_names")
@@ -2388,6 +2384,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 embed_path = f"{plugin}/" if compact_icons else result.embed_path()
                 output += format_html(
                     output_template,
+                    prefix,
                     archive_path,
                     embed_path,
                     str(bool(existing)),
@@ -2538,35 +2535,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         return current_path
 
-    def ensure_legacy_archive_symlink(self) -> None:
-        """Ensure the legacy archive/<timestamp> path resolves to this snapshot."""
-        import os
-
-        legacy_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
-        target = Path(self.get_storage_path_for_version(self._fs_current_version()))
-
-        if target == legacy_path:
-            return
-
-        legacy_path.parent.mkdir(parents=True, exist_ok=True)
-
-        if legacy_path.exists() or legacy_path.is_symlink():
-            if legacy_path.is_symlink():
-                try:
-                    if legacy_path.resolve() == target.resolve():
-                        return
-                except OSError:
-                    pass
-                legacy_path.unlink(missing_ok=True)
-            else:
-                return
-
-        rel_target = os.path.relpath(target, legacy_path.parent)
-        try:
-            legacy_path.symlink_to(rel_target, target_is_directory=True)
-        except OSError:
-            return
-
     def ensure_crawl_symlink(self, *, crawl_dir: Path | None = None, snapshot_dir: Path | None = None) -> None:
         """Ensure snapshot is symlinked under its crawl output directory."""
         import os
@@ -2605,6 +2573,21 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             link_path.symlink_to(rel_target, target_is_directory=True)
         except OSError:
             return
+
+    def remove_legacy_archive_symlink(self) -> None:
+        """Remove a stale archive/<timestamp> compatibility projection."""
+        legacy_path = CONSTANTS.ARCHIVE_DIR / self.timestamp
+        current_path = self.get_storage_path_for_version(self._fs_current_version())
+        if not legacy_path.is_symlink() or not current_path.exists():
+            return
+
+        try:
+            points_to_current_path = legacy_path.resolve(strict=True) == current_path.resolve(strict=True)
+        except OSError:
+            points_to_current_path = False
+
+        if points_to_current_path:
+            legacy_path.unlink(missing_ok=True)
 
     @cached_property
     def legacy_archive_path(self) -> str:
@@ -3437,7 +3420,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     # Serialization Methods
     # =========================================================================
 
-    def to_dict(self, extended: bool = False) -> dict[str, Any]:
+    @property
+    def static_archive_path(self) -> str:
+        """Snapshot output path relative to the data root, for portable exports."""
+        try:
+            return Path(self.output_dir).relative_to(CONSTANTS.DATA_DIR).as_posix()
+        except ValueError:
+            return Path(self.output_dir).as_posix()
+
+    def to_dict(self, extended: bool = False, static_export: bool = False) -> dict[str, Any]:
         """Convert Snapshot to a dictionary (replacement for Link._asdict())"""
         from archivebox.core.routes_util import build_snapshot_url
 
@@ -3468,8 +3459,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "extension": self.extension,
             "is_static": self.is_static,
             "is_archived": self.is_archived,
-            "archive_path": self.archive_path,
-            "archive_url": build_snapshot_url(str(self.id), "index.html"),
+            "archive_path": self.static_archive_path if static_export else self.archive_path,
+            "archive_url": f"./{self.static_archive_path}/index.html" if static_export else build_snapshot_url(str(self.id), "index.html"),
             "output_dir": self.output_dir,
             "link_dir": self.output_dir,  # backwards compatibility alias
             "archive_size": archive_size,
@@ -3499,67 +3490,154 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """Write JSON index file for this snapshot to its output directory"""
         output_dir = Path(out_dir) if out_dir is not None else self.output_dir
         path = output_dir / CONSTANTS.JSON_INDEX_FILENAME
-        atomic_write(str(path), self.to_dict(extended=True))
+        atomic_write(str(path), self.to_dict(extended=True, static_export=True))
 
-    def write_html_details(self, out_dir: Path | str | None = None) -> None:
-        """Write HTML detail page for this snapshot to its output directory"""
-        from django.template.loader import render_to_string
-
+    def get_html_details_context(self, request=None, *, static_export_dir: Path | None = None) -> dict[str, Any]:
+        """Build the one context used by both served and on-disk snapshot pages."""
+        from archivebox.config.common import get_request_config
+        from archivebox.core.permissions import get_snapshot_permissions
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
+        from archivebox.progressmonitor.views import progress_endpoint
 
-        output_dir = Path(out_dir) if out_dir is not None else self.output_dir
-        TITLE_LOADING_MSG = "Not yet archived..."
+        runtime_config = get_request_config(request) if request is not None else get_config()
+        self._runtime_config = runtime_config
+        snapshot_permissions = get_snapshot_permissions(self)
+        archive_results = list(self.archiveresult_set.all().order_by("start_ts"))
+        tags = list(self.tags.all())
+        self.__dict__["_admin_archiveresults"] = archive_results
+        self.__dict__["_tags_str_cached"] = ",".join(sorted(tag.name for tag in tags))
+        self.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
+        self.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
 
-        preview_priority = [
-            "singlefile",
-            "screenshot",
-            "wget",
-            "dom",
-            "pdf",
-            "readability",
+        hidden_card_plugins = {"archivedotorg", "favicon", "title"}
+        outputs = [
+            output
+            for output in self.discover_outputs(include_filesystem_fallback=True, archive_results=archive_results)
+            if (output.get("size") or 0) > 0 and output.get("name") not in hidden_card_plugins
         ]
+        outputs_by_name: dict[str, dict[str, Any]] = {}
+        result_ids_by_name: dict[str, list[str]] = {}
+        for output in outputs:
+            if output.get("result"):
+                result_ids_by_name.setdefault(output["name"], []).append(str(output["result"].id))
+            current = outputs_by_name.get(output["name"])
+            if current is None or (output.get("size") or 0) > (current.get("size") or 0):
+                outputs_by_name[output["name"]] = output
+        for name, output in outputs_by_name.items():
+            output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
 
-        outputs = self.discover_outputs(include_filesystem_fallback=True)
-        loose_items, failed_items = self.get_detail_page_auxiliary_items(outputs)
-        outputs_by_plugin = {out["name"]: out for out in outputs}
-        output_size = sum(int(out.get("size") or 0) for out in outputs)
-        is_archived = bool(outputs or self.downloaded_at or self.status == self.StatusChoices.SEALED)
-
-        best_preview_path = "about:blank"
+        hash_index = self.hashes_index
+        loose_items, failed_items = self.get_detail_page_auxiliary_items(
+            outputs,
+            hidden_card_plugins=hidden_card_plugins,
+            archive_results=archive_results,
+        )
+        preview_priority = ("singlefile", "screenshot", "wget", "dom", "pdf", "readability")
+        output_order = {result_type: index for index, result_type in enumerate(outputs_by_name)}
+        ordered_outputs = sorted(
+            outputs_by_name.values(),
+            key=lambda output: (
+                preview_priority.index(output["name"]) if output["name"] in preview_priority else len(preview_priority),
+                output_order.get(output["name"], len(output_order)),
+            ),
+        )
         best_result = {"path": "about:blank", "result": None}
-        for plugin in preview_priority:
-            out = outputs_by_plugin.get(plugin)
-            if out and out.get("path"):
-                best_preview_path = str(out["path"])
-                best_result = out
+        for result_type in preview_priority:
+            if result_type in outputs_by_name:
+                best_result = outputs_by_name[result_type]
                 break
+        if best_result["path"] == "about:blank" and ordered_outputs:
+            best_result = ordered_outputs[0]
 
-        if best_preview_path == "about:blank" and outputs:
-            best_preview_path = str(outputs[0].get("path") or "about:blank")
-            best_result = outputs[0]
+        non_compact_outputs = [output for output in ordered_outputs if not output.get("is_compact") and not output.get("is_metadata")]
+        compact_outputs = [output for output in ordered_outputs if output.get("is_compact") or output.get("is_metadata")]
+        archive_dates = [result.start_ts for result in archive_results if result.start_ts]
+        output_size = sum(int(output.get("size") or 0) for output in ordered_outputs)
+        has_outputs = bool(ordered_outputs)
+        is_archived = has_outputs or self.status == self.StatusChoices.SEALED
+        snapshot_status = str(self.status or "").lower()
+        status_label_by_state = {
+            "queued": ("queued", "info"),
+            "started": ("running", "warning"),
+            "paused": ("paused", "default"),
+            "sealed": ("archived", "success"),
+        }
+        if has_outputs:
+            status_label, status_color = ("archived", "success") if is_archived else ("partial", "warning")
+        else:
+            status_label, status_color = status_label_by_state.get(snapshot_status, ("not yet archived", "danger"))
+
+        related_snapshots = list(
+            type(self)
+            .objects.filter(url=self.url)
+            .exclude(id=self.id)
+            .only("id", "url", "bookmarked_at", "created_at", "downloaded_at", "output_size")
+            .order_by("-bookmarked_at", "-created_at", "-timestamp")[:25],
+        )
+        related_years_map: dict[int, list[Snapshot]] = {}
+        for snapshot in [self, *related_snapshots]:
+            snapshot_date = snapshot.bookmarked_at or snapshot.created_at or snapshot.downloaded_at
+            if snapshot_date:
+                related_years_map.setdefault(snapshot_date.year, []).append(snapshot)
+        related_years = []
+        for year, snapshots in related_years_map.items():
+            snapshots.sort(
+                key=lambda snapshot: snapshot.bookmarked_at or snapshot.created_at or snapshot.downloaded_at or timezone.now(),
+                reverse=True,
+            )
+            related_years.append({"year": year, "latest": snapshots[0], "snapshots": snapshots})
+        related_years.sort(key=lambda item: item["year"], reverse=True)
+
+        warc_path = next(
+            (rel_path for rel_path in hash_index if rel_path.startswith("warc/") and ".warc" in Path(rel_path).name),
+            "warc/",
+        )
+        user = getattr(request, "user", None)
         tag_widget = TagEditorWidget()
-        context = {
-            **self.to_dict(extended=True),
-            "snapshot": self,
-            "title": htmldecode(self.resolved_title or (self.base_url if is_archived else TITLE_LOADING_MSG)),
-            "url_str": htmldecode(urldecode(self.base_url)),
-            "archive_url": urlencode(f"warc/{self.timestamp}") or "about:blank",
+        return {
+            "id": str(self.id),
+            "snapshot_id": str(self.id),
+            "progress_endpoint": progress_endpoint("snapshot", self.id) if request is not None else "",
+            "progress_auto_expand": snapshot_status in {"queued", "started", "paused"},
+            "url": self.url,
+            "archive_path": self.archive_path_from_db,
+            "title": htmldecode(self.resolved_title or (self.base_url if is_archived else "Not yet archived...")),
             "extension": self.extension or "html",
             "tags": self.tags_str() or "untagged",
-            "size": printable_filesize(output_size) if output_size else "pending",
-            "status": "archived" if is_archived else "not yet archived",
-            "status_color": "success" if is_archived else "danger",
-            "oldest_archive_date": ts_to_date_str(self.oldest_archive_date),
-            "best_preview_path": best_preview_path,
+            "size": printable_filesize(output_size) if output_size else "—",
+            "status": status_label,
+            "status_color": status_color,
+            "snapshot_state": snapshot_status,
+            "has_outputs": has_outputs,
+            "snapshot_permissions": snapshot_permissions,
+            "snapshot_permissions_icon": {"public": "👥", "unlisted": "🔗", "private": "🔒"}.get(snapshot_permissions, "👥"),
+            "bookmarked_date": self.bookmarked_date,
+            "downloaded_datestr": self.downloaded_datestr,
+            "num_outputs": self.num_outputs,
+            "num_failures": self.num_failures,
+            "oldest_archive_date": ts_to_date_str(min(archive_dates) if archive_dates else None),
+            "warc_path": warc_path,
+            "archiveresults": [*non_compact_outputs, *compact_outputs],
             "best_result": best_result,
-            "archiveresults": outputs,
+            "snapshot": self,
+            "CONFIG": runtime_config,
+            "related_snapshots": related_snapshots,
+            "related_years": related_years,
             "loose_items": loose_items,
             "failed_items": failed_items,
-            "related_snapshots": [],
-            "related_years": [],
-            "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in self.tags.all().order_by("name")],
+            "can_delete_outputs": bool(user and user.is_authenticated and user.is_active and user.is_superuser),
+            "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in sorted(tags, key=lambda tag: tag.name)],
+            "STATIC_EXPORT": static_export_dir is not None,
+            "STATIC_EXPORT_DIR": static_export_dir,
         }
+
+    def write_html_details(self, out_dir: Path | str | None = None) -> None:
+        """Write the unified snapshot detail page with portable filesystem URLs."""
+        from django.template.loader import render_to_string
+
+        output_dir = Path(out_dir) if out_dir is not None else self.output_dir
+        context = self.get_html_details_context(static_export_dir=output_dir)
         rendered_html = render_to_string("core/snapshot.html", context)
         atomic_write(str(output_dir / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)
 

@@ -4,6 +4,7 @@ Verify list emits snapshot JSONL and applies the documented filters.
 """
 
 import json
+from pathlib import Path
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -17,6 +18,40 @@ from archivebox.tests.conftest import create_test_url, parse_jsonl_output, run_a
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_static_exports_use_filesystem_paths_not_live_django_routes(snapshot):
+    from archivebox.config import CONSTANTS
+    from archivebox.core.models import ArchiveResult
+
+    snapshot_dir = Path(snapshot.output_dir)
+    screenshot_dir = snapshot_dir / "screenshot"
+    screenshot_dir.mkdir(parents=True, exist_ok=True)
+    screenshot_file = screenshot_dir / "screenshot.png"
+    screenshot_file.write_bytes(b"real screenshot")
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="screenshot",
+        hook_name="on_Snapshot__50_screenshot.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="screenshot.png",
+        output_files={"screenshot.png": {"size": screenshot_file.stat().st_size}},
+        output_size=screenshot_file.stat().st_size,
+    )
+    static_path = snapshot_dir.relative_to(CONSTANTS.DATA_DIR).as_posix()
+    queryset = Snapshot.objects.filter(pk=snapshot.pk).prefetch_related("tags")
+
+    html = queryset.to_html(with_headers=True)
+    [record] = json.loads(queryset.to_json(with_headers=False))
+
+    assert f"./{static_path}/index.html" in html
+    assert f"./{static_path}/screenshot/screenshot.png" in html
+    assert f"./{static_path}/index.jsonl" in html
+    assert f"/snapshot/{snapshot.id.hex}" not in html
+    assert "/web/" not in html
+    assert "/static/" not in html
+    assert record["archive_path"] == static_path
+    assert record["archive_url"] == f"./{static_path}/index.html"
 
 
 def test_streaming_json_matches_snapshot_serializer(initialized_archive):

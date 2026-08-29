@@ -1282,8 +1282,10 @@ class TestUrlRouting:
             assert ">Git<" not in live_html
 
             static_html = Path(snapshot.output_dir, "index.html").read_text(encoding="utf-8", errors="ignore")
-            assert f"http://{snapshot_host}/" in static_html
-            assert f"http://{web_host}/static/archive.png" in static_html
+            assert f"http://{snapshot_host}/" not in static_html
+            assert f"http://{web_host}/static/archive.png" not in static_html
+            assert "data:image/svg+xml" in static_html
+            assert 'href="./' in static_html
             assert "?preview=1" in static_html
             assert "function createMainFrame(previousFrame)" in static_html
             assert "function activateCardPreview(card, link, updateHash=true)" in static_html

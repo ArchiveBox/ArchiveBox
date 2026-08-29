@@ -21,7 +21,6 @@ from django.core.paginator import InvalidPage
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
-from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
@@ -54,7 +53,6 @@ from archivebox.core.permissions import (
     can_view_snapshot,
     direct_snapshots_queryset,
     filter_personas_by_permissions,
-    get_snapshot_permissions,
     is_admin_user,
     public_snapshots_queryset,
 )
@@ -69,15 +67,12 @@ from archivebox.core.routes_util import (
     host_matches,
 )
 from archivebox.crawls.models import Crawl
-from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.misc.util import (
     base_url,
     filter_queryset_by_uuid_substring,
-    htmldecode,
     sanitize_html_text,
-    ts_to_date_str,
     urldecode,
     validate_url,
     without_fragment,
@@ -85,7 +80,7 @@ from archivebox.misc.util import (
 from archivebox.plugins.discovery import get_plugin_name, get_plugin_template
 from archivebox.plugins.forms import get_plugin_config_binary_urls
 from archivebox.plugins.views import get_config_definition_link
-from archivebox.progressmonitor.views import live_progress_view, progress_endpoint
+from archivebox.progressmonitor.views import live_progress_view
 from archivebox.search.config import (
     get_search_mode,
     get_search_mode_backend,
@@ -332,162 +327,11 @@ class SnapshotView(View):
 
     @staticmethod
     def render_live_index(request, snapshot):
-        TITLE_LOADING_MSG = "Not yet archived..."
-        from archivebox.core.widgets import TagEditorWidget
-
-        # Reuse the middleware-attached config; never re-bootstrap from env + plugin
-        # schemas just to render a snapshot page (that pays ~30ms for no reason).
-        runtime_config = get_request_config(request)
-        snapshot._runtime_config = runtime_config
-        snapshot_permissions = get_snapshot_permissions(snapshot)
-        archive_results = list(snapshot.archiveresult_set.all().order_by("start_ts"))
-        tags = list(snapshot.tags.all())
-        snapshot.__dict__["_admin_archiveresults"] = archive_results
-        snapshot.__dict__["_tags_str_cached"] = ",".join(sorted(tag.name for tag in tags))
-        snapshot.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
-        snapshot.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
-        hidden_card_plugins = {"archivedotorg", "favicon", "title"}
-        outputs = [
-            out
-            for out in snapshot.discover_outputs(include_filesystem_fallback=True, archive_results=archive_results)
-            if (out.get("size") or 0) > 0 and out.get("name") not in hidden_card_plugins
-        ]
-        archiveresults = {}
-        result_ids_by_name = {}
-        for output in outputs:
-            if output.get("result"):
-                result_ids_by_name.setdefault(output["name"], []).append(str(output["result"].id))
-            current = archiveresults.get(output["name"])
-            if current is None or (output.get("size") or 0) > (current.get("size") or 0):
-                archiveresults[output["name"]] = output
-        for name, output in archiveresults.items():
-            output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
-        hash_index = snapshot.hashes_index
-        loose_items, failed_items = snapshot.get_detail_page_auxiliary_items(
-            outputs,
-            hidden_card_plugins=hidden_card_plugins,
-            archive_results=archive_results,
+        return render(
+            template_name="core/snapshot.html",
+            request=request,
+            context=snapshot.get_html_details_context(request=request),
         )
-        preview_priority = [
-            "singlefile",
-            "screenshot",
-            "wget",
-            "dom",
-            "pdf",
-            "readability",
-        ]
-        preferred_types = tuple(preview_priority)
-        output_order = {result_type: index for index, result_type in enumerate(archiveresults.keys())}
-
-        best_result = {"path": "about:blank", "result": None}
-        for result_type in preferred_types:
-            if result_type in archiveresults:
-                best_result = archiveresults[result_type]
-                break
-
-        related_snapshots_qs = SnapshotView.find_snapshots_for_url(
-            snapshot.url,
-            allow_fallback=False,
-        ).only("id", "url", "bookmarked_at", "created_at", "downloaded_at", "output_size")
-        related_snapshots = list(
-            related_snapshots_qs.exclude(id=snapshot.id).order_by("-bookmarked_at", "-created_at", "-timestamp")[:25],
-        )
-        related_years_map: dict[int, list[Snapshot]] = {}
-        for snap in [snapshot, *related_snapshots]:
-            snap_dt = snap.bookmarked_at or snap.created_at or snap.downloaded_at
-            if not snap_dt:
-                continue
-            related_years_map.setdefault(snap_dt.year, []).append(snap)
-        related_years = []
-        for year, snaps in related_years_map.items():
-            snaps_sorted = sorted(
-                snaps,
-                key=lambda s: s.bookmarked_at or s.created_at or s.downloaded_at or timezone.now(),
-                reverse=True,
-            )
-            related_years.append(
-                {
-                    "year": year,
-                    "latest": snaps_sorted[0],
-                    "snapshots": snaps_sorted,
-                },
-            )
-        related_years.sort(key=lambda item: item["year"], reverse=True)
-
-        warc_path = next(
-            (rel_path for rel_path in hash_index if rel_path.startswith("warc/") and ".warc" in Path(rel_path).name),
-            "warc/",
-        )
-
-        ordered_outputs = sorted(
-            archiveresults.values(),
-            key=lambda r: (
-                preferred_types.index(r["name"]) if r["name"] in preferred_types else len(preferred_types),
-                output_order.get(r["name"], len(output_order)),
-            ),
-        )
-        if best_result["path"] == "about:blank" and ordered_outputs:
-            best_result = ordered_outputs[0]
-        non_compact_outputs = [out for out in ordered_outputs if not out.get("is_compact") and not out.get("is_metadata")]
-        compact_outputs = [out for out in ordered_outputs if out.get("is_compact") or out.get("is_metadata")]
-        tag_widget = TagEditorWidget()
-        output_size = sum(int(out.get("size") or 0) for out in ordered_outputs)
-        archive_dates = [result.start_ts for result in archive_results if result.start_ts]
-        has_outputs = bool(ordered_outputs)
-        is_archived = has_outputs or snapshot.status == Snapshot.StatusChoices.SEALED
-        snapshot_status = str(snapshot.status or "").lower()
-        status_label_by_state = {
-            "queued": ("queued", "info"),
-            "started": ("running", "warning"),
-            "paused": ("paused", "default"),
-            "sealed": ("archived", "success"),
-        }
-        if has_outputs and not is_archived:
-            status_label, status_color = ("partial", "warning")
-        elif has_outputs:
-            status_label, status_color = ("archived", "success")
-        else:
-            status_label, status_color = status_label_by_state.get(snapshot_status, ("not yet archived", "danger"))
-
-        context = {
-            "id": str(snapshot.id),
-            "snapshot_id": str(snapshot.id),
-            "progress_endpoint": progress_endpoint("snapshot", snapshot.id),
-            "progress_auto_expand": snapshot_status in {"queued", "started", "paused"},
-            "url": snapshot.url,
-            "archive_path": snapshot.archive_path_from_db,
-            "title": htmldecode(snapshot.resolved_title or (snapshot.base_url if is_archived else TITLE_LOADING_MSG)),
-            "extension": snapshot.extension or "html",
-            "tags": snapshot.tags_str() or "untagged",
-            "size": printable_filesize(output_size) if output_size else "—",
-            "status": status_label,
-            "status_color": status_color,
-            "snapshot_state": snapshot_status,
-            "has_outputs": has_outputs,
-            "snapshot_permissions": snapshot_permissions,
-            "snapshot_permissions_icon": {
-                "public": "👥",
-                "unlisted": "🔗",
-                "private": "🔒",
-            }.get(snapshot_permissions, "👥"),
-            "bookmarked_date": snapshot.bookmarked_date,
-            "downloaded_datestr": snapshot.downloaded_datestr,
-            "num_outputs": snapshot.num_outputs,
-            "num_failures": snapshot.num_failures,
-            "oldest_archive_date": ts_to_date_str(min(archive_dates) if archive_dates else None),
-            "warc_path": warc_path,
-            "archiveresults": [*non_compact_outputs, *compact_outputs],
-            "best_result": best_result,
-            "snapshot": snapshot,  # Pass the snapshot object for template tags
-            "CONFIG": runtime_config,
-            "related_snapshots": related_snapshots,
-            "related_years": related_years,
-            "loose_items": loose_items,
-            "failed_items": failed_items,
-            "can_delete_outputs": bool(request.user.is_authenticated and request.user.is_active and request.user.is_superuser),
-            "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in sorted(tags, key=lambda tag: tag.name)],
-        }
-        return render(template_name="core/snapshot.html", request=request, context=context)
 
     def get(self, request, path):
         snapshot = None

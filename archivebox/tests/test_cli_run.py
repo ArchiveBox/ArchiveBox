@@ -1576,7 +1576,7 @@ class TestRecoverOrchestratorState:
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.fs_version == Snapshot._fs_current_version()
         assert snapshot.output_dir.joinpath("index.html").read_text(encoding="utf-8") == "legacy archive"
-        assert legacy_dir.is_symlink()
+        assert not legacy_dir.exists()
 
     @pytest.mark.django_db(transaction=True)
     def test_run_due_snapshot_migrates_filesystem_after_sealed_parent_reconciliation(self):
@@ -1618,7 +1618,7 @@ class TestRecoverOrchestratorState:
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.fs_version == Snapshot._fs_current_version()
         assert snapshot.output_dir.joinpath("index.html").read_text(encoding="utf-8") == "legacy archive"
-        assert legacy_dir.is_symlink()
+        assert not legacy_dir.exists()
 
     @pytest.mark.django_db(transaction=True)
     def test_run_due_snapshot_runs_queued_plugin_after_fs_migration(self):
