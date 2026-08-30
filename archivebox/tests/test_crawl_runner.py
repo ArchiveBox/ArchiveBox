@@ -12,6 +12,22 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.mark.django_db(transaction=True)
+def test_crawl_runner_creates_progress_reporter_without_a_tty(crawl):
+    from archivebox.services.runner import CrawlRunner
+
+    assert not sys.stdout.isatty()
+    assert not sys.stderr.isatty()
+    runner = CrawlRunner(crawl)
+    runner.load_run_state()
+
+    live_ui = runner._create_live_ui()
+
+    assert live_ui is not None
+    assert live_ui.interactive_tty is False
+    asyncio.run(runner.bus.destroy(clear=False))
+
+
+@pytest.mark.django_db(transaction=True)
 def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl

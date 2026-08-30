@@ -1067,8 +1067,8 @@ def run_runner_worker(
                     line = log_handle.readline()
                     if not line:
                         break
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
                 proc = get_worker(supervisor, name)
                 if proc is None:
                     return 1
@@ -1077,8 +1077,8 @@ def run_runner_worker(
                         line = log_handle.readline()
                         if not line:
                             break
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
+                        sys.stderr.write(line)
+                        sys.stderr.flush()
                     if proc["statename"] in {"EXITED", "STOPPED"}:
                         return int(proc.get("exitstatus") or 0)
                     return 1

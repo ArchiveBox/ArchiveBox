@@ -466,6 +466,7 @@ class SnapshotQuerySet(models.QuerySet):
                 path for preferred in ("screenshot/screenshot.png", "screenshot.png") for path in output_paths if path == preferred
             ]
             snapshot._public_favicon_paths = [path for path in output_paths if path in ("favicon/favicon.ico", "favicon.ico")]
+            snapshot.write_html_details()
 
         return render_to_string(
             template,
@@ -2269,8 +2270,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return calc_tags_str()
         return calc_tags_str()
 
-    def icons(self, path: str | None = None, prefix: str = "/") -> str:
+    def icons(self, path: str | None = None, prefix: str = "/", quote_paths: bool = False) -> str:
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
+        from urllib.parse import quote
+
         from django.utils.html import format_html
 
         compact_icons = self.__dict__.get("_icons_compact", False)
@@ -2382,6 +2385,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     continue
 
                 embed_path = f"{plugin}/" if compact_icons else result.embed_path()
+                if not embed_path or str(embed_path).strip() in (".", "/", "./"):
+                    continue
+                output_path = Path(str(embed_path))
+                if (
+                    quote_paths
+                    and not compact_icons
+                    and (output_path.is_absolute() or ".." in output_path.parts or not (Path(self.output_dir) / output_path).exists())
+                ):
+                    continue
+                if quote_paths:
+                    embed_path = quote(str(embed_path), safe="/@-._~!$&'()*+,;=")
                 output += format_html(
                     output_template,
                     prefix,
@@ -3516,6 +3530,16 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             for output in self.discover_outputs(include_filesystem_fallback=True, archive_results=archive_results)
             if (output.get("size") or 0) > 0 and output.get("name") not in hidden_card_plugins
         ]
+        if static_export_dir is not None:
+
+            def static_output_exists(output: dict[str, Any]) -> bool:
+                raw_path = str(output.get("path") or "")
+                if not raw_path:
+                    return False
+                output_path = Path(raw_path)
+                return not output_path.is_absolute() and ".." not in output_path.parts and (static_export_dir / output_path).exists()
+
+            outputs = [output for output in outputs if static_output_exists(output)]
         outputs_by_name: dict[str, dict[str, Any]] = {}
         result_ids_by_name: dict[str, list[str]] = {}
         for output in outputs:

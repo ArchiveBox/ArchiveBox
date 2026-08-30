@@ -38,20 +38,92 @@ def test_static_exports_use_filesystem_paths_not_live_django_routes(snapshot):
         output_files={"screenshot.png": {"size": screenshot_file.stat().st_size}},
         output_size=screenshot_file.stat().st_size,
     )
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="chrome_screencast",
+        hook_name="on_Snapshot__02_chrome_screencast.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="2 screencast frames (0 kept)",
+        output_files={"hook.stderr.log": {"size": 12}},
+        output_size=12,
+    )
+    wget_dir = snapshot_dir / "wget"
+    wget_dir.mkdir()
+    wget_file = wget_dir / "index%3A.html"
+    wget_file.write_text("archived page")
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        hook_name="on_Snapshot__35_wget.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="index%3A.html",
+        output_files={"index%3A.html": {"size": wget_file.stat().st_size}},
+        output_size=wget_file.stat().st_size,
+    )
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="staticfile",
+        hook_name="on_Snapshot__26_staticfile.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="prenav.json",
+        output_files={"prenav.json": {"size": 66}},
+        output_size=66,
+    )
+    ytdlp_dir = snapshot_dir / "ytdlp"
+    ytdlp_dir.mkdir()
+    media_file = ytdlp_dir / "saved.m4a"
+    media_file.write_bytes(b"audio")
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="ytdlp",
+        hook_name="on_Snapshot__60_ytdlp.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="saved.m4a",
+        output_files={
+            "saved.m4a": {"size": media_file.stat().st_size},
+            "deleted.temp.m4a": {"size": 123},
+        },
+        output_size=media_file.stat().st_size,
+    )
+    hashes_dir = snapshot_dir / "hashes"
+    hashes_dir.mkdir()
+    (hashes_dir / "hashes.json").write_text(
+        json.dumps(
+            {
+                "screenshot/screenshot.png": {"size": screenshot_file.stat().st_size},
+                "wget/index%3A.html": {"size": wget_file.stat().st_size},
+                "staticfile/prenav.json": {"size": 66},
+                "ytdlp/saved.m4a": {"size": media_file.stat().st_size},
+                "ytdlp/deleted.temp.m4a": {"size": 123},
+            },
+        ),
+    )
     static_path = snapshot_dir.relative_to(CONSTANTS.DATA_DIR).as_posix()
     queryset = Snapshot.objects.filter(pk=snapshot.pk).prefetch_related("tags")
 
     html = queryset.to_html(with_headers=True)
     [record] = json.loads(queryset.to_json(with_headers=False))
+    detail_html = snapshot_dir / "index.html"
 
     assert f"./{static_path}/index.html" in html
     assert f"./{static_path}/screenshot/screenshot.png" in html
+    assert f"./{static_path}/wget/index%253A.html" in html
     assert f"./{static_path}/index.jsonl" in html
     assert f"/snapshot/{snapshot.id.hex}" not in html
     assert "/web/" not in html
     assert "/static/" not in html
+    assert "/None" not in html
+    assert "staticfile/prenav.json" not in html
     assert record["archive_path"] == static_path
     assert record["archive_url"] == f"./{static_path}/index.html"
+    assert detail_html.exists()
+    rendered_detail = detail_html.read_text()
+    assert "core/snapshot.html" not in rendered_detail
+    assert "screenshot/screenshot.png" in rendered_detail
+    assert "staticfile/prenav.json" not in rendered_detail
+    assert "ytdlp/saved.m4a" in rendered_detail
+    assert "ytdlp/deleted.temp.m4a" not in rendered_detail
+    assert f"/snapshot/{snapshot.id.hex}" not in rendered_detail
 
 
 def test_streaming_json_matches_snapshot_serializer(initialized_archive):

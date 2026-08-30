@@ -601,7 +601,7 @@ def snapshot_index_row(context, link) -> str:
 
     num_outputs = int(getattr(link, "num_outputs", 0) or 0)
     if context.get("STATIC_EXPORT") and callable(getattr(link, "icons", None)):
-        icons = link.icons(path=quote(link.static_archive_path, safe=_STATIC_URL_SAFE), prefix="./")
+        icons = link.icons(path=quote(link.static_archive_path, safe=_STATIC_URL_SAFE), prefix="./", quote_paths=True)
     else:
         icons = link.icons() if callable(getattr(link, "icons", None)) else getattr(link, "icons", "")
     icons_cell = str(icons) if icons else '<span class="empty-value">...</span>'
@@ -778,6 +778,16 @@ def plugin_card(context, result) -> str:
     plugin_lower = (plugin or "").lower()
     media_file_count = _count_media_files(result) if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else 0
     media_files = _list_media_files(result) if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else []
+    if context.get("STATIC_EXPORT") and media_files:
+        media_files = [
+            item
+            for item in media_files
+            if (media_path := Path(str(item.get("path") or "")))
+            and not media_path.is_absolute()
+            and ".." not in media_path.parts
+            and (Path(result.snapshot_dir) / media_path).is_file()
+        ]
+        media_file_count = len(media_files)
     if media_files:
         for item in media_files:
             path = item.get("path") or ""
