@@ -717,13 +717,13 @@ With the default [`DATABASE_ENGINE`](#database_engine)`=sqlite`, this is the pat
 
 ---
 #### `SQLITE_JOURNAL_MODE`
-**Possible Values:** [`WAL`]/`DELETE`/`TRUNCATE`/`PERSIST`/`MEMORY`/`OFF`
+**Possible Values:** [`WAL` on native installs]/[`DELETE` in Docker]/`TRUNCATE`/`PERSIST`/`MEMORY`/`OFF`
 SQLite [journal mode](https://www.sqlite.org/pragma.html#pragma_journal_mode), applied via `PRAGMA journal_mode = ...` on every new connection. Settable as `ARCHIVEBOX_SQLITE_JOURNAL_MODE`.
 
-The default `WAL` (Write-Ahead Logging) lets readers and a single writer operate concurrently without blocking each other — readers see a stable snapshot while a write is in progress, instead of being serialized behind it. This is a substantial win for ArchiveBox, where the web UI, admin, and CLI workers frequently read the index while an extractor is writing.
+The default is `WAL` (Write-Ahead Logging) on native installs and `DELETE` in Docker. WAL lets readers and a single writer operate concurrently without blocking each other, but its shared-memory locking is unsafe when a Docker bind mount exposes the same live database to host-side SQLite processes. Docker therefore rejects an explicit WAL override for the SQLite backend; use PostgreSQL for safe cross-runtime concurrency.
 
 > [!WARNING]
-> Do not change this unless you have a specific reason. `DELETE` and `TRUNCATE` serialize all readers against any writer (much worse concurrency). `MEMORY` and `OFF` disable durable journaling and can corrupt the database on crash or power loss. `WAL` requires the database to live on a real local filesystem — it does not work correctly over network filesystems like NFS or SMB.
+> Do not change this unless you have a specific reason. `DELETE` and `TRUNCATE` serialize readers against writers. `MEMORY` and `OFF` disable durable journaling and can corrupt the database on crash or power loss. WAL requires one local filesystem and one locking domain; it is unsafe across network filesystems and Docker host bind mounts.
 
 ---
 #### `SQLITE_MMAP_SIZE`

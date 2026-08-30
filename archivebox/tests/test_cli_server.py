@@ -268,6 +268,37 @@ def test_docker_rejects_explicit_wal_override(tmp_path):
     assert "WAL is unsafe for Docker collections" in result.stderr
 
 
+def test_docker_postgres_ignores_irrelevant_sqlite_wal_override(tmp_path):
+    """The Docker SQLite safety invariant must not reject PostgreSQL.
+
+    Operators can switch an existing deployment to PostgreSQL while an old
+    SQLITE_JOURNAL_MODE setting remains in ArchiveBox.conf or the environment.
+    PostgreSQL never consumes that SQLite pragma, so rejecting the otherwise
+    valid configuration would prevent ArchiveBox from starting without making
+    any database safer.
+    """
+    env = os.environ.copy()
+    env["IN_DOCKER"] = "True"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from archivebox.config.common import DatabaseConfig;"
+                "config=DatabaseConfig(DATABASE_ENGINE='postgres',SQLITE_JOURNAL_MODE='WAL');"
+                "print(config.DATABASE_ENGINE)"
+            ),
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "postgres"
+
+
 def test_server_shows_usage_info(initialized_archive):
     """Test that server command shows usage or starts."""
 

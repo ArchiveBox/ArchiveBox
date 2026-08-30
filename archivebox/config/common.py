@@ -423,15 +423,14 @@ class DatabaseConfig(BaseConfigSet):
     SQLITE_LOCK_RETRY_TIMEOUT: float = Field(default=60.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_TIMEOUT", ge=0)
     SQLITE_LOCK_RETRY_INTERVAL: float = Field(default=5.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_INTERVAL", gt=0)
 
-    @field_validator("SQLITE_JOURNAL_MODE", mode="after")
-    @classmethod
-    def reject_docker_wal(cls, value: str) -> str:
-        if IN_DOCKER and value.upper() == "WAL":
+    @model_validator(mode="after")
+    def reject_docker_sqlite_wal(self):
+        if IN_DOCKER and self.DATABASE_ENGINE.lower() == "sqlite" and self.SQLITE_JOURNAL_MODE.upper() == "WAL":
             raise ValueError(
                 "SQLITE_JOURNAL_MODE=WAL is unsafe for Docker collections because host bind mounts cross SQLite "
                 "locking domains; use DELETE (the Docker default) or PostgreSQL",
             )
-        return value
+        return self
 
 
 class ArchivingConfig(BaseConfigSet):
