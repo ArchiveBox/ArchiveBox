@@ -244,7 +244,7 @@ def _snapshot_url_for_context(context, snapshot, path: str = "") -> str:
 
 def _build_snapshot_files_url(snapshot_id: str, request=None, config=None, base_url: str | None = None) -> str:
     return (
-        f"{base_url.rstrip('/')}/?files=1"
+        f"{base_url.rstrip('/')}/index.jsonl"
         if base_url
         else build_snapshot_url(str(snapshot_id), "/?files=1", request=request, config=config)
     )

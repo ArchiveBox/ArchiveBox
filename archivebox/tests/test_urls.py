@@ -1368,6 +1368,11 @@ class TestUrlRouting:
             static_html = Path(snapshot.output_dir, "index.html").read_text(encoding="utf-8", errors="ignore")
             assert f"http://{snapshot_host}/" not in static_html
             assert f"http://{web_host}/static/archive.png" not in static_html
+            # Static pages are opened directly from disk or a plain HTTP server,
+            # where Django's live-only ?files=1 directory browser does not exist.
+            # Even hidden controls and JavaScript fallbacks must therefore use
+            # portable files, or an offline click can silently navigate nowhere.
+            assert "?files=1" not in static_html
             assert "data:image/svg+xml" in static_html
             assert 'href="./' in static_html
             assert "?preview=1" in static_html
