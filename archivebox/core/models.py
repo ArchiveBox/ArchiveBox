@@ -4045,7 +4045,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     ):
         app_label = "core"
         verbose_name = "Archive Result"
-        verbose_name_plural = "Archive Results Log"
+        verbose_name_plural = "Archive Results"
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["snapshot", "status"], name="archiveresult_snap_status_idx"),
             models.Index(fields=["status", "snapshot"], name="archiveresult_status_snap_idx"),

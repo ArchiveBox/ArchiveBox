@@ -344,7 +344,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
 
 
 class ArchiveResultInline(admin.TabularInline):
-    name = "Archive Results Log"
+    name = "Archive Results"
     model = ArchiveResult
     parent_model = Snapshot
     extra = 0

@@ -96,7 +96,7 @@ class CustomUserAdmin(UserAdmin):
             + f'<br/><a href="/admin/core/snapshot/?created_by__id__exact={obj.pk}">{total_count} total records...<a>',
         )
 
-    @admin.display(description="Archive Result Logs")
+    @admin.display(description="Archive Results")
     def archiveresult_set(self, obj):
         total_count = obj.archiveresult_set.count()
         return mark_safe(
