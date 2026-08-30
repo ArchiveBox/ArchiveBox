@@ -468,6 +468,10 @@ class SnapshotQuerySet(models.QuerySet):
             snapshot._public_favicon_paths = [path for path in output_paths if path in ("favicon/favicon.ico", "favicon.ico")]
             snapshot.write_html_details()
 
+        if with_headers:
+            manifest = "".join(f"{json.dumps(snapshot.to_json(), ensure_ascii=False, sort_keys=True)}\n" for snapshot in snapshot_list)
+            atomic_write(str(CONSTANTS.DATA_DIR / CONSTANTS.JSONL_INDEX_FILENAME), manifest)
+
         return render_to_string(
             template,
             {

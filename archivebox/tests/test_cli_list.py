@@ -38,6 +38,10 @@ def test_static_export_creates_detail_page_for_unarchived_snapshot(snapshot):
     # filename that is not created and leaves a broken footer link offline.
     assert 'href="./index.jsonl"' in html
     assert 'href="./index.json"' not in html
+    root_manifest = CONSTANTS.DATA_DIR / "index.jsonl"
+    assert root_manifest.exists()
+    manifest_records = parse_jsonl_output(root_manifest.read_text())
+    assert [record["id"] for record in manifest_records] == [str(snapshot.id)]
     assert detail_path.exists()
     detail_html = detail_path.read_text()
     assert f"/snapshot/{snapshot.id.hex}" not in detail_html
