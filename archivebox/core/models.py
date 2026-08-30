@@ -3669,6 +3669,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from django.template.loader import render_to_string
 
         output_dir = Path(out_dir) if out_dir is not None else self.output_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
         context = self.get_html_details_context(static_export_dir=output_dir)
         rendered_html = render_to_string("core/snapshot.html", context)
         atomic_write(str(output_dir / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)

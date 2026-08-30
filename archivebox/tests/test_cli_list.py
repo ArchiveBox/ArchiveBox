@@ -20,6 +20,26 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_static_export_creates_detail_page_for_unarchived_snapshot(snapshot):
+    from archivebox.config import CONSTANTS
+
+    snapshot_dir = Path(snapshot.output_dir)
+    assert snapshot_dir.is_dir()
+    assert not any(snapshot_dir.iterdir())
+    snapshot_dir.rmdir()
+    assert not snapshot_dir.exists()
+
+    html = Snapshot.objects.filter(pk=snapshot.pk).to_html(with_headers=True)
+
+    static_path = snapshot_dir.relative_to(CONSTANTS.DATA_DIR).as_posix()
+    detail_path = snapshot_dir / "index.html"
+    assert f"./{static_path}/index.html" in html
+    assert detail_path.exists()
+    detail_html = detail_path.read_text()
+    assert f"/snapshot/{snapshot.id.hex}" not in detail_html
+    assert "/admin/" not in detail_html
+
+
 def test_static_exports_use_filesystem_paths_not_live_django_routes(snapshot):
     from archivebox.config import CONSTANTS
     from archivebox.core.models import ArchiveResult

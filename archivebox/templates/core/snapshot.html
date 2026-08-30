@@ -1515,7 +1515,9 @@
                     <div class="snapshot-empty-actions">
                         <button type="button" id="snapshot-empty-refresh" class="snapshot-empty-btn">🔄 Refresh page</button>
                         <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="snapshot-empty-btn">🌐 Open original URL</a>
+                        {% if not STATIC_EXPORT %}
                         <a href="{% admin_base_url %}/admin/core/snapshot/{{ snapshot_id }}/change/" class="snapshot-empty-btn">✏️ Edit in admin</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>

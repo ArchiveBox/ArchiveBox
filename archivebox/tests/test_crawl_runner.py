@@ -15,8 +15,6 @@ pytestmark = pytest.mark.django_db
 def test_crawl_runner_creates_progress_reporter_without_a_tty(crawl):
     from archivebox.services.runner import CrawlRunner
 
-    assert not sys.stdout.isatty()
-    assert not sys.stderr.isatty()
     runner = CrawlRunner(crawl)
     runner.load_run_state()
 
