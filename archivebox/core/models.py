@@ -459,6 +459,7 @@ class SnapshotQuerySet(models.QuerySet):
 
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
+        manifest_records = []
         for snapshot in snapshot_list:
             outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
             output_paths = [str(output.get("path") or "") for output in outputs]
@@ -467,9 +468,14 @@ class SnapshotQuerySet(models.QuerySet):
             ]
             snapshot._public_favicon_paths = [path for path in output_paths if path in ("favicon/favicon.ico", "favicon.ico")]
             snapshot.write_html_details()
+            if with_headers:
+                # Use the same portable schema as the JSON export. Rendering
+                # above has already populated result-count caches, archive_size
+                # reuses the sealed output_size field, and tags are prefetched.
+                manifest_records.append(snapshot.to_dict(extended=True, static_export=True))
 
         if with_headers:
-            manifest = "".join(f"{json.dumps(snapshot.to_json(), ensure_ascii=False, sort_keys=True)}\n" for snapshot in snapshot_list)
+            manifest = "".join(f"{to_json(record, indent=None, sort_keys=True)}\n" for record in manifest_records)
             atomic_write(str(CONSTANTS.DATA_DIR / CONSTANTS.JSONL_INDEX_FILENAME), manifest)
 
         return render_to_string(

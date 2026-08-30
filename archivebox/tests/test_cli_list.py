@@ -40,8 +40,15 @@ def test_static_export_creates_detail_page_for_unarchived_snapshot(snapshot):
     assert 'href="./index.json"' not in html
     root_manifest = CONSTANTS.DATA_DIR / "index.jsonl"
     assert root_manifest.exists()
-    manifest_records = parse_jsonl_output(root_manifest.read_text())
+    manifest_records = [json.loads(line) for line in root_manifest.read_text().splitlines() if line.strip()]
     assert [record["id"] for record in manifest_records] == [str(snapshot.id)]
+    # JSON and JSONL are alternate containers for one static-export schema;
+    # consumers must not see TYPE/tags/archive paths change by file format.
+    assert manifest_records[0]["TYPE"] == "core.models.Snapshot"
+    assert "type" not in manifest_records[0]
+    assert isinstance(manifest_records[0]["tags"], list)
+    assert manifest_records[0]["archive_path"] == static_path
+    assert manifest_records[0]["archive_url"] == f"./{static_path}/index.html"
     assert detail_path.exists()
     detail_html = detail_path.read_text()
     assert f"/snapshot/{snapshot.id.hex}" not in detail_html
