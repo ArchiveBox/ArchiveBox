@@ -34,6 +34,10 @@ def test_static_export_creates_detail_page_for_unarchived_snapshot(snapshot):
     static_path = snapshot_dir.relative_to(CONSTANTS.DATA_DIR).as_posix()
     detail_path = snapshot_dir / "index.html"
     assert f"./{static_path}/index.html" in html
+    # The portable export command emits JSONL records; index.json is a legacy
+    # filename that is not created and leaves a broken footer link offline.
+    assert 'href="./index.jsonl"' in html
+    assert 'href="./index.json"' not in html
     assert detail_path.exists()
     detail_html = detail_path.read_text()
     assert f"/snapshot/{snapshot.id.hex}" not in detail_html
