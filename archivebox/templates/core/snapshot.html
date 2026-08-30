@@ -1732,7 +1732,7 @@
                                             <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
                                         {% endif %}
                                         {% if can_delete_outputs and result.result %}
-                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" title="Delete this output">×</button>
+                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" data-delete-handoff="1" data-delete-snapshot-id="{{snapshot.id}}" title="Delete this output">×</button>
                                         {% endif %}
                                     </div>
                                     {% if display_path %}
@@ -1819,7 +1819,6 @@
             </div>
         </header>
 
-        {% if can_delete_outputs %}<input type="hidden" id="delete-output-csrf" value="{{csrf_token}}">{% endif %}
         {% if can_delete_outputs %}{% include "includes/output_delete_controls.html" %}{% endif %}
 
         <script>

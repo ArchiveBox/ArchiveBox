@@ -16,6 +16,7 @@ from django.core.paginator import UnorderedObjectListWarning
 from django.test import RequestFactory
 from django.urls import reverse
 
+from archivebox.core.middleware import ADMIN_LOGIN_HINT_COOKIE
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
 
@@ -858,11 +859,13 @@ class TestSnapshotOutputDeletion:
 
         assert f'data-archive-result-ids="{result.id}"' in html
         assert 'title="Delete this output"' in html
+        assert 'data-delete-handoff="1"' in html
         assert "const queuedOutputIds = new Set()" in html
-        assert "action: 'delete_selected'" in html
+        assert "window.location.assign(deleteUrl)" in html
         assert "/admin/core/archiveresult/" in html
         assert "[deleting]" in html
         assert ">×</button>" in html
+        assert "delete-output-csrf" not in html
         assert "[data-archive-result-ids]:hover" in html
         assert "[data-archive-result-ids].delete-pending" in html
         assert "button.classList.toggle('delete-pending', queued)" in html
@@ -871,6 +874,55 @@ class TestSnapshotOutputDeletion:
         anonymous_html = SnapshotView.render_live_index(request, snapshot).content.decode()
         assert "data-archive-result-ids" not in anonymous_html
         assert 'title="Delete this output"' not in anonymous_html
+
+        request.COOKIES[ADMIN_LOGIN_HINT_COOKIE] = "1"
+        hinted_html = SnapshotView.render_live_index(request, snapshot).content.decode()
+        assert f'data-archive-result-ids="{result.id}"' in hinted_html
+        assert "delete-output-csrf" not in hinted_html
+
+    def test_snapshot_delete_handoff_requires_superuser_confirmation_then_uses_standard_admin_action(self, client, snapshot, admin_user):
+        from archivebox.core.models import ArchiveResult
+
+        result = self._create_output(snapshot)
+        delete_url = reverse("admin:core_archiveresult_changelist")
+        handoff_query = {
+            "action": "delete_selected",
+            ACTION_CHECKBOX_NAME: str(result.id),
+            "snapshot": str(snapshot.id),
+        }
+
+        logged_out = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        assert logged_out.status_code == 302
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        staff_user = admin_user.__class__.objects.create_user(username="output-reviewer", password="testpassword", is_staff=True)
+        client.force_login(staff_user)
+        denied = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        assert denied.status_code == 403
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        client.force_login(admin_user)
+        confirmation = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        confirmation_html = confirmation.content.decode()
+        assert confirmation.status_code == 200
+        assert "Yes, I’m sure" in confirmation_html
+        assert f'name="{ACTION_CHECKBOX_NAME}" value="{result.id}"' in confirmation_html
+        assert confirmation["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in confirmation["Content-Security-Policy"]
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        confirmed = client.post(
+            f"{delete_url}?action=delete_selected&{ACTION_CHECKBOX_NAME}={result.id}&snapshot={snapshot.id}",
+            {
+                "action": "delete_selected",
+                "post": "yes",
+                ACTION_CHECKBOX_NAME: str(result.id),
+            },
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert confirmed.status_code == 302
+        assert not ArchiveResult.objects.filter(pk=result.pk).exists()
+        assert str(snapshot.id).replace("-", "")[-12:] in confirmed["Location"]
 
     def test_batch_delete_removes_plugin_rows_files_and_refreshes_snapshot_size(self, client, snapshot, admin_user):
         from archivebox.core.models import ArchiveResult

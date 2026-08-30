@@ -39,8 +39,8 @@ ADMIN_LOGIN_HINT_COOKIE = "archivebox_admin_logged_in"
 def _admin_login_hint_cookie_domain(config) -> str | None:
     """Resolve the parent domain to scope the cross-subdomain login hint.
 
-    NOTE: this cookie carries only the single bit "user is logged in on
-    admin somewhere"; it MUST NOT be confused with the session cookie,
+    NOTE: this cookie carries only the single bit "a superuser is logged in
+    on admin somewhere"; it MUST NOT be confused with the session cookie,
     which stays admin-host-scoped (see core/settings.py
     SESSION_COOKIE_DOMAIN comment — admin/web is a security boundary).
 
@@ -87,6 +87,10 @@ def TimezoneMiddleware(get_response):
 def AdminCookieIsolationMiddleware(get_response):
     def middleware(request):
         response = get_response(request)
+
+        if request.path == "/admin" or request.path.startswith("/admin/"):
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
 
         config = request.__dict__.get("archivebox_config")
         if config is None or config.SERVER_SECURITY_MODE == "auto":
@@ -196,6 +200,21 @@ def ServerSecurityModeMiddleware(get_response):
             from archivebox.config.common import get_request_config
 
             config = get_request_config(request, resolve_plugins=False)
+
+        if config.USES_SUBDOMAIN_ROUTING and config.BASE_URL and request.method.upper() not in allowed_methods:
+            request_host, _request_port = split_host_port((request.get_host() or "").lower())
+            control_hosts = {
+                split_host_port(host)[0]
+                for host in (
+                    get_base_host(config=config),
+                    get_admin_host(config=config),
+                    get_api_host(config=config),
+                    get_web_host(config=config),
+                )
+                if host
+            }
+            if request_host not in control_hosts:
+                return HttpResponseForbidden("ArchiveBox is running with the control plane disabled on this host.")
 
         if config.CONTROL_PLANE_ENABLED:
             return get_response(request)
@@ -319,7 +338,12 @@ def HostRoutingMiddleware(get_response):
                 return redirect(target)
             response = get_response(request)
             hint_cookie_domain = _admin_login_hint_cookie_domain(config)
-            if request.user.is_authenticated and not request.path.startswith("/admin/logout"):
+            if (
+                request.user.is_authenticated
+                and request.user.is_active
+                and request.user.is_superuser
+                and not request.path.startswith("/admin/logout")
+            ):
                 response.set_cookie(
                     ADMIN_LOGIN_HINT_COOKIE,
                     "1",

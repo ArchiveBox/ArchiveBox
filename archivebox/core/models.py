@@ -3594,6 +3594,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "warc/",
         )
         user = getattr(request, "user", None)
+        can_delete_outputs = bool(
+            static_export_dir is None
+            and request is not None
+            and (
+                (user and user.is_authenticated and user.is_active and user.is_superuser)
+                or request.COOKIES.get("archivebox_admin_logged_in") == "1"
+            ),
+        )
         tag_widget = TagEditorWidget()
         return {
             "id": str(self.id),
@@ -3626,7 +3634,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "related_years": related_years,
             "loose_items": loose_items,
             "failed_items": failed_items,
-            "can_delete_outputs": bool(user and user.is_authenticated and user.is_active and user.is_superuser),
+            "can_delete_outputs": can_delete_outputs,
             "title_tags": [{"name": tag.name, "style": tag_widget._tag_style(tag.name)} for tag in sorted(tags, key=lambda tag: tag.name)],
             "STATIC_EXPORT": static_export_dir is not None,
             "STATIC_EXPORT_DIR": static_export_dir,

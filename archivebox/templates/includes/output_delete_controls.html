@@ -55,10 +55,20 @@
         }
 
         function deleteQueuedOutputs() {
-            const csrf = document.querySelector('#delete-output-csrf, input[name="csrfmiddlewaretoken"]')?.value
-            const deleteUrl = deleteOutputButtons.find((button) => button.dataset.deleteUrl)?.dataset.deleteUrl
-            if (!csrf || !deleteUrl) return window.alert('Delete failed: missing admin request data')
+            const button = deleteOutputButtons.find((candidate) => candidate.dataset.deleteUrl)
+            let deleteUrl = button?.dataset.deleteUrl
+            if (!deleteUrl) return window.alert('Delete failed: missing admin request data')
             deleteOutputButtons.forEach((button) => button.disabled = true)
+            if (button.dataset.deleteHandoff) {
+                deleteUrl = new URL(deleteUrl, window.location.href)
+                deleteUrl.searchParams.set('action', 'delete_selected')
+                deleteUrl.searchParams.set('snapshot', button.dataset.deleteSnapshotId)
+                queuedOutputIds.forEach((id) => deleteUrl.searchParams.append('_selected_action', id))
+                window.location.assign(deleteUrl)
+                return
+            }
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value
+            if (!csrf) return window.alert('Delete failed: missing admin request data')
             const body = new URLSearchParams({action: 'delete_selected', post: 'yes', csrfmiddlewaretoken: csrf})
             queuedOutputIds.forEach((id) => body.append('_selected_action', id))
             fetch(deleteUrl, {

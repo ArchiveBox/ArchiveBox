@@ -385,6 +385,90 @@ class TestUrlRouting:
         assert (installed[0] / "sw.js").is_file()
         return installed[0]
 
+    @pytest.mark.parametrize(
+        "mode",
+        ["auto", "safe-subdomains-fullreplay", "safe-onedomain-nojsreplay", "unsafe-onedomain-noadmin", "danger-onedomain-fullreplay"],
+    )
+    def test_snapshot_output_delete_handoff_is_non_mutating_in_every_security_mode(self, mode: str) -> None:
+        self._run(
+            """
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            snapshot.config = {**snapshot.config, "PERMISSIONS": "public"}
+            snapshot.save(update_fields=["config"])
+            plugin = "security_delete_test"
+            output_path = Path(snapshot.output_dir) / plugin / "output.txt"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("security test", encoding="utf-8")
+            result, _ = ArchiveResult.objects.update_or_create(
+                snapshot=snapshot,
+                plugin=plugin,
+                defaults={
+                    "hook_name": "on_Snapshot__99_security_delete_test.py",
+                    "status": ArchiveResult.StatusChoices.SUCCEEDED,
+                    "output_str": "output.txt",
+                    "output_files": {"output.txt": {"size": 13, "mimetype": "text/plain"}},
+                    "output_size": 13,
+                },
+            )
+
+            client = Client(enforce_csrf_checks=True)
+            assert client.login(username="testadmin", password="testpassword")
+            admin_host = get_admin_host()
+            admin_page = client.get("/admin/", HTTP_HOST=admin_host)
+            if SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+                assert admin_page.status_code == 200
+            else:
+                assert admin_page.status_code == 403
+            assert admin_page["X-Frame-Options"] == "DENY"
+            assert "frame-ancestors 'none'" in admin_page["Content-Security-Policy"]
+
+            snapshot_host = get_snapshot_host(str(snapshot.id)) if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING else get_base_host()
+            snapshot_path = "/index.html" if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING else f"/snapshot/{snapshot.id}/index.html"
+            detail = client.get(snapshot_path, HTTP_HOST=snapshot_host)
+            html = response_body(detail).decode("utf-8", "ignore")
+
+            assert detail.status_code == 200, (detail.status_code, detail.headers.get("Location"), html[:200])
+            assert "delete-output-csrf" not in html
+            if SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+                assert f'data-archive-result-ids="{result.id}"' in html, html[-1000:]
+                assert 'data-delete-handoff="1"' in html, html[-1000:]
+            else:
+                assert f'data-archive-result-ids="{result.id}"' not in html
+
+            rejected = client.post(
+                "/admin/core/archiveresult/",
+                data={"action": "delete_selected", "post": "yes", "_selected_action": str(result.id)},
+                HTTP_HOST=snapshot_host,
+            )
+            assert rejected.status_code == 403, (rejected.status_code, rejected.headers.get("Location"), response_body(rejected)[:200])
+            assert ArchiveResult.objects.filter(pk=result.pk).exists()
+            result.delete()
+            print("OK")
+            """,
+            mode=mode,
+        )
+
+    def test_cross_domain_admin_hint_only_marks_superusers(self) -> None:
+        self._run(
+            """
+            User = get_user_model()
+            staff = User.objects.create_user(username="staff-hint-test", password="testpassword", is_staff=True)
+            client = Client()
+            client.force_login(staff)
+            response = client.get("/admin/", HTTP_HOST=get_admin_host())
+            assert response.status_code == 200
+            assert client.cookies.get(ADMIN_LOGIN_HINT_COOKIE) is None or client.cookies[ADMIN_LOGIN_HINT_COOKIE].value != "1"
+
+            client.force_login(ensure_admin_user())
+            response = client.get("/admin/", HTTP_HOST=get_admin_host())
+            assert response.status_code == 200
+            assert client.cookies[ADMIN_LOGIN_HINT_COOKIE].value == "1"
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
     def test_routes_util_and_web_public_redirect(self) -> None:
         self._run(
             """
