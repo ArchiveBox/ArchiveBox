@@ -1,0 +1,109 @@
+archivebox/cli/archivebox_extract.py
+  s_cec16ad9ba0455::t_d4edd5e85af90f 299
+archivebox/services/runner.py
+  s_cec16ad9ba0455::t_d4edd5e85af90f 39-40,42,61,131-135,224-225,315,559,585,588,593-603,699,843-850,857,859,869-870,1147-1157,1162-1163,1166,1194,1207-1208,1217,1231,1517-1518,1608,1643,1653,1688,1784,2155,2295-2296,2298
+archivebox/core/recovery_util.py
+  s_cec16ad9ba0455::t_d4edd5e85af90f 21,218-221,307
+archivebox/services/archive_result_service.py
+  s_cec16ad9ba0455::t_cd4404ce379b91 13,19,71-72,76-79
+AGENTS.md
+  s_cec16ad9ba0455::t_28f1e1e198758d 18-24
+Dockerfile
+  s_cec16ad9ba0455::t_6d43c5d9ae38e2 13,16
+archivebox/api/v1_core.py
+  s_cec16ad9ba0455::t_42a13b08c07843 345-348
+archivebox/cli/archivebox_add.py
+  s_cec16ad9ba0455::t_5a0c2aebc19cfb 216
+archivebox/cli/archivebox_install.py
+  s_cec16ad9ba0455::t_4517b29598a9de 57,182
+archivebox/cli/archivebox_pluginmap.py
+  s_cec16ad9ba0455::t_94ea321eb3ca79 51
+archivebox/cli/archivebox_update.py
+  s_cec16ad9ba0455::t_23dc862ca03dd3 84
+archivebox/config/common.py
+  s_cec16ad9ba0455::t_d971e68c3538b1 19,604,606,1217-1219
+archivebox/core/forms.py
+  s_cec16ad9ba0455::t_cb6727510cc0fa 15,17,336-338
+archivebox/core/models.py
+  s_cec16ad9ba0455::t_7aca0745d9dc76 56,538,578-581,604-608,648,769,778,834-890,893,2811,2815,2825-2826,2828,4349-4351,4367,4382,4407,4412-4414
+archivebox/core/templatetags/core_tags.py
+  s_cec16ad9ba0455::t_fba1f119750b26 71-73
+archivebox/crawls/models.py
+  s_cec16ad9ba0455::t_ae9b8b760cfc34 34,131,160-162,164,168-172,187,255,1320,1325,1328-1330,1332-1333,1335,1337,1339-1340,1342,1344,1349,1352-1359,1361-1373,1375-1379,1381-1383
+archivebox/machine/models.py
+  s_cec16ad9ba0455::t_a883dad7bd3561 24,516,520,527-530,569-571,582-585,591,605-608,753-784,789,990,995-997,1156,1346-1347,2271-2272,2335-2336
+archivebox/misc/serve_static.py
+  s_cec16ad9ba0455::t_27dacaf5b1b8ae 36-55
+archivebox/plugins/discovery.py
+  s_cec16ad9ba0455::t_5de78a77e21b67 9,32-33,36-38,40-43,55,59,88,106-108,111-113,115-120,123-124,126-127,129-132,134,136-137,167,179,221-225
+archivebox/plugins/forms.py
+  s_cec16ad9ba0455::t_2fc96d6c0405f2 14,18-25,144-145,149,151-154
+archivebox/plugins/hooks.py
+  s_cec16ad9ba0455::t_99178a29024f8a 1,3-4,7-8,14-19,24,48-49,56,65-67,69,75-96,99,107-110,113,116-117,120,126-127,129,131,133-135,140-166,168-211,223-224,228,230,232,235-239,242,244
+archivebox/services/process_service.py
+  s_cec16ad9ba0455::t_124648db2812ee 64,66-69,107,141,228,249
+archivebox/services/snapshot_service.py
+  s_cec16ad9ba0455::t_0a1cf18c8460cc 77,80,122
+archivebox/tests/conftest.py
+  s_cec16ad9ba0455::t_5f59616d627686 1686,1696
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  s_cec16ad9ba0455::t_e0c858ca3b1fd7 198
+archivebox/tests/test_archive_result_service.py
+  s_cec16ad9ba0455::t_935a305bb4530d 546,553-556
+archivebox/tests/test_binary_service.py
+  s_cec16ad9ba0455::t_b2b466dc93389a 25-26,30-31,62,101,105,206
+archivebox/tests/test_cli_run.py
+  s_cec16ad9ba0455::t_9924b599f86111 2111,2997
+archivebox/tests/test_crawl_runner.py
+  s_cec16ad9ba0455::t_8fbdad5b8429d9 264-266,274-312
+archivebox/tests/test_hooks.py
+  s_cec16ad9ba0455::t_e312f699f12b00 185-213
+archivebox/tests/test_machine_models.py
+  s_cec16ad9ba0455::t_800d54a5cece9e 7-8,510-511,517-518,522
+archivebox/tests/test_migrations_08_to_09.py
+  s_cec16ad9ba0455::t_cfd4d7bfbee739 9
+archivebox/tests/test_urls.py
+  s_cec16ad9ba0455::t_282d7d408c920a 141-142,172-173
+archivebox/workers/models.py
+  s_cec16ad9ba0455::t_f8bd255c619745 9,40-41,43-45,47-50,53-54,60,68-69,72-73,77,80-81,83-84,89,99,101,105-106,116,147,150-151,159-160,162-164,166-169,173-174,176-178,180-182,186-187,191,194,197,202,207,209,213,216-219,224-225,228-229
+bin/collect_ui_screenshots.sh
+  s_cec16ad9ba0455::t_8ec4e6b056d298 17,39-60,239,250-254,294-366,390-415,453,477
+bin/generate_ui_screenshot_gallery.py
+  s_cec16ad9ba0455::t_b3b8db06796c87 23
+bin/take_screenshot.js
+  s_cec16ad9ba0455::t_fa4ed78fa78a2e 210,214-217
+docs/ArchiveBox-Architecture-Diagrams.md
+  s_cec16ad9ba0455::t_015132fde5f718 7-8,60,62-66,71-72,78,85,87,89-90,95-96,102,113
+docs/apidocs/archivebox/archivebox.core.models.md
+  s_cec16ad9ba0455::t_098184ed3f5b4a 42-57,295,337,455-465,708-747,853,887,898,1005-1028,1125-1135,1194-1201,1413,1421,1506-1513,1578-1579,1581,1763,1771-1780,1812-1819,1828,1852,2282,2291,2302,2382-2383,2385
+docs/apidocs/archivebox/archivebox.crawls.models.md
+  s_cec16ad9ba0455::t_3ee27e1290fe77 236,418-457,523,980,982,988,990,995-996,998,1003-1004,1006,1011-1012,1014,1019-1020,1022,1027
+docs/apidocs/archivebox/archivebox.machine.models.md
+  s_cec16ad9ba0455::t_c02e4a7fadccd6 54-57,134-137,267-283,873,884,1072-1083,1085,1087-1107,1146,1204-1212,1263-1286,1361,1398,2068-2076
+docs/apidocs/archivebox/archivebox.workers.models.md
+  s_cec16ad9ba0455::t_00f18f43a7dc68 20-21,68,197-198,200,202,205,208,212-213,217,222-224,228,233-235,239,244-246,248,250,256,261,266-268,270,272,277-279,281,283,289,294,298,304,308,315-319,321,327,330,336-337,339,345,348,353-354,356,362,365,371,373,378-379,384,386,392,394,399-400,402,408,411,416-417,420,426,428,434,437,442-443,446,451-452,455
+etc/package.json
+  s_cec16ad9ba0455::t_da4a7cecd8245f 3
+old/TODO_hook_architecture.md
+  s_cec16ad9ba0455::t_a0e840969f0a54 1382
+pyproject.toml
+  s_cec16ad9ba0455::t_0e8b3cbda78b74 3,83-84,345
+uv.lock
+  s_cec16ad9ba0455::t_b42e27a691b62b 16,20,27,41,43,48,57,59,123,222-223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "fbff88fb0e28e3b7ea2d9efca8672fe3e9a1471d",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
