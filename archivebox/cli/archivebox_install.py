@@ -54,7 +54,7 @@ def _resolve_install_targets(
 
 
 def _install_raw_binary_names(binary_names: list[str], binproviders: str) -> None:
-    """Install user-requested standalone binaries through the Binary state machine."""
+    """Install user-requested standalone binaries through the Binary lifecycle."""
     from django.utils import timezone
 
     from archivebox.machine.models import Binary, Machine, _canonical_binary_name
@@ -179,7 +179,7 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
         run_install(plugin_names=install_plugin_names or None)
 
     if raw_binary_names:
-        print(f"[+] Running direct binary installer via ArchiveBox binary state machine: {', '.join(raw_binary_names)}")
+        print(f"[+] Running direct binary installer via ArchiveBox binary lifecycle: {', '.join(raw_binary_names)}")
         print()
         _install_raw_binary_names(raw_binary_names, binproviders)
 
@@ -196,8 +196,10 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
     User = get_user_model()
 
     if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
-        stderr("\n[+] Don't forget to create a new admin user for the Web UI...", color="green")
-        stderr("    archivebox manage createsuperuser")
+        from archivebox.core.routes_util import build_admin_url
+
+        stderr("\n[+] Open the Admin UI to create the first admin and finish web setup:", color="green")
+        stderr(f"    {build_admin_url('/admin/', config=get_config(resolve_plugins=False))}")
 
     print()
 

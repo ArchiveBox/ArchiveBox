@@ -33,6 +33,26 @@ from archivebox.misc.logging_util import printable_filesize
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
+html {
+    width: 100%;
+    min-width: 100%;
+    background: #fff;
+}
+body {
+    box-sizing: border-box;
+    width: min(100%, 72rem);
+    max-width: none;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: clamp(1rem, 3vw, 2rem);
+    background: #fff;
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+}
+body > * {
+    max-width: 100%;
+}
 img:not([width]):not([height]) {
     max-width: min(100%, 12rem);
     max-height: 12rem;
@@ -302,11 +322,19 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
     if zip_query:
         zip_url = f"{zip_url}?{zip_query.urlencode()}"
 
+    directory_query = "?files=1" if request.GET.get("files") else ""
+    path_suffix = f"{path.strip('/')}/" if path.strip("/") else ""
+    snapshot_page_url = request.path
+    if path_suffix and snapshot_page_url.endswith(path_suffix):
+        snapshot_page_url = snapshot_page_url[: -len(path_suffix)]
+
     context = {
         "directory": f"{path}/",
         "file_list": file_list,
         "entries": entries,
         "zip_url": zip_url,
+        "directory_query": directory_query,
+        "snapshot_page_url": snapshot_page_url,
     }
     return HttpResponse(template.render(context))
 
@@ -476,12 +504,7 @@ def _render_image_preview_document(image_url: str, title: str) -> str:
 </html>"""
 
 
-def _responses_path_for_html_image(
-    snapshot_root: Path,
-    html_rel_path: str,
-    image_url: str,
-    page_url: str | None,
-) -> str | None:
+def _encoded_responses_image_url(image_url: str, page_url: str | None) -> str | None:
     raw_url = str(image_url or "").strip()
     if not raw_url or raw_url.startswith(("#", "data:", "blob:", "about:", "javascript:")):
         return None
@@ -490,23 +513,40 @@ def _responses_path_for_html_image(
     if not absolute_url.startswith(("http://", "https://")):
         return None
 
-    responses_root = snapshot_root / "responses"
-    if not responses_root.is_dir():
-        return None
+    return quote(absolute_url, safe="").replace("%", "_")
 
-    encoded_url = quote(absolute_url, safe="").replace("%", "_")
-    best_match = None
-    for candidate in responses_root.rglob(f"*__GET__{encoded_url}*"):
+
+def _index_responses_paths_for_html_images(
+    snapshot_root: Path,
+    html_rel_path: str,
+    encoded_urls: set[str],
+) -> dict[str, str]:
+    responses_root = snapshot_root / "responses"
+    if not encoded_urls or not responses_root.is_dir():
+        return {}
+
+    best_matches: dict[str, str] = {}
+    image_matches: set[str] = set()
+    image_suffixes = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"}
+    for candidate in responses_root.rglob("*"):
         if not candidate.is_file():
             continue
         try:
             rel_path = candidate.relative_to(snapshot_root)
         except ValueError:
             continue
-        best_match = posixpath.relpath(rel_path.as_posix(), start=posixpath.dirname(html_rel_path) or ".")
-        if candidate.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"}:
-            return best_match
-    return best_match
+        relative_match = posixpath.relpath(rel_path.as_posix(), start=posixpath.dirname(html_rel_path) or ".")
+        candidate_name = candidate.name
+        is_image = candidate.suffix.lower() in image_suffixes
+        for encoded_url in encoded_urls:
+            if encoded_url in image_matches or f"__GET__{encoded_url}" not in candidate_name:
+                continue
+            best_matches[encoded_url] = relative_match
+            if is_image:
+                # Preserve the old rglob behavior: the first image match wins,
+                # otherwise the last matching response file is used.
+                image_matches.add(encoded_url)
+    return best_matches
 
 
 def _rewrite_html_image_sources_to_responses(
@@ -515,11 +555,24 @@ def _rewrite_html_image_sources_to_responses(
     html_rel_path: str,
     page_url: str | None,
 ) -> tuple[str, int]:
+    encoded_urls_by_src: dict[str, str | None] = {}
+    for match in IMG_SRC_ATTR_RE.finditer(html_text):
+        image_url = html.unescape(match.group(2))
+        if image_url not in encoded_urls_by_src:
+            encoded_urls_by_src[image_url] = _encoded_responses_image_url(image_url, page_url)
+
+    response_paths = _index_responses_paths_for_html_images(
+        snapshot_root,
+        html_rel_path,
+        {encoded_url for encoded_url in encoded_urls_by_src.values() if encoded_url},
+    )
     rewrites = 0
 
     def replace_src(match: re.Match[str]) -> str:
         nonlocal rewrites
-        local_path = _responses_path_for_html_image(snapshot_root, html_rel_path, html.unescape(match.group(2)), page_url)
+        image_url = html.unescape(match.group(2))
+        encoded_url = encoded_urls_by_src.get(image_url)
+        local_path = response_paths.get(encoded_url or "")
         if not local_path:
             return match.group(0)
         rewrites += 1

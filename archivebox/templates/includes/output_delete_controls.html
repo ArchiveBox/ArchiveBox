@@ -1,0 +1,93 @@
+<style>
+    [data-archive-result-ids] { color: #64748b; }
+    [data-archive-result-ids]:hover,
+    [data-archive-result-ids].delete-pending { color: #b91c1c; }
+</style>
+<script>
+    (() => {
+        for (const sortButton of document.querySelectorAll('[data-output-size-sort]')) {
+            sortButton.addEventListener('click', () => {
+                const tbody = sortButton.closest('table').tBodies[0]
+                const direction = sortButton.dataset.direction === 'desc' ? 'asc' : 'desc'
+                const groups = [...tbody.querySelectorAll('tr[data-output-size]')].map((row) => [row, row.nextElementSibling])
+                groups.sort((left, right) => (Number(left[0].dataset.outputSize) - Number(right[0].dataset.outputSize)) * (direction === 'asc' ? 1 : -1))
+                groups.forEach((rows) => rows.forEach((row) => tbody.appendChild(row)))
+                const footer = tbody.querySelector('[data-output-footer]')
+                if (footer) tbody.appendChild(footer)
+                sortButton.dataset.direction = direction
+                sortButton.textContent = `Size ${direction === 'asc' ? '▲' : '▼'}`
+                sortButton.closest('th').setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending')
+            })
+        }
+
+        const queuedOutputIds = new Set()
+        const deleteOutputButtons = [...document.querySelectorAll('[data-archive-result-ids]')]
+        let deleteOutputTimer = null
+        if (!deleteOutputButtons.length) return
+
+        function renderDeleteCountdown(label='') {
+            for (const button of deleteOutputButtons) {
+                const queued = button.dataset.archiveResultIds.split(',').every((id) => queuedOutputIds.has(id))
+                button.textContent = queued ? label : '×'
+                button.classList.toggle('delete-pending', queued)
+            }
+        }
+
+        function runDeleteCountdown(count=3) {
+            if (count) {
+                renderDeleteCountdown(`[${count}]`)
+                deleteOutputTimer = window.setTimeout(() => runDeleteCountdown(count - 1), 1000)
+                return
+            }
+            renderDeleteCountdown('[deleting]')
+            deleteOutputTimer = window.setTimeout(deleteQueuedOutputs, 1000)
+        }
+
+        function toggleOutputDeletion(button) {
+            if (button.disabled) return
+            const resultIds = button.dataset.archiveResultIds.split(',')
+            const remove = resultIds.every((id) => queuedOutputIds.has(id))
+            resultIds.forEach((id) => remove ? queuedOutputIds.delete(id) : queuedOutputIds.add(id))
+            window.clearTimeout(deleteOutputTimer)
+            if (!queuedOutputIds.size) return renderDeleteCountdown()
+            renderDeleteCountdown('[4]')
+            deleteOutputTimer = window.setTimeout(runDeleteCountdown, 1000)
+        }
+
+        function deleteQueuedOutputs() {
+            const button = deleteOutputButtons.find((candidate) => candidate.dataset.deleteUrl)
+            let deleteUrl = button?.dataset.deleteUrl
+            if (!deleteUrl) return window.alert('Delete failed: missing admin request data')
+            deleteOutputButtons.forEach((button) => button.disabled = true)
+            if (button.dataset.deleteHandoff) {
+                deleteUrl = new URL(deleteUrl, window.location.href)
+                deleteUrl.searchParams.set('action', 'delete_selected')
+                deleteUrl.searchParams.set('snapshot', button.dataset.deleteSnapshotId)
+                queuedOutputIds.forEach((id) => deleteUrl.searchParams.append('_selected_action', id))
+                window.location.assign(deleteUrl)
+                return
+            }
+            const csrf = document.querySelector('input[name="csrfmiddlewaretoken"]')?.value
+            if (!csrf) return window.alert('Delete failed: missing admin request data')
+            const body = new URLSearchParams({action: 'delete_selected', post: 'yes', csrfmiddlewaretoken: csrf})
+            queuedOutputIds.forEach((id) => body.append('_selected_action', id))
+            fetch(deleteUrl, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body,
+            }).then((response) => {
+                if (!response.ok) throw new Error(`Delete failed (${response.status})`)
+                window.location.reload()
+            }).catch((error) => {
+                deleteOutputButtons.forEach((button) => button.disabled = false)
+                queuedOutputIds.clear()
+                renderDeleteCountdown()
+                window.alert(error.message)
+            })
+        }
+
+        deleteOutputButtons.forEach((button) => button.addEventListener('click', () => toggleOutputDeletion(button)))
+        window.addEventListener('pagehide', () => window.clearTimeout(deleteOutputTimer))
+    })()
+</script>

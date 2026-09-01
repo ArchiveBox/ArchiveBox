@@ -1,4 +1,5 @@
 import pytest
+from pydantic import ValidationError
 
 
 def test_allauth_config_defaults():
@@ -16,18 +17,15 @@ def test_allauth_config_defaults():
 def test_allauth_config_from_env(monkeypatch):
     monkeypatch.setenv("ALLAUTH_ENABLED", "true")
     monkeypatch.setenv("REGISTRATION_MODE", "approval")
-    from importlib import reload
-    import archivebox.config.allauth as m
+    from archivebox.config.common import ArchiveBoxSourceSettings
 
-    reload(m)
-    cfg = m.AllauthConfig()
+    cfg = ArchiveBoxSourceSettings()
     assert cfg.ALLAUTH_ENABLED is True
     assert cfg.REGISTRATION_MODE == "approval"
 
 
 def test_registration_mode_validation():
     from archivebox.config.allauth import AllauthConfig
-    import pytest
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValidationError):
         AllauthConfig(REGISTRATION_MODE="invalid")

@@ -5,7 +5,7 @@ Current ArchiveBox collections cannot be merged safely by copying their `archive
 The workflow below is retained for **legacy collections whose real Snapshot directories are `archive/<timestamp>/`**. `archivebox update` can import those legacy directories into a fresh index.
 
 > [!WARNING]
-> Back up every collection before merging. Confirm that the source entries are real legacy timestamp directories, not compatibility symlinks into `archive/users/...`, and inspect path conflicts instead of allowing one collection to overwrite another.
+> Back up every collection before merging. Confirm that the source entries are real legacy timestamp directories containing data, and inspect path conflicts instead of allowing one collection to overwrite another.
 
 1. Upgrade both old collections to the most recent ArchiveBox version (following instructions above)
   ```bash
@@ -75,7 +75,7 @@ WHERE username = 'someUsernameHere';
 
 #### Example: Adding a new user with a hashed password
 
-*Note: this is just an example to demonstrate direct database usage. If you are trying to create a user on initial setup, use the [`ADMIN_USERNAME` & `ADMIN_PASSWORD`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#admin_username--admin_password) configuration options.*
+*Note: this is just an example to demonstrate direct database usage. For initial setup, open the Admin UI and create the first admin there.*
 
 1. First, generate the hashed password in a Python shell using Django's `make_password` function.
 
@@ -100,7 +100,7 @@ VALUES ('GENERATED_PASSWORD_HASH', NULL, 0, 'someUsername', '', '', 'someEmail@e
   Replace the values above with the desired username, email, and password hash from python output^.
 
 3. Log in using the new generated user to confirm it works
-    https://localhost:8000/admin/login/ user: `someUsername` pass:`somePasswordHere`
+    http://admin.archivebox.localhost:8000/admin/login/ user: `someUsername` pass:`somePasswordHere`
 
 More info:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage

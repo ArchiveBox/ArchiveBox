@@ -479,6 +479,7 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                         f"  chmod -R a+rX {root_checkout_venv}\n"
                         "fi\n"
                         f'export PYTHONPATH="{root_checkout_import_root}${{PYTHONPATH:+:${{PYTHONPATH}}}}"\n'
+                        f'export PATH="{root_checkout_python.parent}:$PATH"\n'
                         f'exec {root_checkout_python} -m archivebox "$@"\n',
                     )
                     archivebox_wrapper.chmod(0o755)

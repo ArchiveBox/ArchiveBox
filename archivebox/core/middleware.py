@@ -15,11 +15,10 @@ from django.utils import timezone
 from django.utils.http import http_date
 
 from archivebox.config import VERSION
-from archivebox.config.common import get_config
+from archivebox.config.common import get_config, get_request_config
 from archivebox.config.version import get_COMMIT_HASH
 from archivebox.core.routes_util import (
     build_admin_url,
-    build_original_url,
     build_snapshot_url,
     build_web_url,
     get_admin_host,
@@ -40,8 +39,8 @@ ADMIN_LOGIN_HINT_COOKIE = "archivebox_admin_logged_in"
 def _admin_login_hint_cookie_domain(config) -> str | None:
     """Resolve the parent domain to scope the cross-subdomain login hint.
 
-    NOTE: this cookie carries only the single bit "user is logged in on
-    admin somewhere"; it MUST NOT be confused with the session cookie,
+    NOTE: this cookie carries only the single bit "a superuser is logged in
+    on admin somewhere"; it MUST NOT be confused with the session cookie,
     which stays admin-host-scoped (see core/settings.py
     SESSION_COOKIE_DOMAIN comment — admin/web is a security boundary).
 
@@ -88,6 +87,10 @@ def TimezoneMiddleware(get_response):
 def AdminCookieIsolationMiddleware(get_response):
     def middleware(request):
         response = get_response(request)
+
+        if request.path == "/admin" or request.path.startswith("/admin/"):
+            response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
 
         config = request.__dict__.get("archivebox_config")
         if config is None or config.SERVER_SECURITY_MODE == "auto":
@@ -179,6 +182,11 @@ def ServerSecurityModeMiddleware(get_response):
                 api_host, _api_port = split_host_port(get_api_host(config=base_config))
                 web_host, _web_port = split_host_port(get_web_host(config=base_config))
                 control_hosts = {host for host in (base_host, admin_host, api_host, web_host) if host}
+                credentialed_api_request = request.path == "/api/v1/auth/check_api_token" or bool(
+                    request.META.get("HTTP_X_ARCHIVEBOX_API_KEY") or request.META.get("HTTP_AUTHORIZATION"),
+                )
+                if not base_config.BASE_URL and credentialed_api_request:
+                    control_hosts.add(request_host)
                 first_run_setup_request = not base_config.BASE_URL and (
                     request.path == "/admin/login/"
                     or (
@@ -192,6 +200,21 @@ def ServerSecurityModeMiddleware(get_response):
             from archivebox.config.common import get_request_config
 
             config = get_request_config(request, resolve_plugins=False)
+
+        if config.USES_SUBDOMAIN_ROUTING and config.BASE_URL and request.method.upper() not in allowed_methods:
+            request_host, _request_port = split_host_port((request.get_host() or "").lower())
+            control_hosts = {
+                split_host_port(host)[0]
+                for host in (
+                    get_base_host(config=config),
+                    get_admin_host(config=config),
+                    get_api_host(config=config),
+                    get_web_host(config=config),
+                )
+                if host
+            }
+            if request_host not in control_hosts:
+                return HttpResponseForbidden("ArchiveBox is running with the control plane disabled on this host.")
 
         if config.CONTROL_PLANE_ENABLED:
             return get_response(request)
@@ -226,14 +249,13 @@ def HostRoutingMiddleware(get_response):
 
         request_host = (request.get_host() or "").lower()
         config = request.__dict__.get("archivebox_config")
-        if config is None:
-            config = get_config(resolve_plugins=False)
-            request.archivebox_config = config
-        admin_host = get_admin_host(config=config)
-        web_host = get_web_host(config=config)
-        api_host = get_api_host(config=config)
+        if config is None or config.SERVER_SECURITY_MODE == "auto":
+            config = get_request_config(request, resolve_plugins=False)
+        admin_host = get_admin_host(config=config, request=request)
+        web_host = get_web_host(config=config, request=request)
+        api_host = get_api_host(config=config, request=request)
         listen_host = get_listen_host(config=config)
-        subdomain = get_listen_subdomain(request_host, config=config)
+        subdomain = get_listen_subdomain(request_host, config=config, request=request)
 
         # Framework-owned assets must bypass snapshot/original-domain replay routing.
         # Otherwise pages on snapshot subdomains can receive HTML for JS/CSS requests.
@@ -282,14 +304,12 @@ def HostRoutingMiddleware(get_response):
 
             original_replay_match = original_replay_path_re.match(request.path)
             if original_replay_match:
-                target = build_original_url(
-                    original_replay_match.group("domain"),
-                    (original_replay_match.group("path") or "").strip("/"),
-                    request=request,
+                view = OriginalDomainHostView.as_view()
+                return view(
+                    request,
+                    domain=original_replay_match.group("domain"),
+                    path=(original_replay_match.group("path") or "").strip("/"),
                 )
-                if request.META.get("QUERY_STRING"):
-                    target = f"{target}?{request.META['QUERY_STRING']}"
-                return redirect(target)
 
         if not config.USES_SUBDOMAIN_ROUTING:
             if host_matches(request_host, listen_host):
@@ -318,7 +338,12 @@ def HostRoutingMiddleware(get_response):
                 return redirect(target)
             response = get_response(request)
             hint_cookie_domain = _admin_login_hint_cookie_domain(config)
-            if request.user.is_authenticated and not request.path.startswith("/admin/logout"):
+            if (
+                request.user.is_authenticated
+                and request.user.is_active
+                and request.user.is_superuser
+                and not request.path.startswith("/admin/logout")
+            ):
                 response.set_cookie(
                     ADMIN_LOGIN_HINT_COOKIE,
                     "1",
@@ -389,7 +414,7 @@ class ReverseProxyAuthMiddleware(RemoteUserMiddleware):
     def process_request(self, request):
         config = request.__dict__.get("archivebox_config")
         if config is None:
-            config = get_config(resolve_plugins=False)
+            config = get_config(base_config=settings.CONFIG, resolve_plugins=False)
             request.archivebox_config = config
         self.header = "HTTP_{normalized}".format(normalized=config.REVERSE_PROXY_USER_HEADER.replace("-", "_").upper())
         if config.REVERSE_PROXY_WHITELIST == "":

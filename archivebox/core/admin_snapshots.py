@@ -225,11 +225,7 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
 
                 # Rare statuses are faster status-first: use the
                 # (status, snapshot_id) index to find candidate snapshots.
-                snapshot_ids = ArchiveResult.cached_snapshot_ids_with_majority_status(status)
-                queryset = queryset.filter(pk__in=snapshot_ids)
-                queryset._archivebox_count_hint = len(snapshot_ids)
-                queryset.query._archivebox_count_hint = queryset._archivebox_count_hint
-                return queryset
+                return queryset.filter(pk__in=ArchiveResult.snapshot_ids_with_majority_status(status))
         return queryset
 
 
@@ -247,7 +243,21 @@ class SnapshotChangeList(SearchResultsChangeList):
         if not snapshot_ids:
             return
 
-        results_by_snapshot = {snapshot_id: [] for snapshot_id in snapshot_ids}
+        status_counts_by_snapshot = {
+            row["snapshot_id"]: row
+            for row in ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids)
+            .values("snapshot_id")
+            .annotate(
+                total=Count("pk"),
+                succeeded=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.SUCCEEDED)),
+                failed=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.FAILED)),
+                running=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.STARTED)),
+                skipped=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.SKIPPED)),
+                noresults=Count("pk", filter=Q(status=ArchiveResult.StatusChoices.NORESULTS)),
+            )
+        }
+
+        output_results_by_snapshot = {snapshot_id: [] for snapshot_id in snapshot_ids}
         seen_plugins = {snapshot_id: set() for snapshot_id in snapshot_ids}
         rows = (
             ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids, status=ArchiveResult.StatusChoices.SUCCEEDED, output_size__gt=0)
@@ -258,12 +268,32 @@ class SnapshotChangeList(SearchResultsChangeList):
             if plugin in seen_plugins[snapshot_id]:
                 continue
             seen_plugins[snapshot_id].add(plugin)
-            results_by_snapshot[snapshot_id].append(
+            output_results_by_snapshot[snapshot_id].append(
                 SimpleNamespace(plugin=plugin, status=status, output_size=output_size, output_files=output_files),
             )
 
         for obj in self.result_list:
-            obj.__dict__["_admin_archiveresults"] = results_by_snapshot[obj.pk]
+            counts = status_counts_by_snapshot.get(obj.pk, {})
+            total = int(counts.get("total") or 0)
+            succeeded = int(counts.get("succeeded") or 0)
+            failed = int(counts.get("failed") or 0)
+            running = int(counts.get("running") or 0)
+            skipped = int(counts.get("skipped") or 0)
+            noresults = int(counts.get("noresults") or 0)
+            completed = succeeded + failed + skipped + noresults
+            obj.__dict__["_admin_progress_stats"] = {
+                "total": total,
+                "succeeded": succeeded,
+                "failed": failed,
+                "running": running,
+                "pending": max(total - completed - running, 0),
+                "skipped": skipped,
+                "noresults": noresults,
+                "percent": int((completed / total * 100) if total else 0),
+                "output_size": obj.output_size or 0,
+                "is_sealed": obj.status not in (obj.StatusChoices.QUEUED, obj.StatusChoices.STARTED, obj.StatusChoices.PAUSED),
+            }
+            obj.__dict__["_admin_output_results"] = output_results_by_snapshot[obj.pk]
 
     def get_results(self, request):
         super().get_results(request)
@@ -475,19 +505,18 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return []
         return super().get_ordering(request)
 
-    def change_view(self, request, object_id, form_url="", extra_context=None):
+    def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         self.request = request
-        extra_context = extra_context or {}
-        extra_context["CONFIG"] = request.archivebox_config
-        snapshot = self.get_object(request, object_id)
-        if snapshot and snapshot.status in {
+        context["CONFIG"] = request.archivebox_config
+        if obj and obj.status in {
             Snapshot.StatusChoices.QUEUED,
             Snapshot.StatusChoices.STARTED,
             Snapshot.StatusChoices.PAUSED,
         }:
-            extra_context["progress_auto_expand"] = True
-            extra_context["progress_endpoint"] = progress_endpoint("snapshot", snapshot.id)
-        return super().change_view(request, object_id, form_url, extra_context | GLOBAL_CONTEXT)
+            context["progress_auto_expand"] = True
+            context["progress_endpoint"] = progress_endpoint("snapshot", obj.id)
+        context.update(GLOBAL_CONTEXT)
+        return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def changelist_view(self, request, extra_context=None):
         self.request = request
@@ -844,7 +873,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     @admin.display(description="Archive Results")
     def archiveresults_list(self, obj):
         request = self.request
-        return render_archiveresults_list(obj.archiveresult_set.all(), limit=8, config=request.archivebox_config)
+        return render_archiveresults_list(
+            obj.archiveresult_set.all(),
+            limit=8,
+            config=request.archivebox_config,
+            can_delete=request.user.is_superuser,
+        )
 
     @admin.display(
         description="Title",
@@ -1277,6 +1311,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return stats
 
     def _get_prefetched_results(self, obj):
+        if "_admin_output_results" in obj.__dict__:
+            return obj.__dict__["_admin_output_results"]
         if "_admin_archiveresults" in obj.__dict__:
             return obj.__dict__["_admin_archiveresults"]
         if "archiveresult_set" in obj.__dict__.get("_prefetched_objects_cache", {}):

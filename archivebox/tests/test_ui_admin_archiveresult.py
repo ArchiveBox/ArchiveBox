@@ -94,3 +94,76 @@ class TestArchiveResultAdminListView:
         from archivebox.core.models import ArchiveResult
 
         assert "retry_at" in {field.name for field in ArchiveResult._meta.fields}
+
+    def test_change_view_loads_output_json_with_main_result_query(self, client, admin_user, projected_noresults):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        projected_noresults.output_json = {"detail": "output-json-loaded-once"}
+        projected_noresults.save(update_fields=["output_json", "modified_at"])
+        client.force_login(admin_user)
+
+        with CaptureQueriesContext(connection) as captured_queries:
+            response = client.get(
+                reverse("admin:core_archiveresult_change", args=[projected_noresults.pk]),
+                HTTP_HOST=ADMIN_TEST_HOST,
+            )
+
+        result_queries = [query for query in captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
+        assert response.status_code == 200
+        assert b"output-json-loaded-once" in response.content
+        assert len(result_queries) == 1
+
+    def test_admin_delete_removes_output_directory_and_refreshes_snapshot_size(self, client, admin_user, snapshot):
+        from archivebox.core.models import ArchiveResult
+
+        output_dir = Path(snapshot.output_dir) / "screenshot"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "output.png").write_bytes(b"archive output")
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="screenshot",
+            hook_name="on_Snapshot__50_screenshot.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"output.png": {"size": 14, "mimetype": "image/png"}},
+            output_size=14,
+        )
+        client.force_login(admin_user)
+
+        response = client.post(
+            reverse("admin:core_archiveresult_delete", args=[result.pk]),
+            {"post": "yes"},
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+
+        assert response.status_code == 302
+        assert not ArchiveResult.objects.filter(pk=result.pk).exists()
+        assert not output_dir.exists()
+        snapshot.refresh_from_db()
+        assert snapshot.output_size == 0
+
+    def test_duplicate_plugin_result_is_rejected_without_touching_output(self, snapshot):
+        from django.db import IntegrityError, transaction
+        from archivebox.core.models import ArchiveResult
+
+        output_dir = Path(snapshot.output_dir) / "responses"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = output_dir / "index.jsonl"
+        output_file.write_text("captured response\n")
+        primary = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="responses",
+            hook_name="on_Snapshot__24_responses.daemon.bg",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_size=18,
+        )
+        with pytest.raises(IntegrityError), transaction.atomic():
+            ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin="responses",
+                hook_name="on_Snapshot__24_responses.daemon.bg.replayed",
+                status=ArchiveResult.StatusChoices.NORESULTS,
+            )
+
+        assert ArchiveResult.objects.filter(pk=primary.pk).exists()
+        assert output_file.read_text() == "captured response\n"

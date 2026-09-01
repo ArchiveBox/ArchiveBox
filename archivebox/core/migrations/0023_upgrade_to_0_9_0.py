@@ -318,13 +318,29 @@ def upgrade_core_tables(apps, schema_editor):
             snapshot_cols = get_table_columns("core_snapshot")
             has_added = "added" in snapshot_cols
             has_bookmarked_at = "bookmarked_at" in snapshot_cols
+            inferred_status_sql = """
+                CASE
+                    WHEN EXISTS (
+                        SELECT 1 FROM core_archiveresult
+                        WHERE core_archiveresult.snapshot_id = core_snapshot.id
+                        AND core_archiveresult.status IN ('queued', 'started', 'backoff')
+                    )
+                    THEN 'queued'
+                    WHEN EXISTS (
+                        SELECT 1 FROM core_archiveresult
+                        WHERE core_archiveresult.snapshot_id = core_snapshot.id
+                    )
+                    THEN 'sealed'
+                    ELSE 'queued'
+                END
+            """
 
             if has_added and not has_bookmarked_at:
                 # Migrating from v0.7.2 (has added/updated fields)
                 print("      copying Snapshots from 0.7.x schema...")
                 # timestamp is the legacy bookmark/import timestamp and archive/{timestamp} identity.
                 # added is the DB row creation/import time, and updated was renamed to downloaded_at in 0.8.x.
-                cursor.execute("""
+                cursor.execute(f"""
                     INSERT OR IGNORE INTO core_snapshot_new (
                         id, url, timestamp, title,
                         bookmarked_at, created_at, modified_at, downloaded_at,
@@ -343,20 +359,7 @@ def upgrade_core_tables(apps, schema_editor):
                         COALESCE(added, CURRENT_TIMESTAMP) as created_at,
                         COALESCE(updated, added, CURRENT_TIMESTAMP) as modified_at,
                         updated as downloaded_at,
-                        CASE
-                            WHEN EXISTS (
-                                SELECT 1 FROM core_archiveresult
-                                WHERE core_archiveresult.snapshot_id = core_snapshot.id
-                                AND core_archiveresult.status IN ('queued', 'started', 'backoff')
-                            )
-                            THEN 'queued'
-                            WHEN EXISTS (
-                                SELECT 1 FROM core_archiveresult
-                                WHERE core_archiveresult.snapshot_id = core_snapshot.id
-                            )
-                            THEN 'sealed'
-                            ELSE 'queued'
-                        END as status
+                        {inferred_status_sql} as status
                     FROM core_snapshot;
                 """)
                 print(f"      copied {cursor.rowcount} Snapshots")
@@ -398,6 +401,9 @@ def upgrade_core_tables(apps, schema_editor):
                         END
                         """,
                     )
+                else:
+                    insert_cols.append("status")
+                    select_cols.append(inferred_status_sql)
                 if has_retry_at:
                     insert_cols.append("retry_at")
                     select_cols.append("retry_at")

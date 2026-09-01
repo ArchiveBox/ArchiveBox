@@ -8,6 +8,11 @@ on:
         required: false
         default: false
         type: boolean
+      full_tests:
+        description: Run storage, CLI, and size validation in addition to release smoke checks
+        required: false
+        default: true
+        type: boolean
 
 env:
   DOCKERHUB_IMAGE: archivebox/archivebox
@@ -28,12 +33,10 @@ jobs:
         include:
           - platform: linux/amd64
             runner: ubuntu-24.04
-            cache_scope: docker-amd64
             artifact_name: digest-linux-amd64
             local_tag: archivebox-ci:amd64
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
-            cache_scope: docker-arm64
             artifact_name: digest-linux-arm64
             local_tag: archivebox-ci:arm64
     steps:
@@ -58,26 +61,27 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ABXPKG_VERSION="$(uv run --no-cache --no-project python - <<'PY'
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python - <<'PY'
           import tomllib
           from pathlib import Path
 
           packages = tomllib.loads(Path("uv.lock").read_text())["package"]
-          matches = [package["version"] for package in packages if package["name"] == "abxpkg"]
+          matches = [package for package in packages if package["name"] == "abxpkg"]
           if len(matches) != 1:
               raise SystemExit(f"Expected one locked abxpkg package, found {len(matches)}")
-          print(matches[0])
+          wheel = matches[0]["wheels"][0]
+          print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))
           PY
           )"
-          test -n "$ABXPKG_VERSION"
+          test -n "$ABXPKG_SPEC"
           mkdir -p "$ABXPKG_LIB_DIR/env/bin"
           export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
           echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR" >> "$GITHUB_ENV"
-          echo "ABXPKG_VERSION=$ABXPKG_VERSION" >> "$GITHUB_ENV"
+          echo "ABXPKG_SPEC=$ABXPKG_SPEC" >> "$GITHUB_ENV"
           echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
 
           docker_env="$(
-            uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env \
               --install \
               --json \
               --lib="$ABXPKG_LIB_DIR" \
@@ -202,32 +206,48 @@ jobs:
             ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
+          # Keep the released image as the one cache authority. A second GHA
+          # cache can hold gzip variants of identical layers, and BuildKit may
+          # prefer those over :dev's zstd blobs. That counter-intuitively makes
+          # a cache hit larger than the released image. :dev advances only
+          # after both architectures pass the release checks.
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
+          # Inline metadata reuses the released compressed blobs directly;
+          # force-compression would recompress the whole ~740 MiB image. The
+          # compressed-size gate below remains the regression guard.
+          cache-to: |
+            ${{ inputs.push_digests && 'type=inline' || '' }}
           outputs: |
-            type=docker,name=${{ matrix.local_tag }}
-            type=oci,dest=${{ runner.temp }}/archivebox-image.tar
-            type=image,"name=${{ env.DOCKERHUB_IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
+            ${{ inputs.full_tests && format('type=oci,dest={0}/archivebox-image.tar,compression=zstd,compression-level=3', runner.temp) || '' }}
+            ${{ inputs.push_digests && format('type=image,"name={0},{1}",push-by-digest=true,name-canonical=true,push=true,compression=zstd,compression-level=3', env.DOCKERHUB_IMAGE, env.GHCR_IMAGE) || '' }}
 
       - name: Build pull request image
+        id: docker_build_pr
         if: ${{ !inputs.push_digests }}
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ./
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
-          load: true
-          tags: ${{ matrix.local_tag }}
           labels: ${{ steps.docker_meta.outputs.labels }}
           build-args: |
             ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
             ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
+          # Test the same layer lineage users receive. Reusing :dev avoids a
+          # second cache whose compression can drift from the released image.
+          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:dev
+          outputs: |
+            type=docker,name=${{ matrix.local_tag }}
+            type=oci,dest=${{ runner.temp }}/archivebox-image.tar
 
       - name: Image digest
         if: inputs.push_digests
         run: echo ${{ steps.docker_build.outputs.digest }}
 
       - name: Validate exact built image version and commit
+        if: ${{ !inputs.push_digests }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -258,13 +278,35 @@ jobs:
               raise SystemExit(f"Missing exact commit marker: {sys.argv[3]}")
           PY
 
+          "$DOCKER_BINARY" run --rm --user 911:911 --platform '${{ matrix.platform }}' --entrypoint /venv/bin/python3 "$IMAGE" -c \
+            'import json, pathlib, stat; cache_file = "/opt/archivebox/lib/env/derived.env"; raw = open(cache_file).read().strip(); records = json.loads(raw[len("ABXPKG_DERIVED_CACHE=\x27"):-1]); projections = [projection for record in records.values() for projection in record.get("request_exec_projections", {}).values()]; plans = [projection["validation"] for projection in projections]; fingerprints = [fingerprint for plan in plans for fingerprint in plan["fingerprint"]]; actual = lambda fingerprint: (lambda path, value: {"path": str(path.resolve(strict=False)), "size": value.st_size, "mtime_ns": value.st_mtime_ns, "mode": stat.S_IMODE(value.st_mode), "euid": value.st_uid})(pathlib.Path(fingerprint["path"]), pathlib.Path(fingerprint["path"]).stat()); mismatches = [(fingerprint, actual(fingerprint)) for fingerprint in fingerprints if fingerprint != actual(fingerprint)]; assert projections and {plan.get("euid") for plan in plans} == {911}; assert all(not record.get("script_exec_plans") for record in records.values()); assert "ABXPKG_TMP_CACHE_DIR" not in json.dumps(projections); assert not mismatches, mismatches[:3]'
+
+      - name: Validate compressed candidate size
+        if: inputs.push_digests
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          DIGEST='${{ steps.docker_build.outputs.digest }}'
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          MANIFEST="$("$DOCKER_BINARY" buildx imagetools inspect --raw "${DOCKERHUB_IMAGE}@${DIGEST}")"
+          # Provenance wraps the real platform image and its attestation in an
+          # OCI index. Measure the image manifest, not the index/attestation.
+          IMAGE_DIGEST="$(MANIFEST="$MANIFEST" PLATFORM='${{ matrix.platform }}' "$UV_BINARY" run --no-cache --no-project python -c 'import json, os; manifest = json.loads(os.environ["MANIFEST"]); platform_os, platform_arch = os.environ["PLATFORM"].split("/")[:2]; print(next((item["digest"] for item in manifest.get("manifests", []) if item.get("platform", {}).get("os") == platform_os and item.get("platform", {}).get("architecture") == platform_arch), ""))')"
+          if [[ -n "$IMAGE_DIGEST" ]]; then
+            MANIFEST="$("$DOCKER_BINARY" buildx imagetools inspect --raw "${DOCKERHUB_IMAGE}@${IMAGE_DIGEST}")"
+          fi
+          COMPRESSED_SIZE="$(MANIFEST="$MANIFEST" "$UV_BINARY" run --no-cache --no-project python -c 'import json, os; manifest = json.loads(os.environ["MANIFEST"]); print(manifest["config"]["size"] + sum(layer["size"] for layer in manifest["layers"]))')"
+          LIMIT=$((750 * 1024 * 1024))
+          echo "${DIGEST} compressed_size=$((COMPRESSED_SIZE / 1024 / 1024)) MiB limit=750 MiB"
+          (( COMPRESSED_SIZE < LIMIT ))
+
       - name: Resolve real Docker CLI test dependencies through abxpkg
-        if: matrix.platform == 'linux/amd64'
+        if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         run: |
           set -Eeuo pipefail
           mount_env="$(
-            uv run --no-cache --no-project --with "abxpkg==$ABXPKG_VERSION" abxpkg env \
+            uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env \
               --install \
               --json \
               --lib="$ABXPKG_LIB_DIR" \
@@ -281,7 +323,7 @@ jobs:
           done
 
       - name: Validate Docker UID and GID behavior on real NFS and SMB mounts
-        if: matrix.platform == 'linux/amd64'
+        if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -337,7 +379,7 @@ jobs:
             "$BASH_BINARY" bin/validate_docker_uid_gid.sh --local-only
 
       - name: Validate Docker CLI add/list and compose behavior
-        if: matrix.platform == 'linux/amd64'
+        if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         env:
           ARCHIVEBOX_IMAGE: ${{ matrix.local_tag }}
@@ -359,29 +401,29 @@ jobs:
           "$DOCKER_BINARY" compose run --rm archivebox init
           "$DOCKER_BINARY" compose up -d --wait
           "$DOCKER_BINARY" network connect archivebox_default www-nginx
-          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000')"
+          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000/public/')"
           admin_js="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000/static/admin/js/jquery.init.js')"
           [[ "$index_html" == *ArchiveBox* ]]
           [[ "$admin_js" == *window.django* ]]
 
           "$DOCKER_BINARY" compose run --rm archivebox add --plugins=parse_txt_urls 'http://www-nginx/#test_docker'
-          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000')"
+          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:8000/public/')"
           [[ "$index_html" == *'http://www-nginx/#test_docker'* ]]
           "$DOCKER_BINARY" compose down
 
       - name: Validate compressed image size
-        if: inputs.push_digests
+        if: inputs.full_tests && !inputs.push_digests
         env:
-          BUILD_METADATA: ${{ steps.docker_build.outputs.metadata }}
+          BUILD_METADATA: ${{ steps.docker_build_pr.outputs.metadata }}
         shell: bash
         run: |
           set -Eeuo pipefail
           LOCAL_IMAGE_ID="$("$DOCKER_BINARY" image inspect '${{ matrix.local_tag }}' --format '{{.Id}}')"
           "$UV_BINARY" run --no-cache --no-project python - \
             '${{ runner.temp }}/archivebox-image.tar' \
-            '${{ steps.docker_build.outputs.digest }}' \
+            '${{ steps.docker_build_pr.outputs.digest }}' \
             "$LOCAL_IMAGE_ID" \
-            "$((780 * 1024 * 1024))" <<'PY'
+            "$((750 * 1024 * 1024))" <<'PY'
           from hashlib import sha256
           import json
           import os

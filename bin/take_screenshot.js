@@ -116,6 +116,28 @@ async function main() {
     await Promise.all(restoredPages.map((restoredPage) => restoredPage.close()));
     page.setDefaultTimeout(45000);
 
+    const client = await page.createCDPSession();
+    const documentRequests = new Map();
+    await client.send('Network.enable');
+    client.on('Network.requestWillBeSent', (event) => {
+      if (event.type !== 'Document') return;
+      documentRequests.set(event.requestId, {
+        url: event.request.url,
+        requestTimestamp: event.timestamp,
+      });
+    });
+    client.on('Network.responseReceived', (event) => {
+      if (event.type !== 'Document') return;
+      const record = documentRequests.get(event.requestId);
+      if (!record) return;
+      record.responseTimestamp = event.timestamp;
+      record.status = event.response.status;
+      record.responseUrl = event.response.url;
+      if (Number.isFinite(record.requestTimestamp) && Number.isFinite(record.responseTimestamp)) {
+        record.ttfbMs = Math.round((record.responseTimestamp - record.requestTimestamp) * 1000);
+      }
+    });
+
     if (process.env.SCREENSHOT_SNAPSHOT_VIEW || process.env.SCREENSHOT_SNAPSHOT_HEADER || process.env.SCREENSHOT_COLLAPSE_FILTERS === '1' || process.env.SCREENSHOT_RESET_FILTERS === '1') {
       await page.evaluateOnNewDocument((snapshotView, snapshotHeader, collapseFilters, resetFilters) => {
         if (snapshotView) localStorage.setItem('preferred_snapshot_view_mode', snapshotView);
@@ -185,10 +207,14 @@ async function main() {
       await page.waitForFunction((pluginName) => {
         const selectedCard = document.querySelector('.thumb-card.selected-card[data-plugin-name]');
         const frame = document.querySelector('#main-frame');
+        const frameRect = frame?.getBoundingClientRect();
         return selectedCard?.dataset.pluginName?.toLowerCase() === pluginName
           && frame
           && frame.getAttribute('src')
-          && frame.getAttribute('src') !== 'about:blank';
+          && frame.getAttribute('src') !== 'about:blank'
+          && frameRect
+          && frameRect.width >= Math.min(window.innerWidth * 0.9, window.innerWidth - 8)
+          && frameRect.height >= Math.min(window.innerHeight * 0.35, 320);
       }, { timeout: 45000 }, expectedPlugin);
       await page.waitForFunction(() => {
         const frames = [document.querySelector('#main-frame'), document.querySelector('.thumb-card.selected-card iframe')]
@@ -281,6 +307,18 @@ async function main() {
     }));
     checks.status = navigationResponse ? navigationResponse.status() : null;
     checks.finalUrl = page.url();
+    const navigationUrl = navigationResponse?.url() || page.url();
+    const matchingDocumentRequests = [...documentRequests.values()]
+      .filter((record) => record.status === checks.status && Number.isFinite(record.ttfbMs))
+      .filter((record) => {
+        const responseUrl = record.responseUrl || record.url || '';
+        return responseUrl === navigationUrl || responseUrl === checks.finalUrl || responseUrl.split('#')[0] === checks.finalUrl.split('#')[0];
+      });
+    const timingRecord = matchingDocumentRequests.at(-1)
+      || [...documentRequests.values()].filter((record) => Number.isFinite(record.ttfbMs)).at(-1);
+    if (timingRecord) {
+      checks.ttfbMs = timingRecord.ttfbMs;
+    }
 
     let frameChecks = null;
     const embeddedFrameHandle = await page.$('.crawl-snapshots-embed iframe');

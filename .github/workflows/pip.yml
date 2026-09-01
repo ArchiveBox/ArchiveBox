@@ -2,6 +2,12 @@ name: Build Pip package
 
 on:
   workflow_call:
+    inputs:
+      full_tests:
+        description: Run the full package compatibility matrix instead of one release smoke check
+        required: false
+        default: true
+        type: boolean
 
 env:
   UV_VERSION: "0.11.3"
@@ -58,6 +64,21 @@ jobs:
           Path("dist/SHA256SUMS").write_text("\n".join(checksum_lines) + "\n")
           PY
 
+      - name: Release wheel import and CLI smoke
+        if: ${{ !inputs.full_tests }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          shopt -s nullglob
+          wheels=(dist/archivebox-*.whl)
+          [[ "${#wheels[@]}" -eq 1 ]]
+          uv sync --locked --no-cache --no-sources --no-dev --no-install-project
+          uv pip install --no-cache --no-deps --python .venv/bin/python "${wheels[0]}"
+          unset PYTHONPATH
+          cd "$(mktemp -d)"
+          VIRTUAL_ENV="$GITHUB_WORKSPACE/.venv" uv run --no-cache --active --no-project python -c 'import archivebox'
+          VIRTUAL_ENV="$GITHUB_WORKSPACE/.venv" uv run --no-cache --active --no-project archivebox version
+
       - name: Upload every distribution
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -68,6 +89,7 @@ jobs:
 
   install-smoke:
     name: install ${{ matrix.artifact }} / Python ${{ matrix.python }} / ${{ matrix.os }}
+    if: inputs.full_tests
     needs: build
     runs-on: ${{ matrix.os }}
     strategy:
@@ -164,3 +186,58 @@ jobs:
           VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox version
           VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox init
           VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox status
+
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            root_tool_dir="/root/archivebox-package-smoke-${{ matrix.artifact }}-${{ matrix.python }}"
+            uv_binary="$(command -v uv)"
+            sudo rm -rf "$root_tool_dir"
+            sudo mkdir -p "$root_tool_dir/data"
+
+            root_install_args=()
+            for dependency_artifact in "${dependency_artifacts[@]}"; do
+              root_install_args+=(--with "$dependency_artifact")
+            done
+            sudo UV_TOOL_DIR="$root_tool_dir/tools" UV_TOOL_BIN_DIR="$root_tool_dir/bin" \
+              "$uv_binary" tool install --no-cache --python "${{ matrix.python }}" \
+              "${root_install_args[@]}" "$artifact"
+
+            sudo useradd --system --create-home --home-dir /var/lib/archivebox --shell /bin/bash archivebox 2>/dev/null || true
+            sudo rm -rf /var/lib/archivebox
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data' && archivebox init"
+            sudo stat -c %U /var/lib/archivebox | grep -qx archivebox
+            sudo stat -c %U "$root_tool_dir/data" | grep -qx archivebox
+            if sudo find "$root_tool_dir/data" -xdev -user root -print -quit | grep -q .; then
+              echo "Root-owned files remain in $root_tool_dir/data" >&2
+              exit 1
+            fi
+
+            sudo mkdir "$root_tool_dir/external"
+            sudo ln -s "$root_tool_dir/external" "$root_tool_dir/data/external-link"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data' && archivebox status"
+            sudo stat -c %U "$root_tool_dir/external" | grep -qx root
+
+            sudo mkdir "$root_tool_dir/data-universal-init"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-universal-init' && archivebox status --init"
+            sudo stat -c %U "$root_tool_dir/data-universal-init" | grep -qx archivebox
+
+            sudo mkdir "$root_tool_dir/data-install"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-install' && archivebox install --dry-run"
+            sudo stat -c %U "$root_tool_dir/data-install" | grep -qx archivebox
+
+            sudo useradd --create-home archivebox-smoke-user
+            smoke_user_group="$(id -gn archivebox-smoke-user)"
+            sudo mkdir "$root_tool_dir/data-mixed-owner"
+            sudo chown archivebox-smoke-user:root "$root_tool_dir/data-mixed-owner"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-mixed-owner' && archivebox init"
+            sudo stat -c %U:%G "$root_tool_dir/data-mixed-owner" | grep -qx "archivebox-smoke-user:$smoke_user_group"
+            if sudo find "$root_tool_dir/data-mixed-owner" -xdev -user root -print -quit | grep -q .; then
+              echo "Root-owned files remain in $root_tool_dir/data-mixed-owner" >&2
+              exit 1
+            fi
+            sudo rm -rf "$root_tool_dir"
+          fi

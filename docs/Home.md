@@ -30,11 +30,7 @@
 <br/>
 <hr/>
 
-**🏛️ [Need professional support? Hire Us](https://docs.sweeting.me/s/archivebox-consulting-services) 💬**
-
-<br/>
-
-**✨ Or donate to support open-source development ✨**
+**✨ Donate to support open-source development ✨**
 
 [![](https://img.shields.io/badge/Donate-Directly-%13DE5D26.svg)](https://hcb.hackclub.com/donations/start/archivebox) [![](https://img.shields.io/badge/Donate-Github_Sponsors-%23B7CDFE.svg)](https://github.com/sponsors/pirate) <a href="https://archivebox-shop.fourthwall.com/"><img src="https://img.shields.io/badge/Buy-Merch-%23903851.svg"/></a>
 

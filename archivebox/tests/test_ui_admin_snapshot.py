@@ -1,5 +1,8 @@
 """Snapshot model and admin UI tests."""
 
+import json
+import os
+import re
 import shutil
 import warnings
 from pathlib import Path
@@ -7,16 +10,28 @@ from threading import Thread
 from types import SimpleNamespace
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.core.paginator import UnorderedObjectListWarning
 from django.test import RequestFactory
 from django.urls import reverse
 
+from archivebox.core.middleware import ADMIN_LOGIN_HINT_COOKIE
 from archivebox.tests.conftest import ADMIN_TEST_HOST
-from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
 
 pytestmark = pytest.mark.django_db(transaction=True)
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_current_snapshot_layout_has_no_top_level_timestamp_projection(snapshot):
+    from archivebox.config import CONSTANTS
+
+    legacy_path = CONSTANTS.ARCHIVE_DIR / snapshot.timestamp
+
+    assert Path(snapshot.output_dir).is_relative_to(CONSTANTS.ARCHIVE_DIR / "users")
+    assert not legacy_path.exists()
+    assert not legacy_path.is_symlink()
 
 
 @pytest.fixture
@@ -85,7 +100,7 @@ def running_wget_projection(snapshot, blocking_http_server):
         url=blocking_http_server.url,
     )
     snapshot.refresh_from_db()
-    [result] = snapshot.create_pending_archiveresults(hooks=[("wget", "on_Snapshot__06_wget.finite.bg")])
+    [result] = snapshot.create_pending_archiveresults(hooks=[("wget", _snapshot_hook_name("wget"))])
     errors = []
 
     def run_snapshot():
@@ -150,6 +165,47 @@ def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, 
     assert response.status_code == 200
     assert b'class="snapshot-preview' in response.content
     assert b"screenshot.png" in response.content
+
+
+def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snapshot):
+    from archivebox.core.models import ArchiveResult
+
+    for plugin, status in (
+        ("title", ArchiveResult.StatusChoices.FAILED),
+        ("wget", ArchiveResult.StatusChoices.FAILED),
+        ("hashes", ArchiveResult.StatusChoices.SUCCEEDED),
+    ):
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin=plugin,
+            hook_name=f"on_Snapshot__50_{plugin}.py",
+            status=status,
+        )
+
+    response = admin_client.get(
+        reverse("admin:core_snapshot_changelist"),
+        {"archiveresult_status": "failed"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+
+    assert response.status_code == 200
+    assert snapshot in response.context["cl"].queryset
+
+
+def test_snapshot_icons_reflect_live_results_without_stale_html_cache(snapshot):
+    from archivebox.core.models import ArchiveResult
+
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="hashes",
+        hook_name="on_Snapshot__93_hashes.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={"hashes.json": {"size": 10}},
+    )
+
+    assert "hashes" in str(snapshot.icons())
+    ArchiveResult.objects.filter(pk=result.pk).update(status=ArchiveResult.StatusChoices.FAILED)
+    assert "hashes" not in str(snapshot.icons())
 
 
 def test_snapshot_admin_tag_editor_escapes_tag_json_script_breakout(admin_client, snapshot):
@@ -694,6 +750,252 @@ class TestSnapshotProgressStats:
 
         assert "full-page-iframe" in rendered
         assert "index.jsonl?preview=1" in rendered
+        assert "height: calc(100vh - 210px)" not in rendered
+        assert "iframe-large" not in rendered
+        assert "fitPreviewFrameToContent" in rendered
+        assert "wrapper.style.height = `${contentHeight}px`" in rendered
+        assert 'class="header-toggle header-toggle-trigger"' not in rendered
+        assert "event.preventDefault()" in rendered
+        assert rendered.count("addEventListener('click', handleSnapshotHeaderToggle)") == 1
+
+    def test_static_snapshot_detail_uses_same_output_cards_with_relative_files(self, snapshot):
+        from archivebox.config import CONSTANTS
+        from archivebox.core.models import ArchiveResult
+        from archivebox.core.views import SnapshotView
+
+        output_dir = Path(snapshot.output_dir)
+        singlefile_dir = output_dir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+        output_file = singlefile_dir / "singlefile.html"
+        output_file.write_text("<html><body>real static output</body></html>", encoding="utf-8")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="singlefile",
+            hook_name="on_Snapshot__50_singlefile.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="singlefile.html",
+            output_files={"singlefile.html": {"size": output_file.stat().st_size}},
+            output_size=output_file.stat().st_size,
+        )
+        favicon_dir = output_dir / "favicon"
+        favicon_dir.mkdir(parents=True, exist_ok=True)
+        favicon_file = favicon_dir / "favicon.ico"
+        favicon_file.write_bytes(b"real favicon")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="favicon",
+            hook_name="on_Snapshot__50_favicon.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="favicon.ico",
+            output_files={"favicon.ico": {"size": favicon_file.stat().st_size}},
+            output_size=favicon_file.stat().st_size,
+        )
+
+        request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
+        request.user = AnonymousUser()
+        live_html = SnapshotView.render_live_index(request, snapshot).content.decode()
+
+        snapshot.write_html_details()
+        snapshot.write_json_details()
+        static_html = (output_dir / "index.html").read_text(encoding="utf-8")
+        static_json = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
+
+        assert re.findall(r'data-plugin-name="([^"]+)"', static_html) == re.findall(r'data-plugin-name="([^"]+)"', live_html)
+        assert 'data-plugin-name="singlefile"' in static_html
+        assert 'href="./singlefile/singlefile.html"' in static_html
+        assert 'data-default-src="./singlefile/singlefile.html"' in static_html
+        assert 'src="./favicon/favicon.ico"' in static_html
+        root_href = os.path.relpath(CONSTANTS.DATA_DIR, start=output_dir).replace(os.sep, "/")
+        assert f'href="{root_href}/index.html" class="header-archivebox"' in static_html
+        assert f"/snapshot/{snapshot.id.hex}" not in static_html
+        assert "/static/jquery.min.js" not in static_html
+        assert static_json["archive_path"].startswith("archive/users/")
+        assert static_json["archive_url"] == f"./{static_json['archive_path']}/index.html"
+
+    def test_compact_output_cards_pack_into_dense_grid_rows(self):
+        template = (REPO_ROOT / "archivebox" / "templates" / "core" / "snapshot.html").read_text()
+        thumb_grid_css = template.split(".thumb-grid {", 1)[1].split("}", 1)[0]
+        thumb_card_css = template.split(".thumb-card {", 1)[1].split("}", 1)[0]
+        auxiliary_card_css = template.split(".thumb-card:not([data-plugin-name]) {", 1)[1].split("}", 1)[0]
+        compact_card_css = template.split(".thumb-card:has([data-compact]) {", 1)[1].split("}", 1)[0]
+
+        assert "display: grid;" in thumb_grid_css
+        assert "grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 14vw, 250px), 1fr));" in thumb_grid_css
+        assert "grid-auto-flow: row dense;" in thumb_grid_css
+        assert "grid-auto-rows: 42px;" in thumb_grid_css
+        assert "grid-row: span 3;" in thumb_card_css
+        assert "order: 1;" in auxiliary_card_css
+        assert "grid-row: span 1;" in compact_card_css
+        assert "order: 2;" in compact_card_css
+
+
+class TestSnapshotOutputDeletion:
+    @staticmethod
+    def _create_output(snapshot, *, plugin="screenshot", hook_name="on_Snapshot__50_screenshot.py", size=11):
+        from archivebox.core.models import ArchiveResult
+
+        output_dir = Path(snapshot.output_dir) / plugin
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_path = output_dir / "output.png"
+        output_path.write_bytes(b"x" * size)
+        return ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin=plugin,
+            hook_name=hook_name,
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="output.png",
+            output_files={"output.png": {"size": size, "mimetype": "image/png"}},
+            output_size=size,
+        )
+
+    def test_snapshot_detail_only_shows_delete_controls_to_superusers(self, snapshot, admin_user):
+        from archivebox.core.views import SnapshotView
+
+        result = self._create_output(snapshot)
+        request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
+        request.user = admin_user
+
+        html = SnapshotView.render_live_index(request, snapshot).content.decode()
+
+        assert f'data-archive-result-ids="{result.id}"' in html
+        assert 'title="Delete this output"' in html
+        assert 'data-delete-handoff="1"' in html
+        assert "const queuedOutputIds = new Set()" in html
+        assert "window.location.assign(deleteUrl)" in html
+        assert "/admin/core/archiveresult/" in html
+        assert "[deleting]" in html
+        assert ">×</button>" in html
+        assert "delete-output-csrf" not in html
+        assert "[data-archive-result-ids]:hover" in html
+        assert "[data-archive-result-ids].delete-pending" in html
+        assert "button.classList.toggle('delete-pending', queued)" in html
+
+        request.user = AnonymousUser()
+        anonymous_html = SnapshotView.render_live_index(request, snapshot).content.decode()
+        assert "data-archive-result-ids" not in anonymous_html
+        assert 'title="Delete this output"' not in anonymous_html
+
+        request.COOKIES[ADMIN_LOGIN_HINT_COOKIE] = "1"
+        hinted_html = SnapshotView.render_live_index(request, snapshot).content.decode()
+        assert f'data-archive-result-ids="{result.id}"' in hinted_html
+        assert "delete-output-csrf" not in hinted_html
+
+    def test_snapshot_delete_handoff_requires_superuser_confirmation_then_uses_standard_admin_action(self, client, snapshot, admin_user):
+        from archivebox.core.models import ArchiveResult
+
+        result = self._create_output(snapshot)
+        delete_url = reverse("admin:core_archiveresult_changelist")
+        handoff_query = {
+            "action": "delete_selected",
+            ACTION_CHECKBOX_NAME: str(result.id),
+            "snapshot": str(snapshot.id),
+        }
+
+        logged_out = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        assert logged_out.status_code == 302
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        staff_user = admin_user.__class__.objects.create_user(username="output-reviewer", password="testpassword", is_staff=True)
+        client.force_login(staff_user)
+        denied = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        assert denied.status_code == 403
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        client.force_login(admin_user)
+        confirmation = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        confirmation_html = confirmation.content.decode()
+        assert confirmation.status_code == 200
+        assert "Yes, I’m sure" in confirmation_html
+        assert f'name="{ACTION_CHECKBOX_NAME}" value="{result.id}"' in confirmation_html
+        assert confirmation["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in confirmation["Content-Security-Policy"]
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        confirmed = client.post(
+            f"{delete_url}?action=delete_selected&{ACTION_CHECKBOX_NAME}={result.id}&snapshot={snapshot.id}",
+            {
+                "action": "delete_selected",
+                "post": "yes",
+                ACTION_CHECKBOX_NAME: str(result.id),
+            },
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert confirmed.status_code == 302
+        assert not ArchiveResult.objects.filter(pk=result.pk).exists()
+        assert str(snapshot.id).replace("-", "")[-12:] in confirmed["Location"]
+
+    def test_batch_delete_removes_plugin_rows_files_and_refreshes_snapshot_size(self, client, snapshot, admin_user):
+        from archivebox.core.models import ArchiveResult
+
+        first = self._create_output(snapshot, size=11)
+        second = self._create_output(snapshot, plugin="singlefile", hook_name="on_Snapshot__50_singlefile.py", size=13)
+        kept = self._create_output(snapshot, plugin="pdf", hook_name="on_Snapshot__60_pdf.py", size=7)
+        deleted_dir = Path(first.output_dir)
+        second_deleted_dir = Path(second.output_dir)
+        kept_dir = Path(kept.output_dir)
+        hashes_dir = Path(snapshot.output_dir) / "hashes"
+        hashes_dir.mkdir(parents=True, exist_ok=True)
+        (hashes_dir / "hashes.json").write_text(
+            json.dumps({"files": [{"path": "screenshot/output.png", "size": 13}]}),
+        )
+
+        delete_url = reverse("admin:core_archiveresult_changelist")
+        delete_data = {
+            "action": "delete_selected",
+            "post": "yes",
+            ACTION_CHECKBOX_NAME: [str(first.id), str(second.id)],
+        }
+        denied = client.post(
+            delete_url,
+            delete_data,
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert denied.status_code == 302
+        assert deleted_dir.exists()
+
+        client.force_login(admin_user)
+        response = client.post(
+            delete_url,
+            delete_data,
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+
+        assert response.status_code == 302
+        assert not ArchiveResult.objects.filter(pk__in=[first.pk, second.pk]).exists()
+        assert ArchiveResult.objects.filter(pk=kept.pk).exists()
+        assert not deleted_dir.exists()
+        assert not second_deleted_dir.exists()
+        assert kept_dir.exists()
+        snapshot.refresh_from_db()
+        assert snapshot.output_size == 7
+        assert "screenshot" not in {output["name"] for output in snapshot.discover_outputs()}
+        assert '"plugin": "screenshot"' not in (Path(snapshot.output_dir) / "index.jsonl").read_text()
+
+    def test_admin_inline_shows_sortable_output_sizes_and_delete_controls(self, client, snapshot, admin_user):
+        first = self._create_output(snapshot, plugin="screenshot", size=11)
+        second = self._create_output(snapshot, plugin="pdf", hook_name="on_Snapshot__60_pdf.py", size=2048)
+        assert client.login(username=admin_user.username, password="testpassword")
+
+        response = client.get(
+            reverse("admin:core_snapshot_change", args=[snapshot.pk]),
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        html = response.content.decode()
+
+        assert response.status_code == 200
+        assert "data-output-size-sort" in html
+        assert 'data-output-size="11"' in html
+        assert 'data-output-size="2048"' in html
+        assert "11.0 Bytes" in html
+        assert "2.0 KB" in html
+        assert f'data-archive-result-ids="{first.id}"' in html
+        assert f'data-archive-result-ids="{second.id}"' in html
+        assert html.count('title="Delete this output"') == 2
+        assert reverse("admin:core_archiveresult_changelist") in html
+        assert "const queuedOutputIds = new Set()" in html
+        assert "action: 'delete_selected'" in html
+        assert ">×</button>" in html
+        assert "button.classList.toggle('delete-pending', queued)" in html
 
 
 class TestAdminSnapshotListView:
@@ -748,6 +1050,79 @@ class TestAdminSnapshotListView:
         assert response.status_code == 200
         assert result.plugin.encode() in response.content
 
+    def test_list_view_uses_complete_bulk_progress_stats_without_per_snapshot_queries(self, client, admin_user, snapshot, crawl):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from archivebox.core.models import ArchiveResult, Snapshot
+
+        snapshot.status = Snapshot.StatusChoices.STARTED
+        snapshot.save(update_fields=["status", "modified_at"])
+        for plugin, status, output_size in (
+            ("screenshot", ArchiveResult.StatusChoices.SUCCEEDED, 1024),
+            ("title", ArchiveResult.StatusChoices.FAILED, 0),
+            ("wget", ArchiveResult.StatusChoices.STARTED, 0),
+            ("hashes", ArchiveResult.StatusChoices.SKIPPED, 0),
+        ):
+            ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin=plugin,
+                hook_name=f"on_Snapshot__50_{plugin}.py",
+                status=status,
+                output_size=output_size,
+                output_files={"screenshot.png": {"size": output_size}} if output_size else {},
+            )
+
+        client.force_login(admin_user)
+        url = reverse("admin:core_snapshot_changelist")
+        with CaptureQueriesContext(connection) as single_snapshot_queries:
+            response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert response.status_code == 200
+        rendered_snapshot = next(obj for obj in response.context["cl"].result_list if obj.pk == snapshot.pk)
+        assert rendered_snapshot.__dict__["_admin_progress_stats"] == {
+            "total": 4,
+            "succeeded": 1,
+            "failed": 1,
+            "running": 1,
+            "pending": 0,
+            "skipped": 1,
+            "noresults": 0,
+            "percent": 75,
+            "output_size": rendered_snapshot.output_size,
+            "is_sealed": False,
+        }
+        assert "_admin_archiveresults" not in rendered_snapshot.__dict__
+        assert [result.plugin for result in rendered_snapshot.__dict__["_admin_output_results"]] == ["screenshot"]
+
+        additional_snapshots = [
+            Snapshot.objects.create(
+                url=f"https://progress-{index}.example.com",
+                crawl=crawl,
+                status=Snapshot.StatusChoices.STARTED,
+                title=f"Progress {index}",
+            )
+            for index in range(5)
+        ]
+        ArchiveResult.objects.bulk_create(
+            [
+                ArchiveResult(
+                    snapshot=additional_snapshot,
+                    plugin="wget",
+                    hook_name="on_Snapshot__50_wget.py",
+                    status=ArchiveResult.StatusChoices.STARTED,
+                )
+                for additional_snapshot in additional_snapshots
+            ],
+        )
+        with CaptureQueriesContext(connection) as many_snapshot_queries:
+            many_response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert many_response.status_code == 200
+        single_result_queries = [query for query in single_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
+        many_result_queries = [query for query in many_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
+        assert len(single_result_queries) == len(many_result_queries) == 2
+
     def test_list_view_uses_prefetched_tags_without_row_queries(self, client, admin_user, crawl, db):
         """Changelist tag rendering should reuse the prefetched tag cache."""
         from django.db import connection
@@ -777,13 +1152,15 @@ class TestAdminSnapshotListView:
         ]
         assert per_row_tag_queries == []
 
-    def test_grid_view_renders(self, client, admin_user):
+    def test_grid_view_renders(self, client, admin_user, snapshot):
         """Test that the grid view renders successfully."""
         client.force_login(admin_user)
         url = reverse("admin:grid")
         response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert response.status_code == 200
+        assert b'<section class="cards">' in response.content
+        assert snapshot.url.encode() in response.content
 
     def test_grid_card_component_order(self, client, admin_user, snapshot, real_hash_projection):
         """Snapshot cards should keep metadata, title, URL, preview, and outputs in scan order."""
@@ -829,6 +1206,28 @@ class TestAdminSnapshotListView:
 
         assert response.status_code == 200
         assert f"/admin/core/snapshot/{snapshot.pk}/redo-failed/".encode() in response.content
+
+    def test_change_view_reuses_resolved_snapshot_for_progress_context(self, client, admin_user, snapshot):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        snapshot.status = snapshot.StatusChoices.STARTED
+        snapshot.__class__.objects.filter(pk=snapshot.pk).update(status=snapshot.status)
+        client.force_login(admin_user)
+        url = reverse("admin:core_snapshot_change", args=[snapshot.pk])
+
+        with CaptureQueriesContext(connection) as captured_queries:
+            response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+
+        snapshot_reads = [
+            query["sql"]
+            for query in captured_queries
+            if 'FROM "core_snapshot"' in query["sql"] and '"core_snapshot"."id" =' in query["sql"]
+        ]
+        assert response.status_code == 200
+        assert response.context["progress_auto_expand"] is True
+        assert response.context["progress_endpoint"].endswith(f"?snapshot_id={snapshot.pk}")
+        assert len(snapshot_reads) == 1
 
     def test_snapshot_view_url_uses_canonical_replay_url_for_mode(self, snapshot):
         from archivebox.core.admin_site import archivebox_admin

@@ -2,6 +2,7 @@ from pathlib import Path
 from importlib.resources import files
 import json
 import os
+import shutil
 
 import pytest
 
@@ -15,6 +16,16 @@ from archivebox.tests.conftest import install_real_binary
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def _snapshot_hook_name(plugin_name: str) -> str:
+    from abx_dl.models import discover_plugins
+
+    plugin = discover_plugins().get(plugin_name)
+    assert plugin is not None, f"missing test plugin {plugin_name}"
+    hooks = plugin.filter_hooks("Snapshot")
+    assert hooks, f"missing Snapshot hooks for {plugin_name}"
+    return hooks[0].name
 
 
 def _cleanup_machine_process_rows() -> None:
@@ -36,6 +47,7 @@ def _run_shipped_snapshot_hook(
     """Run one shipped hook through the production process/result bus services."""
     import asyncio
 
+    from abx_dl.models import discover_plugins
     from abx_dl.services.process_service import ProcessService as HookProcessService
     from abx_plugins.plugins.base.utils import get_hydrated_required_binaries
     from archivebox.core.models import ArchiveResult
@@ -43,7 +55,11 @@ def _run_shipped_snapshot_hook(
     from archivebox.services.archive_result_service import ArchiveResultService
     from archivebox.services.process_service import ProcessService as PersistedProcessService
 
-    hook_path = Path(str(files(f"abx_plugins.plugins.{plugin}").joinpath(hook_name)))
+    discovered_plugin = discover_plugins().get(plugin)
+    assert discovered_plugin is not None, f"missing test plugin {plugin}"
+    matching_hooks = [hook for hook in discovered_plugin.filter_hooks("Snapshot") if hook.name == hook_name or hook.path.name == hook_name]
+    assert len(matching_hooks) == 1, f"missing or ambiguous Snapshot hook {plugin}:{hook_name}"
+    hook_path = matching_hooks[0].path
     projected_hook_name = event_hook_name or hook_name
     hook_config = hook_path.parent / "config.json"
     for required_binary in get_hydrated_required_binaries(
@@ -123,8 +139,9 @@ def _run_real_title_crawl(url: str, lib_dir: Path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.services.runner import CrawlRunner, run_install
 
+    run_install(plugin_names=["title"])
     crawl = Crawl.objects.create(
         urls=url,
         config={"ABXPKG_LIB_DIR": str(lib_dir), "PLUGINS": "title"},
@@ -213,7 +230,7 @@ def test_archiveresult_event_retry_updates_existing_hook_row(tmp_path, hermetic_
     _cleanup_machine_process_rows()
 
 
-def test_archiveresult_duplicate_hook_rows_are_rejected():
+def test_archiveresult_duplicate_plugin_rows_are_rejected():
     from django.db import IntegrityError, transaction
     from archivebox.core.models import ArchiveResult
 
@@ -229,9 +246,45 @@ def test_archiveresult_duplicate_hook_rows_are_rejected():
         ArchiveResult.objects.create(
             snapshot=snapshot,
             plugin="wget",
-            hook_name="on_Snapshot__06_wget.finite.bg",
+            hook_name="on_Snapshot__99_other_wget_hook",
             status=ArchiveResult.StatusChoices.SUCCEEDED,
         )
+
+
+def test_archivewebpage_lifecycle_hooks_project_one_plugin_output():
+    from abx_dl.events import ArchiveResultEvent
+    from archivebox.core.models import ArchiveResult
+    from archivebox.services.archive_result_service import _save_archiveresult_event_to_db
+
+    snapshot = _create_snapshot()
+    _save_archiveresult_event_to_db(
+        ArchiveResultEvent(
+            snapshot_id=str(snapshot.id),
+            plugin="archivewebpage",
+            hook_name="on_Snapshot__16_archivewebpage_start",
+            status="succeeded",
+            output_str="recording started",
+            output_files=[OutputFile(path="recording.json", extension="json", mimetype="application/json", size=175)],
+        ),
+        None,
+    )
+    _save_archiveresult_event_to_db(
+        ArchiveResultEvent(
+            snapshot_id=str(snapshot.id),
+            plugin="archivewebpage",
+            hook_name="on_Snapshot__65_archivewebpage_stop",
+            status="succeeded",
+            output_str="archivewebpage.wacz",
+            output_files=[OutputFile(path="archivewebpage.wacz", extension="wacz", size=2048)],
+        ),
+        None,
+    )
+
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="archivewebpage")
+    assert result.hook_name == "on_Snapshot__65_archivewebpage_stop"
+    assert result.output_str == "archivewebpage.wacz"
+    assert set(result.output_files) == {"recording.json", "archivewebpage.wacz"}
+    assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="archivewebpage").count() == 1
 
 
 def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_path, hermetic_lib_dir):
@@ -333,6 +386,20 @@ def test_snapshot_save_normalizes_url_title_to_none():
     _cleanup_machine_process_rows()
 
 
+@pytest.mark.parametrize(
+    ("candidate", "expected"),
+    (
+        ("Nick Sweeting: Blog & Projects", "Nick Sweeting: Blog & Projects"),
+        ("Nick Sweeting: Blog &amp; Projects", "Nick Sweeting: Blog & Projects"),
+        ("Safe &lt;script&gt;alert(1)&lt;/script&gt; title", "Safe alert(1) title"),
+    ),
+)
+def test_snapshot_title_normalization_decodes_entities_without_restoring_markup(candidate, expected):
+    from archivebox.core.models import Snapshot
+
+    assert Snapshot._normalize_title_candidate(candidate, snapshot_url="https://example.com") == expected
+
+
 def test_process_completed_projects_noresults_archiveresult(tmp_path, hermetic_lib_dir):
     from archivebox.core.models import ArchiveResult
 
@@ -403,12 +470,13 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
     reset_count = snapshot.retry_failed_archiveresults()
 
     snapshot.refresh_from_db()
-    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="chrome", hook_name="on_Snapshot__11_chrome_wait")
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="chrome")
     assert reset_count == 1
     assert snapshot.status == Snapshot.StatusChoices.QUEUED
     assert snapshot.retry_at is not None
     assert snapshot.current_step == 0
     assert result.status == ArchiveResult.StatusChoices.QUEUED
+    assert result.hook_name == ""
     assert result.output_str == ""
     assert result.output_json is None
     assert result.output_files == {}
@@ -486,14 +554,17 @@ def test_collect_output_metadata_preserves_file_metadata():
 
 
 def test_collect_output_metadata_detects_warc_gz_mimetype(tmp_path):
-    from archivebox.services.archive_result_service import _collect_output_metadata
+    from abx_dl.output_files import OutputManifest
 
     plugin_dir = tmp_path / "wget"
     warc_file = plugin_dir / "warc" / "capture.warc.gz"
     warc_file.parent.mkdir(parents=True, exist_ok=True)
     warc_file.write_bytes(b"warc-bytes")
 
-    output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
+    manifest = OutputManifest.scan(plugin_dir)
+    output_files = manifest.as_mapping()
+    output_size = manifest.total_size
+    output_mimetypes = ",".join(manifest.mimetypes)
 
     assert output_files["warc/capture.warc.gz"] == {
         "extension": "gz",
@@ -538,8 +609,8 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
     )
     mercury_path = Path(mercury_env["MERCURY_BINARY"])
     provider_path = Path(binary.abspath)
-    assert binary.binprovider == "pnpm"
-    assert provider_path == lib_dir / "pnpm" / "packages" / "mercury" / "node_modules" / ".bin" / "postlight-parser"
+    assert binary.binprovider == "npm"
+    assert provider_path == lib_dir / "npm" / "packages" / "mercury" / "node_modules" / ".bin" / "postlight-parser"
     assert provider_path.is_file()
     assert os.access(provider_path, os.X_OK)
     assert mercury_path == lib_dir / "env" / "bin" / "postlight-parser"
@@ -682,20 +753,22 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp
     assert "chrome zombies. cpu usage:" in process.stdout
 
 
-def test_binary_event_reuses_existing_installed_binary_row():
+def test_binary_event_updates_existing_row_from_native_abxpkg_resolution():
     from archivebox.machine.models import Binary, Machine
-    from archivebox.services.binary_service import ArchiveBoxDBBinaryCacheBackend
-    from abxpkg.binary_service import BinaryCacheService, BinaryService
+    from archivebox.services.binary_service import ArchiveBoxBinaryService
+    from abxpkg.binary_service import BinaryService
     import asyncio
 
     machine = Machine.current()
     binary = install_real_binary("wget", machine=machine, binproviders="env,apt,brew")
-    installed_abspath = binary.abspath
-    installed_version = binary.version
-    installed_provider = binary.binprovider
+    native_wget = shutil.which("wget")
+    assert native_wget is not None
+    binary.abspath = "/bin/sh"
+    binary.save(update_fields=["abspath", "modified_at"])
+    stale_abspath = binary.abspath
 
     bus = create_bus(name="test_binary_event_reuses_existing_installed_binary_row")
-    BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
+    ArchiveBoxBinaryService(bus)
     BinaryService(bus)
     event = BinaryRequestEvent(
         name="wget",
@@ -715,7 +788,8 @@ def test_binary_event_reuses_existing_installed_binary_row():
     binary.refresh_from_db()
     assert Binary.objects.filter(machine=machine, name="wget").count() == 1
     assert binary.status == Binary.StatusChoices.INSTALLED
-    assert binary.abspath == installed_abspath
-    assert binary.version == installed_version
-    assert binary.binprovider == installed_provider
+    assert Path(binary.abspath).resolve() == Path(native_wget).resolve()
+    assert binary.abspath != stale_abspath
+    assert binary.version
+    assert binary.binprovider == "env"
     assert binary.binproviders == "env,apt,brew"

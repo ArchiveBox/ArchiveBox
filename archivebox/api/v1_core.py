@@ -59,7 +59,7 @@ from archivebox.core.snapshot_status import filter_snapshots_by_status, normaliz
 
 router = Router(tags=["Core Models"])
 
-ARCHIVERESULT_UPLOAD_HOOK_NAME = "on_Snapshot__archivebox_browser_extension_upload"
+ARCHIVERESULT_UPLOAD_HOOK_NAME = Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME
 ARCHIVERESULT_UPLOAD_PLUGIN_RE = re.compile(r"^[A-Za-z0-9_.-]{1,32}$")
 
 
@@ -342,21 +342,10 @@ def _parse_archiveresult_upload_int(value: str, field_name: str, *, default: int
 
 
 def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]]) -> tuple[int, str]:
-    mime_sizes: dict[str, int] = defaultdict(int)
-    total_size = 0
-    for metadata in output_files.values():
-        if not isinstance(metadata, dict):
-            continue
-        try:
-            size = max(int(metadata.get("size") or 0), 0)
-        except (TypeError, ValueError):
-            size = 0
-        mime_type = str(metadata.get("mimetype") or "").strip()
-        total_size += size
-        if mime_type and size:
-            mime_sizes[mime_type] += size
-    output_mimetypes = ",".join(mime for mime, _size in sorted(mime_sizes.items(), key=lambda item: item[1], reverse=True))
-    return total_size, output_mimetypes
+    from abx_dl.output_files import OutputManifest
+
+    manifest = OutputManifest.from_value(output_files)
+    return manifest.total_size, ",".join(manifest.mimetypes)
 
 
 def _get_snapshot_by_ref(snapshot_id: str):
@@ -387,13 +376,6 @@ def _queue_archiveresult_snapshot_maintenance(snapshot: Snapshot) -> None:
     if snapshot.status == Snapshot.StatusChoices.SEALED or snapshot.retry_at is None:
         updates["retry_at"] = now
     snapshot.safe_update(updates, refresh=False)
-
-
-def _merge_archiveresult_output_file_maps(results: list[ArchiveResult]) -> dict[str, dict[str, Any]]:
-    output_files: dict[str, dict[str, Any]] = {}
-    for result in results:
-        output_files.update(result.output_file_map())
-    return output_files
 
 
 def _write_archiveresult_files(
@@ -535,15 +517,8 @@ def create_archiveresult(
     normalized_status = ArchiveResult.normalize_status(status)
     parsed_output_json = _parse_archiveresult_output_json(output_json)
     hook = hook_name or ARCHIVERESULT_UPLOAD_HOOK_NAME
-    matching_results = list(
-        ArchiveResult.objects.filter(
-            snapshot=snapshot,
-            plugin=plugin_name,
-            hook_name=hook,
-        ).order_by("created_at", "id"),
-    )
-    existing_result = matching_results[0] if matching_results else None
-    existing_output_files = _merge_archiveresult_output_file_maps(matching_results)
+    existing_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin_name).first()
+    existing_output_files = dict(existing_result.output_files or {}) if existing_result else {}
     output_files = _write_archiveresult_files(
         request,
         snapshot,
@@ -554,22 +529,13 @@ def create_archiveresult(
     now = timezone.now()
 
     with transaction.atomic():
-        matching_results = list(
-            ArchiveResult.objects.filter(
-                snapshot=snapshot,
-                plugin=plugin_name,
-                hook_name=hook,
-            ).order_by("created_at", "id"),
-        )
-        if matching_results:
-            existing_result = matching_results[0]
+        Snapshot.objects.select_for_update().get(pk=snapshot.pk)
+        existing_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin_name).first()
+        if existing_result:
             output_files = {
-                **_merge_archiveresult_output_file_maps(matching_results),
+                **dict(existing_result.output_files or {}),
                 **output_files,
             }
-            duplicate_ids = [result.id for result in matching_results[1:]]
-            if duplicate_ids:
-                ArchiveResult.objects.filter(id__in=duplicate_ids).delete()
             result = existing_result
         else:
             existing_result = None
@@ -588,6 +554,7 @@ def create_archiveresult(
         output_size, output_mimetypes = _summarize_archiveresult_output_files(output_files)
         output_file_paths = list(output_files.keys())
         result.status = normalized_status
+        result.hook_name = hook
         result.output_str = output_str or (output_file_paths[0] if output_file_paths else "")
         result.output_json = parsed_output_json
         result.output_files = output_files
@@ -962,6 +929,20 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
             retry_at=timezone.now(),
             created_by=request.user if isinstance(request.user, User) else None,
         )
+
+    # Browser clients sync metadata and upload capture artifacts immediately
+    # after queueing a URL. The runner holds the crawl lifecycle lock for the
+    # whole crawl, so idempotently posting an already-created snapshot must not
+    # wait behind that potentially long-running archive job.
+    existing_snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
+    if existing_snapshot is not None and (status is None or existing_snapshot.status == status):
+        if data.title is not None and existing_snapshot.title != data.title:
+            Snapshot.objects.filter(pk=existing_snapshot.pk).update(title=data.title, modified_at=timezone.now())
+            existing_snapshot.title = data.title
+        if tags:
+            existing_snapshot.save_tags(tags)
+        setattr(request, "with_archiveresults", False)
+        return existing_snapshot
 
     with crawl_lifecycle_lock(str(crawl.id)):
         snapshot_defaults = {

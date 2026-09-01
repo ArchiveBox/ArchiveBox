@@ -232,12 +232,21 @@ def iter_query_search_ids(
 
     backends = get_available_backends()
     configured_backend = normalize_search_backend_name(config.SEARCH_BACKEND_ENGINE)
+    fallback_enabled = search_mode_base == "deep" and (not forced_backend or forced_backend == configured_backend == "sonic")
     if forced_backend:
         if forced_backend not in backends:
             raise RuntimeError(
                 f'Search backend "{forced_backend}" not found. Available backends: {list(backends) or "none"}',
             )
-        backend_names = [forced_backend]
+        backend_names = (
+            [
+                forced_backend,
+                *(name for name in backends if name not in {forced_backend, "ripgrep"}),
+                *(["ripgrep"] if "ripgrep" in backends and forced_backend != "ripgrep" else []),
+            ]
+            if fallback_enabled
+            else [forced_backend]
+        )
     elif search_mode_base == "deep":
         backend_names = [
             *([configured_backend] if configured_backend in backends and configured_backend != "ripgrep" else []),
@@ -252,18 +261,6 @@ def iter_query_search_ids(
         get_backend()
         return
 
-    if "sonic" in backend_names:
-        import sys
-        from contextlib import redirect_stdout
-
-        from archivebox.core.takeover_util import ensure_daemon_stack
-
-        # Search commands can produce structured stdout such as --csv/--json.
-        # Daemon bootstrap progress is diagnostic output and must not corrupt
-        # that user-facing data stream.
-        with redirect_stdout(sys.stderr):
-            ensure_daemon_stack(reason="search query")
-
     errors: list[Exception] = []
     successful_backends = 0
     seen: set[str] = set()
@@ -271,6 +268,16 @@ def iter_query_search_ids(
         for backend_name in backend_names:
             backend = backends[backend_name]
             try:
+                if backend_name == "sonic":
+                    import sys
+                    from contextlib import redirect_stdout
+
+                    from archivebox.core.takeover_util import ensure_daemon_stack
+
+                    # Search commands can produce structured stdout such as
+                    # --csv/--json. Keep daemon diagnostics on stderr.
+                    with redirect_stdout(sys.stderr):
+                        ensure_daemon_stack(reason="search query")
                 with search_backend_env(config=config):
                     if backend_name == "ripgrep":
                         ids = backend.iter_search(query, search_mode=search_mode_base)
@@ -286,7 +293,7 @@ def iter_query_search_ids(
                 successful_backends += 1
             except Exception as err:
                 errors.append(err)
-                if search_mode_base != "deep" or forced_backend:
+                if not fallback_enabled:
                     raise
     except Exception as err:
         stderr()

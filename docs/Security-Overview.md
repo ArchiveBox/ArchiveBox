@@ -1,8 +1,5 @@
 # Security Overview
 
-> *💬 We offer [consulting services](https://docs.monadical.com/s/archivebox-consulting-services) to set up, secure, and maintain ArchiveBox on your preferred hosting environment.*  
-> <sub>We use this revenue (from corporate clients who can afford to pay) to support open source development and keep ArchiveBox free.</sub>
-
 ## Web UI Permissions
 
 ```bash
@@ -105,7 +102,7 @@ More info:
 <img src="https://imgur.zervice.io/yDqJc4I.jpg" width="150px" align="right"/>
 
 > [!NOTE]
-> Use `docker compose run archivebox ...` for normal one-shot CLI commands. `docker compose exec archivebox ...` is also supported against a running container; if it starts as root, ArchiveBox drops to the dedicated `archivebox` account before operating on the collection.
+> Use `docker compose run --rm archivebox ...` for normal one-shot CLI commands. `docker compose exec archivebox ...` is also supported against a running container; if it starts as root, ArchiveBox drops to the dedicated `archivebox` account before operating on the collection.
 
 ArchiveBox drops privileges to the collection owner when it starts as root and can do so safely, including in the official Docker image. Do not bypass that boundary or force runtime dependencies to stay privileged:
  - Browser sandboxing cannot provide its normal protection when the browser itself runs as root

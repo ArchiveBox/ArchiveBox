@@ -1,37 +1,31 @@
 __package__ = "archivebox.core"
 
-import sys
 from importlib.util import find_spec
 
 from django.conf import settings
-from django.urls import path, re_path, include
+from django.http import HttpRequest
+from django.urls import include, path, re_path
 from django.views import static
 from django.views.generic.base import RedirectView
-from django.http import HttpRequest
 
 from archivebox.config.constants import CONSTANTS
-from archivebox.config.common import get_config
-from archivebox.misc.serve_static import serve_static
-
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.core.views import (
+    AddView,
+    HealthCheckView,
     HomepageView,
-    SnapshotView,
-    SnapshotPathView,
-    SnapshotReplayView,
-    SnapshotReplayAuthView,
     OriginalDomainReplayView,
     PublicIndexView,
-    AddView,
+    SnapshotPathView,
+    SnapshotReplayAuthView,
+    SnapshotReplayView,
+    SnapshotView,
     WebAddView,
-    HealthCheckView,
 )
+from archivebox.misc.serve_static import serve_static
+from archivebox.opencode.views import opencode_proxy_view
 from archivebox.progressmonitor.views import live_progress_view
 from archivebox.search.views import public_snapshot_search_stream_view
-from archivebox.opencode.views import opencode_proxy_view
-
-CONFIG = get_config()
-DEBUG = CONFIG.DEBUG or ("--debug" in sys.argv)
 
 urlpatterns = [
     re_path(r"^static/(?P<path>.*)$", serve_static),

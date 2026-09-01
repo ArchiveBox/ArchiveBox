@@ -13,7 +13,7 @@ def _is_signal_interrupted_exit(exit_code: int | None) -> bool:
 def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | None = None) -> dict[str, int]:
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.services.archive_result_service import _collect_output_metadata
+    from abx_dl.output_files import OutputManifest
     from archivebox.machine.models import Process
     from django.core.exceptions import ValidationError
     from django.db.models import Exists, OuterRef, Q, Subquery, Value
@@ -30,6 +30,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         "chrome_processes_orphaned": Process.cleanup_orphaned_chrome() if include_chrome and not crawl_id else 0,
         "crawls_queued_without_retry_at": 0,
         "snapshots_queued_without_retry_at": 0,
+        "snapshots_sealed_with_extension_uploads_only": 0,
         "archiveresults_backoff": 0,
         "snapshots_queued_plugin_rows_waiting_on_stale_lease": 0,
         "archiveresults_started_without_running_process": 0,
@@ -69,6 +70,40 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         crawl__status__in=Crawl.RUNNABLE_STATES,
         **snapshot_filter,
     ).update(retry_at=now, modified_at=now)
+
+    extension_upload_results = ArchiveResult.objects.filter(
+        snapshot_id=OuterRef("pk"),
+        hook_name=Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
+    )
+    server_results = ArchiveResult.objects.filter(snapshot_id=OuterRef("pk")).exclude(
+        hook_name=Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
+    )
+    extension_only_snapshots = (
+        Snapshot.objects.filter(
+            status=Snapshot.StatusChoices.SEALED,
+            crawl__status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED, Crawl.StatusChoices.SEALED],
+            **snapshot_filter,
+        )
+        .annotate(
+            has_extension_upload=Exists(extension_upload_results),
+            has_server_result=Exists(server_results),
+        )
+        .filter(has_extension_upload=True, has_server_result=False)
+    )
+    # Older browser-extension uploads could win a race with runner startup:
+    # their successful external rows made the fresh Snapshot look finished
+    # before its configured server-hook workset was materialized. Reopen only
+    # that exact, recognizable state so the normal runner adds the missing
+    # server rows to the same Snapshot and preserves the uploaded outputs.
+    Crawl.objects.filter(
+        id__in=Subquery(extension_only_snapshots.values("crawl_id")),
+        status=Crawl.StatusChoices.SEALED,
+    ).update(status=Crawl.StatusChoices.STARTED, retry_at=now, modified_at=now)
+    cleaned["snapshots_sealed_with_extension_uploads_only"] = extension_only_snapshots.update(
+        status=Snapshot.StatusChoices.QUEUED,
+        retry_at=now,
+        modified_at=now,
+    )
     backoff_results = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.BACKOFF, **result_filter)
     orphaned_results = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.STARTED, **result_filter).exclude(
         process__status=Process.StatusChoices.RUNNING,
@@ -133,7 +168,10 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             orphaned_hook_processes = orphaned_hook_processes.filter(snapshot_pwd_filter)
         else:
             orphaned_hook_processes = orphaned_hook_processes.none()
-    for process in orphaned_hook_processes.only("id", "pwd", "cmd", "process_type", "status"):
+    for process in orphaned_hook_processes.only("id", "pwd", "cmd", "process_type", "status", "started_at", "ended_at").order_by(
+        "-started_at",
+        "-id",
+    ):
         hook_script_name = process.hook_script_name
         if not hook_script_name or not process.pwd:
             continue
@@ -152,18 +190,32 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         result, created = ArchiveResult.objects.get_or_create(
             snapshot=snapshot,
             plugin=plugin_dir.name,
-            hook_name=Path(hook_script_name).stem,
             defaults={
+                "hook_name": Path(hook_script_name).stem,
                 "status": ArchiveResult.StatusChoices.QUEUED,
             },
         )
-        if result.status == ArchiveResult.StatusChoices.QUEUED:
+        if created or result.status == ArchiveResult.StatusChoices.QUEUED:
             requeue_snapshot = False
             # A runner can die after the hook Process exits but before the
             # ProcessCompletedEvent projector links/finalizes ArchiveResult.
-            # Reconstruct only that exact hook row from the durable Process row.
-            output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
+            # Reconstruct the plugin row from its newest durable Process row.
+            manifest = OutputManifest.scan(plugin_dir, containment_root=snapshot.output_dir)
+            output_files = manifest.as_mapping()
+            output_size = manifest.total_size
+            output_mimetypes = ",".join(manifest.mimetypes)
+            emitted_records = [
+                record
+                for record in Process.parse_records_from_text(process.stdout or "")
+                if record.get("type") == "ArchiveResult"
+                and (record.get("plugin") or plugin_dir.name) == plugin_dir.name
+                and (record.get("hook_name") or Path(hook_script_name).stem) == Path(hook_script_name).stem
+            ]
+            emitted_result = emitted_records[-1] if emitted_records else {}
+            result.hook_name = Path(hook_script_name).stem
             result.process = process
+            result.start_ts = process.started_at
+            result.end_ts = process.ended_at
             if _is_signal_interrupted_exit(process.exit_code):
                 # The owning runner died or was asked to stop while the hook was
                 # still active. Keep the work item queued so takeover retries the
@@ -179,19 +231,33 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
                 result.output_files = output_files
                 result.output_size = output_size
                 result.output_mimetypes = output_mimetypes
-                result.output_str = process.stderr if process.exit_code not in (0, None) else ""
+                result.output_str = (
+                    emitted_result.get("output_str")
+                    or emitted_result.get("output")
+                    or (process.stderr if process.exit_code not in (0, None) else "")
+                )
+                result.output_json = emitted_result.get("output_json") if isinstance(emitted_result.get("output_json"), dict) else None
+                emitted_status = emitted_result.get("status")
                 result.status = (
-                    ArchiveResult.StatusChoices.FAILED
-                    if process.exit_code not in (0, None)
-                    else (ArchiveResult.StatusChoices.SUCCEEDED if output_files else ArchiveResult.StatusChoices.NORESULTS)
+                    emitted_status
+                    if emitted_status in ArchiveResult.StatusChoices.values
+                    else (
+                        ArchiveResult.StatusChoices.FAILED
+                        if process.exit_code not in (0, None)
+                        else (ArchiveResult.StatusChoices.SUCCEEDED if output_files else ArchiveResult.StatusChoices.NORESULTS)
+                    )
                 )
             result.save(
                 update_fields=[
+                    "hook_name",
                     "process",
+                    "start_ts",
+                    "end_ts",
                     "output_files",
                     "output_size",
                     "output_mimetypes",
                     "output_str",
+                    "output_json",
                     "status",
                     "modified_at",
                 ],
@@ -224,7 +290,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
 
     # Broken lock repair: STARTED + retry_at=NULL is an orphaned ownership
     # lease. Recovery only unlocks scheduling; the runner owns any subsequent
-    # state-machine transition, including sealing rows whose children/results
+    # lifecycle transition, including sealing rows whose children/results
     # are already final.
     recoverable_started_crawls = Crawl.objects.filter(status=Crawl.StatusChoices.STARTED).filter(
         Q(retry_at__isnull=True) | Q(retry_at__gt=now),
@@ -267,6 +333,10 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         "snapshots_queued_without_retry_at": (
             "Starting {count} Snapshot(s) that were queued but never started "
             "(ArchiveBox may have been interrupted before it was able to archive those URLs)."
+        ),
+        "snapshots_sealed_with_extension_uploads_only": (
+            "Finishing {count} browser-extension Snapshot(s) that received uploaded files before server extractors started "
+            "(uploaded and server-created results will remain together on the same Snapshot)."
         ),
         "archiveresults_backoff": (
             "Retrying {count} extractor result(s) that were waiting to retry "

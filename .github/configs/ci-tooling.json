@@ -171,6 +171,10 @@
       "binproviders": "env"
     },
     {
+      "name": "{SUDO_BINARY}",
+      "binproviders": "env"
+    },
+    {
       "name": "{GREP_BINARY}",
       "binproviders": "env"
     },

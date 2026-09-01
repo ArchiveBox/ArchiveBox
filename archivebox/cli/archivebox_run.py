@@ -54,6 +54,11 @@ RUNNER_DAEMON_ENV = "ARCHIVEBOX_RUNNER_DAEMON"
 
 
 def _exit_daemon_runner_on_signal(sig: signal.Signals) -> None:
+    # A supervised `archivebox run --daemon` is intentionally a disposable
+    # child. If it receives SIGINT/SIGTERM directly, exit with the conventional
+    # signal status so supervisord treats it as an unexpected worker death and
+    # restarts only the runner. The parent `archivebox server` owns supervisord
+    # shutdown and must not be pulled down by a killed daemon worker.
     os._exit(128 + int(sig))
 
 
@@ -305,6 +310,7 @@ def run_runner(
     interactive_interrupts = current.root.process_type == Process.TypeChoices.ADD
     if daemon:
         os.environ[RUNNER_DAEMON_ENV] = "1"
+
     try:
         with (
             foreground_shutdown_signals(

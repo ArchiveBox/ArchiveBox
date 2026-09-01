@@ -12,6 +12,20 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.mark.django_db(transaction=True)
+def test_crawl_runner_creates_progress_reporter_without_a_tty(crawl):
+    from archivebox.services.runner import CrawlRunner
+
+    runner = CrawlRunner(crawl)
+    runner.load_run_state()
+
+    live_ui = runner._create_live_ui()
+
+    assert live_ui is not None
+    assert live_ui.interactive_tty is False
+    asyncio.run(runner.bus.destroy(clear=False))
+
+
+@pytest.mark.django_db(transaction=True)
 def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
@@ -247,12 +261,53 @@ def test_snapshot_started_state_keeps_retry_at_lease():
         retry_at=before,
     )
 
-    assert snapshot.tick_claimed(lock_seconds=60) is True
+    assert snapshot.claim_processing_lock(lock_seconds=60) is True
+    snapshot.refresh_from_db()
+    assert snapshot.advance_lifecycle() is True
 
     snapshot.refresh_from_db()
     assert snapshot.status == Snapshot.StatusChoices.STARTED
     assert snapshot.retry_at is not None
     assert snapshot.retry_at > before
+
+
+@pytest.mark.django_db(transaction=True)
+def test_system_update_crawl_runs_database_maintenance_without_snapshot_work():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import CrawlRunner
+    from django.utils import timezone
+
+    owner_id = get_or_create_system_user_pk()
+    archived_crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=owner_id,
+        status=Crawl.StatusChoices.SEALED,
+        retry_at=None,
+    )
+    archived_snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=archived_crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        retry_at=None,
+    )
+    Snapshot.objects.filter(pk=archived_snapshot.pk).update(fs_version=0, retry_at=None)
+    maintenance_crawl = Crawl.objects.create(
+        urls="archivebox://update",
+        created_by_id=owner_id,
+        status=Crawl.StatusChoices.QUEUED,
+        retry_at=timezone.now(),
+    )
+
+    snapshot_ids = CrawlRunner(maintenance_crawl, show_progress=False).load_run_state()
+
+    maintenance_crawl.refresh_from_db()
+    archived_snapshot.refresh_from_db()
+    assert snapshot_ids == []
+    assert maintenance_crawl.snapshot_set.count() == 0
+    assert archived_snapshot.status == Snapshot.StatusChoices.SEALED
+    assert archived_snapshot.retry_at is not None
 
 
 @pytest.mark.django_db(transaction=True)
@@ -663,7 +718,7 @@ def test_crawl_runner_resolves_persona_and_crawl_config_for_each_live_snapshot()
     favicon_processes = [
         process
         for process in Process.objects.filter(process_type=Process.TypeChoices.HOOK).order_by("started_at")
-        if process.cmd and "on_Snapshot__11_favicon.finite.bg.py" in str(process.cmd[0])
+        if process.cmd and "on_Snapshot__37_favicon.finite.bg.py" in str(process.cmd[0])
     ]
     providers = [process.env.get("FAVICON_PROVIDER") for process in favicon_processes]
 
@@ -719,7 +774,8 @@ def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path):
     assert Snapshot.objects.filter(crawl=crawl, status=Snapshot.StatusChoices.SEALED).count() == 1
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert binary.retry_at is None
-    assert Path(binary.abspath).is_symlink()
+    assert Path(binary.abspath).is_file()
+    assert binary.version
     assert binary.binprovider == "env"
 
 
@@ -809,7 +865,7 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
     snap_dir = tmp_path / "snapshot"
     plugin_output_dir = snap_dir / "wget"
     plugin_output_dir.mkdir(parents=True)
-    hook_path = Path(str(files("abx_plugins.plugins.wget").joinpath("on_Snapshot__06_wget.finite.bg.py")))
+    hook_path = Path(str(files("abx_plugins.plugins.wget").joinpath("on_Snapshot__35_wget.finite.bg.py")))
     wget_config = Path(str(files("abx_plugins.plugins.wget").joinpath("config.json")))
     install_real_binary("wget", binproviders="env,apt,brew")
     hook_env = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=wget_config)
@@ -877,7 +933,8 @@ def test_run_pending_crawls_resolves_real_binary_through_abxpkg(tmp_path):
     assert result == 0
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert binary.retry_at is None
-    assert Path(binary.abspath).is_symlink()
+    assert Path(binary.abspath).is_file()
+    assert binary.version
     assert binary.binprovider == "env"
 
 

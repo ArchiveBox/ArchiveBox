@@ -63,17 +63,17 @@ mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 # (shortcut for getting https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml)
 
-# pull the current image, initialize the collection, install runtime dependencies,
-# then create an admin user for the Web UI (or set ADMIN_USERNAME/ADMIN_PASSWORD env vars)
+# pull and start the current image
+# (the server initializes a new collection automatically)
 docker compose pull
-docker compose run archivebox init
-docker compose run archivebox install
-docker compose run archivebox manage createsuperuser
+docker compose up -d --wait
 ```
+
+Open <http://admin.archivebox.localhost:8000> and follow the setup wizard to create the first admin and configure web access. Existing `BASE_URL` and security settings are used as-is, so configured servers skip the web-access wizard.
 
 ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). Sonic is selected by default in the UI, while ripgrep remains available as the fallback. To select ripgrep explicitly:
 ```bash
-docker compose run archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
+docker compose exec archivebox archivebox config --set SEARCH_BACKEND_ENGINE=ripgrep
 ```
 
 <br/>
@@ -86,40 +86,40 @@ See the wiki page on [Upgrading or Merging Archives: Upgrading with Docker Compo
 
 ### Usage
 
-You can use `docker compose run archivebox [subcommand]` just like the non-Docker `archivebox [subcommand]` CLI.
+With the server running from the setup steps above, use `docker compose exec archivebox archivebox [subcommand]` just like the non-Docker `archivebox [subcommand]` CLI. If the server is stopped, use `docker compose run --rm archivebox [subcommand]` instead.
 
 First, make sure you're `cd`'ed into the same folder as your `docker-compose.yml` file (e.g. `~/archivebox`):
 ```bash
-docker compose run archivebox help
+docker compose exec archivebox archivebox help
 ```
 
 To add an individual URL, pass it in as an arg or via stdin:
 ```bash
-docker compose run archivebox add 'https://example.com'
+docker compose exec archivebox archivebox add 'https://example.com'
 # OR
-echo 'https://example.com' | docker compose run -T archivebox add
+echo 'https://example.com' | docker compose exec -T archivebox archivebox add
 ```
 
 To add multiple URLs at once, pipe them in via stdin, or place them in a file inside `./data/sources` so that ArchiveBox can access it from within the container:
 ```bash
 # pipe URLs in from a file outside Docker
-docker compose run -T archivebox add < ~/Downloads/example_urls.txt
+docker compose exec -T archivebox archivebox add < ~/Downloads/example_urls.txt
 
 # OR ingest URLs from a file mounted inside Docker
-docker compose run archivebox add --depth=1 /data/sources/example_urls.txt
+docker compose exec archivebox archivebox add --depth=1 /data/sources/example_urls.txt
 
 # OR pipe in URLs from a remote source
-curl 'https://example.com/some/rss/feed.xml' | docker compose run -T archivebox add
-docker compose run archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
+curl 'https://example.com/some/rss/feed.xml' | docker compose exec -T archivebox archivebox add
+docker compose exec archivebox archivebox add --depth=1 'https://example.com/some/rss/feed.xml'
 ```
 
 The `--depth=1` flag tells ArchiveBox to look inside the provided source and archive all the URLs within:
 ```bash
 # this archives just the RSS file itself (probably not what you want)
-docker compose run archivebox add 'https://example.com/some/feed.rss'
+docker compose exec archivebox archivebox add 'https://example.com/some/feed.rss'
 
 # this archives the RSS feed file + all the URLs mentioned inside of it
-docker compose run archivebox add --depth=1 'https://example.com/some/feed.rss'
+docker compose exec archivebox archivebox add --depth=1 'https://example.com/some/feed.rss'
 ```
 
 <br/>
@@ -145,12 +145,12 @@ ArchiveBox running with `docker compose` accepts all the same config options as 
 
 The recommended way configure ArchiveBox in Docker Compose is using `archivebox config --set ...` or by editing `ArchiveBox.conf`.
 ```bash
-docker compose run archivebox config --set TIMEOUT=120
+docker compose exec archivebox archivebox config --set TIMEOUT=120
 # OR edit ./data/ArchiveBox.conf and add this under its existing [ARCHIVING_CONFIG] section:
 TIMEOUT=120
 
 # plugin-specific options work the same way (see https://archivebox.github.io/abx-plugins/)
-docker compose run archivebox config --set YTDLP_MAX_SIZE=750m
+docker compose exec archivebox archivebox config --set YTDLP_MAX_SIZE=750m
 ```
 This will apply the config to all containers or archivebox instances that access the collection.
 
@@ -171,14 +171,14 @@ services:
         ...
 ```
 
-You can also specify an env file via CLI when running compose using `docker compose --env-file=/path/to/config.env ...` although you must specify the variables in the `environment:` section that you want to have passed down to the ArchiveBox container from the passed env file.
+For public HTTPS, start the default stack with `docker compose up -d`, use port `8000` only as the temporary setup/upstream endpoint, and follow the first-run wizard. It gives the DNS, upstream, and certificate settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI, then verifies the public HTTPS URLs before saving `BASE_URL` and `SERVER_SECURITY_MODE`.
 
-If you want to access your archive server with HTTPS, the bundled `docker-compose.yml` includes two opt-in ingress profiles:
+Use exactly one of these certificate layouts:
 
-- `COMPOSE_PROFILES=https` runs Traefik in front of ArchiveBox for HTTPS/TLS, with optional wildcard certificates via DNS-01.
-- `COMPOSE_PROFILES=tunnel` runs a Cloudflare Tunnel for deployments without a public IP.
+- **Single-domain mode:** one certificate for the `BASE_URL` hostname, proxied to ArchiveBox port `8000`.
+- **Isolated-subdomain mode:** one certificate covering both the `BASE_URL` hostname and `*.BASE_URL`, normally obtained through DNS-01.
 
-Set `BASE_URL=https://archive.example.com` and `ARCHIVEBOX_PORT=127.0.0.1:8000` in the `.env` file next to `docker-compose.yml`, then follow the inline comments in the compose file for the profile you choose. The localhost port binding prevents direct HTTP access from bypassing the public HTTPS ingress. You can still bring your own reverse proxy such as Nginx or Caddy in front of `http://127.0.0.1:8000`; [`etc/nginx.conf`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/etc/nginx.conf) remains a standalone example.
+Never enable on-demand TLS or request individual certificates for `snap-*` hostnames.
 
 <br/>
 
@@ -192,15 +192,16 @@ Set `BASE_URL=https://archive.example.com` and `ARCHIVEBOX_PORT=127.0.0.1:8000` 
 
 ### Setup
 
-Fetch and run the ArchiveBox Docker image to create your initial archive.
+Fetch and run the ArchiveBox Docker image. Starting the server creates the initial archive automatically.
 
 ```bash
 docker pull archivebox/archivebox:dev
 
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -it -v $PWD:/data archivebox/archivebox:dev init
-docker run -it -v $PWD:/data archivebox/archivebox:dev install
+docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
 ```
+
+Then open `/admin/` on the hostname or IP used to reach ArchiveBox (local example: <http://admin.archivebox.localhost:8000/admin/>) to create the first admin. If `BASE_URL` is not configured yet, continue through the web setup wizard.
 
 *(You can create a collection in any directory you want, `~/archivebox/data` is just used as an example here)*
 

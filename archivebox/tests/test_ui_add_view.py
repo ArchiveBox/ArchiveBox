@@ -2,6 +2,7 @@ import json
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.test import Client
 from django.urls import reverse
 
 from archivebox.config.common import ArchiveBoxConfig
@@ -285,6 +286,48 @@ def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_
     assert crawl.config["URL_ALLOWLIST"] == "example.com\n*.example.com"
     assert crawl.config["URL_DENYLIST"] == "cdn.example.com"
     assert crawl.config["ONLY_NEW"] is True
+
+
+def _csrf_test_add_data(url: str) -> dict[str, str]:
+    return {
+        "url": url,
+        "tag": "",
+        "depth": "0",
+        "max_urls": "0",
+        "crawl_max_size": "0",
+        "crawl_timeout": "0",
+        "timeout": "",
+        "snapshot_max_size": "0",
+        "delete_after": "0",
+        "crawl_max_concurrent_snapshots": "1",
+        "url_filters_allowlist": "",
+        "url_filters_denylist": "",
+        "notes": "",
+        "schedule": "",
+        "persona": "Default",
+        "permissions": "public",
+        "start_paused": "",
+        "config": "{}",
+    }
+
+
+def test_add_view_rejects_authenticated_post_without_csrf_token(admin_user):
+    client = Client(enforce_csrf_checks=True)
+    client.force_login(admin_user)
+
+    response = client.post(reverse("add"), data=_csrf_test_add_data("https://example.com/csrf"), HTTP_HOST=ADMIN_HOST)
+
+    assert response.status_code == 403
+    assert not Crawl.objects.filter(urls__contains="example.com/csrf").exists()
+
+
+def test_public_add_view_allows_anonymous_post_without_csrf_cookie(public_add_enabled):
+    client = Client(enforce_csrf_checks=True)
+
+    response = client.post(reverse("add"), data=_csrf_test_add_data("https://example.com/public-add"), HTTP_HOST=WEB_HOST)
+
+    assert response.status_code == 302
+    assert Crawl.objects.filter(urls__contains="example.com/public-add").exists()
 
 
 def test_add_view_sanitizes_crawl_notes_before_safe_update(client, admin_user):

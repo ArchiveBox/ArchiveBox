@@ -10,9 +10,12 @@ from pathlib import Path
 from urllib.parse import quote
 
 from django.contrib import admin
-from django.core.exceptions import ValidationError
-from django.db.models import Min, Prefetch, Q, TextField
+from django.contrib.admin.actions import delete_selected
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+from django.core.exceptions import PermissionDenied, SuspiciousOperation, ValidationError
+from django.db.models import Count, Min, Prefetch, Q, Subquery, TextField, Window
 from django.db.models.functions import Cast
+from django.shortcuts import redirect
 from django.urls import resolve, reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -24,6 +27,7 @@ from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.routes_util import build_snapshot_url
 from archivebox.core.widgets import InlineTagEditorWidget
 from archivebox.machine.env_util import env_to_shell_exports
+from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.plugins.discovery import get_plugin_icon
 from archivebox.plugins.views import LIVE_PLUGIN_BASE_URL
@@ -79,24 +83,22 @@ def get_process_link_label(process) -> str:
     return str(process.id)[-8:]
 
 
-def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
+def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_delete=False):
     """Render a nice inline list view of archive results with status, plugin, output, and actions."""
 
-    result_ids = list(archiveresults_qs.order_by("plugin").values_list("pk", flat=True)[:limit])
-    if not result_ids:
-        return mark_safe('<div style="color: #64748b; font-style: italic; padding: 16px 0;">No Archive Results yet...</div>')
-
-    results_by_id = {
-        result.pk: result
-        for result in ArchiveResult.objects.filter(pk__in=result_ids).select_related(
+    results = list(
+        ArchiveResult.objects.filter(pk__in=Subquery(archiveresults_qs.order_by().values("pk")))
+        .order_by("plugin")
+        .annotate(_inline_total_count=Window(expression=Count("pk")))
+        .select_related(
             "snapshot",
             "snapshot__crawl",
             "snapshot__crawl__created_by",
             "process",
             "process__machine",
         )
-    }
-    results = [results_by_id[result_id] for result_id in result_ids if result_id in results_by_id]
+        .all()[:limit],
+    )
 
     if not results:
         return mark_safe('<div style="color: #64748b; font-style: italic; padding: 16px 0;">No Archive Results yet...</div>')
@@ -114,6 +116,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
     }
 
     rows = []
+    delete_url = html.escape(reverse("admin:core_archiveresult_changelist"), quote=True)
     for idx, result in enumerate(results):
         status = result.status or "queued"
         color, bg = status_colors.get(status, ("#6b7280", "#f3f4f6"))
@@ -128,6 +131,8 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 output_file_count = 0
         else:
             output_file_count = 0
+        output_size = int(result.output_size or 0)
+        output_size_display = html.escape(printable_filesize(output_size))
 
         # Get plugin icon
         icon = get_plugin_icon(result.plugin)
@@ -192,9 +197,15 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
 
         # Unique ID for this row's expandable output
         row_id = f"output_{idx}_{str(result.id)[:8]}"
+        delete_button = ""
+        if can_delete:
+            delete_button = f'''
+                <button type="button" data-archive-result-ids="{result.id}" data-delete-url="{delete_url}"
+                        title="Delete this output">×</button>
+            '''
 
         rows.append(f'''
-            <tr style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+            <tr data-output-size="{output_size}" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                 <td style="padding: 10px 12px; white-space: nowrap;">
                     <a href="{reverse("admin:core_archiveresult_change", args=[result.id])}"
                        style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 11px;"
@@ -230,6 +241,9 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 <td class="archive-results-files" style="padding: 10px 12px; color: #64748b; font-size: 12px; text-align: right;">
                     {output_file_count}
                 </td>
+                <td class="archive-results-size" style="padding: 10px 12px; color: #64748b; font-size: 12px; text-align: right; white-space: nowrap;">
+                    {output_size_display}
+                </td>
                 <td class="archive-results-completed" style="padding: 10px 12px; color: #64748b; font-size: 12px;">
                     {end_time}
                 </td>
@@ -242,19 +256,18 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                 <td style="padding: 10px 12px; white-space: nowrap; font-family: ui-monospace, monospace; font-size: 11px; color: #64748b;">
                     {version}
                 </td>
-                <td style="padding: 10px 8px; white-space: nowrap;">
-                    <div style="display: flex; gap: 4px;">
+                <td class="archive-results-actions-cell">
+                    <div class="archive-results-actions">
                         <a href="{output_link_attr}" target="_blank"
-                           style="padding: 4px 8px; background: #f1f5f9; border-radius: 4px; color: #475569; text-decoration: none; font-size: 11px;"
                            title="View output">📄</a>
                         <a href="{reverse("admin:core_archiveresult_change", args=[result.id])}"
-                           style="padding: 4px 8px; background: #f1f5f9; border-radius: 4px; color: #475569; text-decoration: none; font-size: 11px;"
                            title="Edit">✏️</a>
+                        {delete_button}
                     </div>
                 </td>
             </tr>
             <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td colspan="11" style="padding: 0 12px 10px 12px;">
+                <td colspan="12" style="padding: 0 12px 10px 12px;">
                     <details id="{row_id}" style="margin: 0;">
                         <summary style="cursor: pointer; font-size: 11px; color: #94a3b8; user-select: none;">
                             Details &amp; Output
@@ -287,12 +300,12 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
             </tr>
         ''')
 
-    total_count = archiveresults_qs.count()
+    total_count = results[0]._inline_total_count
     footer = ""
     if total_count > limit:
         footer = f"""
-            <tr>
-                <td colspan="11" style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
+            <tr data-output-footer>
+                <td colspan="12" style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
                     Showing {limit} of {total_count} results &nbsp;
                     <a href="/admin/core/archiveresult/?snapshot__id__exact={results[0].snapshot_id if results else ""}"
                        style="color: #2563eb;">View all →</a>
@@ -311,11 +324,14 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
                         <th class="archive-results-plugin" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Plugin</th>
                         <th class="archive-results-output" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Output</th>
                         <th class="archive-results-files" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Files</th>
+                        <th class="archive-results-size" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
+                            <button type="button" data-output-size-sort style="all: unset; cursor: pointer;">Size ↕</button>
+                        </th>
                         <th class="archive-results-completed" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Completed</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Process</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Machine</th>
                         <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Version</th>
-                        <th style="padding: 10px 8px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Actions</th>
+                        <th class="archive-results-actions-cell" style="text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -328,7 +344,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None):
 
 
 class ArchiveResultInline(admin.TabularInline):
-    name = "Archive Results Log"
+    name = "Archive Results"
     model = ArchiveResult
     parent_model = Snapshot
     extra = 0
@@ -530,10 +546,44 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         self.request = request
+        selected = request.GET.getlist(ACTION_CHECKBOX_NAME)
+        if request.method == "GET" and request.GET.get("action") == "delete_selected" and selected:
+            if not request.user.is_superuser:
+                raise PermissionDenied
+            if len(selected) > 100:
+                raise SuspiciousOperation("Too many ArchiveResults selected for deletion")
+            try:
+                queryset = self.get_queryset(request).filter(pk__in=selected)
+                if not queryset.exists():
+                    snapshot = Snapshot.objects.only("id").filter(pk=request.GET.get("snapshot")).first()
+                    return redirect(build_snapshot_url(str(snapshot.id), "index.html", request=request) if snapshot else request.path)
+            except (ValidationError, ValueError):
+                return redirect(request.path)
+            return delete_selected(self, request, queryset)
+        handoff_snapshot = (
+            request.GET.get("snapshot") if request.method == "POST" and request.GET.get("action") == "delete_selected" else None
+        )
+        if handoff_snapshot:
+            request.GET = request.GET.copy()
+            request.GET.clear()
+            request.META["QUERY_STRING"] = ""
+            try:
+                handoff_snapshot = Snapshot.objects.only("id").filter(pk=handoff_snapshot).first()
+            except (ValidationError, ValueError):
+                handoff_snapshot = None
         saved_list_per_page = self.list_per_page
         self.list_per_page = request.archivebox_config.SNAPSHOTS_PER_PAGE
         try:
-            return super().changelist_view(request, extra_context)
+            response = super().changelist_view(request, extra_context)
+            if (
+                handoff_snapshot
+                and response.status_code in (301, 302)
+                and not ArchiveResult.objects.filter(
+                    pk__in=request.POST.getlist(ACTION_CHECKBOX_NAME),
+                ).exists()
+            ):
+                return redirect(build_snapshot_url(str(handoff_snapshot.id), "index.html", request=request))
+            return response
         finally:
             self.list_per_page = saved_list_per_page
 
@@ -554,10 +604,6 @@ class ArchiveResultAdmin(BaseModelAdmin):
         qs = (
             super()
             .get_queryset(request)
-            .defer(
-                "notes",
-                "output_json",
-            )
             .prefetch_related(
                 Prefetch(
                     "snapshot",
@@ -566,6 +612,10 @@ class ArchiveResultAdmin(BaseModelAdmin):
                 "process__machine",
             )
         )
+        if request.resolver_match.url_name == "core_archiveresult_change":
+            qs = qs.defer("notes")
+        else:
+            qs = qs.defer("notes", "output_json")
         if "tags_inline" in ordering_fields:
             qs = qs.annotate(snapshot_first_tag=Min("snapshot__tags__name"))
         return qs

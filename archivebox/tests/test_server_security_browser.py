@@ -164,17 +164,35 @@ async function main() {
   const page = await browser.newPage();
 
   await page.goto(config.loginUrl, {waitUntil: "networkidle2", timeout: 15000});
+  const firstAdminForm = await page.$("#first-admin-form");
+  if (!firstAdminForm) throw new Error("First admin setup form was not shown");
+  const firstAdminText = await page.$eval("body", (element) => element.innerText);
+  if (firstAdminText.includes("archivebox manage createsuperuser")) {
+    throw new Error("First admin setup showed the alternate CLI account flow");
+  }
+  if (firstAdminText.includes("Ask an ArchiveBox superuser")) {
+    throw new Error("First admin setup incorrectly asked for an existing superuser");
+  }
   await page.type('input[name="username"]', config.username);
-  await page.type('input[name="password"]', config.password);
+  await page.type('input[name="password1"]', config.password);
+  await page.type('input[name="password2"]', config.password);
   await Promise.all([
     page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
     page.click('button[type="submit"], input[type="submit"]'),
   ]);
   await page.waitForSelector("#archivebox-setup-wizard", {timeout: 15000});
 
-  await page.click('input[name="archivebox-hosting-location"][value="public"]');
-  await page.click('input[name="archivebox-dns-mode"][value="single"]');
-  await page.click('input[name="archivebox-tls-mode"][value="none"]');
+  await page.$eval(
+    'input[name="archivebox-hosting-location"][value="private"]',
+    (input) => input.click(),
+  );
+  const privateHostingSelected = await page.$eval(
+    'input[name="archivebox-hosting-location"][value="private"]',
+    (input) => input.checked,
+  );
+  if (!privateHostingSelected) throw new Error("Private Server option was not selected");
+  await page.$eval('input[name="archivebox-dns-mode"][value="single"]', (input) => input.click());
+  await page.$eval('input[name="archivebox-tls-mode"][value="none"]', (input) => input.click());
   await page.select("#archivebox-setup-security-mode", "safe-onedomain-nojsreplay");
   await page.waitForFunction(
     () => !document.querySelector("#archivebox-setup-review").disabled,
@@ -182,7 +200,7 @@ async function main() {
   );
   await Promise.all([
     page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
-    page.click("#archivebox-setup-review"),
+    page.$eval("#archivebox-setup-review", (button) => button.click()),
   ]);
 
   await page.waitForFunction(() => {
@@ -192,8 +210,12 @@ async function main() {
   }, {timeout: 15000});
   await Promise.all([
     page.waitForNavigation({waitUntil: "networkidle2", timeout: 15000}),
-    page.click('button[name="_continue"][form="machine_form"]'),
+    page.$eval('button[name="_continue"][form="machine_form"]', (button) => button.click()),
   ]);
+  await page.reload({waitUntil: "networkidle2", timeout: 15000});
+  if (await page.$("#archivebox-setup-wizard")) {
+    throw new Error("Setup wizard remained visible after BASE_URL was saved");
+  }
 
   console.log(JSON.stringify({finalUrl: page.url(), bodyText: await page.$eval("body", el => el.innerText.slice(0, 500))}));
   await browser.close();
@@ -656,8 +678,6 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
     env = cli_env(
         port=port,
         disable_extractors=True,
-        ADMIN_USERNAME="testadmin",
-        ADMIN_PASSWORD="testpassword",
         ALLOWED_HOSTS="*",
         BIND_ADDR=f"127.0.0.1:{port}",
     )
@@ -701,7 +721,7 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
                     "hostname": public_hostname,
                     "loginUrl": f"http://{public_host}/admin/login/?next=/admin/",
                     "username": "testadmin",
-                    "password": "testpassword",
+                    "password": "ArchiveBox-test-9vK!",
                 },
             ),
             capture_output=True,
@@ -720,15 +740,17 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
         assert config_result.returncode == 0, config_result.stderr or config_result.stdout
         assert expected in config_result.stdout
 
-    compose = yaml.safe_load((Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text())
+    compose_text = (Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text()
+    compose = yaml.safe_load(compose_text)
     archivebox_environment = compose["services"]["archivebox"]["environment"]
+    assert "Open /admin/ on the hostname or IP used to reach ArchiveBox" in compose_text
+    assert "manage createsuperuser" not in compose_text
+    assert compose["services"]["archivebox"]["restart"] == "unless-stopped"
     assert "BASE_URL" in archivebox_environment
     assert "SERVER_SECURITY_MODE" in archivebox_environment
+    assert all("ARCHIVEBOX_INGRESS_BASE_URL" not in value for value in archivebox_environment)
     assert compose["services"]["archivebox"]["ports"] == ["${ARCHIVEBOX_PORT:-8000}:8000"]
-    traefik_entrypoint = compose["services"]["traefik"]["entrypoint"][-1]
-    assert "mkdir -p /etc/traefik" in traefik_entrypoint
-    assert traefik_entrypoint.index("mkdir -p /etc/traefik") < traefik_entrypoint.index("> /etc/traefik/dynamic.yml")
-    assert "--entrypoints.websecure.http.tls=true" in traefik_entrypoint
+    assert set(compose["services"]) == {"archivebox"}
 
 
 def _run_wacz_preview_probe(

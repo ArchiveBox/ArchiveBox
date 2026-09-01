@@ -15,6 +15,7 @@ from .common import get_config
 from .constants import CONSTANTS
 
 CONFIG = get_config()
+os.environ.setdefault("ABXPKG_LIB_DIR", str(CONFIG.ABXPKG_LIB_DIR))
 
 if not CONFIG.USE_COLOR:
     os.environ["NO_COLOR"] = "1"
@@ -59,10 +60,10 @@ def setup_django(check_db=False) -> None:
         with SudoPermission(uid=0):
             # running as root is a special case where it's ok to be a bit slower
             # make sure data dir is always owned by the correct user
-            os.chown(CONSTANTS.DATA_DIR, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP)
+            os.chown(CONSTANTS.DATA_DIR, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, follow_symlinks=False)
             if CONSTANTS.DATA_DIR.exists():
                 for child in CONSTANTS.DATA_DIR.iterdir():
-                    os.chown(child, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP)
+                    os.chown(child, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, follow_symlinks=False)
 
     # Suppress the "database access during app initialization" warning
     # This warning can be triggered during django.setup() but is safe to ignore

@@ -8,22 +8,8 @@ MONOREPO_REMOTE="${MONOREPO_REMOTE:-$GITHUB_BASE/monorepo.git}"
 REPO_NAMES=(abxbus abxpkg abx-plugins abx-dl archivebox)
 GIT_BINARY=""
 
-locked_version() {
-    local lock_file="$1" wanted="$2" line package=""
-    while IFS= read -r line; do
-        case "$line" in
-            '[[package]]') package="" ;;
-            "name = \"${wanted}\"") package="$wanted" ;;
-            'version = "'*'"')
-                if [[ "$package" == "$wanted" ]]; then
-                    line="${line#version = \"}"
-                    printf '%s\n' "${line%\"}"
-                    return 0
-                fi
-                ;;
-        esac
-    done < "$lock_file"
-    return 1
+locked_abxpkg_spec() {
+    UV_LOCK_PATH="$1" uv run --no-cache --no-project python -c 'import os, tomllib; package = next(item for item in tomllib.load(open(os.environ["UV_LOCK_PATH"], "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))'
 }
 
 resolve_git_binary() {
@@ -34,10 +20,8 @@ resolve_git_binary() {
 
     local abxpkg_requirement="abxpkg"
     if [[ -f "$lock_file" ]]; then
-        local abxpkg_version
-        abxpkg_version="$(locked_version "$lock_file" abxpkg)"
-        [[ -n "$abxpkg_version" ]] || { printf 'Unable to find abxpkg in %s\n' "$lock_file" >&2; exit 1; }
-        abxpkg_requirement="abxpkg==$abxpkg_version"
+        abxpkg_requirement="$(locked_abxpkg_spec "$lock_file")"
+        [[ -n "$abxpkg_requirement" ]] || { printf 'Unable to find abxpkg in %s\n' "$lock_file" >&2; exit 1; }
     fi
 
     export ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}/archivebox/setup-monorepo-abxpkg}"

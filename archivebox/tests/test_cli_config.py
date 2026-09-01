@@ -5,7 +5,7 @@ Verify config reads/writes ArchiveBox.conf file correctly.
 """
 
 from archivebox.tests.conftest import run_archivebox_cmd
-from archivebox.config.configset import _read_ini_config_cached
+from archivebox.config.configset import read_ini_config
 
 
 def test_config_displays_all_config(initialized_archive):
@@ -87,6 +87,7 @@ def test_config_set_writes_to_file(initialized_archive):
     )
 
     assert result.returncode == 0
+    assert "TIMEOUT=120" in result.stdout
 
     # Verify config file was updated
     config_file = initialized_archive / "ArchiveBox.conf"
@@ -104,12 +105,19 @@ def test_config_set_and_get_roundtrip(initialized_archive):
         ["config", "--set", "TIMEOUT=987"],
     )
 
+    updated = run_archivebox_cmd(
+        ["config", "--set", "TIMEOUT=654"],
+    )
+
+    assert updated.returncode == 0
+    assert "TIMEOUT=654" in updated.stdout
+
     # Get the value back
     result = run_archivebox_cmd(
         ["config", "--get", "TIMEOUT"],
     )
 
-    assert "987" in result.stdout
+    assert "654" in result.stdout
 
 
 def test_config_set_multiple_values(initialized_archive):
@@ -265,9 +273,16 @@ def test_inaccessible_config_file_is_ignored(tmp_path):
     config_file.write_text("[SERVER_CONFIG]\nDEBUG = True\n")
     private_dir.chmod(0o000)
     try:
-        assert _read_ini_config_cached(str(config_file)) == {}
+        assert read_ini_config(config_file) == {}
     finally:
         private_dir.chmod(0o700)
+
+
+def test_config_file_preserves_literal_percent_templates(tmp_path):
+    config_file = tmp_path / "ArchiveBox.conf"
+    config_file.write_text("[ARCHIVING_CONFIG]\nYTDLP_OUTPUT_TEMPLATE = %(title)s.%(ext)s\n")
+
+    assert read_ini_config(config_file)["YTDLP_OUTPUT_TEMPLATE"] == "%(title)s.%(ext)s"
 
 
 class TestConfigCLI:

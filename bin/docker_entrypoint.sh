@@ -143,8 +143,9 @@ permission_error() {
     local path="$1"
     echo -e "\n[X] Error: archivebox user (uid=$TARGET_UID gid=$TARGET_GID) cannot write to $path." > /dev/stderr
     echo -e "    Current owner is $(stat -c '%u:%g' "$path" 2>/dev/null || echo 'unknown')." > /dev/stderr
-    echo -e "    Fix ownership on the host so /data is writable by the intended archivebox user:" > /dev/stderr
-    echo -e "       chown -R $TARGET_UID:$TARGET_GID ./data   # only if you intentionally want to repair the full tree" > /dev/stderr
+    echo -e "    Fix ownership of the matching host path for the intended archivebox user, e.g.:" > /dev/stderr
+    echo -e "       sudo chown $TARGET_UID:$TARGET_GID ./data" > /dev/stderr
+    echo -e "    Repair any nested path named above explicitly; never recursively chown a large archive." > /dev/stderr
     exit 3
 }
 
@@ -213,6 +214,14 @@ for provider_dir in "$ABXPKG_LIB_DIR"/*; do
         ensure_file_owner "$package_dir/derived.env"
     done
 done
+# Chromium persists compiled declarativeNetRequest rules under each unpacked
+# extension's _metadata directory. Repair this bounded provider tree when the
+# container maps the archivebox account to a different bind-mount UID/GID.
+chromewebstore_extensions_dir="$ABXPKG_LIB_DIR/chromewebstore/extensions"
+if [[ -d "$chromewebstore_extensions_dir" \
+    && "$(stat -c '%u:%g' "$chromewebstore_extensions_dir" 2>/dev/null || true)" != "$TARGET_UID:$TARGET_GID" ]]; then
+    ensure_small_runtime_tree "$chromewebstore_extensions_dir"
+fi
 run_as_archivebox touch "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$ABXBUS_CACHE_DIR/semaphores"
 rm -f "$ABXBUS_CACHE_DIR/semaphores/.permissions_test_safe_to_delete"
 run_as_archivebox touch "$UV_CACHE_DIR/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$UV_CACHE_DIR"

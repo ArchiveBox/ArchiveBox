@@ -12,6 +12,7 @@ from archivebox.config.common import get_config
 from archivebox.core.middleware import AdminCookieIsolationMiddleware
 from archivebox.core.setup_wizard import get_base_url_mismatch_context, get_setup_wizard_context
 from archivebox.core.templatetags.core_tags import system_warnings_banner
+from archivebox.core.views import HealthCheckView
 
 STATIC_DIR = Path(__file__).parents[1] / "templates" / "static"
 SETUP_WIZARD_CSS = (STATIC_DIR / "setup_wizard.css").read_text()
@@ -153,10 +154,13 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert "JavaScript still runs during capture" in html
     assert "will not replay JavaScript unless wildcard DNS is used" in html
     assert "Wildcard TLS" in html
+    assert "Never enable on-demand TLS or request individual certificates for snapshot subdomains." in html
+    assert "Restart ArchiveBox after saving an HTTPS <code>BASE_URL</code> for the first time." in html
+    assert "Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale" in html
     assert "How will HTTPS traffic reach this ArchiveBox server?" in html
     assert "This mode is not allowed unless also using Single-domain DNS." in html
-    assert "No separate ingress service / SSL termination" in html
-    assert "Cloudflare/AWS/Nginx/Caddy/Traefik" in html
+    assert "No TLS, private networks only" in html
+    assert "trusted LAN, VPN, or private network" in html
     assert "In-browser WARC viewing will be disabled unless using <code>localhost</code> or HTTPS" in html
     assert "BASE_URL" in html
     assert "SERVER_SECURITY_MODE" in html
@@ -174,6 +178,10 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert 'data-status-id="archivebox-setup-tls-status"' in html
     assert 'aria-controls="archivebox-setup-tls-options"' in html
     assert "setup_wizard.js?v=20260726-1" in html
+
+
+def test_first_admin_setup_suppresses_unconfigured_warning():
+    assert system_warnings_banner({"first_admin_setup": True}) == {"mode": ""}
 
 
 def test_setup_wizard_assets_enforce_selection_and_access_requirements():
@@ -205,17 +213,33 @@ def test_setup_wizard_assets_enforce_selection_and_access_requirements():
     assert "archive intranet URLs" in SETUP_WIZARD_JS
     assert "tlsMode === 'single' && dnsMode !== 'single'" in SETUP_WIZARD_JS
     assert "Single-domain HTTPS is only allowed with Single-domain DNS." in SETUP_WIZARD_JS
+    assert "Never enable on-demand TLS or request individual snapshot certificates." in SETUP_WIZARD_JS
     assert "expectedBrowserOrigin: usesSubdomains ? adminOrigin : parsed.origin" in SETUP_WIZARD_JS
     assert "Waiting for a matching browser URL and valid setup options" in SETUP_WIZARD_JS
     assert "Finish the selected DNS, ingress, and TLS setup" in SETUP_WIZARD_JS
 
-    for target in ("adminUrl", "apiUrl", "indexUrl", "webHealthUrl", "snapshotHealthUrl", "originalHealthUrl"):
+    for target in ("adminUrl", "apiUrl", "indexUrl"):
         assert f"probeUrl(preview.{target}" in SETUP_WIZARD_JS
     assert "wildcardHealthUrl" not in SETUP_WIZARD_JS
     assert "results.wildcard" not in SETUP_WIZARD_JS
     assert "var coreReachable = results.admin && results.api && results.index && results.web && results.snapshot;" in SETUP_WIZARD_JS
     assert "probeUrl(webOrigin + '/web/https://example.com'" not in SETUP_WIZARD_JS
     assert "credentials: 'omit'" in SETUP_WIZARD_JS
+    assert "function probeUrl(url, generation, requireArchiveBoxHealth)" in SETUP_WIZARD_JS
+    assert "mode: requireArchiveBoxHealth ? 'cors' : 'no-cors'" in SETUP_WIZARD_JS
+    assert "response.ok && response.headers.get('X-ArchiveBox-Health') === 'OK'" in SETUP_WIZARD_JS
+    for target in ("webHealthUrl", "snapshotHealthUrl", "originalHealthUrl"):
+        assert f"probeUrl(preview.{target}, generation, true)" in SETUP_WIZARD_JS
+
+
+def test_health_check_is_identifiable_across_ingress_origins():
+    response = HealthCheckView.as_view()(RequestFactory().get("/health/"))
+
+    assert response.status_code == 200
+    assert response.content == b"OK"
+    assert response["Access-Control-Allow-Origin"] == "*"
+    assert response["Access-Control-Expose-Headers"] == "X-ArchiveBox-Health"
+    assert response["X-ArchiveBox-Health"] == "OK"
 
 
 @pytest.mark.parametrize(

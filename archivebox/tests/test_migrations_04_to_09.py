@@ -6,6 +6,7 @@ import sqlite3
 from .migrations_helpers import (
     SCHEMA_0_4,
     create_data_dir_structure,
+    current_snapshot_dir,
     filesystem_manifest,
     run_archivebox_migration_cmd,
     seed_0_4_data,
@@ -94,8 +95,8 @@ def test_oldest_django_collection_migrates_end_to_end_without_data_loss(tmp_path
 
     for timestamp, expected_tree in original_trees.items():
         legacy_dir = tmp_path / "archive" / timestamp
-        assert legacy_dir.is_symlink()
-        migrated_tree = filesystem_manifest(legacy_dir.resolve())
+        assert not legacy_dir.exists()
+        migrated_tree = filesystem_manifest(current_snapshot_dir(tmp_path, db_path, timestamp))
         assert {path: migrated_tree.get(path) for path in expected_tree} == expected_tree
 
     with sqlite3.connect(db_path) as connection:

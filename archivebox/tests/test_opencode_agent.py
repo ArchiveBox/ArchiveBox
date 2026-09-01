@@ -21,10 +21,8 @@ def _free_port() -> int:
 
 def _reset_runtime_config() -> None:
     from archivebox.config import common
-    from archivebox.config.configset import _INI_CACHE
     from archivebox.machine.models import Machine
 
-    _INI_CACHE.clear()
     for value in vars(common).values():
         cache_clear = getattr(value, "cache_clear", None)
         if cache_clear is not None:

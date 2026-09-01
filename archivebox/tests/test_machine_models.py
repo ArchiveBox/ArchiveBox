@@ -4,8 +4,8 @@ Unit tests for machine module models: Machine, NetworkInterface, Binary, Process
 Tests cover:
 1. Machine model creation and current() method
 2. NetworkInterface model and network detection
-3. Binary model lifecycle and state machine
-4. Process model lifecycle, hierarchy, and state machine
+3. Binary model lifecycle
+4. Process model lifecycle and hierarchy
 5. JSONL serialization/deserialization
 6. Manager methods
 7. Process tracking methods (replacing pid_utils)
@@ -29,11 +29,11 @@ from archivebox.machine.models import (
     NetworkInterface,
     Binary,
     Process,
-    BinaryMachine,
-    ProcessMachine,
     MACHINE_RECHECK_INTERVAL,
     PID_REUSE_WINDOW,
     PROCESS_TIMEOUT_GRACE,
+    PROCESS_PID_NAMESPACE_KEY,
+    get_current_pid_namespace,
 )
 from archivebox.machine.detect import unknown_if_blank
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
@@ -507,27 +507,19 @@ class TestBinaryModel:
         assert symlink.resolve() == source.resolve()
 
 
-class TestBinaryStateMachine:
-    """Test the BinaryMachine state machine."""
+class TestBinaryLifecycle:
+    """Test Binary lifecycle prerequisites."""
 
     @pytest.fixture(autouse=True)
     def setup_binary(self, binary):
         self.binary = binary
 
-    def test_binary_state_machine_initial_state(self):
-        """BinaryMachine should start in queued state."""
-        sm = BinaryMachine(self.binary)
-        assert sm.current_state_value == Binary.StatusChoices.QUEUED
-
-    def test_binary_state_machine_can_start(self):
-        """BinaryMachine.can_start() should check name and binproviders."""
-        sm = BinaryMachine(self.binary)
-        assert sm.can_install()
+    def test_binary_can_install_checks_name_and_binproviders(self):
+        assert self.binary.can_install
 
         self.binary.binproviders = ""
         self.binary.save()
-        sm = BinaryMachine(self.binary)
-        assert not sm.can_install()
+        assert not self.binary.can_install
 
 
 class TestProcessModel:
@@ -605,6 +597,7 @@ class TestProcessCurrent:
         assert proc.iface is not None
         assert proc.iface.machine_id == proc.machine_id
         assert proc.started_at is not None
+        assert proc.env[PROCESS_PID_NAMESPACE_KEY] == get_current_pid_namespace()
 
     def test_process_current_caches(self):
         """Process.current() should cache the result."""
@@ -799,6 +792,24 @@ class TestProcessLifecycle:
 
         assert not proc.is_running
 
+    def test_cross_namespace_process_is_not_resolved_or_signaled_by_local_pid(self):
+        proc = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            pid=os.getpid(),
+            started_at=_current_process_started_at(),
+            env={PROCESS_PID_NAMESPACE_KEY: f"{get_current_pid_namespace()}-other"},
+        )
+
+        assert not proc.shares_pid_namespace
+        assert proc.proc is None
+        assert proc.is_running
+        assert proc.kill() is False
+        assert proc.kill_tree() == 0
+
+        proc.refresh_from_db()
+        assert proc.status == Process.StatusChoices.RUNNING
+
     def test_process_poll_detects_exit(self):
         """poll() should detect exited process."""
         pid, started_at = _reaped_process_identity(self.binary.abspath)
@@ -979,39 +990,6 @@ class TestProcessClassMethods:
         assert child.status == Process.StatusChoices.EXITED
         assert child.ended_at is not None
         assert child.exit_code == 143
-
-
-class TestProcessStateMachine:
-    """Test the ProcessMachine state machine."""
-
-    @pytest.fixture(autouse=True)
-    def setup_process(self, process):
-        self.process = process
-
-    def test_process_state_machine_initial_state(self):
-        """ProcessMachine should start in queued state."""
-        sm = ProcessMachine(self.process)
-        assert sm.current_state_value == Process.StatusChoices.QUEUED
-
-    def test_process_state_machine_can_start(self):
-        """ProcessMachine.can_start() should check cmd and machine."""
-        sm = ProcessMachine(self.process)
-        assert sm.can_start()
-
-        self.process.cmd = []
-        self.process.save()
-        sm = ProcessMachine(self.process)
-        assert not sm.can_start()
-
-    def test_process_state_machine_is_exited(self):
-        """ProcessMachine.is_exited() should check exit_code."""
-        sm = ProcessMachine(self.process)
-        assert not sm.is_exited()
-
-        self.process.exit_code = 0
-        self.process.save()
-        sm = ProcessMachine(self.process)
-        assert sm.is_exited()
 
 
 if __name__ == "__main__":

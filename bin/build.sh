@@ -21,6 +21,6 @@ cd "$REPO_DIR"
 ./bin/build_docker.sh
 
 echo "[√] Done. Install the built package by running:"
-echo "    pip install archivebox"
+echo "    uv tool install --force dist/archivebox-*.whl"
 echo "    # or"
 echo "    brew tap archivebox/archivebox && brew install archivebox"

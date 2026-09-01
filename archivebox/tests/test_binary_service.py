@@ -1,6 +1,7 @@
 import sys
 import uuid
 import asyncio
+import shutil
 from pathlib import Path
 
 import pytest
@@ -21,13 +22,13 @@ def _runtime_env(data_dir: Path, *, lib_dir: Path | None = None, **extra: str) -
     }
 
 
-def _run_real_binary_state_machine(data_dir: Path, *, name: str, binproviders: str, env: dict[str, str]):
-    """Run a real Binary model through its abxpkg-backed state machine."""
+def _run_real_binary_lifecycle(data_dir: Path, *, name: str, binproviders: str, env: dict[str, str]):
+    """Run a real Binary model through its abxpkg-backed lifecycle."""
     script = (
         "from archivebox.machine.models import Binary, Machine; "
         f"binary = Binary.objects.create(machine=Machine.current(), name={name!r}, binproviders={binproviders!r}, status=Binary.StatusChoices.QUEUED); "
-        "assert binary.tick_claimed(lock_seconds=600); "
-        "print('BINARY_STATE_MACHINE_E2E_DONE')"
+        "assert binary.install_claimed(lock_seconds=600); "
+        "print('BINARY_LIFECYCLE_E2E_DONE')"
     )
     return run_archivebox_cmd(
         ["shell", "-c", script],
@@ -39,32 +40,31 @@ def _run_real_binary_state_machine(data_dir: Path, *, name: str, binproviders: s
     )
 
 
-def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event():
-    from abxpkg.binary_service import BinaryCacheService, BinaryEvent, BinaryRequestEvent, BinaryService
+def test_binary_request_preserves_native_overrides_in_db():
+    from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
     from abx_dl.orchestrator import create_bus
-    from archivebox.services.binary_service import ArchiveBoxDBBinaryCacheBackend
+    from archivebox.services.binary_service import ArchiveBoxBinaryService
 
     machine = Machine.current()
-    raw_overrides = {
+    overrides = {
         "pip": {
             "install_args": ["imagesize>=2.0.0"],
-            "module_name": "imagesize",
         },
     }
     binary = Binary.objects.create(
         machine=machine,
         name="python3",
         binproviders="env,pip",
-        overrides=raw_overrides,
+        overrides=overrides,
         status=Binary.StatusChoices.QUEUED,
         retry_at=timezone.now(),
     )
-    assert binary.tick_claimed(lock_seconds=600)
+    assert binary.install_claimed(lock_seconds=600)
     binary.refresh_from_db()
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert Path(binary.abspath).resolve() == Path(sys.executable).resolve()
-    bus = create_bus(name=f"test_binary_raw_overrides_{uuid.uuid4().hex[:8]}")
-    BinaryCacheService(bus, backend=ArchiveBoxDBBinaryCacheBackend())
+    bus = create_bus(name=f"test_binary_native_overrides_{uuid.uuid4().hex[:8]}")
+    ArchiveBoxBinaryService(bus)
     BinaryService(bus)
     binary_events: list[BinaryEvent] = []
 
@@ -78,11 +78,7 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event()
             BinaryRequestEvent(
                 name="python3",
                 binproviders="env,pip",
-                overrides={"pip": {"install_args": ["imagesize>=2.0.0"]}},
-                extra_context={
-                    "raw_overrides": raw_overrides,
-                    "provider_metadata": {"pip": {"module_name": "imagesize"}},
-                },
+                overrides=overrides,
             ),
         ).now()
         await bus.wait_until_idle()
@@ -91,21 +87,22 @@ def test_binary_request_preserves_raw_overrides_in_db_while_using_native_event()
 
     binary.refresh_from_db()
     assert binary.status == Binary.StatusChoices.INSTALLED
-    assert binary.overrides == raw_overrides
+    assert binary.overrides == overrides
     assert binary_events
-    assert binary_events[-1].overrides == {"pip": {"install_args": ["imagesize>=2.0.0"]}}
-    assert binary_events[-1].extra_context["raw_overrides"] == raw_overrides
+    assert binary_events[-1].overrides == overrides
 
 
 def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized_archive, tmp_path):
-    name = "python"
+    name = "archivebox"
     provider_bin_dir = initialized_archive / "lib" / "env" / "bin"
+    host_binary = shutil.which(name)
+    assert host_binary is not None
     runtime_env = _runtime_env(initialized_archive)
-    _cmd_result = _run_real_binary_state_machine(initialized_archive, name=name, binproviders="env", env=runtime_env)
+    _cmd_result = _run_real_binary_lifecycle(initialized_archive, name=name, binproviders="env", env=runtime_env)
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
     assert returncode == 0, stderr
-    assert "BINARY_STATE_MACHINE_E2E_DONE" in stdout
+    assert "BINARY_LIFECYCLE_E2E_DONE" in stdout
 
     with use_archivebox_db(initialized_archive):
         binary = Binary.objects.get(name=name)
@@ -120,7 +117,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert binary.binproviders == "env"
     assert first_abspath.exists()
     assert first_abspath == provider_bin_dir / name
-    assert first_abspath.resolve() == Path(sys.executable).resolve()
+    assert first_abspath.resolve() == Path(host_binary).resolve()
     assert first_abspath.is_relative_to(initialized_archive / "lib")
     assert (initialized_archive / "lib" / "env" / "bin" / name).exists()
     assert (initialized_archive / "machines" / machine_id / "binaries" / name / "index.jsonl").exists()
@@ -164,7 +161,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert recovered.status == Binary.StatusChoices.INSTALLED
     assert recovered.version == binary.version
     assert Path(recovered.abspath).exists()
-    assert Path(recovered.abspath).resolve() == Path(sys.executable).resolve()
+    assert Path(recovered.abspath).resolve() == Path(host_binary).resolve()
     assert process_count >= 2
 
     changed_lib_dir = tmp_path / "changed-lib"
@@ -198,7 +195,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert relibbed.version == binary.version
     assert Path(relibbed.abspath) == changed_provider_bin_dir / name
     assert Path(relibbed.abspath).exists()
-    assert Path(relibbed.abspath).resolve() == Path(sys.executable).resolve()
+    assert Path(relibbed.abspath).resolve() == Path(host_binary).resolve()
 
 
 def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_resolve(initialized_archive, tmp_path):
@@ -206,7 +203,7 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     provider_bin_dir = initialized_archive / "lib" / "pip" / "venv" / "bin"
     runtime_env = _runtime_env(initialized_archive)
 
-    _cmd_result = _run_real_binary_state_machine(initialized_archive, name=name, binproviders="env", env=runtime_env)
+    _cmd_result = _run_real_binary_lifecycle(initialized_archive, name=name, binproviders="env", env=runtime_env)
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
     assert returncode != 0, stdout + stderr

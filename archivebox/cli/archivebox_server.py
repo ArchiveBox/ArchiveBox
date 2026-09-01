@@ -11,6 +11,8 @@ from collections.abc import Iterable
 
 import rich_click as click
 from rich import print
+from rich.style import Style
+from rich.text import Text
 
 from archivebox.config import CONSTANTS
 from archivebox.misc.util import docstring, enforce_types
@@ -251,20 +253,23 @@ def server(
         manage(args=["createsuperuser"])
         print()
 
-    if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
-        print()
-        print(
-            "[violet]Hint:[/violet] To create an [bold]admin username & password[/bold] for the [deep_sky_blue3][underline][link=http://{host}:{port}/admin]Admin UI[/link][/underline][/deep_sky_blue3], run:",
-        )
-        print("      [green]archivebox manage createsuperuser[/green]")
-        print()
-
     # First non-empty positional arg is the bind spec; otherwise inherit from
     # config (which defaults to "127.0.0.1:8000"). _parse_and_validate_bind_spec
     # hard-errors on hostnames so the rest of the server can assume a numeric
     # bind host.
     bind_spec = next((arg for arg in runserver_args if arg), "")
     host, port = _parse_and_validate_bind_spec(bind_spec)
+
+    if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
+        from archivebox.core.routes_util import build_admin_url
+
+        print()
+        print("[violet]Hint:[/violet] Open the Admin UI to create the first admin and finish web setup:")
+        runtime_config = config.model_copy(update={"BIND_ADDR": f"{host}:{port}"})
+        print(f"      [green]{build_admin_url('/admin/', config=runtime_config)}[/green]")
+        if not config.BASE_URL and host not in ("127.0.0.1", "localhost"):
+            print("      (When running remotely, replace localhost with this server's IP address or hostname.)")
+        print()
 
     if daemonize and os.environ.get("ARCHIVEBOX_SERVER_DAEMON_CHILD") != "1":
         from archivebox.workers.supervisord_util import resolve_env_binary
@@ -339,12 +344,15 @@ def server(
         print("[green][+] Starting ArchiveBox webserver in DEBUG mode...[/green]")
     else:
         print("[green][+] Starting ArchiveBox webserver...[/green]")
-    print(
-        f"    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [dim]BIND_ADDR[/dim] [deep_sky_blue4][link=http://{host}:{port}]http://{host}:{port}[/link][/deep_sky_blue4]",
+    bind_url = f"http://{host}:{port}"
+    bind_message = Text.from_markup(
+        "    [blink][green]>[/green][/blink] Starting ArchiveBox webserver on [dim]BIND_ADDR[/dim] ",
     )
-    print(
-        f"    [green]>[/green] Log in to ArchiveBox Admin UI on [dim]BASE_URL [/dim] [deep_sky_blue3][link={admin_url}]{admin_url}[/link][/deep_sky_blue3]",
-    )
+    bind_message.append(bind_url, style=Style(color="deep_sky_blue4", link=bind_url))
+    print(bind_message)
+    admin_message = Text.from_markup("    [green]>[/green] Log in to ArchiveBox Admin UI on [dim]BASE_URL [/dim] ")
+    admin_message.append(admin_url, style=Style(color="deep_sky_blue3", link=admin_url))
+    print(admin_message)
     print("    > Writing ArchiveBox error log to ./logs/errors.log")
     print()
 
@@ -352,7 +360,6 @@ def server(
     # security-mode + base-url warnings see the effective values.
     runtime_config = get_config()
     _print_server_startup_warnings(runtime_config, host, port)
-    bind_url = f"http://{host}:{port}"
     command = current_command(Process.TypeChoices.SERVER, data_dir=CONSTANTS.DATA_DIR, url=bind_url)
 
     def still_owns_runtime_stack() -> bool:

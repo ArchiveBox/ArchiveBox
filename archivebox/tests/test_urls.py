@@ -14,6 +14,31 @@ from archivebox.tests.conftest import run_archivebox_cmd
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+@pytest.mark.django_db
+def test_archiveresult_relpath_uses_plugin_result_that_owns_output(admin_user):
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.core.views import _resolve_archiveresult_relpath
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com", crawl=crawl)
+    server_result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="screenshot",
+        hook_name="on_Snapshot__50_screenshot",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={
+            "browser.png": {"size": 7},
+            "screenshot.png": {"size": 6, "root_relative": True},
+        },
+    )
+
+    resolved_path, result = _resolve_archiveresult_relpath(snapshot, "screenshot/screenshot.png")
+
+    assert resolved_path == "screenshot.png"
+    assert result == server_result
+
+
 def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
     from archivebox.misc.serve_static import _rewrite_html_image_sources_to_responses
 
@@ -25,14 +50,19 @@ def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
     remote_image.write_bytes(b"gif")
 
     rewritten, count = _rewrite_html_image_sources_to_responses(
-        '<img src="images/twitter.png"><img src="https://a.sweeting.me/matomo.php?idsite=1&rec=1">',
+        (
+            '<img src="images/twitter.png">'
+            '<img width="48" src="images/twitter.png">'
+            '<img src="https://a.sweeting.me/matomo.php?idsite=1&rec=1">'
+        ),
         tmp_path,
         "extractor/content.html",
         "https://sweeting.me/",
     )
 
-    assert count == 2
-    assert 'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in rewritten
+    assert count == 3
+    local_src = 'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"'
+    assert rewritten.count(local_src) == 2
     assert 'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fa.sweeting.me_2Fmatomo.php_3Fidsite_3D1_26rec_3D1_.gif"' in rewritten
 
     rewritten_root, root_count = _rewrite_html_image_sources_to_responses(
@@ -44,6 +74,42 @@ def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
 
     assert root_count == 1
     assert 'src="responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in rewritten_root
+
+
+def test_html_image_response_index_preserves_first_image_and_last_fallback(tmp_path):
+    from archivebox.misc.serve_static import _encoded_responses_image_url, _index_responses_paths_for_html_images
+
+    responses_dir = tmp_path / "responses" / "all"
+    responses_dir.mkdir(parents=True)
+    encoded_image = _encoded_responses_image_url("image", "https://example.com/")
+    encoded_fallback = _encoded_responses_image_url("document", "https://example.com/")
+    assert encoded_image and encoded_fallback
+
+    (responses_dir / f"1__GET__{encoded_image}.txt").write_text("fallback", encoding="utf-8")
+    first_image = responses_dir / f"2__GET__{encoded_image}.png"
+    first_image.write_bytes(b"first")
+    (responses_dir / f"3__GET__{encoded_image}.jpg").write_bytes(b"later")
+    (responses_dir / f"1__GET__{encoded_fallback}.txt").write_text("first", encoding="utf-8")
+    last_fallback = responses_dir / f"2__GET__{encoded_fallback}.bin"
+    last_fallback.write_bytes(b"last")
+
+    response_paths = _index_responses_paths_for_html_images(
+        tmp_path,
+        "extractor/content.html",
+        {encoded_image, encoded_fallback},
+    )
+
+    image_candidates = [path for path in responses_dir.rglob(f"*__GET__{encoded_image}*") if path.is_file()]
+    expected_image = next(
+        path for path in image_candidates if path.suffix.lower() in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"}
+    )
+    fallback_candidates = [path for path in responses_dir.rglob(f"*__GET__{encoded_fallback}*") if path.is_file()]
+    expected_fallback = fallback_candidates[-1]
+
+    assert first_image in image_candidates
+    assert last_fallback in fallback_candidates
+    assert response_paths[encoded_image] == "../" + expected_image.relative_to(tmp_path).as_posix()
+    assert response_paths[encoded_fallback] == "../" + expected_fallback.relative_to(tmp_path).as_posix()
 
 
 def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(tmp_path):
@@ -68,6 +134,8 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
     assert "ETag" not in response.headers
     assert "max-age=60" in response.headers["Cache-Control"]
     assert b"archivebox-static-html-preview-style" in response.content
+    assert b"width: min(100%, 72rem)" in response.content
+    assert b"min-height: 100vh" in response.content
     assert b"img:not([width]):not([height])" in response.content
     assert b"a > img:not([width]):not([height])" in response.content
     assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
@@ -97,6 +165,8 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
     assert "ETag" not in response.headers
     assert "max-age=60" in response.headers["Cache-Control"]
     assert b"archivebox-static-html-preview-style" in response.content
+    assert b"width: min(100%, 72rem)" in response.content
+    assert b"min-height: 100vh" in response.content
     assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
 
 
@@ -319,6 +389,90 @@ class TestUrlRouting:
         assert (installed[0] / "sw.js").is_file()
         return installed[0]
 
+    @pytest.mark.parametrize(
+        "mode",
+        ["auto", "safe-subdomains-fullreplay", "safe-onedomain-nojsreplay", "unsafe-onedomain-noadmin", "danger-onedomain-fullreplay"],
+    )
+    def test_snapshot_output_delete_handoff_is_non_mutating_in_every_security_mode(self, mode: str) -> None:
+        self._run(
+            """
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            snapshot.config = {**snapshot.config, "PERMISSIONS": "public"}
+            snapshot.save(update_fields=["config"])
+            plugin = "security_delete_test"
+            output_path = Path(snapshot.output_dir) / plugin / "output.txt"
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text("security test", encoding="utf-8")
+            result, _ = ArchiveResult.objects.update_or_create(
+                snapshot=snapshot,
+                plugin=plugin,
+                defaults={
+                    "hook_name": "on_Snapshot__99_security_delete_test.py",
+                    "status": ArchiveResult.StatusChoices.SUCCEEDED,
+                    "output_str": "output.txt",
+                    "output_files": {"output.txt": {"size": 13, "mimetype": "text/plain"}},
+                    "output_size": 13,
+                },
+            )
+
+            client = Client(enforce_csrf_checks=True)
+            assert client.login(username="testadmin", password="testpassword")
+            admin_host = get_admin_host()
+            admin_page = client.get("/admin/", HTTP_HOST=admin_host)
+            if SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+                assert admin_page.status_code == 200
+            else:
+                assert admin_page.status_code == 403
+            assert admin_page["X-Frame-Options"] == "DENY"
+            assert "frame-ancestors 'none'" in admin_page["Content-Security-Policy"]
+
+            snapshot_host = get_snapshot_host(str(snapshot.id)) if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING else get_base_host()
+            snapshot_path = "/index.html" if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING else f"/snapshot/{snapshot.id}/index.html"
+            detail = client.get(snapshot_path, HTTP_HOST=snapshot_host)
+            html = response_body(detail).decode("utf-8", "ignore")
+
+            assert detail.status_code == 200, (detail.status_code, detail.headers.get("Location"), html[:200])
+            assert "delete-output-csrf" not in html
+            if SERVER_CONFIG.CONTROL_PLANE_ENABLED:
+                assert f'data-archive-result-ids="{result.id}"' in html, html[-1000:]
+                assert 'data-delete-handoff="1"' in html, html[-1000:]
+            else:
+                assert f'data-archive-result-ids="{result.id}"' not in html
+
+            rejected = client.post(
+                "/admin/core/archiveresult/",
+                data={"action": "delete_selected", "post": "yes", "_selected_action": str(result.id)},
+                HTTP_HOST=snapshot_host,
+            )
+            assert rejected.status_code == 403, (rejected.status_code, rejected.headers.get("Location"), response_body(rejected)[:200])
+            assert ArchiveResult.objects.filter(pk=result.pk).exists()
+            result.delete()
+            print("OK")
+            """,
+            mode=mode,
+        )
+
+    def test_cross_domain_admin_hint_only_marks_superusers(self) -> None:
+        self._run(
+            """
+            User = get_user_model()
+            staff = User.objects.create_user(username="staff-hint-test", password="testpassword", is_staff=True)
+            client = Client()
+            client.force_login(staff)
+            response = client.get("/admin/", HTTP_HOST=get_admin_host())
+            assert response.status_code == 200
+            assert client.cookies.get(ADMIN_LOGIN_HINT_COOKIE) is None or client.cookies[ADMIN_LOGIN_HINT_COOKIE].value != "1"
+
+            client.force_login(ensure_admin_user())
+            response = client.get("/admin/", HTTP_HOST=get_admin_host())
+            assert response.status_code == 200
+            assert client.cookies[ADMIN_LOGIN_HINT_COOKIE].value == "1"
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
     def test_routes_util_and_web_public_redirect(self) -> None:
         self._run(
             """
@@ -450,7 +604,7 @@ class TestUrlRouting:
 
                 resp = client.get(f"/original/{snapshot.domain}/index.html", HTTP_HOST=control_host)
                 assert resp.status_code in (301, 302)
-                assert resp["Location"] == f"http://{original_host}/index.html"
+                assert resp["Location"] == f"http://{snapshot_host}/responses/{snapshot.domain}/index.html"
 
             resp = client.get("/static/jquery.min.js", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
@@ -576,6 +730,9 @@ class TestUrlRouting:
 
             original_response_rel = response_rel.split(f"responses/{snapshot.domain}/", 1)[-1]
             resp = client.get(f"/{original_response_rel}", HTTP_HOST=original_host)
+            assert resp.status_code in (301, 302)
+            assert resp["Location"] == f"http://{snapshot_host}/responses/{snapshot.domain}/{original_response_rel}"
+            resp = client.get(f"/responses/{snapshot.domain}/{original_response_rel}", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert response_body(resp) == response_file.read_bytes()
 
@@ -617,8 +774,13 @@ class TestUrlRouting:
             """
             from datetime import timedelta
             import shutil
+            from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY
+            from django.core import signing
+            from django.db import connection
+            from django.test.utils import CaptureQueriesContext
             from django.utils import timezone
             from archivebox.crawls.models import Crawl
+            from archivebox.core.views import REPLAY_AUTH_SALT, _replay_cookie_name
 
             snapshot = get_snapshot()
             original_host = get_original_host(snapshot.domain)
@@ -640,10 +802,15 @@ class TestUrlRouting:
             real_output_bodies = [path.read_bytes() for path in real_output_files[:4]]
             assert len(set(real_output_bodies)) == 4
 
-            def make_snapshot(url):
+            def make_snapshot(url, permissions="public"):
                 crawl = Crawl.objects.create(urls=url, created_by_id=created_by_id)
                 created_crawls.append(crawl)
-                snap = Snapshot.objects.create(url=url, crawl=crawl, status=Snapshot.StatusChoices.STARTED)
+                snap = Snapshot.objects.create(
+                    url=url,
+                    crawl=crawl,
+                    status=Snapshot.StatusChoices.STARTED,
+                    config={"PERMISSIONS": permissions},
+                )
                 created_snapshots.append(snap)
                 return snap
 
@@ -653,6 +820,8 @@ class TestUrlRouting:
                     (make_snapshot("https://example.com"), now + timedelta(minutes=2), real_output_bodies[1]),
                     (make_snapshot("https://example.com/about.html"), now + timedelta(minutes=3), real_output_bodies[2]),
                     (make_snapshot("https://example.com/about.html"), now + timedelta(minutes=4), real_output_bodies[3]),
+                    (make_snapshot("https://example.com/about.html", permissions="private"), now + timedelta(minutes=5), b"private"),
+                    (make_snapshot("https://example.com.evil/about.html"), now + timedelta(minutes=6), b"wrong-domain"),
                 )
 
                 for snap, stamp, content in fixtures:
@@ -665,13 +834,44 @@ class TestUrlRouting:
                     rel_path = "about.html" if snap.url.endswith("/about.html") else "index.html"
                     (responses_root / rel_path).write_bytes(content)
 
-                resp = client.get("/", HTTP_HOST=original_host)
-                assert resp.status_code == 200
-                assert response_body(resp) == real_output_bodies[1]
+                with CaptureQueriesContext(connection) as root_queries:
+                    resp = client.get("/", HTTP_HOST=original_host)
+                assert resp.status_code in (301, 302)
+                assert resp["Location"] == f"http://{get_snapshot_host(str(fixtures[1][0].id))}/responses/example.com/index.html"
+                root_snapshot_queries = [
+                    query["sql"] for query in root_queries.captured_queries
+                    if 'FROM "core_snapshot"' in query["sql"] and query["sql"].lstrip().upper().startswith("SELECT")
+                ]
+                assert len(root_snapshot_queries) == 1, root_snapshot_queries
 
-                resp = client.get("/about.html", HTTP_HOST=original_host)
-                assert resp.status_code == 200
-                assert response_body(resp) == real_output_bodies[3]
+                with CaptureQueriesContext(connection) as path_queries:
+                    resp = client.get("/about.html", HTTP_HOST=original_host)
+                assert resp.status_code in (301, 302)
+                assert resp["Location"] == f"http://{get_snapshot_host(str(fixtures[3][0].id))}/responses/example.com/about.html"
+                path_snapshot_queries = [
+                    query["sql"] for query in path_queries.captured_queries
+                    if 'FROM "core_snapshot"' in query["sql"] and query["sql"].lstrip().upper().startswith("SELECT")
+                ]
+                assert len(path_snapshot_queries) == 1, path_snapshot_queries
+
+                ensure_admin_user()
+                auth_client = Client()
+                assert auth_client.login(username="testadmin", password="testpassword")
+                session = auth_client.session
+                private_snapshot = fixtures[4][0]
+                replay_client = Client()
+                replay_client.cookies[_replay_cookie_name(private_snapshot)] = signing.dumps(
+                    {
+                        "snapshot_id": str(private_snapshot.id),
+                        "session_key": session.session_key,
+                        "user_id": str(session[SESSION_KEY]),
+                        "auth_hash": str(session[HASH_SESSION_KEY]),
+                    },
+                    salt=REPLAY_AUTH_SALT,
+                )
+                replay_resp = replay_client.get("/about.html", HTTP_HOST=original_host)
+                assert replay_resp.status_code in (301, 302)
+                assert replay_resp["Location"] == f"http://{get_snapshot_host(str(private_snapshot.id))}/responses/example.com/about.html"
             finally:
                 for snap in created_snapshots:
                     shutil.rmtree(snap.output_dir, ignore_errors=True)
@@ -713,6 +913,9 @@ class TestUrlRouting:
                 shutil.rmtree(Path(latest_snapshot.output_dir) / "responses", ignore_errors=True)
 
                 resp = client.get("/", HTTP_HOST=original_host)
+                assert resp.status_code in (301, 302)
+                assert resp["Location"] == f"http://{get_snapshot_host(str(latest_snapshot.id))}"
+                resp = client.get("/", HTTP_HOST=get_snapshot_host(str(latest_snapshot.id)))
                 assert resp.status_code == 200
                 html = response_body(resp).decode("utf-8", "ignore")
                 assert latest_snapshot.url in html
@@ -723,6 +926,76 @@ class TestUrlRouting:
 
             print("OK")
             """,
+        )
+
+    def test_safe_onedomain_original_domain_replay_keeps_path_fallback_priority(self) -> None:
+        self._run(
+            """
+            from datetime import timedelta
+            import shutil
+            from django.contrib.auth.models import AnonymousUser
+            from django.db import connection
+            from django.test import RequestFactory
+            from django.test.utils import CaptureQueriesContext
+            from django.utils import timezone
+            from archivebox.crawls.models import Crawl
+            from archivebox.core.views import OriginalDomainHostView
+
+            seed = get_snapshot()
+            domain = "onedomain-response.example"
+            created_crawls = []
+            created_snapshots = []
+            now = timezone.now()
+
+            def make_snapshot(url, stamp):
+                crawl = Crawl.objects.create(urls=url, created_by_id=seed.crawl.created_by_id)
+                created_crawls.append(crawl)
+                snap = Snapshot.objects.create(
+                    url=url,
+                    crawl=crawl,
+                    status=Snapshot.StatusChoices.STARTED,
+                    config={"PERMISSIONS": "public"},
+                )
+                snap.created_at = stamp
+                snap.bookmarked_at = stamp
+                snap.downloaded_at = stamp
+                snap.save(update_fields=["created_at", "bookmarked_at", "downloaded_at", "modified_at"])
+                created_snapshots.append(snap)
+                return snap
+
+            try:
+                index_snapshot = make_snapshot(f"https://{domain}/docs", now + timedelta(minutes=1))
+                html_snapshot = make_snapshot(f"https://{domain}/docs", now + timedelta(minutes=2))
+                index_path = Path(index_snapshot.output_dir) / "responses" / domain / "docs" / "index.html"
+                html_path = Path(html_snapshot.output_dir) / "responses" / domain / "docs.html"
+                index_path.parent.mkdir(parents=True, exist_ok=True)
+                html_path.parent.mkdir(parents=True, exist_ok=True)
+                index_path.write_bytes(b"index-fallback")
+                html_path.write_bytes(b"html-fallback")
+
+                assert SERVER_CONFIG.SERVER_SECURITY_MODE == "safe-onedomain-nojsreplay"
+                request = RequestFactory().get("/docs", HTTP_HOST=get_base_host())
+                request.user = AnonymousUser()
+                request.archivebox_config = SERVER_CONFIG
+                with CaptureQueriesContext(connection) as queries:
+                    response = OriginalDomainHostView.as_view()(request, domain=domain, path="docs")
+
+                assert response.status_code == 200
+                assert response_body(response) == b"index-fallback"
+                snapshot_queries = [
+                    query["sql"] for query in queries.captured_queries
+                    if 'FROM "core_snapshot"' in query["sql"] and query["sql"].lstrip().upper().startswith("SELECT")
+                ]
+                assert len(snapshot_queries) == 1, snapshot_queries
+            finally:
+                for snap in created_snapshots:
+                    shutil.rmtree(snap.output_dir, ignore_errors=True)
+                for crawl in created_crawls:
+                    crawl.delete()
+
+            print("OK")
+            """,
+            mode="safe-onedomain-nojsreplay",
         )
 
     def test_safe_subdomains_original_domain_host_redirects_to_save_page_now_when_missing_and_authenticated(self) -> None:
@@ -1026,7 +1299,7 @@ class TestUrlRouting:
                 assert SERVER_CONFIG.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay"
                 assert get_web_base_url() == "https://web.archivebox.example"
                 assert build_snapshot_url(snapshot_id, "index.html") == f"https://{snapshot_host}/index.html"
-                assert build_original_url("example.com", "index.html") == f"https://{get_original_host('example.com')}/index.html"
+                assert build_original_url("example.com", "index.html") == "https://web.archivebox.example/original/example.com/index.html"
 
                 print("OK")
                 """,
@@ -1097,8 +1370,15 @@ class TestUrlRouting:
             assert ">Git<" not in live_html
 
             static_html = Path(snapshot.output_dir, "index.html").read_text(encoding="utf-8", errors="ignore")
-            assert f"http://{snapshot_host}/" in static_html
-            assert f"http://{web_host}/static/archive.png" in static_html
+            assert f"http://{snapshot_host}/" not in static_html
+            assert f"http://{web_host}/static/archive.png" not in static_html
+            # Static pages are opened directly from disk or a plain HTTP server,
+            # where Django's live-only ?files=1 directory browser does not exist.
+            # Even hidden controls and JavaScript fallbacks must therefore use
+            # portable files, or an offline click can silently navigate nowhere.
+            assert "?files=1" not in static_html
+            assert "data:image/svg+xml" in static_html
+            assert 'href="./' in static_html
             assert "?preview=1" in static_html
             assert "function createMainFrame(previousFrame)" in static_html
             assert "function activateCardPreview(card, link, updateHash=true)" in static_html

@@ -217,8 +217,9 @@ def test_behavior_foreground_add_keeps_existing_server_http_visible(tmp_path, in
         add = run_archivebox_cmd(
             [
                 "add",
-                "--depth=0",
-                "--plugins=wget",
+                "--depth=2",
+                "--max-urls=10",
+                "--plugins=wget,parse_html_urls",
                 recursive_test_site["root_url"],
             ],
             cwd=tmp_path,
@@ -415,7 +416,12 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
             encoding="utf-8",
             errors="replace",
         )
-        assert "Stopping older ArchiveBox runner process" in update_stdout
+        worker_name_match = re.search(r"Worker (worker_runner_update_\d+):", update_stdout)
+        assert worker_name_match, update_stdout
+        wait_for_log(
+            tmp_path / "logs" / f"{worker_name_match.group(1)}.log",
+            "Stopping older ArchiveBox runner process",
+        )
 
         supervisord_text = wait_for_log_count(supervisord_log, runner_spawn_text, runner_spawn_count + 1, timeout=30)
         runner_pid_after = int(re.findall(r"spawned: 'worker_runner' with pid (\d+)", supervisord_text)[-1])
@@ -954,3 +960,34 @@ def test_runtime_stack_owner_allows_top_level_runner_when_no_parent_command_exis
         assert owner.id == runner_row.id
     finally:
         _stop_archivebox_shells([proc])
+
+
+def test_foreign_machine_runner_only_warns(tmp_path, initialized_archive, capsys):
+    from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE, live_runner_processes
+    from archivebox.machine.models import Machine
+
+    foreign_machine = Machine.objects.create(
+        guid="foreign-machine",
+        hostname="foreign-host",
+        hw_manufacturer="Test",
+        hw_product="Test",
+        hw_uuid="foreign-hardware",
+        os_arch="x86_64",
+        os_family="linux",
+        os_platform="linux",
+        os_release="test",
+        os_kernel="test",
+    )
+    foreign_runner = Process.objects.create(
+        machine=foreign_machine,
+        process_type=Process.TypeChoices.ORCHESTRATOR,
+        worker_type=RUNNER_ACTIVE_WORKER_TYPE,
+        pwd=str(tmp_path),
+        pid=1,
+        status=Process.StatusChoices.RUNNING,
+    )
+
+    assert live_runner_processes(data_dir=tmp_path) == []
+    foreign_runner.refresh_from_db()
+    assert foreign_runner.status == Process.StatusChoices.RUNNING
+    assert "Multiple orchestrators sharing a single collection is not officially supported" in capsys.readouterr().err

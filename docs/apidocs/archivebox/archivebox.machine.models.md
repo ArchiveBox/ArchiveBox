@@ -43,14 +43,6 @@
   - ```{autodoc2-docstring} archivebox.machine.models.Process
     :summary:
     ```
-* - {py:obj}`BinaryMachine <archivebox.machine.models.BinaryMachine>`
-  - ```{autodoc2-docstring} archivebox.machine.models.BinaryMachine
-    :summary:
-    ```
-* - {py:obj}`ProcessMachine <archivebox.machine.models.ProcessMachine>`
-  - ```{autodoc2-docstring} archivebox.machine.models.ProcessMachine
-    :summary:
-    ```
 ````
 
 ### Functions
@@ -59,6 +51,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`get_current_pid_namespace <archivebox.machine.models.get_current_pid_namespace>`
+  - ```{autodoc2-docstring} archivebox.machine.models.get_current_pid_namespace
+    :summary:
+    ```
 * - {py:obj}`_default_exit_code_for_unowned_process <archivebox.machine.models._default_exit_code_for_unowned_process>`
   - ```{autodoc2-docstring} archivebox.machine.models._default_exit_code_for_unowned_process
     :summary:
@@ -133,6 +129,10 @@
     ```
 * - {py:obj}`START_TIME_TOLERANCE <archivebox.machine.models.START_TIME_TOLERANCE>`
   - ```{autodoc2-docstring} archivebox.machine.models.START_TIME_TOLERANCE
+    :summary:
+    ```
+* - {py:obj}`PROCESS_PID_NAMESPACE_KEY <archivebox.machine.models.PROCESS_PID_NAMESPACE_KEY>`
+  - ```{autodoc2-docstring} archivebox.machine.models.PROCESS_PID_NAMESPACE_KEY
     :summary:
     ```
 ````
@@ -262,6 +262,23 @@
 ```{autodoc2-docstring} archivebox.machine.models.START_TIME_TOLERANCE
 ```
 
+````
+
+````{py:data} PROCESS_PID_NAMESPACE_KEY
+:canonical: archivebox.machine.models.PROCESS_PID_NAMESPACE_KEY
+:value: >
+   '_ARCHIVEBOX_PID_NAMESPACE'
+
+```{autodoc2-docstring} archivebox.machine.models.PROCESS_PID_NAMESPACE_KEY
+```
+
+````
+
+````{py:function} get_current_pid_namespace() -> str
+:canonical: archivebox.machine.models.get_current_pid_namespace
+
+```{autodoc2-docstring} archivebox.machine.models.get_current_pid_namespace
+```
 ````
 
 ````{py:function} _default_exit_code_for_unowned_process(process_type: str) -> int
@@ -853,7 +870,7 @@ Bases: {py:obj}`django.db.models.Manager`
 ``````{py:class} Binary(*args, **kwargs)
 :canonical: archivebox.machine.models.Binary
 
-Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithStateMachine`
+Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithQueue`
 
 ```{autodoc2-docstring} archivebox.machine.models.Binary
 ```
@@ -864,7 +881,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`ar
 ```{autodoc2-docstring} archivebox.machine.models.Binary.__init__
 ```
 
-`````{py:class} StatusChoices(*args, **kwds)
+`````{py:class} StatusChoices()
 :canonical: archivebox.machine.models.Binary.StatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -1052,13 +1069,42 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 ````
 
-````{py:attribute} state_machine_name
-:canonical: archivebox.machine.models.Binary.state_machine_name
-:type: str | None
+````{py:attribute} INITIAL_STATE
+:canonical: archivebox.machine.models.Binary.INITIAL_STATE
 :value: >
-   'archivebox.machine.models.BinaryMachine'
+   None
 
-```{autodoc2-docstring} archivebox.machine.models.Binary.state_machine_name
+```{autodoc2-docstring} archivebox.machine.models.Binary.INITIAL_STATE
+```
+
+````
+
+````{py:attribute} ACTIVE_STATE
+:canonical: archivebox.machine.models.Binary.ACTIVE_STATE
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.ACTIVE_STATE
+```
+
+````
+
+````{py:attribute} FINAL_STATES
+:canonical: archivebox.machine.models.Binary.FINAL_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.FINAL_STATES
+```
+
+````
+
+````{py:attribute} FINAL_OR_ACTIVE_STATES
+:canonical: archivebox.machine.models.Binary.FINAL_OR_ACTIVE_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.FINAL_OR_ACTIVE_STATES
 ```
 
 ````
@@ -1097,7 +1143,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 `````{py:class} Meta
 :canonical: archivebox.machine.models.Binary.Meta
 
-Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:obj}`archivebox.workers.models.ModelWithStateMachine.Meta`
+Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:obj}`archivebox.workers.models.ModelWithQueue.Meta`
 
 ````{py:attribute} app_label
 :canonical: archivebox.machine.models.Binary.Meta.app_label
@@ -1155,6 +1201,15 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:ob
 
 ````
 
+````{py:property} can_install
+:canonical: archivebox.machine.models.Binary.can_install
+:type: bool
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.can_install
+```
+
+````
+
 ````{py:method} binary_info() -> dict
 :canonical: archivebox.machine.models.Binary.binary_info
 
@@ -1201,6 +1256,30 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:ob
 :canonical: archivebox.machine.models.Binary.run
 
 ```{autodoc2-docstring} archivebox.machine.models.Binary.run
+```
+
+````
+
+````{py:method} install() -> bool
+:canonical: archivebox.machine.models.Binary.install
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.install
+```
+
+````
+
+````{py:method} advance_lifecycle() -> bool
+:canonical: archivebox.machine.models.Binary.advance_lifecycle
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.advance_lifecycle
+```
+
+````
+
+````{py:method} install_claimed(*, lock_seconds: int = 600) -> bool
+:canonical: archivebox.machine.models.Binary.install_claimed
+
+```{autodoc2-docstring} archivebox.machine.models.Binary.install_claimed
 ```
 
 ````
@@ -1279,7 +1358,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`dj
 ```{autodoc2-docstring} archivebox.machine.models.Process.__init__
 ```
 
-`````{py:class} StatusChoices(*args, **kwds)
+`````{py:class} StatusChoices()
 :canonical: archivebox.machine.models.Process.StatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -1316,7 +1395,7 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 `````
 
-`````{py:class} TypeChoices(*args, **kwds)
+`````{py:class} TypeChoices()
 :canonical: archivebox.machine.models.Process.TypeChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -1698,17 +1777,6 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 ````
 
-````{py:attribute} state_machine_name
-:canonical: archivebox.machine.models.Process.state_machine_name
-:type: str
-:value: >
-   'archivebox.machine.models.ProcessMachine'
-
-```{autodoc2-docstring} archivebox.machine.models.Process.state_machine_name
-```
-
-````
-
 ````{py:attribute} delete_after_final_statuses
 :canonical: archivebox.machine.models.Process.delete_after_final_statuses
 :value: >
@@ -1997,6 +2065,15 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`
 
 ````
 
+````{py:property} shares_pid_namespace
+:canonical: archivebox.machine.models.Process.shares_pid_namespace
+:type: bool
+
+```{autodoc2-docstring} archivebox.machine.models.Process.shares_pid_namespace
+```
+
+````
+
 ````{py:property} proc
 :canonical: archivebox.machine.models.Process.proc
 :type: psutil.Process | None
@@ -2242,239 +2319,3 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`
 ````
 
 ``````
-
-`````{py:class} BinaryMachine(obj, *args, **kwargs)
-:canonical: archivebox.machine.models.BinaryMachine
-
-Bases: {py:obj}`archivebox.workers.models.BaseStateMachine`
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.__init__
-```
-
-````{py:attribute} model_attr_name
-:canonical: archivebox.machine.models.BinaryMachine.model_attr_name
-:value: >
-   'binary'
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.model_attr_name
-```
-
-````
-
-````{py:attribute} binary
-:canonical: archivebox.machine.models.BinaryMachine.binary
-:type: archivebox.machine.models.Binary
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.binary
-```
-
-````
-
-````{py:attribute} queued
-:canonical: archivebox.machine.models.BinaryMachine.queued
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.queued
-```
-
-````
-
-````{py:attribute} installed
-:canonical: archivebox.machine.models.BinaryMachine.installed
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.installed
-```
-
-````
-
-````{py:attribute} tick
-:canonical: archivebox.machine.models.BinaryMachine.tick
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.tick
-```
-
-````
-
-````{py:method} can_install() -> bool
-:canonical: archivebox.machine.models.BinaryMachine.can_install
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.can_install
-```
-
-````
-
-````{py:method} enter_queued()
-:canonical: archivebox.machine.models.BinaryMachine.enter_queued
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.enter_queued
-```
-
-````
-
-````{py:method} on_install()
-:canonical: archivebox.machine.models.BinaryMachine.on_install
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.on_install
-```
-
-````
-
-````{py:method} enter_installed()
-:canonical: archivebox.machine.models.BinaryMachine.enter_installed
-
-```{autodoc2-docstring} archivebox.machine.models.BinaryMachine.enter_installed
-```
-
-````
-
-`````
-
-`````{py:class} ProcessMachine(obj, *args, **kwargs)
-:canonical: archivebox.machine.models.ProcessMachine
-
-Bases: {py:obj}`archivebox.workers.models.BaseStateMachine`
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.__init__
-```
-
-````{py:attribute} model_attr_name
-:canonical: archivebox.machine.models.ProcessMachine.model_attr_name
-:value: >
-   'process'
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.model_attr_name
-```
-
-````
-
-````{py:attribute} process
-:canonical: archivebox.machine.models.ProcessMachine.process
-:type: archivebox.machine.models.Process
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.process
-```
-
-````
-
-````{py:attribute} queued
-:canonical: archivebox.machine.models.ProcessMachine.queued
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.queued
-```
-
-````
-
-````{py:attribute} running
-:canonical: archivebox.machine.models.ProcessMachine.running
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.running
-```
-
-````
-
-````{py:attribute} exited
-:canonical: archivebox.machine.models.ProcessMachine.exited
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.exited
-```
-
-````
-
-````{py:attribute} tick
-:canonical: archivebox.machine.models.ProcessMachine.tick
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.tick
-```
-
-````
-
-````{py:attribute} launch
-:canonical: archivebox.machine.models.ProcessMachine.launch
-:value: >
-   'to(...)'
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.launch
-```
-
-````
-
-````{py:attribute} kill
-:canonical: archivebox.machine.models.ProcessMachine.kill
-:value: >
-   'to(...)'
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.kill
-```
-
-````
-
-````{py:method} can_start() -> bool
-:canonical: archivebox.machine.models.ProcessMachine.can_start
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.can_start
-```
-
-````
-
-````{py:method} is_exited() -> bool
-:canonical: archivebox.machine.models.ProcessMachine.is_exited
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.is_exited
-```
-
-````
-
-````{py:method} enter_queued()
-:canonical: archivebox.machine.models.ProcessMachine.enter_queued
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.enter_queued
-```
-
-````
-
-````{py:method} enter_running()
-:canonical: archivebox.machine.models.ProcessMachine.enter_running
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.enter_running
-```
-
-````
-
-````{py:method} enter_exited()
-:canonical: archivebox.machine.models.ProcessMachine.enter_exited
-
-```{autodoc2-docstring} archivebox.machine.models.ProcessMachine.enter_exited
-```
-
-````
-
-`````

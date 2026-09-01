@@ -1,0 +1,51 @@
+name: Release candidate
+
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  actions: read
+  contents: write
+  packages: write
+
+concurrency:
+  group: release-candidate-dev
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      action: ${{ steps.version.outputs.action }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          submodules: true
+          token: ${{ secrets.RELEASE_GH_TOKEN }}
+
+      - id: version
+        uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@main
+        with:
+          package: archivebox
+          branch: dev
+          tag-prefix: v
+          version-scheme: rc
+
+  python-artifacts:
+    needs: prepare
+    if: needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved'
+    uses: ./.github/workflows/pip.yml
+    with:
+      full_tests: false
+    secrets: inherit
+
+  docker-digests:
+    needs: prepare
+    if: needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved'
+    uses: ./.github/workflows/docker.yml
+    with:
+      push_digests: true
+      full_tests: false
+    secrets: inherit

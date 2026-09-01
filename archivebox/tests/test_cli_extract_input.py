@@ -1,5 +1,6 @@
 """Tests for archivebox extract input handling and pipelines."""
 
+import json
 import subprocess
 
 import pytest
@@ -19,6 +20,39 @@ def create_extract_snapshot(initialized_archive, env, url="https://example.com")
         env=env,
         check=True,
     )
+
+
+def test_extract_archiveresult_record_queues_one_plugin_result(initialized_archive):
+    env = cli_env(PLUGINS="archivewebpage")
+    create_extract_snapshot(initialized_archive, env)
+
+    with use_archivebox_db(initialized_archive):
+        snapshot_id = Snapshot.objects.values_list("id", flat=True).first()
+
+    hook_name = "on_Snapshot__65_archivewebpage_stop"
+    request = json.dumps(
+        {
+            "type": "ArchiveResult",
+            "snapshot_id": str(snapshot_id),
+            "plugin": "archivewebpage",
+            "hook_name": hook_name,
+            "status": "queued",
+        },
+    )
+    result = run_archivebox_cmd(
+        ["extract", "--no-wait"],
+        cwd=initialized_archive,
+        input=f"{request}\n",
+        env=env,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    with use_archivebox_db(initialized_archive):
+        rows = list(
+            ArchiveResult.objects.filter(snapshot_id=snapshot_id, plugin="archivewebpage").values_list("hook_name", "status"),
+        )
+    assert rows == [("", ArchiveResult.StatusChoices.QUEUED)]
 
 
 def test_extract_runs_on_snapshot_id(initialized_archive):

@@ -162,7 +162,8 @@ def version(
     )
 
     try:
-        OUTPUT_IS_REMOTE_FS = get_data_locations().DATA_DIR.is_mount or get_data_locations().ARCHIVE_DIR.is_mount
+        data_locations = get_data_locations(config=config)
+        OUTPUT_IS_REMOTE_FS = data_locations.DATA_DIR.is_mount or data_locations.ARCHIVE_DIR.is_mount
     except Exception:
         OUTPUT_IS_REMOTE_FS = False
 
@@ -249,7 +250,7 @@ def version(
         prnt()
         prnt("[deep_sky_blue3][i] Code locations:[/deep_sky_blue3]")
         try:
-            for name, path in get_code_locations().items():
+            for name, path in get_code_locations(config=config).items():
                 if isinstance(name, str) and isinstance(path, dict):
                     prnt(printable_folder_status(name, path), overflow="ignore", crop=False)
         except Exception as e:
@@ -303,33 +304,29 @@ def version(
             continue
         plugin_requested = bool(requested_names)
         plugin_enabled = plugin_name in enabled_plugin_names
-        logical_records = get_required_binary_requests(
+        binary_records = get_required_binary_requests(
             plugin,
             plugin.config.required_binaries,
             overrides=runtime_config,
             derived_overrides=derived_config,
             run_output_dir=CONSTANTS.DATA_DIR,
         )
-        actual_records = get_required_binary_requests(
-            plugin,
-            plugin.config.required_binaries,
-            overrides=runtime_config,
-            derived_overrides=derived_config,
-            run_output_dir=CONSTANTS.DATA_DIR,
-            logical_names=False,
-        )
-        for logical_record, actual_record in zip(logical_records, actual_records, strict=False):
-            logical_name = str(logical_record["name"])
-            actual_name = str(actual_record["name"])
-            display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
+        for binary_record in binary_records:
+            actual_name = str(binary_record["name"])
+            logical_name = (
+                Path(actual_name).expanduser().name
+                if ("/" in actual_name or "\\" in actual_name or actual_name.startswith("~"))
+                else actual_name
+            )
+            display_name = logical_name
             if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
                 continue
             if not plugin_enabled and not requested_names:
                 continue
             if _binary_record_matches_runtime(db_binaries.get(logical_name), config.ABXPKG_LIB_DIR):
                 continue
-            signature = json.dumps(actual_record, sort_keys=True, default=str)
-            declared_binary_specs.setdefault(signature, actual_record)
+            signature = json.dumps(binary_record, sort_keys=True, default=str)
+            declared_binary_specs.setdefault(signature, binary_record)
 
     loaded_binaries: dict[str, BinaryEvent | None] = {}
     if declared_binary_specs:
@@ -365,25 +362,21 @@ def version(
                 continue
             plugin_requested = bool(requested_names)
             plugin_enabled = plugin_name in enabled_plugin_names
-            logical_records = get_required_binary_requests(
+            binary_records = get_required_binary_requests(
                 plugin,
                 plugin.config.required_binaries,
                 overrides=runtime_config,
                 derived_overrides=derived_config,
                 run_output_dir=CONSTANTS.DATA_DIR,
             )
-            actual_records = get_required_binary_requests(
-                plugin,
-                plugin.config.required_binaries,
-                overrides=runtime_config,
-                derived_overrides=derived_config,
-                run_output_dir=CONSTANTS.DATA_DIR,
-                logical_names=False,
-            )
-            for logical_record, actual_record in zip(logical_records, actual_records, strict=False):
-                logical_name = str(logical_record["name"])
-                actual_name = str(actual_record["name"])
-                display_name = Path(actual_name).expanduser().name if ("/" in actual_name or actual_name.startswith("~")) else logical_name
+            for binary_record in binary_records:
+                actual_name = str(binary_record["name"])
+                logical_name = (
+                    Path(actual_name).expanduser().name
+                    if ("/" in actual_name or "\\" in actual_name or actual_name.startswith("~"))
+                    else actual_name
+                )
+                display_name = logical_name
                 if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
                     continue
 
@@ -401,7 +394,7 @@ def version(
                     # providers the current collection will never execute.
                     continue
                 else:
-                    loaded = loaded_binaries[json.dumps(actual_record, sort_keys=True, default=str)]
+                    loaded = loaded_binaries[json.dumps(binary_record, sort_keys=True, default=str)]
                     abspath = loaded.abspath if loaded is not None else ""
                     version_str = str(loaded.version or "unknown")[:15] if loaded is not None else "unknown"
                     provider = str(loaded.binprovider or "env")[:8] if loaded is not None else "env"
@@ -509,7 +502,7 @@ def version(
         prnt()
         prnt("[deep_sky_blue3][i] Code locations:[/deep_sky_blue3]")
         try:
-            for name, path in get_code_locations().items():
+            for name, path in get_code_locations(config=config).items():
                 if isinstance(name, str) and isinstance(path, dict):
                     prnt(printable_folder_status(name, path), overflow="ignore", crop=False)
         except Exception as e:
@@ -519,7 +512,7 @@ def version(
         if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) or os.access(CONSTANTS.CONFIG_FILE, os.R_OK):
             prnt("[bright_yellow][i] Data locations:[/bright_yellow]")
             try:
-                for name, path in get_data_locations().items():
+                for name, path in get_data_locations(config=config).items():
                     if isinstance(name, str) and isinstance(path, dict):
                         prnt(printable_folder_status(name, path), overflow="ignore", crop=False)
             except Exception as e:

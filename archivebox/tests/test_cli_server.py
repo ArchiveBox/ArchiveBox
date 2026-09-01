@@ -206,6 +206,99 @@ def test_sqlite_connections_use_explicit_busy_timeout():
     assert "PRAGMA journal_mode = WAL;" in SQLITE_CONNECTION_OPTIONS["OPTIONS"]["init_command"]
 
 
+def test_docker_sqlite_never_uses_wal_on_host_shared_collection(tmp_path):
+    """Docker collections must not expose a WAL database through /data.
+
+    Docker Desktop/OrbStack bind mounts cross the Linux VM/host locking
+    boundary. A container WAL writer plus a host-side sqlite reader can make
+    the writer SIGBUS and leave index.sqlite3 malformed; the reader does not
+    need to write. Run a fresh real settings process with Docker identity so a
+    host test cannot accidentally pass by reusing this process's non-Docker
+    config imports.
+    """
+    env = os.environ.copy()
+    env["IN_DOCKER"] = "True"
+    env["DJANGO_SETTINGS_MODULE"] = "archivebox.core.settings"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import django;"
+                "django.setup();"
+                "from django.db import connection;"
+                "cursor=connection.cursor();"
+                "cursor.execute('CREATE TABLE journal_probe (value INTEGER)');"
+                "cursor.execute('INSERT INTO journal_probe VALUES (1)');"
+                "cursor.execute('PRAGMA journal_mode');"
+                "print(cursor.fetchone()[0]);"
+                "cursor.close();"
+                "connection.close()"
+            ),
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert result.stdout.strip().lower() == "delete"
+    assert not tmp_path.joinpath("index.sqlite3-wal").exists()
+    assert not tmp_path.joinpath("index.sqlite3-shm").exists()
+
+
+def test_docker_rejects_explicit_wal_override(tmp_path):
+    """An old config or environment override must not bypass the invariant."""
+    env = os.environ.copy()
+    env["IN_DOCKER"] = "True"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            ("from archivebox.config.common import DatabaseConfig;DatabaseConfig(SQLITE_JOURNAL_MODE='WAL')"),
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "WAL is unsafe for Docker collections" in result.stderr
+
+
+def test_docker_postgres_ignores_irrelevant_sqlite_wal_override(tmp_path):
+    """The Docker SQLite safety invariant must not reject PostgreSQL.
+
+    Operators can switch an existing deployment to PostgreSQL while an old
+    SQLITE_JOURNAL_MODE setting remains in ArchiveBox.conf or the environment.
+    PostgreSQL never consumes that SQLite pragma, so rejecting the otherwise
+    valid configuration would prevent ArchiveBox from starting without making
+    any database safer.
+    """
+    env = os.environ.copy()
+    env["IN_DOCKER"] = "True"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "from archivebox.config.common import DatabaseConfig;"
+                "config=DatabaseConfig(DATABASE_ENGINE='postgres',SQLITE_JOURNAL_MODE='WAL');"
+                "print(config.DATABASE_ENGINE)"
+            ),
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "postgres"
+
+
 def test_server_shows_usage_info(initialized_archive):
     """Test that server command shows usage or starts."""
 
@@ -232,6 +325,29 @@ def test_server_help_lists_runtime_options(initialized_archive):
     assert result.returncode == 0
     assert "--daemonize" in result.stdout
     assert "--reload" in result.stdout
+
+
+@pytest.mark.timeout(120)
+def test_server_starts_with_legacy_ipv6_listen_host(initialized_archive):
+    """IPv6 brackets in a legacy LISTEN_HOST must not break the startup banner."""
+
+    port = get_free_port()
+    env = cli_env(live=True, BASE_URL="", LISTEN_HOST=f"[::]:{port}")
+    server = None
+    try:
+        server = start_archivebox_server(
+            initialized_archive,
+            port=port,
+            log_name="server-legacy-ipv6-listen-host.log",
+            env=env,
+        )
+        log_text = server.log_path.read_text(encoding="utf-8", errors="replace")
+        assert f"http://[::]:{port}/admin/" in log_text
+        assert "MarkupError" not in log_text
+    finally:
+        if server is not None:
+            stop_archivebox_process(server, signal.SIGTERM)
+        kill_processes_for_data_dir(initialized_archive)
 
 
 def test_runner_worker_uses_active_archivebox_module():

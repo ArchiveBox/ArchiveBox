@@ -17,7 +17,7 @@
  - right now, the paths of the extractor output are scattered all over the codebase, e.g. `output.pdf` (should be moved to constants at the top of the plugin config file)
  - make out_dir, link_dir, extractor_dir, naming consistent across codebase
  - remove `timestamps` as primary keys in favor of hashes, UUIDs, or some other slug https://github.com/ArchiveBox/ArchiveBox/issues/74
- - create a migration system for folder layout independent of the index (`mv` is atomic at the FS level, so we just need a `transaction.atomic(): move(oldpath, newpath); snap.data_dir = newpath; snap.save()`)
+ - create a migration system for folder layout independent of the index
  - make `Tag` a real model `ManyToMany` with Snapshots
  - allow multiple Snapshots of the same site over time + CLI / UI to manage those, + migration from old style `#2020-01-01` hack to proper versioned snapshots
  - upgrade from Django 3 to Django 5 https://github.com/ArchiveBox/ArchiveBox/issues/988
@@ -43,7 +43,7 @@
 
 ...
 
-### `v2.0 Federated or distributed archiving + paid hosted service offering`
+### `v2.0 Federated or distributed archiving`
  - ZFS / merkel tree for storing archive output subresource hashes
  - DHT for assigning merkel tree hash:file shards to nodes
  - tag system for tagging certain hashes with human-readable names, e.g. title, url, tags, filetype etc.

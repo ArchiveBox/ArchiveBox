@@ -131,9 +131,11 @@ def status(out_dir: Path = CONSTANTS.DATA_DIR) -> None:
         print(f"    Last changes: {str(last_downloaded.downloaded_at)[:16]}")
 
     if not users:
+        from archivebox.core.routes_util import build_admin_url
+
         print()
-        print("    [violet]Hint:[/violet] You can create an admin user by running:")
-        print("        [green]archivebox manage createsuperuser[/green]")
+        print("    [violet]Hint:[/violet] Open the Admin UI to create the first admin and finish web setup:")
+        print(f"        [green]{build_admin_url('/admin/', config=config)}[/green]")
 
     print()
     recent_snapshots = snapshots_qs.order_by(

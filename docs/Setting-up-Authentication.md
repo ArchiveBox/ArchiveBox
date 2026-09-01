@@ -1,16 +1,8 @@
 # Setting Up Authentication
 
-> *💬 We offer [consulting services](https://docs.monadical.com/s/archivebox-consulting-services) to set up, integrate, and maintain ArchiveBox with your org's auth & hosting.  
-> If you need support, advanced development to capture difficult sites, audit logging, and more, we can provide it!*  
-> <sub>We use this revenue (from corporate clients who can afford to pay) to support open source development and keep ArchiveBox free.</sub>
-
----
-
 ArchiveBox supports several types of authentication for users logging in via the Admin Web UI or REST API.
 
 ## Set Up Admin Web UI Permissions
-
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/024913f0-ad2c-463c-aa4a-eb3d0ec8eb64" alt="Non-admin user permissions are only available to paying ArchiveBox clients" width="200px" align="right">
 
 Use these options to set up your desired permissions for non-admin guest users:
 - [`PUBLIC_INDEX=True`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#public_index): Default *allows* non-logged-in users to see Snapshot list
@@ -18,7 +10,7 @@ Use these options to set up your desired permissions for non-admin guest users:
 - [`PERMISSIONS=public`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#permissions): Default *allows* non-logged-in users to see Snapshot content (set to `unlisted` or `private` to gate it; replaces the removed legacy `PUBLIC_SNAPSHOTS` toggle, which was a global on/off — `PERMISSIONS` is now per-Snapshot)
 
 > [!NOTE]
-> **Open source ArchiveBox does not support setting up *non-admin* users** & groups with custom permissions. We do offer this feature, audit logging, and more to [paying clients](https://docs.monadical.com/s/archivebox-consulting-services).
+> ArchiveBox does not currently support setting up *non-admin* users and groups with custom permissions.
 
 - [Wiki: Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#permissions) (`PUBLIC_INDEX`, `PUBLIC_ADD_VIEW`, `PERMISSIONS`)
 - [Wiki: Security Overview](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview)
@@ -33,18 +25,15 @@ Use these options to set up your desired permissions for non-admin guest users:
 
 ### Username & Password (the default)
 
-You need a user account to access the Admin UI, you can run the commands below to create/edit a user from the CLI:
+On a new server, open <http://admin.archivebox.localhost:8000/admin/> to create the first admin through the setup UI. Existing users can be created or edited from the CLI:
 
 ```bash
 archivebox manage createsuperuser
 archivebox manage changepassword <username>
 
-# equivalent: docker compose run archivebox manage [...]
+# equivalent: docker compose run --rm archivebox manage [...]
 # equivalent: docker run -v $PWD:/data archivebox/archivebox:dev manage [...]
 ```
-
-> [!TIP]
-> If using Docker, you can set [`ADMIN_USERNAME` & `ADMIN_PASSWORD`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#admin_username--admin_password) to auto-create an admin account on first run.
 
 Existing users can be managed from the Admin UI here: [`/admin/auth/user/`](http://admin.archivebox.localhost:8000/admin/auth/user/),
 and you can change your password here: [`/admin/password_change/`](http://admin.archivebox.localhost:8000/admin/password_change/).
@@ -84,7 +73,7 @@ LOGOUT_REDIRECT_URL=https://auth.yourcompany.example.com/after/logout
 
 First, install the `ldap` add-on to use this feature (not needed for Docker Archivebox).
 ```bash
-uv tool install --python 3.13 --upgrade 'archivebox[ldap] @ git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox[ldap]>=0.9.0rc0,<0.10'
 ```
 
 Then set these configuration values to finish configuring LDAP:

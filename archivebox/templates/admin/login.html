@@ -1,13 +1,71 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
 
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
+<style>
+.login .form-row #id_password1, .login .form-row #id_password2 { padding: 8px; width: 100%; box-sizing: border-box; }
+</style>
+{{ form.media }}
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login{% endblock %}
+
+<a href="{% url 'Home' %}">
+{% block branding %}<h1>ArchiveBox Admin</h1>{% endblock %}
+</a>
+<br/>
+{% block usertools %}{% endblock %}
+{% block nav-global %}{% endblock %}
+
+{% block content_title %}
+  <center>
+    {% if first_admin_setup %}
+    Create your first admin account to continue setup.
+    {% else %}
+    Log in to add, edit, and remove links from your archive.
+    {% endif %}
+  </center><br/><br/>
+  <img src="{% static 'archive.png' %}" style="width: 80px; display: block; margin: auto"/><br/>
+{% endblock %}
+
+{% block breadcrumbs %}{% endblock %}
+
 {% block content %}
+{% if first_admin_setup %}
+<div id="content-main">
+  {% if form.errors %}
+  <p class="errornote">{% trans "Please correct the errors below." %}</p>
+  {% endif %}
+  <form action="{{ app_path }}" method="post" id="first-admin-form">{% csrf_token %}
+    <input type="hidden" name="create_first_admin" value="1">
+    <div class="form-row" style="gap: 0;">
+      {{ form.username.errors }}
+      {{ form.username.label_tag }} {{ form.username }}
+    </div>
+    <div class="form-row" style="gap: 0;">
+      {{ form.password1.errors }}
+      {{ form.password1.label_tag }} {{ form.password1 }}
+      {% if form.password1.help_text %}<div class="help">{{ form.password1.help_text|safe }}</div>{% endif %}
+    </div>
+    <div class="form-row" style="gap: 0;">
+      {{ form.password2.errors }}
+      {{ form.password2.label_tag }} {{ form.password2 }}
+      {% if form.password2.help_text %}<div class="help">{{ form.password2.help_text|safe }}</div>{% endif %}
+    </div>
+    <div class="submit-row" style="border: none;">
+      <label>&nbsp;</label><input type="submit" value="{% trans 'Create admin and continue' %}">
+    </div>
+  </form>
+  <p><a href="/accounts/login/?next={{ next|default:'/admin/'|urlencode }}">Use a configured identity provider instead</a></p>
+</div>
+{% else %}
 <script>
-  // Redirect to allauth login, preserving the ?next= parameter
+  // Keep Django's destination while handing authentication to allauth.
   var next = "{{ next|default:"/admin/"|escapejs }}";
   window.location.replace("/accounts/login/?next=" + encodeURIComponent(next));
 </script>
 <noscript>
   <p><a href="/accounts/login/?next={{ next|default:'/admin/'|urlencode }}">Click here to log in</a></p>
 </noscript>
+{% endif %}
 {% endblock %}

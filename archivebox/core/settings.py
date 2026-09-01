@@ -11,8 +11,8 @@ from pathlib import Path
 from django.conf.locale.en import formats as en_formats  # type: ignore
 
 import archivebox
-from archivebox.config.common import get_config
 from archivebox.config.constants import CONSTANTS
+from archivebox.config.django import CONFIG
 from archivebox.core.routes_util import get_admin_base_url, get_api_base_url, get_base_url, normalize_base_url
 
 # DATABASE_ENGINE config selects the backend (sqlite by default); the
@@ -25,7 +25,6 @@ IS_MIGRATING = "makemigrations" in sys.argv[:3] or "migrate" in sys.argv[:3]
 IS_TESTING = "test" in sys.argv[:3]
 IS_SHELL = "shell" in sys.argv[:3] or "shell_plus" in sys.argv[:3]
 IS_GETTING_VERSION_OR_HELP = "version" in sys.argv or "help" in sys.argv or "--version" in sys.argv or "--help" in sys.argv
-CONFIG = get_config()
 PACKAGE_DIR = CONSTANTS.PACKAGE_DIR
 logger = logging.getLogger(__name__)
 
@@ -321,7 +320,7 @@ SQLITE_CONNECTION_OPTIONS = {
     },
 }
 
-if is_postgres():
+if is_postgres(CONFIG):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -454,8 +453,8 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 # When BASE_URL is an https:// URL the deployment is HTTPS end-to-end, typically
-# behind a TLS-terminating proxy/tunnel (the bundled traefik/cloudflared profiles,
-# or your own caddy/traefik/nginx) where the proxy -> archivebox hop is plain HTTP, so
+# behind a TLS-terminating proxy/tunnel (such as Cloudflare, Caddy, Traefik, or nginx)
+# where the proxy -> archivebox hop is plain HTTP, so
 # request.is_secure() / request.scheme would otherwise report http. Honour the
 # proxy's X-Forwarded-Proto so first-run URL detection and CSRF origin checks are
 # correct. Mark auth cookies Secure once the saved BASE_URL confirms HTTPS.

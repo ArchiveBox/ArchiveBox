@@ -191,7 +191,6 @@ body:
         In the meantime please consider:  
           
           - 💰 [Donating to support ArchiveBox open-source](https://github.com/ArchiveBox/ArchiveBox/wiki/Donations)
-          - 👨‍✈️ [Hiring us for corporate deployments](https://docs.monadical.com/s/archivebox-consulting-services) with professional support, custom feature development, and help with CAPTCHAs/rate-limits
           - 🔍 [Searching the Documentation](https://docs.archivebox.io/) for answers to common questions
           - 📚 Reading the [Troubleshooting Guide](https://github.com/ArchiveBox/ArchiveBox/wiki)
           - ✨ Testing out a newer [`BETA` release](https://github.com/ArchiveBox/ArchiveBox/releases) (issues are often already fixed in our latest `BETA` releases)

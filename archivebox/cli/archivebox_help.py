@@ -5,6 +5,8 @@ __command__ = "archivebox help"
 import ast
 import importlib.util
 import os
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -40,11 +42,14 @@ def help() -> None:
 
     from archivebox.cli import ArchiveBoxGroup
     from archivebox.config import CONSTANTS
-    from archivebox.config.common import get_config
     from archivebox.config.permissions import IN_DOCKER
-    from archivebox.misc.logging_util import log_cli_command
 
-    log_cli_command("help", [], None, ".")
+    version_msg = (
+        f"[dark_magenta]\\[{datetime.now(UTC):%Y-%m-%d %H:%M:%S}][/dark_magenta] "
+        f"[dark_red]ArchiveBox[/dark_red] [dark_goldenrod]v{CONSTANTS.VERSION}[/dark_goldenrod]: "
+        "[green4]archivebox [green3]help"
+    )
+    print(Panel(version_msg), file=sys.stderr)
 
     COMMANDS_HELP_TEXT = (
         "\n    ".join(f"[green]{cmd.ljust(20)}[/green] {_command_doc(cmd, path)}" for cmd, path in ArchiveBoxGroup.meta_commands.items())
@@ -89,7 +94,6 @@ def help() -> None:
     [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration]https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration[/link]
 """)
 
-    get_config()
     if os.access(CONSTANTS.ARCHIVE_DIR, os.R_OK) and CONSTANTS.ARCHIVE_DIR.is_dir():
         pretty_out_dir = str(CONSTANTS.DATA_DIR).replace(str(Path("~").expanduser()), "~")
         EXAMPLE_USAGE = f"""

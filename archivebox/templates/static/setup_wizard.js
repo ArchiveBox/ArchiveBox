@@ -129,7 +129,7 @@
     var webOrigin = originFor('web');
     var apiOrigin = originFor('api');
     var snapshotOrigin = usesSubdomains ? parsed.protocol + '//snap-456789abcdef.' + baseHost : webOrigin + '/snapshot/0123456789abcdef0123456789abcdef';
-    var originalOrigin = usesSubdomains ? parsed.protocol + '//reddit.com.' + baseHost : webOrigin + '/original/reddit.com';
+    var originalOrigin = webOrigin + '/original/reddit.com';
     var permission = permissionsInput.value;
     var httpsReady = selectedTlsMode === 'wildcard' || selectedTlsMode === 'single' || selectedTlsMode === 'localhost';
     var effectiveMode = document.getElementById('archivebox-setup-effective-mode');
@@ -217,7 +217,7 @@
       indexUrl: webOrigin + '/public/',
       webHealthUrl: webOrigin + '/health/',
       snapshotHealthUrl: (usesSubdomains ? snapshotOrigin : webOrigin) + '/health/',
-      originalHealthUrl: (usesSubdomains ? originalOrigin : webOrigin) + '/health/',
+      originalHealthUrl: webOrigin + '/health/',
       expectedBrowserOrigin: usesSubdomains ? adminOrigin : parsed.origin,
     };
     updateOptionGuidance();
@@ -229,7 +229,7 @@
     var dnsMode = selectedValue(dnsInputs);
     var tlsMode = selectedValue(tlsInputs);
     var desiredScheme = tlsMode === 'wildcard' || tlsMode === 'single' ? 'https://' : 'http://';
-    var exampleBaseHost = 'archivebox.example.com';
+    var exampleBaseHost = currentPreview ? currentPreview.parsed.hostname : 'archivebox.example.com';
     var exampleWildcardHost = '*.' + exampleBaseHost;
     var exampleBaseUrl = desiredScheme + exampleBaseHost;
     var exampleWildcardUrl = desiredScheme + exampleWildcardHost;
@@ -253,30 +253,32 @@
     document.getElementById('archivebox-setup-tls-status').textContent = tlsMode === 'localhost'
       ? '❌ Visit ' + localhostAdminUrl + ' from this machine to continue setup. No certificate is needed.'
       : (tlsMode === 'wildcard'
-        ? '❌ Configure your SSL ingress service in front of this ArchiveBox server with a browser-trusted certificate covering ' + exampleBaseHost + ' and ' + exampleWildcardHost + '. Visit ' + exampleAdminUrl + ' to continue setup.'
+        ? '❌ In your ingress provider, proxy to ArchiveBox on port 8000 and configure one browser-trusted certificate covering ' + exampleBaseHost + ' and ' + exampleWildcardHost + ', normally through DNS-01. Never enable on-demand TLS or request individual snapshot certificates. Visit ' + exampleAdminUrl + ' to continue setup.'
         : (tlsMode === 'single'
-          ? '❌ Configure your SSL ingress service in front of this ArchiveBox server with a browser-trusted certificate for ' + exampleBaseHost + '. Visit ' + exampleAdminUrl + ' to continue setup.'
+          ? '❌ In your ingress provider, proxy to ArchiveBox on port 8000 and configure one browser-trusted certificate for ' + exampleBaseHost + '. Visit ' + exampleAdminUrl + ' to continue setup.'
           : (tlsMode === 'none'
             ? '❌ Expose this ArchiveBox server directly over HTTP without a separate ingress or SSL termination service. Visit ' + exampleAdminUrl + ' to continue setup. In-browser WARC viewing will remain disabled unless browsing through localhost or HTTPS.'
             : '❌ Choose an ingress and TLS mode. Your choice will not be changed automatically.')));
     document.getElementById('archivebox-setup-wildcard-help').hidden = dnsMode === 'localhost';
   }
 
-  function probeUrl(url, generation) {
+  function probeUrl(url, generation, requireArchiveBoxHealth) {
     var controller = new AbortController();
     var timeout = window.setTimeout(function() { controller.abort(); }, 5000);
     var target = new URL(url);
     target.searchParams.set('archivebox_setup_probe', String(generation));
     return fetch(target.toString(), {
       method: 'GET',
-      mode: 'no-cors',
+      mode: requireArchiveBoxHealth ? 'cors' : 'no-cors',
       credentials: 'omit',
       cache: 'no-store',
       redirect: 'follow',
       signal: controller.signal,
-    }).then(function() {
+    }).then(function(response) {
       window.clearTimeout(timeout);
-      return true;
+      return requireArchiveBoxHealth
+        ? response.ok && response.headers.get('X-ArchiveBox-Health') === 'OK'
+        : true;
     }).catch(function() {
       window.clearTimeout(timeout);
       return false;
@@ -318,6 +320,10 @@
     }
     if (tlsMode === 'single' && dnsMode !== 'single') {
       setInvalidSetup('Single-domain HTTPS is only allowed with Single-domain DNS. Choose Single-domain DNS or use a TLS option that covers the selected DNS mode.');
+      return;
+    }
+    if (hosting === 'public' && tlsMode === 'none') {
+      setInvalidSetup('Public servers require HTTPS. Configure a single-domain or wildcard certificate in your ingress provider, then visit the HTTPS admin URL to continue.');
       return;
     }
     if (preview.isLocalhost && hosting !== 'localhost') {
@@ -374,9 +380,9 @@
       admin: probeUrl(preview.adminUrl, generation),
       api: probeUrl(preview.apiUrl, generation),
       index: probeUrl(preview.indexUrl, generation),
-      web: probeUrl(preview.webHealthUrl, generation),
-      snapshot: probeUrl(preview.snapshotHealthUrl, generation),
-      original: probeUrl(preview.originalHealthUrl, generation),
+      web: probeUrl(preview.webHealthUrl, generation, true),
+      snapshot: probeUrl(preview.snapshotHealthUrl, generation, true),
+      original: probeUrl(preview.originalHealthUrl, generation, true),
     };
     Promise.all(Object.keys(checks).map(function(key) { return checks[key].then(function(ok) { return [key, ok]; }); })).then(function(entries) {
       if (generation !== probeGeneration || preview !== currentPreview) return;

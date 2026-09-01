@@ -1,6 +1,5 @@
 import pytest
 
-
 # =============================================================================
 # End-to-end integration tests
 # =============================================================================
@@ -25,11 +24,21 @@ def test_signup_page_returns_200(client, settings, monkeypatch):
 
 
 @pytest.mark.django_db
-def test_admin_login_redirects_to_allauth(client):
+def test_admin_login_redirects_to_allauth(client, django_user_model):
+    django_user_model.objects.create_superuser(username="admin", email="admin@example.com", password="testpassword123")
     response = client.get("/admin/login/")
     assert response.status_code == 200
     content = response.content.decode()
     assert "/accounts/login/" in content
+
+
+@pytest.mark.django_db
+def test_admin_login_preserves_first_admin_setup(client):
+    response = client.get("/admin/login/")
+    assert response.status_code == 200
+    content = response.content.decode()
+    assert 'id="first-admin-form"' in content
+    assert "Create admin and continue" in content
 
 
 @pytest.mark.django_db
@@ -100,8 +109,9 @@ def test_account_adapter_closed_when_registration_disabled(monkeypatch):
     import archivebox.auth.adapters as m
 
     monkeypatch.setattr(m, "_get_registration_enabled", lambda: False)
-    from archivebox.auth.adapters import ArchiveBoxAccountAdapter
     from django.test import RequestFactory
+
+    from archivebox.auth.adapters import ArchiveBoxAccountAdapter
 
     adapter = ArchiveBoxAccountAdapter()
     request = RequestFactory().get("/accounts/signup/")
@@ -114,8 +124,9 @@ def test_account_adapter_open_by_default(monkeypatch):
 
     monkeypatch.setattr(m, "_get_registration_enabled", lambda: True)
     monkeypatch.setattr(m, "_get_registration_mode", lambda: "open")
-    from archivebox.auth.adapters import ArchiveBoxAccountAdapter
     from django.test import RequestFactory
+
+    from archivebox.auth.adapters import ArchiveBoxAccountAdapter
 
     adapter = ArchiveBoxAccountAdapter()
     request = RequestFactory().get("/accounts/signup/")
@@ -125,8 +136,9 @@ def test_account_adapter_open_by_default(monkeypatch):
 @pytest.mark.django_db
 def test_signal_assigns_admin_permissions(monkeypatch):
     from django.contrib.auth import get_user_model
-    from archivebox.auth.signals import _apply_default_permissions
+
     import archivebox.auth.signals as s
+    from archivebox.auth.signals import _apply_default_permissions
 
     User = get_user_model()
     user = User.objects.create_user(username="testuser100", password="pass")
@@ -140,8 +152,9 @@ def test_signal_assigns_admin_permissions(monkeypatch):
 @pytest.mark.django_db
 def test_signal_none_permissions_adds_no_group(monkeypatch):
     from django.contrib.auth import get_user_model
-    from archivebox.auth.signals import _apply_default_permissions
+
     import archivebox.auth.signals as s
+    from archivebox.auth.signals import _apply_default_permissions
 
     User = get_user_model()
     user = User.objects.create_user(username="testuser101", password="pass")

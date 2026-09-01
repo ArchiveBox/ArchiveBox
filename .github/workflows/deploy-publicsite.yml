@@ -50,6 +50,22 @@ jobs:
         env:
           BASE_URL: http://archivebox.localhost:8000
 
+      - name: Verify gallery was generated from this exact revision
+        run: |
+          uv run --no-cache --no-sync python - <<'PY'
+          import json
+          import os
+          import tomllib
+          from pathlib import Path
+
+          provenance = json.loads(Path("publicsite/screenshots/build.json").read_text())
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          assert provenance["revision"] == os.environ["GITHUB_SHA"], provenance
+          assert provenance["version"] == version, provenance
+          assert provenance["capture_count"] >= 3 * 35, provenance
+          assert len(provenance["files"]) == provenance["capture_count"], provenance
+          PY
+
       - name: Setup Pages
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
 

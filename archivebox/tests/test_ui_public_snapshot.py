@@ -181,6 +181,7 @@ def _create_public_snapshot_with_cli(data_dir, url: str) -> str:
         timeout=60,
     )
     assert result.returncode == 0, result.stderr or result.stdout
+
     records = [json.loads(line) for line in result.stdout.splitlines() if line.strip().startswith("{")]
     assert records, result.stdout
     snapshot_id = str(records[-1]["id"])
@@ -207,6 +208,58 @@ def _create_public_snapshot_with_cli(data_dir, url: str) -> str:
     return snapshot_id
 
 
+@override_settings(PUBLIC_INDEX=True)
+def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client, admin_user):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+
+    url = "https://multiple-public-snapshots.example/page"
+    first_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
+    second_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
+    first = Snapshot.objects.create(url=url, title="First copy", crawl=first_crawl, status=Snapshot.StatusChoices.SEALED)
+    second = Snapshot.objects.create(url=url, title="", crawl=second_crawl, status=Snapshot.StatusChoices.SEALED)
+    for plugin, output_size in (("screenshot", 1536), ("singlefile", 2560)):
+        ArchiveResult.objects.create(
+            snapshot=first,
+            plugin=plugin,
+            hook_name=f"on_Snapshot__50_{plugin}.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_size=output_size,
+        )
+    ArchiveResult.refresh_snapshot_output_sizes({first.id})
+    ArchiveResult.objects.create(
+        snapshot=second,
+        plugin="title",
+        hook_name="on_Snapshot__10_title.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="Resolved second copy",
+    )
+
+    with CaptureQueriesContext(connection) as captured_queries:
+        response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
+    assert len(captured_queries) <= 7
+
+    assert (
+        f"/snapshot/{second.id.hex}/index.html" in response.redirect_chain[0][0]
+        or f"snap-{second.id.hex[-12:]}" in response.redirect_chain[0][0]
+    )
+    assert response.status_code == 200
+    assert b"Resolved second copy" in response.content
+    assert b"Click to see other snapshots for this URL" in response.content
+    assert re.search(rb'snapshot-count-badge">\s*1\s*</span>', response.content)
+    chooser = re.search(
+        rb'<details class="snapshot-variants">.*?Click to see other snapshots for this URL.*?</details>',
+        response.content,
+        re.DOTALL,
+    )
+    assert chooser
+    assert b"4.0\xc2\xa0KB" in chooser.group()
+    assert b"\xf0\x9f\x93\x81 2" not in chooser.group()
+    assert b"\xf0\x9f\x93\x81 2" not in response.content
+
+
 def _login_admin_session_over_http(port: int, host: str) -> requests.Session:
     session = requests.Session()
     login_page = session.get(
@@ -215,6 +268,7 @@ def _login_admin_session_over_http(port: int, host: str) -> requests.Session:
         timeout=10,
     )
     assert login_page.status_code == 200, login_page.text[:500]
+    assert "docker compose exec archivebox archivebox manage createsuperuser" in login_page.text
     csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', login_page.text)
     assert csrf_match, login_page.text[:500]
     login_response = session.post(
@@ -250,6 +304,13 @@ def _assert_only_hint_cookie_set(response: requests.Response) -> None:
 
 class TestPublicIndex:
     """Tests for public index visibility and redirects."""
+
+    @override_settings(BASE_URL="", PUBLIC_INDEX=True)
+    def test_unconfigured_homepage_starts_admin_setup(self, client):
+        response = client.get("/", HTTP_HOST="archivebox.example.test", follow=False)
+
+        assert response.status_code == 302
+        assert response["Location"] == "/admin/login/?next=/"
 
     @pytest.mark.timeout(120)
     @pytest.mark.django_db(transaction=True)
@@ -312,6 +373,75 @@ class TestPublicIndex:
         assert b"Public Snapshot" in response.content
         assert b"Unlisted Snapshot" not in response.content
         assert b"Private Snapshot" not in response.content
+
+    @override_settings(PUBLIC_INDEX=True)
+    def test_public_index_only_loads_output_files_for_preview_plugins(self, client, admin_user):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.crawls.models import Crawl
+
+        crawl = Crawl.objects.create(urls="https://public-results.example", created_by=admin_user, config={"PERMISSIONS": "public"})
+        snapshot = Snapshot.objects.create(
+            url="https://public-results.example",
+            title="Public result loading",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+        )
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="readability",
+            hook_name="on_Snapshot__50_readability.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"content.html": {"size": 100_000}},
+            output_str="unused" * 10_000,
+        )
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="screenshot",
+            hook_name="on_Snapshot__50_screenshot.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"screenshot.png": {"size": 2048}},
+        )
+
+        with CaptureQueriesContext(connection) as captured_queries:
+            response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+
+        result_queries = [query["sql"].lower() for query in captured_queries if "core_archiveresult" in query["sql"].lower()]
+        assert len(result_queries) == 2
+        assert sum("output_files" in query for query in result_queries) == 1
+        assert all("output_str" not in query for query in result_queries)
+        assert response.status_code == 200
+        assert b"screenshot.png" in response.content
+
+    @override_settings(PUBLIC_INDEX=True)
+    def test_public_index_renders_title_html_entities_once(self, client, admin_user):
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        crawl = Crawl.objects.create(
+            urls="https://title-entities.example",
+            created_by=admin_user,
+            config={"PERMISSIONS": "public"},
+        )
+        snapshot = Snapshot.objects.create(
+            url="https://title-entities.example",
+            title="Nick Sweeting: Blog &amp; Projects - HedgeDoc",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.SEALED,
+        )
+
+        snapshot.refresh_from_db()
+        assert snapshot.title == "Nick Sweeting: Blog & Projects - HedgeDoc"
+
+        # Rows created before title normalization was fixed must render correctly
+        # without requiring a database rewrite.
+        Snapshot.objects.filter(pk=snapshot.pk).update(title="Nick Sweeting: Blog &amp; Projects - HedgeDoc")
+        response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+
+        assert response.status_code == 200
+        assert b"Nick Sweeting: Blog &amp; Projects - HedgeDoc" in response.content
+        assert b"Nick Sweeting: Blog &amp;amp; Projects - HedgeDoc" not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_snapshot_surfaces_escape_legacy_raw_title_and_tag_values(self, client, admin_user):
@@ -379,6 +509,23 @@ class TestPublicIndex:
         assert unlisted_response.status_code == 200
         assert private_response.status_code == 302
         assert "/admin/core/snapshot/replay-auth/" in private_response["Location"]
+
+    def test_requested_url_snapshot_path_does_not_expose_private_snapshot(self, client, admin_user):
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        private_url = "https://private-url-path.example/secret"
+        private_crawl = Crawl.objects.create(urls=private_url, created_by=admin_user, config={"PERMISSIONS": "private"})
+        private_snapshot = Snapshot.objects.create(url=private_url, crawl=private_crawl, status=Snapshot.StatusChoices.SEALED)
+        date = private_snapshot.bookmarked_at.strftime("%Y%m%d")
+
+        response = client.get(
+            f"/{admin_user.username}/{date}/{private_url}",
+            HTTP_HOST=WEB_TEST_HOST,
+        )
+
+        assert response.status_code == 404
+        assert str(private_snapshot.id) not in response.content.decode()
 
     @pytest.mark.timeout(180)
     @pytest.mark.django_db(transaction=True)

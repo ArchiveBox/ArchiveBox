@@ -2,25 +2,28 @@
 #     mkdir -p ~/archivebox/data && cd ~/archivebox
 #     curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 #     docker compose pull
-#     docker compose run archivebox init
-#     docker compose run archivebox install
-#     docker compose up -d && open 'http://admin.archivebox.localhost:8000'
+#     docker compose up -d --wait
+#     Open /admin/ on the hostname or IP used to reach ArchiveBox (local: http://admin.archivebox.localhost:8000/admin/).
 
-#     docker compose run archivebox add --depth=1 'https://news.ycombinator.com'
-#     docker compose run -T archivebox add < ~/Downloads/bookmarks.txt
-#     docker compose run archivebox help
+#     docker compose exec archivebox archivebox add --depth=1 'https://news.ycombinator.com'
+#     docker compose exec -T archivebox archivebox add < ~/Downloads/bookmarks.txt
+#     docker compose exec archivebox archivebox help
 # Documentation:
 #     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
 services:
     archivebox:
         image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}
+        restart: unless-stopped
         ports:
             - "${ARCHIVEBOX_PORT:-8000}:8000"
         volumes:
             - ./data:/data
             # Override abx-dl's nested VOLUME so profiles persist across containers.
             - ./data/personas:/data/personas
+            # Let one-off `docker compose run` commands reuse the server's supervisor.
+            - tmp:/tmp/archivebox
+        pids_limit: 2048                       # avoids low systemd task caps with Chrome and parallel extractors
         environment:
             # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
@@ -43,14 +46,14 @@ services:
 
     ### `archivebox server` now runs the orchestrator itself, so scheduled crawls and queued UI/API jobs
     # are processed by the main container without needing a separate scheduler sidecar. To add a new job:
-    #   $ docker compose run archivebox schedule --add --every=day --depth=1 'https://example.com/some/rss/feed.xml'
+    #   $ docker compose run --rm archivebox schedule --add --every=day --depth=1 'https://example.com/some/rss/feed.xml'
     # the running server orchestrator will pick it up automatically at the next due time.
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving
 
 
     ### ArchiveBox now starts and uses Sonic automatically when SEARCH_BACKEND_ENGINE=sonic.
     # If Sonic is ever started after not running for a while, update its full-text index by running:
-    #   $ docker compose run archivebox update --index-only
+    #   $ docker compose run --rm archivebox update --index-only
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search
 
 
@@ -72,163 +75,6 @@ services:
     #         # restricted to access from localhost by default because it has no authentication
     #         - 127.0.0.1:8080:8080
 
-
-    ### TLS / HTTPS ingress (opt-in, everything below is driven by env vars only).
-    #
-    # ArchiveBox serves the admin/web/api control plane AND every archived
-    # snapshot on its own subdomain for security isolation, so a public deployment
-    # needs wildcard DNS + TLS for *.your.domain. Pick ONE of the two ingress options
-    # below by activating its profile (e.g. put COMPOSE_PROFILES=https or =tunnel in a
-    # .env file next to this one, then `docker compose up -d`). Both want:
-    #     BASE_URL=https://archive.example.com
-    #     SERVER_SECURITY_MODE=safe-subdomains-fullreplay
-    #     ARCHIVEBOX_PORT=127.0.0.1:8000   # keep direct HTTP local; expose only the ingress publicly
-
-    ### Option A — Cloudflare Tunnel (no public IP / behind NAT, e.g. home/NAS).
-    # Cloudflare's edge terminates TLS and resolves *.your.domain to a SINGLE tunnel;
-    # every snapshot/control subdomain rides one connection to archivebox:8000, which
-    # routes by Host header — so the tunnel itself needs no wildcard cert or per-host
-    # config. ZERO manual setup: the one-shot tunnel-init below uses your
-    # CLOUDFLARE_API_KEY (give it Account:Cloudflare Tunnel:Edit + Zone:DNS:Edit
-    # + Zone:Read) to create/reuse the tunnel, point *.your.domain and your.domain at
-    # it, and write its connector token — then cloudflared just runs it.
-    tunnel-init:
-        image: python:3-alpine   # tiny stdlib-only provisioner; runs as root so it can chown the token
-        profiles: ["tunnel"]
-        restart: "no"
-        environment:
-            - BASE_URL=${BASE_URL:-https://archive.example.com}
-            - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY:-}   # a Cloudflare API *Token* (used as a Bearer token), NOT the legacy global API key
-            - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}   # optional; first account used if unset
-            - TUNNEL_SERVICE=http://archivebox:8000
-            - TUNNEL_TOKEN_OUT=/shared/token
-        volumes:
-            - ./data/proxy/tunnel:/shared
-        entrypoint:
-            - python3
-            - -c
-            - |
-              import os, json, base64, secrets, urllib.request, urllib.error
-              API = "https://api.cloudflare.com/client/v4"
-              TOKEN = os.environ["CLOUDFLARE_API_KEY"]
-              DOMAIN = os.environ.get("BASE_URL", "").split("://")[-1].split("/")[0].split(":")[0]
-              SERVICE = os.environ.get("TUNNEL_SERVICE", "http://archivebox:8000")
-              OUT = os.environ.get("TUNNEL_TOKEN_OUT", "/shared/token")
-              H = {"Authorization": "Bearer " + TOKEN, "Content-Type": "application/json"}
-              def call(method, path, data=None):
-                  body = json.dumps(data).encode() if data is not None else None
-                  req = urllib.request.Request(API + path, data=body, headers=H, method=method)
-                  try:
-                      with urllib.request.urlopen(req, timeout=30) as r: return json.load(r)
-                  except urllib.error.HTTPError as e: return json.load(e)
-              assert DOMAIN and TOKEN, "set BASE_URL (https://archive.example.com) + CLOUDFLARE_API_KEY"
-              acct = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "").strip() or call("GET", "/accounts")["result"][0]["id"]
-              labels = DOMAIN.split("."); zone = None   # DOMAIN may be a subdomain; find its registrable zone
-              for i in range(len(labels) - 1):
-                  res = call("GET", f"/zones?name={'.'.join(labels[i:])}")["result"]
-                  if res: zone = res[0]["id"]; break
-              assert zone, f"no Cloudflare zone found for {DOMAIN}"
-              NAME = "archivebox-" + DOMAIN.replace(".", "-")
-              ts = call("GET", f"/accounts/{acct}/cfd_tunnel?name={NAME}&is_deleted=false")["result"]
-              tid = ts[0]["id"] if ts else call("POST", f"/accounts/{acct}/cfd_tunnel", {"name": NAME,
-                      "tunnel_secret": base64.b64encode(secrets.token_bytes(32)).decode(), "config_src": "cloudflare"})["result"]["id"]
-              target = f"{tid}.cfargotunnel.com"
-              call("PUT", f"/accounts/{acct}/cfd_tunnel/{tid}/configurations", {"config": {"ingress": [
-                  {"hostname": f"*.{DOMAIN}", "service": SERVICE}, {"hostname": DOMAIN, "service": SERVICE},
-                  {"service": "http_status:404"}]}})
-              for name in (DOMAIN, f"*.{DOMAIN}"):
-                  recs = call("GET", f"/zones/{zone}/dns_records?name={name}")["result"]
-                  cname = [r for r in recs if r["type"] == "CNAME"]
-                  for r in [r for r in recs if r["type"] in ("A", "AAAA")] + cname[1:]:
-                      call("DELETE", f"/zones/{zone}/dns_records/{r['id']}")
-                  desired = {"type": "CNAME", "name": name, "content": target, "proxied": True, "ttl": 1}
-                  call("PUT", f"/zones/{zone}/dns_records/{cname[0]['id']}", desired) if cname else call("POST", f"/zones/{zone}/dns_records", desired)
-              tok = call("GET", f"/accounts/{acct}/cfd_tunnel/{tid}/token")["result"]
-              os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
-              with open(OUT, "w") as f: f.write(tok)
-              os.chmod(OUT, 0o600)  # private: never world-readable on the host bind-mount
-              try: os.chown(OUT, 65532, 65532)  # best-effort: own it by the cloudflared (uid 65532) connector that reads it
-              except OSError as e: print(f"[tunnel-init] warning: could not chown {OUT} to uid 65532 ({e}); ensure the cloudflared container can read it")
-              print(f"[tunnel-init] {NAME} ({tid}): *.{DOMAIN} + {DOMAIN} -> {SERVICE}; connector token -> {OUT}")
-
-    cloudflared:
-        image: cloudflare/cloudflared
-        profiles: ["tunnel"]
-        restart: unless-stopped
-        depends_on:
-            archivebox:
-                condition: service_started
-            tunnel-init:
-                condition: service_completed_successfully
-        command: tunnel --no-autoupdate --protocol http2 run --token-file /shared/token
-        volumes:
-            - ./data/proxy/tunnel:/shared:ro
-
-    ### Option B — Traefik reverse proxy + automatic wildcard TLS (you have a public IP).
-    # ONE container terminates TLS for the apex + every snapshot subdomain and proxies
-    # to archivebox:8000. Traefik is also an ACME client (it embeds go-acme/lego), so it
-    # fetches a single *.your.domain WILDCARD cert via DNS-01 and auto-renews it — no
-    # separate cert sidecar. All config is generated inline; no extra files.
-    #
-    # WILDCARD DNS — you must do this ONE manual step first (no proxy can do it for you):
-    #   point a wildcard record at this server's public IP, e.g. at your DNS host add
-    #       A   *.archive.example.com   ->  <this server's public IP>
-    #       A   archive.example.com     ->  <this server's public IP>
-    #   (AAAA too if you have IPv6). That's what makes snap-*.archive.example.com reach
-    #   this box. Traefik then only needs the DNS *API* to solve the ACME DNS-01 challenge:
-    #
-    #   set ARCHIVEBOX_ACME_DNS to your provider and put its credentials in a .env next to
-    #   this file (passed straight through to Traefik/lego) — any of ~100 providers:
-    #     cloudflare   -> ARCHIVEBOX_ACME_DNS=cloudflare   + CLOUDFLARE_DNS_API_TOKEN=...
-    #     route53      -> ARCHIVEBOX_ACME_DNS=route53      + AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY/AWS_REGION
-    #     digitalocean -> ARCHIVEBOX_ACME_DNS=digitalocean + DO_AUTH_TOKEN
-    #     ... full list + exact var names: https://doc.traefik.io/traefik/https/acme/#providers
-    #   Leave ARCHIVEBOX_ACME_DNS unset to skip ACME — Traefik then serves its built-in
-    #   self-signed cert (browser warning), handy for local/testing.
-    traefik:
-        image: traefik:v3
-        profiles: ["https"]
-        restart: unless-stopped
-        depends_on: [archivebox]
-        ports:
-            - "80:80"
-            - "443:443"
-        environment:
-            - BASE_URL=${BASE_URL:-https://archive.example.com}
-            - ARCHIVEBOX_ACME_EMAIL=${ARCHIVEBOX_ACME_EMAIL:-admin@example.com}
-            - ARCHIVEBOX_ACME_DNS=${ARCHIVEBOX_ACME_DNS:-}
-        env_file:
-            - path: .env       # passes your DNS provider's creds (CLOUDFLARE_DNS_API_TOKEN, AWS_*, DO_AUTH_TOKEN, ...) to Traefik
-              required: false
-        volumes:
-            - ./data/proxy/traefik:/certs   # Traefik stores acme.json (the wildcard cert) here
-        entrypoint:
-            - sh
-            - -c
-            - |
-              set -eu
-              DOMAIN=$$(printf '%s' "$$BASE_URL" | sed -E 's#^[a-z]+://##; s#[:/].*##')
-              # catch-all router -> archivebox (Host-routed); domain-free, so no docker socket needed
-              mkdir -p /etc/traefik
-              printf 'http:\n  routers:\n    archivebox:\n      rule: "HostRegexp(`^.+$$`)"\n      service: archivebox\n  services:\n    archivebox:\n      loadBalancer:\n        servers:\n          - url: "http://archivebox:8000"\n' > /etc/traefik/dynamic.yml
-              set -- --entrypoints.web.address=:80 --entrypoints.websecure.address=:443 \
-                --entrypoints.web.http.redirections.entrypoint.to=websecure \
-                --entrypoints.web.http.redirections.entrypoint.scheme=https \
-                --entrypoints.websecure.http.tls=true \
-                --providers.file.filename=/etc/traefik/dynamic.yml
-              if [ -n "$${ARCHIVEBOX_ACME_DNS:-}" ]; then
-                echo "[traefik] wildcard cert for *.$$DOMAIN via $$ARCHIVEBOX_ACME_DNS DNS-01"
-                set -- "$$@" --entrypoints.websecure.http.tls.certresolver=le \
-                  --entrypoints.websecure.http.tls.domains[0].main="$$DOMAIN" \
-                  --entrypoints.websecure.http.tls.domains[0].sans="*.$$DOMAIN" \
-                  --certificatesresolvers.le.acme.email="$$ARCHIVEBOX_ACME_EMAIL" \
-                  --certificatesresolvers.le.acme.storage=/certs/acme.json \
-                  --certificatesresolvers.le.acme.dnschallenge=true \
-                  --certificatesresolvers.le.acme.dnschallenge.provider="$$ARCHIVEBOX_ACME_DNS"
-              else
-                echo "[traefik] no ARCHIVEBOX_ACME_DNS set -> serving Traefik's default self-signed cert (set a DNS provider for real wildcard TLS)"
-              fi
-              exec traefik "$$@"
 
     ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel to avoid IP blocks.
     # You can also use any other VPN that works at the docker/IP level, e.g. Tailscale, OpenVPN, etc.
@@ -277,3 +123,6 @@ services:
 #             allow_other: 'true'
 #             vfs_cache_mode: full
 #             poll_interval: 0
+
+volumes:
+    tmp:

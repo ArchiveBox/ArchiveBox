@@ -9,7 +9,7 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
  - *[Supported Systems](#supported-systems)*
  - Install Instructions
    - **[Option A. Docker / Docker Compose ⭐️](#option-a-docker--docker-compose-setup-%EF%B8%8F)**
-   - [Option B. Automatic Setup Script](#option-b-automatic-setup-script)
+   - [Option B. uv Install Shortcut](#option-b-uv-install-shortcut)
    - [Option C. System Package Manager Setup](#option-c-bare-metal-setup)
      - *[Upgrading ArchiveBox to a new version](#upgrading-archivebox-to-a-new-version)*
  - *[Next Steps](#next-steps)*
@@ -17,7 +17,6 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 
 ## Supported Systems
 
-<img src="https://cdn0.iconfinder.com/data/icons/flat-round-system/512/freebsd-512.png" width="5%" align="right"/>
 <img src="https://assets.ubuntu.com/v1/c5cb0f8e-picto-ubuntu.svg" width="5%" align="right"/>
 <img src="https://imgur.zervice.io/Ue9BI7n.png" width="5%" align="right"/>
 
@@ -26,17 +25,11 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 
 **Memory:** 1GB RAM minimum; 2GB+ is recommended. On a 1GB VPS, configure at least 4GB of swap before running full default crawls.
 
-* [**macOS:**](#macos) >=13 (with `uv` or Homebrew)
-* [**Linux:**](#ubuntudebian) Ubuntu (>= 18.04), Debian (>= 10), etc. (with `apt`)
-* [**BSD:**](#bsd) FreeBSD, OpenBSD, NetBSD etc (with `pkg`)
+* [**macOS:**](#macos) >=13 on Intel or Apple Silicon (with `uv` or Homebrew)
+* [**Ubuntu:**](#ubuntudebian-based-systems) on `amd64` or `arm64` (with `apt`, `uv`, or Homebrew)
+* **Docker:** on `amd64` or `arm64` Linux/macOS
 
-Other systems are not officially supported but may work with degraded functionality:
-
-<img src="https://imgur.zervice.io/WYSb96z.png" width="6%" align="right"/>
-<img src="http://files.softicons.com/download/system-icons/web0.2ama-icons-by-chrfb/png/256x256/Operating%20System%20-%20Windows.png" width="5%" align="right"/>
-
- * **Windows:** Via [[Docker]], Docker in WSL2, or WSL2 without Docker (not recommended)
- * [Other UNIX systems:](https://github.com/ArchiveBox/ArchiveBox#-package-manager-setup) Arch, Nix, Guix, Fedora, SUSE, Arch, CentOS, etc.
+Other operating systems are not tested or supported for this release.
 
 <br/>
 
@@ -54,7 +47,7 @@ It's also recommended to use a filesystem with compression and/or [deduplication
 
 *Docker Compose is the recommended way to get ArchiveBox, as it includes all the extras out-of-the-box and provides the best security and upgrade UX.*
 
-1. If you don't already have docker installed, follow the official instructions to get Docker on Linux, macOS, or Windows:  
+1. If you don't already have Docker installed, follow the official instructions for Linux or macOS:
   https://docs.docker.com/install/#supported-platforms ➡️
 
 2. Then follow the [Quickstart](https://github.com/ArchiveBox/ArchiveBox#quickstart) guide and read the [[Docker]] wiki page for next steps. ➡️
@@ -73,9 +66,9 @@ It's also recommended to use a filesystem with compression and/or [deduplication
 <br/>
 
 
-## Option B. Automatic Setup Script
+## Option B. uv Install Shortcut
 
-If you're on macOS, Linux with `apt`, or FreeBSD with `pkg`, there is an optional auto-setup script provided.
+On macOS, Linux, or BSD, `get.archivebox.io` is a shortcut for the `uv` install method.
 
 *(or scroll further down for manual install instructions)*
 
@@ -83,7 +76,7 @@ If you're on macOS, Linux with `apt`, or FreeBSD with `pkg`, there is an optiona
 curl -fsSL 'https://get.archivebox.io' | bash
 # shortcut to run https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh
 ``` 
-The script uses Docker automatically when a working Docker Compose installation is available. Otherwise it shows the native `uv` install plan and pauses so you can cancel before continuing. It initializes the collection, installs ArchiveBox's runtime dependencies, and starts the server; create the first admin afterward with the command printed at the end.
+The script installs `uv` when needed, then runs the same `uv tool install` command documented below. It does not initialize a collection, install runtime dependencies, or start a server; continue with the Quickstart after it finishes.
 
 <img src="https://imgur.zervice.io/VMTzm0G.png" width="99%"/>
 
@@ -99,7 +92,7 @@ After running the setup script, continue with the [Quickstart](https://github.co
 
 ## Option C. Bare Metal Setup
 
-If you'd rather not use [Docker](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup) or our [auto-install script](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup), you can follow these manual setup instructions to install ArchiveBox and its dependencies using `uv` & your system package manager of choice (e.g. `apt`, `brew`, `pkg`, `nix`, etc.).
+If you'd rather not use [Docker](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup) or our [`uv` install shortcut](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup), you can follow these manual setup instructions to install ArchiveBox and its dependencies using `uv`, `apt`, or Homebrew.
 
 See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) documentation to see the full list of dependencies and how they're used. Not all the dependencies are required for all modes. If you disable some archive methods you can skip installing those dependencies — for example, if you set [`MEDIA_ENABLED=False`](https://archivebox.github.io/abx-plugins/#media) you don't need to install `yt-dlp`, and if you set [`PDF_ENABLED=False`](https://archivebox.github.io/abx-plugins/#pdf), [`SCREENSHOT_ENABLED=False`](https://archivebox.github.io/abx-plugins/#screenshot), and [`DOM_ENABLED=False`](https://archivebox.github.io/abx-plugins/#dom) you don't need `chromium`.
 
@@ -124,8 +117,17 @@ ArchiveBox itself is the only tool you need to bootstrap manually. After that, `
 Make sure you have [Homebrew](https://brew.sh/) installed first.
 
 ```bash
+# install ArchiveBox directly with Homebrew
+brew tap archivebox/archivebox
+brew trust archivebox/archivebox
+brew install archivebox
+```
+
+Or use Homebrew to install `uv`, then install ArchiveBox with `uv`:
+
+```bash
 brew install uv
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 ```
 
 <img src="https://assets.ubuntu.com/v1/c5cb0f8e-picto-ubuntu.svg" width="30px" align="right"/>
@@ -142,53 +144,41 @@ sudo apt install archivebox
 mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
-archivebox install
+sudo archivebox install
 archivebox add 'https://example.com'
 ```
 
 The apt package is a thin dev-channel wrapper around the normal Python install
 flow. Runtime extractor
 dependencies such as Chromium, yt-dlp, SingleFile, and other plugin-managed
-tools are installed by `archivebox install`; use `sudo archivebox install` only
-if you want it to install missing system packages via apt.
+tools are installed by `sudo archivebox install`, which uses apt for missing
+system dependencies while preserving ownership of the user-owned collection.
 
-<img src="https://cdn0.iconfinder.com/data/icons/flat-round-system/512/freebsd-512.png" width="30px" align="right"/>
-
-
-#### FreeBSD
+Alternatively, install with `uv`:
 
 ```bash
-sudo pkg install curl
 curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
-archivebox install
+source "$HOME/.local/bin/env"
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 ```
 
-#### OpenBSD
+Or install with [Homebrew on Linux](https://docs.brew.sh/Homebrew-on-Linux). Run Homebrew as your normal non-root user; Homebrew does not support `sudo brew` or root installs.
 
 ```bash
-doas pkg_add uv
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
-archivebox install
+brew tap archivebox/archivebox
+brew trust archivebox/archivebox
+brew install archivebox
 ```
-
-#### Arch Linux / Nix / Guix / etc. Other OSs
-
-See the [Quickstart](https://github.com/ArchiveBox/ArchiveBox#-package-manager-setup) instructions for other operating systems and release channels. ➡️
-
-<br/>
-
 
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/65315723-adae-42e4-b8c6-e44b79165ae5" width="55px" align="right"/>
 
 ### 2. Install ArchiveBox using `uv`
 
-If you are not using the apt package above, install ArchiveBox with `uv`.
+If you are not using the apt or Homebrew packages above, install ArchiveBox with `uv`.
 
 ```bash
 # get the dev version of ArchiveBox
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 
 # if the optional ldap extra must compile locally on Debian/Ubuntu, install its headers and retry
 # sudo apt install build-essential libldap2-dev libsasl2-dev
@@ -221,7 +211,7 @@ archivebox help
 
 ### Troubleshooting
 
-Make sure the `uv`-installed version of `archivebox` is available in your `$PATH`.
+For `uv` installs, make sure the `uv`-installed version of `archivebox` is available in your `$PATH`.
 ```bash
 uv tool list             # show info about uv-installed tools
 
@@ -262,7 +252,7 @@ archivebox status
 ```bash
 # OR start the webserver and view them in the Web UI
 archivebox server 0.0.0.0:8000
-# Visit http://web.archivebox.localhost:8000 in a browser
+# Visit http://admin.archivebox.localhost:8000/admin/ in a browser to finish setup
 ```
 See our [[Usage]] Wiki documentation page for more examples.
 
@@ -270,11 +260,17 @@ See our [[Usage]] Wiki documentation page for more examples.
 
 ### Next Steps: *Upgrading Archivebox to a new version*
 
-Upgrade ArchiveBox itself first; `archivebox install` will then re-resolve compatible host binaries and update any managed runtime dependencies.
+Stop any running ArchiveBox processes and back up the entire collection first. Upgrade ArchiveBox with the same package manager you originally used; `archivebox install` will then re-resolve compatible host binaries and update any managed runtime dependencies.
 
 ```bash
+# back up the full collection before upgrading
+cd ~/archivebox
+tar -czf "archivebox-data-$(date +%s).tar.gz" data/
+
 # get the dev version of ArchiveBox
-uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
+# or: sudo apt update && sudo apt install --only-upgrade archivebox
+# or: brew update && brew upgrade archivebox
 
 # run init inside any data directories to migrate the index to the latest version
 cd ~/archivebox/data

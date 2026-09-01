@@ -155,13 +155,13 @@ Each action dict may set:
 </style>
 {% endblock %}
 
-{# Render the toolbar in object-tools (OUTSIDE the main <form>). It must not be
-   inside the form: the toolbar contains its own <form> elements (the Re-Archive
+{# Render the toolbar before block.super (OUTSIDE the main <form>). It must not
+   be inside the form: the toolbar contains its own <form> elements (Re-Archive
    dropdown, django-object-actions, crawl pause/resume) and nested forms are
    invalid HTML — the browser closes the outer form early and ejects the
    fieldsets, breaking the card layout and every field widget. The Save button
    re-associates with the main form via the HTML form="…" attribute. #}
-{% block object-tools %}
+{% block content %}
 {% if not is_popup %}
 <div class="archivebox-toolbar" role="toolbar" aria-label="Actions">
   {% if original and has_change_permission %}
@@ -254,6 +254,7 @@ Each action dict may set:
   {% endif %}
 </div>
 {% endif %}
+{{ block.super }}
 {% endblock %}
 
 {% block submit_buttons_top %}{% endblock %}

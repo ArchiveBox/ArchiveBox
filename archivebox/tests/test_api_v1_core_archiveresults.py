@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
@@ -11,6 +12,40 @@ from archivebox.tests.conftest import api_client_request
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_archiveresult_upload_upserts_one_snapshot_plugin_result(client, api_admin_user, api_headers):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/unified-result", crawl=crawl)
+
+    def upload(hook_name, filename, contents):
+        return client.post(
+            "/api/v1/core/archiveresults",
+            {
+                "snapshot_id": str(snapshot.id),
+                "plugin": "screenshot",
+                "hook_name": hook_name,
+                "files": SimpleUploadedFile(filename, contents, content_type="image/png"),
+                "output_paths": filename,
+            },
+            **api_headers,
+        )
+
+    extension_response = upload("on_Snapshot__archivebox_browser_extension_upload", "browser.png", b"browser")
+    server_response = upload("on_Snapshot__50_screenshot", "server.png", b"server")
+    extension_update = upload("on_Snapshot__archivebox_browser_extension_upload", "browser-2.png", b"browser-2")
+
+    assert extension_response.status_code == 200, extension_response.content
+    assert server_response.status_code == 200, server_response.content
+    assert extension_update.status_code == 200, extension_update.content
+    assert extension_update.json()["id"] == extension_response.json()["id"]
+    assert server_response.json()["id"] == extension_response.json()["id"]
+
+    results = ArchiveResult.objects.filter(snapshot=snapshot, plugin="screenshot")
+    assert results.count() == 1
+    result = results.get()
+    assert result.hook_name == "on_Snapshot__archivebox_browser_extension_upload"
+    assert set(result.output_files) == {"browser.png", "server.png", "browser-2.png"}
 
 
 def test_archiveresult_upload_api_queues_snapshot_maintenance_without_finalizing(client, api_admin_user, api_headers):

@@ -23,7 +23,7 @@ ArchiveBox
 .. code-block:: bash
     
     mkdir my-archive; cd my-archive/
-    uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'
+    uv tool install --python 3.13 --prerelease explicit --upgrade 'archivebox>=0.9.0rc0,<0.10'
 
     archivebox init
     archivebox install

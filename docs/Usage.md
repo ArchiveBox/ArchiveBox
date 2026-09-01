@@ -29,7 +29,7 @@ All three of these ways of running ArchiveBox are equivalent and interchangeable
   *Using the Python package via the current `uv` instructions in [[Install]]*
 - `docker run ... archivebox/archivebox [subcommand] [...args]`  
   *Using the official Docker image*
-- `docker compose run archivebox [subcommand] [...args]`
+- `docker compose run --rm archivebox [subcommand] [...args]`
   *Using the official Docker image w/ Docker Compose*
 
 You can share a single archivebox data directory between Docker and non-Docker instances as well, allowing you to run the server in a container but still execute CLI commands on the host for example.
@@ -150,11 +150,10 @@ archivebox config --set PUBLIC_INDEX=False
 archivebox config --set PUBLIC_ADD_VIEW=False
 archivebox config --set PERMISSIONS=private        # default visibility of newly created snapshots (was: PUBLIC_SNAPSHOTS=False)
 
-archivebox manage createsuperuser  # set an admin password to use for any areas requiring login
 archivebox server 0.0.0.0:8000     # start the archivebox web server
-
-open http://admin.archivebox.localhost:8000  # open the admin UI
 ```
+
+Open <http://admin.archivebox.localhost:8000/admin/> in a browser to create the first admin and finish web setup. To create additional accounts from the CLI, use `archivebox manage createsuperuser`.
 
 *See the [Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#permissions) and [Security Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#archiving-private-content) for more info...*
 

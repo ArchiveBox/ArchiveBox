@@ -176,10 +176,13 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
         install_method()
 
     if Snapshot.objects.count() < 25:  # hide the hints for experienced users
+        from archivebox.core.routes_util import build_admin_url
+
+        admin_url = build_admin_url("/admin/", config=config)
         print()
-        print("    [violet]Hint:[/violet] To view your archive index, run:")
+        print("    [violet]Hint:[/violet] To finish web setup, run:")
         print(
-            "        archivebox server  # then visit [deep_sky_blue4][link=http://127.0.0.1:8000]http://127.0.0.1:8000[/link][/deep_sky_blue4]",
+            f"        archivebox server  # then visit [deep_sky_blue4][link={admin_url}]{admin_url}[/link][/deep_sky_blue4]",
         )
         print()
         print("    To add new links, you can run:")

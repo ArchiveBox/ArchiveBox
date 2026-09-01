@@ -6,7 +6,7 @@ Migration tests from 0.8.x to 0.9.x.
 - Crawl model for grouping URLs
 - Seed model (removed in 0.9.x)
 - UUID primary keys for Snapshot
-- Status fields for state machine
+- Status fields for queued lifecycle processing
 - New fields like depth, retry_at, etc.
 """
 
@@ -21,6 +21,7 @@ import pytest
 from .migrations_helpers import (
     SCHEMA_0_7,
     SCHEMA_0_8,
+    current_snapshot_dir,
     filesystem_manifest,
     seed_0_8_data,
     seed_0_7_data,
@@ -408,7 +409,8 @@ def test_migration_preserves_foreign_keys(migration_08_data):
     assert ok, msg
 
 
-def test_migration_preserves_08_timestamp_meanings(migration_08_data):
+@pytest.mark.parametrize("has_snapshot_status", (True, False), ids=("with-status", "without-status"))
+def test_migration_preserves_08_timestamp_meanings(migration_08_data, has_snapshot_status):
     """0.8.x already has separated timestamp/bookmarked_at/created_at/downloaded_at fields."""
     work_dir, db_path, original_data = migration_08_data
     snapshot = original_data["snapshots"][0]
@@ -420,6 +422,8 @@ def test_migration_preserves_08_timestamp_meanings(migration_08_data):
 
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
+    if not has_snapshot_status:
+        cursor.execute("ALTER TABLE core_snapshot DROP COLUMN status")
     cursor.execute(
         """
         UPDATE core_snapshot
@@ -437,7 +441,7 @@ def test_migration_preserves_08_timestamp_meanings(migration_08_data):
     conn = sqlite3.connect(str(db_path))
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT timestamp, bookmarked_at, created_at, modified_at, downloaded_at FROM core_snapshot WHERE id = ?",
+        "SELECT timestamp, bookmarked_at, created_at, modified_at, downloaded_at, status FROM core_snapshot WHERE id = ?",
         (snapshot["id"],),
     )
     migrated = cursor.fetchone()
@@ -448,6 +452,7 @@ def test_migration_preserves_08_timestamp_meanings(migration_08_data):
     assert migrated[2].startswith("2024-08-28"), migrated[2]
     assert migrated[3].startswith("2024-08-29"), migrated[3]
     assert migrated[4].startswith("2024-08-30"), migrated[4]
+    assert migrated[5] == "sealed"
 
 
 def test_hyphenated_crawl_ids_are_normalized_before_snapshot_saves(migration_08_data):
@@ -663,11 +668,12 @@ def test_crawl_data_preserved_after_migration(migration_08_data):
 
     # Check each crawl's data is preserved
     for crawl in original_data["crawls"]:
-        cursor.execute("SELECT urls, label FROM crawls_crawl WHERE id = ?", (crawl["id"],))
+        cursor.execute("SELECT urls, label, status FROM crawls_crawl WHERE id = ?", (crawl["id"],))
         row = cursor.fetchone()
         assert row is not None, f"Crawl {crawl['id']} not found after migration"
         assert row[0] == crawl["urls"], f"URLs mismatch for crawl {crawl['id']}"
         assert row[1] == crawl["label"], f"Label mismatch for crawl {crawl['id']}"
+        assert row[2] == crawl["status"], f"Status mismatch for crawl {crawl['id']}"
 
     conn.close()
 
@@ -795,7 +801,7 @@ def test_update_preserves_legacy_folder_timestamp_over_index_float_variant(tmp_p
     conn.close()
 
     assert row == (timestamp,)
-    assert (work_dir / "archive" / timestamp).is_symlink()
+    assert not (work_dir / "archive" / timestamp).exists()
     assert not (work_dir / "archive" / f"{timestamp}.0").exists()
     assert not (work_dir / "invalid").exists()
 
@@ -837,8 +843,8 @@ def test_update_preserves_distinct_legacy_dirs_with_integer_and_float_timestamps
     conn.close()
 
     assert rows == [("1508259732",), ("1508259732.0",)]
-    assert (work_dir / "archive" / "1508259732").is_symlink()
-    assert (work_dir / "archive" / "1508259732.0").is_symlink()
+    assert not (work_dir / "archive" / "1508259732").exists()
+    assert not (work_dir / "archive" / "1508259732.0").exists()
     assert not (work_dir / "invalid").exists()
 
 
@@ -892,10 +898,7 @@ def test_update_preserves_legacy_plugin_directory_without_output_files(migration
         (snapshot["id"],),
     ).fetchall()
     conn.close()
-    assert len(rows) == 2
-    assert all(output_str == "" for output_str, _output_files, _hook_name in rows)
-    assert len({hook_name for _output_str, _output_files, hook_name in rows}) == 2
-    assert sum(not hook_name for _output_str, _output_files, hook_name in rows) == 1
+    assert rows == [("", "{}", "")]
 
 
 def test_07_filesystem_hop_preserves_complete_output_tree(tmp_path):
@@ -986,8 +989,8 @@ def test_07_filesystem_hop_preserves_complete_output_tree(tmp_path):
 
     for timestamp, expected_tree in original_trees.items():
         legacy_dir = tmp_path / "archive" / timestamp
-        assert legacy_dir.is_symlink()
-        migrated_tree = filesystem_manifest(legacy_dir.resolve())
+        assert not legacy_dir.exists()
+        migrated_tree = filesystem_manifest(current_snapshot_dir(tmp_path, db_path, timestamp))
         assert {path: migrated_tree.get(path) for path in expected_tree} == expected_tree
     assert (destination / "preexisting-output.bin").read_bytes() == b"destination-only output"
 
@@ -1057,10 +1060,13 @@ def test_each_declared_filesystem_hop_preserves_outputs(migration_08_data, fs_ve
     (source_dir / "unknown-empty-dir" / "nested").mkdir(parents=True)
     expected_tree = filesystem_manifest(source_dir)
 
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=180)
+    result = run_archivebox_migration_cmd(work_dir, ["update", "--migrate-only"], timeout=180)
     assert result.returncode == 0, result.stderr
 
-    migrated_dir = source_dir.resolve()
+    migrated_dir = current_snapshot_dir(work_dir, db_path, snapshot["timestamp"])
     assert {path: filesystem_manifest(migrated_dir).get(path) for path in expected_tree} == expected_tree
+    if fs_version in ("0.7.0", "0.8.0", "0.8.5"):
+        assert not source_dir.exists()
+        assert not source_dir.is_symlink()
     with sqlite3.connect(db_path) as connection:
         assert connection.execute("SELECT fs_version FROM core_snapshot WHERE id = ?", (snapshot["id"],)).fetchone() == ("0.9.4",)

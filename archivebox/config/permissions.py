@@ -32,11 +32,13 @@ def select_archivebox_user(
     data_dir_gid: int,
     account_uid: int | None,
     account_gid: int | None,
+    data_dir_owner_gid: int | None = None,
     data_dir_owner_exists: bool = True,
 ) -> tuple[int, int]:
     if running_uid == 0:
         if data_dir_uid != 0 and data_dir_owner_exists:
-            return data_dir_uid, data_dir_gid
+            owner_gid = data_dir_owner_gid if data_dir_gid == 0 and data_dir_owner_gid is not None else data_dir_gid
+            return data_dir_uid, owner_gid
         if account_uid is not None and account_gid is not None:
             return account_uid, account_gid
 
@@ -57,9 +59,10 @@ except PermissionError:
     DATA_DIR_GID = 0
 
 try:
-    pwd.getpwuid(DATA_DIR_UID)
+    DATA_DIR_OWNER_GID = pwd.getpwuid(DATA_DIR_UID).pw_gid
     DATA_DIR_OWNER_EXISTS = True
 except KeyError:
+    DATA_DIR_OWNER_GID = None
     DATA_DIR_OWNER_EXISTS = False
 
 DEFAULT_UID = 911
@@ -82,33 +85,49 @@ FALLBACK_GID = RUNNING_AS_GID or SUDO_GID
 
 def get_or_create_archivebox_account():
     try:
-        return pwd.getpwnam("archivebox")
+        account = pwd.getpwnam("archivebox")
     except KeyError:
-        pass
+        account = None
 
-    if RUNNING_AS_UID != 0 or platform.system() != "Linux":
+    if account is None and (RUNNING_AS_UID != 0 or platform.system() != "Linux"):
         return None
 
-    useradd = "/usr/sbin/useradd" if Path("/usr/sbin/useradd").exists() else "useradd"
-    command = [
-        useradd,
-        "--system",
-        "--create-home",
-        "--home-dir",
-        "/var/lib/archivebox",
-        "--shell",
-        "/bin/bash",
-        "archivebox",
-    ]
-    try:
-        subprocess.run(command, check=True)
-    except (OSError, subprocess.CalledProcessError) as err:
-        # Another concurrently starting process may have created it first.
+    if account is None:
+        useradd = "/usr/sbin/useradd" if Path("/usr/sbin/useradd").exists() else "useradd"
+        command = [
+            useradd,
+            "--system",
+            "--create-home",
+            "--home-dir",
+            "/var/lib/archivebox",
+            "--shell",
+            "/bin/bash",
+            "archivebox",
+        ]
         try:
-            return pwd.getpwnam("archivebox")
-        except KeyError:
-            raise RuntimeError(f"Failed to create the archivebox system user with: {' '.join(command)}") from err
-    return pwd.getpwnam("archivebox")
+            subprocess.run(command, check=True)
+        except (OSError, subprocess.CalledProcessError) as err:
+            # Another concurrently starting process may have created it first.
+            try:
+                account = pwd.getpwnam("archivebox")
+            except KeyError:
+                raise RuntimeError(f"Failed to create the archivebox system user with: {' '.join(command)}") from err
+        else:
+            account = pwd.getpwnam("archivebox")
+
+    if RUNNING_AS_UID == 0 and platform.system() == "Linux":
+        # Package removal may preserve the account but remove its home. Repair
+        # only this directory entry; never recursively chown existing data.
+        account_home = Path(account.pw_dir)
+        try:
+            account_home.mkdir(parents=True, exist_ok=True)
+            home_stat = account_home.stat()
+            if (home_stat.st_uid, home_stat.st_gid) != (account.pw_uid, account.pw_gid):
+                os.chown(account_home, account.pw_uid, account.pw_gid)
+        except OSError as err:
+            raise RuntimeError(f"Failed to prepare archivebox account home: {account_home}") from err
+
+    return account
 
 
 ARCHIVEBOX_ACCOUNT = get_or_create_archivebox_account()
@@ -122,6 +141,7 @@ ARCHIVEBOX_USER, ARCHIVEBOX_GROUP = select_archivebox_user(
     sudo_gid=SUDO_GID,
     data_dir_uid=DATA_DIR_UID,
     data_dir_gid=DATA_DIR_GID,
+    data_dir_owner_gid=DATA_DIR_OWNER_GID,
     account_uid=ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None,
     account_gid=ARCHIVEBOX_ACCOUNT.pw_gid if ARCHIVEBOX_ACCOUNT is not None else None,
     data_dir_owner_exists=DATA_DIR_OWNER_EXISTS,
@@ -189,7 +209,7 @@ def root_data_dir_handoff_paths(data_dir: Path, argv: list[str]) -> tuple[Path, 
     except (FileNotFoundError, PermissionError):
         return ()
 
-    is_init = "init" in argv[1:]
+    is_init = any(arg in ("init", "install", "--init", "--quick-init") for arg in argv[1:])
     collection_exists = any((data_dir / marker).exists() for marker in (".archivebox_id", "ArchiveBox.conf", "index.sqlite3"))
     if not collection_exists and not (is_init and not children):
         return ()
@@ -221,6 +241,26 @@ def root_parent_can_grant_group_traversal(*, parent_uid: int, parent_gid: int, p
     return not bool(parent_mode & stat.S_IRWXG)
 
 
+def grant_archivebox_group_traversal(path: Path) -> None:
+    """Let the archivebox account traverse private root-owned parents."""
+
+    if not IS_ROOT or ARCHIVEBOX_ACCOUNT is None:
+        return
+
+    for parent in path.resolve().parents:
+        if parent == Path("/"):
+            continue
+        parent_stat = parent.stat(follow_symlinks=False)
+        if root_parent_can_grant_group_traversal(
+            parent_uid=parent_stat.st_uid,
+            parent_gid=parent_stat.st_gid,
+            parent_mode=parent_stat.st_mode,
+            account_gid=ARCHIVEBOX_ACCOUNT.pw_gid,
+        ):
+            os.chown(parent, -1, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
+            os.chmod(parent, stat.S_IMODE(parent_stat.st_mode) | stat.S_IXGRP, follow_symlinks=False)
+
+
 def handoff_root_owned_data_dir() -> None:
     account_uid = ARCHIVEBOX_ACCOUNT.pw_uid if ARCHIVEBOX_ACCOUNT is not None else None
     if not root_should_handoff_data_dir(
@@ -235,21 +275,9 @@ def handoff_root_owned_data_dir() -> None:
     if not handoff_paths:
         return
 
-    # A root user's collection commonly lives below /root, which the archivebox
-    # account cannot traverse after EUID is dropped. Grant only that group the
-    # missing execute bit on root-owned parents; never walk collection contents.
-    for parent in DATA_DIR.resolve().parents:
-        if parent == Path("/"):
-            continue
-        parent_stat = parent.stat(follow_symlinks=False)
-        if root_parent_can_grant_group_traversal(
-            parent_uid=parent_stat.st_uid,
-            parent_gid=parent_stat.st_gid,
-            parent_mode=parent_stat.st_mode,
-            account_gid=ARCHIVEBOX_ACCOUNT.pw_gid,
-        ):
-            os.chown(parent, -1, ARCHIVEBOX_ACCOUNT.pw_gid, follow_symlinks=False)
-            os.chmod(parent, stat.S_IMODE(parent_stat.st_mode) | stat.S_IXGRP, follow_symlinks=False)
+    # Never walk collection contents. This only grants execute-only traversal
+    # on private parents such as /root so the handed-off data remains reachable.
+    grant_archivebox_group_traversal(DATA_DIR)
 
     for path in handoff_paths:
         try:
@@ -264,13 +292,17 @@ def handoff_root_owned_data_dir() -> None:
 def drop_privileges():
     """If running as root, drop privileges to the data dir owner or archivebox user."""
 
+    # Root-owned uv tools commonly live below /root. Keep the installed package
+    # importable after dropping EUID without changing ownership of the tool env.
+    grant_archivebox_group_traversal(Path(__file__))
     handoff_root_owned_data_dir()
 
     # Always run ArchiveBox as the user that owns the data dir, or as the
     # archivebox service account when the data dir is root-owned.
     if os.geteuid() == 0 and ARCHIVEBOX_USER != 0 and ARCHIVEBOX_USER_EXISTS:
         pw_record = pwd.getpwuid(ARCHIVEBOX_USER)
-        os.initgroups(pw_record.pw_name, ARCHIVEBOX_GROUP)
+        supplemental_gid = ARCHIVEBOX_ACCOUNT.pw_gid if ARCHIVEBOX_ACCOUNT is not None else ARCHIVEBOX_GROUP
+        os.initgroups(pw_record.pw_name, supplemental_gid)
         if os.getegid() != ARCHIVEBOX_GROUP:
             os.setegid(ARCHIVEBOX_GROUP)
         if os.geteuid() != ARCHIVEBOX_USER:

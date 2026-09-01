@@ -169,6 +169,8 @@ def running_process_record(initialized_archive):
 
 
 def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
     from archivebox.core.admin_archiveresults import ArchiveResultAdmin, render_archiveresults_list
     from archivebox.core.models import ArchiveResult
 
@@ -191,7 +193,10 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert machine_html == f'<a href="/admin/machine/machine/{iface.machine.id}/change/">{iface.machine.hostname}</a>'
 
     ArchiveResult.objects.filter(id=result.id).update(end_ts=datetime(2026, 8, 1, 12, 34, 56, tzinfo=dt_timezone.utc))
-    inline_html = str(render_archiveresults_list(ArchiveResult.objects.filter(id=result.id)))
+    with CaptureQueriesContext(connection) as captured_queries:
+        inline_html = str(render_archiveresults_list(ArchiveResult.objects.filter(id=result.id)))
+    result_queries = [query for query in captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
+    assert len(result_queries) == 1, [query["sql"] for query in result_queries]
     assert f"/admin/machine/process/{process.id}/change" in inline_html
     assert f">{process.pid}</a>" in inline_html
     assert ">-</a>" not in inline_html
@@ -201,6 +206,7 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert inline_html.count('class="archive-results-output"') == 2
     assert inline_html.count('class="archive-results-files"') == 2
     assert inline_html.count('class="archive-results-completed"') == 2
+    assert 'class="archive-results-actions"' in inline_html
     assert "display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis;" in inline_html
     assert '<wbr> <span style="white-space: nowrap;">' in inline_html
 
@@ -210,6 +216,8 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert ".archive-results-table .archive-results-output {\n    min-width: 180px;" in admin_css
     assert ".archive-results-table .archive-results-files {\n    width: 52px;\n    min-width: 52px;" in admin_css
     assert ".archive-results-table .archive-results-completed {\n    min-width: 96px;\n    white-space: normal;" in admin_css
+    assert ".archive-results-table .archive-results-actions a,\n.archive-results-table .archive-results-actions button {" in admin_css
+    assert "margin: 0;\n    width: 28px;\n    height: 28px;" in admin_css
 
 
 @pytest.mark.django_db(transaction=True)
