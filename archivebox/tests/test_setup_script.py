@@ -5,27 +5,37 @@ from pathlib import Path
 SETUP_SCRIPT = Path(__file__).parents[2] / "bin" / "setup.sh"
 
 
-def test_setup_script_is_a_uv_install_shortcut():
+def test_setup_script_initializes_then_links_container_dependencies():
     script = SETUP_SCRIPT.read_text()
-    install_flow = script.partition("cat <<EOF")[0]
+    compose_flow = script.partition('if [ "$DOCKER_IMAGE_READY" = "true" ] && "$DOCKER_BINARY" compose version')[2].partition(
+        'elif [ "$DOCKER_IMAGE_READY" = "true" ]',
+    )[0]
+    docker_flow = script.partition('elif [ "$DOCKER_IMAGE_READY" = "true" ]')[2].partition("\nfi")[0]
+    docker_init = script.partition("docker_run_archivebox_init() {")[2].partition("\n}")[0]
+
+    # Docker images already contain every runtime dependency. Initialization
+    # must only create collection state; the following install command merely
+    # projects the preloaded image cache into that collection.
+    assert "docker_run_archivebox init" in docker_init
+    assert "--install" not in docker_init
+    assert compose_flow.index("docker_compose_run_archivebox init") < compose_flow.index("docker_compose_run_archivebox install")
+    assert docker_flow.index("docker_run_archivebox_init") < docker_flow.index("docker_run_archivebox_install")
+    assert "init --install" not in script
+
+
+def test_setup_script_keeps_uv_as_the_native_fallback():
+    script = SETUP_SCRIPT.read_text()
+    native_flow = script.partition("install_archivebox_with_uv\n")[2]
 
     assert 'ARCHIVEBOX_PYTHON="${ARCHIVEBOX_PYTHON:-3.13}"' in script
     assert 'ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox>=0.9.0rc0,<0.10}"' in script
-    assert '"$UV_BINARY" tool install --python "$ARCHIVEBOX_PYTHON" --prerelease explicit --upgrade "$ARCHIVEBOX_PACKAGE"' in install_flow
+    assert (
+        'run_as_archivebox_user "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" '
+        '--prerelease explicit --upgrade "$ARCHIVEBOX_PACKAGE"'
+    ) in script
     assert "https://astral.sh/uv/install.sh" in script
-    assert "archivebox init" not in install_flow
-    assert "archivebox install" not in install_flow
-
-
-def test_setup_script_does_not_select_a_system_installer_or_runtime():
-    script = SETUP_SCRIPT.read_text()
-
-    assert "docker" not in script.lower()
-    assert "debian-archivebox" not in script
-    assert "apt-get" not in script
-    assert "launchpad" not in script
-    assert "archivebox server" not in script
-    assert "useradd" not in script
+    assert ': | "$ARCHIVEBOX_BINARY" init' in native_flow
+    assert native_flow.index(': | "$ARCHIVEBOX_BINARY" init') < native_flow.index('"$ARCHIVEBOX_BINARY" install')
 
 
 def test_setup_script_has_valid_bash_syntax():

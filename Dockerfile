@@ -10,10 +10,10 @@
 #       --build-context abx-plugins=../abx-plugins \
 #       -t archivebox/abx-dl:dev
 #   docker buildx build . -f Dockerfile \
-#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.12.188 \
+#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.12.222 \
 #       -t archivebox:multistage
 
-ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.188
+ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.222
 
 FROM archivebox/sonic:1.4.9 AS sonic
 FROM ${ABX_DL_IMAGE} AS archivebox-runtime-base
@@ -156,19 +156,20 @@ PY
     --no-install-project \
     --no-install-workspace \
     --no-sources
-ABXPKG_NO_CACHE=True abxpkg env --install --binproviders=env,apt --lib="$ABXPKG_LIB_DIR" --overrides='{"apt":{"install_args":["binutils"]}}' strip >/dev/null
+builder_abxpkg_lib_dir=/tmp/archivebox-builder-abxpkg
+ABXPKG_NO_CACHE=True abxpkg env --install --binproviders=env,apt --lib="$builder_abxpkg_lib_dir" --overrides='{"apt":{"install_args":["binutils"]}}' strip >/dev/null
 /usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print0 > /tmp/archivebox-native-libraries
 while IFS= read -r -d '' native_library; do
     magic=''
     if IFS= read -r -N 4 magic < "$native_library" && [[ "$magic" == $'\x7fELF' ]]; then
-        "$ABXPKG_LIB_DIR/env/bin/strip" --strip-unneeded "$native_library" || exit $?
+        "$builder_abxpkg_lib_dir/env/bin/strip" --strip-unneeded "$native_library" || exit $?
     fi
 done < /tmp/archivebox-native-libraries
 rm -f /tmp/archivebox-native-libraries
 rm -f /venv/bin/uv /venv/bin/uvx
-abxpkg run --binproviders=env --lib="$ABXPKG_LIB_DIR" apt-get purge -y binutils build-essential gcc libldap2-dev libsasl2-dev libssl-dev
-abxpkg run --binproviders=env --lib="$ABXPKG_LIB_DIR" apt-get autoremove -y
-/usr/bin/find "$ABXPKG_LIB_DIR/env/bin" -maxdepth 1 -type l -name strip -delete
+abxpkg run --binproviders=env --lib="$builder_abxpkg_lib_dir" apt-get purge -y binutils build-essential gcc libldap2-dev libsasl2-dev libssl-dev
+abxpkg run --binproviders=env --lib="$builder_abxpkg_lib_dir" apt-get autoremove -y
+rm -rf "$builder_abxpkg_lib_dir"
 rm -rf /venv/lib/python3.*/site-packages/pip* \
     /venv/lib/python3.*/site-packages/wheel* \
     /venv/bin/pip /venv/bin/pip3 /venv/bin/pip3.* /venv/bin/wheel

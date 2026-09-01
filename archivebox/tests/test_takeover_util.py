@@ -417,7 +417,12 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
             encoding="utf-8",
             errors="replace",
         )
-        assert "Stopping older ArchiveBox runner process" in update_stdout
+        worker_name_match = re.search(r"Worker (worker_runner_update_\d+):", update_stdout)
+        assert worker_name_match, update_stdout
+        wait_for_log(
+            tmp_path / "logs" / f"{worker_name_match.group(1)}.log",
+            "Stopping older ArchiveBox runner process",
+        )
 
         supervisord_text = wait_for_log_count(supervisord_log, runner_spawn_text, runner_spawn_count + 1, timeout=30)
         runner_pid_after = int(re.findall(r"spawned: 'worker_runner' with pid (\d+)", supervisord_text)[-1])
