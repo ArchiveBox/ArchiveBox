@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-27T21:56:43.365252804Z"
+exclude-newer = "2026-08-27T22:07:17.15706742Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-09-01T21:56:42.36526653Z", span = "PT1S" }
+abxbus = { timestamp = "2026-09-01T22:07:16.157082047Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.12.231"
+version = "1.12.233"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -38,14 +38,14 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/38/59/7563ac86f2e2ed0e04ca1944c0b3ef0960d04ad071a1350045b906be99c4/abx_dl-1.12.231.tar.gz", hash = "sha256:bc8b9dc537629c7d7bc8a5972ae6ec0a16bf0f1a1fc211316176d98215c69db4", size = 89261 }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/64/80349a50af07e0d5e8d7df0a5bb78e4edd448b25c03ef9b668e192f76111/abx_dl-1.12.233.tar.gz", hash = "sha256:86939487e81b367bd7c298dacb3105f52d9b58ce35099b2bef5254e58a4be0f3", size = 88362 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/65/2c/4184e6fc469e0cb5de202a78daa9bc294065cac9fca4f307542b2fff1653/abx_dl-1.12.231-py3-none-any.whl", hash = "sha256:9f85595c77fe9fdd984d9024a2cf2c25f48ffa2343f8a8763865d2ab497ef4c5", size = 93758 },
+    { url = "https://files.pythonhosted.org/packages/12/4e/e52a6696c5eb2af89dd4a9ebd7d071e9f67a53368094cf793e871bf6cb58/abx_dl-1.12.233-py3-none-any.whl", hash = "sha256:078d50b1531f7d51390a2a72304020a81a418080f26a021fa462500a96bc5d6e", size = 92585 },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.12.201"
+version = "1.12.203"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -54,9 +54,9 @@ dependencies = [
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uv", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a2/34/772b2ecfcee8682400aa4252d288faed8fdb55c45f00f0b4f1f6864cd084/abx_plugins-1.12.201.tar.gz", hash = "sha256:3e2256467f183397a06830ca98e7e324c5ac34590e4c3b016f67e5ec1d9cae29", size = 259914, upload-time = "2026-09-01T21:17:33.061Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/ee/b1c1f8e25bdde434468970067a29969409e46b43810f764ad40a0f529d84/abx_plugins-1.12.203.tar.gz", hash = "sha256:841f0e43e3d5896984f0bfe78ec4adbc49c9653ee52913fde5e775478bf475cb", size = 259402, upload-time = "2026-09-01T21:57:38.733Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d7/79/f1bce1735324848ba088666b6b2d7bdb941a74adb3fc258906ff227307df/abx_plugins-1.12.201-py3-none-any.whl", hash = "sha256:6c3d48e99b926eb184001269f60660a800c4e122f192b56990e8554e8816f9b7", size = 413743, upload-time = "2026-09-01T21:17:31.318Z" },
+    { url = "https://files.pythonhosted.org/packages/04/67/fc3855b9ea68ae3e1b860d61d5f053c76e39f31841d6aff5fa86e3ce49d3/abx_plugins-1.12.203-py3-none-any.whl", hash = "sha256:72abb7b0f02bff5ae45e364d7231ff433a9f2576c6b88e7f81205b609f010b5e", size = 413256, upload-time = "2026-09-01T21:57:39.954Z" },
 ]
 
 [[package]]
@@ -219,8 +219,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.12.231" },
-    { name = "abx-plugins", specifier = "==1.12.201" },
+    { name = "abx-dl", specifier = "==1.12.233" },
+    { name = "abx-plugins", specifier = "==1.12.203" },
     { name = "abxbus", specifier = "==2.5.56" },
     { name = "abxpkg", specifier = "==1.12.110" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
