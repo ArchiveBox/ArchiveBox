@@ -296,7 +296,7 @@ def run_plugins(
         if requested_rows:
             # Search indexing on a sealed Snapshot is the only targeted hook
             # allowed to bypass the normal lifecycle. Every other requested
-            # plugin requeues its Snapshot through the unified state machine.
+            # plugin requeues its Snapshot through the unified lifecycle.
             affected_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name, _hook_name in rows_to_queue}
             if preserve_queued and queued_rows:
                 queued_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name, _hook_name in queued_rows}

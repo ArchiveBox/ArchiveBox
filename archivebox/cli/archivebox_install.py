@@ -54,7 +54,7 @@ def _resolve_install_targets(
 
 
 def _install_raw_binary_names(binary_names: list[str], binproviders: str) -> None:
-    """Install user-requested standalone binaries through the Binary state machine."""
+    """Install user-requested standalone binaries through the Binary lifecycle."""
     from django.utils import timezone
 
     from archivebox.machine.models import Binary, Machine, _canonical_binary_name
@@ -179,7 +179,7 @@ def install(binaries: tuple[str, ...] = (), binproviders: str = "*", dry_run: bo
         run_install(plugin_names=install_plugin_names or None)
 
     if raw_binary_names:
-        print(f"[+] Running direct binary installer via ArchiveBox binary state machine: {', '.join(raw_binary_names)}")
+        print(f"[+] Running direct binary installer via ArchiveBox binary lifecycle: {', '.join(raw_binary_names)}")
         print()
         _install_raw_binary_names(raw_binary_names, binproviders)
 

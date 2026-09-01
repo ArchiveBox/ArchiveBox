@@ -1379,7 +1379,7 @@ Background hooks are identified by `.bg.` suffix in filename:
 **Files to rename:**
 
 ```bash
-# Use .bg. suffix (not __background)
+# Use the .bg. suffix
 mv archivebox/plugins/consolelog/on_Snapshot__21_consolelog.js \
    archivebox/plugins/consolelog/on_Snapshot__21_consolelog.bg.js
 

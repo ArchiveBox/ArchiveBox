@@ -2108,7 +2108,7 @@ class TestRunDueCrawlState:
             retry_at=timezone.now(),
         )
 
-        snapshot.sm.tick()
+        snapshot.advance_lifecycle()
         snapshot.refresh_from_db()
 
         assert snapshot.status == Snapshot.StatusChoices.STARTED
@@ -2994,7 +2994,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
             modified_at=now + timedelta(seconds=1),
         )
 
-        snapshot.sm.seal()
+        snapshot.seal()
         snapshot.refresh_from_db()
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.retry_at is None

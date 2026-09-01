@@ -14,6 +14,7 @@ MAX_VIEWS="${UI_SCREENSHOT_MAX_VIEWS:-0}"
 USERNAME="archivebox-screenshots-$$"
 PASSWORD="archivebox-screenshots-$$"
 SERVER_PID=""
+SETUP_SERVER_PID=""
 ARCHIVE_PID=""
 CREATED_TEMP_USER=0
 CREATE_API_TOKEN=0
@@ -35,6 +36,28 @@ stop_background_runner() {
 }
 
 cleanup() {
+    if [[ -n "$SETUP_SERVER_PID" ]]; then
+        setup_server_children="$(pgrep -P "$SETUP_SERVER_PID" 2>/dev/null || true)"
+        for child_pid in $setup_server_children; do
+            kill "$child_pid" 2>/dev/null || true
+        done
+        kill "$SETUP_SERVER_PID" 2>/dev/null || true
+        for _attempt in $(seq 1 50); do
+            setup_server_running=0
+            kill -0 "$SETUP_SERVER_PID" 2>/dev/null && setup_server_running=1
+            for child_pid in $setup_server_children; do
+                kill -0 "$child_pid" 2>/dev/null && setup_server_running=1
+            done
+            [[ "$setup_server_running" == "0" ]] && break
+            sleep 0.1
+        done
+        for child_pid in $setup_server_children; do
+            kill -KILL "$child_pid" 2>/dev/null || true
+        done
+        kill -KILL "$SETUP_SERVER_PID" 2>/dev/null || true
+        wait "$SETUP_SERVER_PID" 2>/dev/null || true
+    fi
+
     if [[ -n "$ARCHIVE_PID" ]] && kill -0 "$ARCHIVE_PID" 2>/dev/null; then
         archive_children="$(pgrep -P "$ARCHIVE_PID" 2>/dev/null || true)"
         for child_pid in $archive_children; do
@@ -213,6 +236,7 @@ if [[ ! -x "$SCREENSHOT_CHROME_BINARY" ]]; then
 fi
 
 VIEWS=(
+    "First-time setup wizard|setup-wizard://admin/|/admin/|archivebox/templates/core/setup_wizard.html|setup-wizard"
     "Login|$ADMIN_BASE_URL/admin/login/|/admin/login/|archivebox/templates/admin/login.html"
     "Public snapshot list|$PUBLIC_BASE_URL/public/|/public/|archivebox/core/views.py"
 )
@@ -223,6 +247,11 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     IFS='|' read -r name url expected_path source capture_mode <<<"$view"
     capture_index=$((capture_index + 1))
     slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//; s/-$//')"
+    expected_plugin=""
+    if [[ "$name" == "Snapshot View ("*")" && "$capture_mode" != "live-progress" && "$capture_mode" != "snapshot-collapsed" ]]; then
+        expected_plugin="${name#Snapshot View (}"
+        expected_plugin="${expected_plugin%)}"
+    fi
 
     echo "[*] $name: $url"
     if [[ "$capture_mode" == "snapshot-collapsed" ]]; then
@@ -262,7 +291,79 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
         fi
 
         screenshot_path=""
-        if [[ "$capture_mode" == "live-progress" ]]; then
+        if [[ "$capture_mode" == "setup-wizard" ]]; then
+            screenshot_path="$capture_dir/screenshot.png"
+            if [[ "$profile" == "desktop" ]]; then
+                SETUP_DATA_DIR="$CAPTURE_ROOT/setup-wizard-data"
+                SETUP_PORT="$(uv run --no-cache --project "$REPO_DIR" python - <<'PY'
+import socket
+
+with socket.socket() as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+)"
+                SETUP_BASE_URL="http://archivebox.localhost:$SETUP_PORT"
+                SETUP_HOST_RESOLVER_RULES="MAP archivebox.localhost 127.0.0.1"
+                mkdir -p "$SETUP_DATA_DIR" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile"
+                (
+                    cd "$SETUP_DATA_DIR"
+                    BASE_URL= uv run --no-cache --project "$REPO_DIR" archivebox init --quick
+                    UI_SCREENSHOT_USERNAME="$USERNAME" UI_SCREENSHOT_PASSWORD="$PASSWORD" \
+                        BASE_URL= uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                        'import os; from django.contrib.auth import get_user_model; get_user_model().objects.create_superuser(username=os.environ["UI_SCREENSHOT_USERNAME"], password=os.environ["UI_SCREENSHOT_PASSWORD"])'
+                )
+                (
+                    cd "$SETUP_DATA_DIR"
+                    BASE_URL= UI_SCREENSHOT_HIDE_HIGH_LOAD_WARNING=1 \
+                        exec uv run --no-cache --project "$REPO_DIR" archivebox server "127.0.0.1:$SETUP_PORT"
+                ) >"$SETUP_DATA_DIR/ui-screenshot-setup-wizard-server.log" 2>&1 &
+                SETUP_SERVER_PID=$!
+                setup_ready=0
+                for _setup_attempt in $(seq 1 60); do
+                    if ! kill -0 "$SETUP_SERVER_PID" 2>/dev/null; then
+                        echo "[!] Setup-wizard ArchiveBox exited before becoming ready" >&2
+                        tail -100 "$SETUP_DATA_DIR/ui-screenshot-setup-wizard-server.log" >&2
+                        exit 1
+                    fi
+                    if curl --fail --silent --show-error --resolve "archivebox.localhost:$SETUP_PORT:127.0.0.1" "$SETUP_BASE_URL/admin/login/" >/dev/null; then
+                        setup_ready=1
+                        break
+                    fi
+                    sleep 1
+                done
+                if [[ "$setup_ready" != "1" ]]; then
+                    echo "[!] Setup-wizard ArchiveBox did not become ready within 60 seconds" >&2
+                    tail -100 "$SETUP_DATA_DIR/ui-screenshot-setup-wizard-server.log" >&2
+                    exit 1
+                fi
+                setup_variants="$(printf \
+                    '[{"path":"%s","width":1600,"height":1000},{"path":"%s","width":1024,"height":1366},{"path":"%s","width":390,"height":844}]' \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
+                NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
+                    CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
+                    SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/setup-wizard/chrome_profile" \
+                    SCREENSHOT_LOGIN_USERNAME="$USERNAME" \
+                    SCREENSHOT_LOGIN_PASSWORD="$PASSWORD" \
+                    SCREENSHOT_WIDTH=1600 \
+                    SCREENSHOT_HEIGHT=1000 \
+                    SCREENSHOT_VARIANTS_JSON="$setup_variants" \
+                    SCREENSHOT_WAIT_SELECTOR="#archivebox-setup-wizard" \
+                    SCREENSHOT_HOST_RESOLVER_RULES="$SETUP_HOST_RESOLVER_RULES" \
+                    node "$REPO_DIR/bin/take_screenshot.js" "$SETUP_BASE_URL/admin/login/?next=/admin/" "$screenshot_path" >"$capture_dir/report.json"
+                url="$SETUP_BASE_URL/admin/"
+                view_timing_report="$capture_dir/report.json"
+                timing_report_path="$view_timing_report"
+                kill "$SETUP_SERVER_PID" 2>/dev/null || true
+                wait "$SETUP_SERVER_PID" 2>/dev/null || true
+                SETUP_SERVER_PID=""
+            fi
+        elif [[ "$capture_mode" == "live-progress" ]]; then
             screenshot_path="$capture_dir/screenshot.png"
             if [[ "$profile" == "desktop" ]]; then
                 mkdir -p \
@@ -285,6 +386,32 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
+            fi
+        elif [[ -n "$expected_plugin" && "$capture_mode" != wait-replay:* ]]; then
+            screenshot_path="$capture_dir/screenshot.png"
+            if [[ "$profile" == "desktop" ]]; then
+                mkdir -p \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile"
+                output_variants="$(printf \
+                    '[{"path":"%s","width":1600,"height":1000},{"path":"%s","width":1024,"height":1366},{"path":"%s","width":390,"height":844}]' \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
+                NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
+                    CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
+                    SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
+                    SCREENSHOT_WIDTH=1600 \
+                    SCREENSHOT_HEIGHT=1000 \
+                    SCREENSHOT_VARIANTS_JSON="$output_variants" \
+                    SCREENSHOT_COLLAPSE_FILTERS=1 \
+                    SCREENSHOT_EXPECT_PLUGIN="$expected_plugin" \
+                    node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
+                view_timing_report="$capture_dir/report.json"
+                timing_report_path="$view_timing_report"
+                uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
+                    "$capture_dir/report.json" "$expected_path"
             fi
         elif [[ "$profile" == "desktop" || "$capture_mode" == wait-replay:* || -z "${ABXPKG_LIB_DIR:-}" ]]; then
             capture_log="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")-$profile-abx-dl.log"
@@ -323,6 +450,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                     SCREENSHOT_HEIGHT=1366 \
                     SCREENSHOT_VARIANTS_JSON="$responsive_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
+                    SCREENSHOT_EXPECT_PLUGIN="$expected_plugin" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
@@ -346,7 +474,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
 
     # Capture the public views before login because the real admin-login hint
     # intentionally redirects authenticated personas away from /public/.
-    if [[ "$capture_index" == "2" ]]; then
+    if [[ "$name" == "Public snapshot list" ]]; then
         echo "[*] Logging in through the real $ACTIVE_PERSONA browser persona"
         NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
             CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \

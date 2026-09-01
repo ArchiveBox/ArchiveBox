@@ -195,7 +195,7 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
             hook_name="on_Snapshot__93_hashes.py",
             lib_dir=lib_dir,
         )
-        sealed_snapshot.sm.seal()
+        sealed_snapshot.seal()
         sealed_snapshot.refresh_from_db()
         assert sealed_snapshot.status == Snapshot.StatusChoices.SEALED
         assert sealed_snapshot.retry_at is None

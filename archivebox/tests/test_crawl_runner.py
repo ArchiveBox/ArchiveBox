@@ -261,12 +261,53 @@ def test_snapshot_started_state_keeps_retry_at_lease():
         retry_at=before,
     )
 
-    assert snapshot.tick_claimed(lock_seconds=60) is True
+    assert snapshot.claim_processing_lock(lock_seconds=60) is True
+    snapshot.refresh_from_db()
+    assert snapshot.advance_lifecycle() is True
 
     snapshot.refresh_from_db()
     assert snapshot.status == Snapshot.StatusChoices.STARTED
     assert snapshot.retry_at is not None
     assert snapshot.retry_at > before
+
+
+@pytest.mark.django_db(transaction=True)
+def test_system_update_crawl_runs_database_maintenance_without_snapshot_work():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import CrawlRunner
+    from django.utils import timezone
+
+    owner_id = get_or_create_system_user_pk()
+    archived_crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by_id=owner_id,
+        status=Crawl.StatusChoices.SEALED,
+        retry_at=None,
+    )
+    archived_snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=archived_crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        retry_at=None,
+    )
+    Snapshot.objects.filter(pk=archived_snapshot.pk).update(fs_version=0, retry_at=None)
+    maintenance_crawl = Crawl.objects.create(
+        urls="archivebox://update",
+        created_by_id=owner_id,
+        status=Crawl.StatusChoices.QUEUED,
+        retry_at=timezone.now(),
+    )
+
+    snapshot_ids = CrawlRunner(maintenance_crawl, show_progress=False).load_run_state()
+
+    maintenance_crawl.refresh_from_db()
+    archived_snapshot.refresh_from_db()
+    assert snapshot_ids == []
+    assert maintenance_crawl.snapshot_set.count() == 0
+    assert archived_snapshot.status == Snapshot.StatusChoices.SEALED
+    assert archived_snapshot.retry_at is not None
 
 
 @pytest.mark.django_db(transaction=True)

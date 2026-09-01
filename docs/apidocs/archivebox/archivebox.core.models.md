@@ -33,15 +33,27 @@
     ```
 * - {py:obj}`Snapshot <archivebox.core.models.Snapshot>`
   -
-* - {py:obj}`SnapshotMachine <archivebox.core.models.SnapshotMachine>`
-  - ```{autodoc2-docstring} archivebox.core.models.SnapshotMachine
-    :summary:
-    ```
 * - {py:obj}`ArchiveResult <archivebox.core.models.ArchiveResult>`
   -
 ````
 
 ### API
+
+````{py:exception} SnapshotMigrationError()
+:canonical: archivebox.core.models.SnapshotMigrationError
+
+Bases: {py:obj}`RuntimeError`
+
+```{autodoc2-docstring} archivebox.core.models.SnapshotMigrationError
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} archivebox.core.models.SnapshotMigrationError.__init__
+```
+
+````
 
 `````{py:class} UngroupedSubquery(queryset, output_field=None, **extra)
 :canonical: archivebox.core.models.UngroupedSubquery
@@ -280,6 +292,7 @@ Bases: {py:obj}`django.db.models.Model`
 
 ````{py:attribute} unique_together
 :canonical: archivebox.core.models.SnapshotTag.Meta.unique_together
+:type: typing.ClassVar[list[tuple[str, str]]]
 :value: >
    [('snapshot', 'tag')]
 
@@ -321,6 +334,7 @@ Bases: {py:obj}`django.db.models.QuerySet`
 
 ````{py:attribute} FILTER_TYPES
 :canonical: archivebox.core.models.SnapshotQuerySet.FILTER_TYPES
+:type: typing.ClassVar[dict[str, typing.Any]]
 :value: >
    None
 
@@ -438,7 +452,17 @@ Bases: {py:obj}`models.Manager.from_queryset`\({py:obj}`SnapshotQuerySet`\)
 ``````{py:class} Snapshot(*args, **kwargs)
 :canonical: archivebox.core.models.Snapshot
 
-Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithConfig`, {py:obj}`archivebox.base_models.models.ModelWithNotes`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithStateMachine`
+Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithConfig`, {py:obj}`archivebox.base_models.models.ModelWithNotes`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithQueue`
+
+````{py:attribute} BROWSER_EXTENSION_UPLOAD_HOOK_NAME
+:canonical: archivebox.core.models.Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME
+:value: >
+   'on_Snapshot__archivebox_browser_extension_upload'
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME
+```
+
+````
 
 ````{py:attribute} INTERNAL_INPUT_URL
 :canonical: archivebox.core.models.Snapshot.INTERNAL_INPUT_URL
@@ -651,16 +675,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 
 ````
 
-````{py:attribute} state_machine_name
-:canonical: archivebox.core.models.Snapshot.state_machine_name
-:value: >
-   'archivebox.core.models.SnapshotMachine'
-
-```{autodoc2-docstring} archivebox.core.models.Snapshot.state_machine_name
-```
-
-````
-
 ````{py:attribute} state_field_name
 :canonical: archivebox.core.models.Snapshot.state_field_name
 :value: >
@@ -687,6 +701,46 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
    None
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.StatusChoices
+```
+
+````
+
+````{py:attribute} INITIAL_STATE
+:canonical: archivebox.core.models.Snapshot.INITIAL_STATE
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.INITIAL_STATE
+```
+
+````
+
+````{py:attribute} ACTIVE_STATE
+:canonical: archivebox.core.models.Snapshot.ACTIVE_STATE
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.ACTIVE_STATE
+```
+
+````
+
+````{py:attribute} FINAL_STATES
+:canonical: archivebox.core.models.Snapshot.FINAL_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.FINAL_STATES
+```
+
+````
+
+````{py:attribute} FINAL_OR_ACTIVE_STATES
+:canonical: archivebox.core.models.Snapshot.FINAL_OR_ACTIVE_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.FINAL_OR_ACTIVE_STATES
 ```
 
 ````
@@ -796,7 +850,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 `````{py:class} Meta
 :canonical: archivebox.core.models.Snapshot.Meta
 
-Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir.Meta`, {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`, {py:obj}`archivebox.base_models.models.ModelWithNotes.Meta`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:obj}`archivebox.workers.models.ModelWithStateMachine.Meta`
+Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir.Meta`, {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`, {py:obj}`archivebox.base_models.models.ModelWithNotes.Meta`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:obj}`archivebox.workers.models.ModelWithQueue.Meta`
 
 ````{py:attribute} app_label
 :canonical: archivebox.core.models.Snapshot.Meta.app_label
@@ -830,6 +884,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````{py:attribute} indexes
 :canonical: archivebox.core.models.Snapshot.Meta.indexes
+:type: typing.ClassVar[list[django.db.models.Index]]
 :value: >
    None
 
@@ -840,6 +895,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````{py:attribute} constraints
 :canonical: archivebox.core.models.Snapshot.Meta.constraints
+:type: typing.ClassVar[list[django.db.models.BaseConstraint]]
 :value: >
    None
 
@@ -946,6 +1002,30 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
+````{py:method} start_processing() -> bool
+:canonical: archivebox.core.models.Snapshot.start_processing
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.start_processing
+```
+
+````
+
+````{py:method} seal() -> bool
+:canonical: archivebox.core.models.Snapshot.seal
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.seal
+```
+
+````
+
+````{py:method} advance_lifecycle() -> bool
+:canonical: archivebox.core.models.Snapshot.advance_lifecycle
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.advance_lifecycle
+```
+
+````
+
 ````{py:method} cancel() -> None
 :canonical: archivebox.core.models.Snapshot.cancel
 
@@ -1042,6 +1122,17 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
+````{py:attribute} _FS_VERSION_MIGRATION_PATHS
+:canonical: archivebox.core.models.Snapshot._FS_VERSION_MIGRATION_PATHS
+:type: typing.ClassVar[dict[str, str]]
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot._FS_VERSION_MIGRATION_PATHS
+```
+
+````
+
 ````{py:property} fs_migration_needed
 :canonical: archivebox.core.models.Snapshot.fs_migration_needed
 :type: bool
@@ -1096,6 +1187,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 :canonical: archivebox.core.models.Snapshot._fs_migrate_from_0_9_0_to_0_9_4
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot._fs_migrate_from_0_9_0_to_0_9_4
+```
+
+````
+
+````{py:method} hydrate_archiveresult_output_metadata(snapshot_dir: pathlib.Path | None = None) -> int
+:canonical: archivebox.core.models.Snapshot.hydrate_archiveresult_output_metadata
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.hydrate_archiveresult_output_metadata
 ```
 
 ````
@@ -1311,7 +1410,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} tags_str(nocache=True) -> str | None
+````{py:method} tags_str() -> str | None
 :canonical: archivebox.core.models.Snapshot.tags_str
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.tags_str
@@ -1319,7 +1418,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} icons(path: str | None = None) -> str
+````{py:method} icons(path: str | None = None, prefix: str = '/', quote_paths: bool = False) -> str
 :canonical: archivebox.core.models.Snapshot.icons
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.icons
@@ -1404,6 +1503,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
+````{py:method} remove_legacy_archive_symlink() -> None
+:canonical: archivebox.core.models.Snapshot.remove_legacy_archive_symlink
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.remove_legacy_archive_symlink
+```
+
+````
+
 ````{py:method} legacy_archive_path() -> str
 :canonical: archivebox.core.models.Snapshot.legacy_archive_path
 
@@ -1468,10 +1575,10 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} cleanup()
-:canonical: archivebox.core.models.Snapshot.cleanup
+````{py:method} finalize_output_metadata() -> None
+:canonical: archivebox.core.models.Snapshot.finalize_output_metadata
 
-```{autodoc2-docstring} archivebox.core.models.Snapshot.cleanup
+```{autodoc2-docstring} archivebox.core.models.Snapshot.finalize_output_metadata
 ```
 
 ````
@@ -1653,7 +1760,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} discover_outputs(include_filesystem_fallback: bool = True) -> list[dict]
+````{py:method} discover_outputs(include_filesystem_fallback: bool = True, archive_results: list[archivebox.core.models.Snapshot.discover_outputs.ArchiveResult] | None = None) -> list[dict]
 :canonical: archivebox.core.models.Snapshot.discover_outputs
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.discover_outputs
@@ -1661,7 +1768,16 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} to_dict(extended: bool = False) -> dict[str, typing.Any]
+````{py:property} static_archive_path
+:canonical: archivebox.core.models.Snapshot.static_archive_path
+:type: str
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.static_archive_path
+```
+
+````
+
+````{py:method} to_dict(extended: bool = False, static_export: bool = False) -> dict[str, typing.Any]
 :canonical: archivebox.core.models.Snapshot.to_dict
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.to_dict
@@ -1693,6 +1809,14 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
+````{py:method} get_html_details_context(request=None, *, static_export_dir: pathlib.Path | None = None) -> dict[str, typing.Any]
+:canonical: archivebox.core.models.Snapshot.get_html_details_context
+
+```{autodoc2-docstring} archivebox.core.models.Snapshot.get_html_details_context
+```
+
+````
+
 ````{py:method} write_html_details(out_dir: pathlib.Path | str | None = None) -> None
 :canonical: archivebox.core.models.Snapshot.write_html_details
 
@@ -1701,7 +1825,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} get_detail_page_auxiliary_items(outputs: list[dict] | None = None, hidden_card_plugins: set[str] | None = None) -> tuple[list[dict[str, object]], list[dict[str, object]]]
+````{py:method} get_detail_page_auxiliary_items(outputs: list[dict] | None = None, hidden_card_plugins: set[str] | None = None, archive_results: list[archivebox.core.models.Snapshot.get_detail_page_auxiliary_items.ArchiveResult] | None = None) -> tuple[list[dict[str, object]], list[dict[str, object]]]
 :canonical: archivebox.core.models.Snapshot.get_detail_page_auxiliary_items
 
 ```{autodoc2-docstring} archivebox.core.models.Snapshot.get_detail_page_auxiliary_items
@@ -1720,185 +1844,12 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ``````
 
-`````{py:class} SnapshotMachine(obj, *args, **kwargs)
-:canonical: archivebox.core.models.SnapshotMachine
-
-Bases: {py:obj}`archivebox.workers.models.BaseStateMachine`
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.__init__
-```
-
-````{py:attribute} model_attr_name
-:canonical: archivebox.core.models.SnapshotMachine.model_attr_name
-:value: >
-   'snapshot'
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.model_attr_name
-```
-
-````
-
-````{py:attribute} queued
-:canonical: archivebox.core.models.SnapshotMachine.queued
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.queued
-```
-
-````
-
-````{py:attribute} started
-:canonical: archivebox.core.models.SnapshotMachine.started
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.started
-```
-
-````
-
-````{py:attribute} paused
-:canonical: archivebox.core.models.SnapshotMachine.paused
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.paused
-```
-
-````
-
-````{py:attribute} sealed
-:canonical: archivebox.core.models.SnapshotMachine.sealed
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.sealed
-```
-
-````
-
-````{py:attribute} tick
-:canonical: archivebox.core.models.SnapshotMachine.tick
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.tick
-```
-
-````
-
-````{py:attribute} seal
-:canonical: archivebox.core.models.SnapshotMachine.seal
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.seal
-```
-
-````
-
-````{py:attribute} pause_requested
-:canonical: archivebox.core.models.SnapshotMachine.pause_requested
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.pause_requested
-```
-
-````
-
-````{py:attribute} resume_requested
-:canonical: archivebox.core.models.SnapshotMachine.resume_requested
-:value: >
-   'to(...)'
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.resume_requested
-```
-
-````
-
-````{py:attribute} snapshot
-:canonical: archivebox.core.models.SnapshotMachine.snapshot
-:type: archivebox.core.models.Snapshot
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.snapshot
-```
-
-````
-
-````{py:method} can_start() -> bool
-:canonical: archivebox.core.models.SnapshotMachine.can_start
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.can_start
-```
-
-````
-
-````{py:method} is_finished() -> bool
-:canonical: archivebox.core.models.SnapshotMachine.is_finished
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.is_finished
-```
-
-````
-
-````{py:method} has_finished_archive_results() -> bool
-:canonical: archivebox.core.models.SnapshotMachine.has_finished_archive_results
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.has_finished_archive_results
-```
-
-````
-
-````{py:method} enter_queued()
-:canonical: archivebox.core.models.SnapshotMachine.enter_queued
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.enter_queued
-```
-
-````
-
-````{py:method} enter_paused()
-:canonical: archivebox.core.models.SnapshotMachine.enter_paused
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.enter_paused
-```
-
-````
-
-````{py:method} enter_started()
-:canonical: archivebox.core.models.SnapshotMachine.enter_started
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.enter_started
-```
-
-````
-
-````{py:method} enter_sealed()
-:canonical: archivebox.core.models.SnapshotMachine.enter_sealed
-
-```{autodoc2-docstring} archivebox.core.models.SnapshotMachine.enter_sealed
-```
-
-````
-
-`````
-
 ``````{py:class} ArchiveResult(*args, **kwargs)
 :canonical: archivebox.core.models.ArchiveResult
 
 Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithNotes`
 
-`````{py:class} StatusChoices(*args, **kwds)
+`````{py:class} StatusChoices()
 :canonical: archivebox.core.models.ArchiveResult.StatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -2103,24 +2054,6 @@ Bases: {py:obj}`django.db.models.TextChoices`
 :classmethod:
 
 ```{autodoc2-docstring} archivebox.core.models.ArchiveResult.snapshot_ids_with_majority_status
-```
-
-````
-
-````{py:method} cached_snapshot_ids_with_majority_status(status: str | collections.abc.Iterable[str], *, timeout: int = 60) -> tuple[str, ...]
-:canonical: archivebox.core.models.ArchiveResult.cached_snapshot_ids_with_majority_status
-:classmethod:
-
-```{autodoc2-docstring} archivebox.core.models.ArchiveResult.cached_snapshot_ids_with_majority_status
-```
-
-````
-
-````{py:method} clear_majority_status_cache() -> None
-:canonical: archivebox.core.models.ArchiveResult.clear_majority_status_cache
-:classmethod:
-
-```{autodoc2-docstring} archivebox.core.models.ArchiveResult.clear_majority_status_cache
 ```
 
 ````
@@ -2346,7 +2279,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 ````{py:attribute} verbose_name_plural
 :canonical: archivebox.core.models.ArchiveResult.Meta.verbose_name_plural
 :value: >
-   'Archive Results Log'
+   'Archive Results'
 
 ```{autodoc2-docstring} archivebox.core.models.ArchiveResult.Meta.verbose_name_plural
 ```
@@ -2355,6 +2288,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````{py:attribute} indexes
 :canonical: archivebox.core.models.ArchiveResult.Meta.indexes
+:type: typing.ClassVar[list[django.db.models.Index]]
 :value: >
    None
 
@@ -2365,6 +2299,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````{py:attribute} constraints
 :canonical: archivebox.core.models.ArchiveResult.Meta.constraints
+:type: typing.ClassVar[list[django.db.models.BaseConstraint]]
 :value: >
    None
 
@@ -2444,10 +2379,10 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} delete(*args, **kwargs)
-:canonical: archivebox.core.models.ArchiveResult.delete
+````{py:method} schedule_delete_cleanup(*, using: str | None = None) -> None
+:canonical: archivebox.core.models.ArchiveResult.schedule_delete_cleanup
 
-```{autodoc2-docstring} archivebox.core.models.ArchiveResult.delete
+```{autodoc2-docstring} archivebox.core.models.ArchiveResult.schedule_delete_cleanup
 ```
 
 ````
@@ -2761,14 +2696,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 :canonical: archivebox.core.models.ArchiveResult.save_search_index
 
 ```{autodoc2-docstring} archivebox.core.models.ArchiveResult.save_search_index
-```
-
-````
-
-````{py:method} update_from_output()
-:canonical: archivebox.core.models.ArchiveResult.update_from_output
-
-```{autodoc2-docstring} archivebox.core.models.ArchiveResult.update_from_output
 ```
 
 ````

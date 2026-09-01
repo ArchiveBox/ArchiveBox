@@ -20,6 +20,7 @@ CAPTURE_PROFILES = {
 }
 
 REQUIRED_VIEW_NAMES = {
+    "First-time setup wizard",
     "Login",
     "Public snapshot list",
     "Add URLs",

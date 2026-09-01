@@ -207,10 +207,14 @@ async function main() {
       await page.waitForFunction((pluginName) => {
         const selectedCard = document.querySelector('.thumb-card.selected-card[data-plugin-name]');
         const frame = document.querySelector('#main-frame');
+        const frameRect = frame?.getBoundingClientRect();
         return selectedCard?.dataset.pluginName?.toLowerCase() === pluginName
           && frame
           && frame.getAttribute('src')
-          && frame.getAttribute('src') !== 'about:blank';
+          && frame.getAttribute('src') !== 'about:blank'
+          && frameRect
+          && frameRect.width >= Math.min(window.innerWidth * 0.9, window.innerWidth - 8)
+          && frameRect.height >= Math.min(window.innerHeight * 0.35, 320);
       }, { timeout: 45000 }, expectedPlugin);
       await page.waitForFunction(() => {
         const frames = [document.querySelector('#main-frame'), document.querySelector('.thumb-card.selected-card iframe')]

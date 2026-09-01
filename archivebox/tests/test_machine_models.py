@@ -4,8 +4,8 @@ Unit tests for machine module models: Machine, NetworkInterface, Binary, Process
 Tests cover:
 1. Machine model creation and current() method
 2. NetworkInterface model and network detection
-3. Binary model lifecycle and state machine
-4. Process model lifecycle, hierarchy, and state machine
+3. Binary model lifecycle
+4. Process model lifecycle and hierarchy
 5. JSONL serialization/deserialization
 6. Manager methods
 7. Process tracking methods (replacing pid_utils)
@@ -29,8 +29,6 @@ from archivebox.machine.models import (
     NetworkInterface,
     Binary,
     Process,
-    BinaryMachine,
-    ProcessMachine,
     MACHINE_RECHECK_INTERVAL,
     PID_REUSE_WINDOW,
     PROCESS_TIMEOUT_GRACE,
@@ -509,27 +507,19 @@ class TestBinaryModel:
         assert symlink.resolve() == source.resolve()
 
 
-class TestBinaryStateMachine:
-    """Test the BinaryMachine state machine."""
+class TestBinaryLifecycle:
+    """Test Binary lifecycle prerequisites."""
 
     @pytest.fixture(autouse=True)
     def setup_binary(self, binary):
         self.binary = binary
 
-    def test_binary_state_machine_initial_state(self):
-        """BinaryMachine should start in queued state."""
-        sm = BinaryMachine(self.binary)
-        assert sm.current_state_value == Binary.StatusChoices.QUEUED
-
-    def test_binary_state_machine_can_start(self):
-        """BinaryMachine.can_start() should check name and binproviders."""
-        sm = BinaryMachine(self.binary)
-        assert sm.can_install()
+    def test_binary_can_install_checks_name_and_binproviders(self):
+        assert self.binary.can_install
 
         self.binary.binproviders = ""
         self.binary.save()
-        sm = BinaryMachine(self.binary)
-        assert not sm.can_install()
+        assert not self.binary.can_install
 
 
 class TestProcessModel:
@@ -1000,39 +990,6 @@ class TestProcessClassMethods:
         assert child.status == Process.StatusChoices.EXITED
         assert child.ended_at is not None
         assert child.exit_code == 143
-
-
-class TestProcessStateMachine:
-    """Test the ProcessMachine state machine."""
-
-    @pytest.fixture(autouse=True)
-    def setup_process(self, process):
-        self.process = process
-
-    def test_process_state_machine_initial_state(self):
-        """ProcessMachine should start in queued state."""
-        sm = ProcessMachine(self.process)
-        assert sm.current_state_value == Process.StatusChoices.QUEUED
-
-    def test_process_state_machine_can_start(self):
-        """ProcessMachine.can_start() should check cmd and machine."""
-        sm = ProcessMachine(self.process)
-        assert sm.can_start()
-
-        self.process.cmd = []
-        self.process.save()
-        sm = ProcessMachine(self.process)
-        assert not sm.can_start()
-
-    def test_process_state_machine_is_exited(self):
-        """ProcessMachine.is_exited() should check exit_code."""
-        sm = ProcessMachine(self.process)
-        assert not sm.is_exited()
-
-        self.process.exit_code = 0
-        self.process.save()
-        sm = ProcessMachine(self.process)
-        assert sm.is_exited()
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
 __package__ = "archivebox.plugins"
 
-import json
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Protocol, TypedDict
 
 from abx_plugins import get_plugins_dir
+from abx_dl.catalog import PluginCatalog, PluginConfigResolver
 from django.utils.safestring import mark_safe
 
 from archivebox.config.constants import CONSTANTS
@@ -29,18 +29,18 @@ USER_PLUGINS_DIR = CONSTANTS.USER_PLUGINS_DIR
 
 
 def iter_plugin_dirs() -> list[Path]:
-    """Iterate over all built-in and user plugin directories."""
-    plugin_dirs: list[Path] = []
+    """Return the exact plugin directories exposed by the shared catalog."""
+    return [plugin.path for plugin in get_plugin_catalog().values()]
 
-    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-        if not base_dir.exists():
-            continue
 
-        for plugin_dir in base_dir.iterdir():
-            if plugin_dir.is_dir() and not plugin_dir.name.startswith("_"):
-                plugin_dirs.append(plugin_dir)
+@lru_cache(maxsize=1)
+def get_plugin_catalog() -> PluginCatalog:
+    return PluginCatalog.discover(extra_plugin_dirs=[USER_PLUGINS_DIR], runtime="archivebox")
 
-    return plugin_dirs
+
+@lru_cache(maxsize=1)
+def get_plugin_config_resolver() -> PluginConfigResolver:
+    return PluginConfigResolver(get_plugin_catalog())
 
 
 @lru_cache(maxsize=1)
@@ -52,25 +52,11 @@ def get_plugins() -> list[str]:
     or a standardized templates/icon.html asset. This includes non-extractor
     plugins such as binary providers and shared base plugins.
     """
-    plugins = []
-
-    for plugin_dir in iter_plugin_dirs():
-        has_hooks = any(plugin_dir.glob("on_*__*.*"))
-        has_config = (plugin_dir / "config.json").exists()
-        has_icon = (plugin_dir / "templates" / "icon.html").exists()
-        if has_hooks or has_config or has_icon:
-            plugins.append(plugin_dir.name)
-
-    return sorted(set(plugins))
+    return sorted(get_plugin_catalog())
 
 
 def get_plugin_models():
-    from abx_dl.models import discover_plugins
-
-    plugins = {}
-    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-        plugins.update(discover_plugins(plugins_dir=base_dir, runtime="archivebox"))
-    return plugins
+    return get_plugin_catalog().plugins
 
 
 def get_plugin_name(plugin: str) -> str:
@@ -99,18 +85,7 @@ def get_enabled_plugins(config: ConfigLookup | None = None, **config_kwargs: Any
 
         config = get_config(**config_kwargs)
 
-    enabled = []
-    disabled = []
-    for plugin in get_plugins():
-        plugin_config = get_plugin_special_config(plugin, config)
-        if plugin_config["enabled"]:
-            enabled.append(plugin)
-        else:
-            disabled.append(plugin)
-
-    from abx_dl.models import filter_plugins
-
-    return list(filter_plugins(get_plugin_models(), enabled, include_providers=True, disabled_names=disabled))
+    return get_plugin_config_resolver().enabled_plugin_names_from_flat(dict(config.items()))
 
 
 def discover_plugins_that_provide_interface(
@@ -128,45 +103,38 @@ def discover_plugins_that_provide_interface(
 
     backends = {}
 
-    for base_dir in (BUILTIN_PLUGINS_DIR, USER_PLUGINS_DIR):
-        if not base_dir.exists():
+    for plugin_dir in iter_plugin_dirs():
+        plugin_name = plugin_dir.name
+        if plugin_prefix and not plugin_name.startswith(plugin_prefix):
             continue
 
-        for plugin_dir in base_dir.iterdir():
-            if not plugin_dir.is_dir():
+        module_path = plugin_dir / f"{module_name}.py"
+        if not module_path.exists():
+            continue
+
+        try:
+            spec = importlib.util.spec_from_file_location(
+                f"archivebox.dynamic_plugins.{plugin_name}.{module_name}",
+                module_path,
+            )
+            if spec is None or spec.loader is None:
                 continue
 
-            plugin_name = plugin_dir.name
-            if plugin_prefix and not plugin_name.startswith(plugin_prefix):
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+
+            if not all(attr in vars(module) for attr in required_attrs):
                 continue
 
-            module_path = plugin_dir / f"{module_name}.py"
-            if not module_path.exists():
-                continue
+            if plugin_prefix:
+                backend_name = plugin_name[len(plugin_prefix) :]
+            else:
+                backend_name = plugin_name
 
-            try:
-                spec = importlib.util.spec_from_file_location(
-                    f"archivebox.dynamic_plugins.{plugin_name}.{module_name}",
-                    module_path,
-                )
-                if spec is None or spec.loader is None:
-                    continue
+            backends[backend_name] = module
 
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-
-                if not all(attr in vars(module) for attr in required_attrs):
-                    continue
-
-                if plugin_prefix:
-                    backend_name = plugin_name[len(plugin_prefix) :]
-                else:
-                    backend_name = plugin_name
-
-                backends[backend_name] = module
-
-            except Exception:
-                continue
+        except Exception:
+            continue
 
     return backends
 
@@ -196,33 +164,7 @@ def discover_plugin_configs() -> dict[str, dict[str, Any]]:
     schemas are plugin package metadata, not live user config; runtime values
     still come from env/db config at each callsite.
     """
-    configs = {}
-
-    for plugin_dir in iter_plugin_dirs():
-        config_path = plugin_dir / "config.json"
-        if not config_path.exists():
-            continue
-
-        try:
-            with open(config_path) as f:
-                schema = json.load(f)
-
-            if not isinstance(schema, dict):
-                continue
-            if schema.get("type") != "object":
-                continue
-            if "properties" not in schema:
-                continue
-
-            configs[plugin_dir.name] = schema
-
-        except (json.JSONDecodeError, OSError) as e:
-            import sys
-
-            print(f"Warning: Failed to load config.json from {plugin_dir.name}: {e}", file=sys.stderr)
-            continue
-
-    return configs
+    return get_plugin_config_resolver().schemas
 
 
 def get_plugin_special_config(plugin_name: str, config: ConfigLookup, _visited: set[str] | None = None) -> PluginSpecialConfig:
@@ -234,26 +176,7 @@ def get_plugin_special_config(plugin_name: str, config: ConfigLookup, _visited: 
         - {PLUGIN}_TIMEOUT: Plugin-specific timeout (fallback to TIMEOUT, default 300)
         - {PLUGIN}_BINARY: Primary binary path (default to plugin_name)
     """
-    plugin_upper = plugin_name.upper()
-
-    enabled_key = f"{plugin_upper}_ENABLED"
-    enabled = config.get(enabled_key)
-    if enabled is None:
-        enabled = True
-    elif isinstance(enabled, str):
-        enabled = enabled.lower() not in ("false", "0", "no", "")
-
-    timeout_key = f"{plugin_upper}_TIMEOUT"
-    timeout = config.get(timeout_key) or config.get("TIMEOUT", 300)
-
-    binary_key = f"{plugin_upper}_BINARY"
-    binary = config.get(binary_key, plugin_name)
-
-    return {
-        "enabled": bool(enabled),
-        "timeout": int(timeout),
-        "binary": str(binary),
-    }
+    return get_plugin_config_resolver().runtime_settings(plugin_name, dict(config.items()))
 
 
 DEFAULT_TEMPLATES = {
@@ -295,11 +218,11 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
     if base_name in ("yt-dlp", "youtube-dl"):
         base_name = "ytdlp"
 
-    for plugin_dir in iter_plugin_dirs():
-        if plugin_dir.name == base_name or plugin_dir.name.endswith(f"_{base_name}"):
-            template_path = plugin_dir / "templates" / f"{template_name}.html"
-            if template_path.exists():
-                return template_path.read_text()
+    catalog = get_plugin_catalog()
+    if base_name in catalog:
+        template_path = catalog.template_path(base_name, template_name)
+        if template_path is not None:
+            return template_path.read_text()
 
     if fallback:
         return DEFAULT_TEMPLATES.get(template_name, "")

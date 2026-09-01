@@ -10,7 +10,6 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         """Register the archivebox.core.admin_site as the main django admin site"""
-        import sys
         from django.utils.autoreload import DJANGO_AUTORELOAD_ENV
 
         from archivebox.core.admin_site import register_admin_site
@@ -27,11 +26,6 @@ class CoreConfig(AppConfig):
         from archivebox.misc.db import truncate_overlong_charfields
 
         pre_save.connect(truncate_overlong_charfields, dispatch_uid="archivebox_truncate_overlong_charfields")
-
-        # Import models to register state machines with the registry
-        # Skip during makemigrations to avoid premature state machine access
-        if "makemigrations" not in sys.argv:
-            from archivebox.core import models  # noqa: F401
 
         def _should_prepare_runtime() -> bool:
             if os.environ.get("ARCHIVEBOX_RUNSERVER") == "1":

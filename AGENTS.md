@@ -15,6 +15,13 @@ ArchiveBox is the full self-hosted web archiving app. Keep this repo on the `dev
 - Trace root causes from observed behavior. Do not paper over failures with retries, wider timeouts, broad fallbacks, or looser assertions.
 - Read `README.md` for the full setup, CLI, Docker, API, and release surface.
 
+## Concurrency Contract
+
+- A collection has one orchestrator at a time. Local PID/process checks may warn about obvious same-machine duplicates, but must not claim to enforce ownership across machines or shared filesystems.
+- SQLite remains supported with concurrent short writes from CLI and server processes. Keep the SQLite database on a local filesystem, never NFS/SMB, and use short autocommit/CAS updates instead of long transactions or database locks.
+- Network calls, hook execution, filesystem migrations, and other long work belong in the orchestrator. Never hold a database transaction or lock across that work.
+- PostgreSQL and shared data directories are the path to future multi-machine scheduling. Coordinate that work through database-backed per-crawl/per-snapshot claims; do not introduce file leases or timer-based orchestrator election.
+
 ## Development Setup
 
 ```bash

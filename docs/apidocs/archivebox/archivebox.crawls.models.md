@@ -19,8 +19,6 @@
   -
 * - {py:obj}`Crawl <archivebox.crawls.models.Crawl>`
   -
-* - {py:obj}`CrawlMachine <archivebox.crawls.models.CrawlMachine>`
-  -
 ````
 
 ### API
@@ -235,7 +233,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithUUID.Meta`, {py:obj}`arch
 ``````{py:class} Crawl(*args, **kwargs)
 :canonical: archivebox.crawls.models.Crawl
 
-Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithConfig`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithStateMachine`
+Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir`, {py:obj}`archivebox.base_models.models.ModelWithConfig`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats`, {py:obj}`archivebox.workers.models.ModelWithQueue`
 
 ````{py:attribute} id
 :canonical: archivebox.crawls.models.Crawl.id
@@ -387,16 +385,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 
 ````
 
-````{py:attribute} state_machine_name
-:canonical: archivebox.crawls.models.Crawl.state_machine_name
-:value: >
-   'archivebox.crawls.models.CrawlMachine'
-
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.state_machine_name
-```
-
-````
-
 ````{py:attribute} retry_at_field_name
 :canonical: archivebox.crawls.models.Crawl.retry_at_field_name
 :value: >
@@ -423,6 +411,46 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
    None
 
 ```{autodoc2-docstring} archivebox.crawls.models.Crawl.StatusChoices
+```
+
+````
+
+````{py:attribute} INITIAL_STATE
+:canonical: archivebox.crawls.models.Crawl.INITIAL_STATE
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.INITIAL_STATE
+```
+
+````
+
+````{py:attribute} ACTIVE_STATE
+:canonical: archivebox.crawls.models.Crawl.ACTIVE_STATE
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.ACTIVE_STATE
+```
+
+````
+
+````{py:attribute} FINAL_STATES
+:canonical: archivebox.crawls.models.Crawl.FINAL_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.FINAL_STATES
+```
+
+````
+
+````{py:attribute} FINAL_OR_ACTIVE_STATES
+:canonical: archivebox.crawls.models.Crawl.FINAL_OR_ACTIVE_STATES
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.FINAL_OR_ACTIVE_STATES
 ```
 
 ````
@@ -492,7 +520,7 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter`, {py:obj}`ar
 `````{py:class} Meta
 :canonical: archivebox.crawls.models.Crawl.Meta
 
-Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir.Meta`, {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:obj}`archivebox.workers.models.ModelWithStateMachine.Meta`
+Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:obj}`archivebox.base_models.models.ModelWithOutputDir.Meta`, {py:obj}`archivebox.base_models.models.ModelWithConfig.Meta`, {py:obj}`archivebox.base_models.models.ModelWithHealthStats.Meta`, {py:obj}`archivebox.workers.models.ModelWithQueue.Meta`
 
 ````{py:attribute} app_label
 :canonical: archivebox.crawls.models.Crawl.Meta.app_label
@@ -940,14 +968,6 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} run() -> Snapshot | None
-:canonical: archivebox.crawls.models.Crawl.run
-
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.run
-```
-
-````
-
 ````{py:method} is_finished() -> bool
 :canonical: archivebox.crawls.models.Crawl.is_finished
 
@@ -956,176 +976,52 @@ Bases: {py:obj}`archivebox.base_models.models.ModelWithDeleteAfter.Meta`, {py:ob
 
 ````
 
-````{py:method} cleanup()
-:canonical: archivebox.crawls.models.Crawl.cleanup
-
-```{autodoc2-docstring} archivebox.crawls.models.Crawl.cleanup
-```
-
-````
-
-``````
-
-`````{py:class} CrawlMachine(obj, *args, **kwargs)
-:canonical: archivebox.crawls.models.CrawlMachine
-
-Bases: {py:obj}`archivebox.workers.models.BaseStateMachine`
-
-````{py:attribute} crawl
-:canonical: archivebox.crawls.models.CrawlMachine.crawl
-:type: archivebox.crawls.models.Crawl
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.crawl
-```
-
-````
-
-````{py:attribute} model_attr_name
-:canonical: archivebox.crawls.models.CrawlMachine.model_attr_name
-:value: >
-   'crawl'
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.model_attr_name
-```
-
-````
-
-````{py:attribute} queued
-:canonical: archivebox.crawls.models.CrawlMachine.queued
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.queued
-```
-
-````
-
-````{py:attribute} started
-:canonical: archivebox.crawls.models.CrawlMachine.started
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.started
-```
-
-````
-
-````{py:attribute} paused
-:canonical: archivebox.crawls.models.CrawlMachine.paused
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.paused
-```
-
-````
-
-````{py:attribute} sealed
-:canonical: archivebox.crawls.models.CrawlMachine.sealed
-:value: >
-   'State(...)'
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.sealed
-```
-
-````
-
-````{py:attribute} tick
-:canonical: archivebox.crawls.models.CrawlMachine.tick
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.tick
-```
-
-````
-
-````{py:attribute} seal
-:canonical: archivebox.crawls.models.CrawlMachine.seal
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.seal
-```
-
-````
-
-````{py:attribute} pause_requested
-:canonical: archivebox.crawls.models.CrawlMachine.pause_requested
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.pause_requested
-```
-
-````
-
-````{py:attribute} resume_requested
-:canonical: archivebox.crawls.models.CrawlMachine.resume_requested
-:value: >
-   'to(...)'
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.resume_requested
-```
-
-````
-
 ````{py:method} can_start() -> bool
-:canonical: archivebox.crawls.models.CrawlMachine.can_start
+:canonical: archivebox.crawls.models.Crawl.can_start
 
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.can_start
-```
-
-````
-
-````{py:method} is_finished() -> bool
-:canonical: archivebox.crawls.models.CrawlMachine.is_finished
-
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.is_finished
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.can_start
 ```
 
 ````
 
 ````{py:method} has_finished_snapshots() -> bool
-:canonical: archivebox.crawls.models.CrawlMachine.has_finished_snapshots
+:canonical: archivebox.crawls.models.Crawl.has_finished_snapshots
 
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.has_finished_snapshots
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.has_finished_snapshots
 ```
 
 ````
 
-````{py:method} enter_queued()
-:canonical: archivebox.crawls.models.CrawlMachine.enter_queued
+````{py:method} mark_started() -> bool
+:canonical: archivebox.crawls.models.Crawl.mark_started
 
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.enter_queued
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.mark_started
 ```
 
 ````
 
-````{py:method} enter_started()
-:canonical: archivebox.crawls.models.CrawlMachine.enter_started
+````{py:method} seal() -> bool
+:canonical: archivebox.crawls.models.Crawl.seal
 
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.enter_started
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.seal
 ```
 
 ````
 
-````{py:method} enter_paused()
-:canonical: archivebox.crawls.models.CrawlMachine.enter_paused
+````{py:method} advance_lifecycle() -> bool
+:canonical: archivebox.crawls.models.Crawl.advance_lifecycle
 
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.enter_paused
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.advance_lifecycle
 ```
 
 ````
 
-````{py:method} enter_sealed()
-:canonical: archivebox.crawls.models.CrawlMachine.enter_sealed
+````{py:method} cleanup_runtime() -> None
+:canonical: archivebox.crawls.models.Crawl.cleanup_runtime
 
-```{autodoc2-docstring} archivebox.crawls.models.CrawlMachine.enter_sealed
+```{autodoc2-docstring} archivebox.crawls.models.Crawl.cleanup_runtime
 ```
 
 ````
 
-`````
+``````

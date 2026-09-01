@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-27T06:11:53.268167371Z"
+exclude-newer = "2026-08-27T22:07:17.15706742Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-09-01T06:11:52.268183486Z", span = "PT1S" }
+abxbus = { timestamp = "2026-09-01T22:07:16.157082047Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.12.225"
+version = "1.12.233"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -38,14 +38,14 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/21/976fa0fdfdd6989b05cd328cd3d837e5638cdce5ea3644a13f07507fd13a/abx_dl-1.12.225.tar.gz", hash = "sha256:a886f51bfe9981cf6165ab6c65a4ec710756fc8a834e62b42ae3500ca578868c", size = 84223 }
+sdist = { url = "https://files.pythonhosted.org/packages/a9/64/80349a50af07e0d5e8d7df0a5bb78e4edd448b25c03ef9b668e192f76111/abx_dl-1.12.233.tar.gz", hash = "sha256:86939487e81b367bd7c298dacb3105f52d9b58ce35099b2bef5254e58a4be0f3", size = 88362 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/af/94/8d91e0b97789ea4541ffc0241341903b36ec4a7b018e46a28baf48d9d737/abx_dl-1.12.225-py3-none-any.whl", hash = "sha256:62b6a6ae9e8087249ea1fc726fe5e747ad02340e59ca791a1d3590f613ec9e8c", size = 87900 },
+    { url = "https://files.pythonhosted.org/packages/12/4e/e52a6696c5eb2af89dd4a9ebd7d071e9f67a53368094cf793e871bf6cb58/abx_dl-1.12.233-py3-none-any.whl", hash = "sha256:078d50b1531f7d51390a2a72304020a81a418080f26a021fa462500a96bc5d6e", size = 92585 },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.12.197"
+version = "1.12.203"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -54,9 +54,9 @@ dependencies = [
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uv", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/11/ab/09ca5de37ea1505de4d7295ba2adbc4b83256a332a71079893153afa6f02/abx_plugins-1.12.197.tar.gz", hash = "sha256:d8ebbf8b47a9d5fb456717f414b12c84e09284a5e5fc6a91ffd4729b84b73c85", size = 259108, upload-time = "2026-09-01T06:03:06.121Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/ee/b1c1f8e25bdde434468970067a29969409e46b43810f764ad40a0f529d84/abx_plugins-1.12.203.tar.gz", hash = "sha256:841f0e43e3d5896984f0bfe78ec4adbc49c9653ee52913fde5e775478bf475cb", size = 259402, upload-time = "2026-09-01T21:57:38.733Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/a7/5b93c9bc8adb294df1f4415402bf5c7818d3f3a4a5c7196e3e3cdd043331/abx_plugins-1.12.197-py3-none-any.whl", hash = "sha256:e1533bddfc2f076e13c5a9c6b7124320a2863986d1a5e384dbc78da1e372f791", size = 412155, upload-time = "2026-09-01T06:03:08.224Z" },
+    { url = "https://files.pythonhosted.org/packages/04/67/fc3855b9ea68ae3e1b860d61d5f053c76e39f31841d6aff5fa86e3ce49d3/abx_plugins-1.12.203-py3-none-any.whl", hash = "sha256:72abb7b0f02bff5ae45e364d7231ff433a9f2576c6b88e7f81205b609f010b5e", size = 413256, upload-time = "2026-09-01T21:57:39.954Z" },
 ]
 
 [[package]]
@@ -120,7 +120,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.35rc366"
+version = "0.9.35rc381"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -149,7 +149,6 @@ dependencies = [
     { name = "py-machineid", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "pydantic-settings", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "python-statemachine", extra = ["diagrams"], marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "requests", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -220,8 +219,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.12.225" },
-    { name = "abx-plugins", specifier = "==1.12.197" },
+    { name = "abx-dl", specifier = "==1.12.233" },
+    { name = "abx-plugins", specifier = "==1.12.203" },
     { name = "abxbus", specifier = "==2.5.56" },
     { name = "abxpkg", specifier = "==1.12.110" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
@@ -253,7 +252,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.8.0" },
     { name = "pydantic-settings", specifier = ">=2.5.2" },
     { name = "python-ldap", marker = "extra == 'ldap'", specifier = ">=3.4.3" },
-    { name = "python-statemachine", extras = ["diagrams"], specifier = ">=2.3.6" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "requests-tracker", marker = "extra == 'debug'", specifier = ">=0.3.3" },
     { name = "rich", specifier = ">=14.2.0" },
@@ -1799,18 +1797,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pydot"
-version = "4.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyparsing", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/50/35/b17cb89ff865484c6a20ef46bf9d95a5f07328292578de0b295f4a6beec2/pydot-4.0.1.tar.gz", hash = "sha256:c2148f681c4a33e08bf0e26a9e5f8e4099a82e0e2a068098f32ce86577364ad5", size = 162594, upload-time = "2025-06-17T20:09:56.454Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7e/32/a7125fb28c4261a627f999d5fb4afff25b523800faed2c30979949d6facd/pydot-4.0.1-py3-none-any.whl", hash = "sha256:869c0efadd2708c0be1f916eb669f3d664ca684bc57ffb7ecc08e70d5e93fee6", size = 37087, upload-time = "2025-06-17T20:09:55.25Z" },
-]
-
-[[package]]
 name = "pygments"
 version = "2.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1829,15 +1815,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/74/b7/da07bae88f5a9506b4def6f2f4903cf4c3b8831e560dba8fa18ca08f758f/pyopenssl-26.3.0.tar.gz", hash = "sha256:589de7fae1c9ea670d18422ed00fc04da787bbde8e1454aea872aa57b49ad341", size = 182024, upload-time = "2026-06-12T20:28:07.458Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/18/1dd71c9b43192ab83f1d531ad6002dc81108ac36c475f79fb7a295abe2f4/pyopenssl-26.3.0-py3-none-any.whl", hash = "sha256:46367f8f66b92271e6d218da9c87607e1ef5a0bc5c8dea5bb3db82f395c385a3", size = 56008, upload-time = "2026-06-12T20:28:05.999Z" },
-]
-
-[[package]]
-name = "pyparsing"
-version = "3.3.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f3/91/9c6ee907786a473bf81c5f53cf703ba0957b23ab84c264080fb5a450416f/pyparsing-3.3.2.tar.gz", hash = "sha256:c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc", size = 6851574, upload-time = "2026-01-21T03:57:59.36Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/10/bd/c038d7cc38edc1aa5bf91ab8068b63d4308c66c4c8bb3cbba7dfbc049f9c/pyparsing-3.3.2-py3-none-any.whl", hash = "sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d", size = 122781, upload-time = "2026-01-21T03:57:55.912Z" },
 ]
 
 [[package]]
@@ -1973,20 +1950,6 @@ dependencies = [
     { name = "pyasn1-modules", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b2/f4/60edeb794bbc9ed0ff2149bbaeec605f3ed331766459d195832ecbd0ba2d/python_ldap-3.4.7.tar.gz", hash = "sha256:bacd9fb680d20263d8570ade1cf234d90d281149a8beb4f079dd8f33f7613dc8", size = 387477, upload-time = "2026-05-20T13:41:04.358Z" }
-
-[[package]]
-name = "python-statemachine"
-version = "3.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a3/88/d24d2475069c96bbd752414863d8ffc26ef25f5179c87fda5869ba8cb5d5/python_statemachine-3.2.0.tar.gz", hash = "sha256:44b98cb9bb1081891ef6efa907c821d05cae5314a2b99713e56d56a9c962de08", size = 745821, upload-time = "2026-06-17T02:25:41.347Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d8/e3/25d1076e47554b559332bba62fb4abdc01704ea960f773c8db21b4ea1952/python_statemachine-3.2.0-py3-none-any.whl", hash = "sha256:8909916fc21208680f737d33c891a5331a1a0eeeaf3fe40efa278cb056855aee", size = 152809, upload-time = "2026-06-17T02:25:39.766Z" },
-]
-
-[package.optional-dependencies]
-diagrams = [
-    { name = "pydot", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-]
 
 [[package]]
 name = "pytz"
