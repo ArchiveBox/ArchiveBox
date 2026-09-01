@@ -10,7 +10,6 @@ Tests cover:
 import os
 import signal
 import subprocess
-from datetime import timedelta
 
 import psutil
 import pytest
@@ -734,7 +733,7 @@ class TestRunDaemonMode:
                 cleanup_process_group(proc.pid)
                 proc.wait(timeout=15)
 
-    def test_run_daemon_recovers_stopped_runner_from_previous_pid_namespace(self, initialized_archive, db):
+    def test_run_daemon_retires_runner_from_previous_pid_namespace(self, initialized_archive, db):
         from django.utils import timezone
 
         from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE
@@ -753,8 +752,6 @@ class TestRunDaemonMode:
                 started_at=timezone.now(),
                 env={PROCESS_PID_NAMESPACE_KEY: f"{get_current_pid_namespace()}-stopped-container"},
             )
-            Process.objects.filter(pk=stopped_runner.pk).update(modified_at=timezone.now() - timedelta(minutes=5))
-
         queued = run_archivebox_cmd(["crawl", "create", create_test_url()], cwd=initialized_archive, env=env, timeout=60)
         assert queued.returncode == 0, queued.stderr or queued.stdout
 
@@ -774,6 +771,7 @@ class TestRunDaemonMode:
 
         try:
             wait_for_log(daemon_log, "[Crawl#", timeout=10)
+            assert "Multiple orchestrators sharing a single collection is not officially supported" in daemon_log.read_text()
             with use_archivebox_db(initialized_archive):
                 stopped_runner.refresh_from_db()
                 assert stopped_runner.status == Process.StatusChoices.EXITED
