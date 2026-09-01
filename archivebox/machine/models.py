@@ -524,8 +524,10 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
     Installation is synchronous during queued→installed transition.
     If installation fails, Binary stays in queued with retry_at set for later retry.
 
-    State machine calls run(), which emits an abxpkg BinaryRequestEvent through
-    the ArchiveBox runner and installs the binary using the specified providers.
+    BinaryService claims queued rows with a conditional update, then run()
+    emits an abxpkg BinaryRequestEvent and persists the resolved installation.
+    The database row is the only lifecycle state; there is intentionally no
+    second in-memory state machine to reconcile after a worker interruption.
     """
 
     class StatusChoices(models.TextChoices):
@@ -564,7 +566,7 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
     version = models.CharField(max_length=32, default="", null=False, blank=True)
     sha256 = models.CharField(max_length=64, default="", null=False, blank=True)
 
-    # State machine fields
+    # Durable queue lifecycle fields
     status = ModelWithQueue.StatusField(choices=StatusChoices.choices, default=StatusChoices.QUEUED, max_length=16)
     retry_at = ModelWithQueue.RetryAtField(
         default=timezone.now,
@@ -990,7 +992,9 @@ class Process(ModelWithDeleteAfter, models.Model):
     - running: Process actively executing
     - exited: Process completed (check exit_code for success/failure)
 
-    State machine calls launch() to spawn the process and monitors its lifecycle.
+    Direct Process methods and the abx-dl event projector own these transitions.
+    Keeping the DB row as the only lifecycle state makes interrupted subprocess
+    recovery observable without reconciling a second in-memory state machine.
     """
 
     class StatusChoices(models.TextChoices):
@@ -1149,7 +1153,7 @@ class Process(ModelWithDeleteAfter, models.Model):
     # Reverse relation to ArchiveResult (OneToOne from AR side)
     # archiveresult: OneToOneField defined on ArchiveResult model
 
-    # State machine fields
+    # Durable process lifecycle fields
     status = models.CharField(
         max_length=16,
         choices=StatusChoices.choices,
@@ -2264,8 +2268,8 @@ class Process(ModelWithDeleteAfter, models.Model):
         """
         Gracefully terminate process: SIGTERM → wait → SIGKILL.
 
-        This consolidates the scattered SIGTERM/SIGKILL logic from:
-        - crawls/models.py Crawl.cleanup()
+        This consolidates SIGTERM/SIGKILL logic used by:
+        - workers/management/commands/runner_watch.py
         - workers/pid_utils.py stop_worker()
         - supervisord_util.py stop_existing_supervisord_process()
 
@@ -2328,8 +2332,8 @@ class Process(ModelWithDeleteAfter, models.Model):
         Uses parallel polling approach - sends SIGTERM to all processes at once,
         then polls all simultaneously with individual deadline tracking.
 
-        This consolidates the scattered child-killing logic from:
-        - crawls/models.py Crawl.cleanup() os.killpg()
+        This consolidates child-killing logic used by:
+        - core/takeover_util.py
         - supervisord_util.py stop_existing_supervisord_process()
 
         Args:

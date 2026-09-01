@@ -213,7 +213,7 @@ def add(
     print(f"[green]\\[+] Created Crawl {crawl.id} with max_depth={depth}[/green]")
     print(f"    [dim]First URL: {first_url}[/dim]")
 
-    # 3. The CrawlMachine will create Snapshots from all URLs when started
+    # 3. The runner will create Snapshots from all URLs after claiming the Crawl
     #    Parser extractors run on snapshots and discover more URLs
     #    Discovered URLs become child Snapshots (depth+1)
 

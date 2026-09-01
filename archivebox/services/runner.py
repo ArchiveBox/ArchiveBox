@@ -602,6 +602,17 @@ class CrawlRunner:
                 self.selected_plugins = sorted(runtime_plugins) or None
         if self.crawl.is_paused:
             return []
+        system_task = self.crawl.get_system_task()
+        if system_task == "archivebox://update":
+            # Scheduled maintenance crawls are control-plane work, not URL
+            # input. The pre-unified crawl lifecycle delegated this sentinel
+            # directly to the database maintenance scan. Preserve that contract so
+            # the unified runner does not turn it into an archivebox://internal
+            # Snapshot and feed the literal sentinel through parser plugins.
+            from archivebox.cli.archivebox_update import process_all_db_snapshots
+
+            process_all_db_snapshots()
+            return []
         if self.initial_snapshot_ids:
             # Explicit ids select normal runnable work, except for the one
             # sealed-search backfill admitted by allow_maintenance_on_inactive_crawl.

@@ -165,8 +165,14 @@ def run_hook(
     from archivebox.services.process_service import parse_event_datetime
     from abx_dl.orchestrator import create_bus
 
-    if parent is not None:
-        kwargs.setdefault("_parent_process_id", str(parent.id))
+    # Preserve the old direct-call contract: hooks are children of an explicit
+    # parent, or of the current ArchiveBox process when one can be identified.
+    # This belongs on the DB projection adapter, not in hook CLI arguments.
+    if parent is None:
+        try:
+            parent = Process.current()
+        except Exception:
+            parent = None
     config_scope = {key.removeprefix("config_"): kwargs.pop(key) for key in list(kwargs) if key.startswith("config_")}
     env, resolved = _hook_environment(config, **config_scope)
     hook = _catalog_hook(script)
@@ -175,7 +181,7 @@ def run_hook(
     timeout = min(int(timeout or 300), int(CONSTANTS.MAX_HOOK_RUNTIME_SECONDS))
 
     bus = create_bus(name=f"ArchiveBoxHook_{hook.plugin_name}", total_timeout=float(timeout) + 30.0)
-    PersistedProcessService(bus)
+    PersistedProcessService(bus, parent_process_id=str(parent.id) if parent is not None else None)
 
     async def execute_and_close():
         try:

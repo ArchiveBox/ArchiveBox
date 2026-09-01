@@ -17,14 +17,8 @@
 
 * - {py:obj}`DefaultStatusChoices <archivebox.workers.models.DefaultStatusChoices>`
   -
-* - {py:obj}`ModelStateMachine <archivebox.workers.models.ModelStateMachine>`
-  -
-* - {py:obj}`BaseModelWithStateMachine <archivebox.workers.models.BaseModelWithStateMachine>`
-  -
-* - {py:obj}`ModelWithStateMachine <archivebox.workers.models.ModelWithStateMachine>`
-  -
-* - {py:obj}`BaseStateMachine <archivebox.workers.models.BaseStateMachine>`
-  - ```{autodoc2-docstring} archivebox.workers.models.BaseStateMachine
+* - {py:obj}`ModelWithQueue <archivebox.workers.models.ModelWithQueue>`
+  - ```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue
     :summary:
     ```
 ````
@@ -67,19 +61,11 @@
   - ```{autodoc2-docstring} archivebox.workers.models.PACKAGE_ROOT
     :summary:
     ```
-* - {py:obj}`ObjectState <archivebox.workers.models.ObjectState>`
-  - ```{autodoc2-docstring} archivebox.workers.models.ObjectState
-    :summary:
-    ```
-* - {py:obj}`ObjectStateList <archivebox.workers.models.ObjectStateList>`
-  - ```{autodoc2-docstring} archivebox.workers.models.ObjectStateList
-    :summary:
-    ```
 ````
 
 ### API
 
-`````{py:class} DefaultStatusChoices(*args, **kwds)
+`````{py:class} DefaultStatusChoices()
 :canonical: archivebox.workers.models.DefaultStatusChoices
 
 Bases: {py:obj}`django.db.models.TextChoices`
@@ -208,550 +194,267 @@ Bases: {py:obj}`django.db.models.TextChoices`
 
 ````
 
-````{py:data} ObjectState
-:canonical: archivebox.workers.models.ObjectState
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.ObjectState
-```
-
-````
-
-````{py:data} ObjectStateList
-:canonical: archivebox.workers.models.ObjectStateList
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.ObjectStateList
-```
-
-````
-
-`````{py:class} ModelStateMachine
-:canonical: archivebox.workers.models.ModelStateMachine
-
-Bases: {py:obj}`typing.Protocol`
-
-````{py:method} tick() -> typing.Any
-:canonical: archivebox.workers.models.ModelStateMachine.tick
-
-```{autodoc2-docstring} archivebox.workers.models.ModelStateMachine.tick
-```
-
-````
-
-````{py:method} pause_requested() -> typing.Any
-:canonical: archivebox.workers.models.ModelStateMachine.pause_requested
-
-```{autodoc2-docstring} archivebox.workers.models.ModelStateMachine.pause_requested
-```
-
-````
-
-````{py:method} resume_requested() -> typing.Any
-:canonical: archivebox.workers.models.ModelStateMachine.resume_requested
-
-```{autodoc2-docstring} archivebox.workers.models.ModelStateMachine.resume_requested
-```
-
-````
-
-`````
-
-``````{py:class} BaseModelWithStateMachine(*args, **kwargs)
-:canonical: archivebox.workers.models.BaseModelWithStateMachine
+``````{py:class} ModelWithQueue(*args, **kwargs)
+:canonical: archivebox.workers.models.ModelWithQueue
 
 Bases: {py:obj}`django.db.models.Model`
 
-````{py:attribute} StatusChoices
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.StatusChoices
-:type: typing.ClassVar[type[archivebox.workers.models.DefaultStatusChoices]]
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.StatusChoices
-```
-
-````
-
-````{py:attribute} state_machine_name
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.state_machine_name
-:type: str | None
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.state_machine_name
-```
-
-````
-
-````{py:attribute} state_field_name
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.state_field_name
-:type: str
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.state_field_name
-```
-
-````
-
-````{py:attribute} state_machine_attr
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.state_machine_attr
-:type: str
-:value: >
-   'sm'
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.state_machine_attr
-```
-
-````
-
-````{py:attribute} bind_events_as_methods
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.bind_events_as_methods
-:type: bool
-:value: >
-   False
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.bind_events_as_methods
-```
-
-````
-
-````{py:attribute} warn_on_save_outside_runner
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.warn_on_save_outside_runner
-:type: typing.ClassVar[bool]
-:value: >
-   True
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.warn_on_save_outside_runner
-```
-
-````
-
-````{py:attribute} active_state
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.active_state
-:type: archivebox.workers.models.ObjectState
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.active_state
-```
-
-````
-
-````{py:attribute} retry_at_field_name
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.retry_at_field_name
-:type: str
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.retry_at_field_name
-```
-
-````
-
-`````{py:class} Meta
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.Meta
-
-Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
-
-````{py:attribute} app_label
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.Meta.app_label
-:value: >
-   'workers'
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.Meta.app_label
-```
-
-````
-
-````{py:attribute} abstract
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.Meta.abstract
-:value: >
-   True
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.Meta.abstract
-```
-
-````
-
-`````
-
-````{py:property} sm
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.sm
-:type: statemachine.StateMachine
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.sm
-```
-
-````
-
-````{py:method} status_counts(queryset: django.db.models.QuerySet | None = None, statuses: collections.abc.Iterable[str] | None = None) -> dict[str, int]
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.status_counts
-:classmethod:
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.status_counts
-```
-
-````
-
-````{py:method} check(sender=None, **kwargs)
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.check
-:classmethod:
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.check
-```
-
-````
-
-````{py:method} _state_to_str(state: archivebox.workers.models.ObjectState) -> str
-:canonical: archivebox.workers.models.BaseModelWithStateMachine._state_to_str
-:staticmethod:
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine._state_to_str
-```
-
-````
-
-````{py:property} RETRY_AT
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.RETRY_AT
-:type: datetime.datetime
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.RETRY_AT
-```
-
-````
-
-````{py:property} STATE
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.STATE
-:type: str
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.STATE
-```
-
-````
-
-````{py:method} bump_retry_at(seconds: int = 10)
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.bump_retry_at
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.bump_retry_at
-```
-
-````
-
-````{py:property} is_paused
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.is_paused
-:type: bool
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.is_paused
-```
-
-````
-
-````{py:method} safe_update(update_fields: dict[str, typing.Any], *, refresh: bool = True, extra_filter: dict[str, typing.Any] | None = None) -> bool
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.safe_update
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.safe_update
-```
-
-````
-
-````{py:method} save(*args, **kwargs)
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.save
-
-````
-
-````{py:method} pause(*, save: bool = True) -> bool
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.pause
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.pause
-```
-
-````
-
-````{py:method} resume(*, when: datetime.datetime | None = None, save: bool = True) -> bool
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.resume
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.resume
-```
-
-````
-
-````{py:method} update_and_requeue(*, refresh: bool = True, **kwargs) -> bool
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.update_and_requeue
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.update_and_requeue
-```
-
-````
-
-````{py:method} get_queue()
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.get_queue
-:classmethod:
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.get_queue
-```
-
-````
-
-````{py:method} claim_for_worker(obj: archivebox.workers.models.BaseModelWithStateMachine, lock_seconds: int = 60) -> bool
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.claim_for_worker
-:classmethod:
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.claim_for_worker
-```
-
-````
-
-````{py:method} claim_processing_lock(lock_seconds: int = 60) -> bool
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.claim_processing_lock
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.claim_processing_lock
-```
-
-````
-
-````{py:method} tick_claimed(lock_seconds: int = 60) -> bool
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.tick_claimed
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.tick_claimed
-```
-
-````
-
-````{py:method} ACTIVE_STATE() -> str
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.ACTIVE_STATE
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.ACTIVE_STATE
-```
-
-````
-
-````{py:method} INITIAL_STATE() -> str
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.INITIAL_STATE
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.INITIAL_STATE
-```
-
-````
-
-````{py:method} FINAL_STATES() -> list[str]
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.FINAL_STATES
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.FINAL_STATES
-```
-
-````
-
-````{py:method} FINAL_OR_ACTIVE_STATES() -> list[str]
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.FINAL_OR_ACTIVE_STATES
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.FINAL_OR_ACTIVE_STATES
-```
-
-````
-
-````{py:method} extend_choices(base_choices: type[django.db.models.TextChoices])
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.extend_choices
-:classmethod:
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.extend_choices
-```
-
-````
-
-````{py:method} StatusField(**kwargs) -> django.db.models.CharField
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.StatusField
-:classmethod:
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.StatusField
-```
-
-````
-
-````{py:method} RetryAtField(**kwargs) -> django.db.models.DateTimeField
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.RetryAtField
-:classmethod:
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.RetryAtField
-```
-
-````
-
-````{py:method} StateMachineClass() -> type[statemachine.StateMachine]
-:canonical: archivebox.workers.models.BaseModelWithStateMachine.StateMachineClass
-
-```{autodoc2-docstring} archivebox.workers.models.BaseModelWithStateMachine.StateMachineClass
-```
-
-````
-
-``````
-
-``````{py:class} ModelWithStateMachine(*args, **kwargs)
-:canonical: archivebox.workers.models.ModelWithStateMachine
-
-Bases: {py:obj}`archivebox.workers.models.BaseModelWithStateMachine`
-
-````{py:attribute} StatusChoices
-:canonical: archivebox.workers.models.ModelWithStateMachine.StatusChoices
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.StatusChoices
-```
-
-````
-
-````{py:attribute} status
-:canonical: archivebox.workers.models.ModelWithStateMachine.status
-:type: django.db.models.CharField
-:value: >
-   'StatusField(...)'
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.status
-```
-
-````
-
-````{py:attribute} retry_at
-:canonical: archivebox.workers.models.ModelWithStateMachine.retry_at
-:type: django.db.models.DateTimeField
-:value: >
-   'RetryAtField(...)'
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.retry_at
-```
-
-````
-
-````{py:attribute} state_machine_name
-:canonical: archivebox.workers.models.ModelWithStateMachine.state_machine_name
-:type: str | None
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.state_machine_name
-```
-
-````
-
-````{py:attribute} state_field_name
-:canonical: archivebox.workers.models.ModelWithStateMachine.state_field_name
-:type: str
-:value: >
-   'status'
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.state_field_name
-```
-
-````
-
-````{py:attribute} state_machine_attr
-:canonical: archivebox.workers.models.ModelWithStateMachine.state_machine_attr
-:type: str
-:value: >
-   'sm'
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.state_machine_attr
-```
-
-````
-
-````{py:attribute} bind_events_as_methods
-:canonical: archivebox.workers.models.ModelWithStateMachine.bind_events_as_methods
-:type: bool
-:value: >
-   False
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.bind_events_as_methods
-```
-
-````
-
-````{py:attribute} active_state
-:canonical: archivebox.workers.models.ModelWithStateMachine.active_state
-:value: >
-   None
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.active_state
-```
-
-````
-
-````{py:attribute} retry_at_field_name
-:canonical: archivebox.workers.models.ModelWithStateMachine.retry_at_field_name
-:type: str
-:value: >
-   'retry_at'
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.retry_at_field_name
-```
-
-````
-
-`````{py:class} Meta
-:canonical: archivebox.workers.models.ModelWithStateMachine.Meta
-
-Bases: {py:obj}`archivebox.workers.models.BaseModelWithStateMachine`
-
-````{py:attribute} abstract
-:canonical: archivebox.workers.models.ModelWithStateMachine.Meta.abstract
-:value: >
-   True
-
-```{autodoc2-docstring} archivebox.workers.models.ModelWithStateMachine.Meta.abstract
-```
-
-````
-
-`````
-
-``````
-
-`````{py:class} BaseStateMachine(obj, *args, **kwargs)
-:canonical: archivebox.workers.models.BaseStateMachine
-
-Bases: {py:obj}`statemachine.StateMachine`
-
-```{autodoc2-docstring} archivebox.workers.models.BaseStateMachine
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue
 ```
 
 ```{rubric} Initialization
 ```
 
-```{autodoc2-docstring} archivebox.workers.models.BaseStateMachine.__init__
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.__init__
 ```
 
-````{py:attribute} model_attr_name
-:canonical: archivebox.workers.models.BaseStateMachine.model_attr_name
-:type: str
+````{py:attribute} StatusChoices
+:canonical: archivebox.workers.models.ModelWithQueue.StatusChoices
+:type: typing.ClassVar[type[django.db.models.TextChoices]]
 :value: >
-   'obj'
+   None
 
-```{autodoc2-docstring} archivebox.workers.models.BaseStateMachine.model_attr_name
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.StatusChoices
 ```
 
 ````
 
-````{py:method} _register_callbacks(listeners: list[object])
-:canonical: archivebox.workers.models.BaseStateMachine._register_callbacks
+````{py:attribute} INITIAL_STATE
+:canonical: archivebox.workers.models.ModelWithQueue.INITIAL_STATE
+:type: typing.ClassVar[str]
+:value: >
+   None
 
-```{autodoc2-docstring} archivebox.workers.models.BaseStateMachine._register_callbacks
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.INITIAL_STATE
 ```
 
 ````
 
-````{py:method} __repr__() -> str
-:canonical: archivebox.workers.models.BaseStateMachine.__repr__
+````{py:attribute} ACTIVE_STATE
+:canonical: archivebox.workers.models.ModelWithQueue.ACTIVE_STATE
+:type: typing.ClassVar[str]
+:value: >
+   None
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.ACTIVE_STATE
+```
 
 ````
 
-````{py:method} __str__() -> str
-:canonical: archivebox.workers.models.BaseStateMachine.__str__
+````{py:attribute} FINAL_STATES
+:canonical: archivebox.workers.models.ModelWithQueue.FINAL_STATES
+:type: typing.ClassVar[tuple[str, ...]]
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.FINAL_STATES
+```
+
+````
+
+````{py:attribute} warn_on_save_outside_runner
+:canonical: archivebox.workers.models.ModelWithQueue.warn_on_save_outside_runner
+:type: typing.ClassVar[bool]
+:value: >
+   True
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.warn_on_save_outside_runner
+```
+
+````
+
+````{py:attribute} status
+:canonical: archivebox.workers.models.ModelWithQueue.status
+:type: django.db.models.CharField
+:value: >
+   'CharField(...)'
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.status
+```
+
+````
+
+````{py:attribute} retry_at
+:canonical: archivebox.workers.models.ModelWithQueue.retry_at
+:type: django.db.models.DateTimeField
+:value: >
+   'DateTimeField(...)'
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.retry_at
+```
+
+````
+
+`````{py:class} Meta
+:canonical: archivebox.workers.models.ModelWithQueue.Meta
+
+Bases: {py:obj}`django_stubs_ext.db.models.TypedModelMeta`
+
+````{py:attribute} app_label
+:canonical: archivebox.workers.models.ModelWithQueue.Meta.app_label
+:value: >
+   'workers'
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.Meta.app_label
+```
+
+````
+
+````{py:attribute} abstract
+:canonical: archivebox.workers.models.ModelWithQueue.Meta.abstract
+:value: >
+   True
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.Meta.abstract
+```
 
 ````
 
 `````
+
+````{py:attribute} FINAL_OR_ACTIVE_STATES
+:canonical: archivebox.workers.models.ModelWithQueue.FINAL_OR_ACTIVE_STATES
+:type: typing.ClassVar[tuple[str, ...]]
+:value: >
+   ()
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.FINAL_OR_ACTIVE_STATES
+```
+
+````
+
+````{py:method} status_counts(queryset: django.db.models.QuerySet | None = None, statuses: collections.abc.Iterable[str] | None = None) -> dict[str, int]
+:canonical: archivebox.workers.models.ModelWithQueue.status_counts
+:classmethod:
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.status_counts
+```
+
+````
+
+````{py:property} RETRY_AT
+:canonical: archivebox.workers.models.ModelWithQueue.RETRY_AT
+:type: datetime.datetime | None
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.RETRY_AT
+```
+
+````
+
+````{py:property} STATE
+:canonical: archivebox.workers.models.ModelWithQueue.STATE
+:type: str
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.STATE
+```
+
+````
+
+````{py:method} bump_retry_at(seconds: int = 10) -> None
+:canonical: archivebox.workers.models.ModelWithQueue.bump_retry_at
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.bump_retry_at
+```
+
+````
+
+````{py:property} is_paused
+:canonical: archivebox.workers.models.ModelWithQueue.is_paused
+:type: bool
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.is_paused
+```
+
+````
+
+````{py:method} safe_update(update_fields: dict[str, typing.Any], *, refresh: bool = True, extra_filter: dict[str, typing.Any] | None = None) -> bool
+:canonical: archivebox.workers.models.ModelWithQueue.safe_update
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.safe_update
+```
+
+````
+
+````{py:method} save(*args: typing.Any, **kwargs: typing.Any) -> None
+:canonical: archivebox.workers.models.ModelWithQueue.save
+
+````
+
+````{py:method} pause(*, save: bool = True) -> bool
+:canonical: archivebox.workers.models.ModelWithQueue.pause
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.pause
+```
+
+````
+
+````{py:method} resume(*, when: datetime.datetime | None = None, save: bool = True) -> bool
+:canonical: archivebox.workers.models.ModelWithQueue.resume
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.resume
+```
+
+````
+
+````{py:method} update_and_requeue(*, refresh: bool = True, **kwargs: typing.Any) -> bool
+:canonical: archivebox.workers.models.ModelWithQueue.update_and_requeue
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.update_and_requeue
+```
+
+````
+
+````{py:method} get_queue()
+:canonical: archivebox.workers.models.ModelWithQueue.get_queue
+:classmethod:
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.get_queue
+```
+
+````
+
+````{py:method} claim_for_worker(obj: archivebox.workers.models.ModelWithQueue, lock_seconds: int = 60) -> bool
+:canonical: archivebox.workers.models.ModelWithQueue.claim_for_worker
+:classmethod:
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.claim_for_worker
+```
+
+````
+
+````{py:method} claim_processing_lock(lock_seconds: int = 60) -> bool
+:canonical: archivebox.workers.models.ModelWithQueue.claim_processing_lock
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.claim_processing_lock
+```
+
+````
+
+````{py:method} extend_choices(base_choices: type[django.db.models.TextChoices])
+:canonical: archivebox.workers.models.ModelWithQueue.extend_choices
+:classmethod:
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.extend_choices
+```
+
+````
+
+````{py:method} StatusField(**kwargs: typing.Any) -> django.db.models.CharField
+:canonical: archivebox.workers.models.ModelWithQueue.StatusField
+:classmethod:
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.StatusField
+```
+
+````
+
+````{py:method} RetryAtField(**kwargs: typing.Any) -> django.db.models.DateTimeField
+:canonical: archivebox.workers.models.ModelWithQueue.RetryAtField
+:classmethod:
+
+```{autodoc2-docstring} archivebox.workers.models.ModelWithQueue.RetryAtField
+```
+
+````
+
+``````
