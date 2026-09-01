@@ -1293,43 +1293,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         return created_snapshots
 
-    def install_declared_binaries(self, binary_names: set[str], machine=None) -> None:
-        """Install crawl-declared binaries through their unified lifecycle."""
-        from archivebox.crawls.locks import binary_lifecycle_lock
-        from archivebox.machine.models import Binary, Machine
-
-        if not binary_names:
-            return
-
-        machine = machine or Machine.current()
-        binaries = Binary.objects.filter(machine=machine, name__in=binary_names).order_by("name")
-        for binary in binaries:
-            with binary_lifecycle_lock(str(binary.id)):
-                binary.refresh_from_db()
-                if binary.status == Binary.StatusChoices.INSTALLED:
-                    continue
-                binary.update_and_requeue(retry_at=timezone.now())
-                binary.refresh_from_db()
-                binary.install_claimed(lock_seconds=600)
-
-        unresolved_binaries = list(
-            Binary.objects.filter(
-                machine=machine,
-                name__in=binary_names,
-            )
-            .exclude(
-                status=Binary.StatusChoices.INSTALLED,
-            )
-            .order_by("name"),
-        )
-        if unresolved_binaries:
-            binary_details = ", ".join(
-                f"{binary.name} (status={binary.status}, retry_at={binary.retry_at})" for binary in unresolved_binaries
-            )
-            raise RuntimeError(
-                f"Crawl dependencies failed to install before continuing: {binary_details}",
-            )
-
     def is_finished(self) -> bool:
         """Check if crawl is finished (all snapshots sealed or no snapshots exist)."""
         from archivebox.core.models import Snapshot

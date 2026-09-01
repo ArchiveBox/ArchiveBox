@@ -972,7 +972,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     @property
     def binary_set(self):
         """Get all Binary objects used by processes related to this snapshot."""
-        from archivebox.machine.models import Binary
 
         return Binary.objects.filter(process_set__archiveresult__snapshot_id=self.id).distinct()
 
@@ -4276,12 +4275,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             self.refresh_from_db()
         return True
 
-    @property
-    def plugin_module(self) -> Any | None:
-        # Hook scripts are now used instead of Python plugin modules
-        # The plugin name maps to hooks in abx_plugins/plugins/{plugin}/
-        return None
-
     @staticmethod
     def _normalize_output_files(raw_output_files: Any) -> dict[str, dict[str, Any]]:
         from abx_dl.output_files import OutputManifest
@@ -4300,14 +4293,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     def output_file_paths(self) -> list[str]:
         return list(self.output_file_map().keys())
-
-    def output_file_count(self) -> int:
-        return len(self.output_file_paths())
-
-    def output_size_from_files(self) -> int:
-        from abx_dl.output_files import OutputManifest
-
-        return OutputManifest.from_value(self.output_files).total_size
 
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True) -> bool:
         from abx_dl.output_files import OutputManifest, output_file_from_path
@@ -4368,9 +4353,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         if save:
             self.save(update_fields=["output_files", "output_size", "output_mimetypes", "modified_at"])
         return True
-
-    def output_exists(self) -> bool:
-        return os.path.exists(Path(self.snapshot_dir) / self.plugin)
 
     @staticmethod
     def _looks_like_output_path(raw_output: str | None, plugin_name: str | None = None) -> bool:
@@ -4632,50 +4614,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         """Timeout in seconds (from Process)."""
         process = self.process_record
         return process.timeout if process else 120
-
-    def save_search_index(self):
-        pass
-
-    def _set_binary_from_cmd(self, cmd: list) -> None:
-        """
-        Find Binary for command and set binary FK.
-
-        Tries matching by absolute path first, then by binary name.
-        Only matches binaries on the current machine.
-        """
-        if not cmd:
-            return
-
-        from archivebox.machine.models import Machine
-
-        bin_path_or_name = cmd[0] if isinstance(cmd, list) else cmd
-        machine = Machine.current()
-
-        # Try matching by absolute path first
-        binary = Binary.objects.filter(
-            abspath=bin_path_or_name,
-            machine=machine,
-        ).first()
-
-        if binary:
-            process = self.process_record
-            if process:
-                process.binary = binary
-                process.save()
-            return
-
-        # Fallback: match by binary name
-        bin_name = Path(bin_path_or_name).name
-        binary = Binary.objects.filter(
-            name=bin_name,
-            machine=machine,
-        ).first()
-
-        if binary:
-            process = self.process_record
-            if process:
-                process.binary = binary
-                process.save()
 
     def _url_passes_filters(self, url: str) -> bool:
         """Check if URL passes URL_ALLOWLIST and URL_DENYLIST config filters.
