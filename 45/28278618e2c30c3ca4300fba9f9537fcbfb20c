@@ -1,0 +1,25 @@
+Dockerfile
+  s_1f1593d0227984::t_0f32b7998fb5bc 13,16
+  s_1f1593d0227984::t_83101bc9b69c18 159-160,165,170-172
+archivebox/tests/test_takeover_util.py
+  s_1f1593d0227984::t_83101bc9b69c18 420-425
+archivebox/tests/test_setup_script.py
+  s_1f1593d0227984::t_ca28ba7a9736cd 32-35
+  s_1f1593d0227984::t_83101bc9b69c18 8,10-28,37-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "4528278618e2c30c3ca4300fba9f9537fcbfb20c",
+  "prompts": {},
+  "sessions": {
+    "s_1f1593d0227984": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04f5c-f290-7ff3-a8d7-6c618f2d86ea",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
