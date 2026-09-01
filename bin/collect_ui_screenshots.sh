@@ -247,6 +247,11 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     IFS='|' read -r name url expected_path source capture_mode <<<"$view"
     capture_index=$((capture_index + 1))
     slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//; s/-$//')"
+    expected_plugin=""
+    if [[ "$name" == "Snapshot View ("*")" && "$capture_mode" != "live-progress" && "$capture_mode" != "snapshot-collapsed" ]]; then
+        expected_plugin="${name#Snapshot View (}"
+        expected_plugin="${expected_plugin%)}"
+    fi
 
     echo "[*] $name: $url"
     if [[ "$capture_mode" == "snapshot-collapsed" ]]; then
@@ -382,6 +387,32 @@ PY
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
             fi
+        elif [[ -n "$expected_plugin" && "$capture_mode" != wait-replay:* ]]; then
+            screenshot_path="$capture_dir/screenshot.png"
+            if [[ "$profile" == "desktop" ]]; then
+                mkdir -p \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile"
+                output_variants="$(printf \
+                    '[{"path":"%s","width":1600,"height":1000},{"path":"%s","width":1024,"height":1366},{"path":"%s","width":390,"height":844}]' \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
+                NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
+                    CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
+                    SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
+                    SCREENSHOT_WIDTH=1600 \
+                    SCREENSHOT_HEIGHT=1000 \
+                    SCREENSHOT_VARIANTS_JSON="$output_variants" \
+                    SCREENSHOT_COLLAPSE_FILTERS=1 \
+                    SCREENSHOT_EXPECT_PLUGIN="$expected_plugin" \
+                    node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
+                view_timing_report="$capture_dir/report.json"
+                timing_report_path="$view_timing_report"
+                uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
+                    "$capture_dir/report.json" "$expected_path"
+            fi
         elif [[ "$profile" == "desktop" || "$capture_mode" == wait-replay:* || -z "${ABXPKG_LIB_DIR:-}" ]]; then
             capture_log="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")-$profile-abx-dl.log"
             if ! env "${capture_env[@]}" uv run --no-cache --project "$REPO_DIR" abx-dl dl \
@@ -419,6 +450,7 @@ PY
                     SCREENSHOT_HEIGHT=1366 \
                     SCREENSHOT_VARIANTS_JSON="$responsive_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
+                    SCREENSHOT_EXPECT_PLUGIN="$expected_plugin" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
