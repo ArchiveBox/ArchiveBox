@@ -261,6 +261,10 @@ class CrawlRunner:
 
     def _request_abort_from_signal(self, _sig: signal.Signals) -> None:
         if os.environ.get("ARCHIVEBOX_RUNNER_DAEMON") == "1":
+            # The daemon runner is owned by supervisord, not by the interactive
+            # CLI foreground flow. A direct signal to this child should be short
+            # and unambiguous: exit non-zero immediately so supervisord restarts
+            # the runner, while the parent server and supervisord stay alive.
             os._exit(128 + int(_sig))
         already_requested = self._signal_abort_requested
         self._signal_abort_requested = True
