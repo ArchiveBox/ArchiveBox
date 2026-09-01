@@ -192,13 +192,12 @@ Never enable on-demand TLS or request individual certificates for `snap-*` hostn
 
 ### Setup
 
-Fetch and run the ArchiveBox Docker image to create your initial archive.
+Fetch and run the ArchiveBox Docker image. Starting the server creates the initial archive automatically.
 
 ```bash
 docker pull archivebox/archivebox:dev
 
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev init
 docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
 ```
 

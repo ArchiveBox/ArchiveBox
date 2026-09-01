@@ -1,14 +1,25 @@
+"""Coordinate local foreground processes without pretending to provide a distributed lock.
+
+ArchiveBox wants one orchestrator per collection, but Process rows can only prove
+liveness for PIDs visible on the current machine/PID namespace. We therefore
+enforce one active runner per ``(Machine, DATA_DIR)`` locally, retire stale rows
+from sequential containers on that machine, and only warn about rows owned by a
+different machine. Foreign-machine rows must never block progress or be killed:
+multi-machine coordination belongs in the Crawl/Snapshot CAS claim layer, not in
+process takeover.
+
+These helpers only hand local supervisord/runner ownership between CLI parents.
+They must not hold database transactions or filesystem locks while work runs.
+"""
+
 from __future__ import annotations
 
 import time
 import sys
-import threading
 from collections.abc import Callable
-from contextlib import contextmanager
-from datetime import timedelta
 from pathlib import Path
 
-from django.db import DatabaseError, IntegrityError, close_old_connections
+from django.db import IntegrityError
 from django.utils import timezone
 from archivebox.config import CONSTANTS
 from archivebox.config.common import rprint
@@ -16,27 +27,6 @@ from archivebox.config.common import rprint
 RUNNER_ACTIVE_WORKER_TYPE = "worker_runner"
 RUNNER_WAITING_WORKER_TYPE = "runner_waiting"
 RUNNER_GATE_WORKER_TYPES = (RUNNER_ACTIVE_WORKER_TYPE, RUNNER_WAITING_WORKER_TYPE, "")
-RUNNER_LEASE_HEARTBEAT_SECONDS = 5.0
-RUNNER_LEASE_TIMEOUT = timedelta(seconds=30)
-
-
-def runtime_stack_owner_types():
-    from archivebox.machine.models import Process
-
-    return (
-        Process.TypeChoices.SERVER,
-        Process.TypeChoices.ORCHESTRATOR,
-    )
-
-
-def foreground_runner_owner_types():
-    from archivebox.machine.models import Process
-
-    return (
-        Process.TypeChoices.SERVER,
-        Process.TypeChoices.ADD,
-        Process.TypeChoices.UPDATE,
-    )
 
 
 def current_command(process_type: str, *, data_dir: str | Path, url: str | None = None):
@@ -47,31 +37,8 @@ def current_command(process_type: str, *, data_dir: str | Path, url: str | None 
     return proc
 
 
-def live_processes(*, process_type: str, data_dir: str | Path, url: str | None = None):
-    from archivebox.machine.models import Machine, Process
-
-    qs = Process.objects.filter(
-        machine=Machine.current(),
-        process_type=process_type,
-        status=Process.StatusChoices.RUNNING,
-        pwd=str(data_dir),
-    )
-    if url is not None:
-        qs = qs.filter(url=url)
-    return [proc for proc in qs.order_by("-created_at", "-modified_at").iterator(chunk_size=50) if proc.is_running]
-
-
-def newest_live_process(*, process_type: str, data_dir: str | Path, url: str | None = None):
-    processes = live_processes(process_type=process_type, data_dir=data_dir, url=url)
-    return processes[0] if processes else None
-
-
-def command_is_newest(command, *, process_type: str, data_dir: str | Path, url: str | None = None) -> bool:
-    leader = newest_live_process(process_type=process_type, data_dir=data_dir, url=url)
-    return bool(leader and leader.id == command.id)
-
-
 def runtime_stack_owner(*, data_dir: str | Path, exclude_id=None):
+    """Return the live local parent allowed to own the server runtime stack."""
     from archivebox.machine.models import Machine, Process
 
     machine = Machine.current()
@@ -79,7 +46,7 @@ def runtime_stack_owner(*, data_dir: str | Path, exclude_id=None):
         machine=machine,
         status=Process.StatusChoices.RUNNING,
         pwd=str(data_dir),
-        process_type__in=runtime_stack_owner_types(),
+        process_type__in=(Process.TypeChoices.SERVER, Process.TypeChoices.ORCHESTRATOR),
     )
     if exclude_id is not None:
         base_qs = base_qs.exclude(id=exclude_id)
@@ -108,6 +75,7 @@ def command_owns_runtime_stack(command, *, data_dir: str | Path) -> bool:
 
 
 def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
+    """Return the newest live local parent allowed to borrow runner/sonic."""
     from archivebox.machine.models import Machine, Process
 
     machine = Machine.current()
@@ -115,7 +83,7 @@ def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
         machine=machine,
         status=Process.StatusChoices.RUNNING,
         pwd=str(data_dir),
-        process_type__in=foreground_runner_owner_types(),
+        process_type__in=(Process.TypeChoices.SERVER, Process.TypeChoices.ADD, Process.TypeChoices.UPDATE),
     )
     if exclude_id is not None:
         qs = qs.exclude(id=exclude_id)
@@ -129,26 +97,6 @@ def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
 def command_owns_foreground_runner(command, *, data_dir: str | Path) -> bool:
     owner = foreground_runner_owner(data_dir=data_dir)
     return bool(owner and owner.id == command.id)
-
-
-def runtime_stack_component_label(*, owner=None, data_dir: str | Path) -> str:
-    try:
-        from archivebox.workers.supervisord_util import active_supervisord_runtime_components
-
-        components = active_supervisord_runtime_components()
-    except Exception:
-        components = []
-
-    names = list(components)
-    if not names and owner is not None:
-        from archivebox.machine.models import Process
-
-        if owner.process_type == Process.TypeChoices.SERVER:
-            names = ["orchestrator", "server"]
-        elif owner.process_type == Process.TypeChoices.ORCHESTRATOR:
-            names = ["orchestrator"]
-
-    return ", ".join(dict.fromkeys(names)) or "runtime stack"
 
 
 def ensure_daemon_stack(*, reason: str = ""):
@@ -186,115 +134,65 @@ def ensure_daemon_stack(*, reason: str = ""):
     return start_worker(supervisor, sonic_worker)
 
 
-def healthy_orchestrator(*, data_dir: str | Path):
-    from archivebox.machine.models import Machine, Process
-    from archivebox.workers.supervisord_util import get_existing_supervisord_process, get_worker
+def live_runner_processes(*, data_dir: str | Path):
+    """Return locally verifiable runners and warn about unsupported overlap.
 
-    supervisor = get_existing_supervisord_process()
-    worker = get_worker(supervisor, "worker_runner") if supervisor else None
-    if isinstance(worker, dict) and worker.get("statename") in ("STARTING", "RUNNING"):
-        return worker
-
-    for proc in Process.objects.filter(
-        machine=Machine.current(),
-        process_type=Process.TypeChoices.ORCHESTRATOR,
-        status=Process.StatusChoices.RUNNING,
-        pwd=str(data_dir),
-    ).order_by("-created_at"):
-        if proc.is_running:
-            return proc
-    return None
-
-
-def _runner_sort_key(process):
-    return (process.started_at or process.created_at, process.created_at, str(process.id))
-
-
-def live_runner_processes(*, data_dir: str | Path, exclude_id=None):
+    A Process row from another machine is observability only: its PID cannot be
+    checked or signalled here, so it neither joins the local election nor gets
+    mutated. A row for this same Machine from another PID namespace represents
+    a previous sequential container under the supported model; warn, retire the
+    unreachable row, and let the new container continue.
+    """
     from archivebox.machine.models import Machine, Process
 
     machine = Machine.current()
     Process.cleanup_stale_running(machine=machine)
     qs = Process.objects.filter(
-        machine=machine,
         status=Process.StatusChoices.RUNNING,
         process_type=Process.TypeChoices.ORCHESTRATOR,
         worker_type__in=RUNNER_GATE_WORKER_TYPES,
         pwd=str(data_dir),
     )
-    if exclude_id is not None:
-        qs = qs.exclude(id=exclude_id)
-    now = timezone.now()
+    foreign_machine_exists = qs.exclude(machine=machine).exists()
+    qs = qs.filter(machine=machine)
     live = []
+    foreign_namespace_ids = []
     for process in qs.order_by("started_at", "created_at").iterator(chunk_size=20):
-        if not process.shares_pid_namespace and process.modified_at < now - RUNNER_LEASE_TIMEOUT:
-            # A PID from another container cannot be inspected or signaled
-            # safely. Its DB heartbeat is the only cross-namespace liveness
-            # proof, so release the runner gate only after that lease expires.
-            exited = Process.objects.filter(
-                pk=process.pk,
-                status=Process.StatusChoices.RUNNING,
-                modified_at=process.modified_at,
-            ).update(
-                status=Process.StatusChoices.EXITED,
-                exit_code=process.exit_code if process.exit_code is not None else 0,
-                ended_at=now,
-                retry_at=None,
-                modified_at=now,
-            )
-            if exited:
-                continue
-            process.refresh_from_db()
+        if not process.shares_pid_namespace:
+            foreign_namespace_ids.append(process.id)
+            continue
         if process.is_running:
             live.append(process)
+    if foreign_machine_exists or foreign_namespace_ids:
+        rprint(
+            "[bold yellow]WARNING: Multiple orchestrators sharing a single collection is not officially supported! "
+            "Corruption may occur if you run two ArchiveBox workers on the same collection at once.[/bold yellow]",
+            file=sys.stderr,
+            soft_wrap=True,
+        )
+    if foreign_namespace_ids:
+        now = timezone.now()
+        Process.objects.filter(id__in=foreign_namespace_ids, status=Process.StatusChoices.RUNNING).update(
+            status=Process.StatusChoices.EXITED,
+            exit_code=0,
+            ended_at=now,
+            retry_at=None,
+            modified_at=now,
+        )
     return live
-
-
-@contextmanager
-def maintain_runner_lease(command, *, interval: float = RUNNER_LEASE_HEARTBEAT_SECONDS):
-    """Keep the active runner row fresh for takeover across PID namespaces."""
-    from archivebox.machine.models import Process
-
-    stopped = threading.Event()
-
-    def heartbeat() -> None:
-        close_old_connections()
-        try:
-            while not stopped.wait(interval):
-                try:
-                    updated = Process.objects.filter(
-                        pk=command.pk,
-                        status=Process.StatusChoices.RUNNING,
-                        worker_type=RUNNER_ACTIVE_WORKER_TYPE,
-                    ).update(modified_at=timezone.now())
-                    if not updated:
-                        return
-                except DatabaseError:
-                    # A transient SQLite lock must not terminate the runner.
-                    # The timeout allows several missed heartbeats before a
-                    # cross-namespace contender may reclaim the gate.
-                    continue
-        finally:
-            close_old_connections()
-
-    heartbeat_thread = threading.Thread(target=heartbeat, name="archivebox-runner-lease", daemon=True)
-    heartbeat_thread.start()
-    try:
-        yield
-    finally:
-        stopped.set()
-        heartbeat_thread.join(timeout=interval + 1.0)
 
 
 def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout: float = 5.0) -> bool:
     """
-    Admit exactly one active runner for this DATA_DIR using Process rows.
+    Admit one active runner for this Machine and DATA_DIR using Process rows.
 
     The current process is a real OS process while it waits, so we keep its
     Process row RUNNING but mark worker_type=runner_waiting. Only the process
     that wins takeover is promoted to worker_type=worker_runner, which is
-    protected by a partial unique DB constraint. Older runners are terminated
-    and fully waited out before promotion, so the runner work loop never overlaps.
+    protected by a partial unique DB constraint scoped to (Machine, DATA_DIR).
+    Older locally verifiable runners are terminated and fully waited out before
+    promotion, so runner work never overlaps on one machine. Foreign machines
+    are intentionally outside this gate and only produce a warning above.
     """
     from archivebox.machine.models import Process
 
@@ -304,12 +202,7 @@ def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout:
         pwd=str(data_dir),
         timeout=CONSTANTS.MAX_HOOK_RUNTIME_SECONDS,
     )
-    last_waiting_heartbeat = time.monotonic()
-    announced_cross_namespace_runners = set()
     while True:
-        if time.monotonic() - last_waiting_heartbeat >= RUNNER_LEASE_HEARTBEAT_SECONDS:
-            command.heartbeat()
-            last_waiting_heartbeat = time.monotonic()
         runners = live_runner_processes(data_dir=data_dir)
         if all(process.id != command.id for process in runners):
             command.refresh_from_db()
@@ -321,7 +214,7 @@ def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout:
             )
             runners = live_runner_processes(data_dir=data_dir)
 
-        newest = max(runners, key=_runner_sort_key)
+        newest = max(runners, key=lambda process: (process.started_at or process.created_at, process.created_at, str(process.id)))
         if newest.id != command.id:
             rprint(
                 f"[yellow][*] Newer ArchiveBox runner pid={newest.pid} is taking over; exiting this runner.[/yellow]",
@@ -332,16 +225,8 @@ def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout:
         older_runners = [process for process in runners if process.id != command.id]
         if older_runners:
             for process in older_runners:
-                if process.shares_pid_namespace:
-                    rprint(f"[yellow][*] Stopping older ArchiveBox runner process (pid={process.pid})...[/yellow]", file=sys.stderr)
-                    process.kill_tree(graceful_timeout=graceful_timeout)
-                else:
-                    if process.id not in announced_cross_namespace_runners:
-                        rprint(
-                            "[yellow][*] Waiting for older ArchiveBox runner in another PID namespace to stop...[/yellow]",
-                            file=sys.stderr,
-                        )
-                        announced_cross_namespace_runners.add(process.id)
+                rprint(f"[yellow][*] Stopping older ArchiveBox runner process (pid={process.pid})...[/yellow]", file=sys.stderr)
+                process.kill_tree(graceful_timeout=graceful_timeout)
             time.sleep(0.1)
             continue
 
@@ -361,24 +246,9 @@ def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout:
             time.sleep(0.1)
 
 
-def standby_until_leader_needed(command, *, process_type: str, data_dir: str | Path, url: str | None = None, interval: float = 2.0) -> None:
-    from archivebox.workers.supervisord_util import reap_foreground_supervisord_process
-
-    announced = False
-    while not command_is_newest(command, process_type=process_type, data_dir=data_dir, url=url):
-        reap_foreground_supervisord_process()
-        if not announced:
-            leader = newest_live_process(process_type=process_type, data_dir=data_dir, url=url)
-            leader_pid = leader.pid if leader else "unknown"
-            rprint(f"[yellow][*] Standing by; newer ArchiveBox process pid={leader_pid} is running the orchestrator and server.[/yellow]")
-            announced = True
-        time.sleep(interval)
-    command.modified_at = timezone.now()
-    command.save(update_fields=["modified_at"])
-
-
 def standby_until_runtime_stack_needed(command, *, data_dir: str | Path, interval: float = 2.0) -> dict[str, object]:
-    from archivebox.workers.supervisord_util import reap_foreground_supervisord_process
+    from archivebox.machine.models import Process
+    from archivebox.workers.supervisord_util import active_supervisord_runtime_components, reap_foreground_supervisord_process
 
     announced = False
     previous_owner_pid = None
@@ -387,7 +257,16 @@ def standby_until_runtime_stack_needed(command, *, data_dir: str | Path, interva
         if not announced:
             owner = runtime_stack_owner(data_dir=data_dir)
             owner_pid = owner.pid if owner else "unknown"
-            components = runtime_stack_component_label(owner=owner, data_dir=data_dir)
+            try:
+                component_names = list(active_supervisord_runtime_components())
+            except Exception:
+                component_names = []
+            if not component_names and owner is not None:
+                if owner.process_type == Process.TypeChoices.SERVER:
+                    component_names = ["orchestrator", "server"]
+                elif owner.process_type == Process.TypeChoices.ORCHESTRATOR:
+                    component_names = ["orchestrator"]
+            components = ", ".join(dict.fromkeys(component_names)) or "runtime stack"
             previous_owner_pid = owner_pid
             rprint(
                 f"[yellow][*] A newer archivebox process took over the {components} "

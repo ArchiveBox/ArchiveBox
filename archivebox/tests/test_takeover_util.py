@@ -7,7 +7,6 @@ import re
 import signal
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import pytest
@@ -963,27 +962,32 @@ def test_runtime_stack_owner_allows_top_level_runner_when_no_parent_command_exis
         _stop_archivebox_shells([proc])
 
 
-def test_active_runner_lease_heartbeat_updates_persisted_process(tmp_path, initialized_archive):
-    from django.utils import timezone
-
-    from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE, maintain_runner_lease
+def test_foreign_machine_runner_only_warns(tmp_path, initialized_archive, capsys):
+    from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE, live_runner_processes
     from archivebox.machine.models import Machine
 
-    runner = Process.objects.create(
-        machine=Machine.current(),
+    foreign_machine = Machine.objects.create(
+        guid="foreign-machine",
+        hostname="foreign-host",
+        hw_manufacturer="Test",
+        hw_product="Test",
+        hw_uuid="foreign-hardware",
+        os_arch="x86_64",
+        os_family="linux",
+        os_platform="linux",
+        os_release="test",
+        os_kernel="test",
+    )
+    foreign_runner = Process.objects.create(
+        machine=foreign_machine,
         process_type=Process.TypeChoices.ORCHESTRATOR,
         worker_type=RUNNER_ACTIVE_WORKER_TYPE,
         pwd=str(tmp_path),
-        pid=os.getpid(),
-        started_at=timezone.now(),
+        pid=1,
         status=Process.StatusChoices.RUNNING,
     )
-    initial_heartbeat = runner.modified_at
 
-    with maintain_runner_lease(runner, interval=0.01):
-        deadline = time.monotonic() + 2.0
-        while runner.modified_at <= initial_heartbeat and time.monotonic() < deadline:
-            time.sleep(0.01)
-            runner.refresh_from_db()
-
-    assert runner.modified_at > initial_heartbeat
+    assert live_runner_processes(data_dir=tmp_path) == []
+    foreign_runner.refresh_from_db()
+    assert foreign_runner.status == Process.StatusChoices.RUNNING
+    assert "Multiple orchestrators sharing a single collection is not officially supported" in capsys.readouterr().err

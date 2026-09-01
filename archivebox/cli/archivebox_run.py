@@ -270,7 +270,7 @@ def run_runner(
     from archivebox.config import CONSTANTS
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
     from archivebox.machine.models import Machine, Process
-    from archivebox.core.takeover_util import enter_single_runner_gate, maintain_runner_lease, standby_until_foreground_runner_needed
+    from archivebox.core.takeover_util import enter_single_runner_gate, standby_until_foreground_runner_needed
     from archivebox.core.recovery_util import recover_orchestrator_state
     from archivebox.services.runner import run_pending_crawls
 
@@ -292,40 +292,40 @@ def run_runner(
         current.mark_exited()
         return 0
 
-    try:
-        with maintain_runner_lease(current):
-            recover_orchestrator_state(include_chrome=crawl_id is None, crawl_id=crawl_id)
-            if crawl_id:
-                from django.utils import timezone
-                from archivebox.crawls.models import Crawl
+    recover_orchestrator_state(include_chrome=crawl_id is None, crawl_id=crawl_id)
+    if crawl_id:
+        from django.utils import timezone
+        from archivebox.crawls.models import Crawl
 
-                crawl = Crawl.objects.filter(id=crawl_id, status__in=Crawl.RUNNABLE_STATES).first()
-                now = timezone.now()
-                # Winning the single-runner gate terminates and waits for every older
-                # runner. Requeue the explicitly requested crawl so an abandoned
-                # future ownership lease cannot hide it from the unified scheduler.
-                if crawl is not None:
-                    crawl.update_and_requeue(retry_at=now, refresh=False)
-            # Only a foreground `archivebox add` gets the interactive "abort current
-            # hook, continue/retry, second Ctrl+C exits" flow. Server/update/run owned
-            # orchestrators should shut down immediately and cleanly on the first signal.
-            interactive_interrupts = current.root.process_type == Process.TypeChoices.ADD
-            if daemon:
-                os.environ[RUNNER_DAEMON_ENV] = "1"
-            with (
-                foreground_shutdown_signals(
-                    on_signal=_exit_daemon_runner_on_signal if daemon else None,
-                    raise_on_first_signal=not daemon,
-                ),
-                foreground_parent_watchdog(enabled=not daemon),
-            ):
-                run_pending_crawls(
-                    daemon=daemon,
-                    crawl_id=crawl_id,
-                    maintenance_only=maintenance_only,
-                    interactive_interrupts=interactive_interrupts,
-                    **({"maintenance_batch_size": maintenance_batch_size} if maintenance_batch_size else {}),
-                )
+        crawl = Crawl.objects.filter(id=crawl_id, status__in=Crawl.RUNNABLE_STATES).first()
+        now = timezone.now()
+        # Winning the single-runner gate terminates and waits for every older
+        # runner. Requeue the explicitly requested crawl so an abandoned
+        # future ownership lease cannot hide it from the unified scheduler.
+        if crawl is not None:
+            crawl.update_and_requeue(retry_at=now, refresh=False)
+    # Only a foreground `archivebox add` gets the interactive "abort current
+    # hook, continue/retry, second Ctrl+C exits" flow. Server/update/run owned
+    # orchestrators should shut down immediately and cleanly on the first signal.
+    interactive_interrupts = current.root.process_type == Process.TypeChoices.ADD
+    if daemon:
+        os.environ[RUNNER_DAEMON_ENV] = "1"
+
+    try:
+        with (
+            foreground_shutdown_signals(
+                on_signal=_exit_daemon_runner_on_signal if daemon else None,
+                raise_on_first_signal=not daemon,
+            ),
+            foreground_parent_watchdog(enabled=not daemon),
+        ):
+            run_pending_crawls(
+                daemon=daemon,
+                crawl_id=crawl_id,
+                maintenance_only=maintenance_only,
+                interactive_interrupts=interactive_interrupts,
+                **({"maintenance_batch_size": maintenance_batch_size} if maintenance_batch_size else {}),
+            )
         return 0
     except KeyboardInterrupt:
         return 0
@@ -432,7 +432,7 @@ def main(
 
 def run_snapshot_worker(snapshot_id: str) -> int:
     from archivebox.config import CONSTANTS
-    from archivebox.core.takeover_util import enter_single_runner_gate, maintain_runner_lease
+    from archivebox.core.takeover_util import enter_single_runner_gate
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
     from archivebox.machine.models import Process
     from archivebox.core.models import Snapshot
@@ -446,16 +446,15 @@ def run_snapshot_worker(snapshot_id: str) -> int:
 
     snapshot = None
     try:
-        with maintain_runner_lease(current):
-            with foreground_shutdown_signals(), foreground_parent_watchdog():
-                for _ in range(10):
-                    snapshot = Snapshot.objects.select_related("crawl").get(id=snapshot_id)
-                    if snapshot.retry_at is None:
-                        snapshot.update_and_requeue(retry_at=timezone.now())
-                    elif snapshot.retry_at > timezone.now():
-                        break
-                    if not run_due_snapshot(snapshot, lock_seconds=60):
-                        break
+        with foreground_shutdown_signals(), foreground_parent_watchdog():
+            for _ in range(10):
+                snapshot = Snapshot.objects.select_related("crawl").get(id=snapshot_id)
+                if snapshot.retry_at is None:
+                    snapshot.update_and_requeue(retry_at=timezone.now())
+                elif snapshot.retry_at > timezone.now():
+                    break
+                if not run_due_snapshot(snapshot, lock_seconds=60):
+                    break
         return 0
     except KeyboardInterrupt:
         try:
