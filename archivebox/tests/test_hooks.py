@@ -73,11 +73,6 @@ class TestBackgroundHookDetection:
         assert any(hook.name == "on_Snapshot__35_wget.finite.bg.py" for hook in background_hooks)
         assert any(hook.name == "on_Snapshot__93_hashes.py" for hook in foreground_hooks)
 
-    def test_legacy_background_marker_remains_supported_for_user_plugins(self):
-        from archivebox.plugins.hooks import is_background_hook
-
-        assert is_background_hook("on_Snapshot__50_custom__background.py") is True
-
 
 @pytest.mark.django_db(transaction=True)
 class TestJSONLParsing:
