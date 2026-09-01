@@ -342,21 +342,10 @@ def _parse_archiveresult_upload_int(value: str, field_name: str, *, default: int
 
 
 def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]]) -> tuple[int, str]:
-    mime_sizes: dict[str, int] = defaultdict(int)
-    total_size = 0
-    for metadata in output_files.values():
-        if not isinstance(metadata, dict):
-            continue
-        try:
-            size = max(int(metadata.get("size") or 0), 0)
-        except (TypeError, ValueError):
-            size = 0
-        mime_type = str(metadata.get("mimetype") or "").strip()
-        total_size += size
-        if mime_type and size:
-            mime_sizes[mime_type] += size
-    output_mimetypes = ",".join(mime for mime, _size in sorted(mime_sizes.items(), key=lambda item: item[1], reverse=True))
-    return total_size, output_mimetypes
+    from abx_dl.output_files import OutputManifest
+
+    manifest = OutputManifest.from_value(output_files)
+    return manifest.total_size, ",".join(manifest.mimetypes)
 
 
 def _get_snapshot_by_ref(snapshot_id: str):

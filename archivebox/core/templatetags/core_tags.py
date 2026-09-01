@@ -68,14 +68,9 @@ _MEDIA_FILE_EXTS = {
 
 
 def _normalize_output_files(output_files: Any) -> dict[str, dict[str, Any]]:
-    if isinstance(output_files, dict):
-        normalized: dict[str, dict[str, Any]] = {}
-        for path, metadata in output_files.items():
-            if not path:
-                continue
-            normalized[str(path)] = dict(metadata) if isinstance(metadata, dict) else {}
-        return normalized
-    return {}
+    from abx_dl.output_files import OutputManifest
+
+    return OutputManifest.from_value(output_files).as_mapping()
 
 
 def _snapshot_id(value: Any) -> Any:

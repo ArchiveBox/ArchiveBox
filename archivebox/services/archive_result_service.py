@@ -8,19 +8,17 @@ import re
 import signal
 import sys
 import time
-from collections import defaultdict
-from collections.abc import Iterable
 from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.db import IntegrityError
 from django.utils import timezone
 
 from abx_dl.events import PROCESS_EXIT_SKIPPED, ArchiveResultEvent, ProcessCompletedEvent, ProcessStartedEvent, SnapshotEvent
-from abx_dl.output_files import guess_mimetype
+from abx_dl.output_files import OutputManifest
 from abx_dl.services.base import BaseService
 
 from .process_service import parse_event_datetime
@@ -72,129 +70,15 @@ def _perf_span(label: str):
         print(f"PERF_TRACE label={label} ms={elapsed_ms:.3f}", file=sys.stderr, flush=True)
 
 
-@runtime_checkable
-class ModelDumpable(Protocol):
-    def model_dump(self) -> dict[str, Any]: ...
-
-
-def _collect_output_metadata(plugin_dir: Path) -> tuple[dict[str, dict], int, str]:
-    exclude_names = {"stdout.log", "stderr.log", "process.pid", "hook.pid", "listener.pid"}
-    output_files: dict[str, dict] = {}
-    mime_sizes: dict[str, int] = defaultdict(int)
-    total_size = 0
-
-    if not plugin_dir.exists():
-        return output_files, total_size, ""
-
-    for file_path in plugin_dir.rglob("*"):
-        if not file_path.is_file():
-            continue
-        if ".hooks" in file_path.parts:
-            continue
-        if file_path.name in exclude_names:
-            continue
-        try:
-            stat = file_path.stat()
-        except OSError:
-            continue
-        mime_type = guess_mimetype(file_path) or "application/octet-stream"
-        relative_path = str(file_path.relative_to(plugin_dir))
-        output_files[relative_path] = {
-            "extension": file_path.suffix.lower().lstrip("."),
-            "mimetype": mime_type,
-            "size": stat.st_size,
-        }
-        mime_sizes[mime_type] += stat.st_size
-        total_size += stat.st_size
-
-    output_mimetypes = ",".join(mime for mime, _size in sorted(mime_sizes.items(), key=lambda item: item[1], reverse=True))
-    return output_files, total_size, output_mimetypes
-
-
-def _coerce_output_file_size(value: Any) -> int:
-    try:
-        return max(int(value or 0), 0)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _normalize_output_files(raw_output_files: Any) -> dict[str, dict]:
-    def _enrich_metadata(path: str, metadata: dict[str, Any]) -> dict[str, Any]:
-        normalized = dict(metadata)
-        if "extension" not in normalized:
-            normalized["extension"] = Path(path).suffix.lower().lstrip(".")
-        if "mimetype" not in normalized:
-            guessed = guess_mimetype(path)
-            if guessed:
-                normalized["mimetype"] = guessed
-        return normalized
-
-    if raw_output_files is None:
-        return {}
-
-    if isinstance(raw_output_files, str):
-        try:
-            raw_output_files = json.loads(raw_output_files)
-        except json.JSONDecodeError:
-            return {}
-
-    if isinstance(raw_output_files, dict):
-        normalized: dict[str, dict] = {}
-        for path, metadata in raw_output_files.items():
-            if not path:
-                continue
-            metadata_dict = dict(metadata) if isinstance(metadata, dict) else {}
-            metadata_dict.pop("path", None)
-            normalized[str(path)] = _enrich_metadata(str(path), metadata_dict)
-        return normalized
-
-    if not isinstance(raw_output_files, Iterable):
-        return {}
-
-    normalized: dict[str, dict] = {}
-    for item in raw_output_files:
-        if isinstance(item, str):
-            normalized[item] = _enrich_metadata(item, {})
-            continue
-        if isinstance(item, ModelDumpable):
-            item = item.model_dump()
-        if not isinstance(item, dict):
-            continue
-        path = str(item.get("path") or "").strip()
-        if not path:
-            continue
-        normalized[path] = _enrich_metadata(path, {key: value for key, value in item.items() if key != "path" and value not in (None, "")})
-
-    return normalized
-
-
-def _has_structured_output_metadata(output_files: dict[str, dict]) -> bool:
-    return any(any(key in metadata for key in ("extension", "mimetype", "size")) for metadata in output_files.values())
-
-
-def _summarize_output_files(output_files: dict[str, dict]) -> tuple[int, str]:
-    mime_sizes: dict[str, int] = defaultdict(int)
-    total_size = 0
-
-    for metadata in output_files.values():
-        if not isinstance(metadata, dict):
-            continue
-        size = _coerce_output_file_size(metadata.get("size"))
-        mimetype = str(metadata.get("mimetype") or "").strip()
-        total_size += size
-        if mimetype and size:
-            mime_sizes[mimetype] += size
-
-    output_mimetypes = ",".join(mime for mime, _size in sorted(mime_sizes.items(), key=lambda item: item[1], reverse=True))
-    return total_size, output_mimetypes
+def _manifest_metadata(manifest: OutputManifest) -> tuple[dict[str, dict], int, str]:
+    return manifest.as_mapping(), manifest.total_size, ",".join(manifest.mimetypes)
 
 
 def _resolve_output_metadata(raw_output_files: Any, plugin_dir: Path) -> tuple[dict[str, dict], int, str]:
-    normalized_output_files = _normalize_output_files(raw_output_files)
-    if normalized_output_files and _has_structured_output_metadata(normalized_output_files):
-        output_size, output_mimetypes = _summarize_output_files(normalized_output_files)
-        return normalized_output_files, output_size, output_mimetypes
-    return _collect_output_metadata(plugin_dir)
+    manifest = OutputManifest.from_value(raw_output_files)
+    if manifest.files and any(output_file.size for output_file in manifest.files):
+        return _manifest_metadata(manifest)
+    return _manifest_metadata(OutputManifest.scan(plugin_dir, containment_root=plugin_dir.parent))
 
 
 def _normalize_status(status: str) -> str:
@@ -362,8 +246,9 @@ def _save_archiveresult_event_to_db(
 
     if result.output_files:
         merged_output_files = {**result.output_files, **defaults["output_files"]}
-        defaults["output_files"] = merged_output_files
-        defaults["output_size"], defaults["output_mimetypes"] = _summarize_output_files(merged_output_files)
+        defaults["output_files"], defaults["output_size"], defaults["output_mimetypes"] = _manifest_metadata(
+            OutputManifest.from_value(merged_output_files),
+        )
         defaults["output_size"] = max(defaults["output_size"], int(result.output_size or 0))
         defaults["output_mimetypes"] = ",".join(
             dict.fromkeys(

@@ -21,7 +21,6 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from django.utils.safestring import mark_safe
 from django.utils.text import slugify
-from statemachine import State, registry
 
 from archivebox.base_models.models import (
     ModelWithConfig,
@@ -54,7 +53,7 @@ from archivebox.plugins.discovery import (
     get_plugins,
 )
 from archivebox.uuid_compat import CompactUUIDField, uuid7
-from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, BaseStateMachine, ModelWithStateMachine
+from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, ModelWithQueue
 
 if TYPE_CHECKING:
     from archivebox.config.common import ArchiveBoxBaseConfig
@@ -523,7 +522,7 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):  # ty: ig
         return self.get_queryset().delete()
 
 
-class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithStateMachine):
+class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithQueue):
     BROWSER_EXTENSION_UPLOAD_HOOK_NAME = "on_Snapshot__archivebox_browser_extension_upload"
 
     INTERNAL_INPUT_URL = "archivebox://internal"
@@ -563,10 +562,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         help_text="Current hook step being executed (0-9). Used for sequential hook execution.",
     )
 
-    retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
-    status = ModelWithStateMachine.StatusField(
-        choices=ModelWithStateMachine.StatusChoices,
-        default=ModelWithStateMachine.StatusChoices.QUEUED,
+    retry_at = ModelWithQueue.RetryAtField(default=timezone.now)
+    status = ModelWithQueue.StatusField(
+        choices=ModelWithQueue.StatusChoices,
+        default=ModelWithQueue.StatusChoices.QUEUED,
     )
     config = models.JSONField(default=dict, null=False, blank=False, editable=True)
     permissions = models.GeneratedField(
@@ -587,10 +586,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     tags = models.ManyToManyField(Tag, blank=True, through=SnapshotTag, related_name="snapshot_set", through_fields=("snapshot", "tag"))
 
-    state_machine_name = "archivebox.core.models.SnapshotMachine"
     state_field_name = "status"
     retry_at_field_name = "retry_at"
-    StatusChoices = ModelWithStateMachine.StatusChoices
+    StatusChoices = ModelWithQueue.StatusChoices
+    INITIAL_STATE = StatusChoices.QUEUED
+    ACTIVE_STATE = StatusChoices.STARTED
+    FINAL_STATES = (StatusChoices.SEALED,)
+    FINAL_OR_ACTIVE_STATES = (*FINAL_STATES, ACTIVE_STATE)
     active_state = StatusChoices.STARTED
     delete_after_final_statuses = (StatusChoices.SEALED,)
     RUNNABLE_STATES = (StatusChoices.QUEUED, StatusChoices.STARTED)
@@ -602,11 +604,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     objects = SnapshotManager()
     archiveresult_set: models.Manager["ArchiveResult"]
-
-    if TYPE_CHECKING:
-
-        @property
-        def sm(self) -> "SnapshotMachine": ...
 
     def add_tag_ids(self, tag_ids: Iterable[int | str]) -> None:
         tag_ids = [tag_id for tag_id in dict.fromkeys(tag_ids) if tag_id]
@@ -623,7 +620,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         ModelWithConfig.Meta,
         ModelWithNotes.Meta,
         ModelWithHealthStats.Meta,
-        ModelWithStateMachine.Meta,
+        ModelWithQueue.Meta,
     ):
         app_label = "core"
         verbose_name = "Snapshot"
@@ -744,7 +741,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         Crawl.pause()/cancel() only wake child rows. The runner claims each due
         Snapshot and lets this method perform the actual child transition, so
         cancellation stays fast and Snapshot cleanup still runs from the normal
-        state-machine owner.
+        lifecycle owner.
         """
         parent_status = Crawl.objects.filter(id=self.crawl_id).values_list("status", flat=True).first()
         if parent_status == Crawl.StatusChoices.SEALED and self.status != self.StatusChoices.SEALED:
@@ -753,7 +750,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             self.refresh_from_db()
             parent_status = Crawl.objects.filter(id=self.crawl_id).values_list("status", flat=True).first()
             if parent_status == Crawl.StatusChoices.SEALED and self.status != self.StatusChoices.SEALED:
-                self.sm.seal()
+                self.seal()
             return True
 
         if parent_status == Crawl.StatusChoices.PAUSED and self.status not in (self.StatusChoices.PAUSED, self.StatusChoices.SEALED):
@@ -809,9 +806,66 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             reset_count += 1
         return reset_count, running_count
 
+    def start_processing(self) -> bool:
+        """Atomically move a claimed queued Snapshot into its active lease."""
+        owned_retry_at = self.retry_at
+        now = timezone.now()
+        lease_until = now + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS)
+        updated = (
+            type(self)
+            .objects.filter(
+                pk=self.pk,
+                retry_at=owned_retry_at,
+                status=self.StatusChoices.QUEUED,
+            )
+            .update(
+                status=self.StatusChoices.STARTED,
+                retry_at=lease_until,
+                modified_at=now,
+            )
+        )
+        self.refresh_from_db()
+        return updated == 1
+
+    def seal(self) -> bool:
+        """Atomically finalize this Snapshot and reconcile its output metadata."""
+        if self.status == self.StatusChoices.SEALED:
+            return True
+        now = timezone.now()
+        updated = (
+            type(self)
+            .objects.filter(
+                pk=self.pk,
+                retry_at=self.retry_at,
+                status__in=self.OPEN_STATES,
+            )
+            .update(
+                status=self.StatusChoices.SEALED,
+                retry_at=None,
+                modified_at=now,
+            )
+        )
+        self.refresh_from_db()
+        if updated == 1:
+            self.finalize_output_metadata()
+        return updated == 1
+
+    def advance_lifecycle(self) -> bool:
+        """Advance one explicit lifecycle step after the runner claims this row."""
+        if self.status == self.StatusChoices.PAUSED:
+            return False
+        if self.status == self.StatusChoices.QUEUED:
+            results = self.archiveresult_set.all()
+            if results.exists() and not results.exclude(status__in=ArchiveResult.FINAL_STATES).exists():
+                return self.seal()
+            return bool(self.url) and self.start_processing()
+        if self.status == self.StatusChoices.STARTED and self.is_finished_processing():
+            return self.seal()
+        return False
+
     def cancel(self) -> None:
         if self.status != self.StatusChoices.SEALED:
-            self.sm.seal()
+            self.seal()
 
     def get_delete_after_config_value(self):
         from archivebox.config.common import resolve_delete_after_config_value
@@ -2728,11 +2782,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """
         return self.create_pending_archiveresults()
 
-    def cleanup(self):
+    def finalize_output_metadata(self) -> None:
         """
         Clean up background ArchiveResult hooks and empty results.
 
-        Called by the state machine when entering the 'sealed' state.
+        Called after entering the sealed state.
         Reconcile late background outputs and hydrate result metadata.
         """
         # Clean up .pid files from output directory.
@@ -2742,11 +2796,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             for pid_file in output_dir.glob("**/*.pid"):
                 pid_file.unlink(missing_ok=True)
 
-            # Update all background ArchiveResults from filesystem in case
-            # output arrived late. If there is no snapshot directory, there is
-            # no filesystem output to reconcile and no reason to hit this query.
+            # Reconcile late background output without re-running hook-record
+            # dispatch. The abx-dl event projector is the sole status owner.
             for ar in self.archiveresult_set.filter(hook_name__contains=".bg."):
-                ar.update_from_output()
+                ar.update_output_metadata_from_filesystem(snapshot_dir=output_dir)
         else:
             return
 
@@ -3760,162 +3813,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None
 
 
-# =============================================================================
-# Snapshot State Machine
-# =============================================================================
-
-
-class SnapshotMachine(BaseStateMachine):
-    """
-    State machine for managing Snapshot lifecycle.
-
-    Hook Lifecycle:
-    ┌─────────────────────────────────────────────────────────────┐
-    │ QUEUED State                                                │
-    │  • Waiting for snapshot to be ready                         │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() when can_start()
-    ┌─────────────────────────────────────────────────────────────┐
-    │ STARTED State → enter_started()                             │
-    │  1. snapshot.run()                                          │
-    │     • discover_hooks('Snapshot') → finds all plugin hooks   │
-    │     • create_pending_archiveresults() → creates ONE         │
-    │       ArchiveResult per hook (NO execution yet)             │
-    │  2. The shared abx-dl runner executes hooks and the         │
-    │     projector updates ArchiveResult rows from events        │
-    │  3. Advance through steps 0-9 as foreground hooks complete  │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() when is_finished()
-    ┌─────────────────────────────────────────────────────────────┐
-    │ SEALED State → enter_sealed()                               │
-    │  • cleanup() → kills any background hooks still running     │
-    │  • Set retry_at=None (no more processing)                   │
-    └─────────────────────────────────────────────────────────────┘
-
-    https://github.com/ArchiveBox/ArchiveBox/wiki/ArchiveBox-Architecture-Diagrams
-    """
-
-    model_attr_name = "snapshot"
-
-    # States
-    queued = State(value=Snapshot.StatusChoices.QUEUED, initial=True)
-    started = State(value=Snapshot.StatusChoices.STARTED)
-    paused = State(value=Snapshot.StatusChoices.PAUSED)
-    sealed = State(value=Snapshot.StatusChoices.SEALED, final=True)
-
-    # Tick Event (polled by workers)
-    tick = (
-        queued.to(sealed, cond="has_finished_archive_results")
-        | queued.to.itself(unless="can_start")
-        | queued.to(started, cond="can_start")
-        | started.to(sealed, cond="is_finished")
-        | paused.to.itself()
-    )
-
-    # Manual event (can also be triggered by last ArchiveResult finishing)
-    seal = queued.to(sealed) | started.to(sealed) | paused.to(sealed)
-    pause_requested = queued.to(paused) | started.to(paused)
-    resume_requested = paused.to(queued)
-
-    snapshot: Snapshot
-
-    def can_start(self) -> bool:
-        can_start = bool(self.snapshot.url)
-        return can_start
-
-    def is_finished(self) -> bool:
-        """Check if all ArchiveResults for this snapshot are finished."""
-        return self.snapshot.is_finished_processing()
-
-    def has_finished_archive_results(self) -> bool:
-        """A queued snapshot with only final projected rows was interrupted after hook completion."""
-        results = self.snapshot.archiveresult_set.all()
-        return results.exists() and not results.exclude(status__in=ArchiveResult.FINAL_STATES).exists()
-
-    @queued.enter
-    def enter_queued(self):
-        self.snapshot.update_and_requeue(
-            retry_at=timezone.now(),
-            status=Snapshot.StatusChoices.QUEUED,
-        )
-
-    @paused.enter
-    def enter_paused(self):
-        self.snapshot.safe_update(
-            {
-                "retry_at": RETRY_AT_MAX,
-                "status": Snapshot.StatusChoices.PAUSED,
-            },
-            extra_filter={"status__in": Snapshot.RUNNABLE_STATES},
-        )
-
-    @started.enter
-    def enter_started(self):
-        """Just mark as started. The shared runner creates ArchiveResults and runs hooks."""
-        owned_retry_at = self.snapshot.retry_at
-        now = timezone.now()
-        lease_until = now + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS)
-        # The runner owns queued Snapshot startup through retry_at. Creating
-        # pending ArchiveResult rows immediately before tick() can touch
-        # Snapshot.modified_at, so using modified_at CAS here would reject the
-        # legitimate owner. Keep the write to the scheduler columns only.
-        updated = Snapshot.objects.filter(
-            pk=self.snapshot.pk,
-            retry_at=owned_retry_at,
-            status=Snapshot.StatusChoices.QUEUED,
-        ).update(
-            status=Snapshot.StatusChoices.STARTED,
-            retry_at=lease_until,
-            modified_at=now,
-        )
-        if updated != 1:
-            self.snapshot.refresh_from_db()
-            return
-        self.snapshot.status = Snapshot.StatusChoices.STARTED
-        self.snapshot.retry_at = lease_until
-        self.snapshot.modified_at = now
-
-    @sealed.enter
-    def enter_sealed(self):
-        now = timezone.now()
-        owned_retry_at = self.snapshot.retry_at
-        # The runner owns this row via retry_at. Commit the final lifecycle
-        # state before cleanup so late projectors can update metadata without
-        # tripping a modified_at CAS while the row still looks QUEUED/STARTED.
-        updated = (
-            type(self.snapshot)
-            .objects.filter(
-                pk=self.snapshot.pk,
-                retry_at=owned_retry_at,
-                status__in=[
-                    Snapshot.StatusChoices.QUEUED,
-                    Snapshot.StatusChoices.STARTED,
-                    Snapshot.StatusChoices.PAUSED,
-                ],
-            )
-            .update(
-                status=Snapshot.StatusChoices.SEALED,
-                retry_at=None,
-                modified_at=now,
-            )
-        )
-        if updated != 1:
-            self.snapshot.refresh_from_db()
-            return
-
-        self.snapshot.status = Snapshot.StatusChoices.SEALED
-        self.snapshot.retry_at = None
-        self.snapshot.modified_at = now
-
-        # Clean up background hooks after the final state is visible in DB.
-        self.snapshot.cleanup()
-
-        # Crawl finalization is handled by the runner/CrawlService cleanup
-        # phase. Sealing the parent crawl here races recursive discovery:
-        # Snapshot hooks can write urls.jsonl just before this state transition,
-        # and the runner still needs to enqueue those child snapshots.
-
-
 class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     class StatusChoices(models.TextChoices):
         QUEUED = "queued", "Queued"
@@ -4387,51 +4284,9 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     @staticmethod
     def _normalize_output_files(raw_output_files: Any) -> dict[str, dict[str, Any]]:
-        def _enrich_metadata(path: str, metadata: dict[str, Any]) -> dict[str, Any]:
-            normalized = dict(metadata)
-            if "extension" not in normalized:
-                normalized["extension"] = Path(path).suffix.lower().lstrip(".")
-            if "mimetype" not in normalized:
-                from abx_dl.output_files import guess_mimetype
+        from abx_dl.output_files import OutputManifest
 
-                guessed = guess_mimetype(path)
-                if guessed:
-                    normalized["mimetype"] = guessed
-            return normalized
-
-        if raw_output_files is None:
-            return {}
-        if isinstance(raw_output_files, str):
-            try:
-                raw_output_files = json.loads(raw_output_files)
-            except json.JSONDecodeError:
-                return {}
-        if isinstance(raw_output_files, dict):
-            normalized: dict[str, dict[str, Any]] = {}
-            for path, metadata in raw_output_files.items():
-                if not path:
-                    continue
-                metadata_dict = dict(metadata) if isinstance(metadata, dict) else {}
-                metadata_dict.pop("path", None)
-                normalized[str(path)] = _enrich_metadata(str(path), metadata_dict)
-            return normalized
-        if isinstance(raw_output_files, (list, tuple, set)):
-            normalized: dict[str, dict[str, Any]] = {}
-            for item in raw_output_files:
-                if isinstance(item, str):
-                    normalized[item] = _enrich_metadata(item, {})
-                    continue
-                if not isinstance(item, dict):
-                    continue
-                path = str(item.get("path") or "").strip()
-                if not path:
-                    continue
-                normalized[path] = _enrich_metadata(
-                    path,
-                    {key: value for key, value in item.items() if key != "path" and value not in (None, "")},
-                )
-            return normalized
-        return {}
+        return OutputManifest.from_value(raw_output_files).as_mapping()
 
     @staticmethod
     def _coerce_output_file_size(value: Any) -> int:
@@ -4450,12 +4305,12 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         return len(self.output_file_paths())
 
     def output_size_from_files(self) -> int:
-        return sum(self._coerce_output_file_size(metadata.get("size")) for metadata in self.output_file_map().values())
+        from abx_dl.output_files import OutputManifest
+
+        return OutputManifest.from_value(self.output_files).total_size
 
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True) -> bool:
-        from collections import defaultdict
-
-        from abx_dl.output_files import guess_mimetype
+        from abx_dl.output_files import OutputManifest, output_file_from_path
 
         if self.plugin == "title":
             return False
@@ -4463,28 +4318,17 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         snapshot_dir = Path(snapshot_dir or self.snapshot.output_dir)
         exclude_names = {"stdout.log", "stderr.log", "process.pid", "hook.pid", "listener.pid"}
         output_files: dict[str, dict[str, Any]] = {}
-        mime_sizes: dict[str, int] = defaultdict(int)
-        total_size = 0
 
         def add_file(file_path: Path, rel_path: str, *, root_relative: bool = False) -> None:
-            nonlocal total_size
             try:
                 if not file_path.is_file() or file_path.name in exclude_names:
                     return
-                stat = file_path.stat()
             except OSError:
                 return
-            mime_type = guess_mimetype(file_path) or "application/octet-stream"
-            metadata = {
-                "extension": file_path.suffix.lower().lstrip("."),
-                "mimetype": mime_type,
-                "size": stat.st_size,
-            }
+            metadata = output_file_from_path(file_path, relative_to=file_path.parent).model_dump(exclude={"path"})
             if root_relative:
                 metadata["root_relative"] = True
             output_files[rel_path] = metadata
-            mime_sizes[mime_type] += stat.st_size
-            total_size += stat.st_size
 
         for raw_line in str(self.output_str or "").splitlines():
             raw_output = raw_line.strip().lstrip("/")
@@ -4506,16 +4350,14 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
         plugin_dir = snapshot_dir / self.plugin
         if not output_files and plugin_dir.is_dir():
-            for file_path in plugin_dir.rglob("*"):
-                if not file_path.is_file() or ".hooks" in file_path.parts:
-                    continue
-                add_file(file_path, str(file_path.relative_to(plugin_dir)))
+            output_files = OutputManifest.scan(plugin_dir, containment_root=snapshot_dir).as_mapping()
 
         if not output_files:
             return False
 
-        sorted_mimes = sorted(mime_sizes.items(), key=lambda item: item[1], reverse=True)
-        output_mimetypes = ",".join(mime for mime, _ in sorted_mimes)
+        manifest = OutputManifest.from_value(output_files)
+        total_size = manifest.total_size
+        output_mimetypes = ",".join(manifest.mimetypes)
         if self.output_files == output_files and self.output_size == total_size and self.output_mimetypes == output_mimetypes:
             return False
 
@@ -4794,163 +4636,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def save_search_index(self):
         pass
 
-    def update_from_output(self):
-        """
-        Update this ArchiveResult from filesystem logs and output files.
-
-        Used for Snapshot cleanup / orphan recovery when a hook's output exists
-        on disk but the projector did not finalize the row in the database.
-
-        Updates:
-        - status, output_str, output_json from ArchiveResult JSONL record
-        - output_files, output_size, output_mimetypes by walking filesystem
-        - end_ts, cmd, cmd_version, binary FK
-        - Processes side-effect records (Snapshot, Tag, etc.) via process_hook_records()
-        """
-        from collections import defaultdict
-        from pathlib import Path
-
-        from abx_dl.output_files import guess_mimetype
-        from django.utils import timezone
-
-        from archivebox.machine.models import Process
-        from archivebox.plugins.hooks import extract_records_from_process, process_hook_records
-
-        plugin_dir = Path(self.pwd) if self.pwd else None
-        if not plugin_dir or not plugin_dir.exists():
-            self.status = self.StatusChoices.FAILED
-            self.output_str = "Output directory not found"
-            self.end_ts = timezone.now()
-            self.save()
-            return
-
-        records = []
-        process = self.process_record
-        if process:
-            records = extract_records_from_process(process)
-
-        if not records:
-            stdout_file = plugin_dir / "stdout.log"
-            stdout = stdout_file.read_text(errors="replace") if stdout_file.exists() else ""
-            records = Process.parse_records_from_text(stdout)
-
-        # Find ArchiveResult record and update status/output from it
-        ar_records = [r for r in records if r.get("type") == "ArchiveResult"]
-        if ar_records:
-            hook_data = ar_records[0]
-
-            # Update status
-            status_map = {
-                "succeeded": self.StatusChoices.SUCCEEDED,
-                "failed": self.StatusChoices.FAILED,
-                "skipped": self.StatusChoices.SKIPPED,
-                "noresults": self.StatusChoices.NORESULTS,
-            }
-            self.status = status_map.get(hook_data.get("status", "failed"), self.StatusChoices.FAILED)
-
-            # Update output fields
-            self.output_str = hook_data.get("output_str") or hook_data.get("output") or ""
-            self.output_json = hook_data.get("output_json")
-
-            # Update cmd fields
-            if hook_data.get("cmd"):
-                if process:
-                    process.cmd = hook_data["cmd"]
-                    process.save()
-                self._set_binary_from_cmd(hook_data["cmd"])
-            # Note: cmd_version is derived from binary.version, not stored on Process
-        else:
-            # No ArchiveResult record: treat background hooks or clean exits as skipped
-            is_background = False
-            try:
-                from archivebox.plugins.hooks import is_background_hook
-
-                is_background = bool(self.hook_name and is_background_hook(self.hook_name))
-            except (ImportError, TypeError, ValueError):
-                is_background = False
-
-            if is_background or (process and process.exit_code == 0):
-                self.status = self.StatusChoices.SKIPPED
-                self.output_str = "Hook did not output ArchiveResult record"
-            else:
-                self.status = self.StatusChoices.FAILED
-                self.output_str = "Hook did not output ArchiveResult record"
-
-        # Walk filesystem and populate output_files, output_size, output_mimetypes
-        exclude_names = {"stdout.log", "stderr.log", "process.pid", "hook.pid", "listener.pid"}
-        mime_sizes = defaultdict(int)
-        total_size = 0
-        output_files = {}
-
-        for file_path in plugin_dir.rglob("*"):
-            if not file_path.is_file():
-                continue
-            if ".hooks" in file_path.parts:
-                continue
-            if file_path.name in exclude_names:
-                continue
-
-            try:
-                stat = file_path.stat()
-                mime_type = guess_mimetype(file_path) or "application/octet-stream"
-
-                relative_path = str(file_path.relative_to(plugin_dir))
-                output_files[relative_path] = {
-                    "extension": file_path.suffix.lower().lstrip("."),
-                    "mimetype": mime_type,
-                    "size": stat.st_size,
-                }
-                mime_sizes[mime_type] += stat.st_size
-                total_size += stat.st_size
-            except OSError:
-                continue
-
-        self.output_files = output_files
-        self.output_size = total_size
-        sorted_mimes = sorted(mime_sizes.items(), key=lambda x: x[1], reverse=True)
-        self.output_mimetypes = ",".join(mime for mime, _ in sorted_mimes)
-
-        # Update timestamps
-        self.end_ts = timezone.now()
-
-        self.save()
-
-        # Process side-effect records (filter Snapshots for depth/URL)
-        filtered_records = []
-        for record in records:
-            record_type = record.get("type")
-
-            # Skip ArchiveResult records (already processed above)
-            if record_type == "ArchiveResult":
-                continue
-
-            # Filter Snapshot records for depth/URL constraints
-            if record_type == "Snapshot":
-                url = record.get("url")
-                if not url:
-                    continue
-
-                depth = record.get("depth", self.snapshot.depth + 1)
-                if depth > self.snapshot.crawl.max_depth:
-                    continue
-
-                if not self._url_passes_filters(url):
-                    continue
-
-            filtered_records.append(record)
-
-        # Process filtered records with unified dispatcher
-        overrides = {
-            "snapshot": self.snapshot,
-            "crawl": self.snapshot.crawl,
-            "created_by_id": self.created_by.pk,
-        }
-        process_hook_records(filtered_records, overrides=overrides)
-
-        # Cleanup PID files (keep logs even if empty so they can be tailed)
-        pid_file = plugin_dir / "hook.pid"
-        pid_file.unlink(missing_ok=True)
-
     def _set_binary_from_cmd(self, cmd: list) -> None:
         """
         Find Binary for command and set binary FK.
@@ -5004,12 +4689,3 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def output_dir(self) -> Path:
         """Get the output directory for this plugin's results."""
         return Path(self.snapshot.output_dir) / self.plugin
-
-
-# =============================================================================
-# State Machine Registration
-# =============================================================================
-
-# Manually register state machines with python-statemachine registry
-# (normally auto-discovered from statemachines.py, but we define them here for clarity)
-registry.register(SnapshotMachine)

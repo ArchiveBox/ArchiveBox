@@ -49,8 +49,6 @@ dependencies = [
     "django-admin-data-views>=0.4.1",
     "django-object-actions>=4.3.0",
     "bleach>=6.2.0",          # for: stripping unsafe HTML from user-editable titles, notes, labels, tags
-    ### State Management
-    "python-statemachine[diagrams]>=2.3.6",
     ### CLI / Logging
     "click>=8.3.1",          # for: nicer CLI command + argument definitions
     "rich>=14.2.0",          # for: pretty CLI output

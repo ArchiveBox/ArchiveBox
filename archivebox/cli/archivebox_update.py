@@ -81,7 +81,7 @@ def reindex_snapshots(
 
     # Search backfill is the one maintenance hook allowed to execute without
     # reopening a Snapshot. Restrict that exception to already-sealed rows;
-    # every open lifecycle state remains owned by the normal state machine.
+    # every open lifecycle state remains owned by the normal runner lifecycle.
     snapshots = snapshots.filter(status=Snapshot.StatusChoices.SEALED)
 
     stats: dict[str, Any] = {"processed": 0, "requested": 0, "queued": 0, "skipped_queued": 0, "reindexed": 0, "snapshot_ids": []}

@@ -13,7 +13,7 @@ def _is_signal_interrupted_exit(exit_code: int | None) -> bool:
 def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | None = None) -> dict[str, int]:
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.services.archive_result_service import _collect_output_metadata
+    from abx_dl.output_files import OutputManifest
     from archivebox.machine.models import Process
     from django.core.exceptions import ValidationError
     from django.db.models import Exists, OuterRef, Q, Subquery, Value
@@ -200,7 +200,10 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             # A runner can die after the hook Process exits but before the
             # ProcessCompletedEvent projector links/finalizes ArchiveResult.
             # Reconstruct the plugin row from its newest durable Process row.
-            output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
+            manifest = OutputManifest.scan(plugin_dir, containment_root=snapshot.output_dir)
+            output_files = manifest.as_mapping()
+            output_size = manifest.total_size
+            output_mimetypes = ",".join(manifest.mimetypes)
             emitted_records = [
                 record
                 for record in Process.parse_records_from_text(process.stdout or "")
@@ -287,7 +290,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
 
     # Broken lock repair: STARTED + retry_at=NULL is an orphaned ownership
     # lease. Recovery only unlocks scheduling; the runner owns any subsequent
-    # state-machine transition, including sealing rows whose children/results
+    # lifecycle transition, including sealing rows whose children/results
     # are already final.
     recoverable_started_crawls = Crawl.objects.filter(status=Crawl.StatusChoices.STARTED).filter(
         Q(retry_at__isnull=True) | Q(retry_at__gt=now),

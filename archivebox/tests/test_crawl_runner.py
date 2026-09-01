@@ -261,7 +261,9 @@ def test_snapshot_started_state_keeps_retry_at_lease():
         retry_at=before,
     )
 
-    assert snapshot.tick_claimed(lock_seconds=60) is True
+    assert snapshot.claim_processing_lock(lock_seconds=60) is True
+    snapshot.refresh_from_db()
+    assert snapshot.advance_lifecycle() is True
 
     snapshot.refresh_from_db()
     assert snapshot.status == Snapshot.StatusChoices.STARTED

@@ -11,133 +11,19 @@ from django.utils.html import format_html
 
 from archivebox.config import CONSTANTS_CONFIG
 from archivebox.config.common import ArchiveBoxConfig, get_config
-from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_icon, get_plugins
+from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_catalog, get_plugin_icon, get_plugins
 
 
 PLUGIN_CONFIG_FIELD_PREFIX = "plugin_config__"
-PLUGIN_GROUP_DEFINITIONS = (
-    (
-        "main_plugins",
-        "Main",
-        "",
-        "",
-        "",
-        (
-            "dom",
-            "screenshot",
-            "pdf",
-            "singlefile",
-            "wget",
-            "archivedotorg",
-            "chrome_mhtml",
-            "archivewebpage",
-        ),
-    ),
-    (
-        "page_setup_plugins",
-        "Page Setup",
-        "",
-        "",
-        "",
-        (
-            "chrome",
-            "infiniscroll",
-            "modalcloser",
-            "ublock",
-            "istilldontcareaboutcookies",
-            "twocaptcha",
-            "claudechrome",
-        ),
-    ),
-    (
-        "media_plugins",
-        "Media",
-        "",
-        "",
-        "",
-        (
-            "staticfile",
-            "responses",
-            "chrome_screencast",
-            "ytdlp",
-            "gallerydl",
-            "git",
-        ),
-    ),
-    (
-        "text_plugins",
-        "Text",
-        "",
-        "",
-        "",
-        (
-            "readability",
-            "htmltotext",
-            "defuddle",
-            "forumdl",
-            "mercury",
-            "trafilatura",
-            "liteparse",
-            "opendataloader",
-            "papersdl",
-        ),
-    ),
-    (
-        "metadata_plugins",
-        "Metadata",
-        "",
-        "",
-        "",
-        (
-            "title",
-            "favicon",
-            "headers",
-            "redirects",
-            "accessibility",
-            "consolelog",
-            "sslcerts",
-            "dns",
-            "seo",
-            "hashes",
-        ),
-    ),
-    (
-        "postprocessing_plugins",
-        "Postprocessing",
-        "",
-        "",
-        "",
-        (
-            "parse_dom_outlinks",
-            "parse_html_urls",
-            "parse_jsonl_urls",
-            "parse_netscape_urls",
-            "parse_rss_urls",
-            "parse_txt_urls",
-            "claudecode",
-            "claudecodecleanup",
-            "claudecodeextract",
-        ),
-    ),
+PLUGIN_GROUPS = (
+    ("main", "main_plugins", "Main"),
+    ("page_setup", "page_setup_plugins", "Page Setup"),
+    ("media", "media_plugins", "Media"),
+    ("text", "text_plugins", "Text"),
+    ("metadata", "metadata_plugins", "Metadata"),
+    ("postprocessing", "postprocessing_plugins", "Postprocessing"),
+    ("other", "other_plugins", "Other"),
 )
-HIDDEN_PLUGIN_CONFIG_UI_PLUGINS = {
-    "apt",
-    "base",
-    "bash",
-    "brew",
-    "cargo",
-    "chromewebstore",
-    "env",
-    "media",
-    "npm",
-    "opencode",
-    "pip",
-    "puppeteer",
-    "search_backend_ripgrep",
-    "search_backend_sonic",
-    "search_backend_sqlite",
-    "ssl",
-}
 TIMEOUT_INPUT_PATTERN = r"(0|[1-9][0-9]*|[0-9]+(?:\.[0-9]+)?\s*(?:s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours))"
 
 
@@ -255,26 +141,21 @@ class PluginConfigFormMixin:
     allow_crawl_execution_config_fields = True
 
     def build_plugin_groups(self, runtime_config: Mapping[str, Any] | None = None) -> None:
-        all_plugins = get_plugins()
+        catalog = get_plugin_catalog()
+        all_plugins = set(catalog)
         plugin_configs = discover_plugin_configs()
         runtime_config = runtime_config or get_config()
         self.plugin_config_binary_urls = get_plugin_config_binary_urls(runtime_config)
-        grouped_plugins = set().union(*(group[-1] for group in PLUGIN_GROUP_DEFINITIONS))
-        other_plugins = tuple(sorted(set(all_plugins) - grouped_plugins - HIDDEN_PLUGIN_CONFIG_UI_PLUGINS))
+        grouped_plugins = catalog.groups()
 
-        for field_name, *_rest, plugin_names in PLUGIN_GROUP_DEFINITIONS:
+        group_specs = []
+        for category, field_name, title in PLUGIN_GROUPS:
+            plugin_names = tuple(plugin.name for plugin in grouped_plugins.get(category, []))
+            group_specs.append((field_name, title, "", "", "", plugin_names))
             if field_name in self.fields:
                 get_choice_field(self, field_name).choices = [
                     (p, get_plugin_choice_label(p, plugin_configs)) for p in plugin_names if p in all_plugins
                 ]
-
-        if "other_plugins" in self.fields:
-            get_choice_field(self, "other_plugins").choices = [(p, get_plugin_choice_label(p, plugin_configs)) for p in other_plugins]
-
-        group_specs = (
-            *PLUGIN_GROUP_DEFINITIONS,
-            ("other_plugins", "Other", "", "", "", other_plugins),
-        )
         binary_url_lookup = _build_required_binary_url_lookup(plugin_configs, runtime_config)
         self.plugin_groups = [
             {

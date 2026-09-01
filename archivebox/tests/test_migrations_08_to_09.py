@@ -6,7 +6,7 @@ Migration tests from 0.8.x to 0.9.x.
 - Crawl model for grouping URLs
 - Seed model (removed in 0.9.x)
 - UUID primary keys for Snapshot
-- Status fields for state machine
+- Status fields for queued lifecycle processing
 - New fields like depth, retry_at, etc.
 """
 

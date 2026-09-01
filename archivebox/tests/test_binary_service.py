@@ -22,13 +22,13 @@ def _runtime_env(data_dir: Path, *, lib_dir: Path | None = None, **extra: str) -
     }
 
 
-def _run_real_binary_state_machine(data_dir: Path, *, name: str, binproviders: str, env: dict[str, str]):
-    """Run a real Binary model through its abxpkg-backed state machine."""
+def _run_real_binary_lifecycle(data_dir: Path, *, name: str, binproviders: str, env: dict[str, str]):
+    """Run a real Binary model through its abxpkg-backed lifecycle."""
     script = (
         "from archivebox.machine.models import Binary, Machine; "
         f"binary = Binary.objects.create(machine=Machine.current(), name={name!r}, binproviders={binproviders!r}, status=Binary.StatusChoices.QUEUED); "
-        "assert binary.tick_claimed(lock_seconds=600); "
-        "print('BINARY_STATE_MACHINE_E2E_DONE')"
+        "assert binary.install_claimed(lock_seconds=600); "
+        "print('BINARY_LIFECYCLE_E2E_DONE')"
     )
     return run_archivebox_cmd(
         ["shell", "-c", script],
@@ -59,7 +59,7 @@ def test_binary_request_preserves_native_overrides_in_db():
         status=Binary.StatusChoices.QUEUED,
         retry_at=timezone.now(),
     )
-    assert binary.tick_claimed(lock_seconds=600)
+    assert binary.install_claimed(lock_seconds=600)
     binary.refresh_from_db()
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert Path(binary.abspath).resolve() == Path(sys.executable).resolve()
@@ -98,11 +98,11 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     host_binary = shutil.which(name)
     assert host_binary is not None
     runtime_env = _runtime_env(initialized_archive)
-    _cmd_result = _run_real_binary_state_machine(initialized_archive, name=name, binproviders="env", env=runtime_env)
+    _cmd_result = _run_real_binary_lifecycle(initialized_archive, name=name, binproviders="env", env=runtime_env)
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
     assert returncode == 0, stderr
-    assert "BINARY_STATE_MACHINE_E2E_DONE" in stdout
+    assert "BINARY_LIFECYCLE_E2E_DONE" in stdout
 
     with use_archivebox_db(initialized_archive):
         binary = Binary.objects.get(name=name)
@@ -203,7 +203,7 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     provider_bin_dir = initialized_archive / "lib" / "pip" / "venv" / "bin"
     runtime_env = _runtime_env(initialized_archive)
 
-    _cmd_result = _run_real_binary_state_machine(initialized_archive, name=name, binproviders="env", env=runtime_env)
+    _cmd_result = _run_real_binary_lifecycle(initialized_archive, name=name, binproviders="env", env=runtime_env)
     stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
     assert returncode != 0, stdout + stderr

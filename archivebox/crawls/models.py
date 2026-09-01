@@ -19,7 +19,6 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.conf import settings
 from django.urls import reverse_lazy
 from django.utils import timezone
-from statemachine import State, registry
 from archivebox.config.common import rprint as print
 from archivebox.core.permissions import PERMISSIONS_VALUES, normalize_permissions
 
@@ -32,7 +31,7 @@ from archivebox.base_models.models import (
     ModelWithHealthStats,
     get_or_create_system_user_pk,
 )
-from archivebox.workers.models import RETRY_AT_MAX, ModelWithStateMachine, BaseStateMachine
+from archivebox.workers.models import ModelWithQueue
 from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
 from archivebox.misc.util import parse_date, sanitize_html_text, validate_url, validate_url_length
 
@@ -129,7 +128,7 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         )
 
 
-class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithStateMachine):
+class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithQueue):
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -158,16 +157,19 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
     notes = models.TextField(blank=True, null=False, default="")
     schedule = models.ForeignKey(CrawlSchedule, on_delete=models.SET_NULL, null=True, blank=True, editable=True)
 
-    status = ModelWithStateMachine.StatusField(
-        choices=ModelWithStateMachine.StatusChoices,
-        default=ModelWithStateMachine.StatusChoices.QUEUED,
+    status = ModelWithQueue.StatusField(
+        choices=ModelWithQueue.StatusChoices,
+        default=ModelWithQueue.StatusChoices.QUEUED,
     )
-    retry_at = ModelWithStateMachine.RetryAtField(default=timezone.now)
+    retry_at = ModelWithQueue.RetryAtField(default=timezone.now)
 
-    state_machine_name = "archivebox.crawls.models.CrawlMachine"
     retry_at_field_name = "retry_at"
     state_field_name = "status"
-    StatusChoices = ModelWithStateMachine.StatusChoices
+    StatusChoices = ModelWithQueue.StatusChoices
+    INITIAL_STATE = StatusChoices.QUEUED
+    ACTIVE_STATE = StatusChoices.STARTED
+    FINAL_STATES = (StatusChoices.SEALED,)
+    FINAL_OR_ACTIVE_STATES = (*FINAL_STATES, ACTIVE_STATE)
     active_state = StatusChoices.STARTED
     delete_after_final_statuses = (StatusChoices.SEALED,)
     RUNNABLE_STATES = (StatusChoices.QUEUED, StatusChoices.STARTED)
@@ -177,17 +179,12 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
     snapshot_set: models.Manager["Snapshot"]
 
-    if TYPE_CHECKING:
-
-        @property
-        def sm(self) -> "CrawlMachine": ...
-
     class Meta(
         ModelWithDeleteAfter.Meta,
         ModelWithOutputDir.Meta,
         ModelWithConfig.Meta,
         ModelWithHealthStats.Meta,
-        ModelWithStateMachine.Meta,
+        ModelWithQueue.Meta,
     ):
         app_label = "crawls"
         verbose_name = "Crawl"
@@ -255,7 +252,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         now = timezone.now()
         # Cancellation seals the Crawl first, then lets the runner seal each
-        # child Snapshot through its own state machine. Active children that
+        # child Snapshot through its own lifecycle. Active children that
         # are already due need no write; the runner will claim them as-is.
         active_children = self.snapshot_set.filter(
             status__in=Snapshot.OPEN_STATES,
@@ -1297,7 +1294,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         return created_snapshots
 
     def install_declared_binaries(self, binary_names: set[str], machine=None) -> None:
-        """Install crawl-declared binaries through their unified state machine."""
+        """Install crawl-declared binaries through their unified lifecycle."""
         from archivebox.crawls.locks import binary_lifecycle_lock
         from archivebox.machine.models import Binary, Machine
 
@@ -1313,7 +1310,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                     continue
                 binary.update_and_requeue(retry_at=timezone.now())
                 binary.refresh_from_db()
-                binary.tick_claimed(lock_seconds=600)
+                binary.install_claimed(lock_seconds=600)
 
         unresolved_binaries = list(
             Binary.objects.filter(
@@ -1332,133 +1329,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             raise RuntimeError(
                 f"Crawl dependencies failed to install before continuing: {binary_details}",
             )
-
-    def run(self) -> "Snapshot | None":
-        """
-        Execute this Crawl: run hooks, process JSONL, create snapshots.
-
-        Called by the state machine when entering the 'started' state.
-
-        Returns:
-            The root Snapshot for this crawl, or None for system crawls that don't create snapshots
-        """
-        import time
-        from archivebox.plugins.hooks import run_hook, discover_hooks, process_hook_records
-        from archivebox.config.common import get_config
-        from archivebox.machine.models import Machine
-
-        def get_runtime_config():
-            return get_config(crawl=self).for_crawl_runtime(
-                crawl=self,
-                persona=persona,
-                runtime_overrides=persona_runtime_overrides,
-            )
-
-        system_task = self.get_system_task()
-        if system_task == "archivebox://update":
-            from archivebox.cli.archivebox_update import process_all_db_snapshots
-
-            process_all_db_snapshots()
-            return None
-
-        machine = Machine.current()
-        declared_binary_names: set[str] = set()
-        persona_runtime_overrides: dict[str, str] = {}
-        persona = self.resolve_persona()
-        if persona:
-            base_runtime_config = get_config(crawl=self, persona=persona)
-            chrome_binary = str(base_runtime_config.get("CHROME_BINARY") or "")
-            persona_runtime_overrides = persona.prepare_runtime_for_crawl(
-                crawl=self,
-                chrome_binary=chrome_binary,
-            )
-
-        def run_crawl_hook(hook: Path) -> set[str]:
-            primary_url = next(
-                (line.strip() for line in self.urls.splitlines() if line.strip()),
-                self.urls.strip(),
-            )
-
-            hook_start = time.time()
-            plugin_name = hook.parent.name
-            output_dir = self.output_dir / plugin_name
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            process = run_hook(
-                hook,
-                output_dir=output_dir,
-                config=get_runtime_config(),
-                crawl_id=str(self.id),
-                source_url=self.urls,
-                url=primary_url,
-                snapshot_id=str(self.id),
-            )
-            hook_elapsed = time.time() - hook_start
-            if hook_elapsed > 0.5:
-                print(f"[yellow]⏱️  Hook {hook.name} took {hook_elapsed:.2f}s[/yellow]")
-
-            if process.status == process.StatusChoices.RUNNING:
-                if process.poll() is None:
-                    return set()
-
-            from archivebox.plugins.hooks import extract_records_from_process
-
-            records = []
-            # A hook can exit before its completed Process metadata is visible.
-            # Give successful hooks a brief chance to flush JSONL stdout into
-            # the Process row before downstream hooks.
-            for delay in (0.0, 0.05, 0.1, 0.25, 0.5):
-                if delay:
-                    time.sleep(delay)
-                records = extract_records_from_process(process)
-                if records:
-                    break
-            if records:
-                print(f"[cyan]📝 Processing {len(records)} records from {hook.name}[/cyan]")
-                for record in records[:3]:
-                    print(f"   Record: type={record.get('type')}, keys={list(record.keys())[:5]}")
-            if system_task:
-                records = [record for record in records if record.get("type") in ("BinaryRequest", "Binary")]
-            overrides = {"crawl": self}
-            stats = process_hook_records(records, overrides=overrides)
-            if stats:
-                print(f"[green]✓ Created: {stats}[/green]")
-
-            hook_binary_names = {
-                str(record.get("name")).strip()
-                for record in records
-                if record.get("type") in ("BinaryRequest", "Binary") and record.get("name")
-            }
-            hook_binary_names.discard("")
-            if hook_binary_names:
-                declared_binary_names.update(hook_binary_names)
-            return hook_binary_names
-
-        hooks = discover_hooks("Crawl", config=get_runtime_config())
-
-        for hook in hooks:
-            hook_binary_names = run_crawl_hook(hook)
-            if hook_binary_names:
-                self.install_declared_binaries(hook_binary_names, machine=machine)
-
-        # Safety check: don't create snapshots if any crawl-declared dependency
-        # is still unresolved after all crawl hooks have run.
-        self.install_declared_binaries(declared_binary_names, machine=machine)
-
-        # Create snapshots from all URLs in self.urls
-        if system_task:
-            leaked_snapshots = self.snapshot_set.all()
-            if leaked_snapshots.exists():
-                leaked_count = leaked_snapshots.count()
-                leaked_snapshots.delete()
-                print(f"[yellow]⚠️  Removed {leaked_count} leaked snapshot(s) created during system crawl {system_task}[/yellow]")
-            return None
-
-        self.create_snapshots_from_urls()
-
-        # Return first snapshot for this crawl (newly created or existing)
-        # This ensures the crawl doesn't seal if snapshots exist, even if they weren't just created
-        return self.snapshot_set.first()
 
     def is_finished(self) -> bool:
         """Check if crawl is finished (all snapshots sealed or no snapshots exist)."""
@@ -1483,11 +1353,64 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         return True
 
-    def cleanup(self):
-        """Clean up background hooks and run on_CrawlEnd hooks."""
-        from archivebox.plugins.hooks import run_hook, discover_hooks
+    def can_start(self) -> bool:
+        return bool(self.urls and self.get_urls_list())
 
-        # Clean up .pid files from output directory
+    def has_finished_snapshots(self) -> bool:
+        from archivebox.core.models import Snapshot
+
+        snapshots = self.snapshot_set.all()
+        return snapshots.exists() and not snapshots.exclude(status=Snapshot.StatusChoices.SEALED).exists()
+
+    def mark_started(self) -> bool:
+        now = timezone.now()
+        updated = self.safe_update(
+            {
+                "status": self.StatusChoices.STARTED,
+                "retry_at": now + timedelta(seconds=2),
+            },
+            extra_filter={"status": self.StatusChoices.QUEUED},
+        )
+        return updated
+
+    def seal(self) -> bool:
+        """Finalize a runner-owned Crawl without dispatching hooks directly."""
+        now = timezone.now()
+        updated = self.safe_update(
+            {
+                "status": self.StatusChoices.SEALED,
+                "retry_at": None,
+                "modified_at": now,
+            },
+            refresh=False,
+            extra_filter={"status__in": (*self.RUNNABLE_STATES, self.StatusChoices.SEALED)},
+        )
+        if not updated:
+            self.refresh_from_db()
+            return False
+        self.status = self.StatusChoices.SEALED
+        self.retry_at = None
+        self.modified_at = now
+        self.schedule_child_snapshots_for_sealing()
+        self.cleanup_runtime()
+        return True
+
+    def advance_lifecycle(self) -> bool:
+        """Advance one explicit lifecycle step after the runner claims this row."""
+        if self.status == self.StatusChoices.PAUSED:
+            return False
+        if self.status == self.StatusChoices.QUEUED:
+            if self.has_finished_snapshots():
+                return self.seal()
+            if not self.can_start():
+                return False
+            return self.mark_started()
+        if self.status == self.StatusChoices.STARTED and self.is_finished():
+            return self.seal()
+        return False
+
+    def cleanup_runtime(self) -> None:
+        """Remove runner-owned runtime artifacts after abx-dl cleanup hooks finish."""
         if self.output_dir.exists():
             for pid_file in self.output_dir.glob("**/*.pid"):
                 pid_file.unlink(missing_ok=True)
@@ -1495,207 +1418,3 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         persona = self.resolve_persona()
         if persona:
             persona.cleanup_runtime_for_crawl(self)
-
-        # Run on_CrawlEnd hooks
-        from archivebox.config.common import get_config
-
-        config = get_config(crawl=self)
-
-        hooks = discover_hooks("CrawlEnd", config=config)
-
-        for hook in hooks:
-            plugin_name = hook.parent.name
-            output_dir = self.output_dir / plugin_name
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            process = run_hook(
-                hook,
-                output_dir=output_dir,
-                config=config,
-                crawl_id=str(self.id),
-                source_url=self.urls,  # Pass full newline-separated URLs
-            )
-
-            # Log failures but don't block
-            if process.exit_code != 0:
-                print(f"[yellow]⚠️ CrawlEnd hook failed: {hook.name}[/yellow]")
-
-
-# =============================================================================
-# State Machines
-# =============================================================================
-
-
-class CrawlMachine(BaseStateMachine):
-    crawl: Crawl
-
-    """
-    State machine for managing Crawl lifecycle.
-
-    Hook Lifecycle:
-    ┌─────────────────────────────────────────────────────────────┐
-    │ QUEUED State                                                │
-    │  • Waiting for crawl to be ready (has URLs)                 │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() when can_start()
-    ┌─────────────────────────────────────────────────────────────┐
-    │ STARTED State → enter_started()                             │
-    │  1. crawl.run()                                             │
-    │     • discover_hooks('Crawl') → finds all crawl hooks       │
-    │     • For each hook:                                        │
-    │       - run_hook(script, output_dir, ...)                   │
-    │       - Parse JSONL from hook output                        │
-    │       - process_hook_records() → creates Snapshots          │
-    │     • create_snapshots_from_urls() → from self.urls field   │
-    │                                                              │
-    │  2. Snapshots process independently with their own          │
-    │     state machines (see SnapshotMachine)                    │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() when is_finished()
-    ┌─────────────────────────────────────────────────────────────┐
-    │ SEALED State → enter_sealed()                               │
-    │  • cleanup() → runs on_CrawlEnd hooks, kills background     │
-    │  • Set retry_at=None (no more processing)                   │
-    └─────────────────────────────────────────────────────────────┘
-    """
-
-    model_attr_name = "crawl"
-
-    # States
-    queued = State(value=Crawl.StatusChoices.QUEUED, initial=True)
-    started = State(value=Crawl.StatusChoices.STARTED)
-    paused = State(value=Crawl.StatusChoices.PAUSED)
-    sealed = State(value=Crawl.StatusChoices.SEALED, final=True)
-
-    # Tick Event (polled by workers)
-    tick = (
-        queued.to(sealed, cond="has_finished_snapshots")
-        | queued.to.itself(unless="can_start")
-        | queued.to(started, cond="can_start")
-        | started.to(sealed, cond="is_finished")
-        | paused.to.itself()
-    )
-
-    # Manual event (triggered by last Snapshot sealing, or by direct
-    # index-only/bg creation when every requested URL is rejected before any
-    # Snapshot rows exist).
-    seal = queued.to(sealed) | started.to(sealed) | paused.to(sealed)
-    pause_requested = queued.to(paused) | started.to(paused)
-    resume_requested = paused.to(queued)
-
-    def can_start(self) -> bool:
-        if not self.crawl.urls:
-            print(f"[red]⚠️ Crawl {self.crawl.id} cannot start: no URLs[/red]")
-            return False
-        urls_list = self.crawl.get_urls_list()
-        if not urls_list:
-            print(f"[red]⚠️ Crawl {self.crawl.id} cannot start: no valid URLs in urls field[/red]")
-            return False
-        return True
-
-    def is_finished(self) -> bool:
-        """Check if all Snapshots for this crawl are finished."""
-        return self.crawl.is_finished()
-
-    def has_finished_snapshots(self) -> bool:
-        """A queued crawl with only final Snapshot rows was interrupted before sealing."""
-        from archivebox.core.models import Snapshot
-
-        snapshots = self.crawl.snapshot_set.all()
-        return snapshots.exists() and not snapshots.exclude(status=Snapshot.StatusChoices.SEALED).exists()
-
-    @queued.enter
-    def enter_queued(self):
-        self.crawl.update_and_requeue(
-            retry_at=timezone.now(),
-            status=Crawl.StatusChoices.QUEUED,
-        )
-
-    @started.enter
-    def enter_started(self):
-        import sys
-
-        print(f"[cyan]🔄 CrawlMachine.enter_started() - creating snapshots for {self.crawl.id}[/cyan]", file=sys.stderr)
-
-        try:
-            # Run the crawl - runs hooks, processes JSONL, creates snapshots
-            first_snapshot = self.crawl.run()
-
-            if first_snapshot:
-                print(
-                    f"[cyan]🔄 Created {self.crawl.snapshot_set.count()} snapshot(s), first: {first_snapshot.url}[/cyan]",
-                    file=sys.stderr,
-                )
-                # Update status to STARTED
-                # Set retry_at to near future so tick() can poll and check is_finished()
-                self.crawl.update_and_requeue(
-                    retry_at=timezone.now() + timedelta(seconds=2),
-                    status=Crawl.StatusChoices.STARTED,
-                )
-            else:
-                # No snapshots (system crawl that only runs setup hooks)
-                print("[cyan]🔄 No snapshots created, sealing crawl immediately[/cyan]", file=sys.stderr)
-                # Seal immediately since there's no work to do
-                self.seal()
-
-        except Exception as e:
-            print(f"[red]⚠️ Crawl {self.crawl.id} failed to start: {e}[/red]")
-            import traceback
-
-            traceback.print_exc()
-            raise
-
-    @paused.enter
-    def enter_paused(self):
-        paused = self.crawl.safe_update(
-            {
-                "retry_at": RETRY_AT_MAX,
-                "status": Crawl.StatusChoices.PAUSED,
-            },
-            extra_filter={"status__in": Crawl.RUNNABLE_STATES},
-        )
-        if paused:
-            self.crawl.schedule_child_snapshots_for_pause()
-
-    @sealed.enter
-    def enter_sealed(self):
-        now = timezone.now()
-        self.crawl.status = Crawl.StatusChoices.SEALED
-        self.crawl.retry_at = None
-        # Guard: never seal a row that a concurrent writer flipped to PAUSED.
-        # Sealing is idempotent (SEALED→SEALED is a no-op rewrite), so
-        # status__in covers both the QUEUED/STARTED→SEALED transition and the
-        # rare re-entry case.
-        updated = self.crawl.safe_update(
-            {
-                "status": Crawl.StatusChoices.SEALED,
-                "retry_at": None,
-                "modified_at": now,
-            },
-            refresh=False,
-            extra_filter={
-                "status__in": [
-                    Crawl.StatusChoices.QUEUED,
-                    Crawl.StatusChoices.STARTED,
-                    Crawl.StatusChoices.SEALED,
-                ],
-            },
-        )
-        if not updated:
-            self.crawl.refresh_from_db()
-            return
-        self.crawl.modified_at = now
-
-        self.crawl.schedule_child_snapshots_for_sealing()
-        # Clean up background hooks and run on_CrawlEnd hooks after the final
-        # state is visible so cleanup projectors cannot resurrect the crawl.
-        self.crawl.cleanup()
-
-
-# =============================================================================
-# Register State Machines
-# =============================================================================
-
-# Manually register state machines with python-statemachine registry
-# (normally auto-discovered from statemachines.py, but we define them here for clarity)
-registry.register(CrawlMachine)

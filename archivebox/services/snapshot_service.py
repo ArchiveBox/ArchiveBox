@@ -74,10 +74,10 @@ def finalize_completed_snapshot(
         )
 
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
-        snapshot.sm.tick()
+        snapshot.advance_lifecycle()
         snapshot.refresh_from_db()
     if snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.is_finished_processing():
-        snapshot.sm.seal()
+        snapshot.seal()
         snapshot.refresh_from_db()
 
     snapshot.write_index_jsonl(output_dir=output_dir)
@@ -119,7 +119,7 @@ class SnapshotService(BaseService):
                     hooks = await sync_to_async(snapshot_hooks_for_pending_archiveresults, thread_sensitive=True)(snapshot)
                     await sync_to_async(snapshot.create_pending_archiveresults, thread_sensitive=True)(hooks=hooks)
                 try:
-                    await sync_to_async(snapshot.sm.tick, thread_sensitive=True)()
+                    await sync_to_async(snapshot.advance_lifecycle, thread_sensitive=True)()
                 except ValidationError as err:
                     if "ArchiveBox cannot archive its own admin, web, api, or snapshot URLs." not in str(err):
                         raise
