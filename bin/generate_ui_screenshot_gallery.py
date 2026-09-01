@@ -112,6 +112,12 @@ def append_manifest(manifest_path: Path, screenshot_path: Path) -> None:
         "width": dimensions[0],
         "height": dimensions[1],
     }
+    timing_report_path = os.environ.get("UI_SCREENSHOT_TIMING_REPORT", "").strip()
+    if timing_report_path:
+        timing_report = json.loads(Path(timing_report_path).read_text(encoding="utf-8"))
+        ttfb_ms = timing_report.get("checks", {}).get("ttfbMs")
+        if isinstance(ttfb_ms, int | float):
+            item["ttfb_ms"] = round(ttfb_ms)
     with manifest_path.open("a", encoding="utf-8") as manifest:
         manifest.write(json.dumps(item) + "\n")
 
@@ -179,6 +185,8 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         if parsed_url.fragment:
             route = f"{route}#{parsed_url.fragment}"
         source_url = f"{source_base_url}{capture['source']}"
+        ttfb_values = [variant["ttfb_ms"] for variant in variants.values() if isinstance(variant.get("ttfb_ms"), int | float)]
+        ttfb_text = f" · ~{round(sum(ttfb_values) / len(ttfb_values))}ms TTFB" if ttfb_values else ""
         markdown_cells = []
         html_figures = []
         for profile, (width, height) in CAPTURE_PROFILES.items():
@@ -206,7 +214,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
                 (
                     f"## {capture['name']}",
                     "",
-                    f"View: [`{route}`]({capture['url']}) · [View code]({source_url})",
+                    f"View: [`{route}`]({capture['url']}) · [View code]({source_url}){ttfb_text}",
                     "",
                     "<table><thead><tr>",
                     "".join(f"<th>{profile.title()}</th>" for profile in CAPTURE_PROFILES),
@@ -219,7 +227,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         html_sections.append(
             f"<article><h2>{html.escape(capture['name'])}</h2>"
             f'<p><a href="{html.escape(capture["url"])}"><code>{html.escape(route)}</code></a> · '
-            f'<a href="{html.escape(source_url)}">View code</a></p>'
+            f'<a href="{html.escape(source_url)}">View code</a>{html.escape(ttfb_text)}</p>'
             f'<div class="shots">{"".join(html_figures)}</div></article>',
         )
 
