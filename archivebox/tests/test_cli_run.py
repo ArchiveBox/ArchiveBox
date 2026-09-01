@@ -10,6 +10,7 @@ Tests cover:
 import os
 import signal
 import subprocess
+from datetime import timedelta
 
 import psutil
 import pytest
@@ -732,6 +733,60 @@ class TestRunDaemonMode:
             for proc in procs:
                 cleanup_process_group(proc.pid)
                 proc.wait(timeout=15)
+
+    def test_run_daemon_recovers_stopped_runner_from_previous_pid_namespace(self, initialized_archive, db):
+        from django.utils import timezone
+
+        from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE
+        from archivebox.machine.models import Machine, PROCESS_PID_NAMESPACE_KEY, Process, get_current_pid_namespace
+        from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+        env = cli_env(PLUGINS="__archivebox_test_no_plugins__")
+        with use_archivebox_db(initialized_archive):
+            stopped_runner = Process.objects.create(
+                machine=Machine.current(),
+                process_type=Process.TypeChoices.ORCHESTRATOR,
+                worker_type=RUNNER_ACTIVE_WORKER_TYPE,
+                status=Process.StatusChoices.RUNNING,
+                pwd=str(initialized_archive),
+                pid=1,
+                started_at=timezone.now(),
+                env={PROCESS_PID_NAMESPACE_KEY: f"{get_current_pid_namespace()}-stopped-container"},
+            )
+            Process.objects.filter(pk=stopped_runner.pk).update(modified_at=timezone.now() - timedelta(minutes=5))
+
+        queued = run_archivebox_cmd(["crawl", "create", create_test_url()], cwd=initialized_archive, env=env, timeout=60)
+        assert queued.returncode == 0, queued.stderr or queued.stdout
+
+        daemon_log = initialized_archive / "run-daemon-stopped-container.log"
+        daemon_log_handle = daemon_log.open("w", encoding="utf-8")
+        replacement = run_archivebox_cmd(
+            ["run", "--daemon"],
+            cwd=initialized_archive,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=daemon_log_handle,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            wait=False,
+        )
+        daemon_log_handle.close()
+
+        try:
+            wait_for_log(daemon_log, "[Crawl#", timeout=10)
+            with use_archivebox_db(initialized_archive):
+                stopped_runner.refresh_from_db()
+                assert stopped_runner.status == Process.StatusChoices.EXITED
+                active_runner = Process.objects.get(
+                    process_type=Process.TypeChoices.ORCHESTRATOR,
+                    worker_type=RUNNER_ACTIVE_WORKER_TYPE,
+                    status=Process.StatusChoices.RUNNING,
+                    pwd=str(initialized_archive),
+                )
+                assert active_runner.pid == replacement.pid
+        finally:
+            cleanup_process_group(replacement.pid)
+            replacement.wait(timeout=15)
 
 
 @pytest.mark.django_db
