@@ -442,7 +442,7 @@ PY
 
     # Capture the public views before login because the real admin-login hint
     # intentionally redirects authenticated personas away from /public/.
-    if [[ "$capture_index" == "2" ]]; then
+    if [[ "$name" == "Public snapshot list" ]]; then
         echo "[*] Logging in through the real $ACTIVE_PERSONA browser persona"
         NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
             CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
