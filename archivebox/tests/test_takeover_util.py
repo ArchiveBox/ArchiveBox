@@ -7,6 +7,7 @@ import re
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -955,3 +956,29 @@ def test_runtime_stack_owner_allows_top_level_runner_when_no_parent_command_exis
         assert owner.id == runner_row.id
     finally:
         _stop_archivebox_shells([proc])
+
+
+def test_active_runner_lease_heartbeat_updates_persisted_process(tmp_path, initialized_archive):
+    from django.utils import timezone
+
+    from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE, maintain_runner_lease
+    from archivebox.machine.models import Machine
+
+    runner = Process.objects.create(
+        machine=Machine.current(),
+        process_type=Process.TypeChoices.ORCHESTRATOR,
+        worker_type=RUNNER_ACTIVE_WORKER_TYPE,
+        pwd=str(tmp_path),
+        pid=os.getpid(),
+        started_at=timezone.now(),
+        status=Process.StatusChoices.RUNNING,
+    )
+    initial_heartbeat = runner.modified_at
+
+    with maintain_runner_lease(runner, interval=0.01):
+        deadline = time.monotonic() + 2.0
+        while runner.modified_at <= initial_heartbeat and time.monotonic() < deadline:
+            time.sleep(0.01)
+            runner.refresh_from_db()
+
+    assert runner.modified_at > initial_heartbeat

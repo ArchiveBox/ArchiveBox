@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import time
 import sys
+import threading
 from collections.abc import Callable
+from contextlib import contextmanager
+from datetime import timedelta
 from pathlib import Path
 
-from django.db import IntegrityError
+from django.db import DatabaseError, IntegrityError, close_old_connections
 from django.utils import timezone
 from archivebox.config import CONSTANTS
 from archivebox.config.common import rprint
@@ -13,6 +16,8 @@ from archivebox.config.common import rprint
 RUNNER_ACTIVE_WORKER_TYPE = "worker_runner"
 RUNNER_WAITING_WORKER_TYPE = "runner_waiting"
 RUNNER_GATE_WORKER_TYPES = (RUNNER_ACTIVE_WORKER_TYPE, RUNNER_WAITING_WORKER_TYPE, "")
+RUNNER_LEASE_HEARTBEAT_SECONDS = 5.0
+RUNNER_LEASE_TIMEOUT = timedelta(seconds=30)
 
 
 def runtime_stack_owner_types():
@@ -219,7 +224,66 @@ def live_runner_processes(*, data_dir: str | Path, exclude_id=None):
     )
     if exclude_id is not None:
         qs = qs.exclude(id=exclude_id)
-    return [process for process in qs.order_by("started_at", "created_at").iterator(chunk_size=20) if process.is_running]
+    now = timezone.now()
+    live = []
+    for process in qs.order_by("started_at", "created_at").iterator(chunk_size=20):
+        if not process.shares_pid_namespace and process.modified_at < now - RUNNER_LEASE_TIMEOUT:
+            # A PID from another container cannot be inspected or signaled
+            # safely. Its DB heartbeat is the only cross-namespace liveness
+            # proof, so release the runner gate only after that lease expires.
+            exited = Process.objects.filter(
+                pk=process.pk,
+                status=Process.StatusChoices.RUNNING,
+                modified_at=process.modified_at,
+            ).update(
+                status=Process.StatusChoices.EXITED,
+                exit_code=process.exit_code if process.exit_code is not None else 0,
+                ended_at=now,
+                retry_at=None,
+                modified_at=now,
+            )
+            if exited:
+                continue
+            process.refresh_from_db()
+        if process.is_running:
+            live.append(process)
+    return live
+
+
+@contextmanager
+def maintain_runner_lease(command, *, interval: float = RUNNER_LEASE_HEARTBEAT_SECONDS):
+    """Keep the active runner row fresh for takeover across PID namespaces."""
+    from archivebox.machine.models import Process
+
+    stopped = threading.Event()
+
+    def heartbeat() -> None:
+        close_old_connections()
+        try:
+            while not stopped.wait(interval):
+                try:
+                    updated = Process.objects.filter(
+                        pk=command.pk,
+                        status=Process.StatusChoices.RUNNING,
+                        worker_type=RUNNER_ACTIVE_WORKER_TYPE,
+                    ).update(modified_at=timezone.now())
+                    if not updated:
+                        return
+                except DatabaseError:
+                    # A transient SQLite lock must not terminate the runner.
+                    # The timeout allows several missed heartbeats before a
+                    # cross-namespace contender may reclaim the gate.
+                    continue
+        finally:
+            close_old_connections()
+
+    heartbeat_thread = threading.Thread(target=heartbeat, name="archivebox-runner-lease", daemon=True)
+    heartbeat_thread.start()
+    try:
+        yield
+    finally:
+        stopped.set()
+        heartbeat_thread.join(timeout=interval + 1.0)
 
 
 def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout: float = 5.0) -> bool:
@@ -240,7 +304,12 @@ def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout:
         pwd=str(data_dir),
         timeout=CONSTANTS.MAX_HOOK_RUNTIME_SECONDS,
     )
+    last_waiting_heartbeat = time.monotonic()
+    announced_cross_namespace_runners = set()
     while True:
+        if time.monotonic() - last_waiting_heartbeat >= RUNNER_LEASE_HEARTBEAT_SECONDS:
+            command.heartbeat()
+            last_waiting_heartbeat = time.monotonic()
         runners = live_runner_processes(data_dir=data_dir)
         if all(process.id != command.id for process in runners):
             command.refresh_from_db()
@@ -267,10 +336,12 @@ def enter_single_runner_gate(command, *, data_dir: str | Path, graceful_timeout:
                     rprint(f"[yellow][*] Stopping older ArchiveBox runner process (pid={process.pid})...[/yellow]", file=sys.stderr)
                     process.kill_tree(graceful_timeout=graceful_timeout)
                 else:
-                    rprint(
-                        "[yellow][*] Waiting for older ArchiveBox runner in another PID namespace to stop...[/yellow]",
-                        file=sys.stderr,
-                    )
+                    if process.id not in announced_cross_namespace_runners:
+                        rprint(
+                            "[yellow][*] Waiting for older ArchiveBox runner in another PID namespace to stop...[/yellow]",
+                            file=sys.stderr,
+                        )
+                        announced_cross_namespace_runners.add(process.id)
             time.sleep(0.1)
             continue
 
