@@ -35,7 +35,6 @@ from abx_dl.events import (
     SnapshotEvent,
     slow_warning_timeout,
 )
-from abx_dl.heartbeat import CrawlHeartbeat
 from abx_dl.limits import CrawlLimitState
 from abx_dl.catalog import PluginCatalog
 from abx_dl.models import Plugin, Snapshot as AbxSnapshot, filter_plugins
@@ -330,7 +329,6 @@ class CrawlRunner:
         )
 
     async def run(self) -> None:
-        heartbeat: CrawlHeartbeat | None = None
         root_snapshot_id: str | None = None
         bus_destroyed = False
         try:
@@ -353,25 +351,17 @@ class CrawlRunner:
                 raise_on_first_signal=False,
             ):
                 snapshot_ids = await sync_to_async(self.load_run_state, thread_sensitive=True)()
-                heartbeat = CrawlHeartbeat(
-                    Path(self.crawl_output_dir),
-                    runtime="archivebox",
-                    crawl_id=str(self.crawl.id),
-                )
                 max_concurrent_snapshots = max(1, int(self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 1)))
                 self.max_concurrent_snapshots = max_concurrent_snapshots
                 self.snapshot_semaphore = asyncio.Semaphore(max_concurrent_snapshots)
                 live_ui = self._create_live_ui()
                 with live_ui if live_ui is not None else nullcontext():
                     try:
-                        await heartbeat.start()
                         if snapshot_ids:
                             root_snapshot_id = snapshot_ids[0]
                             await self.run_crawl(root_snapshot_id, snapshot_ids)
                     finally:
                         self._run_task = None
-                        if heartbeat is not None:
-                            await heartbeat.stop()
                         await self.stop_snapshot_tasks()
                         try:
                             await self.bus.wait_until_idle(timeout=1.0 if self._skip_wait_until_idle else 30.0)
@@ -383,8 +373,6 @@ class CrawlRunner:
         finally:
             if not bus_destroyed:
                 self._run_task = None
-                if heartbeat is not None:
-                    await heartbeat.stop()
                 await self.stop_snapshot_tasks()
                 await self.bus.destroy(clear=False)
             if self._live_stream is not None:
