@@ -33,6 +33,26 @@ from archivebox.misc.logging_util import printable_filesize
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
+html {
+    width: 100%;
+    min-width: 100%;
+    background: #fff;
+}
+body {
+    box-sizing: border-box;
+    width: min(100%, 72rem);
+    max-width: none;
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: clamp(1rem, 3vw, 2rem);
+    background: #fff;
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+}
+body > * {
+    max-width: 100%;
+}
 img:not([width]):not([height]) {
     max-width: min(100%, 12rem);
     max-height: 12rem;
