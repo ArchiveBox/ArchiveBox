@@ -554,14 +554,17 @@ def test_collect_output_metadata_preserves_file_metadata():
 
 
 def test_collect_output_metadata_detects_warc_gz_mimetype(tmp_path):
-    from archivebox.services.archive_result_service import _collect_output_metadata
+    from abx_dl.output_files import OutputManifest
 
     plugin_dir = tmp_path / "wget"
     warc_file = plugin_dir / "warc" / "capture.warc.gz"
     warc_file.parent.mkdir(parents=True, exist_ok=True)
     warc_file.write_bytes(b"warc-bytes")
 
-    output_files, output_size, output_mimetypes = _collect_output_metadata(plugin_dir)
+    manifest = OutputManifest.scan(plugin_dir)
+    output_files = manifest.as_mapping()
+    output_size = manifest.total_size
+    output_mimetypes = ",".join(manifest.mimetypes)
 
     assert output_files["warc/capture.warc.gz"] == {
         "extension": "gz",

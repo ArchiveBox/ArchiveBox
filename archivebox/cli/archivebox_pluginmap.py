@@ -48,7 +48,7 @@ def pluginmap(
     Show the current abx-dl event phases and their associated plugin hooks.
 
     This command reflects the new bus-driven runtime, not the legacy ArchiveBox
-    state-machine executor. Event names are normalized to hook prefixes by
+    event runtime. Event names are normalized to hook prefixes by
     stripping a trailing `Event`, then ArchiveBox checks whether any matching
     `on_{EventFamily}__*` scripts actually exist.
     """

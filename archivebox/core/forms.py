@@ -12,9 +12,9 @@ from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.schedule_util import validate_schedule
 from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes
 from archivebox.personas.models import Persona
-from archivebox.plugins.discovery import get_plugins
+from archivebox.plugins.discovery import get_plugin_catalog
 from archivebox.plugins.forms import (
-    PLUGIN_GROUP_DEFINITIONS,
+    PLUGIN_GROUPS,
     TIMEOUT_INPUT_PATTERN,
     PluginConfigFormMixin,
     get_choice_field,
@@ -333,10 +333,9 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         if self.can_override_crawl_config:
             self.build_plugin_groups(get_config(persona=selected_persona) if selected_persona else get_config())
         else:
-            all_plugins = get_plugins()
-            for field_name, *_rest, plugin_names in PLUGIN_GROUP_DEFINITIONS:
-                get_choice_field(self, field_name).choices = [(p, p) for p in all_plugins if p in plugin_names]
-            get_choice_field(self, "other_plugins").choices = [(p, p) for p in all_plugins]
+            grouped_plugins = get_plugin_catalog().groups()
+            for category, field_name, _title in PLUGIN_GROUPS:
+                get_choice_field(self, field_name).choices = [(plugin.name, plugin.name) for plugin in grouped_plugins.get(category, [])]
             self.plugin_groups = []
 
     def clean(self):

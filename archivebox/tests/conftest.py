@@ -1683,7 +1683,7 @@ def install_real_binary(
     binproviders: str = "env",
     overrides: dict[str, dict[str, Any]] | None = None,
 ):
-    """Install and persist a real binary through the normal Binary state machine."""
+    """Install and persist a real binary through the normal Binary lifecycle."""
     from archivebox.machine.models import Binary, Machine
 
     binary = Binary.objects.create(
@@ -1693,7 +1693,7 @@ def install_real_binary(
         overrides=overrides or {},
         status=Binary.StatusChoices.QUEUED,
     )
-    assert binary.tick_claimed(lock_seconds=600)
+    assert binary.install_claimed(lock_seconds=600)
     binary.refresh_from_db()
     assert binary.status == Binary.StatusChoices.INSTALLED
     assert binary.retry_at is None

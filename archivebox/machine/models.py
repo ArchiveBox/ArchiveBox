@@ -12,8 +12,6 @@ from archivebox.uuid_compat import CompactUUIDField, uuid7
 from datetime import timedelta, datetime
 from typing import TYPE_CHECKING, Any, cast
 
-from statemachine import State, registry
-
 from django.db import IntegrityError, transaction
 from django.db import models
 from django.db.models import Q, QuerySet
@@ -23,7 +21,7 @@ from django.utils.functional import cached_property
 from archivebox.config import CONSTANTS
 from archivebox.config.common import rprint
 from archivebox.base_models.models import ModelWithDeleteAfter, ModelWithHealthStats, normalize_config_json_values
-from archivebox.workers.models import BaseStateMachine, ModelWithStateMachine
+from archivebox.workers.models import ModelWithQueue
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
 _psutil: Any | None = None
@@ -515,19 +513,21 @@ class BinaryManager(models.Manager):
         )
 
 
-class Binary(ModelWithHealthStats, ModelWithStateMachine):
+class Binary(ModelWithHealthStats, ModelWithQueue):
     """
     Tracks a binary on a specific machine.
 
-    Simple state machine with 2 states:
+    Simple queue lifecycle with 2 states:
     - queued: Binary needs to be installed
     - installed: Binary installed successfully (abspath, version, sha256 populated)
 
     Installation is synchronous during queued→installed transition.
     If installation fails, Binary stays in queued with retry_at set for later retry.
 
-    State machine calls run(), which emits an abxpkg BinaryRequestEvent through
-    the ArchiveBox runner and installs the binary using the specified providers.
+    BinaryService claims queued rows with a conditional update, then run()
+    emits an abxpkg BinaryRequestEvent and persists the resolved installation.
+    The database row is the only lifecycle state; there is intentionally no
+    second in-memory state machine to reconcile after a worker interruption.
     """
 
     class StatusChoices(models.TextChoices):
@@ -566,9 +566,9 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     version = models.CharField(max_length=32, default="", null=False, blank=True)
     sha256 = models.CharField(max_length=64, default="", null=False, blank=True)
 
-    # State machine fields
-    status = ModelWithStateMachine.StatusField(choices=StatusChoices.choices, default=StatusChoices.QUEUED, max_length=16)
-    retry_at = ModelWithStateMachine.RetryAtField(
+    # Durable queue lifecycle fields
+    status = ModelWithQueue.StatusField(choices=StatusChoices.choices, default=StatusChoices.QUEUED, max_length=16)
+    retry_at = ModelWithQueue.RetryAtField(
         default=timezone.now,
         help_text="When to retry this binary installation",
     )
@@ -579,18 +579,16 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
     machine_id: uuid.UUID
 
-    state_machine_name: str | None = "archivebox.machine.models.BinaryMachine"
+    INITIAL_STATE = StatusChoices.QUEUED
+    ACTIVE_STATE = StatusChoices.QUEUED
+    FINAL_STATES = (StatusChoices.INSTALLED,)
+    FINAL_OR_ACTIVE_STATES = (*FINAL_STATES, ACTIVE_STATE)
     active_state: str = StatusChoices.QUEUED
     warn_on_save_outside_runner = False
 
     objects = BinaryManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
-    if TYPE_CHECKING:
-
-        @property
-        def sm(self) -> BinaryMachine: ...
-
-    class Meta(ModelWithHealthStats.Meta, ModelWithStateMachine.Meta):
+    class Meta(ModelWithHealthStats.Meta, ModelWithQueue.Meta):
         app_label = "machine"
         verbose_name = "Binary"
         verbose_name_plural = "Binaries"
@@ -603,6 +601,10 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
     def is_valid(self) -> bool:
         """A binary is valid if it has a resolved path and is marked installed."""
         return bool(self.abspath) and self.status == self.StatusChoices.INSTALLED
+
+    @property
+    def can_install(self) -> bool:
+        return bool(self.name and self.binproviders)
 
     @cached_property
     def binary_info(self) -> dict:
@@ -748,11 +750,43 @@ class Binary(ModelWithHealthStats, ModelWithStateMachine):
 
         run_binary(str(self.id))
 
+    def install(self) -> bool:
+        """Run one synchronous installation attempt for a claimed Binary."""
+        if self.status == self.StatusChoices.INSTALLED:
+            return True
+        if not self.can_install:
+            return False
+
+        rprint(f"[cyan]      🔄 installing {self.name}[/cyan]", file=sys.stderr)
+        self.run()
+        self.refresh_from_db()
+        if self.status != self.StatusChoices.INSTALLED:
+            self.update_and_requeue(
+                retry_at=timezone.now() + timedelta(seconds=300),
+                status=self.StatusChoices.QUEUED,
+            )
+            self.increment_health_stats(success=False)
+            raise RuntimeError(f"Binary {self.name} installation failed")
+
+        self.update_and_requeue(retry_at=None, status=self.StatusChoices.INSTALLED)
+        self.increment_health_stats(success=True)
+        return True
+
+    def advance_lifecycle(self) -> bool:
+        """Advance the explicit binary lifecycle after its queue row is claimed."""
+        return self.install()
+
+    def install_claimed(self, *, lock_seconds: int = 600) -> bool:
+        if not self.claim_processing_lock(lock_seconds=lock_seconds):
+            return False
+        self.refresh_from_db()
+        return self.advance_lifecycle()
+
     def cleanup(self):
         """
         Clean up background binary installation hooks.
 
-        Called by state machine if needed (not typically used for binaries
+        Called after an installation attempt if needed (not typically used for binaries
         since installations are foreground, but included for consistency).
         """
 
@@ -953,12 +987,14 @@ class Process(ModelWithDeleteAfter, models.Model):
     One Process can optionally be associated with an ArchiveResult (via OneToOne),
     but Process can also exist standalone for internal operations.
 
-    Follows the unified state machine pattern:
+    Follows the unified process lifecycle:
     - queued: Process ready to launch
     - running: Process actively executing
     - exited: Process completed (check exit_code for success/failure)
 
-    State machine calls launch() to spawn the process and monitors its lifecycle.
+    Direct Process methods and the abx-dl event projector own these transitions.
+    Keeping the DB row as the only lifecycle state makes interrupted subprocess
+    recovery observable without reconciling a second in-memory state machine.
     """
 
     class StatusChoices(models.TextChoices):
@@ -1117,7 +1153,7 @@ class Process(ModelWithDeleteAfter, models.Model):
     # Reverse relation to ArchiveResult (OneToOne from AR side)
     # archiveresult: OneToOneField defined on ArchiveResult model
 
-    # State machine fields
+    # Durable process lifecycle fields
     status = models.CharField(
         max_length=16,
         choices=StatusChoices.choices,
@@ -1138,7 +1174,6 @@ class Process(ModelWithDeleteAfter, models.Model):
     children: models.Manager[Process]
     archiveresult: ArchiveResult
 
-    state_machine_name: str = "archivebox.machine.models.ProcessMachine"
     delete_after_final_statuses = (StatusChoices.EXITED,)
 
     objects = ProcessManager()  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -1308,8 +1343,8 @@ class Process(ModelWithDeleteAfter, models.Model):
         """
         Compare-and-swap update for short Process scheduler writes.
 
-        Process is not a ModelWithStateMachine subclass yet, but its
-        state-machine methods still need the same modified_at CAS behavior as
+        Process is not a ModelWithQueue subclass, but its scheduler methods
+        still need the same modified_at CAS behavior as
         Crawl/Snapshot/Binary without falling back to save().
         """
         values = dict(update_fields)
@@ -2233,8 +2268,8 @@ class Process(ModelWithDeleteAfter, models.Model):
         """
         Gracefully terminate process: SIGTERM → wait → SIGKILL.
 
-        This consolidates the scattered SIGTERM/SIGKILL logic from:
-        - crawls/models.py Crawl.cleanup()
+        This consolidates SIGTERM/SIGKILL logic used by:
+        - workers/management/commands/runner_watch.py
         - workers/pid_utils.py stop_worker()
         - supervisord_util.py stop_existing_supervisord_process()
 
@@ -2297,8 +2332,8 @@ class Process(ModelWithDeleteAfter, models.Model):
         Uses parallel polling approach - sends SIGTERM to all processes at once,
         then polls all simultaneously with individual deadline tracking.
 
-        This consolidates the scattered child-killing logic from:
-        - crawls/models.py Crawl.cleanup() os.killpg()
+        This consolidates child-killing logic used by:
+        - core/takeover_util.py
         - supervisord_util.py stop_existing_supervisord_process()
 
         Args:
@@ -2598,206 +2633,3 @@ class Process(ModelWithDeleteAfter, models.Model):
         if cleaned:
             rprint(f"[yellow]🧹 Cleaned up {cleaned} orphaned worker/hook process record(s)[/yellow]")
         return cleaned
-
-
-# =============================================================================
-# Binary State Machine
-# =============================================================================
-
-
-class BinaryMachine(BaseStateMachine):
-    """
-    State machine for managing Binary installation lifecycle.
-
-    Simple 2-state machine:
-    ┌─────────────────────────────────────────────────────────────┐
-    │ QUEUED State                                                │
-    │  • Binary needs to be installed                             │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() when can_install()
-                            ↓ Synchronous installation during transition
-    ┌─────────────────────────────────────────────────────────────┐
-    │ INSTALLED State                                             │
-    │  • Binary installed (abspath, version, sha256 set)          │
-    │  • Health stats incremented                                 │
-    └─────────────────────────────────────────────────────────────┘
-
-    If installation fails, Binary stays in QUEUED with retry_at bumped.
-    """
-
-    model_attr_name = "binary"
-    binary: Binary
-
-    # States
-    queued = State(value=Binary.StatusChoices.QUEUED, initial=True)
-    installed = State(value=Binary.StatusChoices.INSTALLED, final=True)
-
-    # Tick Event - install happens during transition
-    tick = queued.to.itself(unless="can_install") | queued.to(installed, cond="can_install", on="on_install")
-
-    def can_install(self) -> bool:
-        """Check if binary installation can start."""
-        return bool(self.binary.name and self.binary.binproviders)
-
-    @queued.enter
-    def enter_queued(self):
-        """Binary is queued for installation."""
-        self.binary.update_and_requeue(
-            retry_at=timezone.now(),
-            status=Binary.StatusChoices.QUEUED,
-        )
-
-    def on_install(self):
-        """Called during queued→installed transition. Runs installation synchronously."""
-        import sys
-
-        rprint(f"[cyan]      🔄 BinaryMachine.on_install() - installing {self.binary.name}[/cyan]", file=sys.stderr)
-
-        # Run installation hooks (synchronous, updates abspath/version/sha256 and sets status)
-        self.binary.run()
-
-        # Check if installation succeeded by looking at updated status
-        # Note: Binary.run() updates self.binary.status internally but doesn't refresh our reference
-        self.binary.refresh_from_db()
-
-        if self.binary.status != Binary.StatusChoices.INSTALLED:
-            # Installation failed - abort transition, stay in queued
-            rprint(f"[red]      ❌ BinaryMachine - {self.binary.name} installation failed, retrying later[/red]", file=sys.stderr)
-
-            # Bump retry_at to try again later
-            self.binary.update_and_requeue(
-                retry_at=timezone.now() + timedelta(seconds=300),  # Retry in 5 minutes
-                status=Binary.StatusChoices.QUEUED,  # Ensure we stay queued
-            )
-
-            # Increment health stats for failure
-            self.binary.increment_health_stats(success=False)
-
-            # Abort the transition - this will raise an exception and keep us in queued
-            raise Exception(f"Binary {self.binary.name} installation failed")
-
-        rprint(f"[cyan]      ✅ BinaryMachine - {self.binary.name} installed successfully[/cyan]", file=sys.stderr)
-
-    @installed.enter
-    def enter_installed(self):
-        """Binary installed successfully."""
-        self.binary.update_and_requeue(
-            retry_at=None,
-            status=Binary.StatusChoices.INSTALLED,
-        )
-
-        # Increment health stats
-        self.binary.increment_health_stats(success=True)
-
-
-# =============================================================================
-# Process State Machine
-# =============================================================================
-
-
-class ProcessMachine(BaseStateMachine):
-    """
-    State machine for managing Process (OS subprocess) lifecycle.
-
-    Process Lifecycle:
-    ┌─────────────────────────────────────────────────────────────┐
-    │ QUEUED State                                                │
-    │  • Process ready to launch, waiting for resources           │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() when can_start()
-    ┌─────────────────────────────────────────────────────────────┐
-    │ RUNNING State → enter_running()                             │
-    │  1. process.launch()                                        │
-    │     • Spawn subprocess with cmd, pwd, env, timeout          │
-    │     • Set pid, started_at                                   │
-    │     • Process runs in background or foreground              │
-    │  2. Monitor process completion                              │
-    │     • Check exit code when process completes                │
-    └─────────────────────────────────────────────────────────────┘
-                            ↓ tick() checks is_exited()
-    ┌─────────────────────────────────────────────────────────────┐
-    │ EXITED State                                                │
-    │  • Process completed (exit_code set)                        │
-    │  • Health stats incremented                                 │
-    │  • stdout/stderr captured                                   │
-    └─────────────────────────────────────────────────────────────┘
-
-    Note: This is a simpler state machine than ArchiveResult.
-    Process is just about execution lifecycle. ArchiveResult handles
-    the archival-specific logic (status, output parsing, etc.).
-    """
-
-    model_attr_name = "process"
-    process: Process
-
-    # States
-    queued = State(value=Process.StatusChoices.QUEUED, initial=True)
-    running = State(value=Process.StatusChoices.RUNNING)
-    exited = State(value=Process.StatusChoices.EXITED, final=True)
-
-    # Tick Event - transitions based on conditions
-    tick = (
-        queued.to.itself(unless="can_start")
-        | queued.to(running, cond="can_start")
-        | running.to.itself(unless="is_exited")
-        | running.to(exited, cond="is_exited")
-    )
-
-    # Additional events (for explicit control)
-    launch = queued.to(running)
-    kill = running.to(exited)
-
-    def can_start(self) -> bool:
-        """Check if process can start (has cmd and machine)."""
-        return bool(self.process.cmd and self.process.machine)
-
-    def is_exited(self) -> bool:
-        """Check if process has exited (exit_code is set)."""
-        return self.process.exit_code is not None
-
-    @queued.enter
-    def enter_queued(self):
-        """Process is queued for execution."""
-        self.process.update_and_requeue(
-            retry_at=timezone.now(),
-            status=Process.StatusChoices.QUEUED,
-        )
-
-    @running.enter
-    def enter_running(self):
-        """Start process execution."""
-        # Lock the process while it runs
-        self.process.update_and_requeue(
-            retry_at=timezone.now() + timedelta(seconds=self.process.timeout),
-            status=Process.StatusChoices.RUNNING,
-            started_at=timezone.now(),
-        )
-
-        # Launch the subprocess
-        # NOTE: This is a placeholder - actual launch logic would
-        # be implemented based on how hooks currently spawn processes
-        # For now, Process is a data model that tracks execution metadata
-        # The actual subprocess spawning is still handled by run_hook()
-
-        # Mark as immediately exited for now (until we refactor run_hook)
-        # In the future, this would actually spawn the subprocess
-        self.process.exit_code = 0  # Placeholder
-        self.process.save()
-
-    @exited.enter
-    def enter_exited(self):
-        """Process has exited."""
-        self.process.update_and_requeue(
-            retry_at=None,
-            status=Process.StatusChoices.EXITED,
-            ended_at=timezone.now(),
-        )
-
-
-# =============================================================================
-# State Machine Registration
-# =============================================================================
-
-# Manually register state machines with python-statemachine registry
-registry.register(BinaryMachine)
-registry.register(ProcessMachine)
