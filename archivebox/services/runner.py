@@ -483,6 +483,11 @@ class CrawlRunner:
                 await self.enqueue_pending_snapshots_from_projection()
 
     async def heartbeat_active_leases(self) -> None:
+        # These are resumable work-item leases, not orchestrator-election
+        # heartbeats. Each update is a short autocommit statement; network and
+        # filesystem work continues outside a database transaction. A future
+        # PostgreSQL multi-machine runner uses these Crawl/Snapshot claims as
+        # its coordination boundary while SQLite keeps one local orchestrator.
         if self._run_task is None:
             return
         now_monotonic = time.monotonic()

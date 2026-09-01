@@ -99,8 +99,9 @@
 <pre><span class="ab-dim"># Docker Compose is the recommended setup</span>
 <span class="ab-prompt">$</span> <span class="ab-cmd">mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox</span>
 <span class="ab-prompt">$</span> <span class="ab-cmd">curl -fsSL 'https://docker-compose.archivebox.io' &gt; docker-compose.yml</span>
-<span class="ab-prompt">$</span> <span class="ab-cmd">docker compose run archivebox init</span>
-<span class="ab-out">-> created ./data/index.sqlite3</span>
+<span class="ab-prompt">$</span> <span class="ab-cmd">docker compose up -d --wait</span>
+<span class="ab-out">-> initialized ./data/index.sqlite3</span>
+<span class="ab-ok">ok listening on http://127.0.0.1:8000</span>
 <span class="ab-prompt">$</span> <span class="ab-cursor" aria-hidden="true">&nbsp;</span></pre>
           </div>
         </div>
@@ -207,16 +208,15 @@
         <div class="step">
           <span>3</span>
           <div>
-            <h3>Initialize and start</h3>
-            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">docker compose run archivebox init</span>
-<span class="ab-prompt">$</span> <span class="ab-cmd">docker compose up</span></pre></div></div>
+            <h3>Start ArchiveBox (initializes automatically)</h3>
+            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">docker compose up -d --wait</span></pre></div></div>
           </div>
         </div>
         <div class="step">
           <span>4</span>
           <div>
             <h3>Add your first URL</h3>
-            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">docker compose run archivebox add 'https://example.com'</span></pre></div></div>
+            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">docker compose exec archivebox archivebox add 'https://example.com'</span></pre></div></div>
           </div>
         </div>
       </div>

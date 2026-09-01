@@ -80,8 +80,6 @@ docker compose up -d --wait                                                # ini
 <br/>
 # Option B: Or use it as a plain Docker container:
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev init
-docker run --rm -it -v "$PWD:/data" archivebox/archivebox:dev install
 docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
 # open http://admin.archivebox.localhost:8000 to finish setup
 # docker run -it -v $PWD:/data archivebox/archivebox:dev add 'https://example.com'
@@ -187,17 +185,16 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
-<li>Create a new empty directory and initialize your collection (can be anywhere).
+<li>Create a new empty directory and start the server, which initializes the collection automatically (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run --rm -v $PWD:/data -it archivebox/archivebox:dev init
-docker run --rm -v $PWD:/data -it archivebox/archivebox:dev install
+docker run -d --name archivebox -v $PWD:/data -p 8000:8000 archivebox/archivebox:dev
 </code></pre>
 </li>
-<li>Optional: Start the server, then open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the web setup wizard.
-<pre lang="bash"><code style="white-space: pre-line">docker run -v $PWD:/data -p 8000:8000 archivebox/archivebox:dev
+<li>Open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the web setup wizard.
+<pre lang="bash"><code style="white-space: pre-line">
 # completely optional, CLI can always be used without running a server
-# docker run -v $PWD:/data -it archivebox/archivebox:dev [subcommand] [--help]
-docker run -v $PWD:/data -it archivebox/archivebox:dev help
+# docker exec archivebox archivebox [subcommand] [--help]
+docker exec archivebox archivebox help
 </code></pre>
 <i>For more info, see <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Install: Docker Compose</a> in the Wiki. ➡️</i>
 </li>
@@ -497,12 +494,10 @@ archivebox help              # get list of archivebox subcommands that can be ru
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
 <br/>
-# docker compose run --rm archivebox [subcommand] [--help]
-docker compose run --rm archivebox init
-docker compose run --rm archivebox install
-docker compose run --rm archivebox version
-docker compose run --rm archivebox help
-docker compose run --rm archivebox add 'https://example.com'
+# docker compose exec archivebox archivebox [subcommand] [--help]
+docker compose exec archivebox archivebox version
+docker compose exec archivebox archivebox help
+docker compose exec archivebox archivebox add 'https://example.com'
 # to start webserver: docker compose up
 </code></pre>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage">Usage: Docker Compose CLI</a> wiki. ➡️</i>
@@ -514,15 +509,12 @@ docker compose run --rm archivebox add 'https://example.com'
 <summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>CLI Usage Examples: Docker</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
-# make sure you create and cd into in a new empty directory first  
+# make sure the `archivebox` server container from the Quickstart is running first
 <br/>
-# docker run -it -v $PWD:/data archivebox/archivebox:dev [subcommand] [--help]
-docker run -v $PWD:/data -it archivebox/archivebox:dev init
-docker run -v $PWD:/data -it archivebox/archivebox:dev install
-docker run -v $PWD:/data -it archivebox/archivebox:dev version
-docker run -v $PWD:/data -it archivebox/archivebox:dev help
-docker run -v $PWD:/data -it archivebox/archivebox:dev add 'https://example.com'
-# to start webserver: docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
+# docker exec archivebox archivebox [subcommand] [--help]
+docker exec archivebox archivebox version
+docker exec archivebox archivebox help
+docker exec archivebox archivebox add 'https://example.com'
 </code></pre>
 <i>For more info, see our <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#usage-1">Usage: Docker CLI</a> wiki. ➡️</i>
 </details>
@@ -1345,14 +1337,11 @@ archivebox server 0.0.0.0:8000
 # inside the container will reload and pick up your changes
 ./bin/build_docker.sh dev
 
-docker run -it -v $PWD/data:/data archivebox/archivebox:dev init
-docker run -it -v $PWD/data:/data archivebox/archivebox:dev install
-
 # Run the development server w/ autoreloading (but no bg workers)
-docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server --debug --reload 0.0.0.0:8000
+docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server --init --debug --reload 0.0.0.0:8000
 
 # Run the production server (with bg workers but no autoreloading)
-docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server
+docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server --init
 
 # (remove the --reload flag and add the --nothreading flag when profiling with the django debug toolbar)
 # When using --reload, make sure any files you create can be read by the user in the Docker container, eg with 'chmod a+rX'.
@@ -1413,7 +1402,7 @@ services:
 
 # or with plain Docker:
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
-docker run -it -v $PWD:/data archivebox:dev init
+docker run -it -v $PWD:/data -p 8000:8000 archivebox:dev
 
 # or with uv:
 uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'

@@ -18,12 +18,11 @@ archivebox install
 archivebox update --migrate-only
 archivebox status
 
-# Docker Compose install
+# Docker Compose upgrade
 cd ~/archivebox
 docker compose down
 docker compose pull
 docker compose run --rm archivebox init
-docker compose run --rm archivebox install
 docker compose run --rm archivebox update --migrate-only
 docker compose up -d
 ```
@@ -35,7 +34,7 @@ docker compose up -d
 2. **Read the release notes carefully** for any instructions or extra steps around upgrading for each release you're skipping or installing
 3. **Stop any running ArchiveBox server, scheduler, and worker processes**, then back up the entire collection data directory before upgrading. `archivebox config --get ...` and a database-only backup do not include archived outputs.
    `cd ~/archivebox && tar -czf "archivebox-data-$(date +%s).tar.gz" data/`
-4. Follow the steps below for your installation method, then run `archivebox init`, `archivebox install`, and `archivebox update --migrate-only` inside the collection
+4. Follow the steps below for your installation method. Bare-metal installs run `archivebox init`, `archivebox install`, and `archivebox update --migrate-only` inside the collection; Docker images already include runtime dependencies.
 5. Confirm the upgrade succeeded and check for any orphan/corrupted snapshots with `archivebox status`
 
 💬 [Open an issue](https://github.com/ArchiveBox/ArchiveBox/issues/new/choose) in our bug tracker if you experience any problems with upgrading/merging/modifying collections.
@@ -49,7 +48,7 @@ docker compose up -d
 
 **ℹ️ How it works internally:**
 
-The same command is used for initializing a new archive and upgrading an existing database. `archivebox init` is idempotent and can safely be run multiple times; it applies database migrations and prepares collection-level state. `archivebox install` resolves runtime dependencies for the new version. `archivebox update --migrate-only` performs filesystem migrations and reconciles Snapshot metadata with the current layout without scheduling normal archive maintenance jobs. `archivebox status` checks collection health afterward.
+The same command is used for initializing a new archive and upgrading an existing database. `archivebox init` is idempotent and can safely be run multiple times; it applies database migrations and prepares collection-level state. For bare-metal installs, `archivebox install` resolves runtime dependencies for the new version; Docker images include those dependencies at build time. `archivebox update --migrate-only` performs filesystem migrations and reconciles Snapshot metadata with the current layout without scheduling normal archive maintenance jobs. `archivebox status` checks collection health afterward.
 
 There are three main areas on disk that ArchiveBox modifies during upgrades:
 - `index.sqlite3` contains the SQLite3 DB index that gets upgraded automatically by Django based on the changes in [`archivebox/core/models.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py).
@@ -76,7 +75,6 @@ cd ~/archivebox        # or wherever your folder containing docker-compose.yml i
 docker compose down    # stop the currently running ArchiveBox containers
 docker compose pull    # pull the latest image version from Docker Hub
 docker compose run --rm archivebox init
-docker compose run --rm archivebox install
 docker compose run --rm archivebox update --migrate-only
 docker compose up -d
 ```
@@ -97,7 +95,6 @@ docker stop CONTAINER_ID
 cd ~/archivebox/data  # or wherever your existing collection is stored
 docker pull archivebox/archivebox:dev
 docker run --rm -v $PWD:/data -it archivebox/archivebox:dev init
-docker run --rm -v $PWD:/data -it archivebox/archivebox:dev install
 docker run --rm -v $PWD:/data -it archivebox/archivebox:dev update --migrate-only
 
 # restart the archivebox server container if needed
