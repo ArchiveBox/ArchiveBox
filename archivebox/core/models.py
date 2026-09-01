@@ -4628,12 +4628,26 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 if Path(candidate).name.lower() == preferred_name:
                     return candidate
 
-        ext_groups = (
-            (".html", ".htm", ".mhtml", ".mht", ".pdf"),
-            (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"),
-            (".json", ".jsonl", ".txt", ".md", ".csv", ".tsv"),
-            (".mp4", ".webm", ".mp3", ".opus", ".ogg", ".wav"),
-        )
+        plugin_lower = (plugin_name or "").lower()
+        if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl"):
+            # yt-dlp commonly emits a thumbnail plus several media formats.
+            # Prefer something browsers can play directly; otherwise cards can
+            # select a large MKV or thumbnail that the plugin player cannot use.
+            ext_groups = (
+                (".mp4", ".webm", ".m4v", ".ogv"),
+                (".mp3", ".m4a", ".aac", ".opus", ".ogg", ".wav", ".flac"),
+                (".mkv", ".mov", ".avi", ".flv", ".wmv", ".mpg", ".mpeg", ".ts", ".m2ts", ".mts", ".3gp", ".3g2"),
+                (".html", ".htm", ".mhtml", ".mht", ".pdf"),
+                (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"),
+                (".json", ".jsonl", ".txt", ".md", ".csv", ".tsv", ".srt", ".vtt"),
+            )
+        else:
+            ext_groups = (
+                (".html", ".htm", ".mhtml", ".mht", ".pdf"),
+                (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"),
+                (".json", ".jsonl", ".txt", ".md", ".csv", ".tsv"),
+                (".mp4", ".webm", ".mp3", ".opus", ".ogg", ".wav"),
+            )
         for ext_group in ext_groups:
             group_candidates = [candidate for candidate in candidates if Path(candidate).suffix.lower() in ext_group]
             if group_candidates:

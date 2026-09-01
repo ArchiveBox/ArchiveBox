@@ -485,9 +485,45 @@ class TestSnapshotProgressStats:
 
         assert _count_media_files(result) == 2
         assert _list_media_files(result) == [
-            {"name": "audio.mp3", "path": "ytdlp/audio.mp3", "size": 222},
-            {"name": "video.mp4", "path": "ytdlp/video.mp4", "size": 111},
+            {
+                "name": "video.mp4",
+                "path": "ytdlp/video.mp4",
+                "size": 111,
+                "media_type": "video",
+                "is_video": True,
+                "is_audio": False,
+                "is_browser_playable": True,
+            },
+            {
+                "name": "audio.mp3",
+                "path": "ytdlp/audio.mp3",
+                "size": 222,
+                "media_type": "audio",
+                "is_video": False,
+                "is_audio": True,
+                "is_browser_playable": True,
+            },
         ]
+
+    def test_ytdlp_discover_outputs_prefers_browser_playable_video(self, snapshot):
+        from archivebox.core.models import ArchiveResult
+
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="ytdlp",
+            status="succeeded",
+            output_files={
+                "thumbnail.jpg": {"size": 20_000, "mimetype": "image/jpeg", "extension": "jpg"},
+                "large.mkv": {"size": 10_000, "mimetype": "video/x-matroska", "extension": "mkv"},
+                "small.mp4": {"size": 111, "mimetype": "video/mp4", "extension": "mp4"},
+            },
+            output_size=30_111,
+        )
+
+        outputs = snapshot.discover_outputs(include_filesystem_fallback=False)
+        ytdlp_output = next(output for output in outputs if output["name"] == "ytdlp")
+
+        assert ytdlp_output["path"] == "ytdlp/small.mp4"
 
     def test_discover_outputs_falls_back_to_hashes_index_without_filesystem_walk(
         self,
