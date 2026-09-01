@@ -319,9 +319,9 @@
                 user-select: all;
             }
             .header-toggle {
-                line-height: 12px;
-                font-size: 70px;
-                margin-top: -13px;
+                line-height: 1;
+                font-size: 24px;
+                margin-top: 0;
                 margin-left: 4px;
             }
             @container snapshot-header (max-width: 900px) {
@@ -1056,8 +1056,9 @@
             .thumb-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 14vw, 250px), 1fr));
+                grid-auto-flow: row dense;
+                grid-auto-rows: 42px;
                 gap: 6px;
-                align-content: start;
                 width: 100%;
                 max-width: 100%;
                 margin-left: 0;
@@ -1077,17 +1078,23 @@
                 display: inline-flex;
                 flex-direction: column;
                 align-items: stretch;
+                grid-row: span 3;
                 break-inside: avoid;
-                margin-bottom: 6px;
+                margin-bottom: 0;
                 vertical-align: top;
                 content-visibility: auto;
                 contain-intrinsic-size: 138px;
             }
+            .thumb-card:not([data-plugin-name]) {
+                order: 1;
+            }
             .thumb-card:has([data-compact]) {
-                height: 46px;
-                min-height: 46px;
-                max-height: 46px;
-                contain-intrinsic-size: 46px;
+                height: 42px;
+                min-height: 42px;
+                max-height: 42px;
+                grid-row: span 1;
+                order: 2;
+                contain-intrinsic-size: 42px;
             }
             .thumb-card .thumb-body {
                 display: grid;
@@ -1247,7 +1254,7 @@
             }
             .thumb-card:has([data-compact]) .thumbnail-wrapper,
             .thumb-card:has([data-compact]) .thumbnail-wrapper.compact {
-                height: 24px;
+                height: 20px;
                 flex: 0 0 auto;
             }
             .thumb-card:has([data-compact]) .thumb-body {
@@ -1468,17 +1475,19 @@
     </head>
     <body>
         <div id="main-frame-wrapper" class="full-page-wrapper" data-has-outputs="{{ has_outputs|yesno:'1,0' }}" data-snapshot-state="{{ snapshot_state }}">
+            {% if not STATIC_EXPORT %}
             {% if snapshot_state == 'queued' or snapshot_state == 'started' or snapshot_state == 'paused' %}
             <div id="snapshot-progress-wrapper">
                 {% include "progressmonitor/progress_monitor.html" with progress_endpoint=progress_endpoint progress_scope="snapshot" %}
             </div>
+            {% endif %}
             {% endif %}
             {% if has_outputs %}
             <iframe id="main-frame"
                     sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
                     class="full-page-iframe"
                     src="about:blank"
-                    data-default-src="{% if best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
+                    data-default-src="{% if best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% elif STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
                     name="preview"
                     loading="eager"
                     fetchpriority="high"></iframe>
@@ -1506,7 +1515,9 @@
                     <div class="snapshot-empty-actions">
                         <button type="button" id="snapshot-empty-refresh" class="snapshot-empty-btn">🔄 Refresh page</button>
                         <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="snapshot-empty-btn">🌐 Open original URL</a>
+                        {% if not STATIC_EXPORT %}
                         <a href="{% admin_base_url %}/admin/core/snapshot/{{ snapshot_id }}/change/" class="snapshot-empty-btn">✏️ Edit in admin</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1528,7 +1539,7 @@
                 const frame = document.getElementById('main-frame')
                 if (!frame) return
                 const snapshotBaseUrlEarly = "{% snapshot_base_url snapshot %}"
-                const snapshotFilesUrlEarly = `${snapshotBaseUrlEarly}/?files=1`
+                const snapshotFilesUrlEarly = "{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
                 const defaultSrc = frame.dataset.defaultSrc || snapshotFilesUrlEarly
                 const rawHash = window.location.hash ? window.location.hash.slice(1) : ''
 
@@ -1560,8 +1571,9 @@
                 <div class="header-nav">
                     <div class="header-col header-left" style="line-height: 58px; vertical-align: middle">
                         {% web_base_url as web_base %}
-                        <a href="{% if web_base %}{{ web_base }}/public/{% else %}/{% endif %}" class="header-archivebox" title="Go to Public Index...">
-                            <img src="{% if web_base %}{{ web_base }}/static/archive.png{% else %}{% static 'archive.png' %}{% endif %}" alt="Archive Icon">
+                        {% static_export_root_url as static_root %}
+                        <a href="{% if STATIC_EXPORT %}{{ static_root }}index.html{% elif web_base %}{{ web_base }}/public/{% else %}/{% endif %}" class="header-archivebox" title="Go to Public Index...">
+                            <img src="{% if STATIC_EXPORT %}data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'&gt;&lt;rect x='8' y='5' width='48' height='54' rx='7' fill='%23fff' opacity='.95'/&gt;&lt;path d='M18 16h28M18 26h28M18 36h20M18 46h24' stroke='%23aa1e55' stroke-width='5' stroke-linecap='round'/&gt;&lt;/svg&gt;{% elif web_base %}{{ web_base }}/static/archive.png{% else %}{% static 'archive.png' %}{% endif %}" alt="Archive Icon">
                             ArchiveBox
                         </a>
                     </div>
@@ -1607,34 +1619,44 @@
                             </div>
                             <div class="badge badge-info">
                                 <span class="badge-label">Size</span>
+                                {% if STATIC_EXPORT %}
+                                <span class="badge-value">{{size}}</span>
+                                {% else %}
                                 <a class="badge-value" href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Click to edit this Snapshot in the Admin UI">
                                     {{size}}
                                 </a>
+                                {% endif %}
                             </div>
+                            {% if not STATIC_EXPORT %}
                             <div class="badge badge-default">
                                 <span class="badge-label">Manage</span>
                                 <a class="badge-value" href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Click to edit this Snapshot in the Admin UI">
                                     <span class="badge-desktop-icon">✏️</span><span class="badge-mobile-text">Edit</span>
                                 </a>
                             </div>
+                            {% endif %}
                             <div class="badge badge-{{status_color}}">
                                 <span class="badge-label">Status</span>
+                                {% if STATIC_EXPORT %}
+                                <span class="badge-value">{{status|upper}}</span>
+                                {% else %}
                                 <a class="badge-value" href="{% admin_base_url %}/admin/core/snapshot/?q={{snapshot_id|default:id}}" title="Click to see options to pull, re-snapshot, or delete this Snapshot">
                                     {{status|upper}}
                                 </a>
+                                {% endif %}
                             </div>
                         </div>
                         <div class="header-mobile-badges">
-                            <a class="header-mobile-badge" href="{% snapshot_base_url snapshot %}/?files=1" title="Browse all files for this snapshot">
+                            <a class="header-mobile-badge" href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" title="Browse all files for this snapshot">
                                 <span>{{num_outputs}} Files</span>
                                 <span class="header-mobile-badge-separator">|</span>
                                 <span>{{size}}</span>
                             </a>
-                            <a class="header-mobile-badge" href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Edit this snapshot in the Admin UI">
+                            {% if not STATIC_EXPORT %}<a class="header-mobile-badge" href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Edit this snapshot in the Admin UI">
                                 <span>{{status|capfirst}}</span>
                                 <span class="header-mobile-badge-separator">|</span>
                                 <span>Edit</span>
-                            </a>
+                            </a>{% endif %}
                         </div>
                         {% if related_years %}
                         <div class="header-year-badges">
@@ -1680,14 +1702,14 @@
                                 </div>
                             </details>
                         {% else %}
-                            <a class="header-date" href="{% web_base_url %}/{{archive_path}}/index.html" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
+                            <a class="header-date" href="{% snapshot_base_url snapshot %}/index.html" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
                                 <span class="header-date-label">Captures</span>
                                 {{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date|slice:":10"}}
                             </a>
                         {% endif %}
                         <br/>
                         <div class="external-links">
-                            <a href="{% snapshot_base_url snapshot %}/?files=1" title="Browse the full SNAP_DIR for this snapshot" target="_blank">📁 See all files...</a>
+                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" title="Browse the full SNAP_DIR for this snapshot" target="_blank">📁 {% if STATIC_EXPORT %}Snapshot manifest{% else %}See all files...{% endif %}</a>
                             <span class="external-links-separator">|</span>
                             <a href="https://web.archive.org/web/{{url}}" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer">🏛️ Archive.org</a>
                             <!--<a href="https://archive.md/{{url}}" title="Search for a copy of the URL saved in Archive.today" target="_blank" rel="noreferrer">Archive.today</a>  &nbsp;|&nbsp; -->
@@ -1707,12 +1729,12 @@
                         <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
                                 <div class="thumb-body">
                                     <div class="thumb-actions">
-                                        <a href="{% snapshot_url snapshot result.name %}/?files=1" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>
+                                        {% if not STATIC_EXPORT %}<a href="{% snapshot_url snapshot result.name %}/?files=1" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
                                         {% if display_path %}
                                             <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
                                         {% endif %}
                                         {% if can_delete_outputs and result.result %}
-                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" title="Delete this output">×</button>
+                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" data-delete-handoff="1" data-delete-snapshot-id="{{snapshot.id}}" title="Delete this output">×</button>
                                         {% endif %}
                                     </div>
                                     {% if display_path %}
@@ -1761,13 +1783,13 @@
                     <div class="thumb-card">
                             <div class="thumb-body">
                                 <div class="thumb-actions">
-                                    <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" title="Browse all snapshot files" target="_blank" rel="noopener">📁</a>
+                                    <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
                                 <h4>📦 Other files</h4>
                                 <div class="loose-items">
                                     {% for item in loose_items %}
                                         {% if item.is_dir %}
-                                            <a href="{% snapshot_url snapshot item.path %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
                                         {% else %}
                                             <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
@@ -1780,13 +1802,13 @@
                     <div class="thumb-card">
                             <div class="thumb-body">
                                 <div class="thumb-actions">
-                                    <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" title="Browse all snapshot files" target="_blank" rel="noopener">📁</a>
+                                    <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
                                 <h4>⚠️ Failed</h4>
                                 <div class="loose-items failed-items">
                                     {% for item in failed_items %}
                                         {% if item.is_dir %}
-                                            <a href="{% snapshot_url snapshot item.path %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
                                         {% else %}
                                             <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
@@ -1799,13 +1821,11 @@
             </div>
         </header>
 
-        {% if can_delete_outputs %}<input type="hidden" id="delete-output-csrf" value="{{csrf_token}}">{% endif %}
-        <script src="{% static 'jquery.min.js' %}" type="text/javascript"></script>
         {% if can_delete_outputs %}{% include "includes/output_delete_controls.html" %}{% endif %}
 
         <script>
             const snapshotBaseUrl = "{% snapshot_base_url snapshot %}";
-            const snapshotFilesUrl = `${snapshotBaseUrl}/?files=1`;
+            const snapshotFilesUrl = "{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}";
 
             function tryCenterImageFrame(frame) {
                 try {
@@ -1925,9 +1945,7 @@
             }
 
             // un-sandbox iframes showing pdfs (required to display pdf viewer)
-            jQuery('iframe').map(function() {
-                attachPreviewFrameHandlers(this)
-            })
+            document.querySelectorAll('iframe').forEach((frame) => attachPreviewFrameHandlers(frame))
 
             function getPreviewHashValueFromHref(href, normalize=false) {
                 if (href == './') {
@@ -1987,7 +2005,7 @@
                     const basePath = (base.pathname || '').replace(/\/+$/, '')
                     const targetPath = (target.pathname || '').replace(/\/+$/, '')
                     return (
-                        target.search !== '?files=1'
+                        target.search !== "{% if STATIC_EXPORT %}{% else %}?files=1{% endif %}"
                         && (
                             targetPath === basePath
                             || targetPath === `${basePath}/index.html`
@@ -2051,8 +2069,8 @@
                     return false
                 }
 
-                jQuery('.selected-card').removeClass('selected-card')
-                jQuery(card).closest('.thumb-card').addClass('selected-card')
+                document.querySelectorAll('.selected-card').forEach((selected) => selected.classList.remove('selected-card'))
+                card.closest('.thumb-card').classList.add('selected-card')
 
                 const nextSrc = isSnapshotRootPreview(target) ? snapshotFilesUrl : target
                 const existingFrame = document.getElementById('main-frame')
@@ -2151,8 +2169,8 @@
 
             function hideSnapshotHeader() {
                 console.log('Collapsing Snapshot header...')
-                jQuery('.header-toggle').text('▸')
-                jQuery('.header-bottom').hide()
+                document.querySelectorAll('.header-toggle').forEach((toggle) => { toggle.textContent = '▸' })
+                document.querySelectorAll('.header-bottom').forEach((header) => { header.hidden = true })
                 try {
                     localStorage.setItem("archivebox-snapshot-header-visible", "false")
                 } catch (e) {
@@ -2161,8 +2179,8 @@
             }
             function showSnapshotHeader() {
                 console.log('Expanding Snapshot header...')
-                jQuery('.header-toggle').text('▾')
-                jQuery('.header-bottom').show()
+                document.querySelectorAll('.header-toggle').forEach((toggle) => { toggle.textContent = '▾' })
+                document.querySelectorAll('.header-bottom').forEach((header) => { header.hidden = false })
                 try {
                     localStorage.setItem("archivebox-snapshot-header-visible", "true")
                 } catch (e) {
@@ -2183,7 +2201,7 @@
             }
             function handleSnapshotHeaderToggle(event) {
                 event.preventDefault()
-                if (jQuery('.header-toggle').text().includes('▾')) {
+                if ([...document.querySelectorAll('.header-toggle')].some((toggle) => toggle.textContent.includes('▾'))) {
                     hideSnapshotHeader()
                 } else {
                     showSnapshotHeader()
@@ -2192,7 +2210,7 @@
             }
 
             // Hide or show the header once when its title row or collapse icon is clicked.
-            jQuery('.header-toggle-trigger').on('click', handleSnapshotHeaderToggle)
+            document.querySelectorAll('.header-toggle-trigger').forEach((trigger) => trigger.addEventListener('click', handleSnapshotHeaderToggle))
 
             // check URL for hash e.g. #git and load relevant preview
             selectInitialPreview()

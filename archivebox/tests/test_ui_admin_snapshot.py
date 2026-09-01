@@ -1,6 +1,8 @@
 """Snapshot model and admin UI tests."""
 
 import json
+import os
+import re
 import shutil
 import warnings
 from pathlib import Path
@@ -14,11 +16,22 @@ from django.core.paginator import UnorderedObjectListWarning
 from django.test import RequestFactory
 from django.urls import reverse
 
+from archivebox.core.middleware import ADMIN_LOGIN_HINT_COOKIE
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
 
 pytestmark = pytest.mark.django_db(transaction=True)
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_current_snapshot_layout_has_no_top_level_timestamp_projection(snapshot):
+    from archivebox.config import CONSTANTS
+
+    legacy_path = CONSTANTS.ARCHIVE_DIR / snapshot.timestamp
+
+    assert Path(snapshot.output_dir).is_relative_to(CONSTANTS.ARCHIVE_DIR / "users")
+    assert not legacy_path.exists()
+    assert not legacy_path.is_symlink()
 
 
 @pytest.fixture
@@ -772,7 +785,77 @@ class TestSnapshotProgressStats:
         assert "wrapper.style.height = `${contentHeight}px`" in rendered
         assert 'class="header-toggle header-toggle-trigger"' not in rendered
         assert "event.preventDefault()" in rendered
-        assert rendered.count(".on('click', handleSnapshotHeaderToggle)") == 1
+        assert rendered.count("addEventListener('click', handleSnapshotHeaderToggle)") == 1
+
+    def test_static_snapshot_detail_uses_same_output_cards_with_relative_files(self, snapshot):
+        from archivebox.config import CONSTANTS
+        from archivebox.core.models import ArchiveResult
+        from archivebox.core.views import SnapshotView
+
+        output_dir = Path(snapshot.output_dir)
+        singlefile_dir = output_dir / "singlefile"
+        singlefile_dir.mkdir(parents=True, exist_ok=True)
+        output_file = singlefile_dir / "singlefile.html"
+        output_file.write_text("<html><body>real static output</body></html>", encoding="utf-8")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="singlefile",
+            hook_name="on_Snapshot__50_singlefile.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="singlefile.html",
+            output_files={"singlefile.html": {"size": output_file.stat().st_size}},
+            output_size=output_file.stat().st_size,
+        )
+        favicon_dir = output_dir / "favicon"
+        favicon_dir.mkdir(parents=True, exist_ok=True)
+        favicon_file = favicon_dir / "favicon.ico"
+        favicon_file.write_bytes(b"real favicon")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="favicon",
+            hook_name="on_Snapshot__50_favicon.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="favicon.ico",
+            output_files={"favicon.ico": {"size": favicon_file.stat().st_size}},
+            output_size=favicon_file.stat().st_size,
+        )
+
+        request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
+        request.user = AnonymousUser()
+        live_html = SnapshotView.render_live_index(request, snapshot).content.decode()
+
+        snapshot.write_html_details()
+        snapshot.write_json_details()
+        static_html = (output_dir / "index.html").read_text(encoding="utf-8")
+        static_json = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
+
+        assert re.findall(r'data-plugin-name="([^"]+)"', static_html) == re.findall(r'data-plugin-name="([^"]+)"', live_html)
+        assert 'data-plugin-name="singlefile"' in static_html
+        assert 'href="./singlefile/singlefile.html"' in static_html
+        assert 'data-default-src="./singlefile/singlefile.html"' in static_html
+        assert 'src="./favicon/favicon.ico"' in static_html
+        root_href = os.path.relpath(CONSTANTS.DATA_DIR, start=output_dir).replace(os.sep, "/")
+        assert f'href="{root_href}/index.html" class="header-archivebox"' in static_html
+        assert f"/snapshot/{snapshot.id.hex}" not in static_html
+        assert "/static/jquery.min.js" not in static_html
+        assert static_json["archive_path"].startswith("archive/users/")
+        assert static_json["archive_url"] == f"./{static_json['archive_path']}/index.html"
+
+    def test_compact_output_cards_pack_into_dense_grid_rows(self):
+        template = (REPO_ROOT / "archivebox" / "templates" / "core" / "snapshot.html").read_text()
+        thumb_grid_css = template.split(".thumb-grid {", 1)[1].split("}", 1)[0]
+        thumb_card_css = template.split(".thumb-card {", 1)[1].split("}", 1)[0]
+        auxiliary_card_css = template.split(".thumb-card:not([data-plugin-name]) {", 1)[1].split("}", 1)[0]
+        compact_card_css = template.split(".thumb-card:has([data-compact]) {", 1)[1].split("}", 1)[0]
+
+        assert "display: grid;" in thumb_grid_css
+        assert "grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 14vw, 250px), 1fr));" in thumb_grid_css
+        assert "grid-auto-flow: row dense;" in thumb_grid_css
+        assert "grid-auto-rows: 42px;" in thumb_grid_css
+        assert "grid-row: span 3;" in thumb_card_css
+        assert "order: 1;" in auxiliary_card_css
+        assert "grid-row: span 1;" in compact_card_css
+        assert "order: 2;" in compact_card_css
 
 
 class TestSnapshotOutputDeletion:
@@ -805,11 +888,13 @@ class TestSnapshotOutputDeletion:
 
         assert f'data-archive-result-ids="{result.id}"' in html
         assert 'title="Delete this output"' in html
+        assert 'data-delete-handoff="1"' in html
         assert "const queuedOutputIds = new Set()" in html
-        assert "action: 'delete_selected'" in html
+        assert "window.location.assign(deleteUrl)" in html
         assert "/admin/core/archiveresult/" in html
         assert "[deleting]" in html
         assert ">×</button>" in html
+        assert "delete-output-csrf" not in html
         assert "[data-archive-result-ids]:hover" in html
         assert "[data-archive-result-ids].delete-pending" in html
         assert "button.classList.toggle('delete-pending', queued)" in html
@@ -818,6 +903,55 @@ class TestSnapshotOutputDeletion:
         anonymous_html = SnapshotView.render_live_index(request, snapshot).content.decode()
         assert "data-archive-result-ids" not in anonymous_html
         assert 'title="Delete this output"' not in anonymous_html
+
+        request.COOKIES[ADMIN_LOGIN_HINT_COOKIE] = "1"
+        hinted_html = SnapshotView.render_live_index(request, snapshot).content.decode()
+        assert f'data-archive-result-ids="{result.id}"' in hinted_html
+        assert "delete-output-csrf" not in hinted_html
+
+    def test_snapshot_delete_handoff_requires_superuser_confirmation_then_uses_standard_admin_action(self, client, snapshot, admin_user):
+        from archivebox.core.models import ArchiveResult
+
+        result = self._create_output(snapshot)
+        delete_url = reverse("admin:core_archiveresult_changelist")
+        handoff_query = {
+            "action": "delete_selected",
+            ACTION_CHECKBOX_NAME: str(result.id),
+            "snapshot": str(snapshot.id),
+        }
+
+        logged_out = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        assert logged_out.status_code == 302
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        staff_user = admin_user.__class__.objects.create_user(username="output-reviewer", password="testpassword", is_staff=True)
+        client.force_login(staff_user)
+        denied = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        assert denied.status_code == 403
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        client.force_login(admin_user)
+        confirmation = client.get(delete_url, handoff_query, HTTP_HOST=ADMIN_TEST_HOST)
+        confirmation_html = confirmation.content.decode()
+        assert confirmation.status_code == 200
+        assert "Yes, I’m sure" in confirmation_html
+        assert f'name="{ACTION_CHECKBOX_NAME}" value="{result.id}"' in confirmation_html
+        assert confirmation["X-Frame-Options"] == "DENY"
+        assert "frame-ancestors 'none'" in confirmation["Content-Security-Policy"]
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+
+        confirmed = client.post(
+            f"{delete_url}?action=delete_selected&{ACTION_CHECKBOX_NAME}={result.id}&snapshot={snapshot.id}",
+            {
+                "action": "delete_selected",
+                "post": "yes",
+                ACTION_CHECKBOX_NAME: str(result.id),
+            },
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert confirmed.status_code == 302
+        assert not ArchiveResult.objects.filter(pk=result.pk).exists()
+        assert str(snapshot.id).replace("-", "")[-12:] in confirmed["Location"]
 
     def test_batch_delete_removes_plugin_rows_files_and_refreshes_snapshot_size(self, client, snapshot, admin_user):
         from archivebox.core.models import ArchiveResult

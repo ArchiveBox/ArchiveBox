@@ -275,6 +275,10 @@ def RUNNER_WORKER():
         "command": _shell_join(archivebox_cmd("run", "--daemon")),
         "autostart": "false",
         "autorestart": "true",
+        # Mark the long-lived runner child so its own SIGINT/SIGTERM path exits
+        # with a signal code instead of running foreground server cleanup. That
+        # keeps "kill just archivebox run --daemon" as a worker restart event;
+        # only killing the parent server or supervisord should stop the stack.
         "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200",ARCHIVEBOX_RUNNER_DAEMON="1"',
         "stopasgroup": "true",
         "killasgroup": "true",
@@ -288,6 +292,9 @@ RUNNER_ONCE_WORKER = lambda args, name="worker_runner_once": {
     **RUNNER_WORKER(),
     "name": name,
     "command": _shell_join(archivebox_cmd("run", "--no-stdin", *args)),
+    # One-shot foreground jobs are awaited by the command that launched them,
+    # so they keep the normal cooperative shutdown path instead of the daemon
+    # marker that tells supervisord to restart an independently killed worker.
     "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200"',
     "autorestart": "false",
     "stopwaitsecs": "1",
@@ -1067,8 +1074,8 @@ def run_runner_worker(
                     line = log_handle.readline()
                     if not line:
                         break
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
                 proc = get_worker(supervisor, name)
                 if proc is None:
                     return 1
@@ -1077,8 +1084,8 @@ def run_runner_worker(
                         line = log_handle.readline()
                         if not line:
                             break
-                        sys.stdout.write(line)
-                        sys.stdout.flush()
+                        sys.stderr.write(line)
+                        sys.stderr.flush()
                     if proc["statename"] in {"EXITED", "STOPPED"}:
                         return int(proc.get("exitstatus") or 0)
                     return 1

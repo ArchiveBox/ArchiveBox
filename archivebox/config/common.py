@@ -406,7 +406,11 @@ class DatabaseConfig(BaseConfigSet):
     DATABASE_USER: str = Field(default="archivebox", alias="ARCHIVEBOX_DATABASE_USER")
     DATABASE_PASSWORD: str = Field(default="", alias="ARCHIVEBOX_DATABASE_PASSWORD")
     SQLITE_JOURNAL_MODE: str = Field(
-        default="WAL",
+        # Docker collections commonly live on a host bind mount. WAL's -shm
+        # locking is only safe when every SQLite process is on the same host;
+        # Docker Desktop/OrbStack place the container and host in different
+        # locking domains and a host-side reader can corrupt the live DB.
+        default="DELETE" if IN_DOCKER else "WAL",
         alias="ARCHIVEBOX_SQLITE_JOURNAL_MODE",
         pattern=r"(?i)^(DELETE|TRUNCATE|PERSIST|MEMORY|WAL|OFF)$",
     )
@@ -418,6 +422,15 @@ class DatabaseConfig(BaseConfigSet):
     SQLITE_BUSY_TIMEOUT: int = Field(default=30000, alias="ARCHIVEBOX_SQLITE_BUSY_TIMEOUT", ge=0)
     SQLITE_LOCK_RETRY_TIMEOUT: float = Field(default=60.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_TIMEOUT", ge=0)
     SQLITE_LOCK_RETRY_INTERVAL: float = Field(default=5.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_INTERVAL", gt=0)
+
+    @model_validator(mode="after")
+    def reject_docker_sqlite_wal(self):
+        if IN_DOCKER and self.DATABASE_ENGINE.lower() == "sqlite" and self.SQLITE_JOURNAL_MODE.upper() == "WAL":
+            raise ValueError(
+                "SQLITE_JOURNAL_MODE=WAL is unsafe for Docker collections because host bind mounts cross SQLite "
+                "locking domains; use DELETE (the Docker default) or PostgreSQL",
+            )
+        return self
 
 
 class ArchivingConfig(BaseConfigSet):

@@ -261,6 +261,10 @@ class CrawlRunner:
 
     def _request_abort_from_signal(self, _sig: signal.Signals) -> None:
         if os.environ.get("ARCHIVEBOX_RUNNER_DAEMON") == "1":
+            # The daemon runner is owned by supervisord, not by the interactive
+            # CLI foreground flow. A direct signal to this child should be short
+            # and unambiguous: exit non-zero immediately so supervisord restarts
+            # the runner, while the parent server and supervisord stay alive.
             os._exit(128 + int(_sig))
         already_requested = self._signal_abort_requested
         self._signal_abort_requested = True
@@ -479,6 +483,11 @@ class CrawlRunner:
                 await self.enqueue_pending_snapshots_from_projection()
 
     async def heartbeat_active_leases(self) -> None:
+        # These are resumable work-item leases, not orchestrator-election
+        # heartbeats. Each update is a short autocommit statement; network and
+        # filesystem work continues outside a database transaction. A future
+        # PostgreSQL multi-machine runner uses these Crawl/Snapshot claims as
+        # its coordination boundary while SQLite keeps one local orchestrator.
         if self._run_task is None:
             return
         now_monotonic = time.monotonic()
@@ -717,10 +726,8 @@ class CrawlRunner:
         stdout_is_tty = sys.stdout.isatty()
         stderr_is_tty = sys.stderr.isatty()
         interactive_tty = stdout_is_tty or stderr_is_tty
-        if not interactive_tty:
-            return None
-        stream = sys.stderr if stderr_is_tty else sys.stdout
-        if os.path.exists("/dev/tty"):
+        stream = sys.stderr if stderr_is_tty or not stdout_is_tty else sys.stdout
+        if interactive_tty and os.path.exists("/dev/tty"):
             try:
                 self._live_stream = open("/dev/tty", "w", buffering=1, encoding=stream.encoding or "utf-8")
                 stream = self._live_stream
@@ -736,7 +743,7 @@ class CrawlRunner:
             terminal_height = terminal_size.lines
         ui_console = Console(
             file=stream,
-            force_terminal=True,
+            force_terminal=interactive_tty,
             width=terminal_width,
             height=terminal_height,
             _environ={
@@ -750,7 +757,7 @@ class CrawlRunner:
             total_hooks=_count_selected_hooks(self.plugins, self.selected_plugins),
             timeout_seconds=self.base_config["TIMEOUT"],
             ui_console=ui_console,
-            interactive_tty=True,
+            interactive_tty=interactive_tty,
         )
         live_ui.print_intro(
             url=self.primary_url or "crawl",

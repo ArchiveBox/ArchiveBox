@@ -5,7 +5,7 @@ Current ArchiveBox collections cannot be merged safely by copying their `archive
 The workflow below is retained for **legacy collections whose real Snapshot directories are `archive/<timestamp>/`**. `archivebox update` can import those legacy directories into a fresh index.
 
 > [!WARNING]
-> Back up every collection before merging. Confirm that the source entries are real legacy timestamp directories, not compatibility symlinks into `archive/users/...`, and inspect path conflicts instead of allowing one collection to overwrite another.
+> Back up every collection before merging. Confirm that the source entries are real legacy timestamp directories containing data, and inspect path conflicts instead of allowing one collection to overwrite another.
 
 1. Upgrade both old collections to the most recent ArchiveBox version (following instructions above)
   ```bash

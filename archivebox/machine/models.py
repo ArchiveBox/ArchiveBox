@@ -1156,6 +1156,11 @@ class Process(ModelWithDeleteAfter, models.Model):
             models.Index(fields=["machine", "status", "process_type"], name="mach_proc_running_idx"),
         ]
         constraints = [
+            # This is deliberately machine-scoped. It prevents two locally
+            # verifiable runners from working the same collection, while not
+            # claiming to coordinate independent hosts that share a database.
+            # Cross-machine work ownership belongs to short Crawl/Snapshot CAS
+            # claims so PostgreSQL deployments can support that model later.
             models.UniqueConstraint(
                 fields=["machine", "pwd"],
                 condition=Q(status="running", process_type="orchestrator", worker_type="worker_runner"),
@@ -1362,7 +1367,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         self.save(update_fields=updates)
 
     def heartbeat(self) -> None:
-        """Touch modified_at so standby/leader selection can see this parent is alive."""
+        """Keep a long-lived watcher visible in recent-process monitoring."""
         self.save(update_fields=["modified_at"])
 
     def mark_exited(self, *, exit_code: int = 0) -> None:

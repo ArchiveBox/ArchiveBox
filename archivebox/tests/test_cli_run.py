@@ -737,6 +737,59 @@ class TestRunDaemonMode:
                 cleanup_process_group(proc.pid)
                 proc.wait(timeout=15)
 
+    def test_run_daemon_retires_runner_from_previous_pid_namespace(self, initialized_archive, db):
+        from django.utils import timezone
+
+        from archivebox.core.takeover_util import RUNNER_ACTIVE_WORKER_TYPE
+        from archivebox.machine.models import Machine, PROCESS_PID_NAMESPACE_KEY, Process, get_current_pid_namespace
+        from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+        env = cli_env(PLUGINS="__archivebox_test_no_plugins__")
+        with use_archivebox_db(initialized_archive):
+            stopped_runner = Process.objects.create(
+                machine=Machine.current(),
+                process_type=Process.TypeChoices.ORCHESTRATOR,
+                worker_type=RUNNER_ACTIVE_WORKER_TYPE,
+                status=Process.StatusChoices.RUNNING,
+                pwd=str(initialized_archive),
+                pid=1,
+                started_at=timezone.now(),
+                env={PROCESS_PID_NAMESPACE_KEY: f"{get_current_pid_namespace()}-stopped-container"},
+            )
+        queued = run_archivebox_cmd(["crawl", "create", create_test_url()], cwd=initialized_archive, env=env, timeout=60)
+        assert queued.returncode == 0, queued.stderr or queued.stdout
+
+        daemon_log = initialized_archive / "run-daemon-stopped-container.log"
+        daemon_log_handle = daemon_log.open("w", encoding="utf-8")
+        replacement = run_archivebox_cmd(
+            ["run", "--daemon"],
+            cwd=initialized_archive,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=daemon_log_handle,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            wait=False,
+        )
+        daemon_log_handle.close()
+
+        try:
+            wait_for_log(daemon_log, "[Crawl#", timeout=10)
+            assert "Multiple orchestrators sharing a single collection is not officially supported" in daemon_log.read_text()
+            with use_archivebox_db(initialized_archive):
+                stopped_runner.refresh_from_db()
+                assert stopped_runner.status == Process.StatusChoices.EXITED
+                active_runner = Process.objects.get(
+                    process_type=Process.TypeChoices.ORCHESTRATOR,
+                    worker_type=RUNNER_ACTIVE_WORKER_TYPE,
+                    status=Process.StatusChoices.RUNNING,
+                    pwd=str(initialized_archive),
+                )
+                assert active_runner.pid == replacement.pid
+        finally:
+            cleanup_process_group(replacement.pid)
+            replacement.wait(timeout=15)
+
 
 @pytest.mark.django_db
 class TestRecoverOrchestratorState:
@@ -1574,7 +1627,7 @@ class TestRecoverOrchestratorState:
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.fs_version == Snapshot._fs_current_version()
         assert snapshot.output_dir.joinpath("index.html").read_text(encoding="utf-8") == "legacy archive"
-        assert legacy_dir.is_symlink()
+        assert not legacy_dir.exists()
 
     @pytest.mark.django_db(transaction=True)
     def test_run_due_snapshot_migrates_filesystem_after_sealed_parent_reconciliation(self):
@@ -1616,7 +1669,7 @@ class TestRecoverOrchestratorState:
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.fs_version == Snapshot._fs_current_version()
         assert snapshot.output_dir.joinpath("index.html").read_text(encoding="utf-8") == "legacy archive"
-        assert legacy_dir.is_symlink()
+        assert not legacy_dir.exists()
 
     @pytest.mark.django_db(transaction=True)
     def test_run_due_snapshot_runs_queued_plugin_after_fs_migration(self):

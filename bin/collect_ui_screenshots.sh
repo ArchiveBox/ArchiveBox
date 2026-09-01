@@ -18,6 +18,8 @@ ARCHIVE_PID=""
 CREATED_TEMP_USER=0
 CREATE_API_TOKEN=0
 CREATE_WEBHOOK=0
+ABXPKG_LIB_DIR=""
+SCREENSHOT_CHROME_BINARY=""
 CAPTURE_ROOT="$(mktemp -d)"
 MANIFEST_FILE="$CAPTURE_ROOT/manifest.jsonl"
 PERSONAS_DIR="$CAPTURE_ROOT/personas"
@@ -203,6 +205,13 @@ fi
 # the Sweeting.me example below runs through its own real foreground runner.
 stop_background_runner
 
+ABXPKG_LIB_DIR="$(uv run --no-cache --project "$REPO_DIR" abx-dl config --get ABXPKG_LIB_DIR | sed 's/^[^=]*=//; s/^"//; s/"$//')"
+SCREENSHOT_CHROME_BINARY="$ABXPKG_LIB_DIR/env/bin/chromium"
+if [[ ! -x "$SCREENSHOT_CHROME_BINARY" ]]; then
+    echo "[!] abx-dl projected Chromium was not found at $SCREENSHOT_CHROME_BINARY" >&2
+    exit 1
+fi
+
 VIEWS=(
     "Login|$ADMIN_BASE_URL/admin/login/|/admin/login/|archivebox/templates/admin/login.html"
     "Public snapshot list|$PUBLIC_BASE_URL/public/|/public/|archivebox/core/views.py"
@@ -225,9 +234,11 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
             SCREENSHOT_HEIGHT=1000 \
             node "$REPO_DIR/bin/take_screenshot.js" "$url" "$CAPTURE_ROOT/snapshot-header-state.png" >/dev/null
     fi
+    view_timing_report=""
     while IFS='|' read -r profile viewport_width viewport_height; do
         filename="$(printf '%02d' "$capture_index")-$slug-$profile.png"
         capture_dir="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/$profile"
+        timing_report_path="$view_timing_report"
         capture_env=(
             "RESOLUTION=$viewport_width,$viewport_height"
             "CHROME_RESOLUTION=$viewport_width,$viewport_height"
@@ -272,6 +283,8 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                     SCREENSHOT_SNAPSHOT_HEADER=expanded \
                     SCREENSHOT_EXPECT_LIVE_PROGRESS=1 \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
+                view_timing_report="$capture_dir/report.json"
+                timing_report_path="$view_timing_report"
             fi
         elif [[ "$profile" == "desktop" || "$capture_mode" == wait-replay:* || -z "${ABXPKG_LIB_DIR:-}" ]]; then
             capture_log="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")-$profile-abx-dl.log"
@@ -311,6 +324,8 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
                     SCREENSHOT_VARIANTS_JSON="$responsive_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
+                view_timing_report="$capture_dir/report.json"
+                timing_report_path="$view_timing_report"
                 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
                     "$capture_dir/report.json" "$expected_path"
             fi
@@ -324,6 +339,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
         cp "$screenshot_path" "$PUBLIC_OUTPUT_DIR/$filename"
         UI_SCREENSHOT_NAME="$name" UI_SCREENSHOT_URL="$url" UI_SCREENSHOT_SOURCE="$source" \
             UI_SCREENSHOT_FILENAME="$filename" UI_SCREENSHOT_PROFILE="$profile" \
+            UI_SCREENSHOT_TIMING_REPORT="$timing_report_path" \
             uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" append \
                 "$MANIFEST_FILE" "$OUTPUT_DIR/$filename"
     done <<<"$CAPTURE_PROFILES"
@@ -331,12 +347,6 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     # Capture the public views before login because the real admin-login hint
     # intentionally redirects authenticated personas away from /public/.
     if [[ "$capture_index" == "2" ]]; then
-        ABXPKG_LIB_DIR="$(uv run --no-cache --project "$REPO_DIR" abx-dl config --get ABXPKG_LIB_DIR | sed 's/^[^=]*=//; s/^"//; s/"$//')"
-        SCREENSHOT_CHROME_BINARY="$ABXPKG_LIB_DIR/env/bin/chromium"
-        if [[ ! -x "$SCREENSHOT_CHROME_BINARY" ]]; then
-            echo "[!] abx-dl projected Chromium was not found at $SCREENSHOT_CHROME_BINARY" >&2
-            exit 1
-        fi
         echo "[*] Logging in through the real $ACTIVE_PERSONA browser persona"
         NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
             CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \

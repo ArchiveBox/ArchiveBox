@@ -561,21 +561,20 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
     """
     Drain old archive/ directories (0.8.x → 0.9.x migration).
 
-    Only processes real directories (skips symlinks - those are already migrated).
+    Removes obsolete timestamp symlinks and processes real legacy directories.
     For each old dir found in archive/:
       1. Load or create DB snapshot
       2. Trigger fs migration on save() to move to data/archive/users/{user}/...
-      3. Leave symlink in archive/ pointing to new location
+      3. Remove the old timestamp path after the verified migration commits
 
-    After this drains, archive/ should only contain symlinks and we can trust
-    1:1 mapping between DB and filesystem.
+    After this drains, current snapshot data exists only under archive/users/.
     """
     from archivebox.core.models import Snapshot
     from archivebox.config import CONSTANTS
     from archivebox.crawls.models import Crawl
     from django.utils import timezone
 
-    stats = {"processed": 0, "migrated": 0, "queued": 0, "skipped": 0, "invalid": 0}
+    stats = {"processed": 0, "migrated": 0, "queued": 0, "skipped": 0, "invalid": 0, "removed_symlinks": 0}
     crawl_url_lines: dict[str, list[str]] = {}
     crawl_url_sets: dict[str, set[str]] = {}
     dirty_crawl_ids: set[str] = set()
@@ -606,8 +605,23 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
             if changed:
                 Crawl.objects.filter(pk=crawl.pk).update(urls="\n".join(lines), modified_at=timezone.now())
 
-    # Scan for real directories only (skip symlinks - they're already migrated)
+    # Compatibility timestamp projections are harmful in portable exports and
+    # duplicate the obsolete 0.7.x-looking namespace without containing data.
     all_entries = list(os.scandir(archive_dir))
+    for entry in all_entries:
+        entry_path = Path(entry.path)
+        if entry.is_symlink() and Snapshot.is_legacy_archive_dir(entry_path):
+            try:
+                target_path = entry_path.resolve(strict=True)
+                points_into_current_layout = target_path.is_relative_to(CONSTANTS.USERS_DIR.resolve(strict=True))
+            except OSError:
+                points_into_current_layout = False
+
+            if points_into_current_layout:
+                entry_path.unlink(missing_ok=True)
+                stats["removed_symlinks"] += 1
+
+    # Scan real legacy directories only; these still contain data to migrate.
     entries = [
         (e.stat().st_mtime, e.path)
         for e in all_entries

@@ -10,9 +10,12 @@ from pathlib import Path
 from urllib.parse import quote
 
 from django.contrib import admin
-from django.core.exceptions import ValidationError
+from django.contrib.admin.actions import delete_selected
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
+from django.core.exceptions import PermissionDenied, SuspiciousOperation, ValidationError
 from django.db.models import Count, Min, Prefetch, Q, Subquery, TextField, Window
 from django.db.models.functions import Cast
+from django.shortcuts import redirect
 from django.urls import resolve, reverse
 from django.utils import timezone
 from django.utils.html import format_html
@@ -341,7 +344,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
 
 
 class ArchiveResultInline(admin.TabularInline):
-    name = "Archive Results Log"
+    name = "Archive Results"
     model = ArchiveResult
     parent_model = Snapshot
     extra = 0
@@ -543,10 +546,44 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         self.request = request
+        selected = request.GET.getlist(ACTION_CHECKBOX_NAME)
+        if request.method == "GET" and request.GET.get("action") == "delete_selected" and selected:
+            if not request.user.is_superuser:
+                raise PermissionDenied
+            if len(selected) > 100:
+                raise SuspiciousOperation("Too many ArchiveResults selected for deletion")
+            try:
+                queryset = self.get_queryset(request).filter(pk__in=selected)
+                if not queryset.exists():
+                    snapshot = Snapshot.objects.only("id").filter(pk=request.GET.get("snapshot")).first()
+                    return redirect(build_snapshot_url(str(snapshot.id), "index.html", request=request) if snapshot else request.path)
+            except (ValidationError, ValueError):
+                return redirect(request.path)
+            return delete_selected(self, request, queryset)
+        handoff_snapshot = (
+            request.GET.get("snapshot") if request.method == "POST" and request.GET.get("action") == "delete_selected" else None
+        )
+        if handoff_snapshot:
+            request.GET = request.GET.copy()
+            request.GET.clear()
+            request.META["QUERY_STRING"] = ""
+            try:
+                handoff_snapshot = Snapshot.objects.only("id").filter(pk=handoff_snapshot).first()
+            except (ValidationError, ValueError):
+                handoff_snapshot = None
         saved_list_per_page = self.list_per_page
         self.list_per_page = request.archivebox_config.SNAPSHOTS_PER_PAGE
         try:
-            return super().changelist_view(request, extra_context)
+            response = super().changelist_view(request, extra_context)
+            if (
+                handoff_snapshot
+                and response.status_code in (301, 302)
+                and not ArchiveResult.objects.filter(
+                    pk__in=request.POST.getlist(ACTION_CHECKBOX_NAME),
+                ).exists()
+            ):
+                return redirect(build_snapshot_url(str(handoff_snapshot.id), "index.html", request=request))
+            return response
         finally:
             self.list_per_page = saved_list_per_page
 

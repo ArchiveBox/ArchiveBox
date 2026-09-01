@@ -48,6 +48,11 @@ def _exit_on_migration_interrupt():
             os.write(sys.stderr.fileno(), _migration_interrupt_message().encode())
         except Exception:
             pass
+        # Django's migration executor can catch or delay normal exceptions while
+        # unwinding transactions. Use the real process exit path after printing
+        # the recovery command so Ctrl+C/SIGTERM during auto-migrations does not
+        # leave `archivebox server` apparently hung after the user asked it to
+        # stop. Migrations are atomic, so this does not record partial progress.
         os._exit(130)
 
     try:
