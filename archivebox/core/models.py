@@ -459,6 +459,7 @@ class SnapshotQuerySet(models.QuerySet):
 
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
+        manifest_records = []
         for snapshot in snapshot_list:
             outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
             output_paths = [str(output.get("path") or "") for output in outputs]
@@ -466,6 +467,16 @@ class SnapshotQuerySet(models.QuerySet):
                 path for preferred in ("screenshot/screenshot.png", "screenshot.png") for path in output_paths if path == preferred
             ]
             snapshot._public_favicon_paths = [path for path in output_paths if path in ("favicon/favicon.ico", "favicon.ico")]
+            snapshot.write_html_details()
+            if with_headers:
+                # Use the same portable schema as the JSON export. Rendering
+                # above has already populated result-count caches, archive_size
+                # reuses the sealed output_size field, and tags are prefetched.
+                manifest_records.append(snapshot.to_dict(extended=True, static_export=True))
+
+        if with_headers:
+            manifest = "".join(f"{to_json(record, indent=None, sort_keys=True)}\n" for record in manifest_records)
+            atomic_write(str(CONSTANTS.DATA_DIR / CONSTANTS.JSONL_INDEX_FILENAME), manifest)
 
         return render_to_string(
             template,
@@ -2269,8 +2280,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return calc_tags_str()
         return calc_tags_str()
 
-    def icons(self, path: str | None = None, prefix: str = "/") -> str:
+    def icons(self, path: str | None = None, prefix: str = "/", quote_paths: bool = False) -> str:
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""
+        from urllib.parse import quote
+
         from django.utils.html import format_html
 
         compact_icons = self.__dict__.get("_icons_compact", False)
@@ -2382,6 +2395,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     continue
 
                 embed_path = f"{plugin}/" if compact_icons else result.embed_path()
+                if not embed_path or str(embed_path).strip() in (".", "/", "./"):
+                    continue
+                output_path = Path(str(embed_path))
+                if (
+                    quote_paths
+                    and not compact_icons
+                    and (output_path.is_absolute() or ".." in output_path.parts or not (Path(self.output_dir) / output_path).exists())
+                ):
+                    continue
+                if quote_paths:
+                    embed_path = quote(str(embed_path), safe="/@-._~!$&'()*+,;=")
                 output += format_html(
                     output_template,
                     prefix,
@@ -3516,6 +3540,16 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             for output in self.discover_outputs(include_filesystem_fallback=True, archive_results=archive_results)
             if (output.get("size") or 0) > 0 and output.get("name") not in hidden_card_plugins
         ]
+        if static_export_dir is not None:
+
+            def static_output_exists(output: dict[str, Any]) -> bool:
+                raw_path = str(output.get("path") or "")
+                if not raw_path:
+                    return False
+                output_path = Path(raw_path)
+                return not output_path.is_absolute() and ".." not in output_path.parts and (static_export_dir / output_path).exists()
+
+            outputs = [output for output in outputs if static_output_exists(output)]
         outputs_by_name: dict[str, dict[str, Any]] = {}
         result_ids_by_name: dict[str, list[str]] = {}
         for output in outputs:
@@ -3645,6 +3679,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from django.template.loader import render_to_string
 
         output_dir = Path(out_dir) if out_dir is not None else self.output_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
         context = self.get_html_details_context(static_export_dir=output_dir)
         rendered_html = render_to_string("core/snapshot.html", context)
         atomic_write(str(output_dir / CONSTANTS.HTML_INDEX_FILENAME), rendered_html)

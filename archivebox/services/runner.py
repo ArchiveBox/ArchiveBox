@@ -717,10 +717,8 @@ class CrawlRunner:
         stdout_is_tty = sys.stdout.isatty()
         stderr_is_tty = sys.stderr.isatty()
         interactive_tty = stdout_is_tty or stderr_is_tty
-        if not interactive_tty:
-            return None
-        stream = sys.stderr if stderr_is_tty else sys.stdout
-        if os.path.exists("/dev/tty"):
+        stream = sys.stderr if stderr_is_tty or not stdout_is_tty else sys.stdout
+        if interactive_tty and os.path.exists("/dev/tty"):
             try:
                 self._live_stream = open("/dev/tty", "w", buffering=1, encoding=stream.encoding or "utf-8")
                 stream = self._live_stream
@@ -736,7 +734,7 @@ class CrawlRunner:
             terminal_height = terminal_size.lines
         ui_console = Console(
             file=stream,
-            force_terminal=True,
+            force_terminal=interactive_tty,
             width=terminal_width,
             height=terminal_height,
             _environ={
@@ -750,7 +748,7 @@ class CrawlRunner:
             total_hooks=_count_selected_hooks(self.plugins, self.selected_plugins),
             timeout_seconds=self.base_config["TIMEOUT"],
             ui_console=ui_console,
-            interactive_tty=True,
+            interactive_tty=interactive_tty,
         )
         live_ui.print_intro(
             url=self.primary_url or "crawl",

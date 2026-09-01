@@ -1487,7 +1487,7 @@
                     sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
                     class="full-page-iframe"
                     src="about:blank"
-                    data-default-src="{% if best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
+                    data-default-src="{% if best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% elif STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
                     name="preview"
                     loading="eager"
                     fetchpriority="high"></iframe>
@@ -1515,7 +1515,9 @@
                     <div class="snapshot-empty-actions">
                         <button type="button" id="snapshot-empty-refresh" class="snapshot-empty-btn">🔄 Refresh page</button>
                         <a href="{{ url }}" target="_blank" rel="noopener noreferrer" class="snapshot-empty-btn">🌐 Open original URL</a>
+                        {% if not STATIC_EXPORT %}
                         <a href="{% admin_base_url %}/admin/core/snapshot/{{ snapshot_id }}/change/" class="snapshot-empty-btn">✏️ Edit in admin</a>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -1537,7 +1539,7 @@
                 const frame = document.getElementById('main-frame')
                 if (!frame) return
                 const snapshotBaseUrlEarly = "{% snapshot_base_url snapshot %}"
-                const snapshotFilesUrlEarly = `${snapshotBaseUrlEarly}/?files=1`
+                const snapshotFilesUrlEarly = "{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
                 const defaultSrc = frame.dataset.defaultSrc || snapshotFilesUrlEarly
                 const rawHash = window.location.hash ? window.location.hash.slice(1) : ''
 
@@ -1781,13 +1783,13 @@
                     <div class="thumb-card">
                             <div class="thumb-body">
                                 <div class="thumb-actions">
-                                    <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" title="Browse all snapshot files" target="_blank" rel="noopener">📁</a>
+                                    <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
                                 <h4>📦 Other files</h4>
                                 <div class="loose-items">
                                     {% for item in loose_items %}
                                         {% if item.is_dir %}
-                                            <a href="{% snapshot_url snapshot item.path %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
                                         {% else %}
                                             <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
@@ -1800,13 +1802,13 @@
                     <div class="thumb-card">
                             <div class="thumb-body">
                                 <div class="thumb-actions">
-                                    <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" title="Browse all snapshot files" target="_blank" rel="noopener">📁</a>
+                                    <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
                                 <h4>⚠️ Failed</h4>
                                 <div class="loose-items failed-items">
                                     {% for item in failed_items %}
                                         {% if item.is_dir %}
-                                            <a href="{% snapshot_url snapshot item.path %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
                                         {% else %}
                                             <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
@@ -1823,7 +1825,7 @@
 
         <script>
             const snapshotBaseUrl = "{% snapshot_base_url snapshot %}";
-            const snapshotFilesUrl = `${snapshotBaseUrl}/?files=1`;
+            const snapshotFilesUrl = "{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}";
 
             function tryCenterImageFrame(frame) {
                 try {
@@ -2003,7 +2005,7 @@
                     const basePath = (base.pathname || '').replace(/\/+$/, '')
                     const targetPath = (target.pathname || '').replace(/\/+$/, '')
                     return (
-                        target.search !== '?files=1'
+                        target.search !== "{% if STATIC_EXPORT %}{% else %}?files=1{% endif %}"
                         && (
                             targetPath === basePath
                             || targetPath === `${basePath}/index.html`
