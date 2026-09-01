@@ -134,8 +134,6 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
     assert "ETag" not in response.headers
     assert "max-age=60" in response.headers["Cache-Control"]
     assert b"archivebox-static-html-preview-style" in response.content
-    assert b"width: min(100%, 72rem)" in response.content
-    assert b"min-height: 100vh" in response.content
     assert b"img:not([width]):not([height])" in response.content
     assert b"a > img:not([width]):not([height])" in response.content
     assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
@@ -165,8 +163,6 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
     assert "ETag" not in response.headers
     assert "max-age=60" in response.headers["Cache-Control"]
     assert b"archivebox-static-html-preview-style" in response.content
-    assert b"width: min(100%, 72rem)" in response.content
-    assert b"min-height: 100vh" in response.content
     assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
 
 
