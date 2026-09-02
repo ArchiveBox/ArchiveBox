@@ -33,7 +33,7 @@ Accepted schedule formats:
 
 `archivebox schedule --foreground` runs the global orchestrator in the foreground, which is useful outside `archivebox server` if you want a dedicated long-running scheduler/worker process without the web UI.
 
-Running `archivebox schedule --every=day` with no `import_path` creates a recurring maintenance schedule that queues `archivebox://update` crawls.
+Running `archivebox schedule --every=day` with no `import_path` creates a recurring maintenance schedule. The scheduler dispatches its bounded database/filesystem maintenance directly instead of creating a synthetic Crawl or Snapshot.
 
 ## Docker Compose
 

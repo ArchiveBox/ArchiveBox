@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
-import json
 import os
 import signal
 import shutil
@@ -16,6 +15,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from django.core.exceptions import ValidationError
 from django.utils import timezone
 from rich.console import Console
 from rich.text import Text
@@ -28,6 +28,8 @@ from abx_dl.events import (
     CrawlEvent,
     CrawlSetupEvent,
     CrawlStartEvent,
+    InstallEvent,
+    MachineEvent,
     ProcessCompletedEvent,
     ProcessEvent,
     SnapshotCompletedEvent,
@@ -36,12 +38,19 @@ from abx_dl.events import (
 )
 from abx_dl.limits import CrawlLimitState
 from abx_dl.catalog import PluginCatalog
+from abx_dl.config import GlobalConfig, RuntimeConfig
 from abx_dl.models import Snapshot as AbxSnapshot
 from abx_dl.orchestrator import (
-    ExecutionPlan,
+    compute_install_phase_timeout,
+    compute_phase_timeout,
     create_bus,
-    install_plugins as abx_install_plugins,
+    get_install_plugins,
+    parse_input,
 )
+from abx_dl.services.binary_service import PluginBinaryEnvService
+from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
+from abx_dl.services.crawl_service import CrawlService as HookCrawlService
+from abx_dl.services import PluginBinariesService
 from abx_dl.services.process_service import ProcessService as HookProcessService
 from abx_dl.services.snapshot_service import SnapshotService as HookSnapshotService
 from abx_dl.cli import LiveBusUI
@@ -70,7 +79,7 @@ from .snapshot_service import SnapshotService, finalize_completed_snapshot, proj
 from .tag_service import TagService
 
 
-QUEUED_PLUGIN_RESULT_BATCH_SIZE = 100
+MAINTENANCE_BATCH_SIZE = 100
 
 
 def _bus_name(prefix: str, identifier: str) -> str:
@@ -180,7 +189,6 @@ class CrawlRunner:
         show_progress: bool = True,
         interactive_interrupts: bool = False,
         config_overrides: dict[str, Any] | None = None,
-        selected_plugins_are_explicit: bool = True,
     ):
         self.crawl = crawl
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
@@ -202,9 +210,10 @@ class CrawlRunner:
             self.bus,
             crawl_id=str(crawl.id),
         )
+        HookArchiveResultService(self.bus, emit_jsonl=False)
         ArchiveResultService(self.bus)
+        self.requested_plugins = selected_plugins
         self.selected_plugins = selected_plugins
-        self.selected_plugins_from_args = selected_plugins is not None and selected_plugins_are_explicit
         self.initial_snapshot_ids = snapshot_ids
         self.snapshot_tasks: dict[str, asyncio.Task[None]] = {}
         self.snapshot_semaphore = asyncio.Semaphore(1)
@@ -541,17 +550,6 @@ class CrawlRunner:
                 self.selected_plugins = sorted(runtime_plugins) or None
         if self.crawl.is_paused:
             return []
-        system_task = self.crawl.get_system_task()
-        if system_task == "archivebox://update":
-            # Scheduled maintenance crawls are control-plane work, not URL
-            # input. The pre-unified crawl lifecycle delegated this sentinel
-            # directly to the database maintenance scan. Preserve that contract so
-            # the unified runner does not turn it into an archivebox://internal
-            # Snapshot and feed the literal sentinel through parser plugins.
-            from archivebox.cli.archivebox_update import process_all_db_snapshots
-
-            process_all_db_snapshots()
-            return []
         if self.initial_snapshot_ids:
             # Explicit ids select normal runnable work, except for the one
             # targeted maintenance admitted by allow_maintenance_on_inactive_crawl.
@@ -570,68 +568,59 @@ class CrawlRunner:
         return [str(snapshot.id) for snapshot in snapshots]
 
     def create_initial_snapshots(self) -> list:
-        from archivebox.core.models import Snapshot
+        from archivebox.misc.util import validate_url
 
         if self.crawl.snapshot_set.exists():
             return []
 
-        # Direct URL crawls (CLI add, REST, crawl create, schedule, ORM) seed
-        # Crawl.urls with either explicit CrawlSeed JSONL or one plain URL per
-        # line. Either shape becomes the input-layer (depth=0) snapshots so the
-        # rest of the system has one parsing convention. Anything else (RSS,
-        # Netscape HTML, JSONL imports, free-form text) falls through to the
-        # synthetic root path below for parser hooks to process.
-        records = []
+        # Plain URL lists need no parser subprocess. Every other submitted
+        # document is parsed by abx-dl and returned as discovery facts; only
+        # those facts cross the ArchiveBox persistence boundary.
+        direct_urls: list[str] = []
         for line in (self.crawl.urls or "").splitlines():
             raw_line = line.strip()
             if not raw_line or raw_line.startswith("#"):
                 continue
             try:
-                record = json.loads(raw_line)
-            except json.JSONDecodeError:
-                if raw_line.startswith(("http://", "https://")):
-                    records.append({"type": "CrawlSeed", "url": raw_line, "depth": 0})
-                    continue
-                records = []
+                direct_urls.append(validate_url(raw_line))
+            except ValueError:
+                direct_urls = []
                 break
-            if not isinstance(record, dict) or record.get("type") != "CrawlSeed" or not record.get("url"):
-                records = []
-                break
-            records.append(record)
 
-        if records:
-            created = []
-            for record in records:
-                try:
-                    record["depth"] = int(record.get("depth") or 0)
-                except (TypeError, ValueError):
-                    record["depth"] = 0
-            for depth in sorted({record["depth"] for record in records}):
-                depth_records = [record for record in records if record["depth"] == depth]
-                created.extend(self.crawl.create_discovered_snapshots(None, depth_records, depth=depth))
-            return created
+        if direct_urls:
+            return self.crawl.create_discovered_snapshots(
+                None,
+                ({"url": url} for url in direct_urls),
+                depth=0,
+            )
 
-        # Raw stdin/API/UI import text must remain verbatim in Crawl.urls so a
-        # resumed crawl sees the exact same source bytes and cannot reparse an
-        # overwritten temp file. Parser hooks still need the normal Snapshot
-        # lifecycle and SNAP_DIR/staticfile convention, so the runner creates a
-        # single synthetic root only after it has claimed the crawl. This keeps
-        # DB/FS side effects out of request/CLI add paths and lets child URLs be
-        # discovered by the usual parser -> CrawlService -> Snapshot flow.
-        root_snapshot = Snapshot(
-            url=Snapshot.INTERNAL_INPUT_URL,
+        parser_name = str(self.base_config.get("PARSER") or "auto").strip().lower()
+        parser_catalog = self.catalog
+        if parser_name != "auto":
+            requested = parser_name if parser_name.startswith("parse_") else f"parse_{parser_name}_urls"
+            parser_catalog = self.catalog.select([requested])
+        runtime_config = self.base_config.for_crawl_runtime(
             crawl=self.crawl,
-            depth=0,
-            title="stdin.txt",
-            status=Snapshot.StatusChoices.QUEUED,
-            retry_at=timezone.now(),
+            persona=self.persona,
+            crawl_output_dir=self.crawl.output_dir,
         )
-        root_snapshot.set_delete_at_from_config(self.base_config.get("DELETE_AFTER", "0"))
-        root_snapshot.save()
-        staticfile_dir = root_snapshot.output_dir / "staticfile"
-        staticfile_dir.mkdir(parents=True, exist_ok=True)
-        (staticfile_dir / "stdin.txt").write_text(self.crawl.urls, encoding="utf-8")
-        return [root_snapshot]
+        discovered = asyncio.run(
+            parse_input(
+                self.crawl.urls,
+                parser_catalog,
+                self.crawl.output_dir / "input",
+                config=normalize_runtime_config(runtime_config),
+                derived_config=normalize_runtime_config(self.derived_config),
+                runtime="archivebox",
+                auto_install=True,
+                emit_jsonl=False,
+            ),
+        )
+        records = [snapshot.model_dump(mode="json") for snapshot in discovered]
+        created = self.crawl.create_discovered_snapshots(None, records, depth=0)
+        if created:
+            self.primary_url = created[0].url
+        return created
 
     def finalize_run_state(self) -> None:
         from archivebox.crawls.models import Crawl
@@ -778,6 +767,7 @@ class CrawlRunner:
             "status": snapshot.status,
             "output_dir": snapshot_output_dir,
             "config": normalized_config,
+            "selected_plugins": [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()],
             "_snapshot": snapshot,
         }
 
@@ -791,23 +781,18 @@ class CrawlRunner:
         config = normalize_runtime_config(snapshot["config"])
         derived_config = normalize_runtime_config(self.derived_config)
         output_dir = Path(self.crawl_output_dir)
-        plan = ExecutionPlan.build(
-            self.catalog,
-            selected_plugins=self.selected_plugins,
-            config=config,
-            derived_config=derived_config,
-            runtime="archivebox",
-        )
-        setup_hooks = [(plugin, hook) for plugin in plan.catalog.values() for hook in plugin.filter_hooks("CrawlSetup")]
+        plugins = self.catalog.select(self.selected_plugins)
+        config["ABX_RUNTIME"] = "archivebox"
+        setup_hooks = plugins.hooks("CrawlSetup")
         abx_snapshot = AbxSnapshot(
             id=snapshot["id"],
             url=snapshot["url"],
             depth=int(snapshot["depth"]),
             crawl_id=str(self.crawl.id),
         )
-        crawl_setup_phase_timeout = plan.crawl_setup_timeout
+        crawl_setup_phase_timeout = compute_phase_timeout(setup_hooks, config)
         max_snapshot_count = max(1, int(config.get("CRAWL_MAX_URLS") or len(snapshot_ids) or 1))
-        snapshot_phase_timeout = plan.snapshot_timeout + 120.0
+        snapshot_phase_timeout = compute_phase_timeout(plugins.hooks("Snapshot"), config) + 120.0
         all_snapshots_phase_timeout = snapshot_phase_timeout * max_snapshot_count
         crawl_cleanup_phase_timeout = crawl_setup_phase_timeout
         crawl_lifecycle_timeout = (
@@ -817,28 +802,17 @@ class CrawlRunner:
             + CrawlCompletedEvent.model_fields["event_timeout"].default
             + 30.0
         )
-        await plan.seed_config(self.bus)
-        plan.attach_services(
+        await self.bus.emit(MachineEvent(config=config, config_type="user")).now()
+        if derived_config:
+            await self.bus.emit(MachineEvent(config=derived_config, config_type="derived")).now()
+        PluginBinaryEnvService(self.bus, catalog=plugins)
+        HookCrawlService(
             self.bus,
             url=snapshot["url"],
             snapshot=abx_snapshot,
             output_dir=output_dir,
-            install_enabled=False,
-            crawl_setup_enabled=True,
-            crawl_event_enabled=False,
-            crawl_start_enabled=False,
-            snapshot_cleanup_enabled=False,
-            crawl_cleanup_enabled=True,
-            crawl_completed_enabled=False,
-            auto_install=True,
-            emit_jsonl=False,
+            catalog=plugins,
             abort_requested=self.crawl_is_cancelled,
-            PluginBinariesService=None,
-            BinaryService=None,
-            ProcessService=None,
-            ArchiveResultService=None,
-            TagService=None,
-            SnapshotService=None,
         )
 
         async def on_archivebox_CrawlStartEvent(event: CrawlStartEvent) -> None:
@@ -980,76 +954,18 @@ class CrawlRunner:
             if not isinstance(crawl_start_event, CrawlStartEvent):
                 raise RuntimeError("Snapshot events must be emitted from a CrawlStartEvent handler")
             snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_id)
+            try:
+                snapshot["_snapshot"].validate_url_for_archiving(config=snapshot["config"])
+            except ValidationError as err:
+                if snapshot["status"] != "sealed":
+                    await sync_to_async(snapshot["_snapshot"].seal, thread_sensitive=True)()
+                print(f"[X] Refusing to archive invalid Snapshot URL {snapshot['url']!r}: {err}", file=sys.stderr)
+                return
             if snapshot["status"] == "sealed" and not self.selected_plugins:
                 await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id)
                 return
             config = normalize_runtime_config(snapshot["config"])
-            snapshot_config_plugins = [name.strip() for name in str(config.get("PLUGINS") or "").split(",") if name.strip()]
-            snapshot_selected_plugins = (
-                self.selected_plugins if self.selected_plugins_from_args else (snapshot_config_plugins or self.selected_plugins)
-            )
-
-            def queued_plugins_selected_by_config(queued_plugins: list[str]) -> list[str]:
-                if not snapshot_selected_plugins:
-                    return queued_plugins
-                expanded_selected_plugins = set(self.catalog.select(snapshot_selected_plugins))
-                return [plugin for plugin in queued_plugins if plugin in expanded_selected_plugins]
-
-            selected_hooks_by_plugin = None
-            if snapshot["status"] == "started":
-                _reset_count, running_count = await sync_to_async(snapshot["_snapshot"].reset_abandoned_results, thread_sensitive=True)()
-                if running_count:
-                    await sync_to_async(
-                        lambda: snapshot["_snapshot"].update_and_requeue(
-                            retry_at=timezone.now() + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS),
-                        ),
-                        thread_sensitive=True,
-                    )()
-                    return
-                if await sync_to_async(snapshot["_snapshot"].is_finished_processing, thread_sensitive=True)():
-                    await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
-                        snapshot["id"],
-                        output_dir=Path(snapshot["output_dir"]),
-                    )
-                    return
-                if not self.selected_plugins_from_args:
-                    queued_plugins, selected_hooks_by_plugin = await sync_to_async(
-                        queued_plugins_and_hooks_for_snapshot,
-                        thread_sensitive=True,
-                    )(snapshot["id"])
-                    if queued_plugins:
-                        if snapshot_selected_plugins:
-                            original_queued_plugins = queued_plugins
-                            queued_plugins = queued_plugins_selected_by_config(queued_plugins)
-                            disabled_queued_plugins = sorted(set(original_queued_plugins) - set(queued_plugins))
-                            if disabled_queued_plugins:
-                                await sync_to_async(skip_disabled_queued_plugins, thread_sensitive=True)(
-                                    snapshot["id"],
-                                    disabled_queued_plugins,
-                                )
-                            selected_hooks_by_plugin = {
-                                plugin: hooks for plugin, hooks in (selected_hooks_by_plugin or {}).items() if plugin in queued_plugins
-                            }
-                        snapshot_selected_plugins = queued_plugins
-            elif not self.selected_plugins_from_args:
-                queued_plugins, selected_hooks_by_plugin = await sync_to_async(
-                    queued_plugins_and_hooks_for_snapshot,
-                    thread_sensitive=True,
-                )(snapshot["id"])
-                if queued_plugins:
-                    if snapshot_selected_plugins:
-                        original_queued_plugins = queued_plugins
-                        queued_plugins = queued_plugins_selected_by_config(queued_plugins)
-                        disabled_queued_plugins = sorted(set(original_queued_plugins) - set(queued_plugins))
-                        if disabled_queued_plugins:
-                            await sync_to_async(skip_disabled_queued_plugins, thread_sensitive=True)(
-                                snapshot["id"],
-                                disabled_queued_plugins,
-                            )
-                        selected_hooks_by_plugin = {
-                            plugin: hooks for plugin, hooks in (selected_hooks_by_plugin or {}).items() if plugin in queued_plugins
-                        }
-                    snapshot_selected_plugins = queued_plugins
+            snapshot_selected_plugins = self.requested_plugins or snapshot["selected_plugins"] or self.selected_plugins
             if snapshot["depth"] > 0 and CrawlLimitState.from_config(snapshot["config"]).get_stop_reason() in (
                 "crawl_max_size",
                 "crawl_timeout",
@@ -1059,56 +975,31 @@ class CrawlRunner:
             derived_config = normalize_runtime_config(self.derived_config)
             output_dir = Path(snapshot["output_dir"])
             plugins = self.catalog.select(snapshot_selected_plugins) if snapshot_selected_plugins else self.catalog
-            if selected_hooks_by_plugin is not None:
-                await sync_to_async(fail_unavailable_queued_hooks, thread_sensitive=True)(
-                    snapshot["id"],
-                    selected_hooks_by_plugin,
-                    plugins,
-                )
-                remaining_queued_plugins = await sync_to_async(
-                    queued_plugins_for_snapshot,
-                    thread_sensitive=True,
-                )(snapshot["id"])
-                if snapshot_selected_plugins and remaining_queued_plugins:
-                    remaining_queued_plugins = queued_plugins_selected_by_config(remaining_queued_plugins)
-                if not remaining_queued_plugins:
-                    if snapshot["status"] in ("queued", "started"):
-                        await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
-                            snapshot_id,
-                            output_dir=output_dir,
-                        )
-                    else:
-                        await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
-                    return
-                snapshot_selected_plugins = remaining_queued_plugins
-                plugins = self.catalog.select(snapshot_selected_plugins)
-                selected_hooks_by_plugin = include_background_prerequisite_hooks(selected_hooks_by_plugin, plugins)
             abx_snapshot = AbxSnapshot(
                 id=snapshot["id"],
                 url=snapshot["url"],
                 depth=int(snapshot["depth"]),
                 crawl_id=str(self.crawl.id),
             )
-            plan = ExecutionPlan.build(
-                self.catalog,
-                selected_plugins=snapshot_selected_plugins,
-                config=config,
-                derived_config=derived_config,
-                runtime="archivebox",
-            )
-            plugins = plan.catalog
-            snapshot_phase_timeout = plan.snapshot_timeout + 120.0
-            await plan.seed_config(self.bus, parent_event=crawl_start_event)
-            snapshot_service = plan.attach_snapshot_service(
+            config["ABX_RUNTIME"] = "archivebox"
+            snapshot_phase_timeout = compute_phase_timeout(plugins.hooks("Snapshot"), config) + 120.0
+            user_config_event = MachineEvent(config=config, config_type="user")
+            user_config_event.event_parent_id = crawl_start_event.event_id
+            await self.bus.emit(user_config_event).now()
+            if derived_config:
+                derived_config_event = MachineEvent(config=derived_config, config_type="derived")
+                derived_config_event.event_parent_id = crawl_start_event.event_id
+                await self.bus.emit(derived_config_event).now()
+            snapshot_service = HookSnapshotService(
                 self.bus,
                 url=snapshot["url"],
                 snapshot=abx_snapshot,
                 output_dir=output_dir,
-                snapshot_service=HookSnapshotService,
-                timeout_padding=120.0,
+                catalog=plugins,
+                config=RuntimeConfig(user=GlobalConfig(**config), derived=derived_config),
+                snapshot_phase_timeout=snapshot_phase_timeout,
+                snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
                 abort_requested=self.crawl_is_cancelled,
-                selected_hooks_by_plugin=selected_hooks_by_plugin,
-                emit_discovered_snapshot_events=False,
             )
             try:
                 snapshot_event = SnapshotEvent(
@@ -1191,7 +1082,6 @@ def run_crawl(
     show_progress: bool = True,
     interactive_interrupts: bool = False,
     config_overrides: dict[str, Any] | None = None,
-    selected_plugins_are_explicit: bool = True,
 ) -> None:
     with crawl_lifecycle_lock(crawl_id):
         _run_crawl_locked(
@@ -1202,7 +1092,6 @@ def run_crawl(
             show_progress=show_progress,
             interactive_interrupts=interactive_interrupts,
             config_overrides=config_overrides,
-            selected_plugins_are_explicit=selected_plugins_are_explicit,
         )
 
 
@@ -1215,7 +1104,6 @@ def _run_crawl_locked(
     show_progress: bool = True,
     interactive_interrupts: bool = False,
     config_overrides: dict[str, Any] | None = None,
-    selected_plugins_are_explicit: bool = True,
 ) -> None:
     from archivebox.crawls.models import Crawl
     from django.db import close_old_connections
@@ -1233,7 +1121,6 @@ def _run_crawl_locked(
                     show_progress=show_progress,
                     interactive_interrupts=interactive_interrupts,
                     config_overrides=config_overrides,
-                    selected_plugins_are_explicit=selected_plugins_are_explicit,
                 ).run(),
             )
         finally:
@@ -1273,28 +1160,14 @@ async def _run_binary(binary_id: str) -> None:
     binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryService(bus, lib_dir=Path(config["ABXPKG_LIB_DIR"]))
     TagService(bus)
-    ArchiveResultService(bus)
     MachineService(bus)
     catalog = get_plugin_catalog()
-    plan = ExecutionPlan.build(
-        catalog,
-        selected_plugins=list(catalog),
-        config=config,
-        derived_config=derived_config,
-        runtime="archivebox",
-    )
-    plan.attach_services(
-        bus,
-        install_enabled=False,
-        crawl_setup_enabled=False,
-        crawl_start_enabled=False,
-        snapshot_cleanup_enabled=False,
-        crawl_cleanup_enabled=False,
-        auto_install=True,
-        emit_jsonl=False,
-        BinaryService=None,
-    )
-    await plan.seed_config(bus)
+    config["ABX_RUNTIME"] = "archivebox"
+    PluginBinaryEnvService(bus, catalog=catalog)
+    HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
+    await bus.emit(MachineEvent(config=config, config_type="user")).now()
+    if derived_config:
+        await bus.emit(MachineEvent(config=derived_config, config_type="derived")).now()
 
     try:
         await bus.emit(
@@ -1321,170 +1194,18 @@ def run_binary(binary_id: str) -> None:
     asyncio.run(_run_binary(binary_id))
 
 
-def queued_plugins_and_hooks_for_snapshot(snapshot_id: str) -> tuple[list[str] | None, dict[str, set[str] | None] | None]:
-    from archivebox.core.models import ArchiveResult
-
-    queued_results = list(
-        ArchiveResult.objects.filter(
-            snapshot_id=snapshot_id,
-            status=ArchiveResult.StatusChoices.QUEUED,
-        )
-        .exclude(plugin="")
-        .only("id", "plugin", "hook_name"),
-    )
-
-    selected_hooks_by_plugin: dict[str, set[str] | None] = {}
-    queued_plugins = sorted({result.plugin for result in queued_results})
-    for result in queued_results:
-        # hook_name is the modern scheduler identity. Empty hook_name rows are
-        # legacy plugin-level work and must keep running the whole plugin.
-        if not result.hook_name:
-            selected_hooks_by_plugin[result.plugin] = None
-        elif result.plugin not in selected_hooks_by_plugin:
-            selected_hooks_by_plugin[result.plugin] = {result.hook_name}
-        elif selected_hooks_by_plugin[result.plugin] is not None:
-            selected_hooks_by_plugin[result.plugin].add(result.hook_name)
-    if queued_plugins:
-        return queued_plugins, selected_hooks_by_plugin
-    return None, None
-
-
-def queued_plugins_for_snapshot(snapshot_id: str) -> list[str] | None:
-    queued_plugins, _selected_hooks_by_plugin = queued_plugins_and_hooks_for_snapshot(snapshot_id)
-    return queued_plugins
-
-
-def config_overrides_for_queued_plugins(selected_plugins: list[str], **overrides: Any) -> dict[str, Any]:
-    config_overrides = dict(overrides)
-    config_overrides["PLUGINS"] = ",".join(selected_plugins)
-    selected_plugin_names = set(get_plugin_catalog().select(plugin_name.lower() for plugin_name in selected_plugins))
-    for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
-        config_overrides[enabled_key] = plugin_name in selected_plugin_names
-    return config_overrides
-
-
-def fail_unavailable_queued_hooks(
-    snapshot_id: str,
-    selected_hooks_by_plugin: dict[str, set[str] | None],
-    plugins: PluginCatalog,
-) -> None:
-    from archivebox.core.models import ArchiveResult
-
-    now = timezone.now()
-    for plugin_name, selected_hook_names in selected_hooks_by_plugin.items():
-        if selected_hook_names is None:
-            continue
-        if plugin_name in plugins:
-            available_hook_names = {
-                name for hook in plugins[plugin_name].filter_hooks("Snapshot") for name in (hook.name, Path(hook.name).stem)
-            }
-        else:
-            available_hook_names = set()
-        missing_hook_names = [hook_name for hook_name in selected_hook_names if hook_name not in available_hook_names]
-        if not missing_hook_names:
-            continue
-        # Hook-level resume rows are durable scheduler state. If a plugin is
-        # installed but no longer exposes a queued hook, mark that row failed so
-        # the snapshot is not retried forever with no hook left to execute.
-        ArchiveResult.objects.filter(
-            snapshot_id=snapshot_id,
-            plugin=plugin_name,
-            hook_name__in=missing_hook_names,
-            status=ArchiveResult.StatusChoices.QUEUED,
-        ).update(
-            status=ArchiveResult.StatusChoices.FAILED,
-            start_ts=now,
-            end_ts=now,
-            output_str="Queued hook is no longer available in the installed plugin",
-        )
-
-
-def skip_disabled_queued_plugins(snapshot_id: str, plugin_names: list[str]) -> None:
-    from archivebox.core.models import ArchiveResult
-
-    if not plugin_names:
-        return
-    now = timezone.now()
-    # Queued ArchiveResult rows are durable scheduler state and can outlive a
-    # config change or deploy. If a plugin is no longer selected for this
-    # Snapshot/Crawl, leaving its old row queued keeps the Snapshot STARTED
-    # forever even though there is no runnable work left.
-    ArchiveResult.objects.filter(
-        snapshot_id=snapshot_id,
-        plugin__in=plugin_names,
-        status=ArchiveResult.StatusChoices.QUEUED,
-    ).update(
-        status=ArchiveResult.StatusChoices.SKIPPED,
-        start_ts=now,
-        end_ts=now,
-        output_str="Queued plugin is disabled by this Snapshot/Crawl config",
-    )
-
-
-def include_background_prerequisite_hooks(
-    selected_hooks_by_plugin: dict[str, set[str] | None],
-    plugins: PluginCatalog,
-) -> dict[str, set[str] | None]:
-    expanded: dict[str, set[str] | None] = {}
-    for plugin_name, selected_hook_names in selected_hooks_by_plugin.items():
-        if selected_hook_names is None or plugin_name not in plugins:
-            expanded[plugin_name] = selected_hook_names
-            continue
-        plugin_hooks = sorted(plugins[plugin_name].filter_hooks("Snapshot"), key=lambda hook: hook.sort_key)
-        selected_sort_keys = [
-            hook.sort_key for hook in plugin_hooks if hook.name in selected_hook_names or Path(hook.name).stem in selected_hook_names
-        ]
-        if not selected_sort_keys:
-            expanded[plugin_name] = set(selected_hook_names)
-            continue
-        first_selected_sort_key = min(selected_sort_keys)
-        expanded_hook_names = set(selected_hook_names)
-        # Earlier background hooks publish live resources (e.g. Chrome tabs)
-        # needed by later foreground hooks, but completed foreground hooks stay
-        # final and are not rerun during hook-level resume.
-        for hook in plugin_hooks:
-            if hook.is_background and hook.sort_key < first_selected_sort_key:
-                expanded_hook_names.add(hook.name)
-                expanded_hook_names.add(Path(hook.name).stem)
-        expanded[plugin_name] = expanded_hook_names
-    return expanded
-
-
-def snapshot_hooks_for_pending_archiveresults(snapshot) -> list[tuple[str, str]]:
-    from archivebox.config.common import get_config
-    from archivebox.core.models import Snapshot
-    from archivebox.plugins.discovery import get_enabled_plugins
-
-    config = get_config(crawl=snapshot.crawl, snapshot=snapshot)
-    snapshot_plugin_names = [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()]
-    crawl_plugin_names = [name.strip() for name in str((snapshot.crawl.config or {}).get("PLUGINS") or "").split(",") if name.strip()]
-    config_plugin_names = [name.strip() for name in str(config.PLUGINS or "").split(",") if name.strip()]
-    plugin_names = snapshot_plugin_names or crawl_plugin_names or config_plugin_names or get_enabled_plugins(config=config)
-    catalog = get_plugin_catalog()
-    plugins = catalog.select(plugin_names) if plugin_names else catalog
-    if snapshot.url == Snapshot.INTERNAL_INPUT_URL:
-        plugins = {name: plugin for name, plugin in plugins.items() if getattr(plugin.config, "x_accepts_internal_input", False)}
-    return sorted((plugin.name, hook.name) for plugin in plugins.values() for hook in plugin.filter_hooks("Snapshot"))
-
-
 def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None) -> bool:
-    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.core.models import Snapshot
 
     snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").filter(id=snapshot_id).first()
     if snapshot is None:
         return False
 
-    has_queued_results = snapshot.archiveresult_set.filter(status=ArchiveResult.StatusChoices.QUEUED).exists()
-    # retry_at is the scheduler signal for both lifecycle work and targeted
-    # maintenance. Filesystem migration/json rewriting is independent from
-    # queued ArchiveResult rows, so run it whenever this helper is called.
-    # The only thing queued work changes is the next scheduler value:
-    # - open lifecycle rows: leave them due for extraction after maintenance
-    # - no queued work left on a sealed row: clear retry_at
-    # - queued rows remain on a sealed Snapshot: leave it due so targeted
-    #   plugin maintenance can process them on the next tick
+    # ArchiveBox owns filesystem and metadata maintenance at Snapshot
+    # granularity. ArchiveResult rows are projections and never influence this
+    # scheduler decision.
     current_retry_at = snapshot.retry_at
-    next_retry_at = timezone.now() if has_queued_results or snapshot.status in Snapshot.OPEN_STATES else None
+    next_retry_at = timezone.now() if snapshot.status in Snapshot.OPEN_STATES else None
     snapshot.retry_at = next_retry_at
     if snapshot.fs_migration_needed:
         snapshot.save(update_fields=["retry_at", "modified_at"])
@@ -1630,11 +1351,8 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         return parent_reconciled
 
     if snapshot.is_paused:
-        # Paused work never executes out of band. Preserve the lifecycle marker
-        # until an explicit resume moves it through the normal lifecycle.
-        from archivebox.core.models import ArchiveResult
-
-        ArchiveResult.pause_queryset(snapshot.archiveresult_set.all())
+        # Paused work never executes out of band. ArchiveResult rows are
+        # historical projections and are not rewritten as scheduler state.
         snapshot.restore_paused_scheduler_marker()
         return True
     if snapshot.status == Snapshot.StatusChoices.SEALED:
@@ -1642,121 +1360,36 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
             return False
         snapshot.refresh_from_db()
         snapshot.finalize_completed_upload_results()
-        maintenance_ran = False
-        if snapshot.fs_migration_needed:
-            # Final snapshots can still need filesystem/index maintenance after
-            # a data-dir migration, but queued ArchiveResult rows are the actual
-            # runnable work. Do the metadata rewrite first, then continue into
-            # the targeted plugin path in the same tick so large migrations do
-            # not starve search/index backfills behind a full maintenance pass.
-            maintenance_ran = run_snapshot_maintenance(str(snapshot.id))
-            snapshot.refresh_from_db()
-        selected_plugins = queued_plugins_for_snapshot(str(snapshot.id))
-        if selected_plugins:
-            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
-            run_crawl(
-                str(snapshot.crawl_id),
-                snapshot_ids=[str(snapshot.id)],
-                selected_plugins=selected_plugins,
-                process_discovered_snapshots_inline=True,
-                interactive_interrupts=interactive_interrupts,
-                config_overrides=config_overrides_for_queued_plugins(selected_plugins),
-                selected_plugins_are_explicit=False,
-            )
-            from archivebox.core.models import ArchiveResult
-
-            has_queued_results = ArchiveResult.objects.filter(
-                snapshot_id=snapshot.id,
-                status=ArchiveResult.StatusChoices.QUEUED,
-            ).exists()
-            type(snapshot).objects.filter(
-                pk=snapshot.pk,
-                status=snapshot.StatusChoices.SEALED,
-            ).update(
-                retry_at=timezone.now() if has_queued_results else None,
-                modified_at=timezone.now(),
-            )
-            return True
-        if snapshot.status == Snapshot.StatusChoices.SEALED:
-            if maintenance_ran:
-                return True
-            return run_snapshot_maintenance(str(snapshot.id))
-
-    if snapshot.status == Snapshot.StatusChoices.STARTED:
-        _reset_count, running_count = snapshot.reset_abandoned_results()
-        if running_count:
-            snapshot.update_and_requeue(retry_at=timezone.now() + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS))
-            return True
+        return run_snapshot_maintenance(str(snapshot.id))
 
     if not snapshot.claim_processing_lock(lock_seconds=lock_seconds):
         return False
     snapshot.refresh_from_db()
+    if any(process.is_running for process in snapshot.process_set.filter(status="running").iterator()):
+        # The Snapshot lease may have expired while an abx-dl hook process is
+        # still alive. Preserve the snapshot-level ownership boundary and do
+        # not launch a second sequence; ArchiveResult status is irrelevant.
+        snapshot.update_and_requeue(retry_at=timezone.now() + timedelta(seconds=lock_seconds))
+        return True
+    if snapshot.fs_migration_needed:
+        # Migrate before abx-dl writes new hook outputs. The claimed Snapshot
+        # lease remains in place and the idempotent migration persists its
+        # indexed fs_version marker only after copy/verification/cleanup.
+        snapshot.save(update_fields=["retry_at", "modified_at"])
+        snapshot.refresh_from_db()
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
-        has_server_archiveresults = snapshot.archiveresult_set.exclude(
-            hook_name=Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
-        ).exists()
-        if has_server_archiveresults and snapshot.is_finished_processing():
-            finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
-            snapshot.refresh_from_db()
-            if snapshot.status == Snapshot.StatusChoices.SEALED:
-                if snapshot.fs_migration_needed:
-                    run_snapshot_maintenance(str(snapshot.id))
-                    snapshot.refresh_from_db()
-                _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
-                return True
-        # A Snapshot with no server hook rows is fresh lifecycle work; materialize
-        # its configured hook set. Browser-extension uploads are completed external
-        # outputs, not the durable server workset, and must coexist with these rows.
-        if not has_server_archiveresults:
-            snapshot.create_pending_archiveresults(hooks=snapshot_hooks_for_pending_archiveresults(snapshot))
-        snapshot.advance_lifecycle()
+        snapshot.start_processing()
         snapshot.refresh_from_db()
-        if snapshot.status == Snapshot.StatusChoices.SEALED:
-            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
-            return True
-    if snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.archiveresult_set.exists() and snapshot.is_finished_processing():
-        finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
-        snapshot.refresh_from_db()
-        if snapshot.status == Snapshot.StatusChoices.SEALED:
-            if snapshot.fs_migration_needed:
-                run_snapshot_maintenance(str(snapshot.id))
-                snapshot.refresh_from_db()
-            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot, status="SEALED")
-            return True
-    if snapshot.status == Snapshot.StatusChoices.STARTED:
-        queued_plugins, selected_hooks_by_plugin = queued_plugins_and_hooks_for_snapshot(str(snapshot.id))
-        if queued_plugins and selected_hooks_by_plugin:
-            fail_unavailable_queued_hooks(
-                str(snapshot.id),
-                selected_hooks_by_plugin,
-                get_plugin_catalog(),
-            )
-            if not queued_plugins_for_snapshot(str(snapshot.id)):
-                finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
-                return True
+    if snapshot.status != Snapshot.StatusChoices.STARTED:
+        return True
     _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
     run_crawl(
         str(snapshot.crawl_id),
         snapshot_ids=[str(snapshot.id)],
-        # Do not pass this snapshot's queued plugin set as a crawl-wide runner
-        # filter. Internal import roots intentionally queue only parser hooks,
-        # but any child snapshots discovered from that root must still run the
-        # normal crawl plugin surface. run_snapshot() narrows the current
-        # snapshot from its queued ArchiveResult rows immediately before
-        # execution; leaving the runner unconstrained keeps that narrowing
-        # local to the one snapshot that owns those rows.
         selected_plugins=None,
         process_discovered_snapshots_inline=True,
         interactive_interrupts=interactive_interrupts,
-        selected_plugins_are_explicit=False,
     )
-    snapshot.refresh_from_db()
-    if queued_plugins_for_snapshot(str(snapshot.id)):
-        # Hook-level resume work is tracked by queued ArchiveResult rows, not by
-        # the Snapshot lease. If a partial pass returns with rows still queued,
-        # wake the Snapshot immediately so takeover does not wait out a stale
-        # active-state lock before running the remaining hooks.
-        snapshot.update_and_requeue(retry_at=timezone.now())
     return True
 
 
@@ -1789,7 +1422,6 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     ArchiveBoxBinaryService(bus)
     BinaryService(bus)
     TagService(bus)
-    ArchiveResultService(bus)
     MachineService(bus)
     live_stream = None
     bus_destroyed = False
@@ -1806,13 +1438,8 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
         for plugin in selected_plugins.values():
             if plugin.enabled_key in plugin.config.properties:
                 install_config[plugin.enabled_key] = True
-        plan = ExecutionPlan.build(
-            catalog,
-            selected_plugins=list(selected_plugins),
-            config=install_config,
-            derived_config=derived_config,
-            runtime="archivebox",
-        )
+        install_config["ABX_RUNTIME"] = "archivebox"
+        install_timeout = compute_install_phase_timeout(get_install_plugins(selected_plugins), install_config)
         timeout_seconds = config["TIMEOUT"]
         stdout_is_tty = sys.stdout.isatty()
         stderr_is_tty = sys.stderr.isatty()
@@ -1864,13 +1491,32 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                 )
             with live_ui if live_ui is not None else nullcontext():
                 try:
-                    await abx_install_plugins(
-                        plan,
+                    HookProcessService(bus, emit_jsonl=False, interactive_tty=interactive_tty)
+                    PluginBinaryEnvService(bus, catalog=selected_plugins)
+                    install_snapshot = AbxSnapshot(url="")
+                    PluginBinariesService(
+                        bus,
+                        catalog=selected_plugins,
+                        auto_install=True,
+                        install_plugins=get_install_plugins(selected_plugins),
                         output_dir=output_dir,
-                        emit_jsonl=False,
-                        bus=bus,
-                        BinaryService=None,
+                        snapshot=install_snapshot,
                     )
+                    await bus.emit(MachineEvent(config=install_config, config_type="user")).now()
+                    if derived_config:
+                        await bus.emit(MachineEvent(config=derived_config, config_type="derived")).now()
+                    install_event = bus.emit(
+                        InstallEvent(
+                            url="",
+                            snapshot_id=install_snapshot.id,
+                            output_dir=str(output_dir),
+                            event_timeout=install_timeout,
+                            event_handler_slow_timeout=slow_warning_timeout(install_timeout),
+                        ),
+                    )
+                    await install_event.now(timeout=install_timeout)
+                    await install_event.wait(timeout=install_timeout)
+                    await install_event.event_results_list()
                 finally:
                     try:
                         await bus.wait_until_idle()
@@ -1946,116 +1592,6 @@ def _run_due_snapshot_id(snapshot_id, *, lock_seconds: int, interactive_interrup
     return True
 
 
-def _run_due_queued_plugin_result(
-    plugin_names: frozenset[str],
-    *,
-    crawl_id: str | None,
-    lock_seconds: int,
-    interactive_interrupts: bool,
-    runtime_config,
-    batch_size: int = QUEUED_PLUGIN_RESULT_BATCH_SIZE,
-) -> bool:
-    from archivebox.core.models import ArchiveResult, Snapshot
-    from django.db.models import Exists, OuterRef
-
-    if not plugin_names:
-        return False
-    now = timezone.now()
-    queued_results = ArchiveResult.objects.filter(
-        snapshot_id=OuterRef("pk"),
-        status=ArchiveResult.StatusChoices.QUEUED,
-        plugin__in=plugin_names,
-    )
-    first_due_query = (
-        ArchiveResult.objects.filter(
-            status=ArchiveResult.StatusChoices.QUEUED,
-            plugin__in=plugin_names,
-            snapshot__retry_at__lte=now,
-            snapshot__status=Snapshot.StatusChoices.SEALED,
-        )
-        .filter(**({"snapshot__crawl_id": crawl_id} if crawl_id else {}))
-        .values("snapshot_id", "snapshot__crawl_id")[:1]
-    )
-    first_due_results = list(first_due_query)
-    if not first_due_results:
-        return False
-    root_crawl_id = str(first_due_results[0]["snapshot__crawl_id"])
-
-    due_snapshots = Snapshot.objects.filter(
-        retry_at__lte=now,
-        status=Snapshot.StatusChoices.SEALED,
-    ).filter(Exists(queued_results))
-    if crawl_id:
-        due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
-    batch_candidates = list(
-        # The crawl picker above starts from enabled queued ArchiveResult rows
-        # and uses a sliced LIMIT 1. Do not use QuerySet.first() here: it adds
-        # ordering and can turn this hot scheduler check into a temp-sort over
-        # hundreds of thousands of plugin rows. Once a crawl is selected,
-        # sibling order is irrelevant; the crawl_id/status index can fetch this
-        # small local batch directly while EXISTS proves the enabled queued
-        # plugin rows via the existing ArchiveResult unique index.
-        due_snapshots.filter(crawl_id=root_crawl_id).order_by()[:batch_size],
-    )
-    if not batch_candidates:
-        return False
-
-    selected_plugins: list[str] | None = None
-    claimed_snapshot_ids: list[str] = []
-    for snapshot in batch_candidates:
-        snapshot_selected_plugins = [
-            plugin_name for plugin_name in (queued_plugins_for_snapshot(str(snapshot.id)) or []) if plugin_name in plugin_names
-        ]
-        if not snapshot_selected_plugins:
-            continue
-        if selected_plugins is None:
-            selected_plugins = snapshot_selected_plugins
-        if snapshot_selected_plugins != selected_plugins:
-            continue
-        claimed = Snapshot.claim_for_worker(snapshot, lock_seconds=lock_seconds)
-        if not claimed:
-            continue
-        snapshot.refresh_from_db()
-        snapshot.finalize_completed_upload_results()
-        if snapshot.fs_migration_needed:
-            run_snapshot_maintenance(str(snapshot.id))
-            snapshot.refresh_from_db()
-        if snapshot.status != Snapshot.StatusChoices.SEALED:
-            continue
-        claimed_snapshot_ids.append(str(snapshot.id))
-        _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
-
-    if not claimed_snapshot_ids or selected_plugins is None:
-        return True
-
-    run_crawl(
-        root_crawl_id,
-        snapshot_ids=claimed_snapshot_ids,
-        selected_plugins=selected_plugins,
-        process_discovered_snapshots_inline=True,
-        interactive_interrupts=interactive_interrupts,
-        config_overrides=config_overrides_for_queued_plugins(selected_plugins, CRAWL_MAX_CONCURRENT_SNAPSHOTS=batch_size),
-        selected_plugins_are_explicit=False,
-    )
-    queued_results = ArchiveResult.objects.filter(
-        snapshot_id=OuterRef("pk"),
-        status=ArchiveResult.StatusChoices.QUEUED,
-        plugin__in=selected_plugins,
-    )
-    Snapshot.objects.filter(
-        id__in=claimed_snapshot_ids,
-        status=Snapshot.StatusChoices.SEALED,
-    ).annotate(
-        has_queued_results=Exists(queued_results),
-    ).filter(
-        has_queued_results=False,
-    ).update(
-        retry_at=None,
-        modified_at=timezone.now(),
-    )
-    return True
-
-
 def _run_due_binary() -> bool:
     from archivebox.machine.models import Binary
 
@@ -2081,12 +1617,11 @@ def run_pending_crawls(
     crawl_id: str | None = None,
     maintenance_only: bool = False,
     interactive_interrupts: bool = False,
-    maintenance_batch_size: int = QUEUED_PLUGIN_RESULT_BATCH_SIZE,
+    maintenance_batch_size: int = MAINTENANCE_BATCH_SIZE,
 ) -> int:
     from archivebox.config.common import get_config
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.plugins.discovery import get_enabled_plugins, get_plugin_catalog
     from archivebox.machine.models import Process
 
     crawl_claim_lock_seconds = 10
@@ -2116,7 +1651,7 @@ def run_pending_crawls(
             now = timezone.now()
             for schedule in CrawlSchedule.objects.filter(is_enabled=True).select_related("template", "template__created_by"):
                 if schedule.is_due(now):
-                    schedule.enqueue(queued_at=now)
+                    schedule.dispatch(queued_at=now)
 
         if maintenance_only:
             # Filesystem migration is independent of lifecycle status; do not
@@ -2218,42 +1753,14 @@ def run_pending_crawls(
             ):
                 continue
 
-        # Plugin selection is live crawl-execution config, not an installed-
-        # plugin list. Old queued rows for a plugin that is disabled by the
-        # current Machine/Crawl/Snapshot config remain queued until the user
-        # re-enables it. Refresh here to preserve mid-run config edits while
-        # using the same enabled-hook discovery path that created the rows.
-        runtime_config = get_config()
-        catalog = get_plugin_catalog()
-        enabled_plugins = get_enabled_plugins(config=runtime_config)
-        queued_plugin_names = frozenset(plugin.name for plugin, _hook in catalog.hooks("Snapshot", names=enabled_plugins))
-        if _run_due_queued_plugin_result(
-            queued_plugin_names,
-            crawl_id=crawl_id,
-            lock_seconds=60,
-            interactive_interrupts=interactive_interrupts,
-            runtime_config=runtime_config,
-            batch_size=maintenance_batch_size,
-        ):
-            continue
-
         if not maintenance_only:
-            # Broad final-state maintenance is intentionally a fallback. Specific
-            # queued plugin work above can use ArchiveResult's scheduler indexes;
-            # this branch may need to prove that no due sealed snapshot remains, so
-            # avoid paying that scan while targeted work is already available.
+            # Final snapshots can still have an explicit filesystem/index-json
+            # maintenance tick. Search extraction is invoked directly by the
+            # update path and never enters this scheduler through ArchiveResult.
             sealed_snapshots = Snapshot.objects.filter(
                 retry_at__lte=timezone.now(),
                 status=Snapshot.StatusChoices.SEALED,
             )
-            if queued_plugin_names:
-                queued_plugin_snapshot_ids = ArchiveResult.objects.filter(
-                    status=ArchiveResult.StatusChoices.QUEUED,
-                    plugin__in=queued_plugin_names,
-                ).values("snapshot_id")
-                sealed_snapshots = sealed_snapshots.exclude(
-                    id__in=queued_plugin_snapshot_ids,
-                )
             if crawl_id:
                 sealed_snapshots = sealed_snapshots.filter(crawl_id=crawl_id)
             if _run_due_snapshot_query(

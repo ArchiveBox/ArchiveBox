@@ -56,9 +56,11 @@ def test_schedule_without_import_path_creates_maintenance_schedule(initialized_a
     assert "Created scheduled maintenance update" in result.stdout
 
     with use_archivebox_db(initialized_archive):
-        row = Crawl.objects.order_by("-created_at").values_list("urls", "status").first()
+        schedule_row = CrawlSchedule.objects.select_related("template").get()
 
-    assert row == ("archivebox://update", "sealed")
+    assert schedule_row.kind == "update"
+    assert schedule_row.template.urls == ""
+    assert schedule_row.template.status == "sealed"
 
 
 def test_schedule_creates_enabled_db_schedule(initialized_archive):

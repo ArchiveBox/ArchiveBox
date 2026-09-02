@@ -48,6 +48,7 @@ def _run_shipped_snapshot_hook(
     import asyncio
 
     from abx_dl.services.process_service import ProcessService as HookProcessService
+    from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
     from abx_plugins.plugins.base.utils import get_hydrated_required_binaries
     from archivebox.core.models import ArchiveResult
     from archivebox.machine.models import Process
@@ -76,6 +77,7 @@ def _run_shipped_snapshot_hook(
     output_dir.mkdir(parents=True, exist_ok=True)
     bus = create_bus(name=f"test_real_{plugin}_{snapshot.id}")
     HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
+    HookArchiveResultService(bus, emit_jsonl=False)
     PersistedProcessService(bus)
     ArchiveResultService(bus)
 
@@ -291,7 +293,6 @@ def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_p
     assert result.status == ArchiveResult.StatusChoices.FAILED
     assert result.process_id == process.id
     assert "Chrome session" in result.output_str
-    assert result.output_str in result.notes
     _cleanup_machine_process_rows()
 
 
@@ -464,15 +465,12 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
     assert reset_count == 1
     assert snapshot.status == Snapshot.StatusChoices.QUEUED
     assert snapshot.retry_at is not None
-    assert snapshot.current_step == 0
-    assert result.status == ArchiveResult.StatusChoices.QUEUED
-    assert result.output_str == ""
-    assert result.output_json is None
-    assert result.output_files == {}
-    assert result.output_size == 0
-    assert result.output_mimetypes == ""
-    assert result.start_ts is None
-    assert result.end_ts is None
+    assert snapshot.config["PLUGINS"] == "chrome"
+    assert result.status == ArchiveResult.StatusChoices.FAILED
+    assert result.output_str == "timed out"
+    assert result.output_files == {"stderr.log": {}}
+    assert result.output_size == 123
+    assert result.output_mimetypes == "text/plain"
     assert ArchiveResult.objects.get(snapshot=snapshot, plugin="ublock").status == ArchiveResult.StatusChoices.SKIPPED
     assert ArchiveResult.objects.get(snapshot=snapshot, plugin="forumdl").status == ArchiveResult.StatusChoices.NORESULTS
     snapshot.refresh_from_db()

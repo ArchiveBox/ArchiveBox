@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
-from django.core.exceptions import ValidationError
-from rich import print as rprint
 from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
 from abx_dl.limits import CrawlLimitState
 from abx_dl.services.base import BaseService
@@ -76,7 +73,11 @@ def finalize_completed_snapshot(
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
         snapshot.advance_lifecycle()
         snapshot.refresh_from_db()
-    if snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.is_finished_processing():
+    # SnapshotCompletedEvent is abx-dl's authoritative signal that the complete
+    # snapshot hook sequence (including cleanup) finished. ArchiveResult rows
+    # are projections of that work, never prerequisites used to decide whether
+    # the Snapshot may seal.
+    if snapshot.status == Snapshot.StatusChoices.STARTED:
         snapshot.seal()
         snapshot.refresh_from_db()
 
@@ -113,26 +114,7 @@ class SnapshotService(BaseService):
             if snapshot.is_paused:
                 return
             if snapshot.status == Snapshot.StatusChoices.QUEUED:
-                if not await snapshot.archiveresult_set.aexists():
-                    from archivebox.services.runner import snapshot_hooks_for_pending_archiveresults
-
-                    hooks = await sync_to_async(snapshot_hooks_for_pending_archiveresults, thread_sensitive=True)(snapshot)
-                    await sync_to_async(snapshot.create_pending_archiveresults, thread_sensitive=True)(hooks=hooks)
-                try:
-                    await sync_to_async(snapshot.advance_lifecycle, thread_sensitive=True)()
-                except ValidationError as err:
-                    if "ArchiveBox cannot archive its own admin, web, api, or snapshot URLs." not in str(err):
-                        raise
-                    await Snapshot.objects.filter(id=snapshot.id).aupdate(
-                        status=Snapshot.StatusChoices.SEALED,
-                        retry_at=None,
-                        modified_at=timezone.now(),
-                    )
-                    rprint(
-                        f"[red][X] Refusing to archive ArchiveBox internal URL for security: {snapshot.url}[/red]",
-                        file=sys.stderr,
-                    )
-                    return
+                await sync_to_async(snapshot.advance_lifecycle, thread_sensitive=True)()
                 await sync_to_async(snapshot.refresh_from_db, thread_sensitive=True)()
             elif snapshot.status != Snapshot.StatusChoices.STARTED:
                 return

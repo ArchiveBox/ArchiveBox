@@ -13,9 +13,9 @@ from django.conf import settings
 from django.contrib import admin
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
-from django.db.models import Case, F, Q, QuerySet, Sum, Value, When
+from django.db.models import F, Q, QuerySet, Sum, Value
 from django.db.models.fields.json import KT
-from django.db.models.functions import Coalesce, Concat
+from django.db.models.functions import Coalesce
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -538,8 +538,6 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):  # ty: ig
 class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithQueue):
     BROWSER_EXTENSION_UPLOAD_HOOK_NAME = "on_Snapshot__archivebox_browser_extension_upload"
 
-    INTERNAL_INPUT_URL = "archivebox://internal"
-
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     modified_at = models.DateTimeField(auto_now=True)
@@ -567,14 +565,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     fs_version = models.CharField(
         max_length=10,
         default="0.9.0",
-        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.0"). Used to trigger lazy migration on save().',
-    )
-    current_step = models.PositiveSmallIntegerField(
-        default=0,
         db_index=True,
-        help_text="Current hook step being executed (0-9). Used for sequential hook execution.",
+        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.4").',
     )
-
     retry_at = ModelWithQueue.RetryAtField(default=timezone.now)
     status = ModelWithQueue.StatusField(
         choices=ModelWithQueue.StatusChoices,
@@ -730,20 +723,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return self.update_and_requeue(
             status=self.StatusChoices.QUEUED,
             retry_at=when or timezone.now(),
-            current_step=0,
         )
 
     def pause(self, *, save: bool = True) -> bool:
-        paused = super().pause(save=save)
-        if paused and self.pk:
-            ArchiveResult.pause_queryset(self.archiveresult_set.all())
-        return paused
+        return super().pause(save=save)
 
     def resume(self, *, when: datetime | None = None, save: bool = True) -> bool:
-        resumed = super().resume(when=when, save=save)
-        if resumed and self.pk:
-            ArchiveResult.resume_queryset(self.archiveresult_set.all(), when=when)
-        return resumed
+        return super().resume(when=when, save=save)
 
     def restore_paused_scheduler_marker(self) -> None:
         """
@@ -817,20 +803,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             modified_at=now,
         )
 
-    def reset_abandoned_results(self) -> tuple[int, int]:
-        reset_count = 0
-        running_count = 0
-        for result in self.archiveresult_set.filter(
-            status__in=[ArchiveResult.StatusChoices.STARTED, ArchiveResult.StatusChoices.BACKOFF],
-        ).select_related("process"):
-            process = result.process
-            if process is not None and process.is_running:
-                running_count += 1
-                continue
-            result.reset_for_retry()
-            reset_count += 1
-        return reset_count, running_count
-
     def start_processing(self) -> bool:
         """Atomically move a claimed queued Snapshot into its active lease."""
         owned_retry_at = self.retry_at
@@ -880,12 +852,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if self.status == self.StatusChoices.PAUSED:
             return False
         if self.status == self.StatusChoices.QUEUED:
-            results = self.archiveresult_set.all()
-            if results.exists() and not results.exclude(status__in=ArchiveResult.FINAL_STATES).exists():
-                return self.seal()
             return bool(self.url) and self.start_processing()
-        if self.status == self.StatusChoices.STARTED and self.is_finished_processing():
-            return self.seal()
+        # abx-dl emits SnapshotCompletedEvent after the complete hook sequence;
+        # ArchiveResult projection state never drives Snapshot completion.
         return False
 
     def cancel(self) -> None:
@@ -1021,9 +990,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return False
 
     def validate_url_for_archiving(self, *, config: Mapping[str, Any] | Any | None = None) -> None:
-        if self.is_internal_input_url():
-            return
-
         try:
             validate_url(self.url or "")
         except ValueError as err:
@@ -1031,9 +997,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         if self.is_archivebox_internal_url(self.url, config=config):
             raise ValidationError({"url": "ArchiveBox cannot archive its own admin, web, api, or snapshot URLs."})
-
-    def is_internal_input_url(self) -> bool:
-        return (self.url or "").strip() == self.INTERNAL_INPUT_URL and self.depth == 0 and bool(self.crawl_id)
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
@@ -1062,18 +1025,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if self._state.adding or update_fields is None or "notes" in update_fields:
             self.notes = sanitize_html_text(self.notes)
 
-        # Migrate filesystem if needed (happens automatically on save)
+        # The maintenance runner currently signals its explicit filesystem pass
+        # with this narrow update. Ordinary model saves must never move archive
+        # directories as an unrelated metadata side effect.
         existing_snapshot = self.pk and not self._state.adding
-        if existing_snapshot and self.fs_migration_needed:
+        maintenance_update = update_fields is not None and set(update_fields) == {"retry_at", "modified_at"}
+        if existing_snapshot and maintenance_update and self.fs_migration_needed:
             self.migrate_filesystem_to_current_version()
-            update_fields = kwargs.get("update_fields")
-            if update_fields is not None:
-                kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "fs_version", "modified_at"]))
-        elif existing_snapshot:
-            current_dir = self.get_storage_path_for_version(self._fs_current_version())
-            source_dir = Path(self.output_dir)
-            if source_dir.exists() and source_dir != current_dir and not source_dir.is_symlink():
-                self.migrate_filesystem_to_current_version(source_dir=source_dir)
 
         super().save(*args, **kwargs)
 
@@ -1098,49 +1056,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     Tag.objects.bulk_create(missing_tags, ignore_conflicts=True)
                     tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=crawl_tag_names)}
                 self.add_tag_ids([tag.pk for name in crawl_tag_names if (tag := tags_by_name.get(name))])
-            # Snapshot.save() normally appends newly created URLs to Crawl.urls
-            # so legacy/direct crawls can keep their queue text in sync. For
-            # internal-input crawls that would corrupt the original submitted
-            # import text; parsed URLs are represented by child Snapshot rows.
-            if crawl.has_internal_input_root():
-                return
-            if not crawl.url_passes_filters(self.url, snapshot=self, use_effective_config=False):
-                return
-            # Best-effort skip if our URL is already recorded on the crawl;
-            # the atomic UPDATE below is what actually prevents clobbering.
-            crawl.refresh_from_db(fields=["urls"])
-            if self.url in {url for _raw_line, url in crawl._iter_url_lines() if url}:
-                return
-            now = timezone.now()
-            # Atomic append: SQLite reads `urls` inside the UPDATE statement,
-            # so concurrent appends never clobber each other (no read-then-write
-            # window, no CAS retry needed). A rare duplicate URL on a race is
-            # harmless — downstream consumers dedupe via Snapshot uniqueness.
-            text = models.TextField()
-            type(crawl).objects.filter(pk=crawl.pk).update(
-                urls=Case(
-                    When(Q(urls="") | Q(urls__isnull=True), then=Value(self.url, output_field=text)),
-                    default=Concat(
-                        "urls",
-                        Value("\n", output_field=text),
-                        Value(self.url, output_field=text),
-                        output_field=text,
-                    ),
-                    output_field=text,
-                ),
-                modified_at=now,
-            )
-            crawl.modified_at = now
+            # Crawl.urls remains the original submitted source. Snapshot rows
+            # are the normalized work queue and discovery projection.
 
         # get_or_create/update_or_create wrap save() in atomic(); defer filesystem
         # work and crawl maintenance so SQLite commits before touching the disk.
         transaction.on_commit(finish_snapshot_save)
-
-        migration_cleanup = self.__dict__.get("_pending_fs_migration_cleanup")
-        if migration_cleanup:
-            old_dir, new_dir = migration_cleanup
-            transaction.on_commit(lambda: self._cleanup_old_migration_dir(old_dir, new_dir))
-            delattr(self, "_pending_fs_migration_cleanup")
 
     # =========================================================================
     # Filesystem Migration Methods
@@ -1183,30 +1104,38 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def migrate_filesystem_to_current_version(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None) -> None:
         """
-        Copy legacy snapshot output into the current layout and defer old-dir cleanup.
+        Copy legacy snapshot output into the current layout and safely remove the old tree.
 
         The ordering is intentionally crash-safe:
         1. Copy from the legacy directory into the new directory idempotently.
         2. Verify the new directory has every old file.
         3. Convert metadata in the new directory.
-        4. Update fs_version in memory for the caller to save.
-        5. Cleanup is scheduled only after the DB commit succeeds.
+        4. Remove the verified legacy source.
+        5. Persist fs_version last, so an interruption remains selected by the
+           indexed stale-version query and resumes naturally.
+
+        Re-running this method also reconciles a legacy timestamp directory
+        left behind when a machine stopped after the database commit but before
+        the on-commit cleanup callback ran.
         """
         current = self.fs_version
         target = self._fs_current_version()
         cleanup: tuple[Path, Path] | None = None
         runtime_config = config or get_config()
 
-        if source_dir and current == target:
+        if current == target:
             current_dir = self.get_storage_path_for_version(target)
-            cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir, target_dir=current_dir)
+            legacy_dir = Path(source_dir) if source_dir else CONSTANTS.ARCHIVE_DIR / self.timestamp
+            cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=legacy_dir, target_dir=current_dir)
             crawl_dir = self.crawl.output_dir
             old_crawl_dir = crawl_dir.with_name(str(uuid.UUID(hex=self.crawl.id.hex)))
             if old_crawl_dir.exists() and not crawl_dir.exists() and not old_crawl_dir.is_symlink():
                 crawl_dir.parent.mkdir(parents=True, exist_ok=True)
                 old_crawl_dir.rename(crawl_dir)
             if cleanup:
-                self._pending_fs_migration_cleanup = cleanup
+                old_dir, new_dir = cleanup
+                if not self._cleanup_old_migration_dir(old_dir, new_dir):
+                    raise SnapshotMigrationError(f"Could not clean up verified migration directory: {old_dir}")
             return
 
         while current != target:
@@ -1231,7 +1160,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             source_dir = None
 
         if cleanup:
-            self._pending_fs_migration_cleanup = cleanup
+            old_dir, new_dir = cleanup
+            if not self._cleanup_old_migration_dir(old_dir, new_dir):
+                raise SnapshotMigrationError(f"Could not clean up verified migration directory: {old_dir}")
+
+        if self.pk:
+            now = timezone.now()
+            type(self).objects.filter(pk=self.pk).update(fs_version=target, modified_at=now)
+            self.modified_at = now
 
     def _fs_migrate_from_0_7_0_to_0_9_0(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None):
         return self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir, config=config)
@@ -1277,7 +1213,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         if old_dir == new_dir:
             self.convert_index_json_to_jsonl(output_dir=new_dir)
-            self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
             return None
 
         if old_dir.is_symlink():
@@ -1288,13 +1223,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if not points_to_target:
                 raise SnapshotMigrationError(f"Legacy output symlink does not point to the expected target: {old_dir}")
             self.convert_index_json_to_jsonl(output_dir=new_dir)
-            self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
-            return None
+            return (old_dir, new_dir)
 
         if not old_dir.exists():
             if new_dir.exists():
                 self.convert_index_json_to_jsonl(output_dir=new_dir)
-                self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
                 return None
             return None
 
@@ -1306,7 +1239,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 pass
             else:
                 self.convert_index_json_to_jsonl(output_dir=new_dir)
-                self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
                 return (old_dir, new_dir)
 
         def copy_file_without_overwriting(source: str, destination: str):
@@ -1352,16 +1284,50 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         # Convert index.json to index.jsonl in the new directory.
         self.convert_index_json_to_jsonl(output_dir=new_dir)
-        self.hydrate_archiveresult_output_metadata(snapshot_dir=new_dir)
 
         return (old_dir, new_dir)
 
-    def _cleanup_old_migration_dir(self, old_dir: Path, new_dir: Path):
+    @staticmethod
+    def _migration_trees_match(old_dir: Path, new_dir: Path) -> bool:
+        """Verify every legacy entry exists unchanged at the destination."""
+        import filecmp
+
+        if old_dir.is_symlink():
+            try:
+                return new_dir.exists() and old_dir.resolve() == new_dir.resolve()
+            except OSError:
+                return False
+        if not old_dir.exists():
+            return True
+        if not new_dir.is_dir() or new_dir.is_symlink():
+            return False
+
+        for source in old_dir.rglob("*"):
+            destination = new_dir / source.relative_to(old_dir)
+            if source.is_symlink():
+                copied = destination.is_symlink() and destination.readlink() == source.readlink()
+            elif source.is_dir():
+                copied = destination.is_dir() and not destination.is_symlink()
+            elif source.is_file():
+                copied = destination.is_file() and not destination.is_symlink() and filecmp.cmp(source, destination, shallow=False)
+            else:
+                copied = False
+            if not copied:
+                return False
+        return True
+
+    def _cleanup_old_migration_dir(self, old_dir: Path, new_dir: Path) -> bool:
         """Delete the old directory after its contents are verified at the new path."""
         import logging
         import shutil
 
         from archivebox.config.permissions import SudoPermission
+
+        if not self._migration_trees_match(old_dir, new_dir):
+            logging.getLogger("archivebox.migration").warning(
+                f"Refusing to remove unverified migration directory {old_dir}",
+            )
+            return False
 
         # Delete old directory
         if old_dir.exists() and not old_dir.is_symlink():
@@ -1374,11 +1340,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 logging.getLogger("archivebox.migration").warning(
                     f"Could not remove old migration directory {old_dir}: {e}",
                 )
-                return
+                return False
 
         # Older migration runs may already have left a timestamp projection.
         if old_dir.is_symlink():
             old_dir.unlink(missing_ok=True)
+        return True
 
     # =========================================================================
     # Path Calculation and Migration Helpers
@@ -2796,18 +2763,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.remove_tag_ids(existing_tag_ids - tag_ids)
         self.add_tag_ids(tag_ids - existing_tag_ids)
 
-    def pending_archiveresults(self) -> QuerySet["ArchiveResult"]:
-        return self.archiveresult_set.exclude(status__in=ArchiveResult.FINAL_OR_ACTIVE_STATES)
-
-    def run(self) -> list["ArchiveResult"]:
-        """
-        Execute snapshot by creating pending ArchiveResults for all enabled hooks.
-
-        Returns:
-            list[ArchiveResult]: Newly created pending results
-        """
-        return self.create_pending_archiveresults()
-
     def finalize_output_metadata(self) -> None:
         """
         Clean up background ArchiveResult hooks and empty results.
@@ -3054,63 +3009,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         return snapshot
 
-    def create_pending_archiveresults(self, hooks: Iterable[tuple[str, str]] | None = None) -> list["ArchiveResult"]:
-        """
-        Create ArchiveResult records for all enabled hooks.
-
-        Uses the hooks system to discover available hooks from:
-        - abx_plugins/plugins/*/on_Snapshot__*.{py,sh,js}
-        - data/custom_plugins/*/on_Snapshot__*.{py,sh,js}
-
-        Creates one ArchiveResult per hook (not per plugin), with hook_name set.
-        This enables step-based execution where all hooks in a step can run in parallel.
-        """
-        try:
-            self.validate_url_for_archiving()
-        except ValidationError as err:
-            rprint(f"[yellow][!] Skipping blocked snapshot URL: {(self.url or '')[:120]}... ({err})[/yellow]")
-            return []
-
-        if hooks is None:
-            from archivebox.config.common import get_config
-            from archivebox.plugins.hooks import discover_hooks
-
-            # Compatibility path for direct model callers. The runner passes its
-            # abx-dl hook inventory explicitly so queued rows match execution.
-            config = get_config(crawl=self.crawl, snapshot=self)
-            hooks = ((hook_path.parent.name, hook_path.stem) for hook_path in discover_hooks("Snapshot", config=config))
-        archiveresults = []
-
-        for plugin, hook_name in hooks:
-            # Hooks in one plugin share a filesystem directory, but each hook has
-            # its own durable result row and retries update that exact row.
-            archiveresult, _created = ArchiveResult.get_or_create_by_hook(
-                self,
-                plugin,
-                hook_name,
-                defaults={
-                    "status": ArchiveResult.INITIAL_STATE,
-                },
-            )
-            if archiveresult.status == ArchiveResult.INITIAL_STATE:
-                archiveresults.append(archiveresult)
-
-        return archiveresults
-
-    def is_finished_processing(self) -> bool:
-        """
-        Check if all ArchiveResults are finished.
-
-        Note: This is only called for observability/progress tracking.
-        The shared runner owns execution and does not poll this.
-        """
-        # Check if any ARs are still pending/started
-        pending = self.archiveresult_set.exclude(
-            status__in=ArchiveResult.FINAL_STATES,
-        ).exists()
-
-        return not pending
-
     def get_progress_stats(self) -> dict:
         """
         Get progress statistics for this snapshot's archiving process.
@@ -3171,34 +3069,20 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         }
 
     def retry_failed_archiveresults(self) -> int:
-        """
-        Reset failed ArchiveResults to queued for retry.
-
-        Returns count of ArchiveResults reset.
-        """
-        retryable_results = ArchiveResult.objects.filter(
-            snapshot=self,
-            status=ArchiveResult.StatusChoices.FAILED,
+        """Queue the parent Snapshot to rerun plugins with failed facts."""
+        plugins = list(
+            self.archiveresult_set.filter(status=ArchiveResult.StatusChoices.FAILED)
+            .exclude(plugin="")
+            .order_by("plugin")
+            .values_list("plugin", flat=True)
+            .distinct(),
         )
-        legacy_result_count = retryable_results.filter(hook_name="").count()
-        now = timezone.now()
-        count = retryable_results.exclude(hook_name="").update(
-            status=ArchiveResult.StatusChoices.QUEUED,
-            output_str="",
-            output_json=None,
-            output_files={},
-            output_size=0,
-            output_mimetypes="",
-            start_ts=None,
-            end_ts=None,
-            modified_at=now,
-        )
-
-        if count + legacy_result_count > 0:
-            self.refresh_from_db(fields=["modified_at", "retry_at", "status"])
-            self.queue_for_extraction(when=now)
-
-        return count + legacy_result_count
+        if not plugins:
+            return 0
+        self.config = {**(self.config or {}), "PLUGINS": ",".join(plugins)}
+        self.save(update_fields=["config", "modified_at"])
+        self.queue_for_extraction()
+        return len(plugins)
 
     # =========================================================================
     # URL Helper Properties (migrated from Link schema)
@@ -4276,73 +4160,9 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def get_absolute_url(self):
         return f"/{self.snapshot.archive_path}/{self.plugin}"
 
-    def reset_for_retry(self, *, save: bool = True) -> None:
-        self.status = self.StatusChoices.QUEUED
-        self.retry_at = None
-        self.output_str = ""
-        self.output_json = None
-        self.output_files = {}
-        self.output_size = 0
-        self.output_mimetypes = ""
-        self.start_ts = None
-        self.end_ts = None
-        if save:
-            self.save(
-                update_fields=[
-                    "status",
-                    "retry_at",
-                    "output_str",
-                    "output_json",
-                    "output_files",
-                    "output_size",
-                    "output_mimetypes",
-                    "start_ts",
-                    "end_ts",
-                    "modified_at",
-                ],
-            )
-
     @property
     def is_paused(self) -> bool:
         return self.status == self.StatusChoices.PAUSED
-
-    @classmethod
-    def pause_queryset(cls, queryset) -> int:
-        return queryset.exclude(status__in=[*cls.FINAL_STATES, cls.StatusChoices.PAUSED]).update(
-            status=cls.StatusChoices.PAUSED,
-            retry_at=RETRY_AT_MAX,
-            modified_at=timezone.now(),
-        )
-
-    @classmethod
-    def resume_queryset(cls, queryset, *, when: datetime | None = None) -> int:
-        return queryset.filter(status=cls.StatusChoices.PAUSED).update(
-            status=cls.StatusChoices.QUEUED,
-            retry_at=when or timezone.now(),
-            modified_at=timezone.now(),
-        )
-
-    def pause(self, *, save: bool = True) -> bool:
-        if self.status in self.FINAL_STATES:
-            return False
-        if self.is_paused:
-            return False
-        self.status = self.StatusChoices.PAUSED
-        self.retry_at = RETRY_AT_MAX
-        if save:
-            self.pause_queryset(type(self).objects.filter(pk=self.pk))
-            self.refresh_from_db()
-        return True
-
-    def resume(self, *, when: datetime | None = None, save: bool = True) -> bool:
-        if not self.is_paused:
-            return False
-        self.status = self.StatusChoices.QUEUED
-        self.retry_at = when or timezone.now()
-        if save:
-            self.resume_queryset(type(self).objects.filter(pk=self.pk), when=self.retry_at)
-            self.refresh_from_db()
-        return True
 
     @staticmethod
     def _normalize_output_files(raw_output_files: Any) -> dict[str, dict[str, Any]]:

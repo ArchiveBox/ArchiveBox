@@ -102,7 +102,7 @@ def test_snapshot_pause_wins_over_concurrent_runner_lease(api_admin_user):
     assert snapshot.retry_at == RETRY_AT_MAX
 
 
-def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_finished_rows(
+def test_snapshot_pause_resume_api_leaves_archiveresult_facts_unchanged(
     request,
     tmp_path,
     client,
@@ -159,10 +159,10 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
             url=blocking_http_server.url,
             status=Snapshot.StatusChoices.QUEUED,
             retry_at=now,
+            config={"PLUGINS": "wget"},
         )
         Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED, retry_at=now)
         snapshot.refresh_from_db()
-        [started_result] = snapshot.create_pending_archiveresults(hooks=[("wget", _snapshot_hook_name("wget"))])
         errors = []
 
         def run_snapshot():
@@ -185,10 +185,13 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
         request.addfinalizer(finish_runner)
         blocking_http_server.request_started.wait()
         assert errors == []
-        started_result.refresh_from_db()
+        started_result = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget")
         assert started_result.status == ArchiveResult.StatusChoices.STARTED
-        [queued_result] = snapshot.create_pending_archiveresults(
-            hooks=[("parse_txt_urls", "on_Snapshot__71_parse_txt_urls")],
+        queued_result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="parse_txt_urls",
+            hook_name="on_Snapshot__71_parse_txt_urls",
+            status=ArchiveResult.StatusChoices.QUEUED,
         )
 
         invalid_response = api_client_request(
@@ -222,8 +225,8 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
             row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[queued_result.id, started_result.id])
         }
         assert active_rows == {
-            "parse_txt_urls": (ArchiveResult.StatusChoices.PAUSED, RETRY_AT_MAX),
-            "wget": (ArchiveResult.StatusChoices.PAUSED, RETRY_AT_MAX),
+            "parse_txt_urls": (ArchiveResult.StatusChoices.QUEUED, None),
+            "wget": (ArchiveResult.StatusChoices.STARTED, None),
         }
 
         finished_rows = {
@@ -262,12 +265,7 @@ def test_snapshot_pause_resume_api_cascades_active_archiveresults_and_preserves_
         resumed_rows = {
             row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[queued_result.id, started_result.id])
         }
-        assert resumed_rows["parse_txt_urls"][0] == ArchiveResult.StatusChoices.QUEUED
-        assert resumed_rows["parse_txt_urls"][1] is not None
-        assert resumed_rows["parse_txt_urls"][1] != RETRY_AT_MAX
-        assert resumed_rows["wget"][0] == ArchiveResult.StatusChoices.QUEUED
-        assert resumed_rows["wget"][1] is not None
-        assert resumed_rows["wget"][1] != RETRY_AT_MAX
+        assert resumed_rows == active_rows
 
         assert ArchiveResult.objects.get(id=succeeded_result.id).status == ArchiveResult.StatusChoices.SUCCEEDED
         assert ArchiveResult.objects.get(id=failed_result.id).status == ArchiveResult.StatusChoices.FAILED
@@ -317,8 +315,11 @@ def test_targeted_extract_retries_one_failed_archiveresult_through_normal_snapsh
         assert "wget failed (exit=4)" in wget_result.output_str
         Snapshot.objects.filter(pk=snapshot.pk).update(url=recursive_test_site["root_url"])
         snapshot.refresh_from_db()
-        [unrelated_result] = snapshot.create_pending_archiveresults(
-            hooks=[("parse_txt_urls", "on_Snapshot__71_parse_txt_urls")],
+        unrelated_result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="parse_txt_urls",
+            hook_name="on_Snapshot__71_parse_txt_urls",
+            status=ArchiveResult.StatusChoices.QUEUED,
         )
         snapshot.output_dir.mkdir(parents=True, exist_ok=True)
         (snapshot.output_dir / "source.txt").write_text("finished row must survive targeted retry", encoding="utf-8")
@@ -343,7 +344,7 @@ def test_targeted_extract_retries_one_failed_archiveresult_through_normal_snapsh
         assert snapshot.status == Snapshot.StatusChoices.PAUSED
         assert snapshot.retry_at == RETRY_AT_MAX
         assert ArchiveResult.objects.get(id=wget_result.id).status == ArchiveResult.StatusChoices.FAILED
-        assert ArchiveResult.objects.get(id=unrelated_result.id).status == ArchiveResult.StatusChoices.PAUSED
+        assert ArchiveResult.objects.get(id=unrelated_result.id).status == ArchiveResult.StatusChoices.QUEUED
         finished_row = ArchiveResult.objects.get(id=finished_result.id)
         finished_output_path = Path(snapshot.output_dir) / finished_row.plugin / next(iter(finished_row.output_files))
         assert finished_output_path.is_file()
@@ -365,10 +366,9 @@ def test_targeted_extract_retries_one_failed_archiveresult_through_normal_snapsh
 
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.get(id=snapshot_id)
-        assert snapshot.status == Snapshot.StatusChoices.STARTED
-        assert snapshot.retry_at is not None
-        assert snapshot.retry_at != RETRY_AT_MAX
-        assert snapshot.crawl.status == snapshot.crawl.StatusChoices.STARTED
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.retry_at is None
+        assert snapshot.crawl.status == snapshot.crawl.StatusChoices.SEALED
 
         retried_wget = ArchiveResult.objects.get(id=wget_result.id)
         assert retried_wget.status == ArchiveResult.StatusChoices.SUCCEEDED
@@ -376,8 +376,8 @@ def test_targeted_extract_retries_one_failed_archiveresult_through_normal_snapsh
         assert retried_wget.output_files
 
         unrelated = ArchiveResult.objects.get(id=unrelated_result.id)
-        assert unrelated.status == ArchiveResult.StatusChoices.PAUSED
-        assert unrelated.retry_at == RETRY_AT_MAX
+        assert unrelated.status == ArchiveResult.StatusChoices.QUEUED
+        assert unrelated.retry_at is None
 
         finished = ArchiveResult.objects.get(id=finished_result.id)
         assert finished.status == ArchiveResult.StatusChoices.SUCCEEDED

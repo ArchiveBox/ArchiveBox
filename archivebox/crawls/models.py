@@ -90,6 +90,8 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
 
     @property
     def last_run_at(self):
+        if self.kind == "update":
+            return self.modified_at
         latest_crawl = self.crawl_set.order_by("-created_at").first()
         if latest_crawl:
             return latest_crawl.created_at
@@ -105,6 +107,22 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         now = now or timezone.now()
         return self.is_enabled and self.next_run_at <= now
 
+    @property
+    def kind(self) -> str:
+        return str((self.config or {}).get("SCHEDULE_KIND") or "crawl")
+
+    def dispatch(self, queued_at=None) -> "Crawl | None":
+        """Run maintenance directly or enqueue one ordinary Crawl."""
+        queued_at = queued_at or timezone.now()
+        if self.kind == "update":
+            from archivebox.cli.archivebox_update import process_all_db_snapshots
+
+            process_all_db_snapshots()
+            type(self).objects.filter(pk=self.pk).update(modified_at=queued_at)
+            self.modified_at = queued_at
+            return None
+        return self.enqueue(queued_at=queued_at)
+
     def enqueue(self, queued_at=None) -> "Crawl":
         from archivebox.config.common import build_crawl_config_snapshot
 
@@ -112,10 +130,11 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         template = self.template
         label = template.label or self.label
         persona = template.persona if template.persona_id else None
+        crawl_config = {key: value for key, value in (self.config or {}).items() if key != "SCHEDULE_KIND"}
 
         return Crawl.objects.create(
             urls=template.urls,
-            config=build_crawl_config_snapshot(persona=persona, overrides=self.config or {}),
+            config=build_crawl_config_snapshot(persona=persona, overrides=crawl_config),
             max_depth=template.max_depth,
             tags_str=template.tags_str,
             persona_id=template.persona_id,
@@ -217,7 +236,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
     def resume(self, *, when=None, save: bool = True) -> bool:
         resumed = super().resume(when=when, save=save)
         if resumed and self.pk:
-            from archivebox.core.models import ArchiveResult, Snapshot
+            from archivebox.core.models import Snapshot
 
             resume_at = when or timezone.now()
             active_snapshots = self.snapshot_set.filter(
@@ -228,7 +247,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 retry_at=resume_at,
                 modified_at=timezone.now(),
             )
-            ArchiveResult.resume_queryset(ArchiveResult.objects.filter(snapshot__crawl=self), when=resume_at)
         return resumed
 
     def cancel(self) -> None:
@@ -269,8 +287,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         now = timezone.now()
         # Parent pause is a scheduler command. Wake child rows only; each
-        # Snapshot runner claim performs the real pause transition and cascades
-        # its own ArchiveResults, keeping request/admin transactions tiny.
+        # Snapshot runner claim performs the real pause transition, keeping
+        # request/admin transactions tiny.
         active_children = self.snapshot_set.filter(
             status__in=Snapshot.RUNNABLE_STATES,
         )
@@ -514,18 +532,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if not self.urls:
             return []
         return [url for _raw_line, url in self._iter_url_lines() if url]
-
-    def has_internal_input_root(self) -> bool:
-        """Return True when Crawl.urls is preserved source text, not the work queue.
-
-        The runner creates a synthetic root snapshot for raw import text so
-        parser hooks use the same Snapshot lifecycle as every other extractor.
-        In that mode the submitted text must remain in Crawl.urls forever;
-        parsed URLs live as child Snapshot rows and should not be appended back.
-        """
-        from archivebox.core.models import Snapshot
-
-        return self.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL, depth=0).exists()
 
     @staticmethod
     def normalize_domain(value: str) -> str:
@@ -796,15 +802,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             "deleted_snapshots": filter_result["deleted_snapshots"],
         }
 
-    def get_system_task(self) -> str | None:
-        urls = self.get_urls_list()
-        if len(urls) != 1:
-            return None
-        system_url = urls[0].strip().lower()
-        if system_url.startswith("archivebox://"):
-            return system_url
-        return None
-
     def resolve_persona(self):
         from archivebox.personas.models import Persona
 
@@ -968,14 +965,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         if self.status == self.StatusChoices.SEALED:
             return []
-        # Internal-input crawls preserve the submitted text verbatim in
-        # Crawl.urls. The root snapshot's parser hooks are the only supported
-        # path for turning that text into child snapshots, otherwise a later
-        # runner pass could reinterpret plain URL-looking lines as direct
-        # depth-0 work and bypass format-specific metadata parsing.
-        if self.has_internal_input_root():
-            return []
-
         created_snapshots = []
         crawl_tag_names = self.current_tag_names()
         tags_by_name: dict[str, Tag] = {}
@@ -1247,16 +1236,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             created_snapshots.append(snapshot)
         if not created_snapshots:
             return []
-
-        crawl_urls = {url for _raw_line, url in self._iter_url_lines() if url}
-        new_url_lines = [snapshot.url for snapshot in created_snapshots if snapshot.url not in crawl_urls]
-        # For internal-input crawls, Crawl.urls is the immutable source text.
-        # Child snapshots are the parsed/indexed representation, so appending
-        # discovered URLs here would both duplicate state and destroy the exact
-        # import artifact users submitted through CLI/API/UI.
-        if new_url_lines and not self.has_internal_input_root():
-            self.urls = (self.urls.rstrip() + "\n" + "\n".join(new_url_lines)).lstrip("\n")
-            self.save(update_fields=["urls", "modified_at"])
 
         tag_names_by_url: dict[str, set[str]] = {}
         for snapshot in created_snapshots:

@@ -264,7 +264,7 @@ def test_basic_success_case_request(client, tmp_path, api_headers):
     assert response.status_code == 200, response.content
     assert response.json()["success"] is True
     crawl = Crawl.objects.get()
-    assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": submitted_url, "depth": 0}
+    assert crawl.urls == submitted_url
     assert Snapshot.objects.count() == 0
 
 
@@ -322,10 +322,7 @@ def test_api_cli_add_concurrent_first_time_default_persona_creation(tmp_path):
         crawls = list(Crawl.objects.order_by("urls").values_list("urls", flat=True))
         assert Snapshot.objects.count() == 0
 
-    expected_crawl_sources = sorted(
-        json.dumps({"type": "CrawlSeed", "url": url, "depth": 0}, separators=(",", ":")) for url in submitted_urls
-    )
-    assert crawls == expected_crawl_sources
+    assert crawls == sorted(submitted_urls)
 
 
 @pytest.mark.timeout(360)
@@ -367,14 +364,9 @@ def test_api_cli_add_import_text_formats_preserve_metadata_and_crawl_inner_urls(
         api_server = None
         run_queued_crawls(tmp_path, env=env, timeout=240)
         with use_archivebox_db(tmp_path):
-            root_counts = {
-                str(crawl.id): crawl.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL).count() for crawl in Crawl.objects.all()
-            }
-        assert root_counts and all(count == 1 for count in root_counts.values()), root_counts
-        with use_archivebox_db(tmp_path):
             for crawl in Crawl.objects.all():
-                root_snapshot = crawl.snapshot_set.get(url=Snapshot.INTERNAL_INPUT_URL)
-                root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
+                assert not crawl.snapshot_set.filter(url__startswith="archivebox://").exists()
+                root_input = (crawl.output_dir / "input" / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
                 assert root_input == crawl.urls
         api_server = start_api_server_without_runner(tmp_path, env, port)
         assert_expected_import_snapshots(tmp_path, expected_urls)

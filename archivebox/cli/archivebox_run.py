@@ -72,8 +72,8 @@ def process_stdin_records() -> int:
 
     Outputs JSONL of all processed records (for chaining).
 
-    Handles any record type: Crawl, Snapshot, ArchiveResult.
-    Auto-cascades: Crawl → Snapshots → ArchiveResults.
+    Handles Crawl and Snapshot work records. ArchiveResult records are accepted
+    as references to their parent Snapshot and plugin.
 
     Returns exit code (0 = success, 1 = error).
     """
@@ -90,6 +90,7 @@ def process_stdin_records() -> int:
     )
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot, ArchiveResult
+    from archivebox.api.v1_core import _uuid_ref_query
     from archivebox.crawls.models import Crawl
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
     from archivebox.machine.models import Binary
@@ -156,20 +157,15 @@ def process_stdin_records() -> int:
                     queued_count += 1
 
             elif record_type == TYPE_ARCHIVERESULT:
-                archiveresult = ArchiveResult.from_json(record)
-                if archiveresult:
-                    if archiveresult.status in [
-                        ArchiveResult.StatusChoices.FAILED,
-                        ArchiveResult.StatusChoices.SKIPPED,
-                        ArchiveResult.StatusChoices.NORESULTS,
-                        ArchiveResult.StatusChoices.BACKOFF,
-                    ]:
-                        archiveresult.reset_for_retry()
-                    snapshot = archiveresult.snapshot
-                    plugin_name = archiveresult.plugin
-                else:
-                    snapshot = None
-                    plugin_name = None
+                snapshot_id = str(record.get("snapshot_id") or "")
+                plugin_name = str(record.get("plugin") or "")
+                archiveresult = None
+                if not snapshot_id and record_id:
+                    archiveresult = ArchiveResult.objects.filter(_uuid_ref_query("id", str(record_id))).select_related("snapshot").first()
+                    if archiveresult:
+                        snapshot_id = str(archiveresult.snapshot_id)
+                        plugin_name = plugin_name or archiveresult.plugin
+                snapshot = Snapshot.objects.filter(id=snapshot_id).first() if snapshot_id else None
 
                 if snapshot:
                     snapshot.queue_for_extraction()
@@ -177,7 +173,7 @@ def process_stdin_records() -> int:
                     snapshot_ids_by_crawl[crawl_id].add(str(snapshot.id))
                     if plugin_name:
                         plugin_names_by_crawl[crawl_id].add(str(plugin_name))
-                    output_records.append(record if not archiveresult else archiveresult.to_json())
+                    output_records.append(archiveresult.to_json() if archiveresult else record)
                     queued_count += 1
 
             elif record_type in {TYPE_BINARYREQUEST, TYPE_BINARY}:
@@ -235,7 +231,6 @@ def process_stdin_records() -> int:
                     crawl_id,
                     snapshot_ids=None if crawl_id in full_crawl_ids else sorted(snapshot_ids_by_crawl[crawl_id]),
                     selected_plugins=None if crawl_id in run_all_plugins_for_crawl else sorted(plugin_names_by_crawl[crawl_id]),
-                    selected_plugins_are_explicit=False,
                 )
     return 0
 

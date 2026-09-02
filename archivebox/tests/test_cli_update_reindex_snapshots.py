@@ -15,84 +15,6 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_targeted_plugin_retries_preserve_sealed_snapshot_lifecycle():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.cli.archivebox_extract import run_plugins
-    from archivebox.core.models import ArchiveResult
-    from archivebox.crawls.models import Crawl
-
-    search_crawl = Crawl.objects.create(
-        urls="https://example.com/search",
-        created_by_id=get_or_create_system_user_pk(),
-        status=Crawl.StatusChoices.SEALED,
-    )
-    search_snapshot = Snapshot.objects.create(
-        url="https://example.com/search",
-        crawl=search_crawl,
-        status=Snapshot.StatusChoices.SEALED,
-    )
-    extract_crawl = Crawl.objects.create(
-        urls="https://example.com/extract",
-        created_by_id=get_or_create_system_user_pk(),
-        status=Crawl.StatusChoices.SEALED,
-    )
-    extract_snapshot = Snapshot.objects.create(
-        url="https://example.com/extract",
-        crawl=extract_crawl,
-        status=Snapshot.StatusChoices.SEALED,
-    )
-
-    assert (
-        run_plugins(
-            args=(),
-            records=[
-                {
-                    "type": "ArchiveResult",
-                    "snapshot_id": str(search_snapshot.id),
-                    "plugin": "search_backend_sqlite",
-                },
-            ],
-            wait=False,
-            emit_results=False,
-            show_progress=False,
-        )
-        == 0
-    )
-    search_crawl.refresh_from_db()
-    search_snapshot.refresh_from_db()
-    assert search_crawl.status == Crawl.StatusChoices.SEALED
-    assert search_snapshot.status == Snapshot.StatusChoices.SEALED
-    assert search_snapshot.archiveresult_set.filter(
-        plugin="search_backend_sqlite",
-        status=ArchiveResult.StatusChoices.QUEUED,
-    ).exists()
-
-    assert (
-        run_plugins(
-            args=(),
-            records=[
-                {
-                    "type": "ArchiveResult",
-                    "snapshot_id": str(extract_snapshot.id),
-                    "plugin": "wget",
-                },
-            ],
-            wait=False,
-            emit_results=False,
-            show_progress=False,
-        )
-        == 0
-    )
-    extract_crawl.refresh_from_db()
-    extract_snapshot.refresh_from_db()
-    assert extract_crawl.status == Crawl.StatusChoices.SEALED
-    assert extract_snapshot.status == Snapshot.StatusChoices.SEALED
-    assert extract_snapshot.archiveresult_set.filter(
-        plugin="wget",
-        status=ArchiveResult.StatusChoices.QUEUED,
-    ).exists()
-
-
 def test_update_imports_orphaned_snapshots(tmp_path, initialized_archive):
     """Test that archivebox update imports real legacy archive directories."""
     env = cli_env(disable_extractors=True)
@@ -196,8 +118,9 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
         assert snapshot.status == Snapshot.StatusChoices.QUEUED
         assert snapshot.retry_at is not None
         result.refresh_from_db()
-        assert result.output_files
-        assert result.output_size > 0
+        # Filesystem layout migration does not infer or mutate ArchiveResult facts.
+        assert result.output_files == {}
+        assert result.output_size == 0
         if legacy_layout:
             assert (migrated_dir / "existing-user-output.bin").read_bytes() == b"preserve interrupted migration output"
 
@@ -215,15 +138,16 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
 
 
 @pytest.mark.django_db(transaction=True)
-def test_reindex_snapshots_resets_existing_search_results_and_reruns_requested_plugins():
+def test_reindex_snapshots_runs_only_missing_sealed_search_indexes():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.cli.archivebox_update import reindex_snapshots
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl
 
     crawl = Crawl.objects.create(
-        urls="https://example.com",
+        urls="https://example.com\nhttps://example.org",
         created_by_id=get_or_create_system_user_pk(),
+        status=Crawl.StatusChoices.SEALED,
     )
     snapshot = Snapshot.objects.create(
         url="https://example.com",
@@ -250,12 +174,20 @@ def test_reindex_snapshots_resets_existing_search_results_and_reruns_requested_p
     (output_dir / "title" / "title.txt").write_text("Example Domain")
     (output_dir / "dom").mkdir(parents=True, exist_ok=True)
     (output_dir / "dom" / "output.html").write_text("<html><body>Example searchable text</body></html>")
+    missing_snapshot = Snapshot.objects.create(
+        url="https://example.org",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+    )
+    missing_output_dir = missing_snapshot.output_dir
+    (missing_output_dir / "title").mkdir(parents=True, exist_ok=True)
+    (missing_output_dir / "title" / "title.txt").write_text("Missing Search Index")
 
     original_engine = os.environ.get("SEARCH_BACKEND_ENGINE")
     os.environ["SEARCH_BACKEND_ENGINE"] = "sqlite"
     try:
         stats = reindex_snapshots(
-            Snapshot.objects.filter(id__in=(snapshot.id, paused_snapshot.id)),
+            Snapshot.objects.filter(id__in=(snapshot.id, missing_snapshot.id, paused_snapshot.id)),
             search_plugins=["search_backend_sqlite"],
             batch_size=10,
         )
@@ -267,12 +199,21 @@ def test_reindex_snapshots_resets_existing_search_results_and_reruns_requested_p
 
     result.refresh_from_db()
 
+    snapshot.refresh_from_db()
+    missing_snapshot.refresh_from_db()
     assert stats["processed"] == 1
-    assert stats["queued"] == 1
-    assert stats["reindexed"] == 0
-    assert result.status == ArchiveResult.StatusChoices.QUEUED
-    assert result.output_str == ""
-    assert result.output_json is None
+    assert stats["requested"] == 1
+    assert stats["queued"] == 0
+    assert stats["reindexed"] == 1
+    assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    assert result.output_str == "old index hit"
+    assert result.output_json == {"indexed": True}
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert missing_snapshot.status == Snapshot.StatusChoices.SEALED
+    assert missing_snapshot.archiveresult_set.filter(
+        plugin="search_backend_sqlite",
+        status__in=[ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS],
+    ).exists()
     assert not paused_snapshot.archiveresult_set.exists()
 
 

@@ -225,7 +225,7 @@ def test_add_single_url_records_url_in_crawl(initialized_archive):
         crawl = Crawl.objects.get()
         snapshots = list(Snapshot.objects.all())
 
-    assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": "https://example.com", "depth": 0}
+    assert crawl.urls == "https://example.com"
     assert crawl.get_urls_list() == ["https://example.com"]
     assert snapshots == []
 
@@ -296,12 +296,9 @@ def test_add_stdin_import_formats_preserve_metadata_and_crawl_inner_urls(initial
 
     run_queued_crawls(initialized_archive, env=env, timeout=240)
     with use_archivebox_db(initialized_archive):
-        root_counts = {str(crawl.id): crawl.snapshot_set.filter(url=Snapshot.INTERNAL_INPUT_URL).count() for crawl in Crawl.objects.all()}
-    assert root_counts and all(count == 1 for count in root_counts.values()), root_counts
-    with use_archivebox_db(initialized_archive):
         for crawl in Crawl.objects.all():
-            root_snapshot = crawl.snapshot_set.get(url=Snapshot.INTERNAL_INPUT_URL)
-            root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
+            assert not crawl.snapshot_set.filter(url__startswith="archivebox://").exists()
+            root_input = (crawl.output_dir / "input" / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
             assert root_input == crawl.urls
     assert_expected_import_snapshots(initialized_archive, expected_urls)
 
@@ -387,7 +384,7 @@ def test_run_rejects_file_url_injected_directly_into_crawl_urls_with_db_update(i
             status=Crawl.StatusChoices.QUEUED,
             retry_at=timezone.now(),
         )
-        bad_jsonl = json.dumps({"type": "CrawlSeed", "url": file_url, "depth": 0, "tags": "sql-file-url"})
+        bad_jsonl = json.dumps({"type": "Snapshot", "url": file_url, "depth": 0, "tags": "sql-file-url"})
         Crawl.objects.filter(pk=crawl.pk).update(urls=bad_jsonl)
 
     result = run_archivebox_cmd(
@@ -480,7 +477,7 @@ def test_add_bg_queues_direct_url_snapshot(initialized_archive):
 
     assert crawl.status == Crawl.StatusChoices.QUEUED
     assert crawl.retry_at is not None
-    assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": "https://example.com", "depth": 0}
+    assert crawl.urls == "https://example.com"
     assert snapshots == []
 
 
@@ -622,7 +619,7 @@ def test_add_index_only_rejected_urls_leave_empty_crawl_for_runner_to_seal(initi
 
     assert crawl.status == Crawl.StatusChoices.QUEUED
     assert crawl.retry_at is None
-    assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": "https://example.com", "depth": 0}
+    assert crawl.urls == "https://example.com"
     assert snapshot_urls == set()
 
     run_queued_crawls(initialized_archive, env)
@@ -633,7 +630,7 @@ def test_add_index_only_rejected_urls_leave_empty_crawl_for_runner_to_seal(initi
 
     assert crawl.status == Crawl.StatusChoices.SEALED
     assert crawl.retry_at is None
-    assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": "https://example.com", "depth": 0}
+    assert crawl.urls == "https://example.com"
     assert snapshot_urls == set()
 
 
@@ -658,9 +655,7 @@ def test_add_index_only_rejects_archivebox_internal_urls(initialized_archive):
         crawl = Crawl.objects.get()
         snapshot_urls = set(Snapshot.objects.values_list("url", flat=True))
 
-    assert [json.loads(line) for line in crawl.urls.splitlines()] == [
-        {"type": "CrawlSeed", "url": url, "depth": 0} for url in internal_urls
-    ]
+    assert crawl.urls.splitlines() == internal_urls
     assert crawl.status == Crawl.StatusChoices.QUEUED
     assert crawl.retry_at is None
     assert snapshot_urls == set()
@@ -713,10 +708,7 @@ def test_add_multiple_urls_single_command(initialized_archive):
         crawl = Crawl.objects.get()
         snapshots = list(Snapshot.objects.order_by("url").values_list("url", "depth"))
 
-    assert [json.loads(line) for line in crawl.urls.splitlines()] == [
-        {"type": "CrawlSeed", "url": "https://example.com", "depth": 0},
-        {"type": "CrawlSeed", "url": "https://example.org", "depth": 0},
-    ]
+    assert crawl.urls.splitlines() == ["https://example.com", "https://example.org"]
     assert snapshots == []
 
 
@@ -994,7 +986,7 @@ def test_add_index_only_queues_crawl_without_starting_runner(initialized_archive
 
     assert crawl.status == Crawl.StatusChoices.QUEUED
     assert crawl.retry_at is None
-    assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": "https://example.com", "depth": 0}
+    assert crawl.urls == "https://example.com"
     assert snapshots == []
 
 
@@ -1012,7 +1004,7 @@ def test_add_index_only_creates_direct_url_snapshot(initialized_archive):
         crawl = Crawl.objects.get()
         snapshot = Snapshot.objects.get()
 
-    assert json.loads(crawl.urls) == {"type": "CrawlSeed", "url": "https://example.com", "depth": 0}
+    assert crawl.urls == "https://example.com"
     assert snapshot.url == "https://example.com"
     assert snapshot.depth == 0
 

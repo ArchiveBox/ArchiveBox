@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import json
 import os
-import signal
 import sys
 import time
 from contextlib import contextmanager
@@ -15,7 +13,7 @@ from typing import Any
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 
-from abx_dl.events import PROCESS_EXIT_SKIPPED, ArchiveResultEvent, ProcessCompletedEvent, ProcessStartedEvent, SnapshotEvent
+from abx_dl.events import ArchiveResultEvent, ProcessStartedEvent
 from abx_dl.output_files import OutputManifest
 from abx_dl.services.base import BaseService
 
@@ -121,37 +119,6 @@ def _should_update_snapshot_title(current_title: str, next_title: str, *, snapsh
     return len(next_title) > len(current)
 
 
-def _status_for_process_without_archive_result(event: ProcessCompletedEvent) -> str:
-    if event.exit_code == PROCESS_EXIT_SKIPPED:
-        return "skipped"
-    if event.exit_code in {128 + signal.SIGHUP, 128 + signal.SIGINT, 128 + signal.SIGTERM}:
-        # This fallback only runs when a snapshot hook exited before emitting a
-        # structured ArchiveResult. A polite shutdown signal means the runner
-        # was interrupted during ownership transfer, not that the extractor
-        # produced a durable negative result. Keep the hook queued so the next
-        # runner can retry the exact work item instead of sealing in a transient
-        # process-lifecycle failure.
-        return "queued"
-    if event.exit_code != 0:
-        return "failed"
-    return "noresults"
-
-
-def _iter_archiveresult_records(stdout: str) -> list[dict]:
-    records: list[dict] = []
-    for raw_line in stdout.splitlines():
-        line = raw_line.strip()
-        if not line.startswith("{"):
-            continue
-        try:
-            record = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if record.get("type") == "ArchiveResult":
-            records.append(record)
-    return records
-
-
 @_perf_trace("archivebox.ArchiveResultService._save_archiveresult_event_sync")
 def _save_archiveresult_event_to_db(
     event: ArchiveResultEvent,
@@ -234,13 +201,6 @@ def _save_archiveresult_event_to_db(
         with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_update"):
             result.save(update_fields=[*update_fields, "modified_at"])
 
-    if result.status == ArchiveResult.StatusChoices.QUEUED:
-        # ArchiveResult has no retry_at column. If a shutdown/takeover projects
-        # a killed hook back to QUEUED, wake the parent Snapshot/Crawl so the
-        # next runner retries that exact hook instead of waiting on a stale
-        # active-state lease.
-        snapshot.update_and_requeue(retry_at=timezone.now())
-
     if result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS):
         with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.title_update"):
             title_output_str = result.output_str if result.status == ArchiveResult.StatusChoices.SUCCEEDED else ""
@@ -264,36 +224,43 @@ def _save_archiveresult_event_to_db(
 
 
 def mark_archiveresult_started(event: ProcessStartedEvent, *, snapshot_id: str, process_id: str) -> None:
-    """Advance an existing queued hook row after its OS process is persisted."""
-    from archivebox.core.models import ArchiveResult
+    """Project a running abx-dl hook after its OS process is persisted."""
+    from archivebox.core.models import ArchiveResult, Snapshot
 
     started_at = parse_event_datetime(event.start_ts)
     if started_at is None:
         raise ValueError("ProcessStartedEvent.start_ts is required")
-    ArchiveResult.objects.filter(
-        snapshot_id=snapshot_id,
-        plugin=event.plugin_name,
-        hook_name=event.hook_name,
-        status=ArchiveResult.StatusChoices.QUEUED,
-    ).update(
-        status=ArchiveResult.StatusChoices.STARTED,
-        start_ts=started_at,
-        end_ts=None,
-        process_id=process_id,
-        modified_at=timezone.now(),
+    snapshot = Snapshot.objects.filter(id=snapshot_id).first()
+    if snapshot is None:
+        return
+    result, _created = ArchiveResult.get_or_create_by_hook(
+        snapshot,
+        event.plugin_name,
+        event.hook_name,
+        defaults={
+            "status": ArchiveResult.StatusChoices.STARTED,
+            "start_ts": started_at,
+            "end_ts": None,
+            "process_id": process_id,
+        },
     )
+    result.status = ArchiveResult.StatusChoices.STARTED
+    result.start_ts = started_at
+    result.end_ts = None
+    result.process_id = process_id
+    result.save(update_fields=["status", "start_ts", "end_ts", "process_id", "modified_at"])
 
 
 class ArchiveResultService(BaseService):
-    LISTENS_TO = [ArchiveResultEvent, ProcessCompletedEvent]
+    """Project abx-dl ArchiveResult facts into Django models."""
+
+    LISTENS_TO = [ArchiveResultEvent]
     EMITS = []
 
     def __init__(self, bus):
-        self._completed_process_event_ids: set[str] = set()
         self._save_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
         super().__init__(bus)
         self.bus.on(ArchiveResultEvent, self.on_ArchiveResultEvent__save_to_db)
-        self.bus.on(ProcessCompletedEvent, self.on_ProcessCompletedEvent__save_to_db)
 
     @_perf_trace("archivebox.ArchiveResultService.on_ArchiveResultEvent__save_to_db")
     async def on_ArchiveResultEvent__save_to_db(self, event: ArchiveResultEvent) -> None:
@@ -309,64 +276,3 @@ class ArchiveResultService(BaseService):
         lock = self._save_locks.setdefault(key, asyncio.Lock())
         async with lock:
             await sync_to_async(_save_archiveresult_event_to_db, thread_sensitive=True)(event, process_started)
-
-    @_perf_trace("archivebox.ArchiveResultService.on_ProcessCompletedEvent__save_to_db")
-    async def on_ProcessCompletedEvent__save_to_db(self, event: ProcessCompletedEvent) -> None:
-        if event.event_id in self._completed_process_event_ids:
-            return
-        self._completed_process_event_ids.add(event.event_id)
-
-        if not event.hook_name.startswith("on_Snapshot"):
-            return
-        with _perf_span("archivebox.ArchiveResultService.on_ProcessCompletedEvent.find_snapshot_event"):
-            snapshot_event = await self.bus.find(
-                SnapshotEvent,
-                past=True,
-                future=False,
-                where=lambda candidate: self.bus.event_is_child_of(event, candidate),
-            )
-        if snapshot_event is None:
-            return
-
-        with _perf_span("archivebox.ArchiveResultService.on_ProcessCompletedEvent.parse_stdout_records"):
-            records = _iter_archiveresult_records(event.stdout)
-        if records:
-            if len(records) > 1:
-                raise RuntimeError(
-                    f"Hook {event.plugin_name}:{event.hook_name} emitted {len(records)} ArchiveResult records; expected exactly one",
-                )
-            for record in records:
-                record_status = _normalize_status(record.get("status") or "")
-                record_failed = record_status == "failed" or (not record_status and event.exit_code not in (0, PROCESS_EXIT_SKIPPED))
-                with _perf_span("archivebox.ArchiveResultService.on_ProcessCompletedEvent.emit_archive_result_record"):
-                    await event.emit(
-                        ArchiveResultEvent(
-                            snapshot_id=record.get("snapshot_id") or snapshot_event.snapshot_id,
-                            plugin=record.get("plugin") or event.plugin_name,
-                            hook_name=record.get("hook_name") or event.hook_name,
-                            status=record_status,
-                            output_str=record.get("output_str") or "",
-                            output_json=record.get("output_json") if isinstance(record.get("output_json"), dict) else None,
-                            output_files=event.output_files,
-                            start_ts=event.start_ts,
-                            end_ts=event.end_ts,
-                            error=record.get("error") or (event.stderr if record_failed else ""),
-                        ),
-                    ).now()
-            return
-
-        process_failed = _status_for_process_without_archive_result(event) == "failed"
-        with _perf_span("archivebox.ArchiveResultService.on_ProcessCompletedEvent.emit_archive_result_fallback"):
-            await event.emit(
-                ArchiveResultEvent(
-                    snapshot_id=snapshot_event.snapshot_id,
-                    plugin=event.plugin_name,
-                    hook_name=event.hook_name,
-                    status=_status_for_process_without_archive_result(event),
-                    output_str=event.stderr if process_failed else "",
-                    output_files=event.output_files,
-                    start_ts=event.start_ts,
-                    end_ts=event.end_ts,
-                    error=event.stderr if process_failed else "",
-                ),
-            ).now()

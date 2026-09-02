@@ -6,22 +6,19 @@ archivebox archiveresult <action> [args...] [--filters]
 Manage ArchiveResult records (plugin extraction results).
 
 Actions:
-    create  - Create ArchiveResults for Snapshots (queue extractions)
+    create  - Emit plugin extraction request records for Snapshots
     list    - List ArchiveResults as JSONL (with optional filters)
     update  - Update ArchiveResults from stdin JSONL
     delete  - Delete ArchiveResults from stdin JSONL
 
 Examples:
-    # Create ArchiveResults for snapshots (queue for extraction)
+    # Emit extraction requests; `archivebox run` schedules their parent snapshots
     archivebox snapshot list --status=queued | archivebox archiveresult create
     archivebox archiveresult create --plugin=screenshot --snapshot-id=<uuid>
 
     # List with filters
     archivebox archiveresult list --status=failed
     archivebox archiveresult list --plugin=screenshot --status=succeeded
-
-    # Update (reset failed extractions to queued)
-    archivebox archiveresult list --status=failed | archivebox archiveresult update --status=queued
 
     # Delete
     archivebox archiveresult list --plugin=singlefile | archivebox archiveresult delete --yes
@@ -157,7 +154,7 @@ def create_archiveresults(
                 write_record(build_archiveresult_request(snapshot.id, plugin_name, hook_name=hook_name, status=status))
             created_count += 1
 
-    rprint(f"[green]Created {created_count} archive result request records[/green]", file=sys.stderr)
+    rprint(f"[green]Created {created_count} extraction request records[/green]", file=sys.stderr)
     return 0
 
 
@@ -341,7 +338,7 @@ def main():
 @click.option("--plugin", "-p", help="Plugin name (e.g., screenshot, singlefile)")
 @click.option("--status", "-s", default="queued", help="Initial status (default: queued)")
 def create_cmd(snapshot_id: str | None, plugin: str | None, status: str):
-    """Create ArchiveResults for Snapshots from stdin JSONL."""
+    """Emit Snapshot plugin extraction requests as JSONL."""
     sys.exit(create_archiveresults(snapshot_id=snapshot_id, plugin=plugin, status=status))
 
 

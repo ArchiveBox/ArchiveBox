@@ -92,7 +92,7 @@ def convert_legacy_tags_to_uuid(conn: sqlite3.Connection) -> None:
 
 
 @pytest.mark.parametrize("uuid_tags", (False, True), ids=("integer-tags", "uuid-tags"))
-def test_migration_preserves_extended_08_metadata(migration_08_data, uuid_tags):
+def test_migration_preserves_supported_extended_08_metadata(migration_08_data, uuid_tags):
     work_dir, db_path, original_data = migration_08_data
     snapshot = original_data["snapshots"][1]
     parent = original_data["snapshots"][0]
@@ -152,11 +152,12 @@ def test_migration_preserves_extended_08_metadata(migration_08_data, uuid_tags):
         snapshot_row = conn.execute(
             """
             SELECT depth, config, notes, num_uses_failed, num_uses_succeeded,
-                   parent_snapshot_id, current_step, fs_version
+                   parent_snapshot_id, fs_version
             FROM core_snapshot WHERE id = ?
             """,
             (snapshot["id"],),
         ).fetchone()
+        snapshot_columns = {row[1] for row in conn.execute("PRAGMA table_info(core_snapshot)")}
         result_notes = conn.execute(
             "SELECT notes FROM core_archiveresult WHERE id = REPLACE(?, '-', '')",
             (archiveresult["uuid"],),
@@ -174,9 +175,9 @@ def test_migration_preserves_extended_08_metadata(migration_08_data, uuid_tags):
         metadata["num_uses_failed"],
         metadata["num_uses_succeeded"],
         parent["id"],
-        metadata["current_step"],
         metadata["fs_version"],
     )
+    assert "current_step" not in snapshot_columns
     assert result_notes == ("legacy archive result notes",)
     assert migrated_tag == tag_metadata
     assert migrated_counts == expected_counts
