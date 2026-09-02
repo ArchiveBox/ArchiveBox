@@ -43,13 +43,11 @@ def test_admin_login_preserves_first_admin_setup(client):
 
 @pytest.mark.django_db
 def test_email_password_login_works(client, django_user_model, monkeypatch):
-    # Disable subdomain routing so AdminCookieIsolationMiddleware does not
-    # strip the session cookie from responses issued to the test client's
-    # default "testserver" host.
     from archivebox.config.common import get_config
+    from archivebox.core.routes_util import get_admin_host
 
     config = get_config()
-    monkeypatch.setattr(type(config), "USES_SUBDOMAIN_ROUTING", property(lambda self: False))
+    admin_host = get_admin_host(config=config)
 
     user = django_user_model.objects.create_user(
         username="logintest",
@@ -70,6 +68,7 @@ def test_email_password_login_works(client, django_user_model, monkeypatch):
             "login": "logintest@example.com",
             "password": "testpassword123",
         },
+        HTTP_HOST=admin_host,
         follow=True,
     )
     assert response.status_code == 200
@@ -78,6 +77,9 @@ def test_email_password_login_works(client, django_user_model, monkeypatch):
 
 @pytest.mark.django_db
 def test_registration_mode_approval_creates_inactive_user(client, settings, monkeypatch):
+    from archivebox.config.common import get_config
+    from archivebox.core.routes_util import get_admin_host
+
     settings.ACCOUNT_ADAPTER = "archivebox.auth.adapters.ArchiveBoxAccountAdapter"
     import archivebox.auth.adapters as m
 
@@ -90,6 +92,7 @@ def test_registration_mode_approval_creates_inactive_user(client, settings, monk
             "password1": "ComplexPass999!",
             "password2": "ComplexPass999!",
         },
+        HTTP_HOST=get_admin_host(config=get_config()),
     )
     from django.contrib.auth import get_user_model
 

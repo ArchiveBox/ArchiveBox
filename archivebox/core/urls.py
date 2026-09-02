@@ -27,6 +27,17 @@ from archivebox.opencode.views import opencode_proxy_view
 from archivebox.progressmonitor.views import live_progress_view
 from archivebox.search.views import public_snapshot_search_stream_view
 
+if settings.ALLAUTH_ENABLED:
+    account_urlpatterns = [path("accounts/", include("allauth.urls"))]
+else:
+    # Preserve ArchiveBox's built-in auth surface unless allauth was explicitly
+    # enabled. Optional package installation alone must not change login behavior.
+    account_urlpatterns = [
+        path("accounts/login/", RedirectView.as_view(url="/admin/login/", query_string=True)),
+        path("accounts/logout/", RedirectView.as_view(url="/admin/logout/", query_string=True)),
+        path("accounts/", include("django.contrib.auth.urls")),
+    ]
+
 urlpatterns = [
     re_path(r"^static/(?P<path>.*)$", serve_static),
     path("robots.txt", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "robots.txt"}),
@@ -61,12 +72,8 @@ urlpatterns = [
     path("admin/core/snapshot/add/", RedirectView.as_view(url="/add/")),
     path("admin/core/snapshot/replay-auth/", SnapshotReplayAuthView.as_view(), name="snapshot-replay-auth"),
     path("add/", AddView.as_view(), name="add"),
-    # ``query_string=True`` preserves the ``?next=…`` param that Django's
-    # auth/login mixins append, so e.g. ``UserPassesTestMixin`` redirecting
-    # an unauthenticated ``/add`` visitor to ``/accounts/login/?next=/add/``
-    # carries the ``next`` through to ``/admin/login/`` and lands them at
-    # ``/add/`` after login instead of the admin homepage.
-    path("accounts/", include("allauth.urls")),
+    # The disabled-mode login redirect preserves Django's ``?next=…`` query.
+    *account_urlpatterns,
     path("progress.json", live_progress_view, name="live_progress"),
     path("admin/", archivebox_admin.urls),
     path("api/", include("archivebox.api.urls"), name="api"),

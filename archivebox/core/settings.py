@@ -43,6 +43,7 @@ WSGI_APPLICATION = "archivebox.core.wsgi.application"
 ASGI_APPLICATION = "archivebox.core.asgi.application"
 ROOT_URLCONF = "archivebox.core.urls"
 
+LOGIN_URL = "/accounts/login/"
 LOGOUT_REDIRECT_URL = CONFIG.LOGOUT_REDIRECT_URL
 
 PASSWORD_RESET_URL = "/accounts/password_reset/"
@@ -151,16 +152,9 @@ try:
                 "email": CONFIG.LDAP_EMAIL_ATTR,
             }
 
-            # Use custom LDAP backend that supports LDAP_CREATE_SUPERUSER
-            # Include allauth backend first if allauth is installed
-            try:
-                import allauth as _allauth_check  # noqa: F401
-
-                _allauth_backend = ["allauth.account.auth_backends.AuthenticationBackend"]
-            except ImportError:
-                _allauth_backend = []
-
-            AUTHENTICATION_BACKENDS = _allauth_backend + [
+            # Use custom LDAP backend that supports LDAP_CREATE_SUPERUSER.
+            # The allauth block below prepends its backend when explicitly enabled.
+            AUTHENTICATION_BACKENDS = [
                 "archivebox.ldap.auth.ArchiveBoxLDAPBackend",
                 "django.contrib.auth.backends.RemoteUserBackend",
                 "django.contrib.auth.backends.ModelBackend",
@@ -184,10 +178,16 @@ except ImportError:
 
 ################################################################################
 ### django-allauth Configuration
-# Conditionally loaded if django-allauth is installed
+# Installing an optional dependency must not silently change authentication.
+# ALLAUTH_ENABLED is the single switch for apps, middleware, backend, and routes.
 ################################################################################
-try:
-    import allauth  # noqa: F401
+ALLAUTH_ENABLED = CONFIG.ALLAUTH_ENABLED
+
+if ALLAUTH_ENABLED:
+    try:
+        import allauth  # noqa: F401
+    except ImportError as err:
+        raise ImportError("ALLAUTH_ENABLED=True requires the archivebox[allauth] optional dependency") from err
 
     INSTALLED_APPS += [
         "archivebox.auth",
@@ -213,7 +213,7 @@ try:
         "allauth.account.middleware.AccountMiddleware",
     ]
 
-    # Prepend allauth backend to the list (only if not already present, e.g., from LDAP block)
+    # Prepend allauth so its email authentication runs before Django's username backend.
     _allauth_auth_backend = "allauth.account.auth_backends.AuthenticationBackend"
     if _allauth_auth_backend not in AUTHENTICATION_BACKENDS:
         AUTHENTICATION_BACKENDS = [_allauth_auth_backend] + AUTHENTICATION_BACKENDS
@@ -239,12 +239,8 @@ try:
     # e.g. SOCIALACCOUNT_PROVIDERS='{"google": {"APP": {"client_id": "...", "secret": "..."}}}'
     SOCIALACCOUNT_PROVIDERS = CONFIG.SOCIALACCOUNT_PROVIDERS
 
-    LOGIN_URL = "/accounts/login/"
     LOGIN_REDIRECT_URL = "/admin/"
     ACCOUNT_LOGOUT_REDIRECT_URL = LOGOUT_REDIRECT_URL or "/"
-
-except ImportError:
-    pass
 
 ################################################################################
 ### Staticfile and Template Settings

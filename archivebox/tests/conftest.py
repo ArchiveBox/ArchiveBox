@@ -1,26 +1,27 @@
 """archivebox/tests/conftest.py - Pytest fixtures for CLI tests."""
 
-import os
+import ctypes
 import json
+import os
 import re
 import secrets
-import signal
 import select
+import shutil
+import signal
 import socket
 import subprocess
 import sys
 import tempfile
 import textwrap
 import time
-import shutil
-import ctypes
+from collections.abc import Callable
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.util import find_spec
 from pathlib import Path
 from threading import Event, Thread
 from types import SimpleNamespace
 from typing import Any
-from collections.abc import Callable
 
 import psutil
 import pytest
@@ -35,6 +36,11 @@ SESSION_DATA_DIR = Path(
 
 os.environ["ARCHIVEBOX_PYTEST_SESSION_DATA_DIR"] = str(SESSION_DATA_DIR)
 os.environ["DATA_DIR"] = str(SESSION_DATA_DIR)
+# When the optional dependency is present, exercise the opt-in auth stack in
+# the normal test process. The disabled-by-default contract is verified in a
+# clean subprocess by test_allauth_config.py.
+if find_spec("allauth") is not None:
+    os.environ.setdefault("ALLAUTH_ENABLED", "true")
 (SESSION_DATA_DIR / "tests").mkdir(parents=True, exist_ok=True)
 os.chdir(SESSION_DATA_DIR)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.core.settings")
@@ -1153,6 +1159,7 @@ def run_python_cwd(
         input=script,
         capture_output=True,
         text=True,
+        check=False,
         cwd=cwd,
         env=base_env,
         timeout=timeout,
@@ -1355,9 +1362,10 @@ def get_http_response(
 
 
 def make_latest_schedule_due(cwd: Path) -> None:
+    from django.utils import timezone
+
     from archivebox.crawls.models import Crawl, CrawlSchedule
     from archivebox.tests.test_orm_helpers import use_archivebox_db
-    from django.utils import timezone
 
     with use_archivebox_db(cwd):
         schedule = CrawlSchedule.objects.order_by("-created_at").select_related("template").first()
@@ -1653,6 +1661,7 @@ def resolve_abxpkg_binary_env(
         command,
         capture_output=True,
         text=True,
+        check=False,
         env=command_env,
     )
     assert result.returncode == 0, result.stderr or result.stdout

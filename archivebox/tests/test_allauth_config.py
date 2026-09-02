@@ -34,18 +34,15 @@ import json
 django.setup()
 
 from django.conf import settings
-from django.urls import Resolver404, resolve
+from django.urls import resolve
 
-try:
-    resolve('/accounts/login/')
-    accounts_route_enabled = True
-except Resolver404:
-    accounts_route_enabled = False
+login_match = resolve('/accounts/login/')
+route_uses_allauth = login_match.url_name == 'account_login'
 
 print(json.dumps({
     'app_enabled': 'allauth.account' in settings.INSTALLED_APPS,
     'backend_enabled': 'allauth.account.auth_backends.AuthenticationBackend' in settings.AUTHENTICATION_BACKENDS,
-    'route_enabled': accounts_route_enabled,
+    'route_uses_allauth': route_uses_allauth,
 }))
 """,
         ],
@@ -56,7 +53,7 @@ print(json.dumps({
         text=True,
     )
     state = json.loads(result.stdout.splitlines()[-1])
-    assert state == {"app_enabled": False, "backend_enabled": False, "route_enabled": False}
+    assert state == {"app_enabled": False, "backend_enabled": False, "route_uses_allauth": False}
 
 
 def test_allauth_config_from_env(monkeypatch):

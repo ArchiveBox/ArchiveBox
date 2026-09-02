@@ -20,7 +20,13 @@ def main() -> None:
                 "name": f"main/{path.stem}",
                 "paths": [test_path],
                 "paths_arg": test_path,
-                "extra": "ldap" if test_path.endswith("/test_auth_ldap.py") else "",
+                "extra": (
+                    "ldap"
+                    if test_path.endswith("/test_auth_ldap.py")
+                    else "allauth"
+                    if test_path.endswith("/test_allauth_integration.py")
+                    else ""
+                ),
                 "count": 1,
             },
         )

@@ -11,8 +11,10 @@ from admin_data_views.admin import (
 from admin_data_views.admin import (
     get_app_list as adv_get_app_list,
 )
+from django.conf import settings
 from django.contrib import admin
-from django.contrib.auth import REDIRECT_FIELD_NAME, get_user_model, login as auth_login
+from django.contrib.auth import REDIRECT_FIELD_NAME, get_user_model
+from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.views import LoginView
@@ -31,7 +33,6 @@ from archivebox.core.routes_util import is_allowed_archivebox_redirect_url
 if TYPE_CHECKING:
     from admin_data_views.typing import AppDict
     from django.http import HttpRequest
-    from django.template.response import TemplateResponse
     from django.urls import URLPattern, URLResolver
 
 
@@ -114,6 +115,7 @@ class ArchiveBoxAdmin(admin.AdminSite):
             "app_path": request.get_full_path(),
             "username": request.user.get_username(),
             "first_admin_setup": first_admin_setup,
+            "allauth_enabled": settings.ALLAUTH_ENABLED,
         }
         if REDIRECT_FIELD_NAME not in request.GET and REDIRECT_FIELD_NAME not in request.POST:
             context[REDIRECT_FIELD_NAME] = reverse("admin:index", current_app=self.name)
