@@ -98,7 +98,7 @@ def running_wget_projection(snapshot, blocking_http_server):
         retry_at=now,
         downloaded_at=None,
         url=blocking_http_server.url,
-        config={"PLUGINS": "wget"},
+        config={"PLUGINS": "wget,search_backend_sqlite"},
     )
     snapshot.refresh_from_db()
     errors = []

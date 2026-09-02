@@ -127,6 +127,12 @@ def _count_selected_hooks(catalog: PluginCatalog, selected_plugins: list[str] | 
     return sum(1 for plugin in selected.values() for hook in plugin.hooks if "CrawlSetup" in hook.name or "Snapshot" in hook.name)
 
 
+def _enable_requested_plugins(config: dict[str, Any], plugins: PluginCatalog) -> None:
+    for plugin in plugins.values():
+        if plugin.enabled_key in plugin.config.properties:
+            config[plugin.enabled_key] = True
+
+
 def _is_nonfatal_setup_hook(plugin_name: str, hook_name: str) -> bool:
     return plugin_name == "chrome" and hook_name.endswith("_chrome_kill_zombies")
 
@@ -203,7 +209,7 @@ class CrawlRunner:
         self.interactive_interrupts = interactive_interrupts
         self.config_overrides = dict(config_overrides or {})
 
-        SnapshotService(
+        self.snapshot_service = SnapshotService(
             self.bus,
             crawl_id=str(crawl.id),
         )
@@ -372,7 +378,7 @@ class CrawlRunner:
         await asyncio.gather(*done, *pending, return_exceptions=True)
         self.snapshot_tasks.clear()
 
-    async def wait_for_snapshot_tasks(self) -> None:
+    async def wait_for_snapshot_tasks(self, *, enqueue_projected: bool = True) -> None:
         task_errors: list[Exception] = []
         stop_scheduling = False
         while True:
@@ -399,7 +405,8 @@ class CrawlRunner:
                     raise ExceptionGroup("One or more snapshot tasks failed", task_errors)
                 if stop_scheduling:
                     return
-                await self.enqueue_pending_snapshots_from_projection()
+                if enqueue_projected:
+                    await self.enqueue_pending_snapshots_from_projection()
                 if not self.snapshot_tasks:
                     return
                 continue
@@ -425,7 +432,7 @@ class CrawlRunner:
                 await self.crawl_is_cancelled() or (await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl)
             ):
                 stop_scheduling = True
-            if not stop_scheduling:
+            if not stop_scheduling and enqueue_projected:
                 await self.enqueue_pending_snapshots_from_projection()
 
     async def heartbeat_active_leases(self) -> None:
@@ -444,17 +451,13 @@ class CrawlRunner:
         active_snapshot_ids = [snapshot_id for snapshot_id, task in self.snapshot_tasks.items() if not task.done()]
 
         from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot
 
         await Crawl.objects.filter(id=self.crawl.id, status=Crawl.StatusChoices.STARTED).aupdate(
             retry_at=lease_until,
             modified_at=timezone.now(),
         )
-        if active_snapshot_ids:
-            await Snapshot.objects.filter(id__in=active_snapshot_ids, status=Snapshot.StatusChoices.STARTED).aupdate(
-                retry_at=lease_until,
-                modified_at=timezone.now(),
-            )
+        for snapshot_id in active_snapshot_ids:
+            await self.snapshot_service.renew_lease(snapshot_id, lease_until)
 
     async def drain_snapshot_tasks(self) -> None:
         task_errors: list[Exception] = []
@@ -783,6 +786,8 @@ class CrawlRunner:
         output_dir = Path(self.crawl_output_dir)
         plugins = self.catalog.select(self.selected_plugins)
         config["ABX_RUNTIME"] = "archivebox"
+        if self.requested_plugins is not None:
+            _enable_requested_plugins(config, plugins)
         setup_hooks = plugins.hooks("CrawlSetup")
         abx_snapshot = AbxSnapshot(
             id=snapshot["id"],
@@ -842,15 +847,27 @@ class CrawlRunner:
         async def on_archivebox_CrawlStartEvent(event: CrawlStartEvent) -> None:
             if event.event_id != self.root_crawl_start_event_id:
                 return
-            for snapshot_id in snapshot_ids:
-                if sum(1 for task in self.snapshot_tasks.values() if not task.done()) >= self.max_concurrent_snapshots:
-                    break
-                if await self.crawl_is_cancelled():
-                    break
-                if await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl:
-                    break
-                await self.enqueue_snapshot(snapshot_id)
-            await self.wait_for_snapshot_tasks()
+            if self.initial_snapshot_ids is not None:
+                remaining_snapshot_ids = iter(snapshot_ids)
+                while True:
+                    batch = list(zip(range(self.max_concurrent_snapshots), remaining_snapshot_ids, strict=False))
+                    if not batch:
+                        return
+                    for _slot, snapshot_id in batch:
+                        if await self.crawl_is_cancelled():
+                            return
+                        if await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl:
+                            return
+                        await self.enqueue_snapshot(snapshot_id)
+                    await self.wait_for_snapshot_tasks(enqueue_projected=False)
+            else:
+                for snapshot_id in snapshot_ids[: self.max_concurrent_snapshots]:
+                    if await self.crawl_is_cancelled():
+                        break
+                    if await self.crawl_is_paused():
+                        break
+                    await self.enqueue_snapshot(snapshot_id)
+                await self.wait_for_snapshot_tasks()
 
         async def on_archivebox_CrawlEvent(event: CrawlEvent) -> None:
             if event.event_id != self.root_crawl_event_id:
@@ -1001,6 +1018,8 @@ class CrawlRunner:
             derived_config = normalize_runtime_config(self.derived_config)
             output_dir = Path(snapshot["output_dir"])
             plugins = self.catalog.select(snapshot_selected_plugins) if snapshot_selected_plugins else self.catalog
+            if self.requested_plugins is not None:
+                _enable_requested_plugins(config, plugins)
             abx_snapshot = AbxSnapshot(
                 id=snapshot["id"],
                 url=snapshot["url"],

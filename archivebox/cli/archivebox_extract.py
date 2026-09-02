@@ -81,6 +81,11 @@ def _run_snapshot_requests(requested: dict[str, set[str]], *, wait: bool, show_p
         if snapshot is not None and not plugin_names:
             plugin_names.update(get_enabled_plugins(config=get_config(crawl=snapshot.crawl, snapshot=snapshot)))
 
+    if any("search_backend_sonic" in plugin_names for plugin_names in requested.values()):
+        from archivebox.core.takeover_util import ensure_daemon_stack
+
+        ensure_daemon_stack(reason="Sonic snapshot indexing")
+
     # Explicit extraction resumes open/paused snapshots at the snapshot level.
     # Sealed snapshots stay sealed during targeted maintenance backfills.
     if wait:

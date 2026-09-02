@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from asgiref.sync import sync_to_async
@@ -128,6 +129,7 @@ class SnapshotService(BaseService):
     def __init__(self, bus, *, crawl_id: str):
         self.crawl_id = crawl_id
         self._run_ownership: dict[str, tuple[str, object, bool, list[str]]] = {}
+        self._ownership_lock = asyncio.Lock()
         super().__init__(bus)
         self.bus.on(SnapshotEvent, self.on_SnapshotEvent)
         self.bus.on(SnapshotCompletedEvent, self.on_SnapshotCompletedEvent)
@@ -149,18 +151,40 @@ class SnapshotService(BaseService):
             if snapshot.status == Snapshot.StatusChoices.STARTED:
                 await sync_to_async(snapshot.ensure_crawl_symlink, thread_sensitive=True)()
             retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
-            self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins)
+            async with self._ownership_lock:
+                self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins)
+
+    async def renew_lease(self, snapshot_id: str, lease_until) -> bool:
+        from archivebox.core.models import Snapshot
+
+        async with self._ownership_lock:
+            ownership = self._run_ownership.get(str(snapshot_id))
+            if ownership is None or ownership[2]:
+                return False
+            event_id, owned_retry_at, was_sealed, retry_plugins = ownership
+            updated = await Snapshot.objects.filter(
+                id=snapshot_id,
+                status=Snapshot.StatusChoices.STARTED,
+                retry_at=owned_retry_at,
+            ).aupdate(
+                retry_at=lease_until,
+                modified_at=timezone.now(),
+            )
+            if updated:
+                self._run_ownership[str(snapshot_id)] = (event_id, lease_until, was_sealed, retry_plugins)
+            return bool(updated)
 
     async def on_SnapshotCompletedEvent(self, event: SnapshotCompletedEvent) -> None:
         snapshot_id = str(event.snapshot_id)
-        ownership = self._run_ownership.get(snapshot_id)
-        if ownership is None or ownership[0] != str(event.event_parent_id):
-            return
-        self._run_ownership.pop(snapshot_id, None)
-        _, owned_retry_at, was_sealed, retry_plugins = ownership
-        await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
-            event.snapshot_id,
-            owned_retry_at=owned_retry_at,
-            was_sealed=was_sealed,
-            consumed_retry_plugins=retry_plugins,
-        )
+        async with self._ownership_lock:
+            ownership = self._run_ownership.get(snapshot_id)
+            if ownership is None or ownership[0] != str(event.event_parent_id):
+                return
+            self._run_ownership.pop(snapshot_id, None)
+            _, owned_retry_at, was_sealed, retry_plugins = ownership
+            await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
+                event.snapshot_id,
+                owned_retry_at=owned_retry_at,
+                was_sealed=was_sealed,
+                consumed_retry_plugins=retry_plugins,
+            )
