@@ -97,12 +97,14 @@ def _run_snapshot_requests(requested: dict[str, set[str]], *, wait: bool, show_p
             if snapshot is None:
                 continue
             if plugin_names:
-                snapshot.config = {**(snapshot.config or {}), "PLUGINS": ",".join(sorted(plugin_names))}
-                snapshot.save(update_fields=["config", "modified_at"])
-            snapshot.update_and_requeue(
-                status=Snapshot.StatusChoices.QUEUED,
-                retry_at=timezone.now(),
-            )
+                snapshot.schedule_plugin_run(plugin_names, when=timezone.now())
+            elif snapshot.status == Snapshot.StatusChoices.SEALED:
+                snapshot.update_and_requeue(retry_at=timezone.now())
+            else:
+                snapshot.update_and_requeue(
+                    status=Snapshot.StatusChoices.QUEUED,
+                    retry_at=timezone.now(),
+                )
         if show_progress:
             rprint(f"[blue]Queued {len(snapshots)} snapshots for extraction[/blue]", file=sys.stderr)
         return 0

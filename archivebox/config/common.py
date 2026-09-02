@@ -441,6 +441,7 @@ class ArchivingConfig(BaseConfigSet):
         default="",
         description="Comma-separated plugin selection for this run. Empty means use enabled plugin defaults.",
     )
+    PARSER: str = Field(default="auto", description="Parser used to read the submitted Crawl input document.")
 
     ONLY_NEW: bool = Field(default=True)
     INDEX_ONLY: bool = Field(default=False)

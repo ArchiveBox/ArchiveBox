@@ -1356,7 +1356,7 @@ class TestAdminSnapshotListView:
         snapshot.refresh_from_db()
         assert failed.status == ArchiveResult.StatusChoices.FAILED
         assert snapshot.status == snapshot.StatusChoices.QUEUED
-        assert snapshot.config["PLUGINS"] == "title"
+        assert snapshot.config["RETRY_PLUGINS"] == ["title"]
 
     def test_list_redo_failed_action_requeues_failed_archiveresults_only(
         self,
@@ -1399,7 +1399,7 @@ class TestAdminSnapshotListView:
         assert succeeded.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert succeeded.output_str == succeeded_output
         assert snapshot.status == snapshot.StatusChoices.QUEUED
-        assert snapshot.config["PLUGINS"] == "title"
+        assert snapshot.config["RETRY_PLUGINS"] == ["title"]
 
     def test_archive_now_action_uses_original_snapshot_url_without_timestamp_suffix(self, client, admin_user, snapshot):
         from archivebox.crawls.models import Crawl

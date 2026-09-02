@@ -465,7 +465,8 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
     assert reset_count == 1
     assert snapshot.status == Snapshot.StatusChoices.QUEUED
     assert snapshot.retry_at is not None
-    assert snapshot.config["PLUGINS"] == "chrome"
+    assert snapshot.config["RETRY_PLUGINS"] == ["chrome"]
+    assert "PLUGINS" not in snapshot.config
     assert result.status == ArchiveResult.StatusChoices.FAILED
     assert result.output_str == "timed out"
     assert result.output_files == {"stderr.log": {}}

@@ -34,6 +34,8 @@ def test_schedule_api_creates_schedule_via_view_request(api_admin_user):
 
     assert response["success"] is True
     assert response["result_format"] == "json"
+    assert response["result"]["run_all_enqueued"] == 0
+    assert response["result"]["run_all_maintained"] == 0
     assert CrawlSchedule.objects.count() == 1
     assert len(response["result"]["created_schedule_ids"]) == 1
 

@@ -118,9 +118,9 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
         assert snapshot.status == Snapshot.StatusChoices.QUEUED
         assert snapshot.retry_at is not None
         result.refresh_from_db()
-        # Filesystem layout migration does not infer or mutate ArchiveResult facts.
-        assert result.output_files == {}
-        assert result.output_size == 0
+        # Migration projects filesystem facts without changing result lifecycle.
+        assert "singlefile.html" in result.output_files
+        assert result.output_size > 0
         if legacy_layout:
             assert (migrated_dir / "existing-user-output.bin").read_bytes() == b"preserve interrupted migration output"
 
@@ -187,7 +187,7 @@ def test_reindex_snapshots_runs_only_missing_sealed_search_indexes():
     os.environ["SEARCH_BACKEND_ENGINE"] = "sqlite"
     try:
         stats = reindex_snapshots(
-            Snapshot.objects.filter(id__in=(snapshot.id, missing_snapshot.id, paused_snapshot.id)),
+            Snapshot.objects.filter(id__in=(snapshot.id, missing_snapshot.id, paused_snapshot.id)).select_related("crawl"),
             search_plugins=["search_backend_sqlite"],
             batch_size=10,
         )
@@ -215,6 +215,63 @@ def test_reindex_snapshots_runs_only_missing_sealed_search_indexes():
         status__in=[ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS],
     ).exists()
     assert not paused_snapshot.archiveresult_set.exists()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_update_schedule_backfills_missing_search_index_without_reopening_snapshot():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl, CrawlSchedule
+
+    user_id = get_or_create_system_user_pk()
+    template = Crawl.objects.create(
+        urls="",
+        created_by_id=user_id,
+        status=Crawl.StatusChoices.SEALED,
+    )
+    schedule = CrawlSchedule.objects.create(
+        template=template,
+        schedule="daily",
+        config={"SCHEDULE_KIND": "update"},
+        created_by_id=user_id,
+    )
+    crawl = Crawl.objects.create(
+        urls="https://example.com/scheduled-search",
+        created_by_id=user_id,
+        status=Crawl.StatusChoices.SEALED,
+    )
+    snapshot = Snapshot.objects.create(
+        url="https://example.com/scheduled-search",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+    )
+    (snapshot.output_dir / "title").mkdir(parents=True, exist_ok=True)
+    (snapshot.output_dir / "title" / "title.txt").write_text("Scheduled Search Index")
+
+    original_engine = os.environ.get("SEARCH_BACKEND_ENGINE")
+    os.environ["SEARCH_BACKEND_ENGINE"] = "sqlite"
+    try:
+        assert schedule.dispatch() is None
+        first_modified_at = schedule.modified_at
+        assert schedule.dispatch() is None
+    finally:
+        if original_engine is None:
+            os.environ.pop("SEARCH_BACKEND_ENGINE", None)
+        else:
+            os.environ["SEARCH_BACKEND_ENGINE"] = original_engine
+
+    snapshot.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert (
+        ArchiveResult.objects.filter(
+            snapshot=snapshot,
+            plugin="search_backend_sqlite",
+            status__in=[ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS],
+        ).count()
+        == 1
+    )
+    assert not ArchiveResult.objects.filter(snapshot=snapshot, status=ArchiveResult.StatusChoices.QUEUED).exists()
+    assert schedule.modified_at >= first_modified_at
 
 
 @pytest.mark.django_db

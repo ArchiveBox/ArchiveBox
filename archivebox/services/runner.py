@@ -79,9 +79,6 @@ from .snapshot_service import SnapshotService, finalize_completed_snapshot, proj
 from .tag_service import TagService
 
 
-MAINTENANCE_BATCH_SIZE = 100
-
-
 def _bus_name(prefix: str, identifier: str) -> str:
     normalized = "".join(ch if ch.isalnum() else "_" for ch in identifier)
     return f"{prefix}_{normalized}"
@@ -576,16 +573,18 @@ class CrawlRunner:
         # Plain URL lists need no parser subprocess. Every other submitted
         # document is parsed by abx-dl and returned as discovery facts; only
         # those facts cross the ArchiveBox persistence boundary.
+        parser_name = str(self.base_config.get("PARSER") or "auto").strip().lower()
         direct_urls: list[str] = []
-        for line in (self.crawl.urls or "").splitlines():
-            raw_line = line.strip()
-            if not raw_line or raw_line.startswith("#"):
-                continue
-            try:
-                direct_urls.append(validate_url(raw_line))
-            except ValueError:
-                direct_urls = []
-                break
+        if parser_name in {"auto", "url_list"}:
+            for line in (self.crawl.urls or "").splitlines():
+                raw_line = line.strip()
+                if not raw_line or raw_line.startswith("#"):
+                    continue
+                try:
+                    direct_urls.append(validate_url(raw_line))
+                except ValueError:
+                    direct_urls = []
+                    break
 
         if direct_urls:
             return self.crawl.create_discovered_snapshots(
@@ -594,9 +593,8 @@ class CrawlRunner:
                 depth=0,
             )
 
-        parser_name = str(self.base_config.get("PARSER") or "auto").strip().lower()
         parser_catalog = self.catalog
-        if parser_name != "auto":
+        if parser_name not in {"auto", "url_list"}:
             requested = parser_name if parser_name.startswith("parse_") else f"parse_{parser_name}_urls"
             parser_catalog = self.catalog.select([requested])
         runtime_config = self.base_config.for_crawl_runtime(
@@ -768,6 +766,7 @@ class CrawlRunner:
             "output_dir": snapshot_output_dir,
             "config": normalized_config,
             "selected_plugins": [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()],
+            "retry_plugins": list((snapshot.config or {}).get("RETRY_PLUGINS") or []),
             "_snapshot": snapshot,
         }
 
@@ -961,11 +960,13 @@ class CrawlRunner:
                     await sync_to_async(snapshot["_snapshot"].seal, thread_sensitive=True)()
                 print(f"[X] Refusing to archive invalid Snapshot URL {snapshot['url']!r}: {err}", file=sys.stderr)
                 return
-            if snapshot["status"] == "sealed" and not self.selected_plugins:
+            if snapshot["status"] == "sealed" and not self.selected_plugins and not snapshot["retry_plugins"]:
                 await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id)
                 return
             config = normalize_runtime_config(snapshot["config"])
-            snapshot_selected_plugins = self.requested_plugins or snapshot["selected_plugins"] or self.selected_plugins
+            snapshot_selected_plugins = (
+                self.requested_plugins or snapshot["retry_plugins"] or snapshot["selected_plugins"] or self.selected_plugins
+            )
             if snapshot["depth"] > 0 and CrawlLimitState.from_config(snapshot["config"]).get_stop_reason() in (
                 "crawl_max_size",
                 "crawl_timeout",
@@ -1617,7 +1618,6 @@ def run_pending_crawls(
     crawl_id: str | None = None,
     maintenance_only: bool = False,
     interactive_interrupts: bool = False,
-    maintenance_batch_size: int = MAINTENANCE_BATCH_SIZE,
 ) -> int:
     from archivebox.config.common import get_config
     from archivebox.crawls.models import Crawl, CrawlSchedule

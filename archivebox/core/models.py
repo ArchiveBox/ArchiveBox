@@ -725,6 +725,18 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             retry_at=when or timezone.now(),
         )
 
+    def schedule_plugin_run(self, plugins: Iterable[str], *, when=None) -> bool:
+        """Persist one snapshot-scoped plugin request until abx-dl completes it."""
+        plugin_names = sorted({name.strip() for name in plugins if name.strip()})
+        if not plugin_names:
+            return False
+        self.config = {**(self.config or {}), "RETRY_PLUGINS": plugin_names}
+        self.save(update_fields=["config", "modified_at"])
+        retry_at = when or timezone.now()
+        if self.status == self.StatusChoices.SEALED:
+            return self.update_and_requeue(retry_at=retry_at)
+        return self.update_and_requeue(status=self.StatusChoices.QUEUED, retry_at=retry_at)
+
     def pause(self, *, save: bool = True) -> bool:
         return super().pause(save=save)
 
@@ -1132,6 +1144,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if old_crawl_dir.exists() and not crawl_dir.exists() and not old_crawl_dir.is_symlink():
                 crawl_dir.parent.mkdir(parents=True, exist_ok=True)
                 old_crawl_dir.rename(crawl_dir)
+            if current_dir.exists():
+                self.hydrate_archiveresult_output_metadata(snapshot_dir=current_dir)
             if cleanup:
                 old_dir, new_dir = cleanup
                 if not self._cleanup_old_migration_dir(old_dir, new_dir):
@@ -1159,6 +1173,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             self.fs_version = current
             source_dir = None
 
+        target_dir = self.get_storage_path_for_version(target)
+        if target_dir.exists():
+            self.hydrate_archiveresult_output_metadata(snapshot_dir=target_dir)
         if cleanup:
             old_dir, new_dir = cleanup
             if not self._cleanup_old_migration_dir(old_dir, new_dir):
@@ -3079,9 +3096,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         )
         if not plugins:
             return 0
-        self.config = {**(self.config or {}), "PLUGINS": ",".join(plugins)}
-        self.save(update_fields=["config", "modified_at"])
-        self.queue_for_extraction()
+        self.schedule_plugin_run(plugins)
         return len(plugins)
 
     # =========================================================================

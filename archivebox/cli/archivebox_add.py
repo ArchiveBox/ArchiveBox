@@ -114,7 +114,12 @@ def add(
     created_by_id = created_by_id or get_or_create_system_user_pk()
     started_at = timezone.now()
 
-    source_text = urls if isinstance(urls, str) else "\n".join(str(url) for url in urls)
+    if isinstance(urls, str):
+        source_text = urls
+    else:
+        from archivebox.misc.util import validate_url
+
+        source_text = "\n".join(validate_url(str(url)) for url in urls)
 
     # 2. Create a new Crawl with inline URLs
     # Foreground add must claim runner ownership before publishing runnable

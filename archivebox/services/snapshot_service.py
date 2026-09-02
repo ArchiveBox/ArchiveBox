@@ -81,6 +81,10 @@ def finalize_completed_snapshot(
         snapshot.seal()
         snapshot.refresh_from_db()
 
+    if "RETRY_PLUGINS" in (snapshot.config or {}):
+        snapshot.config = {key: value for key, value in snapshot.config.items() if key != "RETRY_PLUGINS"}
+        snapshot.save(update_fields=["config", "modified_at"])
+
     snapshot.write_index_jsonl(output_dir=output_dir)
 
 

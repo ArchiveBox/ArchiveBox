@@ -192,7 +192,10 @@ def validate_url_length(url: str) -> str:
 
 
 def validate_url(url: str) -> str:
-    url = validate_url_length((url or "").strip())
+    raw_url = url or ""
+    if "\n" in raw_url or "\r" in raw_url:
+        raise ValueError("URL must be a single line.")
+    url = validate_url_length(raw_url.strip())
     parsed = urlparse(url)
     if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
         raise ValueError("URL must start with http:// or https:// and include a hostname.")

@@ -239,7 +239,6 @@ def run_runner(
     daemon: bool = False,
     crawl_id: str | None = None,
     maintenance_only: bool = False,
-    maintenance_batch_size: int | None = None,
 ) -> int:
     """
     Run the background runner loop.
@@ -306,7 +305,6 @@ def run_runner(
                 crawl_id=crawl_id,
                 maintenance_only=maintenance_only,
                 interactive_interrupts=interactive_interrupts,
-                **({"maintenance_batch_size": maintenance_batch_size} if maintenance_batch_size else {}),
             )
         return 0
     except KeyboardInterrupt:
@@ -331,13 +329,6 @@ def run_runner(
 @click.option("--snapshot-id", help="Run one snapshot through its crawl")
 @click.option("--binary-id", help="Run one queued binary install directly on the bus")
 @click.option("--maintenance-only", is_flag=True, help="Only process sealed Snapshot maintenance and search-index backfills")
-@click.option(
-    "--maintenance-batch-size",
-    type=int,
-    default=None,
-    hidden=True,
-    help="Limit queued maintenance snapshots claimed per scheduler tick",
-)
 @click.option("--no-stdin", is_flag=True, hidden=True, help="Run the scheduler even when stdin is not a TTY")
 def main(
     daemon: bool,
@@ -345,7 +336,6 @@ def main(
     snapshot_id: str,
     binary_id: str,
     maintenance_only: bool,
-    maintenance_batch_size: int | None,
     no_stdin: bool,
 ):
     """
@@ -370,7 +360,7 @@ def main(
                 ),
                 foreground_parent_watchdog(enabled=False),
             ):
-                sys.exit(run_runner(daemon=True, maintenance_only=maintenance_only, maintenance_batch_size=maintenance_batch_size))
+                sys.exit(run_runner(daemon=True, maintenance_only=maintenance_only))
         except KeyboardInterrupt:
             sys.exit(0)
 
@@ -399,17 +389,16 @@ def main(
                     daemon=False,
                     crawl_id=crawl_id,
                     maintenance_only=maintenance_only,
-                    maintenance_batch_size=maintenance_batch_size,
                 ),
             )
 
         if maintenance_only:
-            sys.exit(run_runner(daemon=daemon, maintenance_only=True, maintenance_batch_size=maintenance_batch_size))
+            sys.exit(run_runner(daemon=daemon, maintenance_only=True))
 
         if not no_stdin and not sys.stdin.isatty():
             sys.exit(process_stdin_records())
         else:
-            sys.exit(run_runner(daemon=daemon, maintenance_only=maintenance_only, maintenance_batch_size=maintenance_batch_size))
+            sys.exit(run_runner(daemon=daemon, maintenance_only=maintenance_only))
 
 
 def run_snapshot_worker(snapshot_id: str) -> int:

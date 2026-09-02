@@ -27,7 +27,11 @@ def test_extract_archiveresult_record_queues_parent_snapshot_plugin(initialized_
     create_extract_snapshot(initialized_archive, env)
 
     with use_archivebox_db(initialized_archive):
-        snapshot_id = Snapshot.objects.values_list("id", flat=True).first()
+        snapshot = Snapshot.objects.get()
+        snapshot.pause()
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.PAUSED
+        snapshot_id = snapshot.id
 
     hook_name = "on_Snapshot__65_archivewebpage_stop"
     request = json.dumps(
@@ -53,7 +57,44 @@ def test_extract_archiveresult_record_queues_parent_snapshot_plugin(initialized_
         rows = list(ArchiveResult.objects.filter(snapshot_id=snapshot_id, plugin="archivewebpage"))
     assert rows == []
     assert snapshot.status == Snapshot.StatusChoices.QUEUED
-    assert snapshot.config["PLUGINS"] == "archivewebpage"
+    assert snapshot.retry_at is not None
+    assert snapshot.config["RETRY_PLUGINS"] == ["archivewebpage"]
+
+
+def test_extract_no_wait_keeps_sealed_snapshot_sealed(initialized_archive):
+    env = cli_env(PLUGINS="archivewebpage")
+    create_extract_snapshot(initialized_archive, env, url="https://example.com/sealed")
+
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get()
+        snapshot.status = Snapshot.StatusChoices.SEALED
+        snapshot.retry_at = None
+        snapshot.save(update_fields=["status", "retry_at", "modified_at"])
+        snapshot_id = snapshot.id
+
+    request = json.dumps(
+        {
+            "type": "ArchiveResult",
+            "snapshot_id": str(snapshot_id),
+            "plugin": "archivewebpage",
+            "hook_name": "on_Snapshot__65_archivewebpage_stop",
+        },
+    )
+    result = run_archivebox_cmd(
+        ["extract", "--no-wait"],
+        cwd=initialized_archive,
+        input=f"{request}\n",
+        env=env,
+        timeout=30,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    with use_archivebox_db(initialized_archive):
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.retry_at is not None
+        assert snapshot.config["RETRY_PLUGINS"] == ["archivewebpage"]
+        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
 
 
 def test_extract_runs_on_snapshot_id(initialized_archive):

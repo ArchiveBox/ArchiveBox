@@ -29,7 +29,7 @@ Accepted schedule formats:
 - Aliases: `minute`, `hour`, `day`, `week`, `month`, `year`, `daily`, `weekly`, `monthly`, `yearly`
 - Cron expressions: e.g. `0 */6 * * *`
 
-`archivebox schedule --run-all` enqueues every enabled schedule immediately.
+`archivebox schedule --run-all` dispatches every enabled schedule immediately: crawl schedules are enqueued, while maintenance schedules run directly.
 
 `archivebox schedule --foreground` runs the global orchestrator in the foreground, which is useful outside `archivebox server` if you want a dedicated long-running scheduler/worker process without the web UI.
 

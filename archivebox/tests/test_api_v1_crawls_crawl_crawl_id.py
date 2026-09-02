@@ -114,6 +114,44 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
     assert response.status_code == 200, response.content
 
 
+def test_create_crawl_rejects_multiline_url_item(client, api_headers):
+    response = client.post(
+        "/api/v1/crawls/crawls",
+        data=json.dumps({"urls": ["https://example.com/one\nhttps://example.net/two"]}),
+        content_type="application/json",
+        **api_headers,
+    )
+
+    assert response.status_code == 400, response.content
+    assert not Crawl.objects.exists()
+
+
+def test_create_crawl_marks_structured_urls_as_url_list(client, api_headers):
+    response = client.post(
+        "/api/v1/crawls/crawls",
+        data=json.dumps({"urls": ["https://example.com/one"], "config": {"PLUGINS": "title"}}),
+        content_type="application/json",
+        **api_headers,
+    )
+
+    assert response.status_code == 200, response.content
+    crawl = Crawl.objects.get()
+    assert crawl.urls == "https://example.com/one"
+    assert crawl.config["PARSER"] == "url_list"
+
+
+def test_create_crawl_preserves_explicit_parser(client, api_headers):
+    response = client.post(
+        "/api/v1/crawls/crawls",
+        data=json.dumps({"urls": ["https://example.com/one"], "config": {"PARSER": "txt"}}),
+        content_type="application/json",
+        **api_headers,
+    )
+
+    assert response.status_code == 200, response.content
+    assert Crawl.objects.get().config["PARSER"] == "txt"
+
+
 def test_crawl_pause_wins_over_concurrent_runner_lease(api_admin_user):
     crawl = Crawl.objects.create(urls="https://example.com/crawl-pause-race", created_by=api_admin_user)
     claimed_until = timezone.now() + timedelta(seconds=60)

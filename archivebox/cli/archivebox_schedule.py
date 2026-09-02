@@ -37,6 +37,7 @@ def schedule(
         "created_schedule_ids": [],
         "disabled_count": 0,
         "run_all_enqueued": 0,
+        "run_all_maintained": 0,
         "active_schedule_ids": [],
     }
 
@@ -178,7 +179,7 @@ def schedule(
 @click.option("--clear", is_flag=True, help="Disable all currently enabled schedules")
 @click.option("--show", is_flag=True, help="Print all currently enabled schedules")
 @click.option("--foreground", "-f", is_flag=True, help="Run the global crawl runner in the foreground (no crontab required)")
-@click.option("--run-all", is_flag=True, help="Enqueue all enabled schedules immediately and process them once")
+@click.option("--run-all", is_flag=True, help="Dispatch all enabled schedules immediately")
 @click.argument("import_path", required=False)
 @docstring(schedule.__doc__)
 def main(**kwargs):

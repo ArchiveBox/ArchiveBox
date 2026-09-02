@@ -244,6 +244,8 @@ def mark_archiveresult_started(event: ProcessStartedEvent, *, snapshot_id: str, 
             "process_id": process_id,
         },
     )
+    if result.start_ts is not None and started_at <= result.start_ts:
+        return
     result.status = ArchiveResult.StatusChoices.STARTED
     result.start_ts = started_at
     result.end_ts = None

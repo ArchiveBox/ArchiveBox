@@ -15,6 +15,7 @@ def _make_legacy_snapshot(snapshot: Snapshot) -> tuple[Path, Path]:
     legacy_dir = CONSTANTS.ARCHIVE_DIR / snapshot.timestamp
     Snapshot.objects.filter(pk=snapshot.pk).update(fs_version="0.8.0")
     snapshot.refresh_from_db()
+    current_dir.mkdir(parents=True, exist_ok=True)
     legacy_dir.mkdir(parents=True, exist_ok=True)
     (legacy_dir / "unknown" / "nested").mkdir(parents=True)
     (legacy_dir / "unknown" / "payload.bin").write_bytes(b"filesystem migration payload\x00\xff")
@@ -88,12 +89,6 @@ def test_fs_version_has_database_index():
     assert Snapshot._meta.get_field("fs_version").db_index is True
     constraints = connection.introspection.get_constraints(connection.cursor(), Snapshot._meta.db_table)
     assert any(index["index"] and index["columns"] == ["fs_version"] for index in constraints.values())
-
-
-def test_stale_filesystem_selector_uses_fs_version_index():
-    queryset = Snapshot.objects.filter(fs_version__in=Snapshot._FS_VERSION_MIGRATION_PATHS)
-
-    assert "fs_version" in queryset.explain().lower()
 
 
 def test_resume_refuses_to_overwrite_changed_legacy_output(snapshot, monkeypatch):

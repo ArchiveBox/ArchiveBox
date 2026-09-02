@@ -85,7 +85,7 @@ def reindex_snapshots(
     snapshots = snapshots.filter(status=Snapshot.StatusChoices.SEALED)
 
     stats: dict[str, Any] = {"processed": 0, "requested": 0, "queued": 0, "reindexed": 0, "snapshot_ids": []}
-    print(f"[*] Backfilling missing search indexes with: {', '.join(search_plugins)}")
+    print(f"[*] Reindexing missing search indexes with: {', '.join(search_plugins)}")
 
     completed_statuses = [ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS]
     for plugin_name in search_plugins:
@@ -100,7 +100,7 @@ def reindex_snapshots(
             if wait_for_turn:
                 wait_for_turn()
             page = candidates.filter(id__gt=after_id) if after_id is not None else candidates
-            batch = list(page.only("id", "timestamp")[:batch_size])
+            batch = list(page.select_related(None).only("id", "timestamp")[:batch_size])
             if not batch:
                 break
             after_id = batch[-1].id
@@ -122,6 +122,24 @@ def reindex_snapshots(
             stats["reindexed"] += len(batch)
             print(f"    [{plugin_name}] indexed {stats['reindexed']} missing snapshots")
     return stats
+
+
+def run_scheduled_maintenance(*, batch_size: int = 500) -> dict[str, Any]:
+    """Queue stale filesystem rows and backfill missing search facts."""
+    from archivebox.core.models import Snapshot
+
+    filesystem_stats = process_all_db_snapshots(batch_size=batch_size)
+    search_plugins = _get_search_indexing_plugins()
+    search_stats = (
+        reindex_snapshots(
+            Snapshot.objects.all(),
+            search_plugins=search_plugins,
+            batch_size=batch_size,
+        )
+        if search_plugins
+        else {"processed": 0, "requested": 0, "queued": 0, "reindexed": 0, "snapshot_ids": []}
+    )
+    return {"filesystem": filesystem_stats, "search": search_stats}
 
 
 @enforce_types
@@ -295,8 +313,10 @@ def update(
                     if is_filtered_update:
                         for snapshot_id in sorted(touched_snapshot_ids):
                             run_scoped_runner("--snapshot-id", snapshot_id)
+                    elif migrate_only:
+                        run_scoped_runner("--maintenance-only")
                     else:
-                        run_scoped_runner("--maintenance-only", "--maintenance-batch-size", str(batch_size))
+                        run_scoped_runner()
 
                 if do_index:
                     search_plugins = _get_search_indexing_plugins()
@@ -752,7 +772,7 @@ def print_index_stats(stats: dict[str, Any]) -> None:
 
     print(f"""
 [green]Search Reindex Complete[/green]
-  Missing rows:      {stats["processed"]}
+  Missing index runs: {stats["processed"]}
   Requested runs:    {stats.get("requested", 0)}
   Indexed snapshots: {stats.get("reindexed", 0)}
 """)

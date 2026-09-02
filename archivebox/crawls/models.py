@@ -115,9 +115,9 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         """Run maintenance directly or enqueue one ordinary Crawl."""
         queued_at = queued_at or timezone.now()
         if self.kind == "update":
-            from archivebox.cli.archivebox_update import process_all_db_snapshots
+            from archivebox.cli.archivebox_update import run_scheduled_maintenance
 
-            process_all_db_snapshots()
+            run_scheduled_maintenance()
             type(self).objects.filter(pk=self.pk).update(modified_at=queued_at)
             self.modified_at = queued_at
             return None
