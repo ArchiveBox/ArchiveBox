@@ -1695,13 +1695,11 @@ class TestRecoverOrchestratorState:
         Snapshot.objects.filter(pk=snapshot.pk).update(fs_version="0.9.0")
         snapshot.refresh_from_db()
         snapshot.output_dir.mkdir(parents=True, exist_ok=True)
-        title_dir = snapshot.output_dir / "title"
-        title_dir.mkdir(parents=True, exist_ok=True)
-        (title_dir / "title.txt").write_text("Example Domain\n", encoding="utf-8")
+        (snapshot.output_dir / "source.txt").write_text("real targeted maintenance input\n", encoding="utf-8")
         result = ArchiveResult.objects.create(
             snapshot=snapshot,
-            plugin="search_backend_sqlite",
-            hook_name="on_Snapshot__90_index_sqlite",
+            plugin="hashes",
+            hook_name="on_Snapshot__93_hashes.py",
             status=ArchiveResult.StatusChoices.QUEUED,
         )
 
@@ -2175,6 +2173,7 @@ class TestRunDueCrawlState:
         assert finished.output_str == "keep me"
         assert finished.output_files == {"favicon.ico": {"size": 1}}
 
+    @pytest.mark.django_db(transaction=True)
     def test_finished_parser_result_projects_children_before_resume_seals_snapshot(self):
         from importlib.resources import files
         from pathlib import Path
@@ -2184,7 +2183,7 @@ class TestRunDueCrawlState:
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
-        from archivebox.plugins.hooks import extract_records_from_process, run_hook
+        from archivebox.tests.conftest import run_test_hook
         from archivebox.services.runner import run_due_snapshot
 
         crawl = Crawl.objects.create(
@@ -2210,7 +2209,7 @@ class TestRunDueCrawlState:
             encoding="utf-8",
         )
         hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
-        process = run_hook(
+        process = run_test_hook(
             hook_path,
             parser_dir,
             config={"ABXPKG_LIB_DIR": str(root.output_dir.parent.parent / "lib"), "SNAP_DIR": str(root.output_dir)},
@@ -2221,12 +2220,12 @@ class TestRunDueCrawlState:
         )
         process.refresh_from_db()
         assert process.exit_code == 0, process.stderr
-        result_record = next(record for record in extract_records_from_process(process) if record.get("type") == "ArchiveResult")
+        result_record = next(record for record in process.get_records() if record.get("type") == "ArchiveResult")
         ArchiveResult.objects.create(
             snapshot=root,
             process=process,
-            plugin=result_record["plugin"],
-            hook_name=result_record["hook_name"],
+            plugin="parse_txt_urls",
+            hook_name=hook_path.name,
             status=result_record["status"],
             output_str=result_record.get("output_str", ""),
             output_files={"urls.jsonl": {"size": (parser_dir / "urls.jsonl").stat().st_size}},

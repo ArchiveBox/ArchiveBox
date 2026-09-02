@@ -15,13 +15,13 @@ from archivebox.tests.conftest import cli_env, run_archivebox_cmd
 from archivebox.tests.conftest import install_real_binary
 
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(transaction=True)
 
 
 @pytest.fixture
 def real_hook_result(tmp_path):
     from archivebox.core.models import ArchiveResult
-    from archivebox.plugins.hooks import extract_records_from_process, run_hook
+    from archivebox.tests.conftest import run_test_hook
 
     snapshot = _create_snapshot()
     snap_dir = Path(snapshot.output_dir)
@@ -29,7 +29,7 @@ def real_hook_result(tmp_path):
     output_dir.mkdir(parents=True, exist_ok=True)
     (snap_dir / "source.txt").write_text("real admin link hook input", encoding="utf-8")
     hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
-    process = run_hook(
+    process = run_test_hook(
         hook_path,
         output_dir,
         config={
@@ -45,12 +45,12 @@ def real_hook_result(tmp_path):
     )
     process.refresh_from_db()
     assert process.exit_code == 0, process.stderr
-    record = extract_records_from_process(process)[0]
+    record = process.get_records()[0]
     hashes_file = output_dir / "hashes.json"
     result = ArchiveResult.objects.create(
         snapshot=snapshot,
-        plugin=record["plugin"],
-        hook_name=record["hook_name"],
+        plugin="hashes",
+        hook_name=hook_path.name,
         process=process,
         status=record["status"],
         output_str=record["output_str"],

@@ -67,7 +67,7 @@ def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
-    from archivebox.plugins.hooks import run_hook
+    from archivebox.tests.conftest import run_test_hook
     from archivebox.services.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
@@ -92,7 +92,7 @@ def test_enqueue_discovered_snapshots_refreshes_crawl_limits(tmp_path):
         encoding="utf-8",
     )
     hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
-    process = run_hook(
+    process = run_test_hook(
         hook_path,
         parser_dir,
         config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},

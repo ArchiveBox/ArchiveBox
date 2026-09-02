@@ -38,7 +38,7 @@ PIPE_TEST_ENV = {
 
 def run_real_txt_parser(tmp_path, text):
     """Run the shipped text parser and return its real snapshot output directory."""
-    from archivebox.plugins.hooks import run_hook
+    from archivebox.tests.conftest import run_test_hook
 
     snap_dir = tmp_path / "parser-snapshot"
     staticfile_dir = snap_dir / "staticfile"
@@ -47,7 +47,7 @@ def run_real_txt_parser(tmp_path, text):
     output_dir.mkdir(parents=True)
     (staticfile_dir / "input.txt").write_text(text, encoding="utf-8")
     hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
-    process = run_hook(
+    process = run_test_hook(
         hook_path,
         output_dir,
         config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},

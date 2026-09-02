@@ -1,7 +1,7 @@
 __package__ = "archivebox.search"
 
+import json
 import os
-from contextlib import contextmanager
 from typing import Any
 
 from archivebox.config.common import get_config
@@ -10,29 +10,21 @@ from archivebox.config.common import get_config
 _search_backends_cache: dict | None = None
 
 
-@contextmanager
-def search_backend_env(config: dict[str, Any] | None = None, **config_kwargs: Any):
-    """Temporarily expose resolved search config through os.environ for backend code."""
+def search_backend_command_env(config: dict[str, Any] | None = None, **config_kwargs: Any) -> dict[str, str]:
+    """Serialize resolved application config for a standalone plugin command."""
     config = config or get_config(**config_kwargs)
-    updates = {}
+    env = os.environ.copy()
     for key, value in config.items():
         key = str(key)
-        if not (key.startswith("SEARCH_BACKEND_") or key.endswith("_BINARY")):
-            continue
         if value is None:
             continue
-        if isinstance(value, (str, int, float, bool, os.PathLike)):
-            updates[key] = str(value)
-    previous = {key: os.environ.get(key) for key in updates}
-    os.environ.update(updates)
-    try:
-        yield
-    finally:
-        for key, value in previous.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+        if isinstance(value, bool):
+            env[key] = "true" if value else "false"
+        elif isinstance(value, (dict, list, tuple)):
+            env[key] = json.dumps(value)
+        elif isinstance(value, (str, int, float, os.PathLike)):
+            env[key] = str(value)
+    return env
 
 
 def normalize_search_backend_name(backend_name: str | None) -> str:
@@ -41,7 +33,7 @@ def normalize_search_backend_name(backend_name: str | None) -> str:
 
 
 def get_available_backends() -> dict:
-    """Discover search backend plugin modules and cache them in memory."""
+    """Discover search-capable plugins and cache their catalog entries."""
     global _search_backends_cache
 
     if _search_backends_cache is None:
@@ -53,7 +45,7 @@ def get_available_backends() -> dict:
 
 
 def get_backend(config: dict[str, Any] | None = None, **config_kwargs: Any) -> Any:
-    """Resolve the configured search backend module."""
+    """Resolve the configured search-capable plugin."""
     config = config or get_config(**config_kwargs)
     backend_name = normalize_search_backend_name(config.SEARCH_BACKEND_ENGINE)
     backends = get_available_backends()

@@ -8,7 +8,7 @@ from django.db.models import Case, IntegerField, Q, QuerySet, Value, When
 from archivebox.config.common import get_config
 from archivebox.misc.logging import stderr
 from archivebox.misc.util import enforce_types
-from archivebox.search.backends import get_available_backends, get_backend, normalize_search_backend_name, search_backend_env
+from archivebox.search.backends import get_available_backends, get_backend, normalize_search_backend_name, search_backend_command_env
 from archivebox.search.config import get_search_mode, get_search_mode_backend, get_search_mode_base
 
 
@@ -278,18 +278,27 @@ def iter_query_search_ids(
                     # --csv/--json. Keep daemon diagnostics on stderr.
                     with redirect_stdout(sys.stderr):
                         ensure_daemon_stack(reason="search query")
-                with search_backend_env(config=config):
-                    if backend_name == "ripgrep":
-                        ids = backend.iter_search(query, search_mode=search_mode_base)
-                    else:
-                        ids = backend.search(query)
-                    for snapshot_id in ids:
-                        if snapshot_id in seen:
-                            continue
-                        seen.add(snapshot_id)
-                        yield snapshot_id
-                        if max_results and len(seen) >= max_results:
-                            return
+                from abx_dl.execution import iter_plugin_command
+                from archivebox.config.constants import CONSTANTS
+                from archivebox.plugins.discovery import get_plugin_catalog
+
+                command = get_plugin_catalog().command(backend.name, "search")
+                if command is None:
+                    raise RuntimeError(f'Plugin "{backend.name}" does not expose a search command')
+                ids = iter_plugin_command(
+                    command,
+                    arguments={"query": query, "search_mode": search_mode_base},
+                    env=search_backend_command_env(config=config),
+                    cwd=CONSTANTS.DATA_DIR,
+                    timeout=max(1, int(config.get("TIMEOUT", 60))) * 4,
+                )
+                for snapshot_id in ids:
+                    if snapshot_id in seen:
+                        continue
+                    seen.add(snapshot_id)
+                    yield snapshot_id
+                    if max_results and len(seen) >= max_results:
+                        return
                 successful_backends += 1
             except Exception as err:
                 errors.append(err)
@@ -318,8 +327,22 @@ def flush_search_index(snapshots: QuerySet, config: dict[str, Any] | None = None
     snapshot_pks = [str(pk) for pk in snapshots.values_list("pk", flat=True)]
 
     try:
-        with search_backend_env(config=config):
-            backend.flush(snapshot_pks)
+        from abx_dl.execution import iter_plugin_command
+        from archivebox.config.constants import CONSTANTS
+        from archivebox.plugins.discovery import get_plugin_catalog
+
+        command = get_plugin_catalog().command(backend.name, "flush")
+        if command is None:
+            raise RuntimeError(f'Plugin "{backend.name}" does not expose a flush command')
+        list(
+            iter_plugin_command(
+                command,
+                stdin=snapshot_pks,
+                env=search_backend_command_env(config=config),
+                cwd=CONSTANTS.DATA_DIR,
+                timeout=max(1, int(config.get("TIMEOUT", 60))) * 4,
+            ),
+        )
     except Exception as err:
         stderr()
         stderr(

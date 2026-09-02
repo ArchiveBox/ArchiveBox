@@ -21,14 +21,14 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 @pytest.fixture
 def real_unscoped_hook_process(tmp_path):
-    from archivebox.plugins.hooks import run_hook
+    from archivebox.tests.conftest import run_test_hook
 
     snap_dir = tmp_path / "snapshot"
     output_dir = snap_dir / "hashes"
     output_dir.mkdir(parents=True)
     (snap_dir / "source.txt").write_text("real live progress input", encoding="utf-8")
     hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
-    process = run_hook(
+    process = run_test_hook(
         hook_path,
         output_dir,
         config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
@@ -55,7 +55,7 @@ def real_snapshot_hook_projection(snapshot, cached_abxpkg_lib_dir):
 
 @pytest.fixture
 def real_second_snapshot_hook_process(snapshot, tmp_path):
-    from archivebox.plugins.hooks import run_hook
+    from archivebox.tests.conftest import run_test_hook
 
     snap_dir = Path(snapshot.output_dir)
     staticfile_dir = snap_dir / "staticfile"
@@ -64,7 +64,7 @@ def real_second_snapshot_hook_process(snapshot, tmp_path):
     output_dir.mkdir(parents=True, exist_ok=True)
     (staticfile_dir / "input.txt").write_text("plain text without links", encoding="utf-8")
     hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
-    process = run_hook(
+    process = run_test_hook(
         hook_path,
         output_dir,
         config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
@@ -78,7 +78,7 @@ def real_second_snapshot_hook_process(snapshot, tmp_path):
 
 @pytest.fixture
 def real_crawl_setup_process(snapshot, hermetic_lib_dir):
-    from archivebox.plugins.hooks import run_hook
+    from archivebox.tests.conftest import run_test_hook
     from archivebox.services.runner import run_install
 
     hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
@@ -86,7 +86,7 @@ def real_crawl_setup_process(snapshot, hermetic_lib_dir):
     run_install(plugin_names=["chrome"])
     binary_env = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=config_path)
     output_dir = Path(snapshot.crawl.output_dir) / "chrome"
-    process = run_hook(
+    process = run_test_hook(
         hook_path,
         output_dir,
         config={

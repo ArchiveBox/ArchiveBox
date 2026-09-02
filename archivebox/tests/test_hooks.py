@@ -80,14 +80,14 @@ class TestJSONLParsing:
 
     @staticmethod
     def run_hashes_hook(tmp_path):
-        from archivebox.plugins.hooks import run_hook
+        from archivebox.tests.conftest import run_test_hook
 
         snap_dir = tmp_path / "hash-snapshot"
         output_dir = snap_dir / "hashes"
         output_dir.mkdir(parents=True)
         (snap_dir / "source.txt").write_text("real parser input", encoding="utf-8")
         hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
-        process = run_hook(
+        process = run_test_hook(
             hook_path,
             output_dir,
             config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
@@ -100,7 +100,7 @@ class TestJSONLParsing:
 
     @staticmethod
     def run_parser_hook(tmp_path):
-        from archivebox.plugins.hooks import run_hook
+        from archivebox.tests.conftest import run_test_hook
 
         snap_dir = tmp_path / "parser-snapshot"
         staticfile_dir = snap_dir / "staticfile"
@@ -112,7 +112,7 @@ class TestJSONLParsing:
             encoding="utf-8",
         )
         hook_path = Path(str(files("abx_plugins.plugins.parse_txt_urls").joinpath("on_Snapshot__71_parse_txt_urls.py")))
-        process = run_hook(
+        process = run_test_hook(
             hook_path,
             output_dir,
             config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
@@ -181,35 +181,6 @@ class TestJSONLParsing:
 
         assert len(records) == 1
         assert records[0]["type"] == "ArchiveResult"
-
-    def test_direct_hook_preserves_explicit_parent_process(self, tmp_path):
-        """The compatibility adapter must retain the caller's process hierarchy."""
-        from archivebox.machine.models import Machine, Process
-        from archivebox.plugins.hooks import run_hook
-
-        parent = Process.objects.create(
-            machine=Machine.current(),
-            process_type=Process.TypeChoices.CLI,
-            status=Process.StatusChoices.RUNNING,
-        )
-        snap_dir = tmp_path / "parented-snapshot"
-        output_dir = snap_dir / "hashes"
-        output_dir.mkdir(parents=True)
-        (snap_dir / "source.txt").write_text("parented hook input", encoding="utf-8")
-        hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
-
-        process = run_hook(
-            hook_path,
-            output_dir,
-            config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
-            timeout=30,
-            parent=parent,
-            url="https://example.com/parented-hook",
-        )
-
-        process.refresh_from_db()
-        assert process.exit_code == 0, process.stderr
-        assert process.parent_id == parent.id
 
 
 class TestRequiredBinaryConfigHandling:
@@ -446,7 +417,7 @@ class TestHookExecution:
 
     @pytest.mark.django_db(transaction=True)
     def test_real_js_hook_runs_through_abxpkg_shebang(self, tmp_path, hermetic_lib_dir):
-        from archivebox.plugins.hooks import run_hook
+        from archivebox.tests.conftest import run_test_hook
         from archivebox.services.runner import run_install
 
         lib_dir = hermetic_lib_dir
@@ -456,7 +427,7 @@ class TestHookExecution:
         snap_dir = crawl_dir / "snapshot"
         hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
 
-        process = run_hook(
+        process = run_test_hook(
             hook_path,
             crawl_dir / "chrome",
             config={
@@ -551,7 +522,7 @@ class TestSnapshotHookOutput:
         [(True, "succeeded"), (False, "skipped")],
     )
     def test_hashes_hook_emits_real_archive_result(self, tmp_path, enabled, expected_status):
-        from archivebox.plugins.hooks import extract_records_from_process, run_hook
+        from archivebox.tests.conftest import run_test_hook
 
         snap_dir = tmp_path / f"snapshot-{expected_status}"
         output_dir = snap_dir / "hashes"
@@ -559,7 +530,7 @@ class TestSnapshotHookOutput:
         (snap_dir / "source.txt").write_text("real hook protocol input", encoding="utf-8")
         hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
 
-        process = run_hook(
+        process = run_test_hook(
             hook_path,
             output_dir,
             config={
@@ -573,51 +544,21 @@ class TestSnapshotHookOutput:
         process.refresh_from_db()
 
         assert process.exit_code == 0, process.stderr
-        records = extract_records_from_process(process)
+        records = process.get_records()
         assert len(records) == 1
         assert records[0]["type"] == "ArchiveResult"
         assert records[0]["status"] == expected_status
-        assert records[0]["plugin"] == "hashes"
-        assert records[0]["hook_name"] == hook_path.name
-        assert records[0]["plugin_hook"] == str(hook_path)
+        assert process.cmd[0] == str(hook_path)
         if enabled:
             assert (output_dir / "hashes.json").is_file()
         else:
             assert records[0]["output_str"] == "HASHES_ENABLED=False"
 
 
-class TestPluginMetadata:
-    """Test that plugin metadata is added to JSONL records."""
-
-    @pytest.mark.django_db(transaction=True)
-    def test_python_hook_metadata_comes_from_executed_shipped_hook(self, tmp_path):
-        from archivebox.plugins.hooks import extract_records_from_process, run_hook
-
-        snap_dir = tmp_path / "snapshot-metadata"
-        output_dir = snap_dir / "hashes"
-        output_dir.mkdir(parents=True)
-        (snap_dir / "source.txt").write_text("metadata", encoding="utf-8")
-        script = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
-        process = run_hook(
-            script,
-            output_dir,
-            config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
-            timeout=30,
-            url="https://example.com/metadata",
-        )
-        process.refresh_from_db()
-
-        assert process.exit_code == 0, process.stderr
-        records = extract_records_from_process(process)
-        assert records[0]["plugin"] == "hashes"
-        assert records[0]["hook_name"] == script.name
-        assert records[0]["plugin_hook"] == str(script)
-
-
 @pytest.mark.django_db(transaction=True)
-def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_path, hermetic_lib_dir):
+def test_abx_dl_hook_execution_exports_singular_node_modules_dir_with_colon_node_path(tmp_path, hermetic_lib_dir):
     """Hook subprocesses must get a real NODE_MODULES_DIR even when NODE_PATH has multiple entries."""
-    from archivebox.plugins.hooks import run_hook
+    from archivebox.tests.conftest import run_test_hook
     from archivebox.services.runner import run_install
 
     lib_dir = hermetic_lib_dir
@@ -632,7 +573,7 @@ def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_pat
     crawl_dir = tmp_path / "crawl"
     output_dir = crawl_dir / "chrome"
     hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
-    process = run_hook(
+    process = run_test_hook(
         hook_path,
         output_dir,
         config={
@@ -654,16 +595,16 @@ def test_run_hook_exports_singular_node_modules_dir_with_colon_node_path(tmp_pat
 
 
 @pytest.mark.django_db(transaction=True)
-def test_run_hook_executes_python_hooks_through_abxpkg_shebang(tmp_path):
+def test_abx_dl_executes_python_hooks_through_abxpkg_shebang(tmp_path):
     """ArchiveBox treats Python hooks as opaque abxpkg-launched executables."""
-    from archivebox.plugins.hooks import run_hook
+    from archivebox.tests.conftest import run_test_hook
 
     snap_dir = tmp_path / "snapshot"
     output_dir = snap_dir / "hashes"
     output_dir.mkdir(parents=True)
     (snap_dir / "source.txt").write_text("real runtime hook input", encoding="utf-8")
     hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
-    process = run_hook(
+    process = run_test_hook(
         hook_path,
         output_dir,
         config={

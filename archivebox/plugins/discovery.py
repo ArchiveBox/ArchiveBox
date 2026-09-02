@@ -88,70 +88,14 @@ def get_enabled_plugins(config: ConfigLookup | None = None, **config_kwargs: Any
     return get_plugin_config_resolver().enabled_plugin_names_from_flat(dict(config.items()))
 
 
-def discover_plugins_that_provide_interface(
-    module_name: str,
-    required_attrs: list[str],
-    plugin_prefix: str | None = None,
-) -> dict[str, Any]:
-    """
-    Discover plugins that provide a specific Python module with required interface.
-
-    This enables dynamic plugin discovery for features like search backends,
-    storage backends, etc. without hardcoding imports.
-    """
-    import importlib.util
-
-    backends = {}
-
-    for plugin_dir in iter_plugin_dirs():
-        plugin_name = plugin_dir.name
-        if plugin_prefix and not plugin_name.startswith(plugin_prefix):
-            continue
-
-        module_path = plugin_dir / f"{module_name}.py"
-        if not module_path.exists():
-            continue
-
-        try:
-            spec = importlib.util.spec_from_file_location(
-                f"archivebox.dynamic_plugins.{plugin_name}.{module_name}",
-                module_path,
-            )
-            if spec is None or spec.loader is None:
-                continue
-
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-
-            if not all(attr in vars(module) for attr in required_attrs):
-                continue
-
-            if plugin_prefix:
-                backend_name = plugin_name[len(plugin_prefix) :]
-            else:
-                backend_name = plugin_name
-
-            backends[backend_name] = module
-
-        except Exception:
-            continue
-
-    return backends
-
-
-def get_search_backends() -> dict[str, Any]:
-    """
-    Discover all available search backend plugins.
-
-    Search backends must provide a search.py module with:
-        - search(query: str) -> List[str]  (returns snapshot IDs)
-        - flush(snapshot_ids: Iterable[str]) -> None
-    """
-    return discover_plugins_that_provide_interface(
-        module_name="search",
-        required_attrs=["search", "flush"],
-        plugin_prefix="search_backend_",
-    )
+def get_search_backends():
+    """Return plugins that declare both standalone search commands."""
+    catalog = get_plugin_catalog()
+    return {
+        plugin.name.removeprefix("search_backend_"): plugin
+        for plugin in catalog.values()
+        if catalog.command(plugin.name, "search") is not None and catalog.command(plugin.name, "flush") is not None
+    }
 
 
 @lru_cache(maxsize=1)

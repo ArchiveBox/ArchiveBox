@@ -30,12 +30,16 @@ def progress_endpoint(scope: Literal["crawl", "snapshot"] | None = None, object_
 @lru_cache(maxsize=1)
 def _live_progress_plugin_names() -> tuple[frozenset[str], frozenset[str]]:
     plugin_configs = discover_plugin_configs()
+    indexing_plugin_names = frozenset(
+        plugin_name
+        for plugin_name, plugin_config in plugin_configs.items()
+        if {"search", "flush"}.issubset(plugin_config.get("commands", {}))
+    )
     download_plugin_names = frozenset(
         plugin_name
         for plugin_name, plugin_config in plugin_configs.items()
-        if plugin_config.get("output_mimetypes") and not plugin_name.startswith("search_backend_")
+        if plugin_config.get("output_mimetypes") and plugin_name not in indexing_plugin_names
     )
-    indexing_plugin_names = frozenset(plugin_name for plugin_name in plugin_configs if plugin_name.startswith("search_backend_"))
     return download_plugin_names, indexing_plugin_names
 
 

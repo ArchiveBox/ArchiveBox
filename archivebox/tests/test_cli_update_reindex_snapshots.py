@@ -15,7 +15,7 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_only_sealed_search_backfill_bypasses_snapshot_lifecycle():
+def test_targeted_plugin_retries_preserve_sealed_snapshot_lifecycle():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.cli.archivebox_extract import run_plugins
     from archivebox.core.models import ArchiveResult
@@ -85,8 +85,8 @@ def test_only_sealed_search_backfill_bypasses_snapshot_lifecycle():
     )
     extract_crawl.refresh_from_db()
     extract_snapshot.refresh_from_db()
-    assert extract_crawl.status == Crawl.StatusChoices.QUEUED
-    assert extract_snapshot.status == Snapshot.StatusChoices.QUEUED
+    assert extract_crawl.status == Crawl.StatusChoices.SEALED
+    assert extract_snapshot.status == Snapshot.StatusChoices.SEALED
     assert extract_snapshot.archiveresult_set.filter(
         plugin="wget",
         status=ArchiveResult.StatusChoices.QUEUED,

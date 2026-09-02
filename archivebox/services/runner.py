@@ -316,16 +316,9 @@ class CrawlRunner:
 
     @property
     def allow_maintenance_on_inactive_crawl(self) -> bool:
-        """Run targeted search indexing on an already-sealed snapshot.
-
-        This is the singular hook-execution exception to the unified lifecycle.
-        All other work must queue the Snapshot and Crawl normally.
-        """
+        """Run explicitly targeted plugin work on already-sealed snapshots."""
         return bool(
-            self.initial_snapshot_ids
-            and self.selected_plugins
-            and self.crawl.status == self.crawl.StatusChoices.SEALED
-            and all(plugin.startswith("search_backend_") for plugin in self.selected_plugins),
+            self.initial_snapshot_ids and self.selected_plugins and self.crawl.status == self.crawl.StatusChoices.SEALED,
         )
 
     async def run(self) -> None:
@@ -603,7 +596,7 @@ class CrawlRunner:
             return []
         if self.initial_snapshot_ids:
             # Explicit ids select normal runnable work, except for the one
-            # sealed-search backfill admitted by allow_maintenance_on_inactive_crawl.
+            # targeted maintenance admitted by allow_maintenance_on_inactive_crawl.
             return [str(snapshot_id) for snapshot_id in self.initial_snapshot_ids]
         pending_snapshots = list(
             self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
@@ -1411,9 +1404,6 @@ def config_overrides_for_queued_plugins(selected_plugins: list[str], **overrides
     )
     for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
         config_overrides[enabled_key] = plugin_name in selected_plugin_names
-    for plugin_name in selected_plugins:
-        if plugin_name.startswith("search_backend_"):
-            config_overrides[f"{plugin_name.upper()}_ENABLED"] = True
     return config_overrides
 
 
@@ -1707,48 +1697,30 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
             snapshot.refresh_from_db()
         selected_plugins = queued_plugins_for_snapshot(str(snapshot.id))
         if selected_plugins:
-            search_only_plugins = all(plugin.startswith("search_backend_") for plugin in selected_plugins)
-            if not search_only_plugins:
-                snapshot.update_and_requeue(
-                    status=Snapshot.StatusChoices.QUEUED,
-                    retry_at=timezone.now(),
-                    current_step=0,
-                )
-                snapshot.refresh_from_db()
-            else:
-                _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
-                run_crawl(
-                    str(snapshot.crawl_id),
-                    snapshot_ids=[str(snapshot.id)],
-                    selected_plugins=selected_plugins,
-                    process_discovered_snapshots_inline=True,
-                    interactive_interrupts=interactive_interrupts,
-                    config_overrides=config_overrides_for_queued_plugins(selected_plugins),
-                    selected_plugins_are_explicit=False,
-                )
-                from archivebox.core.models import ArchiveResult
+            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
+            run_crawl(
+                str(snapshot.crawl_id),
+                snapshot_ids=[str(snapshot.id)],
+                selected_plugins=selected_plugins,
+                process_discovered_snapshots_inline=True,
+                interactive_interrupts=interactive_interrupts,
+                config_overrides=config_overrides_for_queued_plugins(selected_plugins),
+                selected_plugins_are_explicit=False,
+            )
+            from archivebox.core.models import ArchiveResult
 
-                has_queued_results = ArchiveResult.objects.filter(
-                    snapshot_id=snapshot.id,
-                    status=ArchiveResult.StatusChoices.QUEUED,
-                ).exists()
-                if not has_queued_results:
-                    type(snapshot).objects.filter(
-                        pk=snapshot.pk,
-                        status=snapshot.StatusChoices.SEALED,
-                    ).update(
-                        retry_at=None,
-                        modified_at=timezone.now(),
-                    )
-                else:
-                    type(snapshot).objects.filter(
-                        pk=snapshot.pk,
-                        status=snapshot.StatusChoices.SEALED,
-                    ).update(
-                        retry_at=timezone.now(),
-                        modified_at=timezone.now(),
-                    )
-                return True
+            has_queued_results = ArchiveResult.objects.filter(
+                snapshot_id=snapshot.id,
+                status=ArchiveResult.StatusChoices.QUEUED,
+            ).exists()
+            type(snapshot).objects.filter(
+                pk=snapshot.pk,
+                status=snapshot.StatusChoices.SEALED,
+            ).update(
+                retry_at=timezone.now() if has_queued_results else None,
+                modified_at=timezone.now(),
+            )
+            return True
         if snapshot.status == Snapshot.StatusChoices.SEALED:
             if maintenance_ran:
                 return True
@@ -2102,23 +2074,22 @@ def _run_due_queued_plugin_result(
         config_overrides=config_overrides_for_queued_plugins(selected_plugins, CRAWL_MAX_CONCURRENT_SNAPSHOTS=batch_size),
         selected_plugins_are_explicit=False,
     )
-    if all(plugin.startswith("search_backend_") for plugin in selected_plugins):
-        queued_results = ArchiveResult.objects.filter(
-            snapshot_id=OuterRef("pk"),
-            status=ArchiveResult.StatusChoices.QUEUED,
-            plugin__in=selected_plugins,
-        )
-        Snapshot.objects.filter(
-            id__in=claimed_snapshot_ids,
-            status=Snapshot.StatusChoices.SEALED,
-        ).annotate(
-            has_queued_results=Exists(queued_results),
-        ).filter(
-            has_queued_results=False,
-        ).update(
-            retry_at=None,
-            modified_at=timezone.now(),
-        )
+    queued_results = ArchiveResult.objects.filter(
+        snapshot_id=OuterRef("pk"),
+        status=ArchiveResult.StatusChoices.QUEUED,
+        plugin__in=selected_plugins,
+    )
+    Snapshot.objects.filter(
+        id__in=claimed_snapshot_ids,
+        status=Snapshot.StatusChoices.SEALED,
+    ).annotate(
+        has_queued_results=Exists(queued_results),
+    ).filter(
+        has_queued_results=False,
+    ).update(
+        retry_at=None,
+        modified_at=timezone.now(),
+    )
     return True
 
 
@@ -2284,21 +2255,17 @@ def run_pending_crawls(
             ):
                 continue
 
-        # Search backend selection is live crawl-execution config, not an
-        # installed-plugin list. Old queued rows for a backend that is disabled
-        # by the current Machine/Crawl/Snapshot config must remain queued so
-        # they can run if the user re-enables that backend, but they should not
-        # launch a standalone hook process just to skip after imports/config
-        # hydration. Refreshing here preserves mid-run config edits while using
-        # the same enabled-hook discovery path that created ArchiveResult rows.
+        # Plugin selection is live crawl-execution config, not an installed-
+        # plugin list. Old queued rows for a plugin that is disabled by the
+        # current Machine/Crawl/Snapshot config remain queued until the user
+        # re-enables it. Refresh here to preserve mid-run config edits while
+        # using the same enabled-hook discovery path that created the rows.
         runtime_config = get_config()
         catalog = get_plugin_catalog()
         enabled_plugins = get_enabled_plugins(config=runtime_config)
-        search_plugin_names = frozenset(
-            plugin.name for plugin, _hook in catalog.hooks("Snapshot", names=enabled_plugins) if plugin.name.startswith("search_backend_")
-        )
+        queued_plugin_names = frozenset(plugin.name for plugin, _hook in catalog.hooks("Snapshot", names=enabled_plugins))
         if _run_due_queued_plugin_result(
-            search_plugin_names,
+            queued_plugin_names,
             crawl_id=crawl_id,
             lock_seconds=60,
             interactive_interrupts=interactive_interrupts,
@@ -2316,13 +2283,13 @@ def run_pending_crawls(
                 retry_at__lte=timezone.now(),
                 status=Snapshot.StatusChoices.SEALED,
             )
-            if search_plugin_names:
-                queued_search_snapshot_ids = ArchiveResult.objects.filter(
+            if queued_plugin_names:
+                queued_plugin_snapshot_ids = ArchiveResult.objects.filter(
                     status=ArchiveResult.StatusChoices.QUEUED,
-                    plugin__in=search_plugin_names,
+                    plugin__in=queued_plugin_names,
                 ).values("snapshot_id")
                 sealed_snapshots = sealed_snapshots.exclude(
-                    id__in=queued_search_snapshot_ids,
+                    id__in=queued_plugin_snapshot_ids,
                 )
             if crawl_id:
                 sealed_snapshots = sealed_snapshots.filter(crawl_id=crawl_id)

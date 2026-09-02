@@ -61,12 +61,8 @@ class ProcessService(BaseService):
     ]
     EMITS: ClassVar[list[type[BaseEvent]]] = []
 
-    def __init__(self, bus, *, parent_process_id: str | None = None):
+    def __init__(self, bus):
         self._iface = None
-        # A direct run_hook() call owns a private bus, so its caller-supplied
-        # parent applies to every process projected from that bus. Crawl buses
-        # leave this unset and derive their hierarchy from lifecycle events.
-        self.parent_process_id = parent_process_id
         self._completed_queue: asyncio.Queue[ProcessCompletedEvent | None] = asyncio.Queue()
         self._completed_worker: asyncio.Task | None = None
         super().__init__(bus)
@@ -104,7 +100,7 @@ class ProcessService(BaseService):
             process = await Process.objects.acreate(
                 machine=iface.machine,
                 iface=iface,
-                parent_id=self.parent_process_id,
+                parent_id=None,
                 process_type=process_type,
                 worker_type=worker_type,
                 pwd=event.output_dir,
@@ -138,7 +134,7 @@ class ProcessService(BaseService):
             hook_path=event.hook_path,
         )
         await Process.objects.filter(id=process.id).aupdate(
-            parent_id=self.parent_process_id or process.parent_id,
+            parent_id=process.parent_id,
             pwd=process.pwd,
             cmd=process.cmd,
             env=process.env,
@@ -225,7 +221,7 @@ class ProcessService(BaseService):
             await Process.objects.acreate(
                 machine=iface.machine,
                 iface=iface,
-                parent_id=self.parent_process_id,
+                parent_id=None,
                 process_type=process_type,
                 worker_type=worker_type,
                 pwd=event.output_dir,
@@ -246,7 +242,7 @@ class ProcessService(BaseService):
         updates = {
             "machine_id": iface.machine_id,
             "iface_id": iface.id,
-            "parent_id": self.parent_process_id or process.parent_id,
+            "parent_id": process.parent_id,
             "pwd": event.output_dir,
             "env": process_env,
             "pid": event.pid or process.pid,

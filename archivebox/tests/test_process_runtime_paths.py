@@ -11,14 +11,14 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 class TestProcessRuntimePaths:
     def test_hook_processes_use_isolated_runtime_dir(self, tmp_path):
-        from archivebox.plugins.hooks import run_hook
+        from archivebox.tests.conftest import run_test_hook
 
         snap_dir = tmp_path / "snapshot"
         output_dir = snap_dir / "hashes"
         output_dir.mkdir(parents=True)
         (snap_dir / "source.txt").write_text("real runtime path input", encoding="utf-8")
         hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
-        process = run_hook(
+        process = run_test_hook(
             hook_path,
             output_dir,
             config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},

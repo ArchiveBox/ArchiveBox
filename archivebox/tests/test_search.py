@@ -118,8 +118,8 @@ def configure_ripgrep_search_backend(lib_dir: Path) -> None:
     )
 
 
-def test_search_backend_env_exposes_resolved_runtime_config(tmp_path):
-    from archivebox.search.backends import search_backend_env
+def test_search_backend_command_env_serializes_config_without_mutating_process_env(tmp_path):
+    from archivebox.search.backends import search_backend_command_env
 
     old_env = os.environ.get("SEARCH_BACKEND_SONIC_HOST_NAME")
     os.environ["SEARCH_BACKEND_SONIC_HOST_NAME"] = "old-host"
@@ -136,15 +136,14 @@ def test_search_backend_env_exposes_resolved_runtime_config(tmp_path):
     )
 
     try:
-        with search_backend_env(config=config):
-            assert os.environ["SEARCH_BACKEND_ENGINE"] == "sonic"
-            assert os.environ["SEARCH_BACKEND_SONIC_HOST_NAME"] == "sonic"
-            assert os.environ["SEARCH_BACKEND_SONIC_PORT"] == "1491"
-            assert os.environ["SEARCH_BACKEND_SONIC_PASSWORD"] == "SecretPassword"
-            assert os.environ["RIPGREP_BINARY"] == str(tmp_path / "env" / "bin" / "rg")
-            assert "IGNORED_NONE_VALUE" not in os.environ
-            assert "UNRELATED_BINARY_NAME" not in os.environ
-
+        env = search_backend_command_env(config=config)
+        assert env["SEARCH_BACKEND_ENGINE"] == "sonic"
+        assert env["SEARCH_BACKEND_SONIC_HOST_NAME"] == "sonic"
+        assert env["SEARCH_BACKEND_SONIC_PORT"] == "1491"
+        assert env["SEARCH_BACKEND_SONIC_PASSWORD"] == "SecretPassword"
+        assert env["RIPGREP_BINARY"] == str(tmp_path / "env" / "bin" / "rg")
+        assert "IGNORED_NONE_VALUE" not in env
+        assert env["UNRELATED_BINARY_NAME"] == "rg"
         assert os.environ["SEARCH_BACKEND_SONIC_HOST_NAME"] == "old-host"
     finally:
         if old_env is None:

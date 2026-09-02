@@ -294,9 +294,8 @@ def run_plugins(
     queue_at = timezone.now()
     if existing_snapshot_ids:
         if requested_rows:
-            # Search indexing on a sealed Snapshot is the only targeted hook
-            # allowed to bypass the normal lifecycle. Every other requested
-            # plugin requeues its Snapshot through the unified lifecycle.
+            # Explicit plugin retries are maintenance on the existing snapshot;
+            # preserve a sealed lifecycle while making its queued rows due.
             affected_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name, _hook_name in rows_to_queue}
             if preserve_queued and queued_rows:
                 queued_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name, _hook_name in queued_rows}
@@ -319,13 +318,7 @@ def run_plugins(
             for snapshot in Snapshot.objects.filter(id__in=affected_snapshot_ids).only("id", "status", "modified_at"):
                 # Guard the read-time status so we never bump retry_at on a
                 # row that's been re-queued / started by a concurrent runner.
-                plugin_names = requested_plugins_by_id.get(str(snapshot.id), set())
-                sealed_search_backfill = (
-                    snapshot.status == Snapshot.StatusChoices.SEALED
-                    and plugin_names
-                    and all(plugin_name.startswith("search_backend_") for plugin_name in plugin_names)
-                )
-                if sealed_search_backfill:
+                if snapshot.status == Snapshot.StatusChoices.SEALED and requested_plugins_by_id.get(str(snapshot.id)):
                     snapshot.safe_update(
                         {"retry_at": queue_at, "modified_at": queue_at},
                         refresh=False,
