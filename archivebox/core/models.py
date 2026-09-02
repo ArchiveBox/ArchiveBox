@@ -273,7 +273,7 @@ class SnapshotQuerySet(models.QuerySet):
 
         last_values = None
         value_field_names = tuple(dict.fromkeys([*ordered_field_names, pk_field]))
-        for _attempt in range(8):
+        while True:
             batch_qs = self.order_by(*ordering)
             if last_values is not None:
                 page_filter = models.Q()
@@ -731,7 +731,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if not plugin_names:
             return False
         retry_at = when or timezone.now()
-        while True:
+        for _attempt in range(8):
             current = type(self).objects.select_related("crawl").get(pk=self.pk)
             pending_plugins = {str(name).strip() for name in (current.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()}
             config = {**(current.config or {}), "RETRY_PLUGINS": sorted(pending_plugins | set(plugin_names))}

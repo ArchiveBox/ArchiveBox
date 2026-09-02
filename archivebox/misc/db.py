@@ -401,14 +401,19 @@ def retry_sqlite_locks(action: Callable[[], Any], *, label: str, stderr: TextIO 
         except (OperationalError, SQLiteOperationalError) as err:
             if not sqlite_lock_error(err):
                 raise
-            if retry_timeout and time.monotonic() - started_at >= retry_timeout:
-                raise
+            if retry_timeout:
+                remaining = retry_timeout - (time.monotonic() - started_at)
+                if remaining <= 0:
+                    raise
+                sleep_for = min(retry_interval, remaining)
+            else:
+                sleep_for = retry_interval
 
         connections.close_all()
-        console.print(f"[yellow][*] SQLite database is locked while {label}; retrying in {retry_interval:g}s...[/yellow]")
+        console.print(f"[yellow][*] SQLite database is locked while {label}; retrying in {sleep_for:g}s...[/yellow]")
         log_sqlite_lock_holders(console)
         with console.status("[yellow]Waiting for SQLite database lock to clear...[/yellow]", spinner="dots"):
-            time.sleep(retry_interval)
+            time.sleep(sleep_for)
 
 
 @contextmanager
