@@ -619,6 +619,35 @@ def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp
 
 
 @pytest.mark.django_db(transaction=True)
+def test_crawl_runner_preflights_plugins_before_crawl_lifecycle(tmp_path):
+    from abx_dl.events import CrawlEvent, CrawlSetupEvent, InstallEvent
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.runner import CrawlRunner
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        config={
+            "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
+            "PLUGINS": "base",
+            "CHROME_BINARY": "",
+        },
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    runner = CrawlRunner(crawl)
+    event_order = []
+    runner.bus.on(InstallEvent, lambda _event: event_order.append(InstallEvent))
+    runner.bus.on(CrawlEvent, lambda _event: event_order.append(CrawlEvent))
+    runner.bus.on(CrawlSetupEvent, lambda _event: event_order.append(CrawlSetupEvent))
+
+    asyncio.run(runner.run())
+
+    assert event_order.count(InstallEvent) == 1
+    assert event_order.index(InstallEvent) < event_order.index(CrawlEvent)
+    assert event_order.index(InstallEvent) < event_order.index(CrawlSetupEvent)
+
+
+@pytest.mark.django_db(transaction=True)
 def test_crawl_runner_resolves_persona_and_crawl_config_for_each_live_snapshot():
     from abx_dl.events import SnapshotCompletedEvent
     from archivebox.base_models.models import get_or_create_system_user_pk

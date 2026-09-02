@@ -13,6 +13,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 def _runtime_env(data_dir: Path, **extra: str) -> dict[str, str]:
     return {
         "ABXPKG_LIB_DIR": str(data_dir / "lib"),
+        "PLUGINS": "liteparse",
         "LITEPARSE_ENABLED": "True",
         "TIMEOUT": "180",
         "ABXPKG_INSTALL_TIMEOUT": "180",

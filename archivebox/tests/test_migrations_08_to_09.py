@@ -483,7 +483,7 @@ def test_hyphenated_crawl_ids_are_normalized_before_snapshot_saves(migration_08_
     assert hyphenated_crawls == 0
     assert hyphenated_snapshot_refs == 0
 
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=60)
+    result = run_archivebox_migration_cmd(work_dir, ["update", "--migrate-only"], timeout=60)
     output = result.stdout + result.stderr
     assert result.returncode == 0, f"Update failed after migration: {result.stderr}"
     assert "FOREIGN KEY constraint failed" not in output

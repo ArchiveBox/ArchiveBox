@@ -858,6 +858,7 @@ class TestSearchBackendsE2E:
             sonic_port = get_free_port()
             env = cli_env(
                 live=True,
+                ABXPKG_LIB_DIR=str(lib_dir),
                 PLUGINS="wget,search_backend_ripgrep,search_backend_sqlite,search_backend_sonic",
                 SAVE_TITLE="True",
                 WGET_ENABLED="True",

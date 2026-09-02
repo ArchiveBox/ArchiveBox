@@ -99,9 +99,10 @@ jobs:
           if [[ '${{ matrix.environment }}' != macos ]]; then
             dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docs_binaries")
           fi
-          if [[ '${{ matrix.environment }}' == ubuntu ]]; then
+          if [[ '${{ matrix.name }}' == ubuntu-AGENTS || '${{ matrix.name }}' == ubuntu-skills-archivebox-SKILL || '${{ matrix.name }}' == ubuntu-docs-Configuration || '${{ matrix.name }}' == ubuntu-docs-Setting-up-Authentication ]]; then
             dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries")
-          elif [[ '${{ matrix.environment }}' == docker ]]; then
+          fi
+          if [[ '${{ matrix.environment }}' == docker ]]; then
             dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries")
           elif [[ '${{ matrix.environment }}' == macos ]]; then
             dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-macos-brew.json:required_binaries")

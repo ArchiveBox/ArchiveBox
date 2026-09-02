@@ -805,7 +805,31 @@ class CrawlRunner:
         await self.bus.emit(MachineEvent(config=config, config_type="user")).now()
         if derived_config:
             await self.bus.emit(MachineEvent(config=derived_config, config_type="derived")).now()
-        PluginBinaryEnvService(self.bus, catalog=plugins)
+        if plugins:
+            install_plugins = get_install_plugins(plugins)
+            install_timeout = compute_install_phase_timeout(install_plugins, config)
+            PluginBinaryEnvService(self.bus, catalog=plugins)
+            PluginBinariesService(
+                self.bus,
+                catalog=plugins,
+                auto_install=True,
+                install_plugins=install_plugins,
+                output_dir=output_dir,
+                snapshot=abx_snapshot,
+                abort_requested=self.crawl_is_cancelled,
+            )
+            await _run_event_now(
+                self.bus.emit(
+                    InstallEvent(
+                        url=snapshot["url"],
+                        snapshot_id=snapshot["id"],
+                        output_dir=str(output_dir),
+                        event_timeout=install_timeout,
+                        event_handler_slow_timeout=slow_warning_timeout(install_timeout),
+                    ),
+                ),
+                install_timeout,
+            )
         HookCrawlService(
             self.bus,
             url=snapshot["url"],
