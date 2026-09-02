@@ -1191,7 +1191,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 ),
             }
             if tag_names:
-                tag_ids = [Tag.objects.get_or_create(name=tag_name)[0].pk for tag_name in tag_names]
+                tag_ids = [Tag.get_or_create_by_name(tag_name)[0].pk for tag_name in tag_names]
                 snapshot.add_tag_ids(tag_ids)
 
         existing_scope = Snapshot.objects if bool(self._config_value(config, "ONLY_NEW", True)) else self.snapshot_set

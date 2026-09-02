@@ -8,7 +8,6 @@ TEMP_PLUGIN_PREFIX = "__abx52_"
 
 
 def _temporary_plugin_name(row_id, reserved_plugins):
-    """Return a deterministic 32-character plugin name unused by this snapshot."""
     salt = 0
     while True:
         digest = hashlib.sha256(f"{row_id}:{salt}".encode()).hexdigest()[:24]
@@ -18,25 +17,13 @@ def _temporary_plugin_name(row_id, reserved_plugins):
         salt += 1
 
 
-def consolidate_archiveresults_per_plugin(apps, schema_editor):
-    """Temporarily make plugin names unique without deleting hook history.
-
-    This migration shipped with a short-lived one-row-per-plugin model, while
-    0054 restores the durable (snapshot, plugin, hook_name) identity. Fresh
-    upgrades still traverse both published migrations, so deleting duplicate
-    rows here would lose history before 0054 gets a chance to restore the
-    correct constraint. Rename only the non-canonical rows and stash their
-    original plugin/output_json values for 0054 to restore verbatim.
-    """
+def stash_archiveresult_hook_rows(apps, schema_editor):
+    """Make plugin names temporarily unique when reversing to 0053."""
     ArchiveResult = apps.get_model("core", "ArchiveResult")
     duplicate_groups = ArchiveResult.objects.values("snapshot_id", "plugin").annotate(count=models.Count("id")).filter(count__gt=1)
-
     for group in duplicate_groups.iterator(chunk_size=200):
         rows = list(
-            ArchiveResult.objects.filter(
-                snapshot_id=group["snapshot_id"],
-                plugin=group["plugin"],
-            ).order_by("created_at", "id"),
+            ArchiveResult.objects.filter(snapshot_id=group["snapshot_id"], plugin=group["plugin"]).order_by("created_at", "id"),
         )
         winner = max(
             rows,
@@ -65,25 +52,39 @@ def consolidate_archiveresults_per_plugin(apps, schema_editor):
             row.save(update_fields=["plugin", "output_json"])
 
 
+def restore_archiveresult_hook_rows(apps, schema_editor):
+    """Undo 0052's temporary plugin renames after its constraint is removed."""
+    ArchiveResult = apps.get_model("core", "ArchiveResult")
+    rows = ArchiveResult.objects.filter(plugin__startswith=TEMP_PLUGIN_PREFIX)
+    for row in rows.iterator(chunk_size=200):
+        stash = row.output_json
+        original = stash.get(STASH_KEY) if isinstance(stash, dict) else None
+        if not isinstance(original, dict) or "plugin" not in original:
+            continue
+        row.plugin = original["plugin"]
+        row.output_json = original.get("output_json")
+        row.save(update_fields=["plugin", "output_json"])
+
+
 class Migration(migrations.Migration):
     dependencies = [
-        ("core", "0051_postgres_url_pattern_ops_index"),
+        ("core", "0053_alter_archiveresult_options"),
     ]
 
     operations = [
         migrations.RemoveConstraint(
             model_name="archiveresult",
-            name="unique_archiveresult_per_snapshot_hook",
+            name="unique_archiveresult_per_snapshot_plugin",
         ),
         migrations.RunPython(
-            consolidate_archiveresults_per_plugin,
-            reverse_code=migrations.RunPython.noop,
+            restore_archiveresult_hook_rows,
+            reverse_code=stash_archiveresult_hook_rows,
         ),
         migrations.AddConstraint(
             model_name="archiveresult",
             constraint=models.UniqueConstraint(
-                fields=("snapshot", "plugin"),
-                name="unique_archiveresult_per_snapshot_plugin",
+                fields=("snapshot", "plugin", "hook_name"),
+                name="unique_archiveresult_per_snapshot_hook",
             ),
         ),
     ]
