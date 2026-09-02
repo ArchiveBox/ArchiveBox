@@ -817,7 +817,17 @@ class CrawlRunner:
             + CrawlCompletedEvent.model_fields["event_timeout"].default
             + 30.0
         )
-        await plan.seed_config(self.bus)
+        if plan.catalog:
+            await abx_install_plugins(
+                plan,
+                output_dir=output_dir,
+                emit_jsonl=False,
+                bus=self.bus,
+                BinaryService=None,
+                ProcessService=None,
+            )
+        else:
+            await plan.seed_config(self.bus)
         plan.attach_services(
             self.bus,
             url=snapshot["url"],
@@ -834,6 +844,7 @@ class CrawlRunner:
             emit_jsonl=False,
             abort_requested=self.crawl_is_cancelled,
             PluginBinariesService=None,
+            PluginBinaryEnvService=None,
             BinaryService=None,
             ProcessService=None,
             ArchiveResultService=None,

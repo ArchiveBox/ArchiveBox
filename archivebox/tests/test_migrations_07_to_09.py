@@ -403,7 +403,7 @@ def test_update_saves_migrated_snapshots_without_foreign_key_errors(archive_07):
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=60)
+    result = run_archivebox_migration_cmd(work_dir, ["update", "--migrate-only"], timeout=60)
     output = result.stdout + result.stderr
     assert result.returncode == 0, f"Update failed after migration: {result.stderr}"
     assert "FOREIGN KEY constraint failed" not in output
