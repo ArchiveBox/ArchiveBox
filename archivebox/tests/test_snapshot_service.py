@@ -108,9 +108,9 @@ def test_snapshot_keyset_iterator_reads_more_than_eight_pages(admin_user):
     crawl = Crawl.objects.create(urls="https://example.com/pages", created_by=admin_user)
     snapshots = [Snapshot.objects.create(url=f"https://example.com/pages/{idx}", crawl=crawl) for idx in range(10)]
 
-    yielded_ids = [snapshot.id for snapshot in crawl.snapshot_set.order_by("created_at").paged_iterator(chunk_size=1)]
+    yielded_ids = [snapshot.id for snapshot in crawl.snapshot_set.order_by("id").paged_iterator(chunk_size=1)]
 
-    assert yielded_ids == [snapshot.id for snapshot in snapshots]
+    assert yielded_ids == sorted(snapshot.id for snapshot in snapshots)
 
 
 def test_snapshot_merge_consolidates_only_exact_hook_identity(admin_user):
