@@ -75,7 +75,7 @@ from .binary_service import ArchiveBoxBinaryService, project_abxpkg_derived_cach
 from .crawl_service import CrawlService
 from .machine_service import MachineService
 from .process_service import ProcessService as PersistedProcessService
-from .snapshot_service import SnapshotService, finalize_completed_snapshot, project_discovered_snapshots
+from .snapshot_service import SnapshotService, project_discovered_snapshots
 from .tag_service import TagService
 
 
@@ -1026,19 +1026,6 @@ class CrawlRunner:
                     raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await completed_snapshot.wait(timeout=snapshot_phase_timeout)
                 await completed_snapshot.event_results_list()
-                # SnapshotCompletedEvent is the normal projection path, but the
-                # runner is the scheduler owner. Finalize idempotently here too
-                # so a completed snapshot cannot remain STARTED if the event was
-                # observed before its DB projector advanced the lifecycle.
-                crawl_limit_stop_reason = CrawlLimitState.from_config(config).get_stop_reason()
-                await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
-                    snapshot_id,
-                    owned_retry_at=snapshot["retry_at"],
-                    was_sealed=snapshot["status"] == "sealed",
-                    consumed_retry_plugins=snapshot["retry_plugins"],
-                    output_dir=output_dir,
-                    crawl_limit_stop_reason=crawl_limit_stop_reason,
-                )
                 if snapshot["status"] == "sealed":
                     await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
                     return

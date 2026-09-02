@@ -387,25 +387,28 @@ def sqlite_lock_error(error: BaseException) -> bool:
 
 
 def retry_sqlite_locks(action: Callable[[], Any], *, label: str, stderr: TextIO | None = None) -> Any:
+    from django.conf import settings
     from django.db import OperationalError, connections
     from rich.console import Console
 
     console = Console(file=stderr or None, stderr=stderr is None)
+    started_at = time.monotonic()
+    retry_timeout = settings.CONFIG.SQLITE_LOCK_RETRY_TIMEOUT
+    retry_interval = settings.CONFIG.SQLITE_LOCK_RETRY_INTERVAL
     while True:
         try:
             return action()
-        except OperationalError as err:
+        except (OperationalError, SQLiteOperationalError) as err:
             if not sqlite_lock_error(err):
                 raise
-        except SQLiteOperationalError as err:
-            if not sqlite_lock_error(err):
+            if retry_timeout and time.monotonic() - started_at >= retry_timeout:
                 raise
 
         connections.close_all()
-        console.print(f"[yellow][*] SQLite database is locked while {label}; retrying in 5s...[/yellow]")
+        console.print(f"[yellow][*] SQLite database is locked while {label}; retrying in {retry_interval:g}s...[/yellow]")
         log_sqlite_lock_holders(console)
         with console.status("[yellow]Waiting for SQLite database lock to clear...[/yellow]", spinner="dots"):
-            time.sleep(5.0)
+            time.sleep(retry_interval)
 
 
 @contextmanager

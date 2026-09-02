@@ -273,7 +273,7 @@ class SnapshotQuerySet(models.QuerySet):
 
         last_values = None
         value_field_names = tuple(dict.fromkeys([*ordered_field_names, pk_field]))
-        while True:
+        for _attempt in range(8):
             batch_qs = self.order_by(*ordering)
             if last_values is not None:
                 page_filter = models.Q()
@@ -754,6 +754,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if updated:
                 crawl = current.crawl
                 break
+        else:
+            raise RuntimeError(f"Snapshot {self.pk} changed repeatedly while scheduling plugins")
 
         self.refresh_from_db()
         if status in self.RUNNABLE_STATES and self.crawl_id:

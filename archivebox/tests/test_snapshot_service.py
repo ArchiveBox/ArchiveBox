@@ -78,6 +78,10 @@ def test_snapshot_completion_preserves_retry_scheduled_during_active_run(tmp_pat
 
 def test_concurrent_plugin_scheduling_durably_merges_every_request(admin_user):
     from archivebox.crawls.models import Crawl
+    from django.db import connection
+
+    if connection.vendor != "sqlite":
+        pytest.skip("exercises SQLite concurrent-writer scheduling")
 
     crawl = Crawl.objects.create(urls="https://example.com/plugin-race", created_by=admin_user)
     snapshot = Snapshot.objects.create(url="https://example.com/plugin-race", crawl=crawl)

@@ -149,12 +149,14 @@ class SnapshotService(BaseService):
             if snapshot.status == Snapshot.StatusChoices.STARTED:
                 await sync_to_async(snapshot.ensure_crawl_symlink, thread_sensitive=True)()
             retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
-            self._run_ownership[str(event.event_id)] = (str(event.snapshot_id), snapshot.retry_at, was_sealed, retry_plugins)
+            self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins)
 
     async def on_SnapshotCompletedEvent(self, event: SnapshotCompletedEvent) -> None:
-        ownership = self._run_ownership.pop(str(event.event_parent_id), None)
-        if ownership is None or ownership[0] != str(event.snapshot_id):
+        snapshot_id = str(event.snapshot_id)
+        ownership = self._run_ownership.get(snapshot_id)
+        if ownership is None or ownership[0] != str(event.event_parent_id):
             return
+        self._run_ownership.pop(snapshot_id, None)
         _, owned_retry_at, was_sealed, retry_plugins = ownership
         await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
             event.snapshot_id,
