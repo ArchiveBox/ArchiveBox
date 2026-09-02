@@ -1,0 +1,40 @@
+archivebox/services/runner.py
+  s_80d4bd2d930f75::t_7966455cad63af 830
+  s_80d4bd2d930f75::t_6d2517d97a8d36 808-829,831-832
+.github/workflows/docs.yml
+  s_80d4bd2d930f75::t_e03d6940f447ed 102,104-105
+Dockerfile
+  s_80d4bd2d930f75::t_cbcd939fe4925a 13,16
+archivebox/tests/test_crawl_runner.py
+  s_80d4bd2d930f75::t_beeed6f9b7692e 621-649
+archivebox/tests/test_machine_service.py
+  s_80d4bd2d930f75::t_e95ae90f66cd52 16
+archivebox/tests/test_migrations_07_to_09.py
+  s_80d4bd2d930f75::t_469467b74a3536 406
+archivebox/tests/test_migrations_08_to_09.py
+  s_80d4bd2d930f75::t_435156802443e8 486
+archivebox/tests/test_search.py
+  s_80d4bd2d930f75::t_6bb9fe5fcd9f63 861
+etc/package.json
+  s_80d4bd2d930f75::t_fe8eaed79fc3c8 3
+pyproject.toml
+  s_80d4bd2d930f75::t_aca11e3bb6156c 3,82-84,345
+uv.lock
+  s_80d4bd2d930f75::t_3c2d95444509f3 16,20,27,41,43,48,57,59,78,86,88,123,222-223,225
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "0a9d8fd525f379c1a806cdfb5ece6c3f8c11aa5e",
+  "prompts": {},
+  "sessions": {
+    "s_80d4bd2d930f75": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05e81-8ef7-7ee1-b52f-f712a0d60079",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
