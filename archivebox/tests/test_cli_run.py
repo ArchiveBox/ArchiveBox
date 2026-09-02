@@ -240,7 +240,7 @@ class TestRunWithArchiveResult:
     """Tests for `archivebox run` with ArchiveResult input."""
 
     @pytest.mark.django_db(transaction=True)
-    def test_run_treats_no_id_archiveresult_request_as_plugin_work(self, initialized_archive):
+    def test_run_creates_and_runs_exact_no_id_archiveresult_request(self, initialized_archive):
         import json
 
         from archivebox.core.models import ArchiveResult
@@ -284,9 +284,13 @@ class TestRunWithArchiveResult:
                     "output_str",
                 ),
             )
-        assert len(rows) == 1
-        assert rows[0][0] != missing_hook
-        assert rows[0][1] in ArchiveResult.FINAL_STATES
+        assert rows == [
+            (
+                missing_hook,
+                ArchiveResult.StatusChoices.FAILED,
+                "Queued hook is no longer available in the installed plugin",
+            ),
+        ]
 
     def test_run_requeues_failed_archiveresult(self, initialized_archive):
         """Run re-queues a failed ArchiveResult."""
@@ -1072,7 +1076,7 @@ class TestRecoverOrchestratorState:
         assert snapshot.retry_at is None
         assert snapshot.downloaded_at is not None
 
-    def test_create_pending_archiveresults_creates_one_plugin_row_not_hook_rows(self):
+    def test_create_pending_archiveresults_uses_canonical_hook_names(self):
         from django.utils import timezone
 
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -1092,17 +1096,11 @@ class TestRecoverOrchestratorState:
             retry_at=timezone.now(),
         )
 
-        results = snapshot.create_pending_archiveresults(
-            hooks=[
-                ("chrome", "on_Snapshot__00_chrome_launch.daemon.bg"),
-                ("chrome", "on_Snapshot__01_chrome_tab.daemon.bg"),
-                ("chrome", "on_Snapshot__30_chrome_navigate"),
-                ("title", "on_Snapshot__54_title"),
-            ],
-        )
+        snapshot.create_pending_archiveresults()
 
-        assert [(result.plugin, result.hook_name) for result in results] == [("chrome", ""), ("title", "")]
-        assert ArchiveResult.objects.filter(snapshot=snapshot).count() == 2
+        hook_names = list(ArchiveResult.objects.filter(snapshot=snapshot).values_list("hook_name", flat=True))
+        assert hook_names
+        assert all(not hook_name.endswith((".py", ".js", ".sh")) for hook_name in hook_names)
 
     def test_snapshot_hooks_for_pending_archiveresults_respects_disabled_plugins_when_plugins_empty(self):
         from django.utils import timezone
@@ -1718,7 +1716,7 @@ class TestRecoverOrchestratorState:
         assert result.end_ts is not None
 
     @pytest.mark.django_db(transaction=True)
-    def test_run_due_snapshot_runs_plugin_for_obsolete_queued_hook_name(self):
+    def test_run_due_snapshot_fails_obsolete_queued_hook_name(self):
         from django.utils import timezone
 
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -1749,8 +1747,8 @@ class TestRecoverOrchestratorState:
 
         result.refresh_from_db()
         snapshot.refresh_from_db()
-        assert result.status in ArchiveResult.FINAL_STATES
-        assert result.hook_name != "on_Snapshot__50_singlefile.py"
+        assert result.status == ArchiveResult.StatusChoices.FAILED
+        assert result.output_str == "Queued hook is no longer available in the installed plugin"
         assert snapshot.retry_at is None
 
     @pytest.mark.django_db(transaction=True)
@@ -1829,10 +1827,7 @@ class TestRecoverOrchestratorState:
         recursive_test_site,
         chrome_isolation,
     ):
-        from pathlib import Path
-
-        from archivebox.core.models import ArchiveResult, Snapshot
-        from archivebox.machine.models import Process
+        from archivebox.core.models import ArchiveResult
         from archivebox.tests.test_orm_helpers import use_archivebox_db
 
         env = cli_env(disable_extractors=True)
@@ -1870,19 +1865,13 @@ class TestRecoverOrchestratorState:
         snapshot_id = navigate_record["snapshot_id"]
 
         with use_archivebox_db(initialized_archive):
-            snapshot = Snapshot.objects.get(id=snapshot_id)
-            tab_processes = [
-                process
-                for process in Process.objects.filter(pwd=str(Path(snapshot.output_dir) / "chrome")).order_by("-started_at")
-                if Path(process.hook_script_name or "").stem == "on_Snapshot__01_chrome_tab.daemon.bg"
-            ]
-            assert tab_processes
-            first_tab_process_id = tab_processes[0].id
-            plugin_result = ArchiveResult.objects.get(
+            tab_result = ArchiveResult.objects.get(
                 snapshot_id=snapshot_id,
                 plugin="chrome",
+                hook_name="on_Snapshot__01_chrome_tab.daemon.bg",
             )
-            assert plugin_result.hook_name == "on_Snapshot__30_chrome_navigate"
+            first_tab_process_id = tab_result.process_id
+            assert first_tab_process_id is not None
 
         update_process = run_archivebox_cmd(
             ["archiveresult", "update", "--status=queued"],
@@ -1916,18 +1905,18 @@ class TestRecoverOrchestratorState:
             navigate_result = ArchiveResult.objects.get(
                 snapshot_id=snapshot_id,
                 plugin="chrome",
+                hook_name="on_Snapshot__30_chrome_navigate",
             )
-            snapshot = Snapshot.objects.get(id=snapshot_id)
-            tab_processes = [
-                process
-                for process in Process.objects.filter(pwd=str(Path(snapshot.output_dir) / "chrome")).order_by("-started_at")
-                if Path(process.hook_script_name or "").stem == "on_Snapshot__01_chrome_tab.daemon.bg"
-            ]
+            tab_result = ArchiveResult.objects.get(
+                snapshot_id=snapshot_id,
+                plugin="chrome",
+                hook_name="on_Snapshot__01_chrome_tab.daemon.bg",
+            )
 
         assert run_process.returncode == 0
         assert navigate_result.status == ArchiveResult.StatusChoices.SUCCEEDED
-        assert navigate_result.hook_name == "on_Snapshot__30_chrome_navigate"
-        assert tab_processes[0].id != first_tab_process_id
+        assert tab_result.process_id is not None
+        assert tab_result.process_id != first_tab_process_id
 
     def test_recover_orchestrator_state_ignores_sealed_downloaded_snapshot_without_results(self):
         from django.utils import timezone

@@ -142,8 +142,7 @@ class TestArchiveResultAdminListView:
         snapshot.refresh_from_db()
         assert snapshot.output_size == 0
 
-    def test_duplicate_plugin_result_is_rejected_without_touching_output(self, snapshot):
-        from django.db import IntegrityError, transaction
+    def test_deleting_sibling_hook_preserves_shared_plugin_output(self, snapshot):
         from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "responses"
@@ -157,13 +156,14 @@ class TestArchiveResultAdminListView:
             status=ArchiveResult.StatusChoices.SUCCEEDED,
             output_size=18,
         )
-        with pytest.raises(IntegrityError), transaction.atomic():
-            ArchiveResult.objects.create(
-                snapshot=snapshot,
-                plugin="responses",
-                hook_name="on_Snapshot__24_responses.daemon.bg.replayed",
-                status=ArchiveResult.StatusChoices.NORESULTS,
-            )
+        duplicate = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="responses",
+            hook_name="on_Snapshot__24_responses.daemon.bg.replayed",
+            status=ArchiveResult.StatusChoices.NORESULTS,
+        )
+
+        duplicate.delete()
 
         assert ArchiveResult.objects.filter(pk=primary.pk).exists()
         assert output_file.read_text() == "captured response\n"

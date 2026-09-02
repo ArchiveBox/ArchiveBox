@@ -61,11 +61,10 @@ class TestArchiveResultCreate:
 
         ar = next(r for r in records if r["type"] == "ArchiveResult")
         assert ar["plugin"] == "title"
-        # Queue projection is one row per plugin, while a plugin can contain
-        # several ordered hooks. The runner records the concrete hook only
-        # after execution; inventing one here would make the pending row claim
-        # work that has not run and reintroduce hook-level duplicate results.
-        assert ar["hook_name"] == ""
+        # Hook identity is known at scheduling time and is the durable retry
+        # key. Emitting it here prevents multiple hooks in one plugin from
+        # collapsing into the same ArchiveResult row.
+        assert ar["hook_name"] == "on_Snapshot__54_title"
         assert "id" not in ar
 
     def test_create_with_specific_plugin(self, initialized_archive):
@@ -92,11 +91,9 @@ class TestArchiveResultCreate:
         assert code == 0
         records = parse_jsonl_output(stdout2)
         ar_records = [r for r in records if r.get("type") == "ArchiveResult"]
-        assert len(ar_records) >= 1
+        assert len(ar_records) == 1
         assert all(record["plugin"] == "screenshot" for record in ar_records)
-        # A requested plugin is the schedulable unit; its concrete hook is an
-        # execution result, not input metadata on this pre-execution request.
-        assert all(record["hook_name"] == "" for record in ar_records)
+        assert [record["hook_name"] for record in ar_records] == ["on_Snapshot__51_screenshot"]
 
     def test_create_pass_through_crawl(self, initialized_archive):
         """Pass-through Crawl records unchanged."""

@@ -11,7 +11,7 @@ from uuid import UUID
 from typing import Union, Any, Annotated
 from datetime import datetime, time
 
-from django.db import transaction
+from django.db import IntegrityError
 from django.db.models import Model, Q
 from django.http import HttpRequest, HttpResponse
 from django.http.multipartparser import MultiPartParser, MultiPartParserError
@@ -517,52 +517,53 @@ def create_archiveresult(
     normalized_status = ArchiveResult.normalize_status(status)
     parsed_output_json = _parse_archiveresult_output_json(output_json)
     hook = hook_name or ARCHIVERESULT_UPLOAD_HOOK_NAME
-    existing_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin_name).first()
-    existing_output_files = dict(existing_result.output_files or {}) if existing_result else {}
-    output_files = _write_archiveresult_files(
+    result_lookup = {
+        "snapshot": snapshot,
+        "plugin": plugin_name,
+        "hook_name": hook,
+    }
+    uploaded_output_files = _write_archiveresult_files(
         request,
         snapshot,
         plugin_name,
-        existing_output_files=existing_output_files,
         allow_empty=True,
     )
-    now = timezone.now()
-
-    with transaction.atomic():
-        Snapshot.objects.select_for_update().get(pk=snapshot.pk)
-        existing_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin_name).first()
-        if existing_result:
-            output_files = {
-                **dict(existing_result.output_files or {}),
-                **output_files,
-            }
-            result = existing_result
-        else:
-            existing_result = None
-            result = ArchiveResult(
-                snapshot=snapshot,
-                plugin=plugin_name,
-                hook_name=hook,
-            )
-
-        if (
-            existing_result
-            and normalized_status == ArchiveResult.StatusChoices.STARTED
-            and existing_result.status != ArchiveResult.StatusChoices.STARTED
-        ):
-            normalized_status = existing_result.status
+    result = ArchiveResult.objects.filter(**result_lookup).first()
+    for _attempt in range(3):
+        output_files = {
+            **(result.output_file_map() if result else {}),
+            **uploaded_output_files,
+        }
         output_size, output_mimetypes = _summarize_archiveresult_output_files(output_files)
         output_file_paths = list(output_files.keys())
-        result.status = normalized_status
-        result.hook_name = hook
-        result.output_str = output_str or (output_file_paths[0] if output_file_paths else "")
-        result.output_json = parsed_output_json
-        result.output_files = output_files
-        result.output_size = output_size
-        result.output_mimetypes = output_mimetypes
-        result.start_ts = result.start_ts or now
-        result.end_ts = now
-        result.save()
+        result_status = normalized_status
+        if result and result_status == ArchiveResult.StatusChoices.STARTED and result.status != ArchiveResult.StatusChoices.STARTED:
+            result_status = result.status
+        now = timezone.now()
+        values = {
+            "status": result_status,
+            "output_str": output_str or (output_file_paths[0] if output_file_paths else ""),
+            "output_json": parsed_output_json,
+            "output_files": output_files,
+            "output_size": output_size,
+            "output_mimetypes": output_mimetypes,
+            "start_ts": result.start_ts or now if result else now,
+            "end_ts": now,
+        }
+        if result:
+            if result.safe_update(values):
+                break
+            continue
+        result, created = ArchiveResult.get_or_create_by_hook(
+            snapshot,
+            plugin_name,
+            hook,
+            defaults=values,
+        )
+        if created:
+            break
+    else:
+        raise HttpError(409, "ArchiveResult changed while upload metadata was being updated")
 
     if result.status != ArchiveResult.StatusChoices.STARTED:
         _queue_archiveresult_snapshot_maintenance(snapshot)
@@ -576,44 +577,46 @@ def patch_archiveresult(
 ):
     """Append or replace files on an existing ArchiveResult."""
     result = ArchiveResult.objects.select_related("snapshot__crawl__created_by").get(_uuid_ref_query("id", archiveresult_id))
-    output_files = _write_archiveresult_files(
+    uploaded_output_files = _write_archiveresult_files(
         request,
         result.snapshot,
         result.plugin,
-        existing_output_files=result.output_file_map(),
     )
-    latest_result = ArchiveResult.objects.only("output_files", "status").get(pk=result.pk)
-    output_files = {
-        **latest_result.output_file_map(),
-        **output_files,
-    }
-    output_size, output_mimetypes = _summarize_archiveresult_output_files(output_files)
-
-    update_fields = ["output_files", "output_size", "output_mimetypes", "end_ts", "modified_at"]
-    result.output_files = output_files
-    result.output_size = output_size
-    result.output_mimetypes = output_mimetypes
-    result.end_ts = timezone.now()
     output_str = _get_archiveresult_upload_form_value(request, "output_str")
     status = _get_archiveresult_upload_form_value(request, "status")
     output_json = _get_archiveresult_upload_form_value(request, "output_json")
-    if output_str:
-        result.output_str = output_str
-        update_fields.append("output_str")
-    if status:
-        normalized_status = ArchiveResult.normalize_status(status)
-        if normalized_status == ArchiveResult.StatusChoices.STARTED and latest_result.status != ArchiveResult.StatusChoices.STARTED:
-            normalized_status = latest_result.status
-        result.status = normalized_status
-        update_fields.append("status")
-    elif latest_result.status == ArchiveResult.StatusChoices.QUEUED and ArchiveResult.output_files_upload_complete(output_files):
-        result.status = ArchiveResult.StatusChoices.SUCCEEDED
-        update_fields.append("status")
-    if output_json:
-        result.output_json = _parse_archiveresult_output_json(output_json)
-        update_fields.append("output_json")
+    parsed_output_json = _parse_archiveresult_output_json(output_json) if output_json else None
 
-    result.save(update_fields=update_fields)
+    if not ArchiveResult.output_files_upload_complete(uploaded_output_files):
+        result.output_files = {**result.output_file_map(), **uploaded_output_files}
+        result.output_size, result.output_mimetypes = _summarize_archiveresult_output_files(result.output_files)
+        return result
+
+    for _attempt in range(3):
+        output_files = {**result.output_file_map(), **uploaded_output_files}
+        output_size, output_mimetypes = _summarize_archiveresult_output_files(output_files)
+        values: dict[str, Any] = {
+            "output_files": output_files,
+            "output_size": output_size,
+            "output_mimetypes": output_mimetypes,
+            "end_ts": timezone.now(),
+        }
+        if output_str:
+            values["output_str"] = output_str
+        if status:
+            normalized_status = ArchiveResult.normalize_status(status)
+            if normalized_status == ArchiveResult.StatusChoices.STARTED and result.status != ArchiveResult.StatusChoices.STARTED:
+                normalized_status = result.status
+            values["status"] = normalized_status
+        elif result.status == ArchiveResult.StatusChoices.QUEUED:
+            values["status"] = ArchiveResult.StatusChoices.SUCCEEDED
+        if output_json:
+            values["output_json"] = parsed_output_json
+        if result.safe_update(values):
+            break
+    else:
+        raise HttpError(409, "ArchiveResult changed while upload metadata was being updated")
+
     if result.status != ArchiveResult.StatusChoices.STARTED:
         _queue_archiveresult_snapshot_maintenance(result.snapshot)
 
@@ -930,52 +933,47 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
             created_by=request.user if isinstance(request.user, User) else None,
         )
 
-    # Browser clients sync metadata and upload capture artifacts immediately
-    # after queueing a URL. The runner holds the crawl lifecycle lock for the
-    # whole crawl, so idempotently posting an already-created snapshot must not
-    # wait behind that potentially long-running archive job.
-    existing_snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
-    if existing_snapshot is not None and (status is None or existing_snapshot.status == status):
-        if data.title is not None and existing_snapshot.title != data.title:
-            Snapshot.objects.filter(pk=existing_snapshot.pk).update(title=data.title, modified_at=timezone.now())
-            existing_snapshot.title = data.title
-        if tags:
-            existing_snapshot.save_tags(tags)
-        setattr(request, "with_archiveresults", False)
-        return existing_snapshot
+    # Browser uploads must not wait behind the runner's crawl-wide lifecycle
+    # lock. The unique insert recovery and CAS update below are the request-side
+    # coordination boundary for this idempotent metadata sync.
+    snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
+    if snapshot is None:
+        try:
+            snapshot = Snapshot.objects.create(
+                url=data.url,
+                crawl=crawl,
+                depth=data.depth,
+                title=data.title,
+                timestamp=str(timezone.now().timestamp()),
+                status=status or Snapshot.StatusChoices.QUEUED,
+                retry_at=timezone.now(),
+            )
+        except IntegrityError:
+            snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
+            if snapshot is None:
+                raise
 
-    with crawl_lifecycle_lock(str(crawl.id)):
-        snapshot_defaults = {
-            "depth": data.depth,
-            "title": data.title,
-            "timestamp": str(timezone.now().timestamp()),
-            "status": status or Snapshot.StatusChoices.QUEUED,
-            "retry_at": timezone.now(),
-        }
-        snapshot, _ = Snapshot.objects.get_or_create(
-            url=data.url,
-            crawl=crawl,
-            defaults=snapshot_defaults,
+    for _attempt in range(3):
+        updates: dict[str, Any] = {}
+        if data.title is not None and snapshot.title != data.title:
+            updates["title"] = data.title
+        if status is not None and snapshot.status != status:
+            updates["status"] = status
+        if not updates or snapshot.safe_update(updates, extra_filter={"modified_at": snapshot.modified_at}):
+            break
+    else:
+        raise HttpError(409, "Snapshot changed while metadata was being updated")
+
+    if tags:
+        snapshot.save_tags(
+            tags,
+            created_by=request.user if isinstance(request.user, User) else None,
         )
 
-        update_fields: list[str] = []
-        if data.title is not None and snapshot.title != data.title:
-            snapshot.title = data.title
-            update_fields.append("title")
-        if status is not None and snapshot.status != status:
-            snapshot.status = status
-            update_fields.append("status")
-        if update_fields:
-            update_fields.append("modified_at")
-            snapshot.save(update_fields=update_fields)
-
-        if tags:
-            snapshot.save_tags(tags)
-
-        try:
-            snapshot.ensure_crawl_symlink()
-        except Exception:
-            pass
+    try:
+        snapshot.ensure_crawl_symlink()
+    except Exception:
+        pass
 
     setattr(request, "with_archiveresults", False)
     return snapshot
@@ -1023,7 +1021,10 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
             update_fields.append("retry_at")
 
         if tags is not None:
-            snapshot.save_tags(normalize_tag_list(tags))
+            snapshot.save_tags(
+                normalize_tag_list(tags),
+                created_by=request.user if isinstance(request.user, User) else None,
+            )
 
         if payload.get("status") == Snapshot.StatusChoices.SEALED:
             snapshot.cancel()
@@ -1410,8 +1411,7 @@ def tags_add_to_snapshot(request: HttpRequest, data: TagSnapshotRequestSchema):
     else:
         raise HttpError(400, "Either tag_name or tag_id is required")
 
-    # Add the tag to the snapshot
-    snapshot.tags.add(tag.pk)
+    snapshot.add_tag_ids([tag.pk])
 
     return {
         "success": True,
@@ -1439,8 +1439,7 @@ def tags_remove_from_snapshot(request: HttpRequest, data: TagSnapshotRequestSche
     else:
         raise HttpError(400, "Either tag_name or tag_id is required")
 
-    # Remove the tag from the snapshot
-    snapshot.tags.remove(tag.pk)
+    snapshot.remove_tag_ids([tag.pk])
 
     return {
         "success": True,

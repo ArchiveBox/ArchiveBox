@@ -898,7 +898,10 @@ def test_update_preserves_legacy_plugin_directory_without_output_files(migration
         (snapshot["id"],),
     ).fetchall()
     conn.close()
-    assert rows == [("", "{}", "")]
+    assert len(rows) == 2
+    assert all(output_str == "" for output_str, _output_files, _hook_name in rows)
+    assert len({hook_name for _output_str, _output_files, hook_name in rows}) == 2
+    assert sum(not hook_name for _output_str, _output_files, hook_name in rows) == 1
 
 
 def test_07_filesystem_hop_preserves_complete_output_tree(tmp_path):

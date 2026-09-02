@@ -70,7 +70,12 @@ def process_archiveresult_by_id(archiveresult_id: str) -> int:
             )
             return 1
 
-        run_crawl(str(snapshot.crawl_id), snapshot_ids=[str(snapshot.id)], selected_plugins=[archiveresult.plugin])
+        run_crawl(
+            str(snapshot.crawl_id),
+            snapshot_ids=[str(snapshot.id)],
+            selected_plugins=[archiveresult.plugin],
+            selected_plugins_are_explicit=False,
+        )
         archiveresult.refresh_from_db()
 
         if archiveresult.status == ArchiveResult.StatusChoices.SUCCEEDED:
@@ -122,6 +127,7 @@ def run_plugins(
     from archivebox.core.models import Snapshot
     from archivebox.core.models import ArchiveResult
     from archivebox.services.runner import run_crawl
+    from abx_dl.models import discover_plugins
 
     is_tty = sys.stdout.isatty()
 
@@ -142,6 +148,8 @@ def run_plugins(
     # Gather snapshot IDs and optional plugin constraints to process
     snapshot_ids = set()
     requested_plugins_by_snapshot: dict[str, set[str]] = defaultdict(set)
+    requested_hooks_by_snapshot: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    plugin_level_requests_by_snapshot: dict[str, set[str]] = defaultdict(set)
     for record in records:
         record_type = record.get("type")
 
@@ -163,7 +171,14 @@ def run_plugins(
                 snapshot_ids.add(str(snapshot_id))
                 plugin_name = record.get("plugin")
                 if plugin_name and not plugins_list:
-                    requested_plugins_by_snapshot[str(snapshot_id)].add(str(plugin_name))
+                    snapshot_key = str(snapshot_id)
+                    plugin_key = str(plugin_name)
+                    requested_plugins_by_snapshot[snapshot_key].add(plugin_key)
+                    hook_name = str(record.get("hook_name") or "")
+                    if hook_name:
+                        requested_hooks_by_snapshot[snapshot_key].add((plugin_key, hook_name))
+                    else:
+                        plugin_level_requests_by_snapshot[snapshot_key].add(plugin_key)
 
         elif "id" in record:
             # Assume it's a snapshot ID
@@ -192,21 +207,38 @@ def run_plugins(
             if snapshot_id in existing_snapshot_ids
             for plugin_name in plugin_names
         )
-    queued_rows: set[tuple[str, str]] = set()
-    if preserve_queued and requested_pairs:
-        queued_rows = {
-            (str(snapshot_id), plugin_name)
-            for snapshot_id, plugin_name in ArchiveResult.objects.filter(
-                snapshot_id__in=existing_snapshot_ids,
-                plugin__in={plugin_name for _snapshot_id, plugin_name in requested_pairs},
-                status=ArchiveResult.StatusChoices.QUEUED,
-            ).values_list("snapshot_id", "plugin")
+    plugins_by_name = discover_plugins(runtime="archivebox")
+    requested_rows: set[tuple[str, str, str]] = set()
+    for snapshot_id, plugin_name in requested_pairs:
+        exact_hook_names = {
+            hook_name
+            for requested_plugin, hook_name in requested_hooks_by_snapshot.get(snapshot_id, set())
+            if requested_plugin == plugin_name
         }
-    rows_to_queue = requested_pairs - queued_rows
+        if exact_hook_names and plugin_name not in plugin_level_requests_by_snapshot.get(snapshot_id, set()):
+            requested_rows.update((snapshot_id, plugin_name, hook_name) for hook_name in exact_hook_names)
+            continue
+        plugin = plugins_by_name.get(plugin_name)
+        hooks = plugin.filter_hooks("Snapshot") if plugin is not None else []
+        if hooks:
+            requested_rows.update((snapshot_id, plugin_name, hook.name) for hook in hooks)
+        else:
+            requested_rows.add((snapshot_id, plugin_name, ""))
+
+    queued_rows: set[tuple[str, str, str]] = set()
+    if preserve_queued and requested_rows:
+        queued_rows = {
+            (str(snapshot_id), plugin_name, hook_name)
+            for snapshot_id, plugin_name, hook_name in ArchiveResult.objects.filter(
+                snapshot_id__in=existing_snapshot_ids,
+                plugin__in={plugin_name for _snapshot_id, plugin_name, _hook_name in requested_rows},
+                status=ArchiveResult.StatusChoices.QUEUED,
+            ).values_list("snapshot_id", "plugin", "hook_name")
+        }
+    rows_to_queue = requested_rows - queued_rows
 
     reset_fields = {
         "status": ArchiveResult.StatusChoices.QUEUED,
-        "hook_name": "",
         "output_str": "",
         "output_json": None,
         "output_files": {},
@@ -217,28 +249,28 @@ def run_plugins(
         "modified_at": timezone.now(),
     }
     if rows_to_queue and plugins_list:
-        rows_to_reset_by_plugin: dict[str, set[str]] = defaultdict(set)
-        for snapshot_id, plugin_name in rows_to_queue:
-            rows_to_reset_by_plugin[plugin_name].add(snapshot_id)
-        for plugin_name, plugin_snapshot_ids in rows_to_reset_by_plugin.items():
-            ArchiveResult.objects.filter(snapshot_id__in=plugin_snapshot_ids, plugin=plugin_name).update(
+        rows_to_reset_by_hook: dict[tuple[str, str], set[str]] = defaultdict(set)
+        for snapshot_id, plugin_name, hook_name in rows_to_queue:
+            rows_to_reset_by_hook[(plugin_name, hook_name)].add(snapshot_id)
+        for (plugin_name, hook_name), plugin_snapshot_ids in rows_to_reset_by_hook.items():
+            ArchiveResult.objects.filter(snapshot_id__in=plugin_snapshot_ids, plugin=plugin_name, hook_name=hook_name).update(
                 **reset_fields,
             )
     elif rows_to_queue and requested_plugins_by_snapshot:
-        snapshot_ids_by_plugin: dict[str, set[str]] = defaultdict(set)
-        for snapshot_id, plugin_name in rows_to_queue:
-            snapshot_ids_by_plugin[plugin_name].add(snapshot_id)
-        for plugin_name, plugin_snapshot_ids in snapshot_ids_by_plugin.items():
-            ArchiveResult.objects.filter(snapshot_id__in=plugin_snapshot_ids, plugin=plugin_name).update(
+        snapshot_ids_by_hook: dict[tuple[str, str], set[str]] = defaultdict(set)
+        for snapshot_id, plugin_name, hook_name in rows_to_queue:
+            snapshot_ids_by_hook[(plugin_name, hook_name)].add(snapshot_id)
+        for (plugin_name, hook_name), plugin_snapshot_ids in snapshot_ids_by_hook.items():
+            ArchiveResult.objects.filter(snapshot_id__in=plugin_snapshot_ids, plugin=plugin_name, hook_name=hook_name).update(
                 **reset_fields,
             )
     existing_rows = (
         {
-            (str(snapshot_id), plugin_name)
-            for snapshot_id, plugin_name in ArchiveResult.objects.filter(
+            (str(snapshot_id), plugin_name, hook_name)
+            for snapshot_id, plugin_name, hook_name in ArchiveResult.objects.filter(
                 snapshot_id__in=existing_snapshot_ids,
-                plugin__in={plugin_name for _snapshot_id, plugin_name in rows_to_queue},
-            ).values_list("snapshot_id", "plugin")
+                plugin__in={plugin_name for _snapshot_id, plugin_name, _hook_name in rows_to_queue},
+            ).values_list("snapshot_id", "plugin", "hook_name")
         }
         if rows_to_queue
         else set()
@@ -250,10 +282,10 @@ def run_plugins(
                 ArchiveResult(
                     snapshot_id=snapshot_id,
                     plugin=plugin_name,
-                    hook_name="",
+                    hook_name=hook_name,
                     status=ArchiveResult.StatusChoices.QUEUED,
                 )
-                for snapshot_id, plugin_name in sorted(missing_rows)
+                for snapshot_id, plugin_name, hook_name in sorted(missing_rows)
             ],
             batch_size=500,
         )
@@ -261,13 +293,13 @@ def run_plugins(
     processed_count = len(existing_snapshot_ids)
     queue_at = timezone.now()
     if existing_snapshot_ids:
-        if requested_pairs:
-            # Search indexing on a sealed Snapshot is the only targeted plugin
+        if requested_rows:
+            # Search indexing on a sealed Snapshot is the only targeted hook
             # allowed to bypass the normal lifecycle. Every other requested
             # plugin requeues its Snapshot through the unified lifecycle.
-            affected_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name in rows_to_queue}
+            affected_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name, _hook_name in rows_to_queue}
             if preserve_queued and queued_rows:
-                queued_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name in queued_rows}
+                queued_snapshot_ids = {snapshot_id for snapshot_id, _plugin_name, _hook_name in queued_rows}
                 affected_snapshot_ids.update(
                     str(snapshot_id)
                     for snapshot_id in Snapshot.objects.filter(id__in=queued_snapshot_ids)
@@ -282,7 +314,7 @@ def run_plugins(
                     )
                 )
             requested_plugins_by_id: dict[str, set[str]] = defaultdict(set)
-            for snapshot_id, plugin_name in requested_pairs:
+            for snapshot_id, plugin_name, _hook_name in requested_rows:
                 requested_plugins_by_id[snapshot_id].add(plugin_name)
             for snapshot in Snapshot.objects.filter(id__in=affected_snapshot_ids).only("id", "status", "modified_at"):
                 # Guard the read-time status so we never bump retry_at on a
@@ -318,7 +350,7 @@ def run_plugins(
                     refresh=False,
                     extra_filter={"status": snapshot.status},
                 )
-    if existing_crawl_ids and not requested_pairs:
+    if existing_crawl_ids and not requested_rows:
         from archivebox.crawls.models import Crawl
 
         for crawl in Crawl.objects.filter(id__in=existing_crawl_ids).only("id", "status", "retry_at", "modified_at"):
@@ -362,7 +394,7 @@ def run_plugins(
             selected_plugins = (
                 plugins_list
                 or sorted(
-                    {plugin for snapshot_id in crawl_snapshot_ids for plugin in requested_plugins_by_snapshot.get(str(snapshot_id), set())},
+                    {plugin for snapshot_id, plugin, _hook_name in requested_rows if snapshot_id in crawl_snapshot_ids},
                 )
                 or None
             )
@@ -371,6 +403,7 @@ def run_plugins(
                 snapshot_ids=sorted(crawl_snapshot_ids),
                 selected_plugins=selected_plugins,
                 show_progress=show_progress,
+                selected_plugins_are_explicit=bool(plugins_list),
             )
 
     if not emit_results:

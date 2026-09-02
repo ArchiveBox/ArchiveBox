@@ -3,6 +3,7 @@ from datetime import timedelta
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
+from django.test.client import BOUNDARY, MULTIPART_CONTENT, encode_multipart
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -14,7 +15,7 @@ from archivebox.tests.conftest import api_client_request
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_archiveresult_upload_upserts_one_snapshot_plugin_result(client, api_admin_user, api_headers):
+def test_archiveresult_upload_upserts_by_snapshot_plugin_and_hook(client, api_admin_user, api_headers):
     crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
     snapshot = Snapshot.objects.create(url="https://example.com/unified-result", crawl=crawl)
 
@@ -39,13 +40,130 @@ def test_archiveresult_upload_upserts_one_snapshot_plugin_result(client, api_adm
     assert server_response.status_code == 200, server_response.content
     assert extension_update.status_code == 200, extension_update.content
     assert extension_update.json()["id"] == extension_response.json()["id"]
-    assert server_response.json()["id"] == extension_response.json()["id"]
+    assert server_response.json()["id"] != extension_response.json()["id"]
 
-    results = ArchiveResult.objects.filter(snapshot=snapshot, plugin="screenshot")
-    assert results.count() == 1
-    result = results.get()
-    assert result.hook_name == "on_Snapshot__archivebox_browser_extension_upload"
-    assert set(result.output_files) == {"browser.png", "server.png", "browser-2.png"}
+    results = ArchiveResult.objects.filter(snapshot=snapshot, plugin="screenshot").order_by("hook_name")
+    assert results.count() == 2
+    extension_result = results.get(hook_name="on_Snapshot__archivebox_browser_extension_upload")
+    server_result = results.get(hook_name="on_Snapshot__50_screenshot")
+    assert set(extension_result.output_files) == {"browser.png", "browser-2.png"}
+    assert set(server_result.output_files) == {"server.png"}
+    snapshot.refresh_from_db()
+    assert snapshot.output_size == len(b"browser") + len(b"browser-2") + len(b"server")
+
+
+def test_archiveresult_create_does_not_open_a_database_transaction(client, api_admin_user, api_headers):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/autocommit-result", crawl=crawl)
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.post(
+            "/api/v1/core/archiveresults",
+            {
+                "snapshot_id": str(snapshot.id),
+                "plugin": "chrome_extension_screenshot",
+                "files": SimpleUploadedFile("screenshot.png", b"screenshot", content_type="image/png"),
+                "output_paths": "screenshot.png",
+            },
+            **api_headers,
+        )
+
+    assert response.status_code == 200, response.content
+    if connection.vendor == "sqlite":
+        transaction_queries = [query["sql"] for query in queries if query["sql"].strip().upper() in {"BEGIN", "COMMIT"}]
+        assert transaction_queries == []
+
+
+def test_intermediate_archiveresult_chunks_only_write_to_disk(client, api_admin_user, api_headers):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/chunked-result", crawl=crawl)
+    create_response = client.post(
+        "/api/v1/core/archiveresults",
+        {
+            "snapshot_id": str(snapshot.id),
+            "plugin": "chrome_extension_mhtml",
+            "status": ArchiveResult.StatusChoices.STARTED,
+        },
+        **api_headers,
+    )
+    assert create_response.status_code == 200, create_response.content
+    result = ArchiveResult.objects.get(pk=create_response.json()["id"])
+    original_modified_at = result.modified_at
+
+    with CaptureQueriesContext(connection) as queries:
+        chunk_response = client.patch(
+            f"/api/v1/core/archiveresult/{result.id}",
+            encode_multipart(
+                BOUNDARY,
+                {
+                    "files": SimpleUploadedFile("snapshot.mhtml.part-000000", b"first", content_type="multipart/related"),
+                    "chunk_output_path": "snapshot.mhtml",
+                    "chunk_index": "0",
+                    "chunk_count": "2",
+                    "chunk_offset": "0",
+                    "chunk_total_size": "11",
+                    "mime_type": "multipart/related",
+                    "status": ArchiveResult.StatusChoices.STARTED,
+                },
+            ),
+            content_type=MULTIPART_CONTENT,
+            **api_headers,
+        )
+
+    assert chunk_response.status_code == 200, chunk_response.content
+    result.refresh_from_db()
+    assert result.output_files == {}
+    assert result.output_size == 0
+    assert result.modified_at == original_modified_at
+    writes = [query["sql"] for query in queries if query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))]
+    assert writes == []
+
+    final_response = client.patch(
+        f"/api/v1/core/archiveresult/{result.id}",
+        encode_multipart(
+            BOUNDARY,
+            {
+                "files": SimpleUploadedFile("snapshot.mhtml.part-000001", b"-final", content_type="multipart/related"),
+                "chunk_output_path": "snapshot.mhtml",
+                "chunk_index": "1",
+                "chunk_count": "2",
+                "chunk_offset": "5",
+                "chunk_total_size": "11",
+                "mime_type": "multipart/related",
+                "status": ArchiveResult.StatusChoices.SUCCEEDED,
+            },
+        ),
+        content_type=MULTIPART_CONTENT,
+        **api_headers,
+    )
+    assert final_response.status_code == 200, final_response.content
+    result.refresh_from_db()
+    assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    assert result.output_size == 11
+    assert result.output_files["snapshot.mhtml"]["upload"]["complete"] is True
+    snapshot.refresh_from_db()
+    assert snapshot.output_size == 11
+
+
+def test_archiveresult_safe_update_rejects_stale_writers(api_admin_user):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/cas-result", crawl=crawl)
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="chrome_extension_dom",
+        hook_name=Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
+        status=ArchiveResult.StatusChoices.STARTED,
+        output_size=1,
+    )
+    stale_result = ArchiveResult.objects.get(pk=result.pk)
+
+    assert result.safe_update({"output_size": 2}) is True
+    assert stale_result.safe_update({"output_size": 3}) is False
+
+    stale_result.refresh_from_db()
+    snapshot.refresh_from_db()
+    assert stale_result.output_size == 2
+    assert snapshot.output_size == 2
 
 
 def test_archiveresult_upload_api_queues_snapshot_maintenance_without_finalizing(client, api_admin_user, api_headers):

@@ -2,6 +2,8 @@ import threading
 import time
 
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from archivebox.core.models import Snapshot
 from archivebox.crawls.locks import crawl_lifecycle_lock
@@ -84,4 +86,67 @@ def test_existing_snapshot_metadata_sync_does_not_wait_for_active_crawl(client, 
 
     assert response.status_code == 200, response.content
     assert response.json()["id"] == str(snapshot.id)
+    assert elapsed < 1
+
+
+def test_new_snapshot_creation_does_not_open_a_database_transaction(client, api_admin_user, api_headers):
+    url = "https://example.com/browser-extension-new-snapshot"
+    crawl = Crawl.objects.create(urls=url, created_by=api_admin_user)
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.post(
+            "/api/v1/core/snapshots",
+            data={
+                "url": url,
+                "crawl_id": str(crawl.id),
+                "depth": 0,
+                "status": Snapshot.StatusChoices.QUEUED,
+                "tags": ["browser-extension-upload"],
+            },
+            content_type="application/json",
+            **api_headers,
+        )
+
+    assert response.status_code == 200, response.content
+    assert Snapshot.objects.filter(url=url, crawl=crawl).count() == 1
+    assert Snapshot.objects.get(url=url, crawl=crawl).tags.filter(name="browser-extension-upload").exists()
+    if connection.vendor == "sqlite":
+        transaction_queries = [query["sql"] for query in queries if query["sql"].strip().upper() in {"BEGIN", "COMMIT"}]
+        assert transaction_queries == []
+
+
+def test_new_snapshot_creation_does_not_wait_for_active_crawl(client, api_admin_user, api_headers):
+    url = "https://example.com/browser-extension-new-snapshot-active-crawl"
+    crawl = Crawl.objects.create(urls=url, created_by=api_admin_user)
+    lock_acquired = threading.Event()
+    release_lock = threading.Event()
+
+    def hold_active_crawl_lock():
+        with crawl_lifecycle_lock(str(crawl.id)):
+            lock_acquired.set()
+            release_lock.wait(timeout=3)
+
+    holder = threading.Thread(target=hold_active_crawl_lock)
+    holder.start()
+    assert lock_acquired.wait(timeout=1)
+
+    started_at = time.monotonic()
+    response = client.post(
+        "/api/v1/core/snapshots",
+        data={
+            "url": url,
+            "crawl_id": str(crawl.id),
+            "depth": 0,
+            "status": Snapshot.StatusChoices.QUEUED,
+            "tags": ["browser-extension-upload"],
+        },
+        content_type="application/json",
+        **api_headers,
+    )
+    elapsed = time.monotonic() - started_at
+    release_lock.set()
+    holder.join(timeout=3)
+
+    assert response.status_code == 200, response.content
+    assert Snapshot.objects.filter(url=url, crawl=crawl).count() == 1
     assert elapsed < 1

@@ -4,7 +4,6 @@ import asyncio
 import inspect
 import json
 import os
-import re
 import signal
 import sys
 import time
@@ -14,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.db import IntegrityError
 from django.utils import timezone
 
 from abx_dl.events import PROCESS_EXIT_SKIPPED, ArchiveResultEvent, ProcessCompletedEvent, ProcessStartedEvent, SnapshotEvent
@@ -85,11 +83,6 @@ def _normalize_status(status: str) -> str:
     if status == "noresult":
         return "noresults"
     return status or "failed"
-
-
-def _snapshot_hook_order(hook_name: str) -> int:
-    match = re.match(r"^on_Snapshot__(\d+)", hook_name or "")
-    return int(match.group(1)) if match else -1
 
 
 def _normalize_snapshot_title(candidate: str, *, snapshot_url: str) -> str:
@@ -209,7 +202,6 @@ def _save_archiveresult_event_to_db(
         start_ts = parse_event_datetime(event.start_ts)
         end_ts = parse_event_datetime(event.end_ts) or timezone.now()
         defaults = {
-            "hook_name": event.hook_name,
             "status": _normalize_status(event.status),
             "output_str": event.output_str,
             "output_json": event.output_json,
@@ -224,48 +216,13 @@ def _save_archiveresult_event_to_db(
         if event.error:
             defaults["notes"] = event.error
 
-    with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_lookup"):
-        result = ArchiveResult.objects.filter(
-            snapshot=snapshot,
-            plugin=event.plugin,
-        ).first()
-    if result is None:
-        try:
-            with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_create"):
-                result = ArchiveResult.objects.create(
-                    snapshot=snapshot,
-                    plugin=event.plugin,
-                    **defaults,
-                )
-        except IntegrityError:
-            with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_get_after_integrity"):
-                result = ArchiveResult.objects.get(
-                    snapshot=snapshot,
-                    plugin=event.plugin,
-                )
-
-    if result.output_files:
-        merged_output_files = {**result.output_files, **defaults["output_files"]}
-        defaults["output_files"], defaults["output_size"], defaults["output_mimetypes"] = _manifest_metadata(
-            OutputManifest.from_value(merged_output_files),
+    with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_get_or_create"):
+        result, _created = ArchiveResult.get_or_create_by_hook(
+            snapshot,
+            event.plugin,
+            event.hook_name,
+            defaults=defaults,
         )
-        defaults["output_size"] = max(defaults["output_size"], int(result.output_size or 0))
-        defaults["output_mimetypes"] = ",".join(
-            dict.fromkeys(
-                mimetype.strip()
-                for value in (defaults["output_mimetypes"], result.output_mimetypes)
-                for mimetype in value.split(",")
-                if mimetype.strip()
-            ),
-        )
-    if result.start_ts and defaults["start_ts"]:
-        defaults["start_ts"] = min(result.start_ts, defaults["start_ts"])
-    if result.end_ts and defaults["end_ts"]:
-        defaults["end_ts"] = max(result.end_ts, defaults["end_ts"])
-    if _snapshot_hook_order(result.hook_name) > _snapshot_hook_order(event.hook_name):
-        for field in ("hook_name", "status", "output_str", "output_json", "process_id", "notes"):
-            if field in result.__dict__:
-                defaults[field] = result.__dict__[field]
 
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.diff_fields"):
         update_fields = []
@@ -307,7 +264,7 @@ def _save_archiveresult_event_to_db(
 
 
 def mark_archiveresult_started(event: ProcessStartedEvent, *, snapshot_id: str, process_id: str) -> None:
-    """Advance an existing queued plugin row after its OS process is persisted."""
+    """Advance an existing queued hook row after its OS process is persisted."""
     from archivebox.core.models import ArchiveResult
 
     started_at = parse_event_datetime(event.start_ts)
@@ -316,9 +273,9 @@ def mark_archiveresult_started(event: ProcessStartedEvent, *, snapshot_id: str, 
     ArchiveResult.objects.filter(
         snapshot_id=snapshot_id,
         plugin=event.plugin_name,
+        hook_name=event.hook_name,
         status=ArchiveResult.StatusChoices.QUEUED,
     ).update(
-        hook_name=event.hook_name,
         status=ArchiveResult.StatusChoices.STARTED,
         start_ts=started_at,
         end_ts=None,
@@ -333,7 +290,7 @@ class ArchiveResultService(BaseService):
 
     def __init__(self, bus):
         self._completed_process_event_ids: set[str] = set()
-        self._save_locks: dict[tuple[str, str], asyncio.Lock] = {}
+        self._save_locks: dict[tuple[str, str, str], asyncio.Lock] = {}
         super().__init__(bus)
         self.bus.on(ArchiveResultEvent, self.on_ArchiveResultEvent__save_to_db)
         self.bus.on(ProcessCompletedEvent, self.on_ProcessCompletedEvent__save_to_db)
@@ -348,7 +305,7 @@ class ArchiveResultService(BaseService):
                 where=lambda candidate: self.bus.event_is_child_of(event, candidate),
             )
 
-        key = (str(event.snapshot_id), event.plugin)
+        key = (str(event.snapshot_id), event.plugin, event.hook_name)
         lock = self._save_locks.setdefault(key, asyncio.Lock())
         async with lock:
             await sync_to_async(_save_archiveresult_event_to_db, thread_sensitive=True)(event, process_started)

@@ -691,26 +691,27 @@ def _resolve_archiveresult_relpath(snapshot: Snapshot, rel_path: str) -> tuple[s
 
     plugin = parts[0]
     plugin_relpath = posixpath.join(*parts[1:])
-    result = (
-        ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED)
-        .only("plugin", "output_files")
-        .first()
+    results = list(
+        ArchiveResult.objects.filter(
+            snapshot=snapshot,
+            plugin=plugin,
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+        ).only("plugin", "output_files"),
     )
-    if not result:
+    if not results:
         return rel_path, None
-    if not result.output_files:
-        return rel_path, result
 
-    output_files = result.output_files or {}
-    for candidate in (plugin_relpath, rel_path):
-        file_info = output_files.get(candidate)
-        if not isinstance(file_info, dict):
-            continue
-        if file_info.get("root_relative"):
-            return candidate, result
-        return rel_path, result
+    for result in results:
+        output_files = result.output_files or {}
+        for candidate in (plugin_relpath, rel_path):
+            file_info = output_files.get(candidate)
+            if not isinstance(file_info, dict):
+                continue
+            if file_info.get("root_relative"):
+                return candidate, result
+            return rel_path, result
 
-    return rel_path, result
+    return rel_path, results[0]
 
 
 def _plugin_full_preview_response(
