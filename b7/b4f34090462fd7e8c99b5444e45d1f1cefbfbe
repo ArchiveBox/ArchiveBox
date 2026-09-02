@@ -1,0 +1,21 @@
+.github/workflows/docs.yml
+  s_750dfb69a92570::t_d0997407cfeaaa 102
+archivebox/tests/test_search.py
+  s_750dfb69a92570::t_1deabfc403f526 861
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b7b4f34090462fd7e8c99b5444e45d1f1cefbfbe",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
