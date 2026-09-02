@@ -133,6 +133,15 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
             validate_url(args.urls[0])
         except ValueError:
             submitted_urls = args.urls[0]
+    else:
+        submitted_urls = []
+        for url in args.urls:
+            try:
+                submitted_urls.append(validate_url(url))
+            except ValueError:
+                continue
+        if not submitted_urls:
+            raise HttpError(400, "No valid URLs were submitted")
     crawl, snapshots = add(
         urls=submitted_urls,
         snapshot_ids=args.snapshot_ids,

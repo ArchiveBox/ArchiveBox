@@ -730,12 +730,27 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         plugin_names = sorted({name.strip() for name in plugins if name.strip()})
         if not plugin_names:
             return False
-        self.config = {**(self.config or {}), "RETRY_PLUGINS": plugin_names}
-        self.save(update_fields=["config", "modified_at"])
+        from django.db import transaction
+
         retry_at = when or timezone.now()
-        if self.status == self.StatusChoices.SEALED:
-            return self.update_and_requeue(retry_at=retry_at)
-        return self.update_and_requeue(status=self.StatusChoices.QUEUED, retry_at=retry_at)
+        with transaction.atomic():
+            current = type(self).objects.select_for_update().select_related("crawl").get(pk=self.pk)
+            pending_plugins = {str(name).strip() for name in (current.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()}
+            config = {**(current.config or {}), "RETRY_PLUGINS": sorted(pending_plugins | set(plugin_names))}
+            status = current.status if current.status == self.StatusChoices.SEALED else self.StatusChoices.QUEUED
+            type(self).objects.filter(pk=self.pk).update(
+                config=config,
+                status=status,
+                retry_at=retry_at,
+                modified_at=timezone.now(),
+            )
+            crawl = current.crawl
+
+        self.refresh_from_db()
+        if status in self.RUNNABLE_STATES and self.crawl_id:
+            crawl_status = crawl.StatusChoices.STARTED if crawl.status == crawl.StatusChoices.STARTED else crawl.StatusChoices.QUEUED
+            crawl.update_and_requeue(status=crawl_status, retry_at=retry_at)
+        return True
 
     def pause(self, *, save: bool = True) -> bool:
         return super().pause(save=save)

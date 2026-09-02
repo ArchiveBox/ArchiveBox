@@ -132,7 +132,7 @@ def run_scheduled_maintenance(*, batch_size: int = 500) -> dict[str, Any]:
     search_plugins = _get_search_indexing_plugins()
     search_stats = (
         reindex_snapshots(
-            Snapshot.objects.all(),
+            Snapshot.objects.filter(fs_version=Snapshot._fs_current_version()),
             search_plugins=search_plugins,
             batch_size=batch_size,
         )

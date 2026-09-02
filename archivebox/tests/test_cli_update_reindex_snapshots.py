@@ -244,6 +244,14 @@ def test_update_schedule_backfills_missing_search_index_without_reopening_snapsh
         url="https://example.com/scheduled-search",
         crawl=crawl,
         status=Snapshot.StatusChoices.SEALED,
+        fs_version=Snapshot._fs_current_version(),
+    )
+    stale_snapshot = Snapshot.objects.create(
+        url="https://example.com/stale-scheduled-search",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        fs_version=next(iter(Snapshot._FS_VERSION_MIGRATION_PATHS)),
+        retry_at=None,
     )
     (snapshot.output_dir / "title").mkdir(parents=True, exist_ok=True)
     (snapshot.output_dir / "title" / "title.txt").write_text("Scheduled Search Index")
@@ -261,6 +269,7 @@ def test_update_schedule_backfills_missing_search_index_without_reopening_snapsh
             os.environ["SEARCH_BACKEND_ENGINE"] = original_engine
 
     snapshot.refresh_from_db()
+    stale_snapshot.refresh_from_db()
     assert snapshot.status == Snapshot.StatusChoices.SEALED
     assert (
         ArchiveResult.objects.filter(
@@ -271,6 +280,8 @@ def test_update_schedule_backfills_missing_search_index_without_reopening_snapsh
         == 1
     )
     assert not ArchiveResult.objects.filter(snapshot=snapshot, status=ArchiveResult.StatusChoices.QUEUED).exists()
+    assert stale_snapshot.retry_at is not None
+    assert not ArchiveResult.objects.filter(snapshot=stale_snapshot, plugin="search_backend_sqlite").exists()
     assert schedule.modified_at >= first_modified_at
 
 

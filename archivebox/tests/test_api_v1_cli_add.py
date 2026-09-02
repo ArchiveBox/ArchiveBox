@@ -268,6 +268,26 @@ def test_basic_success_case_request(client, tmp_path, api_headers):
     assert Snapshot.objects.count() == 0
 
 
+def test_api_cli_add_filters_invalid_items_from_multi_url_batch(client, tmp_path, api_headers):
+    init_archive(tmp_path)
+    submitted_url = "https://example.com/api-cli-add-valid-batch-item"
+
+    response = api_client_request(
+        client,
+        "post",
+        "/api/v1/cli/add",
+        payload={
+            "urls": [submitted_url, "not a URL", "https://example.org\nhttps://example.net"],
+            "plugins": "__archivebox_test_no_plugins__",
+            "index_only": True,
+        },
+        headers=api_headers,
+    )
+
+    assert response.status_code == 200, response.content
+    assert Crawl.objects.get().urls == submitted_url
+
+
 @pytest.mark.timeout(180)
 def test_api_cli_add_concurrent_first_time_default_persona_creation(tmp_path):
     """Concurrent live API add requests should share one first-created Default persona."""

@@ -40,6 +40,40 @@ def _snapshot_state(cwd: Path, url: str) -> dict[str, object]:
         }
 
 
+def test_snapshot_completion_preserves_retry_scheduled_during_active_run(tmp_path, admin_user):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.snapshot_service import finalize_completed_snapshot
+
+    crawl = Crawl.objects.create(urls="https://example.com/retry-race", created_by=admin_user)
+    owned_retry_at = timezone.now() + timedelta(minutes=10)
+    snapshot = Snapshot.objects.create(
+        url="https://example.com/retry-race",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.STARTED,
+        retry_at=owned_retry_at,
+        config={"RETRY_PLUGINS": ["title"]},
+    )
+
+    snapshot.schedule_plugin_run(["title"])
+    finalize_completed_snapshot(
+        str(snapshot.id),
+        owned_retry_at=owned_retry_at,
+        was_sealed=False,
+        consumed_retry_plugins=["title"],
+        output_dir=tmp_path,
+    )
+
+    snapshot.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.QUEUED
+    assert snapshot.retry_at is not None
+    assert snapshot.retry_at < owned_retry_at
+    assert snapshot.config["RETRY_PLUGINS"] == ["title"]
+
+
 def test_snapshot_merge_consolidates_only_exact_hook_identity(admin_user):
     from archivebox.crawls.models import Crawl
 

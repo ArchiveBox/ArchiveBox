@@ -763,6 +763,7 @@ class CrawlRunner:
             "tags": tags,
             "depth": snapshot.depth,
             "status": snapshot.status,
+            "retry_at": snapshot.retry_at,
             "output_dir": snapshot_output_dir,
             "config": normalized_config,
             "selected_plugins": [name.strip() for name in str((snapshot.config or {}).get("PLUGINS") or "").split(",") if name.strip()],
@@ -1032,6 +1033,9 @@ class CrawlRunner:
                 crawl_limit_stop_reason = CrawlLimitState.from_config(config).get_stop_reason()
                 await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
                     snapshot_id,
+                    owned_retry_at=snapshot["retry_at"],
+                    was_sealed=snapshot["status"] == "sealed",
+                    consumed_retry_plugins=snapshot["retry_plugins"],
                     output_dir=output_dir,
                     crawl_limit_stop_reason=crawl_limit_stop_reason,
                 )
@@ -1206,7 +1210,13 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     # granularity. ArchiveResult rows are projections and never influence this
     # scheduler decision.
     current_retry_at = snapshot.retry_at
-    next_retry_at = timezone.now() if snapshot.status in Snapshot.OPEN_STATES else None
+    has_pending_plugin_run = bool((snapshot.config or {}).get("RETRY_PLUGINS"))
+    if snapshot.status == Snapshot.StatusChoices.SEALED and has_pending_plugin_run:
+        next_retry_at = current_retry_at
+    elif snapshot.status in Snapshot.OPEN_STATES:
+        next_retry_at = timezone.now()
+    else:
+        next_retry_at = None
     snapshot.retry_at = next_retry_at
     if snapshot.fs_migration_needed:
         snapshot.save(update_fields=["retry_at", "modified_at"])
@@ -1361,6 +1371,22 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
             return False
         snapshot.refresh_from_db()
         snapshot.finalize_completed_upload_results()
+        retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
+        if snapshot.fs_migration_needed:
+            # Preserve the claimed retry_at lease while the idempotent
+            # migration runs so a pending plugin request remains discoverable.
+            snapshot.save(update_fields=["retry_at", "modified_at"])
+            snapshot.refresh_from_db()
+        if retry_plugins:
+            _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
+            run_crawl(
+                str(snapshot.crawl_id),
+                snapshot_ids=[str(snapshot.id)],
+                selected_plugins=retry_plugins,
+                process_discovered_snapshots_inline=False,
+                interactive_interrupts=interactive_interrupts,
+            )
+            return True
         return run_snapshot_maintenance(str(snapshot.id))
 
     if not snapshot.claim_processing_lock(lock_seconds=lock_seconds):
