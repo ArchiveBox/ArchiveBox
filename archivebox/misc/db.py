@@ -380,7 +380,10 @@ def log_sqlite_lock_holders(console: Any, *, db_path: Path = CONSTANTS.DATABASE_
 def sqlite_lock_error(error: BaseException) -> bool:
     from django.db import OperationalError as DjangoOperationalError
 
-    return isinstance(error, (SQLiteOperationalError, DjangoOperationalError)) and "database is locked" in str(error).lower()
+    message = str(error).lower()
+    return isinstance(error, (SQLiteOperationalError, DjangoOperationalError)) and (
+        "database is locked" in message or "database table is locked" in message
+    )
 
 
 def retry_sqlite_locks(action: Callable[[], Any], *, label: str, stderr: TextIO | None = None) -> Any:
@@ -392,7 +395,7 @@ def retry_sqlite_locks(action: Callable[[], Any], *, label: str, stderr: TextIO 
         try:
             return action()
         except OperationalError as err:
-            if "database is locked" not in str(err).lower():
+            if not sqlite_lock_error(err):
                 raise
         except SQLiteOperationalError as err:
             if not sqlite_lock_error(err):

@@ -1,7 +1,9 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from django.db import close_old_connections
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.tests.conftest import run_archivebox_cmd
@@ -72,6 +74,28 @@ def test_snapshot_completion_preserves_retry_scheduled_during_active_run(tmp_pat
     assert snapshot.retry_at is not None
     assert snapshot.retry_at < owned_retry_at
     assert snapshot.config["RETRY_PLUGINS"] == ["title"]
+
+
+def test_concurrent_plugin_scheduling_durably_merges_every_request(admin_user):
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com/plugin-race", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/plugin-race", crawl=crawl)
+    plugins = ["title", "wget", "screenshot", "pdf"]
+
+    def schedule(plugin: str) -> bool:
+        close_old_connections()
+        try:
+            return Snapshot.objects.get(pk=snapshot.pk).schedule_plugin_run([plugin])
+        finally:
+            close_old_connections()
+
+    with ThreadPoolExecutor(max_workers=len(plugins)) as pool:
+        results = list(pool.map(schedule, plugins))
+
+    snapshot.refresh_from_db()
+    assert results == [True] * len(plugins)
+    assert snapshot.config["RETRY_PLUGINS"] == sorted(plugins)
 
 
 def test_snapshot_merge_consolidates_only_exact_hook_identity(admin_user):

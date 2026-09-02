@@ -195,7 +195,7 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.services.snapshot_service import SnapshotService
-    from abx_dl.events import SnapshotCompletedEvent
+    from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
     from abx_dl.orchestrator import create_bus
 
     crawl = Crawl.objects.create(
@@ -231,17 +231,25 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
     )
 
     bus = create_bus(name=f"test_snapshot_limit_cancel_{str(crawl.id).replace('-', '_')}")
-    service = SnapshotService(bus, crawl_id=str(crawl.id))
+    SnapshotService(bus, crawl_id=str(crawl.id))
     try:
 
         async def emit_event() -> None:
-            await service.on_SnapshotCompletedEvent(
-                SnapshotCompletedEvent(
+            snapshot_event = bus.emit(
+                SnapshotEvent(
                     url=root.url,
                     snapshot_id=str(root.id),
                     output_dir=str(root.output_dir),
                 ),
             )
+            await snapshot_event.now()
+            completed_event = SnapshotCompletedEvent(
+                url=root.url,
+                snapshot_id=str(root.id),
+                output_dir=str(root.output_dir),
+            )
+            completed_event.event_parent_id = snapshot_event.event_id
+            await bus.emit(completed_event).now()
 
         asyncio.run(emit_event())
     finally:

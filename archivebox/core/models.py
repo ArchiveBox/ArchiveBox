@@ -731,7 +731,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if not plugin_names:
             return False
         retry_at = when or timezone.now()
-        for _attempt in range(3):
+        while True:
             current = type(self).objects.select_related("crawl").get(pk=self.pk)
             pending_plugins = {str(name).strip() for name in (current.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()}
             config = {**(current.config or {}), "RETRY_PLUGINS": sorted(pending_plugins | set(plugin_names))}
@@ -754,8 +754,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if updated:
                 crawl = current.crawl
                 break
-        else:
-            return False
 
         self.refresh_from_db()
         if status in self.RUNNABLE_STATES and self.crawl_id:
@@ -1063,21 +1061,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if self._state.adding or update_fields is None or "notes" in update_fields:
             self.notes = sanitize_html_text(self.notes)
 
-        # The maintenance runner currently signals its explicit filesystem pass
-        # with this narrow update. Ordinary model saves must never move archive
-        # directories as an unrelated metadata side effect.
-        existing_snapshot = self.pk and not self._state.adding
-        maintenance_update = update_fields is not None and set(update_fields) == {"retry_at", "modified_at"}
-        if existing_snapshot and maintenance_update and self.fs_migration_needed:
-            self.migrate_filesystem_to_current_version()
-
         super().save(*args, **kwargs)
 
         from django.db import transaction
 
         def finish_snapshot_save():
-            self.remove_legacy_archive_symlink()
-            self.ensure_crawl_symlink()
+            self.reconcile_filesystem_links()
             crawl = Crawl.objects.filter(pk=self.crawl_id).first()
             if crawl is None:
                 return
@@ -1176,6 +1165,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 old_dir, new_dir = cleanup
                 if not self._cleanup_old_migration_dir(old_dir, new_dir):
                     raise SnapshotMigrationError(f"Could not clean up verified migration directory: {old_dir}")
+            self.reconcile_filesystem_links()
             return
 
         while current != target:
@@ -1211,6 +1201,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             now = timezone.now()
             type(self).objects.filter(pk=self.pk).update(fs_version=target, modified_at=now)
             self.modified_at = now
+        self.reconcile_filesystem_links()
 
     def _fs_migrate_from_0_7_0_to_0_9_0(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None):
         return self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir, config=config)
@@ -2699,6 +2690,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         if points_to_current_path:
             legacy_path.unlink(missing_ok=True)
+
+    def reconcile_filesystem_links(self) -> None:
+        """Repair filesystem projections after a save or migration."""
+        self.remove_legacy_archive_symlink()
+        self.ensure_crawl_symlink()
 
     @cached_property
     def legacy_archive_path(self) -> str:

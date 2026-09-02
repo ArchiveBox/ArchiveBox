@@ -77,7 +77,7 @@ def finalize_completed_snapshot(
     # snapshot hook sequence (including cleanup) finished. ArchiveResult rows
     # are projections of that work, never prerequisites used to decide whether
     # the Snapshot may seal.
-    if not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED:
+    if not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.retry_at == owned_retry_at:
         snapshot.seal()
         snapshot.refresh_from_db()
 
@@ -127,7 +127,7 @@ class SnapshotService(BaseService):
 
     def __init__(self, bus, *, crawl_id: str):
         self.crawl_id = crawl_id
-        self._run_ownership: dict[str, tuple[object, bool, list[str]]] = {}
+        self._run_ownership: dict[str, tuple[str, object, bool, list[str]]] = {}
         super().__init__(bus)
         self.bus.on(SnapshotEvent, self.on_SnapshotEvent)
         self.bus.on(SnapshotCompletedEvent, self.on_SnapshotCompletedEvent)
@@ -149,18 +149,13 @@ class SnapshotService(BaseService):
             if snapshot.status == Snapshot.StatusChoices.STARTED:
                 await sync_to_async(snapshot.ensure_crawl_symlink, thread_sensitive=True)()
             retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
-            self._run_ownership[str(event.snapshot_id)] = (snapshot.retry_at, was_sealed, retry_plugins)
+            self._run_ownership[str(event.event_id)] = (str(event.snapshot_id), snapshot.retry_at, was_sealed, retry_plugins)
 
     async def on_SnapshotCompletedEvent(self, event: SnapshotCompletedEvent) -> None:
-        ownership = self._run_ownership.pop(str(event.snapshot_id), None)
-        if ownership is None:
-            from archivebox.core.models import Snapshot
-
-            snapshot = await Snapshot.objects.only("status", "retry_at").filter(id=event.snapshot_id, crawl_id=self.crawl_id).afirst()
-            if snapshot is None:
-                return
-            ownership = (snapshot.retry_at, snapshot.status == Snapshot.StatusChoices.SEALED, [])
-        owned_retry_at, was_sealed, retry_plugins = ownership
+        ownership = self._run_ownership.pop(str(event.event_parent_id), None)
+        if ownership is None or ownership[0] != str(event.snapshot_id):
+            return
+        _, owned_retry_at, was_sealed, retry_plugins = ownership
         await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
             event.snapshot_id,
             owned_retry_at=owned_retry_at,

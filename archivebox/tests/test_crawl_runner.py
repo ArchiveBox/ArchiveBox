@@ -1085,59 +1085,12 @@ def test_crawl_completed_event_seals_finished_crawl():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_snapshot_completed_event_defers_finished_crawl_seal():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.snapshot_service import SnapshotService
-    from abx_dl.events import SnapshotCompletedEvent
-    from abx_dl.orchestrator import create_bus
-    from django.utils import timezone
-
-    crawl = Crawl.objects.create(
-        urls="https://example.com",
-        created_by_id=get_or_create_system_user_pk(),
-        status=Crawl.StatusChoices.STARTED,
-        retry_at=timezone.now(),
-    )
-    snapshot = Snapshot.objects.create(
-        url="https://example.com",
-        crawl=crawl,
-        status=Snapshot.StatusChoices.STARTED,
-        retry_at=None,
-    )
-
-    bus = create_bus(name=f"test_snapshot_completed_finished_crawl_{str(crawl.id).replace('-', '_')}")
-    service = SnapshotService(bus, crawl_id=str(crawl.id))
-    try:
-
-        async def emit_completed() -> None:
-            await service.on_SnapshotCompletedEvent(
-                SnapshotCompletedEvent(
-                    url="https://example.com",
-                    snapshot_id=str(snapshot.id),
-                    output_dir=str(snapshot.output_dir),
-                ),
-            )
-
-        asyncio.run(emit_completed())
-    finally:
-        asyncio.run(bus.destroy())
-
-    snapshot.refresh_from_db()
-    crawl.refresh_from_db()
-    assert snapshot.status == Snapshot.StatusChoices.SEALED
-    assert crawl.status == Crawl.StatusChoices.STARTED
-    assert crawl.retry_at is not None
-
-
-@pytest.mark.django_db(transaction=True)
 def test_snapshot_completed_event_bus_defers_finished_crawl_seal():
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.services.snapshot_service import SnapshotService
-    from abx_dl.events import SnapshotCompletedEvent
+    from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
     from abx_dl.orchestrator import create_bus
     from django.utils import timezone
 
@@ -1155,20 +1108,25 @@ def test_snapshot_completed_event_bus_defers_finished_crawl_seal():
     )
 
     bus = create_bus(name=f"test_snapshot_completed_bus_finished_crawl_{str(crawl.id).replace('-', '_')}")
-    service = SnapshotService(bus, crawl_id=str(crawl.id))
-    assert service is not None
+    SnapshotService(bus, crawl_id=str(crawl.id))
     try:
 
         async def emit_completed() -> None:
-            emitted = bus.emit(
-                SnapshotCompletedEvent(
+            snapshot_event = bus.emit(
+                SnapshotEvent(
                     url="https://example.com",
                     snapshot_id=str(snapshot.id),
                     output_dir=str(snapshot.output_dir),
                 ),
             )
-            await emitted.wait()
-            await emitted.event_results_list()
+            await snapshot_event.now()
+            completed_event = SnapshotCompletedEvent(
+                url="https://example.com",
+                snapshot_id=str(snapshot.id),
+                output_dir=str(snapshot.output_dir),
+            )
+            completed_event.event_parent_id = snapshot_event.event_id
+            await bus.emit(completed_event).now()
 
         asyncio.run(emit_completed())
     finally:
@@ -1180,3 +1138,58 @@ def test_snapshot_completed_event_bus_defers_finished_crawl_seal():
     assert snapshot.status == Snapshot.StatusChoices.SEALED
     assert crawl.status == Crawl.StatusChoices.STARTED
     assert crawl.retry_at is not None
+
+
+@pytest.mark.django_db(transaction=True)
+def test_delayed_snapshot_completion_cannot_seal_new_run():
+    from datetime import timedelta
+
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.snapshot_service import SnapshotService
+    from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
+    from abx_dl.orchestrator import create_bus
+    from asgiref.sync import sync_to_async
+    from django.utils import timezone
+
+    crawl = Crawl.objects.create(urls="https://example.com", created_by_id=get_or_create_system_user_pk())
+    old_retry_at = timezone.now() + timedelta(minutes=5)
+    new_retry_at = old_retry_at + timedelta(minutes=5)
+    snapshot = Snapshot.objects.create(
+        url="https://example.com",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.STARTED,
+        retry_at=old_retry_at,
+    )
+
+    bus = create_bus(name=f"test_delayed_snapshot_completion_{str(crawl.id).replace('-', '_')}")
+    SnapshotService(bus, crawl_id=str(crawl.id))
+    try:
+
+        async def emit_runs() -> None:
+            old_event = bus.emit(
+                SnapshotEvent(url=snapshot.url, snapshot_id=str(snapshot.id), output_dir=str(snapshot.output_dir)),
+            )
+            await old_event.now()
+            await sync_to_async(Snapshot.objects.filter(pk=snapshot.pk).update, thread_sensitive=True)(retry_at=new_retry_at)
+            new_event = bus.emit(
+                SnapshotEvent(url=snapshot.url, snapshot_id=str(snapshot.id), output_dir=str(snapshot.output_dir)),
+            )
+            await new_event.now()
+            completed_event = SnapshotCompletedEvent(
+                url=snapshot.url,
+                snapshot_id=str(snapshot.id),
+                output_dir=str(snapshot.output_dir),
+            )
+            completed_event.event_parent_id = old_event.event_id
+            await bus.emit(completed_event).now()
+
+        asyncio.run(emit_runs())
+    finally:
+        asyncio.run(bus.wait_until_idle())
+        asyncio.run(bus.destroy())
+
+    snapshot.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.STARTED
+    assert snapshot.retry_at == new_retry_at

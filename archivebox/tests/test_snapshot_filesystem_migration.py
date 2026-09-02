@@ -34,15 +34,19 @@ def test_ordinary_snapshot_save_does_not_migrate_directories(snapshot):
     assert not (current_dir / "unknown" / "payload.bin").exists()
 
 
-def test_maintenance_save_keeps_existing_runner_entrypoint(snapshot):
+def test_filesystem_migration_repairs_crawl_link(snapshot):
     legacy_dir, current_dir = _make_legacy_snapshot(snapshot)
+    crawl_link = Path(snapshot.crawl.output_dir) / "snapshots" / Snapshot.extract_domain_from_url(snapshot.url) / str(snapshot.id)
+    crawl_link.unlink(missing_ok=True)
 
-    snapshot.save(update_fields=["retry_at", "modified_at"])
+    snapshot.migrate_filesystem_to_current_version()
     snapshot.refresh_from_db()
 
     assert snapshot.fs_version == snapshot._fs_current_version()
     assert not legacy_dir.exists()
     assert (current_dir / "unknown" / "payload.bin").read_bytes() == b"filesystem migration payload\x00\xff"
+    assert crawl_link.is_symlink()
+    assert crawl_link.resolve() == current_dir.resolve()
 
 
 def test_filesystem_migration_resumes_after_shutdown_before_cleanup(snapshot, monkeypatch):
