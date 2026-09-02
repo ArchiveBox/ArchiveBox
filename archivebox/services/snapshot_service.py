@@ -154,7 +154,12 @@ class SnapshotService(BaseService):
     async def on_SnapshotCompletedEvent(self, event: SnapshotCompletedEvent) -> None:
         ownership = self._run_ownership.pop(str(event.snapshot_id), None)
         if ownership is None:
-            return
+            from archivebox.core.models import Snapshot
+
+            snapshot = await Snapshot.objects.only("status", "retry_at").filter(id=event.snapshot_id, crawl_id=self.crawl_id).afirst()
+            if snapshot is None:
+                return
+            ownership = (snapshot.retry_at, snapshot.status == Snapshot.StatusChoices.SEALED, [])
         owned_retry_at, was_sealed, retry_plugins = ownership
         await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
             event.snapshot_id,

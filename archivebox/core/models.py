@@ -730,21 +730,32 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         plugin_names = sorted({name.strip() for name in plugins if name.strip()})
         if not plugin_names:
             return False
-        from django.db import transaction
-
         retry_at = when or timezone.now()
-        with transaction.atomic():
-            current = type(self).objects.select_for_update().select_related("crawl").get(pk=self.pk)
+        for _attempt in range(3):
+            current = type(self).objects.select_related("crawl").get(pk=self.pk)
             pending_plugins = {str(name).strip() for name in (current.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()}
             config = {**(current.config or {}), "RETRY_PLUGINS": sorted(pending_plugins | set(plugin_names))}
             status = current.status if current.status == self.StatusChoices.SEALED else self.StatusChoices.QUEUED
-            type(self).objects.filter(pk=self.pk).update(
-                config=config,
-                status=status,
-                retry_at=retry_at,
-                modified_at=timezone.now(),
+            updated = (
+                type(self)
+                .objects.filter(
+                    pk=self.pk,
+                    config=current.config,
+                    status=current.status,
+                    retry_at=current.retry_at,
+                )
+                .update(
+                    config=config,
+                    status=status,
+                    retry_at=retry_at,
+                    modified_at=timezone.now(),
+                )
             )
-            crawl = current.crawl
+            if updated:
+                crawl = current.crawl
+                break
+        else:
+            return False
 
         self.refresh_from_db()
         if status in self.RUNNABLE_STATES and self.crawl_id:

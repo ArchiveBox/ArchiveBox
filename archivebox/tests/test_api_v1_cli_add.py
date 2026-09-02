@@ -285,6 +285,7 @@ def test_api_cli_add_filters_invalid_items_from_multi_url_batch(client, tmp_path
     )
 
     assert response.status_code == 200, response.content
+    assert response.json()["result"]["queued_urls"] == [submitted_url]
     assert Crawl.objects.get().urls == submitted_url
 
 

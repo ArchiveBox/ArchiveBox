@@ -165,7 +165,7 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
         "crawl_id": str(crawl.id),
         "num_snapshots": len(snapshot_ids),
         "snapshot_ids": snapshot_ids,
-        "queued_urls": args.urls,
+        "queued_urls": args.urls if isinstance(submitted_urls, str) else submitted_urls,
     }
     stdout = request.__dict__.get("stdout")
     stderr = request.__dict__.get("stderr")

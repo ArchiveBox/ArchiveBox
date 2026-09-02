@@ -1217,20 +1217,18 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
         next_retry_at = timezone.now()
     else:
         next_retry_at = None
-    snapshot.retry_at = next_retry_at
     if snapshot.fs_migration_needed:
-        snapshot.save(update_fields=["retry_at", "modified_at"])
-    else:
-        updated = snapshot.safe_update(
-            {"retry_at": next_retry_at},
-            refresh=False,
-            extra_filter={
-                "status": snapshot.StatusChoices.SEALED,
-                "retry_at": current_retry_at,
-            },
-        )
-        if not updated:
-            return False
+        snapshot.migrate_filesystem_to_current_version()
+    updated = snapshot.safe_update(
+        {"retry_at": next_retry_at},
+        refresh=False,
+        extra_filter={
+            "status": snapshot.status,
+            "retry_at": current_retry_at,
+        },
+    )
+    if not updated:
+        return False
     snapshot.write_index_jsonl(output_dir=output_dir)
     return True
 
@@ -1370,13 +1368,14 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         if not Snapshot.claim_for_worker(snapshot, lock_seconds=lock_seconds):
             return False
         snapshot.refresh_from_db()
+        owned_retry_at = snapshot.retry_at
         snapshot.finalize_completed_upload_results()
-        retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
         if snapshot.fs_migration_needed:
-            # Preserve the claimed retry_at lease while the idempotent
-            # migration runs so a pending plugin request remains discoverable.
-            snapshot.save(update_fields=["retry_at", "modified_at"])
-            snapshot.refresh_from_db()
+            snapshot.migrate_filesystem_to_current_version()
+        snapshot.refresh_from_db()
+        if snapshot.status != Snapshot.StatusChoices.SEALED or snapshot.retry_at != owned_retry_at:
+            return True
+        retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
         if retry_plugins:
             _runner_console_line(crawl_id=snapshot.crawl_id, snapshot=snapshot)
             run_crawl(
@@ -1402,7 +1401,7 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         # Migrate before abx-dl writes new hook outputs. The claimed Snapshot
         # lease remains in place and the idempotent migration persists its
         # indexed fs_version marker only after copy/verification/cleanup.
-        snapshot.save(update_fields=["retry_at", "modified_at"])
+        snapshot.migrate_filesystem_to_current_version()
         snapshot.refresh_from_db()
     if snapshot.status == Snapshot.StatusChoices.QUEUED:
         snapshot.start_processing()
