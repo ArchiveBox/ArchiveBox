@@ -1,6 +1,5 @@
 __package__ = "archivebox.api"
 
-import json
 from pathlib import Path
 from uuid import UUID
 from datetime import datetime
@@ -23,7 +22,7 @@ from archivebox.core.permissions import (
 )
 from archivebox.config.common import get_config
 from archivebox.crawls.models import Crawl
-from archivebox.misc.util import filter_queryset_by_uuid_substring
+from archivebox.misc.util import filter_queryset_by_uuid_substring, validate_url
 
 from .auth import API_AUTH_METHODS, authenticated_user_from_request
 
@@ -113,7 +112,10 @@ def get_crawls(request: HttpRequest):
 
 @router.post("/crawls", response=CrawlSchema, url_name="create_crawl")
 def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
-    urls = [url.strip() for url in data.urls if url and url.strip()]
+    try:
+        urls = [validate_url(url) for url in data.urls if url and url.strip()]
+    except ValueError as err:
+        raise HttpError(400, str(err)) from err
     if not urls:
         raise HttpError(400, "At least one URL is required")
     if data.max_depth not in (0, 1, 2, 3, 4):
@@ -121,9 +123,10 @@ def create_crawl(request: HttpRequest, data: CrawlCreateSchema):
 
     tags = normalize_tag_list(data.tags, data.tags_str)
     config = dict(data.config or {})
+    config.setdefault("PARSER", "url_list")
     config.setdefault("PERMISSIONS", str(get_config().PERMISSIONS))
     crawl = Crawl.objects.create(
-        urls="\n".join(json.dumps({"type": "CrawlSeed", "url": url, "depth": 0}, separators=(",", ":")) for url in urls),
+        urls="\n".join(urls),
         max_depth=data.max_depth,
         tags_str=",".join(tags),
         label=data.label,

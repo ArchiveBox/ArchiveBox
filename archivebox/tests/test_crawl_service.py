@@ -80,7 +80,7 @@ def test_crawl_service_run_processes_queued_crawl_and_applies_crawl_config(tmp_p
     assert queued_state["retry_at"] is not None
     assert queued_state["config"]["PLUGINS"] == "wget,parse_html_urls"
     assert queued_state["config"]["URL_DENYLIST"] == "/contact$"
-    # add --bg seeds Crawl.urls as CrawlSeed JSONL and returns; the runner
+    # add --bg stores the submitted URL list in Crawl.urls and returns; the runner
     # materializes Snapshot rows + applies URL_DENYLIST when it claims the
     # crawl, not at add time. The post-run assertions below verify those.
     assert queued_state["snapshots"] == []

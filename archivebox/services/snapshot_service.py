@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 from asgiref.sync import sync_to_async
 from django.utils import timezone
-from django.core.exceptions import ValidationError
-from rich import print as rprint
 from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
 from abx_dl.limits import CrawlLimitState
 from abx_dl.services.base import BaseService
@@ -44,6 +41,9 @@ def project_discovered_snapshots(snapshot_id: str) -> list:
 def finalize_completed_snapshot(
     snapshot_id: str,
     *,
+    owned_retry_at,
+    was_sealed: bool,
+    consumed_retry_plugins: list[str] | None = None,
     output_dir=None,
     crawl_limit_stop_reason: str | None = None,
 ) -> None:
@@ -73,12 +73,39 @@ def finalize_completed_snapshot(
             modified_at=timezone.now(),
         )
 
-    if snapshot.status == Snapshot.StatusChoices.QUEUED:
-        snapshot.advance_lifecycle()
-        snapshot.refresh_from_db()
-    if snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.is_finished_processing():
+    # SnapshotCompletedEvent is abx-dl's authoritative signal that the complete
+    # snapshot hook sequence (including cleanup) finished. ArchiveResult rows
+    # are projections of that work, never prerequisites used to decide whether
+    # the Snapshot may seal.
+    if not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.retry_at == owned_retry_at:
         snapshot.seal()
         snapshot.refresh_from_db()
+
+    consumed_plugins = sorted({str(name).strip() for name in (consumed_retry_plugins or []) if str(name).strip()})
+    if consumed_plugins and snapshot.status == Snapshot.StatusChoices.SEALED:
+        for _attempt in range(3):
+            current = Snapshot.objects.only("status", "retry_at", "config").get(pk=snapshot.pk)
+            pending_plugins = sorted(
+                {str(name).strip() for name in (current.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()},
+            )
+            if pending_plugins != consumed_plugins:
+                break
+            owned_filter = {"retry_at": owned_retry_at} if was_sealed else {"retry_at__isnull": True}
+            updates: dict[str, object] = {
+                "config": {key: value for key, value in current.config.items() if key != "RETRY_PLUGINS"},
+                "modified_at": timezone.now(),
+            }
+            if was_sealed:
+                updates["retry_at"] = None
+            updated = Snapshot.objects.filter(
+                pk=current.pk,
+                status=Snapshot.StatusChoices.SEALED,
+                config=current.config,
+                **owned_filter,
+            ).update(**updates)
+            if updated:
+                snapshot.refresh_from_db()
+                break
 
     snapshot.write_index_jsonl(output_dir=output_dir)
 
@@ -100,6 +127,7 @@ class SnapshotService(BaseService):
 
     def __init__(self, bus, *, crawl_id: str):
         self.crawl_id = crawl_id
+        self._run_ownership: dict[str, tuple[str, object, bool, list[str]]] = {}
         super().__init__(bus)
         self.bus.on(SnapshotEvent, self.on_SnapshotEvent)
         self.bus.on(SnapshotCompletedEvent, self.on_SnapshotCompletedEvent)
@@ -112,33 +140,27 @@ class SnapshotService(BaseService):
         if snapshot is not None:
             if snapshot.is_paused:
                 return
+            was_sealed = snapshot.status == Snapshot.StatusChoices.SEALED
             if snapshot.status == Snapshot.StatusChoices.QUEUED:
-                if not await snapshot.archiveresult_set.aexists():
-                    from archivebox.services.runner import snapshot_hooks_for_pending_archiveresults
-
-                    hooks = await sync_to_async(snapshot_hooks_for_pending_archiveresults, thread_sensitive=True)(snapshot)
-                    await sync_to_async(snapshot.create_pending_archiveresults, thread_sensitive=True)(hooks=hooks)
-                try:
-                    await sync_to_async(snapshot.advance_lifecycle, thread_sensitive=True)()
-                except ValidationError as err:
-                    if "ArchiveBox cannot archive its own admin, web, api, or snapshot URLs." not in str(err):
-                        raise
-                    await Snapshot.objects.filter(id=snapshot.id).aupdate(
-                        status=Snapshot.StatusChoices.SEALED,
-                        retry_at=None,
-                        modified_at=timezone.now(),
-                    )
-                    rprint(
-                        f"[red][X] Refusing to archive ArchiveBox internal URL for security: {snapshot.url}[/red]",
-                        file=sys.stderr,
-                    )
-                    return
+                await sync_to_async(snapshot.advance_lifecycle, thread_sensitive=True)()
                 await sync_to_async(snapshot.refresh_from_db, thread_sensitive=True)()
-            elif snapshot.status != Snapshot.StatusChoices.STARTED:
+            elif snapshot.status not in (Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED):
                 return
-            if snapshot.status != Snapshot.StatusChoices.STARTED:
-                return
-            await sync_to_async(snapshot.ensure_crawl_symlink, thread_sensitive=True)()
+            if snapshot.status == Snapshot.StatusChoices.STARTED:
+                await sync_to_async(snapshot.ensure_crawl_symlink, thread_sensitive=True)()
+            retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
+            self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins)
 
     async def on_SnapshotCompletedEvent(self, event: SnapshotCompletedEvent) -> None:
-        await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(event.snapshot_id)
+        snapshot_id = str(event.snapshot_id)
+        ownership = self._run_ownership.get(snapshot_id)
+        if ownership is None or ownership[0] != str(event.event_parent_id):
+            return
+        self._run_ownership.pop(snapshot_id, None)
+        _, owned_retry_at, was_sealed, retry_plugins = ownership
+        await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
+            event.snapshot_id,
+            owned_retry_at=owned_retry_at,
+            was_sealed=was_sealed,
+            consumed_retry_plugins=retry_plugins,
+        )

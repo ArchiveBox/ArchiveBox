@@ -36,9 +36,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         "crawls_queued_without_retry_at": 0,
         "snapshots_queued_without_retry_at": 0,
         "snapshots_sealed_with_extension_uploads_only": 0,
-        "archiveresults_backoff": 0,
-        "snapshots_queued_plugin_rows_waiting_on_stale_lease": 0,
-        "archiveresults_started_without_running_process": 0,
+        "archiveresults_interrupted_without_running_process": 0,
         "archiveresults_missing_for_orphaned_hook_processes": 0,
         "snapshots_started_without_running_results": 0,
         "crawls_started_with_due_snapshots": 0,
@@ -46,10 +44,10 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         "crawls_started_without_active_snapshots": 0,
     }
 
-    running_archiveresults = ArchiveResult.objects.filter(
-        snapshot_id=OuterRef("pk"),
-        status=ArchiveResult.StatusChoices.STARTED,
-        process__status=Process.StatusChoices.RUNNING,
+    running_hook_processes = Process.objects.filter(
+        archiveresult__snapshot_id=OuterRef("pk"),
+        process_type=Process.TypeChoices.HOOK,
+        status=Process.StatusChoices.RUNNING,
     )
     active_child_snapshots = Snapshot.objects.filter(
         crawl_id=OuterRef("pk"),
@@ -109,49 +107,18 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         retry_at=now,
         modified_at=now,
     )
-    backoff_results = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.BACKOFF, **result_filter)
     orphaned_results = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.STARTED, **result_filter).exclude(
         process__status=Process.StatusChoices.RUNNING,
     )
-    # ArchiveResult has no retry_at scheduler. Wake only the parent Snapshots
-    # for result rows we are about to repair, then requeue those exact rows.
-    # Using subqueries keeps million-row recovery in SQLite instead of building
-    # Python ID lists or scanning all sealed snapshots.
-    Snapshot.objects.filter(
-        id__in=backoff_results.values("snapshot_id"),
-        status__in=[Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED],
-        retry_at__isnull=True,
-    ).update(retry_at=now, modified_at=now)
+    # ArchiveResult rows are projections, never work items. Close interrupted
+    # projections as failed and wake their parent Snapshot so abx-dl can replay
+    # the snapshot-level sequence. Indexed subqueries keep this bounded.
     Snapshot.objects.filter(
         id__in=orphaned_results.values("snapshot_id"),
-        status__in=[Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED],
-        retry_at__isnull=True,
+        status=Snapshot.StatusChoices.STARTED,
     ).update(retry_at=now, modified_at=now)
-    cleaned["archiveresults_backoff"] = backoff_results.update(status=ArchiveResult.StatusChoices.QUEUED, modified_at=now)
-    # Targeted plugin rows on final/paused Snapshots are scheduled through the
-    # parent Snapshot.retry_at. retry_at=NULL is the normal idle marker for a
-    # sealed Snapshot and must not be interpreted as queued work just because
-    # old/synthetic ArchiveResult rows exist. If takeover kills the runner
-    # after it leases the Snapshot but before queued ArchiveResult rows finish,
-    # the rows remain QUEUED while retry_at sits in the future. Recovery runs
-    # only after this runner has won the single-runner gate, so it can safely
-    # unlock those stale plugin leases for immediate processing instead of
-    # waiting out the previous owner's full lock timeout.
-    queued_plugin_results = ArchiveResult.objects.filter(status=ArchiveResult.StatusChoices.QUEUED, **result_filter)
-    cleaned["snapshots_queued_plugin_rows_waiting_on_stale_lease"] = (
-        Snapshot.objects.filter(
-            id__in=queued_plugin_results.values("snapshot_id"),
-            status__in=[Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED],
-        )
-        .filter(retry_at__gt=now)
-        .update(retry_at=now, modified_at=now)
-    )
-    # Impossible state repair: STARTED ArchiveResults without a live Process
-    # have no owner left to emit completion. Requeue only the result row; the
-    # snapshot/crawl schedulers will pick up normal retry processing.
-    cleaned["archiveresults_started_without_running_process"] = orphaned_results.update(
-        status=ArchiveResult.StatusChoices.QUEUED,
-        process=None,
+    cleaned["archiveresults_interrupted_without_running_process"] = orphaned_results.update(
+        status=ArchiveResult.StatusChoices.FAILED,
         modified_at=now,
     )
     orphaned_hook_processes = Process.objects.filter(
@@ -206,11 +173,11 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             plugin_dir.name,
             hook_name,
             defaults={
-                "status": ArchiveResult.StatusChoices.QUEUED,
+                "status": ArchiveResult.StatusChoices.FAILED,
             },
         )
         process_is_newer = bool(process.started_at and (result.start_ts is None or process.started_at >= result.start_ts))
-        if result.status == ArchiveResult.StatusChoices.QUEUED or process_is_newer:
+        if created or process_is_newer:
             requeue_snapshot = False
             # A runner can die after the hook Process exits but before the
             # ProcessCompletedEvent projector links/finalizes ArchiveResult.
@@ -231,16 +198,14 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             result.start_ts = process.started_at
             result.end_ts = process.ended_at
             if _is_signal_interrupted_exit(process.exit_code):
-                # The owning runner died or was asked to stop while the hook was
-                # still active. Keep the work item queued so takeover retries the
-                # same hook; treating an unknown signal exit as success would
-                # silently skip unfinished side effects.
+                # The Process is a durable fact; record the interruption as a
+                # failure and wake the parent Snapshot for replay.
                 result.output_files = {}
                 result.output_size = 0
                 result.output_mimetypes = ""
                 result.output_str = ""
                 result.output_json = None
-                result.status = ArchiveResult.StatusChoices.QUEUED
+                result.status = ArchiveResult.StatusChoices.FAILED
                 requeue_snapshot = True
             else:
                 result.output_files = output_files
@@ -280,7 +245,6 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
                 Snapshot.objects.filter(id=snapshot.id).update(retry_at=now, modified_at=now)
         if created:
             cleaned["archiveresults_missing_for_orphaned_hook_processes"] += 1
-            Snapshot.objects.filter(id=snapshot.id).update(retry_at=now, modified_at=now)
     started_snapshots = Snapshot.objects.filter(status=Snapshot.StatusChoices.STARTED).filter(
         Q(retry_at__isnull=True) | Q(retry_at__gt=now),
         **snapshot_filter,
@@ -294,8 +258,8 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
     # We only unlock scheduling; normal Snapshot runner code owns the next
     # transition and side effects.
     cleaned["snapshots_started_without_running_results"] = (
-        started_snapshots.annotate(has_running_results=Exists(running_archiveresults))
-        .filter(has_running_results=False)
+        started_snapshots.annotate(has_running_process=Exists(running_hook_processes))
+        .filter(has_running_process=False)
         .update(
             retry_at=now,
             modified_at=now,
@@ -352,13 +316,9 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             "Finishing {count} browser-extension Snapshot(s) that received uploaded files before server extractors started "
             "(uploaded and server-created results will remain together on the same Snapshot)."
         ),
-        "archiveresults_backoff": (
-            "Retrying {count} extractor result(s) that were waiting to retry "
-            "(ArchiveBox may have been interrupted before it was able to try them again; affected outputs will be retried)."
-        ),
-        "archiveresults_started_without_running_process": (
-            "Retrying {count} extractor result(s) that were interrupted before finishing "
-            "(ArchiveBox may have been interrupted before it was able to save their final status; partial files will be overwritten with fresh results upon retry)."
+        "archiveresults_interrupted_without_running_process": (
+            "Closing {count} interrupted extractor result projection(s) "
+            "(their parent Snapshots are resumed through the normal snapshot-level runner)."
         ),
         "snapshots_started_without_running_results": (
             "Resuming {count} Snapshot(s) that were interrupted before finishing "

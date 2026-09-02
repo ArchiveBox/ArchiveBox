@@ -1,7 +1,9 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
+from django.db import close_old_connections
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.tests.conftest import run_archivebox_cmd
@@ -38,6 +40,77 @@ def _snapshot_state(cwd: Path, url: str) -> dict[str, object]:
             "crawl_link": crawl_link,
             "results": results,
         }
+
+
+def test_snapshot_completion_preserves_retry_scheduled_during_active_run(tmp_path, admin_user):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.snapshot_service import finalize_completed_snapshot
+
+    crawl = Crawl.objects.create(urls="https://example.com/retry-race", created_by=admin_user)
+    owned_retry_at = timezone.now() + timedelta(minutes=10)
+    snapshot = Snapshot.objects.create(
+        url="https://example.com/retry-race",
+        crawl=crawl,
+        status=Snapshot.StatusChoices.STARTED,
+        retry_at=owned_retry_at,
+        config={"RETRY_PLUGINS": ["title"]},
+    )
+
+    snapshot.schedule_plugin_run(["title"])
+    finalize_completed_snapshot(
+        str(snapshot.id),
+        owned_retry_at=owned_retry_at,
+        was_sealed=False,
+        consumed_retry_plugins=["title"],
+        output_dir=tmp_path,
+    )
+
+    snapshot.refresh_from_db()
+    assert snapshot.status == Snapshot.StatusChoices.QUEUED
+    assert snapshot.retry_at is not None
+    assert snapshot.retry_at < owned_retry_at
+    assert snapshot.config["RETRY_PLUGINS"] == ["title"]
+
+
+def test_concurrent_plugin_scheduling_durably_merges_every_request(admin_user):
+    from archivebox.crawls.models import Crawl
+    from django.db import connection
+
+    if connection.vendor != "sqlite":
+        pytest.skip("exercises SQLite concurrent-writer scheduling")
+
+    crawl = Crawl.objects.create(urls="https://example.com/plugin-race", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/plugin-race", crawl=crawl)
+    plugins = ["title", "wget", "screenshot", "pdf"]
+
+    def schedule(plugin: str) -> bool:
+        close_old_connections()
+        try:
+            return Snapshot.objects.get(pk=snapshot.pk).schedule_plugin_run([plugin])
+        finally:
+            close_old_connections()
+
+    with ThreadPoolExecutor(max_workers=len(plugins)) as pool:
+        results = list(pool.map(schedule, plugins))
+
+    snapshot.refresh_from_db()
+    assert results == [True] * len(plugins)
+    assert snapshot.config["RETRY_PLUGINS"] == sorted(plugins)
+
+
+def test_snapshot_keyset_iterator_reads_more_than_eight_pages(admin_user):
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com/pages", created_by=admin_user)
+    snapshots = [Snapshot.objects.create(url=f"https://example.com/pages/{idx}", crawl=crawl) for idx in range(10)]
+
+    yielded_ids = [snapshot.id for snapshot in crawl.snapshot_set.order_by("id").paged_iterator(chunk_size=1)]
+
+    assert yielded_ids == sorted(snapshot.id for snapshot in snapshots)
 
 
 def test_snapshot_merge_consolidates_only_exact_hook_identity(admin_user):

@@ -18,7 +18,7 @@ from django.urls import reverse
 
 from archivebox.core.middleware import ADMIN_LOGIN_HINT_COOKIE
 from archivebox.tests.conftest import ADMIN_TEST_HOST
-from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
 
 pytestmark = pytest.mark.django_db(transaction=True)
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -98,9 +98,9 @@ def running_wget_projection(snapshot, blocking_http_server):
         retry_at=now,
         downloaded_at=None,
         url=blocking_http_server.url,
+        config={"PLUGINS": "wget"},
     )
     snapshot.refresh_from_db()
-    [result] = snapshot.create_pending_archiveresults(hooks=[("wget", _snapshot_hook_name("wget"))])
     errors = []
 
     def run_snapshot():
@@ -115,7 +115,7 @@ def running_wget_projection(snapshot, blocking_http_server):
     runner.start()
     blocking_http_server.request_started.wait()
     assert errors == []
-    result.refresh_from_db()
+    result = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget")
     assert result.status == ArchiveResult.StatusChoices.STARTED
     yield result
     blocking_http_server.release_response.set()
@@ -1353,7 +1353,10 @@ class TestAdminSnapshotListView:
         assert response.status_code == 302
         assert response["Location"].endswith(f"/admin/core/snapshot/{snapshot.pk}/change/")
         failed.refresh_from_db()
-        assert failed.status == ArchiveResult.StatusChoices.QUEUED
+        snapshot.refresh_from_db()
+        assert failed.status == ArchiveResult.StatusChoices.FAILED
+        assert snapshot.status == snapshot.StatusChoices.QUEUED
+        assert snapshot.config["RETRY_PLUGINS"] == ["title"]
 
     def test_list_redo_failed_action_requeues_failed_archiveresults_only(
         self,
@@ -1391,14 +1394,12 @@ class TestAdminSnapshotListView:
         failed.refresh_from_db()
         succeeded.refresh_from_db()
         snapshot.refresh_from_db()
-        assert failed.status == ArchiveResult.StatusChoices.QUEUED
-        assert failed.output_str == ""
-        assert failed.output_files == {}
-        assert failed.output_size == 0
-        assert failed.output_mimetypes == ""
+        assert failed.status == ArchiveResult.StatusChoices.FAILED
+        assert failed.output_str
         assert succeeded.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert succeeded.output_str == succeeded_output
         assert snapshot.status == snapshot.StatusChoices.QUEUED
+        assert snapshot.config["RETRY_PLUGINS"] == ["title"]
 
     def test_archive_now_action_uses_original_snapshot_url_without_timestamp_suffix(self, client, admin_user, snapshot):
         from archivebox.crawls.models import Crawl

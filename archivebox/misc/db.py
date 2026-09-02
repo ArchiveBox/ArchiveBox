@@ -380,29 +380,40 @@ def log_sqlite_lock_holders(console: Any, *, db_path: Path = CONSTANTS.DATABASE_
 def sqlite_lock_error(error: BaseException) -> bool:
     from django.db import OperationalError as DjangoOperationalError
 
-    return isinstance(error, (SQLiteOperationalError, DjangoOperationalError)) and "database is locked" in str(error).lower()
+    message = str(error).lower()
+    return isinstance(error, (SQLiteOperationalError, DjangoOperationalError)) and (
+        "database is locked" in message or "database table is locked" in message
+    )
 
 
 def retry_sqlite_locks(action: Callable[[], Any], *, label: str, stderr: TextIO | None = None) -> Any:
+    from django.conf import settings
     from django.db import OperationalError, connections
     from rich.console import Console
 
     console = Console(file=stderr or None, stderr=stderr is None)
+    started_at = time.monotonic()
+    retry_timeout = settings.CONFIG.SQLITE_LOCK_RETRY_TIMEOUT
+    retry_interval = settings.CONFIG.SQLITE_LOCK_RETRY_INTERVAL
     while True:
         try:
             return action()
-        except OperationalError as err:
-            if "database is locked" not in str(err).lower():
-                raise
-        except SQLiteOperationalError as err:
+        except (OperationalError, SQLiteOperationalError) as err:
             if not sqlite_lock_error(err):
                 raise
+            if retry_timeout:
+                remaining = retry_timeout - (time.monotonic() - started_at)
+                if remaining <= 0:
+                    raise
+                sleep_for = min(retry_interval, remaining)
+            else:
+                sleep_for = retry_interval
 
         connections.close_all()
-        console.print(f"[yellow][*] SQLite database is locked while {label}; retrying in 5s...[/yellow]")
+        console.print(f"[yellow][*] SQLite database is locked while {label}; retrying in {sleep_for:g}s...[/yellow]")
         log_sqlite_lock_holders(console)
         with console.status("[yellow]Waiting for SQLite database lock to clear...[/yellow]", spinner="dots"):
-            time.sleep(5.0)
+            time.sleep(sleep_for)
 
 
 @contextmanager

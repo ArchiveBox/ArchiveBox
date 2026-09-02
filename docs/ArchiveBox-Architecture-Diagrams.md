@@ -82,7 +82,7 @@ stateDiagram-v2
     SEALED --> [*]
 ```
 
-A crawl owns a set of snapshots. The runner creates or discovers those snapshots and projects crawl events while the row is `STARTED`; sealing waits for their normal lifecycle to finish. Pausing also schedules child snapshots to pause, and resuming returns the crawl to the runnable queue. The `archivebox://update` sentinel remains control-plane work: the runner invokes database maintenance directly and never turns it into a Snapshot.
+A crawl owns a set of snapshots. The runner creates or discovers those snapshots and projects crawl events while the row is `STARTED`; sealing waits for their normal lifecycle to finish. Pausing also schedules child snapshots to pause, and resuming returns the crawl to the runnable queue. Scheduled maintenance is dispatched directly by `CrawlSchedule`; it does not create a synthetic crawl or snapshot.
 
 ## `Snapshot` Queue Lifecycle
 

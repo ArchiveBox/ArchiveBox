@@ -12,7 +12,7 @@ from django.utils import timezone
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.tests.test_orm_helpers import use_archivebox_db
-from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook, _snapshot_hook_name
+from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
 from archivebox.workers.models import RETRY_AT_MAX
 
 from .conftest import (
@@ -114,6 +114,44 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
     assert response.status_code == 200, response.content
 
 
+def test_create_crawl_rejects_multiline_url_item(client, api_headers):
+    response = client.post(
+        "/api/v1/crawls/crawls",
+        data=json.dumps({"urls": ["https://example.com/one\nhttps://example.net/two"]}),
+        content_type="application/json",
+        **api_headers,
+    )
+
+    assert response.status_code == 400, response.content
+    assert not Crawl.objects.exists()
+
+
+def test_create_crawl_marks_structured_urls_as_url_list(client, api_headers):
+    response = client.post(
+        "/api/v1/crawls/crawls",
+        data=json.dumps({"urls": ["https://example.com/one"], "config": {"PLUGINS": "title"}}),
+        content_type="application/json",
+        **api_headers,
+    )
+
+    assert response.status_code == 200, response.content
+    crawl = Crawl.objects.get()
+    assert crawl.urls == "https://example.com/one"
+    assert crawl.config["PARSER"] == "url_list"
+
+
+def test_create_crawl_preserves_explicit_parser(client, api_headers):
+    response = client.post(
+        "/api/v1/crawls/crawls",
+        data=json.dumps({"urls": ["https://example.com/one"], "config": {"PARSER": "txt"}}),
+        content_type="application/json",
+        **api_headers,
+    )
+
+    assert response.status_code == 200, response.content
+    assert Crawl.objects.get().config["PARSER"] == "txt"
+
+
 def test_crawl_pause_wins_over_concurrent_runner_lease(api_admin_user):
     crawl = Crawl.objects.create(urls="https://example.com/crawl-pause-race", created_by=api_admin_user)
     claimed_until = timezone.now() + timedelta(seconds=60)
@@ -126,7 +164,7 @@ def test_crawl_pause_wins_over_concurrent_runner_lease(api_admin_user):
     assert crawl.retry_at == RETRY_AT_MAX
 
 
-def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snapshot_results_alone(
+def test_crawl_pause_resume_api_leaves_archiveresult_facts_unchanged(
     request,
     tmp_path,
     client,
@@ -210,9 +248,12 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         )
         now = timezone.now()
         Crawl.objects.filter(pk=crawl_id).update(status=Crawl.StatusChoices.STARTED, retry_at=now)
-        Snapshot.objects.filter(pk=active_snapshot.pk).update(status=Snapshot.StatusChoices.QUEUED, retry_at=now)
+        Snapshot.objects.filter(pk=active_snapshot.pk).update(
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=now,
+            config={"PLUGINS": "wget"},
+        )
         active_snapshot.refresh_from_db()
-        [active_started] = active_snapshot.create_pending_archiveresults(hooks=[("wget", _snapshot_hook_name("wget"))])
         errors = []
 
         def run_snapshot():
@@ -235,10 +276,13 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         request.addfinalizer(finish_runner)
         blocking_http_server.request_started.wait()
         assert errors == []
-        active_started.refresh_from_db()
+        active_started = ArchiveResult.objects.get(snapshot=active_snapshot, plugin="wget")
         assert active_started.status == ArchiveResult.StatusChoices.STARTED
-        [active_queued] = active_snapshot.create_pending_archiveresults(
-            hooks=[("parse_txt_urls", "on_Snapshot__71_parse_txt_urls")],
+        active_queued = ArchiveResult.objects.create(
+            snapshot=active_snapshot,
+            plugin="parse_txt_urls",
+            hook_name="on_Snapshot__71_parse_txt_urls",
+            status=ArchiveResult.StatusChoices.QUEUED,
         )
         pause_response = api_client_request(
             client,
@@ -260,11 +304,11 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         assert sealed_snapshot.status == Snapshot.StatusChoices.SEALED
         assert sealed_snapshot.retry_at is None
 
-        paused_rows = {
+        unchanged_rows = {
             row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[active_queued.id, active_started.id])
         }
-        assert paused_rows["parse_txt_urls"] == (ArchiveResult.StatusChoices.PAUSED, RETRY_AT_MAX)
-        assert paused_rows["wget"] == (ArchiveResult.StatusChoices.PAUSED, RETRY_AT_MAX)
+        assert unchanged_rows["parse_txt_urls"] == (ArchiveResult.StatusChoices.QUEUED, None)
+        assert unchanged_rows["wget"] == (ArchiveResult.StatusChoices.STARTED, None)
 
         active_done_row = ArchiveResult.objects.get(id=active_done.id)
         sealed_done_row = ArchiveResult.objects.get(id=sealed_done.id)
@@ -302,12 +346,7 @@ def test_crawl_pause_resume_api_cascades_archiveresults_and_leaves_finished_snap
         resumed_rows = {
             row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[active_queued.id, active_started.id])
         }
-        assert resumed_rows["parse_txt_urls"][0] == ArchiveResult.StatusChoices.QUEUED
-        assert resumed_rows["parse_txt_urls"][1] is not None
-        assert resumed_rows["parse_txt_urls"][1] != RETRY_AT_MAX
-        assert resumed_rows["wget"][0] == ArchiveResult.StatusChoices.QUEUED
-        assert resumed_rows["wget"][1] is not None
-        assert resumed_rows["wget"][1] != RETRY_AT_MAX
+        assert resumed_rows == unchanged_rows
         assert ArchiveResult.objects.get(id=active_done.id).status == ArchiveResult.StatusChoices.SUCCEEDED
         assert ArchiveResult.objects.get(id=sealed_done.id).status == ArchiveResult.StatusChoices.SUCCEEDED
         assert active_done_path.is_file()

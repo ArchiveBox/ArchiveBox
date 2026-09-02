@@ -34,6 +34,12 @@ def test_validate_url_length_accepts_exactly_max():
     assert validate_url(url) == url
 
 
+def test_validate_url_strips_outer_newlines_but_rejects_internal_newlines():
+    assert validate_url("\nhttps://example.com\r\n") == "https://example.com"
+    with pytest.raises(ValueError, match="single line"):
+        validate_url("https://example.com\nhttps://example.org")
+
+
 def test_validate_url_length_rejects_over_max():
     url = _make_long_url(MAX_URL_LENGTH + 1)
     with pytest.raises(ValueError, match="too long"):

@@ -241,11 +241,7 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
             crawl = Crawl.objects.order_by("-created_at").first()
             assert crawl is not None
             assert crawl.tags_str == "restart-supervised-runner"
-            assert json.loads(crawl.urls) == {
-                "type": "CrawlSeed",
-                "url": recursive_test_site["root_url"],
-                "depth": 0,
-            }
+            assert crawl.urls == recursive_test_site["root_url"]
     finally:
         stop_server(tmp_path)
 
@@ -482,8 +478,8 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
 
         with use_archivebox_db(tmp_path):
             for crawl in Crawl.objects.order_by("created_at"):
-                root_snapshot = crawl.snapshot_set.get(url=Snapshot.INTERNAL_INPUT_URL)
-                root_input = (root_snapshot.output_dir / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
+                assert not crawl.snapshot_set.filter(url__startswith="archivebox://").exists()
+                root_input = (crawl.output_dir / "input" / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
                 assert root_input == crawl.urls
 
         start_archivebox_server(tmp_path, env=env, port=port)
@@ -659,7 +655,7 @@ def test_add_view_post_creates_schedule_over_server(tmp_path, recursive_test_sit
             schedule = CrawlSchedule.objects.select_related("template").order_by("-created_at").first()
             row = None
             if schedule:
-                template_url = json.loads(schedule.template.urls)["url"]
+                template_url = schedule.template.urls.strip()
                 row = (schedule.schedule, template_url, schedule.template.tags_str)
 
         assert row == ("daily", recursive_test_site["root_url"], "web-ui")

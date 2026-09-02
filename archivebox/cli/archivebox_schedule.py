@@ -37,6 +37,7 @@ def schedule(
         "created_schedule_ids": [],
         "disabled_count": 0,
         "run_all_enqueued": 0,
+        "run_all_maintained": 0,
         "active_schedule_ids": [],
     }
 
@@ -57,12 +58,12 @@ def schedule(
 
         created_by_id = get_or_create_system_user_pk()
         is_update_schedule = not import_path
-        template_urls = import_path or "archivebox://update"
+        template_urls = import_path or ""
         template_label = (f"Scheduled import: {template_urls}" if import_path else "Scheduled ArchiveBox update")[:64]
         template_notes = (
             f"Created by archivebox schedule for {template_urls}"
             if import_path
-            else "Created by archivebox schedule to queue recurring archivebox://update maintenance crawls."
+            else "Created by archivebox schedule to run recurring ArchiveBox maintenance."
         )
 
         template = Crawl.objects.create(
@@ -76,7 +77,6 @@ def schedule(
             retry_at=None,
             config={
                 "DEPTH": 0 if is_update_schedule else depth,
-                "SCHEDULE_KIND": "update" if is_update_schedule else "crawl",
                 # Caller-supplied overrides (e.g. {"ONLY_NEW": False}) win over the
                 # template defaults. Anything left unset falls through to the
                 # standard config stack at crawl-resolution time.
@@ -86,6 +86,7 @@ def schedule(
         crawl_schedule = CrawlSchedule.objects.create(
             template=template,
             schedule=schedule_str,
+            config={**template.config, "SCHEDULE_KIND": "update" if is_update_schedule else "crawl"},
             is_enabled=True,
             label=template_label,
             notes=template_notes,
@@ -119,12 +120,19 @@ def schedule(
 
     if run_all:
         enqueued = 0
+        maintained = 0
         now = timezone.now()
         for scheduled_crawl in schedules:
-            scheduled_crawl.enqueue(queued_at=now)
-            enqueued += 1
+            if scheduled_crawl.dispatch(queued_at=now) is None:
+                maintained += 1
+            else:
+                enqueued += 1
         result["run_all_enqueued"] = enqueued
+        result["run_all_maintained"] = maintained
         print(f"[green]\\[*] Enqueued {enqueued} scheduled crawl(s) immediately.[/green]")
+        if maintained:
+            run_pending_crawls(maintenance_only=True)
+            print(f"[green]\\[*] Ran {maintained} scheduled maintenance update(s).[/green]")
         if enqueued:
             print(
                 "[yellow]\\[*] Start `archivebox server`, `archivebox run --daemon`, or `archivebox schedule --foreground` to process the queued crawls.[/yellow]",
@@ -171,7 +179,7 @@ def schedule(
 @click.option("--clear", is_flag=True, help="Disable all currently enabled schedules")
 @click.option("--show", is_flag=True, help="Print all currently enabled schedules")
 @click.option("--foreground", "-f", is_flag=True, help="Run the global crawl runner in the foreground (no crontab required)")
-@click.option("--run-all", is_flag=True, help="Enqueue all enabled schedules immediately and process them once")
+@click.option("--run-all", is_flag=True, help="Dispatch all enabled schedules immediately")
 @click.argument("import_path", required=False)
 @docstring(schedule.__doc__)
 def main(**kwargs):
