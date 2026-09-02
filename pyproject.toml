@@ -79,9 +79,9 @@ dependencies = [
     ### Extractor dependencies (runtime binaries resolved through abxpkg)
     ### Binary/Package Management
     "abxbus==2.5.56",                 # direct imports only; version constrained by abx-dl -> abx-plugins
-    "abxpkg==1.12.113",                # direct imports only; version constrained by abx-dl -> abx-plugins
-    "abx-plugins==1.12.209",           # direct imports only; version constrained by abx-dl
-    "abx-dl==1.12.243",       # shared ArchiveBox downloader package
+    "abxpkg==1.12.114",                # direct imports only; version constrained by abx-dl -> abx-plugins
+    "abx-plugins==1.12.210",           # direct imports only; version constrained by abx-dl
+    "abx-dl==1.12.244",       # shared ArchiveBox downloader package
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
 ]
