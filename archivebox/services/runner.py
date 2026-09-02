@@ -288,10 +288,9 @@ class CrawlRunner:
         if self.allow_maintenance_on_inactive_crawl:
             # SEALED is the normal terminal state of a finished crawl, not a
             # cancellation signal for maintenance work on its already-sealed
-            # snapshots (search backend backfill, fs migration, etc.). When the
-            # runner is invoked with explicit snapshot_ids + selected_plugins,
-            # treat sealed as completed rather than cancelled so the requested
-            # maintenance hooks can actually run.
+            # snapshots (plugin backfill, fs migration, etc.). When the runner
+            # is given explicit snapshot_ids + selected_plugins, the caller has
+            # deliberately scoped work that remains valid after crawl sealing.
             return False
         return await Crawl.objects.filter(id=self.crawl.id, status=Crawl.StatusChoices.SEALED).aexists()
 
@@ -1520,8 +1519,8 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     # The only thing queued work changes is the next scheduler value:
     # - open lifecycle rows: leave them due for extraction after maintenance
     # - no queued work left on a sealed row: clear retry_at
-    # - queued rows remain on a sealed Snapshot: leave it due so the search
-    #   backfill exception can process them on the next tick
+    # - queued rows remain on a sealed Snapshot: leave it due so targeted
+    #   plugin maintenance can process them on the next tick
     current_retry_at = snapshot.retry_at
     next_retry_at = timezone.now() if has_queued_results or snapshot.status in Snapshot.OPEN_STATES else None
     snapshot.retry_at = next_retry_at
