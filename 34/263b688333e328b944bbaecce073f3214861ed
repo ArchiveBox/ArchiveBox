@@ -16,6 +16,7 @@ archivebox/services/runner.py
   s_cec16ad9ba0455::t_42bec6394cd1e7 1369,1463-1464,1732,1781,1799,1801,1804-1815,1868
   s_750dfb69a92570::t_2a13538cc41736 1426
   s_750dfb69a92570::t_810babbf32e85b 39,119-120,187,706,709,766,801,1061,1084,1099,1279-1286,1297
+  s_750dfb69a92570::t_473fba3f6f90f3 1278,1360
 archivebox/services/process_service.py
   s_750dfb69a92570::t_5622c1e4b8314d 47,49
 archivebox/tests/test_recursive_crawl.py
