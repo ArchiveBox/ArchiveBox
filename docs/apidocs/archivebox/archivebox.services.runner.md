@@ -51,20 +51,12 @@
   - ```{autodoc2-docstring} archivebox.services.runner._is_nonfatal_setup_hook
     :summary:
     ```
-* - {py:obj}`_discover_archivebox_plugins <archivebox.services.runner._discover_archivebox_plugins>`
-  - ```{autodoc2-docstring} archivebox.services.runner._discover_archivebox_plugins
-    :summary:
-    ```
 * - {py:obj}`_runner_task_context <archivebox.services.runner._runner_task_context>`
   - ```{autodoc2-docstring} archivebox.services.runner._runner_task_context
     :summary:
     ```
 * - {py:obj}`_is_external_task_cancelled <archivebox.services.runner._is_external_task_cancelled>`
   - ```{autodoc2-docstring} archivebox.services.runner._is_external_task_cancelled
-    :summary:
-    ```
-* - {py:obj}`_emit_machine_config <archivebox.services.runner._emit_machine_config>`
-  - ```{autodoc2-docstring} archivebox.services.runner._emit_machine_config
     :summary:
     ```
 * - {py:obj}`_run_event_now <archivebox.services.runner._run_event_now>`
@@ -251,13 +243,6 @@
 ```
 ````
 
-````{py:function} _discover_archivebox_plugins() -> dict[str, abx_dl.models.Plugin]
-:canonical: archivebox.services.runner._discover_archivebox_plugins
-
-```{autodoc2-docstring} archivebox.services.runner._discover_archivebox_plugins
-```
-````
-
 ````{py:function} _runner_task_context() -> contextvars.Context
 :canonical: archivebox.services.runner._runner_task_context
 
@@ -269,14 +254,6 @@
 :canonical: archivebox.services.runner._is_external_task_cancelled
 
 ```{autodoc2-docstring} archivebox.services.runner._is_external_task_cancelled
-```
-````
-
-````{py:function} _emit_machine_config(bus, *, config: dict[str, typing.Any], derived_config: dict[str, typing.Any], parent_event=None) -> None
-:canonical: archivebox.services.runner._emit_machine_config
-:async:
-
-```{autodoc2-docstring} archivebox.services.runner._emit_machine_config
 ```
 ````
 
@@ -338,14 +315,6 @@
 :async:
 
 ```{autodoc2-docstring} archivebox.services.runner.CrawlRunner.watch_for_cancelled_crawl
-```
-
-````
-
-````{py:method} runtime_plugins() -> dict[str, abx_dl.models.Plugin]
-:canonical: archivebox.services.runner.CrawlRunner.runtime_plugins
-
-```{autodoc2-docstring} archivebox.services.runner.CrawlRunner.runtime_plugins
 ```
 
 ````

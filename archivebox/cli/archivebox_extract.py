@@ -207,7 +207,7 @@ def run_plugins(
             if snapshot_id in existing_snapshot_ids
             for plugin_name in plugin_names
         )
-    plugins_by_name = get_plugin_catalog().plugins
+    plugins_by_name = get_plugin_catalog()
     requested_rows: set[tuple[str, str, str]] = set()
     for snapshot_id, plugin_name in requested_pairs:
         exact_hook_names = {

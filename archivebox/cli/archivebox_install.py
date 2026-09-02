@@ -20,10 +20,9 @@ def _resolve_install_targets(
     from archivebox.plugins.discovery import get_plugin_catalog
 
     catalog = get_plugin_catalog()
-    plugins = catalog.plugins
-    plugin_names_by_lower = {plugin_name.lower(): plugin_name for plugin_name in plugins}
+    plugin_names_by_lower = {plugin_name.lower(): plugin_name for plugin_name in catalog}
     plugin_names_by_binary_alias: dict[str, set[str]] = {}
-    for plugin_name, plugin in plugins.items():
+    for plugin_name, plugin in catalog.items():
         for required_binary in plugin.config.required_binaries:
             aliases = {required_binary.name.lower()}
             template_match = re.fullmatch(r"\{([A-Za-z_][A-Za-z0-9_]*)\}", required_binary.name)
@@ -48,7 +47,7 @@ def _resolve_install_targets(
         else:
             raw_binary_names.append(name)
 
-    selected_plugins = catalog.select(requested_plugins).plugins if requested_plugins else {}
+    selected_plugins = catalog.select(requested_plugins) if requested_plugins else catalog.select([])
     selected_plugin_names = {name.lower() for name in selected_plugins}
     raw_binary_names = [name for name in raw_binary_names if name.lower() not in selected_plugin_names]
     return sorted(selected_plugins), sorted(set(raw_binary_names))

@@ -424,9 +424,8 @@ def main(**kwargs):
             from archivebox.plugins.discovery import get_plugin_catalog
 
             catalog = get_plugin_catalog()
-            all_plugins = catalog.plugins
             tokens = [token.strip() for token in extract.split(",") if token.strip()]
-            plugin_names = {name.lower(): name for name in all_plugins}
+            plugin_names = {name.lower(): name for name in catalog}
             selected = [plugin_names[token.lower()] for token in tokens if token.lower() in plugin_names]
             selected += catalog.matching_output(tokens)
             if not selected:

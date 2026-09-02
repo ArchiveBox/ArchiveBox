@@ -21,7 +21,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 def _snapshot_hook_name(plugin_name: str) -> str:
     from archivebox.plugins.discovery import get_plugin_catalog
 
-    plugin = get_plugin_catalog().plugins.get(plugin_name)
+    plugin = get_plugin_catalog().get(plugin_name)
     assert plugin is not None, f"missing test plugin {plugin_name}"
     hooks = plugin.filter_hooks("Snapshot")
     assert hooks, f"missing Snapshot hooks for {plugin_name}"
@@ -55,7 +55,7 @@ def _run_shipped_snapshot_hook(
     from archivebox.services.archive_result_service import ArchiveResultService
     from archivebox.services.process_service import ProcessService as PersistedProcessService
 
-    discovered_plugin = get_plugin_catalog().plugins.get(plugin)
+    discovered_plugin = get_plugin_catalog().get(plugin)
     assert discovered_plugin is not None, f"missing test plugin {plugin}"
     matching_hooks = [hook for hook in discovered_plugin.filter_hooks("Snapshot") if hook.name == hook_name or hook.path.name == hook_name]
     assert len(matching_hooks) == 1, f"missing or ambiguous Snapshot hook {plugin}:{hook_name}"

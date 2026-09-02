@@ -160,7 +160,7 @@ def _coerce_from_str_dict(file_config: dict[str, str]) -> dict[str, Any]:
     so they round-trip through INI's string-only storage. When reading the
     file back into ``Machine.config`` (a JSONField that holds native types)
     those strings have to be decoded — otherwise downstream consumers like
-    ``_emit_machine_config`` → ``MachineEvent`` → abx-dl see a JSON string
+    ``ExecutionPlan.seed_config`` → ``MachineEvent`` → abx-dl see a JSON string
     where they expect a dict and raise ``TypeError``.
     Declared fields go through pydantic-settings' own ``field_is_complex`` /
     ``prepare_field_value`` so they're decoded per annotation. Undeclared

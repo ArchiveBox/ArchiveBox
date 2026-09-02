@@ -86,7 +86,7 @@ def reindex_snapshots(
 
     stats: dict[str, Any] = {"processed": 0, "requested": 0, "queued": 0, "skipped_queued": 0, "reindexed": 0, "snapshot_ids": []}
     records: list[dict[str, str]] = []
-    plugins_by_name = get_plugin_catalog().plugins
+    plugins_by_name = get_plugin_catalog()
     required_hooks_by_plugin = {
         plugin_name: frozenset(hook.name for hook in plugins_by_name[plugin_name].filter_hooks("Snapshot"))
         for plugin_name in search_plugins

@@ -28,7 +28,6 @@ from abx_dl.events import (
     CrawlEvent,
     CrawlSetupEvent,
     CrawlStartEvent,
-    MachineEvent,
     ProcessCompletedEvent,
     ProcessEvent,
     SnapshotCompletedEvent,
@@ -37,7 +36,7 @@ from abx_dl.events import (
 )
 from abx_dl.limits import CrawlLimitState
 from abx_dl.catalog import PluginCatalog
-from abx_dl.models import Plugin, Snapshot as AbxSnapshot
+from abx_dl.models import Snapshot as AbxSnapshot
 from abx_dl.orchestrator import (
     ExecutionPlan,
     create_bus,
@@ -117,21 +116,13 @@ def _runner_console_line(*, crawl=None, crawl_id=None, snapshot=None, status: st
     Console(highlight=False).print(line)
 
 
-def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str] | None) -> int:
-    selected = PluginCatalog(plugins).select(selected_plugins).plugins if selected_plugins else plugins
+def _count_selected_hooks(catalog: PluginCatalog, selected_plugins: list[str] | None) -> int:
+    selected = catalog.select(selected_plugins) if selected_plugins else catalog
     return sum(1 for plugin in selected.values() for hook in plugin.hooks if "CrawlSetup" in hook.name or "Snapshot" in hook.name)
 
 
 def _is_nonfatal_setup_hook(plugin_name: str, hook_name: str) -> bool:
     return plugin_name == "chrome" and hook_name.endswith("_chrome_kill_zombies")
-
-
-def _discover_archivebox_plugins() -> dict[str, Plugin]:
-    return _discover_archivebox_catalog().plugins
-
-
-def _discover_archivebox_catalog() -> PluginCatalog:
-    return get_plugin_catalog()
 
 
 def _runner_task_context() -> contextvars.Context:
@@ -144,33 +135,6 @@ def _runner_task_context() -> contextvars.Context:
 
 def _is_external_task_cancelled(error: asyncio.CancelledError) -> bool:
     return not isinstance(error, (EventHandlerAbortedError, EventHandlerCancelledError))
-
-
-async def _emit_machine_config(
-    bus,
-    *,
-    config: dict[str, Any],
-    derived_config: dict[str, Any],
-    parent_event=None,
-) -> None:
-    user_config = normalize_runtime_config(config)
-    user_config["ABX_RUNTIME"] = "archivebox"
-    derived_machine_config = normalize_runtime_config(derived_config)
-    user_event = MachineEvent(
-        config=user_config,
-        config_type="user",
-    )
-    if parent_event is not None:
-        user_event.event_parent_id = parent_event.event_id
-    await bus.emit(user_event).now()
-    if derived_machine_config:
-        derived_event = MachineEvent(
-            config=derived_machine_config,
-            config_type="derived",
-        )
-        if parent_event is not None:
-            derived_event.event_parent_id = parent_event.event_id
-        await bus.emit(derived_event).now()
 
 
 async def _run_event_now(event, timeout: float | None = None):
@@ -220,8 +184,7 @@ class CrawlRunner:
     ):
         self.crawl = crawl
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
-        self.catalog = _discover_archivebox_catalog()
-        self.plugins = self.catalog.plugins
+        self.catalog = get_plugin_catalog()
         HookProcessService(self.bus, emit_jsonl=False, interactive_tty=interactive_interrupts)
         register_sonic_daemon_event_handler(self.bus)
         PersistedProcessService(self.bus)
@@ -308,9 +271,6 @@ class CrawlRunner:
             abort_event = parent_event.emit(CrawlAbortEvent())
             await _run_event_now(abort_event, abort_event.event_timeout)
             return
-
-    def runtime_plugins(self) -> dict[str, Plugin]:
-        return self.catalog.select(self.selected_plugins).plugins if self.selected_plugins else self.plugins
 
     @property
     def allow_maintenance_on_inactive_crawl(self) -> bool:
@@ -743,10 +703,10 @@ class CrawlRunner:
                 "LINES": str(terminal_height),
             },
         )
-        plugins_label = ", ".join(self.selected_plugins) if self.selected_plugins else f"all ({len(self.plugins)} available)"
+        plugins_label = ", ".join(self.selected_plugins) if self.selected_plugins else f"all ({len(self.catalog)} available)"
         live_ui = LiveBusUI(
             self.bus,
-            total_hooks=_count_selected_hooks(self.plugins, self.selected_plugins),
+            total_hooks=_count_selected_hooks(self.catalog, self.selected_plugins),
             timeout_seconds=self.base_config["TIMEOUT"],
             ui_console=ui_console,
             interactive_tty=interactive_tty,
@@ -1098,7 +1058,7 @@ class CrawlRunner:
                 return
             derived_config = normalize_runtime_config(self.derived_config)
             output_dir = Path(snapshot["output_dir"])
-            plugins = self.catalog.select(snapshot_selected_plugins).plugins if snapshot_selected_plugins else self.plugins
+            plugins = self.catalog.select(snapshot_selected_plugins) if snapshot_selected_plugins else self.catalog
             if selected_hooks_by_plugin is not None:
                 await sync_to_async(fail_unavailable_queued_hooks, thread_sensitive=True)(
                     snapshot["id"],
@@ -1121,7 +1081,7 @@ class CrawlRunner:
                         await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
                     return
                 snapshot_selected_plugins = remaining_queued_plugins
-                plugins = self.catalog.select(snapshot_selected_plugins).plugins
+                plugins = self.catalog.select(snapshot_selected_plugins)
                 selected_hooks_by_plugin = include_background_prerequisite_hooks(selected_hooks_by_plugin, plugins)
             abx_snapshot = AbxSnapshot(
                 id=snapshot["id"],
@@ -1136,7 +1096,7 @@ class CrawlRunner:
                 derived_config=derived_config,
                 runtime="archivebox",
             )
-            plugins = plan.catalog.plugins
+            plugins = plan.catalog
             snapshot_phase_timeout = plan.snapshot_timeout + 120.0
             await plan.seed_config(self.bus, parent_event=crawl_start_event)
             snapshot_service = plan.attach_snapshot_service(
@@ -1315,8 +1275,10 @@ async def _run_binary(binary_id: str) -> None:
     TagService(bus)
     ArchiveResultService(bus)
     MachineService(bus)
+    catalog = get_plugin_catalog()
     plan = ExecutionPlan.build(
-        _discover_archivebox_catalog(),
+        catalog,
+        selected_plugins=list(catalog),
         config=config,
         derived_config=derived_config,
         runtime="archivebox",
@@ -1332,7 +1294,7 @@ async def _run_binary(binary_id: str) -> None:
         emit_jsonl=False,
         BinaryService=None,
     )
-    await _emit_machine_config(bus, config=config, derived_config=derived_config)
+    await plan.seed_config(bus)
 
     try:
         await bus.emit(
@@ -1395,7 +1357,7 @@ def queued_plugins_for_snapshot(snapshot_id: str) -> list[str] | None:
 def config_overrides_for_queued_plugins(selected_plugins: list[str], **overrides: Any) -> dict[str, Any]:
     config_overrides = dict(overrides)
     config_overrides["PLUGINS"] = ",".join(selected_plugins)
-    selected_plugin_names = set(_discover_archivebox_catalog().select(plugin_name.lower() for plugin_name in selected_plugins))
+    selected_plugin_names = set(get_plugin_catalog().select(plugin_name.lower() for plugin_name in selected_plugins))
     for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
         config_overrides[enabled_key] = plugin_name in selected_plugin_names
     return config_overrides
@@ -1404,7 +1366,7 @@ def config_overrides_for_queued_plugins(selected_plugins: list[str], **overrides
 def fail_unavailable_queued_hooks(
     snapshot_id: str,
     selected_hooks_by_plugin: dict[str, set[str] | None],
-    plugins: dict[str, Plugin],
+    plugins: PluginCatalog,
 ) -> None:
     from archivebox.core.models import ArchiveResult
 
@@ -1461,7 +1423,7 @@ def skip_disabled_queued_plugins(snapshot_id: str, plugin_names: list[str]) -> N
 
 def include_background_prerequisite_hooks(
     selected_hooks_by_plugin: dict[str, set[str] | None],
-    plugins: dict[str, Plugin],
+    plugins: PluginCatalog,
 ) -> dict[str, set[str] | None]:
     expanded: dict[str, set[str] | None] = {}
     for plugin_name, selected_hook_names in selected_hooks_by_plugin.items():
@@ -1498,8 +1460,8 @@ def snapshot_hooks_for_pending_archiveresults(snapshot) -> list[tuple[str, str]]
     crawl_plugin_names = [name.strip() for name in str((snapshot.crawl.config or {}).get("PLUGINS") or "").split(",") if name.strip()]
     config_plugin_names = [name.strip() for name in str(config.PLUGINS or "").split(",") if name.strip()]
     plugin_names = snapshot_plugin_names or crawl_plugin_names or config_plugin_names or get_enabled_plugins(config=config)
-    catalog = _discover_archivebox_catalog()
-    plugins = catalog.select(plugin_names).plugins if plugin_names else catalog.plugins
+    catalog = get_plugin_catalog()
+    plugins = catalog.select(plugin_names) if plugin_names else catalog
     if snapshot.url == Snapshot.INTERNAL_INPUT_URL:
         plugins = {name: plugin for name, plugin in plugins.items() if getattr(plugin.config, "x_accepts_internal_input", False)}
     return sorted((plugin.name, hook.name) for plugin in plugins.values() for hook in plugin.filter_hooks("Snapshot"))
@@ -1767,7 +1729,7 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
             fail_unavailable_queued_hooks(
                 str(snapshot.id),
                 selected_hooks_by_plugin,
-                _discover_archivebox_plugins(),
+                get_plugin_catalog(),
             )
             if not queued_plugins_for_snapshot(str(snapshot.id)):
                 finalize_completed_snapshot(str(snapshot.id), output_dir=Path(snapshot.output_dir))
@@ -1816,7 +1778,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     from archivebox.machine.models import Machine
     from archivebox.plugins.discovery import get_enabled_plugins
 
-    plugins = _discover_archivebox_plugins()
+    catalog = get_plugin_catalog()
     config = get_config(include_machine=False)
     machine = await sync_to_async(Machine.current, thread_sensitive=True)()
     derived_config = normalize_runtime_config(machine.config)
@@ -1829,19 +1791,28 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     TagService(bus)
     ArchiveResultService(bus)
     MachineService(bus)
-    await _emit_machine_config(bus, config=config, derived_config=derived_config)
     live_stream = None
     bus_destroyed = False
 
     try:
-        catalog = _discover_archivebox_catalog()
         if plugin_names:
-            selected_plugins = catalog.select(plugin_names).plugins
+            selected_plugins = catalog.select(plugin_names)
         else:
-            selected_plugins = catalog.select(get_enabled_plugins(config=config)).plugins
+            selected_plugins = catalog.select(get_enabled_plugins(config=config))
         if not selected_plugins:
             return
-        plugins_label = ", ".join(plugin_names) if plugin_names else f"enabled ({len(selected_plugins)} of {len(plugins)} available)"
+        plugins_label = ", ".join(plugin_names) if plugin_names else f"enabled ({len(selected_plugins)} of {len(catalog)} available)"
+        install_config = dict(config)
+        for plugin in selected_plugins.values():
+            if plugin.enabled_key in plugin.config.properties:
+                install_config[plugin.enabled_key] = True
+        plan = ExecutionPlan.build(
+            catalog,
+            selected_plugins=list(selected_plugins),
+            config=install_config,
+            derived_config=derived_config,
+            runtime="archivebox",
+        )
         timeout_seconds = config["TIMEOUT"]
         stdout_is_tty = sys.stdout.isatty()
         stderr_is_tty = sys.stderr.isatty()
@@ -1893,13 +1864,6 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                 )
             with live_ui if live_ui is not None else nullcontext():
                 try:
-                    plan = ExecutionPlan.build(
-                        catalog,
-                        selected_plugins=selected_plugins,
-                        config=config,
-                        derived_config=derived_config,
-                        runtime="archivebox",
-                    )
                     await abx_install_plugins(
                         plan,
                         output_dir=output_dir,

@@ -272,7 +272,7 @@ def version(
     from abxpkg.binary_service import BinaryEvent, BinaryService
 
     plugins = get_plugin_catalog()
-    enabled_plugins = plugins.select(get_enabled_plugins(config=config)).plugins
+    enabled_plugins = plugins.select(get_enabled_plugins(config=config))
     enabled_plugin_names = set(enabled_plugins)
     runtime_config = normalize_runtime_config(config.for_crawl(), json_safe=False)
     derived_config: dict[str, object] = {}
