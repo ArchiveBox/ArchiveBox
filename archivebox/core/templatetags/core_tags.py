@@ -32,7 +32,7 @@ _TEXT_PREVIEW_EXTS = (".json", ".jsonl", ".txt", ".csv", ".tsv", ".xml", ".yml",
 _IMAGE_PREVIEW_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".avif")
 _STATIC_URL_SAFE = "/@-._~!$&'()*+,;="
 
-_MEDIA_FILE_EXTS = {
+_VIDEO_FILE_EXTS = {
     ".mp4",
     ".webm",
     ".mkv",
@@ -49,6 +49,9 @@ _MEDIA_FILE_EXTS = {
     ".3gp",
     ".3g2",
     ".ogv",
+}
+
+_AUDIO_FILE_EXTS = {
     ".mp3",
     ".m4a",
     ".aac",
@@ -65,6 +68,10 @@ _MEDIA_FILE_EXTS = {
     ".eac3",
     ".dts",
 }
+
+_MEDIA_FILE_EXTS = _VIDEO_FILE_EXTS | _AUDIO_FILE_EXTS
+_BROWSER_VIDEO_FILE_EXTS = {".mp4", ".webm", ".m4v", ".ogv"}
+_BROWSER_AUDIO_FILE_EXTS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac"}
 
 
 def _normalize_output_files(output_files: Any) -> dict[str, dict[str, Any]]:
@@ -154,15 +161,27 @@ def _list_media_files(result) -> list[dict]:
 
     for rel_path, size in candidates:
         href = str(Path(result.plugin) / rel_path)
+        suffix = rel_path.suffix.lower()
+        media_type = "video" if suffix in _VIDEO_FILE_EXTS else "audio"
         media_files.append(
             {
                 "name": rel_path.name,
                 "path": href,
                 "size": size,
+                "media_type": media_type,
+                "is_video": media_type == "video",
+                "is_audio": media_type == "audio",
+                "is_browser_playable": suffix in _BROWSER_VIDEO_FILE_EXTS or suffix in _BROWSER_AUDIO_FILE_EXTS,
             },
         )
 
-    media_files.sort(key=lambda item: item["name"].lower())
+    media_files.sort(
+        key=lambda item: (
+            0 if item["is_video"] and item["is_browser_playable"] else 1 if item["is_audio"] and item["is_browser_playable"] else 2,
+            -int(item.get("size") or 0),
+            item["name"].lower(),
+        ),
+    )
     return media_files
 
 
