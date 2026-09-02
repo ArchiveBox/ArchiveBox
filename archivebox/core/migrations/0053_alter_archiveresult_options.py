@@ -5,7 +5,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("core", "0052_unique_archiveresult_per_snapshot_plugin"),
+        ("core", "0051_postgres_url_pattern_ops_index"),
     ]
 
     operations = [
