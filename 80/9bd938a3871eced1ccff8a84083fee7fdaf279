@@ -1,0 +1,32 @@
+archivebox/services/runner.py
+  s_750dfb69a92570::t_6579aa0e9ed3dc 820-830,847
+archivebox/tests/test_crawl_runner.py
+  s_750dfb69a92570::t_ed722d58e9ed4e 661-688
+  s_80d4bd2d930f75::t_d09bc02a16385c 660
+archivebox/tests/test_migrations_07_to_09.py
+  s_750dfb69a92570::t_6579aa0e9ed3dc 406
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "809bd938a3871eced1ccff8a84083fee7fdaf279",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_80d4bd2d930f75": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05e81-8ef7-7ee1-b52f-f712a0d60079",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
