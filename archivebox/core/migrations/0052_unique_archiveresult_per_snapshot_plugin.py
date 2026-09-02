@@ -1,13 +1,36 @@
+import hashlib
+
 from django.db import migrations, models
-from django.db.models import Sum
+
+
+STASH_KEY = "__archivebox_0052_original_row"
+TEMP_PLUGIN_PREFIX = "__abx52_"
+
+
+def _temporary_plugin_name(row_id, reserved_plugins):
+    """Return a deterministic 32-character plugin name unused by this snapshot."""
+    salt = 0
+    while True:
+        digest = hashlib.sha256(f"{row_id}:{salt}".encode()).hexdigest()[:24]
+        candidate = f"{TEMP_PLUGIN_PREFIX}{digest}"
+        if candidate not in reserved_plugins:
+            return candidate
+        salt += 1
 
 
 def consolidate_archiveresults_per_plugin(apps, schema_editor):
+    """Temporarily make plugin names unique without deleting hook history.
+
+    This migration shipped with a short-lived one-row-per-plugin model, while
+    0054 restores the durable (snapshot, plugin, hook_name) identity. Fresh
+    upgrades still traverse both published migrations, so deleting duplicate
+    rows here would lose history before 0054 gets a chance to restore the
+    correct constraint. Rename only the non-canonical rows and stash their
+    original plugin/output_json values for 0054 to restore verbatim.
+    """
     ArchiveResult = apps.get_model("core", "ArchiveResult")
-    Snapshot = apps.get_model("core", "Snapshot")
     duplicate_groups = ArchiveResult.objects.values("snapshot_id", "plugin").annotate(count=models.Count("id")).filter(count__gt=1)
 
-    affected_snapshot_ids = set()
     for group in duplicate_groups.iterator(chunk_size=200):
         rows = list(
             ArchiveResult.objects.filter(
@@ -24,27 +47,22 @@ def consolidate_archiveresults_per_plugin(apps, schema_editor):
                 str(row.id),
             ),
         )
-        output_files = {}
-        mimetypes = set()
-        for row in rows:
-            output_files.update(row.output_files or {})
-            mimetypes.update(part.strip() for part in (row.output_mimetypes or "").split(",") if part.strip())
-
-        winner.output_files = output_files
-        winner.output_size = max(
-            sum(int(metadata.get("size") or 0) for metadata in output_files.values() if isinstance(metadata, dict)),
-            *(int(row.output_size or 0) for row in rows),
+        reserved_plugins = set(
+            ArchiveResult.objects.filter(snapshot_id=group["snapshot_id"]).values_list("plugin", flat=True),
         )
-        winner.output_mimetypes = ",".join(sorted(mimetypes))
-        winner.start_ts = min((row.start_ts for row in rows if row.start_ts), default=None)
-        winner.end_ts = max((row.end_ts for row in rows if row.end_ts), default=None)
-        winner.save(update_fields=["output_files", "output_size", "output_mimetypes", "start_ts", "end_ts"])
-        ArchiveResult.objects.filter(id__in=[row.id for row in rows if row.id != winner.id]).delete()
-        affected_snapshot_ids.add(group["snapshot_id"])
-
-    for snapshot_id in affected_snapshot_ids:
-        total = ArchiveResult.objects.filter(snapshot_id=snapshot_id).aggregate(total=Sum("output_size"))["total"] or 0
-        Snapshot.objects.filter(id=snapshot_id).update(output_size=total)
+        for row in rows:
+            if row.id == winner.id:
+                continue
+            temporary_plugin = _temporary_plugin_name(row.id, reserved_plugins)
+            reserved_plugins.add(temporary_plugin)
+            row.output_json = {
+                STASH_KEY: {
+                    "plugin": row.plugin,
+                    "output_json": row.output_json,
+                },
+            }
+            row.plugin = temporary_plugin
+            row.save(update_fields=["plugin", "output_json"])
 
 
 class Migration(migrations.Migration):
