@@ -10,10 +10,10 @@
 #       --build-context abx-plugins=../abx-plugins \
 #       -t archivebox/abx-dl:dev
 #   docker buildx build . -f Dockerfile \
-#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.12.252 \
+#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.12.254 \
 #       -t archivebox:multistage
 
-ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.252
+ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.254
 
 FROM archivebox/sonic:1.4.9 AS sonic
 FROM ${ABX_DL_IMAGE} AS archivebox-runtime-base
