@@ -493,10 +493,10 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
 ):
     """Run a bounded real depth=2 crawl with all plugins enabled and verify parallel snapshot execution."""
 
-    from abx_dl.models import discover_plugins
+    from archivebox.plugins.discovery import get_plugin_catalog
 
     root_url = recursive_test_site["root_url"]
-    plugin_selection = ",".join(sorted(plugin for plugin in discover_plugins().keys() if not plugin.startswith("claude")))
+    plugin_selection = ",".join(sorted(plugin for plugin in get_plugin_catalog() if not plugin.startswith("claude")))
     env = os.environ.copy()
     for preinstalled_path_key in (
         "CHROME_BINARY",

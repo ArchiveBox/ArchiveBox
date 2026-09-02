@@ -17,9 +17,10 @@ def _resolve_install_targets(
     requested_names: tuple[str, ...],
 ) -> tuple[list[str], list[str]]:
     """Resolve plugin names and declared binary aliases, leaving unknown tokens raw."""
-    from abx_dl.models import discover_plugins, filter_plugins
+    from archivebox.plugins.discovery import get_plugin_catalog
 
-    plugins = discover_plugins(runtime="archivebox")
+    catalog = get_plugin_catalog()
+    plugins = catalog.plugins
     plugin_names_by_lower = {plugin_name.lower(): plugin_name for plugin_name in plugins}
     plugin_names_by_binary_alias: dict[str, set[str]] = {}
     for plugin_name, plugin in plugins.items():
@@ -47,7 +48,7 @@ def _resolve_install_targets(
         else:
             raw_binary_names.append(name)
 
-    selected_plugins = filter_plugins(plugins, requested_plugins, include_providers=True) if requested_plugins else {}
+    selected_plugins = catalog.select(requested_plugins).plugins if requested_plugins else {}
     selected_plugin_names = {name.lower() for name in selected_plugins}
     raw_binary_names = [name for name in raw_binary_names if name.lower() not in selected_plugin_names]
     return sorted(selected_plugins), sorted(set(raw_binary_names))

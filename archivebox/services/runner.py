@@ -37,12 +37,11 @@ from abx_dl.events import (
 )
 from abx_dl.limits import CrawlLimitState
 from abx_dl.catalog import PluginCatalog
-from abx_dl.models import Plugin, Snapshot as AbxSnapshot, filter_plugins
+from abx_dl.models import Plugin, Snapshot as AbxSnapshot
 from abx_dl.orchestrator import (
     ExecutionPlan,
     create_bus,
     install_plugins as abx_install_plugins,
-    setup_services as setup_abx_services,
 )
 from abx_dl.services.process_service import ProcessService as HookProcessService
 from abx_dl.services.snapshot_service import SnapshotService as HookSnapshotService
@@ -119,7 +118,7 @@ def _runner_console_line(*, crawl=None, crawl_id=None, snapshot=None, status: st
 
 
 def _count_selected_hooks(plugins: dict[str, Plugin], selected_plugins: list[str] | None) -> int:
-    selected = filter_plugins(plugins, selected_plugins) if selected_plugins else plugins
+    selected = PluginCatalog(plugins).select(selected_plugins).plugins if selected_plugins else plugins
     return sum(1 for plugin in selected.values() for hook in plugin.hooks if "CrawlSetup" in hook.name or "Snapshot" in hook.name)
 
 
@@ -805,7 +804,7 @@ class CrawlRunner:
         normalized_config = normalize_runtime_config(config)
         configured_plugins = [name.strip().lower() for name in str(normalized_config.get("PLUGINS") or "").split(",") if name.strip()]
         if configured_plugins:
-            selected_plugin_names = set(filter_plugins(self.plugins, configured_plugins, include_providers=True))
+            selected_plugin_names = set(self.catalog.select(configured_plugins))
             for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
                 normalized_config.setdefault(enabled_key, plugin_name in selected_plugin_names)
         return {
@@ -840,7 +839,7 @@ class CrawlRunner:
             derived_config=derived_config,
             runtime="archivebox",
         )
-        setup_hooks = [(plugin, hook) for plugin in plan.plugins.values() for hook in plugin.filter_hooks("CrawlSetup")]
+        setup_hooks = [(plugin, hook) for plugin in plan.catalog.values() for hook in plugin.filter_hooks("CrawlSetup")]
         abx_snapshot = AbxSnapshot(
             id=snapshot["id"],
             url=snapshot["url"],
@@ -1034,9 +1033,7 @@ class CrawlRunner:
             def queued_plugins_selected_by_config(queued_plugins: list[str]) -> list[str]:
                 if not snapshot_selected_plugins:
                     return queued_plugins
-                expanded_selected_plugins = set(
-                    filter_plugins(self.plugins, snapshot_selected_plugins, include_providers=True).keys(),
-                )
+                expanded_selected_plugins = set(self.catalog.select(snapshot_selected_plugins))
                 return [plugin for plugin in queued_plugins if plugin in expanded_selected_plugins]
 
             selected_hooks_by_plugin = None
@@ -1102,11 +1099,7 @@ class CrawlRunner:
                 return
             derived_config = normalize_runtime_config(self.derived_config)
             output_dir = Path(snapshot["output_dir"])
-            plugins = (
-                filter_plugins(self.plugins, snapshot_selected_plugins, include_providers=True)
-                if snapshot_selected_plugins
-                else self.plugins
-            )
+            plugins = self.catalog.select(snapshot_selected_plugins).plugins if snapshot_selected_plugins else self.plugins
             if selected_hooks_by_plugin is not None:
                 await sync_to_async(fail_unavailable_queued_hooks, thread_sensitive=True)(
                     snapshot["id"],
@@ -1129,7 +1122,7 @@ class CrawlRunner:
                         await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
                     return
                 snapshot_selected_plugins = remaining_queued_plugins
-                plugins = filter_plugins(self.plugins, snapshot_selected_plugins, include_providers=True)
+                plugins = self.catalog.select(snapshot_selected_plugins).plugins
                 selected_hooks_by_plugin = include_background_prerequisite_hooks(selected_hooks_by_plugin, plugins)
             abx_snapshot = AbxSnapshot(
                 id=snapshot["id"],
@@ -1144,7 +1137,7 @@ class CrawlRunner:
                 derived_config=derived_config,
                 runtime="archivebox",
             )
-            plugins = plan.plugins
+            plugins = plan.catalog.plugins
             snapshot_phase_timeout = plan.snapshot_timeout + 120.0
             await plan.seed_config(self.bus, parent_event=crawl_start_event)
             snapshot_service = plan.attach_snapshot_service(
@@ -1311,7 +1304,6 @@ async def _run_binary(binary_id: str) -> None:
     from archivebox.machine.models import Binary, Machine
 
     binary = await Binary.objects.aget(id=binary_id)
-    plugins = _discover_archivebox_plugins()
     config = get_config(include_machine=False)
     machine = await sync_to_async(Machine.current, thread_sensitive=True)()
     derived_config = normalize_runtime_config(machine.config)
@@ -1324,9 +1316,14 @@ async def _run_binary(binary_id: str) -> None:
     TagService(bus)
     ArchiveResultService(bus)
     MachineService(bus)
-    setup_abx_services(
+    plan = ExecutionPlan.build(
+        _discover_archivebox_catalog(),
+        config=config,
+        derived_config=derived_config,
+        runtime="archivebox",
+    )
+    plan.attach_services(
         bus,
-        plugins=plugins,
         install_enabled=False,
         crawl_setup_enabled=False,
         crawl_start_enabled=False,
@@ -1399,9 +1396,7 @@ def queued_plugins_for_snapshot(snapshot_id: str) -> list[str] | None:
 def config_overrides_for_queued_plugins(selected_plugins: list[str], **overrides: Any) -> dict[str, Any]:
     config_overrides = dict(overrides)
     config_overrides["PLUGINS"] = ",".join(selected_plugins)
-    selected_plugin_names = set(
-        filter_plugins(_discover_archivebox_plugins(), [plugin_name.lower() for plugin_name in selected_plugins], include_providers=True),
-    )
+    selected_plugin_names = set(_discover_archivebox_catalog().select(plugin_name.lower() for plugin_name in selected_plugins))
     for plugin_name, enabled_key in _plugin_enabled_config_keys().items():
         config_overrides[enabled_key] = plugin_name in selected_plugin_names
     return config_overrides
@@ -1840,10 +1835,11 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     bus_destroyed = False
 
     try:
+        catalog = _discover_archivebox_catalog()
         if plugin_names:
-            selected_plugins = filter_plugins(plugins, list(plugin_names), include_providers=True)
+            selected_plugins = catalog.select(plugin_names).plugins
         else:
-            selected_plugins = filter_plugins(plugins, get_enabled_plugins(config=config), include_providers=True)
+            selected_plugins = catalog.select(get_enabled_plugins(config=config)).plugins
         if not selected_plugins:
             return
         plugins_label = ", ".join(plugin_names) if plugin_names else f"enabled ({len(selected_plugins)} of {len(plugins)} available)"
@@ -1898,12 +1894,16 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                 )
             with live_ui if live_ui is not None else nullcontext():
                 try:
+                    plan = ExecutionPlan.build(
+                        catalog,
+                        selected_plugins=selected_plugins,
+                        config=config,
+                        derived_config=derived_config,
+                        runtime="archivebox",
+                    )
                     await abx_install_plugins(
-                        plugin_names=selected_plugins,
-                        plugins=plugins,
+                        plan,
                         output_dir=output_dir,
-                        config_overrides=config,
-                        derived_config_overrides=derived_config,
                         emit_jsonl=False,
                         bus=bus,
                         BinaryService=None,

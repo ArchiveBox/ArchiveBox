@@ -1671,19 +1671,14 @@ def run_test_hook(
     import asyncio
 
     from abx_dl.execution import execute_hook
-    from abx_dl.models import discover_plugins
     from abx_dl.orchestrator import create_bus
     from archivebox.machine.models import Process
+    from archivebox.plugins.discovery import get_plugin_catalog
     from archivebox.services.process_service import ProcessService, parse_event_datetime
 
     resolved_script = script.resolve()
     hook = next(
-        (
-            hook
-            for plugin in discover_plugins(runtime="archivebox").values()
-            for hook in plugin.hooks
-            if hook.path.resolve() == resolved_script
-        ),
+        (hook for plugin in get_plugin_catalog().values() for hook in plugin.hooks if hook.path.resolve() == resolved_script),
         None,
     )
     assert hook is not None, f"shipped hook is not in the plugin catalog: {script}"

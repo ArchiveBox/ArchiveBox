@@ -265,15 +265,14 @@ def version(
     seen_failures: set[str] = set()
     seen_rows: set[tuple[str, str, str, str]] = set()
 
-    from archivebox.plugins.discovery import get_enabled_plugins
+    from archivebox.plugins.discovery import get_enabled_plugins, get_plugin_catalog
     from abx_dl.config import get_required_binary_requests
     from abx_dl.dependencies import resolve_binary_requests
-    from abx_dl.models import discover_plugins, filter_plugins
     from abx_dl.orchestrator import create_bus
     from abxpkg.binary_service import BinaryEvent, BinaryService
 
-    plugins = discover_plugins(runtime="archivebox")
-    enabled_plugins = filter_plugins(plugins, get_enabled_plugins(config=config), include_providers=True)
+    plugins = get_plugin_catalog()
+    enabled_plugins = plugins.select(get_enabled_plugins(config=config)).plugins
     enabled_plugin_names = set(enabled_plugins)
     runtime_config = normalize_runtime_config(config.for_crawl(), json_safe=False)
     derived_config: dict[str, object] = {}

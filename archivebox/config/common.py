@@ -852,13 +852,11 @@ class ArchiveBoxBaseConfig(
             disabled_plugins = [plugin_name for plugin_name, enabled_key in enabled_config_keys.items() if not getattr(self, enabled_key)]
         selected_plugin_roots = plugin_names
         if selected_plugin_roots:
-            from abx_dl.models import discover_plugins, filter_plugins
+            from archivebox.plugins.discovery import get_plugin_catalog
 
             selected_plugins = set(
-                filter_plugins(
-                    discover_plugins(runtime="archivebox"),
+                get_plugin_catalog().select(
                     sorted(selected_plugin_roots),
-                    include_providers=True,
                     disabled_names=disabled_plugins,
                 ),
             )

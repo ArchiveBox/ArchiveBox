@@ -77,7 +77,7 @@ def reindex_snapshots(
 ) -> dict[str, Any]:
     from archivebox.cli.archivebox_extract import run_plugins
     from archivebox.core.models import ArchiveResult, Snapshot
-    from abx_dl.models import discover_plugins
+    from archivebox.plugins.discovery import get_plugin_catalog
 
     # Search backfill is the one maintenance hook allowed to execute without
     # reopening a Snapshot. Restrict that exception to already-sealed rows;
@@ -86,7 +86,7 @@ def reindex_snapshots(
 
     stats: dict[str, Any] = {"processed": 0, "requested": 0, "queued": 0, "skipped_queued": 0, "reindexed": 0, "snapshot_ids": []}
     records: list[dict[str, str]] = []
-    plugins_by_name = discover_plugins(runtime="archivebox")
+    plugins_by_name = get_plugin_catalog().plugins
     required_hooks_by_plugin = {
         plugin_name: frozenset(hook.name for hook in plugins_by_name[plugin_name].filter_hooks("Snapshot"))
         for plugin_name in search_plugins

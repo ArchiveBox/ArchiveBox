@@ -421,13 +421,14 @@ def main(**kwargs):
         if only_new is not None:
             kwargs["config"] = {"ONLY_NEW": bool(only_new)}
         if extract:
-            from abx_dl.models import discover_plugins, plugins_matching_output
+            from archivebox.plugins.discovery import get_plugin_catalog
 
-            all_plugins = discover_plugins()
+            catalog = get_plugin_catalog()
+            all_plugins = catalog.plugins
             tokens = [token.strip() for token in extract.split(",") if token.strip()]
             plugin_names = {name.lower(): name for name in all_plugins}
             selected = [plugin_names[token.lower()] for token in tokens if token.lower() in plugin_names]
-            selected += plugins_matching_output(all_plugins, tokens)
+            selected += catalog.matching_output(tokens)
             if not selected:
                 raise click.UsageError(f"No plugins found matching extract types: {extract}")
             existing = [token.strip() for token in (kwargs.get("plugins") or "").split(",") if token.strip()]

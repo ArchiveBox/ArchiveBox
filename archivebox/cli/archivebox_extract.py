@@ -127,7 +127,7 @@ def run_plugins(
     from archivebox.core.models import Snapshot
     from archivebox.core.models import ArchiveResult
     from archivebox.services.runner import run_crawl
-    from abx_dl.models import discover_plugins
+    from archivebox.plugins.discovery import get_plugin_catalog
 
     is_tty = sys.stdout.isatty()
 
@@ -207,7 +207,7 @@ def run_plugins(
             if snapshot_id in existing_snapshot_ids
             for plugin_name in plugin_names
         )
-    plugins_by_name = discover_plugins(runtime="archivebox")
+    plugins_by_name = get_plugin_catalog().plugins
     requested_rows: set[tuple[str, str, str]] = set()
     for snapshot_id, plugin_name in requested_pairs:
         exact_hook_names = {
