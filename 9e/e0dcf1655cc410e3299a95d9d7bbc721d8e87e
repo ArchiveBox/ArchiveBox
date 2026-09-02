@@ -1,0 +1,76 @@
+archivebox/api/v1_crawls.py
+  s_80d4bd2d930f75::t_e3a66d5197fe6d 25,115-118,126
+archivebox/crawls/models.py
+  s_80d4bd2d930f75::t_5e9b963880cf6f 118,120
+archivebox/services/runner.py
+  s_80d4bd2d930f75::t_e3a66d5197fe6d 576,578-587,597
+  s_80d4bd2d930f75::t_7650395aa2f0e6 769,963
+  s_750dfb69a92570::t_68fd27d90be7df 967-969
+archivebox/cli/archivebox_update.py
+  s_80d4bd2d930f75::t_5e9b963880cf6f 127-144
+  s_80d4bd2d930f75::t_f0cc2a19834133 88,103,316-317,319,775
+archivebox/core/models.py
+  s_80d4bd2d930f75::t_7650395aa2f0e6 728-734,739,3099
+  s_80d4bd2d930f75::t_5f56f8fed09194 735-738
+  s_80d4bd2d930f75::t_352c335f177016 1147-1148,1176-1178
+archivebox/tests/test_archive_result_service.py
+  s_80d4bd2d930f75::t_4a4212b2eb0ba1 468-469
+archivebox/cli/archivebox_run.py
+  s_80d4bd2d930f75::t_f0cc2a19834133 363,396,401
+archivebox/tests/test_ui_admin_snapshot.py
+  s_80d4bd2d930f75::t_4a4212b2eb0ba1 1359,1402
+archivebox/tests/test_api_v1_cli_schedule.py
+  s_80d4bd2d930f75::t_4a4212b2eb0ba1 37-38
+archivebox/services/snapshot_service.py
+  s_80d4bd2d930f75::t_7650395aa2f0e6 84-87
+archivebox/cli/archivebox_extract.py
+  s_80d4bd2d930f75::t_f0cc2a19834133 102-107
+  s_80d4bd2d930f75::t_7650395aa2f0e6 100-101
+archivebox/cli/archivebox_schedule.py
+  s_80d4bd2d930f75::t_e3a66d5197fe6d 40,182
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_80d4bd2d930f75::t_352c335f177016 121-123
+  s_80d4bd2d930f75::t_2f5daf665b93dc 220-264,273-276
+  s_80d4bd2d930f75::t_f0cc2a19834133 190
+  s_750dfb69a92570::t_68fd27d90be7df 265-272
+archivebox/misc/util.py
+  s_80d4bd2d930f75::t_e3a66d5197fe6d 195-198
+archivebox/services/archive_result_service.py
+  s_80d4bd2d930f75::t_f0cc2a19834133 247-248
+archivebox/cli/archivebox_add.py
+  s_80d4bd2d930f75::t_e3a66d5197fe6d 117-122
+archivebox/tests/test_snapshot_filesystem_migration.py
+  s_80d4bd2d930f75::t_352c335f177016 18
+archivebox/config/common.py
+  s_80d4bd2d930f75::t_ba4ebda64b6da1 444
+archivebox/tests/test_cli_extract_input.py
+  s_80d4bd2d930f75::t_4a4212b2eb0ba1 30-34,60-97
+docs/Scheduled-Archiving.md
+  s_80d4bd2d930f75::t_e3a66d5197fe6d 32
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  s_80d4bd2d930f75::t_174fb831093e3d 117-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "9ee0dcf1655cc410e3299a95d9d7bbc721d8e87e",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_80d4bd2d930f75": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05e81-8ef7-7ee1-b52f-f712a0d60079",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
