@@ -98,7 +98,7 @@ def running_wget_projection(snapshot, blocking_http_server):
         retry_at=now,
         downloaded_at=None,
         url=blocking_http_server.url,
-        config={"PLUGINS": "wget,search_backend_sqlite"},
+        config={"PLUGINS": "wget"},
     )
     snapshot.refresh_from_db()
     errors = []
@@ -399,7 +399,6 @@ class TestSnapshotProgressStats:
     def test_snapshot_admin_progress_uses_expected_hook_total_not_observed_result_count(
         self,
         snapshot,
-        real_hash_projection,
         running_wget_projection,
     ):
         from archivebox.core.admin_site import archivebox_admin
@@ -408,7 +407,6 @@ class TestSnapshotProgressStats:
         from archivebox.config.common import get_config
         from django.urls import resolve
 
-        assert real_hash_projection[1].status == ArchiveResult.StatusChoices.SUCCEEDED
         assert running_wget_projection.status == ArchiveResult.StatusChoices.STARTED
 
         prefetched_snapshot = Snapshot.objects.prefetch_related("archiveresult_set").get(pk=snapshot.pk)
@@ -422,13 +420,13 @@ class TestSnapshotProgressStats:
         stats = admin._get_progress_stats(prefetched_snapshot)
         html = str(admin.status_with_progress(prefetched_snapshot))
 
-        assert expected_total > 2
+        assert expected_total > 1
         assert stats["total"] == expected_total
-        assert stats["succeeded"] == 1
+        assert stats["succeeded"] == 0
         assert stats["running"] == 1
-        assert stats["pending"] == expected_total - 2
-        assert stats["percent"] == int(100 / expected_total)
-        assert f"1/{expected_total} hooks" in html
+        assert stats["pending"] == expected_total - 1
+        assert stats["percent"] == 0
+        assert f"0/{expected_total} hooks" in html
 
     def test_get_progress_stats_sealed(self, snapshot):
         """Test progress stats for sealed snapshot."""

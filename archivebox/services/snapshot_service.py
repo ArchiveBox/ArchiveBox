@@ -154,13 +154,13 @@ class SnapshotService(BaseService):
             async with self._ownership_lock:
                 self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins)
 
-    async def renew_lease(self, snapshot_id: str, lease_until) -> bool:
+    async def renew_lease(self, snapshot_id: str, lease_until) -> bool | None:
         from archivebox.core.models import Snapshot
 
         async with self._ownership_lock:
             ownership = self._run_ownership.get(str(snapshot_id))
             if ownership is None or ownership[2]:
-                return False
+                return None
             event_id, owned_retry_at, was_sealed, retry_plugins = ownership
             updated = await Snapshot.objects.filter(
                 id=snapshot_id,
@@ -181,10 +181,10 @@ class SnapshotService(BaseService):
             if ownership is None or ownership[0] != str(event.event_parent_id):
                 return
             self._run_ownership.pop(snapshot_id, None)
-            _, owned_retry_at, was_sealed, retry_plugins = ownership
-            await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
-                event.snapshot_id,
-                owned_retry_at=owned_retry_at,
-                was_sealed=was_sealed,
-                consumed_retry_plugins=retry_plugins,
-            )
+        _, owned_retry_at, was_sealed, retry_plugins = ownership
+        await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
+            event.snapshot_id,
+            owned_retry_at=owned_retry_at,
+            was_sealed=was_sealed,
+            consumed_retry_plugins=retry_plugins,
+        )

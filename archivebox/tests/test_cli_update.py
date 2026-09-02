@@ -24,7 +24,7 @@ def test_update_runs_successfully_on_empty_archive(initialized_archive):
 
     assert result.returncode == 0, output
     assert "Phase 1: Draining old archive/ directories" in output
-    assert "Phase 2: Processing all database snapshots" in output
+    assert "Phase 2: Selecting database snapshots with stale filesystem versions" in output
     assert "Updated DB rows:  0" in output
     assert "Sealed crawls:    0" in output
 
@@ -52,7 +52,7 @@ def test_update_reconciles_existing_snapshots(initialized_archive):
 
     output = result.stdout + result.stderr
     assert result.returncode == 0, output
-    assert "Phase 2: Processing all database snapshots" in output
+    assert "Phase 2: Selecting database snapshots with stale filesystem versions" in output
     assert "Updated DB rows:" in output
 
     with use_archivebox_db(initialized_archive):
@@ -147,7 +147,7 @@ def test_update_seals_migrated_snapshots(initialized_archive):
 
     output = result.stdout + result.stderr
     assert result.returncode == 0, output
-    assert "Phase 2: Processing all database snapshots" in output
+    assert "Phase 2: Selecting database snapshots with stale filesystem versions" in output
     assert "Reindexing" not in output
 
     # Check that snapshot remains archived instead of being queued for a full re-crawl.

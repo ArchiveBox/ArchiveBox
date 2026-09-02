@@ -457,7 +457,11 @@ class CrawlRunner:
             modified_at=timezone.now(),
         )
         for snapshot_id in active_snapshot_ids:
-            await self.snapshot_service.renew_lease(snapshot_id, lease_until)
+            renewed = await self.snapshot_service.renew_lease(snapshot_id, lease_until)
+            if renewed is False:
+                task = self.snapshot_tasks.get(snapshot_id)
+                if task is not None and not task.done():
+                    task.cancel()
 
     async def drain_snapshot_tasks(self) -> None:
         task_errors: list[Exception] = []
