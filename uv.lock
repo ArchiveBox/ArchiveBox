@@ -13,11 +13,11 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-08-29T22:51:51.983072377Z"
+exclude-newer = "2026-08-29T22:57:32.674293Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-09-03T22:51:50.983085661Z", span = "PT1S" }
+abxbus = { timestamp = "2026-09-03T22:57:31.674343Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
@@ -38,9 +38,9 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/48/d8c1a751169814fdccf2012d5337abce702d31828797051e8b7262c2d20c/abx_dl-1.12.264.tar.gz", hash = "sha256:c4e23367673ba2cb415865e77b2e4992b3afe21df082204d2a3cad0a20a55767", size = 86799 }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/48/d8c1a751169814fdccf2012d5337abce702d31828797051e8b7262c2d20c/abx_dl-1.12.264.tar.gz", hash = "sha256:c4e23367673ba2cb415865e77b2e4992b3afe21df082204d2a3cad0a20a55767", size = 86799, upload-time = "2026-09-03T22:49:00.403Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e0/b8/317fc6d8b93dc86d9bf300d97701490eb0be197424c95406b52d93548818/abx_dl-1.12.264-py3-none-any.whl", hash = "sha256:5b38f675f98f9648e5a742729a652e57815bc1d54e0b1a4d5f9d84e67f03858b", size = 92071 },
+    { url = "https://files.pythonhosted.org/packages/e0/b8/317fc6d8b93dc86d9bf300d97701490eb0be197424c95406b52d93548818/abx_dl-1.12.264-py3-none-any.whl", hash = "sha256:5b38f675f98f9648e5a742729a652e57815bc1d54e0b1a4d5f9d84e67f03858b", size = 92071, upload-time = "2026-09-03T22:48:59.014Z" },
 ]
 
 [[package]]
@@ -57,6 +57,12 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/28/c2/e1f4a4238a7c96daa0fd9a77754c9e2ffeaefb5225c002c06b1d36c4b91b/abx_plugins-1.12.227.tar.gz", hash = "sha256:42164f7c9e6c981016f905a51f604a0e8cf5c9218e2fcf692092b6bc5cfbebca", size = 267528, upload-time = "2026-09-03T22:34:53.266Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1a/0b/f6ad4272b15beccdec036caed70f3e288853e6f707805dd324bb1d07448e/abx_plugins-1.12.227-py3-none-any.whl", hash = "sha256:427bef9961c7e1ed38a256fdea7eea01d9799aae180f2bf832dcb471c12985f5", size = 422585, upload-time = "2026-09-03T22:34:54.348Z" },
+]
+
+[package.optional-dependencies]
+opencode = [
+    { name = "httpx", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "requests", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
 
 [[package]]
@@ -124,7 +130,7 @@ version = "0.9.35rc427"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
+    { name = "abx-plugins", extra = ["opencode"], marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "abxpkg", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "atomicwrites", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -141,7 +147,6 @@ dependencies = [
     { name = "django-object-actions", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django-signal-webhooks", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "django-stubs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
-    { name = "httpx", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "ipython", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "platformdirs", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "psutil", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -220,7 +225,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "abx-dl", specifier = "==1.12.264" },
-    { name = "abx-plugins", specifier = "==1.12.227" },
+    { name = "abx-plugins", extras = ["opencode"], specifier = "==1.12.227" },
     { name = "abxbus", specifier = "==2.5.56" },
     { name = "abxpkg", specifier = "==1.12.117" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
@@ -242,7 +247,6 @@ requires-dist = [
     { name = "django-signal-webhooks", specifier = ">=0.3.0" },
     { name = "django-stubs", specifier = ">=5.0.4" },
     { name = "djdt-flamegraph", marker = "extra == 'debug'", specifier = ">=0.2.13" },
-    { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipdb", marker = "extra == 'debug'", specifier = ">=0.13.13" },
     { name = "ipython", specifier = ">=8.27.0" },
     { name = "platformdirs", specifier = ">=4.3.6" },
