@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import base64
+import logging
 import os
 import re
 import shutil
@@ -31,6 +32,8 @@ from django.views.decorators.csrf import csrf_exempt
 
 _PROCESS: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
+_SESSION_LOCK = threading.Lock()
+_LOGGER = logging.getLogger(__name__)
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
@@ -39,7 +42,6 @@ _CONFIG_PATH = Path(opencode_plugin.__file__).with_name("config.json")
 _TEXT_CONTENT_TYPES = (
     "text/",
     "application/javascript",
-    "application/json",
     "application/x-javascript",
 )
 _HOP_BY_HOP_HEADERS = {
@@ -196,11 +198,11 @@ def _settings(config: dict) -> dict:
     host = str(_config_value(config, "OPENCODE_HOST", "127.0.0.1"))
     port = int(_config_value(config, "OPENCODE_PORT", 4096))
     default_data_dir = _archivebox_data_dir_default()
-    workdir = Path(
-        str(_config_value(config, "OPENCODE_WORKDIR", default_data_dir)),
-    ).expanduser()
     opencode_dir = Path(
-        str(_config_value(config, "OPENCODE_STATE_DIR", workdir / "opencode")),
+        str(_config_value(config, "OPENCODE_STATE_DIR", default_data_dir / "opencode")),
+    ).expanduser()
+    workdir = Path(
+        str(_config_value(config, "OPENCODE_WORKDIR", opencode_dir / "workdir")),
     ).expanduser()
     binary = str(_config_value(config, "OPENCODE_BINARY", "opencode"))
     timeout = int(_config_value(config, "OPENCODE_TIMEOUT", 30))
@@ -208,6 +210,7 @@ def _settings(config: dict) -> dict:
         "host": host,
         "port": port,
         "origin": f"http://{host}:{port}",
+        "archivebox_data_dir": default_data_dir,
         "workdir": workdir,
         "opencode_dir": opencode_dir,
         "config_home": opencode_dir / "config",
@@ -287,7 +290,7 @@ def _ensure_project_files(settings: dict) -> None:
     if not editable_skill_path.exists():
         editable_skill_path.write_text(
             _ARCHIVEBOX_SKILL.format(
-                archivebox_data_dir=workdir,
+                archivebox_data_dir=settings["archivebox_data_dir"],
                 archivebox_base_url=settings.get("archivebox_base_url", ""),
                 archivebox_admin_url=settings.get("archivebox_admin_url", ""),
                 archivebox_api_url=settings.get("archivebox_api_url", ""),
@@ -350,23 +353,6 @@ def _ensure_default_session(settings: dict) -> str:
             "OpenCode did not create a session for the requested worktree.",
         )
     return session_id
-
-
-def _recent_session_id(settings: dict) -> str:
-    workdir = str(settings["workdir"].resolve())
-    try:
-        response = requests.get(
-            f"{settings['origin']}/session",
-            params={"directory": workdir, "roots": "true", "limit": 1},
-            timeout=settings["timeout"],
-        )
-        response.raise_for_status()
-        sessions = response.json()
-        if sessions:
-            return str(sessions[0].get("id") or "")
-    except requests.RequestException:
-        pass
-    return ""
 
 
 def _health(settings: dict) -> bool:
@@ -435,10 +421,6 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
                 )
 
         if _health(settings):
-            try:
-                _ensure_default_session(settings)
-            except (requests.RequestException, RuntimeError, ValueError) as err:
-                return False, f"OpenCode project initialization failed: {err}"
             return True, ""
 
         binary_abspath = binary.loaded_abspath
@@ -461,7 +443,6 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
                 env=env,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
                 start_new_session=True,
             )
             started_process = _PROCESS
@@ -471,11 +452,6 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
         deadline = time.monotonic() + settings["timeout"]
         while time.monotonic() < deadline:
             if _health(settings):
-                try:
-                    _ensure_default_session(settings)
-                except (requests.RequestException, RuntimeError, ValueError) as err:
-                    _stop_owned_process(started_process)
-                    return False, f"OpenCode project initialization failed: {err}"
                 return True, ""
             if started_process and started_process.poll() is not None:
                 if _PROCESS is started_process:
@@ -501,9 +477,16 @@ def agent_view(request: HttpRequest):
     settings["archivebox_admin_url"] = admin_url
     settings["archivebox_api_url"] = api_url
     ok, error = _ensure_opencode(settings)
+    recent_session_id = ""
+    if ok:
+        try:
+            with _SESSION_LOCK:
+                recent_session_id = _ensure_default_session(settings)
+        except (requests.RequestException, RuntimeError, ValueError) as err:
+            ok = False
+            error = f"OpenCode project initialization failed: {err}"
     from archivebox.core.admin_site import archivebox_admin
 
-    recent_session_id = _recent_session_id(settings) if ok else ""
     context = {
         **archivebox_admin.each_context(request),
         "title": "Agent",
@@ -633,6 +616,15 @@ def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, 
     return headers
 
 
+def _proxy_error_response(error: requests.RequestException) -> HttpResponse:
+    _LOGGER.warning("OpenCode upstream request failed: %s", error)
+    return HttpResponse(
+        b"OpenCode upstream request failed.",
+        status=502,
+        content_type="text/plain; charset=utf-8",
+    )
+
+
 @csrf_exempt
 def opencode_proxy_view(request: HttpRequest, path: str | None = None):
     config = _machine_config()
@@ -651,13 +643,6 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
     settings["archivebox_base_url"] = base_url
     settings["archivebox_admin_url"] = admin_url
     settings["archivebox_api_url"] = api_url
-    ok, error = _ensure_opencode(settings)
-    if not ok:
-        return HttpResponse(
-            error.encode(),
-            status=502,
-            content_type="text/plain; charset=utf-8",
-        )
 
     if request.method == "GET" and (path or "").endswith("/event"):
         response = StreamingHttpResponse(
@@ -677,39 +662,27 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
             data=request.body if method not in {"GET", "HEAD"} else None,
             headers=_request_headers(request, settings),
             stream=True,
-            timeout=(settings["timeout"], None),
+            timeout=settings["timeout"],
             allow_redirects=False,
         )
     except requests.RequestException as err:
-        return HttpResponse(
-            str(err).encode(),
-            status=502,
-            content_type="text/plain; charset=utf-8",
-        )
+        return _proxy_error_response(err)
+
+    try:
+        body = upstream.content
+    except requests.RequestException as err:
+        upstream.close()
+        return _proxy_error_response(err)
 
     content_type = upstream.headers.get("Content-Type", "")
-    is_event_stream = content_type.startswith("text/event-stream")
-    is_text = not is_event_stream and any(content_type.startswith(prefix) for prefix in _TEXT_CONTENT_TYPES)
     headers = _response_headers(upstream, settings)
-    if is_text:
-        body = _rewrite_text(upstream.content, settings)
-        response = HttpResponse(
-            body,
-            status=upstream.status_code,
-            content_type=content_type or "text/plain; charset=utf-8",
-        )
-    elif is_event_stream:
-        response = StreamingHttpResponse(
-            upstream.iter_lines(chunk_size=1),
-            status=upstream.status_code,
-            content_type=content_type or "text/event-stream",
-        )
-    else:
-        response = StreamingHttpResponse(
-            upstream.iter_content(chunk_size=64 * 1024),
-            status=upstream.status_code,
-            content_type=content_type or "application/octet-stream",
-        )
+    if any(content_type.startswith(prefix) for prefix in _TEXT_CONTENT_TYPES):
+        body = _rewrite_text(body, settings)
+    response = HttpResponse(
+        body,
+        status=upstream.status_code,
+        content_type=content_type or "application/octet-stream",
+    )
     for key, value in headers.items():
         response.headers[key] = value
     response.headers["Cache-Control"] = "no-store"

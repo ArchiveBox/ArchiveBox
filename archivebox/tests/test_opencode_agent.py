@@ -164,7 +164,7 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     from archivebox.opencode import views
 
     response = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
-    recent_session_id = views._recent_session_id(live_opencode.settings)
+    recent_session_id = response.context["recent_session_id"]
     session_path = views._project_route(live_opencode.config.data_dir, recent_session_id)
 
     assert response.status_code == 200
@@ -188,6 +188,9 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
 def test_opencode_proxy_serves_real_project_and_session(admin_client, live_opencode):
     workdir = str(live_opencode.config.data_dir.resolve())
     encoded_workdir = quote(workdir)
+
+    agent = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
+    assert agent.status_code == 200
 
     project = admin_client.get(
         f"/admin/agent/opencode/project/current?directory={encoded_workdir}",
@@ -250,21 +253,36 @@ def test_opencode_starts_with_isolated_state(live_opencode):
 def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
     from archivebox.opencode import views
 
-    workdir = tmp_path / "data"
-    settings = views._settings({"OPENCODE_WORKDIR": str(workdir)})
+    workdir = tmp_path / "workdir"
+    state_dir = tmp_path / "state"
+    settings = views._settings(
+        {
+            "OPENCODE_WORKDIR": str(workdir),
+            "OPENCODE_STATE_DIR": str(state_dir),
+        },
+    )
     views._ensure_project_files(settings)
 
     assert settings["workdir"] == workdir
-    assert settings["opencode_dir"] == workdir / "opencode"
-    assert settings["config_home"] == workdir / "opencode" / "config"
-    assert settings["data_home"] == workdir / "opencode" / "data"
-    assert settings["state_home"] == workdir / "opencode" / "state"
-    editable_skill = workdir / "opencode" / "SKILL.md"
-    loaded_skill = workdir / "opencode" / "config" / "opencode" / "skills" / "archivebox" / "SKILL.md"
+    assert settings["opencode_dir"] == state_dir
+    assert settings["config_home"] == state_dir / "config"
+    assert settings["data_home"] == state_dir / "data"
+    assert settings["state_home"] == state_dir / "state"
+    editable_skill = state_dir / "SKILL.md"
+    loaded_skill = state_dir / "config" / "opencode" / "skills" / "archivebox" / "SKILL.md"
     assert editable_skill.exists()
     assert loaded_skill.is_symlink()
     assert loaded_skill.resolve() == editable_skill.resolve()
-    assert f"ArchiveBox collection directory: {workdir.resolve()}" in editable_skill.read_text()
+    assert f"ArchiveBox collection directory: {settings['archivebox_data_dir']}" in editable_skill.read_text()
+
+
+def test_opencode_default_workdir_does_not_scan_the_collection():
+    from archivebox.opencode import views
+
+    settings = views._settings({})
+
+    assert settings["opencode_dir"] == settings["archivebox_data_dir"] / "opencode"
+    assert settings["workdir"] == settings["opencode_dir"] / "workdir"
 
 
 def test_opencode_rewrites_vite_preload_assets():
