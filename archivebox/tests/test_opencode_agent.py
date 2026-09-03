@@ -77,7 +77,7 @@ def opencode_archive_config(initialized_archive):
 
 
 @pytest.fixture
-def live_opencode(opencode_archive_config):
+def installed_opencode(opencode_archive_config):
     from abx_plugins.plugins.opencode import runtime
 
     install = run_archivebox_cmd(
@@ -101,13 +101,21 @@ def live_opencode(opencode_archive_config):
         timeout=120,
     )
     assert version.returncode == 0, version.stderr or version.stdout
+    return SimpleNamespace(config=opencode_archive_config, settings=settings)
+
+
+@pytest.fixture
+def live_opencode(installed_opencode):
+    from abx_plugins.plugins.opencode import runtime
+
+    settings = installed_opencode.settings
     ok, error = runtime._ensure_opencode(settings)
     assert ok, error
 
     process = runtime._PROCESS
     assert process is not None
     try:
-        yield SimpleNamespace(config=opencode_archive_config, settings=settings, process=process)
+        yield SimpleNamespace(config=installed_opencode.config, settings=settings, process=process)
     finally:
         runtime._stop_owned_process()
 
@@ -190,6 +198,10 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert f'<iframe src="{session_path}"'.encode() in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
+    assert b'<a href="/admin/agent" class="navbar-item navbar-ai">' in response.content
+    add_page = admin_client.get("/add/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert add_page.status_code == 200
+    assert '<a href="/admin/agent">💬 Crawl with AI</a>'.encode() in add_page.content
     assert response.context["proxy_prefix"] == runtime._PROXY_PREFIX
     assert b"/_archivebox/health" not in response.content
     assert b"window.setInterval(check, 3000)" not in response.content
@@ -480,7 +492,7 @@ def test_opencode_invalid_state_does_not_break_archivebox(admin_client, live_ope
         ("templates/add.html", False),
     ],
 )
-def test_opencode_incomplete_install_does_not_break_archivebox(live_opencode, tmp_path, damaged_file, missing):
+def test_opencode_incomplete_install_does_not_break_archivebox(installed_opencode, tmp_path, damaged_file, missing):
     import abx_plugins
 
     # Exercise a genuinely incomplete installation in a separate process;
@@ -511,14 +523,18 @@ response = client.get('/admin/agent')
 assert response.status_code == {expected_status}, response.status_code
 if response.status_code == 503:
     assert response.content == b'AI service unavailable. See server logs.'
+if {damaged_file != "runtime.py"!r}:
+    from abx_plugins.plugins.opencode import runtime
+    assert runtime._PROCESS is not None
+    assert runtime._PROCESS.poll() is None
 for path in ('/health/', '/add/', '/admin/core/snapshot/'):
     assert client.get(path).status_code == 200, path
 print('OPTIONAL_SERVICE_FAILURE_ISOLATED')
 """
     result = run_archivebox_cmd(
         ["shell", "-c", script],
-        cwd=live_opencode.config.data_dir,
-        env={**live_opencode.config.env, "PYTHONPATH": str(site)},
+        cwd=installed_opencode.config.data_dir,
+        env={**installed_opencode.config.env, "PYTHONPATH": str(site)},
         timeout=90,
     )
     assert result.returncode == 0, result.stderr or result.stdout
