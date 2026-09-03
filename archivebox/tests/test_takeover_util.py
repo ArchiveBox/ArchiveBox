@@ -3,7 +3,6 @@
 
 import os
 import json
-import re
 import signal
 import subprocess
 import sys
@@ -416,17 +415,10 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
             encoding="utf-8",
             errors="replace",
         )
-        worker_name_match = re.search(r"Worker (worker_runner_update_\d+):", update_stdout)
-        assert worker_name_match, update_stdout
-        wait_for_log(
-            tmp_path / "logs" / f"{worker_name_match.group(1)}.log",
-            "Stopping older ArchiveBox runner process",
-        )
-
-        supervisord_text = wait_for_log_count(supervisord_log, runner_spawn_text, runner_spawn_count + 1, timeout=30)
-        runner_pid_after = int(re.findall(r"spawned: 'worker_runner' with pid (\d+)", supervisord_text)[-1])
-        assert runner_pid_after != runner_pid_before
-        assert pid_is_alive(runner_pid_after)
+        supervisord_text = supervisord_log.read_text(encoding="utf-8", errors="replace")
+        assert supervisord_text.count(runner_spawn_text) == runner_spawn_count
+        assert worker_pid_from_log(server_log, "worker_runner") == runner_pid_before
+        assert pid_is_alive(runner_pid_before)
 
         with use_archivebox_db(tmp_path):
             indexed_results = list(
@@ -439,7 +431,7 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
         server = None
         wait_for_pid_to_disappear(daphne_pid_before, timeout=20)
         wait_for_pid_to_disappear(sonic_pid_before, timeout=20)
-        wait_for_pid_to_disappear(runner_pid_after, timeout=20)
+        wait_for_pid_to_disappear(runner_pid_before, timeout=20)
         assert_no_processes_for_data_dir(tmp_path, timeout=12)
     finally:
         if server is not None:
@@ -479,10 +471,9 @@ def test_live_update_yields_to_server_then_reclaims_real_sqlite_indexing(tmp_pat
         update_supervisor_match = wait_for_log_pattern(update_log, r"Supervisord connected \(pid=(\d+)\)", timeout=90)
         update_supervisor_pid_before = int(update_supervisor_match.group(1))
         update_sonic_pid_before = wait_for_worker_pid_from_log(update_log, "worker_sonic", timeout=90)
-        update_runner_pid_before = wait_for_worker_pid_from_log(update_log, f"worker_runner_update_{update_proc.pid}", timeout=90)
         assert pid_is_alive(update_supervisor_pid_before)
         assert pid_is_alive(update_sonic_pid_before)
-        assert pid_is_alive(update_runner_pid_before)
+        assert "worker_runner_update_" not in update_log.read_text(encoding="utf-8", errors="replace")
         assert "worker_daphne" not in update_log.read_text(encoding="utf-8", errors="replace")
 
         server = start_archivebox_server(tmp_path, port=port, log_name="server-takes-real-sqlite-update.log", env=env)
@@ -507,7 +498,6 @@ def test_live_update_yields_to_server_then_reclaims_real_sqlite_indexing(tmp_pat
         assert pid_is_alive(server_sonic_pid)
         wait_for_pid_to_disappear(update_supervisor_pid_before, timeout=30)
         wait_for_pid_to_disappear(update_sonic_pid_before, timeout=30)
-        wait_for_pid_to_disappear(update_runner_pid_before, timeout=30)
 
         stop_archivebox_process(server, signal.SIGTERM)
         server = None
