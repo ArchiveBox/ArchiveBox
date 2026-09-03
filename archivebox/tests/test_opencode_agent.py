@@ -127,6 +127,17 @@ def test_opencode_disabled_route_does_not_start_server(client, initialized_archi
     assert runtime._PROCESS is None or runtime._PROCESS.poll() is not None
 
 
+def test_opencode_disabled_via_cli_stays_disabled(admin_client, initialized_archive):
+    _set_archivebox_config(initialized_archive, "OPENCODE_ENABLED=False")
+
+    assert get_config().OPENCODE_ENABLED is False
+    assert admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
+    for path in ("/add/", "/admin/core/snapshot/"):
+        response = admin_client.get(path, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert b'href="/admin/agent"' not in response.content
+
+
 def test_opencode_agent_requires_superuser_when_enabled(client, db, django_user_model, live_opencode):
     response = client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 302
