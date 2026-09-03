@@ -95,7 +95,7 @@ def live_opencode(opencode_archive_config):
     settings["archivebox_base_url"] = "http://admin.archivebox.localhost:8000"
     settings["archivebox_admin_url"] = "http://admin.archivebox.localhost:8000/admin"
     settings["archivebox_api_url"] = "http://admin.archivebox.localhost:8000/api/"
-    binary, _, binary_env = views._resolve_binary(settings["binary"], settings["config"])
+    binary, binary_env = views._resolve_binary(settings["binary"], settings["config"])
     version = binary.exec(
         cmd=("--version",),
         env={**os.environ, **binary_env},
@@ -218,7 +218,8 @@ def test_opencode_proxy_serves_real_project_and_session(admin_client, live_openc
         HTTP_SEC_FETCH_SITE="same-origin",
     )
     assert project.status_code == 200
-    assert workdir.encode() in project.content
+    assert project.json()["id"] == "global"
+    assert not project.json().get("vcs")
 
     path = admin_client.get(
         f"/admin/agent/opencode/path?directory={encoded_workdir}",
@@ -226,7 +227,7 @@ def test_opencode_proxy_serves_real_project_and_session(admin_client, live_openc
         HTTP_SEC_FETCH_SITE="same-origin",
     )
     assert path.status_code == 200
-    assert workdir.encode() in path.content
+    assert path.json()["directory"] == workdir
 
     sessions = admin_client.get(
         f"/admin/agent/opencode/session?directory={encoded_workdir}&roots=true&limit=55",
@@ -234,7 +235,8 @@ def test_opencode_proxy_serves_real_project_and_session(admin_client, live_openc
         HTTP_SEC_FETCH_SITE="same-origin",
     )
     assert sessions.status_code == 200
-    assert b"id" in sessions.content
+    assert any(session["id"] == agent.context["recent_session_id"] and session["directory"] == workdir for session in sessions.json())
+    assert not (Path(workdir) / ".git").exists()
 
 
 def test_opencode_proxy_restarts_server_for_an_existing_agent_page(admin_client, live_opencode):
@@ -391,9 +393,15 @@ def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client
     assert owned_process.poll() is None
 
 
-def test_opencode_starts_with_isolated_state(live_opencode):
+def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     workdir = str(live_opencode.config.data_dir.resolve())
     state_dir = live_opencode.config.state_dir
+
+    assert not (Path(workdir) / ".git").exists()
+    agent = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
+    assert agent.status_code == 200
+    assert agent.context["recent_session_id"]
+    assert not (Path(workdir) / ".git").exists()
 
     project = requests.get(
         f"{live_opencode.settings['origin']}/project/current",
@@ -409,11 +417,26 @@ def test_opencode_starts_with_isolated_state(live_opencode):
     config.raise_for_status()
 
     assert Path(live_opencode.settings["workdir"]).resolve() == Path(workdir)
-    assert Path(str(project.json()["worktree"])).resolve() == Path(workdir)
+    assert project.json()["id"] == "global"
+    assert not project.json().get("vcs")
     assert config.json()["model"] == "opencode/big-pickle"
     assert config.json()["snapshot"] is False
     assert live_opencode.process.poll() is None
-    assert (live_opencode.config.data_dir / ".git").is_dir()
+    path = requests.get(
+        f"{live_opencode.settings['origin']}/path",
+        params={"directory": workdir},
+        timeout=live_opencode.settings["timeout"],
+    )
+    path.raise_for_status()
+    assert Path(path.json()["directory"]).resolve() == Path(workdir)
+
+    diff = requests.get(
+        f"{live_opencode.settings['origin']}/vcs/diff",
+        params={"directory": workdir, "mode": "git"},
+        timeout=5,
+    )
+    diff.raise_for_status()
+    assert diff.json() == []
     assert (state_dir / "data" / "opencode" / "opencode.db").is_file()
     assert (state_dir / "SKILL.md").is_file()
     assert (state_dir / "config" / "opencode" / "skills" / "archivebox" / "SKILL.md").resolve() == state_dir / "SKILL.md"

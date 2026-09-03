@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import signal
-import shutil
 import subprocess
 import threading
 import time
@@ -247,7 +246,7 @@ def _settings(config: dict) -> dict:
     }
 
 
-def _resolve_binary(binary: str, config: dict) -> tuple[Any, Any, dict[str, str]]:
+def _resolve_binary(binary: str, config: dict) -> tuple[Any, dict[str, str]]:
     try:
         from abxpkg import BinProvider
         from abx_plugins.plugins.base.utils import load_required_binary_from_config
@@ -285,11 +284,7 @@ def _resolve_binary(binary: str, config: dict) -> tuple[Any, Any, dict[str, str]
         providers=providers,
         base_env=binary_environ,
     )
-    return (
-        loaded_dependencies[-1],
-        loaded_dependencies[1],
-        binary_env,
-    )
+    return loaded_dependencies[-1], binary_env
 
 
 def _project_route(workdir: Path, session_id: str = "") -> str:
@@ -302,12 +297,6 @@ def _project_route(workdir: Path, session_id: str = "") -> str:
 def _ensure_project_files(settings: dict) -> None:
     workdir = settings["workdir"].resolve()
     workdir.mkdir(parents=True, exist_ok=True)
-    git_marker = workdir / ".git" / "not-a-git"
-    if git_marker.exists():
-        # Current OpenCode hangs on the legacy fake marker, so remove only
-        # that invalid shape before initializing the real worktree.
-        shutil.rmtree(git_marker.parent)
-
     editable_skill_path = settings["opencode_dir"] / "SKILL.md"
     editable_skill_path.parent.mkdir(parents=True, exist_ok=True)
     if not editable_skill_path.exists():
@@ -336,18 +325,6 @@ def _ensure_default_session(settings: dict) -> str:
     workdir = settings["workdir"].resolve()
     params = {"directory": str(workdir)}
     timeout = settings["timeout"]
-    project = requests.post(
-        f"{settings['origin']}/project/git/init",
-        params=params,
-        timeout=timeout,
-    )
-    project.raise_for_status()
-    project_data = project.json()
-    if Path(str(project_data.get("worktree") or "/")).resolve() != workdir:
-        raise RuntimeError(
-            f"OpenCode initialized the wrong project worktree: {project_data.get('worktree')!r}",
-        )
-
     sessions = requests.get(
         f"{settings['origin']}/session",
         params={**params, "roots": "true", "limit": 55},
@@ -419,7 +396,7 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             _stop_owned_process(_PROCESS)
 
         try:
-            binary, git_binary, binary_env = _resolve_binary(
+            binary, binary_env = _resolve_binary(
                 settings["binary"],
                 settings["config"],
             )
@@ -449,23 +426,6 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
         settings["cache_home"].mkdir(parents=True, exist_ok=True)
         settings["home"].mkdir(parents=True, exist_ok=True)
         _ensure_project_files(settings)
-
-        if not (workdir / ".git").exists():
-            try:
-                git_init = git_binary.exec(
-                    cmd=("init", "--quiet"),
-                    cwd=workdir,
-                    env=env,
-                    timeout=settings["timeout"],
-                )
-            except (AssertionError, OSError, subprocess.SubprocessError) as err:
-                return False, f"OpenCode project initialization failed: {err}"
-            if git_init.returncode != 0:
-                output = (git_init.stderr or git_init.stdout or "").strip()
-                return (
-                    False,
-                    f"OpenCode project initialization failed: {output or f'git exited with {git_init.returncode}'}",
-                )
 
         if _health(settings):
             return True, ""
