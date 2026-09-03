@@ -44,7 +44,8 @@ _CONFIG_PATH = Path(opencode_plugin.__file__).with_name("config.json")
 _DEFAULT_MODEL = "opencode/big-pickle"
 _DEFAULT_CONFIG = f'''{{
   "$schema": "https://opencode.ai/config.json",
-  "model": "{_DEFAULT_MODEL}"
+  "model": "{_DEFAULT_MODEL}",
+  "snapshot": false
 }}
 '''
 

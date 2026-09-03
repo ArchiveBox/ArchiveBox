@@ -411,6 +411,7 @@ def test_opencode_starts_with_isolated_state(live_opencode):
     assert Path(live_opencode.settings["workdir"]).resolve() == Path(workdir)
     assert Path(str(project.json()["worktree"])).resolve() == Path(workdir)
     assert config.json()["model"] == "opencode/big-pickle"
+    assert config.json()["snapshot"] is False
     assert live_opencode.process.poll() is None
     assert (live_opencode.config.data_dir / ".git").is_dir()
     assert (state_dir / "data" / "opencode" / "opencode.db").is_file()
@@ -442,7 +443,9 @@ def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
     assert loaded_skill.is_symlink()
     assert loaded_skill.resolve() == editable_skill.resolve()
     assert f"ArchiveBox collection directory: {settings['archivebox_data_dir']}" in editable_skill.read_text()
-    assert json.loads((state_dir / "config" / "opencode" / "opencode.jsonc").read_text())["model"] == "opencode/big-pickle"
+    opencode_config = json.loads((state_dir / "config" / "opencode" / "opencode.jsonc").read_text())
+    assert opencode_config["model"] == "opencode/big-pickle"
+    assert opencode_config["snapshot"] is False
 
 
 @pytest.mark.parametrize(
