@@ -317,7 +317,9 @@ def test_opencode_preserves_a_transiently_unhealthy_owned_process(live_opencode)
     try:
         with ThreadPoolExecutor(max_workers=1) as executor:
             resumed = executor.submit(resume_process)
+            started_at = time.monotonic()
             ok, error = views._ensure_opencode(live_opencode.settings)
+            elapsed = time.monotonic() - started_at
             resumed.result()
     finally:
         views._signal_owned_process(process, signal.SIGCONT)
@@ -325,6 +327,29 @@ def test_opencode_preserves_a_transiently_unhealthy_owned_process(live_opencode)
     assert ok, error
     assert views._PROCESS is process
     assert process.poll() is None
+    assert elapsed < views._PROCESS_HEALTH_GRACE
+
+
+def test_opencode_proxy_does_not_wait_for_recovery_lock(admin_client, live_opencode):
+    from archivebox.opencode import views
+
+    workdir = quote(str(live_opencode.config.data_dir.resolve()))
+    executor = ThreadPoolExecutor(max_workers=1)
+    views._PROCESS_LOCK.acquire()
+    try:
+        request = executor.submit(
+            admin_client.get,
+            f"/admin/agent/opencode/path?directory={workdir}",
+            HTTP_HOST=ADMIN_TEST_HOST,
+            HTTP_SEC_FETCH_SITE="same-origin",
+        )
+        response = request.result(timeout=5)
+    finally:
+        views._PROCESS_LOCK.release()
+        executor.shutdown(wait=True)
+
+    assert response.status_code == 200
+    assert str(live_opencode.config.data_dir.resolve()).encode() in response.content
 
 
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):

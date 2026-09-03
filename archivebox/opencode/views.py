@@ -105,6 +105,7 @@ def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
     if owned_process is None:
         return
     if owned_process.poll() is None:
+        _signal_owned_process(owned_process, signal.SIGCONT)
         _signal_owned_process(owned_process, signal.SIGTERM)
         try:
             owned_process.wait(timeout=5)
@@ -369,11 +370,15 @@ def _ensure_default_session(settings: dict) -> str:
     return session_id
 
 
-def _health(settings: dict) -> bool:
+def _owned_process_running() -> bool:
+    return _PROCESS is not None and _PROCESS.poll() is None
+
+
+def _health(settings: dict, timeout: float = 2) -> bool:
     try:
         response = requests.get(
             f"{settings['origin']}/global/health",
-            timeout=2,
+            timeout=timeout,
         )
         return response.status_code == 200
     except requests.RequestException:
@@ -399,15 +404,20 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     workdir = settings["workdir"].resolve()
 
     with _PROCESS_LOCK:
-        if _health(settings):
-            return True, ""
-        if _PROCESS is not None and _PROCESS.poll() is None:
+        if _owned_process_running():
             deadline = time.monotonic() + min(_PROCESS_HEALTH_GRACE, settings["timeout"])
-            while time.monotonic() < deadline and _PROCESS.poll() is None:
-                if _health(settings):
+            while _owned_process_running():
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                if _health(settings, timeout=min(2, remaining)):
                     return True, ""
-                time.sleep(0.25)
+                remaining = deadline - time.monotonic()
+                if remaining > 0:
+                    time.sleep(min(0.25, remaining))
             _stop_owned_process(_PROCESS)
+        elif _health(settings):
+            return True, ""
 
         try:
             binary, git_binary, binary_env = _resolve_binary(
@@ -609,11 +619,12 @@ async def _event_chunks(
     params: tuple[tuple[str, str], ...],
     headers: dict[str, str],
 ):
-    ok, error = await sync_to_async(_ensure_opencode, thread_sensitive=False)(settings)
-    if not ok:
-        _LOGGER.warning("OpenCode event stream unavailable: %s", error)
-        yield b'event: error\ndata: {"error":"OpenCode upstream unavailable"}\n\n'
-        return
+    if not _owned_process_running():
+        ok, error = await sync_to_async(_ensure_opencode, thread_sensitive=False)(settings)
+        if not ok:
+            _LOGGER.warning("OpenCode event stream unavailable: %s", error)
+            yield b'event: error\ndata: {"error":"OpenCode upstream unavailable"}\n\n'
+            return
 
     timeout = httpx.Timeout(settings["timeout"], read=None)
     url = _proxy_url(settings, path)
@@ -735,9 +746,10 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
         response.headers["X-Accel-Buffering"] = "no"
         return response
 
-    ok, error = _ensure_opencode(settings)
-    if not ok:
-        return _proxy_error_response(error)
+    if path == "global/health" or not _owned_process_running():
+        ok, error = _ensure_opencode(settings)
+        if not ok:
+            return _proxy_error_response(error)
 
     try:
         method = request.method or "GET"
