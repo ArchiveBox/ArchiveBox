@@ -86,23 +86,27 @@ You are running inside an ArchiveBox collection directory.
 """
 
 
+def _signal_owned_process(process: subprocess.Popen, sig: signal.Signals) -> None:
+    try:
+        os.killpg(process.pid, sig)
+    except OSError:
+        try:
+            process.send_signal(sig)
+        except ProcessLookupError:
+            pass
+
+
 def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
     global _PROCESS
     owned_process = process or _PROCESS
     if owned_process is None:
         return
     if owned_process.poll() is None:
-        try:
-            os.killpg(owned_process.pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
+        _signal_owned_process(owned_process, signal.SIGTERM)
         try:
             owned_process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            try:
-                os.killpg(owned_process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            _signal_owned_process(owned_process, signal.SIGKILL)
             owned_process.wait()
     if _PROCESS is owned_process:
         _PROCESS = None
