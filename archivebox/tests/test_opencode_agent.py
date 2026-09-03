@@ -1,3 +1,4 @@
+import asyncio
 import os
 import socket
 import subprocess
@@ -8,6 +9,7 @@ from urllib.parse import quote
 
 import pytest
 import requests
+from asgiref.testing import ApplicationCommunicator
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST, run_archivebox_cmd
 
@@ -268,8 +270,62 @@ def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
 
     assert response.status_code == 200
     assert response.streaming
+    assert response.is_async
     assert response.headers["X-Accel-Buffering"] == "no"
     assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client, live_opencode):
+    from archivebox.core.asgi import application
+    from archivebox.opencode import views
+    from django.conf import settings as django_settings
+
+    owned_process = views._PROCESS
+    assert owned_process is not None
+    session_cookie_name = django_settings.SESSION_COOKIE_NAME
+    session_cookie = admin_client.cookies[session_cookie_name].value
+    path = "/admin/agent/opencode/global/event"
+
+    async def request_event_stream():
+        communicator = ApplicationCommunicator(
+            application,
+            {
+                "type": "http",
+                "asgi": {"version": "3.0"},
+                "http_version": "1.1",
+                "method": "GET",
+                "scheme": "http",
+                "path": path,
+                "raw_path": path.encode(),
+                "query_string": b"",
+                "headers": [
+                    (b"host", ADMIN_TEST_HOST.encode()),
+                    (b"cookie", f"{session_cookie_name}={session_cookie}".encode()),
+                    (b"sec-fetch-site", b"same-origin"),
+                ],
+                "client": ("127.0.0.1", 12345),
+                "server": ("127.0.0.1", 8000),
+            },
+        )
+        views._PROCESS_LOCK.acquire()
+        views._PROCESS = None
+        try:
+            await communicator.send_input({"type": "http.request", "body": b"", "more_body": False})
+            response_start = await communicator.receive_output(timeout=2)
+            assert response_start["type"] == "http.response.start"
+            assert response_start["status"] == 200
+        finally:
+            try:
+                await communicator.send_input({"type": "http.disconnect"})
+                await communicator.wait(timeout=5)
+            finally:
+                views._PROCESS = owned_process
+                views._PROCESS_LOCK.release()
+                await asyncio.get_running_loop().shutdown_default_executor()
+
+    asyncio.run(request_event_stream())
+    assert views._PROCESS is owned_process
+    assert owned_process.poll() is None
 
 
 def test_opencode_starts_with_isolated_state(live_opencode):
