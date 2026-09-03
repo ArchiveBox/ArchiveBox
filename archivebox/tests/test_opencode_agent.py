@@ -1,5 +1,6 @@
 import os
 import socket
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import quote
@@ -217,6 +218,36 @@ def test_opencode_proxy_serves_real_project_and_session(admin_client, live_openc
     assert b"id" in sessions.content
 
 
+def test_opencode_proxy_restarts_server_for_an_existing_agent_page(admin_client, live_opencode):
+    from archivebox.opencode import views
+
+    old_process = views._PROCESS
+    views._stop_owned_process()
+
+    response = admin_client.get(
+        "/admin/agent/opencode/global/health",
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_SEC_FETCH_SITE="same-origin",
+    )
+
+    assert response.status_code == 200
+    assert views._PROCESS is not None
+    assert views._PROCESS is not old_process
+    assert views._PROCESS.poll() is None
+
+
+def test_concurrent_opencode_startup_waits_until_server_is_ready(live_opencode):
+    from archivebox.opencode import views
+
+    views._stop_owned_process()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(views._ensure_opencode, [live_opencode.settings] * 2))
+
+    assert results == [(True, ""), (True, "")]
+    assert views._health(live_opencode.settings)
+
+
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
     response = admin_client.get(
         "/admin/agent/opencode/global/event",
@@ -283,6 +314,7 @@ def test_opencode_default_workdir_does_not_scan_the_collection():
 
     assert settings["opencode_dir"] == settings["archivebox_data_dir"] / "opencode"
     assert settings["workdir"] == settings["opencode_dir"] / "workdir"
+    assert settings["timeout"] == 120
 
 
 def test_opencode_rewrites_vite_preload_assets():
