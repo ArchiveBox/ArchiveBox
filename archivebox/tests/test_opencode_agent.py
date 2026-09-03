@@ -1,7 +1,9 @@
 import asyncio
 import os
+import signal
 import socket
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -299,6 +301,75 @@ def test_opencode_restarts_an_unhealthy_owned_process(live_opencode):
     assert old_process.poll() is not None
     assert views._PROCESS is not old_process
     assert views._health(settings)
+
+
+def test_opencode_preserves_a_transiently_unhealthy_owned_process(live_opencode):
+    from archivebox.opencode import views
+
+    process = views._PROCESS
+    assert process is not None
+    views._signal_owned_process(process, signal.SIGSTOP)
+
+    def resume_process():
+        time.sleep(1.5)
+        views._signal_owned_process(process, signal.SIGCONT)
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            resumed = executor.submit(resume_process)
+            started_at = time.monotonic()
+            ok, error = views._ensure_opencode(live_opencode.settings)
+            elapsed = time.monotonic() - started_at
+            resumed.result()
+    finally:
+        views._signal_owned_process(process, signal.SIGCONT)
+
+    assert ok, error
+    assert views._PROCESS is process
+    assert process.poll() is None
+    assert elapsed < views._PROCESS_HEALTH_GRACE
+
+
+def test_opencode_proxy_does_not_wait_for_recovery_lock(admin_client, live_opencode):
+    from archivebox.opencode import views
+
+    workdir = quote(str(live_opencode.config.data_dir.resolve()))
+    assert views._owned_process_ready()
+    executor = ThreadPoolExecutor(max_workers=1)
+    views._PROCESS_LOCK.acquire()
+    try:
+        request = executor.submit(
+            admin_client.get,
+            f"/admin/agent/opencode/path?directory={workdir}",
+            HTTP_HOST=ADMIN_TEST_HOST,
+            HTTP_SEC_FETCH_SITE="same-origin",
+        )
+        response = request.result(timeout=5)
+    finally:
+        views._PROCESS_LOCK.release()
+        executor.shutdown(wait=True)
+
+    assert response.status_code == 200
+    assert str(live_opencode.config.data_dir.resolve()).encode() in response.content
+
+
+def test_opencode_proxy_waits_for_owned_process_readiness(admin_client, live_opencode):
+    from archivebox.opencode import views
+
+    process = views._PROCESS
+    assert process is not None
+    views._PROCESS_READY = None
+    workdir = quote(str(live_opencode.config.data_dir.resolve()))
+
+    response = admin_client.get(
+        f"/admin/agent/opencode/path?directory={workdir}",
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_SEC_FETCH_SITE="same-origin",
+    )
+
+    assert response.status_code == 200
+    assert views._PROCESS is process
+    assert views._PROCESS_READY is process
 
 
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
