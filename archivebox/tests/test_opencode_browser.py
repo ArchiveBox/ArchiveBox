@@ -70,8 +70,15 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
       const welcome = '#opencode-agent-welcome';
       await page.waitForSelector(welcome, {visible: true});
       if (disabled) {
-        assert.equal(await page.evaluate(() => localStorage), null);
+        assert.equal(await page.evaluate(() => {
+          try { return localStorage === null; }
+          catch (error) { if (error.name !== 'SecurityError') throw error; return true; }
+        }), true);
       } else {
+        await page.click('#opencode-agent-welcome-dismiss');
+        await page.waitForSelector(welcome, {hidden: true});
+        await page.reload({waitUntil: 'domcontentloaded'});
+        assert.equal(await page.$eval(welcome, element => element.hidden), true);
         const existing = {
           list: [{type: 'http', http: {url: 'http://other.example'}}],
           projects: {
