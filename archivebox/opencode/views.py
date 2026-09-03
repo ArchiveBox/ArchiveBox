@@ -37,6 +37,7 @@ _PROCESS: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
 _SESSION_LOCK = threading.Lock()
 _LOGGER = logging.getLogger(__name__)
+_PROCESS_HEALTH_GRACE = 5
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
@@ -401,6 +402,11 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
         if _health(settings):
             return True, ""
         if _PROCESS is not None and _PROCESS.poll() is None:
+            deadline = time.monotonic() + min(_PROCESS_HEALTH_GRACE, settings["timeout"])
+            while time.monotonic() < deadline and _PROCESS.poll() is None:
+                if _health(settings):
+                    return True, ""
+                time.sleep(0.25)
             _stop_owned_process(_PROCESS)
 
         try:

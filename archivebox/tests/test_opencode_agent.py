@@ -1,7 +1,9 @@
 import asyncio
 import os
+import signal
 import socket
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -299,6 +301,30 @@ def test_opencode_restarts_an_unhealthy_owned_process(live_opencode):
     assert old_process.poll() is not None
     assert views._PROCESS is not old_process
     assert views._health(settings)
+
+
+def test_opencode_preserves_a_transiently_unhealthy_owned_process(live_opencode):
+    from archivebox.opencode import views
+
+    process = views._PROCESS
+    assert process is not None
+    views._signal_owned_process(process, signal.SIGSTOP)
+
+    def resume_process():
+        time.sleep(2.5)
+        views._signal_owned_process(process, signal.SIGCONT)
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            resumed = executor.submit(resume_process)
+            ok, error = views._ensure_opencode(live_opencode.settings)
+            resumed.result()
+    finally:
+        views._signal_owned_process(process, signal.SIGCONT)
+
+    assert ok, error
+    assert views._PROCESS is process
+    assert process.poll() is None
 
 
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
