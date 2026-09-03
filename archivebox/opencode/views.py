@@ -374,11 +374,13 @@ def _ensure_default_session(settings: dict) -> str:
 
 
 def _owned_process_running() -> bool:
-    return _PROCESS is not None and _PROCESS.poll() is None
+    process = _PROCESS
+    return process is not None and process.poll() is None
 
 
 def _owned_process_ready() -> bool:
-    return _owned_process_running() and _PROCESS_READY is _PROCESS
+    process = _PROCESS_READY
+    return process is not None and process is _PROCESS and process.poll() is None
 
 
 def _health(settings: dict, timeout: float = 2) -> bool:
