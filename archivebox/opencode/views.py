@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import base64
+import logging
 import os
 import re
 import shutil
@@ -32,6 +33,7 @@ from django.views.decorators.csrf import csrf_exempt
 _PROCESS: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
 _SESSION_LOCK = threading.Lock()
+_LOGGER = logging.getLogger(__name__)
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
@@ -614,6 +616,15 @@ def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, 
     return headers
 
 
+def _proxy_error_response(error: requests.RequestException) -> HttpResponse:
+    _LOGGER.warning("OpenCode upstream request failed: %s", error)
+    return HttpResponse(
+        b"OpenCode upstream request failed.",
+        status=502,
+        content_type="text/plain; charset=utf-8",
+    )
+
+
 @csrf_exempt
 def opencode_proxy_view(request: HttpRequest, path: str | None = None):
     config = _machine_config()
@@ -655,21 +666,13 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
             allow_redirects=False,
         )
     except requests.RequestException as err:
-        return HttpResponse(
-            str(err).encode(),
-            status=502,
-            content_type="text/plain; charset=utf-8",
-        )
+        return _proxy_error_response(err)
 
     try:
         body = upstream.content
     except requests.RequestException as err:
         upstream.close()
-        return HttpResponse(
-            str(err).encode(),
-            status=502,
-            content_type="text/plain; charset=utf-8",
-        )
+        return _proxy_error_response(err)
 
     content_type = upstream.headers.get("Content-Type", "")
     headers = _response_headers(upstream, settings)
