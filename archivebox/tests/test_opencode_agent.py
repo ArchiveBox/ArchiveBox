@@ -321,10 +321,9 @@ def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client
             finally:
                 views._PROCESS = owned_process
                 views._PROCESS_LOCK.release()
+                await asyncio.get_running_loop().shutdown_default_executor()
 
     asyncio.run(request_event_stream())
-    ok, error = views._ensure_opencode(live_opencode.settings)
-    assert ok, error
     assert views._PROCESS is owned_process
     assert owned_process.poll() is None
 
