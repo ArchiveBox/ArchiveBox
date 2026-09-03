@@ -1,0 +1,22 @@
+archivebox/tests/test_opencode_agent.py
+  s_80d4bd2d930f75::t_3975d98f2a9f77 453
+  s_80d4bd2d930f75::t_7a641c7e9e224a 448-452,454-456
+archivebox/opencode/views.py
+  s_80d4bd2d930f75::t_19483f8d213c17 45-49,331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "27c2a947b425a5f85daf2c7ad77f97f54302afcc",
+  "prompts": {},
+  "sessions": {
+    "s_80d4bd2d930f75": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05e81-8ef7-7ee1-b52f-f712a0d60079",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
