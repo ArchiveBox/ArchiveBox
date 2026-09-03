@@ -566,6 +566,7 @@ async def _event_chunks(
     ok, error = await sync_to_async(_ensure_opencode, thread_sensitive=False)(settings)
     if not ok:
         _LOGGER.warning("OpenCode event stream unavailable: %s", error)
+        yield b'event: error\ndata: {"error":"OpenCode upstream unavailable"}\n\n'
         return
 
     timeout = httpx.Timeout(settings["timeout"], read=None)
