@@ -89,8 +89,13 @@ def AdminCookieIsolationMiddleware(get_response):
         response = get_response(request)
 
         if request.path == "/admin" or request.path.startswith("/admin/"):
-            response.headers["X-Frame-Options"] = "DENY"
-            response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+            is_opencode_proxy = request.path == "/admin/agent/opencode" or request.path.startswith("/admin/agent/opencode/")
+            if is_opencode_proxy:
+                response.headers["X-Frame-Options"] = "SAMEORIGIN"
+                response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
+            else:
+                response.headers["X-Frame-Options"] = "DENY"
+                response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
 
         config = request.__dict__.get("archivebox_config")
         if config is None or config.SERVER_SECURITY_MODE == "auto":

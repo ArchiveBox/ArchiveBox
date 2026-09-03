@@ -165,12 +165,24 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
 
     response = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     recent_session_id = views._recent_session_id(live_opencode.settings)
+    session_path = views._project_route(live_opencode.config.data_dir, recent_session_id)
 
     assert response.status_code == 200
     assert recent_session_id
-    assert f'<iframe src="{views._project_route(live_opencode.config.data_dir, recent_session_id)}"'.encode() in response.content
+    assert f'<iframe src="{session_path}"'.encode() in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
+
+    session = admin_client.get(
+        session_path,
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_SEC_FETCH_SITE="same-origin",
+    )
+    assert session.status_code == 200
+    assert session.headers["X-Frame-Options"] == "SAMEORIGIN"
+    assert session.headers["Content-Security-Policy"] == "frame-ancestors 'self'"
 
 
 def test_opencode_proxy_serves_real_project_and_session(admin_client, live_opencode):
