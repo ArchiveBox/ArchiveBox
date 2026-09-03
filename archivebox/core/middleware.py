@@ -89,7 +89,9 @@ def AdminCookieIsolationMiddleware(get_response):
         response = get_response(request)
 
         if request.path == "/admin" or request.path.startswith("/admin/"):
-            is_opencode_proxy = request.path == "/admin/agent/opencode" or request.path.startswith("/admin/agent/opencode/")
+            from archivebox.opencode.views import _PROXY_PREFIX
+
+            is_opencode_proxy = request.path == _PROXY_PREFIX or request.path.startswith(f"{_PROXY_PREFIX}/")
             if is_opencode_proxy:
                 response.headers["X-Frame-Options"] = "SAMEORIGIN"
                 response.headers["Content-Security-Policy"] = "frame-ancestors 'self'"
