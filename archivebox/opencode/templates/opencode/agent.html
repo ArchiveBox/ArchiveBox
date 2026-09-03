@@ -219,9 +219,17 @@
                         redirect: "manual",
                     };
                     let checking = false;
+                    let waking = false;
                     let wasUnavailable = false;
                     let healthyChecks = 0;
                     let knownVersion = "{{ opencode_version|escapejs }}";
+                    const wake = () => {
+                        if (waking) return;
+                        waking = true;
+                        fetch(healthUrl, fetchOptions)
+                            .catch(() => {})
+                            .finally(() => { waking = false; });
+                    };
                     const check = async () => {
                         if (checking || (document.hidden && wasUnavailable)) return;
                         checking = true;
@@ -231,9 +239,7 @@
                                 wasUnavailable = true;
                                 healthyChecks = 0;
                                 if (response.status === 503) {
-                                    try {
-                                        await fetch(healthUrl, fetchOptions);
-                                    } catch {}
+                                    wake();
                                 }
                                 return;
                             }

@@ -192,6 +192,8 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert b"/admin/agent/opencode/global/health" in response.content
     assert b"/admin/agent/opencode/_archivebox/health" in response.content
     assert b'redirect: "manual"' in response.content
+    assert b"let waking = false" in response.content
+    assert b"wake();" in response.content
     assert b"frame.contentWindow.location.reload()" in response.content
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
@@ -217,6 +219,7 @@ def test_opencode_health_monitor_does_not_start_server(admin_client, live_openco
 
     assert response.status_code == 503
     assert response.json() == {"healthy": False, "version": ""}
+    assert response.headers["Cache-Control"] == "no-store"
     assert views._PROCESS is None
 
 

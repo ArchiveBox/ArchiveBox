@@ -557,10 +557,12 @@ def agent_health_view(request: HttpRequest):
 
     version = _opencode_version(_settings(config))
     healthy = bool(version)
-    return JsonResponse(
+    response = JsonResponse(
         {"healthy": healthy, "version": version},
         status=200 if healthy else 503,
     )
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 def _proxy_url(settings: dict, path: str | None) -> str:
