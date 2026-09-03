@@ -54,16 +54,19 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
     const browser = await puppeteer.launch({
       executablePath: config.chrome,
       headless: true,
-      args: ['--no-sandbox', ...(disabled ? ['--disable-local-storage'] : [])],
+      // Headless interaction must not depend on the desktop display clock.
+      args: ['--no-sandbox', '--disable-frame-rate-limit', ...(disabled ? ['--disable-local-storage'] : [])],
     });
     try {
       const page = await browser.newPage();
       await page.goto(new URL('/admin/login/', config.url).href, {waitUntil: 'domcontentloaded'});
-      await page.type('input[name="username"]', 'agent-browser-test');
-      await page.type('input[name="password"]', 'test-password');
+      await page.locator('#login-form input[name="username"]').fill('agent-browser-test');
+      await page.locator('#login-form input[name="password"]').fill('test-password');
+      assert.equal(await page.$eval('#login-form input[name="username"]', element => element.value), 'agent-browser-test');
+      assert.equal(await page.$eval('#login-form input[name="password"]', element => element.value), 'test-password');
       await Promise.all([
         page.waitForNavigation({waitUntil: 'domcontentloaded'}),
-        page.click('input[type="submit"], button[type="submit"]'),
+        page.locator('#login-form input[type="submit"]').click(),
       ]);
       assert.ok(!page.url().includes('/admin/login/'), page.url());
       assert.equal((await page.goto(config.url, {waitUntil: 'domcontentloaded'})).status(), 200);
