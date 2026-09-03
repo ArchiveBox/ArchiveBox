@@ -445,13 +445,20 @@ def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
     assert json.loads((state_dir / "config" / "opencode" / "opencode.jsonc").read_text())["model"] == "opencode/big-pickle"
 
 
-def test_opencode_preserves_existing_config(tmp_path):
+@pytest.mark.parametrize(
+    "existing_config",
+    [
+        '{"model": "anthropic/claude-sonnet-4-5"}\n',
+        '{\n  // Keep the administrator-selected model.\n  "model": "anthropic/claude-sonnet-4-5",\n}\n',
+        '{\n  // Schema-only files are still user-owned.\n  "$schema": "https://opencode.ai/config.json",\n}\n',
+    ],
+)
+def test_opencode_preserves_existing_config(tmp_path, existing_config):
     from archivebox.opencode import views
 
     state_dir = tmp_path / "state"
     config_path = state_dir / "config" / "opencode" / "opencode.jsonc"
     config_path.parent.mkdir(parents=True)
-    existing_config = '{\n  // Keep the administrator-selected model.\n  "model": "anthropic/claude-sonnet-4-5"\n}\n'
     config_path.write_text(existing_config)
 
     views._ensure_project_files(
@@ -464,26 +471,6 @@ def test_opencode_preserves_existing_config(tmp_path):
     )
 
     assert config_path.read_text() == existing_config
-
-
-def test_opencode_adds_default_model_to_schema_only_config(tmp_path):
-    from archivebox.opencode import views
-
-    state_dir = tmp_path / "state"
-    config_path = state_dir / "config" / "opencode" / "opencode.jsonc"
-    config_path.parent.mkdir(parents=True)
-    config_path.write_text('{"$schema": "https://opencode.ai/config.json"}\n')
-
-    views._ensure_project_files(
-        views._settings(
-            {
-                "OPENCODE_WORKDIR": str(tmp_path / "workdir"),
-                "OPENCODE_STATE_DIR": str(state_dir),
-            },
-        ),
-    )
-
-    assert json.loads(config_path.read_text())["model"] == "opencode/big-pickle"
 
 
 def test_opencode_defaults_to_the_archivebox_collection():

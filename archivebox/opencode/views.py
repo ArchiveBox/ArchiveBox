@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import atexit
 import base64
-import json
 import logging
 import os
 import re
@@ -43,6 +42,11 @@ _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
 _CONFIG_PATH = Path(opencode_plugin.__file__).with_name("config.json")
 _DEFAULT_MODEL = "opencode/big-pickle"
+_DEFAULT_CONFIG = f'''{{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "{_DEFAULT_MODEL}"
+}}
+'''
 
 _TEXT_CONTENT_TYPES = (
     "text/",
@@ -323,19 +327,8 @@ def _ensure_project_files(settings: dict) -> None:
         opencode_skill_path.symlink_to(editable_skill_path)
 
     opencode_config_path = settings["config_home"] / "opencode" / "opencode.jsonc"
-    default_config = {
-        "$schema": "https://opencode.ai/config.json",
-        "model": _DEFAULT_MODEL,
-    }
     if not opencode_config_path.exists():
-        opencode_config_path.write_text(f"{json.dumps(default_config, indent=2)}\n")
-    else:
-        try:
-            existing_config = json.loads(opencode_config_path.read_text())
-        except (OSError, ValueError):
-            existing_config = None
-        if isinstance(existing_config, dict) and set(existing_config) <= {"$schema"}:
-            opencode_config_path.write_text(f"{json.dumps(default_config, indent=2)}\n")
+        opencode_config_path.write_text(_DEFAULT_CONFIG)
 
 
 def _ensure_default_session(settings: dict) -> str:
