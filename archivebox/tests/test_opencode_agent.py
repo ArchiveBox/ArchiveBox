@@ -3,7 +3,6 @@ import os
 import signal
 import socket
 import subprocess
-import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -128,13 +127,14 @@ def test_opencode_disabled_route_does_not_start_server(client, initialized_archi
     assert views._PROCESS is None or views._PROCESS.poll() is not None
 
 
-def test_stop_owned_process_falls_back_when_process_has_no_dedicated_group():
+def test_stop_owned_process_falls_back_for_stopped_process_without_dedicated_group():
     from archivebox.opencode import views
 
     process = subprocess.Popen(["sleep", "60"])
     try:
+        process.send_signal(signal.SIGSTOP)
         views._stop_owned_process(process)
-        assert process.poll() is not None
+        assert process.returncode == -signal.SIGTERM
     finally:
         if process.poll() is None:
             process.kill()
@@ -287,47 +287,19 @@ def test_concurrent_opencode_startup_waits_until_server_is_ready(live_opencode):
     assert views._health(live_opencode.settings)
 
 
-def test_opencode_restarts_an_unhealthy_owned_process(live_opencode):
+def test_opencode_does_not_probe_or_replace_a_ready_owned_process(live_opencode):
     from archivebox.opencode import views
 
-    old_process = views._PROCESS
+    process = views._PROCESS
     settings = {**live_opencode.settings, "port": _free_port()}
     settings["origin"] = f"http://{settings['host']}:{settings['port']}"
 
     ok, error = views._ensure_opencode(settings)
 
     assert ok, error
-    assert old_process is not None
-    assert old_process.poll() is not None
-    assert views._PROCESS is not old_process
-    assert views._health(settings)
-
-
-def test_opencode_preserves_a_transiently_unhealthy_owned_process(live_opencode):
-    from archivebox.opencode import views
-
-    process = views._PROCESS
     assert process is not None
-    views._signal_owned_process(process, signal.SIGSTOP)
-
-    def resume_process():
-        time.sleep(1.5)
-        views._signal_owned_process(process, signal.SIGCONT)
-
-    try:
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            resumed = executor.submit(resume_process)
-            started_at = time.monotonic()
-            ok, error = views._ensure_opencode(live_opencode.settings)
-            elapsed = time.monotonic() - started_at
-            resumed.result()
-    finally:
-        views._signal_owned_process(process, signal.SIGCONT)
-
-    assert ok, error
     assert views._PROCESS is process
     assert process.poll() is None
-    assert elapsed < views._PROCESS_HEALTH_GRACE
 
 
 def test_opencode_proxy_does_not_wait_for_recovery_lock(admin_client, live_opencode):

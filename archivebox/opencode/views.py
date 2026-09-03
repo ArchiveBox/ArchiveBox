@@ -38,7 +38,6 @@ _PROCESS_READY: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
 _SESSION_LOCK = threading.Lock()
 _LOGGER = logging.getLogger(__name__)
-_PROCESS_HEALTH_GRACE = 5
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
@@ -413,23 +412,14 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     workdir = settings["workdir"].resolve()
 
     with _PROCESS_LOCK:
-        if _owned_process_running():
-            deadline = time.monotonic() + min(_PROCESS_HEALTH_GRACE, settings["timeout"])
-            while _owned_process_running():
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    break
-                if _health(settings, timeout=min(2, remaining)):
-                    if time.monotonic() <= deadline:
-                        _PROCESS_READY = _PROCESS
-                        return True, ""
-                    break
-                remaining = deadline - time.monotonic()
-                if remaining > 0:
-                    time.sleep(min(0.25, remaining))
-            _stop_owned_process(_PROCESS)
-        elif _health(settings):
+        if _owned_process_ready():
             return True, ""
+        if _health(settings):
+            if _owned_process_running():
+                _PROCESS_READY = _PROCESS
+            return True, ""
+        if _owned_process_running():
+            _stop_owned_process(_PROCESS)
 
         try:
             binary, git_binary, binary_env = _resolve_binary(
@@ -511,17 +501,24 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             return False, f"OpenCode binary not found: {settings['binary']}"
 
         deadline = time.monotonic() + settings["timeout"]
-        while time.monotonic() < deadline:
-            if _health(settings):
-                _PROCESS_READY = started_process
-                return True, ""
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            if _health(settings, timeout=min(2, remaining)):
+                if time.monotonic() <= deadline:
+                    _PROCESS_READY = started_process
+                    return True, ""
+                break
             if started_process and started_process.poll() is not None:
                 if _PROCESS is started_process:
                     _PROCESS = None
                 if _PROCESS_READY is started_process:
                     _PROCESS_READY = None
                 return False, "OpenCode exited before the web server became ready."
-            time.sleep(0.25)
+            remaining = deadline - time.monotonic()
+            if remaining > 0:
+                time.sleep(min(0.25, remaining))
 
         _stop_owned_process(started_process)
         return False, "Timed out waiting for OpenCode to start."
