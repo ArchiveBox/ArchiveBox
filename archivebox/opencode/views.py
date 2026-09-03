@@ -2,8 +2,8 @@
 
 import logging
 
+from django.contrib.auth.views import redirect_to_login
 from django.http import Http404, HttpResponse, HttpResponseForbidden, StreamingHttpResponse
-from django.shortcuts import redirect
 from django.template import engines
 from django.views.decorators.csrf import csrf_exempt
 
@@ -21,7 +21,7 @@ def _dispatch(request, path=None):
         if not config.get("OPENCODE_ENABLED", False):
             raise Http404
         if not request.user.is_authenticated:
-            return redirect(f"/admin/login/?next={request.get_full_path()}")
+            return redirect_to_login(request.get_full_path(), login_url="/admin/login/")
         if not request.user.is_active or not request.user.is_superuser:
             return HttpResponseForbidden("Agent access requires a superuser account.")
 

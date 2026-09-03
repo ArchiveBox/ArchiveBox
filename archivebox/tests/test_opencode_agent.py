@@ -5,7 +5,7 @@ import socket
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote, urlsplit
 
 import pytest
 import requests
@@ -142,6 +142,11 @@ def test_opencode_agent_requires_superuser_when_enabled(client, db, django_user_
     response = client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 302
     assert "/admin/login/" in response.headers["Location"]
+
+    next_path = "/admin/agent?x=1&next=https://example.com"
+    response = client.get(next_path, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 302
+    assert parse_qs(urlsplit(response.headers["Location"]).query) == {"next": [next_path]}
 
     user = django_user_model.objects.create_user(username="regular", password="testpassword")
     client.force_login(user)
