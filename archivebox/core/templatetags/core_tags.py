@@ -1,3 +1,4 @@
+import logging
 import os
 from html import unescape
 from pathlib import Path
@@ -27,6 +28,20 @@ from archivebox.plugins.discovery import (
 )
 
 register = template.Library()
+
+
+@register.simple_tag(takes_context=True)
+def plugin_ui(context, plugin: str, slot: str):
+    """Optional plugin UI must never prevent the host page from rendering."""
+    try:
+        source = get_plugin_template(plugin, slot, fallback=False)
+        if not source:
+            return ""
+        return template.engines["django"].from_string(source).render(context.flatten())
+    except Exception:
+        logging.getLogger(__name__).exception("Unable to render optional plugin UI: %s/%s", plugin, slot)
+        return ""
+
 
 _TEXT_PREVIEW_EXTS = (".json", ".jsonl", ".txt", ".csv", ".tsv", ".xml", ".yml", ".yaml", ".md", ".log")
 _IMAGE_PREVIEW_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".avif")

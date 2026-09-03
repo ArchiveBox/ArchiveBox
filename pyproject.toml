@@ -69,7 +69,6 @@ dependencies = [
     "django-stubs>=5.0.4",   # for: vscode type hints on models and common django APIs
     ### API clients
     "requests>=2.32.3",      # for: fetching title, static files, headers (TODO: replace with httpx?)
-    "httpx>=0.28.1",         # for: streaming the admin-only OpenCode proxy
     "sonic-client>=1.0.0",
     ### Parsers
     "dateparser>=1.2.0",     # for: parsing pocket/pinboard/etc. RSS/bookmark import dates
@@ -80,7 +79,7 @@ dependencies = [
     ### Binary/Package Management
     "abxbus==2.5.56",                 # direct imports only; version constrained by abx-dl -> abx-plugins
     "abxpkg==1.12.117",                # direct imports only; version constrained by abx-dl -> abx-plugins
-    "abx-plugins==1.12.227",           # direct imports only; version constrained by abx-dl
+    "abx-plugins[opencode]==1.12.227", # optional AI runtime clients are owned by the plugin
     "abx-dl==1.12.264",       # shared ArchiveBox downloader package
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13

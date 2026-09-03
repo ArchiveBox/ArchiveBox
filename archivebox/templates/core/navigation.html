@@ -1,4 +1,4 @@
-{% load i18n static %}
+{% load i18n static core_tags %}
 
 <div id="user-tools">
     <a href="{% url 'add' %}" class="navbar-item navbar-add-link">Add ➕</a>
@@ -11,10 +11,7 @@
     <span class="navbar-separator" aria-hidden="true">|</span>
     <a href="/admin/core/tag/" class="navbar-item navbar-tags">Tags</a>
     <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
-    {% if user.is_authenticated and user.is_superuser and request.archivebox_config.OPENCODE_ENABLED %}
-        <a href="/admin/agent" class="navbar-item navbar-ai">💬 AI</a>
-        <span class="navbar-separator" aria-hidden="true">|</span>
-    {% endif %}
+    {% plugin_ui "opencode" "navigation" %}
     <a href="{% url 'Docs' %}" class="navbar-item navbar-docs" target="_blank" rel="noopener noreferrer">Docs</a>
     <span class="navbar-separator" aria-hidden="true">|</span>
     <a href="/api/v1/docs" class="navbar-item navbar-api">API</a>

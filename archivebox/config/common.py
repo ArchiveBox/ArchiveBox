@@ -18,7 +18,7 @@ from urllib.parse import quote, urlparse
 
 from abx_plugins.plugins.base.utils import build_config_model
 from django.db import DatabaseError
-from pydantic import BaseModel, Field, PrivateAttr, create_model, field_validator, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, TypeAdapter, create_model, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from rich.console import Console
 
@@ -1253,7 +1253,7 @@ def get_config(
             config = config.model_copy(update={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"})
     for key in explicit_plugin_enabled_keys:
         if key in config_data:
-            setattr(config, key, config_data[key])
+            setattr(config, key, TypeAdapter(bool).validate_python(config_data[key]))
     if config.PLUGINS:
         config._derive_plugin_enabled_config(respect_current_enabled=True)
     if redact_sensitive:
