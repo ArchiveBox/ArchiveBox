@@ -411,7 +411,9 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
                 if remaining <= 0:
                     break
                 if _health(settings, timeout=min(2, remaining)):
-                    return True, ""
+                    if time.monotonic() <= deadline:
+                        return True, ""
+                    break
                 remaining = deadline - time.monotonic()
                 if remaining > 0:
                     time.sleep(min(0.25, remaining))
