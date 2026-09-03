@@ -1,5 +1,6 @@
 import os
 import socket
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -105,10 +106,7 @@ def live_opencode(opencode_archive_config):
     try:
         yield SimpleNamespace(config=opencode_archive_config, settings=settings, process=process)
     finally:
-        if views._PROCESS and views._PROCESS.poll() is None:
-            views._PROCESS.terminate()
-            views._PROCESS.wait(timeout=10)
-        views._PROCESS = None
+        views._stop_owned_process()
 
 
 def test_opencode_disabled_route_does_not_start_server(client, initialized_archive):
@@ -124,6 +122,19 @@ def test_opencode_disabled_route_does_not_start_server(client, initialized_archi
 
     assert response.status_code == 404
     assert views._PROCESS is None or views._PROCESS.poll() is not None
+
+
+def test_stop_owned_process_falls_back_when_process_has_no_dedicated_group():
+    from archivebox.opencode import views
+
+    process = subprocess.Popen(["sleep", "60"])
+    try:
+        views._stop_owned_process(process)
+        assert process.poll() is not None
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
 
 
 def test_opencode_agent_requires_superuser_when_enabled(client, db, django_user_model, live_opencode):
