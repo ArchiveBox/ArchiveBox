@@ -34,6 +34,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 
 _PROCESS: subprocess.Popen | None = None
+_PROCESS_READY: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
 _SESSION_LOCK = threading.Lock()
 _LOGGER = logging.getLogger(__name__)
@@ -100,7 +101,7 @@ def _signal_owned_process(process: subprocess.Popen, sig: signal.Signals) -> Non
 
 
 def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
-    global _PROCESS
+    global _PROCESS, _PROCESS_READY
     owned_process = process or _PROCESS
     if owned_process is None:
         return
@@ -114,6 +115,8 @@ def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
             owned_process.wait()
     if _PROCESS is owned_process:
         _PROCESS = None
+    if _PROCESS_READY is owned_process:
+        _PROCESS_READY = None
 
 
 atexit.register(_stop_owned_process)
@@ -374,6 +377,10 @@ def _owned_process_running() -> bool:
     return _PROCESS is not None and _PROCESS.poll() is None
 
 
+def _owned_process_ready() -> bool:
+    return _owned_process_running() and _PROCESS_READY is _PROCESS
+
+
 def _health(settings: dict, timeout: float = 2) -> bool:
     try:
         response = requests.get(
@@ -399,7 +406,7 @@ def _opencode_version(settings: dict) -> str:
 
 
 def _ensure_opencode(settings: dict) -> tuple[bool, str]:
-    global _PROCESS
+    global _PROCESS, _PROCESS_READY
     started_process: subprocess.Popen | None = None
     workdir = settings["workdir"].resolve()
 
@@ -412,6 +419,7 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
                     break
                 if _health(settings, timeout=min(2, remaining)):
                     if time.monotonic() <= deadline:
+                        _PROCESS_READY = _PROCESS
                         return True, ""
                     break
                 remaining = deadline - time.monotonic()
@@ -495,6 +503,7 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
                 stdout=subprocess.DEVNULL,
                 start_new_session=True,
             )
+            _PROCESS_READY = None
             started_process = _PROCESS
         except FileNotFoundError:
             return False, f"OpenCode binary not found: {settings['binary']}"
@@ -502,10 +511,13 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
         deadline = time.monotonic() + settings["timeout"]
         while time.monotonic() < deadline:
             if _health(settings):
+                _PROCESS_READY = started_process
                 return True, ""
             if started_process and started_process.poll() is not None:
                 if _PROCESS is started_process:
                     _PROCESS = None
+                if _PROCESS_READY is started_process:
+                    _PROCESS_READY = None
                 return False, "OpenCode exited before the web server became ready."
             time.sleep(0.25)
 
@@ -621,7 +633,7 @@ async def _event_chunks(
     params: tuple[tuple[str, str], ...],
     headers: dict[str, str],
 ):
-    if not _owned_process_running():
+    if not _owned_process_ready():
         ok, error = await sync_to_async(_ensure_opencode, thread_sensitive=False)(settings)
         if not ok:
             _LOGGER.warning("OpenCode event stream unavailable: %s", error)
@@ -748,7 +760,7 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
         response.headers["X-Accel-Buffering"] = "no"
         return response
 
-    if path == "global/health" or not _owned_process_running():
+    if path == "global/health" or not _owned_process_ready():
         ok, error = _ensure_opencode(settings)
         if not ok:
             return _proxy_error_response(error)
