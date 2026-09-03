@@ -38,7 +38,6 @@ _PROCESS_READY: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
 _SESSION_LOCK = threading.Lock()
 _LOGGER = logging.getLogger(__name__)
-_PROCESS_HEALTH_GRACE = 5
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
@@ -383,11 +382,11 @@ def _owned_process_ready() -> bool:
     return process is not None and process is _PROCESS and process.poll() is None
 
 
-def _health(settings: dict, timeout: float = 2) -> bool:
+def _health(settings: dict) -> bool:
     try:
         response = requests.get(
             f"{settings['origin']}/global/health",
-            timeout=timeout,
+            timeout=2,
         )
         return response.status_code == 200
     except requests.RequestException:
@@ -413,23 +412,14 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     workdir = settings["workdir"].resolve()
 
     with _PROCESS_LOCK:
-        if _owned_process_running():
-            deadline = time.monotonic() + min(_PROCESS_HEALTH_GRACE, settings["timeout"])
-            while _owned_process_running():
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    break
-                if _health(settings, timeout=min(2, remaining)):
-                    if time.monotonic() <= deadline:
-                        _PROCESS_READY = _PROCESS
-                        return True, ""
-                    break
-                remaining = deadline - time.monotonic()
-                if remaining > 0:
-                    time.sleep(min(0.25, remaining))
-            _stop_owned_process(_PROCESS)
-        elif _health(settings):
+        if _owned_process_ready():
             return True, ""
+        if _health(settings):
+            if _owned_process_running():
+                _PROCESS_READY = _PROCESS
+            return True, ""
+        if _owned_process_running():
+            _stop_owned_process(_PROCESS)
 
         try:
             binary, git_binary, binary_env = _resolve_binary(
