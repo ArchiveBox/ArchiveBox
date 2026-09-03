@@ -206,6 +206,42 @@
                     });
                 })();
             </script>
+            <script>
+                (() => {
+                    const frame = document.querySelector(".opencode-agent-frame");
+                    if (!frame) return;
+
+                    let checking = false;
+                    let wasUnavailable = false;
+                    const check = async () => {
+                        if (checking) return;
+                        checking = true;
+                        try {
+                            const response = await fetch("/admin/agent/opencode/global/health", {
+                                cache: "no-store",
+                                credentials: "same-origin",
+                            });
+                            if (!response.ok) {
+                                wasUnavailable = true;
+                            } else if (wasUnavailable) {
+                                wasUnavailable = false;
+                                frame.contentWindow.location.reload();
+                            }
+                        } catch {
+                            wasUnavailable = true;
+                        } finally {
+                            checking = false;
+                        }
+                    };
+
+                    window.setInterval(check, 3000);
+                    window.addEventListener("online", check);
+                    document.addEventListener("visibilitychange", () => {
+                        if (!document.hidden) check();
+                    });
+                    check();
+                })();
+            </script>
         {% endif %}
     </div>
 {% endblock %}

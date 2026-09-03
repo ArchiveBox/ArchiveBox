@@ -186,6 +186,8 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert f'<iframe src="{session_path}"'.encode() in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
+    assert b'fetch("/admin/agent/opencode/global/health"' in response.content
+    assert b"frame.contentWindow.location.reload()" in response.content
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
 
