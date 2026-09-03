@@ -1,5 +1,6 @@
 import os
 import socket
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import quote
@@ -233,6 +234,18 @@ def test_opencode_proxy_restarts_server_for_an_existing_agent_page(admin_client,
     assert views._PROCESS is not None
     assert views._PROCESS is not old_process
     assert views._PROCESS.poll() is None
+
+
+def test_concurrent_opencode_startup_waits_until_server_is_ready(live_opencode):
+    from archivebox.opencode import views
+
+    views._stop_owned_process()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(views._ensure_opencode, [live_opencode.settings] * 2))
+
+    assert results == [(True, ""), (True, "")]
+    assert views._health(live_opencode.settings)
 
 
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):

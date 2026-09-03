@@ -371,9 +371,6 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     started_process: subprocess.Popen | None = None
     workdir = settings["workdir"].resolve()
 
-    if (_PROCESS is not None and _PROCESS.poll() is None) or _health(settings):
-        return True, ""
-
     with _PROCESS_LOCK:
         if (_PROCESS is not None and _PROCESS.poll() is None) or _health(settings):
             return True, ""
