@@ -1,9 +1,7 @@
 import asyncio
-import json
 import os
-import signal
+import shutil
 import socket
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +12,7 @@ import requests
 from asgiref.testing import ApplicationCommunicator
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST, run_archivebox_cmd
+from archivebox.config.common import get_config
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -79,7 +78,7 @@ def opencode_archive_config(initialized_archive):
 
 @pytest.fixture
 def live_opencode(opencode_archive_config):
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
 
     install = run_archivebox_cmd(
         ["install", "opencode", "--binproviders=env,pnpm"],
@@ -90,56 +89,42 @@ def live_opencode(opencode_archive_config):
     assert install.returncode == 0, install.stderr or install.stdout
     _reset_runtime_config()
 
-    config = views._machine_config()
-    settings = views._settings(config)
+    config = get_config().model_dump(mode="json")
+    settings = runtime._settings(config, opencode_archive_config.data_dir)
     settings["archivebox_base_url"] = "http://admin.archivebox.localhost:8000"
     settings["archivebox_admin_url"] = "http://admin.archivebox.localhost:8000/admin"
     settings["archivebox_api_url"] = "http://admin.archivebox.localhost:8000/api/"
-    binary, binary_env = views._resolve_binary(settings["binary"], settings["config"])
+    binary, binary_env = runtime._resolve_binary(settings["binary"], settings["config"])
     version = binary.exec(
         cmd=("--version",),
         env={**os.environ, **binary_env},
         timeout=120,
     )
     assert version.returncode == 0, version.stderr or version.stdout
-    ok, error = views._ensure_opencode(settings)
+    ok, error = runtime._ensure_opencode(settings)
     assert ok, error
 
-    process = views._PROCESS
+    process = runtime._PROCESS
     assert process is not None
     try:
         yield SimpleNamespace(config=opencode_archive_config, settings=settings, process=process)
     finally:
-        views._stop_owned_process()
+        runtime._stop_owned_process()
 
 
 def test_opencode_disabled_route_does_not_start_server(client, initialized_archive):
     from archivebox.machine.models import Machine
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
 
     os.chdir(initialized_archive)
     Machine.from_json({"config": {"OPENCODE_ENABLED": False}})
     _reset_runtime_config()
-    assert views._machine_config()["OPENCODE_ENABLED"] is False
+    assert get_config().model_dump(mode="json")["OPENCODE_ENABLED"] is False
 
     response = client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
 
     assert response.status_code == 404
-    assert views._PROCESS is None or views._PROCESS.poll() is not None
-
-
-def test_stop_owned_process_falls_back_for_stopped_process_without_dedicated_group():
-    from archivebox.opencode import views
-
-    process = subprocess.Popen(["sleep", "60"])
-    try:
-        process.send_signal(signal.SIGSTOP)
-        views._stop_owned_process(process)
-        assert process.returncode == -signal.SIGTERM
-    finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait()
+    assert runtime._PROCESS is None or runtime._PROCESS.poll() is not None
 
 
 def test_opencode_agent_requires_superuser_when_enabled(client, db, django_user_model, live_opencode):
@@ -178,18 +163,18 @@ def test_opencode_proxy_blocks_cross_site_fetch_metadata(admin_client, db, live_
 
 
 def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode):
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
 
     response = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     recent_session_id = response.context["recent_session_id"]
-    session_path = views._project_route(live_opencode.config.data_dir, recent_session_id)
+    session_path = runtime._project_route(live_opencode.config.data_dir, recent_session_id)
 
     assert response.status_code == 200
     assert recent_session_id
     assert f'<iframe src="{session_path}"'.encode() in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
-    assert response.context["proxy_prefix"] == views._PROXY_PREFIX
+    assert response.context["proxy_prefix"] == runtime._PROXY_PREFIX
     assert b"/_archivebox/health" not in response.content
     assert b"window.setInterval(check, 3000)" not in response.content
     assert response.headers["X-Frame-Options"] == "DENY"
@@ -240,10 +225,10 @@ def test_opencode_proxy_serves_real_project_and_session(admin_client, live_openc
 
 
 def test_opencode_proxy_restarts_server_for_an_existing_agent_page(admin_client, live_opencode):
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
 
-    old_process = views._PROCESS
-    views._stop_owned_process()
+    old_process = runtime._PROCESS
+    runtime._stop_owned_process()
 
     response = admin_client.get(
         "/admin/agent/opencode/global/health",
@@ -252,45 +237,45 @@ def test_opencode_proxy_restarts_server_for_an_existing_agent_page(admin_client,
     )
 
     assert response.status_code == 200
-    assert views._PROCESS is not None
-    assert views._PROCESS is not old_process
-    assert views._PROCESS.poll() is None
+    assert runtime._PROCESS is not None
+    assert runtime._PROCESS is not old_process
+    assert runtime._PROCESS.poll() is None
 
 
 def test_concurrent_opencode_startup_waits_until_server_is_ready(live_opencode):
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
 
-    views._stop_owned_process()
+    runtime._stop_owned_process()
 
     with ThreadPoolExecutor(max_workers=2) as executor:
-        results = list(executor.map(views._ensure_opencode, [live_opencode.settings] * 2))
+        results = list(executor.map(runtime._ensure_opencode, [live_opencode.settings] * 2))
 
     assert results == [(True, ""), (True, "")]
-    assert views._health(live_opencode.settings)
+    assert runtime._health(live_opencode.settings)
 
 
 def test_opencode_does_not_probe_or_replace_a_ready_owned_process(live_opencode):
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
 
-    process = views._PROCESS
+    process = runtime._PROCESS
     settings = {**live_opencode.settings, "port": _free_port()}
     settings["origin"] = f"http://{settings['host']}:{settings['port']}"
 
-    ok, error = views._ensure_opencode(settings)
+    ok, error = runtime._ensure_opencode(settings)
 
     assert ok, error
     assert process is not None
-    assert views._PROCESS is process
+    assert runtime._PROCESS is process
     assert process.poll() is None
 
 
 def test_opencode_proxy_does_not_wait_for_recovery_lock(admin_client, live_opencode):
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
 
     workdir = quote(str(live_opencode.config.data_dir.resolve()))
-    assert views._owned_process_ready()
+    assert runtime._owned_process_ready()
     executor = ThreadPoolExecutor(max_workers=1)
-    views._PROCESS_LOCK.acquire()
+    runtime._PROCESS_LOCK.acquire()
     try:
         request = executor.submit(
             admin_client.get,
@@ -300,7 +285,7 @@ def test_opencode_proxy_does_not_wait_for_recovery_lock(admin_client, live_openc
         )
         response = request.result(timeout=5)
     finally:
-        views._PROCESS_LOCK.release()
+        runtime._PROCESS_LOCK.release()
         executor.shutdown(wait=True)
 
     assert response.status_code == 200
@@ -308,11 +293,11 @@ def test_opencode_proxy_does_not_wait_for_recovery_lock(admin_client, live_openc
 
 
 def test_opencode_proxy_waits_for_owned_process_readiness(admin_client, live_opencode):
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
 
-    process = views._PROCESS
+    process = runtime._PROCESS
     assert process is not None
-    views._PROCESS_READY = None
+    runtime._PROCESS_READY = None
     workdir = quote(str(live_opencode.config.data_dir.resolve()))
 
     response = admin_client.get(
@@ -322,8 +307,8 @@ def test_opencode_proxy_waits_for_owned_process_readiness(admin_client, live_ope
     )
 
     assert response.status_code == 200
-    assert views._PROCESS is process
-    assert views._PROCESS_READY is process
+    assert runtime._PROCESS is process
+    assert runtime._PROCESS_READY is process
 
 
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
@@ -342,10 +327,10 @@ def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
 
 def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client, live_opencode):
     from archivebox.core.asgi import application
-    from archivebox.opencode import views
+    from abx_plugins.plugins.opencode import runtime
     from django.conf import settings as django_settings
 
-    owned_process = views._PROCESS
+    owned_process = runtime._PROCESS
     assert owned_process is not None
     session_cookie_name = django_settings.SESSION_COOKIE_NAME
     session_cookie = admin_client.cookies[session_cookie_name].value
@@ -372,8 +357,8 @@ def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client
                 "server": ("127.0.0.1", 8000),
             },
         )
-        views._PROCESS_LOCK.acquire()
-        views._PROCESS = None
+        runtime._PROCESS_LOCK.acquire()
+        runtime._PROCESS = None
         try:
             await communicator.send_input({"type": "http.request", "body": b"", "more_body": False})
             response_start = await communicator.receive_output(timeout=2)
@@ -384,12 +369,12 @@ def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client
                 await communicator.send_input({"type": "http.disconnect"})
                 await communicator.wait(timeout=5)
             finally:
-                views._PROCESS = owned_process
-                views._PROCESS_LOCK.release()
+                runtime._PROCESS = owned_process
+                runtime._PROCESS_LOCK.release()
                 await asyncio.get_running_loop().shutdown_default_executor()
 
     asyncio.run(request_event_stream())
-    assert views._PROCESS is owned_process
+    assert runtime._PROCESS is owned_process
     assert owned_process.poll() is None
 
 
@@ -442,79 +427,83 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     assert (state_dir / "config" / "opencode" / "skills" / "archivebox" / "SKILL.md").resolve() == state_dir / "SKILL.md"
 
 
-def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
-    from archivebox.opencode import views
+def test_opencode_invalid_state_does_not_break_archivebox(admin_client, live_opencode):
+    from abx_plugins.plugins.opencode import runtime
 
-    workdir = tmp_path / "workdir"
-    state_dir = tmp_path / "state"
-    settings = views._settings(
-        {
-            "OPENCODE_WORKDIR": str(workdir),
-            "OPENCODE_STATE_DIR": str(state_dir),
-        },
-    )
-    views._ensure_project_files(settings)
+    runtime._stop_owned_process()
+    invalid_state = live_opencode.config.state_dir / "config"
+    invalid_state.rename(live_opencode.config.state_dir / "saved-config")
+    invalid_state.write_text("Preserve this file.")
 
-    assert settings["workdir"] == workdir
-    assert settings["opencode_dir"] == state_dir
-    assert settings["config_home"] == state_dir / "config"
-    assert settings["data_home"] == state_dir / "data"
-    assert settings["state_home"] == state_dir / "state"
-    editable_skill = state_dir / "SKILL.md"
-    loaded_skill = state_dir / "config" / "opencode" / "skills" / "archivebox" / "SKILL.md"
-    assert editable_skill.exists()
-    assert loaded_skill.is_symlink()
-    assert loaded_skill.resolve() == editable_skill.resolve()
-    assert f"ArchiveBox collection directory: {settings['archivebox_data_dir']}" in editable_skill.read_text()
-    opencode_config = json.loads((state_dir / "config" / "opencode" / "opencode.jsonc").read_text())
-    assert opencode_config["model"] == "opencode/big-pickle"
-    assert opencode_config["snapshot"] is False
+    for url in ("/admin/agent", "/admin/agent/opencode/global/health"):
+        response = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 503
+        assert str(invalid_state).encode() not in response.content
+
+    stream = admin_client.get("/admin/agent/opencode/global/event", HTTP_HOST=ADMIN_TEST_HOST)
+    assert stream.status_code == 200
+
+    async def read_failure():
+        return b"".join([chunk async for chunk in stream.streaming_content])
+
+    assert asyncio.run(read_failure()) == b'event: error\ndata: {"error":"OpenCode unavailable"}\n\n'
+
+    for url in ("/health/", "/add/", "/admin/core/snapshot/"):
+        response = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+    assert invalid_state.read_text() == "Preserve this file."
 
 
 @pytest.mark.parametrize(
-    "existing_config",
+    ("damaged_file", "missing"),
     [
-        '{"model": "anthropic/claude-sonnet-4-5"}\n',
-        '{\n  // Keep the administrator-selected model.\n  "model": "anthropic/claude-sonnet-4-5",\n}\n',
-        '{\n  // Schema-only files are still user-owned.\n  "$schema": "https://opencode.ai/config.json",\n}\n',
+        ("runtime.py", True),
+        ("templates/agent.html", True),
+        ("templates/agent.html", False),
+        ("templates/navigation.html", False),
+        ("templates/add.html", False),
     ],
 )
-def test_opencode_preserves_existing_config(tmp_path, existing_config):
-    from archivebox.opencode import views
+def test_opencode_incomplete_install_does_not_break_archivebox(live_opencode, tmp_path, damaged_file, missing):
+    import abx_plugins
 
-    state_dir = tmp_path / "state"
-    config_path = state_dir / "config" / "opencode" / "opencode.jsonc"
-    config_path.parent.mkdir(parents=True)
-    config_path.write_text(existing_config)
-
-    views._ensure_project_files(
-        views._settings(
-            {
-                "OPENCODE_WORKDIR": str(tmp_path / "workdir"),
-                "OPENCODE_STATE_DIR": str(state_dir),
-            },
-        ),
+    # Exercise a genuinely incomplete installation in a separate process;
+    # never alter the shared package or intercept Python imports.
+    site = tmp_path / "site"
+    installed = site / "abx_plugins"
+    shutil.copytree(Path(abx_plugins.__file__).parent, installed, ignore=shutil.ignore_patterns("__pycache__", "tests"))
+    damaged_path = installed / "plugins" / "opencode" / damaged_file
+    if missing:
+        damaged_path.unlink()
+    else:
+        damaged_path.write_text("{% invalid_template_tag %}")
+    expected_status = 200 if damaged_file in {"templates/navigation.html", "templates/add.html"} else 503
+    script = f"""
+import sys
+from pathlib import Path
+import abx_plugins
+from django.test import Client
+from django.contrib.auth import get_user_model
+assert Path(abx_plugins.__file__).is_relative_to({str(site)!r})
+user = get_user_model().objects.create_superuser(username='optional-service-test')
+client = Client(HTTP_HOST={ADMIN_TEST_HOST!r})
+client.force_login(user)
+for path in ('/health/', '/add/', '/admin/core/snapshot/'):
+    assert client.get(path).status_code == 200, path
+assert 'abx_plugins.plugins.opencode.runtime' not in sys.modules
+response = client.get('/admin/agent')
+assert response.status_code == {expected_status}, response.status_code
+if response.status_code == 503:
+    assert response.content == b'AI service unavailable. See server logs.'
+for path in ('/health/', '/add/', '/admin/core/snapshot/'):
+    assert client.get(path).status_code == 200, path
+print('OPTIONAL_SERVICE_FAILURE_ISOLATED')
+"""
+    result = run_archivebox_cmd(
+        ["shell", "-c", script],
+        cwd=live_opencode.config.data_dir,
+        env={**live_opencode.config.env, "PYTHONPATH": str(site)},
+        timeout=90,
     )
-
-    assert config_path.read_text() == existing_config
-
-
-def test_opencode_defaults_to_the_archivebox_collection():
-    from archivebox.opencode import views
-
-    settings = views._settings({})
-
-    assert settings["opencode_dir"] == settings["archivebox_data_dir"] / "opencode"
-    assert settings["workdir"] == settings["archivebox_data_dir"]
-    assert settings["timeout"] == 120
-
-
-def test_opencode_rewrites_vite_preload_assets():
-    from archivebox.opencode import views
-
-    body = b'const BL="modulepreload",UL=function(t){return"/"+t};const icon="/assets/sprite.svg#anthropic"'
-    rewritten = views._rewrite_text(body, {"origin": "http://127.0.0.1:4096"}).decode()
-
-    assert 'return"/"+t' not in rewritten
-    assert 'return"/admin/agent/opencode/"+t' in rewritten
-    assert '"/admin/agent/opencode/assets/sprite.svg#anthropic"' in rewritten
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "OPTIONAL_SERVICE_FAILURE_ISOLATED" in result.stdout
