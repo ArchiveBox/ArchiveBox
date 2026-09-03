@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import atexit
 import base64
+import json
 import logging
 import os
 import re
@@ -26,7 +27,6 @@ from django.http import (
     HttpRequest,
     HttpResponse,
     HttpResponseForbidden,
-    JsonResponse,
     StreamingHttpResponse,
 )
 from django.shortcuts import redirect, render
@@ -42,6 +42,7 @@ _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
 _CONFIG_PATH = Path(opencode_plugin.__file__).with_name("config.json")
+_DEFAULT_MODEL = "opencode/big-pickle"
 
 _TEXT_CONTENT_TYPES = (
     "text/",
@@ -219,7 +220,7 @@ def _settings(config: dict) -> dict:
         str(_config_value(config, "OPENCODE_STATE_DIR", default_data_dir / "opencode")),
     ).expanduser()
     workdir = Path(
-        str(_config_value(config, "OPENCODE_WORKDIR", opencode_dir / "workdir")),
+        str(_config_value(config, "OPENCODE_WORKDIR", default_data_dir)),
     ).expanduser()
     binary = str(_config_value(config, "OPENCODE_BINARY", "opencode"))
     timeout = int(_config_value(config, "OPENCODE_TIMEOUT", 120))
@@ -321,6 +322,21 @@ def _ensure_project_files(settings: dict) -> None:
             opencode_skill_path.unlink()
         opencode_skill_path.symlink_to(editable_skill_path)
 
+    opencode_config_path = settings["config_home"] / "opencode" / "opencode.jsonc"
+    default_config = {
+        "$schema": "https://opencode.ai/config.json",
+        "model": _DEFAULT_MODEL,
+    }
+    if not opencode_config_path.exists():
+        opencode_config_path.write_text(f"{json.dumps(default_config, indent=2)}\n")
+    else:
+        try:
+            existing_config = json.loads(opencode_config_path.read_text())
+        except (OSError, ValueError):
+            existing_config = None
+        if isinstance(existing_config, dict) and set(existing_config) <= {"$schema"}:
+            opencode_config_path.write_text(f"{json.dumps(default_config, indent=2)}\n")
+
 
 def _ensure_default_session(settings: dict) -> str:
     workdir = settings["workdir"].resolve()
@@ -391,19 +407,6 @@ def _health(settings: dict, timeout: float = 2) -> bool:
         return response.status_code == 200
     except requests.RequestException:
         return False
-
-
-def _opencode_version(settings: dict) -> str:
-    try:
-        response = requests.get(
-            f"{settings['origin']}/global/health",
-            timeout=2,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return str(data.get("version") or "") if isinstance(data, dict) else ""
-    except (requests.RequestException, ValueError):
-        return ""
 
 
 def _ensure_opencode(settings: dict) -> tuple[bool, str]:
@@ -539,16 +542,13 @@ def agent_view(request: HttpRequest):
     settings["archivebox_api_url"] = api_url
     ok, error = _ensure_opencode(settings)
     recent_session_id = ""
-    opencode_version = ""
     if ok:
         try:
             with _SESSION_LOCK:
                 recent_session_id = _ensure_default_session(settings)
-            opencode_version = _opencode_version(settings)
-            if not opencode_version:
-                ok = False
-                error = "OpenCode health check did not report its version."
         except (requests.RequestException, RuntimeError, ValueError) as err:
+            if isinstance(err, requests.RequestException) and _owned_process_ready():
+                _stop_owned_process()
             ok = False
             error = f"OpenCode project initialization failed: {err}"
     from archivebox.core.admin_site import archivebox_admin
@@ -565,7 +565,6 @@ def agent_view(request: HttpRequest):
         # transient new-session route and appear to have lost prior sessions.
         "proxy_url": _project_route(settings["workdir"], recent_session_id),
         "proxy_prefix": _PROXY_PREFIX,
-        "opencode_version": opencode_version,
         "workdir": str(settings["workdir"].resolve()),
         "recent_session_id": recent_session_id,
     }
@@ -575,23 +574,6 @@ def agent_view(request: HttpRequest):
         context,
         status=200 if ok else 502,
     )
-
-
-def agent_health_view(request: HttpRequest):
-    config = _machine_config()
-    _require_enabled(config)
-    auth_response = _require_superuser(request)
-    if auth_response:
-        return auth_response
-
-    version = _opencode_version(_settings(config))
-    healthy = bool(version)
-    response = JsonResponse(
-        {"healthy": healthy, "version": version},
-        status=200 if healthy else 503,
-    )
-    response.headers["Cache-Control"] = "no-store"
-    return response
 
 
 def _proxy_url(settings: dict, path: str | None) -> str:

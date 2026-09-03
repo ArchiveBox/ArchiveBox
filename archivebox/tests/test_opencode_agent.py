@@ -1,4 +1,5 @@
 import asyncio
+import json
 import os
 import signal
 import socket
@@ -189,14 +190,8 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
     assert response.context["proxy_prefix"] == views._PROXY_PREFIX
-    assert response.context["opencode_version"]
-    assert b"const healthUrl" in response.content
-    assert b"/admin/agent/opencode/global/health" in response.content
-    assert b"/admin/agent/opencode/_archivebox/health" in response.content
-    assert b'redirect: "manual"' in response.content
-    assert b"let waking = false" in response.content
-    assert b"wake();" in response.content
-    assert b"frame.contentWindow.location.reload()" in response.content
+    assert b"/_archivebox/health" not in response.content
+    assert b"window.setInterval(check, 3000)" not in response.content
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
 
@@ -208,21 +203,6 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert session.status_code == 200
     assert session.headers["X-Frame-Options"] == "SAMEORIGIN"
     assert session.headers["Content-Security-Policy"] == "frame-ancestors 'self'"
-
-
-def test_opencode_health_monitor_does_not_start_server(admin_client, live_opencode):
-    from archivebox.opencode import views
-
-    views._stop_owned_process()
-    response = admin_client.get(
-        "/admin/agent/opencode/_archivebox/health",
-        HTTP_HOST=ADMIN_TEST_HOST,
-    )
-
-    assert response.status_code == 503
-    assert response.json() == {"healthy": False, "version": ""}
-    assert response.headers["Cache-Control"] == "no-store"
-    assert views._PROCESS is None
 
 
 def test_opencode_proxy_serves_real_project_and_session(admin_client, live_opencode):
@@ -422,8 +402,15 @@ def test_opencode_starts_with_isolated_state(live_opencode):
     )
     project.raise_for_status()
 
+    config = requests.get(
+        f"{live_opencode.settings['origin']}/global/config",
+        timeout=live_opencode.settings["timeout"],
+    )
+    config.raise_for_status()
+
     assert Path(live_opencode.settings["workdir"]).resolve() == Path(workdir)
     assert Path(str(project.json()["worktree"])).resolve() == Path(workdir)
+    assert config.json()["model"] == "opencode/big-pickle"
     assert live_opencode.process.poll() is None
     assert (live_opencode.config.data_dir / ".git").is_dir()
     assert (state_dir / "data" / "opencode" / "opencode.db").is_file()
@@ -455,15 +442,57 @@ def test_opencode_state_dir_is_separate_from_workdir(tmp_path):
     assert loaded_skill.is_symlink()
     assert loaded_skill.resolve() == editable_skill.resolve()
     assert f"ArchiveBox collection directory: {settings['archivebox_data_dir']}" in editable_skill.read_text()
+    assert json.loads((state_dir / "config" / "opencode" / "opencode.jsonc").read_text())["model"] == "opencode/big-pickle"
 
 
-def test_opencode_default_workdir_does_not_scan_the_collection():
+def test_opencode_preserves_existing_config(tmp_path):
+    from archivebox.opencode import views
+
+    state_dir = tmp_path / "state"
+    config_path = state_dir / "config" / "opencode" / "opencode.jsonc"
+    config_path.parent.mkdir(parents=True)
+    existing_config = '{\n  // Keep the administrator-selected model.\n  "model": "anthropic/claude-sonnet-4-5"\n}\n'
+    config_path.write_text(existing_config)
+
+    views._ensure_project_files(
+        views._settings(
+            {
+                "OPENCODE_WORKDIR": str(tmp_path / "workdir"),
+                "OPENCODE_STATE_DIR": str(state_dir),
+            },
+        ),
+    )
+
+    assert config_path.read_text() == existing_config
+
+
+def test_opencode_adds_default_model_to_schema_only_config(tmp_path):
+    from archivebox.opencode import views
+
+    state_dir = tmp_path / "state"
+    config_path = state_dir / "config" / "opencode" / "opencode.jsonc"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text('{"$schema": "https://opencode.ai/config.json"}\n')
+
+    views._ensure_project_files(
+        views._settings(
+            {
+                "OPENCODE_WORKDIR": str(tmp_path / "workdir"),
+                "OPENCODE_STATE_DIR": str(state_dir),
+            },
+        ),
+    )
+
+    assert json.loads(config_path.read_text())["model"] == "opencode/big-pickle"
+
+
+def test_opencode_defaults_to_the_archivebox_collection():
     from archivebox.opencode import views
 
     settings = views._settings({})
 
     assert settings["opencode_dir"] == settings["archivebox_data_dir"] / "opencode"
-    assert settings["workdir"] == settings["opencode_dir"] / "workdir"
+    assert settings["workdir"] == settings["archivebox_data_dir"]
     assert settings["timeout"] == 120
 
 
