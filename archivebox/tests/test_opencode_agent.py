@@ -280,7 +280,8 @@ def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client
     from archivebox.opencode import views
     from django.conf import settings as django_settings
 
-    views._stop_owned_process()
+    owned_process = views._PROCESS
+    assert owned_process is not None
     session_cookie_name = django_settings.SESSION_COOKIE_NAME
     session_cookie = admin_client.cookies[session_cookie_name].value
     path = "/admin/agent/opencode/global/event"
@@ -307,17 +308,25 @@ def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client
             },
         )
         views._PROCESS_LOCK.acquire()
+        views._PROCESS = None
         try:
             await communicator.send_input({"type": "http.request", "body": b"", "more_body": False})
             response_start = await communicator.receive_output(timeout=2)
             assert response_start["type"] == "http.response.start"
             assert response_start["status"] == 200
         finally:
-            views._PROCESS_LOCK.release()
-            await communicator.send_input({"type": "http.disconnect"})
-            await communicator.wait(timeout=5)
+            try:
+                await communicator.send_input({"type": "http.disconnect"})
+                await communicator.wait(timeout=5)
+            finally:
+                views._PROCESS = owned_process
+                views._PROCESS_LOCK.release()
 
     asyncio.run(request_event_stream())
+    ok, error = views._ensure_opencode(live_opencode.settings)
+    assert ok, error
+    assert views._PROCESS is owned_process
+    assert owned_process.poll() is None
 
 
 def test_opencode_starts_with_isolated_state(live_opencode):
