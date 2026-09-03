@@ -382,11 +382,11 @@ def _owned_process_ready() -> bool:
     return process is not None and process is _PROCESS and process.poll() is None
 
 
-def _health(settings: dict) -> bool:
+def _health(settings: dict, timeout: float = 2) -> bool:
     try:
         response = requests.get(
             f"{settings['origin']}/global/health",
-            timeout=2,
+            timeout=timeout,
         )
         return response.status_code == 200
     except requests.RequestException:
@@ -501,17 +501,24 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
             return False, f"OpenCode binary not found: {settings['binary']}"
 
         deadline = time.monotonic() + settings["timeout"]
-        while time.monotonic() < deadline:
-            if _health(settings):
-                _PROCESS_READY = started_process
-                return True, ""
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            if _health(settings, timeout=min(2, remaining)):
+                if time.monotonic() <= deadline:
+                    _PROCESS_READY = started_process
+                    return True, ""
+                break
             if started_process and started_process.poll() is not None:
                 if _PROCESS is started_process:
                     _PROCESS = None
                 if _PROCESS_READY is started_process:
                     _PROCESS_READY = None
                 return False, "OpenCode exited before the web server became ready."
-            time.sleep(0.25)
+            remaining = deadline - time.monotonic()
+            if remaining > 0:
+                time.sleep(min(0.25, remaining))
 
         _stop_owned_process(started_process)
         return False, "Timed out waiting for OpenCode to start."
