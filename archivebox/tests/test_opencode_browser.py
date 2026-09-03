@@ -1,10 +1,13 @@
 """Exercise the real agent wrapper with Chromium's native storage failures."""
 
+import asyncio
 import json
 import os
+import re
 import subprocess
 
 import pytest
+import requests
 
 from .conftest import get_free_port, run_archivebox_cmd, start_archivebox_server, stop_archivebox_process
 from .test_opencode_agent import _set_archivebox_config
@@ -14,6 +17,93 @@ from .test_server_security_browser import browser_runtime as browser_runtime
 
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_agent_navigation_stays_inside_mount(agent_server, browser_runtime):
+    server_url, _ = agent_server
+    script = r"""
+const assert = require('node:assert/strict');
+const puppeteer = require('puppeteer');
+const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+(async () => {
+  const browser = await puppeteer.launch({executablePath: config.chrome, headless: true,
+    args: ['--no-sandbox', '--disable-frame-rate-limit']});
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({width: 1440, height: 900});
+    await page.goto(config.url + '/admin/login/', {waitUntil: 'domcontentloaded'});
+    await page.locator('#login-form input[name="username"]').fill('agent-browser-test');
+    await page.locator('#login-form input[name="password"]').fill('test-password');
+    await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}),
+      page.locator('#login-form input[type="submit"]').click()]);
+    assert.equal((await page.goto(config.url + '/admin/agent', {waitUntil: 'domcontentloaded'})).status(), 200);
+    await page.locator('#opencode-agent-welcome-dismiss').click();
+    const frame = await (await page.waitForSelector('iframe')).contentFrame();
+    await frame.waitForSelector('a[href*="/session"]');
+    const links = await frame.$$eval('a[href*="/session"]', nodes => nodes.map(node => node.getAttribute('href')));
+    assert.ok(links.length, 'OpenCode must expose session navigation');
+    for (const href of links) assert.ok(href.startsWith('/admin/agent/opencode/'), href);
+    await frame.locator('::-p-aria(New session[role="button"])').click();
+    await frame.waitForSelector('[contenteditable="true"]');
+    let navigation;
+    for (const link of await frame.$$('a[href*="/session"]')) {
+      if (await link.isVisible() && await link.evaluate(node => node.href) !== frame.url()) {
+        navigation = link;
+        break;
+      }
+    }
+    assert.ok(navigation, 'A visible link must navigate to another session route');
+    await navigation.click();
+    await frame.waitForSelector('[contenteditable="true"]');
+    assert.ok(new URL(frame.url()).pathname.startsWith('/admin/agent/opencode/'), frame.url());
+    const sessionUrl = frame.url();
+    assert.equal((await frame.goto(sessionUrl, {waitUntil: 'domcontentloaded'})).status(), 200);
+    await frame.waitForSelector('[contenteditable="true"]');
+    assert.ok(!(await frame.$eval('body', node => node.innerText)).includes('Something went wrong'));
+    // Exercise the actual public PTY API and native browser WebSocket. No
+    // intercepted traffic or replacement server: this runs a real shell.
+    const terminal = await frame.evaluate(async () => {
+      const base = location.origin + '/admin/agent/opencode';
+      const created = await fetch(base + '/pty', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({command: '/bin/sh', args: []}),
+      });
+      if (!created.ok) throw new Error('PTY create: ' + created.status);
+      const pty = await created.json();
+      try {
+        return await new Promise((resolve, reject) => {
+          const url = new URL(base + '/pty/' + pty.id + '/connect');
+          url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+          const socket = new WebSocket(url);
+          const timer = setTimeout(() => { socket.close(); reject(new Error('PTY output timed out')); }, 10000);
+          let output = '';
+          socket.onopen = () => socket.send("printf 'ABX_%s\\n' TERMINAL_OK\n");
+          socket.onmessage = async event => {
+            output += typeof event.data === 'string' ? event.data : await event.data.text();
+            if (output.includes('ABX_TERMINAL_OK')) {
+              clearTimeout(timer); socket.close(); resolve(output);
+            }
+          };
+          socket.onerror = () => { clearTimeout(timer); reject(new Error('PTY WebSocket failed')); };
+        });
+      } finally { await fetch(base + '/pty/' + pty.id, {method: 'DELETE'}); }
+    });
+    assert.ok(terminal.includes('ABX_TERMINAL_OK'), terminal);
+    assert.equal((await page.goto(config.url + '/add/', {waitUntil: 'domcontentloaded'})).status(), 200);
+    console.log('AGENT_NAVIGATION_OK');
+  } finally { await browser.close(); }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+"""
+    result = subprocess.run(
+        [str(browser_runtime["node_binary"]), "-e", script],
+        input=json.dumps({"chrome": str(browser_runtime["chrome_binary"]), "url": server_url}),
+        env={**os.environ, "NODE_PATH": browser_runtime["node_path"]},
+        text=True,
+        capture_output=True,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert "AGENT_NAVIGATION_OK" in result.stdout
 
 
 @pytest.fixture
@@ -30,7 +120,7 @@ def agent_server(installed_opencode, browser_runtime):
         [
             "shell",
             "-c",
-            "from django.contrib.auth import get_user_model; get_user_model().objects.create_superuser(username='agent-browser-test', password='test-password')",
+            "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.create_superuser(username='agent-browser-test', password='test-password'); User.objects.create_user(username='agent-regular-test', password='test-password', is_staff=True)",
         ],
         cwd=config.data_dir,
         env=config.env,
@@ -41,6 +131,54 @@ def agent_server(installed_opencode, browser_runtime):
         yield url, config.data_dir
     finally:
         stop_archivebox_process(process)
+
+
+def test_agent_websocket_rejects_unauthorized_access(agent_server):
+    from websockets.asyncio.client import connect
+    from websockets.exceptions import InvalidStatus
+
+    server_url, _ = agent_server
+
+    def login(username):
+        session = requests.Session()
+        login_url = server_url + "/admin/login/"
+        page = session.get(login_url, timeout=10)
+        assert page.status_code == 200
+        token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', page.text)
+        assert token is not None
+        response = session.post(
+            login_url,
+            data={"username": username, "password": "test-password", "csrfmiddlewaretoken": token[1]},
+            headers={"Referer": login_url},
+            allow_redirects=False,
+            timeout=10,
+        )
+        assert response.status_code == 302
+        return "; ".join(f"{key}={value}" for key, value in session.cookies.items())
+
+    admin_cookie = login("agent-browser-test")
+    regular_cookie = login("agent-regular-test")
+
+    async def check_denials():
+        for path, cookie, origin in (
+            ("/admin/agent/opencode/pty/unknown/connect", "", server_url),
+            ("/admin/agent/opencode/pty/unknown/connect", regular_cookie, server_url),
+            ("/admin/agent/opencode/pty/unknown/connect", admin_cookie, "https://untrusted.example"),
+            ("/admin/agent/opencode/pty/unknown/connect", admin_cookie, None),
+            ("/health/", admin_cookie, server_url),
+        ):
+            with pytest.raises(InvalidStatus) as error:
+                async with connect(
+                    server_url.replace("http", "ws", 1) + path,
+                    origin=origin,
+                    additional_headers={"Cookie": cookie},
+                    proxy=None,
+                ):
+                    pytest.fail("Unauthorized WebSocket was accepted")
+            assert error.value.response.status_code == 403
+
+    asyncio.run(check_denials())
+    assert requests.get(server_url + "/health/", timeout=10).status_code == 200
 
 
 def test_agent_preserves_projects_and_survives_storage_failure(agent_server, browser_runtime):
