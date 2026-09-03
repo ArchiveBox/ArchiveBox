@@ -31,6 +31,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 _PROCESS: subprocess.Popen | None = None
 _PROCESS_LOCK = threading.Lock()
+_SESSION_LOCK = threading.Lock()
 _PROXY_PREFIX = "/admin/agent/opencode"
 _PROXY_PREFIX_REGEX = _PROXY_PREFIX.replace("/", r"\/")
 _PROXY_PREFIX_NO_SLASH_REGEX = _PROXY_PREFIX.lstrip("/").replace("/", r"\/")
@@ -477,7 +478,8 @@ def agent_view(request: HttpRequest):
     recent_session_id = ""
     if ok:
         try:
-            recent_session_id = _ensure_default_session(settings)
+            with _SESSION_LOCK:
+                recent_session_id = _ensure_default_session(settings)
         except (requests.RequestException, RuntimeError, ValueError) as err:
             ok = False
             error = f"OpenCode project initialization failed: {err}"
@@ -659,36 +661,25 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
             content_type="text/plain; charset=utf-8",
         )
 
+    try:
+        body = upstream.content
+    except requests.RequestException as err:
+        upstream.close()
+        return HttpResponse(
+            str(err).encode(),
+            status=502,
+            content_type="text/plain; charset=utf-8",
+        )
+
     content_type = upstream.headers.get("Content-Type", "")
-    is_event_stream = content_type.startswith("text/event-stream")
-    is_json = content_type.startswith("application/json")
-    is_text = not is_event_stream and any(content_type.startswith(prefix) for prefix in _TEXT_CONTENT_TYPES)
     headers = _response_headers(upstream, settings)
-    if is_text:
-        body = _rewrite_text(upstream.content, settings)
-        response = HttpResponse(
-            body,
-            status=upstream.status_code,
-            content_type=content_type or "text/plain; charset=utf-8",
-        )
-    elif is_json:
-        response = HttpResponse(
-            upstream.content,
-            status=upstream.status_code,
-            content_type=content_type,
-        )
-    elif is_event_stream:
-        response = StreamingHttpResponse(
-            upstream.iter_lines(chunk_size=1),
-            status=upstream.status_code,
-            content_type=content_type or "text/event-stream",
-        )
-    else:
-        response = StreamingHttpResponse(
-            upstream.iter_content(chunk_size=64 * 1024),
-            status=upstream.status_code,
-            content_type=content_type or "application/octet-stream",
-        )
+    if any(content_type.startswith(prefix) for prefix in _TEXT_CONTENT_TYPES):
+        body = _rewrite_text(body, settings)
+    response = HttpResponse(
+        body,
+        status=upstream.status_code,
+        content_type=content_type or "application/octet-stream",
+    )
     for key, value in headers.items():
         response.headers[key] = value
     response.headers["Cache-Control"] = "no-store"
