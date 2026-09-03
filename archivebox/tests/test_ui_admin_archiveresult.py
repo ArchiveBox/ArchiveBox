@@ -17,6 +17,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 def projected_noresults(snapshot, cached_abxpkg_lib_dir):
     from abx_dl.events import ProcessEvent, SnapshotEvent
     from abx_dl.orchestrator import create_bus
+    from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
     from abx_dl.services.process_service import ProcessService as HookProcessService
     from archivebox.core.models import ArchiveResult
     from archivebox.services.archive_result_service import ArchiveResultService
@@ -33,6 +34,7 @@ def projected_noresults(snapshot, cached_abxpkg_lib_dir):
     (staticfile_dir / "input.txt").write_text("plain text without links", encoding="utf-8")
     bus = create_bus(name=f"test_admin_noresults_{snapshot.id}")
     HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
+    HookArchiveResultService(bus, emit_jsonl=False)
     PersistedProcessService(bus)
     ArchiveResultService(bus)
 
