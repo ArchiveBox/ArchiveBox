@@ -1,0 +1,21 @@
+archivebox/tests/test_opencode_agent.py
+  s_80d4bd2d930f75::t_78e2b3ac13d2fc 108
+archivebox/opencode/views.py
+  s_80d4bd2d930f75::t_78e2b3ac13d2fc 8,95-98,102-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "0fd58bf09e04d4b3539d1d7cc1b9daaf5bdc2715",
+  "prompts": {},
+  "sessions": {
+    "s_80d4bd2d930f75": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05e81-8ef7-7ee1-b52f-f712a0d60079",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
