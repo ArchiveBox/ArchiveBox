@@ -189,6 +189,8 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert response.context["proxy_prefix"] == views._PROXY_PREFIX
     assert response.context["opencode_version"]
     assert b"const healthUrl" in response.content
+    assert b"/admin/agent/opencode/global/health" in response.content
+    assert b"/admin/agent/opencode/_archivebox/health" in response.content
     assert b'redirect: "manual"' in response.content
     assert b"frame.contentWindow.location.reload()" in response.content
     assert response.headers["X-Frame-Options"] == "DENY"
@@ -202,6 +204,20 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert session.status_code == 200
     assert session.headers["X-Frame-Options"] == "SAMEORIGIN"
     assert session.headers["Content-Security-Policy"] == "frame-ancestors 'self'"
+
+
+def test_opencode_health_monitor_does_not_start_server(admin_client, live_opencode):
+    from archivebox.opencode import views
+
+    views._stop_owned_process()
+    response = admin_client.get(
+        "/admin/agent/opencode/_archivebox/health",
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {"healthy": False, "version": ""}
+    assert views._PROCESS is None
 
 
 def test_opencode_proxy_serves_real_project_and_session(admin_client, live_opencode):

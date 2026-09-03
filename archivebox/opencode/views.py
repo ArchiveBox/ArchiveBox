@@ -26,6 +26,7 @@ from django.http import (
     HttpRequest,
     HttpResponse,
     HttpResponseForbidden,
+    JsonResponse,
     StreamingHttpResponse,
 )
 from django.shortcuts import redirect, render
@@ -515,6 +516,9 @@ def agent_view(request: HttpRequest):
             with _SESSION_LOCK:
                 recent_session_id = _ensure_default_session(settings)
             opencode_version = _opencode_version(settings)
+            if not opencode_version:
+                ok = False
+                error = "OpenCode health check did not report its version."
         except (requests.RequestException, RuntimeError, ValueError) as err:
             ok = False
             error = f"OpenCode project initialization failed: {err}"
@@ -541,6 +545,21 @@ def agent_view(request: HttpRequest):
         "opencode/agent.html",
         context,
         status=200 if ok else 502,
+    )
+
+
+def agent_health_view(request: HttpRequest):
+    config = _machine_config()
+    _require_enabled(config)
+    auth_response = _require_superuser(request)
+    if auth_response:
+        return auth_response
+
+    version = _opencode_version(_settings(config))
+    healthy = bool(version)
+    return JsonResponse(
+        {"healthy": healthy, "version": version},
+        status=200 if healthy else 503,
     )
 
 

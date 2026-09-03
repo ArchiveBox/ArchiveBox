@@ -212,6 +212,12 @@
                     if (!frame) return;
 
                     const healthUrl = "{{ proxy_prefix|escapejs }}/global/health";
+                    const monitorUrl = "{{ proxy_prefix|escapejs }}/_archivebox/health";
+                    const fetchOptions = {
+                        cache: "no-store",
+                        credentials: "same-origin",
+                        redirect: "manual",
+                    };
                     let checking = false;
                     let wasUnavailable = false;
                     let healthyChecks = 0;
@@ -220,14 +226,15 @@
                         if (checking || (document.hidden && wasUnavailable)) return;
                         checking = true;
                         try {
-                            const response = await fetch(healthUrl, {
-                                cache: "no-store",
-                                credentials: "same-origin",
-                                redirect: "manual",
-                            });
+                            const response = await fetch(monitorUrl, fetchOptions);
                             if (!response.ok || response.redirected) {
                                 wasUnavailable = true;
                                 healthyChecks = 0;
+                                if (response.status === 503) {
+                                    try {
+                                        await fetch(healthUrl, fetchOptions);
+                                    } catch {}
+                                }
                                 return;
                             }
 
