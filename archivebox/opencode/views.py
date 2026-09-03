@@ -5,6 +5,7 @@ import base64
 import logging
 import os
 import re
+import signal
 import shutil
 import subprocess
 import threading
@@ -91,11 +92,17 @@ def _stop_owned_process(process: subprocess.Popen | None = None) -> None:
     if owned_process is None:
         return
     if owned_process.poll() is None:
-        owned_process.terminate()
+        try:
+            os.killpg(owned_process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
         try:
             owned_process.wait(timeout=5)
         except subprocess.TimeoutExpired:
-            owned_process.kill()
+            try:
+                os.killpg(owned_process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
             owned_process.wait()
     if _PROCESS is owned_process:
         _PROCESS = None

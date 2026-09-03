@@ -105,10 +105,7 @@ def live_opencode(opencode_archive_config):
     try:
         yield SimpleNamespace(config=opencode_archive_config, settings=settings, process=process)
     finally:
-        if views._PROCESS and views._PROCESS.poll() is None:
-            views._PROCESS.terminate()
-            views._PROCESS.wait(timeout=10)
-        views._PROCESS = None
+        views._stop_owned_process()
 
 
 def test_opencode_disabled_route_does_not_start_server(client, initialized_archive):
