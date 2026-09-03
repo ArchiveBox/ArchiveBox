@@ -206,6 +206,78 @@
                     });
                 })();
             </script>
+            <script>
+                (() => {
+                    const frame = document.querySelector(".opencode-agent-frame");
+                    if (!frame) return;
+
+                    const healthUrl = "{{ proxy_prefix|escapejs }}/global/health";
+                    const monitorUrl = "{{ proxy_prefix|escapejs }}/_archivebox/health";
+                    const fetchOptions = {
+                        cache: "no-store",
+                        credentials: "same-origin",
+                        redirect: "manual",
+                    };
+                    let checking = false;
+                    let waking = false;
+                    let wasUnavailable = false;
+                    let healthyChecks = 0;
+                    let knownVersion = "{{ opencode_version|escapejs }}";
+                    const wake = () => {
+                        if (waking) return;
+                        waking = true;
+                        fetch(healthUrl, fetchOptions)
+                            .catch(() => {})
+                            .finally(() => { waking = false; });
+                    };
+                    const check = async () => {
+                        if (checking || (document.hidden && wasUnavailable)) return;
+                        checking = true;
+                        try {
+                            const response = await fetch(monitorUrl, fetchOptions);
+                            if (!response.ok || response.redirected) {
+                                wasUnavailable = true;
+                                healthyChecks = 0;
+                                if (response.status === 503) {
+                                    wake();
+                                }
+                                return;
+                            }
+
+                            const health = await response.json();
+                            if (!health || health.healthy !== true) {
+                                wasUnavailable = true;
+                                healthyChecks = 0;
+                                return;
+                            }
+                            const currentVersion = typeof health.version === "string" ? health.version : "";
+                            if (knownVersion && currentVersion && currentVersion !== knownVersion) {
+                                wasUnavailable = true;
+                            }
+                            if (currentVersion) {
+                                knownVersion = currentVersion;
+                            }
+                            if (wasUnavailable && ++healthyChecks >= 2) {
+                                wasUnavailable = false;
+                                healthyChecks = 0;
+                                frame.contentWindow.location.reload();
+                            }
+                        } catch {
+                            wasUnavailable = true;
+                            healthyChecks = 0;
+                        } finally {
+                            checking = false;
+                        }
+                    };
+
+                    window.setInterval(check, 3000);
+                    window.addEventListener("online", check);
+                    document.addEventListener("visibilitychange", () => {
+                        if (!document.hidden) check();
+                    });
+                    check();
+                })();
+            </script>
         {% endif %}
     </div>
 {% endblock %}
