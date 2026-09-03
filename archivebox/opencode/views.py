@@ -205,7 +205,7 @@ def _settings(config: dict) -> dict:
         str(_config_value(config, "OPENCODE_WORKDIR", opencode_dir / "workdir")),
     ).expanduser()
     binary = str(_config_value(config, "OPENCODE_BINARY", "opencode"))
-    timeout = int(_config_value(config, "OPENCODE_TIMEOUT", 30))
+    timeout = int(_config_value(config, "OPENCODE_TIMEOUT", 120))
     return {
         "host": host,
         "port": port,
@@ -370,31 +370,38 @@ def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     global _PROCESS
     started_process: subprocess.Popen | None = None
     workdir = settings["workdir"].resolve()
-    try:
-        binary, git_binary, binary_env = _resolve_binary(
-            settings["binary"],
-            settings["config"],
-        )
-    except RuntimeError as err:
-        return False, str(err)
 
-    env = {
-        **os.environ,
-        **binary_env,
-        "ARCHIVEBOX_BASE_URL": str(settings.get("archivebox_base_url", "")),
-        "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
-        "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
-        "BROWSER": "false",
-        "GIT_CEILING_DIRECTORIES": str(workdir),
-        "HOME": str(settings["home"]),
-        "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
-        "XDG_CONFIG_HOME": str(settings["config_home"]),
-        "XDG_DATA_HOME": str(settings["data_home"]),
-        "XDG_STATE_HOME": str(settings["state_home"]),
-        "XDG_CACHE_HOME": str(settings["cache_home"]),
-    }
+    if (_PROCESS is not None and _PROCESS.poll() is None) or _health(settings):
+        return True, ""
 
     with _PROCESS_LOCK:
+        if (_PROCESS is not None and _PROCESS.poll() is None) or _health(settings):
+            return True, ""
+
+        try:
+            binary, git_binary, binary_env = _resolve_binary(
+                settings["binary"],
+                settings["config"],
+            )
+        except RuntimeError as err:
+            return False, str(err)
+
+        env = {
+            **os.environ,
+            **binary_env,
+            "ARCHIVEBOX_BASE_URL": str(settings.get("archivebox_base_url", "")),
+            "ARCHIVEBOX_ADMIN_URL": str(settings.get("archivebox_admin_url", "")),
+            "ARCHIVEBOX_API_URL": str(settings.get("archivebox_api_url", "")),
+            "BROWSER": "false",
+            "GIT_CEILING_DIRECTORIES": str(workdir),
+            "HOME": str(settings["home"]),
+            "OPENCODE_DISABLE_PROJECT_CONFIG": "true",
+            "XDG_CONFIG_HOME": str(settings["config_home"]),
+            "XDG_DATA_HOME": str(settings["data_home"]),
+            "XDG_STATE_HOME": str(settings["state_home"]),
+            "XDG_CACHE_HOME": str(settings["cache_home"]),
+        }
+
         settings["workdir"].mkdir(parents=True, exist_ok=True)
         settings["config_home"].mkdir(parents=True, exist_ok=True)
         settings["data_home"].mkdir(parents=True, exist_ok=True)
@@ -544,15 +551,18 @@ async def _event_chunks(request: HttpRequest, settings: dict, path: str | None):
     timeout = httpx.Timeout(settings["timeout"], read=None)
     url = _proxy_url(settings, path)
     method = request.method or "GET"
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
-        async with client.stream(
-            method,
-            url,
-            params=_request_params(request),
-            headers=_request_headers(request, settings),
-        ) as upstream:
-            async for chunk in upstream.aiter_raw(chunk_size=512):
-                yield chunk
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            async with client.stream(
+                method,
+                url,
+                params=_request_params(request),
+                headers=_request_headers(request, settings),
+            ) as upstream:
+                async for chunk in upstream.aiter_raw(chunk_size=512):
+                    yield chunk
+    except httpx.RequestError as err:
+        _LOGGER.warning("OpenCode event stream ended: %s", err)
 
 
 def _rewrite_text(body: bytes, settings: dict) -> bytes:
@@ -616,7 +626,7 @@ def _response_headers(upstream: requests.Response, settings: dict) -> dict[str, 
     return headers
 
 
-def _proxy_error_response(error: requests.RequestException) -> HttpResponse:
+def _proxy_error_response(error: Exception | str) -> HttpResponse:
     _LOGGER.warning("OpenCode upstream request failed: %s", error)
     return HttpResponse(
         b"OpenCode upstream request failed.",
@@ -643,6 +653,10 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
     settings["archivebox_base_url"] = base_url
     settings["archivebox_admin_url"] = admin_url
     settings["archivebox_api_url"] = api_url
+
+    ok, error = _ensure_opencode(settings)
+    if not ok:
+        return _proxy_error_response(error)
 
     if request.method == "GET" and (path or "").endswith("/event"):
         response = StreamingHttpResponse(
