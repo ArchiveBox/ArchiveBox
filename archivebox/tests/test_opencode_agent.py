@@ -128,9 +128,13 @@ def test_stop_owned_process_falls_back_when_process_has_no_dedicated_group():
     from archivebox.opencode import views
 
     process = subprocess.Popen(["sleep", "60"])
-    views._stop_owned_process(process)
-
-    assert process.poll() is not None
+    try:
+        views._stop_owned_process(process)
+        assert process.poll() is not None
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait()
 
 
 def test_opencode_agent_requires_superuser_when_enabled(client, db, django_user_model, live_opencode):
