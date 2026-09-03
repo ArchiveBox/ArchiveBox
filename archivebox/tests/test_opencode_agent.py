@@ -186,7 +186,10 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert f'<iframe src="{session_path}"'.encode() in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
-    assert b'fetch("/admin/agent/opencode/global/health"' in response.content
+    assert response.context["proxy_prefix"] == views._PROXY_PREFIX
+    assert response.context["opencode_version"]
+    assert b"const healthUrl" in response.content
+    assert b'redirect: "manual"' in response.content
     assert b"frame.contentWindow.location.reload()" in response.content
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
@@ -261,6 +264,22 @@ def test_concurrent_opencode_startup_waits_until_server_is_ready(live_opencode):
 
     assert results == [(True, ""), (True, "")]
     assert views._health(live_opencode.settings)
+
+
+def test_opencode_restarts_an_unhealthy_owned_process(live_opencode):
+    from archivebox.opencode import views
+
+    old_process = views._PROCESS
+    settings = {**live_opencode.settings, "port": _free_port()}
+    settings["origin"] = f"http://{settings['host']}:{settings['port']}"
+
+    ok, error = views._ensure_opencode(settings)
+
+    assert ok, error
+    assert old_process is not None
+    assert old_process.poll() is not None
+    assert views._PROCESS is not old_process
+    assert views._health(settings)
 
 
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):

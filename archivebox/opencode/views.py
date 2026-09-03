@@ -378,14 +378,29 @@ def _health(settings: dict) -> bool:
         return False
 
 
+def _opencode_version(settings: dict) -> str:
+    try:
+        response = requests.get(
+            f"{settings['origin']}/global/health",
+            timeout=2,
+        )
+        response.raise_for_status()
+        data = response.json()
+        return str(data.get("version") or "") if isinstance(data, dict) else ""
+    except (requests.RequestException, ValueError):
+        return ""
+
+
 def _ensure_opencode(settings: dict) -> tuple[bool, str]:
     global _PROCESS
     started_process: subprocess.Popen | None = None
     workdir = settings["workdir"].resolve()
 
     with _PROCESS_LOCK:
-        if (_PROCESS is not None and _PROCESS.poll() is None) or _health(settings):
+        if _health(settings):
             return True, ""
+        if _PROCESS is not None and _PROCESS.poll() is None:
+            _stop_owned_process(_PROCESS)
 
         try:
             binary, git_binary, binary_env = _resolve_binary(
@@ -494,10 +509,12 @@ def agent_view(request: HttpRequest):
     settings["archivebox_api_url"] = api_url
     ok, error = _ensure_opencode(settings)
     recent_session_id = ""
+    opencode_version = ""
     if ok:
         try:
             with _SESSION_LOCK:
                 recent_session_id = _ensure_default_session(settings)
+            opencode_version = _opencode_version(settings)
         except (requests.RequestException, RuntimeError, ValueError) as err:
             ok = False
             error = f"OpenCode project initialization failed: {err}"
@@ -514,6 +531,8 @@ def agent_view(request: HttpRequest):
         # open the durable session URL so a fresh browser does not land on the
         # transient new-session route and appear to have lost prior sessions.
         "proxy_url": _project_route(settings["workdir"], recent_session_id),
+        "proxy_prefix": _PROXY_PREFIX,
+        "opencode_version": opencode_version,
         "workdir": str(settings["workdir"].resolve()),
         "recent_session_id": recent_session_id,
     }
