@@ -20,6 +20,7 @@ from abx_plugins.plugins import opencode as opencode_plugin
 from archivebox.config import CONSTANTS
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import build_admin_url, get_api_base_url, get_base_url
+from asgiref.sync import sync_to_async
 from django.http import (
     Http404,
     HttpRequest,
@@ -555,17 +556,27 @@ def _request_params(request: HttpRequest) -> tuple[tuple[str, str], ...]:
     return tuple((key, str(value)) for key, value in dict(request.GET).items())
 
 
-async def _event_chunks(request: HttpRequest, settings: dict, path: str | None):
+async def _event_chunks(
+    settings: dict,
+    path: str | None,
+    method: str,
+    params: tuple[tuple[str, str], ...],
+    headers: dict[str, str],
+):
+    ok, error = await sync_to_async(_ensure_opencode, thread_sensitive=False)(settings)
+    if not ok:
+        _LOGGER.warning("OpenCode event stream unavailable: %s", error)
+        return
+
     timeout = httpx.Timeout(settings["timeout"], read=None)
     url = _proxy_url(settings, path)
-    method = request.method or "GET"
     try:
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             async with client.stream(
                 method,
                 url,
-                params=_request_params(request),
-                headers=_request_headers(request, settings),
+                params=params,
+                headers=headers,
             ) as upstream:
                 async for chunk in upstream.aiter_raw(chunk_size=512):
                     yield chunk
@@ -662,18 +673,24 @@ def opencode_proxy_view(request: HttpRequest, path: str | None = None):
     settings["archivebox_admin_url"] = admin_url
     settings["archivebox_api_url"] = api_url
 
-    ok, error = _ensure_opencode(settings)
-    if not ok:
-        return _proxy_error_response(error)
-
     if request.method == "GET" and (path or "").endswith("/event"):
         response = StreamingHttpResponse(
-            _event_chunks(request, settings, path),
+            _event_chunks(
+                settings,
+                path,
+                request.method or "GET",
+                _request_params(request),
+                _request_headers(request, settings),
+            ),
             content_type="text/event-stream",
         )
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Accel-Buffering"] = "no"
         return response
+
+    ok, error = _ensure_opencode(settings)
+    if not ok:
+        return _proxy_error_response(error)
 
     try:
         method = request.method or "GET"
