@@ -18,6 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 
 from archivebox.config import CONSTANTS
 from archivebox.config.common import get_config, get_request_config
+from archivebox.core.middleware import ReverseProxyAuthMiddleware
 from archivebox.core.routes_util import build_admin_url, get_admin_host, get_api_base_url, get_base_url, host_matches
 from archivebox.plugins.discovery import get_plugin_template
 
@@ -102,6 +103,8 @@ def _websocket_context(scope):
         )
         route_config = get_request_config(request, resolve_plugins=False)
         request.archivebox_config = route_config
+        if not route_config.CONTROL_PLANE_ENABLED:
+            raise PermissionDenied
         if (
             route_config.USES_SUBDOMAIN_ROUTING
             and route_config.BASE_URL
@@ -110,6 +113,7 @@ def _websocket_context(scope):
             raise PermissionDenied
         SessionMiddleware(_dispatch).process_request(request)
         AuthenticationMiddleware(_dispatch).process_request(request)
+        ReverseProxyAuthMiddleware(_dispatch).process_request(request)
         config = get_config().model_dump(mode="json")
         if not config.get("OPENCODE_ENABLED") or not request.user.is_active or not request.user.is_superuser:
             raise PermissionDenied
