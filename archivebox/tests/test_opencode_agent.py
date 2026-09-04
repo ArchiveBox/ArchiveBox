@@ -354,7 +354,8 @@ def test_opencode_proxy_preserves_protocol_headers(admin_client, live_opencode):
         assert response.status_code == 200, response.content
         assert response.json()["ticket"]
     finally:
-        assert admin_client.delete(path, **headers).status_code == 200
+        deleted = admin_client.delete(path, **headers)
+    assert deleted.status_code == 200, deleted.content
 
 
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
