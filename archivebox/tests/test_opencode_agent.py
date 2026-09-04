@@ -339,6 +339,25 @@ def test_opencode_proxy_waits_for_owned_process_readiness(admin_client, live_ope
     assert runtime._PROCESS_READY is process
 
 
+def test_opencode_proxy_preserves_protocol_headers(admin_client, live_opencode):
+    headers = {"HTTP_HOST": ADMIN_TEST_HOST, "HTTP_SEC_FETCH_SITE": "same-origin"}
+    created = admin_client.post(
+        "/admin/agent/opencode/pty",
+        data={"command": "/bin/sh", "args": []},
+        content_type="application/json",
+        **headers,
+    )
+    assert created.status_code == 200
+    path = f"/admin/agent/opencode/pty/{created.json()['id']}"
+    try:
+        response = admin_client.post(path + "/connect-token", HTTP_X_OPENCODE_TICKET="1", **headers)
+        assert response.status_code == 200, response.content
+        assert response.json()["ticket"]
+    finally:
+        deleted = admin_client.delete(path, **headers)
+    assert deleted.status_code == 200, deleted.content
+
+
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
     response = admin_client.get(
         "/admin/agent/opencode/global/event",
@@ -351,6 +370,25 @@ def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
     assert response.is_async
     assert response.headers["X-Accel-Buffering"] == "no"
     assert response.headers["Cache-Control"] == "no-store"
+
+
+def test_opencode_proxy_sse_delivers_first_event_immediately(admin_client, live_opencode):
+    response = admin_client.get(
+        "/admin/agent/opencode/global/event",
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_SEC_FETCH_SITE="same-origin",
+    )
+    assert response.status_code == 200
+
+    async def first_event():
+        stream = response.streaming_content
+        try:
+            async with asyncio.timeout(2):
+                return await anext(stream)
+        finally:
+            await stream.aclose()
+
+    assert b"server.connected" in asyncio.run(first_event())
 
 
 def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client, live_opencode):

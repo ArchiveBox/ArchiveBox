@@ -72,8 +72,15 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
       if (!created.ok) throw new Error('PTY create: ' + created.status);
       const pty = await created.json();
       try {
+        const authorized = await fetch(base + '/pty/' + pty.id + '/connect-token', {
+          method: 'POST', headers: {'x-opencode-ticket': '1'},
+        });
+        if (authorized.status !== 200) throw new Error('PTY ticket: ' + authorized.status);
+        const {ticket} = await authorized.json();
+        if (!ticket) throw new Error('PTY ticket missing');
         return await new Promise((resolve, reject) => {
           const url = new URL(base + '/pty/' + pty.id + '/connect');
+          url.searchParams.set('ticket', ticket);
           url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
           const socket = new WebSocket(url);
           const timer = setTimeout(() => { socket.close(); reject(new Error('PTY output timed out')); }, 10000);
