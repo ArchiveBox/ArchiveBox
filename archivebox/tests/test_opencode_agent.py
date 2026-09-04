@@ -339,6 +339,24 @@ def test_opencode_proxy_waits_for_owned_process_readiness(admin_client, live_ope
     assert runtime._PROCESS_READY is process
 
 
+def test_opencode_proxy_preserves_protocol_headers(admin_client, live_opencode):
+    headers = {"HTTP_HOST": ADMIN_TEST_HOST, "HTTP_SEC_FETCH_SITE": "same-origin"}
+    created = admin_client.post(
+        "/admin/agent/opencode/pty",
+        data={"command": "/bin/sh", "args": []},
+        content_type="application/json",
+        **headers,
+    )
+    assert created.status_code == 200
+    path = f"/admin/agent/opencode/pty/{created.json()['id']}"
+    try:
+        response = admin_client.post(path + "/connect-token", HTTP_X_OPENCODE_TICKET="1", **headers)
+        assert response.status_code == 200, response.content
+        assert response.json()["ticket"]
+    finally:
+        assert admin_client.delete(path, **headers).status_code == 200
+
+
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
     response = admin_client.get(
         "/admin/agent/opencode/global/event",
