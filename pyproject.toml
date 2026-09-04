@@ -1,6 +1,6 @@
 [project]
 name = "archivebox"
-version = "0.9.35rc432"
+version = "0.9.35rc433"
 requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
 authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
@@ -341,7 +341,7 @@ Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
 
 
 [tool.bumpver]
-current_version = "v0.9.35rc432"
+current_version = "v0.9.35rc433"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 tag_message = "{new_version}"
