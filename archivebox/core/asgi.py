@@ -13,5 +13,12 @@ from archivebox.config.django import setup_django
 
 setup_django(check_db=True)
 
-# Standard Django ASGI application (no websockets/channels needed)
-application = get_asgi_application()
+django_application = get_asgi_application()
+
+
+async def application(scope, receive, send):
+    if scope["type"] == "websocket":
+        from archivebox.opencode.views import websocket_view
+
+        return await websocket_view(scope, receive, send)
+    return await django_application(scope, receive, send)

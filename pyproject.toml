@@ -42,7 +42,7 @@ dependencies = [
     "setuptools>=74.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
     "django>=6.1",
     "psycopg[binary]>=3.2",  # for: PostgreSQL database backend (ARCHIVEBOX_DATABASE_ENGINE=postgres)
-    "daphne>=4.2.1",  # ASGI server for Django (no channels needed - websockets not used)
+    "daphne>=4.2.1",  # ASGI server for Django and optional plugin WebSockets (no channels needed)
     "django-ninja>=1.5.1",
     "django-extensions>=3.2.3",
     "django-signal-webhooks>=0.3.0",
