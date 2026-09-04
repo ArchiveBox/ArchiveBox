@@ -353,6 +353,21 @@ def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
     assert response.headers["Cache-Control"] == "no-store"
 
 
+def test_opencode_proxy_sse_delivers_first_event_immediately(admin_client, live_opencode):
+    response = admin_client.get("/admin/agent/opencode/global/event", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+
+    async def first_event():
+        stream = response.streaming_content
+        try:
+            async with asyncio.timeout(2):
+                return await anext(stream)
+        finally:
+            await stream.aclose()
+
+    assert b"server.connected" in asyncio.run(first_event())
+
+
 def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client, live_opencode):
     from archivebox.core.asgi import application
     from abx_plugins.plugins.opencode import runtime
