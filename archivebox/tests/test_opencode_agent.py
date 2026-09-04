@@ -354,7 +354,11 @@ def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
 
 
 def test_opencode_proxy_sse_delivers_first_event_immediately(admin_client, live_opencode):
-    response = admin_client.get("/admin/agent/opencode/global/event", HTTP_HOST=ADMIN_TEST_HOST)
+    response = admin_client.get(
+        "/admin/agent/opencode/global/event",
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_SEC_FETCH_SITE="same-origin",
+    )
     assert response.status_code == 200
 
     async def first_event():
