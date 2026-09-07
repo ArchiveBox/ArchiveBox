@@ -490,7 +490,7 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     assert Path(live_opencode.settings["workdir"]).resolve() == Path(workdir)
     assert project.json()["id"] == "global"
     assert not project.json().get("vcs")
-    assert config.json()["model"] == "opencode/big-pickle"
+    assert not config.json().get("model")
     assert config.json()["snapshot"] is False
     assert live_opencode.process.poll() is None
     path = requests.get(
