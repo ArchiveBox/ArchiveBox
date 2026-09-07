@@ -40,6 +40,8 @@ def _runtime_settings(request, config):
 
 def _dispatch(request, path=None):
     try:
+        # Middleware already merged server defaults and live Machine overrides.
+        # Re-resolving every extractor's config here stalls the UI request burst.
         config = get_request_config(request).model_dump(mode="json")
         if not config.get("OPENCODE_ENABLED", False):
             raise Http404
