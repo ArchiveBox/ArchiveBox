@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import shutil
 import socket
 from concurrent.futures import ThreadPoolExecutor
@@ -356,6 +357,25 @@ def test_opencode_proxy_preserves_protocol_headers(admin_client, live_opencode):
     finally:
         deleted = admin_client.delete(path, **headers)
     assert deleted.status_code == 200, deleted.content
+
+
+def test_opencode_static_assets_cache_privately_and_revalidate(admin_client, live_opencode):
+    headers = {"HTTP_HOST": ADMIN_TEST_HOST, "HTTP_SEC_FETCH_SITE": "same-origin"}
+    page = admin_client.get("/admin/agent/opencode/", **headers)
+    assert page.status_code == 200
+    asset = re.search(rb'src="(/admin/agent/opencode/assets/[^\"]+\.js)"', page.content)
+    assert asset is not None
+    path = asset[1].decode()
+    response = admin_client.get(path, **headers)
+    assert response.status_code == 200
+    assert "private" in response.headers["Cache-Control"]
+    assert "max-age=" in response.headers["Cache-Control"]
+    assert b"/admin/agent/opencode" in response.content
+    repeated = admin_client.get(path, HTTP_IF_NONE_MATCH=response.headers["ETag"], **headers)
+    assert repeated.status_code == 304
+    assert repeated.content == b""
+    assert repeated.headers["ETag"] == response.headers["ETag"]
+    assert admin_client.get("/admin/agent/opencode/path", **headers).headers["Cache-Control"] == "no-store"
 
 
 def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
