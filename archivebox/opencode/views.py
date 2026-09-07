@@ -17,7 +17,7 @@ from django.urls import Resolver404, resolve
 from django.views.decorators.csrf import csrf_exempt
 
 from archivebox.config import CONSTANTS
-from archivebox.config.common import get_config, get_request_config
+from archivebox.config.common import get_request_config
 from archivebox.core.middleware import ReverseProxyAuthMiddleware
 from archivebox.core.routes_util import build_admin_url, get_admin_host, get_api_base_url, get_base_url, host_matches
 from archivebox.plugins.discovery import get_plugin_template
@@ -40,7 +40,7 @@ def _runtime_settings(request, config):
 
 def _dispatch(request, path=None):
     try:
-        config = dict(get_config().model_dump(mode="json"))
+        config = get_request_config(request).model_dump(mode="json")
         if not config.get("OPENCODE_ENABLED", False):
             raise Http404
         if not request.user.is_authenticated:
@@ -114,7 +114,7 @@ def _websocket_context(scope):
         SessionMiddleware(_dispatch).process_request(request)
         AuthenticationMiddleware(_dispatch).process_request(request)
         ReverseProxyAuthMiddleware(_dispatch).process_request(request)
-        config = get_config().model_dump(mode="json")
+        config = route_config.model_dump(mode="json")
         if not config.get("OPENCODE_ENABLED") or not request.user.is_active or not request.user.is_superuser:
             raise PermissionDenied
         runtime, settings = _runtime_settings(request, config)
