@@ -1,0 +1,52 @@
+archivebox/machine/models.py
+  s_c5ae786df4a14c::t_042f8f73dedee4 415-423,425-433
+archivebox/tests/conftest.py
+  s_c5ae786df4a14c::t_fe3d942e2f8d0a 234,249,253
+archivebox/plugins/discovery.py
+  s_c5ae786df4a14c::t_62a0326d8531ce 198,204-206
+archivebox/config/common.py
+  s_c5ae786df4a14c::t_429cb042911ac9 481
+  s_c5ae786df4a14c::t_97bfd56154aa79 601
+  s_c5ae786df4a14c::t_f54a7d2602a58e 682-685
+  s_c5ae786df4a14c::t_4f0b72651c277a 734-745
+archivebox/tests/test_cli_server.py
+  s_c5ae786df4a14c::t_bc330b27c1b8f6 202,206-239,250
+  s_c5ae786df4a14c::t_aafea529cc70fb 203-205,240-245,248-249,251-272
+  s_c5ae786df4a14c::t_8dbf1d6c8632e6 273,307
+  s_c5ae786df4a14c::t_088541c3f1e76f 246-247
+archivebox/core/models.py
+  s_c5ae786df4a14c::t_d53ddcddfe9bb3 3813-3819
+  s_c5ae786df4a14c::t_f194fa0a7f3156 17,3806,3808-3811,3824-3848
+archivebox/tests/test_frozen_crawl_config.py
+  s_c5ae786df4a14c::t_82201ac1f38862 144-153
+  s_c5ae786df4a14c::t_f6739df0d0cf6e 134,141,164-165
+  s_c5ae786df4a14c::t_aaa8b1e6fc79ca 135
+  s_c5ae786df4a14c::t_743eed807646f1 142-143,154-163,166-171
+archivebox/services/runner.py
+  s_c5ae786df4a14c::t_1a2762927c0f54 1807,1809,1938,2079-2087,2089
+  s_c5ae786df4a14c::t_b9cf8855a4363c 1770-1783,1792-1798
+  s_c5ae786df4a14c::t_f4f4b9148c3b34 1951,1961-1966,2138-2148
+  s_c5ae786df4a14c::t_9e92103d828b33 1799
+  s_c5ae786df4a14c::t_b547dda669c917 1764,1785,1845
+  s_c5ae786df4a14c::t_ac1bb2d17416b3 1765-1766,1769,1787
+  s_c5ae786df4a14c::t_bd6e19bbe9779a 1790
+  s_c5ae786df4a14c::t_22a423c45257f2 13,77-109,1808,2088
+archivebox/tests/test_cli_run.py
+  s_c5ae786df4a14c::t_d7634f90c97e5d 1391-1425
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5c3161a5c1a8531aad17f2cb804b456470bf885c",
+  "prompts": {},
+  "sessions": {
+    "s_c5ae786df4a14c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c2-3271-70c1-8ea7-2c49783fb389",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

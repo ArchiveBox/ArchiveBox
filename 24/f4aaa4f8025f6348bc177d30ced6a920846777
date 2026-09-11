@@ -1,0 +1,14 @@
+archivebox/config/permissions.py
+  h_923c208e183a7b 245,247,258,260,304-305
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "24f4aaa4f8025f6348bc177d30ced6a920846777",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

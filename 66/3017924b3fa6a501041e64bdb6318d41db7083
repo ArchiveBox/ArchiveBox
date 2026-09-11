@@ -1,0 +1,50 @@
+archivebox/cli/archivebox_update.py
+  s_750dfb69a92570::t_5622c1e4b8314d 80,89
+archivebox/cli/archivebox_install.py
+  s_750dfb69a92570::t_5622c1e4b8314d 20,22-23,25,50
+archivebox/cli/archivebox_add.py
+  s_750dfb69a92570::t_5622c1e4b8314d 424,426,428,430
+archivebox/cli/archivebox_version.py
+  s_750dfb69a92570::t_5622c1e4b8314d 274-275
+archivebox/config/common.py
+  s_750dfb69a92570::t_5622c1e4b8314d 855-856
+archivebox/tests/test_archive_result_service.py
+  s_750dfb69a92570::t_5622c1e4b8314d 22,24,58
+archivebox/cli/archivebox_extract.py
+  s_750dfb69a92570::t_836cf655359f1c 210
+archivebox/services/runner.py
+  s_cec16ad9ba0455::t_42bec6394cd1e7 1369,1463-1464,1732,1781,1799,1801,1804-1815,1868
+  s_750dfb69a92570::t_2a13538cc41736 1426
+  s_750dfb69a92570::t_810babbf32e85b 39,119-120,187,706,709,766,801,1061,1084,1099,1279-1286,1297
+  s_750dfb69a92570::t_473fba3f6f90f3 1278,1360
+archivebox/services/process_service.py
+  s_750dfb69a92570::t_5622c1e4b8314d 47,49
+archivebox/tests/test_recursive_crawl.py
+  s_750dfb69a92570::t_5622c1e4b8314d 496,499
+archivebox/config/collection.py
+  s_cec16ad9ba0455::t_a0fb2540368354 163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "663017924b3fa6a501041e64bdb6318d41db7083",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    },
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

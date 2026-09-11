@@ -1,0 +1,23 @@
+archivebox/tests/test_server_security_browser.py
+  s_69ddf154c10e6f::t_37d25698de824b 898
+pyproject.toml
+  s_69ddf154c10e6f::t_bb2c079097f22c 86
+uv.lock
+  s_69ddf154c10e6f::t_c90a7f203a44cf 27,49,59,61,226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "8a379db096e114fc044ac3758c12e5d38a44b0ee",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+archivebox/tests/test_ui_add_view_runtime.py
+  s_960fbddc5f7033::t_d49119c9bdf872 519,522
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4e21be2b1a545949b376ab2024cc18301f26a5de",
+  "prompts": {},
+  "sessions": {
+    "s_960fbddc5f7033": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee904-94b6-7740-ab58-08665a9b96ff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

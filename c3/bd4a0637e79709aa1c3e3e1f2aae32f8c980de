@@ -1,0 +1,20 @@
+archivebox/machine/models.py
+  s_25d421ba4ddd4e::t_51633338aadb8e 315-327
+  s_25d421ba4ddd4e::t_09d4ade069c388 131-138,142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c3bd4a0637e79709aa1c3e3e1f2aae32f8c980de",
+  "prompts": {},
+  "sessions": {
+    "s_25d421ba4ddd4e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8480efe-86fa-401e-8cd1-d3c740ccc33a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

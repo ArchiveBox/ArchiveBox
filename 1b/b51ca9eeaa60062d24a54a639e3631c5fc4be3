@@ -1,0 +1,21 @@
+bin/docker_entrypoint.sh
+  s_ccefc8ac08198c::t_659017a3cbeaa5 39,156-165,227-228,232-233
+Dockerfile
+  s_ccefc8ac08198c::t_659017a3cbeaa5 185-186,200,216-217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "1bb51ca9eeaa60062d24a54a639e3631c5fc4be3",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

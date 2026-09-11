@@ -1,0 +1,19 @@
+.github/workflows/test-parallel.yml
+  s_ccefc8ac08198c::t_b1bf2d0f94f5ea 235,241,244,248,250,252,261,264
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4e9c8b1475b14bd5bfe768cf0222ee6233e9dea8",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

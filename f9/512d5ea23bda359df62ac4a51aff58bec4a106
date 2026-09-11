@@ -1,0 +1,32 @@
+pyproject.toml
+  s_074e76a4b61abc::t_65bc529a4fb670 158
+bin/validate_docker_uid_gid.sh
+  s_b989805ae95d6a::t_39368321603430 1-203,209,211-320
+  s_b989805ae95d6a::t_89f2e0b47502ba 204-208,210
+bin/release_dev_stack.sh
+  s_074e76a4b61abc::t_01e009e4489229 193-206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "f9512d5ea23bda359df62ac4a51aff58bec4a106",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

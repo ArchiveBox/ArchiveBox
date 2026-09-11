@@ -1,0 +1,243 @@
+archivebox/tests/test_cli_status.py
+  s_b989805ae95d6a::t_512a14547a8b67 14
+archivebox/core/tag_utils.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 115
+archivebox/tests/test_cli_real_flows.py
+  s_b989805ae95d6a::t_512a14547a8b67 19
+  s_b989805ae95d6a::t_ef2cb4fba4857e 243-245,287,294,598,600,663,668,712,717,738-741,745,751,766,768
+  s_b989805ae95d6a::t_13cb99de70d6c2 288-293,599,664-667,713-716,746-750,767
+archivebox/core/migrations/0044_alter_archiveresult_status_alter_snapshot_status.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 8,13-29,32-39
+archivebox/tests/test_api_cli_schedule.py
+  s_179bfe34e24cf3::t_2b5da132c17e25 1,4-5,12-19,49-85
+  s_b989805ae95d6a::t_7f5a1c60f482fd 11
+archivebox/tests/test_cli_list.py
+  s_b989805ae95d6a::t_512a14547a8b67 14
+archivebox/tests/test_machine_service.py
+  s_179bfe34e24cf3::t_ada9b55228e4be 35-39
+  s_179bfe34e24cf3::t_2191a74be7233f 1-34,40-125
+archivebox/personas/migrations/0003_persona_permissions.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 9,14-21
+archivebox/config/django.py
+  s_a5df2e7b7b6c12::t_54b07940c7add0 44-48
+archivebox/tests/test_cli_run.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 769,774,821
+  s_b989805ae95d6a::t_13cb99de70d6c2 770-773,822-825
+archivebox/crawls/admin.py
+  s_b989805ae95d6a::t_13cb99de70d6c2 969-971
+  s_b989805ae95d6a::t_ef2cb4fba4857e 968,972
+archivebox/cli/__init__.py
+  s_a5df2e7b7b6c12::t_0c2711c4f8fc1f 175-176
+  s_a5df2e7b7b6c12::t_79c3fed66c4792 159-160
+archivebox/config/paths.py
+  s_a5df2e7b7b6c12::t_a9785d3a4aa597 263,271,346,356
+archivebox/tests/test_api_core.py
+  s_b989805ae95d6a::t_7f5a1c60f482fd 9
+  s_179bfe34e24cf3::t_08e48116b767a5 1-8,10-190
+bin/fuzz_test.sh
+  s_a5df2e7b7b6c12::t_ed7be059a905e3 12-14,16-23,62-75,103,105-106,114,148-149,152,159,183,187,191,195,199,203,209,216,220,224,228,230,234,270-271,273,275,277-278,300,311
+  s_a5df2e7b7b6c12::t_39112c042fdddf 238
+archivebox/core/forms.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 733-735
+archivebox/services/runner.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 429,803,816,1123
+archivebox/tests/test_cli_add.py
+  s_b989805ae95d6a::t_512a14547a8b67 15
+archivebox/cli/archivebox_add.py
+  s_a5df2e7b7b6c12::t_0abf0b744e49bb 85-88
+  s_b989805ae95d6a::t_13cb99de70d6c2 65
+  s_a5df2e7b7b6c12::t_37a859675bc0eb 20
+  s_a5df2e7b7b6c12::t_0c2711c4f8fc1f 2,115
+archivebox/core/migrations/0041_snapshot_permissions.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 9,14-21
+archivebox/workers/models.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 217-229,251-263
+archivebox/tests/test_snapshot.py
+  s_b989805ae95d6a::t_512a14547a8b67 13
+archivebox/base_models/admin.py
+  s_179bfe34e24cf3::t_f215bdca388618 713
+archivebox/tests/test_cli_init.py
+  s_b989805ae95d6a::t_512a14547a8b67 17
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 10
+archivebox/crawls/migrations/0015_alter_crawl_status.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 8,13-20
+archivebox/core/recovery_util.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 185-199,321-325
+archivebox/dead/supervision_service.py
+  s_b989805ae95d6a::t_13cb99de70d6c2 39-44
+  s_b989805ae95d6a::t_ef2cb4fba4857e 38,45
+archivebox/core/views.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 983,994-1004,1006,1292-1299,1677-1680,1704,2036-2038,2199-2201
+archivebox/tests/test_cli_install.py
+  s_b989805ae95d6a::t_512a14547a8b67 16
+  s_b989805ae95d6a::t_ef2cb4fba4857e 174
+archivebox/tests/test_archiveresult_pause.py
+  s_179bfe34e24cf3::t_b8c3b8e44ba73f 1-7,9-14,16-50,53-58,63,75,89,91-150,153-154,156,159-160,162,165-166,168-170,173-174,176-199,201-206,209-239,241-247,250-277,279,282-283,285-286,289-290,292,295-296,298-313,317-327,329-341,343-344,349,351-353,355-357
+  s_179bfe34e24cf3::t_9d0bd3547a0300 345,347-348
+  s_179bfe34e24cf3::t_bb881d1170a2ab 8,51-52,59-62,64-74,76-88,90,151-152,155,157-158,161,163-164,167,171-172,175,207-208,248-249,278,280-281,284,287-288,291,293-294,297,314-316,328,342,350,354
+  s_b989805ae95d6a::t_7f5a1c60f482fd 15
+  s_b989805ae95d6a::t_f351e4a316c5a5 200,240
+  s_b989805ae95d6a::t_091b6e12555b4f 346
+archivebox/tests/test_cli_extract_input.py
+  s_b989805ae95d6a::t_512a14547a8b67 10
+archivebox/tests/test_crawl_service.py
+  s_179bfe34e24cf3::t_25a6d6decde268 1-9,11-50,52-63,66-70,72-76,79-91,94-105,107-109,113-115,117-128
+  s_179bfe34e24cf3::t_34238f8285d423 51,64-65,71,77-78,92-93,106,110-112,116
+  s_b989805ae95d6a::t_7f5a1c60f482fd 10
+archivebox/tests/test_title.py
+  s_b989805ae95d6a::t_512a14547a8b67 7
+archivebox/tests/test_cli_update.py
+  s_b989805ae95d6a::t_512a14547a8b67 13
+archivebox/cli/archivebox_server.py
+  s_a5df2e7b7b6c12::t_0abf0b744e49bb 25
+archivebox/tests/test_api_delete_paths.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1-2,5,7-9,12,14,17-21,24-28,30-32,35-37,39-43,45,47-51,53-56,59-61,63-67,69-87
+archivebox/tests/test_cli_schedule.py
+  s_179bfe34e24cf3::t_0ba2bd30d18158 6,10,13-22,71-241
+  s_b989805ae95d6a::t_7f5a1c60f482fd 12
+  s_b989805ae95d6a::t_512a14547a8b67 11
+archivebox/tests/test_binary_service.py
+  s_179bfe34e24cf3::t_2654de6f6f97e2 3,48,82,117
+  s_179bfe34e24cf3::t_2191a74be7233f 1-2,4-47,49-81,83-116,118-164
+archivebox/tests/test_ui_admin_views.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1706-1723,1738-1742
+archivebox/tests/test_ui_config_views.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1-337
+archivebox/search/admin.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 59
+archivebox/misc/shell_welcome_message.py
+  s_a5df2e7b7b6c12::t_4851a39fc5bad6 22,37,41
+archivebox/machine/models.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 2455-2466
+archivebox/tests/test_ui_add_view.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1,3-478,480-482
+  s_b989805ae95d6a::t_48c1c9dbe41183 2,479
+archivebox/tests/test_snapshot_service.py
+  s_179bfe34e24cf3::t_25a6d6decde268 1-12,14-35,37-198,202-203
+  s_179bfe34e24cf3::t_34238f8285d423 36
+  s_b989805ae95d6a::t_7f5a1c60f482fd 13,199-201
+archivebox/tests/test_ui_admin_links.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1-373
+archivebox/crawls/models.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 1458-1463
+archivebox/tests/test_migrations_fresh.py
+  s_b989805ae95d6a::t_512a14547a8b67 18
+archivebox/config/__init__.py
+  s_a5df2e7b7b6c12::t_59dce81804e303 6
+  s_a5df2e7b7b6c12::t_86cda1ba0a7ebb 7-23
+archivebox/tests/test_orm_helpers.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1-39
+archivebox/core/migrations/0042_snapshot_output_size.py
+  s_b989805ae95d6a::t_13cb99de70d6c2 36-39
+  s_b989805ae95d6a::t_ef2cb4fba4857e 28,33-35,40
+archivebox/tests/test_cli_extract.py
+  s_b989805ae95d6a::t_512a14547a8b67 13
+archivebox/tests/test_snapshot_pause.py
+  s_179bfe34e24cf3::t_51b285b45c897f 6,49-50,57-60,62-86,113,115-116,119,121-122,125,127-128,131,135-136,139,178,185,217-218
+  s_b989805ae95d6a::t_f351e4a316c5a5 169,208
+  s_179bfe34e24cf3::t_05c0667f173ed5 1-5,7-12,14-48,51-56,61,87-112,114,117-118,120,123-124,126,129-130,132-134,137-138,140-168,170-177,179-184,186-207,209-216,219
+  s_b989805ae95d6a::t_7f5a1c60f482fd 13
+archivebox/tests/test_crawl_runner.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1-1043
+archivebox/crawls/migrations/0013_crawl_permissions.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 9,14-21
+archivebox/tests/test_crawl.py
+  s_b989805ae95d6a::t_512a14547a8b67 11
+archivebox/tests/test_search.py
+  s_a5df2e7b7b6c12::t_cf4e7c012a1827 4,7,10-12,25-34,36-41
+docs/apidocs/archivebox/archivebox.misc.logging.md
+  s_a5df2e7b7b6c12::t_cb1fe1f7ce602e 135,145,162,169,176
+archivebox/tests/test_ui_savepagenow.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1-330
+archivebox/core/models.py
+  s_b989805ae95d6a::t_13cb99de70d6c2 452-455
+  s_b989805ae95d6a::t_ef2cb4fba4857e 451,456,3305,3414-3420
+archivebox/misc/db.py
+  s_b989805ae95d6a::t_13cb99de70d6c2 90
+  s_b989805ae95d6a::t_ef2cb4fba4857e 89,91
+archivebox/tests/test_ui_add_view_runtime.py
+  s_179bfe34e24cf3::t_eae0581739efad 64-75,77,131
+  s_179bfe34e24cf3::t_764da53e64551f 32,36,38-59,61,63,76
+  s_b989805ae95d6a::t_7f5a1c60f482fd 11
+  s_179bfe34e24cf3::t_f975afa51d55ce 37
+  s_b989805ae95d6a::t_45a1f8c6a67768 1-10,12-31,33-35,60,62,78-130,132-224
+archivebox/cli/archivebox_update.py
+  s_b989805ae95d6a::t_13cb99de70d6c2 25,100
+  s_a5df2e7b7b6c12::t_37a859675bc0eb 20
+  s_a5df2e7b7b6c12::t_0c2711c4f8fc1f 2,26-27,372
+  s_b989805ae95d6a::t_ef2cb4fba4857e 238-250
+archivebox/config/collection.py
+  s_a5df2e7b7b6c12::t_c514a894863b22 7,10,66,87
+archivebox/config/constants.py
+  s_a5df2e7b7b6c12::t_fc3e70c4ee6b24 22,136,295
+archivebox/tests/test_server_helpers.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 13,15
+archivebox/tests/test_crawl_pause.py
+  s_179bfe34e24cf3::t_9ba751ba02137a 1-7,9-211
+  s_b989805ae95d6a::t_7f5a1c60f482fd 8
+archivebox/misc/util.py
+  s_a5df2e7b7b6c12::t_74f87ae6b311f8 23-28,374-375,388-389
+  s_a5df2e7b7b6c12::t_c88dbc63bb7fe9 20
+archivebox/core/permissions.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 40
+archivebox/tests/test_cli_piping.py
+  s_b989805ae95d6a::t_512a14547a8b67 22
+archivebox/tests/test_recursive_crawl.py
+  s_b989805ae95d6a::t_512a14547a8b67 15
+  s_b989805ae95d6a::t_ef2cb4fba4857e 93-97,238,349-351,415,511,540-544
+archivebox/cli/archivebox_help.py
+  s_a5df2e7b7b6c12::t_84f33ce14b07f2 5-6,15-33,46,48,51
+archivebox/tests/test_api_cli.py
+  s_179bfe34e24cf3::t_08e48116b767a5 1-8,10-132
+  s_b989805ae95d6a::t_7f5a1c60f482fd 9
+archivebox/misc/logging.py
+  s_179bfe34e24cf3::t_f1351141b4fbf4 59
+  s_a5df2e7b7b6c12::t_93987f81bc5d9b 21,43-49,72
+  s_a5df2e7b7b6c12::t_f9ed5f71d83525 91,102,113
+  s_a5df2e7b7b6c12::t_e2c85f7e26b2c2 22-42
+archivebox/__init__.py
+  s_a5df2e7b7b6c12::t_3f68613bdd6288 67-85,89-117
+  s_a5df2e7b7b6c12::t_59dce81804e303 86-88
+docs/apidocs/archivebox/archivebox.config.collection.md
+  s_a5df2e7b7b6c12::t_cb1fe1f7ce602e 69,76,130,137
+docs/apidocs/archivebox/archivebox.config.constants.md
+  s_a5df2e7b7b6c12::t_cb1fe1f7ce602e 599,725
+archivebox/core/admin_snapshots.py
+  s_b989805ae95d6a::t_ef2cb4fba4857e 138,345-347,354,358,450-459,643-647
+  s_b989805ae95d6a::t_13cb99de70d6c2 355-357
+archivebox/tests/test_ui_admin_config_widget.py
+  s_b989805ae95d6a::t_53bfd46b21c70b 1-151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f09c3a8e0d30d3252bd242b19d841385e36c97a8",
+  "prompts": {},
+  "sessions": {
+    "s_179bfe34e24cf3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d98-7b43-7341-af49-07085afa5e1b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

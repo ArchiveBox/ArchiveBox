@@ -1,0 +1,22 @@
+.github/scripts/clone_abx_repo.sh
+  s_960fbddc5f7033::t_d43021e0f301f4 12
+archivebox/tests/test_ui_admin_snapshot.py
+  s_960fbddc5f7033::t_84e08a631f7ca4 192
+  s_960fbddc5f7033::t_ba0d3b2e180232 191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "67959c90133ada89c8c70b05c3d7bdad3d5ad116",
+  "prompts": {},
+  "sessions": {
+    "s_960fbddc5f7033": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee904-94b6-7740-ab58-08665a9b96ff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

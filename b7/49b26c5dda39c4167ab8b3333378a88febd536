@@ -1,0 +1,40 @@
+.pre-commit-config.yaml
+  a7a033bab283b7b5 1-3,47,55,62,67
+  ef68b99135455a8d 4-46,48-54,56-61,63-66
+pyproject.toml
+  a7a033bab283b7b5 54,100
+  ef68b99135455a8d 150,186-189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.17",
+  "base_commit_sha": "b749b26c5dda39c4167ab8b3333378a88febd536",
+  "prompts": {
+    "a7a033bab283b7b5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d18b2-941c-7422-857d-c62a3c2bf6b4",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 3,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    },
+    "ef68b99135455a8d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1500-0e62-7c90-bd52-ea9c99483097",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 78,
+      "total_deletions": 12,
+      "accepted_lines": 65,
+      "overriden_lines": 0
+    }
+  }
+}

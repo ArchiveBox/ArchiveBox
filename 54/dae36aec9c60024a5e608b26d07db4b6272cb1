@@ -1,0 +1,21 @@
+etc/package.json
+  s_5ecae765c2d31f::t_9f9bb4935372bd 3
+pyproject.toml
+  s_5ecae765c2d31f::t_9f9bb4935372bd 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "54dae36aec9c60024a5e608b26d07db4b6272cb1",
+  "prompts": {},
+  "sessions": {
+    "s_5ecae765c2d31f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c7426d-be4c-43e8-816d-93b20c74d67e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+bin/generate_ui_screenshot_gallery.py
+  s_b74dd57520e450::t_ff1972427fa036 23
+archivebox/misc/serve_static.py
+  s_b74dd57520e450::t_f24963b2077781 36-55
+bin/collect_ui_screenshots.sh
+  s_b74dd57520e450::t_756ceed7d004d0 17,39-60,239,294-366
+  s_b74dd57520e450::t_7c5317da078c07 477
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "2d8de8931b475600787734bd9db373d51174df54",
+  "prompts": {},
+  "sessions": {
+    "s_b74dd57520e450": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f8189-7eb5-7382-94e6-83f4f43cd7c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

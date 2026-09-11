@@ -1,0 +1,58 @@
+archivebox/misc/util.py
+  s_80d4bd2d930f75::t_d6dea45472b168 195-196,198
+archivebox/api/v1_cli.py
+  s_80d4bd2d930f75::t_d6dea45472b168 136-144
+archivebox/cli/archivebox_update.py
+  s_80d4bd2d930f75::t_af158b17152208 135
+archivebox/tests/test_snapshot_url_length.py
+  s_80d4bd2d930f75::t_7092ad187cd6b8 37-42
+archivebox/tests/test_api_v1_cli_add.py
+  s_80d4bd2d930f75::t_7092ad187cd6b8 271-290
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_80d4bd2d930f75::t_7092ad187cd6b8 249-254,272,283-284
+  s_80d4bd2d930f75::t_3a0c2f49cdcb9e 247
+  s_80d4bd2d930f75::t_c01c03ad85a934 248
+archivebox/services/snapshot_service.py
+  s_80d4bd2d930f75::t_44aa271de366f2 94
+  s_80d4bd2d930f75::t_d49d471757e844 44-46,84-88,90-93,95-108,130,143,147,149-150,152,155-164
+  s_750dfb69a92570::t_ecad067dc26838 89,151
+  s_80d4bd2d930f75::t_8f0d584bd14f5f 80
+archivebox/tests/test_cli_extract_input.py
+  s_80d4bd2d930f75::t_7092ad187cd6b8 65-66,74-77,83-84,100,103-118
+  s_750dfb69a92570::t_9ec61f54699034 119
+archivebox/services/runner.py
+  s_80d4bd2d930f75::t_d49d471757e844 1036-1038
+  s_750dfb69a92570::t_ecad067dc26838 1374
+  s_80d4bd2d930f75::t_c93fed29dd8db4 766,1213,1375-1389
+  s_80d4bd2d930f75::t_7f097831b5ca9b 1214-1219
+archivebox/core/models.py
+  s_80d4bd2d930f75::t_b88171dfbbd0df 733-734,736-737,739-746,748-750,753
+  s_80d4bd2d930f75::t_ddaf8022f02679 747,751-752
+  s_750dfb69a92570::t_ecad067dc26838 738
+archivebox/tests/test_snapshot_service.py
+  s_80d4bd2d930f75::t_1ccf871c8e10a8 43-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "a85d417d0ff8264362540a876c4277c6ef7ad865",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_80d4bd2d930f75": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05e81-8ef7-7ee1-b52f-f712a0d60079",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

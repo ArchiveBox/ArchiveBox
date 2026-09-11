@@ -1,0 +1,23 @@
+archivebox/core/middleware.py
+  s_5e83b7ac3f0fa4::t_b5c7093db14e00 181-185
+archivebox/tests/test_ui_savepagenow.py
+  s_5e83b7ac3f0fa4::t_3956391a6ac701 159-171
+  s_5e83b7ac3f0fa4::t_cc89fa9c801098 158
+  s_5e83b7ac3f0fa4::t_b5c7093db14e00 172-182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "1c0074cd444e29f2fa32774c350330e5a1282922",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}

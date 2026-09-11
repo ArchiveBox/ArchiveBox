@@ -1,0 +1,42 @@
+archivebox/cli/archivebox_install.py
+  s_f8414d52051f83::t_2c429fca14c7d6 15-71,150
+pyproject.toml
+  s_f8414d52051f83::t_876823ad812702 86
+  s_f8414d52051f83::t_9008659eed1da9 3,351
+.github/workflows/deploy-publicsite.yml
+  s_f8414d52051f83::t_c5f0647a4a1646 49
+.github/workflows/docker.yml
+  s_f8414d52051f83::t_5805c6ddcf8c44 52
+.github/workflows/docs.yml
+  s_f8414d52051f83::t_25d294a9866d75 29,84
+.github/workflows/lint.yml
+  s_f8414d52051f83::t_bbc8aa5688f5e7 28,32
+.github/workflows/pip.yml
+  s_f8414d52051f83::t_173a0af95c9dcc 26,32,95
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_635d8f3064a055 33,99
+.github/workflows/test.yml
+  s_f8414d52051f83::t_b6af118f462e09 49
+bin/collect_ui_screenshots.sh
+  s_f8414d52051f83::t_4b6ed49be4c0dd 30,82,94,99,112,125,133,142,158,161,172,268,284,303,315,322,347,357,359,364,370,382,406,477,495
+etc/package.json
+  s_f8414d52051f83::t_d70d2fc0a3fff7 3
+uv.lock
+  s_f8414d52051f83::t_7cb89d3a0ecb42 27,42,44,49,59,61,80,89,91,126,226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "a3ca0f68c055d31d884033a6010e3581ada9de80",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

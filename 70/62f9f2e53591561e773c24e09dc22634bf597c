@@ -1,0 +1,50 @@
+Dockerfile
+  s_074e76a4b61abc::t_fd66c21a370b8d 314
+archivebox/core/forms.py
+  s_c40400846d281e::t_36904040db0683 411-412,424-426
+archivebox/base_models/models.py
+  s_c40400846d281e::t_95fd48092d2cbd 7,24
+  s_c40400846d281e::t_1961e1ff2c3ddc 5,25-42,140-147
+archivebox/tests/test_machine_models.py
+  s_c40400846d281e::t_ec1679529df823 91-104
+archivebox/machine/models.py
+  s_c40400846d281e::t_524ca022ebf1eb 23,337-343
+  s_074e76a4b61abc::t_8fee50936522b5 807,835,838-840
+archivebox/tests/test_ui_add_view.py
+  s_c40400846d281e::t_61527eba2a9273 77-85
+archivebox/config/common.py
+  s_074e76a4b61abc::t_37e1275579429a 160-161
+archivebox/tests/test_persona_admin.py
+  s_c40400846d281e::t_3102e165668c9d 178-179,181-192
+  s_c40400846d281e::t_62e9130b337e6b 212-229
+archivebox/hooks.py
+  s_074e76a4b61abc::t_95143b76f33b90 451
+Dockerfile.multistage
+  s_074e76a4b61abc::t_04edda624c6c20 178,199
+archivebox/tests/test_server_security_browser.py
+  s_c40400846d281e::t_1ff0a3fbd1ae8e 22-28,150-261,598-666,792-839
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7062f9f2e53591561e773c24e09dc22634bf597c",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_c40400846d281e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7da0-ea86-7bc2-aa93-fd8cb3384eaa",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

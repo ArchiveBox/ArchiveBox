@@ -1,0 +1,37 @@
+archivebox/tests/test_cli_run.py
+  s_5e83b7ac3f0fa4::t_dbd9be9f41b632 1428
+  s_5e83b7ac3f0fa4::t_cffcc04833955d 1429-1432,1434-1440,1443-1446,1449-1458,1468-1478,1482
+  s_5e83b7ac3f0fa4::t_7debba945d4b50 1479-1481
+  s_5e83b7ac3f0fa4::t_c5568c875d3b00 1433,1441-1442,1447-1448,1459-1467
+archivebox/tests/test_ui_admin_snapshot.py
+  s_5e83b7ac3f0fa4::t_8c067f41e79c58 699-700
+archivebox/templates/core/snapshot.html
+  s_5e83b7ac3f0fa4::t_c7ff95153beb39 1819-1851,1853,1868-1875
+archivebox/core/models.py
+  s_5e83b7ac3f0fa4::t_34a1b614f19759 510-511,762
+archivebox/api/v1_core.py
+  s_5e83b7ac3f0fa4::t_34a1b614f19759 62
+archivebox/services/runner.py
+  s_5e83b7ac3f0fa4::t_34a1b614f19759 1775-1778,1790
+  s_5e83b7ac3f0fa4::t_ffbe65647d41df 1787-1789
+archivebox/core/recovery_util.py
+  s_5e83b7ac3f0fa4::t_817dc2367d64ad 33,73-83,85-106,306-308
+  s_5e83b7ac3f0fa4::t_ffbe65647d41df 84
+  s_5e83b7ac3f0fa4::t_db7007a8845d55 309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "3a7354d230e9ef9ffa7fd419c9d80042633ba9cc",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

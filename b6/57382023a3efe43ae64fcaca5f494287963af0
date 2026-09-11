@@ -1,0 +1,23 @@
+README.md
+  93b6815d1104957b 5-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "b657382023a3efe43ae64fcaca5f494287963af0",
+  "prompts": {
+    "93b6815d1104957b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5039-2abb-7712-bdfc-f602d7d31f92",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 5,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    }
+  }
+}

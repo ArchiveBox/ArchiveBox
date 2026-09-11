@@ -1,0 +1,20 @@
+archivebox/tests/test_version_metadata.py
+  h_923c208e183a7b 6,12-21
+etc/package.json
+  h_923c208e183a7b 3
+pyproject.toml
+  h_923c208e183a7b 3,347
+uv.lock
+  h_923c208e183a7b 125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "5b412a0de318271953c0b103faa27d8e72780948",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

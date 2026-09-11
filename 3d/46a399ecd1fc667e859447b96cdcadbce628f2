@@ -1,0 +1,18 @@
+archivebox/tests/test_crawl_runner.py
+  h_923c208e183a7b 666,813
+archivebox/tests/test_hooks.py
+  h_923c208e183a7b 74,232,295
+archivebox/tests/test_ui_config_views.py
+  h_923c208e183a7b 139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3d46a399ecd1fc667e859447b96cdcadbce628f2",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

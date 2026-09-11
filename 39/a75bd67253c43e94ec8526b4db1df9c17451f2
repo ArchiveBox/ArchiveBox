@@ -1,0 +1,53 @@
+archivebox/config/version.py
+  s_7cc75db5230061::t_11f9e5e04b6065 9,45-64,67-81
+Dockerfile
+  s_7cc75db5230061::t_e60769fd5c98c2 175
+  s_7cc75db5230061::t_50415ce7401c60 71,201-202,205
+  s_7cc75db5230061::t_d7c9908db5c213 22-24
+  s_7cc75db5230061::t_cc7441003a19e9 123-124,163
+  s_7cc75db5230061::t_9df65c4d675a9d 177,214
+  s_7cc75db5230061::t_3007da052dbf8b 197-200
+  s_7cc75db5230061::t_53bcbae9db21e1 203-204
+  s_7cc75db5230061::t_fb3fdb06069964 176,207
+.dockerignore
+  s_7cc75db5230061::t_bbb5a1a5a6355f 15,18
+Dockerfile.multistage
+  s_7cc75db5230061::t_cc7441003a19e9 123-124,163
+  s_7cc75db5230061::t_9df65c4d675a9d 177,214
+  s_7cc75db5230061::t_e60769fd5c98c2 175
+  s_7cc75db5230061::t_50415ce7401c60 71,201-202,205
+  s_7cc75db5230061::t_fb3fdb06069964 176,207
+  s_7cc75db5230061::t_53bcbae9db21e1 203-204
+  s_7cc75db5230061::t_d7c9908db5c213 22-24
+  s_7cc75db5230061::t_3007da052dbf8b 197-200
+archivebox/tests/test_version_metadata.py
+  s_7cc75db5230061::t_f1002bbcfdf994 1-64
+archivebox/tests/test_dockerfiles.py
+  s_7cc75db5230061::t_9b3f039bc6e63a 120,122-123
+  s_7cc75db5230061::t_c27f069290694a 163-169
+  s_7cc75db5230061::t_854b4fb80530d0 172-178
+  s_7cc75db5230061::t_4c25ccc2a8d6b8 119
+  s_7cc75db5230061::t_e10a060d7c97f3 170-171
+  s_7cc75db5230061::t_b077c90909c456 147-153,155
+  s_7cc75db5230061::t_ad59662d34c673 111-118,121,124-125
+  s_7cc75db5230061::t_d165154b7b4cde 154,156-162
+  s_7cc75db5230061::t_013034fe4e89af 126-127
+  s_7cc75db5230061::t_fbef797d0be377 139-146
+  s_7cc75db5230061::t_c3d1fd93432c27 179-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "39a75bd67253c43e94ec8526b4db1df9c17451f2",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}

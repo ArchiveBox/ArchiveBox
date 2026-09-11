@@ -1,0 +1,20 @@
+README.md
+  h_923c208e183a7b 172
+docs/Docker.md
+  h_923c208e183a7b 72
+docs/Install.md
+  h_923c208e183a7b 159
+docs/Quickstart.md
+  h_923c208e183a7b 9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "993d87badd8d87c8859b5924a1d9ac0f867b4f82",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

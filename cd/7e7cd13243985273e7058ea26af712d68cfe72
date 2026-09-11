@@ -1,0 +1,19 @@
+archivebox/tests/test_cli_extract.py
+  s_ccefc8ac08198c::t_b76316ff320061 2,6-7,15-16,21-22,26,29-30,33,39-46,50,53,58-59,64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "cd7e7cd13243985273e7058ea26af712d68cfe72",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

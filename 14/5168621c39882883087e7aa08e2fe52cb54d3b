@@ -1,0 +1,26 @@
+archivebox/search/__init__.py
+  s_a5df2e7b7b6c12::t_5626312a318994 229-235,252,256-262,296-300,303,310,312,314-321
+bin/fuzz_test.sh
+  s_a5df2e7b7b6c12::t_7682b7bbaa6bf7 238
+archivebox/cli/archivebox_snapshot.py
+  s_a5df2e7b7b6c12::t_4ffb3d54383f1e 191,233-234,236,294
+  s_a5df2e7b7b6c12::t_98681454fe5598 227-228
+archivebox/cli/archivebox_update.py
+  s_a5df2e7b7b6c12::t_18033063c93de7 892-896
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "145168621c39882883087e7aa08e2fe52cb54d3b",
+  "prompts": {},
+  "sessions": {
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+docs/Install.md
+  h_923c208e183a7b 81-82,126,128-130,159,165,167-169
+docs/Upgrading.md
+  h_923c208e183a7b 121-126,129-134,137-139,141
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "619449e05cae86a116cd127f1b1eaf7e19adfc4c",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

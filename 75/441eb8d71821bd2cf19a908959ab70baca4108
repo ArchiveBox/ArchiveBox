@@ -1,0 +1,24 @@
+archivebox/tests/test_ui_add_view_runtime.py
+  s_c5ae786df4a14c::t_315fa510f769c0 26-35,37-82
+  s_c5ae786df4a14c::t_80cd6d1ef1abf1 36
+  s_c5ae786df4a14c::t_669e3105ca38fa 17,83-150
+archivebox/services/runner.py
+  s_c5ae786df4a14c::t_365e71680c2da4 201-206
+  s_c5ae786df4a14c::t_c91a269b453262 184,192
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "75441eb8d71821bd2cf19a908959ab70baca4108",
+  "prompts": {},
+  "sessions": {
+    "s_c5ae786df4a14c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c2-3271-70c1-8ea7-2c49783fb389",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

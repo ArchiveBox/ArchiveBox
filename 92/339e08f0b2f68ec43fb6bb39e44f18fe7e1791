@@ -1,0 +1,54 @@
+etc/package.json
+  s_074e76a4b61abc::t_1c3cd6f0b99b2c 3
+archivebox/tests/test_add_view.py
+  s_b989805ae95d6a::t_6a48ff21201dcb 73-76
+  s_b989805ae95d6a::t_91fc434d3cfc8a 56-72
+archivebox/tests/test_persona_admin.py
+  s_b989805ae95d6a::t_b6cadc834d40d4 114-115,195-219
+  s_b989805ae95d6a::t_6233562da022cd 15
+archivebox/core/views.py
+  s_b989805ae95d6a::t_5ff62e7dd1d353 1011-1012,1015-1027,1029-1030,1047
+  s_b989805ae95d6a::t_89714196088a58 1028
+bin/deploy_dev_demo.sh
+  s_074e76a4b61abc::t_1c3cd6f0b99b2c 1-72
+pyproject.toml
+  s_074e76a4b61abc::t_1c3cd6f0b99b2c 3
+archivebox/templates/core/plugin_config_grid.html
+  s_b989805ae95d6a::t_1deea360248c26 117-169
+archivebox/templates/static/add.css
+  s_b989805ae95d6a::t_472834700e935a 710,713,716,720,724-734,736,739-741,743,755,761,771,777,782-783,793-795,800-801,806-975,1043-1052
+archivebox/core/forms.py
+  s_b989805ae95d6a::t_89714196088a58 269
+archivebox/templates/admin/personas/persona/change_form.html
+  s_b989805ae95d6a::t_861113047ac2bb 2,8,202-233,284-291
+archivebox/personas/forms.py
+  s_b989805ae95d6a::t_6b787907076e22 132-141
+  s_b989805ae95d6a::t_9d2c91a168e99c 8-9,27,117-119
+archivebox/templates/core/add.html
+  s_b989805ae95d6a::t_f8ee67a4e2f26b 258-259,336,354,368-385
+  s_b989805ae95d6a::t_2a86d8bcfa8d68 1124,1140,1144,1162-1164,1178-1183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "92339e08f0b2f68ec43fb6bb39e44f18fe7e1791",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

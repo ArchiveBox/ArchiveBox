@@ -1,0 +1,26 @@
+archivebox/config/permissions.py
+  s_69ddf154c10e6f::t_08366c3ff53275 168-169
+  s_69ddf154c10e6f::t_31d9f45b527826 7,216,222-223,234-244,246-254
+  s_69ddf154c10e6f::t_82361b609302e7 217-221
+  s_69ddf154c10e6f::t_c2080ea98fa934 214-215,245
+archivebox/tests/test_permissions.py
+  s_69ddf154c10e6f::t_bedbf92693d3bc 3-4,6-8,151-153
+  s_69ddf154c10e6f::t_cda7c8e3336ad8 123-124,129-130,136
+  s_69ddf154c10e6f::t_c2080ea98fa934 5,154-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "c3aa7762cd5de4a26afd22f020b6e96d4fcade6b",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}

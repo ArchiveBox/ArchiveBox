@@ -1,0 +1,18 @@
+README.md
+  h_923c208e183a7b 75-76,83-85,189-191,193-194
+docker-compose.yml
+  h_923c208e183a7b 5-7
+docs/Docker.md
+  h_923c208e183a7b 66-67,69-70,200-202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "370753e672a3777279856f07e722cce79e9fc979",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

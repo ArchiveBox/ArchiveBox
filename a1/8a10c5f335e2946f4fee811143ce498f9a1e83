@@ -1,0 +1,91 @@
+archivebox/api/v1_core.py
+  s_b989805ae95d6a::t_27be01c9bb4cd9 34,1030-1031
+  s_463e8607ca6021::t_0b2676c4901a47 25,252-292,301-332,334-340,346-351,354-360,370,375,380-382,384,391,393-395,400-401,404-438
+  s_463e8607ca6021::t_62214d76b64f46 17,333,341-345,352-353
+archivebox/core/admin_archiveresults.py
+  s_b989805ae95d6a::t_4af92015d853a2 485
+  s_b989805ae95d6a::t_b6bde0822ca1ae 13,530-536
+  s_b989805ae95d6a::t_86703cb9f93c9f 391
+archivebox/core/admin_snapshots.py
+  s_b989805ae95d6a::t_d7681f9dbcf0cf 31,343-348
+  s_b989805ae95d6a::t_f57e4282004644 84-90,151
+archivebox/core/migrations/0035_archiveresult_archiveresult_start_idx.py
+  s_b989805ae95d6a::t_db8e233139de8b 1-7,10-13,16-17
+archivebox/crawls/migrations/0006_crawl_crawl_admin_order_idx.py
+  s_b989805ae95d6a::t_db8e233139de8b 1-8,10-14,17-18
+archivebox/crawls/migrations/0007_remove_crawl_crawl_admin_order_idx_and_more.py
+  s_b989805ae95d6a::t_6c4eced1b2cfa5 1-8,10-14,17-18,21-22
+archivebox/core/models.py
+  s_b989805ae95d6a::t_e38209c7402c97 364-366
+  s_b989805ae95d6a::t_bda6797d22a844 3019
+archivebox/misc/paginators.py
+  s_b989805ae95d6a::t_87d02d3f4897c6 18
+  s_b989805ae95d6a::t_77751dd0cb5e67 4,27-37
+  s_b989805ae95d6a::t_2b3c87678d9960 17
+archivebox/core/migrations/0036_snapshot_snapshot_public_order_idx.py
+  s_b989805ae95d6a::t_6c4eced1b2cfa5 1-7,10-13,16-17
+.gitignore
+  s_074e76a4b61abc::t_4067512b488072 3-5
+archivebox/templates/admin/auth/user/change_form.html
+  s_c15f8c4479b6ba::t_849e1af46daae1 40
+  s_c15f8c4479b6ba::t_c777b71f47f382 42
+archivebox/core/admin_users.py
+  s_c15f8c4479b6ba::t_526eb4df2187a9 8,26-28,62-63
+  s_c15f8c4479b6ba::t_7bc1aee5a673db 66-69,80
+  s_c15f8c4479b6ba::t_bc063e833579bf 44,48-53,76
+  s_c15f8c4479b6ba::t_ae3afd08a90a93 30,33,54-60
+archivebox/crawls/admin.py
+  s_b989805ae95d6a::t_204693b04934e6 11,592
+  s_b989805ae95d6a::t_abb54d58635df8 23-36,585
+  s_b989805ae95d6a::t_a8b6ca770ff661 462
+  s_b989805ae95d6a::t_87d02d3f4897c6 593-599
+archivebox/core/admin_tags.py
+  s_b989805ae95d6a::t_7af0d13434ff52 138
+.dockerignore
+  s_074e76a4b61abc::t_4067512b488072 3-5,32-33,68-75
+archivebox/crawls/models.py
+  s_b989805ae95d6a::t_178ec124d3c1b6 163
+  s_b989805ae95d6a::t_add5abf09db86f 162,164
+archivebox/core/views.py
+  s_b989805ae95d6a::t_2ccba6024d6f5e 21,905,1350-1361,1378-1394
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "a18a10c5f335e2946f4fee811143ce498f9a1e83",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_463e8607ca6021": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e39eb-05c2-7253-a218-467aed1abfef",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_c15f8c4479b6ba": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5933-1b2d-77d2-93a2-02d632b05b8c",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

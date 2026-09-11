@@ -1,0 +1,59 @@
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_6431142c5cddce 46,103,118
+  s_f8414d52051f83::t_17419a5a0d54e2 104-106,109,111-117,123
+  s_f8414d52051f83::t_6894a9995bdb96 41,134,152
+.github/configs/ci-linux-build.json
+  s_f8414d52051f83::t_6431142c5cddce 8-13,58-78
+  s_f8414d52051f83::t_a0ba9ccf2f1295 56-57
+  s_f8414d52051f83::t_00a79d6e07f564 79
+.github/workflows/deploy-publicsite.yml
+  s_f8414d52051f83::t_30dd3ba52e2b2d 52
+.github/workflows/docker.yml
+  s_f8414d52051f83::t_bced47d1d6fbbd 61,80,121,136,170,248,271,383
+.github/workflows/docs.yml
+  s_f8414d52051f83::t_afb0d6b76cd249 32,38,60,88,108,150,156
+.github/workflows/duplicate-issue-detection.yml
+  s_f8414d52051f83::t_8a87885ef93e01 35-36,42
+.github/workflows/lint.yml
+  s_f8414d52051f83::t_e4da981c68db76 35,38
+.github/workflows/pip.yml
+  s_f8414d52051f83::t_60c9c681e7695d 42,127,144,152,165-167
+.github/workflows/release.yml
+  s_f8414d52051f83::t_1aac2fcb3a40e0 58,60,89,126,128,173,202,213
+.github/workflows/test.yml
+  s_f8414d52051f83::t_85e368c95a9f54 58,76,96,111,133,140,169,176-179
+.github/workflows/update-homebrew-tap.yml
+  s_f8414d52051f83::t_d1e7aa16a618a5 57,72,104,106
+bin/build_docker.sh
+  s_f8414d52051f83::t_80b3c9f35c46da 34
+bin/build_docs.sh
+  s_f8414d52051f83::t_be1182a87c1f33 19
+bin/build_git.sh
+  s_f8414d52051f83::t_6bba85db98869c 34
+bin/deploy_dev_demo.sh
+  s_f8414d52051f83::t_666a94632bf879 36
+bin/docker_layers.sh
+  s_f8414d52051f83::t_ff2c87a5dd2927 25
+bin/kill_chrome.sh
+  s_f8414d52051f83::t_94aa3e9f15d3fe 25
+bin/setup_monorepo.sh
+  s_f8414d52051f83::t_8f446e43237625 42
+bin/validate_docker_uid_gid.sh
+  s_f8414d52051f83::t_304a4c2f3d4db8 59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "f6edf69d54b541704e5523a737cf5af1d4898d04",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

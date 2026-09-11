@@ -1,0 +1,27 @@
+archivebox/tests/test_dockerfiles.py
+  s_6b96473078dfa1::t_139254625f19a0 111
+archivebox/tests/test_opencode_agent.py
+  s_6b96473078dfa1::t_139254625f19a0 241
+Dockerfile.multistage
+  s_6b96473078dfa1::t_139254625f19a0 217
+Dockerfile
+  s_6b96473078dfa1::t_139254625f19a0 217
+archivebox/tests/test_recursive_crawl.py
+  s_6b96473078dfa1::t_6211258e209906 594-600,602,604,688,691,694
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1987edb2eed6a46d9b9dc8acab7e00de933379d0",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+.github/workflows/deploy-publicsite.yml
+  s_f8414d52051f83::t_d81577b1e99080 49
+.github/workflows/duplicate-issue-detection.yml
+  s_f8414d52051f83::t_d81577b1e99080 28
+.github/workflows/test.yml
+  s_f8414d52051f83::t_d81577b1e99080 49
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_d81577b1e99080 33,100
+.github/workflows/docker.yml
+  s_f8414d52051f83::t_d81577b1e99080 52
+.github/workflows/update-homebrew-tap.yml
+  s_f8414d52051f83::t_d81577b1e99080 50
+.github/workflows/release.yml
+  s_f8414d52051f83::t_d81577b1e99080 50,119
+.github/workflows/docs.yml
+  s_f8414d52051f83::t_d81577b1e99080 29,85
+.github/workflows/lint.yml
+  s_f8414d52051f83::t_d81577b1e99080 28
+.github/workflows/pip.yml
+  s_f8414d52051f83::t_d81577b1e99080 26,96
+.github/uv-manifest.ndjson
+  s_f8414d52051f83::t_039e0d435ebcf3 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0dab749c170ca9fcf9d87c85fc8d2af1918d49f4",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

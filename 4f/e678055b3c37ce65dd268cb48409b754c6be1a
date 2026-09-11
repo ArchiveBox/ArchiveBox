@@ -1,0 +1,21 @@
+archivebox/tests/test_takeover_util.py
+  s_ccefc8ac08198c::t_4c506b3c8948bc 476-478
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  s_ccefc8ac08198c::t_4c506b3c8948bc 478
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "4fe678055b3c37ce65dd268cb48409b754c6be1a",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

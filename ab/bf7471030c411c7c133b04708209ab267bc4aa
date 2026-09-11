@@ -1,0 +1,22 @@
+archivebox/tests/test_release_workflow.py
+  s_69ddf154c10e6f::t_0a06f443bc2ea9 25-31
+  s_69ddf154c10e6f::t_fe8e86e2ff8aff 32-33
+.github/workflows/release.yml
+  s_69ddf154c10e6f::t_0a06f443bc2ea9 145-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "abbf7471030c411c7c133b04708209ab267bc4aa",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

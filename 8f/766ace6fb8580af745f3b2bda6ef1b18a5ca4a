@@ -1,0 +1,16 @@
+.github/workflows/docker.yml
+  h_923c208e183a7b 262
+docs/test_codeblocks_manifest.py
+  h_923c208e183a7b 482
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "8f766ace6fb8580af745f3b2bda6ef1b18a5ca4a",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

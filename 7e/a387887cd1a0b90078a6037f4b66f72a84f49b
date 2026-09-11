@@ -1,0 +1,37 @@
+docs/Configuration.md
+  s_9e824b73eb6968::t_1e9c819f3e5f5e 836
+  s_9e824b73eb6968::t_dbffdb8ffa65e8 103
+  s_9e824b73eb6968::t_ca6e9a8bbc5dbe 118
+  s_9e824b73eb6968::t_38534a433d1ac8 1147-1151
+  s_9e824b73eb6968::t_fa3c2c1871f80b 379
+  s_9e824b73eb6968::t_d711a5f22724ca 89
+  s_9e824b73eb6968::t_f4527df9604e49 1139
+  s_9e824b73eb6968::t_f456e116a74368 79
+  s_9e824b73eb6968::t_7fb4d6c05e5339 828
+  s_9e824b73eb6968::t_b38db4bb8fb460 615
+  s_9e824b73eb6968::t_0af09a9e502f3f 98-101,107,111
+  s_9e824b73eb6968::t_118e4ff811b809 72
+  s_9e824b73eb6968::t_96fb90533fb539 838
+  s_9e824b73eb6968::t_5d729303921293 842
+  s_9e824b73eb6968::t_6095d412f920db 270
+  s_9e824b73eb6968::t_72ca036fb545f8 840
+  s_9e824b73eb6968::t_fa7f5a2e1977b0 382-383,389,391,395-396,400-401,404
+  s_9e824b73eb6968::t_f30b9200652720 56
+  s_9e824b73eb6968::t_0d92f85fc319d8 428
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7ea387887cd1a0b90078a6037f4b66f72a84f49b",
+  "prompts": {},
+  "sessions": {
+    "s_9e824b73eb6968": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5a4bdbb-de5b-47b1-b675-e90d58496003",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

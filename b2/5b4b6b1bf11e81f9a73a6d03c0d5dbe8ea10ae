@@ -1,0 +1,23 @@
+pyproject.toml
+  ai_agent 3,82-84
+Dockerfile
+  s_b989805ae95d6a::t_9841aed55f007a 250-252
+etc/package.json
+  ai_agent 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "b25b4b6b1bf11e81f9a73a6d03c0d5dbe8ea10ae",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

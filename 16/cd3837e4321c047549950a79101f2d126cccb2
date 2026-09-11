@@ -1,0 +1,23 @@
+archivebox/tests/conftest.py
+  s_6b96473078dfa1::t_264846f78bd466 62-65
+archivebox/tests/test_server_security_browser.py
+  s_6b96473078dfa1::t_daae64235eb1dc 17,292-293,296-313
+archivebox/tests/test_hooks.py
+  s_6b96473078dfa1::t_eb6bf236d4c2ac 109-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "16cd3837e4321c047549950a79101f2d126cccb2",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+archivebox/tests/test_recursive_crawl.py
+  s_5ecae765c2d31f::t_db393faf0db74f 372,374
+archivebox/tests/test_cli_add.py
+  s_5ecae765c2d31f::t_1929f1fef707da 1094
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "8ba658b4dcd95736d136147e4f56d0f59eb38857",
+  "prompts": {},
+  "sessions": {
+    "s_5ecae765c2d31f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c7426d-be4c-43e8-816d-93b20c74d67e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

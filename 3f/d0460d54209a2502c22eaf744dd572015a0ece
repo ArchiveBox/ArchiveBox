@@ -1,0 +1,27 @@
+archivebox/tests/test_api_v1_cli_workflow_add_search_update_remove.py
+  s_69ddf154c10e6f::t_e1b7a3fad086ad 12,24-25
+archivebox/tests/test_cli_update.py
+  s_69ddf154c10e6f::t_75eef13926fbd6 131,141,143,150-151
+archivebox/tests/test_ui_live_progress.py
+  s_69ddf154c10e6f::t_c1080e26b2d0ff 524-525,527
+archivebox/core/migrations/0025_alter_archiveresult_options_alter_snapshot_options_and_more.py
+  s_69ddf154c10e6f::t_6c97a09dec76ae 58-60,63
+docs/codeblocks.toml
+  s_69ddf154c10e6f::t_7727bf785ed058 233,235-236,295,376
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "3fd0460d54209a2502c22eaf744dd572015a0ece",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

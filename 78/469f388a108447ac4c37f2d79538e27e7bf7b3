@@ -1,0 +1,14 @@
+archivebox/search/query.py
+  h_923c208e183a7b 235,241-249,271-280,296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "78469f388a108447ac4c37f2d79538e27e7bf7b3",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,363 @@
+archivebox/tests/test_allauth_config.py
+  s_cec16ad9ba0455::t_a82e94dad02196 2,30
+  s_cec16ad9ba0455::t_75b8a4a71f6e83 20,22
+archivebox/config/common.py
+  s_cec16ad9ba0455::t_86c6ed7b62a1b6 19,22,25,27,415-419,432-440,610,612,905-910,1067-1069,1124-1125,1128,1140,1144-1145,1218-1219,1225-1227,1256,1282,1284-1292
+archivebox/tests/test_allauth_integration.py
+  s_cec16ad9ba0455::t_75b8a4a71f6e83 27-28,35-41
+  s_cec16ad9ba0455::t_36404b07ed422a 42-43,114-115,129-130,139,141,155,157
+archivebox/templates/admin/login.html
+  s_cec16ad9ba0455::t_7415bfb4cb82cd 4-32,34-61,63,70
+.dockerignore
+  s_cec16ad9ba0455::t_f80e152dcd8d04 78-86
+.github/configs/ci-tooling.json
+  s_cec16ad9ba0455::t_dea377aa50c071 174-177
+.github/workflows/ci.yml
+  s_cec16ad9ba0455::t_aad9af4383c788 55
+.github/workflows/deploy-publicsite.yml
+  s_cec16ad9ba0455::t_ba878f1dd5d8a3 53-68
+.github/workflows/docker.yml
+  s_cec16ad9ba0455::t_ad02b9ae4fdc99 11-15,64,69,72-73,76,80,84,209-219,221-222,225,238-243,250,281-302,304,309,326,382,404,410,415,417,424,426
+.github/workflows/docs.yml
+  s_cec16ad9ba0455::t_8443c19b2b7567 70
+.github/workflows/pip.yml
+  s_cec16ad9ba0455::t_7c710e2a4ae4fb 5-10,67-81,92,189-243
+.github/workflows/release-candidate.yml
+  s_cec16ad9ba0455::t_740870a5e5f8b8 1-51
+.github/workflows/release.yml
+  s_cec16ad9ba0455::t_44d5cdc16d913c 5,23-47,50-51,86,88,166,195,197,302-303,318,323,329
+.github/workflows/test-parallel.yml
+  s_cec16ad9ba0455::t_52cb1d3c746d57 41-42,46,109-110,118
+AGENTS.md
+  s_cec16ad9ba0455::t_6151d213465af7 18-24,48
+Dockerfile
+  s_cec16ad9ba0455::t_edea6ea0a24968 13,16,88-89,106-108,159-161,165,170-177,181-182,199-202,205-209,225-227,243,265,269-270
+README.md
+  s_cec16ad9ba0455::t_80e3f6d333f7f2 26,73,75-78,83-84,90,99,148,155,166-167,169-173,184,188,190,193-194,196-197,208,211,218,237,248-249,279,284-285,293,300,307,317-318,339,375,396,420,451-452,497-500,512-517,540,550-551,563,581,651,677,724,844,878,979,1055,1341,1344,1405
+archivebox/api/v1_core.py
+  s_cec16ad9ba0455::t_728878dbdf1c03 62,345-348,520-521,532-534,536,557,933-946
+archivebox/base_models/models.py
+  s_cec16ad9ba0455::t_0882335a347e15 287-291,297,300
+archivebox/cli/__init__.py
+  s_cec16ad9ba0455::t_69ebbb33247ff1 189-192
+archivebox/cli/archivebox_add.py
+  s_cec16ad9ba0455::t_fc8f8f4f2e0199 216,247-251,256-262
+archivebox/cli/archivebox_archiveresult.py
+  s_cec16ad9ba0455::t_92a4fa1ba99887 70,153-154,156,257-261
+archivebox/cli/archivebox_extract.py
+  s_cec16ad9ba0455::t_763f554fb90d24 195-196,198-199,201,203,205,209,220-224,228-232,237-238,240-241,253,256,264-265,267-268,270,285,321
+archivebox/cli/archivebox_help.py
+  s_cec16ad9ba0455::t_2e2172d8f2facb 8-9,47-52
+archivebox/cli/archivebox_init.py
+  s_cec16ad9ba0455::t_b89727e89357b0 179-181,183,185
+archivebox/cli/archivebox_install.py
+  s_cec16ad9ba0455::t_7bad9b2d6f8935 57,182,199-202
+archivebox/cli/archivebox_pluginmap.py
+  s_cec16ad9ba0455::t_68fe1d8a3aea87 21,51
+archivebox/cli/archivebox_run.py
+  s_cec16ad9ba0455::t_ae92dc6005b946 57-61,313
+archivebox/cli/archivebox_server.py
+  s_cec16ad9ba0455::t_380ae2a6c749df 14-15,263-273,347-349,351-355
+archivebox/cli/archivebox_status.py
+  s_cec16ad9ba0455::t_d2041685789fd8 134-135,137-138
+archivebox/cli/archivebox_update.py
+  s_cec16ad9ba0455::t_914f58f230384d 84,564,568,570,577,608-609,611-624
+archivebox/cli/archivebox_version.py
+  s_cec16ad9ba0455::t_2b87ce61bc2da0 165-166,253,307,314-321,328-329,365,372-379,397,505,515
+archivebox/config/collection.py
+  s_cec16ad9ba0455::t_c90a6e81de0b1d 10,172-173,306
+archivebox/config/configset.py
+  s_cec16ad9ba0455::t_6e91cf054cf981 5-7,11,36-38,40-44,46,67,77-108,110,112,155
+archivebox/config/django.py
+  s_cec16ad9ba0455::t_db8c0bde5a9b39 18,63,66
+archivebox/config/paths.py
+  s_cec16ad9ba0455::t_f2bb1d6b959941 225,266,275,278,319
+archivebox/config/permissions.py
+  s_cec16ad9ba0455::t_43224ab6bd372e 35,40-41,62,65,88,90,92,95-121,123-130,144,212,244-245,247,250,263-281,295-297,304-305
+archivebox/core/admin_archiveresults.py
+  s_cec16ad9ba0455::t_aaf85280ea8f6a 13-16,18,30,86,89-93,100-101,119,134-135,200-205,208,244-246,259-260,265,270,303,307-308,327-329,334,347,549-573,577-586,615-618
+archivebox/core/admin_site.py
+  s_cec16ad9ba0455::t_a155bd374c2bb5 15,17,19,21,108-109,112,116,124-147
+archivebox/core/admin_snapshots.py
+  s_cec16ad9ba0455::t_6273cac69442f5 228,246-260,271,276-296,508,510-511,516-519,876-881,1314-1315
+archivebox/core/admin_users.py
+  s_cec16ad9ba0455::t_fca9a988289a25 99
+archivebox/core/forms.py
+  s_cec16ad9ba0455::t_82293434a78153 15,17,336-338
+archivebox/core/middleware.py
+  s_cec16ad9ba0455::t_b98bfaf250a82e 18,42-43,91-94,185-189,204-218,252-256,258,307-311,341-346,417
+archivebox/core/migrations/0023_upgrade_to_0_9_0.py
+  s_cec16ad9ba0455::t_9a06ff16e56cc3 321-336,343,362,404-406
+archivebox/core/migrations/0052_unique_archiveresult_per_snapshot_plugin.py
+  s_cec16ad9ba0455::t_06ce4329dc081c 1-71
+archivebox/core/migrations/0053_alter_archiveresult_options.py
+  s_cec16ad9ba0455::t_6ae606bbb5b8a9 1-16
+archivebox/core/models.py
+  s_cec16ad9ba0455::t_0bc462f3c5b992 56,427,461-478,490-491,525-527,565-568,591-595,623,744,753,776,809-865,868,1058,1205,1254-1255,1335,1352,1354-1356,1803-1804,1867,1876-1878,1935,1985-1988,1991-2018,2021-2028,2265-2300,2327,2334,2336,2338-2339,2357-2361,2365,2425,2451-2461,2464,2477,2496-2498,2517-2526,2528-2536,2654-2668,2784,2788,2798-2799,2801,3038-3039,3057-3059,3064,3068-3071,3161,3163,3174,3178,3315-3319,3339-3340,3400,3499-3507,3538-3539,3569,3571-3574,3577-3593,3595-3630,3632-3634,3636-3676,3678-3690,3692-3699,3702-3715,3717-3720,3723-3726,3728-3735,3747,3791-3792,3979,3986,4097-4098,4106,4170-4171,4173-4182,4210,4223,4280-4282,4298,4313,4338,4343-4345
+archivebox/core/recovery_util.py
+  s_cec16ad9ba0455::t_fb6ede3c1f5698 16,33,73-106,171-174,194,198,202-215,217-218,234-240,242-248,252,254-255,260,293,337-340
+archivebox/core/routes_util.py
+  s_cec16ad9ba0455::t_241def5bc805de 202-203,205-206,209-210,212-213,216-217,219-220,229-230,232-233,236-237,239-240,258-259,263,385
+archivebox/core/settings.py
+  s_cec16ad9ba0455::t_53c1750cbe4f99 15,323,456-457
+archivebox/core/takeover_util.py
+  s_cec16ad9ba0455::t_8b4880a5f0593b 1-14,19,41,49,78,86,137-138,140-145,156-182,187,192-195,217,250-251,260-269,283-289,294-298,313
+archivebox/core/templatetags/core_tags.py
+  s_cec16ad9ba0455::t_1a06a5b8848c6f 2,5,15,33,71-73,203-237,240-255,259-266,354,434-436,496-504,507,512,519-524,560,569,587,598-601,606,609-615,619,649,710,730,770,776-785,789,867
+archivebox/core/urls.py
+  s_cec16ad9ba0455::t_551166572a66bc 6-7,14-15,19-22,25-26
+archivebox/core/views.py
+  s_cec16ad9ba0455::t_0023da0eb7292c 28,83,110-111,113,116,119,123,254-256,270,296,330-333,424,487,489-494,531,536,576-577,582,785-787,789-791,793,795-802,804-809,812-816,819-825,828,833-835,962-964,967,970-981,985,996-997,1193,1198,1216-1236,1287-1288,1311-1315,1349,1540-1544,1548,1550,1620-1624
+archivebox/crawls/models.py
+  s_cec16ad9ba0455::t_08c8a3f755126b 34,131,160-162,164,168-172,187,255,1320,1325,1328-1330,1332-1333,1335,1337,1339-1340,1342,1344,1349,1352-1359,1361-1373,1375-1379,1381-1383
+archivebox/machine/models.py
+  s_cec16ad9ba0455::t_cdbaa7f7c0363e 24,55-63,516,520,527-530,569-571,582-585,591,605-608,753-784,789,946,948-949,990,995-997,1156,1194-1198,1346-1347,1383-1386,1405,1485-1495,1532,1575,1577-1578,1643-1648,1655-1656,1671,1736-1740,1762-1764,1811-1813,2163-2165,2271-2272,2335-2336,2349-2351
+archivebox/misc/checks.py
+  s_cec16ad9ba0455::t_642bb2ef6e1bb9 51-55
+archivebox/misc/db.py
+  s_cec16ad9ba0455::t_09b990426bdac3 34-47,49
+archivebox/misc/logging_util.py
+  s_cec16ad9ba0455::t_3188c94c43ac33 18,25
+archivebox/misc/serve_static.py
+  s_cec16ad9ba0455::t_3c2af9af4edef4 36-55,325-330,336-337,507,516-523,525-526,528-531,538-549,558-568,573-575
+archivebox/plugins/discovery.py
+  s_cec16ad9ba0455::t_2b4710b64c4e29 9,32-33,36-38,40-43,55,59,88,106-108,111-113,115-120,123-124,126-127,129-132,134,136-137,167,179,221-225
+archivebox/plugins/forms.py
+  s_cec16ad9ba0455::t_a5fb91b95e36d2 14,18-25,144-145,149,151-154
+archivebox/plugins/hooks.py
+  s_cec16ad9ba0455::t_e23a5169286fa1 1,3-4,7-8,14-19,24,48-49,56,65-67,69,75-96,99,107-110,113,116-117,120,126-127,129,131,133-135,140-166,168-211,223-224,228,230,232,235-239,242,244
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_cec16ad9ba0455::t_1c3f5ed6eb3b18 1184-1187,1199-1204
+archivebox/search/query.py
+  s_cec16ad9ba0455::t_88502e525aa8e8 235,241-249,271-280,296
+archivebox/services/__init__.py
+  s_cec16ad9ba0455::t_7da4456d75eae0 2
+archivebox/services/archive_result_service.py
+  s_cec16ad9ba0455::t_9d9753423f7307 7,14,21,73-74,78-81,90-94,212,247-269,310,321,336,351
+archivebox/services/process_service.py
+  s_cec16ad9ba0455::t_c5fa2315e2cdd9 64,66-69,107,141,228,249
+archivebox/services/runner.py
+  s_cec16ad9ba0455::t_439fedb1e13f73 23,39-40,42,61,67,131-135,224-225,269-272,315,475-479,559,585,588,593-603,699,730-731,747,761,843-850,857,859,869-870,1049,1067-1068,1083-1084,1111-1112,1114,1140-1150,1155-1156,1158-1159,1187,1200-1201,1210,1224,1323,1346,1366,1369,1375-1376,1378,1395,1397,1402-1404,1406-1415,1450-1451,1541,1576,1586,1621,1700-1703,1712-1715,1717,1732-1734,1736,1760,1763,2088,2228-2229,2231,2243-2250,2252-2268
+archivebox/services/snapshot_service.py
+  s_cec16ad9ba0455::t_c043cea0a894a1 77,80,122
+archivebox/templates/admin/archivebox_change_form.html
+  s_cec16ad9ba0455::t_7f672fe92577d4 158-159,164,257
+archivebox/templates/admin/base.html
+  s_cec16ad9ba0455::t_6b98bbc5766ae9 2559
+archivebox/templates/core/setup_wizard.html
+  s_cec16ad9ba0455::t_1563761cec15ca 52-54,67
+archivebox/templates/core/snapshot.html
+  s_cec16ad9ba0455::t_06fa571ed2f7bd 322-324,829,836,840-841,861,1059-1060,1081,1083,1088-1090,1092-1097,1127-1128,1138-1139,1141-1142,1146-1151,1257,1266-1267,1272-1274,1478,1484,1490,1518,1520,1542,1574-1576,1606,1622-1624,1628,1630,1637,1640-1642,1646,1650,1655,1659,1669-1670,1677,1698-1699,1705,1712,1732,1736-1738,1786,1792,1805,1811,1824,1828,1858-1890,1892,1907-1914,1948,2008,2072-2073,2172-2173,2182-2183,2202-2204,2212-2213
+archivebox/templates/core/static_index.html
+  s_cec16ad9ba0455::t_347d638901e294 1,4-128
+archivebox/templates/includes/output_delete_controls.html
+  s_cec16ad9ba0455::t_26b0633700703d 1-93
+archivebox/templates/static/admin.css
+  s_cec16ad9ba0455::t_5a33e08dc3fd6d 1464-1495,3602
+archivebox/templates/static/directory_index.html
+  s_cec16ad9ba0455::t_699549ec96ac08 299,301,327,339
+archivebox/templates/static/setup_wizard.js
+  s_cec16ad9ba0455::t_3fd981924ddf72 132,220,232,256,258,265,272,277,279-281,325-328,383-385
+archivebox/tests/conftest.py
+  s_cec16ad9ba0455::t_b8f3cf71a1aaa1 1686,1696
+archivebox/tests/migrations_helpers.py
+  s_cec16ad9ba0455::t_2d4d8babb84362 16,994,1276-1293
+archivebox/tests/test_api_v1_core_archiveresults.py
+  s_cec16ad9ba0455::t_c4a5e375a80eed 4,17-50
+archivebox/tests/test_api_v1_core_snapshot_snapshot_id.py
+  s_cec16ad9ba0455::t_ac65c3691bf42f 12,148,155-156,165,310
+archivebox/tests/test_api_v1_core_snapshots.py
+  s_cec16ad9ba0455::t_19a625c147c442 1-3,7,43-87
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  s_cec16ad9ba0455::t_192097c132440d 15,198,215
+archivebox/tests/test_archive_result_service.py
+  s_cec16ad9ba0455::t_22f3ce6fc891a7 5,21-30,50,58-62,142,144,233,249,254-289,389-402,473,479,557,564-567,612-613,756,758-759,764-768,771,791-794
+archivebox/tests/test_binary_service.py
+  s_cec16ad9ba0455::t_622bbf905c793c 4,25-26,30-31,43-44,46,49,58,62,66-67,81,90,92,96,98-99,101,105,120,164,198,206
+archivebox/tests/test_cli_archiveresult.py
+  s_cec16ad9ba0455::t_e649486995f859 64-68,96-99
+archivebox/tests/test_cli_config.py
+  s_cec16ad9ba0455::t_204ee427da2bc6 8,90,108-114,120,276,281-287
+archivebox/tests/test_cli_extract.py
+  s_cec16ad9ba0455::t_14af3d19012747 4-6,8,18-25,27,81-143,145
+archivebox/tests/test_cli_extract_input.py
+  s_cec16ad9ba0455::t_5af337eb44dee2 3,25-57
+archivebox/tests/test_cli_install.py
+  s_cec16ad9ba0455::t_be75d645dc158c 207
+archivebox/tests/test_cli_list.py
+  s_cec16ad9ba0455::t_dab84dd3643142 7,23-163
+archivebox/tests/test_cli_mcp.py
+  s_cec16ad9ba0455::t_87d58c8bd7dbb0 2,4-9,13-15,23-169
+archivebox/tests/test_cli_run.py
+  s_cec16ad9ba0455::t_a755addb839efe 242-290,736-788,1075,1095-1102,1104-1105,1536-1590,1632,1674,1721,1752-1753,1826,1832-1835,1869-1870,1873-1881,1885,1889,1916,1920-1925,1928-1930,2065-2101,2122,2433-2505,3008
+archivebox/tests/test_cli_server.py
+  s_cec16ad9ba0455::t_177ed6c4eec119 209-301,330-352
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_cec16ad9ba0455::t_fa22a06e19bf17 4-5,11,125-127,130,132,154-159,183-184,198-200,206
+archivebox/tests/test_core_config.py
+  s_cec16ad9ba0455::t_e255cd02ba01c3 1-5,11-97
+archivebox/tests/test_crawl_runner.py
+  s_cec16ad9ba0455::t_a4729a2080057c 14-27,264-266,274-312,721,777-778,868,936-937
+archivebox/tests/test_hooks.py
+  s_cec16ad9ba0455::t_67e245baef977b 72-73,185-213,258,260,323,448,473,657-658,678
+archivebox/tests/test_machine_models.py
+  s_cec16ad9ba0455::t_6966801c020e09 7-8,35-36,510-511,517-518,522,600,795-812
+archivebox/tests/test_migration_archiveresult_unique_plugin.py
+  s_cec16ad9ba0455::t_f92190ded46cef 1-53
+archivebox/tests/test_migrations_04_to_09.py
+  s_cec16ad9ba0455::t_016c654f748148 9,98-99
+archivebox/tests/test_migrations_08_to_09.py
+  s_cec16ad9ba0455::t_3de59090e8e11e 9,24,412-413,425-426,444,455,671,676,804,846-847,901,992-993,1063,1066,1068-1070
+archivebox/tests/test_permissions.py
+  s_cec16ad9ba0455::t_3f3fcace8c94f4 48-63,124,127-135,139-140,171,176
+archivebox/tests/test_release_workflow.py
+  s_cec16ad9ba0455::t_8baf86b97edae1 9-10,26-38,46-58,61,84-91
+archivebox/tests/test_serve_static.py
+  s_cec16ad9ba0455::t_4655552dfdb577 26-58
+archivebox/tests/test_server_security_browser.py
+  s_cec16ad9ba0455::t_8353e540c4e4a4 167-175,177-178,185-195,203,213,215-218,724,743-744,746-748,751,753
+archivebox/tests/test_setup_script.py
+  s_cec16ad9ba0455::t_f115b63f0eea90 8,10-14,16-23,26,28,30-38,41-42,44
+archivebox/tests/test_snapshot_service.py
+  s_cec16ad9ba0455::t_e1f40faeb248a6 43-77
+archivebox/tests/test_takeover_util.py
+  s_cec16ad9ba0455::t_da8f6f39d48ac6 220-222,419-424,963-993
+archivebox/tests/test_ui_add_view.py
+  s_cec16ad9ba0455::t_f26eba3009efad 5,291-332
+archivebox/tests/test_ui_add_view_runtime.py
+  s_cec16ad9ba0455::t_9194cf5afb6576 214-215,257,264-265,276-284,288,492,582,633,650,688,695-696,707,714-715,733,780
+archivebox/tests/test_ui_admin_archiveresult.py
+  s_cec16ad9ba0455::t_d1cac5484161b7 97-169
+archivebox/tests/test_ui_admin_config_widget.py
+  s_cec16ad9ba0455::t_5278d88a74bade 15,157-159,162-163,183-186,216,221,228-242
+archivebox/tests/test_ui_admin_links.py
+  s_cec16ad9ba0455::t_4590c7fa5665ad 172-173,196-199,209,219-220
+archivebox/tests/test_ui_admin_snapshot.py
+  s_cec16ad9ba0455::t_af34acd7eb66c1 3-5,13,19,21,27-36,103,170-210,753-998,1053-1125,1155,1162-1163,1210-1231
+archivebox/tests/test_ui_config_views.py
+  s_cec16ad9ba0455::t_c7762b9dd9bb72 139
+archivebox/tests/test_ui_live_progress.py
+  s_cec16ad9ba0455::t_bd09c26fd20b92 17,223
+archivebox/tests/test_ui_public_snapshot.py
+  s_cec16ad9ba0455::t_c7761fd53c1974 184,211-262,271,308-314,377-445,513-529
+archivebox/tests/test_ui_savepagenow.py
+  s_cec16ad9ba0455::t_4c24e1c8ab7281 33,115-208,326-334
+archivebox/tests/test_urls.py
+  s_cec16ad9ba0455::t_6f12595bc393b3 17-41,53-57,63-65,79-114,137-138,168-169,392-475,607,733-735,777-780,783,805,808-813,823-824,837-874,916-918,931-1000,1302,1373-1381
+archivebox/tests/test_version_metadata.py
+  s_cec16ad9ba0455::t_1ecced58b0fedc 3,7,13-30
+archivebox/workers/models.py
+  s_cec16ad9ba0455::t_a4b1e58b40382f 9,40-41,43-45,47-50,53-54,60,68-69,72-73,77,80-81,83-84,89,99,101,105-106,116,147,150-151,159-160,162-164,166-169,173-174,176-178,180-182,186-187,191,194,197,202,207,209,213,216-219,224-225,228-229
+archivebox/workers/supervisord_util.py
+  s_cec16ad9ba0455::t_5adcbf39fe017b 159,278-281,295-297,1077-1078,1087-1088
+bin/build.sh
+  s_cec16ad9ba0455::t_9756f163c2359b 24
+bin/build_docker.sh
+  s_cec16ad9ba0455::t_7c6fcee98bb6bc 16,18
+bin/build_git.sh
+  s_cec16ad9ba0455::t_da28d235ecde31 16,18
+bin/bump_version.sh
+  s_cec16ad9ba0455::t_5b5f112114ee5f 16,51-64
+bin/collect_ui_screenshots.sh
+  s_cec16ad9ba0455::t_f4ad23a3f1d6d5 17,22-23,39-60,120,231-237,239,250-254,266,270,294-366,387-414,453,455-456,470,477
+bin/deploy_dev_demo.sh
+  s_cec16ad9ba0455::t_e5cd96273c5b1d 18,20
+bin/docker_entrypoint.sh
+  s_cec16ad9ba0455::t_c09de2e4da273f 146-148,217-224
+bin/docker_layers.sh
+  s_cec16ad9ba0455::t_60294118e11267 7,9
+bin/generate_ui_screenshot_gallery.py
+  s_cec16ad9ba0455::t_cede60572d4aee 7,10-11,15,23,62-79,116-121,127-128,188-190,218,231,246,265-269,275-291
+bin/kill_chrome.sh
+  s_cec16ad9ba0455::t_8e0a25b3d3d55d 7,9
+bin/release.sh
+  s_cec16ad9ba0455::t_1b47d02eec9971 22-27,46-49,59,65-66,79,124,143-149,168,232,277,301-308,311
+bin/setup.sh
+  s_cec16ad9ba0455::t_b837339b2ebc19 28,74-77,81,84,91-92,128-140,227,245-250,257,262,294,304,326,328,369-373,375-387,389,394-399,408,413,415-423,425,427,435,441,443-451,456,458-461,493,508,510-512,514-518
+bin/setup_monorepo.sh
+  s_cec16ad9ba0455::t_6e920b88924477 11-12,23-24
+bin/take_screenshot.js
+  s_cec16ad9ba0455::t_e7c8482a327434 119-140,210,214-217,310-321
+bin/validate_docker_uid_gid.sh
+  s_cec16ad9ba0455::t_e9ed5b863240bc 42,44,117-118,250,253-258,480-482
+docker-compose.yml
+  s_cec16ad9ba0455::t_a76b36f68a85d0 5-6,8-10,17,24-26,49,56,126-128
+docs/ArchiveBox-Architecture-Diagrams.md
+  s_cec16ad9ba0455::t_abe45bd6d0b117 7-8,60,62-66,71-72,78,85,87,89-90,95-96,102,113
+docs/Chromium-Install.md
+  s_cec16ad9ba0455::t_2bbeb00387e45f 76-77,92
+docs/Configuration.md
+  s_cec16ad9ba0455::t_373a5b2c02ea91 479,488,720,723,726
+docs/Docker.md
+  s_cec16ad9ba0455::t_3f1208d0900783 66-67,69,72-73,76,89,93,98,100,106,109,112-113,119,122,148,153,174,176,178-179,181,195,201,204-205
+docs/Donations.md
+  s_cec16ad9ba0455::t_961fc47c770355 7
+docs/Home.md
+  s_cec16ad9ba0455::t_a054e3b7208285 33
+docs/Install.md
+  s_cec16ad9ba0455::t_68b1df414b89b6 12,28-30,32,50,69,71,79,95,119-127,130,147,154-155,157,161-162,165,168-170,177,181,214,255,263,266-269,271-273
+docs/Merging-Collections.md
+  s_cec16ad9ba0455::t_82283569855c79 8,78,103
+docs/Publishing-Your-Archive.md
+  s_cec16ad9ba0455::t_71f7697681747d 10,14-15,17-25,59-63,78
+docs/Quickstart.md
+  s_cec16ad9ba0455::t_971fec713bb69e 9,52,74-76
+docs/Roadmap.md
+  s_cec16ad9ba0455::t_b050df35e14778 20,46
+docs/Security-Overview.md
+  s_cec16ad9ba0455::t_7d39d1e7f401c3 105
+docs/Setting-up-Authentication.md
+  s_cec16ad9ba0455::t_27fe21355de329 13,28,34,76
+docs/Setting-up-Search.md
+  s_cec16ad9ba0455::t_433c446fccb1c5 134
+docs/Upgrading.md
+  s_cec16ad9ba0455::t_dd5daba6e2ad5d 11,21,37,51,55,97-98,117-123,126-131,134-136,138
+docs/Usage.md
+  s_cec16ad9ba0455::t_2d8b7399672a26 32,156-157
+docs/apidocs/archivebox/archivebox.core.models.md
+  s_cec16ad9ba0455::t_5b3187ac39b3e2 42-57,295,337,455-465,708-747,853,887,898,1005-1028,1125-1135,1194-1201,1413,1421,1498-1499,1501,1506-1507,1509,1578-1579,1581,1763,1771-1780,1812-1819,1828,1852,2282,2291,2302,2382-2383,2385
+docs/apidocs/archivebox/archivebox.core.takeover_util.md
+  s_cec16ad9ba0455::t_780f0995265c40 154
+docs/apidocs/archivebox/archivebox.crawls.models.md
+  s_cec16ad9ba0455::t_b3a2961b92ef2f 236,418-457,523,980,982,988,990,995-996,998,1003-1004,1006,1011-1012,1014,1019-1020,1022,1027
+docs/apidocs/archivebox/archivebox.machine.models.md
+  s_cec16ad9ba0455::t_4e496bb0567c7a 54-57,134-137,267-283,873,884,1072-1083,1085,1087-1107,1146,1204-1212,1263-1286,1361,1398,2068-2076
+docs/apidocs/archivebox/archivebox.workers.models.md
+  s_cec16ad9ba0455::t_efd775ae885a97 20-21,68,197-198,200,202,205,208,212-213,217,222-224,228,233-235,239,244-246,248,250,256,261,266-268,270,272,277-279,281,283,289,294,298,304,308,315-319,321,327,330,336-337,339,345,348,353-354,356,362,365,371,373,378-379,384,386,392,394,399-400,402,408,411,416-417,420,426,428,434,437,442-443,446,451-452,455
+docs/codeblocks.toml
+  s_cec16ad9ba0455::t_c935f04331f177 8-13,15,17,19-21,23-24,26-27,29-32,34,38,44,47,55,69-70,89-90,101,110-115,117,119,131-136,142-143,159-160,165-166,202,204,235-241,250,258-259,262-263,266,270,275,282-283,293,296-303,307,320,338-339,342-343,346,350,355,362-363,373,376-383,387,400
+docs/index.rst
+  s_cec16ad9ba0455::t_44545e3227d740 26
+docs/test_codeblocks_manifest.py
+  s_cec16ad9ba0455::t_4387bf095886a1 482
+etc/README.md
+  s_cec16ad9ba0455::t_1702607a637382 5
+etc/package.json
+  s_cec16ad9ba0455::t_3e82a5be58c40e 3
+old/TODO_hook_architecture.md
+  s_cec16ad9ba0455::t_a919c84f9a5eca 1382
+publicsite/index.html
+  s_cec16ad9ba0455::t_a9ac8eaeba6ee7 102-103,211-212,219
+pyproject.toml
+  s_cec16ad9ba0455::t_62f338cd02b8e1 3,43,81-84,348
+skills/archivebox/SKILL.md
+  s_cec16ad9ba0455::t_058260e13abd78 28-29,37,40-41
+uv.lock
+  s_cec16ad9ba0455::t_800b70bb742e39 27,30-39,41,43,48,51-55,57,59,64,67-69,71,73,78,81-84,86,88,114,123,126-161,166-173,176,179-183,186-187,192-221,226-229,238,355-362,410,431-434,478,533-621,626,628,630,662-726,734,743-785,793-795,807-810,828,831-832,834,836,844-845,854,857-858,860,862,867-869,877-878,890-891,900,903-904,906,908,916,925,928-929,931,933,950,962-966,975,978-981,983,985,990,993-994,996,998,1030,1033,1035,1037,1054-1055,1067-1070,1082,1091,1093,1095,1100,1102,1104,1112,1133-1134,1146-1154,1166,1178,1190,1211-1212,1231-1240,1245,1248,1250,1252,1257,1260-1266,1268,1270,1275-1276,1284,1336,1348,1366-1409,1417-1422,1461,1473,1485-1491,1503-1506,1518-1522,1534-1537,1549-1553,1565-1567,1579-1582,1594,1606-1608,1620-1621,1660,1669,1671,1673,1687,1689,1691-1703,1711,1720,1722,1724-1728,1764,1835,1856-1859,1871,1915,1918-1920,1922,1924,1929,1931,1933,1947,1955,1967-1968,1980-1983,1995-1997,2006,2009,2011,2013,2021,2033,2045-2046,2058,2070,2079,2081,2083,2091-2092,2161-2163,2235-2238,2250-2251,2263-2264,2276-2277,2295,2297,2299-2312,2320-2321,2330,2332,2334,2369-2384,2396-2397,2409-2411,2450,2471-2473,2500,2502,2504,2512-2514,2562-2568,2577-2579,2593,2595,2597-2610,2615,2617,2619,2633,2636,2638,2640,2737,2739,2741-2755,2763,2805,2807,2809,2817,2867-2885
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "5bd8a8ad9b44b726d1ed34b1c5bf22c16093b3e2",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+docs/Install.md
+  s_70b3b8284ef391::t_98bed25068c01a 3,102,127-129,153,157-158,160-161,216,289
+  s_70b3b8284ef391::t_9745845ef7fc4a 230,232
+docs/Troubleshooting.md
+  s_70b3b8284ef391::t_cb600438a08872 24,36,121
+docs/Setting-up-Search.md
+  s_70b3b8284ef391::t_cb600438a08872 147
+docs/Setting-up-Authentication.md
+  s_70b3b8284ef391::t_cb600438a08872 85,87
+docs/Usage.md
+  s_70b3b8284ef391::t_9745845ef7fc4a 29
+docs/Upgrading.md
+  s_70b3b8284ef391::t_cb600438a08872 7,9,30,102,110
+docs/Web-Archiving-Community.md
+  s_70b3b8284ef391::t_98bed25068c01a 499
+docs/Configuration.md
+  s_70b3b8284ef391::t_cb600438a08872 481,490
+docs/index.rst
+  s_70b3b8284ef391::t_9745845ef7fc4a 26
+README.md
+  s_70b3b8284ef391::t_9745845ef7fc4a 32,55,528,533,633,639
+  s_70b3b8284ef391::t_98bed25068c01a 71,308,322
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "cfbb2ba6cf9df8f1dd487db619be46fee83019e8",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,53 @@
+bin/take_screenshot.js
+  s_5f83317b520670::t_773dcec19f322b 26,64-66
+archivebox/cli/archivebox_update.py
+  s_a5df2e7b7b6c12::t_4e4b8d003ef681 295-297,839-842
+  s_a5df2e7b7b6c12::t_f31b0cfbe82c94 207,243
+  s_a5df2e7b7b6c12::t_24af337ef1f728 557,594-595,633-634,697,725-726
+  s_a5df2e7b7b6c12::t_8c966f730a4161 105,118-119,208,212-215,239,280,294,298,327
+archivebox/cli/archivebox_add.py
+  s_a5df2e7b7b6c12::t_51bd6d567e1d68 114,220
+  s_a5df2e7b7b6c12::t_7c90a2262d9dd0 303-325
+bin/fuzz_test.sh
+  s_a5df2e7b7b6c12::t_918455d7ad22c1 153,193
+archivebox/core/migrations/0027_copy_archiveresult_to_process.py
+  s_179bfe34e24cf3::t_4e95dfd69b0e2c 143-166,168-169
+archivebox/cli/archivebox_run.py
+  s_a5df2e7b7b6c12::t_8075c24d365da0 80,232,251,266
+archivebox/core/shutdown_util.py
+  s_a5df2e7b7b6c12::t_779ad905e9d6e4 121
+  s_a5df2e7b7b6c12::t_75479d86ce56ce 104
+  s_a5df2e7b7b6c12::t_021a731398b8ba 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fe09f5a5178bac18f6fed6b579b9ab0d06aa32ff",
+  "prompts": {},
+  "sessions": {
+    "s_179bfe34e24cf3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d98-7b43-7341-af49-07085afa5e1b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_5f83317b520670": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6cc1-bf3e-78d1-8285-d6a184c74581",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

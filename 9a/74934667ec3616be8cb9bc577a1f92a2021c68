@@ -1,0 +1,32 @@
+archivebox/core/middleware.py
+  h_923c208e183a7b 284-288
+archivebox/core/routes_util.py
+  h_923c208e183a7b 385
+archivebox/core/settings.py
+  h_923c208e183a7b 386-387
+archivebox/core/views.py
+  h_923c208e183a7b 1170-1182
+archivebox/templates/core/setup_wizard.html
+  h_923c208e183a7b 52
+archivebox/templates/static/setup_wizard.js
+  h_923c208e183a7b 132,220,323-326
+archivebox/tests/test_server_security_browser.py
+  h_923c208e183a7b 176,179-180,183
+archivebox/tests/test_ui_admin_config_widget.py
+  h_923c208e183a7b 161-162
+archivebox/tests/test_urls.py
+  h_923c208e183a7b 453,579-581,672-673,676-677,719-721,1035
+docs/Docker.md
+  h_923c208e183a7b 175
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "9a74934667ec3616be8cb9bc577a1f92a2021c68",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

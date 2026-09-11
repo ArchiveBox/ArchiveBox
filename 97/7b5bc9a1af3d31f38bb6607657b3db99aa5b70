@@ -1,0 +1,16 @@
+archivebox/tests/test_binary_service.py
+  h_923c208e183a7b 4,96,98-99,120,164,198
+archivebox/workers/supervisord_util.py
+  h_923c208e183a7b 159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "977b5bc9a1af3d31f38bb6607657b3db99aa5b70",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

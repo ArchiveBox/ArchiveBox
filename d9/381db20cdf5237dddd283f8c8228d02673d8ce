@@ -1,0 +1,18 @@
+archivebox/tests/test_cli_run.py
+  h_923c208e183a7b 1663,1703-1708,1714,1721,1748,1751,1756,1760
+archivebox/tests/test_hooks.py
+  h_923c208e183a7b 73,230
+bin/setup.sh
+  h_923c208e183a7b 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "d9381db20cdf5237dddd283f8c8228d02673d8ce",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

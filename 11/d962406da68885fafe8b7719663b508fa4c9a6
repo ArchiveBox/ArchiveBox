@@ -1,0 +1,36 @@
+docs/Troubleshooting.md
+  s_70b3b8284ef391::t_bd4786b0d20d67 52,204
+  s_70b3b8284ef391::t_45ef08489d4aca 27,124
+docs/Docker.md
+  s_70b3b8284ef391::t_bd4786b0d20d67 27,35,64,202,204-206,223,228,233,235,240,242,247,258,263,275,284,287
+docs/Install.md
+  s_70b3b8284ef391::t_45ef08489d4aca 62,84,86,233
+  s_70b3b8284ef391::t_9f7aae70417f2c 189,191,194-195,282-283
+  s_70b3b8284ef391::t_bd4786b0d20d67 128,177
+bin/setup.sh
+  s_70b3b8284ef391::t_45ef08489d4aca 197
+  s_70b3b8284ef391::t_847501bdcf532a 230
+  s_70b3b8284ef391::t_eac50f8f7e7080 222,233-234,243,266
+  s_70b3b8284ef391::t_05cd2cb6b04d93 52,54,56,60-67,139,167-168,195,235,268,282-283,297
+  s_70b3b8284ef391::t_0d8f58b98fb769 225,246-261
+README.md
+  s_70b3b8284ef391::t_45ef08489d4aca 88-91,94-95,217,221,224,506-507,568-574,606-607,641,734
+  s_70b3b8284ef391::t_9f7aae70417f2c 259,263-265,885
+  s_70b3b8284ef391::t_bd4786b0d20d67 1452-1453
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "11d962406da68885fafe8b7719663b508fa4c9a6",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,29 @@
+package.json
+  s_8467c51b901893::t_eb6fd4f1c07f48 3
+  s_8467c51b901893::t_4252b751ec9932 11
+archivebox/package.json
+  s_8467c51b901893::t_eb6fd4f1c07f48 3,11
+requirements.txt
+  s_8467c51b901893::t_b1962d7bfb4f06 9-10,21,30,32,35,45,47
+  s_8467c51b901893::t_39d20d7409ab0e 4-7,11,15-17,20,22,24,27-29,33-34,38,40-44,46
+pyproject.toml
+  s_8467c51b901893::t_eb6fd4f1c07f48 3,9-10,14-18,95
+Dockerfile
+  s_8467c51b901893::t_bcafe7fa5716e8 48-50,169,189,242
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "913542c19f2185e1e13f65ae1df895b1d45bd37c",
+  "prompts": {},
+  "sessions": {
+    "s_8467c51b901893": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e39f8-f494-75a1-9224-a42e08efe107",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

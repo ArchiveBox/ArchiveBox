@@ -1,0 +1,19 @@
+.github/scripts/clone_abx_repo.sh
+  s_960fbddc5f7033::t_38aa2a5a4a4e68 8-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "062e4e12fd037357dd94b2c5ce87fcde51f94516",
+  "prompts": {},
+  "sessions": {
+    "s_960fbddc5f7033": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee904-94b6-7740-ab58-08665a9b96ff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

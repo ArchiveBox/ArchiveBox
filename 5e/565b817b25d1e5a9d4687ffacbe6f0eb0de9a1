@@ -1,0 +1,20 @@
+archivebox/core/migrations/0027_copy_archiveresult_to_process.py
+  s_179bfe34e24cf3::t_61ee4d08bf2fe7 246,249-250
+  ai_agent 215-244,247-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5e565b817b25d1e5a9d4687ffacbe6f0eb0de9a1",
+  "prompts": {},
+  "sessions": {
+    "s_179bfe34e24cf3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d98-7b43-7341-af49-07085afa5e1b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+archivebox/templates/core/add.html
+  s_80d4bd2d930f75::t_ebfe4763633581 3,51
+archivebox/core/middleware.py
+  s_80d4bd2d930f75::t_ebfe4763633581 92
+archivebox/core/templatetags/core_tags.py
+  s_80d4bd2d930f75::t_ebfe4763633581 1,32-43
+  s_80d4bd2d930f75::t_1bca36cfc222b9 44-45
+archivebox/tests/test_opencode_agent.py
+  s_80d4bd2d930f75::t_5cc151d53a8318 3,92,122,443-444,446-447,449,468-474,481-494,498-509
+  s_80d4bd2d930f75::t_bfc5a9e7bfd817 15,81,93,97,104,107,112,117,127,166,170,177,228,230-231,240-242,246,248,251,254,258,260,264,268,273,276,278,288,296,298,300,310-311,330,333,360-361,372-373,377,431,433
+  s_80d4bd2d930f75::t_3df1358b35921f 457-467,475-480,495-497
+  s_80d4bd2d930f75::t_cd50b97554435d 434-435
+  s_80d4bd2d930f75::t_21ccb81eaad7fe 430,436,438-441,451-454
+archivebox/opencode/views.py
+  s_80d4bd2d930f75::t_fd31dc415eff06 1,5-9,13,18,20-35,37-54,56-60,62-67,70-71
+  s_80d4bd2d930f75::t_2d18299f1a888a 74-76
+archivebox/templates/core/navigation.html
+  s_80d4bd2d930f75::t_ebfe4763633581 1,14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "685639a957774bb8126fbae7da481aeefd1b7395",
+  "prompts": {},
+  "sessions": {
+    "s_80d4bd2d930f75": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05e81-8ef7-7ee1-b52f-f712a0d60079",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

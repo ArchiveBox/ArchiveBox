@@ -1,0 +1,37 @@
+archivebox/machine/detect.py
+  s_960fbddc5f7033::t_a3dfa32da979b2 151,169-172
+  s_960fbddc5f7033::t_05c7c29889e26d 149-150
+  s_960fbddc5f7033::t_94831f1c9698a1 148,152
+archivebox/machine/models.py
+  s_960fbddc5f7033::t_a3dfa32da979b2 397-402
+  s_960fbddc5f7033::t_c3421a61ac16c5 411,414
+archivebox/machine/migrations/0022_networkinterface_identity_without_mac.py
+  s_960fbddc5f7033::t_65244a72ba112c 56-57
+  s_960fbddc5f7033::t_a62c734ff585e3 40,45-46,50-51,54-55,58
+  s_960fbddc5f7033::t_c735187059048b 1-3,5-6,38-39,41-44,47,49,52-53,59-60
+  s_960fbddc5f7033::t_9d3d4538aed748 4,7-37,48
+archivebox/machine/migrations/0021_networkinterface_blank_defaults.py
+  s_960fbddc5f7033::t_9cc7059c926fc1 1-7,9-12,16-17,21-22,26-27,31-32,36-37,41-42
+  s_960fbddc5f7033::t_a62c734ff585e3 8,13-15,18-20,23-25,28-30,33-35,38-40
+archivebox/cli/archivebox_version.py
+  s_960fbddc5f7033::t_f6937be452637c 85,94,109,301
+archivebox/tests/test_machine_models.py
+  s_960fbddc5f7033::t_94831f1c9698a1 38,317-337
+  s_960fbddc5f7033::t_ae8f1b20a9789e 22,338-355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "d259ac80958e16bfd7e31512a7c9e4fb7e50c190",
+  "prompts": {},
+  "sessions": {
+    "s_960fbddc5f7033": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee904-94b6-7740-ab58-08665a9b96ff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

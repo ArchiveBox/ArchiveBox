@@ -1,0 +1,20 @@
+archivebox/workers/models.py
+  s_c5ae786df4a14c::t_b8c1469b937805 50,68-92,332-334,339-341,347-349,354-355,470,560,562,617-632
+  s_c5ae786df4a14c::t_34a9211c1718fa 10-12,59,579,616,633-637,639-648
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "40d9ab5ced895e4d6d294c4b9b717a076682cd1c",
+  "prompts": {},
+  "sessions": {
+    "s_c5ae786df4a14c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c2-3271-70c1-8ea7-2c49783fb389",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

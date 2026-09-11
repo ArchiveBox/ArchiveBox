@@ -1,0 +1,44 @@
+pyproject.toml
+  ai_agent 3,82-84
+archivebox/templates/core/plugin_config_grid.html
+  s_179bfe34e24cf3::t_742822c9508c60 85,93,178,184,187,206-239,400,404,449-456
+archivebox/templates/core/add.html
+  s_a5df2e7b7b6c12::t_857f0acb2ab3ba 250
+  s_a5df2e7b7b6c12::t_1e98e9fc069747 254
+archivebox/templates/static/add.css
+  s_a5df2e7b7b6c12::t_7acaa659767e51 774-783
+  s_a5df2e7b7b6c12::t_5f74e27a2d0f29 764,769-773
+  s_a5df2e7b7b6c12::t_d75e311a8520ea 819-821
+archivebox/templates/admin/personas/persona/change_form.html
+  s_a5df2e7b7b6c12::t_628f0183a989ea 305
+archivebox/tests/test_ui_add_view.py
+  s_179bfe34e24cf3::t_aba37097755699 73-76
+etc/package.json
+  ai_agent 3
+archivebox/core/forms.py
+  s_179bfe34e24cf3::t_0d3ba6351aaddb 341-342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9704d933e69a6d3d0af0829cae4c62bf8a698f2c",
+  "prompts": {},
+  "sessions": {
+    "s_179bfe34e24cf3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d98-7b43-7341-af49-07085afa5e1b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

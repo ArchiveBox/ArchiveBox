@@ -1,0 +1,21 @@
+archivebox/tests/test_ui_admin_archiveresult.py
+  s_5e83b7ac3f0fa4::t_c9e69998ce58c6 144-169
+archivebox/core/models.py
+  s_5e83b7ac3f0fa4::t_0ed745204aa996 4118,4122-4124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "f092db32553e993784095e660a3e2cd22d23367d",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

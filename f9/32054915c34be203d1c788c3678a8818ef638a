@@ -1,0 +1,45 @@
+archivebox/__init__.py
+  caebc5410c702654 17,24-27,30-31
+archivebox/api/auth.py
+  caebc5410c702654 9,15,26-28,39,44-47,57,61,65-67,75,77-79,89-90,95,102-103,106,108-112,121
+archivebox/tests/test_state_machine_claims.py
+  caebc5410c702654 1-143
+archivebox/api/v1_cli.py
+  caebc5410c702654 66,71-72,153-154,156-159
+archivebox/cli/archivebox_extract.py
+  caebc5410c702654 42-45,59-64
+archivebox/api/v1_api.py
+  caebc5410c702654 10
+archivebox/workers/worker.py
+  caebc5410c702654 572,640-650,1211-1216,1218,1276-1281,1283
+archivebox/workers/orchestrator.py
+  caebc5410c702654 38,407-417,591,594,734-736
+archivebox/api/v1_core.py
+  caebc5410c702654 5,9,29,34,43,505-508,532-533,549-551,584-585
+archivebox/crawls/models.py
+  caebc5410c702654 385-411,419-449,457-460,466,642,646
+archivebox/workers/models.py
+  caebc5410c702654 213-226,228,233,239-276
+archivebox/api/v1_auth.py
+  caebc5410c702654 21,49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "f932054915c34be203d1c788c3678a8818ef638a",
+  "prompts": {
+    "caebc5410c702654": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf46d-a4c9-7d21-a4df-c0bef30e67b8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 525,
+      "total_deletions": 216,
+      "accepted_lines": 411,
+      "overriden_lines": 17
+    }
+  }
+}

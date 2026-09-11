@@ -1,0 +1,21 @@
+archivebox/tests/test_cli_init.py
+  s_69ddf154c10e6f::t_114b2ac1437d00 273-274
+archivebox/misc/db.py
+  s_69ddf154c10e6f::t_ab14d5ddcf687c 519-520
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "76a37a2a856393745b5e45ab4c5d9b2337f3a206",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

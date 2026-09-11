@@ -1,0 +1,50 @@
+archivebox/tests/test_snapshot_service.py
+  s_b989805ae95d6a::t_4321b745b8cd35 13
+archivebox/tests/test_api_core.py
+  s_b989805ae95d6a::t_4321b745b8cd35 9
+archivebox/tests/test_crawl_service.py
+  s_b989805ae95d6a::t_4321b745b8cd35 10
+archivebox/tests/test_api_cli.py
+  s_b989805ae95d6a::t_4321b745b8cd35 9
+archivebox/tests/test_ui_add_view_runtime.py
+  s_b989805ae95d6a::t_4321b745b8cd35 11
+archivebox/tests/test_snapshot_pause.py
+  s_b989805ae95d6a::t_4321b745b8cd35 13
+archivebox/tests/test_machine_service.py
+  s_179bfe34e24cf3::t_608977c6362c1f 13,15,21,23,37,46-47,50,57,61,64-65,67-75,86,88-90,104,106,108,117,122-124
+  s_179bfe34e24cf3::t_b8ea77d33181be 7,49,51,79,81,92,94,107,109
+archivebox/tests/test_cli_schedule.py
+  s_b989805ae95d6a::t_4321b745b8cd35 12
+archivebox/tests/test_archiveresult_pause.py
+  s_b989805ae95d6a::t_4321b745b8cd35 15
+archivebox/tests/test_crawl_pause.py
+  s_b989805ae95d6a::t_4321b745b8cd35 8
+archivebox/tests/conftest.py
+  s_b989805ae95d6a::t_9a6bffb2c6bbac 5,12,17-18,301-581
+archivebox/tests/test_api_cli_schedule.py
+  s_b989805ae95d6a::t_4321b745b8cd35 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3eaf636bf51b34bf18a9e1c68d91abf1dab56286",
+  "prompts": {},
+  "sessions": {
+    "s_179bfe34e24cf3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d98-7b43-7341-af49-07085afa5e1b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,90 @@
+archivebox/tests/test_migrations_04_to_09.py
+  s_1ff935dadc9b9f::t_e43aa0d1938bc8 145,148,152
+  s_1ff935dadc9b9f::t_48963cd45c82a0 142-143
+archivebox/tests/test_crawl_pause.py
+  s_1ff935dadc9b9f::t_8ac9f1f9e854a2 35,41,44,88,92-97,106-109,176-177,181-185
+  s_1ff935dadc9b9f::t_8af3882715dc58 36-40,42-43,45-46
+archivebox/tests/test_ui_admin_views.py
+  s_1ff935dadc9b9f::t_95b11d73cfdc03 19,539,541,543,545-547,990-992,996
+  s_1ff935dadc9b9f::t_db0859310fd6cf 985
+archivebox/tests/test_crawl_admin.py
+  s_1ff935dadc9b9f::t_1f83fcf9833e35 332
+archivebox/tests/test_cli_server.py
+  s_1ff935dadc9b9f::t_70ea67d265f519 111-112,124-125
+archivebox/tests/test_crawl_service.py
+  s_1ff935dadc9b9f::t_70da40dc30f6bd 92
+archivebox/tests/test_cli_update.py
+  s_1ff935dadc9b9f::t_d98c47b9cf6e1d 146
+archivebox/tests/test_snapshot.py
+  s_1ff935dadc9b9f::t_0edc90fea0aff9 30-33
+archivebox/tests/test_cli_add.py
+  s_1ff935dadc9b9f::t_df958c4a76d9a8 70
+archivebox/tests/test_search.py
+  s_1ff935dadc9b9f::t_f39e65888e9131 419-420
+archivebox/tests/test_archiveresult_pause.py
+  s_1ff935dadc9b9f::t_f145ead02e396e 363
+archivebox/crawls/admin.py
+  s_1ff935dadc9b9f::t_c38595f1738872 11,741-742
+archivebox/tests/test_snapshot_service.py
+  s_1ff935dadc9b9f::t_cd13a0e6874819 77-78,183-185
+  s_1ff935dadc9b9f::t_6ae730a934c763 177-181
+  s_1ff935dadc9b9f::t_70ea67d265f519 10,16,83-93,153-175
+archivebox/plugins/forms.py
+  s_1ff935dadc9b9f::t_30f43707cebace 12,321,436
+archivebox/cli/archivebox_extract.py
+  s_1ff935dadc9b9f::t_b2f6234b40ca6b 51,55,422,424,426
+archivebox/tests/test_ui_config_views.py
+  s_1ff935dadc9b9f::t_727eb40b96c291 242,246,253,269-270,272
+archivebox/tests/test_settings_signal_webhooks.py
+  s_1ff935dadc9b9f::t_70ea67d265f519 5,8
+archivebox/config/common.py
+  s_1ff935dadc9b9f::t_6ba7db427a7035 648,651
+  s_1ff935dadc9b9f::t_bc88243771d074 664-667
+  s_1ff935dadc9b9f::t_2e42166c856515 693
+  s_1ff935dadc9b9f::t_727eb40b96c291 929,931-933
+archivebox/tests/test_migrations_08_to_09.py
+  s_1ff935dadc9b9f::t_2bb41b9bc3a02e 748-749
+archivebox/misc/serve_static.py
+  s_1ff935dadc9b9f::t_0b049d7df67905 725-727
+  s_1ff935dadc9b9f::t_58afc7af9b826b 714-717,735,986
+archivebox/tests/conftest.py
+  s_1ff935dadc9b9f::t_b7c98bff1db52f 178
+  s_1ff935dadc9b9f::t_38d5d07a036ed2 56-87,177,191,210
+archivebox/tests/test_test_harness.py
+  s_1ff935dadc9b9f::t_13fe7f250c58b1 27
+archivebox/base_models/models.py
+  s_1ff935dadc9b9f::t_727eb40b96c291 119-121
+archivebox/core/views.py
+  s_1ff935dadc9b9f::t_727eb40b96c291 1540-1543,1557-1559,1637-1639
+  s_1ff935dadc9b9f::t_8ce7fa57cba06a 40,43
+archivebox/plugins/views.py
+  s_1ff935dadc9b9f::t_727eb40b96c291 81,83
+archivebox/tests/test_frozen_crawl_config.py
+  s_1ff935dadc9b9f::t_82e018ee140ada 69,86,99,337,341,372
+archivebox/tests/test_persona_admin.py
+  s_1ff935dadc9b9f::t_5099acca2dde72 181
+archivebox/tests/test_ui_admin_links.py
+  s_1ff935dadc9b9f::t_95b11d73cfdc03 79,81-86,221,245,283
+  s_1ff935dadc9b9f::t_db0859310fd6cf 80
+archivebox/tests/test_machine_service.py
+  s_1ff935dadc9b9f::t_3e6356fb93ab14 129-130
+  s_1ff935dadc9b9f::t_b7a43416b0fbc7 39
+  s_1ff935dadc9b9f::t_1cf41e7ad51d5f 25-32,47
+  s_1ff935dadc9b9f::t_42cb40b244dce4 155
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7dd738b5b75faef7e0ec4f10542edd6543d3120e",
+  "prompts": {},
+  "sessions": {
+    "s_1ff935dadc9b9f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e820e-52cc-7311-9ae4-f3f56880ac41",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

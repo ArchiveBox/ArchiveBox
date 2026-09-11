@@ -1,0 +1,27 @@
+.github/workflows/test.yml
+  s_f8414d52051f83::t_b012530def2d19 209
+docs/codeblocks.toml
+  s_f8414d52051f83::t_c90557e8926d04 7
+  s_f8414d52051f83::t_6968c890fffcc0 34,65
+docs/test_codeblocks_manifest.py
+  s_f8414d52051f83::t_6968c890fffcc0 19-23
+  s_f8414d52051f83::t_c90557e8926d04 3,114-116
+archivebox/mcp/README.md
+  s_f8414d52051f83::t_6968c890fffcc0 22-24,33-34,37-55,108-109,111-112,114,116-122,130,132-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "0c48d902b6a704d1b4dc71900949cc6de238bb82",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

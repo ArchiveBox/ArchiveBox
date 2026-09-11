@@ -1,0 +1,23 @@
+archivebox/tests/test_cli_server.py
+  s_1f1593d0227984::t_53f69553e3353d 271-301
+docs/Configuration.md
+  s_1f1593d0227984::t_934573c1d3b1ce 720,723,726
+archivebox/config/common.py
+  s_1f1593d0227984::t_934573c1d3b1ce 426-428,433
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "dccd7fd0a37781e05082a341a538b3a02ed64609",
+  "prompts": {},
+  "sessions": {
+    "s_1f1593d0227984": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04f5c-f290-7ff3-a8d7-6c618f2d86ea",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

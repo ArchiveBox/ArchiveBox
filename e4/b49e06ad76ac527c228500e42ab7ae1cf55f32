@@ -1,0 +1,16 @@
+archivebox/tests/test_permissions.py
+  h_923c208e183a7b 146,151
+bin/docker_entrypoint.sh
+  h_923c208e183a7b 146-148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e4b49e06ad76ac527c228500e42ab7ae1cf55f32",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

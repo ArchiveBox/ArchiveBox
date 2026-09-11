@@ -1,0 +1,22 @@
+bin/validate_docker_uid_gid.sh
+  s_69ddf154c10e6f::t_afdb4922c1a8ac 263-267,489-491
+  s_69ddf154c10e6f::t_3b5b8092615814 492
+bin/docker_entrypoint.sh
+  s_69ddf154c10e6f::t_afdb4922c1a8ac 199,201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "1369fe63f25e6a2c1e996860dcce8a33117815ce",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

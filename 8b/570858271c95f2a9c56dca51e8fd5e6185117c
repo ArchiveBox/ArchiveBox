@@ -1,0 +1,136 @@
+archivebox/cli/archivebox_install.py
+  s_cdb7ab28cd51df::t_e6b8c7bdd5516b 7,15-17,19,21,30-39,41-46,104-107
+  s_cdb7ab28cd51df::t_b79b5f9e7dbef5 6,18,20,22-29,40
+archivebox/tests/conftest.py
+  s_cdb7ab28cd51df::t_79e71b7b3b7d5a 381,385,387
+.dockerignore
+  s_15f59ac80abb8e::t_b2c41758186af5 16-17,20,23,71-72
+archivebox/config/constants.py
+  s_cdb7ab28cd51df::t_98c92d0cfb45df 116-118,242
+archivebox/cli/archivebox_run.py
+  s_15f59ac80abb8e::t_e1d9a3e6be2ad5 290
+archivebox/services/runner.py
+  s_15f59ac80abb8e::t_ce65595ae2a37c 2244,2426
+  s_15f59ac80abb8e::t_250cd4f0d06361 569,767
+  s_15f59ac80abb8e::t_79d7cd63260843 783-784
+archivebox/tests/test_cli_server.py
+  s_cdb7ab28cd51df::t_64c823cdb60e2b 210,334
+archivebox/tests/test_urls.py
+  s_630f62a0fc47e0::t_54e46af9b6897b 335-361,363-378,380-385,833,851
+  s_630f62a0fc47e0::t_021b195ac1b26b 362,379
+  s_15f59ac80abb8e::t_3900a8a95270d5 797,804,820,835
+archivebox/cli/archivebox_add.py
+  s_15f59ac80abb8e::t_54d8bdd9c2c9f4 399-400
+  s_15f59ac80abb8e::t_1c6f931365646d 334,384,389-398
+archivebox/tests/test_cli_install.py
+  s_cdb7ab28cd51df::t_d9ed168cd70c61 14-15,119-121,151-158
+  s_cdb7ab28cd51df::t_d061ae995d2496 142-143,194-195
+archivebox/personas/models.py
+  s_15f59ac80abb8e::t_2455f32ab843f1 63,162,291-297,323-327
+  s_15f59ac80abb8e::t_56eae79e037ae9 255-256,259-264
+archivebox/tests/test_recursive_crawl.py
+  s_cdb7ab28cd51df::t_9993615dd62a8b 508
+bin/docker_entrypoint.sh
+  s_cdb7ab28cd51df::t_79e71b7b3b7d5a 33,36-37,215
+archivebox/config/version.py
+  s_cdb7ab28cd51df::t_7915fd1d17dd21 100-103
+docs/apidocs/archivebox/archivebox.config.constants.md
+  s_cdb7ab28cd51df::t_98c92d0cfb45df 565-566,571
+archivebox/core/recovery_util.py
+  s_15f59ac80abb8e::t_dc5b09b600c18f 121-135
+  s_15f59ac80abb8e::t_e1d9a3e6be2ad5 13,24-26,64,70,72-73,100,141-142,147,206,231
+  s_15f59ac80abb8e::t_91b2d080c562f8 28-30
+archivebox/tests/test_cli_add.py
+  s_15f59ac80abb8e::t_bb414725c747df 542-552,555,557-586,590,592-595,597,599,601-602
+  s_15f59ac80abb8e::t_7edf3fa27f8eb1 556,591
+  s_15f59ac80abb8e::t_64c2065a02beb4 587-589
+  s_15f59ac80abb8e::t_74b5657a464ff7 553-554,596,598,600
+archivebox/tests/test_persona_runtime.py
+  s_15f59ac80abb8e::t_df820b15f29ee2 41-42,48-49,68-69
+archivebox/plugins/hooks.py
+  s_15f59ac80abb8e::t_433fee55545853 288
+  s_15f59ac80abb8e::t_5e755869170b4f 368-369
+  s_15f59ac80abb8e::t_dd8c2d0ad657d8 370
+  s_cdb7ab28cd51df::t_79e71b7b3b7d5a 381-382,405
+  s_15f59ac80abb8e::t_21984cbadff146 282,417,421-422
+archivebox/cli/__init__.py
+  s_15f59ac80abb8e::t_f7f8e4a8fd6fd1 21-25,36
+archivebox/personas/importers.py
+  s_15f59ac80abb8e::t_56eae79e037ae9 50-55,620
+archivebox/tests/test_cli_run.py
+  s_cdb7ab28cd51df::t_6d9cbb42ca261c 569-571
+docs/Configuration.md
+  s_cdb7ab28cd51df::t_79e71b7b3b7d5a 619,622,627
+archivebox/cli/archivebox_remove.py
+  s_15f59ac80abb8e::t_f7f8e4a8fd6fd1 37,146
+bin/validate_docker_uid_gid.sh
+  s_cdb7ab28cd51df::t_79e71b7b3b7d5a 90
+archivebox/cli/archivebox_init.py
+  s_15f59ac80abb8e::t_54d6051b398203 189
+archivebox/cli/archivebox_version.py
+  s_cdb7ab28cd51df::t_393f81b24b9074 32,49-50,61-64,267,325,342
+archivebox/cli/archivebox_oneshot.py
+  s_15f59ac80abb8e::t_4542c880a738d8 11,13,19-22
+  s_15f59ac80abb8e::t_36ac3326c8c799 7,18
+  s_15f59ac80abb8e::t_f7f8e4a8fd6fd1 1-6,8-10,12,14-17,23-27
+archivebox/cli/archivebox_server.py
+  s_15f59ac80abb8e::t_f7f8e4a8fd6fd1 234,248-253,414
+archivebox/tests/test_takeover_util.py
+  s_cdb7ab28cd51df::t_64c823cdb60e2b 42
+pyproject.toml
+  s_15f59ac80abb8e::t_fba0c2e8013edc 187
+  s_15f59ac80abb8e::t_774a12598bf371 219
+  s_15f59ac80abb8e::t_9a9e74c142d67e 192,195
+  s_15f59ac80abb8e::t_f842ae4e049b2a 176-177,179-185,196-218,220-222
+  s_15f59ac80abb8e::t_27461853942e8f 186,188-191
+  s_15f59ac80abb8e::t_1a0e5a031f017d 178
+  s_cdb7ab28cd51df::t_04fa32f8d80af2 144
+  s_cdb7ab28cd51df::t_6fb88bad56cc0b 141
+archivebox/core/routes_util.py
+  s_630f62a0fc47e0::t_0a0a25969058dc 7-8,289-334
+bin/release_dev_stack.sh
+  s_15f59ac80abb8e::t_1a0e5a031f017d 124,141
+archivebox/config/common.py
+  s_15f59ac80abb8e::t_510cfd35cc6bff 703
+  s_15f59ac80abb8e::t_24280fd7f0aa85 704-705,727-730
+  s_cdb7ab28cd51df::t_79e71b7b3b7d5a 253,256,746,749,1036,1145
+  s_15f59ac80abb8e::t_571c1d14a0ac2e 539-542
+  s_15f59ac80abb8e::t_10c7dc127aedec 657,1008
+archivebox/core/admin_site.py
+  s_630f62a0fc47e0::t_ce3c52535f1766 6-8,10-14,23,33-43,95-113,115-119,121
+  s_630f62a0fc47e0::t_fd82fe6e5c3a51 114,120
+archivebox/tests/test_crawl_runner.py
+  s_15f59ac80abb8e::t_185ffd363df595 92-98,134-142,472,490-491,524-525,535,553,701
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "8b570858271c95f2a9c56dca51e8fd5e6185117c",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_630f62a0fc47e0": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec736-b48c-7c83-9e16-24129ab7a916",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

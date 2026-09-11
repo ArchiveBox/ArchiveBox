@@ -1,0 +1,35 @@
+archivebox/core/admin_site.py
+  s_cec16ad9ba0455::t_dab5ce7c97d31e 14,16-17
+  s_cec16ad9ba0455::t_8d569fee3c0f64 118
+.github/scripts/discover_test_matrix.py
+  s_cec16ad9ba0455::t_8d569fee3c0f64 23-29
+archivebox/tests/test_allauth_config.py
+  s_cec16ad9ba0455::t_605abc6e198dae 37,39-40,45,56
+archivebox/templates/admin/login.html
+  s_cec16ad9ba0455::t_8d569fee3c0f64 59,61,63,72-109
+archivebox/core/settings.py
+  s_cec16ad9ba0455::t_8d569fee3c0f64 46,155-157,181-182,184-190,216
+archivebox/tests/conftest.py
+  s_cec16ad9ba0455::t_dab5ce7c97d31e 3,5,9-10,17,20,1162,1365-1366,1664
+  s_cec16ad9ba0455::t_8d569fee3c0f64 39-43
+archivebox/core/urls.py
+  s_cec16ad9ba0455::t_8d569fee3c0f64 30-40,75-76
+archivebox/tests/test_allauth_integration.py
+  s_cec16ad9ba0455::t_6587fec5c84d1d 47,50,71,80-82,95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c680aa58b2846643327cd1d2b7a0731934657312",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
