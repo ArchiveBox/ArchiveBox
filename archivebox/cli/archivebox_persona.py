@@ -27,11 +27,10 @@ Examples:
 __package__ = "archivebox.cli"
 __command__ = "archivebox persona"
 
-import os
 import sys
 import shutil
-import platform
 from pathlib import Path
+from dataclasses import replace
 from collections.abc import Iterable
 
 import rich_click as click
@@ -40,116 +39,6 @@ from rich import print as rprint
 from archivebox.cli.cli_util import apply_filters
 from archivebox.personas import importers as persona_importers
 
-
-# =============================================================================
-# Browser Profile Locations
-# =============================================================================
-
-
-def get_chrome_user_data_dir() -> Path | None:
-    """Get the default Chrome user data directory for the current platform."""
-    system = platform.system()
-    home = Path.home()
-
-    if system == "Darwin":  # macOS
-        candidates = [
-            home / "Library" / "Application Support" / "Google" / "Chrome",
-            home / "Library" / "Application Support" / "Chromium",
-        ]
-    elif system == "Linux":
-        candidates = [
-            home / ".config" / "google-chrome",
-            home / ".config" / "chromium",
-            home / ".config" / "chrome",
-            home / "snap" / "chromium" / "common" / "chromium",
-        ]
-    elif system == "Windows":
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        candidates = [
-            local_app_data / "Google" / "Chrome" / "User Data",
-            local_app_data / "Chromium" / "User Data",
-        ]
-    else:
-        candidates = []
-
-    for candidate in candidates:
-        if candidate.exists() and (candidate / "Default").exists():
-            return candidate
-
-    return None
-
-
-def get_brave_user_data_dir() -> Path | None:
-    """Get the default Brave user data directory for the current platform."""
-    system = platform.system()
-    home = Path.home()
-
-    if system == "Darwin":
-        candidates = [
-            home / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser",
-        ]
-    elif system == "Linux":
-        candidates = [
-            home / ".config" / "BraveSoftware" / "Brave-Browser",
-        ]
-    elif system == "Windows":
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        candidates = [
-            local_app_data / "BraveSoftware" / "Brave-Browser" / "User Data",
-        ]
-    else:
-        candidates = []
-
-    for candidate in candidates:
-        if candidate.exists() and (candidate / "Default").exists():
-            return candidate
-
-    return None
-
-
-def get_edge_user_data_dir() -> Path | None:
-    """Get the default Edge user data directory for the current platform."""
-    system = platform.system()
-    home = Path.home()
-
-    if system == "Darwin":
-        candidates = [
-            home / "Library" / "Application Support" / "Microsoft Edge",
-        ]
-    elif system == "Linux":
-        candidates = [
-            home / ".config" / "microsoft-edge",
-            home / ".config" / "microsoft-edge-beta",
-            home / ".config" / "microsoft-edge-dev",
-        ]
-    elif system == "Windows":
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        candidates = [
-            local_app_data / "Microsoft" / "Edge" / "User Data",
-        ]
-    else:
-        candidates = []
-
-    for candidate in candidates:
-        if candidate.exists() and (candidate / "Default").exists():
-            return candidate
-
-    return None
-
-
-BROWSER_PROFILE_FINDERS = {
-    "chrome": get_chrome_user_data_dir,
-    "chromium": get_chrome_user_data_dir,  # Same locations
-    "brave": get_brave_user_data_dir,
-    "edge": get_edge_user_data_dir,
-}
-
-CHROMIUM_BROWSERS = {"chrome", "chromium", "brave", "edge"}
-
-
-# =============================================================================
-# Cookie Extraction via CDP
-# =============================================================================
 
 # =============================================================================
 # Validation Helpers
@@ -218,6 +107,8 @@ def create_personas(
     names: Iterable[str],
     import_from: str | None = None,
     profile: str | None = None,
+    source: str | None = None,
+    browser_binary: str | None = None,
 ) -> int:
     """
     Create Personas from names.
@@ -239,24 +130,24 @@ def create_personas(
         rprint("[yellow]No persona names provided. Pass names as arguments.[/yellow]", file=sys.stderr)
         return 1
 
-    # Validate import source if specified
-    source_profile_dir = None
+    import_source = None
+    if source and not import_from:
+        rprint("[red]--source requires --import (the source browser name).[/red]", file=sys.stderr)
+        return 1
     if import_from:
-        import_from = import_from.lower()
-        if import_from not in BROWSER_PROFILE_FINDERS:
-            rprint(f"[red]Unknown browser: {import_from}[/red]", file=sys.stderr)
-            rprint(f"[dim]Supported browsers: {', '.join(BROWSER_PROFILE_FINDERS.keys())}[/dim]", file=sys.stderr)
+        try:
+            if source:
+                import_source = persona_importers.resolve_custom_import_source(source, profile_dir=profile)
+                import_source = replace(import_source, browser=import_from.lower(), browser_binary=browser_binary)
+            elif import_from.startswith(("http://", "https://", "ws://", "wss://")):
+                import_source = persona_importers.resolve_custom_import_source(import_from)
+            else:
+                import_source = persona_importers.resolve_browser_import_source(import_from, profile_dir=profile)
+            if browser_binary:
+                import_source = replace(import_source, browser_binary=browser_binary)
+        except ValueError as err:
+            rprint(f"[red]{err}[/red]", file=sys.stderr)
             return 1
-
-        source_profile_dir = BROWSER_PROFILE_FINDERS[import_from]()
-        if not source_profile_dir:
-            rprint(f"[red]Could not find {import_from} profile directory[/red]", file=sys.stderr)
-            return 1
-
-        rprint(f"[dim]Found {import_from} profile: {source_profile_dir}[/dim]", file=sys.stderr)
-
-        if profile is None and (source_profile_dir / "Default").exists():
-            profile = "Default"
 
     created_count = 0
     for name in name_list:
@@ -275,16 +166,16 @@ def create_personas(
         if created:
             persona.ensure_dirs()
             created_count += 1
-            rprint(f"[green]Created persona: {name}[/green]", file=sys.stderr)
+
         else:
             rprint(f"[dim]Persona already exists: {name}[/dim]", file=sys.stderr)
 
         cookies_file = Path(persona.path) / "cookies.txt"
 
         # Import browser profile if requested
-        if import_from in CHROMIUM_BROWSERS and source_profile_dir is not None:
+        if import_source is not None:
             try:
-                import_source = persona_importers.resolve_browser_import_source(import_from, profile_dir=profile)
+                rprint(f"[dim]Importing {import_source.display_label}; copying settings and exporting cookies...[/dim]", file=sys.stderr)
                 import_result = persona_importers.import_persona_from_source(
                     persona,
                     import_source,
@@ -292,20 +183,25 @@ def create_personas(
                     import_cookies=True,
                     capture_storage=False,
                 )
-            except Exception as e:
+            except (Exception, KeyboardInterrupt) as e:
+                if created:
+                    shutil.rmtree(persona.path, ignore_errors=True)
+                    persona.delete()
                 rprint(f"[red]Failed to import browser profile: {e}[/red]", file=sys.stderr)
                 return 1
 
             if import_result.profile_copied:
                 rprint("[green]Copied browser profile to persona[/green]", file=sys.stderr)
             if import_result.cookies_imported:
-                rprint(f"[green]Extracted cookies to {cookies_file}[/green]", file=sys.stderr)
+                rprint(f"[green]Extracted {import_result.cookie_count} cookies to {cookies_file}[/green]", file=sys.stderr)
             elif not import_result.profile_copied:
                 rprint("[yellow]Could not import cookies automatically.[/yellow]", file=sys.stderr)
 
             for warning in import_result.warnings:
                 rprint(f"[yellow]{warning}[/yellow]", file=sys.stderr)
 
+        if created:
+            rprint(f"[green]Created persona: {name}[/green]", file=sys.stderr)
         if not is_tty:
             write_record(
                 {
@@ -544,11 +440,17 @@ def main():
 
 @main.command("create")
 @click.argument("names", nargs=-1)
-@click.option("--import", "import_from", help="Import profile from browser (chrome, chromium, brave, edge)")
+@click.option("--import", "import_from", help="Import from chrome, chromium, brave, edge, or a live CDP URL")
+@click.option("--source", help="Source browser user-data directory or exact profile path (including Docker mounts)")
+@click.option(
+    "--browser-binary",
+    type=click.Path(exists=True, dir_okay=False),
+    help="Source Chromium browser executable; required for other Chromium-based browsers",
+)
 @click.option("--profile", help="Profile directory name under the user data dir (e.g. Default, Profile 1)")
-def create_cmd(names: tuple, import_from: str | None, profile: str | None):
+def create_cmd(names: tuple, import_from: str | None, profile: str | None, source: str | None, browser_binary: str | None):
     """Create Personas, optionally importing from a browser profile."""
-    sys.exit(create_personas(names, import_from=import_from, profile=profile))
+    sys.exit(create_personas(names, import_from=import_from, profile=profile, source=source, browser_binary=browser_binary))
 
 
 @main.command("list")

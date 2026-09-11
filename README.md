@@ -426,7 +426,7 @@ For more discussion on third-party hosting options see here: <a href="https://gi
 #### ➡️&nbsp; Next Steps
 
 - Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
-- (Optional) Create a persona and import browser cookies to archive logged-in sites: `archivebox persona create --import=chrome personal`
+- (Optional) [Import browser cookies and settings into a persona](docs/Personas.md): `archivebox persona create --import=chrome personal`. For Docker on macOS/Windows, run this import on the host into the shared data directory first.
 - Tweak your UI or archiving behavior [Configuration](#configuration), read about some of the [Caveats](#caveats), or [Troubleshoot](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 - Read about the [Dependencies](#dependencies) used for archiving, the [Upgrading Process](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives), or the [Archive Layout](#archive-layout) on disk...
 - Or check out our full [Documentation](#documentation) or [Community Wiki](#internet-archiving-ecosystem)...
@@ -458,7 +458,7 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev help
 archivebox persona create --import=chrome personal
 # supported: chrome/chromium/brave/edge (Chromium-based only)
 # use --profile to target a specific profile (e.g. Default, Profile 1)
-# re-running import merges/dedupes cookies.txt (by domain/path/name) but replaces chrome_user_data
+# re-running import replaces this persona with the selected profile and exported cookies
 ```
 
 #### ArchiveBox Subcommands

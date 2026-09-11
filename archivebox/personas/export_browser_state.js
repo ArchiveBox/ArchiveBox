@@ -13,7 +13,6 @@
  */
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 
 const pluginsDir = process.env.ARCHIVEBOX_ABX_PLUGINS_DIR || process.env.ABX_PLUGINS_DIR;
@@ -26,7 +25,7 @@ const baseUtils = require(path.join(pluginsDir, 'base', 'utils.js'));
 baseUtils.ensureNodeModuleResolution(module);
 
 const chromeUtils = require(path.join(pluginsDir, 'chrome', 'chrome_utils.js'));
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 
 function cookieToNetscape(cookie) {
     let domain = cookie.domain;
@@ -115,38 +114,25 @@ async function openBrowser() {
         throw new Error(`User data directory does not exist: ${userDataDir}`);
     }
 
-    const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abx-browser-state-'));
     const binary = process.env.CHROME_BINARY;
     if (!binary || !path.isAbsolute(binary) || !fs.existsSync(binary)) {
         throw new Error('CHROME_BINARY must be an absolute executable path resolved by abxpkg');
     }
 
-    const launched = await chromeUtils.launchChromium({
-        binary,
-        outputDir,
+    // The ordinary archiving launcher uses a mock keychain. An import must
+    // instead let the original signed browser decrypt its own profile cookies.
+    const browser = await puppeteer.launch({
+        executablePath: binary,
         userDataDir,
         headless: true,
-        killZombies: false,
+        ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'],
+        args: ['--no-first-run', '--disable-sync', '--disable-background-networking',
+               '--profile-directory=Default', ...(process.platform === 'linux' && process.getuid?.() === 0 ? ['--no-sandbox'] : [])],
     });
-
-    if (!launched.success) {
-        throw new Error(launched.error || 'Chrome launch failed');
-    }
-
-    const browser = await chromeUtils.connectToBrowserEndpoint(puppeteer, launched.cdpUrl, { defaultViewport: null });
-
     return {
         browser,
         async cleanup() {
-            try {
-                await browser.disconnect();
-            } catch (error) {}
-            try {
-                await chromeUtils.killChrome(launched.pid, outputDir);
-            } catch (error) {}
-            try {
-                fs.rmSync(outputDir, { recursive: true, force: true });
-            } catch (error) {}
+            await browser.close();
         },
         sourceDescription: userDataDir,
     };

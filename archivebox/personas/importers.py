@@ -11,6 +11,9 @@ import json
 import os
 import platform
 import shutil
+import sqlite3
+import time
+from http.cookiejar import MozillaCookieJar
 import subprocess
 import sys
 import tempfile
@@ -42,25 +45,27 @@ BROWSER_PROFILE_DIR_NAMES = (
 )
 
 VOLATILE_PROFILE_COPY_PATTERNS = (
+    # Chromium/macOS atomic-write staging files (e.g.
+    # .com.brave.Browser.TransportSecurity.Ze7UBU) disappear after rename.
+    ".*.??????",
     "Cache",
     "Code Cache",
     "GPUCache",
     "ShaderCache",
-    "Service Worker",
-    "GCM Store",
-    "chrome-extension_*",
-    "DNR Extension Rules",
-    "Extension Rules",
-    "Extension Scripts",
-    "Extension State",
-    "Local Extension Settings",
-    "*.log",
     "Crashpad",
     "BrowserMetrics",
     "BrowserMetrics-spare.pma",
+    "RunningChromeVersion",
+    "DevToolsActivePort",
     "SingletonLock",
     "SingletonSocket",
     "SingletonCookie",
+    "Sessions",
+    "Sessions_Encrypted",
+    "Current Session",
+    "Current Tabs",
+    "Last Session",
+    "Last Tabs",
 )
 
 PERSONA_PROFILE_DIR_CANDIDATES = (
@@ -201,6 +206,7 @@ class PersonaImportResult:
     source: PersonaImportSource
     profile_copied: bool = False
     cookies_imported: bool = False
+    cookie_count: int = 0
     storage_captured: bool = False
     user_agent_imported: bool = False
     warnings: list[str] = field(default_factory=list)
@@ -419,7 +425,10 @@ def resolve_browser_import_source(browser: str, profile_dir: str | None = None) 
 
     user_data_dir = BROWSER_PROFILE_FINDERS[browser]()
     if not user_data_dir:
-        raise ValueError(f"Could not find {browser} profile directory")
+        raise ValueError(
+            f"Could not find {browser} profile directory. Use --source /path/to/browser-data. "
+            "For Docker on macOS/Windows, import on the host into the shared data directory first.",
+        )
 
     chosen_profile = profile_dir or pick_default_profile_dir(user_data_dir)
     if not chosen_profile:
@@ -444,6 +453,8 @@ def resolve_browser_profile_source(
         resolved_root = resolved_root.resolve()
     if not resolved_root.exists():
         raise ValueError(f"Profile root does not exist: {resolved_root}")
+    if Path(profile_dir).name != profile_dir or profile_dir in {".", ".."}:
+        raise ValueError("Profile must be a directory name within the source browser root.")
     if not profile_dir.strip():
         raise ValueError("Profile directory name cannot be empty.")
 
@@ -508,6 +519,46 @@ def pick_default_profile_dir(user_data_dir: Path) -> str | None:
     return profiles[0]
 
 
+def resolve_source_browser_binary(source: PersonaImportSource) -> str:
+    """Use the originating browser so OS-protected cookies use the correct keychain."""
+    if source.browser_binary:
+        return str(Path(source.browser_binary).expanduser().resolve())
+    names = {
+        "chrome": ("Google Chrome", "google-chrome"),
+        "chromium": ("Chromium", "chromium"),
+        "brave": ("Brave Browser", "brave-browser"),
+        "edge": ("Microsoft Edge", "microsoft-edge"),
+    }
+    app, executable = names.get(source.browser, ("", ""))
+    candidates = []
+    if platform.system() == "Darwin" and app:
+        candidates = [
+            Path("/Applications") / f"{app}.app/Contents/MacOS/{app}",
+            Path.home() / f"Applications/{app}.app/Contents/MacOS/{app}",
+        ]
+    elif platform.system() == "Windows":
+        relative = {
+            "chrome": "Google/Chrome/Application/chrome.exe",
+            "edge": "Microsoft/Edge/Application/msedge.exe",
+            "brave": "BraveSoftware/Brave-Browser/Application/brave.exe",
+            "chromium": "Chromium/Application/chrome.exe",
+        }.get(source.browser)
+        if relative:
+            candidates = [
+                Path(os.environ[root]) / relative for root in ("LOCALAPPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)") if os.environ.get(root)
+            ]
+    for candidate in candidates:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    if executable and (found := shutil.which(executable)):
+        return found
+    raise ValueError(
+        f"Source {source.browser} browser executable not found. Use --browser-binary with the originating Chromium browser. "
+        "For Docker, run persona create --import on the browser's host into the shared data directory first: "
+        "the container cannot decrypt cookies using the host's macOS Keychain or Windows credentials.",
+    )
+
+
 def import_persona_from_source(
     persona: Persona,
     source: PersonaImportSource,
@@ -516,65 +567,169 @@ def import_persona_from_source(
     import_cookies: bool = True,
     capture_storage: bool = False,
 ) -> PersonaImportResult:
+    # Stage all work before replacing an existing, working identity.
     persona.ensure_dirs()
     result = PersonaImportResult(source=source)
+    expected_cookies = 0
+    browser_binary = None
+    native_cookie_browsers = {"chrome", "chromium", "brave", "edge", "vivaldi", "opera", "opera_gx"}
+    # browser-cookie3 needs a desktop D-Bus session on Linux. In a headless
+    # environment, let the originating browser decode its own profile instead.
+    has_native_cookie_decoder = platform.system() != "Linux" or bool(os.environ.get("DBUS_SESSION_BUS_ADDRESS"))
+    native_cookie_import = source.kind == "browser-profile" and source.browser in native_cookie_browsers and has_native_cookie_decoder
+    if source.kind == "browser-profile" and (import_cookies or capture_storage):
+        if not native_cookie_import:
+            browser_binary = resolve_source_browser_binary(source)
+        for cookie_db in (source.profile_path / "Network" / "Cookies", source.profile_path / "Cookies"):
+            if cookie_db.is_file():
+                with sqlite3.connect(f"{cookie_db.as_uri()}?mode=ro", uri=True) as conn:
+                    expected_cookies = conn.execute(
+                        "SELECT COUNT(*) FROM cookies WHERE expires_utc = 0 OR expires_utc > ?",
+                        (int((time.time() + 11644473600) * 1_000_000),),
+                    ).fetchone()[0]
+                break
+    with tempfile.TemporaryDirectory(prefix=".import-", dir=persona.path.parent) as tmp:
+        stage = Path(tmp)
+        staged_profile = stage / "chrome_profile"
+        if source.kind == "browser-profile":
+            assert source.user_data_dir and source.profile_path
+            if copy_profile or import_cookies or capture_storage:
+                staged_profile.mkdir()
+                # Only the selected profile belongs to this persona. Normalize its
+                # name so downstream Chromium launches always select it.
+                copy_browser_user_data_dir(source.profile_path, staged_profile / "Default")
+                local_state = source.user_data_dir / "Local State"
+                if local_state.exists():
+                    state = json.loads(local_state.read_text())
+                    profile_state = state.setdefault("profile", {})
+                    profile_state["last_used"] = "Default"
+                    profile_state["last_active_profiles"] = ["Default"]
+                    info = profile_state.get("info_cache", {}).get(source.profile_dir)
+                    profile_state["info_cache"] = {"Default": info} if info else {}
+                    (staged_profile / "Local State").write_text(json.dumps(state))
+                persona.cleanup_chrome_profile(staged_profile)
+                result.profile_copied = copy_profile
+        elif copy_profile:
+            result.warnings.append(
+                "CDP imports capture cookies and open-tab storage, not browser settings. Use --source for a full profile import.",
+            )
 
-    persona_chrome_dir = Path(persona.CHROME_USER_DATA_DIR)
-    cookies_file = persona.path / "cookies.txt"
-    auth_file = persona.path / "auth.json"
-
-    launch_user_data_dir: Path | None = None
-
-    if source.kind == "browser-profile":
-        if copy_profile and source.user_data_dir:
-            resolved_source_root = source.user_data_dir.resolve()
-            resolved_persona_root = persona_chrome_dir.resolve()
-            if resolved_source_root == resolved_persona_root:
-                result.warnings.append(
-                    "Skipped profile copy because the selected source is already this persona's chrome_profile directory.",
-                )
+        if import_cookies or capture_storage:
+            if native_cookie_import:
+                auth_payload = export_profile_cookies(source, staged_profile, stage)
+                success, message = True, ""
             else:
-                copy_browser_user_data_dir(resolved_source_root, resolved_persona_root)
-                persona.cleanup_chrome_profile(resolved_persona_root)
-                result.profile_copied = True
-            launch_user_data_dir = resolved_persona_root
-        else:
-            launch_user_data_dir = source.user_data_dir
-    elif copy_profile:
-        result.warnings.append(
-            "Profile copying is only available for local Chromium profile paths. CDP imports can only pull cookies and open-tab storage.",
-        )
+                # Custom browsers and headless Linux use the originating browser.
+                # Desktop imports use their OS decoder without launching or probing.
+                launch_profile = stage / "export_profile"
+                if source.kind == "browser-profile":
+                    copy_browser_user_data_dir(staged_profile, launch_profile)
+                success, auth_payload, message = export_browser_state(
+                    user_data_dir=launch_profile if source.kind == "browser-profile" else None,
+                    cdp_url=source.cdp_url,
+                    profile_dir="Default" if source.kind == "browser-profile" else None,
+                    chrome_binary=browser_binary,
+                    cookies_output_file=stage / "cookies.txt" if import_cookies else None,
+                    auth_output_file=stage / "auth.json",
+                )
+            if not success:
+                raise ValueError(message or "Browser state export failed; persona was not replaced.")
+            if expected_cookies and not (auth_payload or {}).get("cookies"):
+                raise ValueError(
+                    "The source has cookies but the browser exported none. Run the import on the source host "
+                    "with the original browser and unlock its OS keychain; the existing persona was not replaced.",
+                )
+            if import_cookies:
+                result.cookies_imported = True
+                result.cookie_count = len((auth_payload or {}).get("cookies", []))
+            if capture_storage:
+                result.storage_captured = True
+            # Keep full CDP cookie attributes (sameSite, httpOnly, partition keys)
+            # as well as cookies.txt for non-browser extractors.
+            result.user_agent_imported = _apply_imported_user_agent(persona, auth_payload)
 
-    if not import_cookies and not capture_storage:
-        return result
-
-    if source.kind == "cdp":
-        export_success, auth_payload, export_message = export_browser_state(
-            cdp_url=source.cdp_url,
-            cookies_output_file=cookies_file if import_cookies else None,
-            auth_output_file=auth_file if capture_storage else None,
-        )
-    else:
-        export_success, auth_payload, export_message = export_browser_state(
-            user_data_dir=launch_user_data_dir,
-            profile_dir=source.profile_dir,
-            chrome_binary=source.browser_binary,
-            cookies_output_file=cookies_file if import_cookies else None,
-            auth_output_file=auth_file if capture_storage else None,
-        )
-
-    if not export_success:
-        result.warnings.append(export_message or "Browser import failed.")
-        return result
-
-    if import_cookies and cookies_file.exists():
-        result.cookies_imported = True
-    if capture_storage and auth_file.exists():
-        result.storage_captured = True
-    if _apply_imported_user_agent(persona, auth_payload):
-        result.user_agent_imported = True
-
+        if result.profile_copied:
+            target = Path(persona.CHROME_USER_DATA_DIR)
+            if target.exists():
+                shutil.rmtree(target)
+            staged_profile.rename(target)
+        for filename in ("cookies.txt", "auth.json"):
+            exported = stage / filename
+            if exported.exists():
+                exported.chmod(0o600)
+                exported.replace(persona.path / filename)
     return result
+
+
+def export_profile_cookies(source: PersonaImportSource, staged_profile: Path, output: Path) -> dict:
+    """Decode with the host keychain, never by starting the user's browser."""
+    import browser_cookie3
+
+    payload = {"TYPE": "auth", "cookies": [], "localStorage": {}, "sessionStorage": {}}
+    jar = MozillaCookieJar(str(output / "cookies.txt"))
+    assert source.profile_path
+    for relative in (Path("Network/Cookies"), Path("Cookies")):
+        original = source.profile_path / relative
+        if not original.is_file():
+            continue
+        database = staged_profile / "Default" / relative
+        for suffix in ("", "-wal", "-shm"):
+            database.with_name(database.name + suffix).unlink(missing_ok=True)
+        # SQLite backup includes committed WAL data even while the browser is open.
+        with sqlite3.connect(f"{original.as_uri()}?mode=ro", uri=True) as reader:
+            with sqlite3.connect(database) as writer:
+                reader.backup(writer)
+        try:
+            cookies = getattr(browser_cookie3, source.browser)(
+                cookie_file=str(database),
+                key_file=str(staged_profile / "Local State"),
+            )
+        except Exception as err:
+            raise ValueError(
+                "Could not decrypt browser cookies. Run the import as your desktop user on the browser host "
+                "with its OS keychain unlocked. Mounting macOS/Windows browser files into Linux does not provide "
+                "the decryption keys. The existing persona was not replaced.",
+            ) from err
+        with sqlite3.connect(database) as connection:
+            connection.row_factory = sqlite3.Row
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(cookies)")}
+            metadata_columns = [
+                name
+                for name in ("host_key", "path", "name", "samesite", "top_frame_site_key", "has_cross_site_ancestor")
+                if name in columns
+            ]
+            rows = {
+                (row["host_key"], row["path"], row["name"]): dict(row)
+                for row in connection.execute("SELECT " + ", ".join(metadata_columns) + " FROM cookies")
+            }
+        for cookie in cookies:
+            if cookie.is_expired():
+                continue
+            jar.set_cookie(cookie)
+            item = {
+                "name": cookie.name,
+                "value": cookie.value,
+                "domain": cookie.domain,
+                "path": cookie.path,
+                "secure": bool(cookie.secure),
+                "httpOnly": cookie.has_nonstandard_attr("HTTPOnly"),
+            }
+            if cookie.expires:
+                item["expires"] = cookie.expires
+            row = rows.get((cookie.domain, cookie.path, cookie.name), {})
+            same_site = {0: "None", 1: "Lax", 2: "Strict"}.get(row.get("samesite"))
+            if same_site:
+                item["sameSite"] = same_site
+            if row.get("top_frame_site_key"):
+                item["partitionKey"] = {
+                    "topLevelSite": row["top_frame_site_key"],
+                    "hasCrossSiteAncestor": bool(row.get("has_cross_site_ancestor", False)),
+                }
+            payload["cookies"].append(item)
+        break
+    jar.save(ignore_discard=True, ignore_expires=False)
+    (output / "auth.json").write_text(json.dumps(payload) + "\n")
+    return payload
 
 
 def copy_browser_user_data_dir(source_dir: Path, destination_dir: Path) -> None:
@@ -611,21 +766,27 @@ def export_browser_state(
     chrome_config = chrome_plugin_dir / "chrome" / "config.json"
 
     env = os.environ.copy()
-    if chrome_binary:
-        env["CHROME_BINARY"] = str(chrome_binary)
-    dependency_env = subprocess.run(
-        [
-            str(Path(sys.executable).with_name("abxpkg")),
-            "env",
-            "--install",
-            "--json",
-            f"--lib={get_config().ABXPKG_LIB_DIR}",
-            f"--deps-from={chrome_config}:required_binaries",
-        ],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
+    dependency_config = json.loads(chrome_config.read_text())
+    dependency_config["required_binaries"] = [dep for dep in dependency_config["required_binaries"] if dep["name"] != "{CHROME_BINARY}"]
+    dependency_file = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+    with dependency_file:
+        json.dump(dependency_config, dependency_file)
+    try:
+        dependency_env = subprocess.run(
+            [
+                str(Path(sys.executable).with_name("abxpkg")),
+                "env",
+                "--install",
+                "--json",
+                f"--lib={get_config().ABXPKG_LIB_DIR}",
+                f"--deps-from={dependency_file.name}:required_binaries",
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+    finally:
+        Path(dependency_file.name).unlink()
     if dependency_env.returncode != 0:
         return False, None, dependency_env.stderr.strip() or "abxpkg could not resolve browser export dependencies."
     try:
@@ -639,6 +800,9 @@ def export_browser_state(
     if not node_projection.is_symlink() or not os.access(node_projection, os.X_OK):
         return False, None, f"abxpkg did not resolve Node.js into {node_projection}."
     env.update({str(key): str(value) for key, value in resolved_env.items()})
+    if chrome_binary:
+        env["CHROME_BINARY"] = chrome_binary
+    env["NODE_MODULES_DIR"] = str(abxpkg_lib_dir / "pnpm" / "packages" / "chrome" / "node_modules")
     env["NODE_BINARY"] = str(node_projection)
     env["ARCHIVEBOX_ABX_PLUGINS_DIR"] = str(chrome_plugin_dir)
 
@@ -865,7 +1029,7 @@ def _apply_imported_user_agent(persona: Persona, auth_payload: dict | None) -> b
     if not auth_payload:
         return False
 
-    user_agent = str(auth_payload.get("user_agent") or "").strip()
+    user_agent = str(auth_payload.get("user_agent") or "").strip().replace("HeadlessChrome/", "Chrome/")
     if not user_agent:
         return False
 

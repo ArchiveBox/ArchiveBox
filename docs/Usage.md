@@ -131,10 +131,10 @@ To archive logged-in sites, you can import cookies from your browser into a pers
 archivebox persona create --import=chrome personal
 # supported: chrome/chromium/brave/edge (Chromium-based only)
 # use --profile to target a specific profile (e.g. Default, Profile 1)
-# re-running import merges/dedupes cookies.txt (by domain/path/name) but replaces chrome_user_data
+# re-running import replaces this persona with the selected profile and exported cookies
 ```
 
-If cookie extraction fails, you can still export a Netscape-format `cookies.txt` using a browser extension and place it at `data/personas/<NAME>/cookies.txt`.
+For Docker on macOS/Windows, run the import on the browser host into the shared data directory first. The container cannot decrypt the host's encrypted cookies. See [Personas](Personas.md) for the complete Docker workflow, explicit source paths, other Chromium browsers, and import troubleshooting.
 
 <br/>
 

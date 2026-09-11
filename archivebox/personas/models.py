@@ -45,17 +45,23 @@ VOLATILE_PROFILE_DIR_NAMES = {
     "Code Cache",
     "GPUCache",
     "ShaderCache",
-    "Service Worker",
-    "GCM Store",
     "Crashpad",
     "BrowserMetrics",
+    "Sessions",
+    "Sessions_Encrypted",
 }
 
 VOLATILE_PROFILE_FILE_NAMES = {
     "BrowserMetrics-spare.pma",
+    "RunningChromeVersion",
+    "DevToolsActivePort",
     "SingletonCookie",
     "SingletonLock",
     "SingletonSocket",
+    "Current Session",
+    "Current Tabs",
+    "Last Session",
+    "Last Tabs",
 }
 
 
@@ -211,7 +217,7 @@ class Persona(ModelWithConfig):
                 cleaned = True
 
         for path in profile_paths():
-            if not path.match("*.log"):
+            if path.name not in {"chrome.log", "chrome_debug.log"}:
                 continue
             try:
                 path.unlink()
@@ -297,6 +303,10 @@ class Persona(ModelWithConfig):
             else:
                 runtime_profile_dir.mkdir(parents=True, exist_ok=True)
 
+            for filename in ("cookies.txt", "auth.json"):
+                source = self.path / filename
+                if source.is_file():
+                    shutil.copy2(source, runtime_root / filename)
             runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
             self.cleanup_chrome_profile(runtime_profile_dir)
 
@@ -313,6 +323,11 @@ class Persona(ModelWithConfig):
             # derivation centralized in the Chrome plugin helpers.
             "PERSONAS_DIR": str(runtime_root.parent),
             "ACTIVE_PERSONA": self.name,
+            **{
+                key: str(runtime_root / filename)
+                for key, filename in (("COOKIES_FILE", "cookies.txt"), ("AUTH_STORAGE_FILE", "auth.json"))
+                if (runtime_root / filename).is_file()
+            },
         }
 
     def prepare_runtime_for_snapshot(self, snapshot, chrome_binary: str = "") -> dict[str, str]:
@@ -329,6 +344,12 @@ class Persona(ModelWithConfig):
         else:
             runtime_profile_dir.mkdir(parents=True, exist_ok=True)
 
+        for filename in ("cookies.txt", "auth.json"):
+            source = self.runtime_root_for_crawl(snapshot.crawl) / filename
+            if not source.is_file():
+                source = self.path / filename
+            if source.is_file():
+                shutil.copy2(source, runtime_root / filename)
         runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
         self.cleanup_chrome_profile(runtime_profile_dir)
 
@@ -343,6 +364,11 @@ class Persona(ModelWithConfig):
             # Chrome hooks and ArchiveBox-driven hooks resolve paths the same way.
             "PERSONAS_DIR": str(runtime_root.parent),
             "ACTIVE_PERSONA": self.name,
+            **{
+                key: str(runtime_root / filename)
+                for key, filename in (("COOKIES_FILE", "cookies.txt"), ("AUTH_STORAGE_FILE", "auth.json"))
+                if (runtime_root / filename).is_file()
+            },
         }
 
     def cleanup_runtime_for_crawl(self, crawl) -> None:
