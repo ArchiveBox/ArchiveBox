@@ -102,7 +102,7 @@ echo 'APT::Install-Suggests "0";' > /etc/apt/apt.conf.d/99no-install-suggests
 rm -f /etc/apt/apt.conf.d/docker-clean
 apt-get update -qq
 apt-get install -qq -y --no-install-recommends \
-    build-essential gcc libldap2-dev libsasl2-dev libssl-dev
+    build-essential gcc libldap2-dev libsasl2-dev libssl-dev x11-utils
 # Extend abx-dl's existing venv instead of clearing it. Clearing and later
 # copying a complete replacement over the base duplicates every venv byte in
 # the final overlay history even when most packages are unchanged.

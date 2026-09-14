@@ -426,7 +426,7 @@ For more discussion on third-party hosting options see here: <a href="https://gi
 #### ➡️&nbsp; Next Steps
 
 - Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
-- (Optional) [Import browser cookies and settings into a persona](docs/Personas.md): `archivebox persona create --import=chrome personal`. For Docker on macOS/Windows, run this import on the host into the shared data directory first.
+- (Optional) [Import browser cookies and settings into a persona](docs/Chromium-Install.md#import-an-existing-browser-profile).
 - Tweak your UI or archiving behavior [Configuration](#configuration), read about some of the [Caveats](#caveats), or [Troubleshoot](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 - Read about the [Dependencies](#dependencies) used for archiving, the [Upgrading Process](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives), or the [Archive Layout](#archive-layout) on disk...
 - Or check out our full [Documentation](#documentation) or [Community Wiki](#internet-archiving-ecosystem)...
@@ -454,11 +454,6 @@ docker compose run --rm archivebox help
 # equivalent: docker run -it -v $PWD:/data archivebox/archivebox:dev [subcommand] [--help]
 docker run -it -v $PWD:/data archivebox/archivebox:dev help
 
-# optional: import your browser cookies into a persona for logged-in archiving
-archivebox persona create --import=chrome personal
-# supported: chrome/chromium/brave/edge (Chromium-based only)
-# use --profile to target a specific profile (e.g. Default, Profile 1)
-# re-running import replaces this persona with the selected profile and exported cookies
 ```
 
 #### ArchiveBox Subcommands
@@ -932,7 +927,7 @@ archivebox manage createsuperuser
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive">Wiki: Publishing Your Archive</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Wiki: Security Overview</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile">Wiki: Chromium Install (Setting Up a User Profile)</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Personas">Wiki: Personas (browser profiles and cookies)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile">Wiki: Chrome profiles and cookies</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#default_persona">Wiki: Configuration (<code>DEFAULT_PERSONA</code>)</a></li>
 </ul>
 
@@ -986,7 +981,7 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 
 <ul>
 <li>Set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent"><code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, <code>CURL_USER_AGENT</code></a> to impersonate a real browser (by default, ArchiveBox reveals that it's a bot when using the default user agent settings)</li>
-<li>Set up a logged-in browser session for archiving by <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Personas">importing a dedicated browser profile into a persona</a></li>
+<li>Set up a logged-in browser session for archiving by <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile">importing a dedicated browser profile into a persona</a></li>
 <li>Rewrite your URLs before archiving to swap in alternative frontends that are more bot-friendly e.g.<br>
 <code>reddit.com/some/url</code> -&gt; <code>teddit.net/some/url</code>: <a href="https://github.com/mendel5/alternative-front-ends">https://github.com/mendel5/alternative-front-ends</a></li>
 </ul>

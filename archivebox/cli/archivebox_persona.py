@@ -138,8 +138,9 @@ def create_personas(
         try:
             if source:
                 import_source = persona_importers.resolve_custom_import_source(source, profile_dir=profile)
-                import_source = replace(import_source, browser=import_from.lower(), browser_binary=browser_binary)
-            elif import_from.startswith(("http://", "https://", "ws://", "wss://")):
+                if import_source.browser != "persona":
+                    import_source = replace(import_source, browser=import_from.lower(), browser_binary=browser_binary)
+            elif import_from.startswith(("http://", "https://", "ws://", "wss://")) or Path(import_from).expanduser().is_absolute():
                 import_source = persona_importers.resolve_custom_import_source(import_from)
             else:
                 import_source = persona_importers.resolve_browser_import_source(import_from, profile_dir=profile)
@@ -440,7 +441,7 @@ def main():
 
 @main.command("create")
 @click.argument("names", nargs=-1)
-@click.option("--import", "import_from", help="Import from chrome, chromium, brave, edge, or a live CDP URL")
+@click.option("--import", "import_from", help="Import from chrome, chromium, brave, edge, a persona directory, or a live CDP URL")
 @click.option("--source", help="Source browser user-data directory or exact profile path (including Docker mounts)")
 @click.option(
     "--browser-binary",
@@ -460,6 +461,84 @@ def create_cmd(names: tuple, import_from: str | None, profile: str | None, sourc
 def list_cmd(name: str | None, name__icontains: str | None, limit: int | None):
     """List Personas as JSONL."""
     sys.exit(list_personas(name=name, name__icontains=name__icontains, limit=limit))
+
+
+@main.command("open")
+@click.argument("name", default="Default")
+def open_cmd(name: str):
+    """Open a persona's browser, including its imported logins."""
+    import json
+    import os
+    import subprocess
+
+    import psutil
+
+    from abx_plugins import get_plugins_dir
+    from archivebox.config.common import get_config
+    from archivebox.personas.models import Persona
+
+    valid, reason = validate_persona_name(name)
+    if not valid:
+        raise click.ClickException(reason)
+    persona = Persona.get_or_create_named(name)
+    persona.ensure_dirs()
+    config = get_config(persona=persona)
+    if os.environ.get("DISPLAY"):
+        from archivebox.config import CONSTANTS
+
+        for process in psutil.process_iter():
+            try:
+                args = process.cmdline()
+                profile = next((arg.split("=", 1)[1] for arg in args if arg.startswith("--user-data-dir=")), None)
+                if (
+                    not profile
+                    or any(arg.startswith(("--type=", "--headless")) for arg in args)
+                    or not Path(profile).resolve().is_relative_to(CONSTANTS.DATA_DIR.resolve())
+                    or process.environ().get("DISPLAY") != os.environ["DISPLAY"]
+                ):
+                    continue
+                rprint("An ArchiveBox browser is already open on this display; waiting for it to close.")
+                process.wait()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+    plugins_dir = Path(get_plugins_dir()).resolve()
+    env = os.environ.copy()
+    dependencies = subprocess.run(
+        [
+            str(Path(sys.executable).with_name("abxpkg")),
+            "env",
+            "--install",
+            "--json",
+            f"--lib={config.ABXPKG_LIB_DIR}",
+            f"--deps-from={plugins_dir / 'chrome' / 'config.json'}:required_binaries",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    if dependencies.returncode:
+        raise click.ClickException(dependencies.stderr.strip())
+    env.update({key: str(value) for key, value in json.loads(dependencies.stdout).items()})
+    env["ARCHIVEBOX_ABX_PLUGINS_DIR"] = str(plugins_dir)
+    env["ACTIVE_PERSONA"] = persona.name
+    env["PERSONAS_DIR"] = str(persona.path.parent)
+    env["NODE_MODULES_DIR"] = str(config.ABXPKG_LIB_DIR / "pnpm" / "packages" / "chrome" / "node_modules")
+    payload = config.model_dump(mode="json")
+    payload.update(
+        ACTIVE_PERSONA=persona.name,
+        CHROME_HEADLESS=False,
+        CHROME_USER_DATA_DIR=str(persona.CHROME_USER_DATA_DIR),
+        AUTH_STORAGE_FILE=str(persona.AUTH_STORAGE_FILE or ""),
+        COOKIES_FILE=str(persona.COOKIES_FILE or ""),
+    )
+    script = Path(__file__).parent.parent / "personas" / "open_browser.js"
+    result = subprocess.run(
+        [env.get("NODE_BINARY") or "node", str(script)],
+        input=json.dumps(payload),
+        text=True,
+        env=env,
+    )
+    sys.exit(result.returncode)
 
 
 @main.command("update")

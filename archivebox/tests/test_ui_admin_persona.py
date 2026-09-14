@@ -179,6 +179,42 @@ def test_persona_admin_add_post_runs_shared_importer(admin_client, admin_user):
     assert not persona.AUTH_STORAGE_FILE
 
 
+def test_persona_admin_unset_cookie_paths_stay_unset(admin_client, admin_user):
+    from html.parser import HTMLParser
+
+    paths = {}
+
+    class CookiePathInputs(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            field = dict(attrs)
+            name = field.get("name", "")
+            if tag == "input" and name.startswith("plugin_config__") and name.endswith(("__COOKIES_FILE", "__AUTH_STORAGE_FILE")):
+                paths[name] = field.get("value", "")
+
+    url = reverse("admin:personas_persona_add")
+    page = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    CookiePathInputs().feed(page.content.decode())
+    assert paths
+    assert all(value == "" for value in paths.values())
+    response = admin_client.post(
+        url,
+        {
+            "name": "UnsetCookiePaths",
+            "created_by": str(admin_user.pk),
+            "permissions": "private",
+            "config": "{}",
+            "import_mode": "none",
+            "_save": "Save",
+            **paths,
+        },
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    config = Persona.objects.get(name="UnsetCookiePaths").config
+    assert "COOKIES_FILE" not in config
+    assert "AUTH_STORAGE_FILE" not in config
+
+
 def test_persona_admin_saves_typed_plugin_config(admin_client, admin_user):
     add_response = admin_client.get(reverse("admin:personas_persona_add"), HTTP_HOST=ADMIN_TEST_HOST)
     add_form = add_response.context["adminform"].form

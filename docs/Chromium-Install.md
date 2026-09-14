@@ -1,151 +1,158 @@
 # Chrome / Chromium Setup
 
-ArchiveBox resolves Chrome through `abxpkg`, just like every other runtime binary. It checks compatible browsers already installed on the host first. When it finds one, it projects that exact browser into the managed runtime environment; otherwise it installs a compatible managed Chromium build.
+ArchiveBox uses a Chromium-based browser to load pages and save screenshots, PDFs, and HTML.
+
+## Install ArchiveBox's browser
+
+Docker images include the browser. For an installation without Docker, run these commands from your ArchiveBox data folder:
 
 ```bash
 archivebox install chrome
 archivebox version
 ```
 
-The resolved browser is always available through `./lib/env/bin/chromium` inside the collection. `archivebox version` shows whether it came from the host or a managed provider, along with the exact version and path.
+ArchiveBox uses a suitable installed browser or downloads one if needed. `archivebox version` shows the browser it selected.
 
-If you need to select a specific compatible browser already installed on the host, set `CHROME_BINARY` and let the same installer validate and project it:
+<details>
+<summary>Choose a specific installed browser</summary>
+
+Set `CHROME_BINARY` to the browser's command or executable path, then run the installer:
 
 ```bash
 archivebox config --set CHROME_BINARY=google-chrome
 archivebox install chrome
-archivebox version
 ```
 
-## Troubleshooting Chromium Install
-
-If you encounter problems setting up Google Chrome or Chromium, see the [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#chromiumgoogle-chrome) page.
-
----
+</details>
 
 # Setting Up a Chromium User Profile
 
-You may choose to set up a Chrome/Chromium user profile in order to use your cookies/sessions to log into sites behind authentication/paywall during archiving.
+ArchiveBox uses a browser to load pages and save their content. If a page requires you to log in, ArchiveBox needs to be logged in too. Otherwise, it may save the login screen instead of the page.
 
-*Note: not all extractors use Chrome (e.g. `wget`, `mercury`, `media`). Importing a dedicated host browser profile into a persona also exports its cookies for those extractors; directly logging in through a new ArchiveBox Chrome profile does not.*
+A **browser profile** stores your logins and browser settings. Importing it into ArchiveBox lets ArchiveBox view pages using your account. ArchiveBox calls its copy a **persona**. Select that persona when saving a page.
 
-> [!WARNING]
-> **We strongly recommend you use [separate burner credentials dedicated to archiving](https://docs.sweeting.me/s/cookie-dilemma),** e.g. don't provide cookies for your normal daily Facebook/Instagram/Google/etc. accounts as server responses and page content will often contain your name/email/PII, session cookies, private tokens, etc. which then get preserved in your snapshots for eternity.
->  
-> Future viewers of your archive may be able to use any reflected archived session tokens to log in as you, or at the very least, associate the content with your real identity. Even if this tradeoff seems acceptable now or you plan to keep your archive data private, you may want to share a snapshot with others in the future, and snapshots are very hard to sanitize/anonymize after-the-fact!
->
-> For this reason, it's best to set up dedicated fake profile accounts for each site you want to archive, and consider them burned if you ever share any of your archived snapshots of those sites with untrusted people.
-
+Profile importing is for **Chromium-based browsers**. The examples below use Chrome; the same workflow applies to other browsers in that family. You can also [log in using ArchiveBox's own browser](#setting-up-a-new-profile) instead of importing a profile.
 <a name="docker-setup"></a>
 <a name="Docker-Setup"></a>
 
-### Docker VNC Setup
+## Import an existing browser profile
 
-If using ArchiveBox in Docker, the easiest way to set up session credentials is by remote controlling the ArchiveBox Chrome browser over VNC, and using it to log in to the sites you want to save.
+These steps cover the common setup where your browser is on your computer and ArchiveBox runs in Docker on a server. You will export the profile on your computer, transfer the exported persona directly into the server's ArchiveBox data folder with `rsync`.
 
-1. Enable the `novnc` server using these settings in your `docker-compose.yml`:
+You need the [ArchiveBox CLI](Install.md) on your computer and SSH access to your server. The temporary folder below is only for exporting the profile; you do not need to download your server's archive.
 
-`docker-compose.yml`:
-```yaml
-services:
-    archivebox:
-        ...
-        volumes:
-            ...
-        environment:
-            - DISPLAY=novnc:0.0
-            
-    novnc:
-        image: theasp/novnc:latest
-        environment:
-            - DISPLAY_WIDTH=1920
-            - DISPLAY_HEIGHT=1080
-            - RUN_XTERM=no
-        ports:
-            - "8080:8080"
-```
+If ArchiveBox runs on the same computer as your browser, use your existing ArchiveBox data folder for step 1, skip step 2, and run `archivebox add --persona=personal URL` in step 3.
 
-2. Start the `novnc` window server container
-```bash
-docker compose up -d novnc
-# wait a few seconds for novnc to start...
-```
+### 1. Export the profile on your computer
 
-3. Start ArchiveBox's Chrome inside Docker
-```bash
-docker compose run --rm archivebox persona create personal
-docker compose run --rm archivebox /data/lib/env/bin/chromium --user-data-dir=/data/personas/personal/chrome_profile --profile-directory=Default --disable-gpu --disable-features=dbus --disable-dev-shm-usage --start-maximized --no-sandbox --disable-setuid-sandbox --no-zygote --disable-sync --no-first-run
-```
-<small>(make sure you set `DISPLAY` and keep the normal persistent `/data` volume from the Compose setup!)</small>
-
-4. Open [`http://localhost:8080/vnc.html`](http://localhost:8080/vnc.html) in your browser. You should see a remote linux desktop shown with Chrome open, allowing you to remote-control ArchiveBox's browser. Use it to log into any sites where you want to save credentials.
-
-5. ✅ Close the browser, stop & remove novnc, and then select the `personal` persona when archiving. Chrome-based extractors will use the saved profile and should see the sites as logged in.
+Open a page you want to save and check that you can view it while logged in. Close the browser, then create a temporary export folder:
 
 ```bash
-# stop the archivebox and novnc containers
-docker compose down
-docker compose down --remove-orphans
-# edit docker-compose.yml to remove/comment out the novnc: section
-
-# test it all out by archiving something hosted on one of the domains you logged in to
-docker compose run --rm archivebox add --persona=personal 'https://private.example.com/some/site/requiring/login.html'
-# check the SingleFile, Screenshot, DOM, or PDF snapshot output (only these use the Chrome profile)
-# make sure the content appears as your logged-in user would see it
+mkdir -p ~/archivebox-profile-export
+cd ~/archivebox-profile-export
+archivebox init
 ```
 
-Under the hood this uses [Xvfb](https://www.x.org/releases/X11R7.6/doc/man/man1/Xvfb.1.xhtml) + [Fluxbox](http://www.fluxbox.org/) + [`novnc`](https://github.com/theasp/docker-novnc) to provide a virtual display, window manager, and VNC server + novnc websocket viewer.
-<br/>
+**Using the CLI:**
+
+```bash
+archivebox persona create --import=chrome personal
+```
+
+`personal` is a name you choose for the persona. Replace `chrome` with your browser's import name: `chromium`, `brave`, or `edge` for those browsers. The command chooses a profile automatically; use `--profile=Default` or `--profile='Profile 1'` to select a specific one.
+
+**Using the UI instead:** run `archivebox server` from the export folder and follow the [web UI setup](Usage.md#ui-usage). Choose **Admin → Personas & Configs → Add persona → Use a detected profile**, name it `personal`, select the browser profile, and save. You can stop this local ArchiveBox server afterward.
+
+Both methods create `~/archivebox-profile-export/personas/personal`, ready to transfer.
+
+<details>
+<summary>My browser or profile is not detected</summary>
+
+Check the **Profile Path** on your browser's version page (`chrome://version` in Chrome). The final folder name identifies the profile, such as `Default` or `Profile 1`.
+
+For a browser installed in a different location, the CLI accepts `--source` for its profile path and `--browser-binary` for its executable. Run `archivebox persona create --help` for the available options. Automatic detection currently lists Chrome, Chromium, Brave, and Edge; other Chromium-based browsers need their paths supplied explicitly.
+
+</details>
+
+### 2. Transfer the persona to your server
+
+Run these commands **on your computer**. Replace `user@your-server` with your SSH login and `~/archivebox/data` with your server's ArchiveBox data folder (the folder mounted at `/data` in Docker):
+
+```bash
+ssh user@your-server 'mkdir -p ~/archivebox/data/personas/personal'
+rsync -av ~/archivebox-profile-export/personas/personal/ user@your-server:~/archivebox/data/personas/personal/
+```
+
+The persona is now in place. Docker uses the existing data mount; no Compose changes are needed.
+
+<a name="non-docker-setup-remote-host"></a>
+
+For a server without Docker, transfer to `personas/personal/` inside its ArchiveBox data folder in the same way.
+
+### 3. Save and check the page
+
+Connect to your server and enter the folder containing its Docker Compose file:
+
+```bash
+ssh user@your-server
+cd ~/archivebox
+```
+
+Replace the example URL with the page you want to save:
+
+```bash
+docker compose exec archivebox archivebox add --persona=personal 'https://example.com/page'
+```
+
+For a server without Docker, run `archivebox add --persona=personal URL` from its data folder.
+
+**Using the UI instead:** if `personal` is not listed yet, choose **Admin → Personas & Configs → Add persona → Blank Persona**, name it `personal`, and save. This registers the transferred folder without changing its contents. Then open **Add URL**, paste the URL, and select `personal` before starting the capture.
+
+Open the saved screenshot or HTML. Check that it contains the content you wanted, rather than a login screen. If the site requires you to log in again later, sign in in your browser and repeat the export and transfer.
+
+Treat imported personas and logged-in snapshots as private: they can contain account information. Review the [guidance on sharing archives](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing) before publishing them.
+
+## Setting up a new profile
+
+Use this option if you prefer to log in through ArchiveBox's browser instead of importing a browser profile. Log in once, then select the same persona for future captures.
 
 ### Non-Docker Setup (Local Host)
 
-If running ArchiveBox on your local machine without Docker, this process is fairly easy.
-
-First, create a persona to hold the dedicated Chrome profile.
+From your ArchiveBox data folder:
 
 ```bash
 archivebox persona create personal
+archivebox persona open personal
 ```
 
-Then install/resolve Chrome and launch the projected browser with that profile dir:
+Log in to the sites you want to archive, then close the browser. Save a page with `archivebox add --persona=personal URL` and check the resulting Screenshot, DOM, PDF, or SingleFile output.
+
+### Docker VNC Setup
+
+This opens the selected persona in a browser you can control remotely. It also works with an [imported profile](#import-an-existing-browser-profile).
+
+1. In your [Docker Compose file](https://docker-compose.archivebox.io), uncomment the `novnc` service and the `depends_on` block under `archivebox`. Uncomment `ARCHIVEBOX_VNC_PERSONA=personal` to select your persona.
+
+2. From the Compose folder, run:
 
 ```bash
-archivebox install chrome
-./lib/env/bin/chromium --user-data-dir="$PWD/personas/personal/chrome_profile"
+docker compose up -d
 ```
 
-Once it's open, log in to all the sites you want to be logged in to for archiving, then close/quit Chrome.
+ArchiveBox waits for VNC to be ready, then opens the persona's browser with its imported logins. If an ArchiveBox browser is already open on that display, it waits for that browser to close first.
 
-✅ Chrome-based extractors (e.g. Screenshot, PDF, DOM, Singlefile) use that profile whenever you archive with `--persona=personal`.
+3. Visit <http://localhost:8080/vnc.html> and click **Connect**. For a remote server, first run this on your computer and keep the connection open:
 
-Directly logging in through this profile does not generate a `cookies.txt` for non-Chrome extractors. If those extractors need the same login state, use the recommended [`archivebox persona create --import=chrome personal`](https://github.com/ArchiveBox/ArchiveBox/wiki/Personas) workflow with a dedicated host browser profile instead; the import copies the Chrome profile and exports its cookies together.
+```bash
+ssh -N -L 8080:127.0.0.1:8080 user@your-server
+```
 
-<br/>
+4. Open a page and confirm you can view it while logged in. For a new persona, log in to the sites you want to archive. Then follow [Save and check the page](#3-save-and-check-the-page), selecting the same persona.
 
-### Non-Docker Setup (Remote Host)
+## Troubleshooting Chromium Install
 
-You must set up the profile using the exact same version of Chrome that ArchiveBox is running. Run `archivebox install chrome` and `archivebox version` on each machine so `abxpkg` selects and validates the browser.
+<a name="more-info--troubleshooting"></a>
 
-**General steps:**
-
-1. Make sure you are running the same OS and have the same version of Chrome installed as the host running ArchiveBox
-2. Follow the `Non-Docker Setup (Local Host)` steps above to create the `personal` persona and Chrome profile locally
-3. Create the same persona from the ArchiveBox data directory on the remote host: `archivebox persona create personal`
-4. Rsync the persona's Chrome profile from your local collection into the matching remote persona: `rsync --archive ~/archivebox/data/personas/personal/chrome_profile/ remotehost:~/archivebox/data/personas/personal/chrome_profile/`
-
-You may need to run `chown -R archivebox ~/archivebox/data/personas/personal/chrome_profile` on the remote host to make the profile editable by the `archivebox` user on that machine.
-
-✅ Chrome-based extractors (e.g. Screenshot, PDF, DOM, Singlefile) use that profile whenever you archive with `--persona=personal`.
-
-If non-Chrome extractors need the same login state, prefer importing a dedicated host browser profile with `archivebox persona create --import=chrome personal` so the persona receives both the Chrome profile and an exported `cookies.txt`.
-
----
-
-## More Info & Troubleshooting
-
-- https://github.com/ArchiveBox/ArchiveBox/issues/952
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#archiving-private-content
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#%EF%B8%8F-things-to-watch-out-for-%EF%B8%8F
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#publishing
-- https://archivebox.github.io/abx-plugins/#chrome (CHROME_USER_DATA_DIR, CHROME_BINARY, etc.)
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#cookies_file
+- **Browser missing or unable to start:** see [Chromium troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#chromiumgoogle-chrome).
+- **Saved a login screen:** confirm you can view the page in the source browser, re-import the correct profile, and select that persona when saving.
+- **Need browser settings:** see the [Chrome plugin configuration](https://archivebox.github.io/abx-plugins/#chrome).

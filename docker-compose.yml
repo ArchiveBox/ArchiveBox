@@ -15,6 +15,10 @@ services:
     archivebox:
         image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}
         restart: unless-stopped
+        # Uncomment with the novnc service below to open the browser automatically.
+        # depends_on:
+        #     novnc:
+        #         condition: service_healthy
         ports:
             - "${ARCHIVEBOX_PORT:-8000}:8000"
         volumes:
@@ -27,6 +31,7 @@ services:
         environment:
             # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
+            # - ARCHIVEBOX_VNC_PERSONA=personal                    # persona to open in VNC (defaults to DEFAULT_PERSONA)
             - BASE_URL                                                               # optional canonical URL; the first-run admin wizard fills it from the browser
             - SERVER_SECURITY_MODE                                                   # optional override; defaults to auto and can be set by the first-run wizard
             - PUBLIC_ADD_VIEW=False                              # set to True to allow anonymous users to submit new URLs to archive
@@ -64,12 +69,15 @@ services:
 
     # novnc:
     #     image: theasp/novnc:latest
-    #     profiles:
-    #         - novnc
     #     environment:
     #         - DISPLAY_WIDTH=1920
     #         - DISPLAY_HEIGHT=1080
     #         - RUN_XTERM=no
+    #     healthcheck:
+    #         test: ["CMD", "xdpyinfo", "-display", ":0"]
+    #         interval: 2s
+    #         timeout: 2s
+    #         retries: 10
     #     ports:
     #         # to view/control ArchiveBox's browser, visit: http://127.0.0.1:8080/vnc.html
     #         # restricted to access from localhost by default because it has no authentication

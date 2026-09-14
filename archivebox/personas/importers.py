@@ -224,20 +224,16 @@ def get_chrome_user_data_dir() -> Path | None:
     if system == "Darwin":
         candidates = [
             home / "Library" / "Application Support" / "Google" / "Chrome",
-            home / "Library" / "Application Support" / "Chromium",
         ]
     elif system == "Linux":
         candidates = [
             home / ".config" / "google-chrome",
-            home / ".config" / "chromium",
             home / ".config" / "chrome",
-            home / "snap" / "chromium" / "common" / "chromium",
         ]
     elif system == "Windows":
         local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
         candidates = [
             local_app_data / "Google" / "Chrome" / "User Data",
-            local_app_data / "Chromium" / "User Data",
         ]
     else:
         candidates = []
@@ -247,6 +243,21 @@ def get_chrome_user_data_dir() -> Path | None:
             return candidate
 
     return None
+
+
+def get_chromium_user_data_dir() -> Path | None:
+    """Select Chromium's own profile even when Google Chrome is installed."""
+    home = Path.home()
+    if platform.system() == "Darwin":
+        candidates = [home / "Library/Application Support/Chromium"]
+    elif platform.system() == "Windows":
+        candidates = [Path(os.environ.get("LOCALAPPDATA", home / "AppData/Local")) / "Chromium/User Data"]
+    else:
+        candidates = [
+            Path(os.environ.get("XDG_CONFIG_HOME", home / ".config")) / "chromium",
+            home / "snap/chromium/common/chromium",
+        ]
+    return next((path for path in candidates if path.is_dir() and _list_profile_names(path)), None)
 
 
 def get_brave_user_data_dir() -> Path | None:
@@ -309,7 +320,7 @@ def get_edge_user_data_dir() -> Path | None:
 
 BROWSER_PROFILE_FINDERS = {
     "chrome": get_chrome_user_data_dir,
-    "chromium": get_chrome_user_data_dir,
+    "chromium": get_chromium_user_data_dir,
     "brave": get_brave_user_data_dir,
     "edge": get_edge_user_data_dir,
 }
@@ -487,6 +498,15 @@ def resolve_custom_import_source(raw_value: str, profile_dir: str | None = None)
         raise ValueError(f"Custom browser path does not exist: {source_path}")
 
     explicit_profile = profile_dir.strip() if profile_dir else ""
+    for profile_root in PERSONA_PROFILE_DIR_CANDIDATES:
+        root = source_path / profile_root
+        if root.is_dir():
+            selected = explicit_profile or pick_default_profile_dir(root)
+            if selected:
+                return resolve_browser_profile_source(
+                    browser="persona", source_name=source_path.name,
+                    user_data_dir=root.resolve(), profile_dir=selected,
+                )
     if _looks_like_profile_dir(source_path):
         if explicit_profile and explicit_profile != source_path.name:
             raise ValueError("Profile name does not match the provided profile directory path.")
@@ -577,7 +597,8 @@ def import_persona_from_source(
     # environment, let the originating browser decode its own profile instead.
     has_native_cookie_decoder = platform.system() != "Linux" or bool(os.environ.get("DBUS_SESSION_BUS_ADDRESS"))
     native_cookie_import = source.kind == "browser-profile" and source.browser in native_cookie_browsers and has_native_cookie_decoder
-    if source.kind == "browser-profile" and (import_cookies or capture_storage):
+    portable_import = source.kind == "browser-profile" and source.browser == "persona"
+    if source.kind == "browser-profile" and not portable_import and (import_cookies or capture_storage):
         if not native_cookie_import:
             browser_binary = resolve_source_browser_binary(source)
         for cookie_db in (source.profile_path / "Network" / "Cookies", source.profile_path / "Cookies"):
@@ -615,7 +636,17 @@ def import_persona_from_source(
             )
 
         if import_cookies or capture_storage:
-            if native_cookie_import:
+            if portable_import:
+                export_dir = source.user_data_dir.parent
+                if not all((export_dir / name).is_file() for name in ("auth.json", "cookies.txt")):
+                    raise ValueError("This persona has no portable cookie export. Re-import it on the original browser host first.")
+                auth_payload = json.loads((export_dir / "auth.json").read_text())
+                if not isinstance(auth_payload, dict) or not isinstance(auth_payload.get("cookies"), list):
+                    raise ValueError("Invalid persona auth.json: expected a cookies list.")
+                for name in ("auth.json", "cookies.txt"):
+                    shutil.copy2(export_dir / name, stage / name)
+                success, message = True, ""
+            elif native_cookie_import:
                 auth_payload = export_profile_cookies(source, staged_profile, stage)
                 success, message = True, ""
             else:

@@ -114,6 +114,15 @@ const puppeteer = require(process.argv[1]);
     assert cookie["value"] == "real-session"
     assert cookie["httpOnly"] is True
     assert cookie["sameSite"] == "Lax"
+    transferred = run_archivebox_cmd(
+        ["persona", "create", f"--import={persona}", "portable"],
+        cwd=initialized_archive,
+        timeout=120,
+    )
+    assert transferred.returncode == 0, transferred.stderr
+    portable = initialized_archive / "personas" / "portable"
+    assert (portable / "auth.json").read_bytes() == (persona / "auth.json").read_bytes()
+    assert (portable / "chrome_profile/Default/Preferences").read_bytes() == original_preferences
     before = {
         path.relative_to(persona): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in (persona / "cookies.txt", persona / "auth.json", persona / "chrome_profile/Default/Preferences")
@@ -128,7 +137,7 @@ const puppeteer = require(process.argv[1]);
     assert all(hashlib.sha256((persona / relative).read_bytes()).hexdigest() == digest for relative, digest in before.items())
 
     archived = run_archivebox_cmd(
-        ["add", "--persona=session", "--plugins=dom", httpserver.url_for("/private")],
+        ["add", "--persona=portable", "--plugins=dom", httpserver.url_for("/private")],
         cwd=initialized_archive,
         timeout=180,
         env={**browser_env, "CHROME_SANDBOX": "false"},

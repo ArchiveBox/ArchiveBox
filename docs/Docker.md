@@ -1,5 +1,7 @@
 # Docker
 
+For desktop browser cookies and bookmarks, see [Chrome profile setup](Chromium-Install.md#import-an-existing-browser-profile).
+
 ## Overview
 
 Running ArchiveBox with Docker allows you to manage it in a container without exposing it to the rest of your system. ArchiveBox generally works the same in Docker as it does outside Docker. You can even use `uv`-installed ArchiveBox and Docker ArchiveBox in tandem, as they both share the same data directory format.

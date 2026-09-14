@@ -1189,6 +1189,25 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
             log_files.append(str(sonic_worker["stdout_logfile"]))
 
     workers = [(server_worker, False), *bg_workers]
+    if os.environ.get("DISPLAY") and (config.IN_DOCKER or os.environ.get("ARCHIVEBOX_VNC_PERSONA")):
+        vnc_persona = os.environ.get("ARCHIVEBOX_VNC_PERSONA") or config.DEFAULT_PERSONA
+        workers.append(
+            (
+                {
+                    "name": "worker_vnc_browser",
+                    "command": _shell_join(archivebox_cmd("persona", "open", vnc_persona)),
+                    "autostart": "false",
+                    "autorestart": "false",
+                    "stopasgroup": "true",
+                    "killasgroup": "true",
+                    "stopwaitsecs": "30",
+                    "stdout_logfile": "logs/worker_vnc_browser.log",
+                    "redirect_stderr": "true",
+                },
+                False,
+            )
+        )
+        log_files.append("logs/worker_vnc_browser.log")
     components = runtime_components_for_worker_names([worker["name"] for worker, _lazy in workers])
     return workers, log_files, components
 
