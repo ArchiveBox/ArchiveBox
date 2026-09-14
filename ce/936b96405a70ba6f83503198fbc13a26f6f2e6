@@ -1,0 +1,22 @@
+.github/workflows/docs.yml
+  s_f8414d52051f83::t_e7fb5bfcc00bcc 150,156
+docs/test_codeblocks_manifest.py
+  s_f8414d52051f83::t_77610af4b7ad0a 304,309-316,319,322,325,328-329
+  s_f8414d52051f83::t_9d366ba57bdf7f 298-303,305-308,317-318,320-321,323-324,347-352,582,597-599
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "ce936b96405a70ba6f83503198fbc13a26f6f2e6",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

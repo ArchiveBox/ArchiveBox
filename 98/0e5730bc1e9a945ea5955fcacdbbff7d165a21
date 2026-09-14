@@ -1,0 +1,22 @@
+pyproject.toml
+  s_0519be8d8ec8fd::t_c31c0feadbf965 85
+archivebox/services/runner.py
+  s_0519be8d8ec8fd::t_85bc8dc3c29532 1183-1194,1196
+  s_0519be8d8ec8fd::t_2d16f493fadcac 1195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "980e5730bc1e9a945ea5955fcacdbbff7d165a21",
+  "prompts": {},
+  "sessions": {
+    "s_0519be8d8ec8fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6897-fd2e-7901-959d-ad7ef7f9e7c4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

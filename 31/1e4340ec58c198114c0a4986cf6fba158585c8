@@ -1,0 +1,41 @@
+Dockerfile
+  e74ee8aebc9d811a 219,234
+archivebox/tests/test_persona_runtime.py
+  e74ee8aebc9d811a 147-180
+archivebox/cli/archivebox_mcp.py
+  e74ee8aebc9d811a 35
+archivebox/workers/tests/test_scheduled_crawls.py
+  e74ee8aebc9d811a 2,10,68-79
+archivebox/cli/archivebox_add.py
+  e74ee8aebc9d811a 26-44,232-235,237
+pyproject.toml
+  e74ee8aebc9d811a 248,260,274
+archivebox/tests/test_cli_add.py
+  e74ee8aebc9d811a 93-94,116,118
+archivebox/misc/jsonl.py
+  e74ee8aebc9d811a 27,94-101
+archivebox/config/configset.py
+  e74ee8aebc9d811a 177-179,181,183-184
+archivebox/workers/orchestrator.py
+  e74ee8aebc9d811a 342,396,409,411,417,424-426
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "311e4340ec58c198114c0a4986cf6fba158585c8",
+  "prompts": {
+    "e74ee8aebc9d811a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf3ac-ae19-7961-ba04-03a1171420ca",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 112,
+      "total_deletions": 29,
+      "accepted_lines": 106,
+      "overriden_lines": 0
+    }
+  }
+}

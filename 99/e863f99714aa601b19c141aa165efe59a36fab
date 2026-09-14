@@ -1,0 +1,14 @@
+archivebox/cli/archivebox_version.py
+  h_923c208e183a7b 306,313-320,327-328,364,371-378,396
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "99e863f99714aa601b19c141aa165efe59a36fab",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

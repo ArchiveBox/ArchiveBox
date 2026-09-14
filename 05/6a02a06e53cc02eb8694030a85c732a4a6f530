@@ -1,0 +1,69 @@
+archivebox/core/recovery_util.py
+  s_5e83b7ac3f0fa4::t_46f99d16746e6e 13-17,192,224
+  s_5e83b7ac3f0fa4::t_66bd7356e64629 176-187,207,217,222-223
+  s_5e83b7ac3f0fa4::t_50c7491643f05b 212-213,239
+archivebox/cli/archivebox_extract.py
+  s_5e83b7ac3f0fa4::t_83c6deb54de834 73-78,130,151-152,174-181,210-229,231-232,234,236,238,252-256,260-264,269-270,272-273,285,288,296-297,300,302,317,353,397,406
+archivebox/core/models.py
+  s_5e83b7ac3f0fa4::t_8a8d50578330ed 2202,2204-2208,2213,2222-2223,2225,2229-2230
+  s_5e83b7ac3f0fa4::t_b50998fc16b791 4078-4079
+  s_5e83b7ac3f0fa4::t_4fda310f4a02c5 1743-1744,1807,1872,2981-2982,3000-3002,3006,3099,3101,3113,3117,3967,4086,4154,4158-4160
+archivebox/core/migrations/0053_restore_archiveresult_hook_identity.py
+  s_5e83b7ac3f0fa4::t_e0d8726d130591 1-21
+archivebox/api/v1_core.py
+  s_5e83b7ac3f0fa4::t_ab391da3efbe5f 531-536,549
+archivebox/tests/test_urls.py
+  s_5e83b7ac3f0fa4::t_25b5efd8e851c2 17-45
+archivebox/tests/test_snapshot_service.py
+  s_5e83b7ac3f0fa4::t_9f9d371ed83505 43-45,50-86
+  s_5e83b7ac3f0fa4::t_2dcda1332868d6 46-49
+archivebox/tests/test_cli_run.py
+  s_5e83b7ac3f0fa4::t_46f99d16746e6e 2390
+  s_5e83b7ac3f0fa4::t_b9db09125b4180 242
+  s_5e83b7ac3f0fa4::t_58cb0ede7ccaa3 243-294
+  s_5e83b7ac3f0fa4::t_e0eb4b038f2c89 1026,1048-1050,1666,1688-1689,1698,1771,1811-1812,1815-1821,1825,1852-1861,1864-1866,2369,2393-2414,2421,2427,2430,2432-2434,2437,2439
+archivebox/core/views.py
+  s_5e83b7ac3f0fa4::t_debd456ec7d30a 849,856,858-869
+  s_5e83b7ac3f0fa4::t_f81132be6a7024 850-854
+archivebox/tests/test_ui_admin_archiveresult.py
+  s_5e83b7ac3f0fa4::t_4fda310f4a02c5 144-169
+archivebox/cli/archivebox_run.py
+  s_5e83b7ac3f0fa4::t_3e55d069c5d748 154,164-167
+archivebox/tests/test_api_v1_core_archiveresults.py
+  s_5e83b7ac3f0fa4::t_9fbec79c06a3b7 17,21-42,44-49
+archivebox/tests/test_cli_extract_input.py
+  s_5e83b7ac3f0fa4::t_58cb0ede7ccaa3 3,25-55
+  s_5e83b7ac3f0fa4::t_8a434b486a8680 56-57
+archivebox/cli/archivebox_archiveresult.py
+  s_5e83b7ac3f0fa4::t_2d54b7f81f648f 70,147-151,153,254-256
+archivebox/tests/test_migration_archiveresult_unique_plugin.py
+  s_5e83b7ac3f0fa4::t_25a7c5ecbc19e4 2,9-10,13-14,19,22-23,27-28,30-34,36-42,44
+archivebox/services/archive_result_service.py
+  s_5e83b7ac3f0fa4::t_f3f41b6a4a2987 340,348,356,399,408,425,440
+archivebox/services/runner.py
+  s_5e83b7ac3f0fa4::t_08730d58e46206 1041,1059-1060,1073-1075,1078-1079,1092-1094,1109-1110,1112,1132,1156,1378,1381,1387,1389-1408,1425,1427,1433-1458,1483-1511,1775,1778,1787-1790,1807-1809,1811,1835,1838
+archivebox/tests/test_archive_result_service.py
+  s_5e83b7ac3f0fa4::t_f9e341497c0d78 202,229,233,249,437
+archivebox/tests/test_migrations_08_to_09.py
+  s_5e83b7ac3f0fa4::t_505e3eb76dfb69 850-851,900-903
+archivebox/tests/test_server_security_browser.py
+  s_5e83b7ac3f0fa4::t_a0ae9f03571786 661
+archivebox/tests/test_ui_admin_snapshot.py
+  s_5e83b7ac3f0fa4::t_3f4616c1f0ba6a 793
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "056a02a06e53cc02eb8694030a85c732a4a6f530",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

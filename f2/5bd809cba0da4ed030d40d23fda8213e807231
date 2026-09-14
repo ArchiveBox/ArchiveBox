@@ -1,0 +1,41 @@
+archivebox/core/views.py
+  s_acd6d49487f262::t_b33bfe3c4b629f 1974-1986,2263-2264
+  s_acd6d49487f262::t_0607e8352c9f80 1389,1396,1402
+etc/package.json
+  s_acd6d49487f262::t_ecc467f6c76e34 3
+pyproject.toml
+  s_acd6d49487f262::t_ecc467f6c76e34 3,82-84
+archivebox/templates/admin/progress_monitor.html
+  s_acd6d49487f262::t_2e45aa636dee9e 222-228,230-235,237-254,273-279
+  s_acd6d49487f262::t_f33897d40b717a 1193-1198,1202-1206,1223-1247,1250-1259,1265-1266,1271-1292
+  s_acd6d49487f262::t_b4d8b4201bbd99 229,236
+  s_acd6d49487f262::t_d26195e63d5c7c 1207-1222
+archivebox/core/urls.py
+  s_acd6d49487f262::t_d34ab9ead4bb98 74
+archivebox/misc/checks.py
+  s_a5df2e7b7b6c12::t_4ef6ea87236dd2 83-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f25bd809cba0da4ed030d40d23fda8213e807231",
+  "prompts": {},
+  "sessions": {
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_acd6d49487f262": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ee4-f15b-7c42-a566-4ddff41473a8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+archivebox/cli/archivebox_server.py
+  s_642b68ba725e35::t_a0e097daa5b3b9 14-15,347-349,351-355
+archivebox/tests/test_cli_server.py
+  s_642b68ba725e35::t_6b80826fb0edea 237-259
+.github/workflows/release-candidate.yml
+  s_3155555fdbdae3::t_028e57932fd8f3 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "df18f391f625f2332dc908696466c55e10bd5790",
+  "prompts": {},
+  "sessions": {
+    "s_3155555fdbdae3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0467b-ccd7-7a30-a1bb-9d99d3bf7584",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_642b68ba725e35": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04a0a-b565-74f1-8977-ffe116acdf6e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+archivebox/tests/test_setup_script.py
+  s_642b68ba725e35::t_512a7b09f40e9d 8,10,12,14-17,20,23-28,31-32,34
+bin/setup.sh
+  s_642b68ba725e35::t_f9356897a79d0a 2-5,7,12,14-15,17-20,22,26-27,30-33,36-37,39,41,43-46,48-49
+docs/Install.md
+  s_642b68ba725e35::t_b13a5f0053072d 12,69,95
+  s_642b68ba725e35::t_738291d82932c0 71,79
+README.md
+  s_642b68ba725e35::t_b13a5f0053072d 211,221
+  s_642b68ba725e35::t_738291d82932c0 101,214,342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "08c639c25d386f88023dc4733d3c388699bc9448",
+  "prompts": {},
+  "sessions": {
+    "s_642b68ba725e35": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04a0a-b565-74f1-8977-ffe116acdf6e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

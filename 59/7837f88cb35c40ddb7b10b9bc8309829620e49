@@ -1,0 +1,28 @@
+README.md
+  h_923c208e183a7b 26,93,267
+archivebox/tests/test_setup_script.py
+  h_923c208e183a7b 41-42
+bin/setup.sh
+  h_923c208e183a7b 76,300
+docs/Configuration.md
+  h_923c208e183a7b 479,488
+docs/Install.md
+  h_923c208e183a7b 127,159,175,261
+docs/Setting-up-Authentication.md
+  h_923c208e183a7b 87
+docs/Upgrading.md
+  h_923c208e183a7b 11,120
+docs/index.rst
+  h_923c208e183a7b 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "597837f88cb35c40ddb7b10b9bc8309829620e49",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

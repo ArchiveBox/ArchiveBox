@@ -1,0 +1,33 @@
+docs/Security-Overview.md
+  s_69ddf154c10e6f::t_9ceda6bf08e11c 108
+docker-compose.yml
+  s_69ddf154c10e6f::t_9ceda6bf08e11c 5-6,9-11,46,53
+docs/Setting-up-Authentication.md
+  s_69ddf154c10e6f::t_9ceda6bf08e11c 42
+docs/Quickstart.md
+  s_69ddf154c10e6f::t_9ceda6bf08e11c 52
+docs/Usage.md
+  s_69ddf154c10e6f::t_9ceda6bf08e11c 32
+docs/Setting-up-Search.md
+  s_69ddf154c10e6f::t_9ceda6bf08e11c 134
+docs/Chromium-Install.md
+  s_69ddf154c10e6f::t_9ceda6bf08e11c 76-77,92
+README.md
+  s_69ddf154c10e6f::t_9ceda6bf08e11c 701,928
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "38e40a7730516ed1bcfd8e733185c791f41ee17f",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

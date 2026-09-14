@@ -1,0 +1,23 @@
+archivebox/tests/test_recursive_crawl.py
+  s_f8414d52051f83::t_9e592732eaa372 642,647-648
+  s_f8414d52051f83::t_6e1d375620f7c1 522-526,531,549,629-641,643-646,674-677,710-714
+  s_f8414d52051f83::t_4358821595700f 671-673
+archivebox/tests/conftest.py
+  s_f8414d52051f83::t_b88280d739f635 439-445,452-458,465-471,475-477
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a82a94ffa7aa773cbea7a56aa87e4b15f37d7fed",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

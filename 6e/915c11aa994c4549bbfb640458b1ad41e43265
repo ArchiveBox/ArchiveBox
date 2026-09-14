@@ -1,0 +1,54 @@
+archivebox/tests/test_cli_run.py
+  s_f8414d52051f83::t_8879aa887d826c 1504
+archivebox/core/models.py
+  s_f8414d52051f83::t_e22f4aaf620ff4 2641-2642
+  s_f8414d52051f83::t_2797b87a5e996e 2637-2640,2643-2646
+docs/Changelog.md
+  s_f8414d52051f83::t_154d50ce299c8e 31-32
+  s_f8414d52051f83::t_164eb9ed365e79 30,34
+archivebox/tests/test_api_v1_core_snapshot_snapshot_id.py
+  s_f8414d52051f83::t_a5168df2bf0c6a 289,373-376
+docs/Chromium-Install.md
+  s_f8414d52051f83::t_154d50ce299c8e 12,17,23-26,33,37,40,45,47
+  s_f8414d52051f83::t_20f664cc03af94 18-22,130-134
+  s_f8414d52051f83::t_142e36922e9996 101,106,108,117,135-138,145-147
+  s_f8414d52051f83::t_24153077284735 148-149
+  s_f8414d52051f83::t_758c74eed32c47 143
+AGENTS.md
+  s_f8414d52051f83::t_164eb9ed365e79 42,46,64
+  s_f8414d52051f83::t_154d50ce299c8e 41,43-44,58
+Dockerfile
+  s_f8414d52051f83::t_a5168df2bf0c6a 244-245
+.github/workflows/test.yml
+  s_f8414d52051f83::t_a5168df2bf0c6a 23
+  s_f8414d52051f83::t_20f664cc03af94 147-148,155,157
+archivebox/services/runner.py
+  s_f8414d52051f83::t_a5168df2bf0c6a 1762-1773,1796-1800
+  s_f8414d52051f83::t_487bf3556eee0f 1812-1813,1819-1823,1835-1845
+skills/archivebox/SKILL.md
+  s_f8414d52051f83::t_164eb9ed365e79 37,41,60
+  s_f8414d52051f83::t_154d50ce299c8e 36,38-39,55
+README.md
+  s_f8414d52051f83::t_a5940a44f4b4b9 746-747
+  s_f8414d52051f83::t_0d972c1672a8b7 484,727,729-731
+  s_f8414d52051f83::t_154d50ce299c8e 728
+  s_f8414d52051f83::t_15fc41ac41ffeb 744
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_20f664cc03af94 191,229,325,363
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "6e915c11aa994c4549bbfb640458b1ad41e43265",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

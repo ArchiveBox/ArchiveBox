@@ -1,0 +1,25 @@
+Dockerfile
+  s_15f59ac80abb8e::t_92f0fc809fdf31 108-171
+.github/workflows/pip.yml
+  s_15f59ac80abb8e::t_97decde42065d4 69-74
+  s_15f59ac80abb8e::t_83740e25b66cce 87-123,129,145-146
+  s_15f59ac80abb8e::t_5267bbfc654bac 127-128,143-144,147,150-151,154-155
+.github/workflows/docker.yml
+  s_15f59ac80abb8e::t_97decde42065d4 72-77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "bb598b97105e68ea4e938999410d4be4285072ce",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

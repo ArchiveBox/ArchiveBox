@@ -1,0 +1,14 @@
+bin/setup.sh
+  h_923c208e183a7b 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "23d4ef8f189be1eda8846733e47c5ee27aef7310",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

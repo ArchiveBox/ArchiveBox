@@ -1,0 +1,52 @@
+archivebox/tests/test_takeover_util.py
+  s_6b96473078dfa1::t_09703e57b89670 581,661-662
+  s_7cc75db5230061::t_adb2d82579e16a 699-704,757-762
+  s_6b96473078dfa1::t_d67646fc618c2d 382
+archivebox/cli/archivebox_run.py
+  s_7cc75db5230061::t_adb2d82579e16a 246
+archivebox/core/views.py
+  s_6b96473078dfa1::t_1150c8899a224c 332
+archivebox/tests/test_urls.py
+  s_7cc75db5230061::t_adb2d82579e16a 898-899,903,910,924-925,929,936
+archivebox/machine/models.py
+  s_6b96473078dfa1::t_ea19f413fe2825 6,59-65,1619,1621,2151,2515,2517,2541,2543
+archivebox/tests/test_opencode_agent.py
+  s_7cc75db5230061::t_adb2d82579e16a 77
+archivebox/services/runner.py
+  s_6b96473078dfa1::t_5d1c7b959f5560 1308-1312,1314-1315,1317,1571
+  s_7cc75db5230061::t_adb2d82579e16a 216,245,1019,1030-1047,1062-1073,1093,1169,1187,1275,1287-1297,1299-1305,1497,1529,1590,1872
+  s_6b96473078dfa1::t_2570661f256bd5 1592-1598
+archivebox/core/recovery_util.py
+  s_7cc75db5230061::t_adb2d82579e16a 3-4,32,111-122,124-130,172-174
+  s_6b96473078dfa1::t_5b3c4ddf6a21b9 16,123,131,133-137,159-169
+  s_6b96473078dfa1::t_4110f2ce03aada 9-12,138-147,149-158
+  s_6b96473078dfa1::t_918f853faaea27 132,148,170-171
+archivebox/services/archive_result_service.py
+  s_6b96473078dfa1::t_637648f8177815 243-246,359-365,449-450,457-463
+archivebox/core/models.py
+  s_6b96473078dfa1::t_fd0a37fda8142e 2740,2751-2758,2761
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "1b19736b2f8a394d188561785fcdcbb3731876bf",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

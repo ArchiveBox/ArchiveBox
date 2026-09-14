@@ -1,0 +1,22 @@
+archivebox/hooks.py
+  s_9e824b73eb6968::t_1b31f3d3417dff 684-687
+archivebox/templates/core/add.html
+  s_9e824b73eb6968::t_f6ee91f679c51b 307
+  s_9e824b73eb6968::t_c1b1e25d58005a 480
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "76c8ca4ca8711e13e6da44e1180795d2c701a04d",
+  "prompts": {},
+  "sessions": {
+    "s_9e824b73eb6968": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5a4bdbb-de5b-47b1-b675-e90d58496003",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

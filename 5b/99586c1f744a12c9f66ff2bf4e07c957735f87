@@ -1,0 +1,23 @@
+archivebox/core/migrations/0054_restore_archiveresult_hook_identity.py
+  s_cec16ad9ba0455::t_5015a76adf038a 1-21
+archivebox/core/migrations/0052_unique_archiveresult_per_snapshot_plugin.py
+  s_cec16ad9ba0455::t_5015a76adf038a 1-71
+archivebox/tests/test_migration_archiveresult_hook_identity.py
+  s_cec16ad9ba0455::t_5015a76adf038a 1-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "5b99586c1f744a12c9f66ff2bf4e07c957735f87",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

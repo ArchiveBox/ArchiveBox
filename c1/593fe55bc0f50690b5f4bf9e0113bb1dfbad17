@@ -1,0 +1,23 @@
+archivebox/tests/test_admin_views.py
+  s_074e76a4b61abc::t_83cff6ba896dcc 1239-1258
+archivebox/core/views.py
+  s_074e76a4b61abc::t_63879cfabb87f2 1310-1322
+Dockerfile
+  s_074e76a4b61abc::t_8f02b301b40fd8 56-57,342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "c1593fe55bc0f50690b5f4bf9e0113bb1dfbad17",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

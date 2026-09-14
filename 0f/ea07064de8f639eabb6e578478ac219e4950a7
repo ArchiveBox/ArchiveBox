@@ -1,0 +1,30 @@
+archivebox/tests/test_ui_admin_config_widget.py
+  s_4bc469058f4b62::t_0cbccbc32d3ede 214-224
+  s_f8414d52051f83::t_cdaadc46c7b8c9 225-226
+archivebox/core/setup_wizard.py
+  s_4bc469058f4b62::t_0cbccbc32d3ede 6-12,29,62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "0fea07064de8f639eabb6e578478ac219e4950a7",
+  "prompts": {},
+  "sessions": {
+    "s_4bc469058f4b62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f773c-e7fe-77c2-8517-75233af0fe5a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

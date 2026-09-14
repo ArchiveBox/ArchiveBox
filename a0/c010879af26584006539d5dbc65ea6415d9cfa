@@ -1,0 +1,33 @@
+Dockerfile.multistage
+  s_7cc75db5230061::t_9df65c4d675a9d 176,196,205
+  s_7cc75db5230061::t_d7c9908db5c213 22-24
+  s_7cc75db5230061::t_e60769fd5c98c2 175
+  s_7cc75db5230061::t_cc7441003a19e9 123-124,163
+Dockerfile
+  s_7cc75db5230061::t_e60769fd5c98c2 175
+  s_7cc75db5230061::t_cc7441003a19e9 123-124,163
+  s_7cc75db5230061::t_9df65c4d675a9d 176,196,205
+  s_7cc75db5230061::t_d7c9908db5c213 22-24
+archivebox/tests/test_dockerfiles.py
+  s_7cc75db5230061::t_b077c90909c456 130-137
+  s_7cc75db5230061::t_c27f069290694a 138-144
+  s_7cc75db5230061::t_854b4fb80530d0 147-153
+  s_7cc75db5230061::t_fbef797d0be377 122-129
+  s_7cc75db5230061::t_e10a060d7c97f3 145-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a0c010879af26584006539d5dbc65ea6415d9cfa",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}

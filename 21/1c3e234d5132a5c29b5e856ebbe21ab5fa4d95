@@ -1,0 +1,19 @@
+bin/release_docker.sh
+  s_c40400846d281e::t_9f0487ef100c36 86-92,98-99,102-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "211c3e234d5132a5c29b5e856ebbe21ab5fa4d95",
+  "prompts": {},
+  "sessions": {
+    "s_c40400846d281e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7da0-ea86-7bc2-aa93-fd8cb3384eaa",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

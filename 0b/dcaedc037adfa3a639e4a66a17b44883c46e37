@@ -1,0 +1,22 @@
+.github/workflows/pip.yml
+  s_69ddf154c10e6f::t_3f71e62762ed34 182-183,186
+archivebox/config/permissions.py
+  s_69ddf154c10e6f::t_2e45269179b3a1 85,87,89,92-114,126-127
+  s_69ddf154c10e6f::t_e7dc077183f721 115-118,120-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "0bdcaedc037adfa3a639e4a66a17b44883c46e37",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

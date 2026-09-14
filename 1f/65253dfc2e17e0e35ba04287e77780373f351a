@@ -1,0 +1,21 @@
+archivebox/core/recovery_util.py
+  s_b989805ae95d6a::t_405c9c34880580 33,148,155-162,335
+archivebox/tests/test_cli_run.py
+  s_b989805ae95d6a::t_44f94ece134f01 585,603-609,1353,1384-1390
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1f65253dfc2e17e0e35ba04287e77780373f351a",
+  "prompts": {},
+  "sessions": {
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,40 @@
+archivebox/tests/test_ui_add_view.py
+  s_642b68ba725e35::t_ce5719bbdb5b75 5,314-317,319-321
+  s_642b68ba725e35::t_58980ce8c89ff5 291-313,318,322-330
+  s_5e83b7ac3f0fa4::t_e4e9551095691a 331-332
+archivebox/core/views.py
+  s_642b68ba725e35::t_91af6b7d6c0f7f 29,1468-1471
+  s_642b68ba725e35::t_e1ae959cc75e66 738
+  s_642b68ba725e35::t_7900cb08f4f868 732-733
+  s_642b68ba725e35::t_58980ce8c89ff5 1444-1445
+  s_642b68ba725e35::t_1694bb6cf11a67 1472
+archivebox/tests/test_ui_public_snapshot.py
+  s_642b68ba725e35::t_ce5719bbdb5b75 513-529
+archivebox/tests/test_ui_add_view_runtime.py
+  s_642b68ba725e35::t_ca1a8642fa9437 214-215,257,264-265,282,688,695-696,714-715
+  s_642b68ba725e35::t_27fda037521ae8 276-281,283-284,288,633,650,707,733
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "fce1827feda59b38652711c1d0a095af319870ec",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_642b68ba725e35": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04a0a-b565-74f1-8977-ffe116acdf6e",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

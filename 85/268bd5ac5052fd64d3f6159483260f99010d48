@@ -1,0 +1,21 @@
+docs/Install.md
+  s_69ddf154c10e6f::t_c31af5310adb9b 71,95
+  s_69ddf154c10e6f::t_3cacda15417d3f 50
+  s_69ddf154c10e6f::t_cc143529864e97 28-30,32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "85268bd5ac5052fd64d3f6159483260f99010d48",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

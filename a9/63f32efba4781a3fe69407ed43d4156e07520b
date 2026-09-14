@@ -1,0 +1,34 @@
+archivebox/cli/archivebox_run.py
+  s_ccefc8ac08198c::t_61e1a1b24e1ffe 434-435,437,442-446,476-479
+archivebox/services/runner.py
+  s_ccefc8ac08198c::t_95036803bdbdc9 1361-1371,1373-1378,1382-1389
+  s_ccefc8ac08198c::t_3a259385b4a1a7 1372,1379-1381
+  s_ccefc8ac08198c::t_8f214409fd5d04 1092
+archivebox/tests/test_takeover_util.py
+  s_ccefc8ac08198c::t_be1ef5d2b43299 348,438
+archivebox/tests/test_cli_run.py
+  s_ccefc8ac08198c::t_131aa4f88b165d 1471
+archivebox/cli/archivebox_update.py
+  s_ccefc8ac08198c::t_eb366647c80c70 482
+archivebox/workers/supervisord_util.py
+  s_ccefc8ac08198c::t_c0935d98eeb99e 881-883
+  s_ccefc8ac08198c::t_d2a290d192d3b4 7-8,349-373,378,387,402
+archivebox/tests/test_config_DELETE_AFTER.py
+  s_ccefc8ac08198c::t_42f8ba0f474e6b 209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a963f32efba4781a3fe69407ed43d4156e07520b",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}

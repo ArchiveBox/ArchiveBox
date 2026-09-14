@@ -1,0 +1,20 @@
+archivebox/tests/test_config_SAVE_TITLE.py
+  s_ccefc8ac08198c::t_08d0e7ae93c35f 2,10,17,29-31
+  s_ccefc8ac08198c::t_17d0e7cdb1de4e 25-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "81de752456b9d2fc62f6c42bc547d5e5a1c3f362",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

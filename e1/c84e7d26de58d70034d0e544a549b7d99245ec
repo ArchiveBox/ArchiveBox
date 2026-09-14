@@ -1,0 +1,30 @@
+archivebox/services/runner.py
+  s_1ff935dadc9b9f::t_8c1841d1f369b0 769-784
+  s_1ff935dadc9b9f::t_b9c2e296c8cf5c 767-768
+  s_1ff935dadc9b9f::t_035e103eeacda1 763,834-840
+archivebox/personas/models.py
+  s_1ff935dadc9b9f::t_9f799cf5550f88 240-245,247,301-321
+  s_1ff935dadc9b9f::t_03cf4572acfa4a 246,248,325-327
+archivebox/tests/test_crawl_runner.py
+  s_1ff935dadc9b9f::t_6f976cdc9fefea 108,141-142,149-183
+  s_1ff935dadc9b9f::t_2ec6f669db4ea7 115-117,122-126,130-131,133,135,143
+archivebox/config/common.py
+  s_1ff935dadc9b9f::t_dced23317cd852 198-202,1058-1061,1063-1071
+  s_1ff935dadc9b9f::t_bc26827754059b 210-214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e1c84e7d26de58d70034d0e544a549b7d99245ec",
+  "prompts": {},
+  "sessions": {
+    "s_1ff935dadc9b9f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e820e-52cc-7311-9ae4-f3f56880ac41",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

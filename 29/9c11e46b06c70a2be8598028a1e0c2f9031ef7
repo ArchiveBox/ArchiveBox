@@ -1,0 +1,20 @@
+README.md
+  h_923c208e183a7b 195-197
+docker-compose.yml
+  h_923c208e183a7b 9-11
+docs/Docker.md
+  h_923c208e183a7b 75,88,92,97,99,105,108,111-112,118,121,147,152
+docs/codeblocks.toml
+  h_923c208e183a7b 11,111-115,117,295-298,375-378
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "299c11e46b06c70a2be8598028a1e0c2f9031ef7",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

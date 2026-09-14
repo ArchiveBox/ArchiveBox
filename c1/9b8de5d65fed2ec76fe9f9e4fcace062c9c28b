@@ -1,0 +1,20 @@
+archivebox/tests/test_cli_add.py
+  s_5ecae765c2d31f::t_7d06c172a1a8b2 1203-1204
+  s_5ecae765c2d31f::t_cccdaef9419676 1197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "c19b8de5d65fed2ec76fe9f9e4fcace062c9c28b",
+  "prompts": {},
+  "sessions": {
+    "s_5ecae765c2d31f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c7426d-be4c-43e8-816d-93b20c74d67e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

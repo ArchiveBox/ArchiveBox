@@ -1,0 +1,22 @@
+bin/take_screenshot.js
+  s_e09843280e6970::t_c260c47ba5f48c 65-69
+archivebox/crawls/migrations/0017_drop_stale_crawl_limit_columns.py
+  s_e09843280e6970::t_1e34e307553108 1-43,45-79
+  s_e09843280e6970::t_fe6f11f3757a82 44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3521f21c368d83ed4202a0df75c7b6c939247ed5",
+  "prompts": {},
+  "sessions": {
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

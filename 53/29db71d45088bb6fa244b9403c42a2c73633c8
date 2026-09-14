@@ -1,0 +1,30 @@
+archivebox/core/migrations/0025_alter_archiveresult_options_alter_snapshot_options_and_more.py
+  s_69ddf154c10e6f::t_2fd4d53ca2999e 240-266
+  s_69ddf154c10e6f::t_0465274ba31538 83-84
+  s_69ddf154c10e6f::t_3b681be3192c38 99-103
+archivebox/core/migrations/0023_upgrade_to_0_9_0.py
+  s_69ddf154c10e6f::t_0465274ba31538 477-480,486-487,490,492-493
+  s_69ddf154c10e6f::t_79dfbab16e2243 168-169,208-209,244-245
+  s_69ddf154c10e6f::t_2fd4d53ca2999e 22-34,115,140-141,151-152,185,224,261,268,377-379,404-415,426,465,520-525,528-535,540
+archivebox/tests/test_migration_08_metadata_integrity.py
+  s_69ddf154c10e6f::t_79dfbab16e2243 150,177
+  s_69ddf154c10e6f::t_23b4d6b2d053c7 1,55-58,142-143,160,164-168
+  s_69ddf154c10e6f::t_1558ebdac2f610 2-54,59-107,109-141,144-149,151-159,161-163,169-176,178-180
+  s_69ddf154c10e6f::t_0465274ba31538 108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "5329db71d45088bb6fa244b9403c42a2c73633c8",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

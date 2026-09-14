@@ -1,0 +1,24 @@
+archivebox/tests/test_ui_admin_snapshot.py
+  s_624973e8d96ff6::t_99ca9f7a531be0 753
+  s_624973e8d96ff6::t_133b8bb9cb27e1 755
+  s_624973e8d96ff6::t_88a2597059b39e 748,751-752,754,756-759
+archivebox/templates/core/snapshot.html
+  s_624973e8d96ff6::t_133b8bb9cb27e1 1058
+  s_624973e8d96ff6::t_465bf470ac46df 1057,1059-1061,1081,1083,1089-1093,1253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "669d0d3a74ffa363d1547745fe939b5c51d2e1ce",
+  "prompts": {},
+  "sessions": {
+    "s_624973e8d96ff6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04665-7101-78e0-9990-1b95ac628717",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}

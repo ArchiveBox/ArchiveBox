@@ -1,0 +1,46 @@
+archivebox/personas/importers.py
+  s_52f2bda5505456::t_b8a7c3df057d9d 576-579,622-623
+  s_52f2bda5505456::t_99113494af3b54 64
+  s_52f2bda5505456::t_48838eb227d411 525,774-789
+  s_52f2bda5505456::t_2143b9d6760a95 14-16,58-59,209,428-431,456-457,522-524,526-561,570,573-575,580-620,624-661,664-666,668-732,769-773,803-805,1032
+  s_52f2bda5505456::t_ac672117b76f63 48-50
+  s_52f2bda5505456::t_c2f7089d21510b 63,65-68
+archivebox/personas/export_browser_state.js
+  s_52f2bda5505456::t_6264e99653aa12 28,122-125,128-130,135
+docs/Personas.md
+  s_52f2bda5505456::t_99113494af3b54 1-78
+archivebox/tests/test_cli_persona.py
+  s_52f2bda5505456::t_b8a7c3df057d9d 17-93,105-126,128-142
+  s_52f2bda5505456::t_5d8cbd35d4730b 94-104,127
+archivebox/personas/models.py
+  s_52f2bda5505456::t_c2f7089d21510b 50,56-57,61-64,220,306-309,326-330,347-352,367-371
+  s_52f2bda5505456::t_99113494af3b54 51
+README.md
+  s_52f2bda5505456::t_3dd722962c3c67 429,461
+archivebox/cli/archivebox_persona.py
+  s_52f2bda5505456::t_881078a129850c 33,110-111,133-136,138-149,169,176,178,186-189,196,203-204,443-449,451,453
+archivebox/config/common.py
+  s_52f2bda5505456::t_516c16dcccc336 464-465
+docs/Usage.md
+  s_52f2bda5505456::t_6ee2989f9d0866 134,137
+pyproject.toml
+  s_52f2bda5505456::t_c893c34339c8f3 86
+uv.lock
+  s_52f2bda5505456::t_46b6641fd5a3f8 16,20,41,43,140,237,428-441,1104-1112,1206-1228,1776-1799
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0d061392f8ba3f8295ed710667afe3f775de8e72",
+  "prompts": {},
+  "sessions": {
+    "s_52f2bda5505456": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a091f5-a5f0-70d3-a06d-259a10de24c2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

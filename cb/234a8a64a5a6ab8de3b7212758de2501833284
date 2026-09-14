@@ -1,0 +1,23 @@
+archivebox/workers/supervisord_util.py
+  s_f8414d52051f83::t_9dfd3177af74f8 1026,1031-1032,1036-1037,1041,1049,1092
+archivebox/cli/archivebox_server.py
+  s_f8414d52051f83::t_9dfd3177af74f8 371
+archivebox/core/takeover_util.py
+  s_f8414d52051f83::t_9dfd3177af74f8 132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "cb234a8a64a5a6ab8de3b7212758de2501833284",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+Dockerfile
+  s_463e8607ca6021::t_0b280281a319e2 172-174
+etc/package.json
+  ai_agent 3
+pyproject.toml
+  ai_agent 3,82-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "d14dd37b95de77757648e49aabffd05839266cce",
+  "prompts": {},
+  "sessions": {
+    "s_463e8607ca6021": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e39eb-05c2-7253-a218-467aed1abfef",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

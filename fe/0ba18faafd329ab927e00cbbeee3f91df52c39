@@ -1,0 +1,19 @@
+bin/fuzz_test.sh
+  s_a5df2e7b7b6c12::t_7dd0d291e35617 76,81,84,105,126,128,137,173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fe0ba18faafd329ab927e00cbbeee3f91df52c39",
+  "prompts": {},
+  "sessions": {
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

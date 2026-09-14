@@ -1,0 +1,24 @@
+archivebox/tests/test_crawl_runner.py
+  s_f8414d52051f83::t_d80a2f836954d2 709,854
+pyproject.toml
+  s_f8414d52051f83::t_13b55d15618256 83-84
+  s_f8414d52051f83::t_9b5d3d418de9ec 81-82
+uv.lock
+  s_f8414d52051f83::t_1b2cbe5146ea69 16,20,27,42,44,49,60,62,67,74,76,81,90,92,225-228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "1ca93ee0f6d4731d7179f940aa18c42d50f55e04",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

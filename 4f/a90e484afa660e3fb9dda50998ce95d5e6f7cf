@@ -1,0 +1,171 @@
+archivebox/templates/core/navigation.html
+  s_b701741733cdd5::t_7699f83e94c494 30,33
+archivebox/tests/test_machine_models.py
+  s_7cc75db5230061::t_b3f77035f2375a 454
+archivebox/cli/archivebox_add.py
+  s_81e20780ac8398::t_73390409cc4e1f 131
+archivebox/workers/supervisord_util.py
+  s_7cc75db5230061::t_7c5cec2011d262 24,311
+  s_7cc75db5230061::t_ee70ba26296fa6 320-327
+  s_7cc75db5230061::t_07108fe2fb88fe 302-303
+  s_7cc75db5230061::t_aa8a2a9ebc99e3 328,334
+archivebox/core/routes_util.py
+  s_b701741733cdd5::t_b4163d499a299c 12,105,175-180
+Dockerfile.multistage
+  s_ccefc8ac08198c::t_f150452fdb70e4 51-53
+  s_7cc75db5230061::t_f5aa27fad1b39a 82
+  s_7cc75db5230061::t_798047ede36186 201
+  s_ccefc8ac08198c::t_8f5e1f967be621 50
+archivebox/core/settings.py
+  s_b701741733cdd5::t_8303ffed19fb83 87
+  s_b701741733cdd5::t_043898fa5e9657 444
+archivebox/templates/admin/snapshot_search_stream.html
+  s_81e20780ac8398::t_061ffa22a8c03f 43-69,85
+archivebox/plugins/hooks.py
+  s_ccefc8ac08198c::t_26d1a95708ddc1 35,431-432
+archivebox/core/admin_snapshots.py
+  s_b701741733cdd5::t_a126f17c47979d 663,665
+  s_b701741733cdd5::t_dec12d67a1ea21 33,651-657,659-661
+  s_b701741733cdd5::t_b45b240fed3f3c 474
+  s_b701741733cdd5::t_bed7e0315aace1 348,356,457
+  s_b701741733cdd5::t_0c9cb846bb3d6e 650
+archivebox/core/views.py
+  s_b701741733cdd5::t_a65881fae48e4b 1133
+  s_b701741733cdd5::t_9f528a8bf1912e 1160
+  s_b701741733cdd5::t_61148bb732d03f 71,73,1276-1278
+archivebox/tests/test_search.py
+  s_81e20780ac8398::t_ee9e9e188900fe 444,460,462,467-468,471-473
+  s_b701741733cdd5::t_550d60b035e767 35,387,397,433,438,465,470,477,490,497,538,552,580,601,613,622,628,634,912,969,991
+  s_81e20780ac8398::t_c88506ddaf6253 658-661,670-673,777-783,788-800,804,807,809,815,923-928,930-939,1004-1017,1021,1034-1035,1105,1111
+  s_81e20780ac8398::t_56e801a6d2f0ea 1022-1033,1036-1037,1050,1052-1053,1057,1060,1062-1089,1096-1098,1100-1104
+  s_81e20780ac8398::t_f697a5b540a7bf 757,776,786
+  s_81e20780ac8398::t_671de59557f3e2 759
+  s_81e20780ac8398::t_fd4b943dd76809 1099
+  s_81e20780ac8398::t_42fb5a870e8b88 1121
+  s_81e20780ac8398::t_9a0bdf00e6e5d0 813
+  s_81e20780ac8398::t_06662b5ffd4b54 278
+docs/Configuration.md
+  s_b701741733cdd5::t_7ff7ad45f1bf0e 379,383,387,404,408
+docker-compose.yml
+  s_b701741733cdd5::t_d4eaec9ac8d42a 77
+archivebox/core/middleware.py
+  s_b701741733cdd5::t_ce1d49d3c1c39c 6,88-111
+  s_b701741733cdd5::t_87dab27c517c63 45
+archivebox/machine/models.py
+  s_7cc75db5230061::t_39cc6771e573d6 684,717
+  s_7cc75db5230061::t_b3f77035f2375a 753,761,785,789,792
+archivebox/core/models.py
+  s_81e20780ac8398::t_a54a621a11d761 4,785,799-801,804,809-814
+  s_b701741733cdd5::t_31e35c111286ca 817
+  s_81e20780ac8398::t_1e671a527bfc49 881,889,932-933,938,951-954
+  s_81e20780ac8398::t_8236122a4bcd7c 902-910,920
+  s_81e20780ac8398::t_60ec1a43473898 802-803,805-808
+docs/Setting-up-Authentication.md
+  s_b701741733cdd5::t_393b30063e07f6 210
+archivebox/tests/test_ui_public_snapshot.py
+  s_b701741733cdd5::t_71e26303a6a519 497
+  s_b701741733cdd5::t_6b7015dee9e48b 203-217,437-438,451-452,495,506
+  s_b701741733cdd5::t_2dcca88bf50729 408
+  s_b701741733cdd5::t_377dcb1d846886 11,386
+  s_b701741733cdd5::t_b6340cab03a7b4 155-163
+  s_b701741733cdd5::t_586f1deef1b754 12,276,388
+  s_b701741733cdd5::t_307caf1d8e1893 3,125-154,164-202,392-407,409-436,439-450,453-480,485-494,496,498-505,507-511
+  s_b701741733cdd5::t_1861517989aff6 18
+  s_b701741733cdd5::t_13739f9dcd0a0a 481
+  s_b701741733cdd5::t_c4173f5350fae4 482-484
+archivebox/config/paths.py
+  s_7cc75db5230061::t_dfdd5db675d378 24,185,210-217,219,248
+  s_7cc75db5230061::t_b4c92535de8ca5 191,201
+  s_7cc75db5230061::t_ee70ba26296fa6 346-349
+  s_7cc75db5230061::t_7c5cec2011d262 181-182
+  s_7cc75db5230061::t_54c36d34e362b3 23
+  s_7cc75db5230061::t_7b031021d1c596 188-190,194-199
+  s_7cc75db5230061::t_5eec92c9aa45c3 202-209
+archivebox/tests/test_cli_version.py
+  s_7cc75db5230061::t_280bbe24c68fa8 11,127
+archivebox/crawls/models.py
+  s_81e20780ac8398::t_734fbed34b8d6a 1113-1115,1138,1168
+  s_81e20780ac8398::t_1f2b2089a17704 591-597,600,602-604,609,611-613
+  s_ccefc8ac08198c::t_9b915064b8eeea 1321,1379,1385-1387
+  s_81e20780ac8398::t_ecf3bb2347ca71 993,1129
+  s_81e20780ac8398::t_43437a12341d30 1195-1198
+  s_81e20780ac8398::t_07ccffeb63b119 714,724
+  s_81e20780ac8398::t_7482bc7a434c0d 966-967,996
+pyproject.toml
+  s_ccefc8ac08198c::t_0cdedeb4db1ea1 3,82-84
+archivebox/search/views.py
+  s_81e20780ac8398::t_0efe4718449260 152,198-212,220-221,233-234,244-252,289,293-294
+  s_81e20780ac8398::t_7f57f4c6dffe73 216,219,225,238,298
+  s_81e20780ac8398::t_68fe7c41831b7b 281
+  s_81e20780ac8398::t_9231d5520230be 215,222-224,226-227,237
+archivebox/misc/checks.py
+  s_7cc75db5230061::t_54c36d34e362b3 292-293,295-299,311,320-322
+  s_7cc75db5230061::t_7c5cec2011d262 294,307,319
+archivebox/core/templatetags/core_tags.py
+  s_b701741733cdd5::t_8689e859551f25 518-522
+archivebox/tests/test_ui_admin_snapshot.py
+  s_81e20780ac8398::t_886c875a203450 32
+archivebox/config/common.py
+  s_7cc75db5230061::t_0c5dc2dcaf3d6a 249
+  s_81e20780ac8398::t_e6588bb88d5546 179-182,192-195
+Dockerfile
+  s_ccefc8ac08198c::t_8f5e1f967be621 50
+  s_ccefc8ac08198c::t_f150452fdb70e4 51-53
+  s_7cc75db5230061::t_f5aa27fad1b39a 81,172
+archivebox/templates/core/snapshot.html
+  s_b701741733cdd5::t_76b7424e77d8c8 1140-1142
+archivebox/plugins/views.py
+  s_7cc75db5230061::t_4ab63a8bb3b85b 17
+archivebox/tests/test_urls.py
+  s_b701741733cdd5::t_ca5209d03268d5 891,917
+  s_b701741733cdd5::t_66438ae4da08ea 874-878
+  s_b701741733cdd5::t_7538307626ec0c 199,258
+bin/docker_entrypoint.sh
+  s_ccefc8ac08198c::t_f150452fdb70e4 34
+  s_ccefc8ac08198c::t_6989a21a10064f 38
+  s_ccefc8ac08198c::t_8f5e1f967be621 32
+bin/validate_docker_uid_gid.sh
+  s_ccefc8ac08198c::t_f150452fdb70e4 106-108
+etc/package.json
+  s_ccefc8ac08198c::t_0cdedeb4db1ea1 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4fa90e484afa660e3fb9dda50998ce95d5e6f7cf",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_81e20780ac8398": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea0de-6443-7891-868e-aa82f96b0668",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b701741733cdd5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ea1a0-46f8-7cb3-bc16-99b640afe1e8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

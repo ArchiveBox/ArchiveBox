@@ -1,0 +1,34 @@
+archivebox/machine/models.py
+  s_56f8597a1153b7::t_581a2a3d3c4d48 1611-1622,1635-1636
+archivebox/core/models.py
+  s_e09843280e6970::t_c1a2157d7743ad 757-758,762-766,768-770,775-778
+  s_e09843280e6970::t_18032494cdc302 774
+  s_e09843280e6970::t_60dfa3bc279c16 771-773
+  s_e09843280e6970::t_e4fad6f8937ddb 759-761
+archivebox/cli/archivebox_add.py
+  s_56f8597a1153b7::t_e4baa62f176f8b 219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "83d5161b3ee7cba7ec9b02513557f274fca8adc0",
+  "prompts": {},
+  "sessions": {
+    "s_56f8597a1153b7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b4c160c0-b70e-4b8e-8cb5-94f06a3fc2e8",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

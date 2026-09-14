@@ -1,0 +1,21 @@
+archivebox/config/permissions.py
+  s_69ddf154c10e6f::t_59705722704626 34,37,58-63,126,197-203,206,211-216
+archivebox/tests/test_permissions.py
+  s_69ddf154c10e6f::t_59705722704626 43-58,95-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "67ad0ef5035edbfd81b572580e6f64980c6b0a8b",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

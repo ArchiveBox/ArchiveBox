@@ -1,0 +1,20 @@
+archivebox/templates/admin/archivebox_change_form.html
+  s_5e83b7ac3f0fa4::t_4f0140be4981d3 164,257
+  s_5e83b7ac3f0fa4::t_6dfaeff22ddf4e 158-159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.24",
+  "base_commit_sha": "8693c5e30721887f996e48e46105913b1ab510c2",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

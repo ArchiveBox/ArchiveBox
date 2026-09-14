@@ -1,0 +1,20 @@
+AGENTS.md
+  s_cec16ad9ba0455::t_a57d34cc6fdb05 24
+  s_cec16ad9ba0455::t_bffdb61ecd6c05 18-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "df5a68d03a7b85edbe09ef140aa058f0fc93b48f",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

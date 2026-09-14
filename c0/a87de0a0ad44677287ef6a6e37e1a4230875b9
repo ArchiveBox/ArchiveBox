@@ -1,0 +1,19 @@
+archivebox/services/crawl_service.py
+  s_074e76a4b61abc::t_1ec0be671a8021 41,44-46,59,62-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "c0a87de0a0ad44677287ef6a6e37e1a4230875b9",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

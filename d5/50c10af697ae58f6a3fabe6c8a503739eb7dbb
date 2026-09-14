@@ -1,0 +1,19 @@
+archivebox/tests/test_migration_process_integrity.py
+  s_69ddf154c10e6f::t_4d56dc1d681ed3 119,127,144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "d550c10af697ae58f6a3fabe6c8a503739eb7dbb",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

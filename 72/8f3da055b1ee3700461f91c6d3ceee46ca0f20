@@ -1,0 +1,14 @@
+docs/Publishing-Your-Archive.md
+  h_923c208e183a7b 13,15,19-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "728f3da055b1ee3700461f91c6d3ceee46ca0f20",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

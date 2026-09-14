@@ -1,0 +1,52 @@
+archivebox/config/django.py
+  s_f8414d52051f83::t_e522e38e124c45 35,43
+  s_f8414d52051f83::t_8d996041e2b872 44
+.github/workflows/test-parallel.yml
+  s_f8414d52051f83::t_15f8ef4a4eb253 73
+docs/test_codeblocks_manifest.py
+  s_f8414d52051f83::t_e522e38e124c45 221-228,230
+archivebox/cli/archivebox_version.py
+  s_f8414d52051f83::t_e522e38e124c45 177,233-237
+.github/workflows/test.yml
+  s_f8414d52051f83::t_dc8e5d3e420120 290
+docs/mermaid-puppeteer-linux.json
+  s_f8414d52051f83::t_e522e38e124c45 1-6
+archivebox/cli/archivebox_init.py
+  s_f8414d52051f83::t_e522e38e124c45 28-31
+archivebox/services/process_service.py
+  s_f8414d52051f83::t_29076dd22a7505 182-183,186-187
+  s_f8414d52051f83::t_f9874d1fb43ec8 185
+archivebox/__init__.py
+  s_f8414d52051f83::t_e522e38e124c45 49
+archivebox/tests/test_hooks.py
+  s_f8414d52051f83::t_1221d7eb6c697f 37-39,48-49,51-54
+archivebox/tests/test_cli_init.py
+  s_f8414d52051f83::t_0424ea394338dd 41-45
+  s_f8414d52051f83::t_abccec6b602700 47,53-54
+  s_f8414d52051f83::t_139e071198c979 30-40,46,48,55-58,67-84
+  s_f8414d52051f83::t_656f39206ad71a 59-66
+  s_f8414d52051f83::t_7eb1eadb735ad5 9-10,49-52,85-95
+  s_f8414d52051f83::t_b0408f1be6dfa6 96-97
+archivebox/misc/checks.py
+  s_f8414d52051f83::t_e522e38e124c45 197-209
+archivebox/cli/archivebox_oneshot.py
+  s_f8414d52051f83::t_e522e38e124c45 20-23
+archivebox/tests/conftest.py
+  s_f8414d52051f83::t_1221d7eb6c697f 86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "7658df9208a0f05a4333838f26acace56ddf0df8",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

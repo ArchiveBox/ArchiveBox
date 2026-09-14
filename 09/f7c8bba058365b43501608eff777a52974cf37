@@ -1,0 +1,125 @@
+archivebox/machine/migrations/0016_process_delete_at.py
+  s_b989805ae95d6a::t_c864ddefc3d905 8,13-14
+  s_0519be8d8ec8fd::t_58838c1923da71 1-7,9-12,15-17
+archivebox/cli/archivebox_remove.py
+  s_0519be8d8ec8fd::t_dafe87c5eb6b23 63
+archivebox/misc/logging_util.py
+  s_0519be8d8ec8fd::t_494617ad01b266 446,449-453
+archivebox/crawls/migrations/0010_crawl_delete_at.py
+  s_b989805ae95d6a::t_c864ddefc3d905 8,13-14
+  s_0519be8d8ec8fd::t_58838c1923da71 1-7,9-12,15-17
+archivebox/core/models.py
+  s_b989805ae95d6a::t_a5bcc5f28b559a 401
+  s_0519be8d8ec8fd::t_518c15007d07ae 358,3043
+  s_0519be8d8ec8fd::t_bef542ec6ec5ed 17,392-400,402-403,3126-3139
+  s_b989805ae95d6a::t_225b57acf5a04e 49,309,368,3024,3110,3228-3233
+archivebox/tests/test_delete_paths.py
+  s_0519be8d8ec8fd::t_41b2efe3fb43d4 1-87
+archivebox/crawls/models.py
+  s_b989805ae95d6a::t_225b57acf5a04e 27,118,167,994-995
+  s_0519be8d8ec8fd::t_9eba4759181d90 159
+  s_0519be8d8ec8fd::t_9e757d38f008b8 16,187-197
+docs/Security-Overview.md
+  s_0519be8d8ec8fd::t_34254a4b96f72b 176
+archivebox/tests/test_retention.py
+  s_0519be8d8ec8fd::t_050b9ec6b3c7ae 38-58,68,152,157-176
+  s_0519be8d8ec8fd::t_6bb3db96969b02 107,109,112-115
+  s_0519be8d8ec8fd::t_9ad7c770e44d8b 154
+  s_0519be8d8ec8fd::t_e2c4338265f9d6 1-37,59-67,69,85-106,108,110-111,116-151,153,155-156,177-250
+  s_0519be8d8ec8fd::t_eb3d273d89f6ef 77-79
+  s_0519be8d8ec8fd::t_4d17732d309353 70-76,80-84
+archivebox/config/common.py
+  s_0519be8d8ec8fd::t_bf67731cb860bf 376-377
+  s_b989805ae95d6a::t_225b57acf5a04e 280-282
+  s_0519be8d8ec8fd::t_f2b372d5c56dd5 10,277-279,283-284,305-311,346-375
+  s_0519be8d8ec8fd::t_6bc1d748d6c8ce 312
+archivebox/tests/test_cli_remove.py
+  s_0519be8d8ec8fd::t_958bed0d2ca962 61-62,72
+  s_0519be8d8ec8fd::t_8bc9798094d6fb 8,27-46,58-60,71,76,86-88,94,125-155,168,177,223
+archivebox/core/forms.py
+  s_b989805ae95d6a::t_225b57acf5a04e 15,561-570,676,679-680,764-770
+archivebox/core/views.py
+  s_b989805ae95d6a::t_332f3c205635c2 31
+  s_0519be8d8ec8fd::t_9fac361fe45d97 1421-1422
+  s_0519be8d8ec8fd::t_3dccc49c06b77e 1438,1466-1469
+  s_0519be8d8ec8fd::t_331dae741c92e4 1526,1529-1530,1535,1537,1549,1555,1611
+  s_0519be8d8ec8fd::t_be24290ec321a6 1697,1719
+  s_0519be8d8ec8fd::t_6b60063b93baec 1760-1761,1766,1770-1771,1775,1778,1788,1946-1950,1952,1956-1957,1960,1963,1966-1968,1974-1977,1979,1982-1989,2012
+  s_b989805ae95d6a::t_225b57acf5a04e 1085,1131-1132,1265
+  s_b989805ae95d6a::t_51b6c683ee1751 30,1734-1735
+  s_b989805ae95d6a::t_1ec23263a9542d 1733,1736-1737
+archivebox/services/snapshot_service.py
+  s_0519be8d8ec8fd::t_0fe9510e4c09a1 67-69
+  s_0519be8d8ec8fd::t_3399b18682ad53 29,31-32
+  s_0519be8d8ec8fd::t_1df0a5ee1d250f 27-28,30,33,43,58-62
+  s_0519be8d8ec8fd::t_bdb82736760d99 72-74
+archivebox/services/runner.py
+  s_b989805ae95d6a::t_a5bcc5f28b559a 622,625
+  s_0519be8d8ec8fd::t_2abbf96d5e1d7f 419,426-428,605,616-619,626
+  s_0519be8d8ec8fd::t_8751cdb0e0f670 521-523
+  s_0519be8d8ec8fd::t_2dfda0bb95baa4 359,387
+  s_b989805ae95d6a::t_46ddc65c9e8a4c 623-624
+  s_0519be8d8ec8fd::t_b6ec77d7c76e9a 1128-1134,1138-1141,1200-1207,1211-1217,1221-1224,1227-1230
+  s_0519be8d8ec8fd::t_062f1b4d6f0fe1 1244,1252-1255
+  s_0519be8d8ec8fd::t_1db029481bdedf 902-908
+  s_b989805ae95d6a::t_225b57acf5a04e 1238,1242
+  s_0519be8d8ec8fd::t_f3280ce5573091 501-507,510-514,516-520
+archivebox/machine/models.py
+  s_b989805ae95d6a::t_46ddc65c9e8a4c 1132
+  s_0519be8d8ec8fd::t_e23b5ecda71b5c 134,151
+  s_0519be8d8ec8fd::t_b514392623365d 203
+  s_0519be8d8ec8fd::t_4a97a223deb7a6 18,1118-1130
+  s_0519be8d8ec8fd::t_626730a4250465 1097
+  s_b989805ae95d6a::t_a5bcc5f28b559a 1131,1133
+  s_b989805ae95d6a::t_225b57acf5a04e 22,907,1101
+  s_0519be8d8ec8fd::t_3113145a476bae 248,250
+archivebox/tests/test_add_view.py
+  s_b989805ae95d6a::t_225b57acf5a04e 49,124-125,149-151
+archivebox/templates/core/add.html
+  s_b989805ae95d6a::t_225b57acf5a04e 133-140,411-414
+  s_0519be8d8ec8fd::t_1b5223e6bc50e8 415
+archivebox/base_models/models.py
+  s_0519be8d8ec8fd::t_3dc38041511128 154-155,164-165
+  s_0519be8d8ec8fd::t_8e0b3a7ad0d90a 13,175-176,199-245,247-248
+  s_b989805ae95d6a::t_225b57acf5a04e 5-6,115,117-132,134-149,151-152,156-157,163,167-168
+  s_0519be8d8ec8fd::t_7954158fb673d6 133,150
+  s_0519be8d8ec8fd::t_a10e796aaede7d 246
+  s_0519be8d8ec8fd::t_c43f3cec31f8cc 153
+  s_0519be8d8ec8fd::t_8c2b9fc6eb0d99 39
+  s_0519be8d8ec8fd::t_c7b6facf613c75 158-161
+  s_0519be8d8ec8fd::t_a1957dfdc07afb 116
+  s_0519be8d8ec8fd::t_7794975ac9b905 162,166
+archivebox/services/archive_result_service.py
+  s_b989805ae95d6a::t_0c61951d0f3321 12,291,308
+  s_b989805ae95d6a::t_5f1e5ff61a430c 290,297,303,315,319
+  s_b989805ae95d6a::t_e6619415366789 314
+archivebox/core/apps.py
+  s_0519be8d8ec8fd::t_3f881ec127ec5f 19-21
+archivebox/core/migrations/0040_archiveresult_delete_at_snapshot_delete_at.py
+  s_0519be8d8ec8fd::t_58838c1923da71 1-7,9-12,15-17,20-22
+  s_b989805ae95d6a::t_c864ddefc3d905 8,13-14,18-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "09f7c8bba058365b43501608eff777a52974cf37",
+  "prompts": {},
+  "sessions": {
+    "s_0519be8d8ec8fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6897-fd2e-7901-959d-ad7ef7f9e7c4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

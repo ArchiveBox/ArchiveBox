@@ -1,0 +1,21 @@
+archivebox/cli/archivebox_status.py
+  s_f8414d52051f83::t_9b994bb4a009e7 55-58
+docs/Configuration.md
+  s_f8414d52051f83::t_b6d5941b2dbd39 1097-1098
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.18",
+  "base_commit_sha": "38dc0f30dbab604385308d8bbbe0503abf87c676",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

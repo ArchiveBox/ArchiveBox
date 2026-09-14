@@ -1,0 +1,30 @@
+archivebox/tests/test_ui_admin_snapshot.py
+  s_624973e8d96ff6::t_a2d5482e7e51ee 855-856
+  s_624973e8d96ff6::t_3e9d44552f349e 834-854,857
+archivebox/core/admin_snapshots.py
+  s_624973e8d96ff6::t_fa2e1304fa4bc9 876-881
+archivebox/templates/admin/base.html
+  s_624973e8d96ff6::t_e8fef220a9a427 2559
+archivebox/templates/core/snapshot.html
+  s_624973e8d96ff6::t_d0f88a108ee15b 1715,1804
+archivebox/core/admin_archiveresults.py
+  s_624973e8d96ff6::t_0937504ae5d2c8 27,83,116,131-132,197-203,206,242-244,265,270,307-308,327-329
+archivebox/templates/includes/output_delete_controls.html
+  s_624973e8d96ff6::t_755dbada199a75 1-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d882c4bc0cffc6d9170e309d3e0e1bc3a1be2199",
+  "prompts": {},
+  "sessions": {
+    "s_624973e8d96ff6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04665-7101-78e0-9990-1b95ac628717",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

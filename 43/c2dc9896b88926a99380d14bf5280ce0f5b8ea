@@ -1,0 +1,61 @@
+archivebox/tests/test_api_v1_core_archiveresults.py
+  s_5e83b7ac3f0fa4::t_3935cbe047f3e5 4,17-51
+  s_5e83b7ac3f0fa4::t_6cb01949b34aee 52-53
+archivebox/core/models.py
+  s_5e83b7ac3f0fa4::t_bf224f87319785 1743-1744,1807,1816-1818,1875,2979-2980,2998-3000,3005,3009-3012,3102,3104,3115,3119,3969,4080-4081,4089,4159
+  s_5e83b7ac3f0fa4::t_30cbc72bbe9262 2205-2211,2214-2215,2223,2225-2240
+  s_5e83b7ac3f0fa4::t_a1f785a044555f 2213,2216-2222
+  s_5e83b7ac3f0fa4::t_5813fbcbe6ac14 4193,4206
+  s_5e83b7ac3f0fa4::t_92c19f1f109188 2212,2224
+archivebox/core/migrations/0052_unique_archiveresult_per_snapshot_plugin.py
+  s_5e83b7ac3f0fa4::t_a1f785a044555f 8,39-42
+  s_5e83b7ac3f0fa4::t_33c7852e4bf802 1-7,9-38,43-88
+archivebox/services/archive_result_service.py
+  s_5e83b7ac3f0fa4::t_9900048375e0ab 328,466
+  s_5e83b7ac3f0fa4::t_1edf0b2dd9e9d6 7,206-210,363-366,376-383
+  s_5e83b7ac3f0fa4::t_3e1b6f48f8c96c 425,436
+  s_5e83b7ac3f0fa4::t_5f56898a69426e 451
+  s_5e83b7ac3f0fa4::t_3b71b7d6a8c01b 367-375
+  s_5e83b7ac3f0fa4::t_e1829ee558bef3 384
+archivebox/api/v1_core.py
+  s_5e83b7ac3f0fa4::t_c3dc0bb1c74d9a 531-532,543-545,547,568
+archivebox/tests/test_migration_archiveresult_unique_plugin.py
+  s_5e83b7ac3f0fa4::t_3dacde90725a3a 10-36,38-44,46-53
+  s_5e83b7ac3f0fa4::t_d7a7d19466b3d9 1-9,37,45
+archivebox/cli/archivebox_extract.py
+  s_5e83b7ac3f0fa4::t_e9ed5ccb46a0fb 195-196,198-199,201,203,205,209,220-224,228-232,237-238,240-241,253,256
+  s_5e83b7ac3f0fa4::t_05462824d7ccc1 264-265,268,270,285,321
+archivebox/tests/test_archive_result_service.py
+  s_5e83b7ac3f0fa4::t_b2b8e69665e44b 532,538
+  s_5e83b7ac3f0fa4::t_8d4af21c508c1a 235-277
+  s_5e83b7ac3f0fa4::t_3935cbe047f3e5 278,294,299-314
+  s_5e83b7ac3f0fa4::t_dc80a6fbdaf684 202,224,230-231
+  s_5e83b7ac3f0fa4::t_7c56fb3fe2d09c 317-348
+  s_5e83b7ac3f0fa4::t_c167b17b603347 315-316
+archivebox/cli/archivebox_archiveresult.py
+  s_5e83b7ac3f0fa4::t_28ada67a115b9c 70,154,156
+  s_5e83b7ac3f0fa4::t_719c8f0113fb54 257-261
+archivebox/tests/test_cli_run.py
+  s_5e83b7ac3f0fa4::t_f288e17db15c87 973,995-998,1614,1636-1637,1646,1719,1759-1761,1764-1766,1770,1797,1800-1802
+archivebox/services/runner.py
+  s_5e83b7ac3f0fa4::t_23477ee66952b1 1041,1059-1060,1075-1076,1103-1104,1106,1149
+  s_5e83b7ac3f0fa4::t_02e8e92d519027 1371,1374,1380-1381,1383,1400,1402,1407-1409,1411-1420
+  s_5e83b7ac3f0fa4::t_0729f20f461c6f 1708,1711,1720-1723
+  s_5e83b7ac3f0fa4::t_ca63106c650804 1740-1742,1744,1768,1771
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "43c2dc9896b88926a99380d14bf5280ce0f5b8ea",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

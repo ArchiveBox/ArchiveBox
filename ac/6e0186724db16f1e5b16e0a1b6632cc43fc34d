@@ -1,0 +1,30 @@
+archivebox/tests/test_migrations_fresh.py
+  s_1ff935dadc9b9f::t_b9807d203c502a 41,49,56,63,149,160,169,176
+  s_1ff935dadc9b9f::t_df94051fe5db03 14
+archivebox/cli/archivebox_crawl_compat.py
+  s_1ff935dadc9b9f::t_d399902234840f 10,22
+archivebox/plugins/hooks.py
+  s_1ff935dadc9b9f::t_93eb8fdc69b431 382,389,393
+archivebox/tests/test_cli_install.py
+  s_1ff935dadc9b9f::t_14984db7ac28c0 162,178,183
+archivebox/tests/migrations_helpers.py
+  s_1ff935dadc9b9f::t_5f7cefe60dd894 1029
+archivebox/tests/test_crawl.py
+  s_1ff935dadc9b9f::t_d06d9d39189e09 11,62,80,107,130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ac6e0186724db16f1e5b16e0a1b6632cc43fc34d",
+  "prompts": {},
+  "sessions": {
+    "s_1ff935dadc9b9f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e820e-52cc-7311-9ae4-f3f56880ac41",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

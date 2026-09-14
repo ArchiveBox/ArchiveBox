@@ -1,0 +1,32 @@
+etc/package.json
+  s_074e76a4b61abc::t_f06eb2448fdea9 3
+archivebox/templates/admin/progress_monitor.html
+  s_b989805ae95d6a::t_e74beaac7a888c 917-921,1002-1019,1026-1027,1030
+  s_b989805ae95d6a::t_96e154fb3f369e 185,210,215-232,234-242,244-269,273-275
+pyproject.toml
+  s_074e76a4b61abc::t_f06eb2448fdea9 3,83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0b8f4ae330079dae6450fb23767172310bafdb63",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

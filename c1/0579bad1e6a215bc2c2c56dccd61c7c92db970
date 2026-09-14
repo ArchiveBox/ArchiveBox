@@ -1,0 +1,18 @@
+archivebox/services/runner.py
+  h_923c208e183a7b 1365
+archivebox/tests/test_binary_service.py
+  h_923c208e183a7b 42,48,57,65,80,89,91
+docs/codeblocks.toml
+  h_923c208e183a7b 8,143,306,386
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "c10579bad1e6a215bc2c2c56dccd61c7c92db970",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

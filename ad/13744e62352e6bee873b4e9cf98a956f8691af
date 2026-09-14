@@ -1,0 +1,21 @@
+Dockerfile
+  s_c5ae786df4a14c::t_35215824dc9f84 387
+Dockerfile.multistage
+  s_c5ae786df4a14c::t_35215824dc9f84 200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ad13744e62352e6bee873b4e9cf98a956f8691af",
+  "prompts": {},
+  "sessions": {
+    "s_c5ae786df4a14c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c2-3271-70c1-8ea7-2c49783fb389",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

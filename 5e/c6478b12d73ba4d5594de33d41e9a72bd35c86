@@ -1,0 +1,18 @@
+archivebox/core/views.py
+  h_923c208e183a7b 1804-1808
+archivebox/templates/static/setup_wizard.js
+  h_923c208e183a7b 265,272,277,279-281,383-385
+archivebox/tests/test_ui_admin_config_widget.py
+  h_923c208e183a7b 15,217,224-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "5ec6478b12d73ba4d5594de33d41e9a72bd35c86",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

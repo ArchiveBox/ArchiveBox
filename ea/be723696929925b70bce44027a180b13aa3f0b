@@ -1,0 +1,31 @@
+archivebox/services/runner.py
+  s_f8414d52051f83::t_2543f33cbca72e 73,832,1782
+  s_f8414d52051f83::t_b3d81ce245b8b6 1766
+archivebox/tests/test_machine_models.py
+  s_f8414d52051f83::t_e0dc266e152ed1 901
+archivebox/machine/models.py
+  s_f8414d52051f83::t_e0dc266e152ed1 1578,1598
+archivebox/services/snapshot_service.py
+  s_f8414d52051f83::t_2543f33cbca72e 4,15-43,56-59
+  s_f8414d52051f83::t_151225e7b0825b 60
+archivebox/tests/test_crawl_runner.py
+  s_f8414d52051f83::t_e0dc266e152ed1 170
+archivebox/tests/test_cli_run.py
+  s_f8414d52051f83::t_2543f33cbca72e 1914-1959
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "eabe723696929925b70bce44027a180b13aa3f0b",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+archivebox/core/migrations/0049_alter_snapshot_url.py
+  s_7cc75db5230061::t_27b3585ad86cc9 8,13-14
+etc/package.json
+  ai_agent 3
+archivebox/tests/test_urls.py
+  s_7cc75db5230061::t_7659db4cd82496 1005-1031
+archivebox/misc/serve_static.py
+  s_7cc75db5230061::t_7659db4cd82496 917
+pyproject.toml
+  ai_agent 3,82-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "f9b13e3828dd8c4715c33e486abc449953bc450c",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

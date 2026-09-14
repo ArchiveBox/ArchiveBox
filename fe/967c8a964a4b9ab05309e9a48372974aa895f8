@@ -1,0 +1,26 @@
+archivebox/core/takeover_util.py
+  s_cec16ad9ba0455::t_fac78ffa3171eb 237
+  s_cec16ad9ba0455::t_11c56decf11ca2 8,219-220,223,225,227-229,232-236,238-247,292-293
+archivebox/tests/test_cli_run.py
+  s_cec16ad9ba0455::t_b1c4bb707db80f 736,774
+archivebox/cli/archivebox_run.py
+  s_cec16ad9ba0455::t_b835cf80b312a7 273,295-313,315-328,435,449-457
+archivebox/tests/test_takeover_util.py
+  s_cec16ad9ba0455::t_1cb39608ca0b36 965-966,969-982,986,990-993
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "fe967c8a964a4b9ab05309e9a48372974aa895f8",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

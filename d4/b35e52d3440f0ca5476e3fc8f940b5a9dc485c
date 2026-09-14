@@ -1,0 +1,31 @@
+.github/workflows/release.yml
+  s_3155555fdbdae3::t_846417d59e0a78 5,23-47,50-51
+.github/workflows/ci.yml
+  s_3155555fdbdae3::t_6309700b721dd1 55
+.github/workflows/docker.yml
+  s_3155555fdbdae3::t_474e7f232f0c6e 11-15,270,292,348,381
+.github/workflows/release-candidate.yml
+  s_3155555fdbdae3::t_ca0d19cbe43c01 1-51
+archivebox/tests/test_release_workflow.py
+  s_3155555fdbdae3::t_faa6e2bb7d5706 9-10,29-33,37-39
+  s_3155555fdbdae3::t_fbe66a1b8d15b1 34-35
+.github/workflows/pip.yml
+  s_3155555fdbdae3::t_6d94836f979b3b 229-261
+  s_3155555fdbdae3::t_f6615e610bca59 5-10,77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "d4b35e52d3440f0ca5476e3fc8f940b5a9dc485c",
+  "prompts": {},
+  "sessions": {
+    "s_3155555fdbdae3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0467b-ccd7-7a30-a1bb-9d99d3bf7584",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+pyproject.toml
+  s_074e76a4b61abc::t_5deb7d7dfed22c 83
+Dockerfile
+  s_074e76a4b61abc::t_5deb7d7dfed22c 336,347,353-360
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "bc321af98097f7dd15e14d6ddad4c70b92513838",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

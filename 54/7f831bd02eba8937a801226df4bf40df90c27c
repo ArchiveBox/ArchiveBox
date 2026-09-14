@@ -1,0 +1,42 @@
+archivebox/core/views.py
+  s_0519be8d8ec8fd::t_3e68d5212e8018 1619-1621
+  s_0519be8d8ec8fd::t_659eb40a7561ce 1571,1573,1577,1579-1584,1589,1799
+  s_0519be8d8ec8fd::t_c5d478fe768853 1821,1833,1946-1978
+  s_0519be8d8ec8fd::t_c0b4d6e203bcf8 1995-1996
+  s_0519be8d8ec8fd::t_8dbf275fc31644 1814-1818
+  s_b989805ae95d6a::t_b0efd5d1c7af3e 1585,1587,1612-1614,1622-1624
+  s_0519be8d8ec8fd::t_da84a6aa9ca029 1564
+  s_0519be8d8ec8fd::t_5aef688f3ad526 1630,1648-1649,1651
+  s_0519be8d8ec8fd::t_922db4d9e36e38 1935-1945
+  s_0519be8d8ec8fd::t_e781d63a395002 21-22,1534-1537,1574,1576,1578,1588,1590,1596,1611
+  s_0519be8d8ec8fd::t_31bb469b7aee07 1808-1809
+  s_0519be8d8ec8fd::t_1e5da51b42e4ba 2053-2075
+  s_0519be8d8ec8fd::t_a81f5c9b1146f8 1604-1610,1615
+  s_b989805ae95d6a::t_61f6b03cbfcc73 1586
+archivebox/templates/admin/progress_monitor.html
+  s_0519be8d8ec8fd::t_6e48c50a98346a 901-908
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "547f831bd02eba8937a801226df4bf40df90c27c",
+  "prompts": {},
+  "sessions": {
+    "s_0519be8d8ec8fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6897-fd2e-7901-959d-ad7ef7f9e7c4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

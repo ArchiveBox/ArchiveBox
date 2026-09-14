@@ -1,0 +1,35 @@
+docs/apidocs/archivebox/archivebox.cli.archivebox_server.md
+  s_5f83317b520670::t_40e2091a55967c 30
+docs/apidocs/archivebox/archivebox.config.common.md
+  s_5f83317b520670::t_8ba6baf44c00e7 391-392,397
+archivebox/tests/test_cli_server.py
+  s_a5df2e7b7b6c12::t_59ee499ab1c545 163
+  s_a5df2e7b7b6c12::t_a6e3ede342b288 10,161-162,167-184,186-191,193,195-215
+  s_a5df2e7b7b6c12::t_8c9ccdb98c20b1 13,164-166,185,192,194
+docs/Configuration.md
+  s_5f83317b520670::t_147654f8374870 169,171,174-176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "08de08c64c38a559a63ddbfba6fe274b248d61fe",
+  "prompts": {},
+  "sessions": {
+    "s_5f83317b520670": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6cc1-bf3e-78d1-8285-d6a184c74581",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

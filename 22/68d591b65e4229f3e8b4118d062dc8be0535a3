@@ -1,0 +1,19 @@
+archivebox/tests/test_release_workflow.py
+  s_4bc469058f4b62::t_f053e406e4a0e5 7,12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "2268d591b65e4229f3e8b4118d062dc8be0535a3",
+  "prompts": {},
+  "sessions": {
+    "s_4bc469058f4b62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f773c-e7fe-77c2-8517-75233af0fe5a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

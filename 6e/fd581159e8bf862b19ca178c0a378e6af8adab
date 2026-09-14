@@ -1,0 +1,69 @@
+archivebox/tests/test_version_metadata.py
+  s_7cc75db5230061::t_53c8d597bfd84f 19-36
+  s_7cc75db5230061::t_f1002bbcfdf994 1-10,37-90
+  s_7cc75db5230061::t_ce55ae62e4ddb8 11-18
+archivebox/config/version.py
+  s_7cc75db5230061::t_b04f4a92f922c2 45-52,56-58
+  s_7cc75db5230061::t_349ebc1b838a24 53-55
+  s_7cc75db5230061::t_11f9e5e04b6065 9,59-78,81-95
+Dockerfile
+  s_7cc75db5230061::t_fb3fdb06069964 188,219
+  s_7cc75db5230061::t_649ca7e89f1333 189
+  s_7cc75db5230061::t_c3f3a5dde40c58 142-151
+  s_7cc75db5230061::t_9df65c4d675a9d 226
+  s_7cc75db5230061::t_b04f4a92f922c2 152
+  s_7cc75db5230061::t_cc7441003a19e9 123-124,175
+  s_7cc75db5230061::t_53bcbae9db21e1 215-216
+  s_7cc75db5230061::t_c2b65aa7521940 156-157
+  s_7cc75db5230061::t_3007da052dbf8b 209-212
+  s_7cc75db5230061::t_50415ce7401c60 71,213-214,217
+  s_7cc75db5230061::t_d7c9908db5c213 22-24
+  s_7cc75db5230061::t_e60769fd5c98c2 187
+Dockerfile.multistage
+  s_7cc75db5230061::t_c3f3a5dde40c58 142-151
+  s_7cc75db5230061::t_e60769fd5c98c2 187
+  s_7cc75db5230061::t_fb3fdb06069964 188,219
+  s_7cc75db5230061::t_649ca7e89f1333 189
+  s_7cc75db5230061::t_3007da052dbf8b 209-212
+  s_7cc75db5230061::t_50415ce7401c60 71,213-214,217
+  s_7cc75db5230061::t_d7c9908db5c213 22-24
+  s_7cc75db5230061::t_c2b65aa7521940 156-157
+  s_7cc75db5230061::t_53bcbae9db21e1 215-216
+  s_7cc75db5230061::t_cc7441003a19e9 123-124,175
+  s_7cc75db5230061::t_9df65c4d675a9d 226
+  s_7cc75db5230061::t_b04f4a92f922c2 152
+.dockerignore
+  s_7cc75db5230061::t_bbb5a1a5a6355f 15,19
+  s_7cc75db5230061::t_c3f3a5dde40c58 16,20-22
+archivebox/tests/test_dockerfiles.py
+  s_7cc75db5230061::t_854b4fb80530d0 176-180,184
+  s_7cc75db5230061::t_b077c90909c456 151-157,159
+  s_7cc75db5230061::t_4c25ccc2a8d6b8 119
+  s_7cc75db5230061::t_d165154b7b4cde 158,160-166
+  s_7cc75db5230061::t_fbef797d0be377 139-146
+  s_7cc75db5230061::t_9b3f039bc6e63a 120,122-123
+  s_7cc75db5230061::t_ad59662d34c673 111-118,121,124-125
+  s_7cc75db5230061::t_62b7748428d3af 147-150,191,194-196
+  s_7cc75db5230061::t_e10a060d7c97f3 174-175
+  s_7cc75db5230061::t_649ca7e89f1333 181,183
+  s_7cc75db5230061::t_c27f069290694a 167-173
+  s_7cc75db5230061::t_013034fe4e89af 126-127
+  s_7cc75db5230061::t_23e82aac494bf7 182
+  s_7cc75db5230061::t_c3d1fd93432c27 185-190,192-193
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "6efd581159e8bf862b19ca178c0a378e6af8adab",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": null
+    }
+  }
+}

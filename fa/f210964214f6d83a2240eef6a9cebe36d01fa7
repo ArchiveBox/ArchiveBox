@@ -1,0 +1,22 @@
+archivebox/core/forms.py
+  s_70b3b8284ef391::t_d5b3f11372b98e 37
+archivebox/tests/test_core_forms.py
+  s_70b3b8284ef391::t_d5b3f11372b98e 10,21
+  s_70b3b8284ef391::t_d207be5e942bcf 30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "faf210964214f6d83a2240eef6a9cebe36d01fa7",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

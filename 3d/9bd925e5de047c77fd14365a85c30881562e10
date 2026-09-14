@@ -1,0 +1,43 @@
+archivebox/tests/test_setup_script.py
+  s_69ddf154c10e6f::t_6baff28d26acf8 81
+archivebox/cli/archivebox_status.py
+  s_69ddf154c10e6f::t_9f1cdf0d752490 134-135,138
+archivebox/cli/archivebox_server.py
+  s_69ddf154c10e6f::t_9f1cdf0d752490 262-263
+  s_69ddf154c10e6f::t_2d9cf9cce21729 266-267
+  s_69ddf154c10e6f::t_6baff28d26acf8 268
+docs/Setting-up-Authentication.md
+  s_69ddf154c10e6f::t_9f1cdf0d752490 36
+docs/Merging-Collections.md
+  s_69ddf154c10e6f::t_9f1cdf0d752490 103
+README.md
+  s_69ddf154c10e6f::t_9f1cdf0d752490 589-590
+docs/Install.md
+  s_69ddf154c10e6f::t_9f1cdf0d752490 257
+bin/setup.sh
+  s_69ddf154c10e6f::t_9f1cdf0d752490 225
+docs/Usage.md
+  s_69ddf154c10e6f::t_9f1cdf0d752490 156
+  s_69ddf154c10e6f::t_e41bd2a13584f9 157
+docs/Publishing-Your-Archive.md
+  s_69ddf154c10e6f::t_9f1cdf0d752490 10,14
+  s_69ddf154c10e6f::t_0bdb3a27a6d104 15
+archivebox/cli/archivebox_install.py
+  s_69ddf154c10e6f::t_9f1cdf0d752490 199-200,202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3d9bd925e5de047c77fd14365a85c30881562e10",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

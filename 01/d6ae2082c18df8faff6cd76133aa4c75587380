@@ -1,0 +1,26 @@
+docs/Configuration.md
+  s_9e824b73eb6968::t_fdfd56c29f9ef4 136
+  s_9e824b73eb6968::t_5f2b07427ca05e 642,645-649
+  s_9e824b73eb6968::t_02cab465874ac9 681-682
+  s_9e824b73eb6968::t_998d88c8521170 285,296,298,381,390
+  s_9e824b73eb6968::t_b2460fe702e92f 622-623
+  s_9e824b73eb6968::t_0f401889f71db1 594
+  s_9e824b73eb6968::t_13c3435447842c 650-651
+  s_9e824b73eb6968::t_a146f7f46d34be 635-636
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "01d6ae2082c18df8faff6cd76133aa4c75587380",
+  "prompts": {},
+  "sessions": {
+    "s_9e824b73eb6968": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5a4bdbb-de5b-47b1-b675-e90d58496003",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

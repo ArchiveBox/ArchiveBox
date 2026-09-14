@@ -1,0 +1,19 @@
+archivebox/tests/test_config_DELETE_AFTER.py
+  s_960fbddc5f7033::t_a5b7e25b9ee777 157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "74399c5456d5d03dbee7c38f4410b6fc2c7e97d9",
+  "prompts": {},
+  "sessions": {
+    "s_960fbddc5f7033": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee904-94b6-7740-ab58-08665a9b96ff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

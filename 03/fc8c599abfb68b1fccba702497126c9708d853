@@ -1,0 +1,16 @@
+archivebox/core/models.py
+  h_923c208e183a7b 1133,1182-1183,1921-1924,1927-1954,1957-1964
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  h_923c208e183a7b 9,130,152-157,181-182,196-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "03fc8c599abfb68b1fccba702497126c9708d853",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

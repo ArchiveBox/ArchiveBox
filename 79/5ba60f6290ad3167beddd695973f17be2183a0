@@ -1,0 +1,25 @@
+.github/workflows/release.yml
+  s_f8414d52051f83::t_a30918ca05be36 93-111
+etc/package.json
+  s_f8414d52051f83::t_b2664ccbbf89f3 3
+pyproject.toml
+  s_f8414d52051f83::t_844bfc2db42814 3,86,351
+uv.lock
+  s_f8414d52051f83::t_35f3cc4d11e80e 27,42,44,126,226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "795ba60f6290ad3167beddd695973f17be2183a0",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

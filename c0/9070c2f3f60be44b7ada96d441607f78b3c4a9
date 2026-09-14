@@ -1,0 +1,21 @@
+archivebox/misc/serve_static.py
+  s_b74dd57520e450::t_fa761e2511e49c 36-55
+archivebox/tests/test_urls.py
+  s_b74dd57520e450::t_16d5656b8d3860 137-138,168-169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "c09070c2f3f60be44b7ada96d441607f78b3c4a9",
+  "prompts": {},
+  "sessions": {
+    "s_b74dd57520e450": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f8189-7eb5-7382-94e6-83f4f43cd7c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

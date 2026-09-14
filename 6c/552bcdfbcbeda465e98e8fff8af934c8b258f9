@@ -1,0 +1,23 @@
+docs/Install.md
+  s_69ddf154c10e6f::t_7bd67d9fbf37b6 149,156-157
+docs/codeblocks.toml
+  s_69ddf154c10e6f::t_42b54654787e2a 19,133,262,302,342,382
+README.md
+  s_69ddf154c10e6f::t_7bd67d9fbf37b6 304,318
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6c552bcdfbcbeda465e98e8fff8af934c8b258f9",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
