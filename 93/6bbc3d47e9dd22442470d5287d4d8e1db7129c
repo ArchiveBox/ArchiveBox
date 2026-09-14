@@ -1,0 +1,55 @@
+archivebox/tests/test_cli_persona.py
+  s_52f2bda5505456::t_1c7e72b0f0aa7f 117-125,140
+archivebox/cli/archivebox_persona.py
+  s_52f2bda5505456::t_a5845960bd300a 474-475,486-503,509-511,515-517,537-539
+  s_52f2bda5505456::t_6e7d75cf4cd271 523-524
+  s_52f2bda5505456::t_aa01b08fcce45d 466-473,476-485,504-508,512-514,518-522,525-527,529-536,540-543
+  s_52f2bda5505456::t_c1b7342bb7dedd 141-143,444
+  s_52f2bda5505456::t_bbd5258b78feca 528
+archivebox/plugins/forms.py
+  s_52f2bda5505456::t_18209ca48fcdd2 279,293,345-346
+archivebox/personas/open_browser.js
+  s_52f2bda5505456::t_0f2bb6ad011c59 45-48
+  s_52f2bda5505456::t_bbd5258b78feca 22
+  s_52f2bda5505456::t_de77a34f2d647d 1-21,23-44,49-61
+docker-compose.yml
+  s_52f2bda5505456::t_844a7e2c156174 18-21,34,76-80
+docs/Chromium-Install.md
+  s_52f2bda5505456::t_b2c9b7105cc6da 3-7,14-17,19,26,30,32,34,38,40,42,44,46-48,56,59,62,64,66,68-69,71-75,77,79,82-83,86,88,90,92,94,97-98,101,104,107-121,123-126,128,130,132,134,136,138-140,142,144,146-148,150-152,154,156-158
+  s_52f2bda5505456::t_a42b5114aa4ae7 43,45,51-53
+  s_52f2bda5505456::t_77d6393ba6c346 41,57,63,65,67,70,76,89
+archivebox/workers/supervisord_util.py
+  s_52f2bda5505456::t_06ce9734eabd5b 1192
+  s_52f2bda5505456::t_bbd5258b78feca 1210
+  s_52f2bda5505456::t_ebfddfa39cbf20 1193-1209
+archivebox/tests/test_ui_admin_persona.py
+  s_52f2bda5505456::t_61c247986a2d07 183,185-193,196
+  s_52f2bda5505456::t_4dcad424c40a9e 182,184,194-195,197-210
+  s_52f2bda5505456::t_c4b5a9d1696cc0 211-217
+archivebox/personas/importers.py
+  s_52f2bda5505456::t_c1b7342bb7dedd 248-262,323,501-509,600-601,639-649
+README.md
+  s_52f2bda5505456::t_045fe80d039325 429,930,984
+Dockerfile
+  s_52f2bda5505456::t_ebfddfa39cbf20 105
+docs/Docker.md
+  s_52f2bda5505456::t_a94401a50cf5e5 3-4
+docs/Usage.md
+  s_52f2bda5505456::t_a569fade6c27c8 128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "936bbc3d47e9dd22442470d5287d4d8e1db7129c",
+  "prompts": {},
+  "sessions": {
+    "s_52f2bda5505456": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a091f5-a5f0-70d3-a06d-259a10de24c2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
