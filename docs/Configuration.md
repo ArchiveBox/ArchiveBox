@@ -585,6 +585,9 @@ When `True`, every LDAP user who successfully authenticates is auto-promoted to 
 
 *Options for the on-disk layout, file permissions, and temp/lib directories that ArchiveBox reads and writes during archiving.*
 
+> [!NOTE]
+> Docker-only [`PUID` and `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#puid--pgid) are entrypoint environment variables, not ArchiveBox configuration keys.
+
 ---
 <a id="dir_output_permissions"></a>
 #### `OUTPUT_PERMISSIONS`

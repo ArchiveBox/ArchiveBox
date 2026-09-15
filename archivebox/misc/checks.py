@@ -255,7 +255,7 @@ def check_data_dir_permissions(config=None, **config_kwargs):
             "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions]https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions[/link]",
         )
         STDERR.print(
-            "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid]https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#puid--pgid[/link]",
+            "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#puid--pgid]https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#puid--pgid[/link]",
         )
         STDERR.print(
             "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts]https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts[/link]",

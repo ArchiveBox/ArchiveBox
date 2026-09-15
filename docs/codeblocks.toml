@@ -109,6 +109,7 @@ version = 2
 
 # docs/Docker.md
 "03a42395e6560eba-1" = "illustration"
+"0b7277780e3efb1a-1" = "illustration"
 "6673b633d132353b-1" = "illustration"
 "affb9c5d5980ed1c-1" = "run"
 "0e9c1f41ef579e79-1" = "run"
@@ -203,7 +204,7 @@ version = 2
 "0fdcf228bb957933-1" = "run"
 "d76a2cce93150387-1" = "illustration"
 "acb33c3336d33ac5-1" = "illustration"
-"8bc58240c72e3eaa-1" = "illustration"
+"64a482f8906997f7-1" = "illustration"
 "74e75b4a84bbb636-1" = "run"
 
 # docs/Setting-up-Authentication.md
@@ -225,6 +226,7 @@ version = 2
 "20b7130b3bf05a00-1" = "run"
 
 # docs/Troubleshooting.md
+"1192620577a0dc5a-1" = "illustration"
 "f51f94b1347085a0-1" = "illustration"
 "24badf54daccd7fa-1" = "run"
 "ef68862f660ad4ee-1" = "run"

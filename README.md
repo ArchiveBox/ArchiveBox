@@ -1036,8 +1036,8 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 </li>
 <li><strong>Don't store large collections on older filesystems like EXT3/FAT</strong> as they may not be able to handle more than 50k directory entries in the <code>data/archive/</code> folder.
 </li>
-<li><strong>Try to keep the <code>data/index.sqlite3</code> file on local drive (not a network mount)</strong> or SSD for maximum performance, however the <code>data/archive/</code> folder can be on a network mount or slower HDD.</li>
-<li>If using Docker or NFS/SMB/FUSE for the <code>data/archive/</code> folder, make sure the mounted data directory is writable by its intended owner and consider disabling <a href="https://github.com/ArchiveBox/ArchiveBox/issues/1304"><code>root_squash</code></a> on your fileshare server.
+<li><strong>Keep the <code>data/index.sqlite3</code> file on a reliable local drive (not a network mount)</strong> or SSD when using SQLite; the <code>data/archive/</code> folder can be on a network mount or slower HDD.</li>
+<li>If using Docker or NFS/SMB/FUSE for the <code>data/archive/</code> folder, configure the server-side UID/GID mapping or ACL so ArchiveBox's non-root user can create and remove files. <code>root_squash</code> is compatible when the selected non-root identity has write access; do not rely on container root to override server-side permissions.
 </li>
 </ul>
 

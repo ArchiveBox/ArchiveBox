@@ -150,7 +150,7 @@ How much are you planning to archive? Only a few bookmarked articles, or thousan
 
 Consider what permissioning to apply to your archive folder carefully. Limit access to the fewest possible users by checking folder ownership and setting [`OUTPUT_PERMISSIONS`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#output_permissions) accordingly. Generally the `index.sqlite3` file, `archive/` folder, and `ArchiveBox.conf` file must all be owned and writable by the `archivebox` user or a dedicated non-root user.
 
-When running with Docker, the entrypoint uses the existing non-root owner of the mounted data directory when possible, otherwise it falls back to the image's `archivebox` user.
+When running with Docker, the entrypoint uses explicit [`PUID`/`PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#puid--pgid) values when supplied, otherwise the existing non-root owner of the mounted data directory or the image's `archivebox` user.
 
 More info:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#disk-layout

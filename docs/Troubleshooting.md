@@ -134,7 +134,23 @@ if you have problem with a particular nginx config.
 
 #### Docker Permissions issues
 
-Make sure the mounted data directory is writable by its intended non-root owner. The current Docker entrypoint detects the first non-root collection owner and runs ArchiveBox with matching numeric UID/GID; a new root-owned collection falls back to the image's `archivebox` user. Check the host directory's numeric ownership and the entrypoint's startup output before changing permissions.
+The Docker entrypoint starts as root only for bounded mount setup, then runs ArchiveBox and Chrome as a non-root user. By default it uses the first non-root numeric owner found in the collection, falling back to `911:911` for a new or root-owned collection. Set `PUID` and `PGID` when an NFS/CIFS/FUSE server or host requires a specific numeric identity.
+
+Required directories get a non-root access check or creation attempt first, followed by real create/delete probes on the critical output paths. Only a failed check triggers a shallow root `chown`/`chmod` of the exact required path. This avoids repeated metadata changes on writable `root_squash` or synthetic-permission mounts. Startup never recursively scans or changes `data/archive`: byte size is not a safe proxy for traversal cost, and a large or metadata-heavy archive can take hours or days to walk.
+
+With SQLite, `index.sqlite3`, configuration, logs, temp/runtime files, and sidecar databases must remain on reliable local storage; only `data/archive/` may be remote. PostgreSQL is the supported exception for the main index.
+
+The default `restart: unless-stopped` policy repeats a startup failure but does not create it and should not be removed. If the entrypoint still cannot create and delete its probe file, stop the noisy loop, inspect the resolved volume sources and logs, then retry once after fixing the server-side UID/GID mapping or ACL:
+
+```bash
+docker compose stop archivebox
+docker compose config
+docker compose logs --tail=200 archivebox
+docker compose run --rm archivebox init
+docker compose up -d --wait
+```
+
+A read-only mount or NFS export that denies both the selected user and root cannot be repaired from inside the container.
 
 <br/>
 

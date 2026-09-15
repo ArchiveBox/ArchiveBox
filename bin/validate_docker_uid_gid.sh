@@ -246,6 +246,10 @@ run_case() {
         local nested_stat
         nested_stat="$("${docker_base[@]}" -v "$case_dir/data:/data" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /data/archive/existing/file" 2>/dev/null || true)"
         [[ "$nested_stat" == "0:0" ]] || ok=0
+    elif [[ "$post_assert" == "data-owner-stays" ]]; then
+        local data_stat
+        data_stat="$("${docker_base[@]}" -v "$case_dir/data:/data" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /data" 2>/dev/null || true)"
+        [[ "$data_stat" == "1000:1000" ]] || ok=0
     elif [[ "$post_assert" == runtime-nested-root-stays ]]; then
         local lib_stat browsers_stat chrome_rules_stat chrome_metadata_stat
         lib_stat="$("${docker_base[@]}" -v "$case_dir/lib:/libdir" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /libdir/existing/file" 2>/dev/null || true)"
@@ -419,6 +423,62 @@ run_mount_case() {
     VALIDATION_ROOT="$previous_root"
 }
 
+run_nfs_root_squash_case() {
+    local mount_dir="$1"
+
+    [[ -n "$mount_dir" ]] || { log "FAIL NFS root_squash case: mount dir not provided"; exit 1; }
+    [[ -d "$mount_dir" ]] || { log "FAIL NFS root_squash case: $mount_dir does not exist"; exit 1; }
+    [[ -w "$mount_dir" ]] || { log "FAIL NFS root_squash case: $mount_dir is not writable by host user"; exit 1; }
+
+    total=$((total + 1))
+    local case_dir="$mount_dir/archivebox-root-squash-validation-$RUN_ID"
+    local log_file="$case_dir/output.log"
+    local owner uid gid status ok root_is_squashed=0
+    mkdir -p "$case_dir/data"
+    owner="$(stat -c '%u:%g' "$case_dir/data")"
+    uid="${owner%%:*}"
+    gid="${owner##*:}"
+
+    if ! "${docker_base[@]}" \
+        --user 0:0 \
+        -v "$case_dir/data:/data" \
+        --entrypoint /bin/touch \
+        "$IMAGE" \
+        /data/root-must-not-write 2>/dev/null; then
+        root_is_squashed=1
+    fi
+    rm -f "$case_dir/data/root-must-not-write"
+
+    set +e
+    "${docker_base[@]}" \
+        -e "PUID=$uid" \
+        -e "PGID=$gid" \
+        -v "$ENTRYPOINT_PATH:/app/bin/docker_entrypoint.sh:ro" \
+        -v "$case_dir/data:/data" \
+        --entrypoint /app/bin/docker_entrypoint.sh \
+        "$IMAGE" \
+        sh -c "$default_cmd" >"$log_file" 2>&1
+    status=$?
+    set -e
+
+    ok=1
+    [[ "$root_is_squashed" == "1" ]] || ok=0
+    [[ "$uid" != "0" ]] || ok=0
+    [[ "$status" == "0" ]] || ok=0
+    grep -q "^ABX_UID=$uid$" "$log_file" || ok=0
+    grep -q "^ABX_GID=$gid$" "$log_file" || ok=0
+    grep -q '^ABX_OK$' "$log_file" || ok=0
+
+    if [[ "$ok" == "1" ]]; then
+        passed=$((passed + 1))
+        log "PASS NFS root_squash mount uses the writable non-root identity without root repair"
+    else
+        failed=$((failed + 1))
+        log "FAIL NFS root_squash mount (status=$status owner=$owner log=$log_file)"
+        sed -n '1,180p' "$log_file"
+    fi
+}
+
 run_compose_personas_case() {
     total=$((total + 1))
     local case_dir="$VALIDATION_ROOT/compose-personas-persist"
@@ -451,6 +511,54 @@ run_compose_personas_case() {
     fi
 }
 
+run_compose_fresh_up_case() {
+    total=$((total + 1))
+    local case_dir="$VALIDATION_ROOT/compose-fresh-up"
+    local log_file="$case_dir/output.log"
+    local status=0
+    mkdir -p "$case_dir"
+    local ARCHIVEBOX_IMAGE="$IMAGE"
+    local ARCHIVEBOX_PORT=0
+    export ARCHIVEBOX_IMAGE ARCHIVEBOX_PORT
+
+    set +e
+    "$DOCKER_BINARY" compose \
+        --project-directory "$case_dir" \
+        -f "$COMPOSE_PATH" \
+        up -d --wait >"$log_file" 2>&1
+    status=$?
+    if [[ "$status" == "0" ]]; then
+        "$DOCKER_BINARY" compose --project-directory "$case_dir" -f "$COMPOSE_PATH" \
+            exec -T archivebox sh -c \
+            'server_identity="$(ps -eo uid=,gid=,args= | awk '\''/\/archivebox server --init/ && !/awk/ {print $1 ":" $2; exit}'\'')"; printf "ABX_SERVER_ID=%s\n" "$server_identity"; test "$server_identity" = 911:911; setpriv --reuid=911 --regid=911 --clear-groups sh -c '\''touch /data/logs/fresh-up-probe /data/archive/fresh-up-probe "$PERSONAS_DIR/Default/chrome_profile/fresh-up-probe" && rm -f /data/logs/fresh-up-probe /data/archive/fresh-up-probe "$PERSONAS_DIR/Default/chrome_profile/fresh-up-probe"'\''' \
+            >>"$log_file" 2>&1 || status=$?
+    fi
+    if [[ "$status" == "0" ]]; then
+        "$DOCKER_BINARY" compose --project-directory "$case_dir" -f "$COMPOSE_PATH" restart archivebox \
+            >>"$log_file" 2>&1 || status=$?
+        "$DOCKER_BINARY" compose --project-directory "$case_dir" -f "$COMPOSE_PATH" up -d --wait \
+            >>"$log_file" 2>&1 || status=$?
+    fi
+    "$DOCKER_BINARY" compose --project-directory "$case_dir" -f "$COMPOSE_PATH" logs --no-color archivebox \
+        >>"$log_file" 2>&1 || true
+    "$DOCKER_BINARY" compose --project-directory "$case_dir" -f "$COMPOSE_PATH" down --volumes --remove-orphans \
+        >>"$log_file" 2>&1 || status=$?
+    set -e
+
+    if [[ "$status" == "0" ]] \
+        && [[ -d "$case_dir/data/logs" ]] \
+        && [[ -d "$case_dir/data/personas/Default/chrome_profile" ]] \
+        && grep -q '^ABX_SERVER_ID=911:911$' "$log_file" \
+        && ! grep -q 'cannot write to /data' "$log_file"; then
+        passed=$((passed + 1))
+        log "PASS fresh compose up creates writable data and personas paths and survives restart"
+    else
+        failed=$((failed + 1))
+        log "FAIL fresh compose up permission initialization (status=$status log=$log_file)"
+        sed -n '1,220p' "$log_file"
+    fi
+}
+
 log "Running UID/GID validation on ${HOSTNAME:-unknown-host} using image=$IMAGE entrypoint=$ENTRYPOINT_PATH root=$VALIDATION_ROOT platform=${DOCKER_PLATFORM:-native}"
 
 run_case "root-owned empty data auto-detect default" \
@@ -476,6 +584,34 @@ run_case "root-owned data falls back to default archivebox user" \
 run_case "nested root-owned archive content is not recursively chowned" \
     "chown 0:0 /case/data && chmod 755 /case/data && mkdir -p /case/data/archive/existing && touch /case/data/archive/existing/file && chown -R 0:0 /case/data/archive/existing" \
     "-" "-" pass 911 911 "$default_cmd" nested-root-stays
+
+run_case "explicit PUID and PGID override root-owned data" \
+    "chown 0:0 /case/data && chmod 755 /case/data" \
+    "PUID=1234 PGID=2345" "-" pass 1234 2345
+
+run_case "PUID-only override retains detected group" \
+    "chown 501:20 /case/data && chmod 755 /case/data" \
+    "PUID=1234" "-" pass 1234 20
+
+run_case "PGID-only override retains detected user" \
+    "chown 501:20 /case/data && chmod 755 /case/data" \
+    "PGID=2345" "-" pass 501 2345
+
+run_case "PUID zero falls back to the non-root default" \
+    "chown 0:0 /case/data && chmod 755 /case/data" \
+    "PUID=0 PGID=911" "-" pass 911 911
+
+run_case "nonnumeric PUID is rejected" \
+    "chown 0:0 /case/data && chmod 755 /case/data" \
+    "PUID=archivebox PGID=911" "-" fail "" ""
+
+run_case "non-root UID with root group is supported" \
+    "chown 1201:0 /case/data && chmod 775 /case/data" \
+    "-" "-" pass 1201 0
+
+run_case "writable forced-owner mount skips metadata changes" \
+    "chown 1000:1000 /case/data && chmod 777 /case/data" \
+    "PUID=911 PGID=911" "-" pass 911 911 "$default_cmd" data-owner-stays
 
 run_case "only the writable Chrome extension cache is recursively repaired" \
     "chown 501:20 /case/data && mkdir -p /case/lib/existing /case/lib/chromewebstore/extensions/cookie /case/browsers/existing && touch /case/lib/existing/file /case/lib/chromewebstore/extensions/cookie/rules.json /case/browsers/existing/file && chown -R 0:0 /case/lib/existing /case/lib/chromewebstore /case/browsers/existing" \
@@ -506,8 +642,9 @@ run_case "root-owned ArchiveBox.conf only is repaired" \
     "-" "-" pass 911 911 "$default_cmd" config-files-repaired
 
 run_compose_personas_case
+run_compose_fresh_up_case
 
-run_mount_case "NFS" "${NFS_TEST_DIR:-}"
+run_nfs_root_squash_case "${NFS_TEST_DIR:-}"
 run_mount_case "SMB" "${SMB_TEST_DIR:-}"
 
 log "SUMMARY passed=$passed failed=$failed total=$total"

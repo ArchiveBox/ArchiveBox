@@ -127,6 +127,8 @@ The `data/archive/` subfolder contains the bulk archived content, and it support
 
 ### `NFS` (Docker Driver)
 
+Configure the export's ownership or ACL so a non-root numeric identity can create and remove files, then set Docker `PUID`/`PGID` to that identity if it differs from the local collection owner. NFS `root_squash` is compatible; ArchiveBox does not rely on container root to write the export.
+
 `docker-compose.yml`:
 ```yaml
 services:
@@ -147,6 +149,8 @@ volumes:
 <a name="smb"></a><a name="ceph"></a>
 
 ### `SMB` / `Ceph` (Docker CIFS Driver)
+
+The example below presents the mount as the image default `911:911`. If you choose another forced `uid`/`gid`, set the ArchiveBox service's `PUID`/`PGID` to the same values.
 
 `docker-compose.yml`:
 ```yaml
@@ -331,7 +335,8 @@ volumes:
             allow_other: 'true'
             vfs_cache_mode: full
             vfs_links: 'true'
-            # Match these to the numeric owner of ./data; 911:911 is the image default.
+            # Match these and the ArchiveBox PUID/PGID to the effective mount owner;
+            # 911:911 is the image default.
             uid: 911
             gid: 911
             transfers: 16
