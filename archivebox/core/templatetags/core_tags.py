@@ -3,7 +3,7 @@ import os
 from html import unescape
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
 from django import template
@@ -87,6 +87,21 @@ _AUDIO_FILE_EXTS = {
 _MEDIA_FILE_EXTS = _VIDEO_FILE_EXTS | _AUDIO_FILE_EXTS
 _BROWSER_VIDEO_FILE_EXTS = {".mp4", ".webm", ".m4v", ".ogv"}
 _BROWSER_AUDIO_FILE_EXTS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac"}
+
+
+def _is_web_subdomain_alias(browser_url: str, configured_base_url: str) -> bool:
+    """Hide the informational mismatch banner on the conventional public web alias.
+
+    This is deliberately presentation-only: request routing and the restriction
+    on state-changing requests continue to use the configured BASE_URL.
+    """
+    browser = urlparse(browser_url)
+    configured = urlparse(configured_base_url)
+    return (
+        browser.scheme.lower() == configured.scheme.lower()
+        and browser.hostname == f"web.{configured.hostname}"
+        and browser.port == configured.port
+    )
 
 
 def _normalize_output_files(output_files: Any) -> dict[str, dict[str, Any]]:
@@ -477,7 +492,7 @@ def system_warnings_banner(context):
     if not config.BASE_URL:
         return get_setup_wizard_context(context.get("request"), config)
     mismatch = get_base_url_mismatch_context(context.get("request"), config)
-    if mismatch:
+    if mismatch and not _is_web_subdomain_alias(mismatch["browser_url"], mismatch["configured_base_url"]):
         return mismatch
     if config.IS_LOWER_SECURITY_MODE:
         return {"mode": "unsafe"}

@@ -368,6 +368,19 @@ def test_configured_onedomain_base_url_warns_on_admin_alias():
     assert get_base_url_mismatch_context(request, config)["mode"] == "base_url_mismatch"
 
 
+def test_configured_base_url_mismatch_banner_hidden_on_public_web_alias():
+    config = get_config(include_machine=False).model_copy(
+        update={"BASE_URL": "https://archivebox.example.test", "SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"},
+    )
+    request = RequestFactory().get("/public/", secure=True, HTTP_HOST="web.archivebox.example.test")
+    request.user = AnonymousUser()
+
+    # The underlying mismatch remains visible to routing/security code; only
+    # this banner is suppressed on the conventional read-only web alias.
+    assert get_base_url_mismatch_context(request, config)["mode"] == "base_url_mismatch"
+    assert system_warnings_banner({"CONFIG": config, "request": request})["mode"] != "base_url_mismatch"
+
+
 def test_auto_onedomain_mode_is_not_reported_as_unsafe():
     config = get_config(include_machine=False).model_copy(
         update={"BASE_URL": "http://archivebox.example.test", "SERVER_SECURITY_MODE": "auto"},
