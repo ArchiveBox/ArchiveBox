@@ -17,7 +17,7 @@ CONFIG_FILE_HEADER = (
     "# You can add options here manually in INI format, or automatically by running:\n"
     "#    archivebox config --set KEY=VALUE\n"
     "#\n"
-    "# This file is kept in sync 1:1 with Machine.config in the index DB —\n"
+    "# This file is kept in sync 1:1 with the current Machine.config in the DB —\n"
     "# editing either side propagates to the other. ``archivebox init`` reads\n"
     "# this file on startup; the admin Machine.config editor writes both.\n"
     "#\n"
