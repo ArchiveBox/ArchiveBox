@@ -126,17 +126,17 @@ The 0.7.x stable line and the 0.9 development line diverged historically, so the
 
 Thank you to everyone who contributed code, documentation, testing, bug reports, and responsible security reports during the long road from 0.7.x to 0.9.x.
 
-**Code and documentation contributors**  
+**Code and documentation contributors**
 Sorted approximately by the size and quantity of accepted contributions:
 
 @Brandl, @jimwins, @benmuth, @FellowTraveler, @pcrockett, @tqobqbq, @pellaeon, @sclu1034, @vladimirdulov, @andrew-d, @n-hebert, @gnattu, @danielalanbates, @boehs, @pyrox0, @ckiee, @neel-suthar, @dicnunz, @zkksdk, @1over137, @agowa, @benharri, @ckcr4lyf, @jasongodev, @naoph, @rdela, @slmingol, @ssoel, @TrisSherliker, @NelsonMinar, and @mpgirro.
 
-**Issue reporters whose reports led to fixes**  
+**Issue reporters whose reports led to fixes**
 This list excludes people already credited above for accepted code or documentation:
 
 @amy-r-oss, @saiarcot895, @cyberproaustin, @BenCzaczkes, @larsony99, @tztzz, @JitteryDoodle, @Finkregh, @philippemilink, @sbutcher, @melyux, @m0nhawk, @danst0, @KagurazakaShirosatosu, @s7x, @mawmawmawm, and @cdzombak.
 
-**Security advisory reporters explicitly promised release-note credit**  
+**Security advisory reporters explicitly promised release-note credit**
 This is intentionally limited to advisory threads where the maintainer explicitly said the reporter would be credited:
 
 @DavidCarliez, @FUNFACTOR1, @g4nkd, @geo-chen, @iaohkut-from-NightWolf-Team, and @Vasco0x4.
