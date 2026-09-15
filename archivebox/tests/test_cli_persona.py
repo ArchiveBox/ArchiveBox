@@ -104,6 +104,7 @@ const puppeteer = require(process.argv[1]);
         ],
         cwd=initialized_archive,
         timeout=120,
+        env={**browser_env, "CHROME_SANDBOX": "false"},
     )
     assert imported.returncode == 0, imported.stderr
     persona = initialized_archive / "personas" / "session"

@@ -9,6 +9,7 @@
  *   COOKIES_OUTPUT_FILE         Optional output path for Netscape cookies.txt
  *   AUTH_STORAGE_OUTPUT_FILE    Optional output path for auth.json
  *   CHROME_BINARY               Absolute browser path resolved by abxpkg
+ *   CHROME_SANDBOX              Set to false when the Linux sandbox is unavailable
  *   NODE_MODULES_DIR            node_modules path resolved by abxpkg
  */
 
@@ -121,13 +122,16 @@ async function openBrowser() {
 
     // The ordinary archiving launcher uses a mock keychain. An import must
     // instead let the original signed browser decrypt its own profile cookies.
+    const sandboxDisabled = ['false', '0', 'no', 'off'].includes(
+        String(process.env.CHROME_SANDBOX || '').trim().toLowerCase(),
+    );
     const browser = await puppeteer.launch({
         executablePath: binary,
         userDataDir,
         headless: true,
         ignoreDefaultArgs: ['--use-mock-keychain', '--password-store=basic'],
         args: ['--no-first-run', '--disable-sync', '--disable-background-networking',
-               '--profile-directory=Default', ...(process.platform === 'linux' && process.getuid?.() === 0 ? ['--no-sandbox'] : [])],
+               '--profile-directory=Default', ...(process.platform === 'linux' && (process.getuid?.() === 0 || sandboxDisabled) ? ['--no-sandbox'] : [])],
     });
     return {
         browser,
