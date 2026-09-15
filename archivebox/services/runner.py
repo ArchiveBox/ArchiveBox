@@ -748,10 +748,6 @@ class CrawlRunner:
             runtime_overrides=runtime_chrome_overrides,
             extra_context={
                 "snapshot_id": str(snapshot.id),
-                "snapshot_depth": snapshot.depth,
-                "snapshot_url": snapshot.url,
-                "snapshot_title": snapshot.title or "",
-                "snapshot_tags": tags,
             },
         )
         normalized_config = normalize_runtime_config(config)
@@ -1021,6 +1017,9 @@ class CrawlRunner:
                 return
             derived_config = normalize_runtime_config(self.derived_config)
             output_dir = Path(snapshot["output_dir"])
+            # Hooks read snapshot metadata from the manifest; EXTRA_CONTEXT is
+            # only an opaque record-correlation envelope, never a data input.
+            await sync_to_async(snapshot["_snapshot"].write_index_jsonl, thread_sensitive=True)(output_dir=output_dir)
             plugins = self.catalog.select(snapshot_selected_plugins) if snapshot_selected_plugins else self.catalog
             if self.requested_plugins is not None:
                 _enable_requested_plugins(config, plugins)

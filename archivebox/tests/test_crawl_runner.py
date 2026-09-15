@@ -1,4 +1,5 @@
 import asyncio
+import json
 from importlib.resources import files
 from pathlib import Path
 import sys
@@ -9,6 +10,34 @@ from asgiref.sync import sync_to_async
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.mark.django_db(transaction=True)
+def test_snapshot_payload_keeps_unbounded_content_out_of_hook_environment():
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import CrawlRunner
+
+    title = "界" * 70000 + " $(touch injected) `touch injected`"
+    crawl = Crawl.objects.create(urls="https://example.com", created_by_id=get_or_create_system_user_pk())
+    snapshot = Snapshot.objects.create(url="https://example.com", title=title, depth=4, crawl=crawl)
+    snapshot.save_tags(["tag with spaces", "tag;not-a-command"])
+    # Legacy collections may contain titles larger than current model normalization allows.
+    Snapshot.objects.filter(id=snapshot.id).update(title=title)
+    runner = CrawlRunner(crawl)
+    try:
+        runner.load_run_state()
+        payload = runner.load_snapshot_payload(str(snapshot.id))
+        context = json.loads(payload["config"]["EXTRA_CONTEXT"])
+        assert context == {"snapshot_id": str(snapshot.id)}
+        assert payload["title"] == title
+        assert payload["depth"] == 4
+        snapshot.refresh_from_db()
+        assert snapshot.title == title
+        assert set(snapshot.tags.values_list("name", flat=True)) == {"tag with spaces", "tag;not-a-command"}
+    finally:
+        asyncio.run(runner.bus.destroy(clear=False))
 
 
 @pytest.mark.django_db(transaction=True)

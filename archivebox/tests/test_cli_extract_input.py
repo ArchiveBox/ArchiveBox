@@ -2,6 +2,7 @@
 
 import json
 import subprocess
+import sqlite3
 
 import pytest
 
@@ -20,6 +21,54 @@ def create_extract_snapshot(initialized_archive, env, url="https://example.com")
         env=env,
         check=True,
     )
+
+
+def test_extract_indexes_large_title_without_passing_content_in_environment(initialized_archive):
+    from archivebox.machine.models import Process
+
+    env = cli_env(PLUGINS="search_backend_sqlite", SEARCH_BACKEND_SQLITE_ENABLED="true")
+    create_extract_snapshot(initialized_archive, env)
+    title = "界" * 70000 + " literal shell syntax $(touch injected) `touch injected`"
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get()
+        snapshot_id = str(snapshot.id)
+        snapshot.save_tags(["metadata preservation"])
+        Snapshot.objects.filter(id=snapshot.id).update(title=title)
+        snapshot_dir = snapshot.output_dir
+    title_path = snapshot_dir / "title" / "title.txt"
+    title_path.parent.mkdir(parents=True, exist_ok=True)
+    title_path.write_text(title)
+
+    result = run_archivebox_cmd(
+        ["extract", "--plugins=search_backend_sqlite", snapshot_id],
+        cwd=initialized_archive,
+        env=env,
+        timeout=90,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(id=snapshot_id)
+        assert snapshot.title == title
+        assert list(snapshot.tags.values_list("name", flat=True)) == ["metadata preservation"]
+        archive_result = ArchiveResult.objects.get(snapshot_id=snapshot_id, plugin="search_backend_sqlite")
+        assert archive_result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        processes = list(Process.objects.filter(process_type=Process.TypeChoices.HOOK))
+        assert len(processes) == 1
+        process = processes[0]
+        assert process.exit_code == 0
+        assert f"--snapshot-id={snapshot_id}" in process.cmd
+        assert "--depth=0" in process.cmd
+        context = json.loads(process.env["EXTRA_CONTEXT"])
+        assert set(context) == {"snapshot_id", "plugin", "hook_name"}
+        assert title not in str(process.env)
+        snapshot_dir = snapshot.output_dir
+    with sqlite3.connect(initialized_archive / "search.sqlite3") as conn:
+        assert conn.execute("SELECT snapshot_id, title FROM search_index").fetchall() == [(snapshot_id, title)]
+    metadata = json.loads((snapshot_dir / "index.jsonl").read_text().splitlines()[0])
+    assert metadata["title"] == title
+    assert metadata["tags"] == "metadata preservation"
+    assert (snapshot_dir / "title" / "title.txt").read_text() == title
+    assert not list(initialized_archive.rglob("injected"))
 
 
 def test_extract_archiveresult_record_queues_parent_snapshot_plugin(initialized_archive):
