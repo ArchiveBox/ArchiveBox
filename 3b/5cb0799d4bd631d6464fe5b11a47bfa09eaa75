@@ -1,0 +1,19 @@
+docs/Release-Notes-v0.9.md
+  s_4f8227e1fbd31e::t_0039386106a185 129,134,139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3b5cb0799d4bd631d6464fe5b11a47bfa09eaa75",
+  "prompts": {},
+  "sessions": {
+    "s_4f8227e1fbd31e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a73e-7c2b-7091-9bcd-6b2b4713dd90",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
