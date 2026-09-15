@@ -1205,7 +1205,7 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
                     "redirect_stderr": "true",
                 },
                 False,
-            )
+            ),
         )
         log_files.append("logs/worker_vnc_browser.log")
     components = runtime_components_for_worker_names([worker["name"] for worker, _lazy in workers])

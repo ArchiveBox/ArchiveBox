@@ -504,8 +504,10 @@ def resolve_custom_import_source(raw_value: str, profile_dir: str | None = None)
             selected = explicit_profile or pick_default_profile_dir(root)
             if selected:
                 return resolve_browser_profile_source(
-                    browser="persona", source_name=source_path.name,
-                    user_data_dir=root.resolve(), profile_dir=selected,
+                    browser="persona",
+                    source_name=source_path.name,
+                    user_data_dir=root.resolve(),
+                    profile_dir=selected,
                 )
     if _looks_like_profile_dir(source_path):
         if explicit_profile and explicit_profile != source_path.name:
