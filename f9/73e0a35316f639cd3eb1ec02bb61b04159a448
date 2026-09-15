@@ -1,0 +1,21 @@
+archivebox/personas/export_browser_state.js
+  s_4f8227e1fbd31e::t_1100b3be2b02dc 12,125-127,134
+archivebox/tests/test_cli_persona.py
+  s_4f8227e1fbd31e::t_1100b3be2b02dc 107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f973e0a35316f639cd3eb1ec02bb61b04159a448",
+  "prompts": {},
+  "sessions": {
+    "s_4f8227e1fbd31e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a73e-7c2b-7091-9bcd-6b2b4713dd90",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
