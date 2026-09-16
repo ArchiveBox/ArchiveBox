@@ -1,0 +1,47 @@
+archivebox/tests/conftest.py
+  s_044c52c0270663::t_8f04779beb1713 5,453-458
+archivebox/tests/test_archive_result_service.py
+  s_044c52c0270663::t_503b132c4a1643 1-11
+archivebox/tests/test_auth_ldap.py
+  s_044c52c0270663::t_f5909f09b89553 100,105
+archivebox/tests/test_binary_service.py
+  s_044c52c0270663::t_0189b7ae272d79 95,131,143,174,192,224
+archivebox/tests/test_cli_archiveresult.py
+  s_044c52c0270663::t_00ea3b8ad8f3aa 43,48,55,77,80,86,99,108,115,129,131,137,153,155,163,167,172,182,186,196,202,215,219,235,239,248,252
+archivebox/tests/test_cli_crawl.py
+  s_044c52c0270663::t_1163a7fbeb8fea 32,36,50,55,71,75,84,88,97,99,107,119,128,143,145,153,158,168,173,183,187,191,204,213,229,236,245,252,261,268
+archivebox/tests/test_cli_list.py
+  s_044c52c0270663::t_3ead3d4a475307 202,273,422,427,438,443,454-455,466-467,471,486-487,499-500,511-512,516,526-527,538-539,543,562,566
+archivebox/tests/test_cli_piping.py
+  s_044c52c0270663::t_cdd49f2ca5072d 78,89,93,160,164,173,192,196,203,208,215,233,237,244,252,259,269,283,285,294,311,315,322,330,338
+archivebox/tests/test_cli_run.py
+  s_044c52c0270663::t_4c269798f83406 87,89,95,111,116,122,138,140,146,161,166,172,184,187,204,210,226,247,252,257,265,272,280,286,297,313,342,367,369,375,387,390,396,413,415,419,423,429,447,449,457,459,464
+archivebox/tests/test_cli_snapshot.py
+  s_044c52c0270663::t_dcb3c4e699a4de 32,36,49,59,76,80,89,91,99,111,115,132,134,142,147,157,162,172,177,187,190,194,203,206,210,223,226,232,244,247,253,266,269,275,284,287,293,302,305,311
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_044c52c0270663::t_59b18c32d14b8e 1-5
+archivebox/tests/test_crawl_runner.py
+  s_044c52c0270663::t_4a3f25a45b319e 1-19
+archivebox/tests/test_hooks.py
+  s_044c52c0270663::t_23270444f20c35 485,489,491,502
+archivebox/tests/test_ui_admin_snapshot.py
+  s_044c52c0270663::t_02bccbe01f6848 3-16
+archivebox/tests/test_ui_live_progress.py
+  s_044c52c0270663::t_31673ad085549e 3-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "241f871906fa6cbbbae92cabb6cb6dc37b4fc3b0",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
