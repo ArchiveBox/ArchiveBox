@@ -1,7 +1,7 @@
 """Render the monitor's crawl, snapshot, and hook payloads from loaded data."""
 
 from pathlib import Path
-from archivebox.config import CONSTANTS
+from archivebox.config.constants import CONSTANTS
 from archivebox.config.common import get_config
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl

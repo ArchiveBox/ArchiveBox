@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import Any, ClassVar
 
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models
@@ -13,9 +13,6 @@ from archivebox.misc.system import atomic_write
 from archivebox.misc.util import (
     to_json,
 )
-
-if TYPE_CHECKING:
-    pass
 
 
 class UngroupedSubquery(models.Subquery):
@@ -74,52 +71,28 @@ class SnapshotQuerySet(models.QuerySet):
         pk_field = self.model._meta.pk.name
         raw_ordering = tuple(self.query.order_by or self.model._meta.ordering or (pk_field,))
 
-        if any(not isinstance(term, str) or term == "?" for term in raw_ordering):
-            offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
-                yield from batch
-                offset += chunk_size
-            return
-
         ordering = []
         for term in raw_ordering:
-            descending = term.startswith("-")
-            field_name = term[1:] if descending else term
-            if field_name == "pk":
-                field_name = pk_field
-            ordering.append(f"-{field_name}" if descending else field_name)
+            if not isinstance(term, str) or term == "?":
+                ordering = []
+                break
+            field_name = term.removeprefix("-")
+            field_name = pk_field if field_name == "pk" else field_name
+            ordering.append(f"-{field_name}" if term.startswith("-") else field_name)
 
         ordered_field_names = [term.removeprefix("-") for term in ordering]
-        try:
-            if any(self.model._meta.get_field(field_name).null for field_name in ordered_field_names):
-                offset = 0
-                while True:
-                    batch = list(self[offset : offset + chunk_size])
-                    if not batch:
-                        break
-                    yield from batch
-                    offset += chunk_size
-                return
-        except (AttributeError, FieldDoesNotExist):
-            offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
-                yield from batch
-                offset += chunk_size
-            return
-
         unique_field_names = {pk_field, *(field.name for field in self.model._meta.fields if field.unique)}
-        if not any(field_name in unique_field_names for field_name in ordered_field_names):
+        try:
+            use_keyset = any(name in unique_field_names for name in ordered_field_names) and not any(
+                self.model._meta.get_field(name).null for name in ordered_field_names
+            )
+        except (AttributeError, FieldDoesNotExist):
+            use_keyset = False
+        # Expressions, nullable/related fields and non-unique orderings retain
+        # Django's ordering through bounded offset pages.
+        if not use_keyset:
             offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
+            while batch := list(self[offset : offset + chunk_size]):
                 yield from batch
                 offset += chunk_size
             return

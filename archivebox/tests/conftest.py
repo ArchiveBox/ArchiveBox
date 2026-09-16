@@ -219,7 +219,9 @@ def run_archivebox_cmd(
 ) -> ArchiveBoxCmdResult:
     """Run an ArchiveBox CLI command under test isolation."""
     cwd = cwd or Path.cwd()
-    cmd = ["archivebox", *args]
+    # abxpkg dependency environments can prepend unrelated uv tool installs to
+    # PATH. Run this test environment's real console entry point consistently.
+    cmd = [str(Path(sys.executable).with_name("archivebox")), *args]
 
     _assert_not_repo_path(cwd, label="cwd")
 

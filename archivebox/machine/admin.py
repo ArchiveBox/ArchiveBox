@@ -1,6 +1,5 @@
 __package__ = "archivebox.machine"
 
-import json
 import shlex
 from pathlib import Path
 
@@ -703,36 +702,9 @@ class ProcessAdmin(BaseModelAdmin):
     @admin.display(description="Output", ordering="archiveresult__output_size")
     def output_summary(self, process):
         try:
-            output_files = process.archiveresult.output_files or {}
+            file_count, total_bytes = process.archiveresult.output_file_stats()
         except Process.archiveresult.RelatedObjectDoesNotExist:
-            output_files = {}
-
-        if isinstance(output_files, str):
-            try:
-                output_files = json.loads(output_files)
-            except (json.JSONDecodeError, TypeError, ValueError):
-                output_files = {}
-
-        file_count = 0
-        total_bytes = 0
-
-        if isinstance(output_files, dict):
-            file_count = len(output_files)
-            items = output_files.values()
-        elif isinstance(output_files, (list, tuple, set)):
-            file_count = len(output_files)
-            items = output_files
-        else:
-            items = ()
-
-        for metadata in items:
-            if not isinstance(metadata, dict):
-                continue
-            size = metadata.get("size", 0)
-            try:
-                total_bytes += int(size or 0)
-            except (TypeError, ValueError):
-                continue
+            file_count, total_bytes = 0, 0
 
         file_label = "file" if file_count == 1 else "files"
         return format_html(

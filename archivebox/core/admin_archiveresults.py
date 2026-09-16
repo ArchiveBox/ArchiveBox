@@ -1,7 +1,6 @@
 __package__ = "archivebox.core"
 
 import html
-import json
 import os
 import shlex
 from functools import reduce
@@ -16,8 +15,7 @@ from django.core.exceptions import PermissionDenied, SuspiciousOperation, Valida
 from django.db.models import Count, Min, Prefetch, Q, Subquery, TextField, Window
 from django.db.models.functions import Cast
 from django.shortcuts import redirect
-from django.urls import resolve, reverse
-from django.utils import timezone
+from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.text import smart_split
@@ -120,17 +118,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
     for idx, result in enumerate(results):
         status = result.status or "queued"
         color, bg = status_colors.get(status, ("#6b7280", "#f3f4f6"))
-        output_files = result.output_files or {}
-        if isinstance(output_files, (dict, list, tuple, set)):
-            output_file_count = len(output_files)
-        elif isinstance(output_files, str):
-            try:
-                parsed = json.loads(output_files)
-                output_file_count = len(parsed) if isinstance(parsed, (dict, list, tuple, set)) else 0
-            except (TypeError, ValueError):
-                output_file_count = 0
-        else:
-            output_file_count = 0
+        output_file_count, _ = result.output_file_stats()
         output_size = int(result.output_size or 0)
         output_size_display = html.escape(printable_filesize(output_size))
 
@@ -341,77 +329,6 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
             </table>
         </div>
     """)
-
-
-class ArchiveResultInline(admin.TabularInline):
-    name = "Archive Results"
-    model = ArchiveResult
-    parent_model = Snapshot
-    extra = 0
-    sort_fields = ("end_ts", "plugin", "output_str", "status", "cmd_version")
-    readonly_fields = ("id", "result_id", "completed", "command", "version")
-    fields = ("start_ts", "end_ts", *readonly_fields, "plugin", "cmd", "cmd_version", "pwd", "status", "output_str")
-    ordering = ("end_ts",)
-    show_change_link = True
-
-    def get_parent_object_from_request(self, request):
-        resolved = resolve(request.path_info)
-        try:
-            return self.parent_model.objects.get(pk=resolved.kwargs["object_id"])
-        except (self.parent_model.DoesNotExist, ValidationError):
-            return None
-
-    @admin.display(
-        description="Completed",
-        ordering="end_ts",
-    )
-    def completed(self, obj):
-        return format_html('<p style="white-space: nowrap">{}</p>', obj.end_ts.strftime("%Y-%m-%d %H:%M:%S"))
-
-    def result_id(self, obj):
-        return format_html(
-            '<a href="{}"><code style="font-size: 10px">[{}]</code></a>',
-            reverse("admin:core_archiveresult_change", args=(obj.id,)),
-            str(obj.id)[:8],
-        )
-
-    def command(self, obj):
-        return format_html("<small><code>{}</code></small>", " ".join(obj.cmd or []))
-
-    def version(self, obj):
-        return format_html("<small><code>{}</code></small>", obj.cmd_version or "-")
-
-    def get_formset(self, request, obj=None, **kwargs):
-        formset = super().get_formset(request, obj, **kwargs)
-        snapshot = self.get_parent_object_from_request(request)
-        base_fields = formset.form.base_fields
-        snapshot_output_dir = str(snapshot.output_dir) if snapshot else ""
-
-        # formset.form.base_fields['id'].widget = formset.form.base_fields['id'].hidden_widget()
-
-        # default values for new entries
-        base_fields["status"].initial = "succeeded"
-        base_fields["start_ts"].initial = timezone.now()
-        base_fields["end_ts"].initial = timezone.now()
-        base_fields["cmd_version"].initial = "-"
-        base_fields["pwd"].initial = snapshot_output_dir
-        base_fields["cmd"].initial = '["-"]'
-        base_fields["output_str"].initial = "Manually recorded cmd output..."
-
-        if obj is not None:
-            # hidden values for existing entries and new entries
-            base_fields["start_ts"].widget = base_fields["start_ts"].hidden_widget()
-            base_fields["end_ts"].widget = base_fields["end_ts"].hidden_widget()
-            base_fields["cmd"].widget = base_fields["cmd"].hidden_widget()
-            base_fields["pwd"].widget = base_fields["pwd"].hidden_widget()
-            base_fields["cmd_version"].widget = base_fields["cmd_version"].hidden_widget()
-        return formset
-
-    def get_readonly_fields(self, request, obj=None):
-        if obj is not None:
-            return self.readonly_fields
-        else:
-            return []
 
 
 class ArchiveResultAdmin(BaseModelAdmin):

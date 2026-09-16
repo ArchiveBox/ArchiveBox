@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -50,7 +50,7 @@ from archivebox.plugins.discovery import (
     get_plugins,
 )
 from archivebox.uuid_compat import CompactUUIDField, uuid7
-from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, ModelWithQueue
+from archivebox.workers.models import DefaultStatusChoices, ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, ModelWithQueue
 
 if TYPE_CHECKING:
     from archivebox.config.common import ArchiveBoxBaseConfig
@@ -125,7 +125,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     state_field_name = "status"
     retry_at_field_name = "retry_at"
-    StatusChoices = ModelWithQueue.StatusChoices
+    StatusChoices: ClassVar[type[DefaultStatusChoices]] = DefaultStatusChoices
     INITIAL_STATE = StatusChoices.QUEUED
     ACTIVE_STATE = StatusChoices.STARTED
     FINAL_STATES = (StatusChoices.SEALED,)
@@ -973,6 +973,90 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         else:
             # Unknown version - use current
             return self.get_storage_path_for_version(self._fs_current_version())
+
+    @classmethod
+    def _merge_snapshots(cls, snapshots: Sequence[Snapshot]):
+        """
+        Merge exact duplicates.
+        Keep oldest, union files + ArchiveResults.
+        """
+        import shutil
+        from archivebox.core.models import ArchiveResult
+
+        keeper = snapshots[0]
+        duplicates = snapshots[1:]
+
+        keeper_dir = Path(keeper.output_dir)
+
+        for dup in duplicates:
+            dup_dir = Path(dup.output_dir)
+
+            # Merge files
+            if dup_dir.exists() and dup_dir != keeper_dir:
+                for dup_file in dup_dir.rglob("*"):
+                    if not dup_file.is_file():
+                        continue
+
+                    rel = dup_file.relative_to(dup_dir)
+                    keeper_file = keeper_dir / rel
+
+                    if not keeper_file.exists():
+                        keeper_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(dup_file, keeper_file)
+
+                try:
+                    shutil.rmtree(dup_dir)
+                except OSError:
+                    continue
+
+            # Merge tags
+            for tag in dup.tags.all():
+                keeper.add_tag_ids([tag.pk])
+
+            # Move each hook result, merging only an exact identity collision.
+            for result in ArchiveResult.objects.filter(snapshot=dup):
+                existing = ArchiveResult.objects.filter(
+                    snapshot=keeper,
+                    plugin=result.plugin,
+                    hook_name=result.hook_name,
+                ).first()
+                if existing is None:
+                    result.snapshot = keeper
+                    result.save(update_fields=["snapshot", "modified_at"])
+                    continue
+
+                output_files = {**(existing.output_files or {}), **(result.output_files or {})}
+                existing.output_files = output_files
+                existing.output_size = max(
+                    sum(
+                        ArchiveResult._coerce_output_file_size(metadata.get("size"))
+                        for metadata in output_files.values()
+                        if isinstance(metadata, dict)
+                    ),
+                    existing.output_size,
+                    result.output_size,
+                )
+                if result.modified_at >= existing.modified_at:
+                    existing.status = result.status
+                    existing.output_str = result.output_str
+                    existing.output_json = result.output_json
+                    existing.start_ts = result.start_ts
+                    existing.end_ts = result.end_ts
+                existing.output_mimetypes = ",".join(
+                    sorted(
+                        {
+                            mimetype.strip()
+                            for value in (existing.output_mimetypes, result.output_mimetypes)
+                            for mimetype in value.split(",")
+                            if mimetype.strip()
+                        },
+                    ),
+                )
+                existing.save()
+                result.delete()
+
+            # Delete
+            dup.delete()
 
     # =========================================================================
     # Loading and Creation from Filesystem (Used by archivebox update ONLY)

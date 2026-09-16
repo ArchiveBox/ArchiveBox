@@ -1,6 +1,7 @@
 """Assemble one live-progress report from scoped, bounded database queries."""
 
 from functools import lru_cache
+from typing import Any
 from pathlib import Path
 
 from abx_dl.events import PROCESS_EXIT_SKIPPED
@@ -272,7 +273,7 @@ class ProgressReport:
             snapshot["id"] = str(snapshot.pop("id_str")).replace("-", "")
             snapshot["crawl_id"] = str(snapshot.pop("crawl_id_str")).replace("-", "")
         self.snapshots_by_id = {str(snapshot["id"]): snapshot for snapshot in snapshots}
-        self.displayed_snapshots_by_crawl: dict[str, list[Snapshot]] = {str(crawl_id): [] for crawl_id in self.active_crawl_ids}
+        self.displayed_snapshots_by_crawl: dict[str, list[dict[str, Any]]] = {str(crawl_id): [] for crawl_id in self.active_crawl_ids}
         for snapshot in snapshots:
             crawl_snapshots = self.displayed_snapshots_by_crawl.setdefault(str(snapshot["crawl_id"]), [])
             crawl_snapshots.append(snapshot)
@@ -296,8 +297,8 @@ class ProgressReport:
                 .order_by("-modified_at")
             )
         else:
-            self.running_processes = Process.objects.none()
-            self.recent_processes = Process.objects.none()
+            self.running_processes = Process.objects.none().values(*process_value_fields)
+            self.recent_processes = Process.objects.none().values(*process_value_fields)
 
         self.archiveresults_by_snapshot: dict[str, list[ArchiveResult]] = {str(snapshot_id): [] for snapshot_id in detailed_snapshot_ids}
         if detailed_snapshot_ids:
@@ -333,21 +334,10 @@ class ProgressReport:
         for proc in self.running_processes:
             if not proc["pwd"]:
                 continue
-            proc_pwd = Path(proc["pwd"])
-            matched_snapshot = self.find_snapshot_for_process(proc_pwd)
-            matched_crawl = (
-                self.crawls_by_id.get(str(matched_snapshot["crawl_id"]))
-                if matched_snapshot is not None
-                else self.find_crawl_for_process(proc_pwd)
-            )
-            if matched_snapshot is None:
-                if matched_crawl is None:
-                    continue
-                crawl_id = str(matched_crawl["id"])
-                snapshot_id = ""
-            else:
-                crawl_id = str(matched_snapshot["crawl_id"])
-                snapshot_id = str(matched_snapshot["id"])
+            scope = self.process_scope_ids(Path(proc["pwd"]))
+            if scope is None:
+                continue
+            crawl_id, snapshot_id = scope
             self.running_worker_ids.add(str(proc["id"]))
             _plugin, _label, phase, _hook_name = process_label(proc["cmd"])
             if crawl_id and proc["pid"]:
@@ -358,17 +348,10 @@ class ProgressReport:
         for proc in self.recent_processes:
             if not proc["pwd"]:
                 continue
-            proc_pwd = Path(proc["pwd"])
-            matched_snapshot = self.find_snapshot_for_process(proc_pwd)
-            matched_crawl = (
-                self.crawls_by_id.get(str(matched_snapshot["crawl_id"]))
-                if matched_snapshot is not None
-                else self.find_crawl_for_process(proc_pwd)
-            )
-            if matched_snapshot is None and matched_crawl is None:
+            scope = self.process_scope_ids(Path(proc["pwd"]))
+            if scope is None:
                 continue
-            crawl_id = str(matched_snapshot["crawl_id"] if matched_snapshot is not None else matched_crawl["id"])
-            snapshot_id = str(matched_snapshot["id"]) if matched_snapshot is not None else ""
+            crawl_id, snapshot_id = scope
 
             plugin, label, phase, hook_name = process_label(proc["cmd"])
 
@@ -431,16 +414,13 @@ class ProgressReport:
             "server_time": timezone.now().isoformat(),
         }
 
-    def find_snapshot_for_process(self, proc_pwd: Path) -> Snapshot | None:
-        for path_part in reversed(proc_pwd.parts):
-            snapshot = self.snapshots_by_id.get(path_part.replace("-", ""))
-            if snapshot:
-                return snapshot
-        return None
-
-    def find_crawl_for_process(self, proc_pwd: Path) -> Crawl | None:
-        for path_part in reversed(proc_pwd.parts):
-            crawl = self.crawls_by_id.get(path_part.replace("-", ""))
-            if crawl:
-                return crawl
+    def process_scope_ids(self, proc_pwd: Path) -> tuple[str, str] | None:
+        """Match a process directory to the displayed snapshot or crawl IDs."""
+        parts = [part.replace("-", "") for part in reversed(proc_pwd.parts)]
+        for part in parts:
+            if snapshot := self.snapshots_by_id.get(part):
+                return str(snapshot["crawl_id"]), str(snapshot["id"])
+        for part in parts:
+            if crawl := self.crawls_by_id.get(part):
+                return str(crawl["id"]), ""
         return None

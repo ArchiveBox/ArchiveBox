@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
@@ -246,6 +247,29 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     def output_str_for_display(self) -> str:
         return "\n".join(self._format_output_line_for_display(line) for line in str(self.output_str or "").splitlines())
+
+    def output_file_stats(self) -> tuple[int, int]:
+        """Return file count and manifest bytes without probing the filesystem.
+
+        Legacy manifests may be lists or JSON strings; malformed sizes do not
+        hide the remaining files. The stored output_size field is independent.
+        """
+        files = self.output_files or {}
+        if isinstance(files, str):
+            try:
+                files = json.loads(files)
+            except (TypeError, ValueError):
+                files = {}
+        if not isinstance(files, (dict, list, tuple, set)):
+            return 0, 0
+        total_bytes = 0
+        for metadata in files.values() if isinstance(files, dict) else files:
+            if isinstance(metadata, dict):
+                try:
+                    total_bytes += int(metadata.get("size") or 0)
+                except (TypeError, ValueError):
+                    pass
+        return len(files), total_bytes
 
     def get_delete_after_config_value(self):
         snapshot = self.snapshot

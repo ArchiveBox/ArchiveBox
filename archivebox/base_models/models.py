@@ -4,7 +4,7 @@ __package__ = "archivebox.base_models"
 
 import json
 import shutil
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from archivebox.uuid_compat import CompactUUIDField, uuid7
 from pathlib import Path
@@ -21,6 +21,10 @@ from django.conf import settings
 from django_stubs_ext.db.models import TypedModelMeta
 
 from archivebox.config import CONSTANTS
+
+
+if TYPE_CHECKING:
+    from archivebox.config.common import ArchiveBoxBaseConfig
 
 
 def normalize_config_json_values(config: Any) -> Any:
@@ -138,6 +142,7 @@ class ModelWithHealthStats(models.Model):
 class ModelWithConfig(models.Model):
     """Mixin for models with a JSON config field."""
 
+    _runtime_config: "ArchiveBoxBaseConfig"
     config = models.JSONField(default=dict, null=True, blank=True, editable=True)
 
     class Meta(TypedModelMeta):

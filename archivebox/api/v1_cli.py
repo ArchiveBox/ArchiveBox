@@ -126,7 +126,7 @@ def cli_response(request, result, *, result_format="json", success=True, errors=
     return payload
 
 
-def command_config(args):
+def command_config(args) -> dict[str, object] | None:
     """Translate shared legacy add/schedule flags into runtime config overrides."""
     if args.update or args.overwrite:
         return {"ONLY_NEW": False}

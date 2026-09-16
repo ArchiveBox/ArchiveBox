@@ -12,7 +12,7 @@ import sys
 import time
 from functools import cache
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from xmlrpc.client import Error as XmlRpcError
 from xmlrpc.client import Fault, ServerProxy
 
@@ -1111,9 +1111,9 @@ def run_runner_worker(
         log_handle.close()
 
 
-def get_worker(supervisor, daemon_name):
+def get_worker(supervisor, daemon_name) -> dict[str, Any] | None:
     try:
-        return supervisor.getProcessInfo(daemon_name)
+        return cast(dict[str, Any], supervisor.getProcessInfo(daemon_name))
     except _SUPERVISORD_ERRORS as err:
         _warn_background_cleanup(f"Could not get supervisord worker {daemon_name}", err)
     return None
