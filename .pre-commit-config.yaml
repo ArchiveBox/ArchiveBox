@@ -64,4 +64,4 @@ repos:
         args: ["--maxkb=600"]
       - id: name-tests-test
         args: ["--pytest-test-first"]
-        exclude: ^archivebox/tests/(data/|fixtures\.py$|migrations_helpers\.py$)
+        exclude: ^archivebox/tests/(data/|fixtures\.py$|migrations_helpers\.py$|import_helpers\.py$)

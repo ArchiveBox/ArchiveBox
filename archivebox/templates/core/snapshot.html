@@ -5,6 +5,7 @@
     <head>
         <title>{{title}}</title>
         <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
+        {% if not STATIC_EXPORT %}<script src="{% static 'archivebox-ui.js' %}"></script>{% endif %}
         <style>
             {% include 'core/snapshot.css' %}
         </style>

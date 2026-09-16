@@ -23,7 +23,7 @@ from archivebox.core.models import Snapshot, SnapshotTag
 from archivebox.crawls.models import Crawl
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-from archivebox.tests.test_import_helpers import (
+from archivebox.tests.import_helpers import (
     IMPORT_FORMAT_EXPECTATIONS,
     assert_expected_import_snapshots,
     assert_no_file_or_shell_payload_snapshots,

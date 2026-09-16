@@ -1,0 +1,12 @@
+<div id="{{ widget_id }}_container" class="tag-editor-container" data-tags-id="{{ tags_id }}">
+    <div id="{{ widget_id }}_pills" class="tag-pills">
+        {% for tag in tags %}
+            <span class="tag-pill" data-tag="{{ tag }}">{{ tag }}<button type="button" class="tag-remove-btn" data-tag-name="{{ tag }}">&times;</button></span>
+        {% endfor %}
+    </div>
+    <input type="text" id="{{ widget_id }}_input" class="tag-inline-input"
+           list="{{ widget_id }}_datalist" placeholder="Add tag..." autocomplete="off">
+    <datalist id="{{ widget_id }}_datalist"></datalist>
+    <input type="hidden" name="{{ name }}" id="{{ widget_id }}" value="{{ tags|join:',' }}">
+</div>
+{{ tags|json_script:tags_id }}

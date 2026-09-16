@@ -1022,43 +1022,6 @@
     let isCollapsed = monitor.dataset.autoExpand !== '1';
     const snapshotMedia = new Map();
 
-    function getApiKey() {
-        return (window.ARCHIVEBOX_API_KEY || '').trim();
-    }
-
-    function buildApiUrl(path) {
-        const apiKey = getApiKey();
-        if (!apiKey) return path;
-        const sep = path.includes('?') ? '&' : '?';
-        return `${path}${sep}api_key=${encodeURIComponent(apiKey)}`;
-    }
-
-    function buildApiHeaders() {
-        const headers = { 'Content-Type': 'application/json' };
-        const apiKey = getApiKey();
-        if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
-        const csrfToken = getCSRFToken();
-        if (csrfToken) headers['X-CSRFToken'] = csrfToken;
-        return headers;
-    }
-    function getCSRFToken() {
-        const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
-        if (input && input.value) return input.value;
-        const cookie = document.cookie.split('; ').find(part => part.startsWith('csrftoken='));
-        return cookie ? decodeURIComponent(cookie.slice('csrftoken='.length)) : '';
-    }
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>"']/g, char => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#39;',
-        }[char]));
-    }
-    function escapeAttr(value) {
-        return escapeHtml(value).replace(/`/g, '&#96;');
-    }
     function stableSnapshotMedia(snapshot) {
         // The progress endpoint can briefly omit media URLs while ArchiveResult
         // rows settle. Once this page has seen a snapshot image URL, keep using
@@ -1157,7 +1120,7 @@
     function renderDurationBadge(startedAt) {
         const text = durationText(startedAt);
         if (!text) return '';
-        return `<span class="duration-badge" data-started-at="${escapeAttr(startedAt)}" title="Duration">${escapeHtml(text)}</span>`;
+        return `<span class="duration-badge" data-started-at="${ArchiveBoxUI.escapeHtml(startedAt)}" title="Duration">${ArchiveBoxUI.escapeHtml(text)}</span>`;
     }
 
     function updateDurationBadges() {
@@ -1286,17 +1249,17 @@
             screencastPanel.dataset.key = placeholderKey;
             screencastPanel.classList.add('visible');
             screencastPanel.innerHTML = `
-                <a class="screencast-frame" href="${escapeAttr(crawlUrl)}" title="Open crawl admin">
-                    <span class="screencast-placeholder ${escapeAttr(target.state)}">
-                        <span class="screencast-placeholder-icon">${escapeHtml(target.icon)}</span>
-                        <span class="screencast-placeholder-title">${escapeHtml(target.title)}</span>
-                        <span class="screencast-placeholder-subtitle">${escapeHtml(target.subtitle)}</span>
+                <a class="screencast-frame" href="${ArchiveBoxUI.escapeHtml(crawlUrl)}" title="Open crawl admin">
+                    <span class="screencast-placeholder ${ArchiveBoxUI.escapeHtml(target.state)}">
+                        <span class="screencast-placeholder-icon">${ArchiveBoxUI.escapeHtml(target.icon)}</span>
+                        <span class="screencast-placeholder-title">${ArchiveBoxUI.escapeHtml(target.title)}</span>
+                        <span class="screencast-placeholder-subtitle">${ArchiveBoxUI.escapeHtml(target.subtitle)}</span>
                     </span>
                 </a>
-                <a class="screencast-caption" href="${escapeAttr(crawlUrl)}" title="Open crawl admin">
-                    <span class="screencast-dot ${escapeAttr(target.state)}"></span>
+                <a class="screencast-caption" href="${ArchiveBoxUI.escapeHtml(crawlUrl)}" title="Open crawl admin">
+                    <span class="screencast-dot ${ArchiveBoxUI.escapeHtml(target.state)}"></span>
                     <span class="screencast-text">
-                        <span class="screencast-title">${escapeHtml(target.title)}</span>
+                        <span class="screencast-title">${ArchiveBoxUI.escapeHtml(target.title)}</span>
                         <span class="screencast-url">Crawl setup</span>
                     </span>
                 </a>
@@ -1328,14 +1291,14 @@
                     screencastPanel.dataset.key = '';
                     screencastPanel.dataset.currentFrameSrc = newUrl;
                     screencastPanel.innerHTML = `
-                        <a class="screencast-frame" href="${escapeAttr(linkUrl)}" title="Open active snapshot">
-                            <img src="${escapeAttr(newUrl)}" alt="" decoding="async" loading="eager">
+                        <a class="screencast-frame" href="${ArchiveBoxUI.escapeHtml(linkUrl)}" title="Open active snapshot">
+                            <img src="${ArchiveBoxUI.escapeHtml(newUrl)}" alt="" decoding="async" loading="eager">
                         </a>
-                        <a class="screencast-caption" href="${escapeAttr(adminUrl)}" title="Open snapshot admin">
+                        <a class="screencast-caption" href="${ArchiveBoxUI.escapeHtml(adminUrl)}" title="Open snapshot admin">
                             <span class="screencast-dot"></span>
                             <span class="screencast-text">
-                                <span class="screencast-title">${escapeHtml(titleText)}</span>
-                                <span class="screencast-url">${escapeHtml(urlText)}</span>
+                                <span class="screencast-title">${ArchiveBoxUI.escapeHtml(titleText)}</span>
+                                <span class="screencast-url">${ArchiveBoxUI.escapeHtml(urlText)}</span>
                             </span>
                         </a>
                     `;
@@ -1429,17 +1392,17 @@
         const pidHtml = extractor.status === 'started' && extractor.pid ? `<span class="pid-label compact">pid ${extractor.pid}</span>` : '';
         const href = extractor.output_url || extractor.admin_url || '';
         const tag = href ? 'a' : 'span';
-        const hrefAttr = href ? ` href="${escapeAttr(href)}"` : '';
+        const hrefAttr = href ? ` href="${ArchiveBoxUI.escapeHtml(href)}"` : '';
         const title = extractor.output_path
             ? `${extractor.plugin || 'output'}: ${extractor.output_path}`
             : `${extractor.plugin || 'hook'}${extractor.hook_name ? `: ${extractor.hook_name}` : ''}`;
 
         return `
-            <${tag} class="extractor-badge ${extractor.status || 'queued'}"${hrefAttr} title="${escapeAttr(title)}">
+            <${tag} class="extractor-badge ${extractor.status || 'queued'}"${hrefAttr} title="${ArchiveBoxUI.escapeHtml(title)}">
                 <span class="progress-fill"${progressStyle}></span>
                 <span class="badge-content">
                     <span class="badge-icon">${icon}</span>
-                    <span>${escapeHtml(extractor.label || extractor.plugin || 'unknown')}</span>
+                    <span>${ArchiveBoxUI.escapeHtml(extractor.label || extractor.plugin || 'unknown')}</span>
                     ${pidHtml}
                 </span>
             </${tag}>
@@ -1467,11 +1430,11 @@
         const urlText = snapshot.full_url || snapshot.url || '';
         const media = stableSnapshotMedia(snapshot);
         const faviconHtml = media.favicon_url
-            ? `<img class="snapshot-favicon" data-stable-media="favicon" src="${escapeAttr(media.favicon_url)}" alt="" decoding="async" loading="lazy" onerror="this.remove()">`
+            ? `<img class="snapshot-favicon" data-stable-media="favicon" src="${ArchiveBoxUI.escapeHtml(media.favicon_url)}" alt="" decoding="async" loading="lazy" onerror="this.remove()">`
             : '';
         const previewHtml = media.preview_url
-            ? `<a class="snapshot-preview" data-stable-media="preview" href="${escapeAttr(media.preview_link || snapshot.view_url || adminUrl)}" title="Open snapshot output"><img src="${escapeAttr(media.preview_url)}" alt="" decoding="async" loading="lazy" data-fallbacks="${escapeAttr((media.preview_fallbacks || []).join(','))}" onerror="nextPreviewFallback(this)"></a>`
-            : `<a class="snapshot-preview placeholder" href="${escapeAttr(snapshot.view_url || adminUrl)}" title="Open snapshot"><span>${statusIcon}</span></a>`;
+            ? `<a class="snapshot-preview" data-stable-media="preview" href="${ArchiveBoxUI.escapeHtml(media.preview_link || snapshot.view_url || adminUrl)}" title="Open snapshot output"><img src="${ArchiveBoxUI.escapeHtml(media.preview_url)}" alt="" decoding="async" loading="lazy" data-fallbacks="${ArchiveBoxUI.escapeHtml((media.preview_fallbacks || []).join(','))}" onerror="nextPreviewFallback(this)"></a>`
+            : `<a class="snapshot-preview placeholder" href="${ArchiveBoxUI.escapeHtml(snapshot.view_url || adminUrl)}" title="Open snapshot"><span>${statusIcon}</span></a>`;
 
         let extractorHtml = '';
         if (snapshot.all_plugins && snapshot.all_plugins.length > 0) {
@@ -1510,16 +1473,16 @@
                         : 'Waiting for extractors...';
 
         return `
-            <div class="snapshot-item" data-snapshot-id="${escapeAttr(snapshot.id || '')}">
+            <div class="snapshot-item" data-snapshot-id="${ArchiveBoxUI.escapeHtml(snapshot.id || '')}">
                 <div class="snapshot-header">
                     ${previewHtml}
                     <a class="snapshot-header-link" href="${adminUrl}">
                         <div class="snapshot-info">
                             <div class="snapshot-title-line">
                                 ${faviconHtml}
-                                <span class="snapshot-title">${escapeHtml(titleText)}</span>
+                                <span class="snapshot-title">${ArchiveBoxUI.escapeHtml(titleText)}</span>
                             </div>
-                            <div class="snapshot-url">${escapeHtml(urlText)}</div>
+                            <div class="snapshot-url">${ArchiveBoxUI.escapeHtml(urlText)}</div>
                             <div class="snapshot-meta">
                                 ${snapshotMeta}
                             </div>
@@ -1546,9 +1509,9 @@
         const adminFieldUrl = (fieldName) => `${adminUrl}#id_${fieldName}`;
         const crawlBadge = (className, label, value, href, title) => {
             const tag = href ? 'a' : 'span';
-            const hrefAttr = href ? ` href="${escapeAttr(href)}"` : '';
-            const titleAttr = title ? ` title="${escapeAttr(title)}"` : '';
-            return `<${tag} class="crawl-badge ${className}"${hrefAttr}${titleAttr}><strong>${escapeHtml(label)}</strong>${escapeHtml(value)}</${tag}>`;
+            const hrefAttr = href ? ` href="${ArchiveBoxUI.escapeHtml(href)}"` : '';
+            const titleAttr = title ? ` title="${ArchiveBoxUI.escapeHtml(title)}"` : '';
+            return `<${tag} class="crawl-badge ${className}"${hrefAttr}${titleAttr}><strong>${ArchiveBoxUI.escapeHtml(label)}</strong>${ArchiveBoxUI.escapeHtml(value)}</${tag}>`;
         };
         const crawlId = (crawl.id || 'unknown').toString();
         const crawlShortId = crawlId === 'unknown' ? 'unknown' : crawlId.slice(-8);
@@ -1615,14 +1578,14 @@
             // Queued but retry_at is in future (was claimed by worker, will retry)
             warningHtml = `
                 <div style="padding: 8px 14px; background: rgba(88, 166, 255, 0.1); border-top: 1px solid #58a6ff; color: #58a6ff; font-size: 11px;">
-                    Trying in ${crawl.seconds_until_retry || 0}s...${crawl.urls_preview ? ` (${escapeHtml(crawl.urls_preview)})` : ''}
+                    Trying in ${crawl.seconds_until_retry || 0}s...${crawl.urls_preview ? ` (${ArchiveBoxUI.escapeHtml(crawl.urls_preview)})` : ''}
                 </div>
             `;
         } else if (crawl.status === 'queued' && crawl.total_snapshots === 0) {
             // Queued and waiting to be picked up by worker
             warningHtml = `
                 <div style="padding: 8px 14px; background: rgba(210, 153, 34, 0.1); border-top: 1px solid #d29922; color: #d29922; font-size: 11px;">
-                    Waiting for the runner to pick up...${crawl.urls_preview ? ` (${escapeHtml(crawl.urls_preview)})` : ''}
+                    Waiting for the runner to pick up...${crawl.urls_preview ? ` (${ArchiveBoxUI.escapeHtml(crawl.urls_preview)})` : ''}
                 </div>
             `;
         } else if (crawl.status === 'started' && crawl.worker_state === 'crashed') {
@@ -1653,7 +1616,7 @@
             crawlBadge('size', 'crawl size', crawlSizeLimitText, adminFieldUrl('crawl_max_size'), 'Edit max crawl size'),
             crawlBadge('limit', 'time', crawlTimeoutText, adminFieldUrl('crawl_timeout'), 'Edit max crawl time'),
             crawlBadge('size', 'avg snap', snapshotSizeLimitText, adminFieldUrl('snapshot_max_size'), 'Edit max snapshot size'),
-            ...(crawl.tags || []).map(tag => `<a class="crawl-badge tag" href="${escapeAttr(adminFieldUrl('tags_editor'))}" title="Edit crawl tags">#${escapeHtml(tag)}</a>`),
+            ...(crawl.tags || []).map(tag => `<a class="crawl-badge tag" href="${ArchiveBoxUI.escapeHtml(adminFieldUrl('tags_editor'))}" title="Edit crawl tags">#${ArchiveBoxUI.escapeHtml(tag)}</a>`),
         ].join('');
         const statsHtml = [
             `<span class="crawl-badge count"><strong>done</strong>${crawl.completed_snapshots || 0}</span>`,
@@ -1667,7 +1630,7 @@
                 <div class="crawl-header">
                     <div class="crawl-header-link">
                         <div class="crawl-info">
-                            <a class="crawl-label crawl-title-link" href="${escapeAttr(adminUrl)}">Crawl #${escapeHtml(crawlShortId)} ${escapeHtml(startedDate)} started by ${escapeHtml(crawl.created_by || 'unknown')}</a>
+                            <a class="crawl-label crawl-title-link" href="${ArchiveBoxUI.escapeHtml(adminUrl)}">Crawl #${ArchiveBoxUI.escapeHtml(crawlShortId)} ${ArchiveBoxUI.escapeHtml(startedDate)} started by ${ArchiveBoxUI.escapeHtml(crawl.created_by || 'unknown')}</a>
                             <div class="crawl-badges">${crawlBadges}</div>
                         </div>
                         <div class="crawl-stats">
@@ -1876,9 +1839,9 @@
         if (!url || !action) return;
         setActionButtonState(btn, true);
 
-        fetch(buildApiUrl(url), {
+        fetch(ArchiveBoxUI.apiUrl(url), {
             method: 'PATCH',
-            headers: buildApiHeaders(),
+            headers: ArchiveBoxUI.apiHeaders(),
             credentials: 'same-origin',
             body: JSON.stringify({ action: action }),
         })

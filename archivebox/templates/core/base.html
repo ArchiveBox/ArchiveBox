@@ -9,6 +9,8 @@
         <link rel="stylesheet" href="{% static 'admin/css/base.css' %}">
         <link rel="stylesheet" href="{% static 'admin.css' %}">
         <link rel="stylesheet" href="{% static 'bootstrap.min.css' %}">
+        <script src="{% static 'archivebox-ui.js' %}"></script>
+        <script src="{% static 'tag-editor.js' %}" defer></script>
         {% api_token as api_token %}
         <script>
             window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";

@@ -19,7 +19,7 @@ from .conftest import (
     get_http_response,
 )
 
-from archivebox.tests.test_import_helpers import (
+from archivebox.tests.import_helpers import (
     IMPORT_FORMAT_EXPECTATIONS,
     assert_no_file_or_shell_payload_snapshots,
     malicious_add_inputs,

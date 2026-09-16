@@ -462,43 +462,6 @@ document.addEventListener('DOMContentLoaded', function () {
     let searchTimeout = null;
     let activeQuery = (searchInput?.value || '').trim();
 
-    function escapeHtml(value) {
-        const div = document.createElement('div');
-        div.textContent = value == null ? '' : String(value);
-        return div.innerHTML;
-    }
-
-    function getCSRFToken() {
-        const input = document.querySelector('input[name="csrfmiddlewaretoken"]');
-        if (input) return input.value;
-        const cookies = document.cookie.split(';');
-        for (const cookieRaw of cookies) {
-            const cookie = cookieRaw.trim();
-            if (cookie.startsWith('csrftoken=')) return cookie.slice('csrftoken='.length);
-        }
-        return '';
-    }
-
-    function getApiKey() {
-        return (window.ARCHIVEBOX_API_KEY || '').trim();
-    }
-
-    function withApiKey(url) {
-        const apiKey = getApiKey();
-        if (!apiKey) return url;
-        const separator = url.includes('?') ? '&' : '?';
-        return url + separator + 'api_key=' + encodeURIComponent(apiKey);
-    }
-
-    function buildHeaders(isJsonBody) {
-        const headers = {};
-        if (isJsonBody) headers['Content-Type'] = 'application/json';
-        const csrfToken = getCSRFToken();
-        if (csrfToken) headers['X-CSRFToken'] = csrfToken;
-        const apiKey = getApiKey();
-        if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
-        return headers;
-    }
 
     function setToast(message, tone) {
         toast.textContent = message;
@@ -580,14 +543,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
         grid.innerHTML = cards.map(function (card) {
             return '' +
-                '<article class="tag-card" data-id="' + escapeHtml(card.id) + '" data-slug="' + escapeHtml(card.slug) + '" data-filter-url="' + escapeHtml(card.filter_url) + '" data-rename-url="' + escapeHtml(card.rename_url) + '" data-delete-url="' + escapeHtml(card.delete_url) + '" data-export-urls-url="' + escapeHtml(card.export_urls_url) + '" data-export-jsonl-url="' + escapeHtml(card.export_jsonl_url) + '">' +
+                '<article class="tag-card" data-id="' + ArchiveBoxUI.escapeHtml(card.id) + '" data-slug="' + ArchiveBoxUI.escapeHtml(card.slug) + '" data-filter-url="' + ArchiveBoxUI.escapeHtml(card.filter_url) + '" data-rename-url="' + ArchiveBoxUI.escapeHtml(card.rename_url) + '" data-delete-url="' + ArchiveBoxUI.escapeHtml(card.delete_url) + '" data-export-urls-url="' + ArchiveBoxUI.escapeHtml(card.export_urls_url) + '" data-export-jsonl-url="' + ArchiveBoxUI.escapeHtml(card.export_jsonl_url) + '">' +
                     '<div class="tag-card__header">' +
                         '<div class="tag-card__title">' +
                             '<div class="tag-card__display">' +
-                                '<strong>' + escapeHtml(card.name) + '</strong>' +
+                                '<strong>' + ArchiveBoxUI.escapeHtml(card.name) + '</strong>' +
                             '</div>' +
                             '<div class="tag-card__rename">' +
-                                '<input type="text" value="' + escapeHtml(card.name) + '" aria-label="Rename tag ' + escapeHtml(card.name) + '">' +
+                                '<input type="text" value="' + ArchiveBoxUI.escapeHtml(card.name) + '" aria-label="Rename tag ' + ArchiveBoxUI.escapeHtml(card.name) + '">' +
                                 '<button type="button" class="tag-chip-button" data-action="save-edit">Save</button>' +
                                 '<button type="button" class="tag-chip-button" data-action="cancel-edit">Cancel</button>' +
                             '</div>' +
@@ -597,7 +560,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             '<button type="button" class="tag-chip-button" data-action="copy-urls">Copy URLs</button>' +
                             '<button type="button" class="tag-chip-button" data-action="download-jsonl">JSONL</button>' +
                             '<button type="button" class="tag-chip-button is-danger" data-action="delete">Delete</button>' +
-                            '<a class="tag-card__count" href="' + escapeHtml(card.filter_url) + '" title="View tagged snapshots">' + escapeHtml(card.num_snapshots) + '</a>' +
+                            '<a class="tag-card__count" href="' + ArchiveBoxUI.escapeHtml(card.filter_url) + '" title="View tagged snapshots">' + ArchiveBoxUI.escapeHtml(card.num_snapshots) + '</a>' +
                         '</div>' +
                     '</div>' +
                 '</article>';
@@ -611,9 +574,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (state.created_by) params.set('created_by', state.created_by);
         if (state.year) params.set('year', state.year);
         if (state.has_snapshots) params.set('has_snapshots', state.has_snapshots);
-        const url = withApiKey(searchUrl + '?' + params.toString());
+        const url = ArchiveBoxUI.apiUrl(searchUrl + '?' + params.toString());
         const response = await fetch(url, {
-            headers: buildHeaders(false),
+            headers: ArchiveBoxUI.apiHeaders(false),
             credentials: 'same-origin',
         });
         if (!response.ok) {
@@ -643,9 +606,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function submitJson(url, method, payload) {
-        const response = await fetch(withApiKey(url), {
+        const response = await fetch(ArchiveBoxUI.apiUrl(url), {
             method: method,
-            headers: buildHeaders(true),
+            headers: ArchiveBoxUI.apiHeaders(true),
             credentials: 'same-origin',
             body: JSON.stringify(payload || {}),
         });
@@ -664,8 +627,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function copyTextFromUrl(url) {
-        const response = await fetch(withApiKey(url), {
-            headers: buildHeaders(false),
+        const response = await fetch(ArchiveBoxUI.apiUrl(url), {
+            headers: ArchiveBoxUI.apiHeaders(false),
             credentials: 'same-origin',
         });
         if (!response.ok) throw new Error('Failed to export URLs');
@@ -716,8 +679,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function downloadFileFromUrl(url, fallbackFilename) {
-        const response = await fetch(withApiKey(url), {
-            headers: buildHeaders(false),
+        const response = await fetch(ArchiveBoxUI.apiUrl(url), {
+            headers: ArchiveBoxUI.apiHeaders(false),
             credentials: 'same-origin',
         });
         if (!response.ok) {
@@ -848,9 +811,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             actionButton.disabled = true;
             try {
-                await fetch(withApiKey(cardEl.dataset.deleteUrl), {
+                await fetch(ArchiveBoxUI.apiUrl(cardEl.dataset.deleteUrl), {
                     method: 'DELETE',
-                    headers: buildHeaders(false),
+                    headers: ArchiveBoxUI.apiHeaders(false),
                     credentials: 'same-origin',
                 }).then(async function (response) {
                     if (!response.ok) {
