@@ -1,0 +1,23 @@
+archivebox/cli/archivebox_update.py
+  s_044c52c0270663::t_3270c539f9b2f5 232-245,258,261,304,332-342
+archivebox/core/takeover_util.py
+  s_044c52c0270663::t_66f26457c22042 129-132,134-137
+archivebox/search/sonic_daemon.py
+  s_044c52c0270663::t_a69d92fd47323a 19-21,23,26-27,29-34,36-39,44-48,50-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "52d040513c308759e6f91d4b280091aff1966ae6",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
