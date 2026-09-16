@@ -13,6 +13,7 @@ import time
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
+from functools import partial
 from urllib.parse import urlencode
 
 from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
@@ -417,6 +418,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     if config is None:
         config = get_config(resolve_plugins=False)
     fullpath, path = _resolve_archive_path(document_root, path)
+    replay_response = partial(_apply_archive_replay_headers, fullpath=fullpath, is_archive_replay=is_archive_replay, config=config)
     if os.access(fullpath, os.R_OK) and fullpath.is_dir():
         if request.GET.get("download") == "zip" and show_indexes:
             return _build_directory_zip_response(
@@ -430,13 +432,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             response = _render_directory_index(request, path, fullpath)
             response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
             response.headers["Last-Modified"] = http_date(fullpath.stat().st_mtime)
-            return _apply_archive_replay_headers(
-                response,
-                fullpath=fullpath,
-                content_type="text/html",
-                is_archive_replay=is_archive_replay,
-                config=config,
-            )
+            return replay_response(response, content_type="text/html")
         raise Http404(_("Directory indexes are not allowed here."))
     if not os.access(fullpath, os.R_OK):
         raise Http404(_("“%(path)s” does not exist") % {"path": fullpath})
@@ -459,13 +455,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 not_modified.headers["ETag"] = etag
                 not_modified.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
                 not_modified.headers["Last-Modified"] = http_date(statobj.st_mtime)
-                return _apply_archive_replay_headers(
-                    not_modified,
-                    fullpath=fullpath,
-                    content_type="",
-                    is_archive_replay=is_archive_replay,
-                    config=config,
-                )
+                return replay_response(not_modified, content_type="")
 
     content_type, encoding = mimetypes.guess_type(str(fullpath))
     content_type = content_type or "application/octet-stream"
@@ -495,13 +485,12 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         request.META.get("HTTP_IF_MODIFIED_SINCE"),
         statobj.st_mtime,
     ):
-        return _apply_archive_replay_headers(
-            HttpResponseNotModified(),
-            fullpath=fullpath,
-            content_type=content_type,
-            is_archive_replay=is_archive_replay,
-            config=config,
-        )
+        return replay_response(HttpResponseNotModified(), content_type=content_type)
+
+    def transformed_response(body: str, response_type: str):
+        response = HttpResponse(body, content_type=response_type)
+        _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
+        return replay_response(response, content_type=response_type)
 
     # Wrap text-like outputs in HTML when explicitly requested for iframe previewing.
     if preview_as_text_html:
@@ -510,15 +499,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             if statobj.st_size <= max_preview_size:
                 decoded = fullpath.read_text(encoding="utf-8", errors="replace")
                 wrapped = replay_preview._render_text_preview_document(decoded, fullpath.name)
-                response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-                _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
-                return _apply_archive_replay_headers(
-                    response,
-                    fullpath=fullpath,
-                    content_type="text/html; charset=utf-8",
-                    is_archive_replay=is_archive_replay,
-                    config=config,
-                )
+                return transformed_response(wrapped, "text/html; charset=utf-8")
         except (OSError, UnicodeDecodeError, ValueError):
             preview_as_text_html = False
 
@@ -530,15 +511,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             if preview_query:
                 raw_image_url = f"{raw_image_url}?{urlencode(list(preview_query.lists()), doseq=True)}"
             wrapped = replay_preview._render_image_preview_document(raw_image_url, fullpath.name)
-            response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-            _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
-            return _apply_archive_replay_headers(
-                response,
-                fullpath=fullpath,
-                content_type="text/html; charset=utf-8",
-                is_archive_replay=is_archive_replay,
-                config=config,
-            )
+            return transformed_response(wrapped, "text/html; charset=utf-8")
         except (OSError, ValueError):
             preview_as_image_html = False
 
@@ -566,13 +539,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             response = HttpResponse(body, content_type=preview_content_type)
             for key, value in headers.items():
                 response.headers[key] = value
-            return _apply_archive_replay_headers(
-                response,
-                fullpath=fullpath,
-                content_type=preview_content_type,
-                is_archive_replay=is_archive_replay,
-                config=config,
-            )
+            return replay_response(response, content_type=preview_content_type)
         except (OSError, RuntimeError, ValueError):
             preview_as_archivewebpage_html = False
 
@@ -606,37 +573,13 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         rel_path,
                     )
                     wrapped = replay_preview._apply_transformed_html_preview_style(wrapped)
-                    response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
-                    return _apply_archive_replay_headers(
-                        response,
-                        fullpath=fullpath,
-                        content_type="text/html; charset=utf-8",
-                        is_archive_replay=is_archive_replay,
-                        config=config,
-                    )
+                    return transformed_response(wrapped, "text/html; charset=utf-8")
                 if rewritten_count:
                     rewritten_html = replay_preview._apply_transformed_html_preview_style(rewritten_html)
-                    response = HttpResponse(rewritten_html, content_type=content_type)
-                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
-                    return _apply_archive_replay_headers(
-                        response,
-                        fullpath=fullpath,
-                        content_type=content_type,
-                        is_archive_replay=is_archive_replay,
-                        config=config,
-                    )
+                    return transformed_response(rewritten_html, content_type)
                 if escaped_count and escaped_count > tag_count * 2:
                     decoded = replay_preview._apply_transformed_html_preview_style(decoded)
-                    response = HttpResponse(decoded, content_type=content_type)
-                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
-                    return _apply_archive_replay_headers(
-                        response,
-                        fullpath=fullpath,
-                        content_type=content_type,
-                        is_archive_replay=is_archive_replay,
-                        config=config,
-                    )
+                    return transformed_response(decoded, content_type)
         except (OSError, UnicodeDecodeError, ValueError):
             pass
 
@@ -683,13 +626,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 response.status_code = 206
     if encoding:
         response.headers["Content-Encoding"] = encoding
-    return _apply_archive_replay_headers(
-        response,
-        fullpath=fullpath,
-        content_type=content_type,
-        is_archive_replay=is_archive_replay,
-        config=config,
-    )
+    return replay_response(response, content_type=content_type)
 
 
 def serve_static(request, path, **kwargs):
