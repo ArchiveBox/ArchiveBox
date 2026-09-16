@@ -1,0 +1,19 @@
+archivebox/misc/serve_static.py
+  s_044c52c0270663::t_d61a02fccf3f3f 16,421,435,458,488-493,502,514,542,576,579,582,629
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "597960123ac9f1f476ad4bdffd516c1ca66bbb77",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
