@@ -29,6 +29,8 @@ services:
             - tmp:/tmp/archivebox
         pids_limit: 2048                       # avoids low systemd task caps with Chrome and parallel extractors
         environment:
+            - PUID                                                                   # optional numeric UID for NFS/CIFS/FUSE mounts (defaults to collection owner or 911)
+            - PGID                                                                   # optional numeric GID for NFS/CIFS/FUSE mounts (defaults to collection group or 911)
             # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
             # - ADMIN_PASSWORD=SomeSecretPassword
             # - ARCHIVEBOX_VNC_PERSONA=personal                    # persona to open in VNC (defaults to DEFAULT_PERSONA)

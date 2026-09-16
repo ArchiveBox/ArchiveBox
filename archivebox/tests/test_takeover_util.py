@@ -3,6 +3,9 @@
 
 import os
 import json
+import re
+import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -75,6 +78,78 @@ def _resolve_sonic_env(env: dict[str, str]) -> dict[str, str]:
     payload = {str(key): str(value) for key, value in json.loads(result.stdout).items()}
     assert Path(payload["SONIC_BINARY"]).is_file()
     return payload
+
+
+def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive):
+    sonic_port = get_free_port()
+    lib_dir = initialized_archive / "lib"
+    env = cli_env(
+        live=True,
+        ABXPKG_LIB_DIR=str(lib_dir),
+        PLUGINS="search_backend_sonic",
+        SEARCH_BACKEND_ENGINE="sonic",
+        SEARCH_BACKEND_SONIC_PORT=str(sonic_port),
+    )
+    env.update(_resolve_sonic_env(env))
+    env["PATH"] = os.pathsep.join((str(Path(sys.executable).parent), env["PATH"]))
+    installed_binary = Path(env["SONIC_BINARY"]).resolve(strict=True)
+    managed_sonic_dir = lib_dir / "bash" / "bin"
+    managed_sonic_dir.mkdir(parents=True, exist_ok=True)
+    managed_binary = managed_sonic_dir / "sonic"
+    if installed_binary != managed_binary:
+        shutil.copy2(installed_binary, managed_binary)
+    config_result = run_archivebox_cmd(
+        ["config", "--set", f"SONIC_BINARY={managed_binary}"],
+        cwd=initialized_archive,
+        env=env,
+        timeout=60,
+    )
+    assert config_result.returncode == 0, config_result.stderr or config_result.stdout
+    pinned_sonic_dir = initialized_archive / "pinned-sonic"
+    pinned_sonic_dir.mkdir()
+    sonic_binary = pinned_sonic_dir / "sonic"
+    shutil.copy2(installed_binary, sonic_binary)
+    env["SONIC_BINARY"] = str(sonic_binary)
+
+    result = run_archivebox_cmd(
+        ["list", "--search=contents", "--csv=url", "not-indexed"],
+        cwd=initialized_archive,
+        env=env,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    config_match = re.search(r"Using supervisord config file: (\S+)", result.stderr)
+    assert config_match, result.stderr
+    worker_config = Path(config_match.group(1)).parent / "workers" / "worker_sonic.conf"
+    worker_text = worker_config.read_text(encoding="utf-8")
+    command = next(line.partition("=")[2] for line in worker_text.splitlines() if line.startswith("command="))
+    assert shlex.split(command)[0] == str(sonic_binary), worker_text
+    from archivebox.workers.supervisord_util import _sonic_worker_bind_target
+
+    assert _sonic_worker_bind_target({"name": "worker_sonic", "command": command}) == ("127.0.0.1", sonic_port)
+    renamed_binary = initialized_archive / "renamed-sonic-binary"
+    shutil.copy2(sonic_binary, renamed_binary)
+    renamed_command = shlex.join([str(renamed_binary), *shlex.split(command)[1:]])
+    assert _sonic_worker_bind_target({"name": "worker_sonic", "command": renamed_command}) == ("127.0.0.1", sonic_port)
+
+    relative_binary = pinned_sonic_dir / "sonic-alt"
+    shutil.copy2(sonic_binary, relative_binary)
+    relative_env = {
+        **env,
+        "SONIC_BINARY": relative_binary.name,
+        "PATH": os.pathsep.join((str(pinned_sonic_dir), env["PATH"])),
+        "SEARCH_BACKEND_SONIC_PORT": str(get_free_port()),
+    }
+    relative_result = run_archivebox_cmd(
+        ["list", "--search=contents", "--csv=url", "not-indexed"],
+        cwd=initialized_archive,
+        env=relative_env,
+        timeout=60,
+    )
+    assert relative_result.returncode == 0, relative_result.stderr or relative_result.stdout
+    relative_worker_text = worker_config.read_text(encoding="utf-8")
+    relative_command = next(line.partition("=")[2] for line in relative_worker_text.splitlines() if line.startswith("command="))
+    assert Path(shlex.split(relative_command)[0]).name == relative_binary.name, relative_worker_text
 
 
 def _archive_pages_for_sqlite_reindexing(data_dir: Path, env: dict[str, str], root_url: str) -> None:

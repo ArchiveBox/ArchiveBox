@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import time
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -745,6 +746,14 @@ class TestSearchBackendsE2E:
         )
         assert Path(binary_env["RIPGREP_BINARY"]).is_file()
         assert Path(binary_env["SONIC_BINARY"]).is_file()
+        # abxpkg may replace both env/bin and provider install paths on later
+        # hydration. Keep a real executable outside its managed lib tree so
+        # every index/query process uses the same on-disk KV format.
+        pinned_sonic_dir = initialized_archive / "pinned-sonic"
+        pinned_sonic_dir.mkdir()
+        sonic_binary = pinned_sonic_dir / "sonic"
+        shutil.copy2(Path(binary_env["SONIC_BINARY"]).resolve(strict=True), sonic_binary)
+        binary_env["SONIC_BINARY"] = str(sonic_binary)
 
         page_count = 23
         first_batch_count = 12
@@ -939,7 +948,7 @@ class TestSearchBackendsE2E:
                 )
                 assert create_result.returncode == 0, create_result.stderr or create_result.stdout
                 metadata_create_outputs.append(create_result.stdout)
-            from archivebox.core.models import Snapshot
+            from archivebox.core.models import ArchiveResult, Snapshot
             from archivebox.tests.test_orm_helpers import use_archivebox_db
 
             with use_archivebox_db(initialized_archive):
@@ -972,6 +981,17 @@ class TestSearchBackendsE2E:
                 timeout=180,
             )
             assert index_update.returncode == 0, index_update.stderr or index_update.stdout
+            with use_archivebox_db(initialized_archive):
+                sonic_results = list(
+                    ArchiveResult.objects.filter(
+                        plugin="search_backend_sonic",
+                        snapshot__url__in=[*first_wget_urls[:3], *second_wget_urls[:2]],
+                    ).values_list("snapshot__url", "status", "output_str", "process__stderr"),
+                )
+            assert {url for url, status, _, _ in sonic_results if status == "succeeded"} == {
+                *first_wget_urls[:3],
+                *second_wget_urls[:2],
+            }, (sonic_results, index_update.stdout, index_update.stderr)
 
             cli_backend_expectations = (
                 ("ripgrep", shared_content_needle, matrix_urls),
@@ -986,7 +1006,12 @@ class TestSearchBackendsE2E:
                     env={**env, "SEARCH_BACKEND_ENGINE": backend_name},
                     timeout=60,
                 )
-                assert backend_result.returncode == 0, backend_result.stderr or backend_result.stdout
+                sonic_log = initialized_archive / "logs" / "worker_sonic.log"
+                assert backend_result.returncode == 0, (
+                    backend_result.stderr or backend_result.stdout,
+                    sonic_log.read_text(encoding="utf-8", errors="replace") if backend_name == "sonic" and sonic_log.is_file() else "",
+                    str(sonic_binary),
+                )
                 backend_urls = [line.strip().strip('"') for line in backend_result.stdout.splitlines() if line.strip()]
                 assert set(backend_urls) == set(expected_urls), (backend_name, query, backend_result.stdout)
 

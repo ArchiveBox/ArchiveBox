@@ -405,7 +405,7 @@ def is_port_in_use(host: str, port: int) -> bool:
 def _sonic_worker_bind_target(worker: dict[str, str]) -> tuple[str, int] | None:
     """Read the plugin-owned Sonic config before starting its supervisord worker."""
     command = shlex.split(worker.get("command") or "")
-    if not command or Path(command[0]).name != "sonic" or "-c" not in command:
+    if worker.get("name") != "worker_sonic" or not command or "-c" not in command:
         return None
     config_index = command.index("-c") + 1
     if config_index >= len(command):
@@ -1330,7 +1330,22 @@ def get_sonic_supervisord_worker_from_plugin(config) -> dict[str, str] | None:
             raise
         return None
 
+    explicit_binary = os.environ.get("SONIC_BINARY")
+    requested_binary = Path(explicit_binary or str(config.SONIC_BINARY)).expanduser()
+    if explicit_binary:
+        # Machine.config can outrank the process environment; an explicit
+        # executable must win before the plugin hydrates its binary provider.
+        config = config.model_copy(update={"SONIC_BINARY": str(requested_binary)})
+
     worker = get_sonic_supervisord_worker(config)
+    if worker is not None:
+        if requested_binary.is_absolute():
+            # The plugin may project an explicit binary through env/bin/sonic.
+            # That symlink can be retargeted to a different Sonic release,
+            # whose on-disk index format may be incompatible with this one.
+            command = shlex.split(worker["command"])
+            command[0] = str(requested_binary.resolve(strict=True))
+            worker["command"] = shlex.join(command)
     return cast(dict[str, str] | None, worker)
 
 

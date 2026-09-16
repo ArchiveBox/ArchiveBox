@@ -357,7 +357,7 @@ jobs:
           "$SUDO_BINARY" "$MKDIR_BINARY" -p /etc/exports.d
           "$SUDO_BINARY" "$CHMOD_BINARY" 0777 "$NFS_SOURCE" "$SMB_SOURCE" "$NFS_MOUNT" "$SMB_MOUNT"
           "$SUDO_BINARY" "$BASH_BINARY" -c \
-            "printf '%s *(rw,sync,no_subtree_check,no_root_squash,insecure)\\n' '$NFS_SOURCE' > /etc/exports.d/archivebox-ci.exports"
+            "printf '%s *(rw,sync,no_subtree_check,root_squash,insecure)\\n' '$NFS_SOURCE' > /etc/exports.d/archivebox-ci.exports"
           "$SUDO_BINARY" "$BASH_BINARY" -c \
             "printf '\\n[archivebox-ci]\\npath = %s\\nbrowseable = yes\\nread only = no\\nguest ok = yes\\nguest only = yes\\nforce user = nobody\\ncreate mask = 0777\\ndirectory mask = 0777\\n' '$SMB_SOURCE' >> /etc/samba/smb.conf"
 
