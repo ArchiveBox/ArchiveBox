@@ -221,10 +221,10 @@ def build_tag_card(tag: Tag, snapshot_previews: list[dict[str, Any]] | None = No
         "num_snapshots": count,
         "filter_url": f"/admin/core/snapshot/?tags__id__exact={tag.pk}",
         "edit_url": f"/admin/core/tag/{tag.pk}/change/",
-        "export_urls_url": f"/api/v1/core/tag/{tag.pk}/urls.txt",
-        "export_jsonl_url": f"/api/v1/core/tag/{tag.pk}/snapshots.jsonl",
-        "rename_url": f"/api/v1/core/tag/{tag.pk}/rename",
-        "delete_url": f"/api/v1/core/tag/{tag.pk}/",
+        "export_urls_url": reverse("api-1:tag_urls_export", args=[tag.pk]),
+        "export_jsonl_url": reverse("api-1:tag_snapshots_export", args=[tag.pk]),
+        "rename_url": reverse("api-1:rename_tag", args=[tag.pk]),
+        "delete_url": reverse("api-1:delete_tag", args=[tag.pk]),
         "snapshots": snapshot_previews or [],
     }
 

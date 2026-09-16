@@ -134,15 +134,14 @@ class TestArchiveResultCreate:
         assert crawl_result.returncode == 0, crawl_result.stderr
         crawl_record = parse_jsonl_output(crawl_result.stdout)[0]
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["archiveresult", "create"],
             stdin=crawl_result.stdout,
         )
-        stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        assert "Passed through" in stderr
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        assert "Passed through" in result.stderr
+        records = parse_jsonl_output(result.stdout)
         assert len(records) == 1
         assert records[0]["id"] == crawl_record["id"]
 
@@ -152,13 +151,12 @@ class TestArchiveResultList:
 
     def test_list_empty(self, archivebox_cli, initialized_archive):
         """List with no archive results returns empty."""
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["archiveresult", "list"],
         )
-        _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        assert "Listed 0 archive results" in stderr
+        assert result.returncode == 0
+        assert "Listed 0 archive results" in result.stderr
 
     def test_list_filter_by_status(self, archivebox_cli, initialized_archive):
         """Filter archive results by status."""
@@ -169,13 +167,12 @@ class TestArchiveResultList:
             stdin=json.dumps(created),
         )
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["archiveresult", "list", "--status=queued"],
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         for r in records:
             assert r["status"] == "queued"
 
@@ -183,13 +180,12 @@ class TestArchiveResultList:
         """Filter archive results by plugin."""
         create_projected_favicon(initialized_archive)
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["archiveresult", "list", "--plugin=favicon"],
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         for r in records:
             assert r["plugin"] == "favicon"
 
@@ -199,13 +195,12 @@ class TestArchiveResultList:
         for _ in range(3):
             create_projected_favicon(initialized_archive)
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["archiveresult", "list", "--limit=2"],
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         assert len(records) == 2
 
 
@@ -216,16 +211,15 @@ class TestArchiveResultUpdate:
         """Update archive result status."""
         ar = create_projected_favicon(initialized_archive)
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["archiveresult", "update", "--status=failed"],
             stdin=json.dumps(ar),
         )
-        stdout3, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        assert "Updated 1 archive results" in stderr
+        assert result.returncode == 0
+        assert "Updated 1 archive results" in result.stderr
 
-        records = parse_jsonl_output(stdout3)
+        records = parse_jsonl_output(result.stdout)
         assert records[0]["status"] == "failed"
 
 
@@ -236,24 +230,22 @@ class TestArchiveResultDelete:
         """Delete requires --yes flag."""
         ar = create_projected_favicon(initialized_archive)
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["archiveresult", "delete"],
             stdin=json.dumps(ar),
         )
-        _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 1
-        assert "--yes" in stderr
+        assert result.returncode == 1
+        assert "--yes" in result.stderr
 
     def test_delete_with_yes(self, archivebox_cli, initialized_archive):
         """Delete with --yes flag works."""
         ar = create_projected_favicon(initialized_archive)
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["archiveresult", "delete", "--yes"],
             stdin=json.dumps(ar),
         )
-        _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        assert "Deleted 1 archive results" in stderr
+        assert result.returncode == 0
+        assert "Deleted 1 archive results" in result.stderr

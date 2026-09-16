@@ -3,9 +3,10 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
+        {% firstof STATIC_CACHE_KEY VERSION "" as asset_version %}
         <title>{{title}}</title>
         <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1">
-        {% if not STATIC_EXPORT %}<script src="{% static 'archivebox-ui.js' %}"></script>{% endif %}
+        {% if not STATIC_EXPORT %}<script src="{% static 'archivebox-ui.js' %}?v={{ asset_version|urlencode }}"></script>{% endif %}
         <style>
             {% include 'core/snapshot.css' %}
         </style>

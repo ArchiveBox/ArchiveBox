@@ -21,6 +21,24 @@ window.ArchiveBoxUI = {
         if (csrf) headers['X-CSRFToken'] = csrf;
         return headers;
     },
+    async apiFetch(path, options = {}) {
+        const response = await fetch(ArchiveBoxUI.apiUrl(path), {
+            credentials: 'same-origin',
+            ...options,
+            headers: {...ArchiveBoxUI.apiHeaders(Boolean(options.body)), ...options.headers},
+        });
+        if (!response.ok) {
+            let message = await response.text();
+            try {
+                const data = JSON.parse(message);
+                message = data.detail || data.message || data.error || message;
+            } catch (_) {
+                // Non-JSON errors keep the server's response text.
+            }
+            throw new Error(message || `Request failed (${response.status})`);
+        }
+        return response;
+    },
     escapeHtml(value) {
         return String(value ?? '').replace(/[&<>"'`]/g, char => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;',

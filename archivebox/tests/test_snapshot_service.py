@@ -183,14 +183,15 @@ def test_snapshot_service_cli_add_seals_snapshot_and_writes_indexes(tmp_path, re
 
     port = get_free_port()
     env = cli_env(port=port, server=True, PLUGINS="wget", SAVE_WGET="True")
-    _cmd_result = run_archivebox_cmd(
+    command_result = run_archivebox_cmd(
         ["add", "--depth=0", "--plugins=wget", recursive_test_site["root_url"]],
         cwd=tmp_path,
         env=env,
         timeout=180,
     )
-    stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-    assert code == 0, f"archivebox add failed with code {code}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+    assert command_result.returncode == 0, (
+        f"archivebox add failed with code {command_result.returncode}\nSTDOUT:\n{command_result.stdout}\nSTDERR:\n{command_result.stderr}"
+    )
 
     state = _snapshot_state(tmp_path, recursive_test_site["root_url"])
     snapshot_dir = state["snapshot_dir"]

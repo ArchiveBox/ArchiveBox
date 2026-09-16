@@ -65,8 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 update([...tags, ...added]);
                 input.value = '';
                 for (const name of added) {
-                    fetch(ArchiveBoxUI.apiUrl('/api/v1/core/tags/create/'), {
-                        method: 'POST', headers: ArchiveBoxUI.apiHeaders(), body: JSON.stringify({name}),
+                    ArchiveBoxUI.apiFetch('/api/v1/core/tags/create/', {
+                        method: 'POST', body: JSON.stringify({name}),
                     }).catch(error => console.log('Tag creation note:', error));
                 }
             } else if (event.key === 'Backspace' && !value) {
@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 datalist.replaceChildren();
                 if (!query) return;
                 try {
-                    const response = await fetch(ArchiveBoxUI.apiUrl('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query)));
+                    const response = await ArchiveBoxUI.apiFetch('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query));
                     const data = await response.json();
                     // Ignore a response for a query the user has already replaced.
                     if (query !== input.value) return;

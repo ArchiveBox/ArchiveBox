@@ -117,15 +117,7 @@ def process_stdin_records() -> int:
 
         try:
             if record_type == TYPE_CRAWL:
-                if record_id:
-                    # Existing crawl - re-queue
-                    try:
-                        crawl = Crawl.objects.get(id=record_id)
-                    except Crawl.DoesNotExist:
-                        crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
-                else:
-                    # New crawl - create it
-                    crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
+                crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
 
                 if crawl:
                     crawl.update_and_requeue(
@@ -138,14 +130,8 @@ def process_stdin_records() -> int:
                     queued_count += 1
 
             elif record_type == TYPE_SNAPSHOT or (record.get("url") and not record_type):
-                if record_id:
-                    # Existing snapshot - re-queue
-                    try:
-                        snapshot = Snapshot.objects.get(id=record_id)
-                    except Snapshot.DoesNotExist:
-                        snapshot = Snapshot.from_json(record, overrides={"created_by_id": created_by_id})
-                else:
-                    # New snapshot - create it
+                snapshot = Snapshot.objects.filter(id=record_id).first() if record_id else None
+                if snapshot is None:
                     snapshot = Snapshot.from_json(record, overrides={"created_by_id": created_by_id})
 
                 if snapshot:
@@ -177,12 +163,8 @@ def process_stdin_records() -> int:
                     queued_count += 1
 
             elif record_type in {TYPE_BINARYREQUEST, TYPE_BINARY}:
-                if record_id:
-                    try:
-                        binary = Binary.objects.get(id=record_id)
-                    except Binary.DoesNotExist:
-                        binary = Binary.from_json(record)
-                else:
+                binary = Binary.objects.filter(id=record_id).first() if record_id else None
+                if binary is None:
                     binary = Binary.from_json(record)
 
                 if binary:

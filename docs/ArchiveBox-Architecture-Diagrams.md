@@ -22,11 +22,13 @@ state transitions, snapshot imports, or progress calculations.
 | JSONL records | Each record model's `to_json()` and `from_json()` |
 | Snapshot progress | `Snapshot.get_progress_stats`, with optional prefetched result rows |
 | Output manifests and previews | `ArchiveResult.output_file_stats`, `embed_path_db`, and `Snapshot.discover_outputs` |
+| Upload metadata and follow-up work | `ArchiveResult.apply_upload` merges result state; `Snapshot.queue_output_maintenance` schedules maintenance |
 | Served and exported snapshot pages | `Snapshot.get_html_details_context`, `write_html_details` |
 | Queue selection and claims | `services/runner/scheduler.py` and `dispatch.py` |
 | Hook execution and event projection | `services/runner/crawl.py` and the individual `services/*_service.py` projectors |
 | Progress endpoint | `progressmonitor/views.py` validates access; `report.py` loads bounded data; `presentation.py` renders it |
 | Progress monitor browser UI | `progressmonitor/static/progressmonitor/monitor.js` renders and polls; `monitor.css` styles the shared template |
+| Tag browser UI | `static/admin-tags.js` dispatches card actions; `tag-editor.js` and `admin-inline-tags.js` share `ArchiveBoxUI.apiFetch` |
 | Worker startup and shutdown | `workers/supervisord_util.py` manages process lifecycle; `supervisor_config.py` defines worker commands and configuration |
 
 Core and machine model packages re-export their public classes, so callers use

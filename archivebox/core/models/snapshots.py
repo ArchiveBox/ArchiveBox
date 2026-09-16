@@ -1731,11 +1731,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def tags_str(self) -> str | None:
         if "_tags_str_cached" in self.__dict__:
             return self.__dict__["_tags_str_cached"]
-        calc_tags_str = lambda: ",".join(sorted(tag.name for tag in self.tags.all()))
-        prefetched_cache = self.__dict__.get("_prefetched_objects_cache", {})
-        if "tags" in prefetched_cache:
-            return calc_tags_str()
-        return calc_tags_str()
+        return ",".join(sorted(tag.name for tag in self.tags.all()))
 
     def icons(self, path: str | None = None, prefix: str = "/", quote_paths: bool = False) -> str:
         """Generate HTML icons showing which extractor plugins have succeeded for this snapshot"""

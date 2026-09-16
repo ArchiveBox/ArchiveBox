@@ -759,9 +759,8 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
 
         resumed = start_archivebox_server(initialized_archive, port=port, log_name=f"server-{stop_signal.name}-resumed.log", env=env)
         resumed_log = resumed.log_path
-        _cmd_result = run_archivebox_cmd(["status"], cwd=initialized_archive, env=env, timeout=60)
-        stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        assert returncode == 0, stderr or stdout
+        result = run_archivebox_cmd(["status"], cwd=initialized_archive, env=env, timeout=60)
+        assert result.returncode == 0, result.stderr or result.stdout
 
         os.kill(resumed.pid, signal.SIGTERM)
         resumed.wait(timeout=20)
@@ -783,14 +782,13 @@ def test_live_daemonized_server_keeps_supervisord_owned_by_archivebox_parent(ini
     port = get_free_port()
     bind_url = f"http://127.0.0.1:{port}"
     try:
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["server", "--daemonize", f"127.0.0.1:{port}"],
             cwd=initialized_archive,
             env=env,
             timeout=90,
         )
-        stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        assert returncode == 0, stderr or stdout
+        assert result.returncode == 0, result.stderr or result.stdout
         _wait_for_archivebox_workers(initialized_archive, env, ("worker_daphne", "worker_runner"), timeout=30)
         assert_port_open("127.0.0.1", port, timeout=30)
 

@@ -15,9 +15,14 @@ class URLFiltersField(forms.Field):
     widget = URLFiltersWidget(source_selector="#id_urls")
 
     def to_python(self, value):
-        if isinstance(value, dict):
-            return value
-        return {"allowlist": "", "denylist": "", "same_domain_only": False, "subpaths_only": False, "only_new": False}
+        value = value if isinstance(value, dict) else {}
+        return {
+            "allowlist": "\n".join(Crawl.split_filter_patterns(value.get("allowlist", ""))),
+            "denylist": "\n".join(Crawl.split_filter_patterns(value.get("denylist", ""))),
+            "same_domain_only": bool(value.get("same_domain_only")),
+            "subpaths_only": bool(value.get("subpaths_only")),
+            "only_new": bool(value.get("only_new")),
+        }
 
 
 class CrawlAdminForm(forms.ModelForm):
@@ -207,16 +212,6 @@ class CrawlAdminForm(forms.ModelForm):
             seen.add(lowered)
             tag_names.append(name)
         return ",".join(tag_names)
-
-    def clean_url_filters(self):
-        value = self.cleaned_data.get("url_filters") or {}
-        return {
-            "allowlist": "\n".join(Crawl.split_filter_patterns(value.get("allowlist", ""))),
-            "denylist": "\n".join(Crawl.split_filter_patterns(value.get("denylist", ""))),
-            "same_domain_only": bool(value.get("same_domain_only")),
-            "subpaths_only": bool(value.get("subpaths_only")),
-            "only_new": bool(value.get("only_new")),
-        }
 
     def save(self, commit=True):
         instance = super().save(commit=False)

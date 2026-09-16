@@ -1,15 +1,13 @@
 import asyncio
 import html
+import io
 import json
 import mimetypes
 import os
 import posixpath
-import queue
 import re
 import stat
 import sys
-import threading
-import time
 import zipfile
 from datetime import UTC, datetime
 from pathlib import Path
@@ -108,33 +106,25 @@ def _safe_zip_stem(name: str) -> str:
     return safe_name or "archivebox"
 
 
-class _StreamingQueueWriter:
-    """Expose a write-only file-like object so zipfile can stream into a queue."""
+class _ZipBuffer(io.RawIOBase):
+    """A non-seekable ZIP destination drained after each source block."""
 
-    def __init__(self, output_queue: queue.Queue[bytes | BaseException | object]) -> None:
-        self.output_queue = output_queue
+    def __init__(self):
+        self.pending = bytearray()
         self.position = 0
 
-    def write(self, data: bytes) -> int:
-        if data:
-            self.output_queue.put(data)
-            self.position += len(data)
+    def write(self, data):
+        self.pending.extend(data)
+        self.position += len(data)
         return len(data)
 
-    def tell(self) -> int:
+    def tell(self):
         return self.position
 
-    def flush(self) -> None:
-        return None
-
-    def close(self) -> None:
-        return None
-
-    def writable(self) -> bool:
-        return True
-
-    def seekable(self) -> bool:
-        return False
+    def drain(self):
+        if self.pending:
+            yield bytes(self.pending)
+            self.pending.clear()
 
 
 def _iter_visible_files(root: Path):
@@ -146,6 +136,42 @@ def _iter_visible_files(root: Path):
             yield Path(current_root) / filename
 
 
+def _iter_directory_zip(fullpath: Path, root_name: str):
+    # Reading a block and yielding its compressed bytes in the same iterator
+    # provides backpressure and closes all files when a download disconnects.
+    with _ZipBuffer() as buffer:
+        with zipfile.ZipFile(buffer, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+            for entry in _iter_visible_files(fullpath):
+                info = zipfile.ZipInfo.from_file(entry, (Path(root_name) / entry.relative_to(fullpath)).as_posix())
+                info.compress_type = archive.compression
+                info.compress_level = archive.compresslevel
+                with entry.open("rb") as source, archive.open(info, "w") as destination:
+                    while chunk := source.read(64 * 1024):
+                        destination.write(chunk)
+                        yield from buffer.drain()
+                yield from buffer.drain()
+        yield from buffer.drain()
+
+
+async def _stream_async(stream):
+    # Django ASGI buffers synchronous iterators. Advance off the event loop,
+    # waiting for an in-flight read before closing its iterator on cancellation.
+    iterator = iter(stream)
+    try:
+        while True:
+            read = asyncio.create_task(asyncio.to_thread(next, iterator, None))
+            try:
+                chunk = await asyncio.shield(read)
+            except asyncio.CancelledError:
+                await read
+                raise
+            if chunk is None:
+                break
+            yield chunk
+    finally:
+        iterator.close()
+
+
 def _build_directory_zip_response(
     fullpath: Path,
     path: str,
@@ -155,74 +181,11 @@ def _build_directory_zip_response(
     config=None,
 ) -> StreamingHttpResponse:
     root_name = _safe_zip_stem(fullpath.name or Path(path).name or "archivebox")
-    sentinel = object()
-    output_queue: queue.Queue[bytes | BaseException | object] = queue.Queue(maxsize=8)
-    initial_chunk_target = 64 * 1024
-    initial_chunk_wait = 0.05
+    stream = _iter_directory_zip(fullpath, root_name)
 
-    def build_zip() -> None:
-        # zipfile wants a write-only file object. Feed those bytes straight into
-        # a queue so the response can stream them out as soon as they are ready.
-        writer = _StreamingQueueWriter(output_queue)
-        try:
-            with zipfile.ZipFile(writer, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zip_file:
-                for entry in _iter_visible_files(fullpath):
-                    rel_parts = entry.relative_to(fullpath).parts
-                    arcname = Path(root_name, *rel_parts).as_posix()
-                    zip_file.write(entry, arcname)
-        except (OSError, RuntimeError, TypeError, ValueError, zipfile.BadZipFile) as err:
-            output_queue.put(err)
-        finally:
-            output_queue.put(sentinel)
-
-    threading.Thread(target=build_zip, name=f"zip-stream-{root_name}", daemon=True).start()
-
-    def iter_zip_chunks():
-        # Emit a meaningful first chunk quickly so browsers show the download
-        # immediately instead of waiting on dozens of tiny ZIP header writes.
-        first_chunk = bytearray()
-        initial_deadline = time.monotonic() + initial_chunk_wait
-
-        while True:
-            timeout = max(initial_deadline - time.monotonic(), 0) if len(first_chunk) < initial_chunk_target else None
-            try:
-                chunk = output_queue.get(timeout=timeout) if timeout is not None else output_queue.get()
-            except queue.Empty:
-                if first_chunk:
-                    yield bytes(first_chunk)
-                    first_chunk.clear()
-                    continue
-                chunk = output_queue.get()
-
-            if chunk is sentinel:
-                if first_chunk:
-                    yield bytes(first_chunk)
-                break
-            if isinstance(chunk, BaseException):
-                raise chunk
-            if len(first_chunk) < initial_chunk_target:
-                first_chunk.extend(chunk)
-                if len(first_chunk) >= initial_chunk_target or time.monotonic() >= initial_deadline:
-                    yield bytes(first_chunk)
-                    first_chunk.clear()
-                continue
-            yield chunk
-
-    async def stream_zip_async():
-        # Django ASGI buffers sync StreamingHttpResponse iterators by consuming
-        # them into a list. Drive the same sync iterator from a worker thread so
-        # Daphne can send each chunk as it arrives instead of buffering the ZIP.
-        iterator = iter(iter_zip_chunks())
-        while True:
-            chunk = await asyncio.to_thread(next, iterator, None)
-            if chunk is None:
-                break
-            yield chunk
-
-    response = StreamingHttpResponse(
-        stream_zip_async() if use_async_stream else iter_zip_chunks(),
-        content_type="application/zip",
-    )
+    response = StreamingHttpResponse(stream, content_type="application/zip")
+    if use_async_stream:
+        response.streaming_content = _stream_async(stream)
     response.headers["Content-Disposition"] = f'attachment; filename="{root_name}.zip"'
     response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
     response.headers["Last-Modified"] = http_date(fullpath.stat().st_mtime)
@@ -234,18 +197,6 @@ def _build_directory_zip_response(
         is_archive_replay=is_archive_replay,
         config=config,
     )
-
-
-async def _stream_ranged_file_async(ranged_file: "RangedFileReader"):
-    iterator = iter(ranged_file)
-    try:
-        while True:
-            chunk = await asyncio.to_thread(next, iterator, None)
-            if chunk is None:
-                break
-            yield chunk
-    finally:
-        ranged_file.close()
 
 
 def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
@@ -588,10 +539,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
 
     # setup response object
     ranged_file = RangedFileReader(fullpath.open("rb"))
-    response = StreamingHttpResponse(
-        _stream_ranged_file_async(ranged_file) if _is_asgi_request(request) else ranged_file,
-        content_type=content_type,
-    )
+    response = StreamingHttpResponse(ranged_file, content_type=content_type)
+    if _is_asgi_request(request):
+        response.streaming_content = _stream_async(ranged_file)
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
     if etag:
         response.headers["ETag"] = etag

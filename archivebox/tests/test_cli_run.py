@@ -41,15 +41,14 @@ def test_cli_run_signal_cleans_real_chrome_hook_process_group(initialized_archiv
     env = cli_env(live=True, PLUGINS="chrome", CHROME_ISOLATION="crawl", CHROME_HEADLESS="true", CHROME_SANDBOX="false")
     install_real_chrome(initialized_archive, env, isolation="crawl")
 
-    _cmd_result = run_archivebox_cmd(
+    result = run_archivebox_cmd(
         ["snapshot", "create", recursive_test_site["root_url"]],
         cwd=initialized_archive,
         env=env,
         timeout=60,
     )
-    stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-    assert returncode == 0, stderr or stdout
-    records = parse_jsonl_output(stdout)
+    assert result.returncode == 0, result.stderr or result.stdout
+    records = parse_jsonl_output(result.stdout)
     snapshot_id = next(record["id"] for record in records if record.get("type") == "Snapshot")
     with use_archivebox_db(initialized_archive):
         browser_state = Snapshot.objects.get(id=snapshot_id).output_dir / "chrome" / "browser.json"
@@ -92,18 +91,17 @@ class TestRunWithCrawl:
         )
         assert create_result.returncode == 0, create_result.stderr
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run"],
             stdin=create_result.stdout,
             timeout=120,
             env=RUN_TEST_ENV,
         )
-        stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0, f"Command failed: {stderr}"
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
 
         # Should output the created Crawl
-        records = parse_jsonl_output(stdout)
+        records = parse_jsonl_output(result.stdout)
         crawl_records = [r for r in records if r.get("type") == "Crawl"]
         assert len(crawl_records) >= 1
         assert crawl_records[0].get("id")  # Should have an id now
@@ -143,17 +141,16 @@ class TestRunWithSnapshot:
         )
         assert create_result.returncode == 0, create_result.stderr
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run"],
             stdin=create_result.stdout,
             timeout=120,
             env=RUN_TEST_ENV,
         )
-        stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0, f"Command failed: {stderr}"
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
 
-        records = parse_jsonl_output(stdout)
+        records = parse_jsonl_output(result.stdout)
         snapshot_records = [r for r in records if r.get("type") == "Snapshot"]
         assert len(snapshot_records) >= 1
         assert snapshot_records[0].get("id")
@@ -184,16 +181,15 @@ class TestRunWithSnapshot:
     def test_run_with_plain_url(self, archivebox_cli, initialized_archive):
         """Run accepts plain URL records (no type field)."""
         url = create_test_url()
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run"],
             stdin=url + "\n",
             timeout=120,
             env=RUN_TEST_ENV,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         assert len(records) >= 1
 
 
@@ -339,18 +335,17 @@ class TestRunRecovery:
             crawl_id = crawl.id
             snapshot_id = snapshot.id
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run", "--maintenance-only"],
             timeout=90,
             env=RUN_TEST_ENV,
         )
-        stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0, stdout + stderr
-        assert "Repairing" in stderr
-        assert "Resuming 1 Crawl(s) with pending URLs ready to archive" in stderr
-        assert "interrupted before" in stderr
-        assert "remaining URLs" in stderr
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "Repairing" in result.stderr
+        assert "Resuming 1 Crawl(s) with pending URLs ready to archive" in result.stderr
+        assert "interrupted before" in result.stderr
+        assert "remaining URLs" in result.stderr
 
         with use_archivebox_db(initialized_archive):
             crawl = Crawl.objects.get(id=crawl_id)
@@ -372,14 +367,13 @@ class TestRunPassThrough:
         assert tag_result.returncode == 0, tag_result.stderr
         tag_record = parse_jsonl_output(tag_result.stdout)[0]
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run"],
             stdin=tag_result.stdout,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         tag_records = [record for record in records if record.get("type") == "Tag"]
         assert len(tag_records) == 1
         assert tag_records[0]["id"] == tag_record["id"]
@@ -393,16 +387,15 @@ class TestRunPassThrough:
         )
         assert create_result.returncode == 0, create_result.stderr
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run"],
             stdin=create_result.stdout,
             timeout=120,
             env=RUN_TEST_ENV,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         # Should have at least the Crawl in output
         assert len(records) >= 1
 
@@ -426,16 +419,15 @@ class TestRunMixedInput:
         )
         assert snapshot_result.returncode == 0, snapshot_result.stderr
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run"],
             stdin=tag_result.stdout + snapshot_result.stdout,
             timeout=120,
             env=RUN_TEST_ENV,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
 
         types = {record.get("type") for record in records}
         assert {"Crawl", "Snapshot", "Tag"}.issubset(types)
@@ -446,13 +438,12 @@ class TestRunEmpty:
 
     def test_run_empty_stdin(self, archivebox_cli, initialized_archive):
         """Run with empty stdin returns success."""
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run"],
             stdin="",
         )
-        _stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
+        assert result.returncode == 0
 
     def test_run_no_runnable_records_to_process(self, archivebox_cli, initialized_archive):
         """Run with only a real non-runnable Tag reports no work."""
@@ -461,14 +452,13 @@ class TestRunEmpty:
         )
         assert tag_result.returncode == 0, tag_result.stderr
 
-        _cmd_result = archivebox_cli(
+        result = archivebox_cli(
             ["run"],
             stdin=tag_result.stdout,
         )
-        _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        assert "No records to process" in stderr
+        assert result.returncode == 0
+        assert "No records to process" in result.stderr
 
 
 class TestRunDaemonMode:

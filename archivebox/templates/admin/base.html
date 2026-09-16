@@ -5,6 +5,7 @@
 <!DOCTYPE html>
 <html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
     <head>
+        {% firstof STATIC_CACHE_KEY VERSION "" as asset_version %}
         <title>{% block title %}Home{% endblock %} | ArchiveBox</title>
         
         {% block blockbots %}
@@ -12,8 +13,8 @@
         {% endblock %}
         
         <link rel="stylesheet" type="text/css" href="{% block stylesheet %}{% static "admin/css/base.css" %}{% endblock %}">
-        <script src="{% static 'archivebox-ui.js' %}"></script>
-        <script src="{% static 'tag-editor.js' %}" defer></script>
+        <script src="{% static 'archivebox-ui.js' %}?v={{ asset_version|urlencode }}"></script>
+        <script src="{% static 'tag-editor.js' %}?v={{ asset_version|urlencode }}" defer></script>
         {% api_token as api_token %}
         <script>
             window.ARCHIVEBOX_API_KEY = "{{ api_token|escapejs }}";
@@ -128,7 +129,7 @@
         <script>
             {% include 'admin/layout.js' %}
         </script>
-        <script src="{% static 'admin-inline-tags.js' %}"></script>
+        <script src="{% static 'admin-inline-tags.js' %}?v={{ asset_version|urlencode }}"></script>
         {% include "includes/output_delete_controls.html" %}
     </body>
 </html>

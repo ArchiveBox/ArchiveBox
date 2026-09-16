@@ -144,15 +144,7 @@ def create_snapshots(
                     write_record(record)
 
                 # Input is a Crawl - get or create it, then create Snapshots for its URLs
-                crawl = None
-                crawl_id = record.get("id")
-                if crawl_id:
-                    try:
-                        crawl = Crawl.objects.get(id=crawl_id)
-                    except Crawl.DoesNotExist:
-                        crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
-                else:
-                    crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
+                crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
 
                 if not crawl:
                     continue

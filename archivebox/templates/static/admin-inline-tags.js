@@ -56,9 +56,8 @@
         if (exists) return;
 
         var snapshotId = el.dataset.snapshotId || '';
-        fetch(ArchiveBoxUI.apiUrl('/api/v1/core/tags/add-to-snapshot/'), {
+        ArchiveBoxUI.apiFetch('/api/v1/core/tags/add-to-snapshot/', {
             method: 'POST',
-            headers: ArchiveBoxUI.apiHeaders(),
             body: JSON.stringify({
                 snapshot_id: snapshotId,
                 tag_name: tagName
@@ -80,9 +79,8 @@
 
     function removeTag(el, tagId) {
         var snapshotId = el.dataset.snapshotId || '';
-        fetch(ArchiveBoxUI.apiUrl('/api/v1/core/tags/remove-from-snapshot/'), {
+        ArchiveBoxUI.apiFetch('/api/v1/core/tags/remove-from-snapshot/', {
             method: 'POST',
-            headers: ArchiveBoxUI.apiHeaders(),
             body: JSON.stringify({
                 snapshot_id: snapshotId,
                 tag_id: tagId
@@ -114,7 +112,7 @@
                 return;
             }
 
-            fetch(ArchiveBoxUI.apiUrl('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query)))
+            ArchiveBoxUI.apiFetch('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query))
                 .then(function(response) { return response.json(); })
                 .then(function(data) {
                     datalist.innerHTML = '';
