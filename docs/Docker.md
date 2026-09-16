@@ -128,7 +128,18 @@ docker compose exec archivebox archivebox add --depth=1 'https://example.com/som
 
 ### Accessing the data
 
-The outputted archive data is stored in `data/` (relative to the project root), or whatever folder path you specified in the `docker-compose.yml` `volumes:` section. The mounted directory must be writable by its current owner; the entrypoint detects that non-root owner and runs ArchiveBox with matching permissions.
+The outputted archive data is stored in `data/` (relative to the project root), or whatever folder path you specified in the `docker-compose.yml` `volumes:` section. The mounted directory must be writable by its current owner; by default the entrypoint detects that non-root owner and runs ArchiveBox with matching permissions.
+
+<a id="puid--pgid"></a>
+#### Docker `PUID` / `PGID`
+
+`PUID` and `PGID` are optional Docker-entrypoint environment variables for mounts with a fixed numeric identity, such as NFS/CIFS/FUSE. They override owner autodetection and are not ArchiveBox config keys: do not put them in `ArchiveBox.conf` or use `archivebox config --set`. Both must be numeric. `PUID=0` is ignored in favor of the detected/default non-root UID so ArchiveBox and Chrome never run as root; `PGID=0` is permitted for a group-writable mount.
+
+```bash
+PUID=1000 PGID=1000 docker compose up -d --wait
+```
+
+Leave them unset for normal local bind mounts. When you do set them, match the effective numeric owner/group or ACL configured by the storage server; container root cannot override server-side permission enforcement such as NFS `root_squash`.
 
 To access a result directly via the filesystem, follow its backwards-compatible `./data/archive/<timestamp>` symlink, or browse the canonical `./data/archive/users/<user>/snapshots/<date>/<domain>/<uuid>/` tree.
 
@@ -207,7 +218,7 @@ Then open `/admin/` on the hostname or IP used to reach ArchiveBox (local exampl
 
 *(You can create a collection in any directory you want, `~/archivebox/data` is just used as an example here)*
 
-If you encounter permissions issues, make sure the mounted data directory is writable by its intended owner. Docker startup automatically uses the first non-root owner detected from the existing collection, or the default `archivebox` user when the data directory is root-owned.
+If you encounter permissions issues, make sure the mounted data directory is writable by its intended owner. Docker startup uses explicit [`PUID`/`PGID`](#puid--pgid) values when supplied, otherwise the first non-root owner detected from the existing collection or the default `archivebox` user when the data directory is root-owned.
 
 <br/>
 

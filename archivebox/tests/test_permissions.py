@@ -177,6 +177,40 @@ def test_permission_repairs_avoid_recursive_collection_and_abxpkg_chown():
     assert "chown -R" not in abxpkg_repairs
 
 
+def test_docker_entrypoint_uses_non_root_functional_checks_before_metadata_repairs():
+    entrypoint = (Path(__file__).parents[2] / "bin" / "docker_entrypoint.sh").read_text(encoding="utf-8")
+    ensure_dir = entrypoint.partition("ensure_dir() {")[2].partition("\n}")[0]
+    writable_probe = entrypoint.partition("assert_writable_dir() {")[2].partition("\n}")[0]
+
+    assert 'run_as_archivebox mkdir -p "$path"' in ensure_dir
+    assert 'path_is_writable "$path" && return 0' in ensure_dir
+    assert ensure_dir.index('path_is_writable "$path" && return 0') < ensure_dir.index('chown_if_needed "$path"')
+    assert ensure_dir.index('path_is_writable "$path" && return 0') < ensure_dir.index('chmod_if_possible "$path"')
+    assert 'run_as_archivebox test -w "$path"' in entrypoint
+    assert 'run_as_archivebox test -x "$path"' in entrypoint
+    assert 'run_as_archivebox mktemp "$path/.permissions_test.XXXXXX"' in writable_probe
+    assert 'run_as_archivebox rm -f "$probe"' in writable_probe
+    assert "du -s" not in entrypoint
+    assert "du -sb" not in entrypoint
+    assert 'find "$DATA_DIR"' not in entrypoint
+    assert 'find "$PERSONAS_DIR"' not in entrypoint
+    for line in entrypoint.splitlines():
+        assert not ("chown -R" in line and ("$DATA_DIR" in line or "$DATA_DIR/archive" in line))
+        assert not ("chmod -R" in line and ("$DATA_DIR" in line or "$DATA_DIR/archive" in line))
+
+
+def test_docker_entrypoint_keeps_root_pgid_and_validates_it_in_real_docker():
+    entrypoint = (Path(__file__).parents[2] / "bin" / "docker_entrypoint.sh").read_text(encoding="utf-8")
+    docker_validator = (Path(__file__).parents[2] / "bin" / "validate_docker_uid_gid.sh").read_text(encoding="utf-8")
+
+    assert 'TARGET_UID="${PUID:-$DETECTED_UID}"' in entrypoint
+    assert 'TARGET_GID="${PGID:-$DETECTED_GID}"' in entrypoint
+    assert '[[ "$TARGET_UID" == "0" ]]' in entrypoint
+    assert '[[ "$TARGET_GID" == "0" ]]' not in entrypoint.partition('[[ "$TARGET_UID" == "0" ]]')[2].partition("fi")[0]
+    assert 'run_case "explicit non-root PUID with PGID zero is supported"' in docker_validator
+    assert '"PUID=1201 PGID=0" "-" pass 1201 0' in docker_validator
+
+
 def test_root_handoff_never_selects_filesystem_root():
     from archivebox.config.permissions import root_data_dir_handoff_paths
 

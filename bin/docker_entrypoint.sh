@@ -4,8 +4,9 @@
 # It takes a CMD as $* shell arguments and runs it following these setup steps:
 
 # - Set the archivebox user to match the existing /data owner when possible
-#     1. use the first non-root owner detected from existing collection files
-#     2. fall back to the image's default archivebox uid/gid when /data is root-owned
+#     1. use explicit PUID/PGID overrides when provided
+#     2. otherwise use the first non-root owner detected from collection files
+#     3. fall back to the image's default archivebox uid/gid when /data is root-owned
 # - Create a new /data dir if necessary and set the correct ownership on it
 # - Create a new /browsers dir if necessary and set the correct ownership on it
 # - Check whether we're running inside QEMU emulation and show a warning if so.
@@ -34,7 +35,8 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$ABXPKG_LIB_DIR/cache}"
 export ABXBUS_CACHE_DIR="${ABXBUS_CACHE_DIR:-$XDG_CACHE_HOME/abxbus}"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-$XDG_CACHE_HOME/uv}"
 
-# Global default uid/gid used when /data is empty or root-owned.
+# Global default uid/gid used when /data is empty or root-owned. PUID/PGID may
+# override the detected values for mounts with fixed server-side identities.
 export DEFAULT_ARCHIVEBOX_UID="${DEFAULT_ARCHIVEBOX_UID:-911}"
 export DEFAULT_ARCHIVEBOX_GID="${DEFAULT_ARCHIVEBOX_GID:-911}"
 
@@ -44,7 +46,7 @@ detect_data_owner() {
         if [[ -e "$path" ]]; then
             uid="$(stat -c '%u' "$path" 2>/dev/null || echo "$DEFAULT_ARCHIVEBOX_UID")"
             gid="$(stat -c '%g' "$path" 2>/dev/null || echo "$DEFAULT_ARCHIVEBOX_GID")"
-            if [[ "$uid" != "0" && "$gid" != "0" ]]; then
+            if [[ "$uid" != "0" ]]; then
                 echo "$uid:$gid"
                 return
             fi
@@ -54,8 +56,23 @@ detect_data_owner() {
 }
 
 export DETECTED_OWNER="$(detect_data_owner)"
-export TARGET_UID="${DETECTED_OWNER%%:*}"
-export TARGET_GID="${DETECTED_OWNER##*:}"
+export DETECTED_UID="${DETECTED_OWNER%%:*}"
+export DETECTED_GID="${DETECTED_OWNER##*:}"
+export TARGET_UID="${PUID:-$DETECTED_UID}"
+export TARGET_GID="${PGID:-$DETECTED_GID}"
+
+if [[ ! "$TARGET_UID" =~ ^[0-9]+$ || ! "$TARGET_GID" =~ ^[0-9]+$ ]]; then
+    echo -e "\n[X] Error: PUID and PGID must be numeric when set (got PUID=${PUID:-unset} PGID=${PGID:-unset})." > /dev/stderr
+    exit 3
+fi
+
+# The entrypoint needs root for mount preparation, but ArchiveBox and Chrome
+# must always run as a non-root user. Ignore PUID=0 injected by rootless
+# runtimes/providers and retain the detected/default non-root UID instead.
+# GID 0 remains valid for group-writable mounts.
+if [[ "$TARGET_UID" == "0" ]]; then
+    export TARGET_UID="$DETECTED_UID"
+fi
 
 if [[ "$(id -u)" == "0" ]]; then
     # Root is only used for startup permission repair. ArchiveBox/Chrome run as
@@ -76,6 +93,14 @@ else
     export TARGET_UID="$(id -u)"
     export TARGET_GID="$(id -g)"
 fi
+
+run_as_archivebox() {
+    if [[ "$(id -u)" == "0" ]]; then
+        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups "$@"
+    else
+        "$@"
+    fi
+}
 
 # Check if user attempted to run it in the root of their home folder or hard drive (common mistake)
 if [[ -d "$DATA_DIR/Documents" || -d "$DATA_DIR/.config" || -d "$DATA_DIR/usr" || -f "$DATA_DIR/.bashrc" || -f "$DATA_DIR/.zshrc" ]]; then
@@ -98,59 +123,87 @@ chmod_if_possible() {
     chmod u+rwX,g+rwX "$path" 2>/dev/null || true
 }
 
+path_is_writable() {
+    local path="$1"
+    [[ -d "$path" ]] \
+        && run_as_archivebox test -w "$path" 2>/dev/null \
+        && run_as_archivebox test -x "$path" 2>/dev/null
+}
+
 ensure_dir() {
     local path="$1"
+
+    # Functional access is authoritative for NFS/CIFS/FUSE and Docker Desktop:
+    # they may report synthetic ownership or reject chown while writes work.
+    path_is_writable "$path" && return 0
+
+    # Create missing paths as the eventual application user first. This is the
+    # only reliable path on root-squashed mounts where container root is mapped
+    # to an unprivileged identity but the configured PUID can write.
+    if [[ ! -e "$path" ]] && run_as_archivebox mkdir -p "$path" 2>/dev/null; then
+        path_is_writable "$path" && return 0
+    fi
+
+    # Fall back to bounded, shallow root repair. Never walk the collection or
+    # archive tree during startup.
     mkdir -p "$path" 2>/dev/null || true
     chown_if_needed "$path"
     chmod_if_possible "$path"
+    path_is_writable "$path" || permission_error "$path"
 }
 
 ensure_file_owner() {
     local path="$1"
     [[ -e "$path" ]] || return 0
+    run_as_archivebox test -r "$path" 2>/dev/null \
+        && run_as_archivebox test -w "$path" 2>/dev/null \
+        && return 0
     chown_if_needed "$path"
     chmod_if_possible "$path"
+    run_as_archivebox test -r "$path" 2>/dev/null \
+        && run_as_archivebox test -w "$path" 2>/dev/null \
+        || permission_error "$path"
 }
 
 ensure_runtime_tmp_tree() {
-    mkdir -p "$TMP_DIR" 2>/dev/null || true
-    [[ -e "$TMP_DIR" ]] || return 0
+    if [[ ! -e "$TMP_DIR" ]]; then
+        ensure_dir "$TMP_DIR"
+        return
+    fi
+    path_is_writable "$TMP_DIR" && return 0
     if [[ "$(id -u)" == "0" ]]; then
         chown -R "$TARGET_UID:$TARGET_GID" "$TMP_DIR" 2>/dev/null || true
     fi
     chmod_if_possible "$TMP_DIR"
+    path_is_writable "$TMP_DIR" || permission_error "$TMP_DIR"
 }
 
 ensure_small_runtime_tree() {
     local path="$1"
-    mkdir -p "$path" 2>/dev/null || true
-    [[ -e "$path" ]] || return 0
+    if [[ ! -e "$path" ]]; then
+        ensure_dir "$path"
+        return
+    fi
+    path_is_writable "$path" && return 0
     if [[ "$(id -u)" == "0" ]]; then
         chown -R "$TARGET_UID:$TARGET_GID" "$path" 2>/dev/null || true
     fi
     chmod -R u+rwX,g+rwX "$path" 2>/dev/null || true
-}
-
-run_as_archivebox() {
-    if [[ "$(id -u)" == "0" ]]; then
-        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups "$@"
-    else
-        "$@"
-    fi
+    path_is_writable "$path" || permission_error "$path"
 }
 
 permission_error() {
     local path="$1"
     echo -e "\n[X] Error: archivebox user (uid=$TARGET_UID gid=$TARGET_GID) cannot write to $path." > /dev/stderr
     echo -e "    Current owner is $(stat -c '%u:%g' "$path" 2>/dev/null || echo 'unknown')." > /dev/stderr
-    echo -e "    Fix ownership of the matching host path for the intended archivebox user, e.g.:" > /dev/stderr
-    echo -e "       sudo chown $TARGET_UID:$TARGET_GID ./data" > /dev/stderr
-    echo -e "    Repair any nested path named above explicitly; never recursively chown a large archive." > /dev/stderr
+    echo -e "    The entrypoint tried non-root creation first, then bounded root ownership/mode repair." > /dev/stderr
+    echo -e "    The mount is read-only or its server-side identity/ACL does not allow uid=$TARGET_UID gid=$TARGET_GID." > /dev/stderr
     exit 3
 }
 
-# Create and repair only the small set of top-level writable paths. Do not recurse
-# through /data/archive; large collections can take days to recursively chown/chmod.
+# Create and repair only the small set of required paths. Functional checks run
+# as the final non-root identity first, so writable NFS/CIFS/FUSE mounts never
+# receive repeated chown attempts. Never recursively walk /data/archive here.
 ensure_dir "$DATA_DIR"
 ensure_dir "$CONFIG_DIR"
 ensure_dir "$DATA_DIR/logs"
@@ -166,12 +219,16 @@ ensure_file_owner "$DATA_DIR/ArchiveBox.conf"
 ensure_file_owner "$CONFIG_DIR/config.env"
 ensure_file_owner "$CONFIG_DIR/derived.env"
 
-run_as_archivebox touch "$DATA_DIR/logs/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$DATA_DIR/logs"
-rm -f "$DATA_DIR/logs/.permissions_test_safe_to_delete"
-run_as_archivebox touch "$DATA_DIR/archive/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$DATA_DIR/archive"
-rm -f "$DATA_DIR/archive/.permissions_test_safe_to_delete"
-run_as_archivebox touch "$PERSONAS_DIR/Default/chrome_profile/.permissions_test_safe_to_delete" 2>/dev/null || permission_error "$PERSONAS_DIR/Default/chrome_profile"
-rm -f "$PERSONAS_DIR/Default/chrome_profile/.permissions_test_safe_to_delete"
+assert_writable_dir() {
+    local path="$1"
+    local probe
+    probe="$(run_as_archivebox mktemp "$path/.permissions_test.XXXXXX" 2>/dev/null)" || permission_error "$path"
+    run_as_archivebox rm -f "$probe" 2>/dev/null || permission_error "$path"
+}
+
+assert_writable_dir "$DATA_DIR/logs"
+assert_writable_dir "$DATA_DIR/archive"
+assert_writable_dir "$PERSONAS_DIR/Default/chrome_profile"
 
 # check if novnc x11 $DISPLAY is available
 export DISPLAY="${DISPLAY:-"novnc:0.0"}"
@@ -181,15 +238,14 @@ if ! xdpyinfo > /dev/null 2>&1; then
 fi
 
 # Active browser processes do not survive container restarts, but their lock
-# files can. Clear stale browser state before dropping privileges.
-find "$PERSONAS_DIR" -type f \( \
-    -name "SingletonLock" \
-    -o -name "SingletonSocket" \
-    -o -name "SingletonCookie" \
-    -o -name "DevToolsActivePort" \
-    -o -name ".launch.lock" \
-    -o -name ".target.lock" \
-\) -delete >/dev/null 2>&1 || true
+# files can. Chromium keeps these at the user-data root; only inspect the
+# known root of each persona, never walk its potentially large profile tree.
+for persona_profile in "$PERSONAS_DIR"/*/chrome_profile; do
+    [[ -d "$persona_profile" ]] || continue
+    for lock_name in SingletonLock SingletonSocket SingletonCookie DevToolsActivePort .launch.lock .target.lock; do
+        rm -f "$persona_profile/$lock_name" 2>/dev/null || true
+    done
+done
 find /tmp "$TMP_DIR" -maxdepth 1 -type d -name "archivebox-chrome-profile.*" -mmin +30 -exec rm -rf {} + >/dev/null 2>&1 || true
     
 
