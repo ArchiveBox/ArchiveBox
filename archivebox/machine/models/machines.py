@@ -102,6 +102,9 @@ class Machine(ModelWithHealthStats):
             state._CURRENT_MACHINE = None
         if state._CURRENT_MACHINE:
             if timezone.now() < state._CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
+                # Reconciliation can save() and clear the shared cache; keep
+                # this call's instance so we never return None after that save.
+                machine = state._CURRENT_MACHINE
                 # One-time-per-process reconciliation between ArchiveBox.conf
                 # and Machine.config. Fast-path: bool check + early-return when
                 # the sync has already run, so the cached-machine return path
@@ -109,16 +112,21 @@ class Machine(ModelWithHealthStats):
                 try:
                     from archivebox.config.collection import sync_machine_and_file
 
-                    sync_machine_and_file(state._CURRENT_MACHINE)
+                    sync_machine_and_file(machine)
                 except Exception:
                     pass
-                return state._CURRENT_MACHINE
+                return machine
             else:
                 state._CURRENT_MACHINE = None
 
         host_guid = get_host_guid()
+        # save() intentionally invalidates state._CURRENT_MACHINE so config edits
+        # made through other instances become visible in this process. Host
+        # refresh (after seven days), sanitation, and reconciliation can all
+        # save here, so the working instance must not live only in that cache.
+        # Otherwise a routine refresh leaves startup dereferencing None.
         try:
-            state._CURRENT_MACHINE = cls.objects.get(guid=host_guid)
+            machine = cls.objects.get(guid=host_guid)
         except cls.DoesNotExist:
             config = {}
             try:
@@ -128,7 +136,7 @@ class Machine(ModelWithHealthStats):
                 config = _coerce_from_str_dict(file_config)
             except Exception:
                 config = {}
-            state._CURRENT_MACHINE = cls.objects.create(
+            machine = cls.objects.create(
                 guid=host_guid,
                 hostname=socket.gethostname(),
                 config=config,
@@ -137,15 +145,15 @@ class Machine(ModelWithHealthStats):
                 stats=get_host_stats(),
             )
         else:
-            if timezone.now() >= state._CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
+            if timezone.now() >= machine.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
                 for key, value in {
                     "hostname": socket.gethostname(),
                     **get_os_info(),
                     **get_vm_info(),
                     "stats": get_host_stats(),
                 }.items():
-                    setattr(state._CURRENT_MACHINE, key, value)
-                state._CURRENT_MACHINE.save(
+                    setattr(machine, key, value)
+                machine.save(
                     update_fields=[
                         "hostname",
                         "hw_in_docker",
@@ -162,16 +170,19 @@ class Machine(ModelWithHealthStats):
                         "modified_at",
                     ],
                 )
-        machine = cls._sanitize_config(state._CURRENT_MACHINE)
+        machine = cls._sanitize_config(machine)
         # Same one-time sync as the cached-return path. Triggers here on the
         # very first ``Machine.current()`` call in a process before any
         # cached return can occur.
         try:
             from archivebox.config.collection import sync_machine_and_file
 
-            sync_machine_and_file(state._CURRENT_MACHINE)
+            sync_machine_and_file(machine)
         except Exception:
             pass
+        # Publish only after all save-capable steps; publishing earlier would
+        # let those steps invalidate the cache we are in the middle of filling.
+        state._CURRENT_MACHINE = machine
         return machine
 
     @classmethod
