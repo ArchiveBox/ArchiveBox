@@ -1,0 +1,34 @@
+archivebox/tests/test_permissions.py
+  s_4f8227e1fbd31e::t_41f3c8e68fdc1c 187-188,196,202,204,210-211
+archivebox/search/query.py
+  s_4f8227e1fbd31e::t_420892a0b335be 3,314-315
+docs/Troubleshooting.md
+  s_4f8227e1fbd31e::t_9a8654e6aa8699 137
+bin/docker_entrypoint.sh
+  s_4f8227e1fbd31e::t_d2e248ff80f6e2 173,187,241-248
+  s_4f8227e1fbd31e::t_87c1e7a5a87d62 169-172,183-186
+  s_4f8227e1fbd31e::t_6c8c9f5858732b 178,192
+docs/codeblocks.toml
+  s_4f8227e1fbd31e::t_9057ce8c39c4c2 118,236
+archivebox/core/takeover_util.py
+  s_4f8227e1fbd31e::t_04b2a1f9313623 138-142,146-147
+bin/validate_docker_uid_gid.sh
+  s_4f8227e1fbd31e::t_51f629324b6190 263-267,617-619
+  s_4f8227e1fbd31e::t_a1c91ac61fe947 620
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8977cdde4e1fb8a5e6da803c129b32a2b8f256ef",
+  "prompts": {},
+  "sessions": {
+    "s_4f8227e1fbd31e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a73e-7c2b-7091-9bcd-6b2b4713dd90",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
