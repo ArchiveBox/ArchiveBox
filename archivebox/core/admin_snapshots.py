@@ -1266,48 +1266,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
 
     def _get_progress_stats(self, obj):
-        cached_stats = obj.__dict__.get("_admin_progress_stats")
-        if cached_stats is not None:
-            return cached_stats
-
-        results = self._get_prefetched_results(obj)
-        if results is None:
-            stats = obj.get_progress_stats()
-            expected_total = self._get_expected_hook_total(obj)
-            total = max(stats["total"], expected_total)
-            completed = stats["succeeded"] + stats["failed"] + stats.get("skipped", 0) + stats.get("noresults", 0)
-            stats["total"] = total
-            stats["pending"] = max(total - completed - stats["running"], 0)
-            stats["percent"] = int((completed / total * 100) if total > 0 else 0)
-            obj._admin_progress_stats = stats
-            return stats
-
-        expected_total = self._get_expected_hook_total(obj)
-        observed_total = len(results)
-        total = max(observed_total, expected_total)
-        succeeded = sum(1 for r in results if r.status == "succeeded")
-        failed = sum(1 for r in results if r.status == "failed")
-        running = sum(1 for r in results if r.status == "started")
-        skipped = sum(1 for r in results if r.status == "skipped")
-        noresults = sum(1 for r in results if r.status == "noresults")
-        pending = max(total - succeeded - failed - running - skipped - noresults, 0)
-        completed = succeeded + failed + skipped + noresults
-        percent = int((completed / total * 100) if total > 0 else 0)
-        is_sealed = obj.status not in (obj.StatusChoices.QUEUED, obj.StatusChoices.STARTED, obj.StatusChoices.PAUSED)
-        stats = {
-            "total": total,
-            "succeeded": succeeded,
-            "failed": failed,
-            "running": running,
-            "pending": pending,
-            "skipped": skipped,
-            "noresults": noresults,
-            "percent": percent,
-            "output_size": obj.output_size or 0,
-            "is_sealed": is_sealed,
-        }
-        obj._admin_progress_stats = stats
-        return stats
+        if "_admin_progress_stats" not in obj.__dict__:
+            obj._admin_progress_stats = obj.get_progress_stats(
+                results=self._get_prefetched_results(obj),
+                expected_total=self._get_expected_hook_total(obj),
+            )
+        return obj._admin_progress_stats
 
     def _get_prefetched_results(self, obj):
         if "_admin_output_results" in obj.__dict__:

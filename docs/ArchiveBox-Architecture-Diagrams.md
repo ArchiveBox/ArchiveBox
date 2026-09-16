@@ -3,11 +3,38 @@
 This page is a map of the current execution and persistence paths. The implementation lives primarily in:
 
 - `archivebox/cli/` for CLI entry points
-- `archivebox/services/runner.py` for crawl and snapshot execution
+- `archivebox/services/runner/` for scheduling, claiming work, crawl execution, and dependency installation
 - `archivebox/crawls/models.py` for the `Crawl` model and its atomic queue transitions
-- `archivebox/core/models.py` for `Snapshot`, `ArchiveResult`, and Snapshot queue transitions
+- `archivebox/core/models/` for `Snapshot`, `ArchiveResult`, tags, and snapshot querysets
 - `archivebox/services/` for bus event projectors
 - `abxpkg` and `abx-plugins` for binary resolution and plugin hooks
+
+## Where behavior belongs
+
+Models own the operations on their objects. Views, admin actions, CLI commands,
+and event handlers call those methods; they should not independently implement
+state transitions, snapshot imports, or progress calculations.
+
+| Change | Main entry points |
+| --- | --- |
+| Crawl and snapshot lifecycle | `Crawl.pause/resume/cancel`, `Snapshot.pause/resume/cancel`, `Snapshot.schedule_plugin_run` |
+| Import or reconcile a snapshot directory | `Snapshot.load_from_directory`, `create_from_directory`, `reconcile_with_index` |
+| JSONL records | Each record model's `to_json()` and `from_json()` |
+| Snapshot progress | `Snapshot.get_progress_stats`, with optional prefetched result rows |
+| Output manifests and previews | `ArchiveResult.output_file_stats`, `embed_path_db`, and `Snapshot.discover_outputs` |
+| Served and exported snapshot pages | `Snapshot.get_html_details_context`, `write_html_details` |
+| Queue selection and claims | `services/runner/scheduler.py` and `dispatch.py` |
+| Hook execution and event projection | `services/runner/crawl.py` and the individual `services/*_service.py` projectors |
+| Progress endpoint | `progressmonitor/views.py` validates access; `report.py` loads bounded data; `presentation.py` renders it |
+
+Core and machine model packages re-export their public classes, so callers use
+`archivebox.core.models.Snapshot` and `archivebox.machine.models.Process`.
+Splitting those packages does not introduce another layer of object behavior.
+
+`to_json()` returns a typed JSONL record dictionary. `from_json()` applies the
+record through the model's import rules, which may create, update, or select an
+object; it is not a blind round-trip constructor. Snapshot's older `to_dict()`,
+`to_json_str()`, and CSV helpers retain the legacy export format.
 
 ## High-Level Execution Flow
 
@@ -86,7 +113,7 @@ A crawl owns a set of snapshots. The runner creates or discovers those snapshots
 
 ## `Snapshot` Queue Lifecycle
 
-Implemented directly by `Snapshot` in `archivebox/core/models.py`, using the
+Implemented directly by `Snapshot` in `archivebox/core/models/snapshots.py`, using the
 same conditional `retry_at` claim protocol as `Crawl`.
 
 ```mermaid

@@ -51,7 +51,7 @@ docker compose up -d
 The same command is used for initializing a new archive and upgrading an existing database. `archivebox init` is idempotent and can safely be run multiple times; it applies database migrations and prepares collection-level state. For bare-metal installs, `archivebox install` resolves runtime dependencies for the new version; Docker images include those dependencies at build time. `archivebox update --migrate-only` performs filesystem migrations and reconciles Snapshot metadata with the current layout without scheduling normal archive maintenance jobs. `archivebox status` checks collection health afterward.
 
 There are three main areas on disk that ArchiveBox modifies during upgrades:
-- `index.sqlite3` contains the SQLite3 DB index that gets upgraded automatically by Django based on the changes in [`archivebox/core/models.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py).
+- `index.sqlite3` contains the SQLite3 DB index that gets upgraded automatically by Django based on the changes in [`archivebox/core/models/snapshots.py`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models/snapshots.py).
 - `archive/users/<user>/snapshots/<date>/<domain>/<uuid>/index.jsonl` stores per-Snapshot metadata alongside plugin-namespaced output. `archivebox update --migrate-only` may rewrite metadata, migrate older layouts, and remove obsolete timestamp projections after verified migration.
 - Snapshot output directories and plugin paths can move as filesystem schemas evolve, so the entire `archive/` tree must be backed up with the database.
 

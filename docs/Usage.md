@@ -344,7 +344,7 @@ For more info and example usage:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#example-adding-a-new-user-with-a-hashed-password
 - https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/cli/
 - https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/common.py
-- https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py
+- https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models/snapshots.py
 - https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
 
 <br/>

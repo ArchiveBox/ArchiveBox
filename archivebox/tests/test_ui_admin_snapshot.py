@@ -428,6 +428,13 @@ class TestSnapshotProgressStats:
         assert stats["percent"] == 0
         assert f"0/{expected_total} hooks" in html
 
+    def test_paused_snapshot_progress_is_not_sealed(self, snapshot):
+        from archivebox.core.models import Snapshot
+
+        snapshot.status = Snapshot.StatusChoices.PAUSED
+        snapshot.save(update_fields=["status", "modified_at"])
+        assert snapshot.get_progress_stats()["is_sealed"] is False
+
     def test_get_progress_stats_sealed(self, snapshot):
         """Test progress stats for sealed snapshot."""
         from archivebox.core.models import Snapshot

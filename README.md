@@ -1328,7 +1328,7 @@ archivebox server 0.0.0.0:8000
 
 ```bash
 # Optional: develop via docker by mounting the code dir into the container
-# if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
+# if you edit e.g. ./archivebox/core/models/snapshots.py on the docker host, runserver
 # inside the container will reload and pick up your changes
 ./bin/build_docker.sh dev
 

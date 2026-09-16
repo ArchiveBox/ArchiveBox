@@ -2407,65 +2407,37 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         return snapshot
 
-    def get_progress_stats(self) -> dict:
-        """
-        Get progress statistics for this snapshot's archiving process.
+    def get_progress_stats(self, *, results: Iterable[ArchiveResult] | None = None, expected_total: int = 0) -> dict:
+        """Summarize observed hooks, including expected hooks not yet projected.
 
-        Returns dict with:
-            - total: Total number of archive results
-            - succeeded: Number of succeeded results
-            - failed: Number of failed results
-            - running: Number of currently running results
-            - pending: Number of pending/queued results
-            - percent: Completion percentage (0-100)
-            - output_size: Total output size in bytes
-            - is_sealed: Whether the snapshot is in a final state
+        Callers with prefetched display rows can supply them to avoid queries;
+        those rows use the snapshot's materialized output_size. Otherwise the
+        result queryset supplies counts and total bytes.
         """
+        from collections import Counter
         from django.db.models import Sum
-
         from archivebox.core.models import ArchiveResult
 
-        results = self.archiveresult_set.all()
-
-        counts = ArchiveResult.status_counts(
-            results,
-            (
-                ArchiveResult.StatusChoices.SUCCEEDED,
-                ArchiveResult.StatusChoices.FAILED,
-                ArchiveResult.StatusChoices.STARTED,
-                ArchiveResult.StatusChoices.SKIPPED,
-                ArchiveResult.StatusChoices.NORESULTS,
-            ),
-        )
-        succeeded = counts.get(ArchiveResult.StatusChoices.SUCCEEDED, 0)
-        failed = counts.get(ArchiveResult.StatusChoices.FAILED, 0)
-        running = counts.get(ArchiveResult.StatusChoices.STARTED, 0)
-        skipped = counts.get(ArchiveResult.StatusChoices.SKIPPED, 0)
-        noresults = counts.get(ArchiveResult.StatusChoices.NORESULTS, 0)
-        total = results.count()
-        pending = total - succeeded - failed - running - skipped - noresults
-
-        # Calculate percentage (succeeded + failed + skipped + noresults as completed)
-        completed = succeeded + failed + skipped + noresults
-        percent = int((completed / total * 100) if total > 0 else 0)
-
-        # Sum output sizes
-        output_size = results.aggregate(total_size=Sum("output_size"))["total_size"] or 0
-
-        # Check if sealed
-        is_sealed = self.status not in (self.StatusChoices.QUEUED, self.StatusChoices.STARTED)
-
+        status_fields = {"succeeded": "succeeded", "failed": "failed", "running": "started", "skipped": "skipped", "noresults": "noresults"}
+        if results is None:
+            queryset = self.archiveresult_set.all()
+            counts = ArchiveResult.status_counts(queryset, status_fields.values())
+            observed_total = queryset.count()
+            output_size = queryset.aggregate(total_size=Sum("output_size"))["total_size"] or 0
+        else:
+            counts = Counter(result.status for result in results)
+            observed_total = sum(counts.values())
+            output_size = self.output_size or 0
+        stats = {field: counts.get(status, 0) for field, status in status_fields.items()}
+        total = max(observed_total, expected_total)
+        completed = sum(stats[field] for field in ("succeeded", "failed", "skipped", "noresults"))
         return {
+            **stats,
             "total": total,
-            "succeeded": succeeded,
-            "failed": failed,
-            "running": running,
-            "pending": pending,
-            "skipped": skipped,
-            "noresults": noresults,
-            "percent": percent,
+            "pending": max(total - completed - stats["running"], 0),
+            "percent": int(completed / total * 100) if total else 0,
             "output_size": output_size,
-            "is_sealed": is_sealed,
+            "is_sealed": self.status not in self.OPEN_STATES,
         }
 
     def retry_failed_archiveresults(self) -> int:

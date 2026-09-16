@@ -11,6 +11,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
 import datetime
+import inspect
 import os
 import sys
 from pathlib import Path
@@ -210,38 +211,32 @@ man_pages = [
 
 
 def linkcode_resolve(domain, info):
-    """
-    Calculate link to source code on Github
-    Docs: https://www.sphinx-doc.org/en/master/usage/extensions/linkcode.html
-    """
-    module_name = str(info["module"] or "")
-    package_name = module_name.split(".", 1)[0]  # archivebox
-    submodule_name = module_name.split(f"{package_name}", 1)[-1].strip(".")  # core.models
-    symbol_name = str(info["fullname"] or "")  # Crawl.abid_ts_src
-    full_name = f"{package_name}.{submodule_name}.{symbol_name}".replace("..", ".")  # archivebox.core.models.Crawl.abid_ts_src
-    fallback_url = f"https://github.com/search?type=code&q=repo%3AArchiveBox%2FArchiveBox%20{full_name.replace('.', '%20')}"
-
-    # 'archivebox.core.models.Crawl' -> archivebox/core/models.py
-    file_path = f"{package_name}/{submodule_name.replace('.', '/')}.py"  # archivebox/core/models.py
-
-    # correct for any extra / or .py
-    file_path = file_path.strip("/").strip(".py") + ".py"
-
-    # fallback to using Github search instead if URL doesn't look like a valid file path
-    if not file_path.startswith("archivebox/"):
-        return fallback_url
-    if "//" in file_path:
-        return fallback_url
-    if file_path.count(".py") > 1:
-        return fallback_url
-
-    # correct for archivebox/cli.py -> archivebox/cli/__init__.py
-    init_path = f"{package_name}/{submodule_name.replace('.', '/')}/__init__.py"
-    if not Path(f"../{file_path}").is_file():
-        if Path(f"../{init_path}").is_file():
-            file_path = init_path
-        else:
-            return fallback_url
-
-    # https://github.com/ArchiveBox/ArchiveBox/blob/v0.8.5/archivebox/core/models.py#archivebox.core.models.Crawl.abid_ts_src#:~:text=abid_ts_src
-    return f"{github_url}/{github_view_style}/{tag}/{file_path}#{full_name}#:~:text={symbol_name.rsplit('.', 1)[-1]}"
+    """Link re-exported symbols to their defining file without importing Django."""
+    if domain != "py" or not info.get("module", "").startswith("archivebox"):
+        return None
+    root = Path(__file__).resolve().parent.parent
+    module_name = info["module"]
+    obj = sys.modules.get(module_name)
+    source = None
+    anchor = ""
+    try:
+        for part in info.get("fullname", "").split("."):
+            if part:
+                obj = inspect.getattr_static(obj, part)
+        if isinstance(obj, property):
+            obj = obj.fget
+        obj = inspect.unwrap(obj)
+        source = inspect.getsourcefile(obj)
+        lines, start = inspect.getsourcelines(obj)
+        anchor = f"#L{start}-L{start + len(lines) - 1}"
+    except (AttributeError, TypeError, OSError):
+        # Static autodoc builds may not have loaded the object. Link its module.
+        module_path = root.joinpath(*module_name.split("."))
+        source = next((path for path in (module_path.with_suffix(".py"), module_path / "__init__.py") if path.is_file()), None)
+    if source is None:
+        return None
+    try:
+        relative = Path(source).resolve().relative_to(root)
+    except ValueError:
+        return None
+    return f"{github_url}/{github_view_style}/{tag}/{relative.as_posix()}{anchor}"
