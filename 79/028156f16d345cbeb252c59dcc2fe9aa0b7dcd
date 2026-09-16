@@ -1,0 +1,26 @@
+bin/collect_ui_screenshots.sh
+  s_52f2bda5505456::t_d8f39ca91f5b09 241
+  s_52f2bda5505456::t_53e42c2db312c6 11,467-469,564,596-597,648
+archivebox/tests/test_schedule_table_browser.py
+  s_52f2bda5505456::t_d8f39ca91f5b09 4-6,105-108,125,133-175
+bin/generate_ui_screenshot_gallery.py
+  s_52f2bda5505456::t_1f123e4c48b2ee 126,195,252-254,264-265,269
+docs/Screenshots.md
+  s_52f2bda5505456::t_307f8519447520 3,5-8,10-12,14-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "79028156f16d345cbeb252c59dcc2fe9aa0b7dcd",
+  "prompts": {},
+  "sessions": {
+    "s_52f2bda5505456": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a091f5-a5f0-70d3-a06d-259a10de24c2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
