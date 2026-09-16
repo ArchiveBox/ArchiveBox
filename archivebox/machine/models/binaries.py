@@ -241,71 +241,37 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
         if not name:
             return None
 
-        machine = Machine.current()
-        overrides = overrides or {}
-        binary_overrides = record.get("overrides", {})
-        normalized_overrides = binary_overrides if isinstance(binary_overrides, dict) else {}
-
-        # Case 1: Already installed (from on_Crawl hooks) - has abspath AND binproviders
-        # This happens when on_Crawl hooks detect already-installed binaries
-        abspath = record.get("abspath")
-        version = record.get("version")
+        abspath, version = record.get("abspath"), record.get("version")
         binproviders = record.get("binproviders")
+        installed = bool(abspath and version) and (bool(binproviders) or "binproviders" not in record)
+        if installed:
+            defaults = {
+                "abspath": abspath,
+                "version": version,
+                "sha256": record.get("sha256", ""),
+                "binprovider": record.get("binprovider", "env"),
+                "status": Binary.StatusChoices.INSTALLED,
+                "retry_at": None,
+            }
+            if binproviders:
+                defaults["binproviders"] = binproviders
+        elif "binproviders" in record or ("overrides" in record and not abspath):
+            binary_overrides = record.get("overrides", {})
+            defaults = {
+                "binproviders": record.get("binproviders", "env"),
+                "overrides": binary_overrides if isinstance(binary_overrides, dict) else {},
+                "status": Binary.StatusChoices.QUEUED,
+                "retry_at": timezone.now(),
+            }
+        else:
+            return None
 
-        if abspath and version and binproviders:
-            # Binary is already installed, create INSTALLED record with binproviders filter
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "abspath": abspath,
-                    "version": version,
-                    "sha256": record.get("sha256", ""),
-                    "binprovider": record.get("binprovider", "env"),
-                    "binproviders": binproviders,  # Preserve the filter
-                    "status": Binary.StatusChoices.INSTALLED,
-                    "retry_at": None,
-                },
-            )
+        binary, _ = Binary.objects.update_or_create(machine=Machine.current(), name=name, defaults=defaults)
+        if installed:
             from archivebox.config.common import get_config
 
             binary.symlink_to_lib_bin_after_commit(get_config().ABXPKG_LIB_DIR / "bin")
-            return binary
-
-        # Case 2: From binaries.json - create queued binary (needs installation)
-        if "binproviders" in record or ("overrides" in record and not abspath):
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "binproviders": record.get("binproviders", "env"),
-                    "overrides": normalized_overrides,
-                    "status": Binary.StatusChoices.QUEUED,
-                    "retry_at": timezone.now(),
-                },
-            )
-            return binary
-
-        # Case 3: From Binary output - update with installation results
-        if abspath and version:
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "abspath": abspath,
-                    "version": version,
-                    "sha256": record.get("sha256", ""),
-                    "binprovider": record.get("binprovider", "env"),
-                    "status": Binary.StatusChoices.INSTALLED,
-                    "retry_at": None,
-                },
-            )
-            from archivebox.config.common import get_config
-
-            binary.symlink_to_lib_bin_after_commit(get_config().ABXPKG_LIB_DIR / "bin")
-            return binary
-
-        return None
+        return binary
 
     def _allowed_binproviders(self) -> set[str] | None:
         """Return the allowed binproviders for this binary, or None for wildcard."""

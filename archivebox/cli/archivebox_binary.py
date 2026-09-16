@@ -185,9 +185,9 @@ def main():
 @click.option("--name", "-n", required=True, help="Binary name (e.g., chrome, wget)")
 @click.option("--abspath", "-p", required=True, help="Absolute path to binary")
 @click.option("--version", "-v", default="", help="Binary version")
-def create_cmd(name: str, abspath: str, version: str):
+def create_cmd(**kwargs):
     """Create/register a Binary."""
-    sys.exit(create_binary(name=name, abspath=abspath, version=version))
+    sys.exit(create_binary(**kwargs))
 
 
 @main.command("list")
@@ -195,37 +195,25 @@ def create_cmd(name: str, abspath: str, version: str):
 @click.option("--abspath__icontains", help="Filter by path contains")
 @click.option("--version__icontains", help="Filter by version contains")
 @click.option("--limit", type=int, help="Limit number of results")
-def list_cmd(
-    name: str | None,
-    abspath__icontains: str | None,
-    version__icontains: str | None,
-    limit: int | None,
-):
+def list_cmd(**kwargs):
     """List Binaries as JSONL."""
-    sys.exit(
-        list_binaries(
-            name=name,
-            abspath__icontains=abspath__icontains,
-            version__icontains=version__icontains,
-            limit=limit,
-        ),
-    )
+    sys.exit(list_binaries(**kwargs))
 
 
 @main.command("update")
 @click.option("--version", "-v", help="Set version")
 @click.option("--abspath", "-p", help="Set path")
-def update_cmd(version: str | None, abspath: str | None):
+def update_cmd(**kwargs):
     """Update Binaries from stdin JSONL."""
-    sys.exit(update_binaries(version=version, abspath=abspath))
+    sys.exit(update_binaries(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete Binaries from stdin JSONL."""
-    sys.exit(delete_binaries(yes=yes, dry_run=dry_run))
+    sys.exit(delete_binaries(**kwargs))
 
 
 if __name__ == "__main__":

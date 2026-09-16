@@ -445,17 +445,17 @@ def list_cmd(**kwargs):
 @main.command("update")
 @click.option("--status", "-s", help="Set status")
 @click.option("--tag", "-t", help="Add tag")
-def update_cmd(status: str | None, tag: str | None):
+def update_cmd(**kwargs):
     """Update Snapshots from stdin JSONL."""
-    sys.exit(update_snapshots(status=status, tag=tag))
+    sys.exit(update_snapshots(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete Snapshots from stdin JSONL."""
-    sys.exit(delete_snapshots(yes=yes, dry_run=dry_run))
+    sys.exit(delete_snapshots(**kwargs))
 
 
 if __name__ == "__main__":

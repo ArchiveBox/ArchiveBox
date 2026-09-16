@@ -66,15 +66,9 @@ def main():
 @click.option("--hostname__icontains", help="Filter by hostname contains")
 @click.option("--os-platform", help="Filter by OS platform")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(hostname__icontains: str | None, os_platform: str | None, limit: int | None):
+def list_cmd(**kwargs):
     """List Machines as JSONL."""
-    sys.exit(
-        list_machines(
-            hostname__icontains=hostname__icontains,
-            os_platform=os_platform,
-            limit=limit,
-        ),
-    )
+    sys.exit(list_machines(**kwargs))
 
 
 if __name__ == "__main__":

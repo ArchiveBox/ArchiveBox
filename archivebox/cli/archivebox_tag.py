@@ -163,24 +163,24 @@ def create_cmd(names: tuple):
 @click.option("--name", help="Filter by exact name")
 @click.option("--name__icontains", help="Filter by name contains")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(name: str | None, name__icontains: str | None, limit: int | None):
+def list_cmd(**kwargs):
     """List Tags as JSONL."""
-    sys.exit(list_tags(name=name, name__icontains=name__icontains, limit=limit))
+    sys.exit(list_tags(**kwargs))
 
 
 @main.command("update")
 @click.option("--name", "-n", help="Set new name")
-def update_cmd(name: str | None):
+def update_cmd(**kwargs):
     """Update Tags from stdin JSONL."""
-    sys.exit(update_tags(name=name))
+    sys.exit(update_tags(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete Tags from stdin JSONL."""
-    sys.exit(delete_tags(yes=yes, dry_run=dry_run))
+    sys.exit(delete_tags(**kwargs))
 
 
 if __name__ == "__main__":

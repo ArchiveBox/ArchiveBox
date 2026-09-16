@@ -239,9 +239,9 @@ def main():
 @click.option("--snapshot-id", help="Snapshot ID to create results for")
 @click.option("--plugin", "-p", help="Plugin name (e.g., screenshot, singlefile)")
 @click.option("--status", "-s", default="queued", help="Initial status (default: queued)")
-def create_cmd(snapshot_id: str | None, plugin: str | None, status: str):
+def create_cmd(**kwargs):
     """Emit Snapshot plugin extraction requests as JSONL."""
-    sys.exit(create_archiveresults(snapshot_id=snapshot_id, plugin=plugin, status=status))
+    sys.exit(create_archiveresults(**kwargs))
 
 
 @main.command("list")
@@ -249,36 +249,24 @@ def create_cmd(snapshot_id: str | None, plugin: str | None, status: str):
 @click.option("--plugin", "-p", help="Filter by plugin name")
 @click.option("--snapshot-id", help="Filter by snapshot ID")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(
-    status: str | None,
-    plugin: str | None,
-    snapshot_id: str | None,
-    limit: int | None,
-):
+def list_cmd(**kwargs):
     """List ArchiveResults as JSONL."""
-    sys.exit(
-        list_archiveresults(
-            status=status,
-            plugin=plugin,
-            snapshot_id=snapshot_id,
-            limit=limit,
-        ),
-    )
+    sys.exit(list_archiveresults(**kwargs))
 
 
 @main.command("update")
 @click.option("--status", "-s", help="Set status")
-def update_cmd(status: str | None):
+def update_cmd(**kwargs):
     """Update ArchiveResults from stdin JSONL."""
-    sys.exit(update_archiveresults(status=status))
+    sys.exit(update_archiveresults(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete ArchiveResults from stdin JSONL."""
-    sys.exit(delete_archiveresults(yes=yes, dry_run=dry_run))
+    sys.exit(delete_archiveresults(**kwargs))
 
 
 if __name__ == "__main__":

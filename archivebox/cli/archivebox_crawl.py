@@ -266,37 +266,25 @@ def create_cmd(urls: tuple, depth: int, tag: str, status: str):
 @click.option("--urls__icontains", help="Filter by URLs contains")
 @click.option("--max-depth", type=int, help="Filter by max depth")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(
-    status: str | None,
-    urls__icontains: str | None,
-    max_depth: int | None,
-    limit: int | None,
-):
+def list_cmd(**kwargs):
     """List Crawls as JSONL."""
-    sys.exit(
-        list_crawls(
-            status=status,
-            urls__icontains=urls__icontains,
-            max_depth=max_depth,
-            limit=limit,
-        ),
-    )
+    sys.exit(list_crawls(**kwargs))
 
 
 @main.command("update")
 @click.option("--status", "-s", help="Set status")
 @click.option("--max-depth", type=int, help="Set max depth")
-def update_cmd(status: str | None, max_depth: int | None):
+def update_cmd(**kwargs):
     """Update Crawls from stdin JSONL."""
-    sys.exit(update_crawls(status=status, max_depth=max_depth))
+    sys.exit(update_crawls(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete Crawls from stdin JSONL."""
-    sys.exit(delete_crawls(yes=yes, dry_run=dry_run))
+    sys.exit(delete_crawls(**kwargs))
 
 
 if __name__ == "__main__":

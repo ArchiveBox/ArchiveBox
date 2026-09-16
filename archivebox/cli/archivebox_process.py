@@ -68,15 +68,9 @@ def main():
 @click.option("--binary-name", "-b", help="Filter by binary name")
 @click.option("--machine-id", "-m", help="Filter by machine ID")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(binary_name: str | None, machine_id: str | None, limit: int | None):
+def list_cmd(**kwargs):
     """List Processes as JSONL."""
-    sys.exit(
-        list_processes(
-            binary_name=binary_name,
-            machine_id=machine_id,
-            limit=limit,
-        ),
-    )
+    sys.exit(list_processes(**kwargs))
 
 
 if __name__ == "__main__":

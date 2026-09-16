@@ -424,9 +424,9 @@ def create_cmd(names: tuple, import_from: str | None, profile: str | None, sourc
 @click.option("--name", help="Filter by exact name")
 @click.option("--name__icontains", help="Filter by name contains")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(name: str | None, name__icontains: str | None, limit: int | None):
+def list_cmd(**kwargs):
     """List Personas as JSONL."""
-    sys.exit(list_personas(name=name, name__icontains=name__icontains, limit=limit))
+    sys.exit(list_personas(**kwargs))
 
 
 @main.command("open")
@@ -509,17 +509,17 @@ def open_cmd(name: str):
 
 @main.command("update")
 @click.option("--name", "-n", help="Set new name")
-def update_cmd(name: str | None):
+def update_cmd(**kwargs):
     """Update Personas from stdin JSONL."""
-    sys.exit(update_personas(name=name))
+    sys.exit(update_personas(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete Personas from stdin JSONL."""
-    sys.exit(delete_personas(yes=yes, dry_run=dry_run))
+    sys.exit(delete_personas(**kwargs))
 
 
 if __name__ == "__main__":
