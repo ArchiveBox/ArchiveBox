@@ -305,6 +305,8 @@ def iter_query_search_ids(
                 errors.append(err)
                 if not fallback_enabled:
                     raise
+        if not successful_backends and errors and search_mode_base == "deep":
+            raise errors[0]
     except Exception as err:
         stderr()
         stderr(
@@ -314,9 +316,6 @@ def iter_query_search_ids(
         if isinstance(err, CalledProcessError) and err.stderr:
             stderr(err.stderr.rstrip(), color="red")
         raise
-    else:
-        if not successful_backends and errors and search_mode_base == "deep":
-            raise errors[0]
 
 
 @enforce_types

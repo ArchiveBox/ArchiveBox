@@ -207,8 +207,8 @@ def test_docker_entrypoint_keeps_root_pgid_and_validates_it_in_real_docker():
     assert 'TARGET_GID="${PGID:-$DETECTED_GID}"' in entrypoint
     assert '[[ "$TARGET_UID" == "0" ]]' in entrypoint
     assert '[[ "$TARGET_GID" == "0" ]]' not in entrypoint.partition('[[ "$TARGET_UID" == "0" ]]')[2].partition("fi")[0]
-    assert 'run_case "non-root UID with root group is supported"' in docker_validator
-    assert '"-" "-" pass 1201 0' in docker_validator
+    assert 'run_case "explicit non-root PUID with PGID zero is supported"' in docker_validator
+    assert '"PUID=1201 PGID=0" "-" pass 1201 0' in docker_validator
 
 
 def test_root_handoff_never_selects_filesystem_root():

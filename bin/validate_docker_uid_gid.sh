@@ -614,6 +614,10 @@ run_case "non-root UID with root group is supported" \
     "chown 1201:0 /case/data && chmod 775 /case/data" \
     "-" "-" pass 1201 0
 
+run_case "explicit non-root PUID with PGID zero is supported" \
+    "chown 0:0 /case/data && chmod 755 /case/data" \
+    "PUID=1201 PGID=0" "-" pass 1201 0
+
 run_case "writable cache and persona profile skip recursive startup scans" \
     "chown 911:911 /case/data && mkdir -p /case/lib/cache/uv/nested /case/data/personas/Default/chrome_profile/nested && touch /case/lib/cache/uv/nested/marker /case/data/personas/Default/chrome_profile/SingletonLock /case/data/personas/Default/chrome_profile/nested/SingletonLock && chown 911:911 /case/lib/cache/uv /case/data/personas/Default/chrome_profile && chown 0:0 /case/lib/cache/uv/nested/marker" \
     "-" "-" pass 911 911 "$default_cmd" cache-and-profile-shallow

@@ -939,7 +939,7 @@ class TestSearchBackendsE2E:
                 )
                 assert create_result.returncode == 0, create_result.stderr or create_result.stdout
                 metadata_create_outputs.append(create_result.stdout)
-            from archivebox.core.models import Snapshot
+            from archivebox.core.models import ArchiveResult, Snapshot
             from archivebox.tests.test_orm_helpers import use_archivebox_db
 
             with use_archivebox_db(initialized_archive):
@@ -972,6 +972,17 @@ class TestSearchBackendsE2E:
                 timeout=180,
             )
             assert index_update.returncode == 0, index_update.stderr or index_update.stdout
+            with use_archivebox_db(initialized_archive):
+                sonic_results = list(
+                    ArchiveResult.objects.filter(
+                        plugin="search_backend_sonic",
+                        snapshot__url__in=[*first_wget_urls[:3], *second_wget_urls[:2]],
+                    ).values_list("snapshot__url", "status", "output_str", "process__stderr"),
+                )
+            assert {url for url, status, _, _ in sonic_results if status == "succeeded"} == {
+                *first_wget_urls[:3],
+                *second_wget_urls[:2],
+            }, (sonic_results, index_update.stdout, index_update.stderr)
 
             cli_backend_expectations = (
                 ("ripgrep", shared_content_needle, matrix_urls),
