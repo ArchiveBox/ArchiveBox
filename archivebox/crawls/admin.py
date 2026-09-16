@@ -13,13 +13,12 @@ from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django_object_actions import action
 
+from archivebox.core.widgets import render_permissions_badge
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.core.models import Snapshot
 from archivebox.core.permissions import (
-    PERMISSIONS_CHOICES,
     PERMISSIONS_META,
     PERMISSIONS_VALUES,
-    normalize_permissions,
 )
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.crawls.forms import CrawlAdminForm
@@ -467,45 +466,11 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(description="👁", ordering="permissions")
     def permissions_badge(self, obj):
-        permissions = normalize_permissions(obj.permissions)
-        icon, label, fg, bg = PERMISSIONS_META[permissions]
-        menu_items = format_html_join(
-            "",
-            (
-                '<button type="button" class="snapshot-permissions-menu-item{}" data-permissions="{}">'
-                '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
-                "<span>{}</span>"
-                "</button>"
-            ),
-            (
-                (
-                    " is-active" if choice_value == permissions else "",
-                    choice_value,
-                    choice_fg,
-                    choice_bg,
-                    choice_icon,
-                    choice_label,
-                )
-                for choice_value, choice_label in PERMISSIONS_CHOICES
-                for choice_icon, _choice_title, choice_fg, choice_bg in [PERMISSIONS_META[choice_value]]
-            ),
-        )
-        return format_html(
-            '<span class="snapshot-permissions-quick" data-current-permissions="{}" data-permissions-url="{}">'
-            '<button type="button" class="snapshot-permissions-button snapshot-permissions-{}" title="{}" aria-label="Change crawl permissions: {}" aria-expanded="false">'
-            '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
-            "</button>"
-            '<span class="snapshot-permissions-menu" role="menu" hidden>{}</span>'
-            "</span>",
+        permissions = obj.permissions
+        return render_permissions_badge(
             permissions,
-            reverse(f"{self.admin_site.name}:crawls_crawl_set_permissions", args=[obj.pk]),
-            permissions,
-            label,
-            label,
-            fg,
-            bg,
-            icon,
-            menu_items,
+            url=reverse(f"{self.admin_site.name}:crawls_crawl_set_permissions", args=[obj.pk]),
+            object_name="crawl",
         )
 
     @admin.display(description="Pause")

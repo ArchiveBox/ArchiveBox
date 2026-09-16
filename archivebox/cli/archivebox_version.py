@@ -240,7 +240,6 @@ def version(
 
     prnt("[pale_green1][i] Binary Dependencies:[/pale_green1]")
     failures = []
-    seen_failures: set[str] = set()
     seen_rows: set[tuple[str, str, str, str]] = set()
 
     from archivebox.plugins.discovery import get_enabled_plugins, get_plugin_catalog
@@ -319,14 +318,54 @@ def version(
         loaded_binaries = asyncio.run(resolve_declared_binaries())
 
     rows: list[dict[str, object]] = []
-    any_rows = False
     any_available = False
     compact_paths = console.is_terminal
-    live_enabled = console.is_terminal
-    live_cm = Live(binary_dependency_table(rows), console=console, refresh_per_second=8) if live_enabled else None
+    live_cm = Live(binary_dependency_table(rows), console=console, refresh_per_second=8) if console.is_terminal else None
 
-    def emit_row(row: dict[str, object]) -> None:
-        rows.append(row)
+    def emit_binary(plugin_name, plugin_enabled, display_name, binary, *, dim=False):
+        nonlocal any_available
+        valid = binary is not None
+        abspath = binary.abspath if valid else ""
+        version_str = str(binary.version or "unknown")[:15] if valid else "-"
+        provider = str(binary.binprovider or "env")[:8] if valid else "-"
+        any_available |= valid
+        if not valid and plugin_enabled and display_name not in failures:
+            failures.append(display_name)
+        row_key = _binary_row_dedupe_key(
+            display_name=display_name,
+            valid=valid,
+            version=version_str,
+            provider=provider,
+            abspath=abspath,
+        )
+        if row_key in seen_rows:
+            return
+        seen_rows.add(row_key)
+        rendered_path = "[grey53]not installed[/grey53]"
+        if valid:
+            display_path = (
+                _format_binary_abspath(
+                    abspath,
+                    pwd=Path.cwd(),
+                    lib_dir=config.ABXPKG_LIB_DIR,
+                    personas_dir=CONSTANTS.PERSONAS_DIR,
+                    home=Path.home(),
+                )
+                if compact_paths
+                else abspath
+            )
+            rendered_path = _render_binary_abspath(display_path) if compact_paths else display_path
+        rows.append(
+            {
+                "plugin": plugin_name,
+                "status": binary_dependency_status(enabled=plugin_enabled, valid=valid),
+                "binary": display_name,
+                "version": version_str,
+                "provider": provider,
+                "path": rendered_path,
+                "style": "dim" if dim or not plugin_enabled else "",
+            },
+        )
         if live_cm is not None:
             live_cm.update(binary_dependency_table(rows), refresh=True)
 
@@ -335,118 +374,25 @@ def version(
     try:
         for plugin_name, plugin_enabled, display_name, binary_record in plugin_binaries:
             installed = db_binaries.get(display_name) if db_available else None
-            if _binary_record_matches_runtime(installed, config.ABXPKG_LIB_DIR):
-                abspath = installed.abspath
-                version_str = (installed.version or "unknown")[:15]
-                provider = (installed.binprovider or "env")[:8]
-                valid = True
-            elif not plugin_enabled and not requested_names:
-                # `archivebox version` is expected to verify the active runtime, not
-                # cold-load every optional plugin provider. Migration and status
-                # checks often run with PLUGINS narrowed to a tiny set; resolving
-                # disabled plugin binaries there can spend most of the command on
-                # providers the current collection will never execute.
-                continue
-            else:
-                loaded = loaded_binaries[json.dumps(binary_record, sort_keys=True, default=str)]
-                abspath = loaded.abspath if loaded is not None else ""
-                version_str = str(loaded.version or "unknown")[:15] if loaded is not None else "unknown"
-                provider = str(loaded.binprovider or "env")[:8] if loaded is not None else "env"
-                valid = loaded is not None
-
-            any_rows = True
-            if valid:
-                display_path = (
-                    _format_binary_abspath(
-                        abspath,
-                        pwd=Path.cwd(),
-                        lib_dir=config.ABXPKG_LIB_DIR,
-                        personas_dir=CONSTANTS.PERSONAS_DIR,
-                        home=Path.home(),
-                    )
-                    if compact_paths
-                    else abspath
-                )
-                rendered_path = _render_binary_abspath(display_path) if compact_paths else display_path
-                any_available = True
-            else:
-                rendered_path = "[grey53]not installed[/grey53]"
-                if plugin_enabled and display_name not in seen_failures:
-                    failures.append(display_name)
-                    seen_failures.add(display_name)
-
-            row_key = _binary_row_dedupe_key(
-                display_name=display_name,
-                valid=valid,
-                version=version_str if valid else "-",
-                provider=provider if valid else "-",
-                abspath=abspath,
-            )
-            if row_key in seen_rows:
-                continue
-            seen_rows.add(row_key)
-
-            emit_row(
-                {
-                    "plugin": plugin_name,
-                    "status": binary_dependency_status(enabled=plugin_enabled, valid=valid),
-                    "binary": display_name,
-                    "version": version_str if valid else "-",
-                    "provider": provider if valid else "-",
-                    "path": rendered_path,
-                    "style": "" if plugin_enabled else "dim",
-                },
-            )
+            if not _binary_record_matches_runtime(installed, config.ABXPKG_LIB_DIR):
+                # Resolve only enabled or explicitly requested dependencies. Cold-loading
+                # every optional provider makes status and migration checks needlessly slow.
+                if not plugin_enabled and not requested_names:
+                    continue
+                installed = loaded_binaries[json.dumps(binary_record, sort_keys=True, default=str)]
+            emit_binary(plugin_name, plugin_enabled, display_name, installed)
 
         if db_available:
             for binary_name, installed in db_binaries.items():
-                if requested_names and binary_name not in requested_names:
-                    continue
-                abspath = installed.abspath
-                version_str = (installed.version or "unknown")[:15]
-                provider = (installed.binprovider or "env")[:8]
-                row_key = _binary_row_dedupe_key(
-                    display_name=binary_name,
-                    valid=True,
-                    version=version_str,
-                    provider=provider,
-                    abspath=abspath,
-                )
-                if row_key in seen_rows:
-                    continue
-                seen_rows.add(row_key)
-
-                display_path = (
-                    _format_binary_abspath(
-                        abspath,
-                        pwd=Path.cwd(),
-                        lib_dir=config.ABXPKG_LIB_DIR,
-                        personas_dir=CONSTANTS.PERSONAS_DIR,
-                        home=Path.home(),
-                    )
-                    if compact_paths
-                    else abspath
-                )
-                emit_row(
-                    {
-                        "plugin": "(database)",
-                        "status": binary_dependency_status(enabled=True, valid=True),
-                        "binary": binary_name,
-                        "version": version_str,
-                        "provider": provider,
-                        "path": _render_binary_abspath(display_path) if compact_paths else display_path,
-                        "style": "dim",
-                    },
-                )
-                any_rows = True
-                any_available = True
+                if not requested_names or binary_name in requested_names:
+                    emit_binary("(database)", True, binary_name, installed, dim=True)
     finally:
         if live_cm is not None:
             live_cm.stop()
         else:
             prnt(binary_dependency_table(rows))
 
-    if not any_rows:
+    if not rows:
         prnt("", "[grey53]No required binaries declared for discovered plugins.[/grey53]")
     elif not any_available:
         prnt("", "[grey53]No binaries detected. Run [green]archivebox install[/green] to detect dependencies.[/grey53]")

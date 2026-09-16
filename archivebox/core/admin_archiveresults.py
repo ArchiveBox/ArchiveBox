@@ -23,7 +23,7 @@ from django.utils.text import smart_split
 from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.routes_util import build_snapshot_url
-from archivebox.core.widgets import InlineTagEditorWidget
+from archivebox.core.widgets import InlineTagEditorWidget, render_copy_block
 from archivebox.machine.env_util import env_to_shell_exports
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.misc.paginators import AcceleratedPaginator
@@ -717,26 +717,9 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     @admin.display(description="Command")
     def cmd_str(self, result):
-        request = self.request
-        display_cmd = build_abx_dl_display_command(result)
-        replay_cmd = build_abx_dl_replay_command(result, config=request.archivebox_config)
-        return format_html(
-            """
-            <div style="position: relative; width: 100%; max-width: 100%; overflow: hidden; box-sizing: border-box;">
-                <button type="button"
-                        data-command="{}"
-                        onclick="(function(btn){{var text=btn.dataset.command||''; if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(text);}} else {{var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);}}}})(this); return false;"
-                        style="position: absolute; top: 6px; right: 6px; z-index: 1; padding: 2px 8px; border: 0; border-radius: 4px; background: #e2e8f0; color: #334155; font-size: 11px; cursor: pointer;">
-                    Copy
-                </button>
-                <code title="{}" style="display: block; width: 100%; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px 56px 8px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 11px; box-sizing: border-box;">
-                    {}
-                </code>
-            </div>
-            """,
-            replay_cmd,
-            replay_cmd,
-            display_cmd,
+        return render_copy_block(
+            build_abx_dl_display_command(result),
+            copy_text=build_abx_dl_replay_command(result, config=self.request.archivebox_config),
         )
 
     def output_display(self, result):

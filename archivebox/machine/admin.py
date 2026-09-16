@@ -14,47 +14,10 @@ from django.utils.safestring import mark_safe
 from django_object_actions import action
 
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
+from archivebox.core.widgets import render_copy_block
 from archivebox.machine.env_util import env_to_dotenv_text
 from archivebox.machine.models import Binary, Machine, NetworkInterface, Process
 from archivebox.misc.logging_util import printable_filesize
-
-
-def _render_copy_block(text: str, *, multiline: bool = False):
-    if multiline:
-        return format_html(
-            """
-            <div style="position: relative; width: 100%; max-width: 100%; overflow: hidden; box-sizing: border-box;">
-                <button type="button"
-                        data-command="{}"
-                        onclick="(function(btn){{var text=btn.dataset.command||''; if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(text);}} else {{var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);}}}})(this); return false;"
-                        style="position: absolute; top: 6px; right: 6px; z-index: 1; padding: 2px 8px; border: 0; border-radius: 4px; background: #e2e8f0; color: #334155; font-size: 11px; cursor: pointer;">
-                    Copy
-                </button>
-                <pre title="{}" style="display: block; width: 100%; max-width: 100%; overflow: auto; max-height: 300px; margin: 0; padding: 8px 56px 8px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 11px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; box-sizing: border-box;">{}</pre>
-            </div>
-            """,
-            text,
-            text,
-            text,
-        )
-    return format_html(
-        """
-        <div style="position: relative; width: 100%; max-width: 100%; overflow: hidden; box-sizing: border-box;">
-            <button type="button"
-                    data-command="{}"
-                    onclick="(function(btn){{var text=btn.dataset.command||''; if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(text);}} else {{var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);}}}})(this); return false;"
-                    style="position: absolute; top: 6px; right: 6px; z-index: 1; padding: 2px 8px; border: 0; border-radius: 4px; background: #e2e8f0; color: #334155; font-size: 11px; cursor: pointer;">
-                Copy
-            </button>
-            <code title="{}" style="display: block; width: 100%; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px 56px 8px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 11px; box-sizing: border-box;">
-                {}
-            </code>
-        </div>
-        """,
-        text,
-        text,
-        text,
-    )
 
 
 def _format_process_duration_seconds(started_at, ended_at) -> str:
@@ -722,26 +685,26 @@ class ProcessAdmin(BaseModelAdmin):
             cmd = shlex.join(str(arg) for arg in process.cmd)
         else:
             cmd = str(process.cmd)
-        return _render_copy_block(cmd)
+        return render_copy_block(cmd)
 
     @admin.display(description="Environment")
     def env_display(self, process):
         env_text = env_to_dotenv_text(process.env)
         if not env_text:
             return "-"
-        return _render_copy_block(env_text, multiline=True)
+        return render_copy_block(env_text, multiline=True)
 
     @admin.display(description="Stdout")
     def stdout_display(self, process):
         if not process.stdout:
             return "-"
-        return _render_copy_block(process.stdout, multiline=True)
+        return render_copy_block(process.stdout, multiline=True)
 
     @admin.display(description="Stderr")
     def stderr_display(self, process):
         if not process.stderr:
             return "-"
-        return _render_copy_block(process.stderr, multiline=True)
+        return render_copy_block(process.stderr, multiline=True)
 
     @admin.display(description="ArchiveResult Output")
     def archiveresult_output_display(self, process):
@@ -751,7 +714,7 @@ class ProcessAdmin(BaseModelAdmin):
             return "-"
         if not output:
             return "-"
-        return _render_copy_block(output, multiline=True)
+        return render_copy_block(output, multiline=True)
 
 
 def register_admin(admin_site):

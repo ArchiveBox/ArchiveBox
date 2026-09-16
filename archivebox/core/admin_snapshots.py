@@ -11,7 +11,7 @@ from django.urls import path, reverse
 from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed
 from django.utils import timezone
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.db.models import Q, Count, Exists, F, OuterRef, Prefetch
 from django import forms
@@ -29,6 +29,7 @@ from archivebox.core.routes_util import build_snapshot_url, build_web_url
 from archivebox.plugins.hooks import discover_hooks
 from archivebox.plugins.discovery import get_plugin_icon, get_plugin_name, get_plugins
 
+from archivebox.core.widgets import render_permissions_badge
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
@@ -40,7 +41,6 @@ from archivebox.core.permissions import (
     PERMISSIONS_CHOICES,
     PERMISSIONS_META,
     get_snapshot_permissions,
-    normalize_permissions,
 )
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
@@ -739,45 +739,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         permissions = obj.__dict__.get("snapshot_permissions")
         if permissions is None:
             permissions = obj.permissions
-        permissions = normalize_permissions(permissions)
-        icon, label, fg, bg = SNAPSHOT_PERMISSION_META[permissions]
-        menu_items = format_html_join(
-            "",
-            (
-                '<button type="button" class="snapshot-permissions-menu-item{}" data-permissions="{}">'
-                '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
-                "<span>{}</span>"
-                "</button>"
-            ),
-            (
-                (
-                    " is-active" if choice_value == permissions else "",
-                    choice_value,
-                    choice_fg,
-                    choice_bg,
-                    choice_icon,
-                    choice_label,
-                )
-                for choice_value, choice_label in PERMISSIONS_CHOICES
-                for choice_icon, _choice_title, choice_fg, choice_bg in [SNAPSHOT_PERMISSION_META[choice_value]]
-            ),
-        )
-        return format_html(
-            '<span class="snapshot-permissions-quick" data-current-permissions="{}" data-permissions-url="{}">'
-            '<button type="button" class="snapshot-permissions-button snapshot-permissions-{}" title="{}" aria-label="Change snapshot permissions: {}" aria-expanded="false">'
-            '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
-            "</button>"
-            '<span class="snapshot-permissions-menu" role="menu" hidden>{}</span>'
-            "</span>",
+        return render_permissions_badge(
             permissions,
-            reverse(f"{self.admin_site.name}:core_snapshot_set_permissions", args=[obj.pk]),
-            permissions,
-            label,
-            label,
-            fg,
-            bg,
-            icon,
-            menu_items,
+            url=reverse(f"{self.admin_site.name}:core_snapshot_set_permissions", args=[obj.pk]),
+            object_name="snapshot",
         )
 
     @admin.display(description="Imported Timestamp")

@@ -1,5 +1,6 @@
 {% load static %}
-<link rel="stylesheet" href="{% static 'progressmonitor/monitor.css' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
+{% firstof STATIC_CACHE_KEY VERSION "" as asset_version %}
+<link rel="stylesheet" href="{% static 'progressmonitor/monitor.css' %}?v={{ asset_version|urlencode }}">
 <div id="progress-monitor" class="{% if not progress_auto_expand %}collapsed{% endif %}"
      data-progress-endpoint="{{ progress_endpoint|default:'/progress.json' }}"
      data-progress-scope="{{ progress_scope|default:'global' }}"
@@ -45,4 +46,4 @@
         <aside class="screencast-panel" id="screencast-panel" aria-label="Live browser screencast"></aside>
     </div>
 </div>
-<script src="{% static 'progressmonitor/monitor.js' %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}"></script>
+<script src="{% static 'progressmonitor/monitor.js' %}?v={{ asset_version|urlencode }}"></script>

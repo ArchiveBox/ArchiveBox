@@ -452,3 +452,35 @@ class InlineTagEditorWidget(TagEditorWidget):
         '''
 
         return mark_safe(html)
+
+
+def render_copy_block(text: str, *, multiline: bool = False, copy_text: str | None = None):
+    return render_to_string(
+        "admin/widgets/copy_block.html",
+        {
+            "text": text,
+            "copy_text": text if copy_text is None else copy_text,
+            "element": "pre" if multiline else "code",
+            "multiline": multiline,
+        },
+    )
+
+
+def render_permissions_badge(permissions, *, url: str, object_name: str):
+    from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_META, normalize_permissions
+
+    permissions = normalize_permissions(permissions)
+    icon, label, fg, bg = PERMISSIONS_META[permissions]
+    return render_to_string(
+        "admin/widgets/permissions_badge.html",
+        {
+            "permissions": permissions,
+            "url": url,
+            "object_name": object_name,
+            "icon": icon,
+            "label": label,
+            "fg": fg,
+            "bg": bg,
+            "choices": [(value, *PERMISSIONS_META[value]) for value, _label in PERMISSIONS_CHOICES],
+        },
+    )

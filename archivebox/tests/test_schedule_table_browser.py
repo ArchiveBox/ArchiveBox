@@ -92,6 +92,13 @@ const puppeteer = require('puppeteer');
             assert.equal(new URL(page.url()).pathname, pathSuffix);
             assert.equal(await page.evaluate(() => localStorage.getItem('preferred_snapshot_view_mode')), mode);
         }
+        await page.evaluate(() => localStorage.setItem('admin-filters-collapsed', 'false'));
+        await page.goto(base + '/admin/core/archiveresult/', {waitUntil: 'networkidle2'});
+        assert.equal(await page.$eval('#changelist-filter-toggle', button => button.getAttribute('aria-expanded')), 'true');
+        await page.click('#changelist-filter-toggle');
+        assert.equal(await page.$eval('#changelist-filter-toggle', button => button.getAttribute('aria-expanded')), 'false');
+        await page.click('#changelist-toolbar-filter-toggle');
+        assert.equal(await page.$eval('#changelist-filter-toggle', button => button.getAttribute('aria-expanded')), 'true');
         assert.deepEqual(errors, []);
         console.log(JSON.stringify({submission, messages: await page.$$eval('.messagelist', nodes => nodes.map(node => node.textContent))}));
     } finally {
