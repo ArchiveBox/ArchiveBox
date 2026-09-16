@@ -3,6 +3,8 @@
 
 import os
 import json
+import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -75,6 +77,34 @@ def _resolve_sonic_env(env: dict[str, str]) -> dict[str, str]:
     payload = {str(key): str(value) for key, value in json.loads(result.stdout).items()}
     assert Path(payload["SONIC_BINARY"]).is_file()
     return payload
+
+
+def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive):
+    env = cli_env(
+        live=True,
+        ABXPKG_LIB_DIR=str(initialized_archive / "lib"),
+        PLUGINS="search_backend_sonic",
+        SEARCH_BACKEND_ENGINE="sonic",
+        SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
+    )
+    env.update(_resolve_sonic_env(env))
+    env["PATH"] = os.pathsep.join((str(Path(sys.executable).parent), env["PATH"]))
+    sonic_binary = Path(env["SONIC_BINARY"]).resolve(strict=True)
+    env["SONIC_BINARY"] = str(sonic_binary)
+
+    result = run_archivebox_cmd(
+        ["list", "--search=contents", "--csv=url", "not-indexed"],
+        cwd=initialized_archive,
+        env=env,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    config_match = re.search(r"Using supervisord config file: (\S+)", result.stderr)
+    assert config_match, result.stderr
+    worker_config = Path(config_match.group(1)).parent / "workers" / "worker_sonic.conf"
+    worker_text = worker_config.read_text(encoding="utf-8")
+    command = next(line.partition("=")[2] for line in worker_text.splitlines() if line.startswith("command="))
+    assert shlex.split(command)[0] == str(sonic_binary), worker_text
 
 
 def _archive_pages_for_sqlite_reindexing(data_dir: Path, env: dict[str, str], root_url: str) -> None:

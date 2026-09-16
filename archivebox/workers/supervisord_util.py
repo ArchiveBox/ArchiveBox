@@ -1331,6 +1331,15 @@ def get_sonic_supervisord_worker_from_plugin(config) -> dict[str, str] | None:
         return None
 
     worker = get_sonic_supervisord_worker(config)
+    if worker is not None:
+        requested_binary = Path(str(config.SONIC_BINARY)).expanduser()
+        if requested_binary.is_absolute():
+            # The plugin may project an explicit binary through env/bin/sonic.
+            # That symlink can be retargeted to a different Sonic release,
+            # whose on-disk index format may be incompatible with this one.
+            command = shlex.split(worker["command"])
+            command[0] = str(requested_binary.resolve(strict=True))
+            worker["command"] = shlex.join(command)
     return cast(dict[str, str] | None, worker)
 
 
