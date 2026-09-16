@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Compare tracked text lines with a fixed git revision (old/ is out of scope).
+"""Compare tracked text lines with a fixed git revision, excluding old/ and docs/.
 
 Usage: uv run bin/measure_source.py <baseline-revision>
 Counts real source files once, including new untracked files, but not symlinks,
-binaries, ignored build artifacts, or old/. Categories keep generated-doc cleanup
-visible separately from production and test changes.
+binaries, ignored build artifacts, old/, or docs/. Documentation cleanup contributes
+nothing to the measured reduction.
 """
 
 import json
@@ -19,13 +19,11 @@ def category(path: str) -> str:
         return "tests"
     if path.startswith("archivebox/"):
         return "production"
-    if path.startswith("docs/"):
-        return "documentation"
     return "tooling_and_other"
 
 
 def count(path: str, content: bytes, totals: Counter) -> None:
-    if not path.startswith("old/") and b"\0" not in content:
+    if not path.startswith(("old/", "docs/")) and b"\0" not in content:
         totals[category(path)] += len(content.splitlines())
 
 
@@ -36,7 +34,7 @@ def baseline_lines(revision: str) -> Counter:
     for entry in filter(None, entries):
         metadata, path = entry.split(b"\t", 1)
         mode, kind, oid = metadata.split()
-        if kind == b"blob" and mode != b"120000" and not path.startswith(b"old/"):
+        if kind == b"blob" and mode != b"120000" and not path.startswith((b"old/", b"docs/")):
             objects.append((oid, path.decode()))
     result = subprocess.run(
         ["git", "cat-file", "--batch"],
