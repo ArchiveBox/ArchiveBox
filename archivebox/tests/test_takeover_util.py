@@ -82,19 +82,33 @@ def _resolve_sonic_env(env: dict[str, str]) -> dict[str, str]:
 
 def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive):
     sonic_port = get_free_port()
+    lib_dir = initialized_archive / "lib"
     env = cli_env(
         live=True,
-        ABXPKG_LIB_DIR=str(initialized_archive / "lib"),
+        ABXPKG_LIB_DIR=str(lib_dir),
         PLUGINS="search_backend_sonic",
         SEARCH_BACKEND_ENGINE="sonic",
         SEARCH_BACKEND_SONIC_PORT=str(sonic_port),
     )
     env.update(_resolve_sonic_env(env))
     env["PATH"] = os.pathsep.join((str(Path(sys.executable).parent), env["PATH"]))
+    installed_binary = Path(env["SONIC_BINARY"]).resolve(strict=True)
+    managed_sonic_dir = lib_dir / "bash" / "bin"
+    managed_sonic_dir.mkdir(parents=True, exist_ok=True)
+    managed_binary = managed_sonic_dir / "sonic"
+    if installed_binary != managed_binary:
+        shutil.copy2(installed_binary, managed_binary)
+    config_result = run_archivebox_cmd(
+        ["config", "--set", f"SONIC_BINARY={managed_binary}"],
+        cwd=initialized_archive,
+        env=env,
+        timeout=60,
+    )
+    assert config_result.returncode == 0, config_result.stderr or config_result.stdout
     pinned_sonic_dir = initialized_archive / "pinned-sonic"
     pinned_sonic_dir.mkdir()
     sonic_binary = pinned_sonic_dir / "sonic"
-    shutil.copy2(Path(env["SONIC_BINARY"]).resolve(strict=True), sonic_binary)
+    shutil.copy2(installed_binary, sonic_binary)
     env["SONIC_BINARY"] = str(sonic_binary)
 
     result = run_archivebox_cmd(

@@ -1330,9 +1330,15 @@ def get_sonic_supervisord_worker_from_plugin(config) -> dict[str, str] | None:
             raise
         return None
 
+    explicit_binary = os.environ.get("SONIC_BINARY")
+    requested_binary = Path(explicit_binary or str(config.SONIC_BINARY)).expanduser()
+    if explicit_binary and requested_binary.is_absolute():
+        # Machine.config can outrank the process environment; an explicit
+        # executable must win before the plugin hydrates its binary provider.
+        config = config.model_copy(update={"SONIC_BINARY": str(requested_binary)})
+
     worker = get_sonic_supervisord_worker(config)
     if worker is not None:
-        requested_binary = Path(str(config.SONIC_BINARY)).expanduser()
         if requested_binary.is_absolute():
             # The plugin may project an explicit binary through env/bin/sonic.
             # That symlink can be retargeted to a different Sonic release,
