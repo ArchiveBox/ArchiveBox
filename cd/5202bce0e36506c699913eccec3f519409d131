@@ -1,0 +1,85 @@
+docs/Security-Overview.md
+  s_4f8227e1fbd31e::t_361a40eeb0531c 153
+archivebox/misc/checks.py
+  s_4f8227e1fbd31e::t_361a40eeb0531c 258
+bin/docker_entrypoint.sh
+  s_4f8227e1fbd31e::t_2d0a14a366fe73 127,131-132,135,145
+  s_4f8227e1fbd31e::t_74436a46b721f5 7-9,128-130,158-160,216-217
+  s_4f8227e1fbd31e::t_7bd42e694d45ce 38-39,49,59-69,73,75,97-104,126,136-143,147-148,191-192,196-198,214-215,218-223
+  s_4f8227e1fbd31e::t_397454bb706fbd 70-72,74,144,152,163-165
+  s_4f8227e1fbd31e::t_4684105f305af7 146
+README.md
+  s_4f8227e1fbd31e::t_361a40eeb0531c 1039
+  s_4f8227e1fbd31e::t_800746e27b943e 1040
+archivebox/tests/test_permissions.py
+  s_4f8227e1fbd31e::t_397454bb706fbd 194-196
+  s_4f8227e1fbd31e::t_a47ee860044b81 187-188
+  s_4f8227e1fbd31e::t_aa382888205b2b 181,206-207
+  s_4f8227e1fbd31e::t_74436a46b721f5 189
+  s_4f8227e1fbd31e::t_c436cc68e52baf 180,182-186,190-193,197-205
+docker-compose.yml
+  s_4f8227e1fbd31e::t_800746e27b943e 32-33
+bin/validate_docker_uid_gid.sh
+  s_4f8227e1fbd31e::t_a47ee860044b81 450
+  s_4f8227e1fbd31e::t_ca043b5185e472 436,442-449,451,465,520-522,525,532-533,539,551,591-599,601,603-606
+  s_4f8227e1fbd31e::t_dc3a77e95deea0 249-252,514-519,523-524,526-531,534-538,540-550,552-559,588-590,607-614,645
+  s_4f8227e1fbd31e::t_397454bb706fbd 600,602
+  s_69ddf154c10e6f::t_7a9c46506d7f14 560-561
+  s_b989805ae95d6a::t_39368321603430 615
+  s_4f8227e1fbd31e::t_f605730ce39227 426-435,437-441,452-464,466-481,647
+.github/workflows/docker.yml
+  s_4f8227e1fbd31e::t_446cbaf192c0cf 360
+docs/Docker.md
+  s_4f8227e1fbd31e::t_361a40eeb0531c 131-135,137-142,221
+  s_4f8227e1fbd31e::t_397454bb706fbd 136
+docs/Configuration.md
+  s_4f8227e1fbd31e::t_361a40eeb0531c 588-590
+docs/codeblocks.toml
+  s_4f8227e1fbd31e::t_ee2f039e7205bb 112,207,229
+docs/Setting-Up-Storage.md
+  s_4f8227e1fbd31e::t_361a40eeb0531c 130-131,153-154,338-339
+docs/Troubleshooting.md
+  s_4f8227e1fbd31e::t_361a40eeb0531c 139,141-153
+  s_4f8227e1fbd31e::t_800746e27b943e 137,140
+  s_a90d1204e0ed5e::t_c3bcc92f6434ed 138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cd5202bce0e36506c699913eccec3f519409d131",
+  "prompts": {},
+  "sessions": {
+    "s_4f8227e1fbd31e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a73e-7c2b-7091-9bcd-6b2b4713dd90",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    },
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a90d1204e0ed5e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07fb4-134a-7340-b7d7-ca6b3b9ea8df",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
