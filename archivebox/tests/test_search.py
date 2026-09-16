@@ -997,7 +997,11 @@ class TestSearchBackendsE2E:
                     env={**env, "SEARCH_BACKEND_ENGINE": backend_name},
                     timeout=60,
                 )
-                assert backend_result.returncode == 0, backend_result.stderr or backend_result.stdout
+                sonic_log = initialized_archive / "logs" / "worker_sonic.log"
+                assert backend_result.returncode == 0, (
+                    backend_result.stderr or backend_result.stdout,
+                    sonic_log.read_text(encoding="utf-8", errors="replace") if backend_name == "sonic" and sonic_log.is_file() else "",
+                )
                 backend_urls = [line.strip().strip('"') for line in backend_result.stdout.splitlines() if line.strip()]
                 assert set(backend_urls) == set(expected_urls), (backend_name, query, backend_result.stdout)
 
