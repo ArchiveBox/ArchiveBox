@@ -20,7 +20,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.text import smart_split
 
-from archivebox.base_models.admin import BaseModelAdmin
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.routes_util import build_snapshot_url
 from archivebox.core.widgets import InlineTagEditorWidget, render_copy_block
@@ -376,40 +376,14 @@ class ArchiveResultAdmin(BaseModelAdmin):
     autocomplete_fields = ("snapshot",)
 
     fieldsets = (
-        (
-            "Snapshot",
-            {
-                "fields": ("snapshot", "snapshot_info", "tags_str", "admin_actions"),
-                "classes": ("card", "wide"),
-            },
-        ),
-        (
-            "Plugin",
-            {
-                "fields": ("plugin_with_icon", "process_link", "status"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Timing",
-            {
-                "fields": ("start_ts", "end_ts", "created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Command",
-            {
-                "fields": ("cmd", "cmd_str", "cmd_version", "pwd"),
-                "classes": ("card",),
-            },
-        ),
-        (
+        card_fieldset("Snapshot", ("snapshot", "snapshot_info", "tags_str", "admin_actions"), wide=True),
+        card_fieldset("Plugin", ("plugin_with_icon", "process_link", "status")),
+        card_fieldset("Timing", ("start_ts", "end_ts", "created_at", "modified_at")),
+        card_fieldset("Command", ("cmd", "cmd_str", "cmd_version", "pwd")),
+        card_fieldset(
             "Output",
-            {
-                "fields": ("output_str", "output_json", "output_files", "output_size", "output_mimetypes", "output_summary"),
-                "classes": ("card", "wide"),
-            },
+            ("output_str", "output_json", "output_files", "output_size", "output_mimetypes", "output_summary"),
+            wide=True,
         ),
     )
 

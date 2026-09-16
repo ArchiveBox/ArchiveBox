@@ -13,7 +13,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django_object_actions import action
 
-from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin, ConfigEditorMixin
 from archivebox.core.widgets import render_copy_block
 from archivebox.machine.env_util import env_to_dotenv_text
 from archivebox.machine.models import Binary, Machine, NetworkInterface, Process
@@ -84,59 +84,27 @@ class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
     readonly_fields = ("guid", "created_at", "modified_at", "ips")
 
     fieldsets = (
-        (
-            "Identity",
-            {
-                "fields": ("hostname", "guid", "ips"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Hardware",
-            {
-                "fields": ("hw_manufacturer", "hw_product", "hw_uuid", "hw_in_docker", "hw_in_vm"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Operating System",
-            {
-                "fields": ("os_platform", "os_family", "os_arch", "os_kernel", "os_release"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Statistics",
-            {
-                "fields": ("stats", "num_uses_succeeded", "num_uses_failed"),
-                "classes": ("card",),
-            },
-        ),
-        (
+        card_fieldset("Identity", ("hostname", "guid", "ips")),
+        card_fieldset("Hardware", ("hw_manufacturer", "hw_product", "hw_uuid", "hw_in_docker", "hw_in_vm")),
+        card_fieldset("Operating System", ("os_platform", "os_family", "os_arch", "os_kernel", "os_release")),
+        card_fieldset("Statistics", ("stats", "num_uses_succeeded", "num_uses_failed")),
+        card_fieldset(
             "Configuration",
-            {
-                "fields": ("config",),
-                "classes": ("card", "wide"),
-                "description": mark_safe(
-                    '<div style="padding:8px 10px;margin-bottom:8px;background:#fff7ed;'
-                    "border:1px solid #fed7aa;border-left:4px solid #f59e0b;border-radius:4px;"
-                    'color:#7c2d12;font-size:12px;line-height:1.45;">'
-                    "<b>Heads up:</b> saving here also rewrites "
-                    "<code>data/ArchiveBox.conf</code> on disk to match — the two stores are "
-                    "kept in 1:1 sync, so any keys you remove here will be removed from the file "
-                    "too. Edits to <code>ArchiveBox.conf</code> (or <code>archivebox config --set</code>) "
-                    "propagate back into this field on the next request."
-                    "</div>",
-                ),
-            },
+            ("config",),
+            wide=True,
+            description=mark_safe(
+                '<div style="padding:8px 10px;margin-bottom:8px;background:#fff7ed;'
+                "border:1px solid #fed7aa;border-left:4px solid #f59e0b;border-radius:4px;"
+                'color:#7c2d12;font-size:12px;line-height:1.45;">'
+                "<b>Heads up:</b> saving here also rewrites "
+                "<code>data/ArchiveBox.conf</code> on disk to match — the two stores are "
+                "kept in 1:1 sync, so any keys you remove here will be removed from the file "
+                "too. Edits to <code>ArchiveBox.conf</code> (or <code>archivebox config --set</code>) "
+                "propagate back into this field on the next request."
+                "</div>",
+            ),
         ),
-        (
-            "Timestamps",
-            {
-                "fields": ("created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
+        card_fieldset("Timestamps", ("created_at", "modified_at")),
     )
 
     list_filter = ("hw_in_docker", "hw_in_vm", "os_arch", "os_family", "os_platform")
@@ -237,41 +205,11 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
     readonly_fields = ("machine", "created_at", "modified_at", "mac_address", "ip_public", "ip_local", "dns_server")
 
     fieldsets = (
-        (
-            "Machine",
-            {
-                "fields": ("machine",),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Network",
-            {
-                "fields": ("iface", "ip_public", "ip_local", "mac_address", "dns_server"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Location",
-            {
-                "fields": ("hostname", "isp", "city", "region", "country"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Usage",
-            {
-                "fields": ("num_uses_succeeded", "num_uses_failed"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Timestamps",
-            {
-                "fields": ("created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
+        card_fieldset("Machine", ("machine",)),
+        card_fieldset("Network", ("iface", "ip_public", "ip_local", "mac_address", "dns_server")),
+        card_fieldset("Location", ("hostname", "isp", "city", "region", "country")),
+        card_fieldset("Usage", ("num_uses_succeeded", "num_uses_failed")),
+        card_fieldset("Timestamps", ("created_at", "modified_at")),
     )
 
     list_filter = ("isp", "country", "region")
@@ -303,48 +241,12 @@ class BinaryAdmin(BaseModelAdmin):
     readonly_fields = ("created_at", "modified_at", "output_dir")
 
     fieldsets = (
-        (
-            "Binary Info",
-            {
-                "fields": ("name", "binproviders", "binprovider", "overrides"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Location",
-            {
-                "fields": ("machine", "abspath"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Version",
-            {
-                "fields": ("version", "sha256"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "State",
-            {
-                "fields": ("status", "retry_at", "output_dir"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Usage",
-            {
-                "fields": ("num_uses_succeeded", "num_uses_failed"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Timestamps",
-            {
-                "fields": ("created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
+        card_fieldset("Binary Info", ("name", "binproviders", "binprovider", "overrides")),
+        card_fieldset("Location", ("machine", "abspath")),
+        card_fieldset("Version", ("version", "sha256")),
+        card_fieldset("State", ("status", "retry_at", "output_dir")),
+        card_fieldset("Usage", ("num_uses_succeeded", "num_uses_failed")),
+        card_fieldset("Timestamps", ("created_at", "modified_at")),
     )
 
     list_filter = ("name", "binprovider", "status", "machine_id")
@@ -425,34 +327,10 @@ class ProcessAdmin(BaseModelAdmin):
     )
 
     fieldsets = (
-        (
-            "Process Info",
-            {
-                "fields": ("machine", "archiveresult_link", "snapshot_link", "crawl_link", "status", "retry_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Command",
-            {
-                "fields": ("cmd_display", "pwd", "env_display", "timeout"),
-                "classes": ("card", "wide"),
-            },
-        ),
-        (
-            "Execution",
-            {
-                "fields": ("binary_link", "iface_link", "pid", "exit_code", "url"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Timing",
-            {
-                "fields": ("started_at", "ended_at", "duration_display"),
-                "classes": ("card",),
-            },
-        ),
+        card_fieldset("Process Info", ("machine", "archiveresult_link", "snapshot_link", "crawl_link", "status", "retry_at")),
+        card_fieldset("Command", ("cmd_display", "pwd", "env_display", "timeout"), wide=True),
+        card_fieldset("Execution", ("binary_link", "iface_link", "pid", "exit_code", "url")),
+        card_fieldset("Timing", ("started_at", "ended_at", "duration_display")),
         (
             "Output",
             {
@@ -460,13 +338,7 @@ class ProcessAdmin(BaseModelAdmin):
                 "classes": ("card", "wide", "collapse"),
             },
         ),
-        (
-            "Timestamps",
-            {
-                "fields": ("created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
+        card_fieldset("Timestamps", ("created_at", "modified_at")),
     )
 
     list_filter = ("status", "exit_code", "machine_id")

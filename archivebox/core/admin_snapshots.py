@@ -30,7 +30,7 @@ from archivebox.plugins.hooks import discover_hooks
 from archivebox.plugins.discovery import get_plugin_icon, get_plugin_name, get_plugins
 
 from archivebox.core.widgets import render_permissions_badge
-from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
 from archivebox.crawls.models import Crawl
@@ -415,70 +415,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 "classes": ("card", "actions-card"),
             },
         ),
-        (
-            "Snapshot",
-            {
-                "fields": ("snapshot_summary",),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "URL",
-            {
-                "fields": (("url_favicon", "url"), ("title", "tags_badges")),
-                "classes": ("card", "wide"),
-            },
-        ),
-        (
-            "Tags",
-            {
-                "fields": ("tags_editor", "permissions_config"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Status",
-            {
-                "fields": ("status", "retry_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Timestamps",
-            {
-                "fields": ("bookmarked_at", "created_at", "modified_at", "downloaded_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Relations",
-            {
-                "fields": ("crawl",),
-                "classes": ("card",),
-            },
-        ),
-        (
+        card_fieldset("Snapshot", ("snapshot_summary",)),
+        card_fieldset("URL", (("url_favicon", "url"), ("title", "tags_badges")), wide=True),
+        card_fieldset("Tags", ("tags_editor", "permissions_config")),
+        card_fieldset("Status", ("status", "retry_at")),
+        card_fieldset("Timestamps", ("bookmarked_at", "created_at", "modified_at", "downloaded_at")),
+        card_fieldset("Relations", ("crawl",)),
+        card_fieldset(
             "Config",
-            {
-                "fields": ("config",),
-                "description": '<span style="display:block; margin:-4px 0 6px; font-size:11px; line-height:1.35; color:#94a3b8;">Uses <code>Crawl.config</code> by default. Only set per-snapshot overrides here when needed.</span>',
-                "classes": ("card",),
-            },
+            ("config",),
+            description='<span style="display:block; margin:-4px 0 6px; font-size:11px; line-height:1.35; color:#94a3b8;">Uses <code>Crawl.config</code> by default. Only set per-snapshot overrides here when needed.</span>',
         ),
-        (
-            "Files",
-            {
-                "fields": ("output_dir",),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Archive Results",
-            {
-                "fields": ("archiveresults_list",),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("Files", ("output_dir",)),
+        card_fieldset("Archive Results", ("archiveresults_list",), wide=True),
     )
 
     ordering = ["-created_at"]

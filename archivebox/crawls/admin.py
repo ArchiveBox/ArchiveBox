@@ -14,7 +14,7 @@ from django.utils.safestring import mark_safe
 from django_object_actions import action
 
 from archivebox.core.widgets import render_permissions_badge
-from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin, ConfigEditorMixin
 from archivebox.core.models import Snapshot
 from archivebox.core.permissions import (
     PERMISSIONS_META,
@@ -88,13 +88,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     readonly_fields = ("created_at", "modified_at", "stop_reason_display")
 
     fieldsets = (
-        (
-            "URLs",
-            {
-                "fields": ("urls", "url_filters"),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("URLs", ("urls", "url_filters"), wide=True),
         (
             "Overview",
             {
@@ -116,13 +110,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         ),
     )
     add_fieldsets = (
-        (
-            "URLs",
-            {
-                "fields": ("urls", "url_filters"),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("URLs", ("urls", "url_filters"), wide=True),
         (
             "Overview",
             {
@@ -576,34 +564,10 @@ class CrawlScheduleAdmin(BaseModelAdmin):
     autocomplete_fields = ("template", "created_by")
 
     fieldsets = (
-        (
-            "Schedule Info",
-            {
-                "fields": ("label", "notes"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Configuration",
-            {
-                "fields": ("schedule", "template"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Metadata",
-            {
-                "fields": ("created_by", "created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Crawls",
-            {
-                "fields": ("crawls",),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("Schedule Info", ("label", "notes")),
+        card_fieldset("Configuration", ("schedule", "template")),
+        card_fieldset("Metadata", ("created_by", "created_at", "modified_at")),
+        card_fieldset("Crawls", ("crawls",), wide=True),
     )
 
     list_filter = ("created_by",)

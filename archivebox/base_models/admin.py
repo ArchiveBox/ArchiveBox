@@ -17,6 +17,11 @@ from django.utils.safestring import SafeString, mark_safe
 from django_object_actions import DjangoObjectActions
 
 
+def card_fieldset(title: str | None, fields: tuple, *, wide: bool = False, **options):
+    """Build a Django fieldset using the shared card layout."""
+    return title, {"fields": fields, "classes": ("card", "wide") if wide else ("card",), **options}
+
+
 class HexUUIDConverter:
     """URL path converter that canonicalizes UUIDs to their 32-char hex form.
 
