@@ -1,6 +1,5 @@
 __package__ = "archivebox.core"
 
-import html
 import os
 import shlex
 from functools import reduce
@@ -15,6 +14,7 @@ from django.core.exceptions import PermissionDenied, SuspiciousOperation, Valida
 from django.db.models import Count, Min, Prefetch, Q, Subquery, TextField, Window
 from django.db.models.functions import Cast
 from django.shortcuts import redirect
+from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -114,221 +114,58 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
     }
 
     rows = []
-    delete_url = html.escape(reverse("admin:core_archiveresult_changelist"), quote=True)
     for idx, result in enumerate(results):
         status = result.status or "queued"
         color, bg = status_colors.get(status, ("#6b7280", "#f3f4f6"))
-        output_file_count, _ = result.output_file_stats()
-        output_size = int(result.output_size or 0)
-        output_size_display = html.escape(printable_filesize(output_size))
-
-        # Get plugin icon
-        icon = get_plugin_icon(result.plugin)
-
-        # Keep each timestamp component intact while allowing one wrap between them.
-        if result.end_ts:
-            end_time = (
-                f'<span style="white-space: nowrap;">{result.end_ts:%Y-%m-%d}</span>'
-                f'<wbr> <span style="white-space: nowrap;">{result.end_ts:%H:%M:%S}</span>'
-            )
-        else:
-            end_time = "-"
-
         process = result.process_record
-        process_display = "-"
-        if process:
-            process_url = html.escape(reverse("admin:machine_process_change", args=[process.id]), quote=True)
-            process_label = html.escape(get_process_link_label(process), quote=True)
-            process_display = f'''
-                <a href="{process_url}"
-                   style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 12px;"
-                   title="View process">{process_label}</a>
-            '''
-
-        machine_display = "-"
-        if process and process.machine_id:
-            machine_url = html.escape(reverse("admin:machine_machine_change", args=[process.machine_id]), quote=True)
-            machine_label = html.escape(str(process.machine.hostname or ""), quote=True)
-            machine_display = f'''
-                <a href="{machine_url}"
-                   style="color: #2563eb; text-decoration: none; font-size: 12px;"
-                   title="View machine">{machine_label}</a>
-            '''
-
-        # Truncate output for display
-        full_output_raw = result.output_str_for_display() or "-"
-        output_display_raw = full_output_raw[:60]
-        if len(full_output_raw) > 60:
-            output_display_raw += "..."
-        full_output = html.escape(full_output_raw)
-        output_display = html.escape(output_display_raw)
-
-        display_cmd = build_abx_dl_display_command(result)
-        replay_cmd = build_abx_dl_replay_command(result, config=config)
-        cmd_str_escaped = html.escape(display_cmd)
-        cmd_attr = html.escape(replay_cmd, quote=True)
-
-        # Build output link - use embed_path() which checks output_files first
+        output = result.output_str_for_display() or "-"
         embed_path = result.embed_path()
-        snapshot_id = str(result.snapshot_id)
-        if embed_path and result.status == "succeeded":
-            output_link = build_snapshot_url(snapshot_id, embed_path, config=config)
-        else:
-            output_link = build_snapshot_url(snapshot_id, "", config=config)
-        output_link_attr = html.escape(output_link, quote=True)
+        rows.append(
+            {
+                "result": result,
+                "status": status,
+                "color": color,
+                "bg": bg,
+                "icon": get_plugin_icon(result.plugin),
+                "file_count": result.output_file_stats()[0],
+                "output_size": int(result.output_size or 0),
+                "output_size_display": printable_filesize(int(result.output_size or 0)),
+                "end_date": result.end_ts.strftime("%Y-%m-%d") if result.end_ts else "",
+                "end_time": result.end_ts.strftime("%H:%M:%S") if result.end_ts else "",
+                "process": process,
+                "process_url": reverse("admin:machine_process_change", args=[process.id]) if process else "",
+                "process_label": get_process_link_label(process) if process else "",
+                "machine_url": reverse("admin:machine_machine_change", args=[process.machine_id]) if process and process.machine_id else "",
+                "output": output,
+                "output_preview": output[:60] + ("..." if len(output) > 60 else ""),
+                "display_command": build_abx_dl_display_command(result),
+                "replay_command": build_abx_dl_replay_command(result, config=config),
+                "output_url": build_snapshot_url(
+                    str(result.snapshot_id),
+                    embed_path if embed_path and status == "succeeded" else "",
+                    config=config,
+                ),
+                "change_url": reverse("admin:core_archiveresult_change", args=[result.id]),
+                "version": result.cmd_version or "-",
+                "pwd": str(result.pwd or "-"),
+                "dom_id": f"output_{idx}_{str(result.id)[:8]}",
+                "short_id": str(result.id)[-8:],
+            },
+        )
 
-        # Get version - try cmd_version field
-        version = html.escape(str(result.cmd_version if result.cmd_version else "-"), quote=True)
-        plugin_text = html.escape(str(result.plugin or ""), quote=True)
-        status_text = html.escape(str(status), quote=True)
-        pwd_text = html.escape(str(result.pwd or "-"), quote=True)
-
-        # Unique ID for this row's expandable output
-        row_id = f"output_{idx}_{str(result.id)[:8]}"
-        delete_button = ""
-        if can_delete:
-            delete_button = f'''
-                <button type="button" data-archive-result-ids="{result.id}" data-delete-url="{delete_url}"
-                        title="Delete this output">×</button>
-            '''
-
-        rows.append(f'''
-            <tr data-output-size="{output_size}" style="border-bottom: 1px solid #f1f5f9; transition: background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
-                <td style="padding: 10px 12px; white-space: nowrap;">
-                    <a href="{reverse("admin:core_archiveresult_change", args=[result.id])}"
-                       style="color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 11px;"
-                       title="View/edit archive result">
-                        <code>{str(result.id)[-8:]}</code>
-                    </a>
-                </td>
-                <td style="padding: 10px 12px; white-space: nowrap;">
-                    <span style="display: inline-block; padding: 3px 10px; border-radius: 12px;
-                                 font-size: 11px; font-weight: 600; text-transform: uppercase;
-                                 color: {color}; background: {bg};">{status_text}</span>
-                </td>
-                <td style="padding: 10px 12px; white-space: nowrap; font-size: 20px;" title="{plugin_text}">
-                    {icon}
-                </td>
-                <td class="archive-results-plugin" style="padding: 10px 12px; font-weight: 500; color: #334155;">
-                        <a href="{output_link_attr}" target="_blank"
-                           style="color: #334155; text-decoration: none;"
-                       title="View output fullscreen"
-                       onmouseover="this.style.color='#2563eb'; this.style.textDecoration='underline';"
-                       onmouseout="this.style.color='#334155'; this.style.textDecoration='none';">
-                        {plugin_text}
-                    </a>
-                </td>
-                <td class="archive-results-output" style="padding: 10px 12px; max-width: 280px;">
-                    <span onclick="document.getElementById('{row_id}').open = !document.getElementById('{row_id}').open"
-                          style="display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-                                 color: #2563eb; text-decoration: none; font-family: ui-monospace, monospace; font-size: 12px; cursor: pointer;"
-                          title="Click to expand full output">
-                        {output_display}
-                    </span>
-                </td>
-                <td class="archive-results-files" style="padding: 10px 12px; color: #64748b; font-size: 12px; text-align: right;">
-                    {output_file_count}
-                </td>
-                <td class="archive-results-size" style="padding: 10px 12px; color: #64748b; font-size: 12px; text-align: right; white-space: nowrap;">
-                    {output_size_display}
-                </td>
-                <td class="archive-results-completed" style="padding: 10px 12px; color: #64748b; font-size: 12px;">
-                    {end_time}
-                </td>
-                <td style="padding: 10px 12px; white-space: nowrap;">
-                    {process_display}
-                </td>
-                <td style="padding: 10px 12px; white-space: nowrap;">
-                    {machine_display}
-                </td>
-                <td style="padding: 10px 12px; white-space: nowrap; font-family: ui-monospace, monospace; font-size: 11px; color: #64748b;">
-                    {version}
-                </td>
-                <td class="archive-results-actions-cell">
-                    <div class="archive-results-actions">
-                        <a href="{output_link_attr}" target="_blank"
-                           title="View output">📄</a>
-                        <a href="{reverse("admin:core_archiveresult_change", args=[result.id])}"
-                           title="Edit">✏️</a>
-                        {delete_button}
-                    </div>
-                </td>
-            </tr>
-            <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td colspan="12" style="padding: 0 12px 10px 12px;">
-                    <details id="{row_id}" style="margin: 0;">
-                        <summary style="cursor: pointer; font-size: 11px; color: #94a3b8; user-select: none;">
-                            Details &amp; Output
-                        </summary>
-                        <div style="margin-top: 8px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; max-height: 200px; overflow: auto;">
-                            <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
-                                <span style="margin-right: 16px;"><b>ID:</b> <code>{result.id!s}</code></span>
-                                <span style="margin-right: 16px;"><b>Version:</b> <code>{version}</code></span>
-                                <span style="margin-right: 16px;"><b>PWD:</b> <code>{pwd_text}</code></span>
-                            </div>
-                            <div style="font-size: 11px; color: #64748b; margin-bottom: 8px;">
-                                <b>Output:</b>
-                            </div>
-                            <pre style="margin: 0; padding: 8px; background: #1e293b; border-radius: 4px; color: #e2e8f0; font-size: 12px; white-space: pre-wrap; word-break: break-all; max-height: 120px; overflow: auto;">{full_output}</pre>
-                            <div style="font-size: 11px; color: #64748b; margin-top: 8px;">
-                                <b>Command:</b>
-                            </div>
-                            <div style="position: relative; margin: 0; padding: 8px 56px 8px 8px; background: #1e293b; border-radius: 4px;">
-                                <button type="button"
-                                        data-command="{cmd_attr}"
-                                        onclick="(function(btn){{var text=btn.dataset.command||''; if(navigator.clipboard&&navigator.clipboard.writeText){{navigator.clipboard.writeText(text);}} else {{var ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);}}}})(this); return false;"
-                                        style="position: absolute; top: 6px; right: 6px; padding: 2px 8px; border: 0; border-radius: 4px; background: #334155; color: #e2e8f0; font-size: 11px; cursor: pointer;">
-                                    Copy
-                                </button>
-                                <code title="{cmd_attr}" style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e2e8f0; font-size: 11px;">{cmd_str_escaped}</code>
-                            </div>
-                        </div>
-                    </details>
-                </td>
-            </tr>
-        ''')
-
-    total_count = results[0]._inline_total_count
-    footer = ""
-    if total_count > limit:
-        footer = f"""
-            <tr data-output-footer>
-                <td colspan="12" style="padding: 12px; text-align: center; color: #64748b; font-size: 13px; background: #f8fafc;">
-                    Showing {limit} of {total_count} results &nbsp;
-                    <a href="/admin/core/archiveresult/?snapshot__id__exact={results[0].snapshot_id if results else ""}"
-                       style="color: #2563eb;">View all →</a>
-                </td>
-            </tr>
-        """
-
-    return mark_safe(f"""
-        <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow-x: auto; overflow-y: hidden; background: #fff; width: 100%;">
-            <table class="archive-results-table" style="width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 14px;">
-                <thead>
-                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Details</th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; width: 32px;"></th>
-                        <th class="archive-results-plugin" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Plugin</th>
-                        <th class="archive-results-output" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Output</th>
-                        <th class="archive-results-files" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Files</th>
-                        <th class="archive-results-size" style="padding: 10px 12px; text-align: right; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">
-                            <button type="button" data-output-size-sort style="all: unset; cursor: pointer;">Size ↕</button>
-                        </th>
-                        <th class="archive-results-completed" style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Completed</th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Process</th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Machine</th>
-                        <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Version</th>
-                        <th class="archive-results-actions-cell" style="text-align: left; font-weight: 600; color: #475569; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {"".join(rows)}
-                    {footer}
-                </tbody>
-            </table>
-        </div>
-    """)
+    return mark_safe(
+        render_to_string(
+            "admin/core/archiveresult/inline.html",
+            {
+                "rows": rows,
+                "limit": limit,
+                "total_count": results[0]._inline_total_count,
+                "snapshot_id": results[0].snapshot_id,
+                "can_delete": can_delete,
+                "delete_url": reverse("admin:core_archiveresult_changelist"),
+            },
+        ),
+    )
 
 
 class ArchiveResultAdmin(BaseModelAdmin):
