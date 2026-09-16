@@ -710,7 +710,17 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             return None
         return dir_path / fallback_path
 
-    def embed_path_db(self, output_file_map: dict[str, dict[str, Any]] | None = None) -> str | None:
+    def embed_path_db(
+        self,
+        output_file_map: dict[str, dict[str, Any]] | None = None,
+        *,
+        check_filesystem: bool = True,
+    ) -> str | None:
+        """Select the preview from its manifest, optionally checking legacy files.
+
+        Live polling disables the legacy filesystem fallback so an empty manifest
+        cannot turn a status request into a scan of the archive directory.
+        """
         output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
 
         def is_root_relative(path: str) -> bool:
@@ -733,7 +743,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 else:
                     candidates.append(raw_output)
 
-                if not output_file_map:
+                if not output_file_map and check_filesystem:
                     return self._existing_output_path(raw_output)
 
                 if raw_output in output_file_map and is_root_relative(raw_output):

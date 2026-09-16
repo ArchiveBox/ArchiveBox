@@ -169,48 +169,20 @@ def list_archiveresults(
     snapshot_id: str | None = None,
     limit: int | None = None,
 ) -> int:
-    """
-    List ArchiveResults as JSONL with optional filters.
-
-    Exit codes:
-        0: Success (even if no results)
-    """
-    from archivebox.misc.jsonl import write_record
+    """List archive results as JSONL, or formatted rows in a terminal."""
     from archivebox.core.models import ArchiveResult
+    from archivebox.cli.cli_util import list_records, format_status
 
-    is_tty = sys.stdout.isatty()
-
-    queryset = ArchiveResult.objects.all().order_by("-start_ts")
-
-    # Apply filters
-    filter_kwargs = {
-        "status": status,
-        "plugin": plugin,
-        "snapshot_id": snapshot_id,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for result in queryset:
-        if is_tty:
-            status_color = {
-                "queued": "yellow",
-                "started": "blue",
-                "succeeded": "green",
-                "failed": "red",
-                "skipped": "dim",
-                "noresults": "dim",
-                "backoff": "magenta",
-            }.get(result.status, "dim")
-            rprint(
-                f"[{status_color}]{result.status:10}[/{status_color}] {result.plugin:15} [dim]{result.id}[/dim] {result.snapshot.url[:40]}",
-            )
-        else:
-            write_record(result.to_json())
-        count += 1
-
-    rprint(f"[dim]Listed {count} archive results[/dim]", file=sys.stderr)
-    return 0
+    queryset = apply_filters(
+        ArchiveResult.objects.order_by("-start_ts"),
+        {"status": status, "plugin": plugin, "snapshot_id": snapshot_id},
+        limit=limit,
+    )
+    return list_records(
+        queryset,
+        plural="archive results",
+        render=lambda result: f"{format_status(result.status, 10)} {result.plugin:15} [dim]{result.id}[/dim] {result.snapshot.url[:40]}",
+    )
 
 
 # =============================================================================
@@ -218,54 +190,17 @@ def list_archiveresults(
 # =============================================================================
 
 
-def update_archiveresults(
-    status: str | None = None,
-) -> int:
-    """
-    Update ArchiveResults from stdin JSONL.
-
-    Reads ArchiveResult records from stdin and applies updates.
-    Uses PATCH semantics - only specified fields are updated.
-
-    Exit codes:
-        0: Success
-        1: No input or error
-    """
-    from archivebox.misc.jsonl import read_stdin, write_record
+def update_archiveresults(status: str | None = None) -> int:
+    """Apply supplied fields to each JSONL-selected ArchiveResult."""
     from archivebox.core.models import ArchiveResult
+    from archivebox.cli.cli_util import update_records
 
-    is_tty = sys.stdout.isatty()
+    def update(archiveresult):
+        if status:
+            archiveresult.status = status
+        archiveresult.save()
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    updated_count = 0
-    for record in records:
-        result_id = record.get("id")
-        if not result_id:
-            continue
-
-        try:
-            result = ArchiveResult.objects.get(id=result_id)
-
-            # Apply updates from CLI flags
-            if status:
-                result.status = status
-
-            result.save()
-            updated_count += 1
-
-            if not is_tty:
-                write_record(result.to_json())
-
-        except ArchiveResult.DoesNotExist:
-            rprint(f"[yellow]ArchiveResult not found: {result_id}[/yellow]", file=sys.stderr)
-            continue
-
-    rprint(f"[green]Updated {updated_count} archive results[/green]", file=sys.stderr)
-    return 0
+    return update_records(ArchiveResult, update, plural="archive results")
 
 
 # =============================================================================

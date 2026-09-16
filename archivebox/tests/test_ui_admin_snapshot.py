@@ -1476,3 +1476,18 @@ class TestAdminSnapshotListView:
         assert machine.hostname.encode() in response.content
         assert reverse("admin:machine_process_change", args=[process.id]).encode() in response.content
         assert reverse("admin:machine_machine_change", args=[machine.id]).encode() in response.content
+
+
+def test_preview_manifest_polling_does_not_use_legacy_filesystem_fallback(snapshot):
+    from archivebox.core.models import ArchiveResult
+
+    output = snapshot.output_dir / "dom" / "output.html"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("<html><title>Legacy preview</title></html>")
+    result = ArchiveResult.objects.create(snapshot=snapshot, plugin="dom", output_str="output.html", output_files={})
+
+    assert result.embed_path_db(check_filesystem=False) is None
+    assert result.embed_path_db() == "dom/output.html"
+    result.output_files = {"output.html": {"size": output.stat().st_size}}
+    result.save()
+    assert result.embed_path_db(check_filesystem=False) == "dom/output.html"

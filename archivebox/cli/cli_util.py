@@ -112,3 +112,69 @@ def update_record_status(record, status: str) -> None:
         transition()
     else:
         record.update_and_requeue(status=status, retry_at=timezone.now())
+
+
+def list_records(queryset, *, plural: str, render) -> int:
+    """Stream JSONL when piped; render rows and a count in a terminal."""
+    import sys
+    from rich import print as rprint
+    from archivebox.misc.jsonl import write_record
+
+    is_tty = sys.stdout.isatty()
+    count = 0
+    for record in queryset:
+        if is_tty:
+            rprint(render(record))
+        else:
+            write_record(record.to_json())
+        count += 1
+    rprint(f"[dim]Listed {count} {plural}[/dim]", file=sys.stderr)
+    return 0
+
+
+def format_status(status: str, width: int) -> str:
+    colors = {
+        "queued": "yellow",
+        "started": "blue",
+        "sealed": "green",
+        "succeeded": "green",
+        "failed": "red",
+        "backoff": "magenta",
+    }
+    color = colors.get(status, "dim")
+    return f"[{color}]{status:{width}}[/{color}]"
+
+
+def update_records(model, update, *, plural: str, by_name: bool = False, refresh: bool = False) -> int:
+    """Apply a command's PATCH operation to each JSONL-selected model.
+
+    Returning False from the operation skips that row. Model operations stay in
+    their commands so lifecycle changes and ordinary field saves remain explicit.
+    """
+    import sys
+    from rich import print as rprint
+    from archivebox.misc.jsonl import read_stdin, write_record
+
+    records = list(read_stdin())
+    if not records:
+        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
+        return 1
+    is_tty = sys.stdout.isatty()
+    count = 0
+    for record in records:
+        key = "id" if record.get("id") else "name" if by_name and record.get("name") else None
+        if key is None:
+            continue
+        try:
+            obj = model.objects.get(**{key: record[key]})
+            if update(obj) is False:
+                continue
+            count += 1
+            if not is_tty:
+                if refresh:
+                    obj.refresh_from_db()
+                write_record(obj.to_json())
+        except model.DoesNotExist:
+            rprint(f"[yellow]{model.__name__} not found: {record[key]}[/yellow]", file=sys.stderr)
+    rprint(f"[green]Updated {count} {plural}[/green]", file=sys.stderr)
+    return 0

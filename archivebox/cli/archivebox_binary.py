@@ -114,37 +114,20 @@ def list_binaries(
     version__icontains: str | None = None,
     limit: int | None = None,
 ) -> int:
-    """
-    List Binaries as JSONL with optional filters.
-
-    Exit codes:
-        0: Success (even if no results)
-    """
-    from archivebox.misc.jsonl import write_record
+    """List binaries as JSONL, or formatted rows in a terminal."""
     from archivebox.machine.models import Binary
+    from archivebox.cli.cli_util import list_records
 
-    is_tty = sys.stdout.isatty()
-
-    queryset = Binary.objects.all().order_by("name", "-modified_at", "-created_at")
-
-    # Apply filters
-    filter_kwargs = {
-        "name": name,
-        "abspath__icontains": abspath__icontains,
-        "version__icontains": version__icontains,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for binary in queryset:
-        if is_tty:
-            rprint(f"[cyan]{binary.name:20}[/cyan] [dim]{binary.version:15}[/dim] {binary.abspath}")
-        else:
-            write_record(binary.to_json())
-        count += 1
-
-    rprint(f"[dim]Listed {count} binaries[/dim]", file=sys.stderr)
-    return 0
+    queryset = apply_filters(
+        Binary.objects.order_by("name", "-modified_at", "-created_at"),
+        {"name": name, "abspath__icontains": abspath__icontains, "version__icontains": version__icontains},
+        limit=limit,
+    )
+    return list_records(
+        queryset,
+        plural="binaries",
+        render=lambda binary: f"[cyan]{binary.name:20}[/cyan] [dim]{binary.version:15}[/dim] {binary.abspath}",
+    )
 
 
 # =============================================================================
@@ -152,57 +135,19 @@ def list_binaries(
 # =============================================================================
 
 
-def update_binaries(
-    version: str | None = None,
-    abspath: str | None = None,
-) -> int:
-    """
-    Update Binaries from stdin JSONL.
-
-    Reads Binary records from stdin and applies updates.
-    Uses PATCH semantics - only specified fields are updated.
-
-    Exit codes:
-        0: Success
-        1: No input or error
-    """
-    from archivebox.misc.jsonl import read_stdin, write_record
+def update_binaries(version: str | None = None, abspath: str | None = None) -> int:
+    """Apply supplied fields to each JSONL-selected Binary."""
     from archivebox.machine.models import Binary
+    from archivebox.cli.cli_util import update_records
 
-    is_tty = sys.stdout.isatty()
+    def update(binary):
+        if version:
+            binary.version = version
+        if abspath:
+            binary.abspath = abspath
+        binary.save()
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    updated_count = 0
-    for record in records:
-        binary_id = record.get("id")
-        if not binary_id:
-            continue
-
-        try:
-            binary = Binary.objects.get(id=binary_id)
-
-            # Apply updates from CLI flags
-            if version:
-                binary.version = version
-            if abspath:
-                binary.abspath = abspath
-
-            binary.save()
-            updated_count += 1
-
-            if not is_tty:
-                write_record(binary.to_json())
-
-        except Binary.DoesNotExist:
-            rprint(f"[yellow]Binary not found: {binary_id}[/yellow]", file=sys.stderr)
-            continue
-
-    rprint(f"[green]Updated {updated_count} binaries[/green]", file=sys.stderr)
-    return 0
+    return update_records(Binary, update, plural="binaries")
 
 
 # =============================================================================

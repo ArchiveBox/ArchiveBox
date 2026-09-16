@@ -25,7 +25,6 @@ __command__ = "archivebox machine"
 import sys
 
 import rich_click as click
-from rich import print as rprint
 
 from archivebox.cli.cli_util import apply_filters
 
@@ -35,41 +34,21 @@ from archivebox.cli.cli_util import apply_filters
 # =============================================================================
 
 
-def list_machines(
-    hostname__icontains: str | None = None,
-    os_platform: str | None = None,
-    limit: int | None = None,
-) -> int:
-    """
-    List Machines as JSONL with optional filters.
-
-    Exit codes:
-        0: Success (even if no results)
-    """
-    from archivebox.misc.jsonl import write_record
+def list_machines(hostname__icontains: str | None = None, os_platform: str | None = None, limit: int | None = None) -> int:
+    """List machines as JSONL, or formatted rows in a terminal."""
     from archivebox.machine.models import Machine
+    from archivebox.cli.cli_util import list_records
 
-    is_tty = sys.stdout.isatty()
-
-    queryset = Machine.objects.all().order_by("-created_at")
-
-    # Apply filters
-    filter_kwargs = {
-        "hostname__icontains": hostname__icontains,
-        "os_platform": os_platform,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for machine in queryset:
-        if is_tty:
-            rprint(f"[cyan]{machine.hostname:30}[/cyan] [dim]{machine.os_platform:10}[/dim] {machine.id}")
-        else:
-            write_record(machine.to_json())
-        count += 1
-
-    rprint(f"[dim]Listed {count} machines[/dim]", file=sys.stderr)
-    return 0
+    queryset = apply_filters(
+        Machine.objects.order_by("-created_at"),
+        {"hostname__icontains": hostname__icontains, "os_platform": os_platform},
+        limit=limit,
+    )
+    return list_records(
+        queryset,
+        plural="machines",
+        render=lambda machine: f"[cyan]{machine.hostname:30}[/cyan] [dim]{machine.os_platform:10}[/dim] {machine.id}",
+    )
 
 
 # =============================================================================

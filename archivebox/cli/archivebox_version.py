@@ -47,13 +47,7 @@ def _format_binary_abspath(
                 continue
 
             relative_str = relative.as_posix()
-            if prefix == "./":
-                return "." if not relative_str else f"./{relative_str}"
-            if prefix == "ABXPKG_LIB_DIR/":
-                return "ABXPKG_LIB_DIR" if not relative_str else f"ABXPKG_LIB_DIR/{relative_str}"
-            if prefix == "PERSONAS_DIR/":
-                return "PERSONAS_DIR" if not relative_str else f"PERSONAS_DIR/{relative_str}"
-            return "~" if not relative_str else f"~/{relative_str}"
+            return prefix + relative_str if relative_str else prefix.rstrip("/")
 
     return normalized.as_posix()
 
@@ -61,22 +55,9 @@ def _format_binary_abspath(
 def _render_binary_abspath(abspath: str):
     from rich.text import Text
 
-    if abspath.startswith("ABXPKG_LIB_DIR/"):
-        return Text.assemble(("ABXPKG_LIB_DIR", "bright_blue"), (abspath.removeprefix("ABXPKG_LIB_DIR"), "green"))
-    if abspath == "ABXPKG_LIB_DIR":
-        return Text("ABXPKG_LIB_DIR", style="bright_blue")
-    if abspath.startswith("PERSONAS_DIR/"):
-        return Text.assemble(("PERSONAS_DIR", "medium_purple"), (abspath.removeprefix("PERSONAS_DIR"), "green"))
-    if abspath == "PERSONAS_DIR":
-        return Text("PERSONAS_DIR", style="medium_purple")
-    if abspath.startswith("~/"):
-        return Text.assemble(("~", "cyan"), (abspath.removeprefix("~"), "green"))
-    if abspath == "~":
-        return Text("~", style="cyan")
-    if abspath.startswith("./"):
-        return Text.assemble((".", "cyan"), (abspath.removeprefix("."), "green"))
-    if abspath == ".":
-        return Text(".", style="cyan")
+    for prefix, color in (("ABXPKG_LIB_DIR", "bright_blue"), ("PERSONAS_DIR", "medium_purple"), ("~", "cyan"), (".", "cyan")):
+        if abspath == prefix or abspath.startswith(prefix + "/"):
+            return Text.assemble((prefix, color), (abspath.removeprefix(prefix), "green"))
     return Text(abspath, style="green")
 
 
@@ -201,9 +182,6 @@ def version(
     else:
         requested_names = {name for name in (binaries or ()) if name}
 
-    def binary_is_requested(logical_name: str, actual_name: str, display_name: str) -> bool:
-        return not requested_names or bool({logical_name, actual_name, display_name} & requested_names)
-
     def plugin_may_have_requested_binary(plugin) -> bool:
         if not requested_names:
             return True
@@ -298,10 +276,10 @@ def version(
             prnt("", f"[yellow]Warning: Could not query collection binary records; resolving through abxpkg: {e}[/yellow]")
 
     declared_binary_specs: dict[str, dict[str, object]] = {}
+    plugin_binaries = []
     for plugin_name, plugin in plugins.items():
         if not plugin_may_have_requested_binary(plugin):
             continue
-        plugin_requested = bool(requested_names)
         plugin_enabled = plugin_name in enabled_plugin_names
         binary_records = get_required_binary_requests(
             plugin,
@@ -318,8 +296,7 @@ def version(
                 else actual_name
             )
             display_name = logical_name
-            if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
-                continue
+            plugin_binaries.append((plugin_name, plugin_enabled, display_name, binary_record))
             if not plugin_enabled and not requested_names:
                 continue
             if _binary_record_matches_runtime(db_binaries.get(logical_name), config.ABXPKG_LIB_DIR):
@@ -356,92 +333,70 @@ def version(
     if live_cm is not None:
         live_cm.start()
     try:
-        for plugin_name, plugin in plugins.items():
-            if not plugin_may_have_requested_binary(plugin):
+        for plugin_name, plugin_enabled, display_name, binary_record in plugin_binaries:
+            installed = db_binaries.get(display_name) if db_available else None
+            if _binary_record_matches_runtime(installed, config.ABXPKG_LIB_DIR):
+                abspath = installed.abspath
+                version_str = (installed.version or "unknown")[:15]
+                provider = (installed.binprovider or "env")[:8]
+                valid = True
+            elif not plugin_enabled and not requested_names:
+                # `archivebox version` is expected to verify the active runtime, not
+                # cold-load every optional plugin provider. Migration and status
+                # checks often run with PLUGINS narrowed to a tiny set; resolving
+                # disabled plugin binaries there can spend most of the command on
+                # providers the current collection will never execute.
                 continue
-            plugin_requested = bool(requested_names)
-            plugin_enabled = plugin_name in enabled_plugin_names
-            binary_records = get_required_binary_requests(
-                plugin,
-                plugin.config.required_binaries,
-                overrides=runtime_config,
-                derived_overrides=derived_config,
-                run_output_dir=CONSTANTS.DATA_DIR,
-            )
-            for binary_record in binary_records:
-                actual_name = str(binary_record["name"])
-                logical_name = (
-                    Path(actual_name).expanduser().name
-                    if ("/" in actual_name or "\\" in actual_name or actual_name.startswith("~"))
-                    else actual_name
-                )
-                display_name = logical_name
-                if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
-                    continue
+            else:
+                loaded = loaded_binaries[json.dumps(binary_record, sort_keys=True, default=str)]
+                abspath = loaded.abspath if loaded is not None else ""
+                version_str = str(loaded.version or "unknown")[:15] if loaded is not None else "unknown"
+                provider = str(loaded.binprovider or "env")[:8] if loaded is not None else "env"
+                valid = loaded is not None
 
-                installed = db_binaries.get(logical_name) if db_available else None
-                if _binary_record_matches_runtime(installed, config.ABXPKG_LIB_DIR):
-                    abspath = installed.abspath
-                    version_str = (installed.version or "unknown")[:15]
-                    provider = (installed.binprovider or "env")[:8]
-                    valid = True
-                elif not plugin_enabled and not requested_names:
-                    # `archivebox version` is expected to verify the active runtime, not
-                    # cold-load every optional plugin provider. Migration and status
-                    # checks often run with PLUGINS narrowed to a tiny set; resolving
-                    # disabled plugin binaries there can spend most of the command on
-                    # providers the current collection will never execute.
-                    continue
-                else:
-                    loaded = loaded_binaries[json.dumps(binary_record, sort_keys=True, default=str)]
-                    abspath = loaded.abspath if loaded is not None else ""
-                    version_str = str(loaded.version or "unknown")[:15] if loaded is not None else "unknown"
-                    provider = str(loaded.binprovider or "env")[:8] if loaded is not None else "env"
-                    valid = loaded is not None
-
-                any_rows = True
-                if valid:
-                    display_path = (
-                        _format_binary_abspath(
-                            abspath,
-                            pwd=Path.cwd(),
-                            lib_dir=config.ABXPKG_LIB_DIR,
-                            personas_dir=CONSTANTS.PERSONAS_DIR,
-                            home=Path.home(),
-                        )
-                        if compact_paths
-                        else abspath
+            any_rows = True
+            if valid:
+                display_path = (
+                    _format_binary_abspath(
+                        abspath,
+                        pwd=Path.cwd(),
+                        lib_dir=config.ABXPKG_LIB_DIR,
+                        personas_dir=CONSTANTS.PERSONAS_DIR,
+                        home=Path.home(),
                     )
-                    rendered_path = _render_binary_abspath(display_path) if compact_paths else display_path
-                    any_available = True
-                else:
-                    rendered_path = "[grey53]not installed[/grey53]"
-                    if plugin_enabled and display_name not in seen_failures:
-                        failures.append(display_name)
-                        seen_failures.add(display_name)
-
-                row_key = _binary_row_dedupe_key(
-                    display_name=display_name,
-                    valid=valid,
-                    version=version_str if valid else "-",
-                    provider=provider if valid else "-",
-                    abspath=abspath,
+                    if compact_paths
+                    else abspath
                 )
-                if row_key in seen_rows:
-                    continue
-                seen_rows.add(row_key)
+                rendered_path = _render_binary_abspath(display_path) if compact_paths else display_path
+                any_available = True
+            else:
+                rendered_path = "[grey53]not installed[/grey53]"
+                if plugin_enabled and display_name not in seen_failures:
+                    failures.append(display_name)
+                    seen_failures.add(display_name)
 
-                emit_row(
-                    {
-                        "plugin": plugin_name,
-                        "status": binary_dependency_status(enabled=plugin_enabled, valid=valid),
-                        "binary": display_name,
-                        "version": version_str if valid else "-",
-                        "provider": provider if valid else "-",
-                        "path": rendered_path,
-                        "style": "" if plugin_enabled else "dim",
-                    },
-                )
+            row_key = _binary_row_dedupe_key(
+                display_name=display_name,
+                valid=valid,
+                version=version_str if valid else "-",
+                provider=provider if valid else "-",
+                abspath=abspath,
+            )
+            if row_key in seen_rows:
+                continue
+            seen_rows.add(row_key)
+
+            emit_row(
+                {
+                    "plugin": plugin_name,
+                    "status": binary_dependency_status(enabled=plugin_enabled, valid=valid),
+                    "binary": display_name,
+                    "version": version_str if valid else "-",
+                    "provider": provider if valid else "-",
+                    "path": rendered_path,
+                    "style": "" if plugin_enabled else "dim",
+                },
+            )
 
         if db_available:
             for binary_name, installed in db_binaries.items():

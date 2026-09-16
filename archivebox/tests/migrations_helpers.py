@@ -23,32 +23,8 @@ from archivebox.uuid_compat import uuid7
 # Schema Definitions for Each Version
 # =============================================================================
 
-SCHEMA_0_4 = """
--- Django system tables (minimal)
-CREATE TABLE IF NOT EXISTS django_migrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    app VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    applied DATETIME NOT NULL
-);
-
--- Core tables for 0.4.x
-CREATE TABLE IF NOT EXISTS core_snapshot (
-    id CHAR(32) PRIMARY KEY,
-    url VARCHAR(200) NOT NULL UNIQUE,
-    timestamp VARCHAR(32) UNIQUE,
-    title VARCHAR(128),
-    tags VARCHAR(256),
-    added DATETIME NOT NULL,
-    updated DATETIME
-);
-CREATE INDEX IF NOT EXISTS core_snapshot_url ON core_snapshot(url);
-CREATE INDEX IF NOT EXISTS core_snapshot_timestamp ON core_snapshot(timestamp);
-CREATE INDEX IF NOT EXISTS core_snapshot_added ON core_snapshot(added);
-"""
-
-SCHEMA_0_7 = """
--- Django system tables (complete for 0.7.x)
+# Django auth and admin tables were unchanged between the 0.7 and 0.8 fixtures.
+DJANGO_AUTH_SCHEMA = """
 CREATE TABLE IF NOT EXISTS django_migrations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     app VARCHAR(255) NOT NULL,
@@ -128,7 +104,35 @@ CREATE TABLE IF NOT EXISTS django_session (
     expire_date DATETIME NOT NULL
 );
 
--- Core tables for 0.7.x
+"""
+
+SCHEMA_0_4 = """
+-- Django system tables (minimal)
+CREATE TABLE IF NOT EXISTS django_migrations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    applied DATETIME NOT NULL
+);
+
+-- Core tables for 0.4.x
+CREATE TABLE IF NOT EXISTS core_snapshot (
+    id CHAR(32) PRIMARY KEY,
+    url VARCHAR(200) NOT NULL UNIQUE,
+    timestamp VARCHAR(32) UNIQUE,
+    title VARCHAR(128),
+    tags VARCHAR(256),
+    added DATETIME NOT NULL,
+    updated DATETIME
+);
+CREATE INDEX IF NOT EXISTS core_snapshot_url ON core_snapshot(url);
+CREATE INDEX IF NOT EXISTS core_snapshot_timestamp ON core_snapshot(timestamp);
+CREATE INDEX IF NOT EXISTS core_snapshot_added ON core_snapshot(added);
+"""
+
+SCHEMA_0_7 = (
+    DJANGO_AUTH_SCHEMA
+    + """-- Core tables for 0.7.x
 CREATE TABLE IF NOT EXISTS core_tag (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -183,89 +187,11 @@ INSERT INTO django_content_type (app_label, model) VALUES
 ('core', 'archiveresult'),
 ('core', 'tag');
 """
+)
 
-SCHEMA_0_8 = """
--- Django system tables (complete for 0.8.x)
-CREATE TABLE IF NOT EXISTS django_migrations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    app VARCHAR(255) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    applied DATETIME NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS django_content_type (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    app_label VARCHAR(100) NOT NULL,
-    model VARCHAR(100) NOT NULL,
-    UNIQUE(app_label, model)
-);
-
-CREATE TABLE IF NOT EXISTS auth_permission (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(255) NOT NULL,
-    content_type_id INTEGER NOT NULL REFERENCES django_content_type(id),
-    codename VARCHAR(100) NOT NULL,
-    UNIQUE(content_type_id, codename)
-);
-
-CREATE TABLE IF NOT EXISTS auth_group (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name VARCHAR(150) NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS auth_group_permissions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    group_id INTEGER NOT NULL REFERENCES auth_group(id),
-    permission_id INTEGER NOT NULL REFERENCES auth_permission(id),
-    UNIQUE(group_id, permission_id)
-);
-
-CREATE TABLE IF NOT EXISTS auth_user (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    password VARCHAR(128) NOT NULL,
-    last_login DATETIME,
-    is_superuser BOOL NOT NULL,
-    username VARCHAR(150) NOT NULL UNIQUE,
-    first_name VARCHAR(150) NOT NULL,
-    last_name VARCHAR(150) NOT NULL,
-    email VARCHAR(254) NOT NULL,
-    is_staff BOOL NOT NULL,
-    is_active BOOL NOT NULL,
-    date_joined DATETIME NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS auth_user_groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES auth_user(id),
-    group_id INTEGER NOT NULL REFERENCES auth_group(id),
-    UNIQUE(user_id, group_id)
-);
-
-CREATE TABLE IF NOT EXISTS auth_user_user_permissions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES auth_user(id),
-    permission_id INTEGER NOT NULL REFERENCES auth_permission(id),
-    UNIQUE(user_id, permission_id)
-);
-
-CREATE TABLE IF NOT EXISTS django_admin_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    action_time DATETIME NOT NULL,
-    object_id TEXT,
-    object_repr VARCHAR(200) NOT NULL,
-    action_flag SMALLINT UNSIGNED NOT NULL,
-    change_message TEXT NOT NULL,
-    content_type_id INTEGER REFERENCES django_content_type(id),
-    user_id INTEGER NOT NULL REFERENCES auth_user(id)
-);
-
-CREATE TABLE IF NOT EXISTS django_session (
-    session_key VARCHAR(40) NOT NULL PRIMARY KEY,
-    session_data TEXT NOT NULL,
-    expire_date DATETIME NOT NULL
-);
-
--- Machine app tables (added in 0.8.x)
+SCHEMA_0_8 = (
+    DJANGO_AUTH_SCHEMA
+    + """-- Machine app tables (added in 0.8.x)
 CREATE TABLE IF NOT EXISTS machine_machine (
     id CHAR(36) PRIMARY KEY,
     created_at DATETIME NOT NULL,
@@ -501,6 +427,7 @@ INSERT INTO django_content_type (app_label, model) VALUES
 ('api', 'apitoken'),
 ('api', 'outboundwebhook');
 """
+)
 
 
 # =============================================================================

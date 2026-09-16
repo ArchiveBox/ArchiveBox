@@ -978,105 +978,44 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     # Loading and Creation from Filesystem (Used by archivebox update ONLY)
     # =========================================================================
 
-    @classmethod
-    def load_from_directory(cls, snapshot_dir: Path) -> Snapshot | None:
-        """
-        Load existing Snapshot from DB by reading index.jsonl or index.json.
-
-        Reads index file, extracts url+timestamp, queries DB.
-        Returns existing Snapshot or None if not found/invalid.
-        Does NOT create new snapshots.
-
-        ONLY used by: archivebox update (for orphan detection)
-        """
+    @staticmethod
+    def _read_snapshot_record(snapshot_dir: Path) -> dict:
+        """Read the first JSONL snapshot, falling back to the preserved legacy JSON."""
         from archivebox.machine.models import Process
 
-        # Try index.jsonl first (new format), then index.json (legacy)
-        jsonl_path = snapshot_dir / CONSTANTS.JSONL_INDEX_FILENAME
-        json_path = snapshot_dir / CONSTANTS.JSON_INDEX_FILENAME
+        try:
+            records = Process.parse_records_from_text((snapshot_dir / CONSTANTS.JSONL_INDEX_FILENAME).read_text())
+            record = next((record for record in records if record.get("type") == "Snapshot"), None)
+            if record is not None:
+                return record
+        except OSError:
+            pass
+        try:
+            return json.loads((snapshot_dir / CONSTANTS.JSON_INDEX_FILENAME).read_text()) or {}
+        except (json.JSONDecodeError, OSError):
+            return {}
 
-        data = None
-        if jsonl_path.exists():
-            try:
-                records = Process.parse_records_from_text(jsonl_path.read_text())
-                for record in records:
-                    if record.get("type") == "Snapshot":
-                        data = record
-                        break
-            except OSError:
-                pass
-        if data is None and json_path.exists():
-            try:
-                with open(json_path) as f:
-                    data = json.load(f)
-            except (json.JSONDecodeError, OSError):
-                pass
-
-        if not data:
-            timestamp = cls._select_best_timestamp(
-                index_timestamp=None,
-                folder_name=snapshot_dir.name,
-            )
-            if not timestamp:
-                return None
-            try:
-                return cls.objects.select_related("crawl__created_by").get(timestamp=timestamp)
-            except cls.DoesNotExist:
-                return None
-            except cls.MultipleObjectsReturned:
-                return cls.objects.select_related("crawl__created_by").filter(timestamp=timestamp).first()
-
-        url = data.get("url")
-        if not url:
-            timestamp = cls._select_best_timestamp(
-                index_timestamp=data.get("timestamp"),
-                folder_name=snapshot_dir.name,
-            )
-            if not timestamp:
-                return None
-            try:
-                return cls.objects.select_related("crawl__created_by").get(timestamp=timestamp)
-            except cls.DoesNotExist:
-                return None
-            except cls.MultipleObjectsReturned:
-                return cls.objects.select_related("crawl__created_by").filter(timestamp=timestamp).first()
-
-        # Get timestamp - prefer index file, fallback to folder name
-        timestamp = cls._select_best_timestamp(
-            index_timestamp=data.get("timestamp"),
-            folder_name=snapshot_dir.name,
-        )
-        folder_timestamp = cls._select_best_timestamp(
-            index_timestamp=None,
-            folder_name=snapshot_dir.name,
-        )
-
+    @classmethod
+    def load_from_directory(cls, snapshot_dir: Path) -> Snapshot | None:
+        """Find an existing snapshot for orphan detection; never create a row."""
+        data = cls._read_snapshot_record(snapshot_dir)
+        timestamp = cls._select_best_timestamp(data.get("timestamp"), snapshot_dir.name)
         if not timestamp:
             return None
-
-        # Look up existing (try exact match first, then fuzzy match for truncated timestamps)
-        try:
-            snapshot = cls.objects.select_related("crawl__created_by").get(url=url, timestamp=timestamp)
+        queryset = cls.objects.select_related("crawl__created_by")
+        url = data.get("url")
+        if not url:
+            return queryset.filter(timestamp=timestamp).first()
+        queryset = queryset.filter(url=url)
+        snapshot = queryset.filter(timestamp=timestamp).first()
+        if snapshot is not None:
             return snapshot
-        except cls.DoesNotExist:
-            # Try fuzzy match - index.json may have truncated timestamp
-            # e.g., index has "1767000340" but DB has "1767000340.624737"
-            # Do not fuzzy-match when the legacy folder name itself is a valid
-            # timestamp; distinct dirs like 1508259732 and 1508259732.0 must
-            # remain distinct snapshots.
-            if not folder_timestamp or timestamp != folder_timestamp:
-                candidates = cls.objects.select_related("crawl__created_by").filter(url=url, timestamp__startswith=timestamp)
-                if candidates.count() == 1:
-                    snapshot = candidates.first()
-                    if snapshot is None:
-                        return None
-                    return snapshot
-                elif candidates.count() > 1:
-                    return candidates.first()
-            return None
-        except cls.MultipleObjectsReturned:
-            # Should not happen with unique constraint
-            return cls.objects.select_related("crawl__created_by").filter(url=url, timestamp=timestamp).first()
+        # Truncated index timestamps may match a DB timestamp prefix. A valid legacy
+        # folder name is its own identity: 1508259732 and 1508259732.0 stay distinct.
+        folder_timestamp = cls._select_best_timestamp(None, snapshot_dir.name)
+        if not folder_timestamp or timestamp != folder_timestamp:
+            return queryset.filter(timestamp__startswith=timestamp).first()
+        return None
 
     @classmethod
     def create_from_directory(cls, snapshot_dir: Path) -> Snapshot | None:
@@ -1088,28 +1027,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         ONLY used by: archivebox update (for orphan import)
         """
-        from archivebox.machine.models import Process
-
-        # Try index.jsonl first (new format), then index.json (legacy)
-        jsonl_path = snapshot_dir / CONSTANTS.JSONL_INDEX_FILENAME
-        json_path = snapshot_dir / CONSTANTS.JSON_INDEX_FILENAME
-
-        data = None
-        if jsonl_path.exists():
-            try:
-                records = Process.parse_records_from_text(jsonl_path.read_text())
-                for record in records:
-                    if record.get("type") == "Snapshot":
-                        data = record
-                        break
-            except OSError:
-                pass
-        if data is None and json_path.exists():
-            try:
-                with open(json_path) as f:
-                    data = json.load(f)
-            except (json.JSONDecodeError, OSError):
-                pass
+        data = cls._read_snapshot_record(snapshot_dir)
 
         if not data or not data.get("url"):
             archive_org_path = snapshot_dir / "archive.org.txt"
@@ -1258,10 +1176,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return "0.8.0"
         return "0.7.0"
 
-    # =========================================================================
-    # Index.json Reconciliation
-    # =========================================================================
-
     def reconcile_with_index(self, output_dir: Path | None = None, update_existing_archive_results: bool = True):
         """
         Merge index.json/index.jsonl with DB. DB is source of truth.
@@ -1329,10 +1243,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Write back in JSONL format
         self.write_index_jsonl(output_dir=output_dir)
 
-    def reconcile_with_index_json(self, output_dir: Path | None = None, update_existing_archive_results: bool = True):
-        """Deprecated: use reconcile_with_index() instead."""
-        return self.reconcile_with_index(output_dir=output_dir, update_existing_archive_results=update_existing_archive_results)
-
     def _merge_title_from_index(self, index_data: dict):
         """Merge title - prefer longest non-URL title."""
         index_title = self._normalize_title_candidate(index_data.get("title"), snapshot_url=self.url)
@@ -1371,18 +1281,19 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     archiveresult.status = normalized_status
                     archiveresult.save(update_fields=["status", "modified_at"])
 
-        # Handle 0.8.x format (archive_results list)
-        for result_data in index_data.get("archive_results", []):
+        for result_data in self._iter_index_results(index_data):
             self._create_archive_result_if_missing(result_data, existing, update_existing=update_existing)
 
-        # Handle 0.7.x format (history dict)
-        if "history" in index_data and isinstance(index_data["history"], dict):
-            for plugin, result_list in index_data["history"].items():
-                if isinstance(result_list, list):
-                    for result_data in result_list:
-                        # Support both old 'extractor' and new 'plugin' keys for backwards compat
-                        result_data["plugin"] = result_data.get("plugin") or result_data.get("extractor") or plugin
-                        self._create_archive_result_if_missing(result_data, existing, update_existing=update_existing)
+    @staticmethod
+    def _iter_index_results(data: dict):
+        """Yield current result rows, then legacy history entries with their plugin."""
+        yield from data.get("archive_results", [])
+        history = data.get("history")
+        if isinstance(history, dict):
+            for plugin, results in history.items():
+                if isinstance(results, list):
+                    for result in results:
+                        yield {**result, "plugin": result.get("plugin") or result.get("extractor") or plugin}
 
     def _create_archive_result_if_missing(self, result_data: dict, existing: dict, update_existing: bool = True):
         """Create ArchiveResult if not already in DB."""
@@ -1397,23 +1308,18 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if not plugin:
             return
 
-        start_ts = None
-        if result_data.get("start_ts"):
-            try:
-                start_ts = parser.parse(result_data["start_ts"])
-                if start_ts and timezone.is_naive(start_ts):
-                    start_ts = timezone.make_aware(start_ts, timezone.get_current_timezone())
-            except (TypeError, ValueError, OverflowError):
-                pass
-
-        end_ts = None
-        if result_data.get("end_ts"):
-            try:
-                end_ts = parser.parse(result_data["end_ts"])
-                if end_ts and timezone.is_naive(end_ts):
-                    end_ts = timezone.make_aware(end_ts, timezone.get_current_timezone())
-            except (TypeError, ValueError, OverflowError):
-                pass
+        timestamps = {}
+        for field in ("start_ts", "end_ts"):
+            value = None
+            if result_data.get(field):
+                try:
+                    value = parser.parse(result_data[field])
+                    if value and timezone.is_naive(value):
+                        value = timezone.make_aware(value, timezone.get_current_timezone())
+                except (TypeError, ValueError, OverflowError):
+                    pass
+            timestamps[field] = value
+        start_ts, end_ts = timestamps["start_ts"], timestamps["end_ts"]
 
         # Support both 'output' (legacy) and 'output_str' (new JSONL) field names
         output_str = result_data.get("output_str") or result_data.get("output", "")
@@ -1432,31 +1338,23 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if not update_existing:
                 return
 
+            values = {
+                "output_str": output_str,
+                "output_json": output_json,
+                "output_files": output_files,
+                "output_mimetypes": output_mimetypes,
+                "start_ts": start_ts,
+                "end_ts": end_ts,
+            }
+            values = {key: value for key, value in values.items() if value}
+            values["status"] = status
+            if "output_size" in result_data:
+                values["output_size"] = output_size
             update_fields = []
-            if existing_result.status != status:
-                existing_result.status = status
-                update_fields.append("status")
-            if output_str and existing_result.output_str != output_str:
-                existing_result.output_str = output_str
-                update_fields.append("output_str")
-            if output_json and existing_result.output_json != output_json:
-                existing_result.output_json = output_json
-                update_fields.append("output_json")
-            if output_files and existing_result.output_files != output_files:
-                existing_result.output_files = output_files
-                update_fields.append("output_files")
-            if "output_size" in result_data and existing_result.output_size != output_size:
-                existing_result.output_size = output_size
-                update_fields.append("output_size")
-            if output_mimetypes and existing_result.output_mimetypes != output_mimetypes:
-                existing_result.output_mimetypes = output_mimetypes
-                update_fields.append("output_mimetypes")
-            if start_ts and existing_result.start_ts != start_ts:
-                existing_result.start_ts = start_ts
-                update_fields.append("start_ts")
-            if end_ts and existing_result.end_ts != end_ts:
-                existing_result.end_ts = end_ts
-                update_fields.append("end_ts")
+            for field, value in values.items():
+                if getattr(existing_result, field) != value:
+                    setattr(existing_result, field, value)
+                    update_fields.append(field)
             if update_fields:
                 existing_result.save(update_fields=[*update_fields, "modified_at"])
             return
@@ -1644,8 +1542,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         }
         records.append(snapshot_record)
 
-        # Handle 0.8.x/0.9.x format (archive_results list)
-        for result_data in data.get("archive_results", []):
+        for result_data in self._iter_index_results(data):
             ar_record = {
                 "type": "ArchiveResult",
                 "snapshot_id": str(self.id),
@@ -1666,32 +1563,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 ar_record["pwd"] = result_data["pwd"]
             records.append(ar_record)
 
-        # Handle 0.7.x format (history dict)
-        if "history" in data and isinstance(data["history"], dict):
-            for plugin, result_list in data["history"].items():
-                if not isinstance(result_list, list):
-                    continue
-                for result_data in result_list:
-                    ar_record = {
-                        "type": "ArchiveResult",
-                        "snapshot_id": str(self.id),
-                        "plugin": result_data.get("plugin") or result_data.get("extractor") or plugin,
-                        "hook_name": result_data.get("hook_name", ""),
-                        "status": result_data.get("status") or ArchiveResult.StatusChoices.FAILED,
-                        "output_str": result_data.get("output_str") or result_data.get("output", ""),
-                        "output_json": result_data.get("output_json"),
-                        "output_files": result_data.get("output_files"),
-                        "output_size": result_data.get("output_size"),
-                        "output_mimetypes": result_data.get("output_mimetypes", ""),
-                        "start_ts": result_data.get("start_ts"),
-                        "end_ts": result_data.get("end_ts"),
-                    }
-                    if result_data.get("cmd"):
-                        ar_record["cmd"] = result_data["cmd"]
-                    if result_data.get("pwd"):
-                        ar_record["pwd"] = result_data["pwd"]
-                    records.append(ar_record)
-
         jsonl_path.parent.mkdir(parents=True, exist_ok=True)
         tmp_jsonl_path = jsonl_path.with_name(f".{jsonl_path.name}.tmp")
         with open(tmp_jsonl_path, "w", encoding="utf-8") as f:
@@ -1699,6 +1570,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         os.replace(tmp_jsonl_path, jsonl_path)
 
         return True
+
+    def reconcile_with_index_json(self, output_dir: Path | None = None, update_existing_archive_results: bool = True):
+        """Deprecated: use reconcile_with_index() instead."""
+        return self.reconcile_with_index(output_dir=output_dir, update_existing_archive_results=update_existing_archive_results)
 
     # =========================================================================
     # Snapshot Utilities
@@ -2280,8 +2155,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         import re
 
         from django.utils import timezone
-
-        from archivebox.base_models.models import get_or_create_system_user_pk
 
         config = get_config()
 

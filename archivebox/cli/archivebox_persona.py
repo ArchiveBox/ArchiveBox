@@ -40,40 +40,6 @@ from archivebox.cli.cli_util import apply_filters
 from archivebox.personas import importers as persona_importers
 
 
-# =============================================================================
-# Validation Helpers
-# =============================================================================
-
-
-def validate_persona_name(name: str) -> tuple[bool, str]:
-    """
-    Validate persona name to prevent path traversal attacks.
-
-    Returns:
-        (is_valid, error_message): tuple indicating if name is valid
-    """
-    if not name or not name.strip():
-        return False, "Persona name cannot be empty"
-
-    # Check for path separators
-    if "/" in name or "\\" in name:
-        return False, "Persona name cannot contain path separators (/ or \\)"
-
-    # Check for parent directory references
-    if ".." in name:
-        return False, "Persona name cannot contain parent directory references (..)"
-
-    # Check for hidden files/directories
-    if name.startswith("."):
-        return False, "Persona name cannot start with a dot (.)"
-
-    # Ensure name doesn't contain null bytes or other dangerous chars
-    if "\x00" in name or "\n" in name or "\r" in name:
-        return False, "Persona name contains invalid characters"
-
-    return True, ""
-
-
 def ensure_path_within_personas_dir(persona_path: Path) -> bool:
     """
     Verify that a persona path is within PERSONAS_DIR.
@@ -477,7 +443,7 @@ def open_cmd(name: str):
     from archivebox.config.common import get_config
     from archivebox.personas.models import Persona
 
-    valid, reason = validate_persona_name(name)
+    valid, reason = persona_importers.validate_persona_name(name)
     if not valid:
         raise click.ClickException(reason)
     persona = Persona.get_or_create_named(name)

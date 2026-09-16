@@ -368,70 +368,29 @@ def list_snapshots(
 # =============================================================================
 
 
-def update_snapshots(
-    status: str | None = None,
-    tag: str | None = None,
-) -> int:
-    """
-    Update Snapshots from stdin JSONL.
-
-    Reads Snapshot records from stdin and applies updates.
-    Uses PATCH semantics - only specified fields are updated.
-
-    Exit codes:
-        0: Success
-        1: No input or error
-    """
+def update_snapshots(status: str | None = None, tag: str | None = None) -> int:
+    """Update JSONL-selected snapshots through their lifecycle operations."""
     from django.utils import timezone
-
-    from archivebox.misc.jsonl import read_stdin, write_record
     from archivebox.core.models import Snapshot
+    from archivebox.cli.cli_util import update_records, update_record_status
 
-    is_tty = sys.stdout.isatty()
+    def update(snapshot):
+        if status:
+            try:
+                update_record_status(snapshot, status)
+            except ValueError as err:
+                rprint(f"[red]{err}[/red]", file=sys.stderr)
+                return False
+        if tag:
+            from archivebox.core.models import Tag
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
+            tag_obj, _ = Tag.objects.get_or_create(name=tag)
+            snapshot.tags.add(tag_obj)
+            snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
+        if not status and not tag:
+            snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
 
-    updated_count = 0
-    for record in records:
-        snapshot_id = record.get("id")
-        if not snapshot_id:
-            continue
-
-        try:
-            snapshot = Snapshot.objects.get(id=snapshot_id)
-
-            if status:
-                from archivebox.cli.cli_util import update_record_status
-
-                try:
-                    update_record_status(snapshot, status)
-                except ValueError as err:
-                    rprint(f"[red]{err}[/red]", file=sys.stderr)
-                    continue
-            if tag:
-                from archivebox.core.models import Tag
-
-                tag_obj, _ = Tag.objects.get_or_create(name=tag)
-                snapshot.tags.add(tag_obj)
-                snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
-
-            if not status and not tag:
-                snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
-            updated_count += 1
-
-            if not is_tty:
-                snapshot.refresh_from_db()
-                write_record(snapshot.to_json())
-
-        except Snapshot.DoesNotExist:
-            rprint(f"[yellow]Snapshot not found: {snapshot_id}[/yellow]", file=sys.stderr)
-            continue
-
-    rprint(f"[green]Updated {updated_count} snapshots[/green]", file=sys.stderr)
-    return 0
+    return update_records(Snapshot, update, plural="snapshots", refresh=True)
 
 
 # =============================================================================

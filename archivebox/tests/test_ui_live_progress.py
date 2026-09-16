@@ -365,7 +365,8 @@ class TestLiveProgressView:
         initialized_archive,
     ):
         import archivebox.machine.models as machine_models
-        from archivebox.machine.models import Machine, Process, psutil
+        import psutil
+        from archivebox.machine.models import Machine, Process
 
         machine_models._CURRENT_MACHINE = None
         cmd = ["archivebox", "manage", "shell"]

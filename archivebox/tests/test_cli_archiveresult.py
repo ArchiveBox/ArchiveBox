@@ -24,6 +24,19 @@ PROJECTOR_TEST_ENV = {
 }
 
 
+def create_projected_favicon(archive):
+    """Run the public create/request/run pipeline and return its persisted result."""
+    common = {"cwd": archive, "default_cli_env": True, "disable_extractors": True, "check": True}
+    created = run_archivebox_cmd(["snapshot", "create", create_test_url()], **common)
+    snapshot = parse_jsonl_output(created.stdout)[0]
+    requested = run_archivebox_cmd(["archiveresult", "create", "--plugin=favicon"], stdin=json.dumps(snapshot), **common)
+    run_archivebox_cmd(["run"], stdin=requested.stdout, timeout=120, env=PROJECTOR_TEST_ENV, **common)
+    listed = run_archivebox_cmd(["archiveresult", "list", "--plugin=favicon", f"--snapshot-id={snapshot['id']}"], **common)
+    records = parse_jsonl_output(listed.stdout)
+    assert len(records) == 1
+    return records[0]
+
+
 class TestArchiveResultCreate:
     """Tests for `archivebox archiveresult create`."""
 
@@ -177,39 +190,7 @@ class TestArchiveResultList:
     def test_list_filter_by_status(self, initialized_archive):
         """Filter archive results by status."""
         # Create snapshot and materialize an archive result via the runner
-        url = create_test_url()
-        _cmd_result = run_archivebox_cmd(
-            ["snapshot", "create", url],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        snapshot = parse_jsonl_output(stdout1)[0]
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "create", "--plugin=favicon"],
-            stdin=json.dumps(snapshot),
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout2, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        run_archivebox_cmd(
-            ["run"],
-            stdin=stdout2,
-            cwd=initialized_archive,
-            timeout=120,
-            env=PROJECTOR_TEST_ENV,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "list", "--plugin=favicon"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        created = parse_jsonl_output(_cmd_result.stdout)[0]
+        created = create_projected_favicon(initialized_archive)
         run_archivebox_cmd(
             ["archiveresult", "update", "--status=queued"],
             stdin=json.dumps(created),
@@ -233,32 +214,7 @@ class TestArchiveResultList:
 
     def test_list_filter_by_plugin(self, initialized_archive):
         """Filter archive results by plugin."""
-        url = create_test_url()
-        _cmd_result = run_archivebox_cmd(
-            ["snapshot", "create", url],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        snapshot = parse_jsonl_output(stdout1)[0]
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "create", "--plugin=favicon"],
-            stdin=json.dumps(snapshot),
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout2, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        run_archivebox_cmd(
-            ["run"],
-            stdin=stdout2,
-            cwd=initialized_archive,
-            timeout=120,
-            env=PROJECTOR_TEST_ENV,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        create_projected_favicon(initialized_archive)
 
         _cmd_result = run_archivebox_cmd(
             ["archiveresult", "list", "--plugin=favicon"],
@@ -277,32 +233,7 @@ class TestArchiveResultList:
         """Limit number of results."""
         # Create multiple archive results
         for _ in range(3):
-            url = create_test_url()
-            _cmd_result = run_archivebox_cmd(
-                ["snapshot", "create", url],
-                cwd=initialized_archive,
-                default_cli_env=True,
-                disable_extractors=True,
-            )
-            stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-            snapshot = parse_jsonl_output(stdout1)[0]
-            _cmd_result = run_archivebox_cmd(
-                ["archiveresult", "create", "--plugin=favicon"],
-                stdin=json.dumps(snapshot),
-                cwd=initialized_archive,
-                default_cli_env=True,
-                disable_extractors=True,
-            )
-            stdout2, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-            run_archivebox_cmd(
-                ["run"],
-                stdin=stdout2,
-                cwd=initialized_archive,
-                timeout=120,
-                env=PROJECTOR_TEST_ENV,
-                default_cli_env=True,
-                disable_extractors=True,
-            )
+            create_projected_favicon(initialized_archive)
 
         _cmd_result = run_archivebox_cmd(
             ["archiveresult", "list", "--limit=2"],
@@ -322,42 +253,7 @@ class TestArchiveResultUpdate:
 
     def test_update_status(self, initialized_archive):
         """Update archive result status."""
-        url = create_test_url()
-        _cmd_result = run_archivebox_cmd(
-            ["snapshot", "create", url],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        snapshot = parse_jsonl_output(stdout1)[0]
-
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "create", "--plugin=favicon"],
-            stdin=json.dumps(snapshot),
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout2, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        _cmd_result = run_archivebox_cmd(
-            ["run"],
-            stdin=stdout2,
-            cwd=initialized_archive,
-            timeout=120,
-            env=PROJECTOR_TEST_ENV,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        _stdout_run, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "list", "--plugin=favicon"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout_list, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        ar = parse_jsonl_output(stdout_list)[0]
+        ar = create_projected_favicon(initialized_archive)
 
         _cmd_result = run_archivebox_cmd(
             ["archiveresult", "update", "--status=failed"],
@@ -380,42 +276,7 @@ class TestArchiveResultDelete:
 
     def test_delete_requires_yes(self, initialized_archive):
         """Delete requires --yes flag."""
-        url = create_test_url()
-        _cmd_result = run_archivebox_cmd(
-            ["snapshot", "create", url],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        snapshot = parse_jsonl_output(stdout1)[0]
-
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "create", "--plugin=favicon"],
-            stdin=json.dumps(snapshot),
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout2, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        _cmd_result = run_archivebox_cmd(
-            ["run"],
-            stdin=stdout2,
-            cwd=initialized_archive,
-            timeout=120,
-            env=PROJECTOR_TEST_ENV,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        _stdout_run, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "list", "--plugin=favicon"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout_list, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        ar = parse_jsonl_output(stdout_list)[0]
+        ar = create_projected_favicon(initialized_archive)
 
         _cmd_result = run_archivebox_cmd(
             ["archiveresult", "delete"],
@@ -431,42 +292,7 @@ class TestArchiveResultDelete:
 
     def test_delete_with_yes(self, initialized_archive):
         """Delete with --yes flag works."""
-        url = create_test_url()
-        _cmd_result = run_archivebox_cmd(
-            ["snapshot", "create", url],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        snapshot = parse_jsonl_output(stdout1)[0]
-
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "create", "--plugin=favicon"],
-            stdin=json.dumps(snapshot),
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout2, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        _cmd_result = run_archivebox_cmd(
-            ["run"],
-            stdin=stdout2,
-            cwd=initialized_archive,
-            timeout=120,
-            env=PROJECTOR_TEST_ENV,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        _stdout_run, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        _cmd_result = run_archivebox_cmd(
-            ["archiveresult", "list", "--plugin=favicon"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
-        stdout_list, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        ar = parse_jsonl_output(stdout_list)[0]
+        ar = create_projected_favicon(initialized_archive)
 
         _cmd_result = run_archivebox_cmd(
             ["archiveresult", "delete", "--yes"],

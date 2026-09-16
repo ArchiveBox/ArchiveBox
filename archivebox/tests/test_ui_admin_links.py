@@ -137,7 +137,8 @@ def _admin_get_request(path="/"):
 
 @pytest.fixture
 def running_process_record(initialized_archive):
-    from archivebox.machine.models import Machine, Process, psutil
+    import psutil
+    from archivebox.machine.models import Machine, Process
 
     cmd = ["archivebox", "manage", "shell"]
     popen = run_archivebox_cmd(

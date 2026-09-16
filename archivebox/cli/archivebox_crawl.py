@@ -177,43 +177,20 @@ def list_crawls(
     max_depth: int | None = None,
     limit: int | None = None,
 ) -> int:
-    """
-    List Crawls as JSONL with optional filters.
-
-    Exit codes:
-        0: Success (even if no results)
-    """
-    from archivebox.misc.jsonl import write_record
+    """List crawls as JSONL, or formatted rows in a terminal."""
     from archivebox.crawls.models import Crawl
+    from archivebox.cli.cli_util import list_records, format_status
 
-    is_tty = sys.stdout.isatty()
-
-    queryset = Crawl.objects.all().order_by("-created_at")
-
-    # Apply filters
-    filter_kwargs = {
-        "status": status,
-        "urls__icontains": urls__icontains,
-        "max_depth": max_depth,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for crawl in queryset:
-        if is_tty:
-            status_color = {
-                "queued": "yellow",
-                "started": "blue",
-                "sealed": "green",
-            }.get(crawl.status, "dim")
-            url_preview = crawl.urls[:50].replace("\n", " ")
-            rprint(f"[{status_color}]{crawl.status:8}[/{status_color}] [dim]{crawl.id}[/dim] {url_preview}...")
-        else:
-            write_record(crawl.to_json())
-        count += 1
-
-    rprint(f"[dim]Listed {count} crawls[/dim]", file=sys.stderr)
-    return 0
+    queryset = apply_filters(
+        Crawl.objects.order_by("-created_at"),
+        {"status": status, "urls__icontains": urls__icontains, "max_depth": max_depth},
+        limit=limit,
+    )
+    return list_records(
+        queryset,
+        plural="crawls",
+        render=lambda crawl: f"{format_status(crawl.status, 8)} [dim]{crawl.id}[/dim] {crawl.urls[:50].replace(chr(10), chr(32))}...",
+    )
 
 
 # =============================================================================
@@ -221,66 +198,26 @@ def list_crawls(
 # =============================================================================
 
 
-def update_crawls(
-    status: str | None = None,
-    max_depth: int | None = None,
-) -> int:
-    """
-    Update Crawls from stdin JSONL.
-
-    Reads Crawl records from stdin and applies updates.
-    Uses PATCH semantics - only specified fields are updated.
-
-    Exit codes:
-        0: Success
-        1: No input or error
-    """
+def update_crawls(status: str | None = None, max_depth: int | None = None) -> int:
+    """Update JSONL-selected crawls through their lifecycle operations."""
     from django.utils import timezone
-
-    from archivebox.misc.jsonl import read_stdin, write_record
     from archivebox.crawls.models import Crawl
+    from archivebox.cli.cli_util import update_records, update_record_status
 
-    is_tty = sys.stdout.isatty()
+    def update(crawl):
+        if status:
+            try:
+                update_record_status(crawl, status)
+            except ValueError as err:
+                rprint(f"[red]{err}[/red]", file=sys.stderr)
+                return False
+        if max_depth is not None:
+            crawl.safe_update({"max_depth": max_depth, "modified_at": timezone.now()}, refresh=False)
+            crawl.max_depth = max_depth
+        elif not status:
+            crawl.safe_update({"modified_at": timezone.now()}, refresh=False)
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    updated_count = 0
-    for record in records:
-        crawl_id = record.get("id")
-        if not crawl_id:
-            continue
-
-        try:
-            crawl = Crawl.objects.get(id=crawl_id)
-
-            if status:
-                from archivebox.cli.cli_util import update_record_status
-
-                try:
-                    update_record_status(crawl, status)
-                except ValueError as err:
-                    rprint(f"[red]{err}[/red]", file=sys.stderr)
-                    continue
-            if max_depth is not None:
-                crawl.safe_update({"max_depth": max_depth, "modified_at": timezone.now()}, refresh=False)
-                crawl.max_depth = max_depth
-            elif not status:
-                crawl.safe_update({"modified_at": timezone.now()}, refresh=False)
-            updated_count += 1
-
-            if not is_tty:
-                crawl.refresh_from_db()
-                write_record(crawl.to_json())
-
-        except Crawl.DoesNotExist:
-            rprint(f"[yellow]Crawl not found: {crawl_id}[/yellow]", file=sys.stderr)
-            continue
-
-    rprint(f"[green]Updated {updated_count} crawls[/green]", file=sys.stderr)
-    return 0
+    return update_records(Crawl, update, plural="crawls", refresh=True)
 
 
 # =============================================================================

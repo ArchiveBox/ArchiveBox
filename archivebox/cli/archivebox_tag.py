@@ -90,42 +90,17 @@ def create_tags(names: Iterable[str]) -> int:
 # =============================================================================
 
 
-def list_tags(
-    name: str | None = None,
-    name__icontains: str | None = None,
-    limit: int | None = None,
-) -> int:
-    """
-    List Tags as JSONL with optional filters.
-
-    Exit codes:
-        0: Success (even if no results)
-    """
-    from archivebox.misc.jsonl import write_record
+def list_tags(name: str | None = None, name__icontains: str | None = None, limit: int | None = None) -> int:
+    """List tags as JSONL, or formatted rows in a terminal."""
     from archivebox.core.models import Tag
+    from archivebox.cli.cli_util import list_records
 
-    is_tty = sys.stdout.isatty()
-
-    queryset = Tag.objects.all().order_by("name")
-
-    # Apply filters
-    filter_kwargs = {
-        "name": name,
-        "name__icontains": name__icontains,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for tag in queryset:
-        snapshot_count = tag.snapshot_set.count()
-        if is_tty:
-            rprint(f"[cyan]{tag.name:30}[/cyan] [dim]({snapshot_count} snapshots)[/dim]")
-        else:
-            write_record(tag.to_json())
-        count += 1
-
-    rprint(f"[dim]Listed {count} tags[/dim]", file=sys.stderr)
-    return 0
+    queryset = apply_filters(Tag.objects.order_by("name"), {"name": name, "name__icontains": name__icontains}, limit=limit)
+    return list_records(
+        queryset,
+        plural="tags",
+        render=lambda tag: f"[cyan]{tag.name:30}[/cyan] [dim]({tag.snapshot_set.count()} snapshots)[/dim]",
+    )
 
 
 # =============================================================================
@@ -134,56 +109,16 @@ def list_tags(
 
 
 def update_tags(name: str | None = None) -> int:
-    """
-    Update Tags from stdin JSONL.
-
-    Reads Tag records from stdin and applies updates.
-    Uses PATCH semantics - only specified fields are updated.
-
-    Exit codes:
-        0: Success
-        1: No input or error
-    """
-    from archivebox.misc.jsonl import read_stdin, write_record
+    """Apply supplied fields to each JSONL-selected Tag."""
     from archivebox.core.models import Tag
+    from archivebox.cli.cli_util import update_records
 
-    is_tty = sys.stdout.isatty()
+    def update(tag):
+        if name:
+            tag.name = name
+            tag.save()
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    updated_count = 0
-    for record in records:
-        tag_id = record.get("id")
-        old_name = record.get("name")
-
-        if not tag_id and not old_name:
-            continue
-
-        try:
-            if tag_id:
-                tag = Tag.objects.get(id=tag_id)
-            else:
-                tag = Tag.objects.get(name=old_name)
-
-            # Apply updates from CLI flags
-            if name:
-                tag.name = name
-                tag.save()
-
-            updated_count += 1
-
-            if not is_tty:
-                write_record(tag.to_json())
-
-        except Tag.DoesNotExist:
-            rprint(f"[yellow]Tag not found: {tag_id or old_name}[/yellow]", file=sys.stderr)
-            continue
-
-    rprint(f"[green]Updated {updated_count} tags[/green]", file=sys.stderr)
-    return 0
+    return update_records(Tag, update, plural="tags", by_name=True)
 
 
 # =============================================================================

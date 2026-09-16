@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 import pytest
+from django.utils import timezone
 from asgiref.sync import sync_to_async
 
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
@@ -230,7 +231,7 @@ def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
     from abx_dl.events import CrawlEvent, MachineEvent
     from abx_dl.orchestrator import create_bus
     from abxbus.event_bus import in_handler_context
-    from archivebox.services import runner as runner_module
+    from archivebox.services.runner.crawl import _runner_task_context
 
     bus = create_bus(name="test_runner_task_context_clears_inherited_abxbus_handler_context")
     observations = []
@@ -243,7 +244,7 @@ def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
 
     async def on_crawl(event):
         assert in_handler_context() is True
-        task = asyncio.create_task(emit_from_runner_task(), context=runner_module._runner_task_context())
+        task = asyncio.create_task(emit_from_runner_task(), context=_runner_task_context())
         await task
 
     bus.on(CrawlEvent, on_crawl)
@@ -942,7 +943,7 @@ def test_run_pending_crawls_resolves_real_binary_through_abxpkg(tmp_path):
         machine=Machine.current(),
         name="bash",
         status=Binary.StatusChoices.QUEUED,
-        retry_at=runner_module.timezone.now(),
+        retry_at=timezone.now(),
         binproviders="env",
     )
 

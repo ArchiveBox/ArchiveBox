@@ -216,116 +216,51 @@ class PersonaImportResult:
         return self.profile_copied or self.cookies_imported or self.storage_captured or self.user_agent_imported
 
 
-def get_chrome_user_data_dir() -> Path | None:
-    """Get the default Chrome user data directory for the current platform."""
-    system = platform.system()
-    home = Path.home()
-
-    if system == "Darwin":
-        candidates = [
-            home / "Library" / "Application Support" / "Google" / "Chrome",
-        ]
-    elif system == "Linux":
-        candidates = [
-            home / ".config" / "google-chrome",
-            home / ".config" / "chrome",
-        ]
-    elif system == "Windows":
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        candidates = [
-            local_app_data / "Google" / "Chrome" / "User Data",
-        ]
-    else:
-        candidates = []
-
-    for candidate in candidates:
-        if candidate.exists() and _list_profile_names(candidate):
-            return candidate
-
-    return None
-
-
-def get_chromium_user_data_dir() -> Path | None:
-    """Select Chromium's own profile even when Google Chrome is installed."""
-    home = Path.home()
-    if platform.system() == "Darwin":
-        candidates = [home / "Library/Application Support/Chromium"]
-    elif platform.system() == "Windows":
-        candidates = [Path(os.environ.get("LOCALAPPDATA", home / "AppData/Local")) / "Chromium/User Data"]
-    else:
-        candidates = [
-            Path(os.environ.get("XDG_CONFIG_HOME", home / ".config")) / "chromium",
-            home / "snap/chromium/common/chromium",
-        ]
-    return next((path for path in candidates if path.is_dir() and _list_profile_names(path)), None)
-
-
-def get_brave_user_data_dir() -> Path | None:
-    """Get the default Brave user data directory for the current platform."""
-    system = platform.system()
-    home = Path.home()
-
-    if system == "Darwin":
-        candidates = [
-            home / "Library" / "Application Support" / "BraveSoftware" / "Brave-Browser",
-        ]
-    elif system == "Linux":
-        candidates = [
-            home / ".config" / "BraveSoftware" / "Brave-Browser",
-        ]
-    elif system == "Windows":
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        candidates = [
-            local_app_data / "BraveSoftware" / "Brave-Browser" / "User Data",
-        ]
-    else:
-        candidates = []
-
-    for candidate in candidates:
-        if candidate.exists() and _list_profile_names(candidate):
-            return candidate
-
-    return None
-
-
-def get_edge_user_data_dir() -> Path | None:
-    """Get the default Edge user data directory for the current platform."""
-    system = platform.system()
-    home = Path.home()
-
-    if system == "Darwin":
-        candidates = [
-            home / "Library" / "Application Support" / "Microsoft Edge",
-        ]
-    elif system == "Linux":
-        candidates = [
-            home / ".config" / "microsoft-edge",
-            home / ".config" / "microsoft-edge-beta",
-            home / ".config" / "microsoft-edge-dev",
-        ]
-    elif system == "Windows":
-        local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
-        candidates = [
-            local_app_data / "Microsoft" / "Edge" / "User Data",
-        ]
-    else:
-        candidates = []
-
-    for candidate in candidates:
-        if candidate.exists() and _list_profile_names(candidate):
-            return candidate
-
-    return None
-
-
-BROWSER_PROFILE_FINDERS = {
-    "chrome": get_chrome_user_data_dir,
-    "chromium": get_chromium_user_data_dir,
-    "brave": get_brave_user_data_dir,
-    "edge": get_edge_user_data_dir,
+# Relative profile roots in lookup order. Chromium additionally supports XDG
+# and snap; the other browsers retain their own conventional config locations.
+BROWSER_PROFILE_PATHS = {
+    "chrome": {
+        "Darwin": ("Google/Chrome",),
+        "Linux": ("google-chrome", "chrome"),
+        "Windows": ("Google/Chrome/User Data",),
+    },
+    "chromium": {
+        "Darwin": ("Chromium",),
+        "Linux": ("chromium",),
+        "Windows": ("Chromium/User Data",),
+    },
+    "brave": {
+        "Darwin": ("BraveSoftware/Brave-Browser",),
+        "Linux": ("BraveSoftware/Brave-Browser",),
+        "Windows": ("BraveSoftware/Brave-Browser/User Data",),
+    },
+    "edge": {
+        "Darwin": ("Microsoft Edge",),
+        "Linux": ("microsoft-edge", "microsoft-edge-beta", "microsoft-edge-dev"),
+        "Windows": ("Microsoft/Edge/User Data",),
+    },
 }
+CHROMIUM_BROWSERS = tuple(BROWSER_PROFILE_PATHS)
 
-CHROMIUM_BROWSERS = tuple(BROWSER_PROFILE_FINDERS.keys())
+
+def get_browser_user_data_dir(browser: str) -> Path | None:
+    """Find a browser's first installed profile root on the current platform."""
+    home = Path.home()
+    system = platform.system()
+    # Chromium historically uses Linux locations on other Unix platforms too.
+    if browser == "chromium" and system not in ("Darwin", "Windows"):
+        system = "Linux"
+    roots = {
+        "Darwin": home / "Library/Application Support",
+        "Linux": Path(os.environ.get("XDG_CONFIG_HOME", home / ".config")) if browser == "chromium" else home / ".config",
+        "Windows": Path(os.environ.get("LOCALAPPDATA", home / "AppData/Local")),
+    }
+    if system not in roots:
+        return None
+    candidates = [roots[system] / relative for relative in BROWSER_PROFILE_PATHS[browser].get(system, ())]
+    if browser == "chromium" and system == "Linux":
+        candidates.append(home / "snap/chromium/common/chromium")
+    return next((path for path in candidates if path.is_dir() and _list_profile_names(path)), None)
 
 
 NETSCAPE_COOKIE_HEADER = [
@@ -356,8 +291,8 @@ def validate_persona_name(name: str) -> tuple[bool, str]:
 def discover_local_browser_profiles() -> list[PersonaImportSource]:
     discovered: list[PersonaImportSource] = []
 
-    for browser, finder in BROWSER_PROFILE_FINDERS.items():
-        user_data_dir = finder()
+    for browser in CHROMIUM_BROWSERS:
+        user_data_dir = get_browser_user_data_dir(browser)
         if not user_data_dir:
             continue
 
@@ -430,11 +365,11 @@ def discover_persona_template_profiles(personas_dir: Path | None = None) -> list
 
 def resolve_browser_import_source(browser: str, profile_dir: str | None = None) -> PersonaImportSource:
     browser = browser.lower().strip()
-    if browser not in BROWSER_PROFILE_FINDERS:
-        supported = ", ".join(BROWSER_PROFILE_FINDERS)
+    if browser not in CHROMIUM_BROWSERS:
+        supported = ", ".join(CHROMIUM_BROWSERS)
         raise ValueError(f"Unknown browser: {browser}. Supported browsers: {supported}")
 
-    user_data_dir = BROWSER_PROFILE_FINDERS[browser]()
+    user_data_dir = get_browser_user_data_dir(browser)
     if not user_data_dir:
         raise ValueError(
             f"Could not find {browser} profile directory. Use --source /path/to/browser-data. "
