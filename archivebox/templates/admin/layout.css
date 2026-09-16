@@ -346,31 +346,6 @@ legend {
     min-width: min(520px, 100%);
 }
 
-.archivebox-snapshot-summary {
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-    min-width: 0;
-}
-
-.archivebox-snapshot-summary-preview {
-    display: block;
-    flex: 0 1 220px;
-    width: 220px;
-    min-width: 140px;
-}
-
-.archivebox-snapshot-summary-meta {
-    flex: 1 1 180px;
-    min-width: 160px;
-}
-
-.archivebox-snapshot-summary-path {
-    display: inline;
-    overflow-wrap: anywhere;
-    word-break: normal;
-}
-
 /* Readonly fields styling */
 #content-main form fieldset .readonly,
 #content form fieldset .readonly {
@@ -678,20 +653,6 @@ input[name="delete"]:hover,
 
     #content {
         padding: 16px;
-    }
-
-    .archivebox-snapshot-summary {
-        flex-wrap: wrap;
-    }
-
-    .archivebox-snapshot-summary-preview {
-        flex-basis: 100%;
-        width: 100%;
-        max-width: 320px;
-    }
-
-    .archivebox-snapshot-summary-meta {
-        flex-basis: 100%;
     }
 }
 

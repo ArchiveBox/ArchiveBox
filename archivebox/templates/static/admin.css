@@ -71,46 +71,6 @@ div.breadcrumbs {
 }
 
 /* View Mode Switcher - Prominent Toggle */
-#snapshot-view-mode {
-    float: right;
-    margin-bottom: -40px;
-    display: inline-flex;
-    align-items: center;
-    margin-top: 3px;
-    margin-right: 10px;
-    font-size: 13px;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 2px;
-    gap: 2px;
-}
-#snapshot-view-mode a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 6px 12px;
-    color: #64748b;
-    text-decoration: none;
-    border-radius: 6px;
-    font-weight: 500;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-}
-#snapshot-view-mode a:hover {
-    color: #334155;
-    background: #e2e8f0;
-}
-#snapshot-view-mode a.active {
-    background: #fff;
-    color: #1e293b;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-#snapshot-view-mode .view-icon {
-    font-size: 14px;
-    line-height: 1;
-}
 
 .model-snapshot.change-list div.breadcrumbs,
 .model-snapshot.change-list #content .object-tools {
@@ -354,14 +314,6 @@ body.change-list:not(.model-snapshot) #changelist #toolbar #searchbar {
     width: auto;
 }
 
-body.change-list:not(.model-snapshot) #changelist #toolbar .search-mode-selector {
-    flex: 1 1 300px !important;
-    flex-wrap: wrap !important;
-    margin-left: 0 !important;
-    min-width: 260px;
-    white-space: normal !important;
-}
-
 body.change-list #changelist #changelist-form {
     display: contents;
 }
@@ -517,17 +469,6 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
         white-space: nowrap;
     }
 
-    body.change-list:not(.model-snapshot) #content #changelist #toolbar .search-mode-selector {
-        grid-column: 1 / -1;
-        display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        flex: none !important;
-        width: 100% !important;
-        max-width: 100%;
-        min-width: 0;
-        gap: 6px !important;
-    }
-
     body.change-list:not(.model-snapshot) #content #changelist #toolbar .small.quiet {
         grid-column: 1 / -1;
         flex: none !important;
@@ -536,14 +477,6 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
         min-width: 0;
         white-space: normal;
         text-align: left;
-    }
-
-    body.change-list:not(.model-snapshot) #content #changelist #toolbar .search-mode-selector label {
-        justify-content: center;
-        min-width: 0 !important;
-        width: 100%;
-        padding-left: 8px !important;
-        padding-right: 8px !important;
     }
 
     body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top {
@@ -1943,14 +1876,6 @@ tbody .output-link:hover {opacity: 1;}
         top: 0;
     }
 
-    .model-snapshot.change-list #changelist #toolbar .search-mode-selector {
-        gap: 5px !important;
-    }
-
-    .model-snapshot.change-list #changelist #toolbar .search-mode-selector label {
-        font-size: 12px !important;
-    }
-
     .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -2255,35 +2180,6 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
     min-width: 0;
 }
 
-.model-snapshot.change-list #toolbar .search-mode-selector {
-    grid-column: 1 / -1;
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    gap: 6px !important;
-    width: 100%;
-    min-width: 0;
-    margin: 0 !important;
-    overflow: visible;
-}
-
-.model-snapshot.change-list #toolbar .search-mode-selector .search-mode-option {
-    flex: 0 0 auto;
-    height: 28px;
-    justify-content: center;
-    padding: 4px 8px !important;
-    white-space: nowrap;
-    overflow: visible;
-}
-
-.model-snapshot.change-list #toolbar .search-mode-selector .search-mode-meta,
-.model-snapshot.change-list #toolbar .search-mode-selector .search-mode-deep {
-    min-width: 78px !important;
-}
-
-.model-snapshot.change-list #toolbar .search-mode-selector .search-mode-contents {
-    min-width: 112px !important;
-}
-
 .model-snapshot.change-list #toolbar .small.quiet {
     grid-column: 1 / -1;
     margin: 0 !important;
@@ -2430,10 +2326,6 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
         min-width: 84px;
         padding-left: 6px;
         padding-right: 6px;
-    }
-
-    .model-snapshot.change-list #toolbar .search-mode-selector label span[aria-hidden="true"] {
-        display: none;
     }
 }
 
@@ -3014,10 +2906,6 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
 
 .snapshot-changelist-widget.model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
     grid-template-columns: minmax(0, 1fr);
-}
-
-.snapshot-changelist-widget.model-snapshot.change-list #toolbar .search-mode-selector {
-    flex-wrap: wrap !important;
 }
 
 .snapshot-changelist-widget.model-snapshot.change-list #toolbar #changelist-search {

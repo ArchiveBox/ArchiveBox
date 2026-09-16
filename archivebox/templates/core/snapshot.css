@@ -16,10 +16,6 @@
             a:hover { text-decoration: underline; }
             .container-fluid { width: 100%; margin: 0 auto; padding: 0 12px; }
             .row { display: flex; flex-wrap: wrap; width: 100%; margin: 0; }
-            .col-lg-2 { flex: 0 0 16.6667%; max-width: 16.6667%; }
-            .col-lg-4 { flex: 0 0 33.3333%; max-width: 33.3333%; }
-            .col-lg-8 { flex: 0 0 66.6667%; max-width: 66.6667%; }
-            .col-lg-12 { flex: 0 0 100%; max-width: 100%; }
             .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 12px; line-height: 1.2; }
             .badge-default { background: rgba(255,255,255,0.2); color: #f6f6f6; }
             .badge-info { background: #dbe7ff; color: #2b4aa0; }
@@ -274,11 +270,6 @@
                 object-fit: contain;
                 border-radius: 3px;
                 background: rgba(255,255,255,0.08);
-            }
-            .header-top .col-lg-4 {
-                text-align: center;
-                padding-top: 4px;
-                padding-bottom: 4px;
             }
             .header-archivebox img {
                 display: inline-block;
@@ -738,34 +729,9 @@
                     padding: 4px 7px;
                 }
             }
-
-            .info-row {
-                margin-top: 2px;
-                margin-bottom: 5px;
-            }
-            .info-row .alert {
-                margin-bottom: 0px;
-            }
             .row.header-bottom {
                 margin-left: -10px;
                 margin-right: -10px;
-            }
-            .header-bottom .col-lg-2 {
-                padding-left: 4px;
-                padding-right: 4px;
-            }
-
-            .header-bottom-frames .card {
-                box-shadow: 2px 2px 7px 0px rgba(0, 0, 0, 0.1);
-                margin-bottom: 6px;
-                border: 1px solid rgba(0, 0, 0, 0.06);
-                border-radius: 10px;
-                background-color: #efefef;
-                overflow: hidden;
-                min-height: 130px;
-            }
-            .header-bottom-frames .card:has([data-compact]) {
-                min-height: 0;
             }
             .card h4 {
                 font-size: 0.8em;
@@ -1000,25 +966,6 @@
             .card.selected-card {
                 border: 2px solid orange;
                 box-shadow: 0px -6px 13px 1px rgba(0,0,0,0.05);
-            }
-            .thumb-compact .card-body {
-                display: block;
-                padding: 4px 8px;
-                font-size: 12px;
-                line-height: 1.2;
-                max-height: none;
-            }
-            .thumb-compact {
-                margin-bottom: 0px;
-                border-radius: 6px;
-            }
-            .thumb-compact .thumbnail-wrapper {
-                height: 32px;
-            }
-            .thumb-compact .thumbnail-compact,
-            .thumb-compact .thumbnail-text {
-                height: 32px;
-                max-height: 32px;
             }
             .preview-hidden {
                 display: none !important;
@@ -1333,41 +1280,11 @@
                 padding-left: 6px;
                 padding-right: 6px;
             }
-            .header-bottom-info {
-                color: #6f6f6f;
-                padding-top: 0px;
-                padding-bottom: 0px;
-                margin: 0px -15px;
-            }
-
-            .header-bottom-info > div {
-                text-align: center;
-            }
-            .header-bottom-info h5 {
-                font-size: 12px;
-                font-weight: 400;
-                margin-top: 3px;
-                margin-bottom: 3px;
-            }
-            .info-chunk {
-                width: auto;
-                display: inline-block;
-                text-align: center;
-                margin: 8px 4px;
-                vertical-align: top;
-                font-size: 14px;
-            }
             header .badge {
                 margin-top: 3px;
                 font-size: 0.9rem;
                 font-weight: 200;
                 font-family: monospace;
-            }
-            header .internal-links {
-                text-align: left;
-                opacity: 1;
-                background-color: rgba(0,0,0,0.03);
-                padding: 1px 3px;
             }
             header .external-links {
                 text-align: center;
@@ -1379,60 +1296,6 @@
                 color: #ddd;
                 width: 100%;
                 overflow: hidden;
-            }
-            .row.header-bottom-frames {
-                padding-top: 5px;
-                display: block !important;
-                width: 100%;
-                max-width: 100%;
-                column-width: 180px;
-                column-gap: 8px;
-                column-fill: auto;
-                margin-left: 0px;
-                margin-right: 0px;
-                flex: none !important;
-            }
-            .header-bottom-frames .col-lg-2 {
-                padding-left: 0px;
-                padding-right: 0px;
-                max-width: 100%;
-                width: 100% !important;
-                display: inline-block !important;
-                float: none !important;
-                flex: none !important;
-                break-inside: avoid;
-                margin-bottom: 6px;
-                vertical-align: top;
-            }
-            .header-bottom-frames .card:has([data-compact]) .thumbnail-wrapper,
-            .header-bottom-frames .card:has([data-compact]) .thumbnail-wrapper.compact {
-                height: 32px;
-            }
-            .header-bottom-frames .card:has([data-compact]) .thumbnail-text {
-                height: auto;
-                max-height: 64px;
-            }
-            .header-bottom-frames .card:has([data-compact]) .card-body {
-                padding: 4px 8px;
-                max-height: 44px;
-            }
-            .header-bottom-frames .card-title {
-                width: 100%;
-                text-align: center;
-                font-size: 17px;
-                margin-bottom: 0px;
-                display: inline-block;
-                color: #222;
-                font-weight: 200;
-                vertical-align: 3px;
-            }
-            .header-bottom-frames .card-text {
-/*                width: 100%;
-                text-align: center;*/
-                font-size: 0.9em;
-                display: inline-block;
-                position: relative;
-/*                top: -11px;*/
             }
             .card-text code {
                 padding: .1rem .2rem;

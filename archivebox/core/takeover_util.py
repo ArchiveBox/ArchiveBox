@@ -126,12 +126,15 @@ def ensure_daemon_stack(*, reason: str = ""):
 
     supervisor = get_existing_supervisord_process() or get_or_create_supervisord_process(daemonize=False)
     worker = get_worker(supervisor, sonic_worker["name"])
-    if isinstance(worker, dict) and worker.get("statename") in ("STARTING", "RUNNING"):
-        return worker
+    if not (isinstance(worker, dict) and worker.get("statename") in ("STARTING", "RUNNING")):
+        if reason:
+            rprint(f"[yellow][*] Starting daemon stack for {reason}...[/yellow]")
+        worker = start_worker(supervisor, sonic_worker)
 
-    if reason:
-        rprint(f"[yellow][*] Starting daemon stack for {reason}...[/yellow]")
-    return start_worker(supervisor, sonic_worker)
+    from archivebox.search.sonic_daemon import wait_for_sonic_daemon
+
+    wait_for_sonic_daemon(sonic_event)
+    return worker
 
 
 def live_runner_processes(*, data_dir: str | Path):
