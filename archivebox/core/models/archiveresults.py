@@ -652,13 +652,9 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             if not self._looks_like_output_path(raw_output, self.plugin):
                 continue
 
-            raw_path = Path(raw_output)
             if raw_output.startswith(f"{self.plugin}/"):
                 plugin_relative = raw_output.removeprefix(f"{self.plugin}/")
                 add_file(snapshot_dir / raw_output, plugin_relative)
-            elif len(raw_path.parts) == 1:
-                add_file(snapshot_dir / self.plugin / raw_output, raw_output)
-                add_file(snapshot_dir / raw_output, raw_output, root_relative=True)
             else:
                 add_file(snapshot_dir / self.plugin / raw_output, raw_output)
                 add_file(snapshot_dir / raw_output, raw_output, root_relative=True)

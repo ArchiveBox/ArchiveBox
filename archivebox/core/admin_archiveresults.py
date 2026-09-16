@@ -479,18 +479,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             self.list_per_page = saved_list_per_page
 
     def get_queryset(self, request):
-        ordering = request.GET.get("o")
-        ordering_fields = set()
-        if ordering:
-            for part in ordering.split("."):
-                if not part:
-                    continue
-                try:
-                    idx = abs(int(part)) - 1
-                except ValueError:
-                    continue
-                if 0 <= idx < len(self.list_display):
-                    ordering_fields.add(self.list_display[idx])
+        ordering_fields = self.get_ordering_fields(request)
 
         qs = (
             super()

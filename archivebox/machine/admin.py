@@ -120,12 +120,6 @@ class MachineAdmin(ConfigEditorMixin, BaseModelAdmin):
             ", ".join(machine.networkinterface_set.values_list("ip_public", flat=True)),
         )
 
-    @admin.display(description="Health", ordering="health")
-    def health_display(self, obj):
-        h = obj.health
-        color = "green" if h >= 80 else "orange" if h >= 50 else "red"
-        return format_html('<span style="color: {};">{}</span>', color, h)
-
     @admin.display(description="ID", ordering="id")
     def id_display(self, machine):
         # Highlight the row representing the machine that ``Machine.current()``
@@ -226,12 +220,6 @@ class NetworkInterfaceAdmin(BaseModelAdmin):
             iface.machine.hostname,
         )
 
-    @admin.display(description="Health", ordering="health")
-    def health_display(self, obj):
-        h = obj.health
-        color = "green" if h >= 80 else "orange" if h >= 50 else "red"
-        return format_html('<span style="color: {};">{}</span>', color, h)
-
 
 class BinaryAdmin(BaseModelAdmin):
     list_display = ("id", "created_at", "machine_info", "name", "binprovider", "version", "abspath", "sha256", "status", "health_display")
@@ -262,12 +250,6 @@ class BinaryAdmin(BaseModelAdmin):
             str(binary.machine.id)[:8],
             binary.machine.hostname,
         )
-
-    @admin.display(description="Health", ordering="health")
-    def health_display(self, obj):
-        h = obj.health
-        color = "green" if h >= 80 else "orange" if h >= 50 else "red"
-        return format_html('<span style="color: {};">{}</span>', color, h)
 
 
 class ProcessAdmin(BaseModelAdmin):

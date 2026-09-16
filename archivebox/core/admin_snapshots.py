@@ -624,7 +624,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def get_queryset(self, request):
         self.request = request
-        ordering_fields = self._get_ordering_fields(request)
+        ordering_fields = self.get_ordering_fields(request)
         needs_files_sort = "files" in ordering_fields
         needs_tags_sort = "tags_inline" in ordering_fields
         is_change_view = request.resolver_match.url_name == "core_snapshot_change"
@@ -1237,22 +1237,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return list(prefetched_cache["tags"])
         return None
 
-    def _get_ordering_fields(self, request):
-        ordering = request.GET.get("o")
-        if not ordering:
-            return set()
-        fields = set()
-        for part in ordering.split("."):
-            if not part:
-                continue
-            try:
-                idx = abs(int(part)) - 1
-            except ValueError:
-                continue
-            if 0 <= idx < len(self.list_display):
-                fields.add(self.list_display[idx])
-        return fields
-
     @admin.display(
         description="Original URL",
         ordering="url",
@@ -1263,12 +1247,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             obj.url,
             obj.url[:128],
         )
-
-    @admin.display(description="Health", ordering="health")
-    def health_display(self, obj):
-        h = obj.health
-        color = "green" if h >= 80 else "orange" if h >= 50 else "red"
-        return format_html('<span style="color: {};">{}</span>', color, h)
 
     def grid_view(self, request, extra_context=None):
         extra_context = extra_context or {}

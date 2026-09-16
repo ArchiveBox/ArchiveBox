@@ -13,6 +13,7 @@ from django.db import DatabaseError, models
 from django.forms.renderers import BaseRenderer
 from django.http import HttpRequest, QueryDict
 from django.urls import path, register_converter
+from django.utils.html import format_html
 from django.utils.safestring import SafeString, mark_safe
 from django_object_actions import DjangoObjectActions
 
@@ -267,6 +268,28 @@ class BaseModelAdmin(DjangoObjectActions, admin.ModelAdmin):
     readonly_fields = ("id", "created_at", "modified_at")
     show_search_mode_selector = False
     change_form_template = "admin/archivebox_change_form.html"
+
+    @admin.display(description="Health", ordering="health")
+    def health_display(self, obj):
+        h = obj.health
+        color = "green" if h >= 80 else "orange" if h >= 50 else "red"
+        return format_html('<span style="color: {};">{}</span>', color, h)
+
+    def get_ordering_fields(self, request):
+        ordering = request.GET.get("o")
+        if not ordering:
+            return set()
+        fields = set()
+        for part in ordering.split("."):
+            if not part:
+                continue
+            try:
+                idx = abs(int(part)) - 1
+            except ValueError:
+                continue
+            if 0 <= idx < len(self.list_display):
+                fields.add(self.list_display[idx])
+        return fields
 
     def get_admin_toolbar_actions(self, request, obj):
         """Return extra action button dicts for the shared change-form toolbar.

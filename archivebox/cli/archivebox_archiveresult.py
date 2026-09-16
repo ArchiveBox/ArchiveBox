@@ -72,7 +72,7 @@ def create_archiveresults(
     """
     from archivebox.config.common import get_config
     from archivebox.plugins.hooks import discover_hooks
-    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
+    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_SNAPSHOT
     from archivebox.core.models import Snapshot
 
     is_tty = sys.stdout.isatty()
@@ -99,26 +99,9 @@ def create_archiveresults(
         for record in records:
             record_type = record.get("type", "")
 
-            if record_type == TYPE_SNAPSHOT:
-                # Pass through the Snapshot record itself
+            if record_type:
                 pass_through_records.append(record)
-                if record.get("id"):
-                    snapshot_ids.append(record["id"])
-
-            elif record_type == TYPE_ARCHIVERESULT:
-                # ArchiveResult records: pass through if they have an id
-                if record.get("id"):
-                    pass_through_records.append(record)
-                # If no id, we could create it, but for now just pass through
-                else:
-                    pass_through_records.append(record)
-
-            elif record_type:
-                # Other typed records (Crawl, Tag, etc): pass through
-                pass_through_records.append(record)
-
-            elif record.get("id"):
-                # Untyped record with id - assume it's a snapshot ID
+            if record.get("id") and record_type in ("", TYPE_SNAPSHOT):
                 snapshot_ids.append(record["id"])
 
         # Output pass-through records first
