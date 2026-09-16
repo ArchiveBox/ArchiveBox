@@ -1,6 +1,9 @@
 """The schedule's shared snapshot table uses real browser forms and model actions."""
 
 import os
+import json
+import hashlib
+from pathlib import Path
 import subprocess
 
 import pytest
@@ -99,6 +102,10 @@ const puppeteer = require('puppeteer');
         assert.equal(await page.$eval('#changelist-filter-toggle', button => button.getAttribute('aria-expanded')), 'false');
         await page.click('#changelist-toolbar-filter-toggle');
         assert.equal(await page.$eval('#changelist-filter-toggle', button => button.getAttribute('aria-expanded')), 'true');
+        for (const [profile, width, height] of [['desktop', 1600, 1000], ['tablet', 1024, 1366], ['mobile', 390, 844]]) {
+            await page.setViewport({width, height});
+            await page.screenshot({path: process.argv[5] + '/' + profile + '.png'});
+        }
         assert.deepEqual(errors, []);
         console.log(JSON.stringify({submission, messages: await page.$$eval('.messagelist', nodes => nodes.map(node => node.textContent))}));
     } finally {
@@ -115,6 +122,7 @@ const puppeteer = require('puppeteer');
                 str(browser_runtime["chrome_binary"]),
                 f"http://admin.archivebox.localhost:{port}",
                 change_path,
+                str(tmp_path),
             ],
             env={**os.environ, "NODE_PATH": str(browser_runtime["node_path"])},
             capture_output=True,
@@ -122,6 +130,49 @@ const puppeteer = require('puppeteer');
             timeout=90,
         )
         assert result.returncode == 0, result.stderr + result.stdout
+        manifest = tmp_path / "manifest.jsonl"
+        manifest.write_text(
+            "\n".join(
+                json.dumps(
+                    {
+                        "name": "Archive results",
+                        "profile": profile,
+                        "filename": f"{profile}.png",
+                        "url": f"http://admin.archivebox.localhost:{port}/admin/core/archiveresult/",
+                        "source": "archivebox/core/admin_archiveresults.py",
+                    },
+                )
+                for profile in ("desktop", "tablet", "mobile")
+            ),
+        )
+        repo_root = Path(__file__).resolve().parents[2]
+        gallery = tmp_path / "index.html"
+        built = subprocess.run(
+            [
+                "uv",
+                "run",
+                "--project",
+                str(repo_root),
+                "--no-sync",
+                "python",
+                str(repo_root / "bin/generate_ui_screenshot_gallery.py"),
+                "build",
+                str(manifest),
+                str(gallery),
+            ],
+            cwd=initialized_archive,
+            env={**os.environ, "UI_SCREENSHOT_ALLOW_PARTIAL": "1"},
+            capture_output=True,
+            text=True,
+        )
+        assert built.returncode == 0, built.stderr
+        provenance = json.loads((tmp_path / "build.json").read_text())
+        assert provenance["capture_count"] == 3
+        for profile in ("desktop", "tablet", "mobile"):
+            filename = f"{profile}.png"
+            digest = hashlib.sha256((tmp_path / filename).read_bytes()).hexdigest()
+            assert provenance["files"][filename] == digest
+            assert f"{filename}?v={digest[:12]}" in gallery.read_text()
         with use_archivebox_db(initialized_archive):
             assert list(Snapshot.objects.get(pk=paused_id).tags.values_list("name", flat=True)) == ["schedule-browser-tag"], result.stdout
             assert not Snapshot.objects.exclude(pk=paused_id).filter(tags__name="schedule-browser-tag").exists()

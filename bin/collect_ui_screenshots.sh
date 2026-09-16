@@ -7,8 +7,8 @@ set -o pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_DIR="${UI_SCREENSHOT_DATA_DIR:-$REPO_DIR/data}"
-OUTPUT_DIR="${UI_SCREENSHOT_OUTPUT_DIR:-$REPO_DIR/docs/screenshots}"
 PUBLIC_OUTPUT_DIR="${UI_SCREENSHOT_PUBLIC_OUTPUT_DIR:-$REPO_DIR/publicsite/screenshots}"
+OUTPUT_DIR="${UI_SCREENSHOT_OUTPUT_DIR:-$PUBLIC_OUTPUT_DIR}"
 REQUESTED_PORT="${UI_SCREENSHOT_PORT:-}"
 MAX_VIEWS="${UI_SCREENSHOT_MAX_VIEWS:-0}"
 USERNAME="archivebox-screenshots-$$"
@@ -238,7 +238,7 @@ fi
 VIEWS=(
     "First-time setup wizard|setup-wizard://admin/|/admin/|archivebox/templates/core/setup_wizard.html|setup-wizard"
     "Login|$ADMIN_BASE_URL/admin/login/|/admin/login/|archivebox/templates/admin/login.html"
-    "Public snapshot list|$PUBLIC_BASE_URL/public/|/public/|archivebox/core/views.py"
+    "Public snapshot list|$PUBLIC_BASE_URL/public/|/public/|archivebox/core/views/public.py"
 )
 
 capture_index=0
@@ -464,7 +464,9 @@ PY
             exit 1
         fi
         cp "$screenshot_path" "$OUTPUT_DIR/$filename"
-        cp "$screenshot_path" "$PUBLIC_OUTPUT_DIR/$filename"
+        if [[ "$OUTPUT_DIR" != "$PUBLIC_OUTPUT_DIR" ]]; then
+            cp "$screenshot_path" "$PUBLIC_OUTPUT_DIR/$filename"
+        fi
         UI_SCREENSHOT_NAME="$name" UI_SCREENSHOT_URL="$url" UI_SCREENSHOT_SOURCE="$source" \
             UI_SCREENSHOT_FILENAME="$filename" UI_SCREENSHOT_PROFILE="$profile" \
             UI_SCREENSHOT_TIMING_REPORT="$timing_report_path" \
@@ -559,7 +561,7 @@ PY
         eval "$RECORD_CONFIG"
 
         VIEWS+=(
-            "Add URLs|$ADMIN_BASE_URL/add/|/add/|archivebox/core/views.py"
+            "Add URLs|$ADMIN_BASE_URL/add/|/add/|archivebox/core/views/add.py"
             "Admin dashboard|$ADMIN_BASE_URL/admin/|/admin/|archivebox/core/admin_site.py"
             "AI agent|$ADMIN_BASE_URL/admin/agent/|/admin/agent/|abx_plugins/plugins/opencode/views.py|wait-text:ArchiveBox AI Agent"
             "Snapshots table|$ADMIN_BASE_URL/admin/core/snapshot/|/admin/core/snapshot/|archivebox/core/admin_snapshots.py"
@@ -591,8 +593,8 @@ PY
             "Webhooks|$ADMIN_BASE_URL/admin/api/outboundwebhook/|/admin/api/outboundwebhook/|archivebox/api/admin.py"
             "Webhook detail|$ADMIN_BASE_URL/admin/api/outboundwebhook/$WEBHOOK_ID/change/|/admin/api/outboundwebhook/$WEBHOOK_ID/change/|archivebox/api/admin.py"
             "Environment|$ADMIN_BASE_URL/admin/environment/|/admin/environment/|archivebox/core/settings.py"
-            "Configuration|$ADMIN_BASE_URL/admin/environment/config/|/admin/environment/config/|archivebox/core/views.py"
-            "Configuration detail|$ADMIN_BASE_URL/admin/environment/config/BASE_URL/|/admin/environment/config/BASE_URL/|archivebox/core/views.py"
+            "Configuration|$ADMIN_BASE_URL/admin/environment/config/|/admin/environment/config/|archivebox/core/views/config.py"
+            "Configuration detail|$ADMIN_BASE_URL/admin/environment/config/BASE_URL/|/admin/environment/config/BASE_URL/|archivebox/core/views/config.py"
             "Dependencies|$ADMIN_BASE_URL/admin/environment/binaries/|/admin/environment/binaries/|archivebox/config/views.py"
             "Dependency detail|$ADMIN_BASE_URL/admin/environment/binaries/abxbus/|/admin/environment/binaries/abxbus/|archivebox/config/views.py"
             "Plugins|$ADMIN_BASE_URL/admin/environment/plugins/|/admin/environment/plugins/|archivebox/plugins/views.py"
@@ -643,8 +645,7 @@ done
 
 [[ "$MAX_VIEWS" != "0" ]] && export UI_SCREENSHOT_ALLOW_PARTIAL=1
 uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" build \
-    "$MANIFEST_FILE" "$REPO_DIR/docs/Screenshots.md" "$PUBLIC_OUTPUT_DIR/index.html"
+    "$MANIFEST_FILE" "$PUBLIC_OUTPUT_DIR/index.html"
 
 echo "[+] Captured $capture_index views at desktop, tablet, and mobile sizes"
-echo "[+] Documentation gallery: $REPO_DIR/docs/Screenshots.md"
 echo "[+] GitHub Pages gallery: $PUBLIC_OUTPUT_DIR/index.html"
