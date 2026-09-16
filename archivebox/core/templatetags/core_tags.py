@@ -47,47 +47,6 @@ _TEXT_PREVIEW_EXTS = (".json", ".jsonl", ".txt", ".csv", ".tsv", ".xml", ".yml",
 _IMAGE_PREVIEW_EXTS = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".ico", ".avif")
 _STATIC_URL_SAFE = "/@-._~!$&'()*+,;="
 
-_VIDEO_FILE_EXTS = {
-    ".mp4",
-    ".webm",
-    ".mkv",
-    ".avi",
-    ".mov",
-    ".flv",
-    ".wmv",
-    ".m4v",
-    ".mpg",
-    ".mpeg",
-    ".ts",
-    ".m2ts",
-    ".mts",
-    ".3gp",
-    ".3g2",
-    ".ogv",
-}
-
-_AUDIO_FILE_EXTS = {
-    ".mp3",
-    ".m4a",
-    ".aac",
-    ".ogg",
-    ".oga",
-    ".opus",
-    ".wav",
-    ".flac",
-    ".alac",
-    ".aiff",
-    ".wma",
-    ".mka",
-    ".ac3",
-    ".eac3",
-    ".dts",
-}
-
-_MEDIA_FILE_EXTS = _VIDEO_FILE_EXTS | _AUDIO_FILE_EXTS
-_BROWSER_VIDEO_FILE_EXTS = {".mp4", ".webm", ".m4v", ".ogv"}
-_BROWSER_AUDIO_FILE_EXTS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac"}
-
 
 def _is_web_subdomain_alias(browser_url: str, configured_base_url: str) -> bool:
     """Hide the informational mismatch banner on the conventional public web alias.
@@ -104,115 +63,10 @@ def _is_web_subdomain_alias(browser_url: str, configured_base_url: str) -> bool:
     )
 
 
-def _normalize_output_files(output_files: Any) -> dict[str, dict[str, Any]]:
-    from abx_dl.output_files import OutputManifest
-
-    return OutputManifest.from_value(output_files).as_mapping()
-
-
 def _snapshot_id(value: Any) -> Any:
     from archivebox.core.models import Snapshot
 
     return value.id if isinstance(value, Snapshot) else value
-
-
-def _coerce_output_file_size(value: Any) -> int | None:
-    try:
-        return max(int(value or 0), 0)
-    except (TypeError, ValueError):
-        return None
-
-
-def _count_media_files(result) -> int:
-    try:
-        output_files = _normalize_output_files(result.output_files or {})
-    except (AttributeError, TypeError, ValueError):
-        output_files = {}
-
-    if output_files:
-        return sum(1 for path in output_files if Path(path).suffix.lower() in _MEDIA_FILE_EXTS)
-
-    try:
-        plugin_dir = Path(result.snapshot_dir) / result.plugin
-    except (AttributeError, TypeError, ValueError):
-        return 0
-
-    if not plugin_dir.exists():
-        return 0
-
-    count = 0
-    scanned = 0
-    max_scan = 500
-    for file_path in plugin_dir.rglob("*"):
-        if scanned >= max_scan:
-            break
-        scanned += 1
-        if not file_path.is_file():
-            continue
-        if file_path.suffix.lower() in _MEDIA_FILE_EXTS:
-            count += 1
-    return count
-
-
-def _list_media_files(result) -> list[dict]:
-    media_files: list[dict] = []
-    try:
-        plugin_dir = Path(result.snapshot_dir) / result.plugin
-    except (AttributeError, TypeError, ValueError):
-        return media_files
-
-    output_files = _normalize_output_files(result.output_files or {})
-    candidates: list[tuple[Path, int | None]] = []
-    if output_files:
-        for path, metadata in output_files.items():
-            rel_path = Path(path)
-            if rel_path.suffix.lower() in _MEDIA_FILE_EXTS:
-                candidates.append((rel_path, _coerce_output_file_size(metadata.get("size"))))
-
-    if not candidates and plugin_dir.exists():
-        scanned = 0
-        max_scan = 2000
-        for file_path in plugin_dir.rglob("*"):
-            if scanned >= max_scan:
-                break
-            scanned += 1
-            if not file_path.is_file():
-                continue
-            if file_path.suffix.lower() in _MEDIA_FILE_EXTS:
-                try:
-                    rel_path = file_path.relative_to(plugin_dir)
-                except ValueError:
-                    continue
-                try:
-                    size = file_path.stat().st_size
-                except OSError:
-                    size = None
-                candidates.append((rel_path, size))
-
-    for rel_path, size in candidates:
-        href = str(Path(result.plugin) / rel_path)
-        suffix = rel_path.suffix.lower()
-        media_type = "video" if suffix in _VIDEO_FILE_EXTS else "audio"
-        media_files.append(
-            {
-                "name": rel_path.name,
-                "path": href,
-                "size": size,
-                "media_type": media_type,
-                "is_video": media_type == "video",
-                "is_audio": media_type == "audio",
-                "is_browser_playable": suffix in _BROWSER_VIDEO_FILE_EXTS or suffix in _BROWSER_AUDIO_FILE_EXTS,
-            },
-        )
-
-    media_files.sort(
-        key=lambda item: (
-            0 if item["is_video"] and item["is_browser_playable"] else 1 if item["is_audio"] and item["is_browser_playable"] else 2,
-            -int(item.get("size") or 0),
-            item["name"].lower(),
-        ),
-    )
-    return media_files
 
 
 def _resolve_snapshot_output_file(snapshot_dir: str | Path | None, raw_output_path: str | None) -> Path | None:
@@ -820,8 +674,7 @@ def plugin_card(context, result) -> str:
 
     icon_html = get_plugin_icon(plugin)
     plugin_lower = (plugin or "").lower()
-    media_file_count = _count_media_files(result) if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else 0
-    media_files = _list_media_files(result) if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else []
+    media_files = result.media_files() if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else []
     if context.get("STATIC_EXPORT") and media_files:
         media_files = [
             item
@@ -831,7 +684,6 @@ def plugin_card(context, result) -> str:
             and ".." not in media_path.parts
             and (Path(result.snapshot_dir) / media_path).is_file()
         ]
-        media_file_count = len(media_files)
     if media_files:
         for item in media_files:
             path = item.get("path") or ""
@@ -852,7 +704,7 @@ def plugin_card(context, result) -> str:
                     "output_path_raw": raw_output_path,
                     "plugin": plugin,
                     "plugin_icon": icon_html,
-                    "media_file_count": media_file_count,
+                    "media_file_count": len(media_files),
                     "media_files": media_files,
                 },
             )

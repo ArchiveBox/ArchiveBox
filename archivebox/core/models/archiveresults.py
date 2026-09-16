@@ -34,6 +34,48 @@ from .querysets import UngroupedSubquery
 from .snapshots import Snapshot
 
 
+_VIDEO_FILE_EXTS = {
+    ".mp4",
+    ".webm",
+    ".mkv",
+    ".avi",
+    ".mov",
+    ".flv",
+    ".wmv",
+    ".m4v",
+    ".mpg",
+    ".mpeg",
+    ".ts",
+    ".m2ts",
+    ".mts",
+    ".3gp",
+    ".3g2",
+    ".ogv",
+}
+
+_AUDIO_FILE_EXTS = {
+    ".mp3",
+    ".m4a",
+    ".aac",
+    ".ogg",
+    ".oga",
+    ".opus",
+    ".wav",
+    ".flac",
+    ".alac",
+    ".aiff",
+    ".wma",
+    ".mka",
+    ".ac3",
+    ".eac3",
+    ".dts",
+}
+
+_MEDIA_FILE_EXTS = _VIDEO_FILE_EXTS | _AUDIO_FILE_EXTS
+_BROWSER_VIDEO_FILE_EXTS = {".mp4", ".webm", ".m4v", ".ogv"}
+_BROWSER_AUDIO_FILE_EXTS = {".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac"}
+
+
 class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     class StatusChoices(models.TextChoices):
         QUEUED = "queued", "Queued"
@@ -520,6 +562,67 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     def output_file_paths(self) -> list[str]:
         return list(self.output_file_map().keys())
+
+    def media_files(self) -> list[dict]:
+        """List playable and downloadable media, using the manifest before bounded legacy scans."""
+        media_files: list[dict] = []
+        try:
+            plugin_dir = Path(self.snapshot_dir) / self.plugin
+        except (AttributeError, TypeError, ValueError):
+            return media_files
+
+        output_files = self.output_file_map()
+        candidates: list[tuple[Path, int | None]] = []
+        if output_files:
+            for path, metadata in output_files.items():
+                rel_path = Path(path)
+                if rel_path.suffix.lower() in _MEDIA_FILE_EXTS:
+                    candidates.append((rel_path, self._coerce_output_file_size(metadata.get("size"))))
+
+        if not candidates and plugin_dir.exists():
+            scanned = 0
+            max_scan = 2000
+            for file_path in plugin_dir.rglob("*"):
+                if scanned >= max_scan:
+                    break
+                scanned += 1
+                if not file_path.is_file():
+                    continue
+                if file_path.suffix.lower() in _MEDIA_FILE_EXTS:
+                    try:
+                        rel_path = file_path.relative_to(plugin_dir)
+                    except ValueError:
+                        continue
+                    try:
+                        size = file_path.stat().st_size
+                    except OSError:
+                        size = None
+                    candidates.append((rel_path, size))
+
+        for rel_path, size in candidates:
+            href = str(Path(self.plugin) / rel_path)
+            suffix = rel_path.suffix.lower()
+            media_type = "video" if suffix in _VIDEO_FILE_EXTS else "audio"
+            media_files.append(
+                {
+                    "name": rel_path.name,
+                    "path": href,
+                    "size": size,
+                    "media_type": media_type,
+                    "is_video": media_type == "video",
+                    "is_audio": media_type == "audio",
+                    "is_browser_playable": suffix in _BROWSER_VIDEO_FILE_EXTS or suffix in _BROWSER_AUDIO_FILE_EXTS,
+                },
+            )
+
+        media_files.sort(
+            key=lambda item: (
+                0 if item["is_video"] and item["is_browser_playable"] else 1 if item["is_audio"] and item["is_browser_playable"] else 2,
+                -int(item.get("size") or 0),
+                item["name"].lower(),
+            ),
+        )
+        return media_files
 
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True) -> bool:
         from abx_dl.output_files import OutputManifest, output_file_from_path

@@ -21,7 +21,6 @@ import shutil
 import warnings
 from pathlib import Path
 from threading import Thread
-from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth.models import AnonymousUser
@@ -495,21 +494,21 @@ class TestSnapshotProgressStats:
         assert screenshot_output["path"] == "screenshot/screenshot.png"
         assert screenshot_output["size"] == screenshot_file.stat().st_size
 
-    def test_media_helpers_use_output_file_metadata_without_disk(self):
-        """Template helpers should derive media lists and sizes from output_files metadata."""
-        from archivebox.core.templatetags.core_tags import _count_media_files, _list_media_files
+    def test_media_inventory_uses_output_file_metadata_without_disk(self, snapshot):
+        """The model derives media lists and sizes from output_files metadata."""
 
-        result = SimpleNamespace(
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
             output_files={
                 "video.mp4": {"size": 111, "mimetype": "video/mp4", "extension": "mp4"},
                 "audio.mp3": {"size": 222, "mimetype": "audio/mpeg", "extension": "mp3"},
             },
-            snapshot_dir="/tmp/does-not-need-to-exist",
             plugin="ytdlp",
         )
 
-        assert _count_media_files(result) == 2
-        assert _list_media_files(result) == [
+        assert not (Path(result.snapshot_dir) / result.plugin).exists()
+        assert len(result.media_files()) == 2
+        assert result.media_files() == [
             {
                 "name": "video.mp4",
                 "path": "ytdlp/video.mp4",
@@ -529,6 +528,32 @@ class TestSnapshotProgressStats:
                 "is_browser_playable": True,
             },
         ]
+
+    def test_media_inventory_falls_back_to_real_audio_when_manifest_has_no_media(self, snapshot):
+        import wave
+
+        from archivebox.core.templatetags.core_tags import plugin_card
+        from django.template import Context
+
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="ytdlp",
+            output_files={"thumbnail.png": {"size": 100, "mimetype": "image/png"}},
+        )
+        plugin_dir = Path(result.snapshot_dir) / result.plugin
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        audio_path = plugin_dir / "recording.wav"
+        with wave.open(str(audio_path), "wb") as audio:
+            audio.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
+            audio.writeframes(bytes(160))
+
+        media_files = result.media_files()
+        assert len(media_files) == 1
+        assert media_files[0]["path"] == "ytdlp/recording.wav"
+        assert media_files[0]["size"] == audio_path.stat().st_size
+        assert media_files[0]["is_audio"] is True
+        assert media_files[0]["is_browser_playable"] is True
+        assert "Play recording.wav" in plugin_card(Context(), result)
 
     def test_ytdlp_discover_outputs_prefers_browser_playable_video(self, snapshot):
 
