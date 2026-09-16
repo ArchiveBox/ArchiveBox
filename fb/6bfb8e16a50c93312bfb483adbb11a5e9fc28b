@@ -1,0 +1,49 @@
+.pre-commit-config.yaml
+  s_044c52c0270663::t_2bd081f6d4aa2d 67
+archivebox/core/widgets.py
+  s_044c52c0270663::t_163f62bfd51a69 9,23,96-99
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_044c52c0270663::t_152a6bf491e085 1123,1252-1256,1259-1260,1262,1294-1295,1297,1300-1301,1395,1401,1405,1433,1436-1437,1476,1483,1485,1512-1514,1581,1588,1619,1633,1842,1844
+archivebox/templates/admin/base.html
+  s_044c52c0270663::t_69c301a6160082 15-16
+archivebox/templates/admin/core/tag/change_form.html
+  s_044c52c0270663::t_ac119e48929623 209-210,215-217,224-225
+archivebox/templates/admin/core/tag/change_list.html
+  s_044c52c0270663::t_e3cf403a4f918a 546,550,553,563,577,579,609,611,630-631,682-683,814,816
+archivebox/templates/admin/widgets/tags.html
+  s_044c52c0270663::t_11799e2c3a0c94 1-12
+archivebox/templates/core/base.html
+  s_044c52c0270663::t_fae87fa30fd4b5 12-13
+archivebox/templates/core/snapshot.html
+  s_044c52c0270663::t_b0d65f30a6e358 8
+archivebox/templates/static/admin-inline-tags.js
+  s_044c52c0270663::t_aa22f44c8037a2 28,59,61,83,85,117
+archivebox/templates/static/archivebox-ui.js
+  s_044c52c0270663::t_33ddbaa5627dfb 1-36
+archivebox/templates/static/tag-editor.js
+  s_044c52c0270663::t_5e173e9602c653 1-100
+archivebox/tests/test_api_v1_cli_add.py
+  s_044c52c0270663::t_7eca9bc33318dd 26
+archivebox/tests/test_cli_add.py
+  s_044c52c0270663::t_c4f9a0fe98eebb 27
+archivebox/tests/test_tag_editor_browser.py
+  s_044c52c0270663::t_18efd3fd476663 1-90
+archivebox/tests/test_ui_add_view_runtime.py
+  s_044c52c0270663::t_3c664c7f890694 22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fb6bfb8e16a50c93312bfb483adbb11a5e9fc28b",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
