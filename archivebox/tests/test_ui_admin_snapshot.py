@@ -1,5 +1,19 @@
 """Snapshot model and admin UI tests."""
 
+from archivebox.config import CONSTANTS
+from archivebox.config.common import get_config
+from archivebox.core.admin_site import archivebox_admin
+from archivebox.core.admin_snapshots import SnapshotAdmin
+from archivebox.core.models import ArchiveResult
+from archivebox.core.models import Snapshot
+from archivebox.core.models import Tag
+from archivebox.core.templatetags import core_tags
+from archivebox.core.views import SnapshotView
+from archivebox.crawls.models import Crawl
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
+
+
 import json
 import os
 import re
@@ -25,7 +39,6 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_current_snapshot_layout_has_no_top_level_timestamp_projection(snapshot):
-    from archivebox.config import CONSTANTS
 
     legacy_path = CONSTANTS.ARCHIVE_DIR / snapshot.timestamp
 
@@ -87,8 +100,6 @@ def real_parse_projection(snapshot, cached_abxpkg_lib_dir):
 def running_wget_projection(snapshot, blocking_http_server):
     from django.utils import timezone
 
-    from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.crawls.models import Crawl
     from archivebox.services.runner import run_due_snapshot
 
     now = timezone.now()
@@ -150,7 +161,6 @@ def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_wa
 
 
 def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, snapshot, real_hash_projection):
-    from archivebox.core.models import ArchiveResult
 
     _process, result = real_hash_projection
     ArchiveResult.objects.filter(pk=result.pk).update(
@@ -168,7 +178,6 @@ def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, 
 
 
 def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snapshot):
-    from archivebox.core.models import ArchiveResult
 
     for plugin, status in (
         ("title", ArchiveResult.StatusChoices.FAILED),
@@ -193,7 +202,6 @@ def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snaps
 
 
 def test_snapshot_icons_reflect_live_results_without_stale_html_cache(snapshot):
-    from archivebox.core.models import ArchiveResult
 
     result = ArchiveResult.objects.create(
         snapshot=snapshot,
@@ -209,7 +217,6 @@ def test_snapshot_icons_reflect_live_results_without_stale_html_cache(snapshot):
 
 
 def test_snapshot_admin_tag_editor_escapes_tag_json_script_breakout(admin_client, snapshot):
-    from archivebox.core.models import Tag
 
     tag = Tag.objects.create(name="safe-tag")
     snapshot.tags.add(tag)
@@ -227,7 +234,6 @@ def test_snapshot_admin_tag_editor_escapes_tag_json_script_breakout(admin_client
 
 
 def test_snapshot_admin_archive_results_escape_extractor_output(admin_client, snapshot, real_hash_projection):
-    from archivebox.core.models import ArchiveResult
 
     payload = '<img src=x onerror="window.__archivebox_archiveresult_xss__=1">'
     _process, result = real_hash_projection
@@ -243,7 +249,6 @@ def test_snapshot_admin_archive_results_escape_extractor_output(admin_client, sn
 
 
 def test_snapshot_admin_archive_result_table_escapes_persisted_string_fields(admin_client, snapshot, real_hash_projection):
-    from archivebox.core.models import ArchiveResult
 
     process, result = real_hash_projection
     machine = process.machine
@@ -297,10 +302,6 @@ def test_snapshot_changelist_bulk_permissions_action_updates_selected_snapshots(
 
 
 def test_snapshot_admin_preview_uses_extension_screenshot_when_standard_screenshot_missing(snapshot, real_hash_projection):
-    from archivebox.config.common import get_config
-    from archivebox.core.admin_site import archivebox_admin
-    from archivebox.core.admin_snapshots import SnapshotAdmin
-    from archivebox.core.models import ArchiveResult, Snapshot
 
     _process, result = real_hash_projection
     ArchiveResult.objects.filter(pk=result.pk).update(
@@ -325,7 +326,6 @@ def test_snapshot_admin_preview_uses_extension_screenshot_when_standard_screensh
 
 
 def test_snapshot_admin_attributes_new_tags_to_authenticated_user(client, snapshot, admin_user):
-    from archivebox.core.models import Tag
 
     client.force_login(admin_user)
     response = client.post(
@@ -378,7 +378,6 @@ class TestSnapshotProgressStats:
         running_wget_projection,
     ):
         """Test progress stats with various archive result statuses."""
-        from archivebox.core.models import ArchiveResult
 
         succeeded_results = [real_hash_projection[1], real_parse_projection[1]]
         failed_result = real_failed_title_projection[1]
@@ -401,10 +400,6 @@ class TestSnapshotProgressStats:
         snapshot,
         running_wget_projection,
     ):
-        from archivebox.core.admin_site import archivebox_admin
-        from archivebox.core.admin_snapshots import SnapshotAdmin
-        from archivebox.core.models import ArchiveResult, Snapshot
-        from archivebox.config.common import get_config
         from django.urls import resolve
 
         assert running_wget_projection.status == ArchiveResult.StatusChoices.STARTED
@@ -429,7 +424,6 @@ class TestSnapshotProgressStats:
         assert f"0/{expected_total} hooks" in html
 
     def test_paused_snapshot_progress_is_not_sealed(self, snapshot):
-        from archivebox.core.models import Snapshot
 
         snapshot.status = Snapshot.StatusChoices.PAUSED
         snapshot.save(update_fields=["status", "modified_at"])
@@ -437,7 +431,6 @@ class TestSnapshotProgressStats:
 
     def test_get_progress_stats_sealed(self, snapshot):
         """Test progress stats for sealed snapshot."""
-        from archivebox.core.models import Snapshot
 
         snapshot.status = Snapshot.StatusChoices.SEALED
         snapshot.save()
@@ -468,7 +461,6 @@ class TestSnapshotProgressStats:
 
     def test_is_archived_true_for_sealed_snapshot(self, snapshot):
         """Sealed snapshots should count as archived."""
-        from archivebox.core.models import Snapshot
 
         snapshot.status = Snapshot.StatusChoices.SEALED
         snapshot.save(update_fields=["status", "modified_at"])
@@ -477,7 +469,6 @@ class TestSnapshotProgressStats:
 
     def test_discover_outputs_uses_output_file_metadata_size(self, snapshot, real_hash_projection):
         """discover_outputs should use output_files metadata before filesystem fallbacks."""
-        from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "screenshot"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -540,7 +531,6 @@ class TestSnapshotProgressStats:
         ]
 
     def test_ytdlp_discover_outputs_prefers_browser_playable_video(self, snapshot):
-        from archivebox.core.models import ArchiveResult
 
         ArchiveResult.objects.create(
             snapshot=snapshot,
@@ -566,7 +556,6 @@ class TestSnapshotProgressStats:
         cached_abxpkg_lib_dir,
     ):
         """Snapshots can render cards from the shipped hashes manifest when DB output_files are missing."""
-        from archivebox.core.models import ArchiveResult
 
         _origin_process, result = real_hash_projection
         ArchiveResult.objects.filter(pk=result.pk).update(
@@ -615,7 +604,6 @@ class TestSnapshotProgressStats:
         assert result.embed_path_db() is None
 
     def test_embed_path_db_prefers_valid_output_str_over_first_output_file(self, snapshot, real_hash_projection):
-        from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "wget" / "example.com" / "assets" / "css"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -640,7 +628,6 @@ class TestSnapshotProgressStats:
         assert result.embed_path_db() == "wget/example.com/index.html"
 
     def test_embed_path_db_scores_output_files_instead_of_using_first_entry(self, snapshot, real_hash_projection):
-        from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "wget" / "example.com" / "assets" / "css"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -665,7 +652,6 @@ class TestSnapshotProgressStats:
         assert result.embed_path_db() == "wget/example.com/index.html"
 
     def test_embed_path_db_rejects_mimetype_like_output_str(self, snapshot, real_hash_projection):
-        from archivebox.core.models import ArchiveResult
 
         _process, result = real_hash_projection
         ArchiveResult.objects.filter(pk=result.pk).update(plugin="staticfile", output_str="text/html", output_files={})
@@ -674,7 +660,6 @@ class TestSnapshotProgressStats:
         assert result.embed_path_db() is None
 
     def test_embed_path_db_rejects_output_str_that_does_not_exist_on_disk(self, snapshot, real_hash_projection):
-        from archivebox.core.models import ArchiveResult
 
         _process, result = real_hash_projection
         ArchiveResult.objects.filter(pk=result.pk).update(plugin="dns", output_str="1.2.3.4", output_files={})
@@ -683,7 +668,6 @@ class TestSnapshotProgressStats:
         assert result.embed_path_db() is None
 
     def test_embed_path_db_uses_output_file_fallbacks_without_disk_check(self, snapshot, real_hash_projection):
-        from archivebox.core.models import ArchiveResult
 
         _process, result = real_hash_projection
         ArchiveResult.objects.filter(pk=result.pk).update(
@@ -703,7 +687,6 @@ class TestSnapshotProgressStats:
         real_hash_projection,
         real_noresults_projection,
     ):
-        from archivebox.core.models import ArchiveResult
 
         _hash_process, dns_result = real_hash_projection
         _parse_process, ssl_result = real_noresults_projection
@@ -726,7 +709,6 @@ class TestSnapshotProgressStats:
         assert outputs["sslcerts"]["is_metadata"] is True
 
     def test_embed_path_uses_explicit_fallback_not_first_output_file(self, snapshot, real_hash_projection):
-        from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "responses" / "all"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -782,7 +764,6 @@ class TestSnapshotProgressStats:
         real_noresults_projection,
         real_skipped_hash_projection,
     ):
-        from archivebox.core.models import ArchiveResult
 
         assert real_noresults_projection[1].status == ArchiveResult.StatusChoices.NORESULTS
         assert real_skipped_hash_projection[1].status == ArchiveResult.StatusChoices.SKIPPED
@@ -792,7 +773,6 @@ class TestSnapshotProgressStats:
         assert failed_items == []
 
     def test_plugin_full_renders_db_embed_path(self, snapshot, real_hash_projection):
-        from archivebox.core.templatetags import core_tags
 
         _process, result = real_hash_projection
         embed_path = result.embed_path_db()
@@ -805,7 +785,6 @@ class TestSnapshotProgressStats:
         assert html != "http://snap-ffa4215f6d64.archivebox.localhost:8000"
 
     def test_plugin_full_returns_empty_for_none_result(self):
-        from archivebox.core.templatetags import core_tags
 
         assert core_tags.plugin_full({"request": None}, None) == ""
 
@@ -829,9 +808,6 @@ class TestSnapshotProgressStats:
         assert rendered.count("addEventListener('click', handleSnapshotHeaderToggle)") == 1
 
     def test_static_snapshot_detail_uses_same_output_cards_with_relative_files(self, snapshot):
-        from archivebox.config import CONSTANTS
-        from archivebox.core.models import ArchiveResult
-        from archivebox.core.views import SnapshotView
 
         output_dir = Path(snapshot.output_dir)
         singlefile_dir = output_dir / "singlefile"
@@ -904,7 +880,6 @@ class TestSnapshotProgressStats:
 class TestSnapshotOutputDeletion:
     @staticmethod
     def _create_output(snapshot, *, plugin="screenshot", hook_name="on_Snapshot__50_screenshot.py", size=11):
-        from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / plugin
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -921,7 +896,6 @@ class TestSnapshotOutputDeletion:
         )
 
     def test_snapshot_detail_only_shows_delete_controls_to_superusers(self, snapshot, admin_user):
-        from archivebox.core.views import SnapshotView
 
         result = self._create_output(snapshot)
         request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
@@ -953,7 +927,6 @@ class TestSnapshotOutputDeletion:
         assert "delete-output-csrf" not in hinted_html
 
     def test_snapshot_delete_handoff_requires_superuser_confirmation_then_uses_standard_admin_action(self, client, snapshot, admin_user):
-        from archivebox.core.models import ArchiveResult
 
         result = self._create_output(snapshot)
         delete_url = reverse("admin:core_archiveresult_changelist")
@@ -997,7 +970,6 @@ class TestSnapshotOutputDeletion:
         assert str(snapshot.id).replace("-", "")[-12:] in confirmed["Location"]
 
     def test_batch_delete_removes_plugin_rows_files_and_refreshes_snapshot_size(self, client, snapshot, admin_user):
-        from archivebox.core.models import ArchiveResult
 
         first = self._create_output(snapshot, size=11)
         second = self._create_output(snapshot, hook_name="on_Snapshot__51_screenshot_retry.py", size=13)
@@ -1090,7 +1062,6 @@ class TestAdminSnapshotListView:
 
     def test_list_view_renders_titleless_snapshot(self, client, admin_user, snapshot):
         """Title-less snapshots should render their URL."""
-        from archivebox.core.models import Snapshot
 
         Snapshot.objects.filter(pk=snapshot.pk).update(title="")
 
@@ -1121,10 +1092,6 @@ class TestAdminSnapshotListView:
         assert result.plugin.encode() in response.content
 
     def test_list_view_uses_complete_bulk_progress_stats_without_per_snapshot_queries(self, client, admin_user, snapshot, crawl):
-        from django.db import connection
-        from django.test.utils import CaptureQueriesContext
-
-        from archivebox.core.models import ArchiveResult, Snapshot
 
         snapshot.status = Snapshot.StatusChoices.STARTED
         snapshot.save(update_fields=["status", "modified_at"])
@@ -1195,8 +1162,6 @@ class TestAdminSnapshotListView:
 
     def test_list_view_uses_prefetched_tags_without_row_queries(self, client, admin_user, crawl, db):
         """Changelist tag rendering should reuse the prefetched tag cache."""
-        from django.db import connection
-        from django.test.utils import CaptureQueriesContext
         from archivebox.core.models import Snapshot, Tag
 
         tags = [Tag.objects.create(name=f"perf-tag-{idx}") for idx in range(3)]
@@ -1234,7 +1199,6 @@ class TestAdminSnapshotListView:
 
     def test_grid_card_component_order(self, client, admin_user, snapshot, real_hash_projection):
         """Snapshot cards should keep metadata, title, URL, preview, and outputs in scan order."""
-        from archivebox.core.models import Tag
 
         _process, result = real_hash_projection
         assert result.output_size > 0
@@ -1278,8 +1242,6 @@ class TestAdminSnapshotListView:
         assert f"/admin/core/snapshot/{snapshot.pk}/redo-failed/".encode() in response.content
 
     def test_change_view_reuses_resolved_snapshot_for_progress_context(self, client, admin_user, snapshot):
-        from django.db import connection
-        from django.test.utils import CaptureQueriesContext
 
         snapshot.status = snapshot.StatusChoices.STARTED
         snapshot.__class__.objects.filter(pk=snapshot.pk).update(status=snapshot.status)
@@ -1300,9 +1262,6 @@ class TestAdminSnapshotListView:
         assert len(snapshot_reads) == 1
 
     def test_snapshot_view_url_uses_canonical_replay_url_for_mode(self, snapshot):
-        from archivebox.core.admin_site import archivebox_admin
-        from archivebox.core.admin_snapshots import SnapshotAdmin
-        from archivebox.config.common import get_config
 
         admin = SnapshotAdmin(snapshot.__class__, archivebox_admin)
 
@@ -1315,8 +1274,6 @@ class TestAdminSnapshotListView:
         assert admin.get_snapshot_view_url(snapshot) == f"http://archivebox.localhost:8000/snapshot/{snapshot.pk}"
 
     def test_find_snapshots_for_url_matches_fragment_suffixed_variants(self, crawl, db):
-        from archivebox.core.models import Snapshot
-        from archivebox.core.views import SnapshotView
 
         canonical = Snapshot.objects.create(
             url="https://example.com/page",
@@ -1334,7 +1291,6 @@ class TestAdminSnapshotListView:
         assert [snap.url for snap in matches] == [canonical.url, old_variant.url]
 
     def test_change_view_renders_readonly_tag_pills_near_title(self, client, admin_user, snapshot):
-        from archivebox.core.models import Tag
 
         tag = Tag.objects.create(name="Alpha Research")
         snapshot.tags.add(tag)
@@ -1349,7 +1305,6 @@ class TestAdminSnapshotListView:
         assert b'data-readonly="1"' in response.content
 
     def test_redo_failed_action_requeues_snapshot(self, client, admin_user, snapshot, real_failed_title_projection):
-        from archivebox.core.models import ArchiveResult
 
         _process, failed = real_failed_title_projection
 
@@ -1373,7 +1328,6 @@ class TestAdminSnapshotListView:
         real_failed_title_projection,
         cached_abxpkg_lib_dir,
     ):
-        from archivebox.core.models import ArchiveResult
 
         _failed_process, failed = real_failed_title_projection
         snapshot.output_dir.mkdir(parents=True, exist_ok=True)
@@ -1409,7 +1363,6 @@ class TestAdminSnapshotListView:
         assert snapshot.config["RETRY_PLUGINS"] == ["title"]
 
     def test_archive_now_action_uses_original_snapshot_url_without_timestamp_suffix(self, client, admin_user, snapshot):
-        from archivebox.crawls.models import Crawl
 
         existing_crawl_ids = set(Crawl.objects.values_list("id", flat=True))
         snapshot.url = "https://example.com/path#section-1"
@@ -1434,8 +1387,6 @@ class TestAdminSnapshotListView:
         assert new_crawl.urls.strip() == "https://example.com/path#section-1"
 
     def test_archive_now_action_groups_multiple_snapshots_into_one_crawl(self, client, admin_user, snapshot):
-        from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot
 
         existing_crawl_ids = set(Crawl.objects.values_list("id", flat=True))
         other_snapshot = Snapshot.objects.create(
@@ -1486,7 +1437,6 @@ class TestAdminSnapshotListView:
 
 
 def test_preview_manifest_polling_does_not_use_legacy_filesystem_fallback(snapshot):
-    from archivebox.core.models import ArchiveResult
 
     output = snapshot.output_dir / "dom" / "output.html"
     output.parent.mkdir(parents=True, exist_ok=True)

@@ -1,5 +1,15 @@
 """Live progress UI tests."""
 
+from archivebox.core.models import ArchiveResult
+from archivebox.core.models import Snapshot
+from archivebox.crawls.models import Crawl
+from archivebox.machine.models import Process
+from archivebox.tests.conftest import run_test_hook
+from datetime import timedelta
+import archivebox.machine.models as machine_models
+import os
+
+
 import subprocess
 import uuid
 from datetime import datetime, timezone as dt_timezone
@@ -21,7 +31,6 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 @pytest.fixture
 def real_unscoped_hook_process(tmp_path):
-    from archivebox.tests.conftest import run_test_hook
 
     snap_dir = tmp_path / "snapshot"
     output_dir = snap_dir / "hashes"
@@ -55,7 +64,6 @@ def real_snapshot_hook_projection(snapshot, cached_abxpkg_lib_dir):
 
 @pytest.fixture
 def real_second_snapshot_hook_process(snapshot, tmp_path):
-    from archivebox.tests.conftest import run_test_hook
 
     snap_dir = Path(snapshot.output_dir)
     staticfile_dir = snap_dir / "staticfile"
@@ -78,7 +86,6 @@ def real_second_snapshot_hook_process(snapshot, tmp_path):
 
 @pytest.fixture
 def real_crawl_setup_process(snapshot, hermetic_lib_dir):
-    from archivebox.tests.conftest import run_test_hook
     from archivebox.services.runner import run_install
 
     hook_path = Path(str(files("abx_plugins.plugins.chrome").joinpath("on_CrawlSetup__89_chrome_kill_zombies.js")))
@@ -123,7 +130,6 @@ class TestLiveProgressView:
 
     @override_settings(DEBUG=False)
     def test_live_progress_error_response_hides_traceback_without_debug(self, client, admin_user, crawl):
-        from archivebox.crawls.models import Crawl
 
         Crawl.objects.filter(pk=crawl.pk).update(
             status=Crawl.StatusChoices.STARTED,
@@ -149,10 +155,6 @@ class TestLiveProgressView:
         snapshot,
         real_snapshot_hook_projection,
     ):
-        from datetime import timedelta
-        from archivebox.core.models import ArchiveResult
-        from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot
 
         client.force_login(admin_user)
 
@@ -203,10 +205,6 @@ class TestLiveProgressView:
         snapshot,
         blocking_http_server,
     ):
-        from datetime import timedelta
-        from archivebox.core.models import ArchiveResult
-        from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot
         from archivebox.services.runner import run_due_snapshot
 
         client.force_login(admin_user)
@@ -263,7 +261,6 @@ class TestLiveProgressView:
 
     def test_live_progress_hides_finished_cancelled_crawl(self, client, admin_user, crawl, snapshot):
         from archivebox.core.models import ArchiveResult, Snapshot
-        from archivebox.crawls.models import Crawl
 
         now = timezone.now()
         Crawl.objects.filter(pk=crawl.pk).update(
@@ -299,7 +296,6 @@ class TestLiveProgressView:
         assert "downloads_pending" not in payload
 
     def test_live_progress_scope_accepts_compact_and_dashed_snapshot_ids(self, client, admin_user, snapshot):
-        from archivebox.core.models import Snapshot
 
         Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.STARTED)
         compact_id = str(snapshot.id).replace("-", "")
@@ -326,9 +322,6 @@ class TestLiveProgressView:
             assert payload["active_crawls"]
 
     def test_live_progress_shows_old_paused_crawl_with_due_snapshot_work(self, client, admin_user, crawl, snapshot):
-        from datetime import timedelta
-        from archivebox.crawls.models import Crawl
-        from archivebox.core.models import Snapshot
 
         old_timestamp = timezone.now() - timedelta(days=2)
         Crawl.objects.filter(pk=crawl.pk).update(
@@ -364,7 +357,6 @@ class TestLiveProgressView:
         admin_user,
         initialized_archive,
     ):
-        import archivebox.machine.models as machine_models
         import psutil
         from archivebox.machine.models import Machine, Process
 
@@ -410,9 +402,6 @@ class TestLiveProgressView:
         admin_user,
         real_unscoped_hook_process,
     ):
-        import os
-        import archivebox.machine.models as machine_models
-        from archivebox.machine.models import Process
 
         machine_models._CURRENT_MACHINE = None
         process = real_unscoped_hook_process
@@ -430,9 +419,6 @@ class TestLiveProgressView:
         assert payload["total_workers"] == 0
 
     def test_live_progress_does_not_clean_stale_running_processes(self, client, admin_user, real_unscoped_hook_process):
-        from datetime import timedelta
-        import archivebox.machine.models as machine_models
-        from archivebox.machine.models import Process
 
         machine_models._CURRENT_MACHINE = None
         proc = real_unscoped_hook_process
@@ -458,9 +444,6 @@ class TestLiveProgressView:
         snapshot,
         real_crawl_setup_process,
     ):
-        import os
-        import archivebox.machine.models as machine_models
-        from archivebox.machine.models import Process
 
         machine_models._CURRENT_MACHINE = None
         pid = os.getpid()
@@ -490,9 +473,6 @@ class TestLiveProgressView:
         snapshot,
         real_snapshot_hook_projection,
     ):
-        import os
-        import archivebox.machine.models as machine_models
-        from archivebox.machine.models import Process
 
         machine_models._CURRENT_MACHINE = None
         pid = os.getpid()
@@ -523,9 +503,6 @@ class TestLiveProgressView:
         real_snapshot_hook_projection,
         real_second_snapshot_hook_process,
     ):
-        import os
-        import archivebox.machine.models as machine_models
-        from archivebox.machine.models import Process
 
         machine_models._CURRENT_MACHINE = None
         _, result = real_snapshot_hook_projection
@@ -557,8 +534,6 @@ class TestLiveProgressView:
         snapshot,
         real_second_snapshot_hook_process,
     ):
-        import archivebox.machine.models as machine_models
-        from archivebox.machine.models import Process
 
         machine_models._CURRENT_MACHINE = None
         process = real_second_snapshot_hook_process

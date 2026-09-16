@@ -21,7 +21,6 @@ from archivebox.tests.conftest import (
     assert_jsonl_only,
     create_test_url,
     parse_jsonl_output,
-    run_archivebox_cmd,
 )
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -76,7 +75,7 @@ def test_parse_line_accepts_supported_piping_inputs():
     assert parse_line("file:///tmp/example.txt") is None
 
 
-def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl(tmp_path, initialized_archive):
+def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl(archivebox_cli, tmp_path, initialized_archive):
     """Piping helpers should consume args, structured JSONL, and pass-through records."""
     from archivebox.misc.jsonl import TYPE_CRAWL, read_args_or_stdin
 
@@ -87,18 +86,12 @@ def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl(tmp_path, initial
     local_file.write_text("https://from-file-arg.example\n")
     assert list(read_args_or_stdin((str(local_file),))) == []
 
-    snapshot_result = run_archivebox_cmd(
+    snapshot_result = archivebox_cli(
         ["snapshot", "create", "--tag=test", "https://jsonl-url.com"],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
         check=True,
     )
-    crawl_result = run_archivebox_cmd(
+    crawl_result = archivebox_cli(
         ["crawl", "create", "https://crawl-url.com"],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
         check=True,
     )
     snapshot_record = next(record for record in parse_jsonl_output(snapshot_result.stdout) if record.get("type") == "Snapshot")
@@ -164,15 +157,12 @@ def test_collect_urls_from_plugins_trims_trailing_punctuation(tmp_path):
     ]
 
 
-def test_crawl_create_stdout_pipes_into_run(initialized_archive):
+def test_crawl_create_stdout_pipes_into_run(archivebox_cli, initialized_archive):
     """`archivebox crawl create | archivebox run` should queue and materialize snapshots."""
     url = create_test_url()
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["crawl", "create", url],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     create_stdout, create_stderr, create_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert create_code == 0, create_stderr
@@ -180,14 +170,11 @@ def test_crawl_create_stdout_pipes_into_run(initialized_archive):
 
     crawl = next(record for record in parse_jsonl_output(create_stdout) if record.get("type") == "Crawl")
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["run"],
         stdin=create_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     run_stdout, run_stderr, run_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert run_code == 0, run_stderr
@@ -202,46 +189,34 @@ def test_crawl_create_stdout_pipes_into_run(initialized_archive):
     assert snapshot_count >= 1
 
 
-def test_snapshot_list_stdout_pipes_into_run(initialized_archive):
+def test_snapshot_list_stdout_pipes_into_run(archivebox_cli, initialized_archive):
     """`archivebox snapshot list | archivebox run` should requeue listed snapshots."""
     url = create_test_url()
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["snapshot", "create", url],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     create_stdout, create_stderr, create_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert create_code == 0, create_stderr
     snapshot = next(record for record in parse_jsonl_output(create_stdout) if record.get("type") == "Snapshot")
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["snapshot", "list", "--status=queued", f"--url__icontains={snapshot['id']}"],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     list_stdout, list_stderr, list_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     if list_code != 0 or not parse_jsonl_output(list_stdout):
-        _cmd_result = run_archivebox_cmd(
+        _cmd_result = archivebox_cli(
             ["snapshot", "list", f"--url__icontains={url}"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
         )
         list_stdout, list_stderr, list_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert list_code == 0, list_stderr
     assert_jsonl_only(list_stdout)
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["run"],
         stdin=list_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     run_stdout, run_stderr, run_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert run_code == 0, run_stderr
@@ -255,47 +230,35 @@ def test_snapshot_list_stdout_pipes_into_run(initialized_archive):
     assert snapshot_status == "sealed"
 
 
-def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
+def test_archiveresult_list_stdout_pipes_into_run(archivebox_cli, initialized_archive):
     """`archivebox archiveresult list | archivebox run` should preserve clean JSONL stdout."""
     url = create_test_url()
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["snapshot", "create", url],
-        cwd=initialized_archive,
         env=PIPE_TEST_ENV,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     snapshot_stdout, snapshot_stderr, snapshot_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert snapshot_code == 0, snapshot_stderr
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["archiveresult", "create", "--plugin=favicon"],
         stdin=snapshot_stdout,
-        cwd=initialized_archive,
         env=PIPE_TEST_ENV,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     ar_create_stdout, ar_create_stderr, ar_create_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert ar_create_code == 0, ar_create_stderr
 
-    run_archivebox_cmd(
+    archivebox_cli(
         ["run"],
         stdin=ar_create_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
-        default_cli_env=True,
-        disable_extractors=True,
     )
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["archiveresult", "list", "--plugin=favicon"],
-        cwd=initialized_archive,
         env=PIPE_TEST_ENV,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     list_stdout, list_stderr, list_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert list_code == 0, list_stderr
@@ -303,14 +266,11 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     listed_records = parse_jsonl_output(list_stdout)
     archiveresult = next(record for record in listed_records if record.get("type") == "ArchiveResult")
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["run"],
         stdin=list_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     run_stdout, run_stderr, run_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert run_code == 0, run_stderr
@@ -320,13 +280,10 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     assert any(record.get("type") == "ArchiveResult" and record.get("id") == archiveresult["id"] for record in run_records)
 
 
-def test_binary_create_stdout_pipes_into_run(initialized_archive):
+def test_binary_create_stdout_pipes_into_run(archivebox_cli, initialized_archive):
     """`archivebox binary create | archivebox run` should queue the binary record for processing."""
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["binary", "create", "--name=python3", f"--abspath={sys.executable}", "--version=test"],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     create_stdout, create_stderr, create_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert create_code == 0, create_stderr
@@ -334,13 +291,10 @@ def test_binary_create_stdout_pipes_into_run(initialized_archive):
 
     binary = next(record for record in parse_jsonl_output(create_stdout) if record.get("type") in {"BinaryRequest", "Binary"})
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["run"],
         stdin=create_stdout,
-        cwd=initialized_archive,
         timeout=120,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     run_stdout, run_stderr, run_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert run_code == 0, run_stderr
@@ -354,50 +308,38 @@ def test_binary_create_stdout_pipes_into_run(initialized_archive):
     assert status in {"queued", "installed"}
 
 
-def test_multi_stage_pipeline_into_run(initialized_archive):
+def test_multi_stage_pipeline_into_run(archivebox_cli, initialized_archive):
     """`crawl create | snapshot create | archiveresult create | run` should preserve JSONL and finish work."""
     url = create_test_url()
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["crawl", "create", url],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     crawl_stdout, crawl_stderr, crawl_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert crawl_code == 0, crawl_stderr
     assert_jsonl_only(crawl_stdout)
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["snapshot", "create"],
         stdin=crawl_stdout,
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     snapshot_stdout, snapshot_stderr, snapshot_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert snapshot_code == 0, snapshot_stderr
     assert_jsonl_only(snapshot_stdout)
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["archiveresult", "create", "--plugin=favicon"],
         stdin=snapshot_stdout,
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     archiveresult_stdout, archiveresult_stderr, archiveresult_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert archiveresult_code == 0, archiveresult_stderr
     assert_jsonl_only(archiveresult_stdout)
 
-    _cmd_result = run_archivebox_cmd(
+    _cmd_result = archivebox_cli(
         ["run"],
         stdin=archiveresult_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
-        default_cli_env=True,
-        disable_extractors=True,
     )
     run_stdout, run_stderr, run_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert run_code == 0, run_stderr

@@ -2,6 +2,7 @@
 
 import os
 import json
+from functools import partial
 import re
 import secrets
 import signal
@@ -447,6 +448,12 @@ def initialized_archive(tmp_path):
     stderr, returncode = _cmd_result.stderr, _cmd_result.returncode
     assert returncode == 0, f"archivebox init failed: {stderr}"
     return tmp_path
+
+
+@pytest.fixture
+def archivebox_cli(initialized_archive):
+    """Public CLI bound to this test's collection with extraction opt-in."""
+    return partial(run_archivebox_cmd, cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
 
 @pytest.fixture
