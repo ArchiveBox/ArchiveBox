@@ -18,10 +18,6 @@ from archivebox.misc.util import (
 )
 
 if TYPE_CHECKING:
-    pass
-
-
-if TYPE_CHECKING:
     from .snapshots import Snapshot
 
 
@@ -41,7 +37,17 @@ class Tag(ModelWithUUID):
     name = models.CharField(unique=True, blank=False, max_length=100)
 
     @classmethod
-    def get_or_create_by_name(cls, name: str, *, defaults: Mapping[str, Any] | None = None) -> tuple[Tag, bool]:
+    def get_or_create_by_name(
+        cls,
+        name: str,
+        *,
+        defaults: Mapping[str, Any] | None = None,
+        created_by=None,
+    ) -> tuple[Tag, bool]:
+        name = cls.normalize_name(name)
+        defaults = dict(defaults or {})
+        if created_by is not None:
+            defaults["created_by"] = created_by
         tag = cls.objects.filter(name__iexact=name).first()
         if tag:
             return tag, False
@@ -52,6 +58,23 @@ class Tag(ModelWithUUID):
             if tag is None:
                 raise
             return tag, False
+
+    @staticmethod
+    def normalize_name(name: str) -> str:
+        name = sanitize_html_text(name).strip()
+        if not name:
+            raise ValueError("Tag name is required")
+        return name
+
+    def rename(self, name: str) -> Tag:
+        name = self.normalize_name(name)
+        existing = type(self).objects.filter(name__iexact=name).exclude(pk=self.pk).first()
+        if existing:
+            raise ValueError(f'Tag "{existing.name}" already exists')
+        if self.name != name:
+            self.name = name
+            self.save()
+        return self
 
     snapshot_set: models.Manager[Snapshot]
 

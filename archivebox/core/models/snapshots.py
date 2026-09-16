@@ -2156,9 +2156,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return int(self.output_size or 0)
 
     def save_tags(self, tags: Iterable[str] = (), *, created_by: Any = None) -> None:
-        from archivebox.core.tag_util import get_or_create_tag
-
-        tag_ids = {get_or_create_tag(tag, created_by=created_by)[0].pk for tag in tags if tag.strip()}
+        tag_ids = {Tag.get_or_create_by_name(tag, created_by=created_by)[0].pk for tag in tags if tag.strip()}
         existing_tag_ids = set(SnapshotTag.objects.filter(snapshot_id=self.pk).values_list("tag_id", flat=True))
         self.remove_tag_ids(existing_tag_ids - tag_ids)
         self.add_tag_ids(tag_ids - existing_tag_ids)

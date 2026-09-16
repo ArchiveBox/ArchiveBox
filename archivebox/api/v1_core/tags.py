@@ -15,18 +15,11 @@ from archivebox.core.tag_util import (
     export_tag_snapshots_jsonl,
     export_tag_urls,
     get_matching_tags,
-    get_or_create_tag,
     get_tag_by_ref,
     normalize_created_by_filter,
     normalize_created_year_filter,
     normalize_has_snapshots_filter,
     normalize_tag_sort,
-)
-from archivebox.core.tag_util import (
-    delete_tag as delete_tag_record,
-)
-from archivebox.core.tag_util import (
-    rename_tag as rename_tag_record,
 )
 
 from .pagination import CustomPagination
@@ -163,7 +156,7 @@ def tags_autocomplete(request: HttpRequest, q: str = ""):
 def tags_create(request: HttpRequest, data: TagCreateSchema):
     """Create a new tag or return existing one."""
     try:
-        tag, created = get_or_create_tag(
+        tag, created = Tag.get_or_create_by_name(
             data.name,
             created_by=request.user if request.user.is_authenticated else None,
         )
@@ -181,7 +174,7 @@ def tags_create(request: HttpRequest, data: TagCreateSchema):
 @router.post("/tag/{tag_id}/rename", response=TagUpdateResponseSchema, url_name="rename_tag")
 def rename_tag(request: HttpRequest, tag_id: int, data: TagUpdateSchema):
     try:
-        tag = rename_tag_record(get_tag_by_ref(tag_id), data.name)
+        tag = get_tag_by_ref(tag_id).rename(data.name)
     except Tag.DoesNotExist as err:
         raise HttpError(404, "Tag not found") from err
     except ValueError as err:
@@ -201,7 +194,7 @@ def delete_tag(request: HttpRequest, tag_id: int):
     except Tag.DoesNotExist as err:
         raise HttpError(404, "Tag not found") from err
 
-    deleted_count, _ = delete_tag_record(tag)
+    deleted_count, _ = tag.delete()
     return {
         "success": True,
         "tag_id": int(tag_id),
@@ -241,7 +234,7 @@ def tags_add_to_snapshot(request: HttpRequest, data: TagSnapshotRequestSchema):
     # Get or create the tag
     if data.tag_name:
         try:
-            tag, _ = get_or_create_tag(
+            tag, _ = Tag.get_or_create_by_name(
                 data.tag_name,
                 created_by=request.user if request.user.is_authenticated else None,
             )

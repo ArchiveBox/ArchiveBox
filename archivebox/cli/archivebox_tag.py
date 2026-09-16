@@ -70,7 +70,7 @@ def create_tags(names: Iterable[str]) -> int:
         if not name:
             continue
 
-        tag, created = Tag.objects.get_or_create(name=name)
+        tag, created = Tag.get_or_create_by_name(name)
 
         if not is_tty:
             write_record(tag.to_json())
@@ -115,8 +115,7 @@ def update_tags(name: str | None = None) -> int:
 
     def update(tag):
         if name:
-            tag.name = name
-            tag.save()
+            tag.rename(name)
 
     return update_records(Tag, update, plural="tags", by_name=True)
 

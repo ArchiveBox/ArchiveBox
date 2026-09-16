@@ -23,7 +23,6 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
 from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import build_snapshot_url, build_web_url
-from archivebox.core.tag_util import get_or_create_tag
 from archivebox.plugins.hooks import discover_hooks
 from archivebox.plugins.discovery import get_plugin_icon, get_plugin_name, get_plugins
 
@@ -1463,7 +1462,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
         tags = []
         for name in tag_names:
-            tag, _ = get_or_create_tag(
+            tag, _ = Tag.get_or_create_by_name(
                 name,
                 created_by=request.user if request.user.is_authenticated else None,
             )

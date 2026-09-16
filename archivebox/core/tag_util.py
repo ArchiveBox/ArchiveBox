@@ -5,7 +5,6 @@ from collections import defaultdict
 from typing import Any
 from urllib.parse import unquote
 
-from django.contrib.auth.models import User
 from django.db.models import Count, Exists, F, OuterRef, QuerySet
 from django.db.models.functions import Lower
 from django.http import HttpRequest
@@ -145,34 +144,6 @@ def get_tag_by_ref(tag_ref: str | int) -> Tag:
 
     decoded = unquote(ref)
     return Tag.objects.get(name__iexact=decoded)
-
-
-def get_or_create_tag(name: str, created_by: User | None = None) -> tuple[Tag, bool]:
-    normalized_name = normalize_tag_name(name)
-    if not normalized_name:
-        raise ValueError("Tag name is required")
-
-    defaults = {"created_by": created_by} if created_by is not None else None
-    return Tag.get_or_create_by_name(normalized_name, defaults=defaults)
-
-
-def rename_tag(tag: Tag, name: str) -> Tag:
-    normalized_name = normalize_tag_name(name)
-    if not normalized_name:
-        raise ValueError("Tag name is required")
-
-    existing = Tag.objects.filter(name__iexact=normalized_name).exclude(pk=tag.pk).first()
-    if existing:
-        raise ValueError(f'Tag "{existing.name}" already exists')
-
-    if tag.name != normalized_name:
-        tag.name = normalized_name
-        tag.save()
-    return tag
-
-
-def delete_tag(tag: Tag) -> tuple[int, dict[str, int]]:
-    return tag.delete()
 
 
 def export_tag_urls(tag: Tag) -> str:
