@@ -1258,6 +1258,16 @@ class TestSearchBackendsE2E:
                 assert rendered_text.index(title_prefix_order_url) < rendered_text.index(url_contains_order_url)
                 assert rendered_text.index(url_contains_order_url) < rendered_text.index(title_contains_order_url)
                 assert rendered_text.index(title_contains_order_url) < rendered_text.index(tag_order_url)
+            rejected = run_archivebox_cmd(
+                ["list", "--search=contents", "--csv=url", shared_content_needle],
+                cwd=initialized_archive,
+                env={**env, "SEARCH_BACKEND_SONIC_PASSWORD": "invalid-search-matrix-password"},
+                timeout=60,
+            )
+            assert rejected.returncode != 0
+            assert "sonic search command stderr:" in rejected.stderr, rejected.stderr
+            assert "ENDED authentication_failed" in rejected.stderr, rejected.stderr
+            assert rejected.stdout.strip() == ""
         finally:
             if archivebox_server is not None:
                 stop_archivebox_process(archivebox_server)

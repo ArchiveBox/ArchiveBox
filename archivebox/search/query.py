@@ -1,6 +1,7 @@
 __package__ = "archivebox.search"
 
 from typing import Any
+from subprocess import CalledProcessError
 
 from django.db import connection
 from django.db.models import Case, IntegerField, Q, QuerySet, Value, When
@@ -301,6 +302,8 @@ def iter_query_search_ids(
                         return
                 successful_backends += 1
             except Exception as err:
+                if isinstance(err, CalledProcessError) and err.stderr:
+                    err.add_note(f"{backend_name} search command stderr:\n{err.stderr.strip()}")
                 errors.append(err)
                 if not fallback_enabled:
                     raise
