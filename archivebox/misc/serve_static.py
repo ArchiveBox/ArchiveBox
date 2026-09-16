@@ -1,6 +1,5 @@
 import asyncio
 import html
-import importlib
 import json
 import mimetypes
 import os
@@ -12,10 +11,9 @@ import sys
 import threading
 import time
 import zipfile
-from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import quote, urlencode, urljoin
+from urllib.parse import urlencode
 
 from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
 from django.contrib.staticfiles import finders
@@ -28,43 +26,10 @@ from django.utils.translation import gettext as _
 from django.views import static
 
 from archivebox.config.common import get_config
+from archivebox.misc import replay_preview
 from archivebox.misc.logging_util import printable_filesize
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
-IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
-TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
-html {
-    width: 100%;
-    min-width: 100%;
-    background: #fff;
-}
-body {
-    box-sizing: border-box;
-    width: min(100%, 72rem);
-    max-width: none;
-    min-height: 100vh;
-    margin: 0 auto;
-    padding: clamp(1rem, 3vw, 2rem);
-    background: #fff;
-    color: #111827;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    line-height: 1.55;
-}
-body > * {
-    max-width: 100%;
-}
-img:not([width]):not([height]) {
-    max-width: min(100%, 12rem);
-    max-height: 12rem;
-    width: auto;
-    height: auto;
-    object-fit: contain;
-}
-a > img:not([width]):not([height]) {
-    max-width: min(100%, 2.5rem);
-    max-height: 2.5rem;
-}
-</style>"""
 
 
 def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
@@ -356,17 +321,6 @@ mimetypes.add_type("image/svg+xml", ".svg")
 mimetypes.add_type("multipart/related", ".mhtml")
 mimetypes.add_type("multipart/related", ".mht")
 
-try:
-    _markdown = importlib.import_module("markdown").markdown
-except ImportError:
-    _markdown: Callable[..., str] | None = None
-
-MARKDOWN_INLINE_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)")
-MARKDOWN_INLINE_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
-MARKDOWN_BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
-MARKDOWN_ITALIC_RE = re.compile(r"(?<!\*)\*([^*]+)\*(?!\*)")
-HTML_TAG_RE = re.compile(r"<[A-Za-z][^>]*>")
-HTML_BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", flags=re.IGNORECASE | re.DOTALL)
 RISKY_REPLAY_MIMETYPES = {
     "text/html",
     "application/xhtml+xml",
@@ -380,408 +334,12 @@ RISKY_REPLAY_MARKERS = (
 )
 
 
-def _extract_markdown_candidate(text: str) -> str:
-    candidate = text
-    body_match = HTML_BODY_RE.search(candidate)
-    if body_match:
-        candidate = body_match.group(1)
-    candidate = re.sub(r"^\s*<p[^>]*>", "", candidate, flags=re.IGNORECASE)
-    candidate = re.sub(r"</p>\s*$", "", candidate, flags=re.IGNORECASE)
-    return candidate.strip()
-
-
-def _looks_like_markdown(text: str) -> bool:
-    lower = text.lower()
-    if "<html" in lower and "<head" in lower and "</body>" in lower:
-        return False
-    md_markers = 0
-    md_markers += len(re.findall(r"^\s{0,3}#{1,6}\s+\S", text, flags=re.MULTILINE))
-    md_markers += len(re.findall(r"^\s*[-*+]\s+\S", text, flags=re.MULTILINE))
-    md_markers += len(re.findall(r"^\s*\d+\.\s+\S", text, flags=re.MULTILINE))
-    md_markers += text.count("[TOC]")
-    md_markers += len(MARKDOWN_INLINE_LINK_RE.findall(text))
-    md_markers += text.count("\n---") + text.count("\n***")
-    return md_markers >= 6
-
-
-def _render_text_preview_document(text: str, title: str) -> str:
-    escaped_title = html.escape(title)
-    escaped_text = html.escape(text)
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{escaped_title}</title>
-    <style>
-        :root {{
-            color-scheme: dark;
-        }}
-        html, body {{
-            margin: 0;
-            padding: 0;
-            background: #111;
-            color: #f3f3f3;
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-        }}
-        .archivebox-text-preview-header {{
-            position: sticky;
-            top: 0;
-            z-index: 1;
-            padding: 10px 14px;
-            font-size: 12px;
-            line-height: 1.4;
-            color: #bbb;
-            background: rgba(17, 17, 17, 0.96);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(8px);
-        }}
-        .archivebox-text-preview {{
-            margin: 0;
-            padding: 14px;
-            white-space: pre-wrap;
-            word-break: break-word;
-            tab-size: 2;
-            line-height: 1.45;
-            font-size: 13px;
-        }}
-    </style>
-</head>
-<body>
-    <div class="archivebox-text-preview-header">{escaped_title}</div>
-    <pre class="archivebox-text-preview">{escaped_text}</pre>
-</body>
-</html>"""
-
-
-def _render_image_preview_document(image_url: str, title: str) -> str:
-    escaped_title = html.escape(title)
-    escaped_url = html.escape(image_url, quote=True)
-    return f"""<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{escaped_title}</title>
-    <style>
-        :root {{
-            color-scheme: dark;
-        }}
-        html, body {{
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            min-height: 100%;
-            background: #fff;
-        }}
-        body {{
-            overflow: auto;
-        }}
-        .archivebox-image-preview {{
-            width: 100%;
-            min-width: 100%;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            box-sizing: border-box;
-        }}
-        .archivebox-image-preview img {{
-            display: block;
-            width: auto;
-            max-width: 100%;
-            height: auto;
-            margin: 0 auto;
-        }}
-    </style>
-</head>
-<body>
-    <div class="archivebox-image-preview">
-        <img src="{escaped_url}" alt="{escaped_title}">
-    </div>
-</body>
-</html>"""
-
-
-def _encoded_responses_image_url(image_url: str, page_url: str | None) -> str | None:
-    raw_url = str(image_url or "").strip()
-    if not raw_url or raw_url.startswith(("#", "data:", "blob:", "about:", "javascript:")):
-        return None
-
-    absolute_url = urljoin(page_url or "", raw_url)
-    if not absolute_url.startswith(("http://", "https://")):
-        return None
-
-    return quote(absolute_url, safe="").replace("%", "_")
-
-
-def _index_responses_paths_for_html_images(
-    snapshot_root: Path,
-    html_rel_path: str,
-    encoded_urls: set[str],
-) -> dict[str, str]:
-    responses_root = snapshot_root / "responses"
-    if not encoded_urls or not responses_root.is_dir():
-        return {}
-
-    best_matches: dict[str, str] = {}
-    image_matches: set[str] = set()
-    image_suffixes = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"}
-    for candidate in responses_root.rglob("*"):
-        if not candidate.is_file():
-            continue
-        try:
-            rel_path = candidate.relative_to(snapshot_root)
-        except ValueError:
-            continue
-        relative_match = posixpath.relpath(rel_path.as_posix(), start=posixpath.dirname(html_rel_path) or ".")
-        candidate_name = candidate.name
-        is_image = candidate.suffix.lower() in image_suffixes
-        for encoded_url in encoded_urls:
-            if encoded_url in image_matches or f"__GET__{encoded_url}" not in candidate_name:
-                continue
-            best_matches[encoded_url] = relative_match
-            if is_image:
-                # Preserve the old rglob behavior: the first image match wins,
-                # otherwise the last matching response file is used.
-                image_matches.add(encoded_url)
-    return best_matches
-
-
-def _rewrite_html_image_sources_to_responses(
-    html_text: str,
-    snapshot_root: Path,
-    html_rel_path: str,
-    page_url: str | None,
-) -> tuple[str, int]:
-    encoded_urls_by_src: dict[str, str | None] = {}
-    for match in IMG_SRC_ATTR_RE.finditer(html_text):
-        image_url = html.unescape(match.group(2))
-        if image_url not in encoded_urls_by_src:
-            encoded_urls_by_src[image_url] = _encoded_responses_image_url(image_url, page_url)
-
-    response_paths = _index_responses_paths_for_html_images(
-        snapshot_root,
-        html_rel_path,
-        {encoded_url for encoded_url in encoded_urls_by_src.values() if encoded_url},
-    )
-    rewrites = 0
-
-    def replace_src(match: re.Match[str]) -> str:
-        nonlocal rewrites
-        image_url = html.unescape(match.group(2))
-        encoded_url = encoded_urls_by_src.get(image_url)
-        local_path = response_paths.get(encoded_url or "")
-        if not local_path:
-            return match.group(0)
-        rewrites += 1
-        return f"{match.group(1)}{html.escape(local_path, quote=True)}{match.group(3)}"
-
-    return IMG_SRC_ATTR_RE.sub(replace_src, html_text), rewrites
-
-
-def _rewrite_html_image_sources_for_request(
-    request,
-    html_text: str,
-    document_root: Path | None,
-    html_rel_path: str,
-) -> tuple[str, int]:
-    if not document_root:
-        return html_text, 0
-    return _rewrite_html_image_sources_to_responses(
-        html_text,
-        document_root,
-        html_rel_path,
-        request.__dict__.get("archivebox_snapshot_url"),
-    )
-
-
-def _apply_transformed_html_preview_style(html_text: str) -> str:
-    if "archivebox-static-html-preview-style" in html_text:
-        return html_text
-    if re.search(r"</head\s*>", html_text, flags=re.IGNORECASE):
-        return re.sub(r"</head\s*>", f"{TRANSFORMED_HTML_PREVIEW_STYLE}\\g<0>", html_text, count=1, flags=re.IGNORECASE)
-    return f"{TRANSFORMED_HTML_PREVIEW_STYLE}\n{html_text}"
-
-
 def _set_transformed_response_headers(response, fullpath: Path, statobj: os.stat_result, encoding: str | None, config) -> None:
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
     response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
     response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
     if encoding:
         response.headers["Content-Encoding"] = encoding
-
-
-def _render_markdown_fallback(text: str) -> str:
-    if _markdown is not None and not HTML_TAG_RE.search(text):
-        try:
-            return _markdown(
-                text,
-                extensions=["extra", "toc", "sane_lists"],
-                output_format="html",
-            )
-        except (ImportError, RuntimeError, ValueError):
-            pass
-
-    lines = text.splitlines()
-    headings = []
-
-    def slugify(value: str) -> str:
-        slug = re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-")
-        return slug or "section"
-
-    for raw_line in lines:
-        heading_match = re.match(r"^\s{0,3}(#{1,6})\s+(.*)$", raw_line)
-        if heading_match:
-            level = len(heading_match.group(1))
-            content = heading_match.group(2).strip()
-            headings.append((level, content, slugify(content)))
-
-    html_lines = []
-    in_code = False
-    in_ul = False
-    in_ol = False
-    in_blockquote = False
-
-    def render_inline(markup: str) -> str:
-        content = MARKDOWN_INLINE_IMAGE_RE.sub(r'<img alt="\1" src="\2">', markup)
-        content = MARKDOWN_INLINE_LINK_RE.sub(r'<a href="\2">\1</a>', content)
-        content = MARKDOWN_BOLD_RE.sub(r"<strong>\1</strong>", content)
-        content = MARKDOWN_ITALIC_RE.sub(r"<em>\1</em>", content)
-        return content
-
-    def close_lists():
-        nonlocal in_ul, in_ol
-        if in_ul:
-            html_lines.append("</ul>")
-            in_ul = False
-        if in_ol:
-            html_lines.append("</ol>")
-            in_ol = False
-
-    for raw_line in lines:
-        line = raw_line.rstrip("\n")
-        stripped = line.strip()
-
-        if stripped.startswith("```"):
-            if in_code:
-                html_lines.append("</code></pre>")
-                in_code = False
-            else:
-                close_lists()
-                if in_blockquote:
-                    html_lines.append("</blockquote>")
-                    in_blockquote = False
-                html_lines.append("<pre><code>")
-                in_code = True
-            continue
-
-        if in_code:
-            html_lines.append(html.escape(line))
-            continue
-
-        if not stripped:
-            close_lists()
-            if in_blockquote:
-                html_lines.append("</blockquote>")
-                in_blockquote = False
-            html_lines.append("<br/>")
-            continue
-
-        heading_match = re.match(r"^\s*((?:<[^>]+>\s*)*)(#{1,6})\s+(.*)$", line)
-        if heading_match:
-            close_lists()
-            if in_blockquote:
-                html_lines.append("</blockquote>")
-                in_blockquote = False
-            leading_tags = heading_match.group(1).strip()
-            level = len(heading_match.group(2))
-            content = heading_match.group(3).strip()
-            if leading_tags:
-                html_lines.append(leading_tags)
-            html_lines.append(f'<h{level} id="{slugify(content)}">{render_inline(content)}</h{level}>')
-            continue
-
-        if stripped in ("---", "***"):
-            close_lists()
-            html_lines.append("<hr/>")
-            continue
-
-        if stripped.startswith("> "):
-            if not in_blockquote:
-                close_lists()
-                html_lines.append("<blockquote>")
-                in_blockquote = True
-            content = stripped[2:]
-            html_lines.append(render_inline(content))
-            continue
-        else:
-            if in_blockquote:
-                html_lines.append("</blockquote>")
-                in_blockquote = False
-
-        ul_match = re.match(r"^\s*[-*+]\s+(.*)$", line)
-        if ul_match:
-            if in_ol:
-                html_lines.append("</ol>")
-                in_ol = False
-            if not in_ul:
-                html_lines.append("<ul>")
-                in_ul = True
-            html_lines.append(f"<li>{render_inline(ul_match.group(1))}</li>")
-            continue
-
-        ol_match = re.match(r"^\s*\d+\.\s+(.*)$", line)
-        if ol_match:
-            if in_ul:
-                html_lines.append("</ul>")
-                in_ul = False
-            if not in_ol:
-                html_lines.append("<ol>")
-                in_ol = True
-            html_lines.append(f"<li>{render_inline(ol_match.group(1))}</li>")
-            continue
-
-        close_lists()
-
-        # Inline conversions (leave raw HTML intact)
-        if stripped == "[TOC]":
-            toc_items = []
-            for level, title, slug in headings:
-                toc_items.append(
-                    f'<li class="toc-level-{level}"><a href="#{slug}">{title}</a></li>',
-                )
-            html_lines.append(
-                '<nav class="toc"><ul>' + "".join(toc_items) + "</ul></nav>",
-            )
-            continue
-
-        html_lines.append(f"<p>{render_inline(line)}</p>")
-
-    close_lists()
-    if in_blockquote:
-        html_lines.append("</blockquote>")
-    if in_code:
-        html_lines.append("</code></pre>")
-
-    return "\n".join(html_lines)
-
-
-def _render_markdown_document(markdown_text: str) -> str:
-    body = _render_markdown_fallback(markdown_text)
-    wrapped = (
-        '<!doctype html><html><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        "<style>body{max-width:900px;margin:24px auto;padding:0 16px;"
-        "font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;"
-        "line-height:1.55;} img{max-width:100%;} pre{background:#f6f6f6;padding:12px;overflow:auto;}"
-        ".toc ul{list-style:none;padding-left:0;} .toc li{margin:4px 0;}</style>"
-        "</head><body>"
-        f"{body}"
-        "</body></html>"
-    )
-    return wrapped
 
 
 def _content_type_base(content_type: str) -> str:
@@ -951,7 +509,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             max_preview_size = 10 * 1024 * 1024
             if statobj.st_size <= max_preview_size:
                 decoded = fullpath.read_text(encoding="utf-8", errors="replace")
-                wrapped = _render_text_preview_document(decoded, fullpath.name)
+                wrapped = replay_preview._render_text_preview_document(decoded, fullpath.name)
                 response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
                 _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                 return _apply_archive_replay_headers(
@@ -971,7 +529,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             raw_image_url = request.path
             if preview_query:
                 raw_image_url = f"{raw_image_url}?{urlencode(list(preview_query.lists()), doseq=True)}"
-            wrapped = _render_image_preview_document(raw_image_url, fullpath.name)
+            wrapped = replay_preview._render_image_preview_document(raw_image_url, fullpath.name)
             response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
             _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
             return _apply_archive_replay_headers(
@@ -1032,12 +590,22 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     decoded = html.unescape(decoded)
                 rewritten_html, rewritten_count = ("", 0)
                 if content_type.startswith("text/html") and document_root:
-                    rewritten_html, rewritten_count = _rewrite_html_image_sources_for_request(request, decoded, document_root, rel_path)
-                markdown_candidate = _extract_markdown_candidate(decoded)
-                if _looks_like_markdown(markdown_candidate):
-                    wrapped = _render_markdown_document(markdown_candidate)
-                    wrapped, _rewrite_count = _rewrite_html_image_sources_for_request(request, wrapped, document_root, rel_path)
-                    wrapped = _apply_transformed_html_preview_style(wrapped)
+                    rewritten_html, rewritten_count = replay_preview._rewrite_html_image_sources_for_request(
+                        request,
+                        decoded,
+                        document_root,
+                        rel_path,
+                    )
+                markdown_candidate = replay_preview._extract_markdown_candidate(decoded)
+                if replay_preview._looks_like_markdown(markdown_candidate):
+                    wrapped = replay_preview._render_markdown_document(markdown_candidate)
+                    wrapped, _rewrite_count = replay_preview._rewrite_html_image_sources_for_request(
+                        request,
+                        wrapped,
+                        document_root,
+                        rel_path,
+                    )
+                    wrapped = replay_preview._apply_transformed_html_preview_style(wrapped)
                     response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
                     _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(
@@ -1048,7 +616,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         config=config,
                     )
                 if rewritten_count:
-                    rewritten_html = _apply_transformed_html_preview_style(rewritten_html)
+                    rewritten_html = replay_preview._apply_transformed_html_preview_style(rewritten_html)
                     response = HttpResponse(rewritten_html, content_type=content_type)
                     _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(
@@ -1059,7 +627,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         config=config,
                     )
                 if escaped_count and escaped_count > tag_count * 2:
-                    decoded = _apply_transformed_html_preview_style(decoded)
+                    decoded = replay_preview._apply_transformed_html_preview_style(decoded)
                     response = HttpResponse(decoded, content_type=content_type)
                     _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
                     return _apply_archive_replay_headers(

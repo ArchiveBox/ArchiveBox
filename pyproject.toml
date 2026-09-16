@@ -71,6 +71,7 @@ dependencies = [
     "requests>=2.32.3",      # for: fetching title, static files, headers (TODO: replace with httpx?)
     "sonic-client>=1.0.0",
     ### Parsers
+    "markdown-it-py>=4.0.0", # for: rendering archived Markdown previews (also used by Rich)
     "dateparser>=1.2.0",     # for: parsing pocket/pinboard/etc. RSS/bookmark import dates
     "croniter>=6.0.0",       # for: validating and computing crawl schedules
     "tzdata>=2024.2",        # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
