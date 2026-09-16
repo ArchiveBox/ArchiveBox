@@ -1,9 +1,3 @@
-/* * {
-    -webkit-box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-} */
-
 #logo {
     height: 30px;
     vertical-align: -6px;
@@ -580,8 +574,6 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        justify-content: center;
-        gap: 6px;
         line-height: 1.2;
         overflow-wrap: normal;
     }
@@ -590,16 +582,7 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 32px;
-        padding: 5px 8px;
-        border-radius: 5px;
         white-space: nowrap;
-    }
-
-    #user-tools a.navbar-add-link,
-    #user-tools a.navbar-add-link:link,
-    #user-tools a.navbar-add-link:visited {
-        padding: 5px 8px;
     }
 
     #user-tools .navbar-item:where(
@@ -1791,10 +1774,6 @@ tbody .output-link:hover {opacity: 1;}
         top: 0;
     }
 
-    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .model-snapshot.change-list #result_list tbody {
         grid-template-columns: minmax(0, 1fr);
         padding: 8px;
@@ -1935,10 +1914,6 @@ tbody .output-link:hover {opacity: 1;}
         min-width: 72px;
         padding-left: 10px;
         padding-right: 10px;
-    }
-
-    .model-snapshot.change-list #changelist .actions-tags-with-buttons {
-        grid-template-columns: minmax(0, 1fr) 34px 34px;
     }
 
     .model-snapshot.change-list #result_list tbody tr {
@@ -2185,15 +2160,6 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
 
     .model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
         grid-template-columns: minmax(170px, 0.55fr) minmax(340px, 1.45fr);
-    }
-
-    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button {
-        font-size: 11px;
-    }
-
-    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary {
-        grid-column: 1 / -1;
-        grid-row: auto;
     }
 }
 

@@ -1,20 +1,3 @@
-#upgrade-banner {
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    background-color: #f8f8f8;
-    color: #333333;
-    border: 2px solid #772948;
-    padding: 10px 20px;
-    z-index: 1000;
-    text-align: center;
-}
-#dismiss-btn {
-    background: #aa1e55;
-    color: white;
-    cursor: pointer;
-}
-
 /* ============================================
    Modern card-based admin UI (shadcn-inspired)
    ============================================ */
@@ -32,10 +15,6 @@ body, html {
 
 #container {
     background: #f8fafc;
-}
-
-#content {
-    padding: 24px;
 }
 
 /* Main form container - flexbox grid */
@@ -614,15 +593,6 @@ input[name="delete"]:hover,
 
 /* Responsive: stack on smaller screens */
 @media (max-width: 900px) {
-    body.change-form #content,
-    body.change-form #content-main,
-    body.change-form #content-main > form,
-    body.change-form #content-main > form > div {
-        width: 100%;
-        max-width: 100%;
-        min-width: 0;
-        box-sizing: border-box;
-    }
 
     #content-main form fieldset,
     #content form fieldset {
@@ -649,10 +619,6 @@ input[name="delete"]:hover,
         flex-basis: 100% !important;
         max-width: 100% !important;
         min-width: 0;
-    }
-
-    #content {
-        padding: 16px;
     }
 }
 
@@ -1580,53 +1546,6 @@ body.filters-collapsed.change-list #changelist {
     box-shadow: none;
     background: transparent;
     font-size: 11px;
-}
-
-.model-snapshot.change-list #changelist .actions-tags-with-buttons {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 34px 34px;
-    gap: 0;
-    align-items: stretch;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    background: #fff;
-    overflow: hidden;
-}
-
-.model-snapshot.change-list #changelist .actions-tags-with-buttons .tag-editor-container {
-    width: auto;
-    max-width: none;
-    height: 34px;
-    min-height: 34px;
-    padding: 4px 9px;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-    overflow: hidden;
-}
-
-.model-snapshot.change-list #changelist .actions-tags-with-buttons .tag-inline-input {
-    height: auto;
-    min-height: 0;
-    padding: 0;
-    margin: 0;
-    border: 0;
-    border-radius: 0;
-    box-shadow: none;
-    background: transparent;
-}
-
-.model-snapshot.change-list #changelist .actions-tags-with-buttons .button[name="add_tags"],
-.model-snapshot.change-list #changelist .actions-tags-with-buttons .button[name="remove_tags"] {
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
-    padding: 0;
-    margin: 0;
-    border: 0;
-    border-left: 1px solid #cbd5e1;
-    border-radius: 0;
-    justify-content: center;
 }
 
 
