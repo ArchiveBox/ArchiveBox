@@ -109,13 +109,13 @@ version = 2
 
 # docs/Docker.md
 "03a42395e6560eba-1" = "illustration"
-"0b7277780e3efb1a-1" = "illustration"
 "6673b633d132353b-1" = "illustration"
 "affb9c5d5980ed1c-1" = "run"
 "0e9c1f41ef579e79-1" = "run"
 "746a3e228d29f9d2-1" = "run"
 "66a7d54ea81d64dc-1" = "illustration"
 "aa4884ebe3101cf6-1" = "illustration"
+"0b7277780e3efb1a-1" = "illustration"
 "150ae2c7f6d012ab-1" = "illustration"
 "8d86727108f1dbad-1" = "run"
 "6bcb6c2e8770907a-1" = "illustration"
@@ -226,7 +226,6 @@ version = 2
 "20b7130b3bf05a00-1" = "run"
 
 # docs/Troubleshooting.md
-"1192620577a0dc5a-1" = "illustration"
 "f51f94b1347085a0-1" = "illustration"
 "24badf54daccd7fa-1" = "run"
 "ef68862f660ad4ee-1" = "run"
@@ -234,6 +233,7 @@ version = 2
 "201988374bff6d14-2" = "run"
 "725a7a8c6f829ece-1" = "run"
 "7658fabf90ed3c2e-1" = "run"
+"1192620577a0dc5a-1" = "illustration"
 "9612e7b40b348ab1-1" = "illustration"
 "2f491912a15ecd93-1" = "output"
 "e0cbb64ddf1d7135-1" = "run"

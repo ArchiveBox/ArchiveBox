@@ -166,22 +166,30 @@ ensure_file_owner() {
 }
 
 ensure_runtime_tmp_tree() {
-    mkdir -p "$TMP_DIR" 2>/dev/null || true
-    [[ -e "$TMP_DIR" ]] || return 0
+    if [[ ! -e "$TMP_DIR" ]]; then
+        ensure_dir "$TMP_DIR"
+        return
+    fi
+    path_is_writable "$TMP_DIR" && return 0
     if [[ "$(id -u)" == "0" ]]; then
         chown -R "$TARGET_UID:$TARGET_GID" "$TMP_DIR" 2>/dev/null || true
     fi
     chmod_if_possible "$TMP_DIR"
+    path_is_writable "$TMP_DIR" || permission_error "$TMP_DIR"
 }
 
 ensure_small_runtime_tree() {
     local path="$1"
-    mkdir -p "$path" 2>/dev/null || true
-    [[ -e "$path" ]] || return 0
+    if [[ ! -e "$path" ]]; then
+        ensure_dir "$path"
+        return
+    fi
+    path_is_writable "$path" && return 0
     if [[ "$(id -u)" == "0" ]]; then
         chown -R "$TARGET_UID:$TARGET_GID" "$path" 2>/dev/null || true
     fi
     chmod -R u+rwX,g+rwX "$path" 2>/dev/null || true
+    path_is_writable "$path" || permission_error "$path"
 }
 
 permission_error() {
@@ -230,15 +238,14 @@ if ! xdpyinfo > /dev/null 2>&1; then
 fi
 
 # Active browser processes do not survive container restarts, but their lock
-# files can. Clear stale browser state before dropping privileges.
-find "$PERSONAS_DIR" -type f \( \
-    -name "SingletonLock" \
-    -o -name "SingletonSocket" \
-    -o -name "SingletonCookie" \
-    -o -name "DevToolsActivePort" \
-    -o -name ".launch.lock" \
-    -o -name ".target.lock" \
-\) -delete >/dev/null 2>&1 || true
+# files can. Chromium keeps these at the user-data root; only inspect the
+# known root of each persona, never walk its potentially large profile tree.
+for persona_profile in "$PERSONAS_DIR"/*/chrome_profile; do
+    [[ -d "$persona_profile" ]] || continue
+    for lock_name in SingletonLock SingletonSocket SingletonCookie DevToolsActivePort .launch.lock .target.lock; do
+        rm -f "$persona_profile/$lock_name" 2>/dev/null || true
+    done
+done
 find /tmp "$TMP_DIR" -maxdepth 1 -type d -name "archivebox-chrome-profile.*" -mmin +30 -exec rm -rf {} + >/dev/null 2>&1 || true
     
 

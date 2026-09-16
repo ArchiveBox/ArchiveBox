@@ -135,14 +135,16 @@ def ensure_daemon_stack(*, reason: str = ""):
     # opened its search socket. A query launched at that point fails even though
     # the daemon is about to become ready.
     deadline = time.monotonic() + 30.0
-    while not is_port_listening(sonic_event.host, sonic_event.port):
+    while time.monotonic() < deadline:
+        if is_port_listening(sonic_event.host, sonic_event.port):
+            if time.monotonic() < deadline:
+                return worker
+            break
         worker = get_worker(supervisor, sonic_worker["name"])
         if not isinstance(worker, dict) or worker.get("statename") not in ("STARTING", "RUNNING"):
             raise RuntimeError(f"Sonic search backend worker failed to start: {worker}")
-        if time.monotonic() >= deadline:
-            raise RuntimeError(f"Sonic search backend is not listening at {sonic_event.url}")
-        time.sleep(0.1)
-    return worker
+        time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
+    raise RuntimeError(f"Sonic search backend is not listening at {sonic_event.url}")
 
 
 def live_runner_processes(*, data_dir: str | Path):

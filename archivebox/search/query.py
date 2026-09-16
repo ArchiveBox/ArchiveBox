@@ -1,5 +1,6 @@
 __package__ = "archivebox.search"
 
+from subprocess import CalledProcessError
 from typing import Any
 
 from django.db import connection
@@ -310,6 +311,8 @@ def iter_query_search_ids(
             f"[X] The search backend threw an exception={err}:",
             color="red",
         )
+        if isinstance(err, CalledProcessError) and err.stderr:
+            stderr(err.stderr.rstrip(), color="red")
         raise
     else:
         if not successful_backends and errors and search_mode_base == "deep":

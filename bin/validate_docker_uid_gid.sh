@@ -260,6 +260,11 @@ run_case() {
             && "$browsers_stat" == "0:0" \
             && "$chrome_rules_stat" == "$expected_uid:$expected_gid" \
             && "$chrome_metadata_stat" == "$expected_uid:$expected_gid" ]] || ok=0
+    elif [[ "$post_assert" == cache-and-profile-shallow ]]; then
+        local cache_stat profile_state
+        cache_stat="$("${docker_base[@]}" -v "$case_dir/lib:/libdir" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /libdir/cache/uv/nested/marker" 2>/dev/null || true)"
+        profile_state="$("${docker_base[@]}" -v "$case_dir/data:/data" --entrypoint /bin/bash "$IMAGE" -lc "test ! -e /data/personas/Default/chrome_profile/SingletonLock && test -e /data/personas/Default/chrome_profile/nested/SingletonLock && echo shallow" 2>/dev/null || true)"
+        [[ "$cache_stat" == "0:0" && "$profile_state" == shallow ]] || ok=0
     elif [[ "$post_assert" == users-dir-repaired ]]; then
         local users_stat
         users_stat="$("${docker_base[@]}" -v "$case_dir/data:/data" --entrypoint /bin/bash "$IMAGE" -lc "stat -c '%u:%g' /data/users" 2>/dev/null || true)"
@@ -608,6 +613,10 @@ run_case "nonnumeric PUID is rejected" \
 run_case "non-root UID with root group is supported" \
     "chown 1201:0 /case/data && chmod 775 /case/data" \
     "-" "-" pass 1201 0
+
+run_case "writable cache and persona profile skip recursive startup scans" \
+    "chown 911:911 /case/data && mkdir -p /case/lib/cache/uv/nested /case/data/personas/Default/chrome_profile/nested && touch /case/lib/cache/uv/nested/marker /case/data/personas/Default/chrome_profile/SingletonLock /case/data/personas/Default/chrome_profile/nested/SingletonLock && chown 911:911 /case/lib/cache/uv /case/data/personas/Default/chrome_profile && chown 0:0 /case/lib/cache/uv/nested/marker" \
+    "-" "-" pass 911 911 "$default_cmd" cache-and-profile-shallow
 
 run_case "writable forced-owner mount skips metadata changes" \
     "chown 1000:1000 /case/data && chmod 777 /case/data" \
