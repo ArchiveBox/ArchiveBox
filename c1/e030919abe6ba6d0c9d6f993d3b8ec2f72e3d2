@@ -1,0 +1,19 @@
+archivebox/core/takeover_util.py
+  s_4f8227e1fbd31e::t_5b5cd2ba8bd2a6 129-145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c1e030919abe6ba6d0c9d6f993d3b8ec2f72e3d2",
+  "prompts": {},
+  "sessions": {
+    "s_4f8227e1fbd31e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a73e-7c2b-7091-9bcd-6b2b4713dd90",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
