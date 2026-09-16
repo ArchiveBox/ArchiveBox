@@ -80,103 +80,26 @@ def test_cli_run_signal_cleans_real_chrome_hook_process_group(initialized_archiv
         cleanup_process_group(run_process.pid)
 
 
-class TestRunWithCrawl:
-    """Tests for `archivebox run` with Crawl input."""
+class TestRunInput:
+    """Run new records, run their persisted IDs again, and accept plain URLs."""
 
-    def test_run_with_new_crawl(self, archivebox_cli, initialized_archive):
-        """Run processes a Crawl emitted by the public create command."""
-        create_result = archivebox_cli(
-            ["crawl", "create", create_test_url()],
-            env=RUN_TEST_ENV,
-        )
-        assert create_result.returncode == 0, create_result.stderr
-
-        result = archivebox_cli(
-            ["run"],
-            stdin=create_result.stdout,
-            timeout=120,
-            env=RUN_TEST_ENV,
-        )
-
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        # Should output the created Crawl
-        records = parse_jsonl_output(result.stdout)
-        crawl_records = [r for r in records if r.get("type") == "Crawl"]
-        assert len(crawl_records) >= 1
-        assert crawl_records[0].get("id")  # Should have an id now
-
-    def test_run_with_existing_crawl(self, archivebox_cli, initialized_archive):
-        """Run re-queues an existing Crawl (with id)."""
-        url = create_test_url()
-
-        # First create a crawl
-        _cmd_result = archivebox_cli(
-            ["crawl", "create", url],
-            env=RUN_TEST_ENV,
-        )
-        stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        # Run with the existing crawl
-        _cmd_result = archivebox_cli(
-            ["run"],
-            stdin=stdout1,
-            timeout=120,
-            env=RUN_TEST_ENV,
-        )
-        stdout2, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-
-        assert code == 0
-        records = parse_jsonl_output(stdout2)
-        assert len(records) >= 1
-
-
-class TestRunWithSnapshot:
-    """Tests for `archivebox run` with Snapshot input."""
-
-    def test_run_with_new_snapshot(self, archivebox_cli, initialized_archive):
-        """Run processes a Snapshot emitted by the public create command."""
-        create_result = archivebox_cli(
-            ["snapshot", "create", create_test_url()],
-            env=RUN_TEST_ENV,
-        )
-        assert create_result.returncode == 0, create_result.stderr
-
-        result = archivebox_cli(
-            ["run"],
-            stdin=create_result.stdout,
-            timeout=120,
-            env=RUN_TEST_ENV,
-        )
-
-        assert result.returncode == 0, f"Command failed: {result.stderr}"
-
-        records = parse_jsonl_output(result.stdout)
-        snapshot_records = [r for r in records if r.get("type") == "Snapshot"]
-        assert len(snapshot_records) >= 1
-        assert snapshot_records[0].get("id")
-
-    def test_run_with_existing_snapshot(self, archivebox_cli, initialized_archive):
-        """Run re-queues an existing Snapshot (with id)."""
-        url = create_test_url()
-
-        # First create a snapshot
-        _cmd_result = archivebox_cli(
-            ["snapshot", "create", url],
-            env=RUN_TEST_ENV,
-        )
-        stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        # Run with the existing snapshot
-        _cmd_result = archivebox_cli(
-            ["run"],
-            stdin=stdout1,
-            timeout=120,
-            env=RUN_TEST_ENV,
-        )
-        stdout2, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-
-        assert code == 0
-        records = parse_jsonl_output(stdout2)
-        assert len(records) >= 1
+    @pytest.mark.parametrize("source", ["crawl", "snapshot"])
+    @pytest.mark.parametrize("runs", [1, 2], ids=["new-record", "existing-record"])
+    def test_run_created_record(self, archivebox_cli, initialized_archive, source, runs):
+        created = archivebox_cli([source, "create", create_test_url()], env=RUN_TEST_ENV)
+        assert created.returncode == 0, created.stderr
+        created_record = next(record for record in parse_jsonl_output(created.stdout) if record.get("type") == source.title())
+        stdin = created.stdout
+        for _ in range(runs):
+            result = archivebox_cli(["run"], stdin=stdin, timeout=120, env=RUN_TEST_ENV)
+            assert result.returncode == 0, result.stderr
+            records = parse_jsonl_output(result.stdout)
+            assert len(records) >= 1
+            matching = [record for record in records if record.get("type") == source.title()]
+            assert len(matching) >= 1
+            assert matching[0].get("id")
+            assert matching[0]["id"] == created_record["id"]
+            stdin = result.stdout
 
     def test_run_with_plain_url(self, archivebox_cli, initialized_archive):
         """Run accepts plain URL records (no type field)."""

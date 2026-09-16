@@ -3,20 +3,19 @@ from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from django.contrib.auth import get_user_model
 from django.db.models import Q
+from archivebox.api.schemas import OwnedObjectSchema
+
 from ninja import FilterLookup, FilterSchema, Schema
 
 from archivebox.core.models import ArchiveResult, Snapshot
 
 
-class MinimalArchiveResultSchema(Schema):
+class MinimalArchiveResultSchema(OwnedObjectSchema):
     TYPE: str = "core.models.ArchiveResult"
     id: UUID
     created_at: datetime | None
     modified_at: datetime | None
-    created_by_id: str
-    created_by_username: str
     status: str
     retry_at: datetime | None = None
     plugin: str
@@ -32,14 +31,6 @@ class MinimalArchiveResultSchema(Schema):
     output_mimetypes: str
     start_ts: datetime | None
     end_ts: datetime | None
-
-    @staticmethod
-    def resolve_created_by_id(obj):
-        return str(obj.created_by.pk)
-
-    @staticmethod
-    def resolve_created_by_username(obj) -> str:
-        return obj.created_by.username
 
     @staticmethod
     def resolve_output_files(obj):
@@ -120,11 +111,9 @@ class ArchiveResultFilterSchema(FilterSchema):
     created_at__lt: Annotated[datetime | None, FilterLookup("created_at__lt")] = None
 
 
-class SnapshotSchema(Schema):
+class SnapshotSchema(OwnedObjectSchema):
     TYPE: str = "core.models.Snapshot"
     id: UUID
-    created_by_id: str
-    created_by_username: str
     created_at: datetime
     modified_at: datetime
     status: str
@@ -140,14 +129,6 @@ class SnapshotSchema(Schema):
     output_size: int
     num_archiveresults: int
     archiveresults: list[MinimalArchiveResultSchema]
-
-    @staticmethod
-    def resolve_created_by_id(obj):
-        return str(obj.created_by.pk)
-
-    @staticmethod
-    def resolve_created_by_username(obj):
-        return obj.created_by.username
 
     @staticmethod
     def resolve_tags(obj):
@@ -225,27 +206,14 @@ class SnapshotFilterSchema(FilterSchema):
         return Q()
 
 
-class TagSchema(Schema):
+class TagSchema(OwnedObjectSchema):
     TYPE: str = "core.models.Tag"
     id: int
     modified_at: datetime
     created_at: datetime
-    created_by_id: str
-    created_by_username: str
     name: str
     num_snapshots: int
     snapshots: list[SnapshotSchema]
-
-    @staticmethod
-    def resolve_created_by_id(obj):
-        return str(obj.created_by_id)
-
-    @staticmethod
-    def resolve_created_by_username(obj):
-        user_model = get_user_model()
-        user = user_model.objects.get(id=obj.created_by_id)
-        username = user.username
-        return username if isinstance(username, str) else str(user)
 
     @staticmethod
     def resolve_num_snapshots(obj, context):

@@ -7,8 +7,9 @@ from django.http import FileResponse, HttpRequest
 from django.shortcuts import redirect
 from django.utils import timezone
 
-from django.contrib.auth import get_user_model
 from django.contrib.auth.models import User
+
+from archivebox.api.schemas import OwnedObjectSchema
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
@@ -29,15 +30,13 @@ from .auth import API_AUTH_METHODS, authenticated_user_from_request
 router = Router(tags=["Crawl Models"], auth=API_AUTH_METHODS)
 
 
-class CrawlSchema(Schema):
+class CrawlSchema(OwnedObjectSchema):
     TYPE: str = "crawls.models.Crawl"
 
     id: UUID
 
     modified_at: datetime
     created_at: datetime
-    created_by_id: str
-    created_by_username: str
 
     status: str
     retry_at: datetime | None
@@ -47,17 +46,6 @@ class CrawlSchema(Schema):
     max_depth: int
     tags_str: str
     config: dict
-
-    @staticmethod
-    def resolve_created_by_id(obj):
-        return str(obj.created_by_id)
-
-    @staticmethod
-    def resolve_created_by_username(obj):
-        user_model = get_user_model()
-        user = user_model.objects.get(id=obj.created_by_id)
-        username = user.username
-        return username if isinstance(username, str) else str(user)
 
     @staticmethod
     def resolve_config(obj):

@@ -791,23 +791,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             obj.pk,
         )
 
-    def status_info(self, obj):
-        request = self.request
-        config = request.archivebox_config
-        favicon_url = build_snapshot_url(str(obj.id), "favicon.ico", request=request, config=config)
-        return format_html(
-            """
-            Archived: {} ({} files {}) &nbsp; &nbsp;
-            Favicon: <img src="{}" style="height: 20px"/> &nbsp; &nbsp;
-            Extension: {} &nbsp; &nbsp;
-            """,
-            "✅" if obj.is_archived else "❌",
-            obj.num_outputs,
-            self.size(obj) or "0kb",
-            favicon_url,
-            obj.extension or "-",
-        )
-
     @admin.display(description="Archive Results")
     def archiveresults_list(self, obj):
         request = self.request

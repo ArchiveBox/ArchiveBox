@@ -1021,14 +1021,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         process = self.process_record
         return process.timeout if process else 120
 
-    def _url_passes_filters(self, url: str) -> bool:
-        """Check if URL passes URL_ALLOWLIST and URL_DENYLIST config filters.
-
-        Uses the centralized config resolver so frozen crawl/snapshot values
-        and live Machine/Persona execution values apply in their scoped order.
-        """
-        return self.snapshot.crawl.url_passes_filters(url, snapshot=self.snapshot)
-
     @property
     def output_dir(self) -> Path:
         """Get the output directory for this plugin's results."""

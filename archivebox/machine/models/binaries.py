@@ -273,13 +273,6 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
             binary.symlink_to_lib_bin_after_commit(get_config().ABXPKG_LIB_DIR / "bin")
         return binary
 
-    def _allowed_binproviders(self) -> set[str] | None:
-        """Return the allowed binproviders for this binary, or None for wildcard."""
-        providers = str(self.binproviders or "").strip()
-        if not providers or providers == "*":
-            return None
-        return {provider.strip() for provider in providers.split(",") if provider.strip()}
-
     def run(self):
         """
         Execute binary installation through the ArchiveBox binary runner.

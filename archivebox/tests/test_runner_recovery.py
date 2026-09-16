@@ -1027,9 +1027,16 @@ class TestRunDueCrawlState:
         assert crawl.status == Crawl.StatusChoices.SEALED
         assert crawl.retry_at is None
 
-    def test_run_due_crawl_preserves_next_future_snapshot_retry(self):
+    @pytest.mark.parametrize(
+        "retry_delay, snapshot_status",
+        [
+            (timedelta(hours=1), Snapshot.StatusChoices.QUEUED),
+            (timedelta(minutes=5), Snapshot.StatusChoices.STARTED),
+        ],
+    )
+    def test_run_due_crawl_preserves_future_snapshot_retry(self, retry_delay, snapshot_status):
 
-        future = timezone.now() + timedelta(hours=1)
+        future = timezone.now() + retry_delay
         crawl = Crawl.objects.create(
             urls="https://example.com",
             created_by_id=get_or_create_system_user_pk(),
@@ -1039,29 +1046,7 @@ class TestRunDueCrawlState:
         Snapshot.objects.create(
             url="https://example.com",
             crawl=crawl,
-            status=Snapshot.StatusChoices.QUEUED,
-            retry_at=future,
-        )
-
-        assert run_due_crawl(crawl, lock_seconds=10) is True
-
-        crawl.refresh_from_db()
-        assert crawl.status == Crawl.StatusChoices.STARTED
-        assert crawl.retry_at == future
-
-    def test_run_due_crawl_preserves_next_future_started_snapshot_lease(self):
-
-        future = timezone.now() + timedelta(minutes=5)
-        crawl = Crawl.objects.create(
-            urls="https://example.com",
-            created_by_id=get_or_create_system_user_pk(),
-            status=Crawl.StatusChoices.STARTED,
-            retry_at=timezone.now(),
-        )
-        Snapshot.objects.create(
-            url="https://example.com",
-            crawl=crawl,
-            status=Snapshot.StatusChoices.STARTED,
+            status=snapshot_status,
             retry_at=future,
         )
 
