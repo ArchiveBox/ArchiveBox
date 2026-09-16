@@ -533,7 +533,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         """Keep a long-lived watcher visible in recent-process monitoring."""
         self.save(update_fields=["modified_at"])
 
-    def mark_exited(self, *, exit_code: int = 0) -> None:
+    def mark_exited(self, *, exit_code: int | None = 0) -> None:
         """Mark a foreground/internal process row exited after command cleanup."""
         if self.status == self.StatusChoices.EXITED and self.exit_code == exit_code:
             return
@@ -1018,49 +1018,20 @@ class Process(ModelWithDeleteAfter, models.Model):
             return
 
     def kill(self, signal_num: int = 15) -> bool:
-        """
-        Kill this process and update status.
-
-        Uses self.proc for safe killing - only kills if PID matches
-        our recorded process (prevents killing recycled PIDs).
-
-        Args:
-            signal_num: Signal to send (default SIGTERM=15)
-
-        Returns:
-            True if killed successfully, False otherwise
-        """
+        """Signal this process only when its PID namespace and start time match."""
         if not self.shares_pid_namespace:
             return False
-
-        # Use validated psutil.Process to ensure we're killing the right process
         proc = self.proc
         if proc is None:
-            # Process doesn't exist or PID was recycled - just update status
-            if self.status != self.StatusChoices.EXITED:
-                self.status = self.StatusChoices.EXITED
-                self.ended_at = self.ended_at or timezone.now()
-                self.save()
+            self.mark_exited(exit_code=self.exit_code)
             return False
-
         try:
-            # Safe to kill - we validated it's our process via start time match
             proc.send_signal(signal_num)
-
-            # Update our record
-            # Use standard Unix convention: 128 + signal number
-            self.exit_code = 128 + signal_num
-            self.ended_at = timezone.now()
-            self.status = self.StatusChoices.EXITED
-            self.save()
-
-            return True
         except (psutil.NoSuchProcess, psutil.AccessDenied, ProcessLookupError):
-            # Process already exited between proc check and kill
-            self.status = self.StatusChoices.EXITED
-            self.ended_at = self.ended_at or timezone.now()
-            self.save()
+            self.mark_exited(exit_code=self.exit_code)
             return False
+        self.mark_exited(exit_code=128 + signal_num)
+        return True
 
     def poll(self) -> int | None:
         """
@@ -1136,162 +1107,66 @@ class Process(ModelWithDeleteAfter, models.Model):
             time.sleep(0.1)
 
     def terminate(self, graceful_timeout: float = 5.0) -> bool:
-        """
-        Gracefully terminate process: SIGTERM → wait → SIGKILL.
-
-        This consolidates SIGTERM/SIGKILL logic used by:
-        - workers/management/commands/runner_watch.py
-        - workers/pid_utils.py stop_worker()
-        - supervisord_util.py stop_existing_supervisord_process()
-
-        Args:
-            graceful_timeout: Seconds to wait after SIGTERM before SIGKILL
-
-        Returns:
-            True if process was terminated, False if already dead
-        """
-        import signal
-
+        """Send SIGTERM, wait for a graceful exit, then use SIGKILL if necessary."""
+        if not self.shares_pid_namespace:
+            return False
         proc = self.proc
         if proc is None:
-            # Already dead - just update status
-            if self.status != self.StatusChoices.EXITED:
-                self.status = self.StatusChoices.EXITED
-                self.ended_at = self.ended_at or timezone.now()
-                self.save()
+            self.mark_exited(exit_code=self.exit_code)
             return False
-
         try:
-            # Step 1: Send SIGTERM for graceful shutdown
             proc.terminate()
-
-            # Step 2: Wait for graceful exit
             try:
                 exit_status = proc.wait(timeout=graceful_timeout)
-                # Process exited gracefully
-                # psutil.Process.wait() returns the exit status
-                self.exit_code = exit_status if exit_status is not None else 0
-                self.status = self.StatusChoices.EXITED
-                self.ended_at = timezone.now()
-                self.save()
-                return True
+                exit_code = exit_status if exit_status is not None else 0
             except psutil.TimeoutExpired:
-                pass  # Still running, need to force kill
-
-            # Step 3: Force kill with SIGKILL
-            proc.kill()
-            proc.wait(timeout=2)
-
-            # Use standard Unix convention: 128 + signal number
-            self.exit_code = 128 + signal.SIGKILL
-            self.status = self.StatusChoices.EXITED
-            self.ended_at = timezone.now()
-            self.save()
-            return True
-
+                proc.kill()
+                proc.wait(timeout=2)
+                exit_code = 128 + signal.SIGKILL
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            # Process already dead
-            self.status = self.StatusChoices.EXITED
-            self.ended_at = self.ended_at or timezone.now()
-            self.save()
+            self.mark_exited(exit_code=self.exit_code)
             return False
+        self.mark_exited(exit_code=exit_code)
+        return True
 
     def kill_tree(self, graceful_timeout: float = 2.0) -> int:
+        """Stop OS descendants and their parent in parallel, then reap exited children.
+
+        psutil retains each PID's identity and recognizes exited zombies; raw
+        signal-zero polling can mistake a zombie for a process needing SIGKILL.
+        Return the number that exited or received SIGKILL.
         """
-        Kill this process and all its children (OS children, not DB children) in parallel.
-
-        Uses parallel polling approach - sends SIGTERM to all processes at once,
-        then polls all simultaneously with individual deadline tracking.
-
-        This consolidates child-killing logic used by:
-        - core/takeover_util.py
-        - supervisord_util.py stop_existing_supervisord_process()
-
-        Args:
-            graceful_timeout: Seconds to wait after SIGTERM before SIGKILL
-
-        Returns:
-            Number of processes killed (including self)
-        """
-        import os
-        import signal
-        import time
-
         if not self.shares_pid_namespace:
             return 0
-
-        killed_count = 0
-        used_sigkill = False
         proc = self.proc
         if proc is None:
-            # Already dead
-            if self.status != self.StatusChoices.EXITED:
-                self.status = self.StatusChoices.EXITED
-                self.ended_at = self.ended_at or timezone.now()
-                self.save()
+            self.mark_exited(exit_code=self.exit_code)
             return 0
-
+        killed_count = 0
+        used_sigkill = False
         try:
-            # Phase 1: Get all children and send SIGTERM to entire tree in parallel
-            children = proc.children(recursive=True)
-            deadline = time.time() + graceful_timeout
-
-            # Send SIGTERM to all children first (non-blocking)
-            for child in children:
+            processes = [*proc.children(recursive=True), proc]
+            for process in processes:
                 try:
-                    os.kill(child.pid, signal.SIGTERM)
-                except (OSError, ProcessLookupError):
+                    process.terminate()
+                except psutil.Error:
                     pass
-
-            # Send SIGTERM to parent
-            try:
-                os.kill(proc.pid, signal.SIGTERM)
-            except (OSError, ProcessLookupError):
-                pass
-
-            # Phase 2: Poll all processes in parallel
-            all_procs = children + [proc]
-            still_running = {p.pid for p in all_procs}
-
-            while still_running and time.time() < deadline:
-                time.sleep(0.1)
-
-                for pid in list(still_running):
-                    try:
-                        # Check if process exited
-                        os.kill(pid, 0)  # Signal 0 checks if process exists
-                    except (OSError, ProcessLookupError):
-                        # Process exited
-                        still_running.remove(pid)
-                        killed_count += 1
-
-            # Phase 3: SIGKILL any stragglers that exceeded timeout
-            if still_running:
-                for pid in still_running:
-                    try:
-                        os.kill(pid, signal.SIGKILL)
-                        killed_count += 1
-                        used_sigkill = True
-                    except (OSError, ProcessLookupError):
-                        pass
-
-            # Update self status
-            if used_sigkill:
-                self.exit_code = 128 + signal.SIGKILL
-            else:
-                self.exit_code = 128 + signal.SIGTERM if killed_count > 0 else 0
-            self.status = self.StatusChoices.EXITED
-            self.ended_at = timezone.now()
-            self.save()
-
-            return killed_count
-
+            gone, alive = psutil.wait_procs(processes, timeout=graceful_timeout)
+            killed_count = len(gone)
+            for process in alive:
+                try:
+                    process.kill()
+                    killed_count += 1
+                    used_sigkill = True
+                except psutil.Error:
+                    pass
+            psutil.wait_procs(alive, timeout=2)
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            # Process tree already dead
-            self.status = self.StatusChoices.EXITED
-            self.ended_at = self.ended_at or timezone.now()
-            self.save()
+            self.mark_exited(exit_code=self.exit_code)
             return killed_count
+        exit_signal = signal.SIGKILL if used_sigkill else signal.SIGTERM
+        self.mark_exited(exit_code=128 + exit_signal if killed_count else 0)
+        return killed_count
 
     # =========================================================================
     # Class methods for querying processes
