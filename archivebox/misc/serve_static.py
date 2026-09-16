@@ -910,6 +910,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 )
 
     content_type, encoding = mimetypes.guess_type(str(fullpath))
+    preserve_plain_text = fullpath.suffix.lower() in {".log", ".sh"}
+    if preserve_plain_text:
+        content_type = "text/plain"
     content_type = content_type or "application/octet-stream"
     # Add charset for text-like types (best guess), but don't override the type.
     is_text_like = content_type.startswith("text/") or content_type in {
@@ -1020,7 +1023,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
 
     # Heuristic fix: some archived HTML outputs are stored with HTML-escaped markup
     # or markdown sources. If so, render sensibly.
-    if content_type.startswith(("text/plain", "text/html")):
+    if not preserve_plain_text and content_type.startswith(("text/plain", "text/html")):
         try:
             max_unescape_size = 10 * 1024 * 1024  # 10MB cap to avoid heavy memory use
             if statobj.st_size <= max_unescape_size:
