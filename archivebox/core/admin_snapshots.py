@@ -1,6 +1,8 @@
 __package__ = "archivebox.core"
 
 import json
+from copy import copy
+from urllib.parse import urlencode
 from functools import lru_cache
 from types import SimpleNamespace
 
@@ -14,6 +16,7 @@ from django.utils.safestring import mark_safe
 from django.db.models import Q, Count, Exists, F, OuterRef, Prefetch
 from django import forms
 from django.template import Template, RequestContext
+from django.template.loader import render_to_string
 from django.contrib.admin.helpers import ActionForm
 
 from archivebox.config.common import get_config
@@ -229,10 +232,12 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
 
 
 class SnapshotChangeList(SearchResultsChangeList):
+    snapshot_status_choices = Snapshot.StatusChoices.choices
+
     def __init__(self, request, *args, **kwargs):
         super().__init__(request, *args, **kwargs)
         resolver_name = request.resolver_match.url_name
-        self.embedded_changelist = request.GET.get("_embedded") == "crawl"
+        self.embedded_changelist = request.GET.get("_embedded") in {"crawl", "snapshot"}
         self.snapshot_is_grid_view = not self.embedded_changelist and (
             resolver_name == "grid" or request.path.rstrip("/").endswith("/grid")
         )
@@ -296,7 +301,7 @@ class SnapshotChangeList(SearchResultsChangeList):
 
     def get_results(self, request):
         super().get_results(request)
-        if request.GET.get("_embedded") == "crawl":
+        if request.GET.get("_embedded") in {"crawl", "snapshot"}:
             self.full_result_count = self.result_count
             self.show_full_result_count = True
         self._attach_archiveresult_summaries()
@@ -519,7 +524,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def changelist_view(self, request, extra_context=None):
         self.request = request
         saved_list_per_page = self.list_per_page
-        embedded_changelist = request.GET.get("_embedded") == "crawl"
+        embedded_changelist = request.GET.get("_embedded") in {"crawl", "snapshot"}
         if embedded_changelist:
             try:
                 requested_per_page = int(request.GET.get("per_page", "200"))
@@ -540,6 +545,27 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         finally:
             self.list_per_page = saved_list_per_page
 
+    def render_embedded_changelist(self, request, *, filters, title, default_search_mode=None):
+        """Reuse snapshot search, rows, pagination, and actions in parent admin pages."""
+        changelist_path = reverse(f"{self.admin_site.name}:core_snapshot_changelist")
+        full_url = f"{changelist_path}?{urlencode(filters)}"
+        changelist_request = copy(request)
+        changelist_request.method = "GET"
+        changelist_request.path = changelist_path
+        changelist_request.GET = request.GET.copy()
+        if default_search_mode:
+            changelist_request.GET.setdefault("search_mode", default_search_mode)
+        changelist_request.GET.update({**filters, "_embedded": "snapshot", "per_page": "200"})
+        changelist_request.POST = request.POST.copy()
+        changelist_request.POST.clear()
+        response = self.changelist_view(changelist_request)
+        context = {
+            **response.context_data,
+            "snapshot_changelist_url": full_url,
+            "snapshot_changelist_title": title,
+        }
+        return mark_safe(render_to_string("admin/core/snapshot/embedded_changelist.html", context, request=request))
+
     def get_actions(self, request):
         actions = super().get_actions(request)
         if not actions:
@@ -548,7 +574,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return actions
 
     def lookup_allowed(self, lookup, value, request=None):
-        if lookup in {"crawl__id__exact", "crawl_id__exact", "crawl_id"}:
+        if lookup in {"crawl__id__exact", "crawl_id__exact", "crawl_id", "crawl__schedule__id__exact"}:
             return True
         return super().lookup_allowed(lookup, value, request=request)
 

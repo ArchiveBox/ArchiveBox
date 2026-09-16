@@ -454,6 +454,7 @@ function setupEmbeddedChangelistSearch() {
     document.querySelectorAll('#changelist-search[data-embedded-search="1"]').forEach(function(search) {
         if (search.dataset.searchReady) return
         search.dataset.searchReady = '1'
+        search.querySelector('[name="snapshot_status"]')?.addEventListener('change', () => submitEmbeddedChangelistSearch(search))
         search.querySelector('.changelist-search-submit')?.addEventListener('click', function() {
             submitEmbeddedChangelistSearch(search)
         })
