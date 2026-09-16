@@ -166,7 +166,7 @@ def create_snapshots(
                         "depth": depth,
                         "status": status,
                     }
-                    snapshot = Snapshot.from_json(snapshot_record, overrides={"created_by_id": created_by_id})
+                    snapshot = Snapshot.from_json(snapshot_record, overrides={"crawl": crawl, "created_by_id": created_by_id})
                     if snapshot:
                         created_snapshots.append(snapshot)
                         if not is_tty:

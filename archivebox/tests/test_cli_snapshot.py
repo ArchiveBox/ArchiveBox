@@ -71,6 +71,10 @@ class TestSnapshotCreate:
 
         snapshot = next(r for r in records if r["type"] == "Snapshot")
         assert snapshot["url"] == url
+        assert snapshot["crawl_id"] == crawl["id"]
+        listed = archivebox_cli(["crawl", "list"])
+        assert listed.returncode == 0, listed.stderr
+        assert [record["id"] for record in parse_jsonl_output(listed.stdout)] == [crawl["id"]]
 
     def test_create_with_tag(self, archivebox_cli, initialized_archive):
         """Create snapshot with --tag flag."""
