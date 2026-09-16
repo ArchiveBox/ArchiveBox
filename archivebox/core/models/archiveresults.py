@@ -144,6 +144,62 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 return False
         return True
 
+    class UploadConflict(RuntimeError):
+        """Another writer repeatedly changed an uploaded result's metadata."""
+
+    def apply_upload(self, output_files: dict, *, metadata: Mapping[str, Any], replace_metadata: bool = False) -> ArchiveResult:
+        """Merge uploaded files with short CAS writes; leave snapshot finalization to the runner.
+
+        POST replaces the supplied metadata and may create this hook's result.
+        PATCH applies only supplied fields. Incomplete chunks remain on disk
+        and are reflected in the response without publishing partial DB state.
+        """
+        from abx_dl.output_files import OutputManifest
+
+        result = self
+        persist = replace_metadata or self.output_files_upload_complete(output_files)
+        for _attempt in range(3):
+            merged_files = {**result.output_file_map(), **output_files}
+            manifest = OutputManifest.from_value(merged_files)
+            values = {
+                "output_files": merged_files,
+                "output_size": manifest.total_size,
+                "output_mimetypes": ",".join(manifest.mimetypes),
+            }
+            if not persist:
+                for field, value in values.items():
+                    setattr(result, field, value)
+                return result
+
+            now = timezone.now()
+            values.update(metadata, end_ts=now)
+            if replace_metadata:
+                values["start_ts"] = result.start_ts or now
+                values["output_str"] = metadata.get("output_str") or next(iter(merged_files), "")
+            if metadata.get("status"):
+                status = self.normalize_status(metadata["status"])
+                if not result._state.adding and status == self.StatusChoices.STARTED and result.status != self.StatusChoices.STARTED:
+                    status = result.status
+                values["status"] = status
+            elif replace_metadata:
+                values["status"] = self.normalize_status(metadata.get("status"))
+            elif result.status == self.StatusChoices.QUEUED:
+                values["status"] = self.StatusChoices.SUCCEEDED
+
+            if not result._state.adding:
+                if result.safe_update(values):
+                    break
+            else:
+                result, created = self.get_or_create_by_hook(result.snapshot, result.plugin, result.hook_name, defaults=values)
+                if created:
+                    break
+        else:
+            raise self.UploadConflict("ArchiveResult changed while upload metadata was being updated")
+
+        if result.status != self.StatusChoices.STARTED:
+            result.snapshot.queue_output_maintenance()
+        return result
+
     @classmethod
     def get_plugin_choices(cls):
         """Get plugin choices from discovered hooks (for forms/admin)."""

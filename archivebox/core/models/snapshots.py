@@ -347,6 +347,26 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         return None
 
+    def queue_output_maintenance(self) -> None:
+        """Mark uploaded outputs dirty without finalizing this snapshot.
+
+        Upload API handlers are allowed to persist files and ArchiveResult rows, but
+        Snapshot save() side effects, sealing, symlink creation, and index/details
+        rewrites belong to the runner. retry_at is the scheduler signal the runner
+        already watches, so only bump rows that are final or otherwise invisible.
+        """
+        # ArchiveResult.save() updates parent snapshot health/mtime before this
+        # helper runs. Re-read the scheduler columns so the short CAS update below
+        # does not lose to our own earlier ArchiveResult write.
+        snapshot = Snapshot.objects.only("id", "status", "retry_at", "downloaded_at", "modified_at").get(id=self.id)
+        now = timezone.now()
+        updates = {"modified_at": now}
+        if snapshot.downloaded_at is None:
+            updates["downloaded_at"] = now
+        if snapshot.status == Snapshot.StatusChoices.SEALED or snapshot.retry_at is None:
+            updates["retry_at"] = now
+        snapshot.safe_update(updates, refresh=False)
+
     def finalize_completed_upload_results(self) -> int:
         from archivebox.core.models import ArchiveResult
 

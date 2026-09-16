@@ -7,7 +7,6 @@ from typing import Any
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpRequest
 from django.http.multipartparser import MultiPartParser, MultiPartParserError
-from django.utils import timezone
 from ninja import Form, Query, Router, UploadedFile
 from ninja.errors import HttpError
 from ninja.pagination import paginate
@@ -135,35 +134,6 @@ def _parse_archiveresult_upload_int(value: str, field_name: str, *, default: int
     if parsed < 0:
         raise HttpError(400, f"ArchiveResult {field_name} must be non-negative")
     return parsed
-
-
-def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]]) -> tuple[int, str]:
-    from abx_dl.output_files import OutputManifest
-
-    manifest = OutputManifest.from_value(output_files)
-    return manifest.total_size, ",".join(manifest.mimetypes)
-
-
-def _queue_archiveresult_snapshot_maintenance(snapshot: Snapshot) -> None:
-    """
-    Mark an uploaded ArchiveResult's Snapshot as dirty without finalizing it.
-
-    Upload API handlers are allowed to persist files and ArchiveResult rows, but
-    Snapshot save() side effects, sealing, symlink creation, and index/details
-    rewrites belong to the runner. retry_at is the scheduler signal the runner
-    already watches, so only bump rows that are final or otherwise invisible.
-    """
-    # ArchiveResult.save() updates parent snapshot health/mtime before this
-    # helper runs. Re-read the scheduler columns so the short CAS update below
-    # does not lose to our own earlier ArchiveResult write.
-    snapshot = Snapshot.objects.only("id", "status", "retry_at", "downloaded_at", "modified_at").get(id=snapshot.id)
-    now = timezone.now()
-    updates = {"modified_at": now}
-    if snapshot.downloaded_at is None:
-        updates["downloaded_at"] = now
-    if snapshot.status == Snapshot.StatusChoices.SEALED or snapshot.retry_at is None:
-        updates["retry_at"] = now
-    snapshot.safe_update(updates, refresh=False)
 
 
 def _write_archiveresult_files(
@@ -302,60 +272,18 @@ def create_archiveresult(
     """Create or update an ArchiveResult with one or more output files."""
     snapshot = _get_snapshot_by_ref(snapshot_id)
     plugin_name = _normalize_uploaded_archiveresult_plugin(plugin)
-    normalized_status = ArchiveResult.normalize_status(status)
-    parsed_output_json = _parse_archiveresult_output_json(output_json)
-    hook = hook_name or ARCHIVERESULT_UPLOAD_HOOK_NAME
-    result_lookup = {
-        "snapshot": snapshot,
-        "plugin": plugin_name,
-        "hook_name": hook,
-    }
-    uploaded_output_files = _write_archiveresult_files(
-        request,
-        snapshot,
-        plugin_name,
-        allow_empty=True,
-    )
-    result = ArchiveResult.objects.filter(**result_lookup).first()
-    for _attempt in range(3):
-        output_files = {
-            **(result.output_file_map() if result else {}),
-            **uploaded_output_files,
-        }
-        output_size, output_mimetypes = _summarize_archiveresult_output_files(output_files)
-        output_file_paths = list(output_files.keys())
-        result_status = normalized_status
-        if result and result_status == ArchiveResult.StatusChoices.STARTED and result.status != ArchiveResult.StatusChoices.STARTED:
-            result_status = result.status
-        now = timezone.now()
-        values = {
-            "status": result_status,
-            "output_str": output_str or (output_file_paths[0] if output_file_paths else ""),
-            "output_json": parsed_output_json,
-            "output_files": output_files,
-            "output_size": output_size,
-            "output_mimetypes": output_mimetypes,
-            "start_ts": result.start_ts or now if result else now,
-            "end_ts": now,
-        }
-        if result:
-            if result.safe_update(values):
-                break
-            continue
-        result, created = ArchiveResult.get_or_create_by_hook(
-            snapshot,
-            plugin_name,
-            hook,
-            defaults=values,
-        )
-        if created:
-            break
-    else:
-        raise HttpError(409, "ArchiveResult changed while upload metadata was being updated")
-
-    if result.status != ArchiveResult.StatusChoices.STARTED:
-        _queue_archiveresult_snapshot_maintenance(snapshot)
-    return result
+    result = ArchiveResult.objects.filter(
+        snapshot=snapshot,
+        plugin=plugin_name,
+        hook_name=hook_name or ARCHIVERESULT_UPLOAD_HOOK_NAME,
+    ).first()
+    result = result or ArchiveResult(snapshot=snapshot, plugin=plugin_name, hook_name=hook_name or ARCHIVERESULT_UPLOAD_HOOK_NAME)
+    metadata = {"output_str": output_str, "status": status, "output_json": _parse_archiveresult_output_json(output_json)}
+    files = _write_archiveresult_files(request, snapshot, plugin_name, allow_empty=True)
+    try:
+        return result.apply_upload(files, metadata=metadata, replace_metadata=True)
+    except ArchiveResult.UploadConflict as err:
+        raise HttpError(409, str(err)) from err
 
 
 @router.patch("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="patch_archiveresult")
@@ -373,39 +301,10 @@ def patch_archiveresult(
     output_str = _get_archiveresult_upload_form_value(request, "output_str")
     status = _get_archiveresult_upload_form_value(request, "status")
     output_json = _get_archiveresult_upload_form_value(request, "output_json")
-    parsed_output_json = _parse_archiveresult_output_json(output_json) if output_json else None
-
-    if not ArchiveResult.output_files_upload_complete(uploaded_output_files):
-        result.output_files = {**result.output_file_map(), **uploaded_output_files}
-        result.output_size, result.output_mimetypes = _summarize_archiveresult_output_files(result.output_files)
-        return result
-
-    for _attempt in range(3):
-        output_files = {**result.output_file_map(), **uploaded_output_files}
-        output_size, output_mimetypes = _summarize_archiveresult_output_files(output_files)
-        values: dict[str, Any] = {
-            "output_files": output_files,
-            "output_size": output_size,
-            "output_mimetypes": output_mimetypes,
-            "end_ts": timezone.now(),
-        }
-        if output_str:
-            values["output_str"] = output_str
-        if status:
-            normalized_status = ArchiveResult.normalize_status(status)
-            if normalized_status == ArchiveResult.StatusChoices.STARTED and result.status != ArchiveResult.StatusChoices.STARTED:
-                normalized_status = result.status
-            values["status"] = normalized_status
-        elif result.status == ArchiveResult.StatusChoices.QUEUED:
-            values["status"] = ArchiveResult.StatusChoices.SUCCEEDED
-        if output_json:
-            values["output_json"] = parsed_output_json
-        if result.safe_update(values):
-            break
-    else:
-        raise HttpError(409, "ArchiveResult changed while upload metadata was being updated")
-
-    if result.status != ArchiveResult.StatusChoices.STARTED:
-        _queue_archiveresult_snapshot_maintenance(result.snapshot)
-
-    return result
+    metadata = {key: value for key, value in {"output_str": output_str, "status": status}.items() if value}
+    if output_json:
+        metadata["output_json"] = _parse_archiveresult_output_json(output_json)
+    try:
+        return result.apply_upload(uploaded_output_files, metadata=metadata)
+    except ArchiveResult.UploadConflict as err:
+        raise HttpError(409, str(err)) from err
