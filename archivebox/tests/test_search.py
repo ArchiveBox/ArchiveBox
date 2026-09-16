@@ -1,5 +1,6 @@
 import os
 import re
+import shutil
 import time
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -745,10 +746,11 @@ class TestSearchBackendsE2E:
         )
         assert Path(binary_env["RIPGREP_BINARY"]).is_file()
         assert Path(binary_env["SONIC_BINARY"]).is_file()
-        # abxpkg's env/bin projection can be repointed by later binary hydration.
-        # Keep one Sonic executable for the whole index/query lifecycle because
-        # different Sonic releases use incompatible on-disk KV encodings.
-        sonic_binary = Path(binary_env["SONIC_BINARY"]).resolve(strict=True)
+        # abxpkg may replace both env/bin and provider install paths on later
+        # hydration. Keep a real executable outside its managed lib tree so
+        # every index/query process uses the same on-disk KV format.
+        sonic_binary = initialized_archive / "sonic-test-binary"
+        shutil.copy2(Path(binary_env["SONIC_BINARY"]).resolve(strict=True), sonic_binary)
         binary_env["SONIC_BINARY"] = str(sonic_binary)
 
         page_count = 23
