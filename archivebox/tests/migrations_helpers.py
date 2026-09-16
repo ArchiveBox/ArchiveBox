@@ -1396,3 +1396,13 @@ def verify_process_migration(db_path: Path, expected_archiveresult_count: int) -
 
     conn.close()
     return True, f"Process migration verified: {process_count} Processes created"
+
+
+def create_legacy_archive(work_dir, version):
+    """Build a real legacy SQLite collection for upgrade integration tests."""
+    schema, seed = {"0.7": (SCHEMA_0_7, seed_0_7_data), "0.8": (SCHEMA_0_8, seed_0_8_data)}[version]
+    create_data_dir_structure(work_dir)
+    db_path = work_dir / "index.sqlite3"
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(schema)
+    return work_dir, db_path, seed(db_path)
