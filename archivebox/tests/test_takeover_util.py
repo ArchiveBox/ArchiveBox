@@ -5,6 +5,7 @@ import os
 import json
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -80,16 +81,20 @@ def _resolve_sonic_env(env: dict[str, str]) -> dict[str, str]:
 
 
 def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive):
+    sonic_port = get_free_port()
     env = cli_env(
         live=True,
         ABXPKG_LIB_DIR=str(initialized_archive / "lib"),
         PLUGINS="search_backend_sonic",
         SEARCH_BACKEND_ENGINE="sonic",
-        SEARCH_BACKEND_SONIC_PORT=str(get_free_port()),
+        SEARCH_BACKEND_SONIC_PORT=str(sonic_port),
     )
     env.update(_resolve_sonic_env(env))
     env["PATH"] = os.pathsep.join((str(Path(sys.executable).parent), env["PATH"]))
-    sonic_binary = Path(env["SONIC_BINARY"]).resolve(strict=True)
+    pinned_sonic_dir = initialized_archive / "pinned-sonic"
+    pinned_sonic_dir.mkdir()
+    sonic_binary = pinned_sonic_dir / "sonic"
+    shutil.copy2(Path(env["SONIC_BINARY"]).resolve(strict=True), sonic_binary)
     env["SONIC_BINARY"] = str(sonic_binary)
 
     result = run_archivebox_cmd(
@@ -105,6 +110,13 @@ def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive
     worker_text = worker_config.read_text(encoding="utf-8")
     command = next(line.partition("=")[2] for line in worker_text.splitlines() if line.startswith("command="))
     assert shlex.split(command)[0] == str(sonic_binary), worker_text
+    from archivebox.workers.supervisord_util import _sonic_worker_bind_target
+
+    assert _sonic_worker_bind_target({"name": "worker_sonic", "command": command}) == ("127.0.0.1", sonic_port)
+    renamed_binary = initialized_archive / "renamed-sonic-binary"
+    shutil.copy2(sonic_binary, renamed_binary)
+    renamed_command = shlex.join([str(renamed_binary), *shlex.split(command)[1:]])
+    assert _sonic_worker_bind_target({"name": "worker_sonic", "command": renamed_command}) == ("127.0.0.1", sonic_port)
 
 
 def _archive_pages_for_sqlite_reindexing(data_dir: Path, env: dict[str, str], root_url: str) -> None:

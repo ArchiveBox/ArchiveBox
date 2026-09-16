@@ -405,7 +405,7 @@ def is_port_in_use(host: str, port: int) -> bool:
 def _sonic_worker_bind_target(worker: dict[str, str]) -> tuple[str, int] | None:
     """Read the plugin-owned Sonic config before starting its supervisord worker."""
     command = shlex.split(worker.get("command") or "")
-    if not command or Path(command[0]).name != "sonic" or "-c" not in command:
+    if worker.get("name") != "worker_sonic" or not command or "-c" not in command:
         return None
     config_index = command.index("-c") + 1
     if config_index >= len(command):

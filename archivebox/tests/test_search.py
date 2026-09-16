@@ -749,7 +749,9 @@ class TestSearchBackendsE2E:
         # abxpkg may replace both env/bin and provider install paths on later
         # hydration. Keep a real executable outside its managed lib tree so
         # every index/query process uses the same on-disk KV format.
-        sonic_binary = initialized_archive / "sonic-test-binary"
+        pinned_sonic_dir = initialized_archive / "pinned-sonic"
+        pinned_sonic_dir.mkdir()
+        sonic_binary = pinned_sonic_dir / "sonic"
         shutil.copy2(Path(binary_env["SONIC_BINARY"]).resolve(strict=True), sonic_binary)
         binary_env["SONIC_BINARY"] = str(sonic_binary)
 
