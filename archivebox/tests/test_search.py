@@ -745,6 +745,11 @@ class TestSearchBackendsE2E:
         )
         assert Path(binary_env["RIPGREP_BINARY"]).is_file()
         assert Path(binary_env["SONIC_BINARY"]).is_file()
+        # abxpkg's env/bin projection can be repointed by later binary hydration.
+        # Keep one Sonic executable for the whole index/query lifecycle because
+        # different Sonic releases use incompatible on-disk KV encodings.
+        sonic_binary = Path(binary_env["SONIC_BINARY"]).resolve(strict=True)
+        binary_env["SONIC_BINARY"] = str(sonic_binary)
 
         page_count = 23
         first_batch_count = 12
@@ -1001,6 +1006,7 @@ class TestSearchBackendsE2E:
                 assert backend_result.returncode == 0, (
                     backend_result.stderr or backend_result.stdout,
                     sonic_log.read_text(encoding="utf-8", errors="replace") if backend_name == "sonic" and sonic_log.is_file() else "",
+                    str(sonic_binary),
                 )
                 backend_urls = [line.strip().strip('"') for line in backend_result.stdout.splitlines() if line.strip()]
                 assert set(backend_urls) == set(expected_urls), (backend_name, query, backend_result.stdout)
