@@ -242,11 +242,6 @@ function fix_actions() {
             .appendTo(buttons)
     })
     console.log('Converted', buttons.children().length, 'admin actions from dropdown to buttons')
-    ;['.model-crawl.change-list', '.model-snapshot.change-list'].forEach(function(selector) {
-        const scope = document.querySelector(selector)
-        const addLink = scope?.querySelector('.object-tools a.addlink')
-        const actionButtons = scope?.querySelector('.actions-top .action-buttons')
-    })
     const tagContainer = document.querySelector('.actions-tags')
     if (tagContainer) {
         const tagButtons = buttons.find('button[name="add_tags"], button[name="remove_tags"]')
@@ -540,25 +535,7 @@ function setupChangelistFormHandlers() {
         form.addEventListener('change', updateActionControlVisibility)
     }
 }
-function fixInlineAddRow() {
-    $('#id_snapshottag-MAX_NUM_FORMS').val('1000')
-    $('.add-row').show()
-}
-
-function setupSnapshotGridListToggle() {
-    $("#snapshot-view-list").click(selectSnapshotListView)
-    $("#snapshot-view-grid").click(selectSnapshotGridView)
-
-    // Set active class based on current view
-    const isGridView = window.location.pathname === "{% url 'admin:grid' %}"
-    if (isGridView) {
-        $("#snapshot-view-grid").addClass('active')
-        $("#snapshot-view-list").removeClass('active')
-    } else {
-        $("#snapshot-view-list").addClass('active')
-        $("#snapshot-view-grid").removeClass('active')
-    }
-
+function setupSnapshotCardSelection() {
     $('#changelist-form .card input:checkbox').change(function() {
         if ($(this).is(':checked'))
             $(this).parents('.card').addClass('selected-card')
@@ -662,8 +639,7 @@ window.archiveboxHandleZipClick = function(link, event) {
 window.archiveboxInitAdminChangelist = function() {
     if (window.jQuery) {
         fix_actions()
-        fixInlineAddRow()
-        setupSnapshotGridListToggle()
+        setupSnapshotCardSelection()
     }
     updateActionControlVisibility()
     setupActionSummary()

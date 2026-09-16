@@ -782,7 +782,6 @@
                 transform-origin: 0 0;
             }
             #main-frame {
-                border-top: 1px solid #ddd;
                 width: 100%;
                 height: 100%;
                 margin: 0px;
@@ -1117,7 +1116,6 @@
             .thumb-card .thumbnail-wrapper,
             .thumb-card iframe.card-img-top {
                 display: block;
-                width: 100%;
                 flex: 1 1 auto;
                 min-height: 0;
             }

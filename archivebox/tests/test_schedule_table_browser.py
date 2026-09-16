@@ -81,6 +81,11 @@ const puppeteer = require('puppeteer');
             page.click('#changelist-form .actions-top .button[name="add_tags"]'),
         ]);
         assert.ok(new URL(page.url()).pathname.endsWith('/admin/core/snapshot/'));
+        for (const [mode, pathSuffix] of [['grid', '/admin/core/snapshot/grid/'], ['list', '/admin/core/snapshot/']]) {
+            await Promise.all([page.waitForNavigation({waitUntil: 'networkidle2'}), page.click('#snapshot-view-toggle')]);
+            assert.equal(new URL(page.url()).pathname, pathSuffix);
+            assert.equal(await page.evaluate(() => localStorage.getItem('preferred_snapshot_view_mode')), mode);
+        }
         assert.deepEqual(errors, []);
         console.log(JSON.stringify({submission, messages: await page.$$eval('.messagelist', nodes => nodes.map(node => node.textContent))}));
     } finally {

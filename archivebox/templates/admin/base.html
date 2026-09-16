@@ -46,32 +46,17 @@
         <link rel="stylesheet" type="text/css" href="{% static "admin.css" %}?v={{ STATIC_CACHE_KEY|default:VERSION|urlencode }}">
         
         <script>
-            function selectSnapshotListView(e) {
-                e && e.stopPropagation()
-                e && e.preventDefault()
-                console.log('Switching to Snapshot list view...')
-                localStorage.setItem('preferred_snapshot_view_mode', 'list')
-                window.location = "{% url 'admin:core_snapshot_changelist' %}" + document.location.search
-                return false
+            const snapshotViews = {
+                list: "{% url 'admin:core_snapshot_changelist' %}",
+                grid: "{% url 'admin:grid' %}",
             }
-            function selectSnapshotGridView(e) {
-                e && e.stopPropagation()
-                e && e.preventDefault()
-                console.log('Switching to Snapshot grid view...')
-                localStorage.setItem('preferred_snapshot_view_mode', 'grid')
-                window.location = "{% url 'admin:grid' %}" + document.location.search
-                return false
+            function selectSnapshotView(mode, event) {
+                event?.preventDefault()
+                localStorage.setItem('preferred_snapshot_view_mode', mode)
+                window.location.href = snapshotViews[mode] + window.location.search
             }
-
-            const preferred_view = localStorage.getItem('preferred_snapshot_view_mode') || 'unset'
-            const current_view = (
-                window.location.pathname === "{% url 'admin:core_snapshot_changelist' %}"
-                    ? 'list'
-                    : 'grid')
-            console.log('Preferred snapshot view is:', preferred_view, 'Current view mode is:', current_view)
-            
-            if (preferred_view === 'grid' && current_view !== 'grid') {  
-                selectSnapshotGridView()
+            if (window.location.pathname === snapshotViews.list && localStorage.getItem('preferred_snapshot_view_mode') === 'grid') {
+                selectSnapshotView('grid')
             }
         </script>
 

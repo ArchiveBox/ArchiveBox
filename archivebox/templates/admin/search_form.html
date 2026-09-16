@@ -9,18 +9,18 @@
         type="button"
         class="button snapshot-view-icon-toggle"
         id="snapshot-view-toggle"
-        aria-label="{% translate 'Switch to list view' %}"
-        title="{% translate 'Switch to list view' %}"
-        onclick="window.location.href='{% url 'admin:core_snapshot_changelist' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}'"
+        aria-label="{% translate 'List view' %}"
+        title="{% translate 'List view' %}"
+        onclick="selectSnapshotView('list', event)"
       ><span class="snapshot-view-icon snapshot-view-icon-list" aria-hidden="true"><span></span><span></span><span></span></span></button>
     {% else %}
       <button
         type="button"
         class="button snapshot-view-icon-toggle"
         id="snapshot-view-toggle"
-        aria-label="{% translate 'Switch to grid view' %}"
-        title="{% translate 'Switch to grid view' %}"
-        onclick="window.location.href='{% url 'admin:grid' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}'"
+        aria-label="{% translate 'Grid view' %}"
+        title="{% translate 'Grid view' %}"
+        onclick="selectSnapshotView('grid', event)"
       ><span class="snapshot-view-icon snapshot-view-icon-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></span></button>
     {% endif %}
 {% endif %}
