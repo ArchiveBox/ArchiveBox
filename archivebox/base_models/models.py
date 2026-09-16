@@ -59,17 +59,6 @@ def get_or_create_system_user_pk(username="system"):
     return user.pk
 
 
-class AutoDateTimeField(models.DateTimeField):
-    """DateTimeField that automatically updates on save (legacy compatibility)."""
-
-    def pre_save(self, model_instance, add):
-        if add or self.attname not in model_instance.__dict__ or not model_instance.__dict__[self.attname]:
-            value = timezone.now()
-            setattr(model_instance, self.attname, value)
-            return value
-        return super().pre_save(model_instance, add)
-
-
 class ModelWithUUID(models.Model):
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)

@@ -177,11 +177,6 @@ def run_plugins(
     return 0
 
 
-def process_archiveresult_by_id(archiveresult_id: str) -> int:
-    """Re-run the parent Snapshot plugin referenced by an ArchiveResult."""
-    return run_plugins((), records=[{"id": archiveresult_id}], wait=True)
-
-
 @click.command()
 @click.option("--plugins", "--plugin", "-p", default="", help="Comma-separated list of plugins to run")
 @click.option("--wait/--no-wait", default=True, help="Wait for plugins to complete (default: wait)")

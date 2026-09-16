@@ -406,3 +406,86 @@ def check_lib_dir(lib_dir: Path | None = None, throw=False, quiet=False, must_ex
                 f"ABXPKG_LIB_DIR={lib_dir} is invalid, ArchiveBox is unable to use it and dependencies will fail to install.",
             ) from e
     return False
+
+
+MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES = 256 * 1024 * 1024
+
+
+MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES = MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
+
+
+MIN_CRAWL_AVAILABLE_MEMORY_BYTES = 512 * 1024 * 1024
+
+
+def _read_cgroup_limit(path: Path) -> int | None:
+    try:
+        raw_value = path.read_text().strip()
+        return None if raw_value == "max" else int(raw_value)
+    except (OSError, ValueError):
+        return None
+
+
+def effective_available_memory_bytes() -> int:
+    import psutil
+
+    available = psutil.virtual_memory().available + psutil.swap_memory().free
+
+    cgroup_root = Path("/sys/fs/cgroup")
+    memory_max = _read_cgroup_limit(cgroup_root / "memory.max")
+    memory_current = _read_cgroup_limit(cgroup_root / "memory.current")
+    swap_max = _read_cgroup_limit(cgroup_root / "memory.swap.max")
+    swap_current = _read_cgroup_limit(cgroup_root / "memory.swap.current")
+    if memory_max is not None and memory_current is not None:
+        cgroup_available = max(memory_max - memory_current, 0)
+        if swap_max is not None and swap_current is not None:
+            cgroup_available += max(swap_max - swap_current, 0)
+        available = min(available, cgroup_available)
+
+    return available
+
+
+def _require_available_memory(operation: str, idle_message: str, available_bytes: int, required_bytes: int) -> None:
+    from archivebox.misc.logging import STDERR
+
+    if available_bytes >= required_bytes:
+        return
+
+    available_mib = available_bytes // (1024 * 1024)
+    required_mib = required_bytes // (1024 * 1024)
+    STDERR.print(f"[red][X] Not enough available memory to {operation} safely.[/red]")
+    STDERR.print(
+        f"    Available RAM + swap: {available_mib} MiB; at least {required_mib} MiB must be free before this operation.",
+    )
+    STDERR.print(idle_message)
+    STDERR.print("    Use a host/container with at least 1 GB RAM or configure swap, then run the same command again.")
+    raise SystemExit(1)
+
+
+def require_server_worker_memory(available_bytes: int | None = None) -> None:
+    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
+    _require_available_memory(
+        "start ArchiveBox",
+        "    No server, runner, or Sonic workers were started.",
+        available_bytes,
+        MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES,
+    )
+
+
+def require_dependency_install_memory(available_bytes: int | None = None) -> None:
+    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
+    _require_available_memory(
+        "install ArchiveBox dependencies",
+        "    No plugin dependency installers were started.",
+        available_bytes,
+        MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES,
+    )
+
+
+def require_crawl_memory(available_bytes: int | None = None) -> None:
+    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
+    _require_available_memory(
+        "archive a crawl",
+        "    No crawl, runner, or Sonic workers were started.",
+        available_bytes,
+        MIN_CRAWL_AVAILABLE_MEMORY_BYTES,
+    )

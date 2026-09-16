@@ -1,7 +1,5 @@
 __package__ = "archivebox.workers"
 
-import csv
-import json
 import os
 import shlex
 import shutil
@@ -10,7 +8,6 @@ import socket
 import subprocess
 import sys
 import time
-from functools import cache
 from pathlib import Path
 from typing import Any, cast
 from xmlrpc.client import Error as XmlRpcError
@@ -22,8 +19,6 @@ from supervisor.xmlrpc import SupervisorTransport
 
 from archivebox.config import CONSTANTS
 from archivebox.config.common import rprint as print
-from archivebox.config.paths import SUPERVISORD_SOCKET_FILENAME, get_or_create_working_tmp_dir
-from archivebox.config.permissions import ARCHIVEBOX_USER
 from archivebox.core.shutdown_util import (
     configured_stopwaitsecs,
     foreground_shutdown_signals,
@@ -33,10 +28,34 @@ from archivebox.core.shutdown_util import (
 from archivebox.misc.logging import STDERR
 from archivebox.misc.logging_util import pretty_path
 
-LOG_FILE_NAME = "supervisord.log"
-CONFIG_FILE_NAME = "supervisord.conf"
-PID_FILE_NAME = "supervisord.pid"
-WORKERS_DIR_NAME = "workers"
+
+from archivebox.workers.supervisor_config import (
+    CONFIG_FILE_NAME as CONFIG_FILE_NAME,
+    LOG_FILE_NAME as LOG_FILE_NAME,
+    PID_FILE_NAME as PID_FILE_NAME,
+    RUNNER_ONCE_WORKER as RUNNER_ONCE_WORKER,
+    RUNNER_WATCH_WORKER as RUNNER_WATCH_WORKER,
+    RUNNER_WORKER as RUNNER_WORKER,
+    RUNSERVER_WORKER as RUNSERVER_WORKER,
+    SERVER_WORKER as SERVER_WORKER,
+    SUPERVISORD_PARENT_WATCHDOG_WORKER as SUPERVISORD_PARENT_WATCHDOG_WORKER,
+    WORKERS_DIR_NAME as WORKERS_DIR_NAME,
+    archivebox_cmd as archivebox_cmd,
+    create_supervisord_config as create_supervisord_config,
+    create_worker_config as create_worker_config,
+    get_sock_file as get_sock_file,
+    resolve_env_binary as resolve_env_binary,
+)
+from archivebox.misc.checks import (
+    MIN_CRAWL_AVAILABLE_MEMORY_BYTES as MIN_CRAWL_AVAILABLE_MEMORY_BYTES,
+    MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES as MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES,
+    MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES as MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES,
+    effective_available_memory_bytes as effective_available_memory_bytes,
+    require_crawl_memory as require_crawl_memory,
+    require_dependency_install_memory as require_dependency_install_memory,
+    require_server_worker_memory as require_server_worker_memory,
+)
+from archivebox.misc.logging_util import _warn_background_cleanup, tail_multiple_worker_logs
 
 # Global reference to supervisord process for cleanup
 _supervisord_proc = None
@@ -45,118 +64,6 @@ _ACTIVE_WORKER_STATES = {"STARTING", "RUNNING", "BACKOFF"}
 _RUNTIME_COMPONENT_ORDER = ("orchestrator", "server", "sonic")
 _SUPERVISORD_ERRORS = (XmlRpcError, OSError, RuntimeError, TimeoutError)
 _PROCESS_STATE_ERRORS = (DatabaseError, OSError, RuntimeError, ValueError, psutil.Error)
-MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES = 256 * 1024 * 1024
-MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES = MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
-MIN_CRAWL_AVAILABLE_MEMORY_BYTES = 512 * 1024 * 1024
-
-
-def _shell_join(args: list[str]) -> str:
-    return shlex.join(args)
-
-
-def _warn_background_cleanup(context: str, err: BaseException) -> None:
-    STDERR.print(f"[yellow][!] {context}: {err!s}[/yellow]")
-
-
-def _read_cgroup_limit(path: Path) -> int | None:
-    try:
-        raw_value = path.read_text().strip()
-        return None if raw_value == "max" else int(raw_value)
-    except (OSError, ValueError):
-        return None
-
-
-def effective_available_memory_bytes() -> int:
-    available = psutil.virtual_memory().available + psutil.swap_memory().free
-
-    cgroup_root = Path("/sys/fs/cgroup")
-    memory_max = _read_cgroup_limit(cgroup_root / "memory.max")
-    memory_current = _read_cgroup_limit(cgroup_root / "memory.current")
-    swap_max = _read_cgroup_limit(cgroup_root / "memory.swap.max")
-    swap_current = _read_cgroup_limit(cgroup_root / "memory.swap.current")
-    if memory_max is not None and memory_current is not None:
-        cgroup_available = max(memory_max - memory_current, 0)
-        if swap_max is not None and swap_current is not None:
-            cgroup_available += max(swap_max - swap_current, 0)
-        available = min(available, cgroup_available)
-
-    return available
-
-
-def _require_available_memory(operation: str, idle_message: str, available_bytes: int, required_bytes: int) -> None:
-    if available_bytes >= required_bytes:
-        return
-
-    available_mib = available_bytes // (1024 * 1024)
-    required_mib = required_bytes // (1024 * 1024)
-    STDERR.print(f"[red][X] Not enough available memory to {operation} safely.[/red]")
-    STDERR.print(
-        f"    Available RAM + swap: {available_mib} MiB; at least {required_mib} MiB must be free before this operation.",
-    )
-    STDERR.print(idle_message)
-    STDERR.print("    Use a host/container with at least 1 GB RAM or configure swap, then run the same command again.")
-    raise SystemExit(1)
-
-
-def require_server_worker_memory(available_bytes: int | None = None) -> None:
-    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
-    _require_available_memory(
-        "start ArchiveBox",
-        "    No server, runner, or Sonic workers were started.",
-        available_bytes,
-        MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES,
-    )
-
-
-def require_dependency_install_memory(available_bytes: int | None = None) -> None:
-    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
-    _require_available_memory(
-        "install ArchiveBox dependencies",
-        "    No plugin dependency installers were started.",
-        available_bytes,
-        MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES,
-    )
-
-
-def require_crawl_memory(available_bytes: int | None = None) -> None:
-    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
-    _require_available_memory(
-        "archive a crawl",
-        "    No crawl, runner, or Sonic workers were started.",
-        available_bytes,
-        MIN_CRAWL_AVAILABLE_MEMORY_BYTES,
-    )
-
-
-def archivebox_cmd(*args: str) -> list[str]:
-    return [str(resolve_env_binary("archivebox")), *args]
-
-
-def resolve_env_binary(name: str) -> Path:
-    from abxpkg import EnvProvider
-
-    from archivebox.config.common import get_config
-
-    lib_dir = Path(os.environ.get("ABXPKG_LIB_DIR") or get_config().ABXPKG_LIB_DIR)
-    env_root = lib_dir / "env"
-    runtime_bin_dir = Path(sys.executable).parent
-    provider_path = os.pathsep.join(
-        str(path)
-        for path in (
-            str(runtime_bin_dir),
-            *os.environ.get("PATH", "").split(os.pathsep),
-        )
-        if path
-    )
-    provider = EnvProvider(install_root=env_root, PATH=provider_path)
-    if name == "daphne":
-        from importlib.metadata import version
-
-        provider = provider.get_provider_with_overrides(overrides={name: {"version": version("daphne")}})
-    loaded = provider.load(name)
-    if loaded is None or loaded.loaded_abspath is None:
-        raise RuntimeError(f"abxpkg could not resolve {name}")
-    return Path(loaded.loaded_abspath)
 
 
 def _record_supervisord_process(proc: subprocess.Popen, config_file: Path, supervisord_binary: Path) -> None:
@@ -269,128 +176,6 @@ def _stop_older_supervisord_processes(*, current_pid: int, current_started_at: f
             pass
 
 
-def RUNNER_WORKER():
-    return {
-        "name": "worker_runner",
-        "command": _shell_join(archivebox_cmd("run", "--daemon")),
-        "autostart": "false",
-        "autorestart": "true",
-        # Mark the long-lived runner child so its own SIGINT/SIGTERM path exits
-        # with a signal code instead of running foreground server cleanup. That
-        # keeps "kill just archivebox run --daemon" as a worker restart event;
-        # only killing the parent server or supervisord should stop the stack.
-        "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200",ARCHIVEBOX_RUNNER_DAEMON="1"',
-        "stopasgroup": "true",
-        "killasgroup": "true",
-        "stopwaitsecs": "30",
-        "stdout_logfile": "logs/worker_runner.log",
-        "redirect_stderr": "true",
-    }
-
-
-RUNNER_ONCE_WORKER = lambda args, name="worker_runner_once": {
-    **RUNNER_WORKER(),
-    "name": name,
-    "command": _shell_join(archivebox_cmd("run", "--no-stdin", *args)),
-    # One-shot foreground jobs are awaited by the command that launched them,
-    # so they keep the normal cooperative shutdown path instead of the daemon
-    # marker that tells supervisord to restart an independently killed worker.
-    "environment": 'PYTHONUNBUFFERED="1",COLUMNS="200"',
-    "autorestart": "false",
-    "stopwaitsecs": "1",
-    "stdout_logfile": f"logs/{name}.log",
-}
-
-RUNNER_WATCH_WORKER = lambda bind_url: {
-    "name": "worker_runner_watch",
-    "command": _shell_join(archivebox_cmd("manage", "runner_watch", f"--bind-url={bind_url}")),
-    "autostart": "false",
-    "autorestart": "true",
-    "stdout_logfile": "logs/worker_runner_watch.log",
-    "redirect_stderr": "true",
-}
-
-
-def SUPERVISORD_PARENT_WATCHDOG_WORKER(
-    *,
-    owner_pid: int,
-    owner_started_at: float,
-    supervisord_pid: int,
-    supervisord_started_at: float,
-):
-    watchdog_script = Path(__file__).with_name("supervisord_parent_watchdog.py")
-    return {
-        "name": "worker_supervisord_parent_watchdog",
-        "command": _shell_join(
-            [
-                sys.executable,
-                str(watchdog_script),
-                f"--owner-pid={owner_pid}",
-                f"--owner-started-at={owner_started_at}",
-                f"--supervisord-pid={supervisord_pid}",
-                f"--supervisord-started-at={supervisord_started_at}",
-            ],
-        ),
-        "autostart": "false",
-        "autorestart": "false",
-        "stopasgroup": "true",
-        "killasgroup": "true",
-        "stopwaitsecs": "1",
-        "stdout_logfile": "logs/worker_supervisord_parent_watchdog.log",
-        "redirect_stderr": "true",
-    }
-
-
-SERVER_WORKER = lambda host, port: {
-    "name": "worker_daphne",
-    "command": _shell_join(
-        [
-            str(resolve_env_binary("daphne")),
-            f"--bind={host}",
-            f"--port={port}",
-            "archivebox.core.asgi:application",
-        ],
-    ),
-    "autostart": "false",
-    "autorestart": "true",
-    "stopasgroup": "true",
-    "killasgroup": "true",
-    "stopwaitsecs": "1",
-    "stdout_logfile": "logs/worker_daphne.log",
-    "redirect_stderr": "true",
-}
-
-
-def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, nothreading: bool = False):
-    command = archivebox_cmd("manage", "runserver", f"{host}:{port}")
-    if not reload:
-        command.append("--noreload")
-    if nothreading:
-        command.append("--nothreading")
-
-    environment = ['ARCHIVEBOX_RUNSERVER="1"']
-    if reload:
-        environment.extend(
-            [
-                'ARCHIVEBOX_AUTORELOAD="1"',
-                f'ARCHIVEBOX_RUNSERVER_BIND_URL="http://{host}:{port}"',
-            ],
-        )
-
-    return {
-        "name": "worker_runserver",
-        "command": _shell_join(command),
-        "environment": ",".join(environment),
-        "autostart": "false",
-        "autorestart": "true",
-        "stopasgroup": "true",
-        "killasgroup": "true",
-        "stopwaitsecs": "1",
-        "stdout_logfile": "logs/worker_runserver.log",
-        "redirect_stderr": "true",
-    }
-
-
 def is_port_in_use(host: str, port: int) -> bool:
     """Check if a port is already in use."""
     try:
@@ -422,135 +207,6 @@ def _sonic_worker_bind_target(worker: dict[str, str]) -> tuple[str, int] | None:
     except (OSError, ValueError):
         return None
     return None
-
-
-@cache
-def get_sock_file():
-    """Get the path to the supervisord socket file.
-
-    Supervisord-managed workers inherit SUPERVISOR_SERVER_URL from their parent
-    supervisord. They must keep using that socket so worker code cannot
-    accidentally start a nested supervisord.
-    """
-    server_url = os.environ.get("SUPERVISOR_SERVER_URL", "")
-    if server_url.startswith("unix://"):
-        return Path(server_url.removeprefix("unix://"))
-
-    TMP_DIR = get_or_create_working_tmp_dir(autofix=True, quiet=False)
-    assert TMP_DIR, "Failed to find or create a writable TMP_DIR!"
-    return TMP_DIR / SUPERVISORD_SOCKET_FILENAME
-
-
-def create_supervisord_config():
-    SOCK_FILE = get_sock_file()
-    WORKERS_DIR = SOCK_FILE.parent / WORKERS_DIR_NAME
-    CONFIG_FILE = SOCK_FILE.parent / CONFIG_FILE_NAME
-    PID_FILE = SOCK_FILE.parent / PID_FILE_NAME
-    LOG_FILE = CONSTANTS.LOGS_DIR / LOG_FILE_NAME
-    user_config = f"user = {ARCHIVEBOX_USER}" if os.geteuid() == 0 and ARCHIVEBOX_USER != 0 else ""
-    environment = ",".join(
-        f"{key}={json.dumps(str(value))}"
-        for key, value in {
-            "IS_SUPERVISORD_PARENT": "true",
-            "COLUMNS": "200",
-            "DATA_DIR": CONSTANTS.DATA_DIR,
-            "TMP_DIR": SOCK_FILE.parent,
-        }.items()
-    )
-
-    CONSTANTS.LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    config_content = f"""
-[supervisord]
-nodaemon = true
-environment = {environment}
-pidfile = {PID_FILE}
-logfile = {LOG_FILE}
-childlogdir = {CONSTANTS.LOGS_DIR}
-directory = {CONSTANTS.DATA_DIR}
-strip_ansi = true
-nocleanup = true
-{user_config}
-
-[unix_http_server]
-file = {SOCK_FILE}
-chmod = 0700
-
-[supervisorctl]
-serverurl = unix://{SOCK_FILE}
-
-[rpcinterface:supervisor]
-supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
-
-[include]
-files = {WORKERS_DIR}/*.conf
-
-"""
-    CONFIG_FILE.write_text(config_content)
-    Path.mkdir(WORKERS_DIR, exist_ok=True, parents=True)
-    for worker_conf in WORKERS_DIR.glob("*.conf"):
-        worker_conf.unlink(missing_ok=True)
-
-    (WORKERS_DIR / "initial_startup.conf").write_text("")  # hides error about "no files found to include" when supervisord starts
-
-
-def _worker_environment_value(daemon: dict[str, str], key: str) -> str | None:
-    environment = daemon.get("environment")
-    if not environment:
-        return None
-
-    try:
-        fields = next(csv.reader([environment], skipinitialspace=True))
-    except csv.Error:
-        fields = str(environment).split(",")
-
-    for field in fields:
-        name, separator, value = field.partition("=")
-        if separator and name == key:
-            try:
-                return str(json.loads(value))
-            except json.JSONDecodeError:
-                return value.strip('"')
-    return None
-
-
-def _worker_log_base_dir(daemon: dict[str, str]) -> Path:
-    data_dir = _worker_environment_value(daemon, "DATA_DIR")
-    return Path(data_dir) if data_dir else CONSTANTS.DATA_DIR
-
-
-def create_worker_config(daemon):
-    """Create a supervisord worker config file for a given daemon"""
-    SOCK_FILE = get_sock_file()
-    WORKERS_DIR = SOCK_FILE.parent / WORKERS_DIR_NAME
-    log_base_dir = _worker_log_base_dir(daemon)
-
-    Path.mkdir(WORKERS_DIR, exist_ok=True, parents=True)
-    for logfile_key in ("stdout_logfile", "stderr_logfile"):
-        logfile = daemon.get(logfile_key)
-        if not logfile:
-            continue
-        logfile_path = Path(logfile)
-        if not logfile_path.is_absolute():
-            logfile_path = log_base_dir / logfile_path
-        logfile_path.parent.mkdir(parents=True, exist_ok=True)
-
-    name = daemon["name"]
-    worker_conf = WORKERS_DIR / f"{name}.conf"
-
-    worker_str = f"[program:{name}]\n"
-    if "startsecs" not in daemon:
-        worker_str += "startsecs=0\n"
-    for key, value in daemon.items():
-        if key == "name":
-            continue
-        if key in ("stdout_logfile", "stderr_logfile"):
-            logfile_path = Path(value)
-            if not logfile_path.is_absolute():
-                value = str(log_base_dir / logfile_path)
-        worker_str += f"{key}={value}\n"
-    worker_str += "\n"
-
-    worker_conf.write_text(worker_str)
 
 
 def _current_foreground_supervisord_watchdog_args():
@@ -1195,7 +851,7 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
             (
                 {
                     "name": "worker_vnc_browser",
-                    "command": _shell_join(archivebox_cmd("persona", "open", vnc_persona)),
+                    "command": shlex.join(archivebox_cmd("persona", "open", vnc_persona)),
                     "autostart": "false",
                     "autorestart": "false",
                     "stopasgroup": "true",
@@ -1234,92 +890,6 @@ def stop_worker(supervisor, daemon_name):
         proc = get_worker(supervisor, daemon_name)
 
     raise RuntimeError(f"Failed to stop worker {daemon_name}!")
-
-
-def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep_running=None):
-    """Tail multiple log files simultaneously, interleaving their output.
-
-    Args:
-        log_files: List of log file paths to tail
-        follow: Whether to keep following (True) or just read existing content (False)
-        proc: Optional subprocess.Popen object - stop tailing when this process exits
-    """
-    import re
-    from pathlib import Path
-
-    # Convert relative paths to absolute paths
-    log_paths = []
-    for log_file in log_files:
-        log_path = Path(log_file)
-        if not log_path.is_absolute():
-            log_path = CONSTANTS.DATA_DIR / log_path
-
-        # Create log file if it doesn't exist
-        if not log_path.exists():
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            log_path.touch()
-
-        log_paths.append(log_path)
-
-    # Open all log files
-    file_handles = []
-    for log_path in log_paths:
-        try:
-            f = log_path.open()
-            # Seek to end - only show NEW logs from now on, not old logs
-            f.seek(0, 2)  # Go to end
-
-            file_handles.append((log_path, f))
-            print(f"    [tailing {log_path.name}]")
-        except OSError as e:
-            sys.stderr.write(f"Warning: Could not open {log_path}: {e}\n")
-
-    if not file_handles:
-        sys.stderr.write("No log files could be opened\n")
-        return
-
-    print()
-
-    try:
-        while follow:
-            if keep_running is not None and not keep_running():
-                print("\n[newer ArchiveBox process is now running the orchestrator and server]")
-                return "transferred"
-
-            # Check if the monitored process has exited
-            if proc is not None and proc.poll() is not None:
-                print(f"\n[server process exited with code {proc.returncode}]")
-                return "exited"
-
-            had_output = False
-            # Read ALL available lines from all files (not just one per iteration)
-            for log_path, f in file_handles:
-                while True:
-                    line = f.readline()
-                    if not line:
-                        break  # No more lines available in this file
-                    had_output = True
-                    # Strip ANSI codes if present (supervisord does this but just in case)
-                    line_clean = re.sub(r"\x1b\[[0-9;]*m", "", line.rstrip())
-                    if line_clean:
-                        print(line_clean)
-
-            # Small sleep to avoid busy-waiting (only when no output)
-            if not had_output:
-                time.sleep(0.05)
-
-    except (KeyboardInterrupt, BrokenPipeError, OSError):
-        return "interrupted"  # Let the caller handle the cleanup message
-    except SystemExit:
-        return "interrupted"
-    finally:
-        # Close all file handles
-        for _, f in file_handles:
-            try:
-                f.close()
-            except OSError as err:
-                _warn_background_cleanup("Could not close worker log file", err)
-    return "stopped"
 
 
 def get_sonic_supervisord_worker_from_plugin(config) -> dict[str, str] | None:

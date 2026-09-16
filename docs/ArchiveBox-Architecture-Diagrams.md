@@ -26,6 +26,8 @@ state transitions, snapshot imports, or progress calculations.
 | Queue selection and claims | `services/runner/scheduler.py` and `dispatch.py` |
 | Hook execution and event projection | `services/runner/crawl.py` and the individual `services/*_service.py` projectors |
 | Progress endpoint | `progressmonitor/views.py` validates access; `report.py` loads bounded data; `presentation.py` renders it |
+| Progress monitor browser UI | `progressmonitor/static/progressmonitor/monitor.js` renders and polls; `monitor.css` styles the shared template |
+| Worker startup and shutdown | `workers/supervisord_util.py` manages process lifecycle; `supervisor_config.py` defines worker commands and configuration |
 
 Core and machine model packages re-export their public classes, so callers use
 `archivebox.core.models.Snapshot` and `archivebox.machine.models.Process`.

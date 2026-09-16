@@ -4,14 +4,17 @@ __package__ = "archivebox.cli"
 __command__ = "archivebox remove"
 
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from collections.abc import Iterable
 
 import rich_click as click
+from rich.console import Console
 
 from django.db.models import QuerySet
 
 from archivebox.config import CONSTANTS
+from archivebox.config.common import get_config
 from archivebox.config.django import setup_django
 from archivebox.misc.util import enforce_types, docstring
 from archivebox.misc.checks import check_data_folder
@@ -20,7 +23,6 @@ from archivebox.misc.logging_util import (
     log_list_finished,
     log_removal_started,
     log_removal_finished,
-    TimedProgress,
 )
 from archivebox.cli.archivebox_snapshot import snapshot_filter_options
 
@@ -56,16 +58,14 @@ def remove(
     pattern_list = list(filter_patterns)
 
     log_list_started(pattern_list or None, filter_type)
-    timer = TimedProgress(360, prefix="      ")
-    try:
+    progress = Console().status("Finding matching snapshots...") if get_config().SHOW_PROGRESS else nullcontext()
+    with progress:
         if snapshots is None:
             snapshots = Snapshot.objects.order_by("-created_at").search(**filter_kwargs)
         # Freeze the target set up-front so a concurrent daemon writing new
         # snapshots can't extend the deletion under us, and so the cursor isn't
         # held open across the per-row deletes below.
         snapshot_pks = list(snapshots.values_list("pk", flat=True))
-    finally:
-        timer.end()
 
     if not snapshot_pks:
         log_removal_finished(0, 0)
