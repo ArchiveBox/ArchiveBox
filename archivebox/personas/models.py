@@ -131,6 +131,16 @@ class Persona(ModelWithConfig):
     def __str__(self) -> str:
         return self.name
 
+    def to_json(self) -> dict:
+        """Portable CLI record, shared by create, list, and update."""
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "path": str(self.path),
+            "CHROME_USER_DATA_DIR": self.CHROME_USER_DATA_DIR,
+            "COOKIES_FILE": self.COOKIES_FILE,
+        }
+
     @property
     def path(self) -> Path:
         """Path to persona directory under PERSONAS_DIR."""

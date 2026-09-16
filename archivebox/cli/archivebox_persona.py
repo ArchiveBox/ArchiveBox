@@ -36,7 +36,7 @@ from collections.abc import Iterable
 import rich_click as click
 from rich import print as rprint
 
-from archivebox.cli.cli_util import apply_filters
+from archivebox.cli.cli_util import apply_filters, list_records
 from archivebox.personas import importers as persona_importers
 
 
@@ -170,15 +170,7 @@ def create_personas(
         if created:
             rprint(f"[green]Created persona: {name}[/green]", file=sys.stderr)
         if not is_tty:
-            write_record(
-                {
-                    "id": str(persona.id),
-                    "name": persona.name,
-                    "path": str(persona.path),
-                    "CHROME_USER_DATA_DIR": persona.CHROME_USER_DATA_DIR,
-                    "COOKIES_FILE": persona.COOKIES_FILE,
-                },
-            )
+            write_record(persona.to_json())
 
     rprint(f"[green]Created {created_count} new persona(s)[/green]", file=sys.stderr)
     return 0
@@ -200,41 +192,20 @@ def list_personas(
     Exit codes:
         0: Success (even if no results)
     """
-    from archivebox.misc.jsonl import write_record
     from archivebox.personas.models import Persona
 
-    is_tty = sys.stdout.isatty()
+    queryset = apply_filters(
+        Persona.objects.order_by("name"),
+        {"name": name, "name__icontains": name__icontains},
+        limit=limit,
+    )
 
-    queryset = Persona.objects.all().order_by("name")
+    def render(persona):
+        cookies = "[green]✓[/green]" if persona.COOKIES_FILE else "[dim]✗[/dim]"
+        chrome = "[green]✓[/green]" if Path(persona.CHROME_USER_DATA_DIR).exists() else "[dim]✗[/dim]"
+        return f"[cyan]{persona.name:20}[/cyan] cookies:{cookies} chrome:{chrome} [dim]{persona.path}[/dim]"
 
-    # Apply filters
-    filter_kwargs = {
-        "name": name,
-        "name__icontains": name__icontains,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for persona in queryset:
-        cookies_status = "[green]✓[/green]" if persona.COOKIES_FILE else "[dim]✗[/dim]"
-        chrome_status = "[green]✓[/green]" if Path(persona.CHROME_USER_DATA_DIR).exists() else "[dim]✗[/dim]"
-
-        if is_tty:
-            rprint(f"[cyan]{persona.name:20}[/cyan] cookies:{cookies_status} chrome:{chrome_status} [dim]{persona.path}[/dim]")
-        else:
-            write_record(
-                {
-                    "id": str(persona.id),
-                    "name": persona.name,
-                    "path": str(persona.path),
-                    "CHROME_USER_DATA_DIR": persona.CHROME_USER_DATA_DIR,
-                    "COOKIES_FILE": persona.COOKIES_FILE,
-                },
-            )
-        count += 1
-
-    rprint(f"[dim]Listed {count} persona(s)[/dim]", file=sys.stderr)
-    return 0
+    return list_records(queryset, plural="persona(s)", render=render)
 
 
 # =============================================================================
@@ -298,13 +269,7 @@ def update_personas(name: str | None = None) -> int:
             updated_count += 1
 
             if not is_tty:
-                write_record(
-                    {
-                        "id": str(persona.id),
-                        "name": persona.name,
-                        "path": str(persona.path),
-                    },
-                )
+                write_record(persona.to_json())
 
         except Persona.DoesNotExist:
             rprint(f"[yellow]Persona not found: {persona_id or old_name}[/yellow]", file=sys.stderr)
