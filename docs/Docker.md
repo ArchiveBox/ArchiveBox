@@ -45,7 +45,7 @@ Published [Docker tags](https://hub.docker.com/r/archivebox/archivebox/tags):
 
 <br/>
 
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/9e8658f7-7d00-452e-a10e-f7d22ef9365a" height="40px" align="right"/>
+<img style="height: 40px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/9e8658f7-7d00-452e-a10e-f7d22ef9365a" align="right"/>
 
 ## Docker Compose
 

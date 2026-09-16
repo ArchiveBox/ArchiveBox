@@ -192,65 +192,19 @@ def update_tags(name: str | None = None) -> int:
 
 
 def delete_tags(yes: bool = False, dry_run: bool = False) -> int:
-    """
-    Delete Tags from stdin JSONL.
-
-    Requires --yes flag to confirm deletion.
-
-    Exit codes:
-        0: Success
-        1: No input or missing --yes flag
-    """
-    from archivebox.misc.jsonl import read_stdin
+    """Delete tags selected by stdin JSONL; --yes confirms, --dry-run previews."""
+    from archivebox.cli.cli_util import delete_records
     from archivebox.core.models import Tag
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    # Collect tag IDs or names
-    tag_ids = []
-    tag_names = []
-    for r in records:
-        if r.get("id"):
-            tag_ids.append(r["id"])
-        elif r.get("name"):
-            tag_names.append(r["name"])
-
-    if not tag_ids and not tag_names:
-        rprint("[yellow]No valid tag IDs or names in input[/yellow]", file=sys.stderr)
-        return 1
-
-    from django.db.models import Q
-
-    query = Q()
-    if tag_ids:
-        query |= Q(id__in=tag_ids)
-    if tag_names:
-        query |= Q(name__in=tag_names)
-
-    tags = Tag.objects.filter(query)
-    count = tags.count()
-
-    if count == 0:
-        rprint("[yellow]No matching tags found[/yellow]", file=sys.stderr)
-        return 0
-
-    if dry_run:
-        rprint(f"[yellow]Would delete {count} tags (dry run)[/yellow]", file=sys.stderr)
-        for tag in tags:
-            rprint(f"  {tag.name}", file=sys.stderr)
-        return 0
-
-    if not yes:
-        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
-        return 1
-
-    # Perform deletion
-    deleted_count, _ = tags.delete()
-    rprint(f"[green]Deleted {deleted_count} tags[/green]", file=sys.stderr)
-    return 0
+    return delete_records(
+        Tag,
+        label="tag",
+        plural="tags",
+        preview=lambda obj: obj.name,
+        yes=yes,
+        dry_run=dry_run,
+        by_name=True,
+    )
 
 
 # =============================================================================

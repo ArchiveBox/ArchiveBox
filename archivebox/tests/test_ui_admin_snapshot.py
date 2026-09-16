@@ -875,8 +875,10 @@ class TestSnapshotProgressStats:
         assert static_json["archive_path"].startswith("archive/users/")
         assert static_json["archive_url"] == f"./{static_json['archive_path']}/index.html"
 
-    def test_compact_output_cards_pack_into_dense_grid_rows(self):
-        template = (REPO_ROOT / "archivebox" / "templates" / "core" / "snapshot.html").read_text()
+    def test_compact_output_cards_pack_into_dense_grid_rows(self, snapshot):
+        from django.template.loader import render_to_string
+
+        template = render_to_string("core/snapshot.html", snapshot.get_html_details_context())
         thumb_grid_css = template.split(".thumb-grid {", 1)[1].split("}", 1)[0]
         thumb_card_css = template.split(".thumb-card {", 1)[1].split("}", 1)[0]
         auxiliary_card_css = template.split(".thumb-card:not([data-plugin-name]) {", 1)[1].split("}", 1)[0]

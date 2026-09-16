@@ -274,52 +274,19 @@ def update_archiveresults(
 
 
 def delete_archiveresults(yes: bool = False, dry_run: bool = False) -> int:
-    """
-    Delete ArchiveResults from stdin JSONL.
-
-    Requires --yes flag to confirm deletion.
-
-    Exit codes:
-        0: Success
-        1: No input or missing --yes flag
-    """
-    from archivebox.misc.jsonl import read_stdin
+    """Delete archive results selected by stdin JSONL; --yes confirms, --dry-run previews."""
+    from archivebox.cli.cli_util import delete_records
     from archivebox.core.models import ArchiveResult
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    result_ids = [r.get("id") for r in records if r.get("id")]
-
-    if not result_ids:
-        rprint("[yellow]No valid archive result IDs in input[/yellow]", file=sys.stderr)
-        return 1
-
-    results = ArchiveResult.objects.filter(id__in=result_ids)
-    count = results.count()
-
-    if count == 0:
-        rprint("[yellow]No matching archive results found[/yellow]", file=sys.stderr)
-        return 0
-
-    if dry_run:
-        rprint(f"[yellow]Would delete {count} archive results (dry run)[/yellow]", file=sys.stderr)
-        for result in results[:10]:
-            rprint(f"  [dim]{result.id}[/dim] {result.plugin} {result.snapshot.url[:40]}", file=sys.stderr)
-        if count > 10:
-            rprint(f"  ... and {count - 10} more", file=sys.stderr)
-        return 0
-
-    if not yes:
-        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
-        return 1
-
-    # Perform deletion
-    deleted_count, _ = results.delete()
-    rprint(f"[green]Deleted {deleted_count} archive results[/green]", file=sys.stderr)
-    return 0
+    return delete_records(
+        ArchiveResult,
+        label="archive result",
+        plural="archive results",
+        preview=lambda obj: f"[dim]{obj.id}[/dim] {obj.plugin} {obj.snapshot.url[:40]}",
+        yes=yes,
+        dry_run=dry_run,
+        preview_limit=10,
+    )
 
 
 # =============================================================================

@@ -5,7 +5,6 @@ __package__ = "archivebox"
 # references Django ORM types. For pre-bootstrap logging primitives use
 # misc/logging.py, which has no archivebox or Django dependencies.
 
-import re
 import os
 import sys
 import time
@@ -254,130 +253,6 @@ def truncate_url(url: str, max_length: int = 60) -> str:
 
 
 @enforce_types
-def log_worker_event(
-    worker_type: str,
-    event: str,
-    indent_level: int = 0,
-    pid: int | None = None,
-    worker_id: str | None = None,
-    url: str | None = None,
-    plugin: str | None = None,
-    metadata: dict[str, Any] | None = None,
-    error: Exception | None = None,
-) -> None:
-    """
-    Log a worker event with structured metadata and indentation.
-
-    Args:
-        worker_type: Type of worker (Orchestrator, CrawlWorker, SnapshotWorker)
-        event: Event name (Starting, Completed, Failed, etc.)
-        indent_level: Indentation level (0=Orchestrator, 1=CrawlWorker, 2=SnapshotWorker)
-        pid: Process ID
-        worker_id: Worker ID (UUID for workers)
-        url: URL being processed (for SnapshotWorker)
-        plugin: Plugin name (for hook processes)
-        metadata: Dict of metadata to show in curly braces
-        error: Exception if event is an error
-    """
-    indent = "    " * indent_level
-
-    from rich.markup import escape
-
-    # Build worker identifier (without URL/plugin)
-    worker_parts = [worker_type]
-    # Don't add pid/worker_id for DB operations (they happen in whatever process is running)
-    if pid and worker_type != "DB":
-        worker_parts.append(f"pid={pid}")
-    if worker_id and worker_type in ("CrawlWorker", "Orchestrator") and worker_type != "DB":
-        worker_parts.append(f"id={worker_id}")
-
-    # Build worker label parts for brackets (shown inside brackets)
-    worker_label_base = worker_parts[0]
-    worker_bracket_content = ", ".join(worker_parts[1:]) if len(worker_parts) > 1 else None
-
-    # Build URL/plugin display (shown AFTER the label, outside brackets)
-    url_extractor_parts = []
-    if url:
-        url_extractor_parts.append(f"url: {escape(url)}")
-    if plugin:
-        url_extractor_parts.append(f"extractor: {escape(plugin)}")
-
-    url_extractor_str = " | ".join(url_extractor_parts) if url_extractor_parts else ""
-
-    # Build metadata string
-    metadata_str = ""
-    if metadata:
-        # Format metadata nicely
-        meta_parts = []
-        for k, v in metadata.items():
-            if isinstance(v, float):
-                # Format floats nicely (durations, sizes)
-                if "duration" in k.lower():
-                    meta_parts.append(f"{k}: {format_duration(v)}")
-                elif "size" in k.lower():
-                    meta_parts.append(f"{k}: {printable_filesize(int(v))}")
-                else:
-                    meta_parts.append(f"{k}: {v:.2f}")
-            elif isinstance(v, int):
-                # Format integers - check if it's a size
-                if "size" in k.lower() or "bytes" in k.lower():
-                    meta_parts.append(f"{k}: {printable_filesize(v)}")
-                else:
-                    meta_parts.append(f"{k}: {v}")
-            elif isinstance(v, (list, tuple)):
-                meta_parts.append(f"{k}: {len(v)}")
-            else:
-                meta_parts.append(f"{k}: {v}")
-        metadata_str = " | ".join(meta_parts)
-
-    # Determine color based on event
-    color = "white"
-    if event in ("Starting...", "Started", "STARTED", "Started in background"):
-        color = "green"
-    elif event.startswith("Created"):
-        color = "cyan"  # DB creation events
-    elif event in ("Completed", "COMPLETED", "All work complete"):
-        color = "blue"
-    elif event in ("Failed", "ERROR", "Failed to spawn worker"):
-        color = "red"
-    elif event in ("Shutting down", "SHUTDOWN"):
-        color = "grey53"
-
-    # Build final message
-    error_str = f" {type(error).__name__}: {error}" if error else ""
-    from archivebox.misc.logging import CONSOLE, STDERR
-    from rich.text import Text
-
-    # Create a Rich Text object for proper formatting
-    # Text.append() treats content as literal (no markup parsing)
-    text = Text()
-    text.append(indent)
-    text.append(worker_label_base, style=color)
-
-    # Add bracketed content if present (using Text.append to avoid markup issues)
-    if worker_bracket_content:
-        text.append("[", style=color)
-        text.append(worker_bracket_content, style=color)
-        text.append("]", style=color)
-
-    text.append(f" {event}{error_str}", style=color)
-
-    # Add URL/plugin info first (more important)
-    if url_extractor_str:
-        text.append(f" | {url_extractor_str}")
-
-    # Then add other metadata
-    if metadata_str:
-        text.append(f" | {metadata_str}")
-
-    # Stdout is reserved for JSONL records whenever commands are piped together.
-    # Route worker/DB progress to stderr in non-TTY contexts so pipelines like
-    # `archivebox snapshot list | archivebox run` keep stdout machine-readable.
-    output_console = CONSOLE if sys.stdout.isatty() else STDERR
-    output_console.print(text, soft_wrap=True)
-
-
-@enforce_types
 def printable_folders(folders: dict[str, Optional["Snapshot"]], with_headers: bool = False) -> str:
     return "\n".join(f'{folder} {snapshot and snapshot.url} "{snapshot and snapshot.title}"' for folder, snapshot in folders.items())
 
@@ -427,37 +302,6 @@ def printable_folder_status(name: str, folder: dict) -> str:
             f"[{color}]",
             note.ljust(8),
             "[/]",
-            path.ljust(76),
-        ),
-    )
-
-
-@enforce_types
-def printable_dependency_version(name: str, dependency: dict) -> str:
-    color, symbol, note, version = "red", "X", "invalid", "?"
-
-    if dependency["enabled"]:
-        if dependency["is_valid"]:
-            color, symbol, note = "green", "√", "valid"
-
-            parsed_version_num = re.search(r"[\d\.]+", dependency["version"])
-            if parsed_version_num:
-                version = f"v{parsed_version_num[0]}"
-    else:
-        color, symbol, note, version = "lightyellow", "-", "disabled", "-"
-
-    path = pretty_path(dependency["path"])
-
-    return " ".join(
-        (
-            ANSI[color],
-            symbol,
-            ANSI["reset"],
-            name.ljust(21),
-            version.ljust(14),
-            ANSI[color],
-            note.ljust(8),
-            ANSI["reset"],
             path.ljust(76),
         ),
     )

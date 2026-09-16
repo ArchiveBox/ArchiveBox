@@ -90,7 +90,7 @@ def process_stdin_records() -> int:
     )
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot, ArchiveResult
-    from archivebox.api.v1_core import _uuid_ref_query
+    from archivebox.misc.db import uuid_ref_query
     from archivebox.crawls.models import Crawl
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
     from archivebox.machine.models import Binary
@@ -161,7 +161,7 @@ def process_stdin_records() -> int:
                 plugin_name = str(record.get("plugin") or "")
                 archiveresult = None
                 if not snapshot_id and record_id:
-                    archiveresult = ArchiveResult.objects.filter(_uuid_ref_query("id", str(record_id))).select_related("snapshot").first()
+                    archiveresult = ArchiveResult.objects.filter(uuid_ref_query("id", str(record_id))).select_related("snapshot").first()
                     if archiveresult:
                         snapshot_id = str(archiveresult.snapshot_id)
                         plugin_name = plugin_name or archiveresult.plugin

@@ -257,20 +257,13 @@ def update_crawls(
             crawl = Crawl.objects.get(id=crawl_id)
 
             if status:
-                if status not in Crawl.StatusChoices.values:
-                    rprint(f"[red]Invalid crawl status: {status}[/red]", file=sys.stderr)
+                from archivebox.cli.cli_util import update_record_status
+
+                try:
+                    update_record_status(crawl, status)
+                except ValueError as err:
+                    rprint(f"[red]{err}[/red]", file=sys.stderr)
                     continue
-                if status == Crawl.StatusChoices.SEALED:
-                    crawl.cancel()
-                elif status == Crawl.StatusChoices.PAUSED:
-                    crawl.pause()
-                elif status == Crawl.StatusChoices.QUEUED:
-                    if crawl.status == Crawl.StatusChoices.PAUSED:
-                        crawl.resume()
-                    else:
-                        crawl.update_and_requeue(status=Crawl.StatusChoices.QUEUED, retry_at=timezone.now())
-                elif status == Crawl.StatusChoices.STARTED:
-                    crawl.update_and_requeue(status=Crawl.StatusChoices.STARTED, retry_at=timezone.now())
             if max_depth is not None:
                 crawl.safe_update({"max_depth": max_depth, "modified_at": timezone.now()}, refresh=False)
                 crawl.max_depth = max_depth
@@ -296,51 +289,18 @@ def update_crawls(
 
 
 def delete_crawls(yes: bool = False, dry_run: bool = False) -> int:
-    """
-    Delete Crawls from stdin JSONL.
-
-    Requires --yes flag to confirm deletion.
-
-    Exit codes:
-        0: Success
-        1: No input or missing --yes flag
-    """
-    from archivebox.misc.jsonl import read_stdin
+    """Delete crawls selected by stdin JSONL; --yes confirms, --dry-run previews."""
+    from archivebox.cli.cli_util import delete_records
     from archivebox.crawls.models import Crawl
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    crawl_ids = [r.get("id") for r in records if r.get("id")]
-
-    if not crawl_ids:
-        rprint("[yellow]No valid crawl IDs in input[/yellow]", file=sys.stderr)
-        return 1
-
-    crawls = Crawl.objects.filter(id__in=crawl_ids)
-    count = crawls.count()
-
-    if count == 0:
-        rprint("[yellow]No matching crawls found[/yellow]", file=sys.stderr)
-        return 0
-
-    if dry_run:
-        rprint(f"[yellow]Would delete {count} crawls (dry run)[/yellow]", file=sys.stderr)
-        for crawl in crawls:
-            url_preview = crawl.urls[:50].replace("\n", " ")
-            rprint(f"  [dim]{crawl.id}[/dim] {url_preview}...", file=sys.stderr)
-        return 0
-
-    if not yes:
-        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
-        return 1
-
-    # Perform deletion
-    deleted_count, _ = crawls.delete()
-    rprint(f"[green]Deleted {deleted_count} crawls[/green]", file=sys.stderr)
-    return 0
+    return delete_records(
+        Crawl,
+        label="crawl",
+        plural="crawls",
+        preview=lambda obj: f"[dim]{obj.id}[/dim] {obj.urls[:50].replace(chr(10), chr(32))}...",
+        yes=yes,
+        dry_run=dry_run,
+    )
 
 
 # =============================================================================

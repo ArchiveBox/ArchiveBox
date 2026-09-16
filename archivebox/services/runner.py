@@ -1670,6 +1670,47 @@ def _run_due_binary() -> bool:
     return True
 
 
+def _run_scheduled_work(*, crawl_id, interactive_interrupts, runtime_config, crawl_lock_seconds) -> bool:
+    """Try one work item in priority order; query each tier only when reached."""
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    # Active children run before parent bookkeeping. Cancellation and pause
+    # cleanup come next, then the broad active fallback, and finally sealed
+    # maintenance. Keep this ordering so a backfill cannot starve new work.
+    priorities = (
+        (Snapshot, {"crawl__status__in": Crawl.RUNNABLE_STATES, "status__in": Snapshot.RUNNABLE_STATES}),
+        (Crawl, {"status": Crawl.StatusChoices.QUEUED}),
+        (Crawl, {"status": Crawl.StatusChoices.STARTED}),
+        (Snapshot, {"crawl__status": Crawl.StatusChoices.SEALED, "status": Snapshot.StatusChoices.STARTED}),
+        (Snapshot, {"crawl__status": Crawl.StatusChoices.PAUSED, "status__in": Snapshot.RUNNABLE_STATES}),
+        (Snapshot, {"status__in": Snapshot.OPEN_STATES}),
+        (Snapshot, {"status": Snapshot.StatusChoices.SEALED}),
+        (Crawl, {"status": Crawl.StatusChoices.SEALED}),
+    )
+    for model, filters in priorities:
+        if model is Crawl:
+            ran = _run_due_crawl_status(
+                filters["status"],
+                crawl_id=crawl_id,
+                lock_seconds=crawl_lock_seconds,
+                interactive_interrupts=interactive_interrupts,
+            )
+        else:
+            queryset = Snapshot.objects.filter(retry_at__lte=timezone.now(), **filters)
+            if crawl_id:
+                queryset = queryset.filter(crawl_id=crawl_id)
+            ran = _run_due_snapshot_query(
+                queryset,
+                lock_seconds=60,
+                interactive_interrupts=interactive_interrupts,
+                runtime_config=runtime_config,
+            )
+        if ran:
+            return True
+    return crawl_id is None and _run_due_binary()
+
+
 def run_pending_crawls(
     *,
     daemon: bool = False,
@@ -1724,123 +1765,13 @@ def run_pending_crawls(
                 if run_snapshot_maintenance(str(filesystem_snapshot.id)):
                     continue
 
-        if not maintenance_only:
-            active_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                crawl__status__in=Crawl.RUNNABLE_STATES,
-                status__in=Snapshot.RUNNABLE_STATES,
-            )
-            if crawl_id:
-                active_snapshots = active_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                active_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                runtime_config=runtime_config,
-            ):
-                continue
-
-        if not maintenance_only:
-            if _run_due_crawl_status(
-                Crawl.StatusChoices.QUEUED,
-                crawl_id=crawl_id,
-                lock_seconds=crawl_claim_lock_seconds,
-                interactive_interrupts=interactive_interrupts,
-            ):
-                continue
-
-        if not maintenance_only:
-            if _run_due_crawl_status(
-                Crawl.StatusChoices.STARTED,
-                crawl_id=crawl_id,
-                lock_seconds=crawl_claim_lock_seconds,
-                interactive_interrupts=interactive_interrupts,
-            ):
-                continue
-
-        if not maintenance_only:
-            # Canceled-crawl child sealing is important cleanup, but it must
-            # not starve live crawl work when a large bulk cancel leaves many
-            # children due at once.
-            cancelling_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                crawl__status=Crawl.StatusChoices.SEALED,
-                status=Snapshot.StatusChoices.STARTED,
-            )
-            if crawl_id:
-                cancelling_snapshots = cancelling_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                cancelling_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                runtime_config=runtime_config,
-            ):
-                continue
-
-        if not maintenance_only:
-            pausing_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                crawl__status=Crawl.StatusChoices.PAUSED,
-                status__in=Snapshot.RUNNABLE_STATES,
-            )
-            if crawl_id:
-                pausing_snapshots = pausing_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                pausing_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                runtime_config=runtime_config,
-            ):
-                continue
-
-        # Final active-state fallback uses only the retry_at scheduler index and
-        # selects an id first. Keep final SEALED rows out of this broad path so
-        # large filesystem/index backfills cannot starve newly queued crawls.
-        if not maintenance_only:
-            due_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                status__in=Snapshot.OPEN_STATES,
-            )
-            if crawl_id:
-                due_snapshots = due_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                due_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                runtime_config=runtime_config,
-            ):
-                continue
-
-        if not maintenance_only:
-            # Final snapshots can still have an explicit filesystem/index-json
-            # maintenance tick. Search extraction is invoked directly by the
-            # update path and never enters this scheduler through ArchiveResult.
-            sealed_snapshots = Snapshot.objects.filter(
-                retry_at__lte=timezone.now(),
-                status=Snapshot.StatusChoices.SEALED,
-            )
-            if crawl_id:
-                sealed_snapshots = sealed_snapshots.filter(crawl_id=crawl_id)
-            if _run_due_snapshot_query(
-                sealed_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                runtime_config=runtime_config,
-            ):
-                continue
-
-        if not maintenance_only:
-            if _run_due_crawl_status(
-                Crawl.StatusChoices.SEALED,
-                crawl_id=crawl_id,
-                lock_seconds=crawl_claim_lock_seconds,
-                interactive_interrupts=interactive_interrupts,
-            ):
-                continue
-
-        if crawl_id is None and not maintenance_only:
-            if _run_due_binary():
-                continue
+        if not maintenance_only and _run_scheduled_work(
+            crawl_id=crawl_id,
+            interactive_interrupts=interactive_interrupts,
+            runtime_config=runtime_config,
+            crawl_lock_seconds=crawl_claim_lock_seconds,
+        ):
+            continue
 
         now_monotonic = time.monotonic()
         if crawl_id is None and now_monotonic - last_retention_repair_at >= (60.0 if daemon else 0.0):

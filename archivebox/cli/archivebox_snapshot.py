@@ -404,20 +404,13 @@ def update_snapshots(
             snapshot = Snapshot.objects.get(id=snapshot_id)
 
             if status:
-                if status not in Snapshot.StatusChoices.values:
-                    rprint(f"[red]Invalid snapshot status: {status}[/red]", file=sys.stderr)
+                from archivebox.cli.cli_util import update_record_status
+
+                try:
+                    update_record_status(snapshot, status)
+                except ValueError as err:
+                    rprint(f"[red]{err}[/red]", file=sys.stderr)
                     continue
-                if status == Snapshot.StatusChoices.SEALED:
-                    snapshot.cancel()
-                elif status == Snapshot.StatusChoices.PAUSED:
-                    snapshot.pause()
-                elif status == Snapshot.StatusChoices.QUEUED:
-                    if snapshot.status == Snapshot.StatusChoices.PAUSED:
-                        snapshot.resume()
-                    else:
-                        snapshot.update_and_requeue(status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now())
-                elif status == Snapshot.StatusChoices.STARTED:
-                    snapshot.update_and_requeue(status=Snapshot.StatusChoices.STARTED, retry_at=timezone.now())
             if tag:
                 from archivebox.core.models import Tag
 
@@ -447,50 +440,18 @@ def update_snapshots(
 
 
 def delete_snapshots(yes: bool = False, dry_run: bool = False) -> int:
-    """
-    Delete Snapshots from stdin JSONL.
-
-    Requires --yes flag to confirm deletion.
-
-    Exit codes:
-        0: Success
-        1: No input or missing --yes flag
-    """
-    from archivebox.misc.jsonl import read_stdin
+    """Delete snapshots selected by stdin JSONL; --yes confirms, --dry-run previews."""
+    from archivebox.cli.cli_util import delete_records
     from archivebox.core.models import Snapshot
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    snapshot_ids = [r.get("id") for r in records if r.get("id")]
-
-    if not snapshot_ids:
-        rprint("[yellow]No valid snapshot IDs in input[/yellow]", file=sys.stderr)
-        return 1
-
-    snapshots = Snapshot.objects.filter(id__in=snapshot_ids)
-    count = snapshots.count()
-
-    if count == 0:
-        rprint("[yellow]No matching snapshots found[/yellow]", file=sys.stderr)
-        return 0
-
-    if dry_run:
-        rprint(f"[yellow]Would delete {count} snapshots (dry run)[/yellow]", file=sys.stderr)
-        for snapshot in snapshots:
-            rprint(f"  [dim]{snapshot.id}[/dim] {snapshot.url[:60]}", file=sys.stderr)
-        return 0
-
-    if not yes:
-        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
-        return 1
-
-    # Perform deletion
-    deleted_count, _ = snapshots.delete()
-    rprint(f"[green]Deleted {deleted_count} snapshots[/green]", file=sys.stderr)
-    return 0
+    return delete_records(
+        Snapshot,
+        label="snapshot",
+        plural="snapshots",
+        preview=lambda obj: f"[dim]{obj.id}[/dim] {obj.url[:60]}",
+        yes=yes,
+        dry_run=dry_run,
+    )
 
 
 # =============================================================================

@@ -994,3 +994,13 @@ class TestProcessClassMethods:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_real_loopback_interface_does_not_require_a_mac_address():
+    from archivebox.machine.detect import get_local_interface
+
+    interface = get_local_interface("127.0.0.1")
+    assert interface["ip_local"] == "127.0.0.1"
+    assert interface["iface"]
+    # Loopback is a real interface but has no link-layer MAC on macOS.
+    assert isinstance(interface["mac_address"], str)

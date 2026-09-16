@@ -211,50 +211,18 @@ def update_binaries(
 
 
 def delete_binaries(yes: bool = False, dry_run: bool = False) -> int:
-    """
-    Delete Binaries from stdin JSONL.
-
-    Requires --yes flag to confirm deletion.
-
-    Exit codes:
-        0: Success
-        1: No input or missing --yes flag
-    """
-    from archivebox.misc.jsonl import read_stdin
+    """Delete binaries selected by stdin JSONL; --yes confirms, --dry-run previews."""
+    from archivebox.cli.cli_util import delete_records
     from archivebox.machine.models import Binary
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    binary_ids = [r.get("id") for r in records if r.get("id")]
-
-    if not binary_ids:
-        rprint("[yellow]No valid binary IDs in input[/yellow]", file=sys.stderr)
-        return 1
-
-    binaries = Binary.objects.filter(id__in=binary_ids)
-    count = binaries.count()
-
-    if count == 0:
-        rprint("[yellow]No matching binaries found[/yellow]", file=sys.stderr)
-        return 0
-
-    if dry_run:
-        rprint(f"[yellow]Would delete {count} binaries (dry run)[/yellow]", file=sys.stderr)
-        for binary in binaries:
-            rprint(f"  {binary.name} {binary.abspath}", file=sys.stderr)
-        return 0
-
-    if not yes:
-        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
-        return 1
-
-    # Perform deletion
-    deleted_count, _ = binaries.delete()
-    rprint(f"[green]Deleted {deleted_count} binaries[/green]", file=sys.stderr)
-    return 0
+    return delete_records(
+        Binary,
+        label="binary",
+        plural="binaries",
+        preview=lambda obj: f"{obj.name} {obj.abspath}",
+        yes=yes,
+        dry_run=dry_run,
+    )
 
 
 # =============================================================================

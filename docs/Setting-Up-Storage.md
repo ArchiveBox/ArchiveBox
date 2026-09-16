@@ -167,7 +167,7 @@ volumes:
 
 <br/>
 
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0a159c27-5d54-46b9-814b-480f239ed27e" alt="local filesystem icon" height="80px" align="right"/><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5ca561b4-4597-401f-84b6-d53042fd7359" alt="local filesystem icon" height="80px" align="right"/>
+<img style="height: 80px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0a159c27-5d54-46b9-814b-480f239ed27e" alt="local filesystem icon" align="right"/><img style="height: 80px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5ca561b4-4597-401f-84b6-d53042fd7359" alt="local filesystem icon" align="right"/>
 
 <a name="s3"></a><a name="b2"></a><a name="gdrive"></a><a name="rclone"></a>
 
