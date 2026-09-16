@@ -675,482 +675,302 @@ def seed_0_4_data(db_path: Path) -> dict[str, list[dict]]:
     return created_data
 
 
-def seed_0_7_data(db_path: Path) -> dict[str, list[dict]]:
-    """Seed a 0.7.x database with realistic test data."""
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
+MIGRATIONS_0_7 = [
+    ("contenttypes", "0001_initial"),
+    ("contenttypes", "0002_remove_content_type_name"),
+    ("auth", "0001_initial"),
+    ("auth", "0002_alter_permission_name_max_length"),
+    ("auth", "0003_alter_user_email_max_length"),
+    ("auth", "0004_alter_user_username_opts"),
+    ("auth", "0005_alter_user_last_login_null"),
+    ("auth", "0006_require_contenttypes_0002"),
+    ("auth", "0007_alter_validators_add_error_messages"),
+    ("auth", "0008_alter_user_username_max_length"),
+    ("auth", "0009_alter_user_last_name_max_length"),
+    ("auth", "0010_alter_group_name_max_length"),
+    ("auth", "0011_update_proxy_permissions"),
+    ("auth", "0012_alter_user_first_name_max_length"),
+    ("admin", "0001_initial"),
+    ("admin", "0002_logentry_remove_auto_add"),
+    ("admin", "0003_logentry_add_action_flag_choices"),
+    ("sessions", "0001_initial"),
+    ("core", "0001_initial"),
+    ("core", "0002_auto_20200625_1521"),
+    ("core", "0003_auto_20200630_1034"),
+    ("core", "0004_auto_20200713_1552"),
+    ("core", "0005_auto_20200728_0326"),
+    ("core", "0006_auto_20201012_1520"),
+    ("core", "0007_archiveresult"),
+    ("core", "0008_auto_20210105_1421"),
+    ("core", "0009_auto_20210216_1038"),
+    ("core", "0010_auto_20210216_1055"),
+    ("core", "0011_auto_20210216_1331"),
+    ("core", "0012_auto_20210216_1425"),
+    ("core", "0013_auto_20210218_0729"),
+    ("core", "0014_auto_20210218_0729"),
+    ("core", "0015_auto_20210218_0730"),
+    ("core", "0016_auto_20210218_1204"),
+    ("core", "0017_auto_20210219_0211"),
+    ("core", "0018_auto_20210327_0952"),
+    ("core", "0019_auto_20210401_0654"),
+    ("core", "0020_auto_20210410_1031"),
+    ("core", "0021_auto_20220914_0934"),
+    ("core", "0022_auto_20231023_2008"),
+]
 
-    created_data = {
-        "users": [],
-        "snapshots": [],
-        "tags": [],
-        "archiveresults": [],
-    }
+MIGRATIONS_0_8 = MIGRATIONS_0_7 + [
+    # For 0.8.x (dev branch), record the migrations that 0023_new_schema replaces
+    ("core", "0023_alter_archiveresult_options_archiveresult_abid_and_more"),
+    ("core", "0024_auto_20240513_1143"),
+    ("core", "0025_alter_archiveresult_uuid"),
+    ("core", "0026_archiveresult_created_archiveresult_created_by_and_more"),
+    ("core", "0027_update_snapshot_ids"),
+    ("core", "0028_alter_archiveresult_uuid"),
+    ("core", "0029_alter_archiveresult_id"),
+    ("core", "0030_alter_archiveresult_uuid"),
+    ("core", "0031_alter_archiveresult_id_alter_archiveresult_uuid_and_more"),
+    ("core", "0032_alter_archiveresult_id"),
+    ("core", "0033_rename_id_archiveresult_old_id"),
+    ("core", "0034_alter_archiveresult_old_id_alter_archiveresult_uuid"),
+    ("core", "0035_remove_archiveresult_uuid_archiveresult_id"),
+    ("core", "0036_alter_archiveresult_id_alter_archiveresult_old_id"),
+    ("core", "0037_rename_id_snapshot_old_id"),
+    ("core", "0038_rename_uuid_snapshot_id"),
+    ("core", "0039_rename_snapshot_archiveresult_snapshot_old"),
+    ("core", "0040_archiveresult_snapshot"),
+    ("core", "0041_alter_archiveresult_snapshot_and_more"),
+    ("core", "0042_remove_archiveresult_snapshot_old"),
+    ("core", "0043_alter_archiveresult_snapshot_alter_snapshot_id_and_more"),
+    ("core", "0044_alter_archiveresult_snapshot_alter_tag_uuid_and_more"),
+    ("core", "0045_alter_snapshot_old_id"),
+    ("core", "0046_alter_archiveresult_snapshot_alter_snapshot_id_and_more"),
+    ("core", "0047_alter_snapshottag_unique_together_and_more"),
+    ("core", "0048_alter_archiveresult_snapshot_and_more"),
+    ("core", "0049_rename_snapshot_snapshottag_snapshot_old_and_more"),
+    ("core", "0050_alter_snapshottag_snapshot_old"),
+    ("core", "0051_snapshottag_snapshot_alter_snapshottag_snapshot_old"),
+    ("core", "0052_alter_snapshottag_unique_together_and_more"),
+    ("core", "0053_remove_snapshottag_snapshot_old"),
+    ("core", "0054_alter_snapshot_timestamp"),
+    ("core", "0055_alter_tag_slug"),
+    ("core", "0056_remove_tag_uuid"),
+    ("core", "0057_rename_id_tag_old_id"),
+    ("core", "0058_alter_tag_old_id"),
+    ("core", "0059_tag_id"),
+    ("core", "0060_alter_tag_id"),
+    ("core", "0061_rename_tag_snapshottag_old_tag_and_more"),
+    ("core", "0062_alter_snapshottag_old_tag"),
+    ("core", "0063_snapshottag_tag_alter_snapshottag_old_tag"),
+    ("core", "0064_alter_snapshottag_unique_together_and_more"),
+    ("core", "0065_remove_snapshottag_old_tag"),
+    ("core", "0066_alter_snapshottag_tag_alter_tag_id_alter_tag_old_id"),
+    ("core", "0067_alter_snapshottag_tag"),
+    ("core", "0068_alter_archiveresult_options"),
+    ("core", "0069_alter_archiveresult_created_alter_snapshot_added_and_more"),
+    ("core", "0070_alter_archiveresult_created_by_alter_snapshot_added_and_more"),
+    ("core", "0071_remove_archiveresult_old_id_remove_snapshot_old_id_and_more"),
+    ("core", "0072_rename_added_snapshot_bookmarked_at_and_more"),
+    ("core", "0073_rename_created_archiveresult_created_at_and_more"),
+    ("core", "0074_alter_snapshot_downloaded_at"),
+    # For 0.8.x: DO NOT record 0023_new_schema - it replaces 0023-0074 for fresh installs
+    # We already recorded 0023-0074 above, so Django will know the state
+    # For 0.8.x: Record original machine migrations (before squashing)
+    # DO NOT record 0001_squashed here - it replaces 0001-0004 for fresh installs
+    ("machine", "0001_initial"),
+    ("machine", "0002_alter_machine_stats_installedbinary"),
+    ("machine", "0003_alter_installedbinary_options_and_more"),
+    ("machine", "0004_alter_installedbinary_abspath_and_more"),
+    # Then the new migrations after squashing
+    ("machine", "0003_alter_dependency_id_alter_installedbinary_dependency_and_more"),
+    ("machine", "0004_drop_dependency_table"),
+    # Crawls must come before core.0024 because 0024_b depends on it
+    ("crawls", "0001_initial"),
+    # Core 0024 migrations chain (in dependency order)
+    ("core", "0024_b_clear_config_fields"),
+    ("core", "0024_c_disable_fk_checks"),
+    ("core", "0024_d_fix_crawls_config"),
+    ("core", "0024_snapshot_crawl"),
+    ("core", "0024_f_add_snapshot_config"),
+    ("core", "0025_allow_duplicate_urls_per_crawl"),
+    # For 0.8.x: Record original api migration (before squashing)
+    # DO NOT record 0001_squashed here - it replaces 0001 for fresh installs
+    ("api", "0001_initial"),
+    ("api", "0002_alter_apitoken_options"),
+    ("api", "0003_rename_user_apitoken_created_by_apitoken_abid_and_more"),
+    ("api", "0004_alter_apitoken_id_alter_apitoken_uuid"),
+    ("api", "0005_remove_apitoken_uuid_remove_outboundwebhook_uuid_and_more"),
+    ("api", "0006_remove_outboundwebhook_uuid_apitoken_id_and_more"),
+    ("api", "0007_alter_apitoken_created_by"),
+    ("api", "0008_alter_apitoken_created_alter_apitoken_created_by_and_more"),
+    ("api", "0009_rename_created_apitoken_created_at_and_more"),
+    # Note: crawls.0001_initial moved earlier (before core.0024) due to dependencies
+    # Stop here - 0.8.x ends at core.0025, crawls.0001, and we want to TEST the later migrations
+    # Do NOT record 0026+ as they need to be tested during migration
+]
 
-    # Create a user
-    cursor.execute("""
-        INSERT INTO auth_user (password, is_superuser, username, first_name, last_name,
-                               email, is_staff, is_active, date_joined)
-        VALUES ('pbkdf2_sha256$test', 1, 'admin', 'Admin', 'User',
-                'admin@example.com', 1, 1, datetime('now'))
-    """)
-    user_id = cursor.lastrowid
-    created_data["users"].append({"id": user_id, "username": "admin"})
 
-    # Create 5 tags
-    tag_names = ["news", "tech", "blog", "reference", "code"]
-    for name in tag_names:
-        cursor.execute(
-            """
-            INSERT INTO core_tag (name, slug) VALUES (?, ?)
-        """,
-            (name, name.lower()),
-        )
-        tag_id = cursor.lastrowid
-        created_data["tags"].append({"id": tag_id, "name": name, "slug": name.lower()})
+def insert_legacy_row(conn: sqlite3.Connection, table: str, values: dict):
+    """Insert fixture data with column names beside their values, using real SQLite."""
+    columns = ", ".join(values)
+    placeholders = ", ".join("?" for _ in values)
+    return conn.execute(f"INSERT INTO {table} ({columns}) VALUES ({placeholders})", tuple(values.values())).lastrowid
 
-    # Create 5 snapshots
-    test_urls = [
-        ("https://example.com/page1", "Example Page 1"),
-        ("https://example.org/article", "Article Title"),
-        ("https://github.com/user/repo", "GitHub Repository"),
-        ("https://news.ycombinator.com/item?id=12345", "HN Discussion"),
-        ("https://en.wikipedia.org/wiki/Test", "Wikipedia Test"),
-    ]
 
-    for i, (url, title) in enumerate(test_urls):
-        snapshot_id = generate_uuid()
-        timestamp = f"2024010{i + 1}120000.000000"
-        added = f"2024-01-0{i + 1} 12:00:00"
+def seed_legacy_data(db_path: Path, *, with_crawls: bool) -> dict:
+    """Seed the shared 0.7/0.8 scenarios, with explicit 0.8-only column additions."""
+    from contextlib import closing
 
-        cursor.execute(
-            """
-            INSERT INTO core_snapshot (id, url, timestamp, title, added, updated)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """,
-            (snapshot_id, url, timestamp, title, added, added),
-        )
+    created_data = {name: [] for name in ("users", "snapshots", "tags", "archiveresults")}
+    if with_crawls:
+        created_data.update(seeds=[], crawls=[])
 
-        created_data["snapshots"].append(
+    with closing(sqlite3.connect(db_path)) as conn:
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        user_id = insert_legacy_row(
+            conn,
+            "auth_user",
             {
-                "id": snapshot_id,
-                "url": url,
-                "timestamp": timestamp,
-                "title": title,
+                "password": "pbkdf2_sha256$test",
+                "is_superuser": 1,
+                "username": "admin",
+                "first_name": "Admin",
+                "last_name": "User",
+                "email": "admin@example.com",
+                "is_staff": 1,
+                "is_active": 1,
+                "date_joined": now,
             },
         )
+        created_data["users"].append({"id": user_id, "username": "admin"})
+        ownership = {"created_at": now, "modified_at": now, "created_by_id": user_id} if with_crawls else {}
+        for name in ("news", "tech", "blog", "reference", "code"):
+            tag = {"name": name, "slug": name.lower()}
+            tag_id = insert_legacy_row(conn, "core_tag", {**tag, **ownership})
+            created_data["tags"].append({"id": tag_id, **tag})
 
-        # Assign 2 tags to each snapshot
-        tag_ids = [created_data["tags"][i % 5]["id"], created_data["tags"][(i + 1) % 5]["id"]]
-        for tag_id in tag_ids:
-            cursor.execute(
-                """
-                INSERT INTO core_snapshot_tags (snapshot_id, tag_id) VALUES (?, ?)
-            """,
-                (snapshot_id, tag_id),
-            )
+        if with_crawls:
+            # Real 0.8 Seed/Crawl pairs: Crawl.urls replaced Seed.uri in 0.9.
+            for uri, max_depth in (("https://example.com", 0), ("https://github.com/ArchiveBox", 1)):
+                seed_id, crawl_id = generate_uuid(), generate_uuid()
+                insert_legacy_row(
+                    conn,
+                    "seeds_seed",
+                    {
+                        "id": seed_id,
+                        **ownership,
+                        "uri": uri,
+                        "extractor": "auto",
+                        "tags_str": "",
+                        "config": "{}",
+                        "num_uses_failed": 0,
+                        "num_uses_succeeded": 0,
+                    },
+                )
+                insert_legacy_row(
+                    conn,
+                    "crawls_crawl",
+                    {
+                        "id": crawl_id,
+                        **ownership,
+                        "seed_id": seed_id,
+                        "config": "{}",
+                        "max_depth": max_depth,
+                        "tags_str": "",
+                        "persona": "auto",
+                        "status": "queued",
+                        "retry_at": now,
+                        "num_uses_failed": 0,
+                        "num_uses_succeeded": 0,
+                    },
+                )
+                created_data["seeds"].append({"id": seed_id, "uri": uri})
+                created_data["crawls"].append({"id": crawl_id, "urls": uri, "max_depth": max_depth, "label": "", "status": "queued"})
 
-        # Create 5 archive results for each snapshot
-        extractors = ["title", "favicon", "screenshot", "singlefile", "wget"]
-        statuses = ["succeeded", "succeeded", "failed", "succeeded", "skipped"]
+        test_urls = [
+            ("https://example.com/page1", "Example Page 1"),
+            ("https://example.org/article", "Article Title"),
+            ("https://github.com/user/repo", "GitHub Repository"),
+            ("https://news.ycombinator.com/item?id=12345", "HN Discussion"),
+            ("https://en.wikipedia.org/wiki/Test", "Wikipedia Test"),
+        ]
+        result_states = [
+            ("title", "succeeded"),
+            ("favicon", "succeeded"),
+            ("screenshot", "failed"),
+            ("singlefile", "succeeded"),
+            ("wget", "skipped"),
+        ]
+        for i, (url, title) in enumerate(test_urls):
+            snapshot_id = generate_uuid()
+            timestamp = f"2024010{i + 1}120000.000000"
+            added = f"2024-01-0{i + 1} 12:00:00"
+            snapshot = {"id": snapshot_id, "url": url, "timestamp": timestamp, "title": title}
+            if with_crawls:
+                snapshot["crawl_id"] = created_data["crawls"][i // 2]["id"] if i < 3 else None
+                dates = {
+                    "created_by_id": user_id,
+                    "created_at": added,
+                    "modified_at": added,
+                    "bookmarked_at": added,
+                    "depth": 0,
+                    "status": "queued",
+                    "config": "{}",
+                    "notes": "",
+                }
+            else:
+                dates = {"added": added, "updated": added}
+            insert_legacy_row(conn, "core_snapshot", {**snapshot, **dates})
+            created_data["snapshots"].append(snapshot)
+            for tag in (created_data["tags"][i % 5], created_data["tags"][(i + 1) % 5]):
+                insert_legacy_row(conn, "core_snapshot_tags", {"snapshot_id": snapshot_id, "tag_id": tag["id"]})
 
-        for j, (extractor, status) in enumerate(zip(extractors, statuses)):
-            cursor.execute(
-                """
-                INSERT INTO core_archiveresult
-                (uuid, snapshot_id, extractor, cmd, pwd, cmd_version, output, start_ts, end_ts, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    generate_uuid(),
-                    snapshot_id,
-                    extractor,
-                    json.dumps([extractor, "--version"]),
-                    f"/data/archive/{timestamp}",
-                    "1.0.0",
-                    f"{extractor}/index.html" if status == "succeeded" else "",
-                    f"2024-01-0{i + 1} 12:00:0{j}",
-                    f"2024-01-0{i + 1} 12:00:1{j}",
-                    status,
-                ),
-            )
+            for j, (extractor, status) in enumerate(result_states):
+                result_uuid = generate_uuid()
+                start_ts, end_ts = f"2024-01-0{i + 1} 12:00:0{j}", f"2024-01-0{i + 1} 12:00:1{j}"
+                result = {"snapshot_id": snapshot_id, "extractor": extractor, "status": status}
+                extra = {}
+                if with_crawls:
+                    result["uuid"] = result_uuid
+                    extra = {
+                        "created_by_id": user_id,
+                        "created_at": start_ts,
+                        "modified_at": end_ts,
+                        "retry_at": now,
+                        "notes": "",
+                        "output_dir": extractor,
+                    }
+                insert_legacy_row(
+                    conn,
+                    "core_archiveresult",
+                    {
+                        **result,
+                        **extra,
+                        "uuid": result_uuid,
+                        "cmd": json.dumps([extractor, "--version"]),
+                        "pwd": f"/data/archive/{timestamp}",
+                        "cmd_version": "1.0.0",
+                        "output": f"{extractor}/index.html" if status == "succeeded" else "",
+                        "start_ts": start_ts,
+                        "end_ts": end_ts,
+                    },
+                )
+                created_data["archiveresults"].append(result)
 
-            created_data["archiveresults"].append(
-                {
-                    "snapshot_id": snapshot_id,
-                    "extractor": extractor,
-                    "status": status,
-                },
-            )
-
-    # Record migrations as applied (0.7.x migrations up to 0022)
-    migrations = [
-        ("contenttypes", "0001_initial"),
-        ("contenttypes", "0002_remove_content_type_name"),
-        ("auth", "0001_initial"),
-        ("auth", "0002_alter_permission_name_max_length"),
-        ("auth", "0003_alter_user_email_max_length"),
-        ("auth", "0004_alter_user_username_opts"),
-        ("auth", "0005_alter_user_last_login_null"),
-        ("auth", "0006_require_contenttypes_0002"),
-        ("auth", "0007_alter_validators_add_error_messages"),
-        ("auth", "0008_alter_user_username_max_length"),
-        ("auth", "0009_alter_user_last_name_max_length"),
-        ("auth", "0010_alter_group_name_max_length"),
-        ("auth", "0011_update_proxy_permissions"),
-        ("auth", "0012_alter_user_first_name_max_length"),
-        ("admin", "0001_initial"),
-        ("admin", "0002_logentry_remove_auto_add"),
-        ("admin", "0003_logentry_add_action_flag_choices"),
-        ("sessions", "0001_initial"),
-        ("core", "0001_initial"),
-        ("core", "0002_auto_20200625_1521"),
-        ("core", "0003_auto_20200630_1034"),
-        ("core", "0004_auto_20200713_1552"),
-        ("core", "0005_auto_20200728_0326"),
-        ("core", "0006_auto_20201012_1520"),
-        ("core", "0007_archiveresult"),
-        ("core", "0008_auto_20210105_1421"),
-        ("core", "0009_auto_20210216_1038"),
-        ("core", "0010_auto_20210216_1055"),
-        ("core", "0011_auto_20210216_1331"),
-        ("core", "0012_auto_20210216_1425"),
-        ("core", "0013_auto_20210218_0729"),
-        ("core", "0014_auto_20210218_0729"),
-        ("core", "0015_auto_20210218_0730"),
-        ("core", "0016_auto_20210218_1204"),
-        ("core", "0017_auto_20210219_0211"),
-        ("core", "0018_auto_20210327_0952"),
-        ("core", "0019_auto_20210401_0654"),
-        ("core", "0020_auto_20210410_1031"),
-        ("core", "0021_auto_20220914_0934"),
-        ("core", "0022_auto_20231023_2008"),
-    ]
-
-    for app, name in migrations:
-        cursor.execute(
-            """
-            INSERT INTO django_migrations (app, name, applied)
-            VALUES (?, ?, datetime('now'))
-        """,
-            (app, name),
+        conn.executemany(
+            "INSERT INTO django_migrations (app, name, applied) VALUES (?, ?, datetime('now'))",
+            MIGRATIONS_0_8 if with_crawls else MIGRATIONS_0_7,
         )
-
-    created_data["preserved_rows"] = seed_security_metadata(conn, include_api=False)
-
-    conn.commit()
-    conn.close()
-
+        created_data["preserved_rows"] = seed_security_metadata(conn, include_api=with_crawls)
+        conn.commit()
     return created_data
 
 
-def seed_0_8_data(db_path: Path) -> dict[str, list[dict]]:
-    """Seed a 0.8.x database with realistic test data including Crawls."""
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
+def seed_0_7_data(db_path: Path) -> dict:
+    return seed_legacy_data(db_path, with_crawls=False)
 
-    created_data = {
-        "users": [],
-        "seeds": [],
-        "crawls": [],
-        "snapshots": [],
-        "tags": [],
-        "archiveresults": [],
-    }
 
-    # Create a user
-    cursor.execute("""
-        INSERT INTO auth_user (password, is_superuser, username, first_name, last_name,
-                               email, is_staff, is_active, date_joined)
-        VALUES ('pbkdf2_sha256$test', 1, 'admin', 'Admin', 'User',
-                'admin@example.com', 1, 1, datetime('now'))
-    """)
-    user_id = cursor.lastrowid
-    created_data["users"].append({"id": user_id, "username": "admin"})
-
-    # Create 5 tags
-    tag_names = ["news", "tech", "blog", "reference", "code"]
-    for name in tag_names:
-        cursor.execute(
-            """
-            INSERT INTO core_tag (name, slug, created_at, modified_at, created_by_id)
-            VALUES (?, ?, datetime('now'), datetime('now'), ?)
-        """,
-            (name, name.lower(), user_id),
-        )
-        tag_id = cursor.lastrowid
-        created_data["tags"].append({"id": tag_id, "name": name, "slug": name.lower()})
-
-    # Create two real 0.8.x Seed/Crawl pairs. Crawl.urls replaced Seed.uri in 0.9.
-    test_crawls = [
-        ("https://example.com", 0),
-        ("https://github.com/ArchiveBox", 1),
-    ]
-
-    for uri, max_depth in test_crawls:
-        seed_id = generate_uuid()
-        cursor.execute(
-            """
-            INSERT INTO seeds_seed (
-                id, created_at, created_by_id, modified_at, uri, extractor,
-                tags_str, config, num_uses_failed, num_uses_succeeded
-            )
-            VALUES (?, datetime('now'), ?, datetime('now'), ?, 'auto', '', '{}', 0, 0)
-            """,
-            (seed_id, user_id, uri),
-        )
-        created_data["seeds"].append({"id": seed_id, "uri": uri})
-
-        crawl_id = generate_uuid()
-        cursor.execute(
-            """
-            INSERT INTO crawls_crawl (id, created_at, created_by_id, modified_at, seed_id,
-                                      config, max_depth, tags_str, persona, status, retry_at,
-                                      num_uses_failed, num_uses_succeeded)
-            VALUES (?, datetime('now'), ?, datetime('now'), ?, '{}', ?, '', 'auto', 'queued', datetime('now'), 0, 0)
-        """,
-            (crawl_id, user_id, seed_id, max_depth),
-        )
-
-        created_data["crawls"].append(
-            {
-                "id": crawl_id,
-                "urls": uri,
-                "max_depth": max_depth,
-                "label": "",
-                "status": "queued",
-            },
-        )
-
-    # Create 5 snapshots linked to crawls
-    test_urls = [
-        ("https://example.com/page1", "Example Page 1", created_data["crawls"][0]["id"]),
-        ("https://example.org/article", "Article Title", created_data["crawls"][0]["id"]),
-        ("https://github.com/user/repo", "GitHub Repository", created_data["crawls"][1]["id"]),
-        ("https://news.ycombinator.com/item?id=12345", "HN Discussion", None),
-        ("https://en.wikipedia.org/wiki/Test", "Wikipedia Test", None),
-    ]
-
-    for i, (url, title, crawl_id) in enumerate(test_urls):
-        snapshot_id = generate_uuid()
-        timestamp = f"2024010{i + 1}120000.000000"
-        created_at = f"2024-01-0{i + 1} 12:00:00"
-
-        cursor.execute(
-            """
-            INSERT INTO core_snapshot (id, created_by_id, created_at, modified_at, url, timestamp,
-                                       bookmarked_at, crawl_id, title, depth, status, config, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'queued', '{}', '')
-        """,
-            (snapshot_id, user_id, created_at, created_at, url, timestamp, created_at, crawl_id, title),
-        )
-
-        created_data["snapshots"].append(
-            {
-                "id": snapshot_id,
-                "url": url,
-                "timestamp": timestamp,
-                "title": title,
-                "crawl_id": crawl_id,
-            },
-        )
-
-        # Assign 2 tags to each snapshot
-        tag_ids = [created_data["tags"][i % 5]["id"], created_data["tags"][(i + 1) % 5]["id"]]
-        for tag_id in tag_ids:
-            cursor.execute(
-                """
-                INSERT INTO core_snapshot_tags (snapshot_id, tag_id) VALUES (?, ?)
-            """,
-                (snapshot_id, tag_id),
-            )
-
-        # Create 5 archive results for each snapshot
-        extractors = ["title", "favicon", "screenshot", "singlefile", "wget"]
-        statuses = ["succeeded", "succeeded", "failed", "succeeded", "skipped"]
-
-        for j, (extractor, status) in enumerate(zip(extractors, statuses)):
-            result_uuid = generate_uuid()
-            cursor.execute(
-                """
-                INSERT INTO core_archiveresult
-                (uuid, created_by_id, created_at, modified_at, snapshot_id, extractor, pwd,
-                 cmd, cmd_version, output, start_ts, end_ts, status, retry_at, notes, output_dir)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), '', ?)
-            """,
-                (
-                    result_uuid,
-                    user_id,
-                    f"2024-01-0{i + 1} 12:00:0{j}",
-                    f"2024-01-0{i + 1} 12:00:1{j}",
-                    snapshot_id,
-                    extractor,
-                    f"/data/archive/{timestamp}",
-                    json.dumps([extractor, "--version"]),
-                    "1.0.0",
-                    f"{extractor}/index.html" if status == "succeeded" else "",
-                    f"2024-01-0{i + 1} 12:00:0{j}",
-                    f"2024-01-0{i + 1} 12:00:1{j}",
-                    status,
-                    f"{extractor}",
-                ),
-            )
-
-            created_data["archiveresults"].append(
-                {
-                    "uuid": result_uuid,
-                    "snapshot_id": snapshot_id,
-                    "extractor": extractor,
-                    "status": status,
-                },
-            )
-
-    # Record migrations as applied (0.8.x migrations)
-    migrations = [
-        ("contenttypes", "0001_initial"),
-        ("contenttypes", "0002_remove_content_type_name"),
-        ("auth", "0001_initial"),
-        ("auth", "0002_alter_permission_name_max_length"),
-        ("auth", "0003_alter_user_email_max_length"),
-        ("auth", "0004_alter_user_username_opts"),
-        ("auth", "0005_alter_user_last_login_null"),
-        ("auth", "0006_require_contenttypes_0002"),
-        ("auth", "0007_alter_validators_add_error_messages"),
-        ("auth", "0008_alter_user_username_max_length"),
-        ("auth", "0009_alter_user_last_name_max_length"),
-        ("auth", "0010_alter_group_name_max_length"),
-        ("auth", "0011_update_proxy_permissions"),
-        ("auth", "0012_alter_user_first_name_max_length"),
-        ("admin", "0001_initial"),
-        ("admin", "0002_logentry_remove_auto_add"),
-        ("admin", "0003_logentry_add_action_flag_choices"),
-        ("sessions", "0001_initial"),
-        ("core", "0001_initial"),
-        ("core", "0002_auto_20200625_1521"),
-        ("core", "0003_auto_20200630_1034"),
-        ("core", "0004_auto_20200713_1552"),
-        ("core", "0005_auto_20200728_0326"),
-        ("core", "0006_auto_20201012_1520"),
-        ("core", "0007_archiveresult"),
-        ("core", "0008_auto_20210105_1421"),
-        ("core", "0009_auto_20210216_1038"),
-        ("core", "0010_auto_20210216_1055"),
-        ("core", "0011_auto_20210216_1331"),
-        ("core", "0012_auto_20210216_1425"),
-        ("core", "0013_auto_20210218_0729"),
-        ("core", "0014_auto_20210218_0729"),
-        ("core", "0015_auto_20210218_0730"),
-        ("core", "0016_auto_20210218_1204"),
-        ("core", "0017_auto_20210219_0211"),
-        ("core", "0018_auto_20210327_0952"),
-        ("core", "0019_auto_20210401_0654"),
-        ("core", "0020_auto_20210410_1031"),
-        ("core", "0021_auto_20220914_0934"),
-        ("core", "0022_auto_20231023_2008"),
-        # For 0.8.x (dev branch), record the migrations that 0023_new_schema replaces
-        ("core", "0023_alter_archiveresult_options_archiveresult_abid_and_more"),
-        ("core", "0024_auto_20240513_1143"),
-        ("core", "0025_alter_archiveresult_uuid"),
-        ("core", "0026_archiveresult_created_archiveresult_created_by_and_more"),
-        ("core", "0027_update_snapshot_ids"),
-        ("core", "0028_alter_archiveresult_uuid"),
-        ("core", "0029_alter_archiveresult_id"),
-        ("core", "0030_alter_archiveresult_uuid"),
-        ("core", "0031_alter_archiveresult_id_alter_archiveresult_uuid_and_more"),
-        ("core", "0032_alter_archiveresult_id"),
-        ("core", "0033_rename_id_archiveresult_old_id"),
-        ("core", "0034_alter_archiveresult_old_id_alter_archiveresult_uuid"),
-        ("core", "0035_remove_archiveresult_uuid_archiveresult_id"),
-        ("core", "0036_alter_archiveresult_id_alter_archiveresult_old_id"),
-        ("core", "0037_rename_id_snapshot_old_id"),
-        ("core", "0038_rename_uuid_snapshot_id"),
-        ("core", "0039_rename_snapshot_archiveresult_snapshot_old"),
-        ("core", "0040_archiveresult_snapshot"),
-        ("core", "0041_alter_archiveresult_snapshot_and_more"),
-        ("core", "0042_remove_archiveresult_snapshot_old"),
-        ("core", "0043_alter_archiveresult_snapshot_alter_snapshot_id_and_more"),
-        ("core", "0044_alter_archiveresult_snapshot_alter_tag_uuid_and_more"),
-        ("core", "0045_alter_snapshot_old_id"),
-        ("core", "0046_alter_archiveresult_snapshot_alter_snapshot_id_and_more"),
-        ("core", "0047_alter_snapshottag_unique_together_and_more"),
-        ("core", "0048_alter_archiveresult_snapshot_and_more"),
-        ("core", "0049_rename_snapshot_snapshottag_snapshot_old_and_more"),
-        ("core", "0050_alter_snapshottag_snapshot_old"),
-        ("core", "0051_snapshottag_snapshot_alter_snapshottag_snapshot_old"),
-        ("core", "0052_alter_snapshottag_unique_together_and_more"),
-        ("core", "0053_remove_snapshottag_snapshot_old"),
-        ("core", "0054_alter_snapshot_timestamp"),
-        ("core", "0055_alter_tag_slug"),
-        ("core", "0056_remove_tag_uuid"),
-        ("core", "0057_rename_id_tag_old_id"),
-        ("core", "0058_alter_tag_old_id"),
-        ("core", "0059_tag_id"),
-        ("core", "0060_alter_tag_id"),
-        ("core", "0061_rename_tag_snapshottag_old_tag_and_more"),
-        ("core", "0062_alter_snapshottag_old_tag"),
-        ("core", "0063_snapshottag_tag_alter_snapshottag_old_tag"),
-        ("core", "0064_alter_snapshottag_unique_together_and_more"),
-        ("core", "0065_remove_snapshottag_old_tag"),
-        ("core", "0066_alter_snapshottag_tag_alter_tag_id_alter_tag_old_id"),
-        ("core", "0067_alter_snapshottag_tag"),
-        ("core", "0068_alter_archiveresult_options"),
-        ("core", "0069_alter_archiveresult_created_alter_snapshot_added_and_more"),
-        ("core", "0070_alter_archiveresult_created_by_alter_snapshot_added_and_more"),
-        ("core", "0071_remove_archiveresult_old_id_remove_snapshot_old_id_and_more"),
-        ("core", "0072_rename_added_snapshot_bookmarked_at_and_more"),
-        ("core", "0073_rename_created_archiveresult_created_at_and_more"),
-        ("core", "0074_alter_snapshot_downloaded_at"),
-        # For 0.8.x: DO NOT record 0023_new_schema - it replaces 0023-0074 for fresh installs
-        # We already recorded 0023-0074 above, so Django will know the state
-        # For 0.8.x: Record original machine migrations (before squashing)
-        # DO NOT record 0001_squashed here - it replaces 0001-0004 for fresh installs
-        ("machine", "0001_initial"),
-        ("machine", "0002_alter_machine_stats_installedbinary"),
-        ("machine", "0003_alter_installedbinary_options_and_more"),
-        ("machine", "0004_alter_installedbinary_abspath_and_more"),
-        # Then the new migrations after squashing
-        ("machine", "0003_alter_dependency_id_alter_installedbinary_dependency_and_more"),
-        ("machine", "0004_drop_dependency_table"),
-        # Crawls must come before core.0024 because 0024_b depends on it
-        ("crawls", "0001_initial"),
-        # Core 0024 migrations chain (in dependency order)
-        ("core", "0024_b_clear_config_fields"),
-        ("core", "0024_c_disable_fk_checks"),
-        ("core", "0024_d_fix_crawls_config"),
-        ("core", "0024_snapshot_crawl"),
-        ("core", "0024_f_add_snapshot_config"),
-        ("core", "0025_allow_duplicate_urls_per_crawl"),
-        # For 0.8.x: Record original api migration (before squashing)
-        # DO NOT record 0001_squashed here - it replaces 0001 for fresh installs
-        ("api", "0001_initial"),
-        ("api", "0002_alter_apitoken_options"),
-        ("api", "0003_rename_user_apitoken_created_by_apitoken_abid_and_more"),
-        ("api", "0004_alter_apitoken_id_alter_apitoken_uuid"),
-        ("api", "0005_remove_apitoken_uuid_remove_outboundwebhook_uuid_and_more"),
-        ("api", "0006_remove_outboundwebhook_uuid_apitoken_id_and_more"),
-        ("api", "0007_alter_apitoken_created_by"),
-        ("api", "0008_alter_apitoken_created_alter_apitoken_created_by_and_more"),
-        ("api", "0009_rename_created_apitoken_created_at_and_more"),
-        # Note: crawls.0001_initial moved earlier (before core.0024) due to dependencies
-        # Stop here - 0.8.x ends at core.0025, crawls.0001, and we want to TEST the later migrations
-        # Do NOT record 0026+ as they need to be tested during migration
-    ]
-
-    for app, name in migrations:
-        cursor.execute(
-            """
-            INSERT INTO django_migrations (app, name, applied)
-            VALUES (?, ?, datetime('now'))
-        """,
-            (app, name),
-        )
-
-    created_data["preserved_rows"] = seed_security_metadata(conn, include_api=True)
-
-    conn.commit()
-    conn.close()
-
-    return created_data
+def seed_0_8_data(db_path: Path) -> dict:
+    return seed_legacy_data(db_path, with_crawls=True)
 
 
 # =============================================================================
