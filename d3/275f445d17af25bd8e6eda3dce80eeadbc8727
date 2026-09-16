@@ -1,0 +1,28 @@
+archivebox/tests/test_search.py
+  s_4f8227e1fbd31e::t_f00aa6856a564d 942,975-979,981,983-985
+  s_4f8227e1fbd31e::t_4dd083defc3037 980,982
+archivebox/tests/test_permissions.py
+  s_4f8227e1fbd31e::t_002c15cda15ff1 210-211
+bin/validate_docker_uid_gid.sh
+  s_4f8227e1fbd31e::t_683c439b667188 617-620
+docs/Troubleshooting.md
+  s_4f8227e1fbd31e::t_e6f721439bd399 139
+archivebox/search/query.py
+  s_4f8227e1fbd31e::t_aed5668430fd8f 308-309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d3275f445d17af25bd8e6eda3dce80eeadbc8727",
+  "prompts": {},
+  "sessions": {
+    "s_4f8227e1fbd31e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a73e-7c2b-7091-9bcd-6b2b4713dd90",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
