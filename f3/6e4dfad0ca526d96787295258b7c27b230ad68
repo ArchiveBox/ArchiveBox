@@ -1,0 +1,45 @@
+archivebox/core/admin_snapshots.py
+  s_4f8227e1fbd31e::t_8ac3b649dd0b4b 4-5,19,235-236,240,304,527,548-568,577
+archivebox/crawls/admin.py
+  s_4f8227e1fbd31e::t_9d3560f9ff67ea 6,12,17,25,535-538,601-605,610,662-670,678
+archivebox/crawls/forms.py
+  s_044c52c0270663::t_fa4fe997cabaf8 1-242
+archivebox/search/admin.py
+  s_044c52c0270663::t_0d0237b7848db9 26,72,87
+archivebox/templates/admin/core/snapshot/embedded_changelist.html
+  s_044c52c0270663::t_861d0a702e6c43 5
+archivebox/templates/admin/crawls/crawlschedule/change_form.html
+  s_044c52c0270663::t_55776575ab16b6 1-8
+archivebox/templates/admin/layout.js
+  s_4f8227e1fbd31e::t_bc36359ca5c5cf 457
+archivebox/templates/admin/search_form.html
+  s_4f8227e1fbd31e::t_076a80e6eec040 55-62,68-69
+archivebox/tests/test_schedule_table_browser.py
+  s_044c52c0270663::t_d10648ddbbd68d 1-112
+archivebox/tests/test_ui_admin_crawl.py
+  s_4f8227e1fbd31e::t_e29df3bcb37514 9,461-486
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f36e4dfad0ca526d96787295258b7c27b230ad68",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_4f8227e1fbd31e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0a73e-7c2b-7091-9bcd-6b2b4713dd90",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
