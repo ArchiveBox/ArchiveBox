@@ -132,6 +132,25 @@ def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive
     renamed_command = shlex.join([str(renamed_binary), *shlex.split(command)[1:]])
     assert _sonic_worker_bind_target({"name": "worker_sonic", "command": renamed_command}) == ("127.0.0.1", sonic_port)
 
+    relative_binary = pinned_sonic_dir / "sonic-alt"
+    shutil.copy2(sonic_binary, relative_binary)
+    relative_env = {
+        **env,
+        "SONIC_BINARY": relative_binary.name,
+        "PATH": os.pathsep.join((str(pinned_sonic_dir), env["PATH"])),
+        "SEARCH_BACKEND_SONIC_PORT": str(get_free_port()),
+    }
+    relative_result = run_archivebox_cmd(
+        ["list", "--search=contents", "--csv=url", "not-indexed"],
+        cwd=initialized_archive,
+        env=relative_env,
+        timeout=60,
+    )
+    assert relative_result.returncode == 0, relative_result.stderr or relative_result.stdout
+    relative_worker_text = worker_config.read_text(encoding="utf-8")
+    relative_command = next(line.partition("=")[2] for line in relative_worker_text.splitlines() if line.startswith("command="))
+    assert Path(shlex.split(relative_command)[0]).name == relative_binary.name, relative_worker_text
+
 
 def _archive_pages_for_sqlite_reindexing(data_dir: Path, env: dict[str, str], root_url: str) -> None:
     add_env = dict(env)
