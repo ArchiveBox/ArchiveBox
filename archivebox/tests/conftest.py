@@ -1907,3 +1907,16 @@ def create_test_snapshot_json(url: str | None = None, **kwargs) -> dict[str, Any
         "status": kwargs.get("status", "queued"),
         **{k: v for k, v in kwargs.items() if k not in ("tags_str", "status")},
     }
+
+
+def install_real_chrome(data_dir, env, *, isolation):
+    env["CHROME_ISOLATION"] = isolation
+    env["CHROME_HEADLESS"] = "true"
+    env["CHROME_SANDBOX"] = "false"
+    install_process = run_archivebox_cmd(
+        ["install", "chrome"],
+        cwd=data_dir,
+        env=env,
+        timeout=600,
+    )
+    assert install_process.returncode == 0, install_process.stderr or install_process.stdout
