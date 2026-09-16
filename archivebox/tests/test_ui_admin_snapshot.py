@@ -394,6 +394,20 @@ class TestSnapshotProgressStats:
         assert stats["output_size"] == sum(result.output_size for result in [*succeeded_results, failed_result, started_result])
         assert stats["percent"] == 75  # (2 succeeded + 1 failed) / 4 total
 
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.STARTED
+        snapshot._icons_compact = True
+        snapshot._icons_progress_stats = stats
+        icons = str(snapshot.icons())
+        admin = SnapshotAdmin(Snapshot, archivebox_admin)
+        snapshot._admin_progress_stats = stats
+        status = str(admin.status_with_progress(snapshot))
+        for html in (icons, status):
+            assert "3/4 hooks" in html
+            assert 'title="3 of 4 hooks complete"' in html
+            assert "width: 75%;" in html
+            assert "✓2 ✗1 ⏳1" in html
+
     def test_snapshot_admin_progress_uses_expected_hook_total_not_observed_result_count(
         self,
         snapshot,

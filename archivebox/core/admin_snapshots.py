@@ -29,7 +29,7 @@ from archivebox.core.routes_util import build_snapshot_url, build_web_url
 from archivebox.plugins.hooks import discover_hooks
 from archivebox.plugins.discovery import get_plugin_icon, get_plugin_name, get_plugins
 
-from archivebox.core.widgets import render_permissions_badge
+from archivebox.core.widgets import render_permissions_badge, render_snapshot_progress
 from archivebox.base_models.admin import card_fieldset, BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
@@ -1128,36 +1128,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         # For started snapshots, show progress bar
         if obj.status == "started" and stats["total"] > 0:
-            percent = stats["percent"]
-            running = stats["running"]
-            succeeded = stats["succeeded"]
-            failed = stats["failed"]
-
-            return format_html(
-                """<div style="min-width: 90px;">
-                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span class="snapshot-progress-spinner"></span>
-                        <span style="font-size: 11px; color: #64748b;">{}/{} hooks</span>
-                    </div>
-                    <div style="background: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden;">
-                        <div style="background: linear-gradient(90deg, #10b981 0%, #10b981 {}%, #ef4444 {}%, #ef4444 {}%, #3b82f6 {}%, #3b82f6 100%);
-                                    width: {}%; height: 100%; transition: width 0.3s;"></div>
-                    </div>
-                    <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
-                        ✓{} ✗{} ⏳{}
-                    </div>
-                </div>""",
-                succeeded + failed + stats["skipped"],
-                stats["total"],
-                int(succeeded / stats["total"] * 100) if stats["total"] else 0,
-                int(succeeded / stats["total"] * 100) if stats["total"] else 0,
-                int((succeeded + failed) / stats["total"] * 100) if stats["total"] else 0,
-                int((succeeded + failed) / stats["total"] * 100) if stats["total"] else 0,
-                percent,
-                succeeded,
-                failed,
-                running,
-            )
+            return render_snapshot_progress(stats)
 
         # For other statuses, show simple badge
         return format_html(

@@ -1727,62 +1727,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         def calc_icons():
             if compact_icons and self.status == self.StatusChoices.STARTED:
-                progress_stats = self.__dict__.get("_icons_progress_stats") or self.get_progress_stats()
-                total = int(progress_stats.get("total") or 0)
-                succeeded = int(progress_stats.get("succeeded") or 0)
-                failed = int(progress_stats.get("failed") or 0)
-                skipped = int(progress_stats.get("skipped") or 0)
-                noresults = int(progress_stats.get("noresults") or 0)
-                running = int(progress_stats.get("running") or 0)
-                completed = succeeded + failed + skipped + noresults
-                percent = int((completed / total * 100) if total > 0 else 0)
-                successful_plugins = sorted(self.__dict__.get("_icons_archive_results") or ())
-                visible_plugins = successful_plugins[:8]
-                plugin_icon_spans = []
-                for plugin in visible_plugins:
-                    icon = get_plugin_icon(plugin)
-                    if str(icon).strip():
-                        plugin_icon_spans.append(str(format_html('<span title="{}">{}</span>', plugin, mark_safe(icon))))
-                successful_icons = format_html(
-                    '<div class="snapshot-successful-plugin-icons" style="display:flex; flex-wrap:wrap; gap:2px; margin-top:4px;">{}</div>',
-                    mark_safe(
-                        "".join(plugin_icon_spans)
-                        + (
-                            str(
-                                format_html(
-                                    '<span title="{} more successful plugins">+{}</span>',
-                                    len(successful_plugins) - 8,
-                                    len(successful_plugins) - 8,
-                                ),
-                            )
-                            if len(successful_plugins) > 8
-                            else ""
-                        ),
-                    ),
-                )
-                return format_html(
-                    '<div class="snapshot-files-progress" title="{} of {} hooks complete" style="min-width: 96px;">'
-                    '<div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">'
-                    '<span class="snapshot-progress-spinner" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: snapshot-spin 0.8s linear infinite;"></span>'
-                    '<span style="font-size: 11px; color: #64748b;">{}/{} hooks</span>'
-                    "</div>"
-                    '<div style="background: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden;">'
-                    '<div style="background: #3b82f6; width: {}%; height: 100%; transition: width 0.3s;"></div>'
-                    "</div>"
-                    '<div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">'
-                    "✓{} ✗{} ⏳{}"
-                    "</div>"
-                    "{}"
-                    "</div>",
-                    completed,
-                    total,
-                    completed,
-                    total,
-                    percent,
-                    succeeded,
-                    failed,
-                    running,
-                    successful_icons,
+                from archivebox.core.widgets import render_snapshot_progress
+
+                return render_snapshot_progress(
+                    self.__dict__.get("_icons_progress_stats") or self.get_progress_stats(),
+                    successful_plugins=self.__dict__.get("_icons_archive_results") or (),
                 )
 
             precomputed_archive_results = self.__dict__.get("_icons_archive_results")
@@ -2586,13 +2535,20 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         text_exts = (".json", ".jsonl", ".txt", ".csv", ".tsv", ".xml", ".yml", ".yaml", ".md", ".log")
 
-        def is_metadata_path(path: str | None) -> bool:
-            lower = (path or "").lower()
-            return lower.endswith(text_exts)
-
-        def is_compact_path(path: str | None) -> bool:
-            lower = (path or "").lower()
-            return lower.endswith(text_exts)
+        def append_output(name, path, ts, size, result=None):
+            is_metadata = path.lower().endswith(text_exts)
+            outputs.append(
+                {
+                    "name": name,
+                    "path": path,
+                    "ts": ts,
+                    "size": size,
+                    "is_metadata": is_metadata,
+                    "is_compact": is_metadata,
+                    "result": result,
+                },
+            )
+            seen.add(name)
 
         hashes_index = self.hashes_index if include_filesystem_fallback else {}
         results = archive_results if archive_results is not None else self.archiveresult_set.all().order_by("start_ts")
@@ -2627,18 +2583,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                                 size = sum(p.stat().st_size for p in plugin_dir.rglob("*") if p.is_file())
                             except OSError:
                                 pass
-            outputs.append(
-                {
-                    "name": result.plugin,
-                    "path": embed_path,
-                    "ts": ts_to_date_str(result.end_ts),
-                    "size": size or 0,
-                    "is_metadata": is_metadata_path(embed_path),
-                    "is_compact": is_compact_path(embed_path),
-                    "result": result,
-                },
-            )
-            seen.add(result.plugin)
+            append_output(result.plugin, embed_path, ts_to_date_str(result.end_ts), size or 0, result)
 
         if hashes_index:
             grouped_hash_outputs: dict[str, dict[str, dict[str, Any]]] = {}
@@ -2659,18 +2604,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 if not fallback_path or not (snap_dir / root / fallback_path).exists():
                     continue
                 fallback_meta = root_entries.get(fallback_path, {})
-                outputs.append(
-                    {
-                        "name": root,
-                        "path": f"{root}/{fallback_path}",
-                        "ts": fallback_ts,
-                        "size": int(fallback_meta.get("size") or 0),
-                        "is_metadata": is_metadata_path(fallback_path),
-                        "is_compact": is_compact_path(fallback_path),
-                        "result": None,
-                    },
-                )
-                seen.add(root)
+                append_output(root, f"{root}/{fallback_path}", fallback_ts, int(fallback_meta.get("size") or 0), None)
 
         if not include_filesystem_fallback or hashes_index:
             return outputs
@@ -2711,43 +2645,23 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 plugin = entry.name
                 if plugin in seen:
                     continue
-                best_file = ArchiveResult._find_best_output_file(entry, plugin)
-                if not best_file:
+                output_file = ArchiveResult._find_best_output_file(entry, plugin)
+                if not output_file:
                     continue
-                best_file_stat = best_file.stat()
-                rel_path = str(best_file.relative_to(snap_dir))
-                outputs.append(
-                    {
-                        "name": plugin,
-                        "path": rel_path,
-                        "ts": ts_to_date_str(best_file_stat.st_mtime or 0),
-                        "size": best_file_stat.st_size or 0,
-                        "is_metadata": is_metadata_path(rel_path),
-                        "is_compact": is_compact_path(rel_path),
-                        "result": None,
-                    },
-                )
-                seen.add(plugin)
-            elif entry.is_file():
-                ext = entry.suffix.lstrip(".").lower()
-                if ext not in embeddable_exts:
-                    continue
+            elif entry.is_file() and entry.suffix.lstrip(".").lower() in embeddable_exts:
                 plugin = entry.stem
                 if plugin in seen:
                     continue
-                entry_stat = entry.stat()
-                outputs.append(
-                    {
-                        "name": plugin,
-                        "path": entry.name,
-                        "ts": ts_to_date_str(entry_stat.st_mtime or 0),
-                        "size": entry_stat.st_size or 0,
-                        "is_metadata": is_metadata_path(entry.name),
-                        "is_compact": is_compact_path(entry.name),
-                        "result": None,
-                    },
-                )
-                seen.add(plugin)
+                output_file = entry
+            else:
+                continue
+            output_stat = output_file.stat()
+            append_output(
+                plugin,
+                str(output_file.relative_to(snap_dir)),
+                ts_to_date_str(output_stat.st_mtime or 0),
+                output_stat.st_size or 0,
+            )
 
         return outputs
 

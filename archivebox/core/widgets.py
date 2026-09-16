@@ -484,3 +484,26 @@ def render_permissions_badge(permissions, *, url: str, object_name: str):
             "choices": [(value, *PERMISSIONS_META[value]) for value, _label in PERMISSIONS_CHOICES],
         },
     )
+
+
+def render_snapshot_progress(stats: dict, *, successful_plugins=None):
+    """Render the same hook counts and progress bar on snapshot cards and rows."""
+    from archivebox.plugins.discovery import get_plugin_icon
+
+    counts = {name: int(stats.get(name) or 0) for name in ("total", "succeeded", "failed", "skipped", "noresults", "running")}
+    total = counts["total"]
+    completed = sum(counts[name] for name in ("succeeded", "failed", "skipped", "noresults"))
+    plugins = sorted(successful_plugins or ())
+    return render_to_string(
+        "admin/widgets/snapshot_progress.html",
+        {
+            **counts,
+            "completed": completed,
+            "percent": int(completed / total * 100) if total else 0,
+            "succeeded_percent": int(counts["succeeded"] / total * 100) if total else 0,
+            "failed_percent": int((counts["succeeded"] + counts["failed"]) / total * 100) if total else 0,
+            "show_plugins": successful_plugins is not None,
+            "plugins": [(name, mark_safe(icon)) for name in plugins[:8] if str(icon := get_plugin_icon(name)).strip()],
+            "remaining_plugins": max(len(plugins) - 8, 0),
+        },
+    )
