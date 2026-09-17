@@ -1,0 +1,29 @@
+archivebox/tests/test_cli_machine.py
+  s_ffefb637465167::t_61960d96f69955 16-17,20,27
+archivebox/machine/models.py
+  s_ffefb637465167::t_61960d96f69955 230-231,248-252,308-309
+Dockerfile
+  s_ffefb637465167::t_fdc39f2775257c 13,16
+etc/package.json
+  s_ffefb637465167::t_b3ad1b7d8e4a1b 3
+pyproject.toml
+  s_ffefb637465167::t_57b16367e4221b 3,82-83,345
+uv.lock
+  s_ffefb637465167::t_580e37d7c2203e 16,20,27,41,43,48,57,59,130,229-230
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f1bdd622f0dca64c65b9ff5feb75328091157d1d",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
