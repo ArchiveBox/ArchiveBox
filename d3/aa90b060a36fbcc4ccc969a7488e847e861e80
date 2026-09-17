@@ -1,0 +1,14 @@
+bin/collect_ui_screenshots.sh
+  h_923c208e183a7b 208,526
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d3aa90b060a36fbcc4ccc969a7488e847e861e80",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
