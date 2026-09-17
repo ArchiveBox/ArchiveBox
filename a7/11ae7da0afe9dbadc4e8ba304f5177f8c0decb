@@ -1,0 +1,20 @@
+archivebox/core/views.py
+  h_923c208e183a7b 768-772,786
+archivebox/templates/core/snapshot.html
+  h_923c208e183a7b 1893,1898,2085-2088
+archivebox/tests/test_urls.py
+  h_923c208e183a7b 1434,1478-1485,1518-1569
+docs/Configuration.md
+  h_923c208e183a7b 414-415
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a711ae7da0afe9dbadc4e8ba304f5177f8c0decb",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
