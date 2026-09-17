@@ -1431,7 +1431,7 @@ class TestUrlRouting:
             [
                 "add",
                 "--depth=0",
-                "--plugins=consolelog,screenshot,chrome_mhtml",
+                "--plugins=consolelog,screenshot,pdf,chrome_mhtml",
                 console_source_url,
             ],
             cwd=self.data_dir,
@@ -1475,6 +1475,14 @@ class TestUrlRouting:
             resp = client.get(f"/{screenshot_rel}?preview=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert resp["Content-Type"].startswith("text/html")
+            assert f"frame-ancestors 'self' http://{web_host}" in resp["Content-Security-Policy"]
+
+            resp = client.get("/pdf/output.pdf?preview=1", HTTP_HOST=snapshot_host)
+            assert resp.status_code == 200
+            pdf_preview = response_body(resp).decode("utf-8")
+            assert '<iframe ' in pdf_preview
+            assert '<embed ' not in pdf_preview
+            assert "object-src 'none'" in resp["Content-Security-Policy"]
 
             root_screenshot = screenshot_file.read_bytes()
             import shutil
@@ -1506,6 +1514,58 @@ class TestUrlRouting:
             print("OK")
             """.replace("__CONSOLE_MARKER__", console_marker),
         )
+
+        # Exercise the same real captured files with each request-time posture,
+        # including both auto branches and an HTTPS canonical reverse-proxy URL.
+        for mode, base in (
+            ("auto", "http://archivebox.localhost:8000"),
+            ("auto", "http://archivebox.example:8000"),
+            ("safe-subdomains-fullreplay", "https://archivebox.example"),
+            ("safe-onedomain-nojsreplay", "http://archivebox.example:8000"),
+            ("unsafe-onedomain-noadmin", "http://archivebox.example:8000"),
+            ("danger-onedomain-fullreplay", "http://archivebox.example:8000"),
+        ):
+            self._run(
+                """
+                from urllib.parse import urlsplit
+                from archivebox.config.common import get_request_config
+                snapshot = get_snapshot()
+                client = Client()
+                for path in ('screenshot/screenshot.png', 'pdf/output.pdf', 'chrome_mhtml/snapshot.mhtml'):
+                    target = urlsplit(build_snapshot_url(str(snapshot.id), path))
+                    response = client.get(target.path + '?preview=1', HTTP_HOST=target.netloc)
+                    assert response.status_code == 200, (target, response.status_code)
+                    csp = response['Content-Security-Policy']
+                    config = get_request_config(response.wsgi_request)
+                    origins = tuple(dict.fromkeys((get_web_base_url(config=config), get_admin_base_url(config=config))))
+                    ancestors = next(d.strip() for d in csp.split(';') if d.strip().startswith('frame-ancestors'))
+                    assert ancestors == "frame-ancestors 'self' " + ' '.join(origins), ancestors
+                    assert '*' not in ancestors  # no unrelated snapshots/sites
+                    assert "object-src 'none'" in csp
+                    assert "form-action 'none'" in csp
+                    assert "base-uri 'none'" in csp
+                    assert "script-src 'self'" in csp  # trusted viewer can run
+                    if path.endswith('.mhtml'):
+                        assert 'sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"' in response_body(response).decode()
+
+                dangerous, _, _ = write_replay_fixtures(snapshot)
+                target = urlsplit(build_snapshot_url(str(snapshot.id), dangerous))
+                response = client.get(target.path, HTTP_HOST=target.netloc)
+                assert response.status_code == 200
+                config = get_request_config(response.wsgi_request)
+                csp = response.headers.get('Content-Security-Policy', '')
+                assert ("script-src 'none'" in csp) == config.SHOULD_NEUTER_RISKY_REPLAY
+                assert ('sandbox;' in csp) == config.SHOULD_NEUTER_RISKY_REPLAY
+                admin = client.get('/admin/login/', HTTP_HOST=get_admin_host())
+                assert admin.status_code == (200 if config.CONTROL_PLANE_ENABLED else 403)
+                if not config.CONTROL_PLANE_ENABLED:
+                    assert client.get('/api/v1/docs', HTTP_HOST=get_api_host()).status_code == 403
+                    assert client.post('/public/', HTTP_HOST=get_web_host()).status_code == 403
+                print('OK')
+                """,
+                mode=mode,
+                env_overrides={"BASE_URL": base},
+            )
 
     def test_api_available_on_admin_and_api_hosts(self) -> None:
         self._run(

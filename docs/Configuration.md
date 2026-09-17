@@ -411,6 +411,8 @@ ArchiveBox splits its surfaces across three logical hosts: `admin.*` (Django adm
 
 SingleFile output is served as ordinary HTML in every mode; it remains usable in no-JS modes because SingleFile removes the page's scripts during capture. ArchiveWeb.page/ReplayWeb.page and MHTML use their existing trusted preview templates. ArchiveBox always attempts to load these viewers, including when the incoming request is plain HTTP, because HTTPS may be terminated by an upstream proxy. Browser service-worker rules still require ReplayWeb.page to be reached through HTTPS or localhost for replay to initialize.
 
+Trusted preview wrappers allow embedding by their own origin and the configured web/admin origins, so the collection UI can display snapshot-host previews without opening them to arbitrary embedding sites. PDF previews use a document frame rather than an object/embed, retaining `object-src 'none'` on the wrapper. Allowing a trusted viewer's scripts does not exempt the archived documents inside it from their replay policy; the MHTML viewer keeps its archived child document sandboxed without scripts.
+
 > [!WARNING]
 > Switching to any mode whose name starts with `unsafe-` or `danger-` is logged at startup and surfaces a banner in the UI. **Don't use these modes on a public hostname** — archived JavaScript will run on the same origin as your admin session.
 

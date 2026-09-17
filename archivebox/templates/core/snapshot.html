@@ -1890,14 +1890,13 @@
 
             function attachPreviewFrameHandlers(frame) {
                 resetPreviewFrameSize(frame)
-                if (frame.src.endsWith('.pdf')) {
+                if (new URL(frame.src || 'about:blank', window.location.href).pathname.endsWith('.pdf')) {
                     frame.removeAttribute('sandbox')
                     frame.src = frame.src + '#toolbar=0'
                 }
                 frame.onload = function() {
-                    if (this.src.includes('.pdf')) {
+                    if (new URL(this.src || 'about:blank', window.location.href).pathname.endsWith('.pdf')) {
                         this.removeAttribute('sandbox')
-                        this.src = this.src.split('?autoplay=')[0] + '#toolbar=0'
                     }
                     tryCenterImageFrame(this)
                     try {
@@ -2083,7 +2082,10 @@
                     nextSrcAbs = new URL(nextSrc, window.location.href).href
                 } catch (err) {}
                 const iframe_elem = ensureMainFrame(currentSrc !== nextSrcAbs)
-                if (target.endsWith('.pdf')) {
+                // Preview wrappers retain the .pdf path but add ?preview=1.
+                // The native PDF renderer must be allowed before navigation,
+                // not after a failed sandboxed load has already completed.
+                if (new URL(target, window.location.href).pathname.endsWith('.pdf')) {
                     iframe_elem.removeAttribute('sandbox')
                 } else {
                     iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"

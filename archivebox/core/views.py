@@ -765,6 +765,11 @@ def _plugin_full_preview_response(
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-ArchiveBox-Security-Mode"] = request.archivebox_config.SERVER_SECURITY_MODE
     response.headers["Referrer-Policy"] = "no-referrer"
+    # Trusted viewers live on the snapshot origin, but the collection UI lives
+    # on web.* (and can be embedded by admin.*). Permit only those configured
+    # origins, not arbitrary sites or other snapshots. This does not grant the
+    # archived document access to the parent frame or its admin session cookies.
+    viewer_origins = " ".join(dict.fromkeys((build_web_url(request=request), build_admin_url(request=request))))
     response.headers["Content-Security-Policy"] = (
         "default-src 'self' data: blob:; "
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; "
@@ -778,7 +783,7 @@ def _plugin_full_preview_response(
         "object-src 'none'; "
         "base-uri 'none'; "
         "form-action 'none'; "
-        "frame-ancestors 'self';"
+        f"frame-ancestors 'self' {viewer_origins};"
     )
     return response
 
