@@ -221,6 +221,7 @@ def iter_query_search_ids(
     search_mode: str | None = None,
     config: dict[str, Any] | None = None,
     max_results: int | None = None,
+    stop_event=None,
     **config_kwargs: Any,
 ):
     """Yield snapshot IDs from configured search backend modules."""
@@ -267,6 +268,8 @@ def iter_query_search_ids(
     seen: set[str] = set()
     try:
         for backend_name in backend_names:
+            if stop_event is not None and stop_event.is_set():
+                return
             backend = backends[backend_name]
             try:
                 if backend_name == "sonic":
@@ -292,14 +295,18 @@ def iter_query_search_ids(
                     env=search_backend_command_env(config=config),
                     cwd=CONSTANTS.DATA_DIR,
                     timeout=max(1, int(config.get("TIMEOUT", 60))) * 4,
+                    stop_event=stop_event,
                 )
-                for snapshot_id in ids:
-                    if snapshot_id in seen:
-                        continue
-                    seen.add(snapshot_id)
-                    yield snapshot_id
-                    if max_results and len(seen) >= max_results:
-                        return
+                try:
+                    for snapshot_id in ids:
+                        if snapshot_id in seen:
+                            continue
+                        seen.add(snapshot_id)
+                        yield snapshot_id
+                        if max_results and len(seen) >= max_results:
+                            return
+                finally:
+                    ids.close()
                 successful_backends += 1
             except Exception as err:
                 errors.append(err)

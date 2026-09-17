@@ -34,7 +34,7 @@
     {% elif mode == "high_load" %}
       15-min loadavg <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_15 }}</code>
       exceeds <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_threshold }}</code>
-      ({{ cpu_count }} cores × 3) — the host is saturated; crawls are queuing faster than the runner can finish them.
+      ({{ cpu_count }} cores × 3) — recent CPU or I/O contention may slow crawls. This average can stay elevated after load subsides; it does not measure queue growth.
     {% elif mode == "unsafe" %}
       ArchiveBox single-domain mode — archived pages share an origin with this site
       <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Modes" target="_blank" rel="noopener noreferrer" style="color:#fff;text-decoration:underline;margin-left:6px;">why?</a>

@@ -6,7 +6,7 @@ import json
 import threading
 import time
 from copy import copy
-from queue import Full, Queue
+from queue import Empty, Full, Queue
 from urllib.parse import urlsplit
 from uuid import UUID
 
@@ -254,15 +254,18 @@ def iter_filtered_search_result_ids(iterator, queryset, *, flush_max_delay=0.05)
         yield from flush_batch()
 
 
-def iter_search_result_ids(query, base_queryset, *, search_mode, config):
+def iter_search_result_ids(query, base_queryset, *, search_mode, config, stop_event=None):
     """Yield filtered Snapshot IDs from the selected search provider."""
     search_mode_base = get_search_mode_base(search_mode, config=config)
     provider = (
         iter_meta_search_ids(query, base_queryset)
         if search_mode_base == "meta"
-        else iter_query_search_ids(query, search_mode=search_mode, config=config)
+        else iter_query_search_ids(query, search_mode=search_mode, config=config, stop_event=stop_event)
     )
-    yield from iter_filtered_search_result_ids(provider, base_queryset)
+    try:
+        yield from iter_filtered_search_result_ids(provider, base_queryset)
+    finally:
+        provider.close()
 
 
 def snapshot_search_stream_response(query, base_queryset, *, search_mode, config, cache_key, thread_name):
@@ -300,7 +303,7 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
             iterator = None
             try:
                 close_old_connections()
-                iterator = iter_search_result_ids(query, base_queryset, search_mode=search_mode, config=config)
+                iterator = iter_search_result_ids(query, base_queryset, search_mode=search_mode, config=config, stop_event=stop_event)
                 for snapshot_id in iterator:
                     if stop_event.is_set():
                         break
@@ -326,10 +329,13 @@ def snapshot_search_stream_response(query, base_queryset, *, search_mode, config
                 emit(None)
 
         threading.Thread(target=run_search, name=thread_name, daemon=True).start()
-        yield f"0{stream_padding}\n"
         try:
+            yield f"0{stream_padding}\n"
             while True:
-                item = await asyncio.to_thread(queue.get)
+                try:
+                    item = await asyncio.to_thread(queue.get, True, 0.1)
+                except Empty:
+                    continue
                 if item is None:
                     break
                 if isinstance(item, BaseException):

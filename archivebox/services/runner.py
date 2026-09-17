@@ -58,6 +58,8 @@ from abxbus import BaseEvent
 from abxbus.event_bus import EventBus, get_current_event, in_handler_context
 from abxbus.event_handler import EventHandlerAbortedError, EventHandlerCancelledError
 
+from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS, resource_admission
+
 from archivebox.config.common import (
     ArchiveBoxBaseConfig,
     normalize_runtime_config,
@@ -221,6 +223,8 @@ class CrawlRunner:
         self.snapshot_tasks: dict[str, asyncio.Task[None]] = {}
         self.snapshot_semaphore = asyncio.Semaphore(1)
         self.max_concurrent_snapshots = 1
+        self._resource_deferred = False
+        self._initial_snapshot_admitted = False
         self.persona = None
         self.base_config: ArchiveBoxBaseConfig | dict[str, Any] = {}
         self.derived_config: dict[str, Any] = {}
@@ -294,6 +298,7 @@ class CrawlRunner:
     async def run(self) -> None:
         root_snapshot_id: str | None = None
         bus_destroyed = False
+        run_state_loaded = False
         try:
             first_signal_message = (
                 "\n[🛑] Got {signal_name}, aborting the active hook...\n"
@@ -313,8 +318,15 @@ class CrawlRunner:
                 on_signal=self._request_abort_from_signal,
                 raise_on_first_signal=False,
             ):
+                if await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(self.crawl):
+                    return
+                # Startup and its first snapshot are one admission. Browser
+                # startup can itself cause reclaim; checking again immediately
+                # would tear it down and repeat startup without doing any work.
+                self._initial_snapshot_admitted = True
+                run_state_loaded = True
                 snapshot_ids = await sync_to_async(self.load_run_state, thread_sensitive=True)()
-                max_concurrent_snapshots = max(1, int(self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 1)))
+                max_concurrent_snapshots = resource_admission.snapshot_limit(int(self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 1)))
                 self.max_concurrent_snapshots = max_concurrent_snapshots
                 self.snapshot_semaphore = asyncio.Semaphore(max_concurrent_snapshots)
                 live_ui = self._create_live_ui()
@@ -344,10 +356,19 @@ class CrawlRunner:
                 except Exception:
                     pass
                 self._live_stream = None
-            await sync_to_async(project_abxpkg_derived_cache_to_db, thread_sensitive=True)(self.base_config.get("ABXPKG_LIB_DIR"))
-            await sync_to_async(self.finalize_run_state, thread_sensitive=True)()
+            if run_state_loaded:
+                await sync_to_async(project_abxpkg_derived_cache_to_db, thread_sensitive=True)(self.base_config.get("ABXPKG_LIB_DIR"))
+                await sync_to_async(self.finalize_run_state, thread_sensitive=True)()
 
     async def enqueue_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
+        if self._resource_deferred:
+            return
+        if not self._initial_snapshot_admitted and await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
+            self.crawl,
+            excluded_snapshot_ids=list(self.snapshot_tasks),
+        ):
+            self._resource_deferred = True
+            return
         if await self.crawl_is_cancelled():
             return
         if await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl:
@@ -362,6 +383,7 @@ class CrawlRunner:
             return
         else:
             task = asyncio.create_task(self.run_snapshot(snapshot_id), context=_runner_task_context())
+        self._initial_snapshot_admitted = False
         self.snapshot_tasks[snapshot_id] = task
 
     async def stop_snapshot_tasks(self) -> None:
@@ -488,6 +510,8 @@ class CrawlRunner:
         from archivebox.core.models import Snapshot
         from archivebox.config.common import get_config
 
+        if self._resource_deferred:
+            return
         if not isinstance(get_current_event(), CrawlStartEvent):
             return
         if await self.crawl_is_cancelled():
@@ -497,7 +521,7 @@ class CrawlRunner:
 
         await sync_to_async(self.crawl.refresh_from_db, thread_sensitive=True)()
         config = await sync_to_async(lambda: get_config(crawl=self.crawl), thread_sensitive=True)()
-        self.max_concurrent_snapshots = max(1, int(config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"]))
+        self.max_concurrent_snapshots = resource_admission.snapshot_limit(int(config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"]))
 
         active_snapshot_ids = [snapshot_id for snapshot_id, task in self.snapshot_tasks.items() if not task.done()]
         available_slots = max(0, self.max_concurrent_snapshots - len(active_snapshot_ids))
@@ -1263,6 +1287,29 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     if not updated:
         return False
     snapshot.write_index_jsonl(output_dir=output_dir)
+    return True
+
+
+def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=()) -> bool:
+    """Leave extraction durable; never delay cancellation or final cleanup."""
+    from archivebox.core.models import Snapshot
+
+    if crawl.status not in (crawl.StatusChoices.QUEUED, crawl.StatusChoices.STARTED):
+        return False
+    reason = resource_admission.memory_pressure()
+    if reason is None:
+        return False
+    pending = crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES).exclude(id__in=excluded_snapshot_ids)
+    if crawl.snapshot_set.exists() and not pending.exists():
+        return False
+    now = timezone.now()
+    retry_at = now + timedelta(seconds=RESOURCE_RECHECK_SECONDS)
+    # Conditional short updates cannot resurrect a concurrent pause/cancel.
+    type(crawl).objects.filter(id=crawl.id, status__in=[crawl.StatusChoices.QUEUED, crawl.StatusChoices.STARTED]).update(
+        retry_at=retry_at,
+        modified_at=now,
+    )
+    pending.filter(retry_at__lte=now).update(retry_at=retry_at, modified_at=now)
     return True
 
 

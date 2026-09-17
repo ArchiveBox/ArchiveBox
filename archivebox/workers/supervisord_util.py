@@ -47,7 +47,6 @@ _SUPERVISORD_ERRORS = (XmlRpcError, OSError, RuntimeError, TimeoutError)
 _PROCESS_STATE_ERRORS = (DatabaseError, OSError, RuntimeError, ValueError, psutil.Error)
 MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES = 256 * 1024 * 1024
 MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES = MIN_SERVER_WORKER_AVAILABLE_MEMORY_BYTES
-MIN_CRAWL_AVAILABLE_MEMORY_BYTES = 512 * 1024 * 1024
 
 
 def _shell_join(args: list[str]) -> str:
@@ -115,16 +114,6 @@ def require_dependency_install_memory(available_bytes: int | None = None) -> Non
         "    No plugin dependency installers were started.",
         available_bytes,
         MIN_DEPENDENCY_INSTALL_AVAILABLE_MEMORY_BYTES,
-    )
-
-
-def require_crawl_memory(available_bytes: int | None = None) -> None:
-    available_bytes = effective_available_memory_bytes() if available_bytes is None else available_bytes
-    _require_available_memory(
-        "archive a crawl",
-        "    No crawl, runner, or Sonic workers were started.",
-        available_bytes,
-        MIN_CRAWL_AVAILABLE_MEMORY_BYTES,
     )
 
 
@@ -1280,11 +1269,18 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
 
     print()
 
+    # Log display needs a short refresh interval, but each ownership check
+    # queries the database and validates OS processes. Check leadership once
+    # per second even when workers continuously produce log output.
+    next_ownership_check = 0.0
     try:
         while follow:
-            if keep_running is not None and not keep_running():
-                print("\n[newer ArchiveBox process is now running the orchestrator and server]")
-                return "transferred"
+            now = time.monotonic()
+            if keep_running is not None and now >= next_ownership_check:
+                if not keep_running():
+                    print("\n[newer ArchiveBox process is now running the orchestrator and server]")
+                    return "transferred"
+                next_ownership_check = time.monotonic() + 1.0
 
             # Check if the monitored process has exited
             if proc is not None and proc.poll() is not None:

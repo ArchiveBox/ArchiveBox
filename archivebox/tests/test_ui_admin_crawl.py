@@ -14,6 +14,7 @@ pytestmark = pytest.mark.django_db
 
 
 class TestCrawlScheduleAdmin:
+    @pytest.mark.django_db(transaction=True)
     def test_crawlschedule_change_view_renders_and_saves(self, client, admin_user, crawl):
         from archivebox.crawls.models import CrawlSchedule
 
@@ -35,24 +36,33 @@ class TestCrawlScheduleAdmin:
         assert b"No Crawls yet..." not in get_response.content
         assert b"No Snapshots yet..." not in get_response.content
 
-        post_response = client.post(
-            change_url,
-            {
-                "label": "Morning crawl",
-                "notes": "updated",
-                "schedule": "0 8 * * *",
-                "template": str(crawl.pk),
-                "created_by": str(admin_user.pk),
-                "_save": "Save",
-            },
-            HTTP_HOST=ADMIN_TEST_HOST,
-        )
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        previous_mode = getattr(connection, "transaction_mode", None)
+        with CaptureQueriesContext(connection) as queries:
+            post_response = client.post(
+                change_url,
+                {
+                    "label": "Morning crawl",
+                    "notes": "updated",
+                    "schedule": "0 8 * * *",
+                    "template": str(crawl.pk),
+                    "created_by": str(admin_user.pk),
+                    "_save": "Save",
+                },
+                HTTP_HOST=ADMIN_TEST_HOST,
+            )
+        if connection.vendor == "sqlite":
+            assert any(query["sql"] == "BEGIN IMMEDIATE" for query in queries)
+            assert connection.transaction_mode == previous_mode
 
         assert post_response.status_code == 302
         schedule.refresh_from_db()
         assert schedule.label == "Morning crawl"
         assert schedule.notes == "updated"
         assert schedule.schedule == "0 8 * * *"
+        assert schedule.is_enabled is False
         assert schedule.template_id == crawl.pk
         assert schedule.created_by_id == admin_user.pk
 

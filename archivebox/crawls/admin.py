@@ -1230,7 +1230,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
         (
             "Configuration",
             {
-                "fields": ("schedule", "template"),
+                "fields": ("is_enabled", "schedule", "template"),
                 "classes": ("card",),
             },
         ),
@@ -1276,7 +1276,21 @@ class CrawlScheduleAdmin(BaseModelAdmin):
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
-        return super().change_view(request, object_id, form_url, extra_context)
+        from django.db import connections, router
+
+        connection = connections[router.db_for_write(self.model)]
+        if request.method != "POST" or connection.vendor != "sqlite":
+            return super().change_view(request, object_id, form_url, extra_context)
+        # Reserve the writer before Django's atomic admin form reads. A
+        # deferred read transaction cannot safely upgrade while the runner
+        # writes, even when SQLite's existing busy timeout has time left.
+        connection.ensure_connection()
+        previous_mode = connection.transaction_mode
+        connection.transaction_mode = "IMMEDIATE"
+        try:
+            return super().change_view(request, object_id, form_url, extra_context)
+        finally:
+            connection.transaction_mode = previous_mode
 
     def add_view(self, request, form_url="", extra_context=None):
         return redirect("/add/#schedule")

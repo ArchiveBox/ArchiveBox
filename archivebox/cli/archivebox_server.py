@@ -363,12 +363,10 @@ def server(
     command = current_command(Process.TypeChoices.SERVER, data_dir=CONSTANTS.DATA_DIR, url=bind_url)
 
     def still_owns_runtime_stack() -> bool:
-        from django.db import connections
-
-        try:
-            return command_owns_runtime_stack(command, data_dir=CONSTANTS.DATA_DIR)
-        finally:
-            connections.close_all()
+        # This is polled at the log-tail cadence. Keep the autocommit
+        # connection open so SQLite can reuse its page cache between polls;
+        # reconnecting here repeatedly rereads the process table while idle.
+        return command_owns_runtime_stack(command, data_dir=CONSTANTS.DATA_DIR)
 
     shutdown_state = None
     try:
@@ -416,8 +414,13 @@ def server(
     except KeyboardInterrupt:
         pass
     finally:
-        if not shutdown_state or not shutdown_state.signal_name:
-            command.mark_exited()
+        from django.db import connections
+
+        try:
+            if not shutdown_state or not shutdown_state.signal_name:
+                command.mark_exited()
+        finally:
+            connections.close_all()
     print("\n[i][green][🟩] ArchiveBox server shut down gracefully.[/green][/i]")
 
 

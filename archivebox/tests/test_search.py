@@ -1289,3 +1289,75 @@ class TestSearchBackendsE2E:
             fixture_server.shutdown()
             fixture_server.server_close()
             fixture_thread.join(timeout=5)
+
+
+@pytest.mark.timeout(90)
+def test_live_public_search_disconnect_reaps_backend(initialized_archive):
+    """A real HTTP disconnect cancels a silent ripgrep process and its wrapper."""
+    import signal
+    from uuid import uuid4
+
+    import psutil
+
+    from archivebox.core.models import Snapshot
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    rg = shutil.which("rg")
+    assert rg
+    query = "disconnect" + uuid4().hex
+    port = get_free_port()
+    env = cli_env(
+        live=True,
+        PUBLIC_INDEX="True",
+        PERMISSIONS="public",
+        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_RIPGREP_ENABLED="True",
+        RIPGREP_BINARY=rg,
+        RIPGREP_ARGS_EXTRA='["--no-mmap", "--text", "--sort", "path"]',
+        RIPGREP_TIMEOUT="30",
+        ALLOWED_HOSTS="*",
+    )
+    created = run_archivebox_cmd(
+        ["snapshot", "create", "--status=sealed", "https://example.com/disconnect-test"],
+        cwd=initialized_archive,
+        env=env,
+    )
+    assert created.returncode == 0, created.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(url="https://example.com/disconnect-test")
+        directory = snapshot.output_dir / "dom"
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "a.txt").write_text(query + "\n")
+        with (directory / "z.txt").open("wb") as large:
+            large.truncate(8 * 1024**3)
+            for offset in range(0, 8 * 1024**3, 1024**2):
+                large.seek(offset)
+                large.write(b"\n")
+    server = start_archivebox_server(initialized_archive, port=port, env=env, daemonize=False, log_name="disconnect-server.log")
+    children = []
+    try:
+        with requests.get(
+            f"http://127.0.0.1:{port}/public/search-stream/",
+            params={"q": query, "search_mode": "deep:ripgrep"},
+            headers={"Host": f"web.archivebox.localhost:{port}"},
+            stream=True,
+            timeout=(5, 10),
+        ) as response:
+            assert response.status_code == 200, response.text
+            lines = response.iter_lines()
+            assert int(next(lines).strip()) == 0
+            assert int(next(lines).strip()) == 1
+            children = [child for child in psutil.Process(server.pid).children(recursive=True) if query in " ".join(child.cmdline())]
+            assert len(children) == 2
+            for child in children:
+                if Path(child.exe()).name == Path(rg).name:
+                    child.send_signal(signal.SIGSTOP)
+        _, alive = psutil.wait_procs(children, timeout=5)
+        assert not alive, [(child.pid, child.status()) for child in alive]
+    finally:
+        for child in children:
+            try:
+                child.kill()
+            except psutil.NoSuchProcess:
+                pass
+        stop_archivebox_process(server)
