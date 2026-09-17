@@ -96,17 +96,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$T
     --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
     <<'EOF'
 echo "[+] UV Installing ArchiveBox dependencies from pyproject.toml..."
-echo 'Binary::apt::APT::Keep-Downloaded-Packages "1";' > /etc/apt/apt.conf.d/99keep-cache
-echo 'APT::Install-Recommends "0";' > /etc/apt/apt.conf.d/99no-install-recommends
-echo 'APT::Install-Suggests "0";' > /etc/apt/apt.conf.d/99no-install-suggests
+export UV_NO_CACHE=true
 rm -f /etc/apt/apt.conf.d/docker-clean
 apt-get update -qq
-apt-get install -qq -y --no-install-recommends \
-    build-essential gcc libldap2-dev libsasl2-dev libssl-dev x11-utils
+apt-get install -qq -y --no-install-recommends x11-utils
 # Extend abx-dl's existing venv instead of clearing it. Clearing and later
 # copying a complete replacement over the base duplicates every venv byte in
 # the final overlay history even when most packages are unchanged.
-/usr/bin/uv pip install --no-cache setuptools pip wheel
+# Do not rewrite inherited native libraries merely to strip them again.
+/usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print > /tmp/archivebox-inherited-libraries
 
 mkdir -p /tmp/archivebox-uv-project
 /venv/bin/python - <<'PY'
@@ -155,25 +153,31 @@ PY
     --inexact \
     --no-install-project \
     --no-install-workspace \
+    --no-install-package abxbus \
+    --no-install-package abxpkg \
+    --no-install-package abx-plugins \
+    --no-install-package abx-dl \
     --no-sources
 builder_abxpkg_lib_dir=/tmp/archivebox-builder-abxpkg
 ABXPKG_NO_CACHE=True abxpkg env --install --binproviders=env,apt --lib="$builder_abxpkg_lib_dir" --overrides='{"apt":{"install_args":["binutils"]}}' strip >/dev/null
 /usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print0 > /tmp/archivebox-native-libraries
 while IFS= read -r -d '' native_library; do
+    if grep -Fxq "$native_library" /tmp/archivebox-inherited-libraries; then
+        continue
+    fi
     magic=''
     if IFS= read -r -N 4 magic < "$native_library" && [[ "$magic" == $'\x7fELF' ]]; then
         "$builder_abxpkg_lib_dir/env/bin/strip" --strip-unneeded "$native_library" || exit $?
     fi
 done < /tmp/archivebox-native-libraries
-rm -f /tmp/archivebox-native-libraries
+rm -f /tmp/archivebox-native-libraries /tmp/archivebox-inherited-libraries
 rm -f /venv/bin/uv /venv/bin/uvx
-abxpkg run --binproviders=env --lib="$builder_abxpkg_lib_dir" apt-get purge -y binutils build-essential gcc libldap2-dev libsasl2-dev libssl-dev
+abxpkg run --binproviders=env --lib="$builder_abxpkg_lib_dir" apt-get purge -y binutils
 abxpkg run --binproviders=env --lib="$builder_abxpkg_lib_dir" apt-get autoremove -y
 rm -rf "$builder_abxpkg_lib_dir"
 rm -rf /venv/lib/python3.*/site-packages/pip* \
     /venv/lib/python3.*/site-packages/wheel* \
     /venv/bin/pip /venv/bin/pip3 /venv/bin/pip3.* /venv/bin/wheel
-echo 'Binary::apt::APT::Keep-Downloaded-Packages "0";' > /etc/apt/apt.conf.d/99keep-cache
 rm -rf /var/lib/apt/lists/* /tmp/archivebox-uv-project
 EOF
 
@@ -202,7 +206,7 @@ RUN echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
     && test -f "$(/venv/bin/python -c 'import archivebox; print(archivebox.__cached__)')" \
     && /usr/bin/uv pip show archivebox | tee -a /VERSION.txt
 
-# The builder installs and purges compilers in one layer, so its final
+# The builder installs and purges stripping tools in one layer, so its final
 # filesystem is already runtime-clean. Preserve that ancestry: starting again
 # from archivebox-runtime-base and COPYing /venv would bake a second full venv
 # over the inherited one instead of recording only ArchiveBox's package delta.
@@ -225,7 +229,8 @@ COPY --chown=root:root --chmod=755 "etc/sonic.cfg" /etc/sonic.cfg
 # The builder invokes abxpkg as root for temporary ELF stripping, which can
 # rewrite derived state ownership. Restore UID 911 before resolving binaries
 # as the runtime user; the old copy-based final stage hid this dependency.
-RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_ARCHIVEBOX_UID}..." \
+RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777,id=archivebox-runtime-config-$TARGETARCH \
+    echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_ARCHIVEBOX_UID}..." \
     && printf 'export PATH="/venv/bin:/opt/node/bin:$PATH"\n' > /etc/profile.d/archivebox-path.sh \
     && ln -sf /venv/bin/archivebox /usr/local/bin/archivebox \
     && ln -sf /venv/bin/daphne /usr/local/bin/daphne \
@@ -239,8 +244,8 @@ RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_ARCHIVEBOX_UID}..."
     && install -d -o "$DEFAULT_ARCHIVEBOX_UID" -g "$DEFAULT_ARCHIVEBOX_GID" "$DATA_DIR" "$TMP_DIR" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$XDG_CACHE_HOME" "$PLAYWRIGHT_BROWSERS_PATH" \
     && install -d -o "$DEFAULT_ARCHIVEBOX_UID" -g "$DEFAULT_ARCHIVEBOX_GID" "/home/$ARCHIVEBOX_USER" \
     && chown "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" "$DATA_DIR" "$TMP_DIR" \
-    && chown -R "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" "$ABXPKG_LIB_DIR" \
-    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abxpkg load --binproviders=env sonic | tee -a /VERSION.txt \
+    && find "$ABXPKG_LIB_DIR" \( ! -user "$DEFAULT_ARCHIVEBOX_UID" -o ! -group "$DEFAULT_ARCHIVEBOX_GID" \) -exec chown -h "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" {} + \
+    && UV_NO_CACHE=true setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abxpkg load --binproviders=env sonic | tee -a /VERSION.txt \
     && openssl rand -hex 16 > /etc/machine-id \
     && echo -e "\nARCHIVEBOX_USER=$ARCHIVEBOX_USER ARCHIVEBOX_UID=$(id -u "$ARCHIVEBOX_USER") ARCHIVEBOX_GID=$(id -g "$ARCHIVEBOX_USER")" | tee -a /VERSION.txt \
     && echo -e "TMP_DIR=$TMP_DIR\nABXPKG_LIB_DIR=$ABXPKG_LIB_DIR\nPLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH\nMACHINE_ID=$(cat /etc/machine-id)\n" | tee -a /VERSION.txt

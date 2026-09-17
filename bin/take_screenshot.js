@@ -32,6 +32,7 @@ Environment:
   SCREENSHOT_SNAPSHOT_VIEW   Set to list or grid before loading the page
   SCREENSHOT_SNAPSHOT_HEADER Set to expanded or collapsed before loading a snapshot detail page
   SCREENSHOT_EXPECT_PLUGIN   Require this snapshot output plugin to be selected
+  SCREENSHOT_EXPECT_FRAME_TEXT  Require this text in the selected output frame
   SCREENSHOT_EXPECT_LIVE_PROGRESS  Require real progress bars and a loaded screencast frame
   SCREENSHOT_COLLAPSE_FILTERS Set to 1 to keep admin filters out of screenshots
   SCREENSHOT_RESET_FILTERS   Set to 1 to clear the admin filter collapsed preference
@@ -231,6 +232,12 @@ async function main() {
           }
         });
       }, { timeout: 45000, polling: 250 }).catch(() => {});
+      if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT) {
+        const frameElement = await page.$('#main-frame');
+        const frame = await frameElement.contentFrame();
+        await frame.waitForFunction((text) => document.body.innerText.includes(text),
+          { timeout: 45000 }, process.env.SCREENSHOT_EXPECT_FRAME_TEXT);
+      }
     }
 
     if (process.env.SCREENSHOT_EXPECT_LIVE_PROGRESS === '1') {
