@@ -104,6 +104,74 @@ def real_crawl_setup_process(snapshot, hermetic_lib_dir):
 
 
 class TestLiveProgressView:
+    def test_collection_summary_reports_stored_sizes(self, client, admin_user, snapshot):
+        import time
+        from django.core.cache import cache
+        from django.db.models import Count, Sum
+        from archivebox.core.models import Snapshot
+
+        Snapshot.objects.filter(pk=snapshot.pk).update(output_size=12345)
+        expected = Snapshot.objects.aggregate(snapshots=Count("*"), bytes=Sum("output_size"))
+        cache.delete_many(["progress-collection:all", "progress-collection:all:refresh"])
+        client.force_login(admin_user)
+        deadline = time.monotonic() + 5
+        while True:
+            response = client.get(reverse("live_progress"), {"collection": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200
+            summary = response.json().get("collection")
+            if summary is not None or time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        assert summary is not None
+        assert summary["snapshots"] == expected["snapshots"]
+        assert summary["bytes"] == expected["bytes"]
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("EXPLAIN QUERY PLAN SELECT COUNT(*), SUM(output_size) FROM core_snapshot")
+                plan = " ".join(str(row) for row in cursor.fetchall())
+            assert "COVERING INDEX" in plan, plan
+
+        timings = []
+        with CaptureQueriesContext(connection) as queries:
+            for _ in range(20):
+                start = time.perf_counter()
+                response = client.get(reverse("live_progress"), {"collection": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
+                timings.append((time.perf_counter() - start) * 1000)
+                assert response.status_code == 200
+                assert response.json()["collection"] == summary
+        assert not any('AS "bytes"' in query["sql"] for query in queries)
+        print(f"cached progress response: median={sorted(timings)[10]:.1f}ms max={max(timings):.1f}ms")
+
+    def test_collection_summary_is_scoped_to_staff_owner(self, client, admin_user, snapshot):
+        import time
+        from django.core.cache import cache
+        from archivebox.core.models import Snapshot
+
+        admin_user.is_superuser = False
+        admin_user.save(update_fields=["is_superuser"])
+        from django.contrib.auth import get_user_model
+
+        # Give the snapshot another owner; staff must not learn its size/count.
+        snapshot.crawl.created_by = get_user_model().objects.create_user(username="other-summary-owner")
+        snapshot.crawl.save(update_fields=["created_by"])
+        Snapshot.objects.filter(pk=snapshot.pk).update(output_size=12345)
+        cache.delete_many([f"progress-collection:{admin_user.pk}", f"progress-collection:{admin_user.pk}:refresh"])
+        client.force_login(admin_user)
+        deadline = time.monotonic() + 5
+        while True:
+            response = client.get(reverse("live_progress"), {"collection": "1"}, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200
+            summary = response.json().get("collection")
+            if summary is not None or time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        assert summary is not None
+        assert summary["snapshots"] == 0
+        assert summary["bytes"] == 0
+
     def test_live_progress_rejects_unauthenticated_unscoped_request(self, client):
         response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
 

@@ -942,6 +942,10 @@ def live_progress_view(request):
             "queued_crawls_hidden": queued_crawls_hidden,
             "server_time": timezone.now().isoformat(),
         }
+        if is_admin and not snapshot_id_filter and not crawl_id_filter and request.GET.get("collection") == "1":
+            from archivebox.progressmonitor.collection import collection_summary
+
+            payload["collection"] = collection_summary(request.user)
         try:
             import ujson
 
