@@ -193,6 +193,22 @@ echo "[*] Creating a temporary screenshot admin"
 )
 CREATED_TEMP_USER=1
 
+# Configure the optional UI before the server snapshots its startup config.
+OPENCODE_PORT="$(uv run --no-cache --project "$REPO_DIR" python - <<'PYPORT'
+import socket
+
+with socket.socket() as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PYPORT
+)"
+(
+    cd "$DATA_DIR"
+    uv run --no-cache --project "$REPO_DIR" archivebox config --set \
+        OPENCODE_ENABLED=True "OPENCODE_PORT=$OPENCODE_PORT"
+    uv run --no-cache --project "$REPO_DIR" archivebox install opencode --binproviders=env,pnpm
+)
+
 echo "[*] Starting ArchiveBox on port $PORT"
 (
     cd "$DATA_DIR"
@@ -499,21 +515,6 @@ PY
             CREATE_WEBHOOK="$CREATE_WEBHOOK" \
             node "$REPO_DIR/bin/setup_ui_screenshot_data.js" "$ADMIN_BASE_URL" "$USERNAME"
 
-        OPENCODE_PORT="$(uv run --no-cache --project "$REPO_DIR" python - <<'PY'
-import socket
-
-with socket.socket() as sock:
-    sock.bind(("127.0.0.1", 0))
-    print(sock.getsockname()[1])
-PY
-)"
-        (
-            cd "$DATA_DIR"
-            OPENCODE_PORT="$OPENCODE_PORT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'import os; from archivebox.machine.models import Machine; Machine.from_json({"config": {"OPENCODE_ENABLED": True, "OPENCODE_PORT": int(os.environ["OPENCODE_PORT"])}})'
-            uv run --no-cache --project "$REPO_DIR" archivebox install opencode --binproviders=env,pnpm
-        )
-
         SWEETING_CAPTURE_STARTED_AT="$( (
             cd "$DATA_DIR"
             uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
@@ -566,7 +567,7 @@ PY
         VIEWS+=(
             "Add URLs|$ADMIN_BASE_URL/add/|/add/|archivebox/core/views.py"
             "Admin dashboard|$ADMIN_BASE_URL/admin/|/admin/|archivebox/core/admin_site.py"
-            "AI agent|$ADMIN_BASE_URL/admin/agent/|/admin/agent/|abx_plugins/plugins/opencode/views.py|wait-text:ArchiveBox AI Agent"
+            "AI agent|$ADMIN_BASE_URL/admin/agent/|/admin/agent/|archivebox/opencode/views.py|wait-text:ArchiveBox AI Agent"
             "Snapshots table|$ADMIN_BASE_URL/admin/core/snapshot/|/admin/core/snapshot/|archivebox/core/admin_snapshots.py"
             "Snapshots grid|$ADMIN_BASE_URL/admin/core/snapshot/grid/|/admin/core/snapshot/grid/|archivebox/templates/admin/snapshots_grid.html"
             "Snapshot admin detail|$ADMIN_BASE_URL/admin/core/snapshot/$SNAPSHOT_ID/change/|/admin/core/snapshot/$SNAPSHOT_ID/change/|archivebox/core/admin_snapshots.py"
