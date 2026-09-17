@@ -638,6 +638,8 @@ PY
         fi
         if ! printf '%s\n' "$SNAPSHOT_OUTPUT_PLUGINS" | cut -f1 | grep -qx tlsnotary; then
             echo "[!] Live capture did not expose the required TLSNotary verifier output" >&2
+            tail -200 "$CAPTURE_ROOT/sweeting-live-capture.log" >&2
+            cat "$SNAPSHOT_DISCOVERY_REPORT" >&2
             exit 1
         fi
         while IFS=$'\t' read -r plugin_name output_capture_mode; do
