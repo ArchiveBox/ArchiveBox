@@ -205,7 +205,7 @@ PYPORT
 (
     cd "$DATA_DIR"
     uv run --no-cache --project "$REPO_DIR" archivebox config --set \
-        OPENCODE_ENABLED=True "OPENCODE_PORT=$OPENCODE_PORT"
+        OPENCODE_ENABLED=True "OPENCODE_PORT=$OPENCODE_PORT" TLSNOTARY_ENABLED=True
     uv run --no-cache --project "$REPO_DIR" archivebox install opencode --binproviders=env,pnpm
 )
 
@@ -523,7 +523,7 @@ PY
         echo "[*] Starting a real Sweeting.me capture for the live progress view"
         (
             cd "$DATA_DIR"
-            TLSNOTARY_ENABLED=true exec uv run --no-cache --project "$REPO_DIR" archivebox add \
+            exec uv run --no-cache --project "$REPO_DIR" archivebox add \
                 --depth=0 \
                 --overwrite \
                 --tag=screenshot-gallery \
