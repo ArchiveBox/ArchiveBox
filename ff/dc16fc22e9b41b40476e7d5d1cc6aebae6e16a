@@ -1,0 +1,20 @@
+publicsite/assets/integrations/SOURCES.md
+  h_923c208e183a7b 8,11
+publicsite/assets/integrations/aws-s3-wordmark.svg
+  h_923c208e183a7b 1
+publicsite/index.html
+  h_923c208e183a7b 238,406-407
+publicsite/styles.css
+  h_923c208e183a7b 769
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ffdc16fc22e9b41b40476e7d5d1cc6aebae6e16a",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
