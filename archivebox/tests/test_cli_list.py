@@ -439,7 +439,7 @@ def test_snapshot_list_search_meta(initialized_archive):
     assert result.returncode == 0, f"Command failed: {result.stderr}"
     records = parse_jsonl_output(result.stdout)
     assert len(records) == 1
-    assert "meta-search-example.com" in records[0]["url"]
+    assert records[0]["url"] == url
 
 
 def test_list_search_meta_matches_metadata(initialized_archive):
@@ -457,7 +457,7 @@ def test_list_search_meta_matches_metadata(initialized_archive):
     assert result.returncode == 0, f"Command failed: {result.stderr}"
     records = parse_jsonl_output(result.stdout)
     assert len(records) == 1
-    assert "top-level-meta-search-example.com" in records[0]["url"]
+    assert records[0]["url"] == url
 
 
 def test_search_command_finds_snapshots(initialized_archive):
@@ -505,7 +505,7 @@ def test_search_command_outputs_matching_snapshots_as_jsonl(initialized_archive)
 
     assert result.returncode == 0, result.stderr
     records = parse_jsonl_output(result.stdout)
-    assert any("example.com" in row.get("url", "") for row in records)
+    assert [row["url"] for row in records] == ["https://example.com"]
 
 
 def test_search_command_json_outputs_matching_snapshots(initialized_archive):
@@ -520,7 +520,7 @@ def test_search_command_json_outputs_matching_snapshots(initialized_archive):
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert any("example.com" in row.get("url", "") for row in payload)
+    assert [row["url"] for row in payload] == ["https://example.com"]
 
 
 def test_search_command_json_with_headers_wraps_links_payload(initialized_archive):
@@ -541,7 +541,7 @@ def test_search_command_json_with_headers_wraps_links_payload(initialized_archiv
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert "links" in payload
-    assert any("example.com" in row.get("url", "") for row in payload["links"])
+    assert [row["url"] for row in payload["links"]] == ["https://example.com"]
 
 
 def test_search_command_html_outputs_markup(initialized_archive):
@@ -556,7 +556,7 @@ def test_search_command_html_outputs_markup(initialized_archive):
 
     assert result.returncode == 0, result.stderr
     assert "<" in result.stdout
-    assert "example.com" in result.stdout
+    assert 'href="https://example.com"' in result.stdout
 
 
 def test_search_command_csv_outputs_requested_column(initialized_archive):

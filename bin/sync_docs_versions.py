@@ -14,7 +14,31 @@ import sys
 import requests
 from packaging.version import InvalidVersion, Version
 
-API = "https://readthedocs.org/api/v3/projects/archivebox/"
+API = "https://app.readthedocs.org/api/v3/projects/archivebox/"
+# Deployment maps these branch-backed versions to their release URL slugs manually.
+# The hourly reconciler must never rename versions or rewrite release tags.
+REPAIR_REFS = {
+    "v0.7.4": "docs/restore-main-sphinx",
+    "v0.8.6rc1": "docs/restore-08-sphinx",
+    "v0.2.4": "docs/restore-02-sphinx",
+    "v0.1.0": "docs/restore-01-sphinx",
+    "v0.0.3": "docs/restore-00-sphinx",
+}
+
+
+def build_ready(version, build, expected_ref, expected_commit):
+    """Only a successful current build from the intended Git source can replace docs."""
+    source = version["identifier"] if version["slug"] == "latest" else version["verbose_name"]
+    return bool(
+        expected_commit
+        and source == expected_ref
+        and version["active"]
+        and build
+        and build["version"] == version["slug"]
+        and build["state"]["code"] == "finished"
+        and build["success"] is True
+        and build["commit"] == expected_commit,
+    )
 
 
 def selected_tags(tags):
@@ -57,8 +81,10 @@ def main():
         response.raise_for_status()
         return response.json() if response.content else None
 
-    refs = subprocess.check_output(["git", "ls-remote", "--tags", "origin"], text=True)
-    tags = [line.split("refs/tags/", 1)[1] for line in refs.splitlines() if not line.endswith("^{}")]
+    refs = subprocess.check_output(["git", "ls-remote", "--heads", "--tags", "origin"], text=True)
+    remote_refs = {ref: commit for commit, ref in (line.split() for line in refs.splitlines())}
+    tags = [ref.removeprefix("refs/tags/") for ref in remote_refs if ref.startswith("refs/tags/") and not ref.endswith("^{}")]
+    expected_refs = {"latest": "main", "dev": "dev", **REPAIR_REFS}
     wanted = ["latest", "dev", *selected_tags(tags)]
     project = request("GET", "")
     page = request("GET", "versions/?limit=1000")
@@ -73,8 +99,12 @@ def main():
         raise SystemExit(f"Read the Docs has not synchronized these tags: {sorted(missing)}")
     print("Desired picker:", ", ".join(wanted))
     print(f"latest currently tracks {project['default_branch']}; required branch: main")
-    pending = [slug for slug in wanted if not versions[slug]["built"] or not versions[slug]["active"]]
-    print("Awaiting successful builds:", ", ".join(pending) or "none")
+    for slug in wanted:
+        expected = expected_refs.get(slug, slug)
+        source = versions[slug]["identifier"] if slug == "latest" else versions[slug]["verbose_name"]
+        if source != expected:
+            print(f"{slug}: source is {source}; requires staged deployment from {expected}")
+    print("Current-build readiness is verified only with --apply (authenticated per-version API reads).")
     if not args.apply:
         return
 
@@ -85,19 +115,38 @@ def main():
             raise SystemExit("main needs the docs build configuration PR before latest can safely track it")
         request("PATCH", "", json={"default_branch": "main"})
         request("POST", "versions/latest/builds/")
-        pending.append("latest")
 
+    pending = []
     for slug in wanted:
         version = versions[slug]
-        if not version["active"] or version["hidden"]:
-            request("PATCH", f"versions/{slug}/", json={"active": True, "hidden": False})
-            # Activating a version triggers its first build automatically.
-    latest_builds = request("GET", "builds/?version__slug=latest&limit=1")["results"]
-    main_ref = subprocess.check_output(["git", "ls-remote", "origin", "refs/heads/main"], text=True).split()[0]
-    if not latest_builds or not latest_builds[0]["success"] or latest_builds[0]["commit"] != main_ref:
-        pending.append("latest")
+        expected = expected_refs.get(slug, slug)
+        source = version["identifier"] if slug == "latest" else version["verbose_name"]
+        if source != expected:
+            # Refresh latest after changing the project's default branch.
+            if slug == "latest":
+                version = request("GET", "versions/latest/")
+            else:
+                pending.append(f"{slug} (deploy repair branch {expected})")
+                continue
+        is_branch = slug in expected_refs
+        ref = f"refs/heads/{expected}" if is_branch else f"refs/tags/{expected}"
+        commit = remote_refs.get(ref + "^{}", remote_refs.get(ref))
+        if not commit:
+            pending.append(f"{slug} (missing remote ref {expected})")
+            continue
+        if not version["active"]:
+            request("PATCH", f"versions/{slug}/", json={"active": True, "hidden": True})
+            # Activation starts a build; keep it out of the picker until verified.
+            pending.append(f"{slug} (activated, awaiting build)")
+            continue
+        builds = request("GET", f"versions/{slug}/builds/?limit=1")["results"]
+        if not build_ready(version, builds[0] if builds else None, expected, commit):
+            pending.append(f"{slug} (newest build must succeed at {commit})")
     if pending:
-        raise SystemExit("Desired versions are building or need historical build repair; keeping the existing picker until they succeed")
+        raise SystemExit("Keeping existing picker; awaiting: " + "; ".join(pending))
+    for slug in wanted:
+        if versions[slug]["hidden"]:
+            request("PATCH", f"versions/{slug}/", json={"hidden": False})
     for slug, version in versions.items():
         if slug not in wanted and version["active"] and not version["hidden"]:
             request("PATCH", f"versions/{slug}/", json={"hidden": True})
