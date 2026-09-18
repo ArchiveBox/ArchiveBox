@@ -1,0 +1,22 @@
+.github/.readthedocs.yaml
+  h_923c208e183a7b 1-17
+.github/docs/README.md
+  h_923c208e183a7b 1-15
+.github/docs/conf.py
+  h_923c208e183a7b 1-104
+.github/docs/requirements.txt
+  h_923c208e183a7b 1-3
+index.md
+  h_923c208e183a7b 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ca1a8c908c28fe1098eec2721d859f84af4d572b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
