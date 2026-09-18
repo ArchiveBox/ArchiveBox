@@ -1,0 +1,124 @@
+.github/ISSUE_TEMPLATE/1-bug_report.yml
+  h_923c208e183a7b 33-34,141
+.github/workflows/docker.yml
+  h_923c208e183a7b 424-425,430
+.github/workflows/screenshots.yml
+  h_923c208e183a7b 46
+Dockerfile
+  h_923c208e183a7b 298,301,304
+README.md
+  h_923c208e183a7b 76,83-84,96,103,180,201,204,259-260,295-296,328-329,547,553,556,1349,1352,1364,1367,1389,1391,1393,1428
+archivebox/cli/archivebox_help.py
+  h_923c208e183a7b 71,112
+archivebox/cli/archivebox_server.py
+  h_923c208e183a7b 49,55,80,84,201,224,257
+archivebox/config/common.py
+  h_923c208e183a7b 86,91,317
+archivebox/core/models.py
+  h_923c208e183a7b 1397
+archivebox/core/routes_util.py
+  h_923c208e183a7b 77
+archivebox/core/settings.py
+  h_923c208e183a7b 393
+archivebox/machine/detect.py
+  h_923c208e183a7b 91
+archivebox/templates/core/setup_wizard.html
+  h_923c208e183a7b 53
+archivebox/templates/static/setup_wizard.js
+  h_923c208e183a7b 237,256,258
+archivebox/tests/conftest.py
+  h_923c208e183a7b 1167-1169,1797-1798
+archivebox/tests/test_api_v1_core_snapshots_rss.py
+  h_923c208e183a7b 14
+archivebox/tests/test_api_v1_core_tags_autocomplete.py
+  h_923c208e183a7b 15
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  h_923c208e183a7b 36
+archivebox/tests/test_cli_server.py
+  h_923c208e183a7b 354,404-405,408,411,414
+archivebox/tests/test_config_DELETE_AFTER.py
+  h_923c208e183a7b 13-14
+archivebox/tests/test_machine_models.py
+  h_923c208e183a7b 623
+archivebox/tests/test_migrations_07_to_09.py
+  h_923c208e183a7b 181
+archivebox/tests/test_opencode_agent.py
+  h_923c208e183a7b 97-99,501
+archivebox/tests/test_search.py
+  h_923c208e183a7b 35-36
+archivebox/tests/test_server_security_browser.py
+  h_923c208e183a7b 752
+archivebox/tests/test_ui_add_view.py
+  h_923c208e183a7b 19-20
+archivebox/tests/test_ui_admin_config_widget.py
+  h_923c208e183a7b 102-103,114,248-250,282,305,332,338,346
+archivebox/tests/test_ui_admin_crawl.py
+  h_923c208e183a7b 419
+archivebox/tests/test_ui_admin_links.py
+  h_923c208e183a7b 133,287
+archivebox/tests/test_ui_admin_snapshot.py
+  h_923c208e183a7b 326,425,791,1293,1296,1299
+archivebox/tests/test_ui_savepagenow.py
+  h_923c208e183a7b 11,96,229,277,313
+archivebox/tests/test_urls.py
+  h_923c208e183a7b 498,501-504,506-507,565,637,1208,1236,1265,1292,1313,1346,1521-1522,1524-1526
+archivebox/workers/management/commands/runner_watch.py
+  h_923c208e183a7b 11
+archivebox/workers/supervisord_util.py
+  h_923c208e183a7b 1481
+bin/deploy_dev_demo.sh
+  h_923c208e183a7b 114
+bin/docker_entrypoint.sh
+  h_923c208e183a7b 374
+bin/setup.sh
+  h_923c208e183a7b 192,194,207-208,227,413,419,441,446-447,504,508,510-511
+bin/take_screenshot.js
+  h_923c208e183a7b 7
+bin/watch_dev_image.sh
+  h_923c208e183a7b 74
+docker-compose.yml
+  h_923c208e183a7b 6,23,84,86
+docs/Chromium-Install.md
+  h_923c208e183a7b 144,147,162
+docs/Configuration.md
+  h_923c208e183a7b 356,360-363,366,375
+docs/Docker.md
+  h_923c208e183a7b 74,151,187,191,214,217,273-274
+docs/Install.md
+  h_923c208e183a7b 254-255
+docs/Merging-Collections.md
+  h_923c208e183a7b 103
+docs/Publishing-Your-Archive.md
+  h_923c208e183a7b 11,14,42-43
+docs/Quickstart.md
+  h_923c208e183a7b 66,75
+docs/Scheduled-Archiving.md
+  h_923c208e183a7b 46
+docs/Setting-up-Authentication.md
+  h_923c208e183a7b 28,38-39,127,134,136,139,156,169,185
+docs/Upgrading.md
+  h_923c208e183a7b 101
+docs/Usage.md
+  h_923c208e183a7b 144,147,191,198
+docs/apidocs/archivebox/archivebox.workers.supervisord_util.md
+  h_923c208e183a7b 699
+docs/test_codeblocks_manifest.py
+  h_923c208e183a7b 269
+etc/fly.toml
+  h_923c208e183a7b 19
+old/TODO_fs_migrations.md
+  h_923c208e183a7b 90
+publicsite/index.html
+  h_923c208e183a7b 100,232,247-248,256,267-268,281-282,295-296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9b2fc58e5c7ea056c6b27a3e877c8d7740933a27",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
