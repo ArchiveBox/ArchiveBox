@@ -522,12 +522,40 @@ h3 {
   height: auto;
 }
 
-.card-shot figcaption,
-.finder-shot figcaption {
-  padding-top: 12px;
-  color: var(--muted-text);
-  font-size: 0.85rem;
-  line-height: 1.5;
+.card-media {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.card-media .card-icon {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.card-thumbnail {
+  display: block;
+  width: 112px;
+  height: 70px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--soft);
+}
+
+.card-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.card-thumbnail:hover,
+.card-thumbnail:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
 }
 
 .audience-card .card-shot {
@@ -561,8 +589,8 @@ h3 {
 }
 
 .finder-shot {
-  max-width: 1044px;
-  margin: 0 0 40px;
+  max-width: 400px;
+  margin: 20px 0 0;
 }
 
 .finder-shot img {

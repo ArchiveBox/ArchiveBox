@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./shadcn-theme.css">
-  <link rel="stylesheet" href="./styles.css?v=8149cc032">
+  <link rel="stylesheet" href="./styles.css?v=compact-card-thumbnails">
   <script src="./install.js" defer></script>
   <script type="application/ld+json">
   {
@@ -105,7 +105,7 @@
           <a class="device-desktop" href="https://archivebox.io/screenshots/09-snapshots-grid-desktop.png" aria-label="Enlarge the ArchiveBox Web UI screenshot"><img class="product-shot" src="https://archivebox.io/screenshots/09-snapshots-grid-desktop.png" width="1600" height="1000" alt="ArchiveBox Web UI showing saved pages with thumbnails and capture formats"></a>
           <a class="device-phone" href="https://archivebox.github.io/ios-archivebox/" aria-label="Explore ArchiveBox for iPhone"><img src="https://archivebox.github.io/ios-archivebox/docs/screenshots/home-iphone.png" width="1500" height="3000" alt="ArchiveBox on iPhone, with its collection, tags, and server connection inside an iPhone frame"></a>
         </div>
-        <p class="device-caption">Browse on the web. Save from your <a href="https://archivebox.github.io/ios-archivebox/">Mac or iPhone</a>.</p>
+        <p class="device-caption">Browse and save from any device.<br>Free, self-hosted, 0 analytics.</p>
       </div>
     </section>
 
@@ -125,22 +125,34 @@
       </div>
       <div class="feature-grid">
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18"/></svg></span>
+            <a class="card-thumbnail" href="./assets/archive-files-finder.png"><img src="./assets/archive-files-finder.png" width="1044" height="492" loading="lazy" alt="Archived HTML and folders in Finder"></a>
+          </div>
           <h3>Readable for decades</h3>
           <p>Snapshots are stored as ordinary files and folders, with metadata in SQLite and JSON. You can browse the collection without depending on a hosted service.</p>
         </article>
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8l10-5Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8l10-5Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/50-snapshot-view-pdf-desktop.png"><img src="https://archivebox.io/screenshots/50-snapshot-view-pdf-desktop.png" width="1600" height="1000" loading="lazy" alt="Saved page with multiple capture formats"></a>
+          </div>
           <h3>Multiple captures per URL</h3>
           <p>ArchiveBox can save rendered HTML, screenshots, PDFs, WARC files, article text, headers, favicons, media, subtitles, and source repositories.</p>
         </article>
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/20-crawl-schedules-desktop.png"><img src="https://archivebox.io/screenshots/20-crawl-schedules-desktop.png" width="1600" height="1000" loading="lazy" alt="Scheduled archive imports"></a>
+          </div>
           <h3>Bring your sources</h3>
           <p>Import one URL, pipe text into the CLI, upload exported bookmarks, or schedule recurring pulls from RSS feeds and other text-based source lists.</p>
         </article>
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/06-admin-dashboard-desktop.png"><img src="https://archivebox.io/screenshots/06-admin-dashboard-desktop.png" width="1600" height="1000" loading="lazy" alt="Self-hosted ArchiveBox dashboard"></a>
+          </div>
           <h3>Self-hosted by default</h3>
           <p>Run it as a Docker web app, use one-off CLI commands, or automate with APIs while keeping private and public material under your own policy.</p>
         </article>
@@ -162,7 +174,7 @@
             <li>Use the browser extension, CLI, Web UI, and scheduled imports together.</li>
             <li>Export static HTML or browse the filesystem directly.</li>
           </ul>
-          <figure class="card-shot phone-pair"><a href="https://archivebox.github.io/ios-archivebox/" aria-label="See the ArchiveBox iPhone app and Safari extension"><img src="https://archivebox.github.io/ios-archivebox/docs/screenshots/share-iphone.png" width="1500" height="3000" loading="lazy" alt="iPhone share sheet confirming a URL was saved with tags"><img src="https://archivebox.github.io/ios-archivebox/docs/screenshots/extension-iphone.png?v=2" width="1500" height="3000" loading="lazy" alt="ArchiveBox’s Safari extension inside an iPhone frame"></a><figcaption>Save a link from the share sheet or Safari.</figcaption></figure>
+          <figure class="card-shot phone-pair"><a href="https://archivebox.github.io/ios-archivebox/" aria-label="See the ArchiveBox iPhone app and Safari extension"><img src="https://archivebox.github.io/ios-archivebox/docs/screenshots/share-iphone.png" width="1500" height="3000" loading="lazy" alt="iPhone share sheet confirming a URL was saved with tags"><img src="https://archivebox.github.io/ios-archivebox/docs/screenshots/extension-iphone.png?v=2" width="1500" height="3000" loading="lazy" alt="ArchiveBox’s Safari extension inside an iPhone frame"></a></figure>
         </article>
         <article class="audience-card">
           <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 21h14M3 7h18M6 7l-4 8h8L6 7Zm12 0-4 8h8l-4-8Z"/></svg></span>
@@ -173,7 +185,7 @@
             <li>Tag and review sources through the self-hosted web interface.</li>
             <li>Tune privacy, authentication, and publishing settings for casework.</li>
           </ul>
-          <figure class="card-shot"><a href="https://archivebox.io/screenshots/50-snapshot-view-pdf-desktop.png"><img src="https://archivebox.io/screenshots/50-snapshot-view-pdf-desktop.png" width="1600" height="1000" loading="lazy" alt="An archived page with its PDF, screenshot, HTML, and other saved formats"></a><figcaption>Review the same page in several formats.</figcaption></figure>
+          <figure class="card-shot"><a href="https://archivebox.io/screenshots/50-snapshot-view-pdf-desktop.png"><img src="https://archivebox.io/screenshots/50-snapshot-view-pdf-desktop.png" width="1600" height="1000" loading="lazy" alt="An archived page with its PDF, screenshot, HTML, and other saved formats"></a></figure>
         </article>
         <article class="audience-card">
           <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v16M12 5C9 2 5 2 2 3v16c3-1 7-1 10 2 3-3 7-3 10-2V3c-3-1-7-1-10 2Z"/></svg></span>
@@ -184,7 +196,7 @@
             <li>Keep machine-readable metadata in JSON and SQLite.</li>
             <li>Extend extraction pipelines through the ArchiveBox ecosystem.</li>
           </ul>
-          <figure class="card-shot"><a href="https://archivebox.io/screenshots/20-crawl-schedules-desktop.png"><img src="https://archivebox.io/screenshots/20-crawl-schedules-desktop.png" width="1600" height="1000" loading="lazy" alt="ArchiveBox scheduled crawls showing a recurring RSS import"></a><figcaption>Schedule repeat captures of your sources.</figcaption></figure>
+          <figure class="card-shot"><a href="https://archivebox.io/screenshots/20-crawl-schedules-desktop.png"><img src="https://archivebox.io/screenshots/20-crawl-schedules-desktop.png" width="1600" height="1000" loading="lazy" alt="ArchiveBox scheduled crawls showing a recurring RSS import"></a></figure>
         </article>
       </div>
     </section>
@@ -339,7 +351,6 @@ archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
 <span class="ab-prompt">$</span> <span class="ab-cmd">env CHROME_BINARY=chromium archivebox add 'https://example.com'</span></pre>
             </div>
           </div>
-          <figure class="card-shot"><a href="https://archivebox.io/screenshots/37-configuration-desktop.png"><img src="https://archivebox.io/screenshots/37-configuration-desktop.png" width="1600" height="1000" loading="lazy" alt="ArchiveBox configuration page listing settings, values, and their sources"></a><figcaption>Inspect your current configuration in the Web UI.</figcaption></figure>
         </article>
         <article>
           <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3v5m8-5v5M6 8h12v4a6 6 0 0 1-12 0V8Zm6 10v4"/></svg></span>
@@ -364,17 +375,26 @@ archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
       </div>
       <div class="data-grid">
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/05-add-urls-desktop.png"><img src="https://archivebox.io/screenshots/05-add-urls-desktop.png" width="1600" height="1000" loading="lazy" alt="Add URLs to ArchiveBox"></a>
+          </div>
           <h3>Inputs</h3>
           <p>Archive one URL at a time or schedule imports from bookmarks, browser history, RSS, JSON, CSV, TXT, SQL, HTML, Markdown, Pocket, Pinboard, Instapaper, Shaarli, Wallabag, and more.</p>
         </article>
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7l-5-5Zm0 0v5h5M8 12h8m-8 4h6"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7l-5-5Zm0 0v5h5M8 12h8m-8 4h6"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/11-snapshot-files-desktop.png"><img src="https://archivebox.io/screenshots/11-snapshot-files-desktop.png" width="1600" height="1000" loading="lazy" alt="Files saved for an archived page"></a>
+          </div>
           <h3>Outputs</h3>
           <p>Each snapshot can include original HTML, rendered single-file HTML, PDF, screenshot PNG, WARC, title, article text, favicon, headers, media, subtitles, metadata, thumbnails, and git clones.</p>
         </article>
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/09-snapshots-grid-desktop.png"><img src="https://archivebox.io/screenshots/09-snapshots-grid-desktop.png" width="1600" height="1000" loading="lazy" alt="Browse an archive in the Web UI"></a>
+          </div>
           <h3>Access</h3>
           <p>Manage the same collection through the Web UI, CLI, REST API, Python API, SQLite, or the data folder itself. Use whichever fits your workflow.</p>
         </article>
@@ -387,16 +407,15 @@ archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
         <h2>Browse your captures as normal files without needing ArchiveBox.</h2>
         <p>Your captures are ordinary HTML, images, PDFs, and media files. Open them from Finder or your file manager, search them with your own tools, and back them up wherever you like.</p>
       </div>
-      <figure class="finder-shot">
-        <a href="./assets/archive-files-finder.png"><img src="./assets/archive-files-finder.png" width="1044" height="492" loading="lazy" alt="macOS Finder with the date, news.ycombinator.com, and snapshot folders expanded down to dom/output.html, with the saved HTML file selected"></a>
-        <figcaption>A real Hacker News capture in Finder: date → website → snapshot → <code>dom/output.html</code>. <a href="./assets/archive-files-finder.png">View full size ↗</a></figcaption>
-      </figure>
       <div class="prose-grid prose-grid--wide">
         <article>
           <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18"/></svg></span>
           <h3>Archive layout</h3>
           <p>Each snapshot has a folder for every capture method. HTML lives in folders such as <code>dom/</code> and <code>singlefile/</code>; images, PDFs, and media have their own folders too.</p>
           <p>Snapshot metadata is saved alongside the outputs. Your collection’s database and configuration live outside the individual snapshot folders.</p>
+          <figure class="finder-shot">
+            <a href="./assets/archive-files-finder.png"><img src="./assets/archive-files-finder.png" width="1044" height="492" loading="lazy" alt="macOS Finder with the date, news.ycombinator.com, and snapshot folders expanded down to dom/output.html, with the saved HTML file selected"></a>
+          </figure>
         </article>
         <article>
           <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7l-5-5Zm0 0v5h5M8 12h8m-8 4h6"/></svg></span>
@@ -416,21 +435,30 @@ archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
 
       <div class="notice-grid">
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="12" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v3"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="12" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v3"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/02-login-desktop.png"><img src="https://archivebox.io/screenshots/02-login-desktop.png" width="1600" height="1000" loading="lazy" alt="ArchiveBox sign-in page"></a>
+          </div>
           <h3>Private content</h3>
           <p>If you archive private URLs, paywalled pages, unlisted media, Google Docs, or browser sessions, assume snapshot viewers may see private URLs, cookies, session tokens, headers, and page content unless you configure access carefully.</p>
           <p>Restrict public access with <code>PUBLIC_INDEX=False</code>, <code>PUBLIC_SNAPSHOTS=False</code>, and <code>PUBLIC_ADD_VIEW=False</code>, then create authenticated users with <code>archivebox manage createsuperuser</code>.</p>
           <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Read the security overview</a>
         </article>
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m7 5-6 7 6 7m10-14 6 7-6 7M14 3l-4 18"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m7 5-6 7 6 7m10-14 6 7-6 7M14 3l-4 18"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/49-snapshot-view-dom-desktop.png"><img src="https://archivebox.io/screenshots/49-snapshot-view-dom-desktop.png" width="1600" height="1000" loading="lazy" alt="Archived page rendered from saved HTML"></a>
+          </div>
           <h3>Archived JavaScript</h3>
           <p>Archived pages that execute JavaScript can make requests from the same domain as the web UI when viewed. If this risk matters for your collection, review the publishing guidance and consider disabling extractor outputs that execute archived JS when opened.</p>
           <p><code>archivebox config --set SAVE_WGET=False SAVE_DOM=False</code></p>
           <a href="https://github.com/ArchiveBox/ArchiveBox/issues/239">Read Issue #239</a>
         </article>
         <article>
-          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 4 18 4 18 0V5M3 12c0 4 18 4 18 0"/></svg></span>
+          <div class="card-media">
+            <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 4 18 4 18 0V5M3 12c0 4 18 4 18 0"/></svg></span>
+            <a class="card-thumbnail" href="https://archivebox.io/screenshots/10-snapshot-admin-detail-desktop.png"><img src="https://archivebox.io/screenshots/10-snapshot-admin-detail-desktop.png" width="1600" height="1000" loading="lazy" alt="Snapshot details and saved archive size"></a>
+          </div>
           <h3>Storage requirements</h3>
           <p>ArchiveBox can use roughly 1 GB to 50 GB per 1,000 snapshots depending on media, video, audio, and extractor settings. Tune <code>YTDLP_ENABLED</code> and <code>YTDLP_MAX_SIZE</code> for media-heavy collections.</p>
           <p>Keep <code>index.sqlite3</code> on local storage or SSD when possible. Large <code>archive/</code> folders can live on NFS, SMB, FUSE, S3-backed, or HDD storage, but Docker and fileshare setups may need ownership and root-squash adjustments. Avoid older filesystems like EXT3 or FAT for very large archives.</p>
