@@ -5,8 +5,6 @@ version = 2
 [snippets]
 
 # README.md
-# Launches the separately downloaded macOS GUI app; checked as shell syntax.
-"78d23367a15f5b1c-1" = "illustration"
 "1a488451c694b89d-1" = "illustration"
 "fe1f06a0a6b02c01-1" = "illustration"
 "dbbcf99c3829e104-1" = "run"
