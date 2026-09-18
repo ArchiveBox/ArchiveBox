@@ -573,6 +573,16 @@ h3 {
   object-position: top left;
 }
 
+.audience-card .card-shot--crawl-options > a {
+  display: flex;
+  justify-content: center;
+}
+
+.audience-card .card-shot--crawl-options img {
+  max-width: 340px;
+  object-position: center bottom;
+}
+
 .audience-card .phone-pair > a {
   display: flex;
   align-items: center;
