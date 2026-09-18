@@ -749,7 +749,7 @@ def test_unconfigured_public_host_superuser_can_reach_setup_wizard(tmp_path: Pat
     assert "BASE_URL" in archivebox_environment
     assert "SERVER_SECURITY_MODE" in archivebox_environment
     assert all("ARCHIVEBOX_INGRESS_BASE_URL" not in value for value in archivebox_environment)
-    assert compose["services"]["archivebox"]["ports"] == ["${ARCHIVEBOX_PORT:-8000}:8000"]
+    assert compose["services"]["archivebox"]["ports"] == ["${ARCHIVEBOX_PORT:-5797}:5797"]
     assert set(compose["services"]) == {"archivebox"}
 
 

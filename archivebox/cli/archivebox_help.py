@@ -68,7 +68,7 @@ def help() -> None:
     [blue]docker compose run[/blue] [dark_green]archivebox[/dark_green] [green]\\[command][/green] [green3][...args][/green3] [violet][--help][/violet] [grey53][--version][/grey53]
 
     [grey53]# using Docker:[/grey53]
-    [blue]docker run[/blue] -v [light_slate_blue]$PWD:/data[/light_slate_blue] [grey53]-p 8000:8000[/grey53] -it [dark_green]archivebox/archivebox[/dark_green] [green]\\[command][/green] [green3][...args][/green3] [violet][--help][/violet] [grey53][--version][/grey53]
+    [blue]docker run[/blue] -v [light_slate_blue]$PWD:/data[/light_slate_blue] [grey53]-p 5797:5797[/grey53] -it [dark_green]archivebox/archivebox[/dark_green] [green]\\[command][/green] [green3][...args][/green3] [violet][--help][/violet] [grey53][--version][/grey53]
 """
         if IN_DOCKER
         else ""
@@ -109,7 +109,7 @@ def help() -> None:
     [dark_green]archivebox[/dark_green] [green]add[/green] --depth=1 "https://example.com/some/page"
     [dark_green]archivebox[/dark_green] [green]list[/green] --sort=timestamp --csv=timestamp,downloaded_at,url,title
     [dark_green]archivebox[/dark_green] [green]schedule[/green] --every=day --depth=1 "https://example.com/some/feed.rss"
-    [dark_green]archivebox[/dark_green] [green]server[/green] [blue]0.0.0.0:8000[/blue]                [grey53]# Start the Web UI / API server[/grey53]
+    [dark_green]archivebox[/dark_green] [green]server[/green] [blue]0.0.0.0:5797[/blue]                [grey53]# Start the Web UI / API server[/grey53]
 """
         print(
             Panel(

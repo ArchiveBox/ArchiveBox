@@ -234,7 +234,7 @@
     var exampleBaseUrl = desiredScheme + exampleBaseHost;
     var exampleWildcardUrl = desiredScheme + exampleWildcardHost;
     var exampleAdminUrl = desiredScheme + (dnsMode === 'wildcard' ? 'admin.' + exampleBaseHost : exampleBaseHost) + '/admin/';
-    var localhostAdminUrl = 'http://admin.archivebox.localhost:8000/admin/';
+    var localhostAdminUrl = 'http://admin.archivebox.localhost:5797/admin/';
 
     document.getElementById('archivebox-setup-hosting-status').textContent = hosting === 'localhost'
       ? '❌ Visit ' + localhostAdminUrl + ' from the same machine to continue setup.'
@@ -253,9 +253,9 @@
     document.getElementById('archivebox-setup-tls-status').textContent = tlsMode === 'localhost'
       ? '❌ Visit ' + localhostAdminUrl + ' from this machine to continue setup. No certificate is needed.'
       : (tlsMode === 'wildcard'
-        ? '❌ In your ingress provider, proxy to ArchiveBox on port 8000 and configure one browser-trusted certificate covering ' + exampleBaseHost + ' and ' + exampleWildcardHost + ', normally through DNS-01. Never enable on-demand TLS or request individual snapshot certificates. Visit ' + exampleAdminUrl + ' to continue setup.'
+        ? '❌ In your ingress provider, proxy to ArchiveBox on port 5797 and configure one browser-trusted certificate covering ' + exampleBaseHost + ' and ' + exampleWildcardHost + ', normally through DNS-01. Never enable on-demand TLS or request individual snapshot certificates. Visit ' + exampleAdminUrl + ' to continue setup.'
         : (tlsMode === 'single'
-          ? '❌ In your ingress provider, proxy to ArchiveBox on port 8000 and configure one browser-trusted certificate for ' + exampleBaseHost + '. Visit ' + exampleAdminUrl + ' to continue setup.'
+          ? '❌ In your ingress provider, proxy to ArchiveBox on port 5797 and configure one browser-trusted certificate for ' + exampleBaseHost + '. Visit ' + exampleAdminUrl + ' to continue setup.'
           : (tlsMode === 'none'
             ? '❌ Expose this ArchiveBox server directly over HTTP without a separate ingress or SSL termination service. Visit ' + exampleAdminUrl + ' to continue setup. In-browser WARC viewing will remain disabled unless browsing through localhost or HTTPS.'
             : '❌ Choose an ingress and TLS mode. Your choice will not be changed automatically.')));

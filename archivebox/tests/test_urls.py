@@ -495,16 +495,16 @@ class TestUrlRouting:
 
             bind_host, bind_port = split_host_port(bind_addr)
             assert bind_host == "127.0.0.1"
-            assert bind_port == "8000"
+            assert bind_port == "5797"
             host_only, port = split_host_port(base_host)
             assert host_only == "archivebox.localhost"
-            assert port == "8000"
-            assert web_host == "web.archivebox.localhost:8000"
-            assert admin_host == "admin.archivebox.localhost:8000"
-            assert api_host == "api.archivebox.localhost:8000"
+            assert port == "5797"
+            assert web_host == "web.archivebox.localhost:5797"
+            assert admin_host == "admin.archivebox.localhost:5797"
+            assert api_host == "api.archivebox.localhost:5797"
             assert snapshot_subdomain == f"snap-{snapshot_id[-12:].lower()}"
-            assert snapshot_host == f"{snapshot_subdomain}.archivebox.localhost:8000"
-            assert original_host == f"{domain}.archivebox.localhost:8000"
+            assert snapshot_host == f"{snapshot_subdomain}.archivebox.localhost:5797"
+            assert original_host == f"{domain}.archivebox.localhost:5797"
             assert get_listen_subdomain(web_host) == "web"
             assert get_listen_subdomain(admin_host) == "admin"
             assert get_listen_subdomain(api_host) == "api"
@@ -562,7 +562,7 @@ class TestUrlRouting:
             )
         finally:
             reset_result = run_archivebox_cmd(
-                ["config", "--set", "BASE_URL=http://archivebox.localhost:8000"],
+                ["config", "--set", "BASE_URL=http://archivebox.localhost:5797"],
                 cwd=self.data_dir,
             )
             assert reset_result.returncode == 0, reset_result.stderr
@@ -634,7 +634,7 @@ class TestUrlRouting:
 
             allowed_next_urls = [
                 "/admin/core/snapshot/",
-                f"http://archivebox.localhost:8000/public/",
+                f"http://archivebox.localhost:5797/public/",
                 f"http://{web_host}/public/",
                 f"http://{admin_host}/admin/core/snapshot/",
                 f"http://{api_host}/api/v1/docs",
@@ -1205,7 +1205,7 @@ class TestUrlRouting:
                 mode="safe-subdomains-fullreplay",
             )
         finally:
-            self._set_config("BIND_ADDR=127.0.0.1:8000", "BASE_URL=http://archivebox.localhost:8000")
+            self._set_config("BIND_ADDR=127.0.0.1:5797", "BASE_URL=http://archivebox.localhost:5797")
 
     def test_subdomain_replay_assets_route_without_base_url(self) -> None:
         lib_dir = self.data_dir / "test-lib"
@@ -1233,7 +1233,7 @@ class TestUrlRouting:
                 env_overrides={"ABXPKG_LIB_DIR": str(lib_dir)},
             )
         finally:
-            self._set_config("BIND_ADDR=127.0.0.1:8000", "BASE_URL=http://archivebox.localhost:8000")
+            self._set_config("BIND_ADDR=127.0.0.1:5797", "BASE_URL=http://archivebox.localhost:5797")
 
     def test_subdomain_replay_assets_use_derived_chromewebstore_extensions_dir(self) -> None:
         lib_dir = self.data_dir / "test-lib"
@@ -1262,7 +1262,7 @@ class TestUrlRouting:
                 env_overrides={"ABXPKG_LIB_DIR": str(lib_dir)},
             )
         finally:
-            self._set_config("BIND_ADDR=127.0.0.1:8000", "BASE_URL=http://archivebox.localhost:8000")
+            self._set_config("BIND_ADDR=127.0.0.1:5797", "BASE_URL=http://archivebox.localhost:5797")
 
     def test_onedomain_base_url_overrides_are_preserved_for_external_links(self) -> None:
         try:
@@ -1289,7 +1289,7 @@ class TestUrlRouting:
                 mode="safe-onedomain-nojsreplay",
             )
         finally:
-            self._set_config("BASE_URL=http://archivebox.localhost:8000")
+            self._set_config("BASE_URL=http://archivebox.localhost:5797")
 
     def test_subdomain_snapshot_urls_inherit_https_archive_base_url(self) -> None:
         try:
@@ -1310,7 +1310,7 @@ class TestUrlRouting:
                 mode="safe-subdomains-fullreplay",
             )
         finally:
-            self._set_config("BASE_URL=http://archivebox.localhost:8000")
+            self._set_config("BASE_URL=http://archivebox.localhost:5797")
 
     def test_template_and_admin_links(self) -> None:
         self._run(
@@ -1343,7 +1343,7 @@ class TestUrlRouting:
 
             resp = client.get("/public/", HTTP_HOST=web_host)
             assert resp.status_code in (301, 302)
-            assert resp["Location"] == "http://admin.archivebox.localhost:8000/admin/core/snapshot/"
+            assert resp["Location"] == "http://admin.archivebox.localhost:5797/admin/core/snapshot/"
 
             resp = client.get(f"/{snapshot.url_path}/index.html", HTTP_HOST=web_host)
             assert resp.status_code == 200
@@ -1518,12 +1518,12 @@ class TestUrlRouting:
         # Exercise the same real captured files with each request-time posture,
         # including both auto branches and an HTTPS canonical reverse-proxy URL.
         for mode, base in (
-            ("auto", "http://archivebox.localhost:8000"),
-            ("auto", "http://archivebox.example:8000"),
+            ("auto", "http://archivebox.localhost:5797"),
+            ("auto", "http://archivebox.example:5797"),
             ("safe-subdomains-fullreplay", "https://archivebox.example"),
-            ("safe-onedomain-nojsreplay", "http://archivebox.example:8000"),
-            ("unsafe-onedomain-noadmin", "http://archivebox.example:8000"),
-            ("danger-onedomain-fullreplay", "http://archivebox.example:8000"),
+            ("safe-onedomain-nojsreplay", "http://archivebox.example:5797"),
+            ("unsafe-onedomain-noadmin", "http://archivebox.example:5797"),
+            ("danger-onedomain-fullreplay", "http://archivebox.example:5797"),
         ):
             self._run(
                 """

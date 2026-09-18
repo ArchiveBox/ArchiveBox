@@ -99,8 +99,8 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
         {
             "mode": "unconfigured",
             "can_configure": True,
-            "canonical_host": "archivebox.example.test:8000",
-            "suggested_base_url": "http://archivebox.example.test:8000",
+            "canonical_host": "archivebox.example.test:5797",
+            "suggested_base_url": "http://archivebox.example.test:5797",
             "machine_admin_url": "/admin/machine/machine/current/change/",
             "public_index": True,
             "public_add_view": False,
@@ -111,7 +111,7 @@ def test_unconfigured_superuser_banner_uses_browser_assisted_setup_wizard():
     assert html.count('id="archivebox-setup-wizard"') == 1
     assert 'id="archivebox-system-warning-banner"' not in html
     assert "⚠ base_url not set" not in html
-    assert "Setup access to your ArchiveBox Server: <code>archivebox.example.test:8000</code>" in html
+    assert "Setup access to your ArchiveBox Server: <code>archivebox.example.test:5797</code>" in html
     assert 'id="archivebox-setup-base-url"' in html
     assert 'id="archivebox-setup-security-mode"' in html
     assert 'id="archivebox-setup-public-index"' in html
@@ -245,9 +245,9 @@ def test_health_check_is_identifiable_across_ingress_origins():
 @pytest.mark.parametrize(
     ("request_host", "secure", "expected_display_host"),
     (
-        ("admin.archivebox.localhost:8000", False, "archivebox.localhost:8000"),
-        ("127.0.0.1:8000", False, "archivebox.localhost:8000"),
-        ("0.0.0.0:8000", False, "archivebox.localhost:8000"),
+        ("admin.archivebox.localhost:5797", False, "archivebox.localhost:5797"),
+        ("127.0.0.1:5797", False, "archivebox.localhost:5797"),
+        ("0.0.0.0:5797", False, "archivebox.localhost:5797"),
         ("archivebox.io:80", False, "archivebox.io"),
         ("archivebox.io:443", True, "archivebox.io"),
         ("192.0.2.10:443", True, "192.0.2.10"),
@@ -279,7 +279,7 @@ def test_unconfigured_banner_honors_forwarded_https_from_ingress():
     ("base_url", "request_host"),
     (
         ("", "archivebox.example.test:18443"),
-        ("http://archivebox.localhost:8000", "admin.archivebox.localhost:18010"),
+        ("http://archivebox.localhost:5797", "admin.archivebox.localhost:18010"),
     ),
 )
 def test_admin_cookie_isolation_accepts_first_run_and_external_port_mapping(base_url, request_host):
@@ -302,7 +302,7 @@ def test_unconfigured_banner_does_not_show_setup_wizard_to_non_superusers():
         {
             "mode": "unconfigured",
             "can_configure": False,
-            "suggested_base_url": "http://archivebox.example.test:8000",
+            "suggested_base_url": "http://archivebox.example.test:5797",
         },
     )
 
@@ -329,13 +329,13 @@ def test_system_warning_modes_share_one_banner(context, expected_text):
 
 def test_configured_base_url_mismatch_banner_shows_both_origins():
     config = get_config(include_machine=False).model_copy(update={"BASE_URL": "https://archivebox.example.test"})
-    request = RequestFactory().get("/admin/", HTTP_HOST="archivebox.internal:8000")
+    request = RequestFactory().get("/admin/", HTTP_HOST="archivebox.internal:5797")
     request.user = AnonymousUser()
 
     context = get_base_url_mismatch_context(request, config)
     assert context == {
         "mode": "base_url_mismatch",
-        "browser_url": "http://archivebox.internal:8000",
+        "browser_url": "http://archivebox.internal:5797",
         "configured_base_url": "https://archivebox.example.test",
     }
     assert system_warnings_banner({"CONFIG": config, "request": request}) == context
@@ -343,7 +343,7 @@ def test_configured_base_url_mismatch_banner_shows_both_origins():
     html = render_to_string("core/system_warnings_banner.html", context)
     assert "base_url mismatch" in html
     assert "Browser URL:" in html
-    assert "http://archivebox.internal:8000" in html
+    assert "http://archivebox.internal:5797" in html
     assert "Configured BASE_URL:" in html
     assert "https://archivebox.example.test" in html
 

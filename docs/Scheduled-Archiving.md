@@ -43,7 +43,7 @@ With the new orchestrator flow, you only need the main `archivebox` service:
 services:
   archivebox:
     image: archivebox/archivebox:dev
-    command: server --init 0.0.0.0:8000
+    command: server --init 0.0.0.0:5797
     volumes:
       - ./data:/data
 ```

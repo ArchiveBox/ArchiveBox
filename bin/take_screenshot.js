@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 
-const DEFAULT_URL = 'http://web.archivebox.localhost:8000/add/';
+const DEFAULT_URL = 'http://web.archivebox.localhost:5797/add/';
 const DEFAULT_OUTPUT = 'tmp/add-page.png';
 
 function usage() {

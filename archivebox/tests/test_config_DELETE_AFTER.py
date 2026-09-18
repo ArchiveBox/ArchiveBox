@@ -10,8 +10,8 @@ from archivebox.tests.conftest import run_archivebox_cmd, run_queued_crawls, cli
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
-ADMIN_HOST = "admin.archivebox.localhost:8000"
-API_HOST = "api.archivebox.localhost:8000"
+ADMIN_HOST = "admin.archivebox.localhost:5797"
+API_HOST = "api.archivebox.localhost:5797"
 
 
 def test_delete_after_real_cli_and_orchestrator_paths_cover_all_retained_models(tmp_path, recursive_test_site):

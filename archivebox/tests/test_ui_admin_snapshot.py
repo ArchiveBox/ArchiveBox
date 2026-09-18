@@ -323,7 +323,7 @@ def test_snapshot_admin_preview_uses_extension_screenshot_when_standard_screensh
     )
 
     admin = SnapshotAdmin(Snapshot, archivebox_admin)
-    request = RequestFactory().get("/", HTTP_HOST="admin.archivebox.localhost:8000")
+    request = RequestFactory().get("/", HTTP_HOST="admin.archivebox.localhost:5797")
     request.archivebox_config = get_config()
     admin.request = request
 
@@ -422,7 +422,7 @@ class TestSnapshotProgressStats:
 
         prefetched_snapshot = Snapshot.objects.prefetch_related("archiveresult_set").get(pk=snapshot.pk)
         admin = SnapshotAdmin(Snapshot, archivebox_admin)
-        request = RequestFactory().get("/", HTTP_HOST="archivebox.localhost:8000")
+        request = RequestFactory().get("/", HTTP_HOST="archivebox.localhost:5797")
         request.resolver_match = resolve("/")
         request.archivebox_config = get_config()
         admin.request = request
@@ -788,7 +788,7 @@ class TestSnapshotProgressStats:
 
         assert embed_path in html
         assert "?preview=1" not in html
-        assert html != "http://snap-ffa4215f6d64.archivebox.localhost:8000"
+        assert html != "http://snap-ffa4215f6d64.archivebox.localhost:5797"
 
     def test_plugin_full_returns_empty_for_none_result(self):
         from archivebox.core.templatetags import core_tags
@@ -1290,13 +1290,13 @@ class TestAdminSnapshotListView:
 
         admin = SnapshotAdmin(snapshot.__class__, archivebox_admin)
 
-        request = RequestFactory().get("/", HTTP_HOST="admin.archivebox.localhost:8000")
+        request = RequestFactory().get("/", HTTP_HOST="admin.archivebox.localhost:5797")
         request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"})
         admin.request = request
-        assert admin.get_snapshot_view_url(snapshot) == f"http://snap-{str(snapshot.pk).replace('-', '')[-12:]}.archivebox.localhost:8000"
+        assert admin.get_snapshot_view_url(snapshot) == f"http://snap-{str(snapshot.pk).replace('-', '')[-12:]}.archivebox.localhost:5797"
 
         request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
-        assert admin.get_snapshot_view_url(snapshot) == f"http://archivebox.localhost:8000/snapshot/{snapshot.pk}"
+        assert admin.get_snapshot_view_url(snapshot) == f"http://archivebox.localhost:5797/snapshot/{snapshot.pk}"
 
     def test_find_snapshots_for_url_matches_fragment_suffixed_variants(self, crawl, db):
         from archivebox.core.models import Snapshot

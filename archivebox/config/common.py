@@ -83,12 +83,12 @@ def base_url_from_legacy_server_config(raw_config: Mapping[str, object]) -> str:
             return candidate
 
     listen_host = str(raw_config.get("LISTEN_HOST") or "").strip()
-    if listen_host and listen_host.lower() != "archivebox.localhost:8000":
+    if listen_host and listen_host.lower() != "archivebox.localhost:5797":
         return normalize(listen_host)
 
     csrf_origins = [normalize(origin) for origin in str(raw_config.get("CSRF_TRUSTED_ORIGINS") or "").split(",")]
     csrf_origins = [origin for origin in csrf_origins if origin]
-    nondefault_csrf_origins = [origin for origin in csrf_origins if origin != "http://admin.archivebox.localhost:8000"]
+    nondefault_csrf_origins = [origin for origin in csrf_origins if origin != "http://admin.archivebox.localhost:5797"]
     if len(nondefault_csrf_origins) == 1:
         return nondefault_csrf_origins[0]
 
@@ -314,7 +314,7 @@ class ServerConfig(BaseConfigSet):
     )
 
     SECRET_KEY: str = Field(default_factory=lambda: "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789_") for _ in range(50)))
-    BIND_ADDR: str = Field(default="127.0.0.1:8000")
+    BIND_ADDR: str = Field(default="127.0.0.1:5797")
     BASE_URL: str = Field(default="")
     ALLOWED_HOSTS: str = Field(default="*")
     CSRF_TRUSTED_ORIGINS: str = Field(default="")

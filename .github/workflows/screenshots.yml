@@ -43,7 +43,7 @@ jobs:
       - name: Build UI screenshot gallery
         run: bin/collect_ui_screenshots.sh
         env:
-          BASE_URL: http://archivebox.localhost:8000
+          BASE_URL: http://archivebox.localhost:5797
 
       - name: Verify gallery was generated from this exact revision
         run: |

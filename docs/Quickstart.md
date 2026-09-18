@@ -63,7 +63,7 @@ Open `./archive` to view your archive data in the filesystem.
 You can also use the interactive Web UI to view/manage/add links to your archive:
 ```bash
 # with plain Docker:
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
+docker run -v $PWD:/data -it -p 5797:5797 archivebox/archivebox:dev
 
 # with Docker Compose:
 docker compose up -d
@@ -72,7 +72,7 @@ docker compose up -d
 archivebox server
 
 # Open /admin/ on the hostname or IP used to reach ArchiveBox.
-# Local example: http://admin.archivebox.localhost:8000/admin/
+# Local example: http://admin.archivebox.localhost:5797/admin/
 # If BASE_URL is not configured yet, continue through the web setup wizard.
 ```
 

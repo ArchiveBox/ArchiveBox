@@ -25,7 +25,7 @@ Use these options to set up your desired permissions for non-admin guest users:
 
 ### Username & Password (the default)
 
-On a new server, open <http://admin.archivebox.localhost:8000/admin/> to create the first admin through the setup UI. Existing users can be created or edited from the CLI:
+On a new server, open <http://admin.archivebox.localhost:5797/admin/> to create the first admin through the setup UI. Existing users can be created or edited from the CLI:
 
 ```bash
 archivebox manage createsuperuser
@@ -35,8 +35,8 @@ archivebox manage changepassword <username>
 # equivalent: docker run -v $PWD:/data archivebox/archivebox:dev manage [...]
 ```
 
-Existing users can be managed from the Admin UI here: [`/admin/auth/user/`](http://admin.archivebox.localhost:8000/admin/auth/user/),
-and you can change your password here: [`/admin/password_change/`](http://admin.archivebox.localhost:8000/admin/password_change/).
+Existing users can be managed from the Admin UI here: [`/admin/auth/user/`](http://admin.archivebox.localhost:5797/admin/auth/user/),
+and you can change your password here: [`/admin/password_change/`](http://admin.archivebox.localhost:5797/admin/password_change/).
 
 <br/>
 <br/>
@@ -124,19 +124,19 @@ The IdP server can act as a middleman gateway to authenticate users using an ext
 The REST API (available starting in v0.8.0) supports several methods of authentication for convenience.  
   
 To see API docs, try endpoints interactively, and see how auth works, visit this URL on your ArchiveBox server:  
-[`http://api.archivebox.localhost:8000/api/v1/docs`](http://api.archivebox.localhost:8000/api/v1/docs)
+[`http://api.archivebox.localhost:5797/api/v1/docs`](http://api.archivebox.localhost:5797/api/v1/docs)
 
 <img width="500" alt="Screenshot of django-ninja Swagger API docs page" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ad914143-f48b-4d4e-aa8c-f89a2c70cee7">
 
 <br/><br/>
 
 To get started using the REST API, you can generate an API key for your user in the Admin Web UI:
-[`http://admin.archivebox.localhost:8000/admin/api/apitoken/add/`](http://admin.archivebox.localhost:8000/admin/api/apitoken/add/)
+[`http://admin.archivebox.localhost:5797/admin/api/apitoken/add/`](http://admin.archivebox.localhost:5797/admin/api/apitoken/add/)
 
-or by calling the `http://api.archivebox.localhost:8000/api/v1/auth/get_api_token` endpoint with a username & password:
+or by calling the `http://api.archivebox.localhost:5797/api/v1/auth/get_api_token` endpoint with a username & password:
 ```bash
 curl -X 'POST' \
-  'http://api.archivebox.localhost:8000/api/v1/auth/get_api_token' \
+  'http://api.archivebox.localhost:5797/api/v1/auth/get_api_token' \
   -H 'Content-Type: application/json' \
   -d '{"username": "YOURUSERNAMEHERE", "password": "YOURPASSWORDHERE"}'
 ```
@@ -153,7 +153,7 @@ Pass `Authorization=Bearer YOURAPITOKENHERE` as a request header.
 
 ```bash
 curl -X 'GET' \
-  'http://api.archivebox.localhost:8000/api/v1/core/snapshots?limit=10' \
+  'http://api.archivebox.localhost:5797/api/v1/core/snapshots?limit=10' \
   -H 'accept: application/json' \
   -H 'Authorization: Bearer YOURAPITOKENHERE'
 ```
@@ -166,7 +166,7 @@ Pass `X-ArchiveBox-API-Key=YOURAPITOKENHERE` as a request header.
 
 ```bash
 curl -X 'GET' \
-  'http://api.archivebox.localhost:8000/api/v1/core/snapshots?limit=10' \
+  'http://api.archivebox.localhost:5797/api/v1/core/snapshots?limit=10' \
   -H 'accept: application/json' \
   -H 'X-ArchiveBox-API-Key: YOURAPITOKENHERE'
 ```
@@ -182,7 +182,7 @@ Pass `api_key=YOURAPITOKENHERE` as a GET/POST query parameter.
 
 ```bash
 curl -X 'GET' \
-  'http://api.archivebox.localhost:8000/api/v1/core/snapshots?limit=10&api_key=YOURAPITOKENHERE' \
+  'http://api.archivebox.localhost:5797/api/v1/core/snapshots?limit=10&api_key=YOURAPITOKENHERE' \
   -H 'accept: application/json'
 ```
 

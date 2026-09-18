@@ -11,7 +11,7 @@ pytestmark = pytest.mark.django_db
 
 
 User = get_user_model()
-ADMIN_HOST = "admin.archivebox.localhost:8000"
+ADMIN_HOST = "admin.archivebox.localhost:5797"
 
 
 @pytest.fixture

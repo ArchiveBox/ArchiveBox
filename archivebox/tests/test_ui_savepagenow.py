@@ -8,7 +8,7 @@ from pathlib import Path
 from archivebox.tests.conftest import cli_env, create_test_url
 
 
-ADMIN_HOST = "admin.archivebox.localhost:8000"
+ADMIN_HOST = "admin.archivebox.localhost:5797"
 
 
 def _run_savepagenow_script(
@@ -93,7 +93,7 @@ def _run_savepagenow_not_found_script(initialized_archive: Path, request_url: st
         client = Client()
         target_url = {request_url!r}
 
-        resp = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:8000')
+        resp = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:5797')
         assert resp.status_code == 302, resp.status_code
         assert resp['Location'] == f'http://{ADMIN_HOST}/web/' + target_url
         assert Snapshot.objects.count() == 0
@@ -226,7 +226,7 @@ def _run_savepagenow_via_web_host_redirect_script(initialized_archive: Path, req
 
         target_url = {request_url!r}
 
-        resp = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:8000')
+        resp = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:5797')
         assert resp.status_code == 302, resp.status_code
         assert resp['Location'] == f'http://{ADMIN_HOST}/web/' + target_url
 
@@ -274,7 +274,7 @@ def _run_savepagenow_existing_snapshot_script(initialized_archive: Path, request
         snapshot = Snapshot.objects.create(url=stored_url, crawl=crawl)
 
         client = Client()
-        resp = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:8000')
+        resp = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:5797')
         assert resp.status_code == 302, resp.status_code
         assert resp['Location'] == f"/{{snapshot.url_path}}"
         """,
@@ -310,7 +310,7 @@ def test_web_add_creates_and_reuses_snapshot_public(initialized_archive):
         url,
         login=False,
         public_add_view=True,
-        host="web.archivebox.localhost:8000",
+        host="web.archivebox.localhost:5797",
     )
     assert result.returncode == 0, f"SavePageNow shortcut (public add) test failed.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
 

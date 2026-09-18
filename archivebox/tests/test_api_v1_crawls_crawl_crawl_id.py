@@ -33,7 +33,7 @@ from .conftest import (
 
 pytestmark = pytest.mark.django_db(transaction=True)
 User = get_user_model()
-ADMIN_HOST = "admin.archivebox.localhost:8000"
+ADMIN_HOST = "admin.archivebox.localhost:5797"
 
 
 @pytest.fixture

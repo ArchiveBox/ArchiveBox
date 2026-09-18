@@ -88,7 +88,7 @@ def get_vm_info():
         try:
             # Getting SMBIOS data from sysfs.
             # SMBIOS 2.8 present.
-            # argo-1        | 2024-10-01T10:40:51Z ERR  error="Incoming request ended abruptly: context canceled" connIndex=2 event=1 ingressRule=0 originService=http://archivebox:8000                                                                               │
+            # argo-1        | 2024-10-01T10:40:51Z ERR  error="Incoming request ended abruptly: context canceled" connIndex=2 event=1 ingressRule=0 originService=http://archivebox:5797                                                                               │
             # Handle 0x0100, DMI type 1, 27 bytes
             # System Information
             #         Manufacturer: DigitalOcean

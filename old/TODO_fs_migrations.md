@@ -87,7 +87,7 @@ def extract_domain_from_url(url: str) -> str:
     Uses full hostname with sanitized special chars.
 
     Examples:
-        https://example.com:8080 → example.com_8080
+        https://example.com:5797 → example.com_5797
         https://sub.example.com → sub.example.com
         file:///path → localhost
         data:text/html → data

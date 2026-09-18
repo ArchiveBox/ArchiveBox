@@ -189,9 +189,9 @@ docker_run_archivebox_install() {
 
 docker_run_archivebox_server() {
     if [ -n "$ARCHIVEBOX_PLATFORM" ]; then
-        "$DOCKER_BINARY" run --platform "$ARCHIVEBOX_PLATFORM" -v "$PWD":/data -d -p 8000:8000 --name=archivebox "$ARCHIVEBOX_IMAGE"
+        "$DOCKER_BINARY" run --platform "$ARCHIVEBOX_PLATFORM" -v "$PWD":/data -d -p 5797:5797 --name=archivebox "$ARCHIVEBOX_IMAGE"
     else
-        "$DOCKER_BINARY" run -v "$PWD":/data -d -p 8000:8000 --name=archivebox "$ARCHIVEBOX_IMAGE"
+        "$DOCKER_BINARY" run -v "$PWD":/data -d -p 5797:5797 --name=archivebox "$ARCHIVEBOX_IMAGE"
     fi
 }
 
@@ -204,8 +204,8 @@ docker_compose_run_archivebox() {
 }
 
 wait_for_archivebox() {
-    url="http://127.0.0.1:8000/health/"
-    host_header="admin.archivebox.localhost:8000"
+    url="http://127.0.0.1:5797/health/"
+    host_header="admin.archivebox.localhost:5797"
     attempts=60
     attempt=1
 
@@ -224,7 +224,7 @@ wait_for_archivebox() {
 
 open_archivebox() {
     if [ -n "$OPEN_BINARY" ] && [ -t 1 ]; then
-        "$OPEN_BINARY" "http://admin.archivebox.localhost:8000/admin/" || true
+        "$OPEN_BINARY" "http://admin.archivebox.localhost:5797/admin/" || true
     fi
 }
 
@@ -410,13 +410,13 @@ if [ "$DOCKER_IMAGE_READY" = "true" ] && "$DOCKER_BINARY" compose version > /dev
     wait_for_archivebox
     open_archivebox
     echo
-    echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
+    echo "[√] Server started on http://127.0.0.1:5797 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
     echo "    cd $ARCHIVEBOX_HOME_DIR"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME compose ps"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME compose down"
     echo "    ${FOLLOWUP_SUDO}env ARCHIVEBOX_IMAGE=$ARCHIVEBOX_IMAGE $CONTAINER_ENGINE_NAME compose pull"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME compose up"
-    echo "    Open http://localhost:8000/admin/ to create the first admin and finish web setup."
+    echo "    Open http://localhost:5797/admin/ to create the first admin and finish web setup."
     echo "    (When running remotely, replace localhost with this server's IP address or hostname.)"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME compose exec archivebox archivebox add 'https://example.com'"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME compose exec archivebox archivebox list"
@@ -438,13 +438,13 @@ elif [ "$DOCKER_IMAGE_READY" = "true" ]; then
     wait_for_archivebox
     open_archivebox
     echo
-    echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
+    echo "[√] Server started on http://127.0.0.1:5797 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
     echo "    cd $ARCHIVEBOX_DATA_DIR"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME ps --filter name=archivebox"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME rm -f archivebox"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME pull $ARCHIVEBOX_IMAGE"
-    echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME run $DOCKER_PLATFORM_ARGS -v $PWD:/data -d -p 8000:8000 --name=archivebox $ARCHIVEBOX_IMAGE"
-    echo "    Open http://localhost:8000/admin/ to create the first admin and finish web setup."
+    echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME run $DOCKER_PLATFORM_ARGS -v $PWD:/data -d -p 5797:5797 --name=archivebox $ARCHIVEBOX_IMAGE"
+    echo "    Open http://localhost:5797/admin/ to create the first admin and finish web setup."
     echo "    (When running remotely, replace localhost with this server's IP address or hostname.)"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE add 'https://example.com'"
     echo "    ${FOLLOWUP_SUDO}$CONTAINER_ENGINE_NAME run $DOCKER_PLATFORM_ARGS -v $PWD:/data -it $ARCHIVEBOX_IMAGE list"
@@ -501,14 +501,14 @@ select_archivebox_lib_dir
 # init shows version output at the end too
 echo
 echo "[+] Starting ArchiveBox server using: archivebox server --daemonize..."
-"$ARCHIVEBOX_BINARY" server --daemonize 0.0.0.0:8000
+"$ARCHIVEBOX_BINARY" server --daemonize 0.0.0.0:5797
 wait_for_archivebox
 open_archivebox
 echo
-echo "[√] Server started on http://127.0.0.1:8000 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
+echo "[√] Server started on http://127.0.0.1:5797 and data directory initialized in $ARCHIVEBOX_DATA_DIR. Usage:"
 echo "    cd $ARCHIVEBOX_DATA_DIR                            # see your data dir"
-echo "    ${FOLLOWUP_SUDO}archivebox server 0.0.0.0:8000                     # start server process"
-echo "    Open http://localhost:8000/admin/ to create the first admin and finish web setup."
+echo "    ${FOLLOWUP_SUDO}archivebox server 0.0.0.0:5797                     # start server process"
+echo "    Open http://localhost:5797/admin/ to create the first admin and finish web setup."
 echo "    (When running remotely, replace localhost with this server's IP address or hostname.)"
 echo "    ps aux | grep archivebox                           # see server process pid"
 echo "    ${FOLLOWUP_SUDO}pkill -f 'archivebox server'                       # stop the server"

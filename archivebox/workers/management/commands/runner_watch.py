@@ -8,7 +8,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--bind-url",
             default="",
-            help="Runserver bind URL to watch, e.g. http://127.0.0.1:8000",
+            help="Runserver bind URL to watch, e.g. http://127.0.0.1:5797",
         )
         parser.add_argument(
             "--interval",

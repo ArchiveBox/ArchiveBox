@@ -416,7 +416,7 @@ def test_snapshot_from_json_trims_markdown_suffixes_on_discovered_urls(crawl):
 
 def test_create_snapshots_from_urls_skips_invalid_and_archivebox_internal_urls(admin_user):
     crawl = Crawl.objects.create(
-        urls=("https://example.com/root\nhttp://127.0.0.1:8765/page-001.html\nnot-a-url\nhttp://admin.archivebox.localhost:8000/admin/"),
+        urls=("https://example.com/root\nhttp://127.0.0.1:8765/page-001.html\nnot-a-url\nhttp://admin.archivebox.localhost:5797/admin/"),
         created_by=admin_user,
     )
 

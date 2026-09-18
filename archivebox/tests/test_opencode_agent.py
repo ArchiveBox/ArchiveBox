@@ -94,9 +94,9 @@ def installed_opencode(opencode_archive_config):
 
     config = get_config().model_dump(mode="json")
     settings = runtime._settings(config, opencode_archive_config.data_dir)
-    settings["archivebox_base_url"] = "http://admin.archivebox.localhost:8000"
-    settings["archivebox_admin_url"] = "http://admin.archivebox.localhost:8000/admin"
-    settings["archivebox_api_url"] = "http://admin.archivebox.localhost:8000/api/"
+    settings["archivebox_base_url"] = "http://admin.archivebox.localhost:5797"
+    settings["archivebox_admin_url"] = "http://admin.archivebox.localhost:5797/admin"
+    settings["archivebox_api_url"] = "http://admin.archivebox.localhost:5797/api/"
     binary, binary_env = runtime._resolve_binary(settings["binary"], settings["config"])
     version = binary.exec(
         cmd=("--version",),
@@ -498,7 +498,7 @@ def test_opencode_proxy_sse_returns_headers_before_restart_finishes(admin_client
                     (b"sec-fetch-site", b"same-origin"),
                 ],
                 "client": ("127.0.0.1", 12345),
-                "server": ("127.0.0.1", 8000),
+                "server": ("127.0.0.1", 5797),
             },
         )
         runtime._PROCESS_LOCK.acquire()

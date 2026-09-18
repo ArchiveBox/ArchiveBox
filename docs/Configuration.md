@@ -353,17 +353,17 @@ Django's secret key, used for cryptographic signing of sessions, CSRF tokens, pa
 
 ---
 #### `BIND_ADDR`
-**Possible Values:** [`127.0.0.1:8000`]/`0.0.0.0:8000`/`[::]:8000`/`0.0.0.0:80`/...
+**Possible Values:** [`127.0.0.1:5797`]/`0.0.0.0:5797`/`[::]:5797`/`0.0.0.0:80`/...
 
 The `host:port` socket the ArchiveBox web server actually listens on. **This is the local bind socket, not the public URL** — for the public URL clients see, set [`BASE_URL`](#base_url).
 
-- `127.0.0.1:8000` (default) — listen only on the loopback interface. Safest when you're running a reverse proxy on the same host and don't want the server reachable directly from the network.
-- `0.0.0.0:8000` — listen on **all** IPv4 interfaces. Required when running in Docker without `--network=host`, or when you want the server reachable from other machines on your LAN without a reverse proxy.
-- `[::]:8000` — listen on all IPv6 interfaces (most modern OSes will accept v4-mapped connections too).
-IPv6 literal addresses must be bracketed: `[::1]:8000`, not `::1:8000`.
+- `127.0.0.1:5797` (default) — listen only on the loopback interface. Safest when you're running a reverse proxy on the same host and don't want the server reachable directly from the network.
+- `0.0.0.0:5797` — listen on **all** IPv4 interfaces. Required when running in Docker without `--network=host`, or when you want the server reachable from other machines on your LAN without a reverse proxy.
+- `[::]:5797` — listen on all IPv6 interfaces (most modern OSes will accept v4-mapped connections too).
+IPv6 literal addresses must be bracketed: `[::1]:5797`, not `::1:5797`.
 
 > [!NOTE]
-> Inside Docker, binding to `127.0.0.1` means the server is unreachable from outside the container — use `0.0.0.0:8000` and let Docker handle the port-forwarding, or publish the port with `-p 127.0.0.1:8000:8000` on the host side instead.
+> Inside Docker, binding to `127.0.0.1` means the server is unreachable from outside the container — use `0.0.0.0:5797` and let Docker handle the port-forwarding, or publish the port with `-p 127.0.0.1:5797:5797` on the host side instead.
 
 *Related options:*
 [`BASE_URL`](#base_url), [`SERVER_SECURITY_MODE`](#server_security_mode)
@@ -372,7 +372,7 @@ IPv6 literal addresses must be bracketed: `[::1]:8000`, not `::1:8000`.
 <a id="allowed_hosts"></a>
 <a id="csrf_trusted_origins"></a>
 #### `BASE_URL`
-**Possible Values:** [`""`]/`https://archive.example.com`/`http://archivebox.localhost:8000`/...
+**Possible Values:** [`""`]/`https://archive.example.com`/`http://archivebox.localhost:5797`/...
 
 The canonical public URL of your ArchiveBox instance. Used to build absolute links in templates, redirects (`/admin/login/?next=...`), admin notification emails, OG/meta tags, and — in subdomain security mode — to derive the `admin.`, `web.`, `api.`, and per-snapshot `snap-<id>.` subdomains.
 

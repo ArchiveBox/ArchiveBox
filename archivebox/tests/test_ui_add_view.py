@@ -16,8 +16,8 @@ from archivebox.workers.models import RETRY_AT_MAX
 pytestmark = pytest.mark.django_db
 
 User = get_user_model()
-WEB_HOST = "web.archivebox.localhost:8000"
-ADMIN_HOST = "admin.archivebox.localhost:8000"
+WEB_HOST = "web.archivebox.localhost:5797"
+ADMIN_HOST = "admin.archivebox.localhost:5797"
 
 
 ADD_FORM_DEFAULTS = {

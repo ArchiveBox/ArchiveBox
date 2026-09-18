@@ -1164,9 +1164,9 @@ def run_python_cwd(
 # Server/API Integration Helpers
 # =============================================================================
 
-API_TEST_HOST = "api.archivebox.localhost:8000"
-ADMIN_TEST_HOST = "admin.archivebox.localhost:8000"
-WEB_TEST_HOST = "web.archivebox.localhost:8000"
+API_TEST_HOST = "api.archivebox.localhost:5797"
+ADMIN_TEST_HOST = "admin.archivebox.localhost:5797"
+WEB_TEST_HOST = "web.archivebox.localhost:5797"
 
 
 @pytest.fixture
@@ -1794,8 +1794,8 @@ def real_archive_with_example(tmp_path_factory, request):
         [
             "config",
             "--set",
-            "BIND_ADDR=127.0.0.1:8000",
-            "BASE_URL=http://archivebox.localhost:8000",
+            "BIND_ADDR=127.0.0.1:5797",
+            "BASE_URL=http://archivebox.localhost:5797",
             "PUBLIC_INDEX=True",
             "PUBLIC_ADD_VIEW=True",
         ],

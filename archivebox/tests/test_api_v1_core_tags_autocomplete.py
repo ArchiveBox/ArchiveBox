@@ -12,7 +12,7 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_token)
     response = client.get(
         "/api/v1/core/tags/autocomplete/",
         {"q": "api-basic", "api_key": api_token.token},
-        HTTP_HOST="api.archivebox.localhost:8000",
+        HTTP_HOST="api.archivebox.localhost:5797",
     )
 
     assert response.status_code == 200, response.content

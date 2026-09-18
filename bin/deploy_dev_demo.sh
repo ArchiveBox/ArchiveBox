@@ -111,7 +111,7 @@ if [[ -n "$DEPLOY_EXPECT_VERSION" && "$VERSION_OUTPUT" != *"ArchiveBox v${DEPLOY
 fi
 
 echo "[+] Health check:"
-"${COMPOSE[@]}" exec -T "$DEPLOY_SERVICE" /opt/archivebox/lib/env/bin/curl -fsS --max-time 10 --connect-timeout 2 -H 'Host: admin.archivebox.io' http://127.0.0.1:8000/health/ </dev/null
+"${COMPOSE[@]}" exec -T "$DEPLOY_SERVICE" /opt/archivebox/lib/env/bin/curl -fsS --max-time 10 --connect-timeout 2 -H 'Host: admin.archivebox.io' http://127.0.0.1:5797/health/ </dev/null
 REMOTE
 
 echo "[√] Demo deploy finished."

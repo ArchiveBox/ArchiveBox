@@ -178,7 +178,7 @@ def test_legacy_onedomain_server_upgrade_works_in_auto_mode(archive_07):
         """[SERVER_CONFIG]
 LISTEN_HOST = archivebox.mydomain
 ALLOWED_HOSTS = archivebox.mydomain
-CSRF_TRUSTED_ORIGINS = http://admin.archivebox.localhost:8000
+CSRF_TRUSTED_ORIGINS = http://admin.archivebox.localhost:5797
 PUBLIC_INDEX = True
 PUBLIC_SNAPSHOTS = True
 PUBLIC_ADD_VIEW = False

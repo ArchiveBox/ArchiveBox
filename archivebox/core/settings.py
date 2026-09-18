@@ -390,7 +390,7 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 # get_base_url() also covers deployments that only set CSRF_TRUSTED_ORIGINS (the
 # implicit-BASE_URL fallback used on 0.7.x->0.9.x upgrades), so HTTPS hardening
 # isn't lost until BASE_URL is migrated. An explicit plain-http base (e.g. local
-# http://archivebox.localhost:8000) disables proxy HTTPS handling.
+# http://archivebox.localhost:5797) disables proxy HTTPS handling.
 BASE_URL_IS_HTTPS = get_base_url(config=CONFIG).strip().lower().startswith("https://")
 if BASE_URL_IS_HTTPS or not CONFIG.BASE_URL:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

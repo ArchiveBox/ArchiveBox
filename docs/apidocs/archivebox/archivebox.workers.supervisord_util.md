@@ -696,7 +696,7 @@
 ```
 ````
 
-````{py:function} start_server_workers(host='0.0.0.0', port='8000', daemonize=False, debug=False, reload=False, nothreading=False, keep_running=None, should_stop_supervisord=None, resumed_from_pid=None)
+````{py:function} start_server_workers(host='0.0.0.0', port='5797', daemonize=False, debug=False, reload=False, nothreading=False, keep_running=None, should_stop_supervisord=None, resumed_from_pid=None)
 :canonical: archivebox.workers.supervisord_util.start_server_workers
 
 ```{autodoc2-docstring} archivebox.workers.supervisord_util.start_server_workers

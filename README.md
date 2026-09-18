@@ -73,15 +73,15 @@ mkdir -p ~/archivebox/data && cd ~/archivebox
 curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 docker compose pull
 docker compose up -d --wait                                                # initializes new collections automatically
-# open http://admin.archivebox.localhost:8000 to finish setup
+# open http://admin.archivebox.localhost:5797 to finish setup
 # docker compose run --rm archivebox add 'https://example.com'
 # docker compose run --rm archivebox help
 <br/>
 <br/>
 # Option B: Or use it as a plain Docker container:
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
-# open http://admin.archivebox.localhost:8000 to finish setup
+docker run -d --name archivebox -v "$PWD:/data" -p 5797:5797 archivebox/archivebox:dev
+# open http://admin.archivebox.localhost:5797 to finish setup
 # docker run -it -v $PWD:/data archivebox/archivebox:dev add 'https://example.com'
 # docker run -it -v $PWD:/data archivebox/archivebox:dev help
 <br/>
@@ -93,14 +93,14 @@ archivebox init
 archivebox install
 # archivebox add 'https://example.com'
 # archivebox help
-# archivebox server 0.0.0.0:8000
+# archivebox server 0.0.0.0:5797
 <br/>
 <br/>
 # Option D: Or use the uv install shortcut for Option C
 curl -fsSL 'https://get.archivebox.io' | bash
 </code></pre>
 <br/>
-<sub>Open <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI and <a href="http://admin.archivebox.localhost:8000"><code>http://admin.archivebox.localhost:8000</code></a> for the admin UI ➡️</sub><br/>
+<sub>Open <a href="http://web.archivebox.localhost:5797"><code>http://web.archivebox.localhost:5797</code></a> for the public UI and <a href="http://admin.archivebox.localhost:5797"><code>http://admin.archivebox.localhost:5797</code></a> for the admin UI ➡️</sub><br/>
 <sub>Set <code>BASE_URL</code> to change the public base domain. The default <code>auto</code> mode uses <code>web.</code> and <code>admin.</code> subdomains on <code>*.localhost</code>, but one host for ordinary DNS names. <code>BIND_ADDR</code> only controls the local listen address.</sub>
 </details>
 <br/>
@@ -177,7 +177,7 @@ docker compose pull
 <li>Start the server, which initializes a new collection automatically.
 <pre lang="bash"><code style="white-space: pre-line">docker compose up -d --wait
 </code></pre></li>
-<li>Open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the web setup wizard.
+<li>Open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:5797/admin/">http://admin.archivebox.localhost:5797/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the web setup wizard.
 <pre lang="bash"><code style="white-space: pre-line">
 # run CLI commands inside the server container started above
 docker compose exec archivebox archivebox add 'https://example.com'
@@ -198,10 +198,10 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
 <li>Create a new empty directory and start the server, which initializes the collection automatically (can be anywhere).
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -d --name archivebox -v $PWD:/data -p 8000:8000 archivebox/archivebox:dev
+docker run -d --name archivebox -v $PWD:/data -p 5797:5797 archivebox/archivebox:dev
 </code></pre>
 </li>
-<li>Open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the web setup wizard.
+<li>Open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:5797/admin/">http://admin.archivebox.localhost:5797/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the web setup wizard.
 <pre lang="bash"><code style="white-space: pre-line">
 # completely optional, CLI can always be used without running a server
 # docker exec archivebox archivebox [subcommand] [--help]
@@ -256,8 +256,8 @@ archivebox init     # initialize a new collection
 archivebox install  # install all the runtime dependencies (e.g. chrome, single-file, yt-dlp, etc.)
 </code></pre>
 </li>
-<li>Optionally start the server, then open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+<li>Optionally start the server, then open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:5797/admin/">http://admin.archivebox.localhost:5797/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:5797
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help
@@ -292,8 +292,8 @@ archivebox add 'https://example.com'
 </code></pre>
 <br/>
 </li>
-<li>Optionally start the server, then open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+<li>Optionally start the server, then open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:5797/admin/">http://admin.archivebox.localhost:5797/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:5797
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help
@@ -325,8 +325,8 @@ archivebox init
 archivebox install
 </code></pre>
 </li>
-<li>Optionally start the server, then open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:8000/admin/">http://admin.archivebox.localhost:8000/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
-<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:8000
+<li>Optionally start the server, then open <code>/admin/</code> on the hostname or IP used to reach ArchiveBox (local example: <a href="http://admin.archivebox.localhost:5797/admin/">http://admin.archivebox.localhost:5797/admin/</a>) to create the first admin. If <code>BASE_URL</code> is not configured yet, continue through the same web setup wizard used by Docker installs.
+<pre lang="bash"><code style="white-space: pre-line">archivebox server 0.0.0.0:5797
 # completely optional, CLI can always be used without running a server
 # archivebox [subcommand] [--help]
 archivebox help
@@ -544,16 +544,16 @@ find ./archive/users -path '*/snapshots/*/*/*/index.html'  # inspect snapshot da
 <summary><b>🖥&nbsp; Web UI & API Usage</b></summary>
 <pre lang="bash"><code style="white-space: pre-line">
 # Start the server on bare metal (uv/apt/brew):
-archivebox server 0.0.0.0:8000                 # start the server
+archivebox server 0.0.0.0:5797                 # start the server
 <br/>
 # Or with Docker Compose:
 docker compose up                              # start the server
 <br/>
 # Or with a Docker container:
-docker run -v $PWD:/data -it -p 8000:8000 archivebox/archivebox:dev
+docker run -v $PWD:/data -it -p 5797:5797 archivebox/archivebox:dev
 </code></pre>
 
-<sup>Open <a href="http://admin.archivebox.localhost:8000/admin/"><code>http://admin.archivebox.localhost:8000/admin/</code></a> to create the first admin and finish web setup. Use <a href="http://web.archivebox.localhost:8000"><code>http://web.archivebox.localhost:8000</code></a> for the public UI. ➡️</sup><br/>
+<sup>Open <a href="http://admin.archivebox.localhost:5797/admin/"><code>http://admin.archivebox.localhost:5797/admin/</code></a> to create the first admin and finish web setup. Use <a href="http://web.archivebox.localhost:5797"><code>http://web.archivebox.localhost:5797</code></a> for the public UI. ➡️</sup><br/>
 <sup>Advanced: <code>archivebox manage createsuperuser</code> remains available for creating accounts from the CLI.</sup><br/>
 <sup>Set <code>BASE_URL</code> to change the public base domain. The default <code>auto</code> mode uses <code>web.</code> and <code>admin.</code> subdomains on <code>*.localhost</code>, but one host for ordinary DNS names. <code>BIND_ADDR</code> only controls the local listen address.</sup>
 <br/><br/>
@@ -1346,10 +1346,10 @@ archivebox init
 archivebox install         # detect and install all extractor dependencies
 
 # Run the development server w/ autoreloading (but no bg workers)
-archivebox server --debug --reload 0.0.0.0:8000
+archivebox server --debug --reload 0.0.0.0:5797
 
 # Run the production server (with bg workers but no autoreloading)
-archivebox server 0.0.0.0:8000
+archivebox server 0.0.0.0:5797
 ```
 
 #### 2. Option B: Build the docker container and use that for development instead
@@ -1361,10 +1361,10 @@ archivebox server 0.0.0.0:8000
 ./bin/build_docker.sh dev
 
 # Run the development server w/ autoreloading (but no bg workers)
-docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server --init --debug --reload 0.0.0.0:8000
+docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 5797:5797 archivebox/archivebox:dev server --init --debug --reload 0.0.0.0:5797
 
 # Run the production server (with bg workers but no autoreloading)
-docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 8000:8000 archivebox/archivebox:dev server --init
+docker run -it -v $PWD/data:/data -v $PWD/archivebox:/app/archivebox -p 5797:5797 archivebox/archivebox:dev server --init
 
 # (remove the --reload flag and add the --nothreading flag when profiling with the django debug toolbar)
 # When using --reload, make sure any files you create can be read by the user in the Docker container, eg with 'chmod a+rX'.
@@ -1386,11 +1386,11 @@ You can also run all these in Docker. For more examples see the GitHub Actions C
 archivebox config --set DEBUG=True
 
 # OR you can run a dev server with DEBUG=True in a few ways:
-archivebox server --debug --reload 0.0.0.0:8000
+archivebox server --debug --reload 0.0.0.0:5797
 # or
-archivebox server --debug 0.0.0.0:8000
+archivebox server --debug 0.0.0.0:5797
 # or
-env DEBUG=True daphne -b 0.0.0.0 -p 8000 archivebox.core.asgi:application
+env DEBUG=True daphne -b 0.0.0.0 -p 5797 archivebox.core.asgi:application
 ```
 
 https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
@@ -1425,7 +1425,7 @@ services:
 
 # or with plain Docker:
 docker build -t archivebox:dev https://github.com/ArchiveBox/ArchiveBox.git#dev
-docker run -it -v $PWD:/data -p 8000:8000 archivebox:dev
+docker run -it -v $PWD:/data -p 5797:5797 archivebox:dev
 
 # or with uv:
 uv tool install --python 3.13 --upgrade 'git+https://github.com/ArchiveBox/ArchiveBox.git@dev'

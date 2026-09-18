@@ -295,10 +295,10 @@ RUN (echo -e "\n\n[√] Finished ArchiveBox multistage Docker build successfully
 
 WORKDIR "$DATA_DIR"
 VOLUME "$DATA_DIR"
-EXPOSE 8000
+EXPOSE 5797
 
 HEALTHCHECK --interval=30s --timeout=20s --retries=15 \
-    CMD curl --fail --silent --show-error --max-time 5 --connect-timeout 2 'http://admin.archivebox.localhost:8000/health/' | grep -q 'OK'
+    CMD curl --fail --silent --show-error --max-time 5 --connect-timeout 2 'http://admin.archivebox.localhost:5797/health/' | grep -q 'OK'
 
 ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh"]
-CMD ["archivebox", "server", "--init", "0.0.0.0:8000"]
+CMD ["archivebox", "server", "--init", "0.0.0.0:5797"]

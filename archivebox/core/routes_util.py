@@ -74,7 +74,7 @@ def derive_base_url_from_csrf(config: dict[str, Any] | None = None, **config_kwa
     had ``CSRF_TRUSTED_ORIGINS=https://archive.example.com`` set (required for
     admin login to work). On upgrade, ``BASE_URL`` is the new knob — but it
     defaults to empty, and falling through to ``BIND_ADDR`` produces an
-    unreachable URL like ``http://0.0.0.0:8000``. If the user has exactly one
+    unreachable URL like ``http://0.0.0.0:5797``. If the user has exactly one
     CSRF origin we treat it as the implicit BASE_URL so links/redirects keep
     pointing at the public hostname they already configured.
 

@@ -141,10 +141,10 @@ docker compose up -d
 
 ArchiveBox waits for VNC to be ready, then opens the persona's browser with its imported logins. If an ArchiveBox browser is already open on that display, it waits for that browser to close first.
 
-3. Visit <http://localhost:8080/vnc.html> and click **Connect**. For a remote server, first run this on your computer and keep the connection open:
+3. Visit <http://localhost:5797/vnc.html> and click **Connect**. For a remote server, first run this on your computer and keep the connection open:
 
 ```bash
-ssh -N -L 8080:127.0.0.1:8080 user@your-server
+ssh -N -L 5797:127.0.0.1:5797 user@your-server
 ```
 
 4. Open a page and confirm you can view it while logged in. For a new persona, log in to the sites you want to archive. Then follow [Save and check the page](#3-save-and-check-the-page), selecting the same persona.
@@ -159,7 +159,7 @@ docker compose run --rm archivebox persona create personal
 docker compose run --rm -e DISPLAY=novnc:0.0 archivebox persona open personal
 ```
 
-Connect at <http://localhost:8080/vnc.html>, log in, and close the browser when finished. The persona remains in `data/personas/personal` across one-off containers.
+Connect at <http://localhost:5797/vnc.html>, log in, and close the browser when finished. The persona remains in `data/personas/personal` across one-off containers.
 
 `persona open` resolves the installed Chromium binary automatically. Do not hard-code `/data/lib/env/bin/chromium` or a versioned Playwright cache path: the browser location varies by image version and architecture.
 

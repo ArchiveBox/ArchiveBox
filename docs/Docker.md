@@ -71,7 +71,7 @@ docker compose pull
 docker compose up -d --wait
 ```
 
-Open <http://admin.archivebox.localhost:8000> and follow the setup wizard to create the first admin and configure web access. Existing `BASE_URL` and security settings are used as-is, so configured servers skip the web-access wizard.
+Open <http://admin.archivebox.localhost:5797> and follow the setup wizard to create the first admin and configure web access. Existing `BASE_URL` and security settings are used as-is, so configured servers skip the web-access wizard.
 
 ArchiveBox installs and enables both ripgrep and [Sonic](https://github.com/valeriansaliou/sonic). Sonic is selected by default in the UI, while ripgrep remains available as the fallback. To select ripgrep explicitly:
 ```bash
@@ -148,7 +148,7 @@ Alternatively, to use the web UI, start the server with:
 docker compose up         # add -d to run in the background
 ```
 
-Then open [`http://web.archivebox.localhost:8000`](http://web.archivebox.localhost:8000) for the public UI or [`http://admin.archivebox.localhost:8000`](http://admin.archivebox.localhost:8000) for the admin UI.
+Then open [`http://web.archivebox.localhost:5797`](http://web.archivebox.localhost:5797) for the public UI or [`http://admin.archivebox.localhost:5797`](http://admin.archivebox.localhost:5797) for the admin UI.
 
 <br/>
 
@@ -184,11 +184,11 @@ services:
         ...
 ```
 
-For public HTTPS, start the default stack with `docker compose up -d`, use port `8000` only as the temporary setup/upstream endpoint, and follow the first-run wizard. It gives the DNS, upstream, and certificate settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI, then verifies the public HTTPS URLs before saving `BASE_URL` and `SERVER_SECURITY_MODE`.
+For public HTTPS, start the default stack with `docker compose up -d`, use port `5797` only as the temporary setup/upstream endpoint, and follow the first-run wizard. It gives the DNS, upstream, and certificate settings to enter in Cloudflare, Nginx Proxy Manager, Caddy, Traefik, Tailscale, or your hosting platform's ingress UI, then verifies the public HTTPS URLs before saving `BASE_URL` and `SERVER_SECURITY_MODE`.
 
 Use exactly one of these certificate layouts:
 
-- **Single-domain mode:** one certificate for the `BASE_URL` hostname, proxied to ArchiveBox port `8000`.
+- **Single-domain mode:** one certificate for the `BASE_URL` hostname, proxied to ArchiveBox port `5797`.
 - **Isolated-subdomain mode:** one certificate covering both the `BASE_URL` hostname and `*.BASE_URL`, normally obtained through DNS-01.
 
 Never enable on-demand TLS or request individual certificates for `snap-*` hostnames.
@@ -211,10 +211,10 @@ Fetch and run the ArchiveBox Docker image. Starting the server creates the initi
 docker pull archivebox/archivebox:dev
 
 mkdir -p ~/archivebox/data && cd ~/archivebox/data
-docker run -d --name archivebox -v "$PWD:/data" -p 8000:8000 archivebox/archivebox:dev
+docker run -d --name archivebox -v "$PWD:/data" -p 5797:5797 archivebox/archivebox:dev
 ```
 
-Then open `/admin/` on the hostname or IP used to reach ArchiveBox (local example: <http://admin.archivebox.localhost:8000/admin/>) to create the first admin. If `BASE_URL` is not configured yet, continue through the web setup wizard.
+Then open `/admin/` on the hostname or IP used to reach ArchiveBox (local example: <http://admin.archivebox.localhost:5797/admin/>) to create the first admin. If `BASE_URL` is not configured yet, continue through the web setup wizard.
 
 *(You can create a collection in any directory you want, `~/archivebox/data` is just used as an example here)*
 
@@ -270,8 +270,8 @@ docker run -it -v /media/USB-DRIVE/archivebox/data:/data archivebox/archivebox:d
 
 Then to view your data, you can look in the folder on the host `/media/USB-DRIVE/archivebox/data`, or use the Web UI:
 ```bash
-docker run -it -v /media/USB-DRIVE/archivebox/data:/data -p 8000:8000 archivebox/archivebox:dev
-# then open http://web.archivebox.localhost:8000
+docker run -it -v /media/USB-DRIVE/archivebox/data:/data -p 5797:5797 archivebox/archivebox:dev
+# then open http://web.archivebox.localhost:5797
 ```
 
 <br/>

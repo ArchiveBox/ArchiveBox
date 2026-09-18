@@ -46,13 +46,13 @@ def _split_bind_spec(spec: str) -> tuple[str, str]:
     """Split a ``host:port`` / ``host`` / ``port`` spec into ``(host, port)``.
 
     The empty strings stand in for "not provided"; the caller fills in
-    defaults. Bracketed IPv6 literals like ``[::1]:8000`` are handled.
+    defaults. Bracketed IPv6 literals like ``[::1]:5797`` are handled.
     """
     spec = (spec or "").strip()
     if not spec:
         return "", ""
     if spec.startswith("["):
-        # Bracketed IPv6: ``[::1]`` or ``[::1]:8000``
+        # Bracketed IPv6: ``[::1]`` or ``[::1]:5797``
         end = spec.find("]")
         if end == -1:
             return spec, ""  # malformed; let validator reject it
@@ -77,11 +77,11 @@ def _parse_and_validate_bind_spec(spec: str) -> tuple[str, str]:
     (normalized to ``127.0.0.1``). Bare hostnames are rejected because the
     bind address feeds Daphne, which has to listen on a numeric address;
     public hostnames belong in ``BASE_URL`` instead. Empty values fall back
-    to ``127.0.0.1`` / ``8000``.
+    to ``127.0.0.1`` / ``5797``.
     """
     raw_host, raw_port = _split_bind_spec(spec)
     host = raw_host.strip()
-    port = (raw_port or "").strip() or "8000"
+    port = (raw_port or "").strip() or "5797"
 
     if host == "" or host.lower() == "localhost":
         host = "127.0.0.1"
@@ -198,7 +198,7 @@ def _print_server_startup_warnings(config, host: str, port: str) -> None:
             "[yellow]    routing cannot work against an IP address. Set BASE_URL explicitly, e.g.[/yellow]",
         )
         print(
-            "[yellow]      BASE_URL=https://archive.example.com archivebox server 0.0.0.0:8000[/yellow]",
+            "[yellow]      BASE_URL=https://archive.example.com archivebox server 0.0.0.0:5797[/yellow]",
         )
         if config.USES_SUBDOMAIN_ROUTING:
             print(
@@ -221,7 +221,7 @@ def _print_server_startup_warnings(config, host: str, port: str) -> None:
             "[yellow]    a reverse proxy / ingress / public hostname, e.g.[/yellow]",
         )
         print(
-            "[yellow]      BASE_URL=https://archive.example.com archivebox server 0.0.0.0:8000[/yellow]",
+            "[yellow]      BASE_URL=https://archive.example.com archivebox server 0.0.0.0:5797[/yellow]",
         )
         print()
 
@@ -254,7 +254,7 @@ def server(
         print()
 
     # First non-empty positional arg is the bind spec; otherwise inherit from
-    # config (which defaults to "127.0.0.1:8000"). _parse_and_validate_bind_spec
+    # config (which defaults to "127.0.0.1:5797"). _parse_and_validate_bind_spec
     # hard-errors on hostnames so the rest of the server can assume a numeric
     # bind host.
     bind_spec = next((arg for arg in runserver_args if arg), "")

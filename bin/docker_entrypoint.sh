@@ -371,7 +371,7 @@ else
     # e.g. "docker run archivebox help"
     #      "docker run archivebox add --depth=1 https://example.com"
     #      "docker run archivebox manage createsupseruser"
-    #      "docker run archivebox server 0.0.0.0:8000"
+    #      "docker run archivebox server 0.0.0.0:5797"
     if [[ "$(id -u)" == "0" ]]; then
         exec setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups "$ARCHIVEBOX_BIN_PATH" "$@"
     else

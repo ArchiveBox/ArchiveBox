@@ -351,7 +351,7 @@ def test_runtime_binary_wins_over_ambient_system_path(tmp_path):
 def test_daphne_worker_uses_default_application_close_timeout():
     from archivebox.workers.supervisord_util import SERVER_WORKER
 
-    command = SERVER_WORKER("127.0.0.1", "8000")["command"]
+    command = SERVER_WORKER("127.0.0.1", "5797")["command"]
 
     assert "daphne" in command
     assert "--application-close-timeout=0" not in command
@@ -401,17 +401,17 @@ def test_server_worker_memory_preflight_fails_before_starting_supervisord(capsys
 def test_reload_workers_use_active_archivebox_module():
     from archivebox.workers.supervisord_util import RUNNER_WATCH_WORKER, RUNSERVER_WORKER, archivebox_cmd
 
-    runserver = RUNSERVER_WORKER("127.0.0.1", "8000", reload=True)
-    watcher = RUNNER_WATCH_WORKER("http://127.0.0.1:8000")
+    runserver = RUNSERVER_WORKER("127.0.0.1", "5797", reload=True)
+    watcher = RUNNER_WATCH_WORKER("http://127.0.0.1:5797")
 
     assert runserver["name"] == "worker_runserver"
-    assert shlex.split(runserver["command"]) == archivebox_cmd("manage", "runserver", "127.0.0.1:8000")
+    assert shlex.split(runserver["command"]) == archivebox_cmd("manage", "runserver", "127.0.0.1:5797")
     assert 'ARCHIVEBOX_RUNSERVER="1"' in runserver["environment"]
     assert 'ARCHIVEBOX_AUTORELOAD="1"' in runserver["environment"]
-    assert 'ARCHIVEBOX_RUNSERVER_BIND_URL="http://127.0.0.1:8000"' in runserver["environment"]
+    assert 'ARCHIVEBOX_RUNSERVER_BIND_URL="http://127.0.0.1:5797"' in runserver["environment"]
 
     assert watcher["name"] == "worker_runner_watch"
-    assert shlex.split(watcher["command"]) == archivebox_cmd("manage", "runner_watch", "--bind-url=http://127.0.0.1:8000")
+    assert shlex.split(watcher["command"]) == archivebox_cmd("manage", "runner_watch", "--bind-url=http://127.0.0.1:5797")
 
 
 def test_server_daemon_starts_real_plugin_owned_sonic_worker(initialized_archive, archivebox_daemon_server):

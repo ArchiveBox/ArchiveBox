@@ -71,7 +71,7 @@ deploy_digest() {
         printf '%s\n' "$line"
         line_count=$((line_count + 1))
     done <<<"$version_output"
-    "${COMPOSE[@]}" exec -T "$DEPLOY_SERVICE" /opt/archivebox/lib/env/bin/curl -fsS --max-time 10 --connect-timeout 2 -H 'Host: admin.archivebox.io' http://127.0.0.1:8000/health/ </dev/null
+    "${COMPOSE[@]}" exec -T "$DEPLOY_SERVICE" /opt/archivebox/lib/env/bin/curl -fsS --max-time 10 --connect-timeout 2 -H 'Host: admin.archivebox.io' http://127.0.0.1:5797/health/ </dev/null
     printf '%s\n' "$digest" > "$STATE_FILE"
 }
 

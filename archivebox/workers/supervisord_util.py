@@ -1478,7 +1478,7 @@ def stop_stale_sonic_processes(
 
 def start_server_workers(
     host="0.0.0.0",
-    port="8000",
+    port="5797",
     daemonize=False,
     debug=False,
     reload=False,

@@ -266,7 +266,7 @@ def validate_non_running(snippet: Snippet, disposition: str) -> None:
                 f"pid {temp}/nginx.pid;\n"
                 f"error_log {temp}/error.log;\n"
                 f"events {{}}\n"
-                f"http {{\naccess_log {temp}/access.log;\nserver {{\nlisten 8080;\n{snippet.code}\n}}\n}}\n",
+                f"http {{\naccess_log {temp}/access.log;\nserver {{\nlisten 5797;\n{snippet.code}\n}}\n}}\n",
             )
             result = subprocess.run(
                 [nginx, "-t", "-c", config, "-p", temp],

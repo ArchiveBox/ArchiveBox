@@ -3,7 +3,7 @@
 #     curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
 #     docker compose pull
 #     docker compose up -d --wait
-#     Open /admin/ on the hostname or IP used to reach ArchiveBox (local: http://admin.archivebox.localhost:8000/admin/).
+#     Open /admin/ on the hostname or IP used to reach ArchiveBox (local: http://admin.archivebox.localhost:5797/admin/).
 
 #     docker compose exec archivebox archivebox add --depth=1 'https://news.ycombinator.com'
 #     docker compose exec -T archivebox archivebox add < ~/Downloads/bookmarks.txt
@@ -20,7 +20,7 @@ services:
         #     novnc:
         #         condition: service_healthy
         ports:
-            - "${ARCHIVEBOX_PORT:-8000}:8000"
+            - "${ARCHIVEBOX_PORT:-5797}:5797"
         volumes:
             - ./data:/data
             # Override abx-dl's nested VOLUME so profiles persist across containers.
@@ -81,9 +81,9 @@ services:
     #         timeout: 2s
     #         retries: 10
     #     ports:
-    #         # to view/control ArchiveBox's browser, visit: http://127.0.0.1:8080/vnc.html
+    #         # to view/control ArchiveBox's browser, visit: http://127.0.0.1:5797/vnc.html
     #         # restricted to access from localhost by default because it has no authentication
-    #         - 127.0.0.1:8080:8080
+    #         - 127.0.0.1:5797:5797
 
 
     ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel to avoid IP blocks.

@@ -130,7 +130,7 @@ def _admin_post_request(path):
 def _admin_get_request(path="/"):
     from archivebox.config.common import get_config
 
-    request = RequestFactory().get(path, HTTP_HOST="admin.archivebox.localhost:8000")
+    request = RequestFactory().get(path, HTTP_HOST="admin.archivebox.localhost:5797")
     request.archivebox_config = get_config()
     return request
 
@@ -284,7 +284,7 @@ def test_admin_navigation_hides_agent_link_when_opencode_is_disabled(client, adm
     Machine.from_json({"config": {"OPENCODE_ENABLED": False}})
     client.force_login(admin_user)
 
-    response = client.get(reverse("admin:index"), HTTP_HOST="admin.archivebox.localhost:8000")
+    response = client.get(reverse("admin:index"), HTTP_HOST="admin.archivebox.localhost:5797")
 
     assert response.status_code == 200
     assert b"/admin/agent" not in response.content
