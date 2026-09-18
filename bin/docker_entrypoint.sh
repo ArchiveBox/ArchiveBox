@@ -230,11 +230,14 @@ assert_writable_dir "$DATA_DIR/logs"
 assert_writable_dir "$DATA_DIR/archive"
 assert_writable_dir "$PERSONAS_DIR/Default/chrome_profile"
 
-# check if novnc x11 $DISPLAY is available
-export DISPLAY="${DISPLAY:-"novnc:0.0"}"
-if ! xdpyinfo > /dev/null 2>&1; then
-    # cant connect to x11 display, unset it so that chrome doesn't try to connect to it and hang indefinitely
-    unset DISPLAY
+# Preserve an explicit DISPLAY (including an empty value to disable X11).
+# Only probe the implicit noVNC default: a missing probe or unavailable server
+# must not silently discard the user's display configuration.
+if [[ -z "${DISPLAY+x}" ]]; then
+    export DISPLAY="novnc:0.0"
+    if ! xdpyinfo > /dev/null 2>&1; then
+        unset DISPLAY
+    fi
 fi
 
 # Active browser processes do not survive container restarts, but their lock
