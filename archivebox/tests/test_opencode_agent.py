@@ -1,9 +1,11 @@
 import asyncio
+import json
 import os
 import re
 import shutil
 import socket
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, quote, urlsplit
@@ -359,6 +361,38 @@ def test_opencode_proxy_preserves_protocol_headers(admin_client, live_opencode):
     assert deleted.status_code == 200, deleted.content
 
 
+def test_opencode_oauth_callback_waits_for_user_and_preserves_cancellation(live_opencode):
+    from abx_plugins.plugins.opencode import runtime
+
+    settings = {**live_opencode.settings, "timeout": 1}
+    headers = {"Content-Type": "application/json"}
+    status, _, body = runtime.proxy(settings, "POST", "provider/openai/oauth/authorize", (), headers, b'{"method":0}')
+    assert status == 200
+    authorization = json.loads(body)
+    assert urlsplit(authorization["url"]).hostname == "auth.openai.com"
+    redirect = parse_qs(urlsplit(authorization["url"]).query)["redirect_uri"][0]
+    callback_origin = urlsplit(redirect)
+    assert callback_origin.hostname == "localhost"
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        callback = executor.submit(runtime.proxy, settings, "POST", "provider/openai/oauth/callback", (), headers, b'{"method":0}')
+        try:
+            # A real pending authorization must outlive the ordinary API read
+            # timeout. No tokens or substituted provider responses are used.
+            with pytest.raises(FutureTimeoutError):
+                callback.result(timeout=2)
+        finally:
+            cancelled = requests.get(f"{callback_origin.scheme}://{callback_origin.netloc}/cancel", timeout=5)
+            assert cancelled.status_code == 200
+            assert cancelled.text == "Login cancelled"
+        status, response_headers, body = callback.result(timeout=5)
+    assert status == 500
+    assert response_headers["Content-Type"].startswith("application/json")
+    error = json.loads(body)
+    assert error["name"] == "UnknownError"
+    assert error["data"]["ref"].startswith("err_")
+
+
 def test_opencode_static_assets_cache_privately_and_revalidate(admin_client, live_opencode):
     headers = {"HTTP_HOST": ADMIN_TEST_HOST, "HTTP_SEC_FETCH_SITE": "same-origin"}
     page = admin_client.get("/admin/agent/opencode/", **headers)
@@ -392,9 +426,26 @@ def test_opencode_proxy_sse_response_is_unbuffered(admin_client, live_opencode):
     assert response.headers["Cache-Control"] == "no-store"
 
 
-def test_opencode_proxy_sse_delivers_first_event_immediately(admin_client, live_opencode):
+@pytest.mark.parametrize("path", ["event", "global/event"])
+def test_opencode_proxy_sse_delivers_first_event_immediately(admin_client, live_opencode, path):
+    from abx_plugins.plugins.opencode import runtime
+
+    # The real /event endpoint emits heartbeats indefinitely. A bounded
+    # upstream read exposes accidental buffering without hanging the test.
+    status, headers, body = runtime.proxy(
+        {**live_opencode.settings, "timeout": 1},
+        "GET",
+        path,
+        (),
+        {},
+        b"",
+    )
+    assert status == 200
+    assert not isinstance(body, bytes)
+    assert headers["Content-Type"] == "text/event-stream"
+    asyncio.run(body.aclose())
     response = admin_client.get(
-        "/admin/agent/opencode/global/event",
+        f"/admin/agent/opencode/{path}",
         HTTP_HOST=ADMIN_TEST_HOST,
         HTTP_SEC_FETCH_SITE="same-origin",
     )

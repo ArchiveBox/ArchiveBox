@@ -20,8 +20,21 @@ from .test_server_security_browser import browser_runtime as browser_runtime
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.parametrize(
+    "agent_server",
+    [
+        ("safe-onedomain-nojsreplay", False),
+        ("safe-subdomains-fullreplay", True),
+        ("danger-onedomain-fullreplay", False),
+        ("auto", False),
+        ("auto", True),
+    ],
+    indirect=True,
+)
 def test_agent_navigation_stays_inside_mount(agent_server, browser_runtime):
-    server_url, _, _ = agent_server
+    server_url, data_dir, _ = agent_server
+    filename = "proxy acceptance #é.txt"
+    (data_dir / filename).write_text("Proxy file read: café", encoding="utf-8")
     script = r"""
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
@@ -31,6 +44,14 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
     args: ['--no-sandbox', '--disable-frame-rate-limit']});
   try {
     const page = await browser.newPage();
+    const escapedRequests = [];
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (request.frame()?.parentFrame() && url.origin === config.url &&
+          !url.pathname.startsWith('/admin/agent/opencode/')) {
+        escapedRequests.push(request.method() + ' ' + url.pathname);
+      }
+    });
     await page.setViewport({width: 1440, height: 900});
     await page.goto(config.url + '/admin/login/', {waitUntil: 'domcontentloaded'});
     await page.locator('#login-form input[name="username"]').fill('agent-browser-test');
@@ -63,6 +84,67 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
     assert.equal((await frame.goto(sessionUrl, {waitUntil: 'domcontentloaded'})).status(), 200);
     await frame.waitForSelector('[contenteditable="true"]');
     assert.ok(!(await frame.$eval('body', node => node.innerText)).includes('Something went wrong'));
+    // Real JSON methods, encoded file paths, and both SSE subscriptions must
+    // work on the admin origin in every routing mode, without installing or
+    // authenticating a paid model provider during the test.
+    const requests = await frame.evaluate(async filename => {
+      const base = location.origin + '/admin/agent/opencode';
+      const json = async (path, method = 'GET', body) => {
+        const response = await fetch(base + path, {
+          method, headers: {'Content-Type': 'application/json'},
+          ...(body === undefined ? {} : {body: JSON.stringify(body)}),
+        });
+        if (!response.ok) throw new Error(method + ' ' + path + ': ' + response.status);
+        if (!response.headers.get('Content-Type')?.includes('application/json')) {
+          throw new Error('Non-JSON response: ' + path);
+        }
+        return response.json();
+      };
+      const providers = await json('/provider');
+      const auth = await json('/provider/auth');
+      const file = await json('/file/content?path=' + encodeURIComponent(filename));
+      const session = await json('/session', 'POST', {title: 'Proxy request verification'});
+      let renamed;
+      try {
+        renamed = await json('/session/' + session.id, 'PATCH', {title: 'Proxy: café & # symbols'});
+        const readback = await json('/session/' + session.id);
+        if (readback.title !== renamed.title) throw new Error('Session mutation was not persisted');
+      } finally { await json('/session/' + session.id, 'DELETE'); }
+      const streams = [];
+      for (const path of ['/event', '/global/event']) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        try {
+          const response = await fetch(base + path, {signal: controller.signal});
+          if (!response.ok || !response.headers.get('Content-Type')?.includes('text/event-stream')) {
+            throw new Error('Invalid event stream: ' + path);
+          }
+          const reader = response.body.getReader();
+          const first = await reader.read();
+          streams.push(new TextDecoder().decode(first.value));
+          await reader.cancel();
+        } finally { clearTimeout(timeout); controller.abort(); }
+      }
+      return {providers: providers.all.map(provider => provider.id), auth, file, renamed, streams};
+    }, config.filename);
+    for (const provider of ['openai', 'anthropic']) assert.ok(requests.providers.includes(provider), provider);
+    assert.ok(requests.auth.openai.some(method => method.type === 'oauth'));
+    assert.equal(requests.file.content, 'Proxy file read: café');
+    assert.equal(requests.renamed.title, 'Proxy: café & # symbols');
+    for (const event of requests.streams) assert.ok(event.includes('server.connected'), event);
+    for (const provider of ['OpenAI', 'Anthropic']) {
+      await frame.locator('[data-action="prompt-model"]').click();
+      await frame.locator('::-p-aria(' + provider + '[role="button"])').click();
+      if (provider === 'OpenAI') {
+        await frame.waitForSelector('::-p-aria(ChatGPT Pro/Plus Headless[role="button"])');
+        await frame.waitForSelector('::-p-aria(ChatGPT Pro/Plus Browser[role="button"])');
+        await frame.locator('::-p-aria(API key Browser[role="button"])').click();
+      }
+      const input = await frame.waitForSelector('::-p-aria(' + provider + ' API key[role="textbox"])');
+      assert.equal(await input.evaluate(node => node.value), '');
+      await frame.waitForSelector('::-p-aria(Continue[role="button"])');
+      await frame.locator('::-p-aria(Close[role="button"])').click();
+    }
     // Exercise the actual public PTY API and native browser WebSocket. No
     // intercepted traffic or replacement server: this runs a real shell.
     const terminal = await frame.evaluate(async () => {
@@ -99,6 +181,7 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
       } finally { await fetch(base + '/pty/' + pty.id, {method: 'DELETE'}); }
     });
     assert.ok(terminal.includes('ABX_TERMINAL_OK'), terminal);
+    assert.deepEqual(escapedRequests, [], 'OpenCode requests must stay inside its proxy mount');
     assert.equal((await page.goto(config.url + '/add/', {waitUntil: 'domcontentloaded'})).status(), 200);
     console.log('AGENT_NAVIGATION_OK');
   } finally { await browser.close(); }
@@ -106,7 +189,7 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
 """
     result = subprocess.run(
         [str(browser_runtime["node_binary"]), "-e", script],
-        input=json.dumps({"chrome": str(browser_runtime["chrome_binary"]), "url": server_url}),
+        input=json.dumps({"chrome": str(browser_runtime["chrome_binary"]), "url": server_url, "filename": filename}),
         env={**os.environ, "NODE_PATH": browser_runtime["node_path"]},
         text=True,
         capture_output=True,
@@ -117,14 +200,16 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
 
 
 @pytest.fixture
-def agent_server(installed_opencode, browser_runtime):
+def agent_server(installed_opencode, browser_runtime, request):
     port = get_free_port()
-    url = f"http://localhost:{port}"
+    mode, subdomains = getattr(request, "param", ("safe-onedomain-nojsreplay", False))
+    base_url = f"http://archivebox.localhost:{port}" if subdomains else f"http://localhost:{port}"
+    url = f"http://admin.archivebox.localhost:{port}" if subdomains else base_url
     config = installed_opencode.config
     _set_archivebox_config(
         config.data_dir,
-        f"BASE_URL={url}",
-        "SERVER_SECURITY_MODE=safe-onedomain-nojsreplay",
+        f"BASE_URL={base_url}",
+        f"SERVER_SECURITY_MODE={mode}",
     )
     user = run_archivebox_cmd(
         [
