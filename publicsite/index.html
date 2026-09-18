@@ -353,14 +353,13 @@ archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
           <li><a href="https://abx-plugins.archivebox.io/#ytdlp" aria-label="YouTube / yt-dlp plugin" title="YouTube / yt-dlp"><img src="./assets/plugins/youtube.svg" width="44" height="44" loading="lazy" alt=""></a></li>
           <li><a href="https://tailscale.com/" aria-label="Tailscale" title="Tailscale"><img src="./assets/plugins/tailscale.svg" width="44" height="44" loading="lazy" alt=""></a></li>
         </ul>
-        <p class="configuration-description">ArchiveBox can be configured with environment variables, the <code>archivebox config</code> CLI, or by editing <code>./ArchiveBox.conf</code>. The same configuration model works in Docker, Docker Compose, bare-metal installs, scheduled jobs, and one-off CLI runs.</p>
+        <p class="configuration-description">ArchiveBox can be configured via the admin UI, CLI, <code>ArchiveBox.conf</code>, or by importing config and cookies from Chrome / other browsers. The same configuration model works in Docker, Docker Compose, bare-metal installs, scheduled jobs, and one-off CLI runs.</p>
       </div>
       <div class="prose-grid">
         <article>
           <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 3v7m0 4v7M12 3v11m0 4v3M20 3v3m0 4v11M1 10h6m2 8h6m2-12h6"/></svg></span>
           <h3>Adjust how pages are captured</h3>
           <p>Use <code>TIMEOUT</code> for slow networks, <code>CHECK_SSL_VALIDITY</code> for sites with broken certificates, <code>PUBLIC_INDEX</code>, <code>PUBLIC_SNAPSHOTS</code>, and <code>PUBLIC_ADD_VIEW</code> for publishing policy, and browser user-agent settings for sites that block obvious bots.</p>
-          <p>For authenticated or difficult sites, review <code>CHROME_USER_DATA_DIR</code>, <code>COOKIES_FILE</code>, <code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, and <code>CURL_USER_AGENT</code>. Public archive operators should also configure instance branding and contact details with settings like <code>FOOTER_INFO</code> and <code>CUSTOM_TEMPLATES_DIR</code>.</p>
           <div class="ab-terminal">
             <div class="ab-terminal__bar">
               <div class="ab-terminal__dots"><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span></div>
