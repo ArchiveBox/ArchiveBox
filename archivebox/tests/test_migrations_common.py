@@ -5,7 +5,11 @@ import sqlite3
 import pytest
 
 from .migrations_helpers import (
-    create_legacy_archive,
+    SCHEMA_0_7,
+    SCHEMA_0_8,
+    seed_0_7_data,
+    seed_0_8_data,
+    create_data_dir_structure,
     run_archivebox_migration_cmd,
     verify_all_snapshots_in_output,
     verify_foreign_keys,
@@ -17,7 +21,13 @@ from .migrations_helpers import (
 
 @pytest.fixture(params=("0.7", "0.8"), ids=("from-0.7", "from-0.8"))
 def legacy_archive(tmp_path, request):
-    return create_legacy_archive(tmp_path, request.param)
+    schema, seed = {"0.7": (SCHEMA_0_7, seed_0_7_data), "0.8": (SCHEMA_0_8, seed_0_8_data)}[request.param]
+    create_data_dir_structure(tmp_path)
+    db_path = tmp_path / "index.sqlite3"
+    conn = sqlite3.connect(db_path)
+    conn.executescript(schema)
+    conn.close()
+    return tmp_path, db_path, seed(db_path)
 
 
 def test_migration_preserves_snapshot_count(legacy_archive):

@@ -19,7 +19,8 @@ from urllib.parse import urlparse
 import pytest
 
 from .migrations_helpers import (
-    create_legacy_archive,
+    SCHEMA_0_8,
+    seed_0_8_data,
     SCHEMA_0_7,
     current_snapshot_dir,
     filesystem_manifest,
@@ -36,8 +37,18 @@ from .migrations_helpers import (
 
 @pytest.fixture
 def migration_08_data(tmp_path):
-    """Create a collection using the real 0.8.x schema and seed data."""
-    return create_legacy_archive(tmp_path, "0.8")
+    """Create a temporary directory with 0.8.x schema and data."""
+    work_dir = tmp_path
+    db_path = work_dir / "index.sqlite3"
+
+    create_data_dir_structure(work_dir)
+
+    conn = sqlite3.connect(str(db_path))
+    conn.executescript(SCHEMA_0_8)
+    conn.close()
+
+    original_data = seed_0_8_data(db_path)
+    return work_dir, db_path, original_data
 
 
 def convert_legacy_tags_to_uuid(conn: sqlite3.Connection) -> None:

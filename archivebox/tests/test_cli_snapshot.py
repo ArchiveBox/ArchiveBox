@@ -29,13 +29,11 @@ pytestmark = pytest.mark.django_db(transaction=True)
 class TestSnapshotCreate:
     """Tests for `archivebox snapshot create`."""
 
-    def test_create_from_url_args(self, archivebox_cli, initialized_archive):
+    def test_create_from_url_args(self, initialized_archive):
         """Create snapshot from URL arguments."""
         url = create_test_url()
 
-        result = archivebox_cli(
-            ["snapshot", "create", url],
-        )
+        result = run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0, f"Command failed: {result.stderr}"
         assert "Created" in result.stderr
@@ -45,7 +43,7 @@ class TestSnapshotCreate:
         assert records[0]["type"] == "Snapshot"
         assert records[0]["url"] == url
 
-    def test_create_from_crawl_jsonl(self, archivebox_cli, initialized_archive):
+    def test_create_from_crawl_jsonl(self, initialized_archive):
         """Create snapshots from Crawl JSONL input."""
         url = create_test_url()
 
@@ -55,9 +53,12 @@ class TestSnapshotCreate:
         crawl = parse_jsonl_output(stdout1)[0]
 
         # Pipe crawl to snapshot create
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "create"],
             stdin=json.dumps(crawl),
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout2, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
@@ -72,35 +73,44 @@ class TestSnapshotCreate:
         snapshot = next(r for r in records if r["type"] == "Snapshot")
         assert snapshot["url"] == url
         assert snapshot["crawl_id"] == crawl["id"]
-        listed = archivebox_cli(["crawl", "list"])
+        listed = run_archivebox_cmd(["crawl", "list"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
         assert listed.returncode == 0, listed.stderr
         assert [record["id"] for record in parse_jsonl_output(listed.stdout)] == [crawl["id"]]
 
-    def test_create_with_tag(self, archivebox_cli, initialized_archive):
+    def test_create_with_tag(self, initialized_archive):
         """Create snapshot with --tag flag."""
         url = create_test_url()
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["snapshot", "create", "--tag=test-tag", url],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
         records = parse_jsonl_output(result.stdout)
         assert "test-tag" in records[0].get("tags", "")
 
-    def test_create_passes_through_tag_emitted_by_cli(self, archivebox_cli, initialized_archive):
+    def test_create_passes_through_tag_emitted_by_cli(self, initialized_archive):
         """A real Tag emitted by the CLI remains available to the next stage."""
-        tag_result = archivebox_cli(
+        tag_result = run_archivebox_cmd(
             ["tag", "create", "snapshot-input-tag"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert tag_result.returncode == 0, tag_result.stderr
         tag_record = parse_jsonl_output(tag_result.stdout)[0]
         url = create_test_url()
         stdin = tag_result.stdout + url + "\n"
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["snapshot", "create"],
             stdin=stdin,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
@@ -109,13 +119,11 @@ class TestSnapshotCreate:
         assert any(record.get("type") == "Tag" and record["id"] == tag_record["id"] for record in records)
         assert any(record.get("type") == "Snapshot" and record["url"] == url for record in records)
 
-    def test_create_multiple_urls(self, archivebox_cli, initialized_archive):
+    def test_create_multiple_urls(self, initialized_archive):
         """Create snapshots from multiple URLs."""
         urls = [create_test_url() for _ in range(3)]
 
-        result = archivebox_cli(
-            ["snapshot", "create"] + urls,
-        )
+        result = run_archivebox_cmd(["snapshot", "create"] + urls, cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         records = parse_jsonl_output(result.stdout)
@@ -129,36 +137,35 @@ class TestSnapshotCreate:
 class TestSnapshotList:
     """Tests for `archivebox snapshot list`."""
 
-    def test_list_empty(self, archivebox_cli, initialized_archive):
+    def test_list_empty(self, initialized_archive):
         """List with no snapshots returns empty."""
-        result = archivebox_cli(
-            ["snapshot", "list"],
-        )
+        result = run_archivebox_cmd(["snapshot", "list"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         assert "Listed 0 snapshots" in result.stderr
 
-    def test_list_returns_created(self, archivebox_cli, initialized_archive):
+    def test_list_returns_created(self, initialized_archive):
         """List returns previously created snapshots."""
         url = create_test_url()
         run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-        result = archivebox_cli(
-            ["snapshot", "list"],
-        )
+        result = run_archivebox_cmd(["snapshot", "list"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         records = parse_jsonl_output(result.stdout)
         assert len(records) >= 1
         assert any(r.get("url") == url for r in records)
 
-    def test_list_filter_by_status(self, archivebox_cli, initialized_archive):
+    def test_list_filter_by_status(self, initialized_archive):
         """Filter snapshots by status."""
         url = create_test_url()
         run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["snapshot", "list", "--status=queued"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
@@ -166,13 +173,16 @@ class TestSnapshotList:
         for r in records:
             assert r["status"] == "queued"
 
-    def test_list_filter_by_url_contains(self, archivebox_cli, initialized_archive):
+    def test_list_filter_by_url_contains(self, initialized_archive):
         """Filter snapshots by URL contains."""
         url = create_test_url(domain="unique-domain-12345.com")
         run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["snapshot", "list", "--url__icontains=unique-domain-12345"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
@@ -180,30 +190,42 @@ class TestSnapshotList:
         assert len(records) == 1
         assert "unique-domain-12345" in records[0]["url"]
 
-    def test_list_with_limit(self, archivebox_cli, initialized_archive):
+    def test_list_with_limit(self, initialized_archive):
         """Limit number of results."""
         for _ in range(3):
-            archivebox_cli(
+            run_archivebox_cmd(
                 ["snapshot", "create", create_test_url()],
+                cwd=initialized_archive,
+                default_cli_env=True,
+                disable_extractors=True,
             )
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["snapshot", "list", "--limit=2"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
         records = parse_jsonl_output(result.stdout)
         assert len(records) == 2
 
-    def test_list_with_sort_and_limit(self, archivebox_cli, initialized_archive):
+    def test_list_with_sort_and_limit(self, initialized_archive):
         """Sorting should be applied before limiting."""
         for _ in range(3):
-            archivebox_cli(
+            run_archivebox_cmd(
                 ["snapshot", "create", create_test_url()],
+                cwd=initialized_archive,
+                default_cli_env=True,
+                disable_extractors=True,
             )
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["snapshot", "list", "--limit=2", "--sort=-created_at"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0, f"Command failed: {result.stderr}"
@@ -214,18 +236,24 @@ class TestSnapshotList:
 class TestSnapshotUpdate:
     """Tests for `archivebox snapshot update`."""
 
-    def test_update_status(self, archivebox_cli, initialized_archive):
+    def test_update_status(self, initialized_archive):
         """Update snapshot status."""
         url = create_test_url()
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "create", url],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
         snapshot = parse_jsonl_output(stdout1)[0]
 
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "update", "--status=started"],
             stdin=json.dumps(snapshot),
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout2, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
@@ -235,18 +263,24 @@ class TestSnapshotUpdate:
         records = parse_jsonl_output(stdout2)
         assert records[0]["status"] == "started"
 
-    def test_update_add_tag(self, archivebox_cli, initialized_archive):
+    def test_update_add_tag(self, initialized_archive):
         """Update snapshot by adding tag."""
         url = create_test_url()
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "create", url],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
         snapshot = parse_jsonl_output(stdout1)[0]
 
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "update", "--tag=new-tag"],
             stdin=json.dumps(snapshot),
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         _stdout2, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
@@ -257,54 +291,72 @@ class TestSnapshotUpdate:
 class TestSnapshotDelete:
     """Tests for `archivebox snapshot delete`."""
 
-    def test_delete_requires_yes(self, archivebox_cli, initialized_archive):
+    def test_delete_requires_yes(self, initialized_archive):
         """Delete requires --yes flag."""
         url = create_test_url()
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "create", url],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
         snapshot = parse_jsonl_output(stdout1)[0]
 
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "delete"],
             stdin=json.dumps(snapshot),
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
         assert code == 1
         assert "--yes" in stderr
 
-    def test_delete_with_yes(self, archivebox_cli, initialized_archive):
+    def test_delete_with_yes(self, initialized_archive):
         """Delete with --yes flag works."""
         url = create_test_url()
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "create", url],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
         snapshot = parse_jsonl_output(stdout1)[0]
 
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "delete", "--yes"],
             stdin=json.dumps(snapshot),
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
         assert code == 0
         assert "Deleted 1 snapshots" in stderr
 
-    def test_delete_dry_run(self, archivebox_cli, initialized_archive):
+    def test_delete_dry_run(self, initialized_archive):
         """Dry run shows what would be deleted."""
         url = create_test_url()
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "create", url],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
         snapshot = parse_jsonl_output(stdout1)[0]
 
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "delete", "--dry-run"],
             stdin=json.dumps(snapshot),
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 

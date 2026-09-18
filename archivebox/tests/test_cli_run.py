@@ -85,13 +85,27 @@ class TestRunInput:
 
     @pytest.mark.parametrize("source", ["crawl", "snapshot"])
     @pytest.mark.parametrize("runs", [1, 2], ids=["new-record", "existing-record"])
-    def test_run_created_record(self, archivebox_cli, initialized_archive, source, runs):
-        created = archivebox_cli([source, "create", create_test_url()], env=RUN_TEST_ENV)
+    def test_run_created_record(self, initialized_archive, source, runs):
+        created = run_archivebox_cmd(
+            [source, "create", create_test_url()],
+            env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
+        )
         assert created.returncode == 0, created.stderr
         created_record = next(record for record in parse_jsonl_output(created.stdout) if record.get("type") == source.title())
         stdin = created.stdout
         for _ in range(runs):
-            result = archivebox_cli(["run"], stdin=stdin, timeout=120, env=RUN_TEST_ENV)
+            result = run_archivebox_cmd(
+                ["run"],
+                stdin=stdin,
+                timeout=120,
+                env=RUN_TEST_ENV,
+                cwd=initialized_archive,
+                default_cli_env=True,
+                disable_extractors=True,
+            )
             assert result.returncode == 0, result.stderr
             records = parse_jsonl_output(result.stdout)
             assert len(records) >= 1
@@ -101,14 +115,17 @@ class TestRunInput:
             assert matching[0]["id"] == created_record["id"]
             stdin = result.stdout
 
-    def test_run_with_plain_url(self, archivebox_cli, initialized_archive):
+    def test_run_with_plain_url(self, initialized_archive):
         """Run accepts plain URL records (no type field)."""
         url = create_test_url()
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["run"],
             stdin=url + "\n",
             timeout=120,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
@@ -120,15 +137,18 @@ class TestRunWithArchiveResult:
     """Tests for `archivebox run` with ArchiveResult input."""
 
     @pytest.mark.django_db(transaction=True)
-    def test_run_treats_no_id_archiveresult_as_parent_snapshot_plugin_request(self, archivebox_cli, initialized_archive):
+    def test_run_treats_no_id_archiveresult_as_parent_snapshot_plugin_request(self, initialized_archive):
         import json
 
         from archivebox.core.models import ArchiveResult
         from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-        create_result = archivebox_cli(
+        create_result = run_archivebox_cmd(
             ["snapshot", "create", create_test_url()],
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         snapshot_id = next(record["id"] for record in parse_jsonl_output(create_result.stdout) if record.get("type") == "Snapshot")
         missing_hook = "on_Snapshot__99_missing_favicon_hook"
@@ -142,11 +162,14 @@ class TestRunWithArchiveResult:
             },
         )
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["run"],
             stdin=f"{request}\n",
             timeout=120,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0, result.stderr or result.stdout
@@ -163,48 +186,66 @@ class TestRunWithArchiveResult:
         assert rows[0][0].startswith("on_Snapshot__")
         assert rows[0][1] in ArchiveResult.FINAL_STATES
 
-    def test_run_requeues_failed_archiveresult(self, archivebox_cli, initialized_archive):
+    def test_run_requeues_failed_archiveresult(self, initialized_archive):
         """Run uses a failed ArchiveResult as a parent Snapshot/plugin reference."""
         url = create_test_url()
 
         # Create snapshot and archive result
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["snapshot", "create", url],
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout1, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["archiveresult", "create", "--plugin=favicon"],
             stdin=stdout1,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout2, _, _ = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
         assert any(record.get("type") == "ArchiveResult" for record in parse_jsonl_output(stdout2))
 
-        initial_run = archivebox_cli(
+        initial_run = run_archivebox_cmd(
             ["run"],
             stdin=stdout2,
             timeout=120,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert initial_run.returncode == 0, initial_run.stderr
-        persisted_result = archivebox_cli(
+        persisted_result = run_archivebox_cmd(
             ["archiveresult", "list", "--plugin=favicon"],
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert persisted_result.returncode == 0, persisted_result.stderr
         assert any(record.get("type") == "ArchiveResult" for record in parse_jsonl_output(persisted_result.stdout))
 
         # Update to failed
-        update_result = archivebox_cli(
+        update_result = run_archivebox_cmd(
             ["archiveresult", "update", "--status=failed"],
             stdin=persisted_result.stdout,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert update_result.returncode == 0, update_result.stderr
-        failed_result = archivebox_cli(
+        failed_result = run_archivebox_cmd(
             ["archiveresult", "list", "--plugin=favicon"],
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert failed_result.returncode == 0, failed_result.stderr
         failed_records = [record for record in parse_jsonl_output(failed_result.stdout) if record.get("type") == "ArchiveResult"]
@@ -213,11 +254,14 @@ class TestRunWithArchiveResult:
         failed_jsonl = next(line for line in failed_result.stdout.splitlines() if failed_records[0]["id"] in line) + "\n"
 
         # Now run should re-queue it
-        _cmd_result = archivebox_cli(
+        _cmd_result = run_archivebox_cmd(
             ["run"],
             stdin=failed_jsonl,
             timeout=120,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         stdout3, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
@@ -229,7 +273,7 @@ class TestRunWithArchiveResult:
 
 @pytest.mark.django_db(transaction=True)
 class TestRunRecovery:
-    def test_run_maintenance_logs_unfinished_crawl_repair(self, archivebox_cli, initialized_archive):
+    def test_run_maintenance_logs_unfinished_crawl_repair(self, initialized_archive):
         from datetime import timedelta
 
         from django.utils import timezone
@@ -258,10 +302,13 @@ class TestRunRecovery:
             crawl_id = crawl.id
             snapshot_id = snapshot.id
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["run", "--maintenance-only"],
             timeout=90,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0, result.stdout + result.stderr
@@ -282,17 +329,23 @@ class TestRunRecovery:
 class TestRunPassThrough:
     """Tests for pass-through behavior in `archivebox run`."""
 
-    def test_run_passes_through_tag_emitted_by_cli(self, archivebox_cli, initialized_archive):
+    def test_run_passes_through_tag_emitted_by_cli(self, initialized_archive):
         """Run passes through a real non-runnable Tag record."""
-        tag_result = archivebox_cli(
+        tag_result = run_archivebox_cmd(
             ["tag", "create", "run-input-tag"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert tag_result.returncode == 0, tag_result.stderr
         tag_record = parse_jsonl_output(tag_result.stdout)[0]
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["run"],
             stdin=tag_result.stdout,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
@@ -301,20 +354,26 @@ class TestRunPassThrough:
         assert len(tag_records) == 1
         assert tag_records[0]["id"] == tag_record["id"]
 
-    def test_run_outputs_all_processed_records(self, archivebox_cli, initialized_archive):
+    def test_run_outputs_all_processed_records(self, initialized_archive):
         """Run outputs all processed records for chaining."""
         url = create_test_url()
-        create_result = archivebox_cli(
+        create_result = run_archivebox_cmd(
             ["crawl", "create", url],
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert create_result.returncode == 0, create_result.stderr
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["run"],
             stdin=create_result.stdout,
             timeout=120,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
@@ -326,27 +385,39 @@ class TestRunPassThrough:
 class TestRunMixedInput:
     """Tests for `archivebox run` with mixed record types."""
 
-    def test_run_handles_mixed_records_emitted_by_cli(self, archivebox_cli, initialized_archive):
+    def test_run_handles_mixed_records_emitted_by_cli(self, initialized_archive):
         """Run handles real Crawl, Snapshot, and Tag records from CLI stages."""
-        tag_result = archivebox_cli(
+        tag_result = run_archivebox_cmd(
             ["tag", "create", "mixed-run-tag"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert tag_result.returncode == 0, tag_result.stderr
-        crawl_result = archivebox_cli(
+        crawl_result = run_archivebox_cmd(
             ["crawl", "create", create_test_url()],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert crawl_result.returncode == 0, crawl_result.stderr
-        snapshot_result = archivebox_cli(
+        snapshot_result = run_archivebox_cmd(
             ["snapshot", "create"],
             stdin=crawl_result.stdout,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert snapshot_result.returncode == 0, snapshot_result.stderr
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["run"],
             stdin=tag_result.stdout + snapshot_result.stdout,
             timeout=120,
             env=RUN_TEST_ENV,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0
@@ -359,25 +430,28 @@ class TestRunMixedInput:
 class TestRunEmpty:
     """Tests for `archivebox run` edge cases."""
 
-    def test_run_empty_stdin(self, archivebox_cli, initialized_archive):
+    def test_run_empty_stdin(self, initialized_archive):
         """Run with empty stdin returns success."""
-        result = archivebox_cli(
-            ["run"],
-            stdin="",
-        )
+        result = run_archivebox_cmd(["run"], stdin="", cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
 
-    def test_run_no_runnable_records_to_process(self, archivebox_cli, initialized_archive):
+    def test_run_no_runnable_records_to_process(self, initialized_archive):
         """Run with only a real non-runnable Tag reports no work."""
-        tag_result = archivebox_cli(
+        tag_result = run_archivebox_cmd(
             ["tag", "create", "non-runnable-tag"],
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
         assert tag_result.returncode == 0, tag_result.stderr
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             ["run"],
             stdin=tag_result.stdout,
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0

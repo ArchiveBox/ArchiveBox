@@ -2,7 +2,6 @@
 
 import os
 import json
-from functools import partial
 import re
 import secrets
 import signal
@@ -448,12 +447,6 @@ def initialized_archive(tmp_path):
     stderr, returncode = _cmd_result.stderr, _cmd_result.returncode
     assert returncode == 0, f"archivebox init failed: {stderr}"
     return tmp_path
-
-
-@pytest.fixture
-def archivebox_cli(initialized_archive):
-    """Public CLI bound to this test's collection with extraction opt-in."""
-    return partial(run_archivebox_cmd, cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
 
 @pytest.fixture
@@ -1927,3 +1920,94 @@ def install_real_chrome(data_dir, env, *, isolation):
         timeout=600,
     )
     assert install_process.returncode == 0, install_process.stderr or install_process.stdout
+
+
+def write_import_format_files(base_dir: Path, urls: dict[str, str] | None = None) -> dict[str, Path]:
+    urls = {
+        "rss": "https://example.com/",
+        "netscape": "https://www.iana.org/domains/reserved",
+        "dom": "https://www.iana.org/help/example-domains",
+        "json": "https://example.com/?archivebox-json-import=1",
+        "jsonl": "https://example.com/?archivebox-jsonl-import=1",
+        "txt": "https://example.org/",
+        **(urls or {}),
+    }
+    files = {
+        "rss": base_dir / "test_rss.xml",
+        "netscape": base_dir / "test_netscape.html",
+        "dom": base_dir / "test_dom.html",
+        "json": base_dir / "test_bookmarks.json",
+        "jsonl": base_dir / "test_bookmarks.jsonl",
+        "txt": base_dir / "test_urls.txt",
+    }
+    files["rss"].write_text(
+        f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>ArchiveBox RSS import fixture</title>
+    <link>{urls["rss"]}</link>
+    <description>ArchiveBox RSS import fixture</description>
+    <item>
+      <title>RSS Example Import</title>
+      <link>{urls["rss"]}</link>
+      <guid>{urls["rss"]}</guid>
+      <pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate>
+      <category>rss-tag</category>
+      <category>metadata</category>
+    </item>
+  </channel>
+</rss>
+""",
+        encoding="utf-8",
+    )
+    files["netscape"].write_text(
+        f"""<!DOCTYPE NETSCAPE-Bookmark-file-1>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=UTF-8">
+<TITLE>Bookmarks</TITLE>
+<H1>Bookmarks</H1>
+<DL><p>
+  <DT><A HREF="{urls["netscape"]}" ADD_DATE="1704153600" TAGS="netscape-tag,metadata">IANA Reserved Domains</A>
+</DL><p>
+""",
+        encoding="utf-8",
+    )
+    files["dom"].write_text(
+        f"""<!doctype html>
+<html>
+  <head><title>DOM import fixture</title></head>
+  <body>
+    <a href="{urls["dom"]}">IANA Example Domains</a>
+  </body>
+</html>
+""",
+        encoding="utf-8",
+    )
+    files["json"].write_text(
+        json.dumps(
+            {
+                "url": urls["json"],
+                "title": "JSON Import Example",
+                "tags": ["json-tag", "metadata"],
+                "bookmarked_at": "2024-01-03T00:00:00+00:00",
+            },
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    files["jsonl"].write_text(
+        json.dumps(
+            {
+                "url": urls["jsonl"],
+                "title": "JSONL Import Example",
+                "tags": "jsonl-tag,metadata",
+                "bookmarked_at": "2024-01-04T00:00:00+00:00",
+            },
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    files["txt"].write_text(
+        f"Plain text import fixture containing {urls['txt']} as a real live URL.\n",
+        encoding="utf-8",
+    )
+    return files

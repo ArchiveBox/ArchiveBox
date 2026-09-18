@@ -15,6 +15,7 @@ from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Process
 from archivebox.tests.conftest import (
+    write_import_format_files,
     cli_env,
     find_snapshot_dir,
     run_archivebox_cmd,
@@ -24,13 +25,38 @@ from archivebox.tests.conftest import (
 
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-from archivebox.tests.import_helpers import (
-    IMPORT_FORMAT_EXPECTATIONS,
-    assert_expected_import_snapshots,
-    assert_no_file_or_shell_payload_snapshots,
-    malicious_add_inputs,
-    write_import_format_files,
-)
+IMPORT_FORMAT_EXPECTATIONS = {
+    "rss": {
+        "url": "https://example.com/",
+        "title": "RSS Example Import",
+        "date": "2024-01-01",
+        "tags": {"rss-tag", "metadata"},
+    },
+    "netscape": {
+        "url": "https://www.iana.org/domains/reserved",
+        "title": "IANA Reserved Domains",
+        "date": "2024-01-02",
+        "tags": {"netscape-tag", "metadata"},
+    },
+    "dom": {
+        "url": "https://www.iana.org/help/example-domains",
+    },
+    "json": {
+        "url": "https://example.com/?archivebox-json-import=1",
+        "title": "JSON Import Example",
+        "date": "2024-01-03",
+        "tags": {"json-tag", "metadata"},
+    },
+    "jsonl": {
+        "url": "https://example.com/?archivebox-jsonl-import=1",
+        "title": "JSONL Import Example",
+        "date": "2024-01-04",
+        "tags": {"jsonl-tag", "metadata"},
+    },
+    "txt": {
+        "url": "https://example.org/",
+    },
+}
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -133,7 +159,13 @@ def test_add_stdin_import_formats_preserve_metadata_and_crawl_inner_urls(initial
             assert not crawl.snapshot_set.filter(url__startswith="archivebox://").exists()
             root_input = (crawl.output_dir / "input" / "staticfile" / "stdin.txt").read_text(encoding="utf-8")
             assert root_input == crawl.urls
-    assert_expected_import_snapshots(initialized_archive, expected_urls)
+    with use_archivebox_db(initialized_archive):
+        imported_snapshots = list(Snapshot.objects.filter(url__in=expected_urls).values("url", "status"))
+    assert sorted(row["url"] for row in imported_snapshots) == sorted(expected_urls), imported_snapshots
+    assert all(
+        row["status"] in {Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED}
+        for row in imported_snapshots
+    ), imported_snapshots
 
     list_result = run_archivebox_cmd(
         ["list", "--json"],
@@ -172,7 +204,32 @@ def test_add_stdin_import_formats_preserve_metadata_and_crawl_inner_urls(initial
 def test_add_rejects_file_path_and_shell_injection_payloads(initialized_archive):
     """CLI add must not turn user-supplied local paths or shell payloads into snapshots."""
     safe_url = "https://example.com/?archivebox-cli-security=1"
-    inputs, canary = malicious_add_inputs(initialized_archive, safe_url=safe_url)
+    other_crawl_source = initialized_archive / "sources" / "other_crawl_source.txt"
+    other_crawl_source.parent.mkdir(parents=True, exist_ok=True)
+    other_crawl_source.write_text("https://example.com/not-owned-by-this-crawl\n", encoding="utf-8")
+    canary = initialized_archive / "archivebox_shell_injection_canary"
+    inputs = [
+        safe_url,
+        "file:///etc/hosts",
+        "/etc/hosts",
+        "../../../../etc/passwd",
+        f"file://{other_crawl_source}",
+        str(other_crawl_source),
+        f"'; touch {canary}; #",
+        f'" && touch {canary} && echo "',
+        f"$(touch {canary})",
+        f"`touch {canary}`",
+        """<?xml version="1.0"?>
+<!DOCTYPE rss [
+  <!ENTITY localfile SYSTEM "file:///etc/hosts">
+]>
+<rss version="2.0" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <channel>
+    <item><title>&localfile;</title><link>file:///etc/passwd</link></item>
+    <xi:include href="file:///etc/hosts" parse="text"/>
+  </channel>
+</rss>""",
+    ]
     env = cli_env(**IMPORT_FORMAT_ENV)
 
     result = run_archivebox_cmd(
@@ -185,9 +242,20 @@ def test_add_rejects_file_path_and_shell_injection_payloads(initialized_archive)
     assert result.returncode == 0, result.stderr or result.stdout
 
     run_queued_crawls(initialized_archive, env=env, timeout=120)
-    assert_expected_import_snapshots(initialized_archive, {safe_url})
+    with use_archivebox_db(initialized_archive):
+        imported_snapshots = list(Snapshot.objects.filter(url__in={safe_url}).values("url", "status"))
+    assert sorted(row["url"] for row in imported_snapshots) == sorted({safe_url}), imported_snapshots
+    assert all(
+        row["status"] in {Snapshot.StatusChoices.QUEUED, Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED}
+        for row in imported_snapshots
+    ), imported_snapshots
 
-    assert_no_file_or_shell_payload_snapshots(initialized_archive, canary=canary)
+    with use_archivebox_db(initialized_archive):
+        snapshots = list(Snapshot.objects.all())
+    assert not canary.exists()
+    assert not [snapshot.url for snapshot in snapshots if str(snapshot.url).startswith("file:")]
+    for forbidden in ("/etc/hosts", "/etc/passwd", "other_crawl_source", "archivebox_shell_injection_canary"):
+        assert not [snapshot.url for snapshot in snapshots if forbidden in str(snapshot.url)]
     with use_archivebox_db(initialized_archive):
         snapshots = list(Snapshot.objects.filter(url=safe_url).values_list("url", "status", "tags__name"))
         crawl = Crawl.objects.get()

@@ -92,7 +92,7 @@ def test_binary_request_preserves_native_overrides_in_db():
     assert binary_events[-1].overrides == overrides
 
 
-def test_binary_request_installs_env_binary_and_recovers_stale_cache(archivebox_cli, initialized_archive, tmp_path):
+def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized_archive, tmp_path):
     name = "archivebox"
     provider_bin_dir = initialized_archive / "lib" / "env" / "bin"
     host_binary = shutil.which(name)
@@ -128,10 +128,13 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(archivebox_
     assert binary_processes[-1].started_at < binary_processes[-1].ended_at
     assert any(f"--name={name}" in arg for arg in binary_processes[-1].cmd)
 
-    _cmd_result = archivebox_cli(
+    _cmd_result = run_archivebox_cmd(
         ["version"],
         timeout=60,
         env=runtime_env,
+        cwd=initialized_archive,
+        default_cli_env=True,
+        disable_extractors=True,
     )
     version_stdout, version_stderr, version_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert version_code == 0, version_stderr
@@ -140,10 +143,13 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(archivebox_
 
     first_abspath.unlink()
 
-    _cmd_result = archivebox_cli(
+    _cmd_result = run_archivebox_cmd(
         ["run", f"--binary-id={first_binary_id}"],
         timeout=120,
         env=runtime_env,
+        cwd=initialized_archive,
+        default_cli_env=True,
+        disable_extractors=True,
     )
     rerun_stdout, rerun_stderr, rerun_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
@@ -171,10 +177,13 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(archivebox_
             retry_at=None,
         )
 
-    _cmd_result = archivebox_cli(
+    _cmd_result = run_archivebox_cmd(
         ["run", f"--binary-id={first_binary_id}"],
         timeout=120,
         env=changed_runtime_env,
+        cwd=initialized_archive,
+        default_cli_env=True,
+        disable_extractors=True,
     )
     relib_stdout, relib_stderr, relib_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
@@ -189,7 +198,7 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(archivebox_
     assert Path(relibbed.abspath).resolve() == Path(host_binary).resolve()
 
 
-def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_resolve(archivebox_cli, initialized_archive, tmp_path):
+def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_resolve(initialized_archive, tmp_path):
     name = "http"
     provider_bin_dir = initialized_archive / "lib" / "pip" / "venv" / "bin"
     runtime_env = _runtime_env(initialized_archive)
@@ -221,10 +230,13 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
         queued.save(update_fields=["binproviders", "overrides", "modified_at"])
     recovered_runtime_env = _runtime_env(initialized_archive)
 
-    _cmd_result = archivebox_cli(
+    _cmd_result = run_archivebox_cmd(
         ["run", f"--binary-id={queued_id}"],
         timeout=120,
         env=recovered_runtime_env,
+        cwd=initialized_archive,
+        default_cli_env=True,
+        disable_extractors=True,
     )
     recover_stdout, recover_stderr, recover_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 

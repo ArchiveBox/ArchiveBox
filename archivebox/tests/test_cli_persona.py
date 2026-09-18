@@ -18,10 +18,10 @@ def test_persona_help_runs_successfully(tmp_path):
     assert "list" in result.stdout
 
 
-def test_persona_commands_emit_consistent_model_records(archivebox_cli, initialized_archive):
+def test_persona_commands_emit_consistent_model_records(initialized_archive):
     import json
 
-    created = archivebox_cli(["persona", "create", "portable"])
+    created = run_archivebox_cmd(["persona", "create", "portable"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
     assert created.returncode == 0, created.stderr
     record = json.loads(created.stdout)
     assert record == {
@@ -32,7 +32,7 @@ def test_persona_commands_emit_consistent_model_records(archivebox_cli, initiali
         "COOKIES_FILE": "",
     }
     for command in (["persona", "list", "--name=portable"], ["persona", "update"]):
-        result = archivebox_cli(command, input=created.stdout)
+        result = run_archivebox_cmd(command, input=created.stdout, cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
         assert result.returncode == 0, result.stderr
         assert json.loads(result.stdout) == record
     assert Path(record["CHROME_USER_DATA_DIR"]).is_dir()

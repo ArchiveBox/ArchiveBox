@@ -8,6 +8,7 @@ from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 from .conftest import (
+    write_import_format_files,
     cli_env,
     create_admin_and_token,
     get_depth_counts,
@@ -19,12 +20,38 @@ from .conftest import (
     get_http_response,
 )
 
-from archivebox.tests.import_helpers import (
-    IMPORT_FORMAT_EXPECTATIONS,
-    assert_no_file_or_shell_payload_snapshots,
-    malicious_add_inputs,
-    write_import_format_files,
-)
+IMPORT_FORMAT_EXPECTATIONS = {
+    "rss": {
+        "url": "https://example.com/",
+        "title": "RSS Example Import",
+        "date": "2024-01-01",
+        "tags": {"rss-tag", "metadata"},
+    },
+    "netscape": {
+        "url": "https://www.iana.org/domains/reserved",
+        "title": "IANA Reserved Domains",
+        "date": "2024-01-02",
+        "tags": {"netscape-tag", "metadata"},
+    },
+    "dom": {
+        "url": "https://www.iana.org/help/example-domains",
+    },
+    "json": {
+        "url": "https://example.com/?archivebox-json-import=1",
+        "title": "JSON Import Example",
+        "date": "2024-01-03",
+        "tags": {"json-tag", "metadata"},
+    },
+    "jsonl": {
+        "url": "https://example.com/?archivebox-jsonl-import=1",
+        "title": "JSONL Import Example",
+        "date": "2024-01-04",
+        "tags": {"jsonl-tag", "metadata"},
+    },
+    "txt": {
+        "url": "https://example.org/",
+    },
+}
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -366,7 +393,32 @@ def test_public_add_view_rejects_file_path_and_shell_injection_payloads(tmp_path
     """Public /add/ must not archive local paths or execute shell-like textarea content."""
     init_archive(tmp_path)
     safe_url = "https://example.com/?archivebox-public-ui-security=1"
-    inputs, canary = malicious_add_inputs(tmp_path, safe_url=safe_url)
+    other_crawl_source = tmp_path / "sources" / "other_crawl_source.txt"
+    other_crawl_source.parent.mkdir(parents=True, exist_ok=True)
+    other_crawl_source.write_text("https://example.com/not-owned-by-this-crawl\n", encoding="utf-8")
+    canary = tmp_path / "archivebox_shell_injection_canary"
+    inputs = [
+        safe_url,
+        "file:///etc/hosts",
+        "/etc/hosts",
+        "../../../../etc/passwd",
+        f"file://{other_crawl_source}",
+        str(other_crawl_source),
+        f"'; touch {canary}; #",
+        f'" && touch {canary} && echo "',
+        f"$(touch {canary})",
+        f"`touch {canary}`",
+        """<?xml version="1.0"?>
+<!DOCTYPE rss [
+  <!ENTITY localfile SYSTEM "file:///etc/hosts">
+]>
+<rss version="2.0" xmlns:xi="http://www.w3.org/2001/XInclude">
+  <channel>
+    <item><title>&localfile;</title><link>file:///etc/passwd</link></item>
+    <xi:include href="file:///etc/hosts" parse="text"/>
+  </channel>
+</rss>""",
+    ]
 
     port = get_free_port()
     env = cli_env(
@@ -431,7 +483,12 @@ def test_public_add_view_rejects_file_path_and_shell_injection_payloads(tmp_path
     finally:
         stop_server(tmp_path)
 
-    assert_no_file_or_shell_payload_snapshots(tmp_path, canary=canary)
+    with use_archivebox_db(tmp_path):
+        snapshots = list(Snapshot.objects.all())
+    assert not canary.exists()
+    assert not [snapshot.url for snapshot in snapshots if str(snapshot.url).startswith("file:")]
+    for forbidden in ("/etc/hosts", "/etc/passwd", "other_crawl_source", "archivebox_shell_injection_canary"):
+        assert not [snapshot.url for snapshot in snapshots if forbidden in str(snapshot.url)]
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.get(url=safe_url)
         crawl = Crawl.objects.get()

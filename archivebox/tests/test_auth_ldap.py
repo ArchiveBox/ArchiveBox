@@ -97,21 +97,17 @@ class TestLDAPIntegration:
         ldap_backends = [b for b in settings.AUTHENTICATION_BACKENDS if "ldap" in b.lower()]
         assert len(ldap_backends) == 0, "LDAP backend should not be present when LDAP_ENABLED=False"
 
-    def test_django_settings_with_ldap_enabled(self, archivebox_cli, initialized_archive):
+    def test_django_settings_with_ldap_enabled(self, initialized_archive):
         """Test the real enabled LDAP settings path with installed libraries."""
         assert find_spec("django_auth_ldap") is not None
         assert find_spec("ldap") is not None
 
-        result = archivebox_cli(
+        result = run_archivebox_cmd(
             [
                 "manage",
                 "shell",
                 "-c",
-                (
-                    "from django.conf import settings; "
-                    "print('LDAP_BACKENDS=' + ','.join(settings.AUTHENTICATION_BACKENDS)); "
-                    "print('LDAP_SERVER_URI=' + settings.AUTH_LDAP_SERVER_URI)"
-                ),
+                "from django.conf import settings; print('LDAP_BACKENDS=' + ','.join(settings.AUTHENTICATION_BACKENDS)); print('LDAP_SERVER_URI=' + settings.AUTH_LDAP_SERVER_URI)",
             ],
             timeout=45,
             env={
@@ -121,6 +117,9 @@ class TestLDAPIntegration:
                 "LDAP_BIND_PASSWORD": "password",
                 "LDAP_USER_BASE": "ou=users,dc=example,dc=com",
             },
+            cwd=initialized_archive,
+            default_cli_env=True,
+            disable_extractors=True,
         )
 
         assert result.returncode == 0, result.stderr or result.stdout

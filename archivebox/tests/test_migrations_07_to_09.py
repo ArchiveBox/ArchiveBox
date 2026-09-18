@@ -15,7 +15,9 @@ from uuid import UUID
 import pytest
 
 from .migrations_helpers import (
-    create_legacy_archive,
+    SCHEMA_0_7,
+    seed_0_7_data,
+    create_data_dir_structure,
     run_archivebox_migration_cmd,
     verify_archiveresult_count,
     verify_tag_count,
@@ -25,8 +27,21 @@ from .migrations_helpers import (
 
 @pytest.fixture
 def archive_07(tmp_path):
-    """Create a collection using the real 0.7.x schema and seed data."""
-    return create_legacy_archive(tmp_path, "0.7")
+    """Create a temporary directory with 0.7.x schema and data."""
+    db_path = tmp_path / "index.sqlite3"
+
+    # Create directory structure
+    create_data_dir_structure(tmp_path)
+
+    # Create database with 0.7.x schema
+    conn = sqlite3.connect(str(db_path))
+    conn.executescript(SCHEMA_0_7)
+    conn.close()
+
+    # Seed with test data
+    original_data = seed_0_7_data(db_path)
+
+    return tmp_path, db_path, original_data
 
 
 def test_migration_preserves_tags(archive_07):
