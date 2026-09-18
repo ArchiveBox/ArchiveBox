@@ -28,3 +28,15 @@ edit `requirements.in` and run:
 uv pip compile --universal --python-version 3.13 .github/docs/requirements.in \
   --output-file .github/docs/requirements.txt
 ```
+
+## Live version picker
+
+Read the Docs loads `https://docs.archivebox.io/latest/_static/archivebox-versions.js`
+through Addons > Custom script. This applies the release policy and puts `dev`
+after `latest` across existing versions without rebuilding them. The script uses
+the published version inventory and preserves existing navigation URLs.
+
+The hosting checkout command checks out the original main/tag commit, then overlays
+only the historical Sphinx build files from pinned docs repair commits. Application
+source, release tags, and pinned wiki revisions remain those of the selected release.
+Keep the docs repair branches available for fetching these configuration commits.
