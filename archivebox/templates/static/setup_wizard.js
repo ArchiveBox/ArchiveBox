@@ -195,9 +195,9 @@
     } else {
       risks.push('⚠️ UI, API, and archive replay share one origin. CSP disables risky archived scripts, but a CSP or content-type bypass could expose the archive index, other snapshots, saved headers, admin pages, API data, and canonical-host mutations.');
     }
-    risks.push(publicIndexInput.checked
-      ? '⚠️ Anonymous visitors can enumerate public snapshot URLs and titles; saved URLs may contain private share tokens or other secrets.'
-      : '✅ Anonymous visitors cannot browse the snapshot index.');
+    if (!publicIndexInput.checked) {
+      risks.push('✅ Anonymous visitors cannot browse the snapshot index.');
+    }
     risks.push(!controlPlaneEnabled
       ? '✅ URL submission and other state-changing requests are disabled for everyone in this replay-only mode.'
       : (publicAddInput.checked ? '⚠️ Anonymous visitors can submit malicious or private/intranet URLs. A filtering or per-crawl configuration bypass could expose internal content or threaten the server.' : '✅ Only signed-in admins can submit new URLs.'));
