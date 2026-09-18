@@ -145,6 +145,30 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
       await frame.waitForSelector('::-p-aria(Continue[role="button"])');
       await frame.locator('::-p-aria(Close[role="button"])').click();
     }
+    // Submit a real shell command from a fresh draft. This exercises draft
+    // promotion and the shell API without needing a paid model or API key.
+    await frame.locator('::-p-aria(New session[role="button"])').click();
+    await frame.waitForFunction(() => location.pathname.endsWith('/new-session'));
+    await (await frame.waitForSelector('[contenteditable="true"]')).focus();
+    const modifier = await page.evaluate(() => navigator.platform.includes('Mac') ? 'Meta' : 'Control');
+    await page.keyboard.down(modifier);
+    await page.keyboard.down('Shift');
+    await page.keyboard.press('x');
+    await page.keyboard.up('Shift');
+    await page.keyboard.up(modifier);
+    await page.keyboard.type('printf ABX_DRAFT_SHELL_OK');
+    await frame.locator('::-p-aria(Send[role="button"])').click();
+    await frame.waitForFunction(() => /\/session\/ses_/.test(location.pathname));
+    assert.ok(new URL(frame.url()).pathname.startsWith('/admin/agent/opencode/'), frame.url());
+    await frame.waitForFunction(async () => {
+      const sessionID = location.pathname.match(/\/session\/(ses_[^/]+)/)[1];
+      const response = await fetch('/admin/agent/opencode/session/' + sessionID + '/message');
+      if (!response.ok) throw new Error('Shell message readback: ' + response.status);
+      const messages = await response.json();
+      return messages.some(message => message.parts.some(part =>
+        part.type === 'tool' && part.state.status === 'completed' &&
+        part.state.output.trim() === 'ABX_DRAFT_SHELL_OK'));
+    }, {polling: 250});
     // Exercise the actual public PTY API and native browser WebSocket. No
     // intercepted traffic or replacement server: this runs a real shell.
     const terminal = await frame.evaluate(async () => {
