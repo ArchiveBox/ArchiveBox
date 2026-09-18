@@ -1,0 +1,18 @@
+.github/workflows/release-candidate.yml
+  h_923c208e183a7b 53,56-61,64
+archivebox/tests/test_opencode_agent.py
+  h_923c208e183a7b 2,8,364-395,429-446,448
+archivebox/tests/test_opencode_browser.py
+  h_923c208e183a7b 23-33,35-37,47-54,87-147,184,192,203,205-207,211-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fead132b5c54a2241379381a938a2febede1d5d7",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
