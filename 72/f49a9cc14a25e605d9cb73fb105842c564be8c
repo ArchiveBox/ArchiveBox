@@ -1,0 +1,22 @@
+archivebox/crawls/migrations/0004_remove_crawl_output_dir.py
+  s_ffefb637465167::t_062aef27dd18b9 6-18,25
+archivebox/tests/test_migrations_08_to_09.py
+  s_ffefb637465167::t_0820ac5ee0ce4d 59-77
+  s_ffefb637465167::t_a4c7872a01abd7 78-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "72f49a9cc14a25e605d9cb73fb105842c564be8c",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

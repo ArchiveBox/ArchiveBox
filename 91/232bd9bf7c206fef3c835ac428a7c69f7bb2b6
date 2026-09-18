@@ -1,0 +1,25 @@
+archivebox/misc/db.py
+  s_ffefb637465167::t_bdf8648405f505 204-225
+archivebox/api/migrations/0002_reconcile_original_api_tables.py
+  s_ffefb637465167::t_4a3a5ab146be61 1-35
+archivebox/core/migrations/0055_repair_transient_plugin_constraint.py
+  s_ffefb637465167::t_54e5e412d53efd 1-51
+archivebox/machine/migrations/0023_preserve_legacy_machine_owners.py
+  s_ffefb637465167::t_4b15a314252bd7 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "91232bd9bf7c206fef3c835ac428a7c69f7bb2b6",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

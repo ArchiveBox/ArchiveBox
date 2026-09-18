@@ -1,0 +1,23 @@
+archivebox/core/models.py
+  s_ffefb637465167::t_9d05f845ee1436 1923-1927
+archivebox/tests/test_filesystem_collection_merge.py
+  s_ffefb637465167::t_bd0870316cf290 6,83-86
+  s_ffefb637465167::t_c92d36eab0c33f 64-65
+  s_ffefb637465167::t_bab29868442602 75-77,87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "02b0737824874581219302e4c4cc11eb316d45d6",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

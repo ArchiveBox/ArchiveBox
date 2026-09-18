@@ -1,0 +1,31 @@
+archivebox/tests/test_api_v1_core_tags_create.py
+  s_ffefb637465167::t_ed011323b9a33e 20-28
+archivebox/crawls/models.py
+  s_ffefb637465167::t_ed011323b9a33e 397
+archivebox/tests/test_filesystem_collection_merge.py
+  s_ffefb637465167::t_203017ebb48082 60,69,75,82-89,94-96,100-102,107-117
+  s_ffefb637465167::t_2e718f7ac036d8 52,98
+  s_ffefb637465167::t_7e0f2b5fa15d41 118-119
+archivebox/core/models.py
+  s_ffefb637465167::t_ed011323b9a33e 115-116,1969,1976,3130,3170
+archivebox/cli/archivebox_tag.py
+  s_ffefb637465167::t_ed011323b9a33e 72-74
+archivebox/core/tag_util.py
+  s_ffefb637465167::t_ed011323b9a33e 37-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "1bbdbb479cb48fd88eeec49b8f2d498313195015",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
