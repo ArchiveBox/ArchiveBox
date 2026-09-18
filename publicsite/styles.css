@@ -881,3 +881,14 @@ h3 {
     font-size: 0.82rem;
   }
 }
+
+/* Shared project navigation stays usable without JavaScript. */
+.project-menu { position: relative; flex: 0 0 auto; }
+.project-menu > summary { cursor: pointer; padding: 10px 0; font-size: 13px; font-weight: 600; }
+.project-menu > summary:focus-visible, .project-menu__links a:focus-visible { outline: 3px solid #9b2854; outline-offset: 3px; }
+.project-menu__links { position: absolute; right: 0; top: 100%; z-index: 30; width: 220px; max-width: calc(100vw - 32px); padding: 8px; border: 1px solid #e9e2e3; border-radius: 12px; background: #fff; box-shadow: 0 12px 32px #28252a20; }
+header nav .project-menu__links a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; color: #28252a; font-size: 13px; letter-spacing: normal; text-transform: none; text-decoration: none; white-space: nowrap; }
+header nav .project-menu__links a:hover, header nav .project-menu__links a[aria-current="page"] { background: #f8edf2; color: #9b2854; border-radius: 6px; }
+@media (max-width: 700px) { header.site-header { flex-wrap: wrap; } header.site-header nav { flex-wrap: wrap; gap: 8px 16px; } }
+
+@media (max-width: 1100px) { .project-menu__links { position: fixed; left: 16px; right: 16px; top: auto; width: auto; } }
