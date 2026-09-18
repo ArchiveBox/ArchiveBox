@@ -44,7 +44,9 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
     const links = await frame.$$eval('a[href*="/session"]', nodes => nodes.map(node => node.getAttribute('href')));
     assert.ok(links.length, 'OpenCode must expose session navigation');
     for (const href of links) assert.ok(href.startsWith('/admin/agent/opencode/'), href);
+    const initialSessionUrl = frame.url();
     await frame.locator('::-p-aria(New session[role="button"])').click();
+    await frame.waitForFunction(previous => location.href !== previous, {}, initialSessionUrl);
     await frame.waitForSelector('[contenteditable="true"]');
     let navigation;
     for (const link of await frame.$$('a[href*="/session"]')) {
