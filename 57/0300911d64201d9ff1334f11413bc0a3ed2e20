@@ -1,0 +1,21 @@
+archivebox/core/views/replay_auth.py
+  s_ffefb637465167::t_c0ac4a01584ac3 1,10,45
+archivebox/tests/test_urls.py
+  s_ffefb637465167::t_f9e35439df41c5 720-780
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "570300911d64201d9ff1334f11413bc0a3ed2e20",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
