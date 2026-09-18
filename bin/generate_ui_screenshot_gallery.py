@@ -205,7 +205,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
                 f'alt="{html.escape(str(capture["name"]))} — {profile}" width="{width}"></td>',
             )
             html_figures.append(
-                f'<figure class="shot shot-{profile}"><figcaption>{label}</figcaption>'
+                f'<figure class="shot shot-{profile}" data-profile="{profile}"><figcaption>{label}</figcaption>'
                 f'<a href="./{versioned_filename}">'
                 f'<img src="./{versioned_filename}" width="{width}" height="{height}" loading="lazy" '
                 f'alt="{html.escape(str(capture["name"]))} — {profile}"></a></figure>',
@@ -256,19 +256,49 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         "<title>ArchiveBox UI Screenshots</title><style>"
-        "body{max-width:1900px;margin:0 auto;padding:20px;font:16px system-ui,sans-serif;background:#f6f7f9;color:#18202a}"
-        "a{color:#2563eb}article{margin:32px 0 64px}.shots{display:grid;grid-template-columns:2fr 1.35fr .8fr;gap:14px;align-items:start}"
-        "figure{min-width:0;margin:0}figcaption{font-weight:650;margin:0 0 8px}img{display:block;width:100%;height:auto;"
-        "border:1px solid #cbd5e1;border-radius:8px;background:white;box-shadow:0 8px 24px #0f172a18}code{overflow-wrap:anywhere}"
-        "@media(max-width:900px){.shots{grid-template-columns:1fr}body{padding:12px}}"
-        '</style></head><body><header><p><a href="../">← ArchiveBox</a></p><h1>ArchiveBox UI Screenshots</h1>'
-        f"<p>Generated from ArchiveBox <code>{html.escape(provenance['version'])}</code> at "
+        ":root{--ink:#28252a;--muted:#716c74;--accent:#9b2854;--paper:#fcfaf7;--line:#e9e2e3}"
+        "*{box-sizing:border-box}body{margin:0;font:16px/1.75 system-ui,sans-serif;"
+        "background:var(--paper);color:var(--ink)}.screenshot-content{max-width:1100px;margin:0 auto;padding:28px}"
+        "a{color:var(--accent)}h1,h2{line-height:1.15;letter-spacing:-.045em}"
+        "article{margin:40px 0 65px}article h2{font-size:29px;margin:0 0 10px}article p{font-size:13px;color:var(--muted);margin:0 0 20px}"
+        ".profile-switch{display:flex;flex-wrap:wrap;gap:4px;background:#f0e8eb;border:1px solid var(--line);padding:5px;"
+        "border-radius:28px;width:max-content;max-width:100%;margin:30px 0}.profile-switch button{font:600 13px system-ui;"
+        "cursor:pointer;border:0;border-radius:22px;background:transparent;color:var(--muted);padding:10px 20px}"
+        ".profile-switch button[aria-pressed=true]{background:var(--accent);color:white;box-shadow:0 3px 10px #9b285425}"
+        "a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:4px}"
+        "figure{min-width:0;margin:0 0 20px;padding:18px;border:1px solid var(--line);border-radius:20px;"
+        "background:linear-gradient(140deg,#fff,#f8edf2)}figure[hidden]{display:none}"
+        ".shot-mobile{max-width:440px;margin-inline:auto}.shot-tablet{max-width:800px;margin-inline:auto}"
+        "figcaption{font-size:12px;color:var(--muted);text-align:center;margin:0 0 12px}"
+        "img{display:block;width:100%;height:auto;border-radius:8px}code{overflow-wrap:anywhere}"
+        "@media(max-width:550px){.screenshot-content{padding:20px}figure{padding:8px;border-radius:12px}.profile-switch button{padding:9px 16px}}"
+        '</style><link rel="stylesheet" href="../site-chrome.css"></head><body>'
+        + (REPO_DIR / "bin/templates/screenshots-header.html").read_text(encoding="utf-8")
+        + '<div class="screenshot-content"><header><p><a href="../">← ArchiveBox</a></p><h1>ArchiveBox UI Screenshots</h1>'
+        + f"<p>Generated from ArchiveBox <code>{html.escape(provenance['version'])}</code> at "
         f'<a href="https://github.com/ArchiveBox/ArchiveBox/commit/{html.escape(provenance["revision"])}">'
         f"<code>{html.escape(provenance['revision'][:12])}</code></a> on "
         f'<time datetime="{html.escape(provenance["generated_at"])}">{html.escape(provenance["generated_at"])}</time>. '
-        "Desktop, tablet, and mobile viewports are captured from the same build.</p></header><main>"
+        "Desktop, tablet, and mobile viewports are captured from the same build.</p></header>"
+        '<div class="profile-switch" role="group" aria-label="Screenshot viewport">'
+        + "".join(
+            f'<button type="button" data-viewport="{profile}" aria-pressed="{str(profile == "desktop").lower()}">{profile.title()}</button>'
+            for profile in CAPTURE_PROFILES
+        )
+        + "</div><main>"
         + "".join(html_sections)
-        + "</main></body></html>\n",
+        + """</main><script>
+const figures = document.querySelectorAll('.shot');
+const buttons = document.querySelectorAll('[data-viewport]');
+function selectProfile(profile) {
+  for (const figure of figures) figure.hidden = figure.dataset.profile !== profile;
+  for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.viewport === profile));
+}
+for (const button of buttons) button.addEventListener('click', () => selectProfile(button.dataset.viewport));
+selectProfile('desktop');
+</script></div>"""
+        + (REPO_DIR / "bin/templates/screenshots-footer.html").read_text(encoding="utf-8")
+        + "</body></html>\n",
         encoding="utf-8",
     )
 
