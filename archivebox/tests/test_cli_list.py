@@ -3,6 +3,8 @@ Tests for archivebox list command.
 Verify list emits snapshot JSONL and applies the documented filters.
 """
 
+import csv
+import io
 import json
 from pathlib import Path
 
@@ -578,8 +580,7 @@ def test_search_command_csv_outputs_requested_column(initialized_archive):
     )
 
     assert result.returncode == 0, result.stderr
-    assert "url" in result.stdout
-    assert "example.com" in result.stdout
+    assert list(csv.reader(io.StringIO(result.stdout))) == [["url"], ["https://example.com"]]
 
 
 def test_search_command_with_headers_requires_structured_output_format(initialized_archive):
@@ -602,7 +603,7 @@ def test_search_command_sort_option_runs_successfully(initialized_archive):
     )
 
     assert result.returncode == 0, result.stderr
-    assert "example.com" in result.stdout or "iana.org" in result.stdout
+    assert list(csv.reader(io.StringIO(result.stdout))) == [["https://example.com"], ["https://iana.org"]]
 
 
 def test_search_command_help_lists_supported_filters(initialized_archive):
