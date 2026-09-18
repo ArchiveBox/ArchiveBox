@@ -9,3 +9,4 @@ Original brand artwork used to identify tools and services.
 - [codex.svg](https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/codex.svg)
 - [claude-code.svg](https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/claudecode-color.svg)
 - [aws-s3-wordmark.svg](https://cdn.worldvectorlogo.com/logos/amazon-s3.svg): original AWS S3 wordmark, with its SVG viewBox focused on the S3 lettering for readability at icon size.
+- [postgresql.svg](https://raw.githubusercontent.com/devicons/devicon/master/icons/postgresql/postgresql-original.svg)
