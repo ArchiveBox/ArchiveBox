@@ -31,8 +31,9 @@ uv pip compile --universal --python-version 3.13 .github/docs/requirements.in \
 
 ## Live version picker
 
-Read the Docs loads `https://docs.archivebox.io/latest/_static/archivebox-versions.js`
-through Addons > Custom script. This applies the release policy and puts `dev`
+Read the Docs loads `https://docs.archivebox.io/docs-live-picker/_static/archivebox-versions.js`
+through Addons > Custom script. The hidden `docs-live-picker` version keeps this
+asset available independently of future main or release documentation builds. This applies the release policy and puts `dev`
 after `latest` across existing versions without rebuilding them. The script uses
 the published version inventory and preserves existing navigation URLs.
 
