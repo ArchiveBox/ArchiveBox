@@ -450,7 +450,7 @@ h3 {
 
 .device-phone {
   position: absolute;
-  right: -6px;
+  right: 16px;
   bottom: 0;
   width: 31%;
   max-width: 170px;
@@ -1136,14 +1136,6 @@ h3 {
 
   .install-panel .step > span {
     display: none;
-  }
-
-  .section,
-  .trust-strip,
-  .site-footer {
-    width: min(358px, calc(100vw - 32px));
-    margin-left: 16px;
-    margin-right: 16px;
   }
 
   .section {
