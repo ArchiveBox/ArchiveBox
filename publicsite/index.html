@@ -21,6 +21,7 @@
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./shadcn-theme.css">
   <link rel="stylesheet" href="./styles.css">
+  <script src="./install.js" defer></script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -64,7 +65,7 @@
         <h1><span class="hero-mainline">Preserve the web.</span><span class="hero-subline">On infrastructure you control.</span></h1>
         <p class="lede">ArchiveBox saves websites, bookmarks, RSS feeds, social posts, media, source code, and research material in durable files like HTML, PDF, PNG, TXT, JSON, WARC, MP4, and SQLite.</p>
         <div class="hero-actions" aria-label="Primary actions">
-          <a class="button primary" href="#install">Run with Docker Compose</a>
+          <a class="button primary" href="#install">Get ArchiveBox</a>
           <a class="button secondary" href="./screenshots/">View screenshots</a>
         </div>
         <br/>
@@ -100,7 +101,11 @@
 <span class="ab-prompt">$</span> <span class="ab-cursor" aria-hidden="true">&nbsp;</span></pre>
           </div>
         </div>
-        <img class="product-shot" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/e8e0b6f8-8fdf-4b7f-8124-c10d8699bdb2" alt="ArchiveBox snapshot list in the admin web interface">
+        <div class="device-showcase">
+          <a class="device-desktop" href="https://archivebox.io/screenshots/09-snapshots-grid-desktop.png" aria-label="Enlarge the ArchiveBox Web UI screenshot"><img class="product-shot" src="https://archivebox.io/screenshots/09-snapshots-grid-desktop.png" width="1600" height="1000" alt="ArchiveBox Web UI showing saved pages with thumbnails and capture formats"></a>
+          <a class="device-phone" href="https://archivebox.github.io/ios-archivebox/" aria-label="Explore ArchiveBox for iPhone"><img src="https://archivebox.github.io/ios-archivebox/docs/screenshots/home-iphone.png" width="1500" height="3000" alt="ArchiveBox on iPhone, with its collection, tags, and server connection inside an iPhone frame"></a>
+        </div>
+        <p class="device-caption">Browse on the web. Save from your <a href="https://archivebox.github.io/ios-archivebox/">Mac or iPhone</a>.</p>
       </div>
     </section>
 
@@ -113,25 +118,29 @@
       <a href="https://github.com/ArchiveBox/ArchiveBox#archive-layout">Filesystem access</a>
     </section>
 
-    <section class="section split">
-      <div>
+    <section class="section features-section">
+      <div class="section-heading">
         <p class="eyebrow">Why ArchiveBox</p>
-        <h2>Designed for useful archives, not proprietary silos.</h2>
+        <h2>Designed to make your archived data useful <em>today</em>, not just decades from now.</h2>
       </div>
       <div class="feature-grid">
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18"/></svg></span>
           <h3>Readable for decades</h3>
           <p>Snapshots are stored as ordinary files and folders, with metadata in SQLite and JSON. You can browse the collection without depending on a hosted service.</p>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 10 5-10 5L2 8l10-5Zm-10 9 10 5 10-5M2 16l10 5 10-5"/></svg></span>
           <h3>Multiple captures per URL</h3>
           <p>ArchiveBox can save rendered HTML, screenshots, PDFs, WARC files, article text, headers, favicons, media, subtitles, and source repositories.</p>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></span>
           <h3>Bring your sources</h3>
           <p>Import one URL, pipe text into the CLI, upload exported bookmarks, or schedule recurring pulls from RSS feeds and other text-based source lists.</p>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6"/></svg></span>
           <h3>Self-hosted by default</h3>
           <p>Run it as a Docker web app, use one-off CLI commands, or automate with APIs while keeping private and public material under your own policy.</p>
         </article>
@@ -141,10 +150,11 @@
     <section id="use-cases" class="section">
       <div class="section-heading">
         <p class="eyebrow">Who it is for</p>
-        <h2>Archiving workflows for individuals, professionals, and institutions.</h2>
+        <h2>Powerful features for individuals, professionals, and institutions.</h2>
       </div>
       <div class="audience-grid">
         <article class="audience-card">
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4V3Z"/></svg></span>
           <h3>Personal archivists and self-hosters</h3>
           <p>Save bookmarks, browser history, RSS feeds, social media, form content, videos, podcasts, music, photos, and personal knowledge collections.</p>
           <ul>
@@ -152,17 +162,21 @@
             <li>Use the browser extension, CLI, Web UI, and scheduled imports together.</li>
             <li>Export static HTML or browse the filesystem directly.</li>
           </ul>
+          <figure class="card-shot phone-pair"><a href="https://archivebox.github.io/ios-archivebox/" aria-label="See the ArchiveBox iPhone app and Safari extension"><img src="https://archivebox.github.io/ios-archivebox/docs/screenshots/share-iphone.png" width="1500" height="3000" loading="lazy" alt="iPhone share sheet confirming a URL was saved with tags"><img src="https://archivebox.github.io/ios-archivebox/docs/screenshots/extension-iphone.png?v=2" width="1500" height="3000" loading="lazy" alt="ArchiveBox’s Safari extension inside an iPhone frame"></a><figcaption>Save a link from the share sheet or Safari.</figcaption></figure>
         </article>
         <article class="audience-card">
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 21h14M3 7h18M6 7l-4 8h8L6 7Zm12 0-4 8h8l-4-8Z"/></svg></span>
           <h3>Lawyers and journalists</h3>
-          <p>Capture web pages, articles, source material, and public records while preserving reviewable copies outside of volatile platforms.</p>
+          <p>Keep copies of articles, source material, and public records, even after the original pages change or disappear.</p>
           <ul>
             <li>Store screenshots, PDFs, headers, WARC files, and text extraction.</li>
             <li>Tag and review sources through the self-hosted web interface.</li>
             <li>Tune privacy, authentication, and publishing settings for casework.</li>
           </ul>
+          <figure class="card-shot"><a href="https://archivebox.io/screenshots/50-snapshot-view-pdf-desktop.png"><img src="https://archivebox.io/screenshots/50-snapshot-view-pdf-desktop.png" width="1600" height="1000" loading="lazy" alt="An archived page with its PDF, screenshot, HTML, and other saved formats"></a><figcaption>Review the same page in several formats.</figcaption></figure>
         </article>
         <article class="audience-card">
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v16M12 5C9 2 5 2 2 3v16c3-1 7-1 10 2 3-3 7-3 10-2V3c-3-1-7-1-10 2Z"/></svg></span>
           <h3>Researchers and institutions</h3>
           <p>Support OSINT, social media research, AI-powered research agents, libraries, governments, and collection-building teams.</p>
           <ul>
@@ -170,73 +184,146 @@
             <li>Keep machine-readable metadata in JSON and SQLite.</li>
             <li>Extend extraction pipelines through the ArchiveBox ecosystem.</li>
           </ul>
+          <figure class="card-shot"><a href="https://archivebox.io/screenshots/20-crawl-schedules-desktop.png"><img src="https://archivebox.io/screenshots/20-crawl-schedules-desktop.png" width="1600" height="1000" loading="lazy" alt="ArchiveBox scheduled crawls showing a recurring RSS import"></a><figcaption>Schedule repeat captures of your sources.</figcaption></figure>
         </article>
       </div>
     </section>
 
-    <section id="install" class="section install-section">
-      <div class="install-copy">
-        <p class="eyebrow">Recommended install</p>
-        <h2>Start with Docker Compose.</h2>
-        <p>Docker Compose is the recommended ArchiveBox setup for the easiest install and update path, better isolation, and bundled archiving dependencies like Chrome, wget, yt-dlp, SingleFile, and readability tools.</p>
-        <div class="mini-links">
-          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-a-docker--docker-compose-setup-%EF%B8%8F">Docker install guide</a>
-          <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">Docker usage wiki</a>
-          <a href="https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/docker-compose.yml">docker-compose.yml</a>
+    <section id="install" class="section install-section" aria-labelledby="install-title">
+      <div class="section-heading"><p class="eyebrow">Get ArchiveBox</p><h2 id="install-title">Quickstart</h2><p>Choose how you want to run your archive. Docker Compose is recommended for most installs.</p></div>
+      <div class="install-window">
+        <div class="install-window-bar">
+          <div class="install-window-controls" aria-hidden="true"><span></span><span></span><span></span></div>
+          <span class="install-window-title">ArchiveBox — Quickstart</span>
+        </div>
+      <div class="install-tabs" aria-label="Installation methods">
+        <a class="install-tab" id="install-tab-macos" href="#install-macos"><img src="https://archivebox.github.io/ios-archivebox/docs/icons/apple.svg" width="28" height="28" alt=""><span>macOS app</span></a>
+        <a class="install-tab" id="install-tab-electron" href="#install-electron"><img src="https://user-images.githubusercontent.com/511499/117447263-4316c980-af0b-11eb-928d-eaf1292ac646.png" width="28" height="28" alt=""><span>Electron app</span></a>
+        <a class="install-tab" data-group-start id="install-tab-docker" href="#install-docker"><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" width="28" height="28" alt=""><span>Docker</span></a>
+        <a class="install-tab" id="install-tab-compose" href="#install-compose"><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" width="28" height="28" alt=""><span>Docker Compose</span></a>
+        <a class="install-tab" data-group-start id="install-tab-uv" href="#install-uv"><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" width="28" height="28" alt=""><span>uv</span></a>
+        <a class="install-tab" id="install-tab-apt" href="#install-apt"><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" width="28" height="28" alt=""><span>apt</span></a>
+        <a class="install-tab" id="install-tab-brew" href="#install-brew"><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" width="28" height="28" alt=""><span>Homebrew</span></a>
+        <a class="install-tab" id="install-tab-community" href="#install-community"><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" width="28" height="28" alt=""><span>Other packages</span></a>
+        <a class="install-tab" data-group-start id="install-tab-script" href="#install-script"><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" width="28" height="28" alt=""><span>Setup script</span></a>
+        <a class="install-tab" id="install-tab-platforms" href="#install-platforms"><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0c46e949-00fe-49c8-a613-ee14501c014c" width="28" height="28" alt=""><span>Self-hosting</span></a>
+        <a class="install-tab" id="install-tab-hosting" href="#install-hosting"><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" width="28" height="28" alt=""><span>Cloud hosting</span></a>
+      </div>
+      <div class="install-panel" id="install-compose" aria-labelledby="install-tab-compose">
+        <div class="install-copy"><p class="eyebrow">Recommended · macOS / Linux</p><h3>Start with Docker Compose.</h3><p>Bundled archiving dependencies and a straightforward install and update path. <a href="https://docs.docker.com/get-docker/">Install Docker</a> first.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Create a directory and get the config</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox
+curl -fsSL &#x27;https://docker-compose.archivebox.io&#x27; &gt; docker-compose.yml</code></pre></div></div></div></div>
+          <div class="step"><span>2</span><div><h4>Start ArchiveBox</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>docker compose pull
+docker compose up -d --wait</code></pre></div></div><p>A new collection initializes automatically.</p></div></div>
+          <div class="step"><span>3</span><div><h4>Finish setup and archive your first page</h4><p>Open <a href="http://admin.archivebox.localhost:8000/admin/">the admin UI</a> to create your first admin account and finish the setup wizard. On a remote server, open <code>/admin/</code> on its hostname or IP instead.</p><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>docker compose exec archivebox archivebox add &#x27;https://example.com&#x27;</code></pre></div></div></div></div>
         </div>
       </div>
-      <div class="command-card">
-        <div class="step">
-          <span>1</span>
-          <div>
-            <h3>Create a data directory</h3>
-            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox</span></pre></div></div>
-          </div>
-        </div>
-        <div class="step">
-          <span>2</span>
-          <div>
-            <h3>Download Docker Compose config</h3>
-            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">curl -fsSL 'https://docker-compose.archivebox.io' &gt; docker-compose.yml</span></pre></div></div>
-          </div>
-        </div>
-        <div class="step">
-          <span>3</span>
-          <div>
-            <h3>Start ArchiveBox (initializes automatically)</h3>
-            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">docker compose up -d --wait</span></pre></div></div>
-          </div>
-        </div>
-        <div class="step">
-          <span>4</span>
-          <div>
-            <h3>Add your first URL</h3>
-            <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">docker compose exec archivebox archivebox add 'https://example.com'</span></pre></div></div>
-          </div>
+      <div class="install-panel" id="install-macos" aria-labelledby="install-tab-macos">
+        <div class="install-copy"><p class="eyebrow">macOS</p><h3>Run ArchiveBox Server.app.</h3><p>A native app to run your own ArchiveBox server on your Mac.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Download and open the app</h4><p><a href="https://github.com/ArchiveBox/ios-archivebox/releases">Download ArchiveBox Server.app</a>, move it to Applications, and open it.</p></div></div>
+          <div class="step"><span>2</span><div><h4>Set up your account</h4><p>Create an admin account and generate an API key.</p></div></div>
+          <div class="step"><span>3</span><div><h4>Connect your apps</h4><p>Use the Web UI or <a href="https://archivebox.github.io/ios-archivebox/">ArchiveBox.app</a>. Connect the mobile app, <a href="https://archivebox.github.io/archivebox-browser-extension/">browser extension</a>, and other clients with your server URL and API key.</p></div></div>
         </div>
       </div>
-    </section>
-
-    <section class="section compact-docs" aria-labelledby="other-installs-title">
-      <h2 id="other-installs-title">Other install paths</h2>
-      <p>ArchiveBox can also run with plain Docker, pip, brew, deb packages, or the optional setup script. Docker Compose remains the default recommendation, especially when you want bundled dependencies and clean upgrades.</p>
-      <div class="doc-link-grid">
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Bare metal install</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">README quickstart</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">CLI usage</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
+      <div class="install-panel" id="install-docker" aria-labelledby="install-tab-docker">
+        <div class="install-copy"><p class="eyebrow">macOS / Linux</p><h3>Run a Docker container.</h3><p>Start a standalone container with bundled dependencies. <a href="https://docs.docker.com/get-docker/">Install Docker</a> first.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Create a collection and start the server</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox/data
+docker run -d --name archivebox -v &quot;$PWD:/data&quot; -p 8000:8000 archivebox/archivebox:dev</code></pre></div></div></div></div>
+          <div class="step"><span>2</span><div><h4>Finish setup</h4><p>Open <a href="http://admin.archivebox.localhost:8000/admin/">the admin UI</a> to create your first admin account and finish the setup wizard. On a remote server, open <code>/admin/</code> on its hostname or IP instead.</p></div></div>
+          <div class="step"><span>3</span><div><h4>Archive your first page</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>docker exec archivebox archivebox add &#x27;https://example.com&#x27;</code></pre></div></div></div></div>
+        </div>
+      </div>
+      <div class="install-panel" id="install-script" aria-labelledby="install-tab-script">
+        <div class="install-copy"><p class="eyebrow">macOS / Linux / BSD</p><h3>Use the install shortcut.</h3><p>The shell script installs uv when needed, then installs ArchiveBox and its runtime dependencies.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Run the setup script</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>curl -fsSL &#x27;https://get.archivebox.io&#x27; | bash</code></pre></div></div><p>You can <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh">read the script</a> before running it.</p></div></div>
+          <div class="step"><span>2</span><div><h4>Follow the prompts and finish setup</h4><p>Follow the installer’s instructions to start using your collection.</p><p>Open <a href="http://admin.archivebox.localhost:8000/admin/">the admin UI</a> to create your first admin account and finish the setup wizard. On a remote server, open <code>/admin/</code> on its hostname or IP instead.</p></div></div>
+        </div>
+      </div>
+      <div class="install-panel" id="install-uv" aria-labelledby="install-tab-uv">
+        <div class="install-copy"><p class="eyebrow">macOS / Linux / BSD</p><h3>Install with uv.</h3><p>Use ArchiveBox directly from your terminal. <a href="https://docs.astral.sh/uv/getting-started/installation/">Install uv</a> first.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Install the Python package</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>uv tool install --python 3.13 --prerelease explicit --upgrade &#x27;archivebox&gt;=0.9.0rc0,&lt;0.10&#x27;
+archivebox version</code></pre></div></div></div></div>
+          <div class="step"><span>2</span><div><h4>Create a collection and start the server</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox/data
+archivebox init
+archivebox install
+archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
+          <div class="step"><span>3</span><div><h4>Finish setup</h4><p>Open <a href="http://admin.archivebox.localhost:8000/admin/">the admin UI</a> to create your first admin account and finish the setup wizard. On a remote server, open <code>/admin/</code> on its hostname or IP instead.</p></div></div>
+        </div>
+      </div>
+      <div class="install-panel" id="install-apt" aria-labelledby="install-tab-apt">
+        <div class="install-copy"><p class="eyebrow">Ubuntu / Debian</p><h3>Install the Debian package.</h3><p>Use the <a href="https://github.com/ArchiveBox/debian-archivebox">ArchiveBox apt repository</a> for the dev-channel package.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Add the repository and install</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>echo &#x27;deb [trusted=yes] https://archivebox.github.io/debian-archivebox dev main&#x27; | sudo tee /etc/apt/sources.list.d/archivebox.list
+sudo apt update
+sudo apt install archivebox
+(cd /tmp &amp;&amp; archivebox version)</code></pre></div></div></div></div>
+          <div class="step"><span>2</span><div><h4>Create a collection and start the server</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox/data
+archivebox init
+sudo archivebox install
+archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
+          <div class="step"><span>3</span><div><h4>Finish setup</h4><p>Open <a href="http://admin.archivebox.localhost:8000/admin/">the admin UI</a> to create your first admin account and finish the setup wizard. On a remote server, open <code>/admin/</code> on its hostname or IP instead.</p></div></div>
+        </div>
+      </div>
+      <div class="install-panel" id="install-brew" aria-labelledby="install-tab-brew">
+        <div class="install-copy"><p class="eyebrow">macOS / Linux</p><h3>Install with Homebrew.</h3><p><a href="https://brew.sh/#install">Install Homebrew</a> first, then run these commands as your normal user, without sudo.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Install from the ArchiveBox tap</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>brew tap archivebox/archivebox
+brew trust archivebox/archivebox
+brew install archivebox
+archivebox version</code></pre></div></div></div></div>
+          <div class="step"><span>2</span><div><h4>Create a collection and start the server</h4><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>mkdir -p ~/archivebox/data &amp;&amp; cd ~/archivebox/data
+archivebox init
+archivebox install
+archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
+          <div class="step"><span>3</span><div><h4>Finish setup</h4><p>Open <a href="http://admin.archivebox.localhost:8000/admin/">the admin UI</a> to create your first admin account and finish the setup wizard. On a remote server, open <code>/admin/</code> on its hostname or IP instead.</p></div></div>
+        </div>
+      </div>
+      <div class="install-panel" id="install-community" aria-labelledby="install-tab-community">
+        <div class="install-copy"><p class="eyebrow">Arch / FreeBSD / Nix / Guix</p><h3>Use your package manager.</h3><p>Community-maintained packages may lag behind the official Docker and uv channels.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Choose your platform</h4><p><a href="https://aur.archlinux.org/packages/archivebox/">Arch Linux (AUR)</a></p><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>yay -S archivebox</code></pre></div></div><p>FreeBSD (uv shortcut)</p><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>curl -fsSL &#x27;https://get.archivebox.io&#x27; | bash</code></pre></div></div><p><a href="https://github.com/NixOS/nixpkgs/blob/master/pkgs/applications/misc/archivebox/default.nix">Nix</a></p><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>nix-env --install archivebox</code></pre></div></div><p><a href="https://packages.guix.gnu.org/packages/archivebox/">Guix</a></p><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>guix install archivebox</code></pre></div></div></div></div>
+          <div class="step"><span>2</span><div><h4>Set up your collection</h4><p>Follow your package’s setup instructions, then use the <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usage">CLI usage guide</a> to initialize and manage your archive.</p></div></div>
+        </div>
+      </div>
+      <div class="install-panel" id="install-electron" aria-labelledby="install-tab-electron">
+        <div class="install-copy"><p class="eyebrow">macOS / Linux / Windows · Alpha</p><h3>Try the Electron desktop app.</h3><p>The experimental desktop app runs ArchiveBox through Docker.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Install Docker</h4><p><a href="https://docs.docker.com/get-docker/">Get Docker</a> and start it on your computer.</p></div></div>
+          <div class="step"><span>2</span><div><h4>Download or build the app</h4><p>For macOS, the README links to the <a href="https://github.com/ArchiveBox/ArchiveBox/releases/download/v0.6.2/Electron-ArchiveBox-macOS-x64-0.6.2.app.zip">v0.6.2 app release</a>. For Linux and Windows, follow the <a href="https://github.com/ArchiveBox/electron-archivebox#quickstart">build instructions</a>.</p><p>This is an alpha project; contributors are welcome.</p></div></div>
+        </div>
+      </div>
+      <div class="install-panel" id="install-platforms" aria-labelledby="install-tab-platforms">
+        <div class="install-copy"><p class="eyebrow">Home servers / app platforms</p><h3>Use your self-hosting platform.</h3><p>Community integrations let you install ArchiveBox alongside your other apps. Versions may lag behind Docker and uv.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Choose your platform</h4><div class="mini-links"><a href="https://unraid.net/community/apps?q=archivebox#r">Unraid</a><a href="https://community-scripts.github.io/ProxmoxVE/scripts?id=archivebox">Proxmox</a><a href="https://github.com/YunoHost-Apps/archivebox_ynh">YunoHost</a><a href="https://www.cloudron.io/store/io.archivebox.cloudronapp.html">Cloudron</a><a href="https://docs.saltbox.dev/sandbox/apps/archivebox/">Saltbox</a><a href="https://portainer-templates.as93.net/archivebox">Portainer</a><a href="https://runtipi.io/docs/apps-available">Runtipi</a></div></div></div>
+          <div class="step"><span>2</span><div><h4>Install and open ArchiveBox</h4><p>Follow the platform’s installation guide, configure persistent storage, then open the app to finish setup.</p><p>For TrueNAS, see the <a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">README’s platform notes</a> before choosing an integration.</p></div></div>
+        </div>
+      </div>
+      <div class="install-panel" id="install-hosting" aria-labelledby="install-tab-hosting">
+        <div class="install-copy"><p class="eyebrow">Third-party hosting / VPS</p><h3>Run ArchiveBox in the cloud.</h3><p>Choose a hosting provider from the README, or run Docker Compose on your own VPS.</p><div class="mini-links"><a href="https://github.com/ArchiveBox/ArchiveBox#quickstart">Full README quickstart ↗</a></div></div>
+        <div class="command-card">
+          <div class="step"><span>1</span><div><h4>Choose a provider</h4><div class="mini-links"><a href="https://elest.io/open-source/archivebox">Elest.io</a><a href="https://www.stellarhosted.com/archivebox/">StellarHosted</a><a href="https://www.pikapods.com/pods?run=archivebox">PikaPods</a></div><p>Check the provider’s current plans, supported versions, and storage options.</p></div></div>
+          <div class="step"><span>2</span><div><h4>Deploy and finish setup</h4><p>Use the provider’s ArchiveBox deployment flow, then open your instance to create an admin account. For an unmanaged VPS, follow the Docker Compose quickstart on your server.</p></div></div>
+        </div>
+      </div>
       </div>
     </section>
 
     <section id="configuration" class="section deep-section">
       <div class="section-heading">
         <p class="eyebrow">Configuration</p>
-        <h2>Configure ArchiveBox with powerful options.</h2>
+        <h2>Configure ArchiveBox with a wide range of options.</h2>
         <p>ArchiveBox can be configured with environment variables, the <code>archivebox config</code> CLI, or by editing <code>./ArchiveBox.conf</code>. The same configuration model works in Docker, Docker Compose, bare-metal installs, scheduled jobs, and one-off CLI runs.</p>
       </div>
       <div class="prose-grid">
         <article>
-          <h3>Common settings people search for</h3>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 3v7m0 4v7M12 3v11m0 4v3M20 3v3m0 4v11M1 10h6m2 8h6m2-12h6"/></svg></span>
+          <h3>Adjust how pages are captured</h3>
           <p>Use <code>TIMEOUT</code> for slow networks, <code>CHECK_SSL_VALIDITY</code> for sites with broken certificates, <code>PUBLIC_INDEX</code>, <code>PUBLIC_SNAPSHOTS</code>, and <code>PUBLIC_ADD_VIEW</code> for publishing policy, and browser user-agent settings for sites that block obvious bots.</p>
           <p>For authenticated or difficult sites, review <code>CHROME_USER_DATA_DIR</code>, <code>COOKIES_FILE</code>, <code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, and <code>CURL_USER_AGENT</code>. Public archive operators should also configure instance branding and contact details with settings like <code>FOOTER_INFO</code> and <code>CUSTOM_TEMPLATES_DIR</code>.</p>
           <div class="ab-terminal">
@@ -252,8 +339,10 @@
 <span class="ab-prompt">$</span> <span class="ab-cmd">env CHROME_BINARY=chromium archivebox add 'https://example.com'</span></pre>
             </div>
           </div>
+          <figure class="card-shot"><a href="https://archivebox.io/screenshots/37-configuration-desktop.png"><img src="https://archivebox.io/screenshots/37-configuration-desktop.png" width="1600" height="1000" loading="lazy" alt="ArchiveBox configuration page listing settings, values, and their sources"></a><figcaption>Inspect your current configuration in the Web UI.</figcaption></figure>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3v5m8-5v5M6 8h12v4a6 6 0 0 1-12 0V8Zm6 10v4"/></svg></span>
           <h3>Dependencies and extractors</h3>
           <p>ArchiveBox uses standard tools like Chrome or Chromium, wget, curl, yt-dlp, git, SingleFile, Readability, and article parsers. Docker bundles these dependencies for easier upgrades and better isolation; non-Docker installs can run <code>archivebox install</code> and <code>archivebox --version</code> to check what is available.</p>
           <ul class="readme-list">
@@ -271,20 +360,23 @@
     <section class="section data-section">
       <div class="section-heading">
         <p class="eyebrow">Inputs and outputs</p>
-        <h2>Feed it URLs from any source. Save redundant, portable captures.</h2>
+        <h2>Save links from the tools you already use.</h2>
       </div>
       <div class="data-grid">
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg></span>
           <h3>Inputs</h3>
           <p>Archive one URL at a time or schedule imports from bookmarks, browser history, RSS, JSON, CSV, TXT, SQL, HTML, Markdown, Pocket, Pinboard, Instapaper, Shaarli, Wallabag, and more.</p>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7l-5-5Zm0 0v5h5M8 12h8m-8 4h6"/></svg></span>
           <h3>Outputs</h3>
           <p>Each snapshot can include original HTML, rendered single-file HTML, PDF, screenshot PNG, WARC, title, article text, favicon, headers, media, subtitles, metadata, thumbnails, and git clones.</p>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></span>
           <h3>Access</h3>
-          <p>Manage the same collection through the Web UI, CLI, REST API, Python API, SQLite, or the data folder itself. The tools are complementary, not separate products.</p>
+          <p>Manage the same collection through the Web UI, CLI, REST API, Python API, SQLite, or the data folder itself. Use whichever fits your workflow.</p>
         </article>
       </div>
     </section>
@@ -292,35 +384,22 @@
     <section id="layout-security" class="section deep-section">
       <div class="section-heading">
         <p class="eyebrow">Disk layout, exporting, and security</p>
-        <h2>A normal folder, a SQLite index, and files you can inspect without ArchiveBox.</h2>
-        <p>All ArchiveBox state for a collection lives in one data folder: the SQLite database, configuration, logs, and archived content. Snapshots are organized on disk as ordinary files and folders so they can be backed up, searched, published carefully, or browsed by hand.</p>
+        <h2>Browse your captures as normal files without needing ArchiveBox.</h2>
+        <p>Your captures are ordinary HTML, images, PDFs, and media files. Open them from Finder or your file manager, search them with your own tools, and back them up wherever you like.</p>
       </div>
+      <figure class="finder-shot">
+        <a href="./assets/archive-files-finder.png"><img src="./assets/archive-files-finder.png" width="1044" height="492" loading="lazy" alt="macOS Finder with the date, news.ycombinator.com, and snapshot folders expanded down to dom/output.html, with the saved HTML file selected"></a>
+        <figcaption>A real Hacker News capture in Finder: date → website → snapshot → <code>dom/output.html</code>. <a href="./assets/archive-files-finder.png">View full size ↗</a></figcaption>
+      </figure>
       <div class="prose-grid prose-grid--wide">
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M3 9h18"/></svg></span>
           <h3>Archive layout</h3>
-          <div class="ab-terminal">
-            <div class="ab-terminal__bar">
-              <div class="ab-terminal__dots"><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span><span class="ab-terminal__dot" aria-hidden="true">&nbsp;</span></div>
-              <span>~/archivebox/data</span>
-            </div>
-            <div class="ab-terminal__body">
-<pre><span class="ab-out">data/</span>
-<span class="ab-out">  index.sqlite3</span>          <span class="ab-dim"># main metadata database</span>
-<span class="ab-out">  ArchiveBox.conf</span>        <span class="ab-dim"># collection configuration</span>
-<span class="ab-out">  archive/</span>
-<span class="ab-out">    1617687755/</span>
-<span class="ab-out">      index.html</span>
-<span class="ab-out">      index.json</span>
-<span class="ab-out">      screenshot.png</span>
-<span class="ab-out">      output.pdf</span>
-<span class="ab-out">      warc/1617687755.warc.gz</span>
-<span class="ab-out">      media/some_video.mp4</span>
-<span class="ab-out">      git/somerepo.git</span></pre>
-            </div>
-          </div>
-          <p>Each snapshot folder includes static <code>index.html</code> and <code>index.json</code> metadata plus extractor outputs such as HTML, PDFs, screenshots, WARC files, media, subtitles, headers, favicons, article text, and git repositories.</p>
+          <p>Each snapshot has a folder for every capture method. HTML lives in folders such as <code>dom/</code> and <code>singlefile/</code>; images, PDFs, and media have their own folders too.</p>
+          <p>Snapshot metadata is saved alongside the outputs. Your collection’s database and configuration live outside the individual snapshot folders.</p>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H5v20h14V7l-5-5Zm0 0v5h5M8 12h8m-8 4h6"/></svg></span>
           <h3>Static exports and publishing</h3>
           <p>You can export the archive index as static HTML, JSON, or CSV with <code>archivebox list</code> so collections can be reviewed without running the web server. Keep generated exports next to the <code>archive/</code> folder so relative snapshot paths continue to work.</p>
           <div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><span class="ab-prompt">$</span> <span class="ab-cmd">archivebox list --html --with-headers &gt; index.html</span>
@@ -337,18 +416,21 @@
 
       <div class="notice-grid">
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="12" rx="2"/><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v3"/></svg></span>
           <h3>Private content</h3>
           <p>If you archive private URLs, paywalled pages, unlisted media, Google Docs, or browser sessions, assume snapshot viewers may see private URLs, cookies, session tokens, headers, and page content unless you configure access carefully.</p>
           <p>Restrict public access with <code>PUBLIC_INDEX=False</code>, <code>PUBLIC_SNAPSHOTS=False</code>, and <code>PUBLIC_ADD_VIEW=False</code>, then create authenticated users with <code>archivebox manage createsuperuser</code>.</p>
           <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Read the security overview</a>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m7 5-6 7 6 7m10-14 6 7-6 7M14 3l-4 18"/></svg></span>
           <h3>Archived JavaScript</h3>
           <p>Archived pages that execute JavaScript can make requests from the same domain as the web UI when viewed. If this risk matters for your collection, review the publishing guidance and consider disabling extractor outputs that execute archived JS when opened.</p>
           <p><code>archivebox config --set SAVE_WGET=False SAVE_DOM=False</code></p>
           <a href="https://github.com/ArchiveBox/ArchiveBox/issues/239">Read Issue #239</a>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 4 18 4 18 0V5M3 12c0 4 18 4 18 0"/></svg></span>
           <h3>Storage requirements</h3>
           <p>ArchiveBox can use roughly 1 GB to 50 GB per 1,000 snapshots depending on media, video, audio, and extractor settings. Tune <code>YTDLP_ENABLED</code> and <code>YTDLP_MAX_SIZE</code> for media-heavy collections.</p>
           <p>Keep <code>index.sqlite3</code> on local storage or SSD when possible. Large <code>archive/</code> folders can live on NFS, SMB, FUSE, S3-backed, or HDD storage, but Docker and fileshare setups may need ownership and root-squash adjustments. Avoid older filesystems like EXT3 or FAT for very large archives.</p>
@@ -357,59 +439,21 @@
       </div>
     </section>
 
-    <section id="ecosystem" class="section ecosystem">
-      <div class="section-heading">
-        <p class="eyebrow">Ecosystem</p>
-        <h2>Core projects that make ArchiveBox extensible.</h2>
-      </div>
-      <div class="project-grid">
-        <article>
-          <h3>abx-plugins</h3>
-          <p>Extractor and plugin packages used to preserve more types of content.</p>
-          <div>
-            <a href="https://github.com/ArchiveBox/abx-plugins">GitHub</a>
-            <a href="https://archivebox.github.io/abx-plugins/">Docs</a>
-          </div>
-        </article>
-        <article>
-          <h3>abx-dl</h3>
-          <p>Download and extraction tooling for saving web content and media.</p>
-          <div>
-            <a href="https://github.com/ArchiveBox/abx-dl">GitHub</a>
-          </div>
-        </article>
-        <article>
-          <h3>abxpkg</h3>
-          <p>Runtime package management for dependencies used by ArchiveBox and plugins.</p>
-          <div>
-            <a href="https://github.com/ArchiveBox/abxpkg">GitHub</a>
-            <a href="https://archivebox.github.io/abxpkg/">Docs</a>
-          </div>
-        </article>
-        <article>
-          <h3>abxbus</h3>
-          <p>Event bus infrastructure for ArchiveBox automation and integrations.</p>
-          <div>
-            <a href="https://github.com/ArchiveBox/abxbus">GitHub</a>
-            <a href="https://abxbus.archivebox.io">Site</a>
-          </div>
-        </article>
-      </div>
-    </section>
-
     <section id="background" class="section deep-section">
       <div class="section-heading">
         <p class="eyebrow">Background and motivation</p>
-        <h2>Built for decentralized preservation.</h2>
+        <h2>Keep a copy of the web you care about.</h2>
         <p>ArchiveBox exists because link rot, platform churn, censorship, and disappearing media routinely erase useful knowledge. The project aims to make the web content you care about viewable with common software in 50 to 100 years, without requiring ArchiveBox or a hosted replay service to understand your files.</p>
       </div>
       <div class="prose-grid">
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 6.5h.01M7 17.5h.01M11 6.5h6M11 17.5h6"/></svg></span>
           <h3>Why self-host?</h3>
           <p>Centralized public archives are essential, but not every page belongs in a global public service. ArchiveBox lets individuals and organizations save public or private material they can access, keep it locally or within their institution, and decide what to publish case by case.</p>
-          <p>The project differentiates itself by combining a comprehensive CLI, a self-hosted web UI, API surfaces, scheduled imports, standard output formats, and a simple on-disk data layout that remains useful without the app running.</p>
+          <p>Use the Web UI for browsing, the CLI and API for automation, and ordinary files for backups and exports.</p>
         </article>
         <article>
+          <span class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 21h14M3 7h18M6 7l-4 8h8L6 7Zm12 0-4 8h8l-4-8Z"/></svg></span>
           <h3>Ethical and legal context</h3>
           <p>Responsible archiving depends on your jurisdiction, your use case, and your publishing policy. ArchiveBox is a tool; operators remain responsible for handling private data, copyright, DMCA or GDPR requests, and local legal requirements.</p>
           <p>Public instances should publish contact and removal information, avoid monetizing copied content, and review the security and publishing documentation before exposing snapshots to anonymous viewers.</p>
@@ -417,7 +461,7 @@
       </div>
       <div class="alternatives-band">
         <h3>Related web archiving tools and communities</h3>
-        <p>ArchiveBox is a broad, self-hosted archive manager. For specialized crawling, replay, bookmark management, or research workflows, the wider web archiving ecosystem is worth knowing.</p>
+        <p>Looking for specialized crawling, replay, or bookmark management? Explore these other web archiving projects.</p>
         <div class="doc-link-grid">
           <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community#web-archiving-projects">Web archiving projects</a>
           <a href="https://archiveweb.page">ArchiveWeb.page</a>
@@ -431,31 +475,6 @@
       </div>
     </section>
 
-    <section class="section docs-band">
-      <div>
-        <p class="eyebrow">Documentation</p>
-        <h2>Further Reading.</h2>
-        <p>The README and wiki cover supported sources, outputs, scheduled archiving, storage backends, authentication, security, publishing, Chrome setup, upgrades, troubleshooting, API usage, development, and the broader web archiving community.</p>
-      </div>
-      <div class="doc-link-grid">
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Install">Install</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker">Docker</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki#can-save-these-things-for-each-site">Supported outputs</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving">Scheduled archiving</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Storage">Storage backends</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication">Authentication</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview">Security overview</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install">Chromium setup</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting">Troubleshooting</a>
-        <a href="https://docs.archivebox.io">API docs</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/issues">Issue tracker</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap">Roadmap</a>
-        <a href="https://github.com/ArchiveBox/ArchiveBox/releases">Changelog</a>
-      </div>
-    </section>
   </main>
 
   <!-- BEGIN ARCHIVEBOX FOOTER — generated by monorepo/site-chrome/sync.py -->
