@@ -149,6 +149,22 @@ ssh -N -L 8080:127.0.0.1:8080 user@your-server
 
 4. Open a page and confirm you can view it while logged in. For a new persona, log in to the sites you want to archive. Then follow [Save and check the page](#3-save-and-check-the-page), selecting the same persona.
 
+#### One-off Compose setup
+
+To set up a persona without starting the ArchiveBox server, enable the same `novnc` service and healthy `depends_on` block, then run:
+
+```bash
+docker compose up -d --wait novnc
+docker compose run --rm archivebox persona create personal
+docker compose run --rm -e DISPLAY=novnc:0.0 archivebox persona open personal
+```
+
+Connect at <http://localhost:8080/vnc.html>, log in, and close the browser when finished. The persona remains in `data/personas/personal` across one-off containers.
+
+`persona open` resolves the installed Chromium binary automatically. Do not hard-code `/data/lib/env/bin/chromium` or a versioned Playwright cache path: the browser location varies by image version and architecture.
+
+An explicitly set `DISPLAY` is preserved. When it is unset, ArchiveBox probes `novnc:0.0` and falls back to headless operation if unavailable. Set `DISPLAY=` to disable this automatic display selection.
+
 ## Troubleshooting Chromium Install
 
 <a name="more-info--troubleshooting"></a>
