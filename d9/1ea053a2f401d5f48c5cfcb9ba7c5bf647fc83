@@ -1,0 +1,36 @@
+publicsite/assets/integrations/SOURCES.md
+  h_923c208e183a7b 1-11
+publicsite/assets/integrations/aws-s3.svg
+  h_923c208e183a7b 1
+publicsite/assets/integrations/claude-code.svg
+  h_923c208e183a7b 1
+publicsite/assets/integrations/codex.svg
+  h_923c208e183a7b 1
+publicsite/assets/integrations/google-drive.svg
+  h_923c208e183a7b 1
+publicsite/assets/integrations/n8n.svg
+  h_923c208e183a7b 1
+publicsite/assets/integrations/openldap.svg
+  h_923c208e183a7b 1
+publicsite/assets/integrations/slack.svg
+  h_923c208e183a7b 1
+publicsite/assets/plugins/SOURCES.md
+  h_923c208e183a7b 14
+publicsite/assets/plugins/tlsnotary.svg
+  h_923c208e183a7b 1-11
+publicsite/index.html
+  h_923c208e183a7b 23,186,355,395-408
+publicsite/styles.css
+  h_923c208e183a7b 686-687,711-718,756-757,763,768-771,778-779
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "d91ea053a2f401d5f48c5cfcb9ba7c5bf647fc83",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
