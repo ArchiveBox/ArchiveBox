@@ -55,7 +55,7 @@ class PersonaAdminForm(PluginConfigFormMixin, forms.ModelForm):
         label="Autodiscovered profiles",
         widget=forms.RadioSelect,
         choices=(),
-        help_text="Detected from local Chrome, Chromium, Brave, and Edge profile roots.",
+        help_text="Detected from local Chrome, Chrome Beta, Chromium, Brave, and Edge profile roots.",
     )
     import_source = forms.CharField(
         required=False,

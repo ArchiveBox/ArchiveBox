@@ -38,8 +38,8 @@
         border-bottom: 1px dashed #64748b;
     }
 
-    .field-import_mode ul,
-    .field-import_discovered_profile ul {
+    .abx-import-mode,
+    .abx-profile-picker {
         margin: 0;
         padding: 0;
         list-style: none;
@@ -47,20 +47,26 @@
         gap: 12px;
     }
 
-    .field-import_mode ul {
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    .abx-import-mode {
+        grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     }
 
-    .field-import_discovered_profile ul {
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        max-height: 460px;
-        overflow: auto;
-        padding-right: 4px;
+    .abx-profile-picker {
+        grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
     }
 
-    .field-import_mode li,
-    .field-import_discovered_profile li {
+    .abx-import-mode > div,
+    .abx-profile-picker > div {
         margin: 0;
+        min-width: 0;
+    }
+
+    /* Import rows grow with their contents instead of sharing a fixed flex
+       height. Avoid overflow-x:hidden turning overflow-y:visible into auto. */
+    #content-main #persona_form .persona-card-import > .form-row,
+    #content-main #persona_form .persona-card-import fieldset > div {
+        flex: none;
+        overflow: visible;
     }
 
     .field-import_mode label,
@@ -68,7 +74,6 @@
         display: flex;
         gap: 12px;
         align-items: flex-start;
-        min-height: 100%;
         padding: 14px 16px;
         border-radius: 14px;
         border: 1px solid #dbe4ee;
@@ -167,9 +172,14 @@
         color: #991b1b;
     }
 
-    body.model-persona.change-form #content-main form fieldset.persona-card-primary {
-        flex: 1 1 520px !important;
-        max-width: calc(66.66% - 10px) !important;
+    #content-main #persona_form .field-name .flex-container {
+        max-width: 100% !important;
+    }
+
+    #persona_form .field-name input {
+        width: 100%;
+        max-width: none;
+        box-sizing: border-box;
     }
 
     body.model-persona.change-form #content-main form fieldset.persona-card-timestamps {
@@ -257,6 +267,11 @@ document.addEventListener('DOMContentLoaded', function () {
             or by pasting in a CDP url from
             <code class="persona-import-copy" data-copy-text="chrome://inspect#remote-debugging" title="Copy chrome://inspect#remote-debugging">chrome://inspect#remote-debugging</code> (e.g. <code>http://127.0.0.1:9222</code>).
         </p>
+        <p>
+            You can also import cookies into this persona from another browser using the
+            <a href="https://archivebox.github.io/archivebox-browser-extension/" target="_blank" rel="noopener noreferrer">ArchiveBox browser extension</a>.
+            Create the persona here, then select it in the extension's settings to sync cookies from that browser.
+        </p>
     </div>
 </section>
 {{ block.super }}
@@ -264,9 +279,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 {% block after_field_sets %}
 {{ block.super }}
-<section id="plugin-config" class="module aligned persona-plugin-config">
+<fieldset id="plugin-config" class="module aligned wide persona-plugin-config">
     <h2>Plugin Config</h2>
     <p>These typed controls update the same Persona config JSON shown above. Shared config keys stay synced across plugin sections.</p>
     {% include "plugins/plugin_config_grid.html" with plugin_groups=adminform.form.plugin_groups %}
-</section>
+</fieldset>
 {% endblock %}

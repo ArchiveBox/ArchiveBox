@@ -441,7 +441,11 @@ def main():
 
 @main.command("create")
 @click.argument("names", nargs=-1)
-@click.option("--import", "import_from", help="Import from chrome, chromium, brave, edge, a persona directory, or a live CDP URL")
+@click.option(
+    "--import",
+    "import_from",
+    help="Import from chrome, chrome-beta, chromium, brave, edge, a persona directory, or a live CDP URL",
+)
 @click.option("--source", help="Source browser user-data directory or exact profile path (including Docker mounts)")
 @click.option(
     "--browser-binary",

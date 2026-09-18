@@ -27,7 +27,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
             "Persona",
             {
                 "fields": ("name", "created_by", "permissions"),
-                "classes": ("card", "persona-card-primary"),
+                "classes": ("card", "wide", "persona-card-primary"),
             },
         ),
         (
@@ -42,7 +42,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
                     "import_extract_cookies",
                     "import_capture_storage",
                 ),
-                "classes": ("card", "wide"),
+                "classes": ("card", "wide", "persona-card-import"),
             },
         ),
         (

@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 
 BROWSER_LABELS = {
     "chrome": "Google Chrome",
+    "chrome-beta": "Google Chrome Beta",
     "chromium": "Chromium",
     "brave": "Brave",
     "edge": "Microsoft Edge",
@@ -216,24 +218,29 @@ class PersonaImportResult:
         return self.profile_copied or self.cookies_imported or self.storage_captured or self.user_agent_imported
 
 
-def get_chrome_user_data_dir() -> Path | None:
+def get_chrome_user_data_dir(*, beta: bool = False) -> Path | None:
     """Get the default Chrome user data directory for the current platform."""
     system = platform.system()
     home = Path.home()
+    app_name = "Chrome Beta" if beta else "Chrome"
 
     if system == "Darwin":
         candidates = [
-            home / "Library" / "Application Support" / "Google" / "Chrome",
+            home / "Library" / "Application Support" / "Google" / app_name,
         ]
     elif system == "Linux":
-        candidates = [
-            home / ".config" / "google-chrome",
-            home / ".config" / "chrome",
-        ]
+        candidates = (
+            [home / ".config" / "google-chrome-beta"]
+            if beta
+            else [
+                home / ".config" / "google-chrome",
+                home / ".config" / "chrome",
+            ]
+        )
     elif system == "Windows":
         local_app_data = Path(os.environ.get("LOCALAPPDATA", home / "AppData" / "Local"))
         candidates = [
-            local_app_data / "Google" / "Chrome" / "User Data",
+            local_app_data / "Google" / app_name / "User Data",
         ]
     else:
         candidates = []
@@ -320,6 +327,7 @@ def get_edge_user_data_dir() -> Path | None:
 
 BROWSER_PROFILE_FINDERS = {
     "chrome": get_chrome_user_data_dir,
+    "chrome-beta": partial(get_chrome_user_data_dir, beta=True),
     "chromium": get_chromium_user_data_dir,
     "brave": get_brave_user_data_dir,
     "edge": get_edge_user_data_dir,
@@ -547,6 +555,7 @@ def resolve_source_browser_binary(source: PersonaImportSource) -> str:
         return str(Path(source.browser_binary).expanduser().resolve())
     names = {
         "chrome": ("Google Chrome", "google-chrome"),
+        "chrome-beta": ("Google Chrome Beta", "google-chrome-beta"),
         "chromium": ("Chromium", "chromium"),
         "brave": ("Brave Browser", "brave-browser"),
         "edge": ("Microsoft Edge", "microsoft-edge"),
@@ -561,6 +570,7 @@ def resolve_source_browser_binary(source: PersonaImportSource) -> str:
     elif platform.system() == "Windows":
         relative = {
             "chrome": "Google/Chrome/Application/chrome.exe",
+            "chrome-beta": "Google/Chrome Beta/Application/chrome.exe",
             "edge": "Microsoft/Edge/Application/msedge.exe",
             "brave": "BraveSoftware/Brave-Browser/Application/brave.exe",
             "chromium": "Chromium/Application/chrome.exe",
