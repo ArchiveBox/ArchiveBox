@@ -357,6 +357,36 @@ def test_daphne_worker_uses_default_application_close_timeout():
     assert "--application-close-timeout=0" not in command
 
 
+@pytest.mark.parametrize("in_docker,port", [(False, "5797"), (False, "8000"), (True, "9579")])
+@pytest.mark.parametrize("debug", [False, True])
+def test_port_compatibility_does_not_add_listeners_outside_docker_defaults(tmp_path, in_docker, port, debug):
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from archivebox.config.common import get_config;"
+            "from archivebox.workers.supervisord_util import build_server_worker_plan;"
+            "import json,sys;"
+            "config=get_config();"
+            "workers,_,_=build_server_worker_plan(config=config,host='127.0.0.1',"
+            "port=sys.argv[1],debug=sys.argv[2]=='True',reload=False,nothreading=False);"
+            "print(json.dumps([worker for worker,lazy in workers]))",
+            port,
+            str(debug),
+        ],
+        cwd=tmp_path,
+        env=cli_env(IN_DOCKER=str(in_docker), SEARCH_BACKEND_SONIC_ENABLED="False", DISPLAY="", ARCHIVEBOX_VNC_PERSONA=""),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    workers = json.loads(result.stdout)
+    assert [worker["name"] for worker in workers] == ["worker_runserver" if debug else "worker_daphne", "worker_runner"]
+    command = shlex.split(workers[0]["command"])
+    assert "--endpoint" not in command
+    assert (f"127.0.0.1:{port}" if debug else f"--port={port}") in command
+
+
 def test_supervisord_parent_watchdog_does_not_start_another_archivebox_runtime():
     from archivebox.workers import supervisord_util
 

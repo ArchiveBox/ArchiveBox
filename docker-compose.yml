@@ -81,9 +81,9 @@ services:
     #         timeout: 2s
     #         retries: 10
     #     ports:
-    #         # to view/control ArchiveBox's browser, visit: http://127.0.0.1:5797/vnc.html
+    #         # to view/control ArchiveBox's browser, visit: http://127.0.0.1:8080/vnc.html
     #         # restricted to access from localhost by default because it has no authentication
-    #         - 127.0.0.1:5797:5797
+    #         - 127.0.0.1:8080:8080
 
 
     ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel to avoid IP blocks.

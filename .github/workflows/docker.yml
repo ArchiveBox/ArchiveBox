@@ -398,6 +398,12 @@ jobs:
           IMAGE="${{ matrix.local_tag }}" \
             "$BASH_BINARY" bin/validate_docker_uid_gid.sh --local-only
 
+      - name: Validate Docker port compatibility
+        shell: bash
+        env:
+          IMAGE: ${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}
+        run: '"$BASH_BINARY" bin/validate_docker_ports.sh'
+
       - name: Validate Docker CLI add/list and compose behavior
         if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
