@@ -1,0 +1,14 @@
+archivebox/templates/static/setup_wizard.js
+  h_923c208e183a7b 198-200
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "16b76cac0d4b9dbff034a9936a3629fcdae83ba6",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
