@@ -391,6 +391,13 @@ def test_opencode_oauth_callback_waits_for_user_and_preserves_cancellation(live_
     error = json.loads(body)
     assert error["name"] == "UnknownError"
     assert error["data"]["ref"].startswith("err_")
+    runtime._stop_owned_process()
+    # The pnpm launcher can exit before its server child. Stopping the owned
+    # process must release both listeners so another collection can authorize.
+    with pytest.raises(requests.ConnectionError):
+        requests.get(settings["origin"] + "/global/health", timeout=2)
+    with pytest.raises(requests.ConnectionError):
+        requests.get(f"{callback_origin.scheme}://{callback_origin.netloc}/cancel", timeout=2)
 
 
 def test_opencode_static_assets_cache_privately_and_revalidate(admin_client, live_opencode):
