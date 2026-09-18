@@ -1,13 +1,15 @@
 __package__ = "archivebox.progressmonitor"
 
+import logging
 from typing import Literal
 
-from django.conf import settings
 from django.db import DatabaseError
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
 from archivebox.core.permissions import can_view_snapshot, is_admin_user
+
+logger = logging.getLogger(__name__)
 
 
 def progress_endpoint(scope: Literal["crawl", "snapshot"] | None = None, object_id: object | None = None) -> str:
@@ -59,9 +61,10 @@ def live_progress_view(request):
             return HttpResponse(ujson.dumps(payload), content_type="application/json")
         except ImportError:
             return JsonResponse(payload)
-    except (DatabaseError, OSError, RuntimeError, TypeError, ValueError) as e:
+    except (DatabaseError, OSError, RuntimeError, TypeError, ValueError):
+        logger.exception("Unable to load progress")
         error_payload = {
-            "error": str(e),
+            "error": "Unable to load progress",
             "orchestrator_running": False,
             "total_workers": 0,
             "crawls_active": 0,
@@ -78,8 +81,4 @@ def live_progress_view(request):
             "active_crawls": [],
             "server_time": timezone.now().isoformat(),
         }
-        if settings.DEBUG:
-            import traceback
-
-            error_payload["traceback"] = traceback.format_exc()
         return JsonResponse(error_payload, status=500)

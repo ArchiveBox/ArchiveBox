@@ -18,7 +18,6 @@ from pathlib import Path
 from threading import Thread
 
 import pytest
-from django.test import override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -196,8 +195,9 @@ class TestLiveProgressView:
         assert b"active_crawls" not in response.content
         assert b"traceback" not in response.content
 
-    @override_settings(DEBUG=False)
-    def test_live_progress_error_response_hides_traceback_without_debug(self, client, admin_user, crawl):
+    @pytest.mark.parametrize("debug", [False, True])
+    def test_live_progress_error_response_hides_internal_details(self, client, admin_user, crawl, settings, debug):
+        settings.DEBUG = debug
 
         Crawl.objects.filter(pk=crawl.pk).update(
             status=Crawl.StatusChoices.STARTED,
@@ -211,7 +211,8 @@ class TestLiveProgressView:
 
         assert response.status_code == 500
         payload = response.json()
-        assert "error" in payload
+        assert payload["error"] == "Unable to load progress"
+        assert "not-an-integer" not in response.content.decode()
         assert "traceback" not in payload
         assert payload["active_crawls"] == []
 
