@@ -246,6 +246,23 @@ jobs:
         if: inputs.push_digests
         run: echo ${{ steps.docker_build.outputs.digest }}
 
+      - name: Verify OpenCode install with a read-only browser profile
+        shell: bash
+        env:
+          IMAGE: ${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}
+        run: |
+          set -Eeuo pipefail
+          PROFILE_DIR="$(mktemp -d)"
+          "$DOCKER_BINARY" run --rm --platform '${{ matrix.platform }}' \
+            --volume "$PROFILE_DIR:/home/archivebox/.config/chromium:ro" \
+            "$IMAGE" bash -c '
+              set -Eeuo pipefail
+              test -w "$XDG_CONFIG_HOME"
+              test ! -w "$XDG_CONFIG_HOME/chromium"
+              archivebox install opencode
+              "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version
+            '
+
       - name: Validate exact built image version and commit
         if: ${{ !inputs.push_digests }}
         shell: bash
