@@ -11,3 +11,4 @@ Original brand artwork used to identify supported tools. SVG fills use the brand
 - [singlefile.png](https://raw.githubusercontent.com/gildas-lormeau/SingleFile/master/src/ui/resources/icon_128.png)
 - [youtube.svg](https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/youtube.svg)
 - [tailscale.svg](https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/tailscale.svg)
+- [tlsnotary.svg](https://tlsnotary.org/img/logo/tlsn-logo-blue.svg)

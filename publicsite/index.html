@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./shadcn-theme.css">
-  <link rel="stylesheet" href="./styles.css?v=plugin-icons-v2">
+  <link rel="stylesheet" href="./styles.css?v=integration-icons-v1">
   <script src="./install.js" defer></script>
   <script type="application/ld+json">
   {
@@ -183,7 +183,7 @@
           <ul>
             <li>Store screenshots, PDFs, headers, WARC files, and text extraction.</li>
             <li>Tag and review sources through the self-hosted web interface.</li>
-            <li>Tune privacy, authentication, and publishing settings for casework.</li>
+            <li>Use ZK proofs with <a href="https://tlsnotary.zervice.io/">TLSNotary</a> to prove content authenticity.</li>
           </ul>
           <figure class="card-shot"><a href="https://archivebox.io/screenshots/58-snapshot-view-tlsnotary-desktop.png"><img src="https://archivebox.io/screenshots/58-snapshot-view-tlsnotary-desktop.png" width="1600" height="1000" loading="lazy" alt="TLSNotary output verifying an archived response on the snapshot details page"></a></figure>
         </article>
@@ -352,6 +352,7 @@ archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
           <li><a href="https://abx-plugins.archivebox.io/#singlefile" aria-label="SingleFile plugin" title="SingleFile"><img src="./assets/plugins/singlefile.png" width="44" height="44" loading="lazy" alt=""></a></li>
           <li><a href="https://abx-plugins.archivebox.io/#ytdlp" aria-label="YouTube / yt-dlp plugin" title="YouTube / yt-dlp"><img src="./assets/plugins/youtube.svg" width="44" height="44" loading="lazy" alt=""></a></li>
           <li><a href="https://tailscale.com/" aria-label="Tailscale" title="Tailscale"><img src="./assets/plugins/tailscale.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://tlsnotary.zervice.io/" aria-label="TLSNotary" title="TLSNotary"><img src="./assets/plugins/tlsnotary.svg" width="44" height="44" loading="lazy" alt=""></a></li>
         </ul>
         <p class="configuration-description">ArchiveBox can be configured via the admin UI, CLI, <code>ArchiveBox.conf</code>, or by importing config and cookies from Chrome / other browsers. The same configuration model works in Docker, Docker Compose, bare-metal installs, scheduled jobs, and one-off CLI runs.</p>
       </div>
@@ -391,9 +392,20 @@ archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
     </section>
 
     <section class="section data-section">
-      <div class="section-heading">
-        <p class="eyebrow">Inputs and outputs</p>
-        <h2>Integrate with tools you already use.</h2>
+      <div class="section-heading integration-heading">
+        <div>
+          <p class="eyebrow">Inputs and outputs</p>
+          <h2>Integrate with tools you already use.</h2>
+        </div>
+        <ul class="plugin-stack integration-stack" aria-label="Tools and integrations">
+          <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage#rclone" aria-label="Google Drive" title="Google Drive"><img src="./assets/integrations/google-drive.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://n8n.io/" aria-label="n8n" title="n8n"><img src="./assets/integrations/n8n.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://openai.com/codex/" aria-label="Codex" title="Codex"><img src="./assets/integrations/codex.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://claude.com/product/claude-code" aria-label="Claude Code" title="Claude Code"><img src="./assets/integrations/claude-code.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://slack.com/" aria-label="Slack" title="Slack"><img src="./assets/integrations/slack.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-Up-Storage#rclone" aria-label="AWS S3" title="AWS S3"><img src="./assets/integrations/aws-s3.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#ldap_enabled" aria-label="LDAP" title="LDAP"><img src="./assets/integrations/openldap.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+        </ul>
       </div>
       <div class="data-grid">
         <article>

@@ -683,7 +683,8 @@ h3 {
   margin-bottom: 34px;
 }
 
-.configuration-heading {
+.configuration-heading,
+.integration-heading {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   align-items: center;
@@ -705,6 +706,14 @@ h3 {
   margin: 0;
   padding: 12px 20px 12px 0;
   list-style: none;
+}
+
+.integration-stack {
+  grid-template-columns: repeat(4, 54px);
+}
+
+.integration-stack li:nth-child(n + 5) a {
+  left: 12px;
 }
 
 .plugin-stack li:nth-child(4n + 1) { --tilt: -10deg; }
@@ -744,15 +753,20 @@ h3 {
 }
 
 @media (max-width: 980px) {
-  .configuration-heading {
+  .configuration-heading,
+  .integration-heading {
     grid-template-columns: minmax(0, 1fr);
     gap: 12px;
   }
 
   .plugin-stack {
-    grid-template-columns: repeat(9, 30px);
+    grid-template-columns: repeat(10, 26px);
     justify-content: start;
     padding: 10px 0 16px;
+  }
+
+  .integration-stack {
+    grid-template-columns: repeat(7, 30px);
   }
 
   .plugin-stack a {
@@ -761,7 +775,8 @@ h3 {
     border-radius: 12px;
   }
 
-  .plugin-stack li:nth-child(n + 6) a {
+  .plugin-stack li:nth-child(n + 6) a,
+  .integration-stack li:nth-child(n + 5) a {
     left: 0;
   }
 
