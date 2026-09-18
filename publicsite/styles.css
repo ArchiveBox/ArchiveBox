@@ -1210,6 +1210,28 @@ h3 {
   color: #e9adc2;
 }
 
+.install-panel .install-download {
+  width: 100%;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 22px 24px;
+  color: var(--brand-text);
+  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  line-height: 1.2;
+  text-align: left;
+}
+
+.install-download svg {
+  flex: 0 0 auto;
+  width: 0.95em;
+  height: 1.25em;
+}
+
+.install-download:focus-visible {
+  outline: 3px solid #e9adc2;
+  outline-offset: 4px;
+}
+
 .install-panel .command-card {
   padding: 0;
   border: 0;
