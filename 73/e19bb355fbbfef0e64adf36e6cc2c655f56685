@@ -1,0 +1,105 @@
+archivebox/tests/test_serve_static.py
+  s_044c52c0270663::t_ab5976952571de 24,49,51,55-56,58-66
+  s_044c52c0270663::t_a4a24df62e8549 16,50
+  s_044c52c0270663::t_7a1b10530d9431 15,17,21,39
+  s_044c52c0270663::t_16be67dcc9fe3c 1-3,5,7,14,20,22-23,25-38,40-48,52-54,57,67-70
+  s_044c52c0270663::t_46873659298617 18-19
+  s_ffefb637465167::t_db1ac06b711149 71-72
+archivebox/templates/admin/core/tag/change_list.html
+  s_52f2bda5505456::t_d824d6644492fb 2,10-11,99-121
+archivebox/core/models/snapshots.py
+  s_044c52c0270663::t_1b77f72a8a306c 1734
+archivebox/misc/serve_static.py
+  s_044c52c0270663::t_ab5976952571de 186-188,542-544
+  s_ffefb637465167::t_3f51b52c0c675d 3,109-110,112-113,116-118,121,124-127,139-174,184
+archivebox/crawls/forms.py
+  s_52f2bda5505456::t_928d7a58499d4e 18-25
+archivebox/templates/static/archivebox-ui.js
+  s_044c52c0270663::t_0790f57dd24ed2 24-41
+archivebox/plugins/forms.py
+  s_52f2bda5505456::t_928d7a58499d4e 90-92,95,97,142-143,145,147-159
+archivebox/core/forms.py
+  s_52f2bda5505456::t_928d7a58499d4e 12,94-105,152,185,226,363
+archivebox/core/tag_util.py
+  s_044c52c0270663::t_9835b43f0e4635 224-227
+docs/ArchiveBox-Architecture-Diagrams.md
+  s_044c52c0270663::t_f952854e61f207 25,31
+archivebox/cli/archivebox_run.py
+  s_044c52c0270663::t_f4ed24e37ec2b2 120,133-134,166-167
+archivebox/cli/archivebox_snapshot.py
+  s_044c52c0270663::t_bb53347c031ed1 147
+archivebox/templates/admin/base.html
+  s_044c52c0270663::t_8d2b90c9b70026 8,16-17,132
+archivebox/templates/core/base.html
+  s_044c52c0270663::t_b4a6e63341bad8 6,13-14
+archivebox/templates/core/snapshot.html
+  s_044c52c0270663::t_0ecec2e083fc28 6,9
+archivebox/templates/static/admin-inline-tags.js
+  s_044c52c0270663::t_b4817e367b7bef 59,82,115
+archivebox/templates/static/admin-tags.css
+  s_044c52c0270663::t_bdf41d395ebee4 1-345
+archivebox/templates/static/admin-tags.js
+  s_044c52c0270663::t_25ae49cd183faa 1-311
+archivebox/templates/static/tag-editor.js
+  s_044c52c0270663::t_44c99c4c846148 68-69,83
+archivebox/tests/test_api_v1_core_archiveresults.py
+  s_044c52c0270663::t_6819e043371d3a 37-38,56-65
+archivebox/tests/test_auth_ldap.py
+  s_044c52c0270663::t_cbfca96f27be73 153,163,167,180,188,201,204
+archivebox/tests/test_cli_add.py
+  s_044c52c0270663::t_b21a50b06eb9ad 1048,1063
+archivebox/tests/test_cli_archiveresult.py
+  s_044c52c0270663::t_e44c6d767285cd 137,142-144,154,158-159,170,174-175,183,187-188,198,202-203,214,219-220,222,233,238-239,245,250-251
+archivebox/tests/test_cli_crawl.py
+  s_044c52c0270663::t_fde7271f992dff 36,40-41,44,54,59,61,73,77-78,85,89-90,103,108-109,140,144-145,152,156-157,166,170-171,183,187-188
+archivebox/tests/test_cli_list.py
+  s_044c52c0270663::t_50d24fa23460b0 427,431-432,442,446-447,457,459-460,468,472,476,478,486,488-489,537,541-543,547,549-551,558,562-563,567-575
+archivebox/tests/test_cli_run.py
+  s_044c52c0270663::t_0d0567b055bb81 44,50-51,94,101,104,144,151,153,184,191-192,338,344-348,370,375-376,390,397-398,422,429-430,441,446,455,460-461
+archivebox/tests/test_cli_server.py
+  s_044c52c0270663::t_9c8a6a1913effe 762-763,785,791
+archivebox/tests/test_cli_snapshot.py
+  s_044c52c0270663::t_61115e9a3e3c72 36,40-41,43,79,83-84,97,102-103,112,116-117,130,134-135,142,146-147,156,160-161,170,174-175,186,190-191,201,205-206
+archivebox/tests/test_server_security_browser.py
+  s_044c52c0270663::t_b34993c2642aef 966,972
+archivebox/tests/test_snapshot_service.py
+  s_044c52c0270663::t_84d1387b9e647a 186,192-194
+archivebox/tests/test_tag_editor_browser.py
+  s_044c52c0270663::t_5c36dd352039ca 20-21,26-27,31-35,37-41,78-107,123,133-136
+archivebox/tests/test_takeover_util.py
+  s_044c52c0270663::t_10687f142a8a92 390,396,424,431,472,479,628,634,672,678
+archivebox/tests/test_ui_add_view.py
+  s_044c52c0270663::t_89b22abd05c39d 23-39,160,257,297,332,358,380,410,440,490,512,537,571
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "73e19bb355fbbfef0e64adf36e6cc2c655f56685",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_52f2bda5505456": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a091f5-a5f0-70d3-a06d-259a10de24c2",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

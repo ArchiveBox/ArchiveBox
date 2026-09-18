@@ -1,0 +1,20 @@
+.github/docs/README.md
+  h_923c208e183a7b 9-10,12,18-25
+.github/docs/conf.py
+  h_923c208e183a7b 36-51,60,83-90
+.github/docs/requirements.in
+  h_923c208e183a7b 1-3
+.github/docs/requirements.txt
+  h_923c208e183a7b 1-35,37-57,59-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8b7ba251c7a312c4b6f41ce5327c56c2e958d8ce",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

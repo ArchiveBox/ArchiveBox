@@ -1,0 +1,19 @@
+archivebox/tests/test_recursive_crawl.py
+  s_ffefb637465167::t_d4c0e0ad8b0e89 638-653
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "42ed15b73326438e76a7cb35999d294f00890303",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

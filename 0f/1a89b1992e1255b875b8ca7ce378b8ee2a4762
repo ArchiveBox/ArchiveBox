@@ -1,0 +1,18 @@
+Dockerfile
+  h_923c208e183a7b 99,102,106-107,156-159,165-167,173,175,209,232-233,247-248
+bin/collect_ui_screenshots.sh
+  h_923c208e183a7b 251-254,414,525,633,638-641
+bin/take_screenshot.js
+  h_923c208e183a7b 35,235-240
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0f1a89b1992e1255b875b8ca7ce378b8ee2a4762",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

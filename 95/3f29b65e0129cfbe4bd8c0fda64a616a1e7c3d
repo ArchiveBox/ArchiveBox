@@ -1,0 +1,18 @@
+bin/docker_entrypoint.sh
+  h_923c208e183a7b 233-240
+bin/validate_docker_display.sh
+  h_923c208e183a7b 1-69
+docs/Chromium-Install.md
+  h_923c208e183a7b 152-167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "953f29b65e0129cfbe4bd8c0fda64a616a1e7c3d",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

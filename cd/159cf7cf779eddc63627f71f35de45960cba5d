@@ -1,0 +1,35 @@
+archivebox/tests/test_auth_ldap.py
+  s_ffefb637465167::t_27e0a3ea7e5d16 156,166,170,183,191,204,207
+archivebox/tests/test_cli_add.py
+  s_ffefb637465167::t_6797279b255e7b 1207,1222
+archivebox/tests/test_cli_archiveresult.py
+  s_ffefb637465167::t_1dd86b10aadeda 145,153-155,165,172-173
+archivebox/tests/test_cli_crawl.py
+  s_ffefb637465167::t_67847b5f4ce635 36,43-44,47,57,65,67,79,86-87,94,101-102,118,126-127,161,168-169,176,183-184,193,200-201,216,223-224
+archivebox/tests/test_cli_list.py
+  s_ffefb637465167::t_01de5c7da1aea5 430,437-438,448,455-456,469,471-472,483,490,494,496,507,509-510,573,580-582,586,588-590,597,604-605,609-617
+archivebox/tests/test_cli_run.py
+  s_ffefb637465167::t_49b95bcc7e9b58 56,62-63,109,119,122,171,181,183,220,230-231,404,413-417,442,450-451,468,478-479,512,522-523,534,542,554,562-563
+archivebox/tests/test_cli_snapshot.py
+  s_ffefb637465167::t_357073d44c4459 36,43-44,46,85,92-93,109,117-118,127,134-135,148,155-156,163,170-171,180,187-188,197,204-205,219,226-227,240,247-248
+archivebox/tests/test_server_security_browser.py
+  s_ffefb637465167::t_3604ac7b286825 966,972
+archivebox/tests/test_takeover_util.py
+  s_ffefb637465167::t_4b6a4e1a4e312d 390,396,424,431,472,479,628,634,672,678
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cd159cf7cf779eddc63627f71f35de45960cba5d",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

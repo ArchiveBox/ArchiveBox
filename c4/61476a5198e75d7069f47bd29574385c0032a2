@@ -1,0 +1,25 @@
+archivebox/tests/migrations_helpers.py
+  s_044c52c0270663::t_d3d2832acb80c6 1399-1408
+archivebox/tests/test_migrations_07_to_09.py
+  s_044c52c0270663::t_d87861d46a66ef 18,28-29
+archivebox/tests/test_migrations_08_to_09.py
+  s_044c52c0270663::t_e61a20c572bdf8 22,39-40
+archivebox/tests/test_migrations_common.py
+  s_044c52c0270663::t_1466c079b7713d 1-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c461476a5198e75d7069f47bd29574385c0032a2",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

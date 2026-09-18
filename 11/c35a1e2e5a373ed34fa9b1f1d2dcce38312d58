@@ -1,0 +1,21 @@
+archivebox/tests/test_orm_helpers.py
+  s_044c52c0270663::t_e75c1eca7d1d63 23-36
+archivebox/misc/db.py
+  s_044c52c0270663::t_60b062743eccb9 353-355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "11c35a1e2e5a373ed34fa9b1f1d2dcce38312d58",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+archivebox/cli/archivebox_server.py
+  h_923c208e183a7b 366-369,417-423
+archivebox/crawls/admin.py
+  h_923c208e183a7b 1233,1279-1293
+archivebox/search/query.py
+  h_923c208e183a7b 224,271-272,298,300-309
+archivebox/search/views.py
+  h_923c208e183a7b 9,257,263,265-268,306,333,335-338
+archivebox/services/resource_admission.py
+  h_923c208e183a7b 1-91
+archivebox/services/runner.py
+  h_923c208e183a7b 61-62,226-227,301,321-327,329,359-361,364-371,386,513-514,524,1293-1315
+archivebox/templates/core/system_warnings_banner.html
+  h_923c208e183a7b 37
+archivebox/tests/test_cli_add.py
+  h_923c208e183a7b 233-239,241-249
+archivebox/tests/test_resource_admission.py
+  h_923c208e183a7b 1-30
+archivebox/tests/test_search.py
+  h_923c208e183a7b 1292-1363
+archivebox/tests/test_ui_admin_crawl.py
+  h_923c208e183a7b 17,39-58,65
+archivebox/workers/supervisord_util.py
+  h_923c208e183a7b 1272-1275,1278-1283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "79d864915dd7dd50363e886a6bb84877f7e4c6a1",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

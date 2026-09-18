@@ -1,0 +1,23 @@
+.github/workflows/deploy-publicsite.yml
+  s_ffefb637465167::t_473259997281f6 4-5,7-10,13,15-16,18-35,37-42,47-48
+.github/workflows/screenshots.yml
+  s_ffefb637465167::t_3e1dcc971cbbbe 1-70
+bin/generate_ui_screenshot_gallery.py
+  s_ffefb637465167::t_8db08f94df1cb1 7,127-173,303-304,311,338-354,356-358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f85e8d5dc099b08758f08da0a1345ce1c88a5324",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

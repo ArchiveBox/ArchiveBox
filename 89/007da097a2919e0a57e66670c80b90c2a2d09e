@@ -1,0 +1,14 @@
+.github/workflows/deploy-publicsite.yml
+  h_923c208e183a7b 15-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "89007da097a2919e0a57e66670c80b90c2a2d09e",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

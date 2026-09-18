@@ -1,0 +1,16 @@
+archivebox/api/v1_auth.py
+  h_923c208e183a7b 7,66-106
+archivebox/tests/test_api_v1_auth_browser_session.py
+  h_923c208e183a7b 1-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "29d40addf431ae59ad980541f7ae3d102402f597",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

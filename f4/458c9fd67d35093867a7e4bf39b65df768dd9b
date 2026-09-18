@@ -1,0 +1,16 @@
+archivebox/misc/serve_static.py
+  h_923c208e183a7b 913-915,1026
+archivebox/tests/test_serve_static.py
+  h_923c208e183a7b 3,9-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f4458c9fd67d35093867a7e4bf39b65df768dd9b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

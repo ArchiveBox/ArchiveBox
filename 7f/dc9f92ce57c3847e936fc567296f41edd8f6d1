@@ -1,0 +1,23 @@
+archivebox/cli/archivebox_persona.py
+  s_044c52c0270663::t_bdad240a504f28 39,173,197-201,203-206,208,272
+archivebox/personas/models.py
+  s_044c52c0270663::t_1f519a499066af 134-143
+archivebox/tests/test_cli_persona.py
+  s_044c52c0270663::t_951d5aa4c438e3 6-7,21-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7fdc9f92ce57c3847e936fc567296f41edd8f6d1",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

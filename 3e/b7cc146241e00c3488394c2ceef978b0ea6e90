@@ -1,0 +1,20 @@
+.github/workflows/docs.yml
+  h_923c208e183a7b 12-41
+docs/Contents.rst
+  h_923c208e183a7b 12,77
+docs/_templates/layout.html
+  h_923c208e183a7b 4,9
+docs/conf.py
+  h_923c208e183a7b 40-43,67,175-177,181-182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3eb7cc146241e00c3488394c2ceef978b0ea6e90",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

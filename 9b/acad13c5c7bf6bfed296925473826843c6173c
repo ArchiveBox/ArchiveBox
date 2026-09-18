@@ -1,0 +1,65 @@
+.github/workflows/docker.yml
+  s_044c52c0270663::t_f5315a88c97c37 360
+Dockerfile
+  s_044c52c0270663::t_89c0c5ec68520d 13,16
+README.md
+  s_044c52c0270663::t_a010fa22587d8f 1039-1040
+archivebox/misc/checks.py
+  s_044c52c0270663::t_3f95bf3b5f8dd4 258
+archivebox/misc/serve_static.py
+  s_044c52c0270663::t_86498ce7f0501f 461-463,551
+archivebox/search/query.py
+  s_044c52c0270663::t_7cdd2a44593cf9 4,310-311
+archivebox/search/sonic_daemon.py
+  s_044c52c0270663::t_55fe4f21cb9762 39-41,44-53
+archivebox/tests/test_permissions.py
+  s_044c52c0270663::t_4a463eab2fe2bf 180-213
+archivebox/tests/test_search.py
+  s_044c52c0270663::t_2c975817a46142 3,749-756,951,984-994,1009-1014
+archivebox/tests/test_serve_static.py
+  s_044c52c0270663::t_cebd31a2a63320 3,9-23
+archivebox/tests/test_takeover_util.py
+  s_044c52c0270663::t_e8339327b2879b 6-8,83-154
+archivebox/workers/supervisord_util.py
+  s_044c52c0270663::t_b8ce963ecb4d92 193,903-909,911-918
+bin/docker_entrypoint.sh
+  s_044c52c0270663::t_a3b779181521b7 7-9,38-39,49,59-75,97-104,126-132,135-148,152,158-160,163-165,169-173,178,183-187,192,199-200,204-206,222-231,241-248
+bin/validate_docker_uid_gid.sh
+  s_044c52c0270663::t_8ec38787cb3524 249-252,263-267,431-486,519-566,593-628,658,660
+docker-compose.yml
+  s_044c52c0270663::t_272ccb9aa0bb0e 32-33
+docs/Configuration.md
+  s_044c52c0270663::t_3aa1d446174758 588-590
+docs/Docker.md
+  s_044c52c0270663::t_ee9716db3b1c1a 131-142,221
+docs/Security-Overview.md
+  s_044c52c0270663::t_df1c05f536e67c 153
+docs/Setting-Up-Storage.md
+  s_044c52c0270663::t_85dc96544728a7 130-131,153-154,338-339
+docs/Troubleshooting.md
+  s_044c52c0270663::t_a02e49b031d571 137-153
+docs/codeblocks.toml
+  s_044c52c0270663::t_d102896b8199ed 118,207,236
+etc/package.json
+  s_044c52c0270663::t_fd3bf6c7b961f2 3
+pyproject.toml
+  s_044c52c0270663::t_5d975d9c863d58 3,83-84,346
+uv.lock
+  s_044c52c0270663::t_c7d7577bd6b3b3 16,20,27,41,43,48,57,59,130,230-231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9bacad13c5c7bf6bfed296925473826843c6173c",
+  "prompts": {},
+  "sessions": {
+    "s_044c52c0270663": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a0aad5-4c89-7f13-80b0-e718bbd3b43f",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
