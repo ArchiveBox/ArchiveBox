@@ -2,6 +2,12 @@ name: Parallel Tests
 
 on:
   workflow_call:
+    inputs:
+      test_file:
+        description: Run one discovered test file; empty runs the complete matrix
+        required: false
+        default: ""
+        type: string
 
 env:
   PYTHONIOENCODING: utf-8
@@ -58,10 +64,15 @@ jobs:
 
       - name: Discover every test exactly once
         id: discover
+        env:
+          TEST_FILE: ${{ inputs.test_file }}
         run: |
           set -Eeuo pipefail
           mapfile -t output < <("$PYTHON_BINARY" .github/scripts/discover_test_matrix.py)
           test "${#output[@]}" -eq 2
+          if [[ -n "$TEST_FILE" ]]; then
+            output[1]="$("$JQ_BINARY" -ce '[.[] | select(.paths == [env.TEST_FILE])] | select(length == 1)' <<< "${output[1]}")"
+          fi
           echo "tests=${output[1]}" >> "$GITHUB_OUTPUT"
           echo "${output[0]}"
           "$JQ_BINARY" -e 'length > 0 and length <= 256 and ([.[].paths[]] | length == (unique | length))' <<< "${output[1]}"

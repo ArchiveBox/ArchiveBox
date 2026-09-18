@@ -49,3 +49,11 @@ jobs:
       push_digests: true
       full_tests: false
     secrets: inherit
+
+  opencode-browser:
+    needs: prepare
+    if: needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved'
+    uses: ./.github/workflows/test-parallel.yml
+    with:
+      test_file: archivebox/tests/test_opencode_browser.py
+    secrets: inherit

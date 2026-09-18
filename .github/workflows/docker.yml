@@ -259,6 +259,9 @@ jobs:
               set -Eeuo pipefail
               test -w "$XDG_CONFIG_HOME"
               test ! -w "$XDG_CONFIG_HOME/chromium"
+              # Check the shipped executable before the installer can repair
+              # an image that accidentally omitted this opt-in dependency.
+              "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version
               archivebox install opencode
               "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version
             '
