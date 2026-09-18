@@ -3,10 +3,10 @@ name: Historical Sphinx documentation
 on:
   pull_request:
     branches: [main]
-    paths: ['.github/docs/**', '.github/.readthedocs.yaml', '.github/workflows/docs.yml', 'docs', 'README.md']
+    paths: ['.github/docs/**', '.github/.readthedocs.yaml', '.github/workflows/docs.yml', 'docs', 'README.md', 'package.json', 'archivebox/config.py']
   push:
     branches: [main]
-    paths: ['.github/docs/**', '.github/.readthedocs.yaml', '.github/workflows/docs.yml', 'docs', 'README.md']
+    paths: ['.github/docs/**', '.github/.readthedocs.yaml', '.github/workflows/docs.yml', 'docs', 'README.md', 'package.json', 'archivebox/config.py']
   workflow_dispatch:
 
 permissions:
