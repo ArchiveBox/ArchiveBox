@@ -431,6 +431,10 @@ def test_public_add_view_import_text_formats_preserve_metadata_and_resume_withou
         URL_ALLOWLIST=r"127\.0\.0\.1[:/].*",
     )
     create_admin_and_token(tmp_path)
+    # These tests deliberately stop the server while crawls are queued. Finish
+    # dependency installation first so shutdown cannot leave a half-built venv.
+    install_result = run_archivebox_cmd(["install", *env["PLUGINS"].split(",")], cwd=tmp_path, env=env, timeout=180)
+    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
@@ -536,6 +540,10 @@ def test_public_add_view_rejects_file_path_and_shell_injection_payloads(tmp_path
         URL_ALLOWLIST=r"example\.com|example\.org|iana\.org|www\.iana\.org",
     )
     create_admin_and_token(tmp_path)
+    # These tests deliberately stop the server while crawls are queued. Finish
+    # dependency installation first so shutdown cannot leave a half-built venv.
+    install_result = run_archivebox_cmd(["install", *env["PLUGINS"].split(",")], cwd=tmp_path, env=env, timeout=180)
+    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
