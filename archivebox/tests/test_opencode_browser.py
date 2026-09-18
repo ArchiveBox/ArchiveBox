@@ -169,6 +169,16 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
         part.type === 'tool' && part.state.status === 'completed' &&
         part.state.output.trim() === 'ABX_DRAFT_SHELL_OK'));
     }, {polling: 250});
+    // The tabbed layout's own route parser must recognize mounted sessions.
+    // Otherwise Home incorrectly appears selected and clicking it does nothing.
+    const shellSessionUrl = frame.url();
+    const home = await frame.waitForSelector('[aria-label="Home"]');
+    assert.equal(await home.evaluate(node => node.getAttribute('aria-pressed')), 'false');
+    await home.click();
+    await frame.waitForFunction(() => location.pathname.replace(/\/+$/, '') === '/admin/agent/opencode');
+    assert.equal(await home.evaluate(node => node.getAttribute('aria-pressed')), 'true');
+    await home.click();
+    await frame.waitForFunction(expected => location.href === expected, {}, shellSessionUrl);
     // Exercise the actual public PTY API and native browser WebSocket. No
     // intercepted traffic or replacement server: this runs a real shell.
     const terminal = await frame.evaluate(async () => {
