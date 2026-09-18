@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
 # Multistage ArchiveBox Dockerfile that consumes the abx-dl runtime image.
-# abx-dl owns Python, Node, Chromium, and downloader plugin runtimes.
-# ArchiveBox owns sonic, supervisor, Django, and the app runtime.
+# WHY: abx-dl owns Python, Node, Chromium, and extraction dependencies so the
+# standalone downloader stays independent of ArchiveBox's server features.
+# ArchiveBox-only dependencies (Sonic, OpenCode, supervisor, Django) belong in
+# the layers added by this Dockerfile, never in the shared abx-dl base image.
 # Build abx-dl first, then point this file at it:
 #   docker buildx build ../abx-dl -f ../abx-dl/Dockerfile \
 #       --build-context abxbus=../abxbus \
@@ -249,6 +251,17 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
     && openssl rand -hex 16 > /etc/machine-id \
     && echo -e "\nARCHIVEBOX_USER=$ARCHIVEBOX_USER ARCHIVEBOX_UID=$(id -u "$ARCHIVEBOX_USER") ARCHIVEBOX_GID=$(id -g "$ARCHIVEBOX_USER")" | tee -a /VERSION.txt \
     && echo -e "TMP_DIR=$TMP_DIR\nABXPKG_LIB_DIR=$ABXPKG_LIB_DIR\nPLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH\nMACHINE_ID=$(cat /etc/machine-id)\n" | tee -a /VERSION.txt
+
+# The optional AI service belongs to ArchiveBox, not the downloader base image.
+# Always bundle its executable while leaving OPENCODE_ENABLED opt-in.
+RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-opencode-$TARGETARCH \
+    env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
+        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install opencode \
+    # pnpm includes musl variants that Debian's glibc runtime cannot use.
+    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules" -type l -name 'opencode-linux-*-musl' -delete \
+    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.pnpm" -maxdepth 1 -type d -name 'opencode-linux-*-musl@*' -exec rm -rf {} +
+RUN --network=none setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
+    bash -c '"$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version && abx-dl install opencode'
 
 WORKDIR "$DATA_DIR"
 RUN echo "[+] Initializing image collection..." \
