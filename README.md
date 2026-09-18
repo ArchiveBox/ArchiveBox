@@ -152,6 +152,19 @@ curl -fsSL 'https://get.archivebox.io' | bash
 #### ✳️&nbsp; Easy Setup
 
 <details>
+<summary><b><img src="https://archivebox.github.io/ios-archivebox/docs/icons/apple.svg" alt="Apple" height="28px" align="top"/> <code>ArchiveBox Server.app</code></b> (macOS)</summary>
+<br/>
+<ol>
+<li><a href="https://github.com/ArchiveBox/ios-archivebox/releases">Download <code>ArchiveBox Server.app</code></a>, move it to Applications, and open it.
+<pre lang="bash"><code style="white-space: pre-line">open -a 'ArchiveBox Server'
+</code></pre></li>
+<li>Set up an admin account and generate an API Key.</li>
+<li>Use the Web UI or <a href="https://archivebox.github.io/ios-archivebox/"><code>ArchiveBox.app</code></a>, and optionally connect REST API clients, the <a href="https://archivebox.github.io/ios-archivebox/">mobile app</a>, the <a href="https://archivebox.github.io/archivebox-browser-extension/">browser extension</a>, and other integrations to your server using your API Key.</li>
+</ol>
+<br/>
+</details>
+
+<details>
 <summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux) &nbsp; <b>👈&nbsp; recommended</b> &nbsp; <i>(click to expand)</i></summary>
 <br/>
 <i>👍 Docker Compose is recommended for the easiest install/update UX + best security + all <a href="#dependencies">extras</a> out-of-the-box.</i>
@@ -562,6 +575,20 @@ docker compose run --rm archivebox config --set PERMISSIONS=public
 </details>
 
 <br/>
+
+<details>
+<summary><b><img src="https://archivebox.github.io/ios-archivebox/docs/icons/apple.svg" alt="Apple" height="22px" align="top"/> <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.17.0/icons/windows11/windows11-original.svg" alt="Windows" height="22px" align="top"/> 🐧&nbsp; Desktop / Mobile / Extension Usage</b></summary>
+<br/>
+
+- 📱 [<code>ArchiveBox</code> iOS Mobile App](https://archivebox.github.io/ios-archivebox/)
+- 🖥️ [<code>ArchiveBox.app</code> macOS Desktop App](https://archivebox.github.io/ios-archivebox/)
+- 🧩 [ArchiveBox Browser Extension](https://archivebox.github.io/archivebox-browser-extension/)
+- 💻 [Linux/Windows Desktop App (Requires Docker Desktop)](https://github.com/ArchiveBox/electron-archivebox)
+
+<br/>
+</details>
+
+<br/>
 <br/>
 
 > [!TIP]
@@ -614,7 +641,10 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://ex
 
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>From the official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a></b>  
-  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Chromium/Firefox browsers.</i>
+  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Chromium/Firefox/Safari browsers.</i>
+
+- <img src="https://archivebox.github.io/ios-archivebox/App/AppIcon.icon/Assets/ArchiveBox.png" alt="ArchiveBox app icon" height="28px"/> <b>From the official <a href="https://archivebox.github.io/ios-archivebox/">ArchiveBox macOS Desktop App or iOS Mobile App</a></b><br/>
+  <i>Save directly from the Share menu or Siri/Shortcuts to your server.</i>
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> From manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, etc. files  
   <i>ArchiveBox supports injesting URLs in [any text-based format](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file).</i>
