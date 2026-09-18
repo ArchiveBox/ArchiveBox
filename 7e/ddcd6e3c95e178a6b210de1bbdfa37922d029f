@@ -1,0 +1,26 @@
+.github/workflows/docker.yml
+  h_923c208e183a7b 401-406
+archivebox/config/common.py
+  h_923c208e183a7b 86,91-95
+archivebox/tests/test_cli_server.py
+  h_923c208e183a7b 360-389
+archivebox/workers/supervisord_util.py
+  h_923c208e183a7b 333,340-344,1123,1148-1150,1161,1189-1194
+bin/validate_docker_ports.sh
+  h_923c208e183a7b 1-64
+docker-compose.yml
+  h_923c208e183a7b 84,86
+docs/Chromium-Install.md
+  h_923c208e183a7b 144,147,162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7eddcd6e3c95e178a6b210de1bbdfa37922d029f",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
