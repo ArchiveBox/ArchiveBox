@@ -130,9 +130,9 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
 
     _cmd_result = run_archivebox_cmd(
         ["version"],
-        cwd=initialized_archive,
         timeout=60,
         env=runtime_env,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -145,9 +145,9 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
 
     _cmd_result = run_archivebox_cmd(
         ["run", f"--binary-id={first_binary_id}"],
-        cwd=initialized_archive,
         timeout=120,
         env=runtime_env,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -179,9 +179,9 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
 
     _cmd_result = run_archivebox_cmd(
         ["run", f"--binary-id={first_binary_id}"],
-        cwd=initialized_archive,
         timeout=120,
         env=changed_runtime_env,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -232,9 +232,9 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
 
     _cmd_result = run_archivebox_cmd(
         ["run", f"--binary-id={queued_id}"],
-        cwd=initialized_archive,
         timeout=120,
         env=recovered_runtime_env,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )

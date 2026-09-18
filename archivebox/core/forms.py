@@ -9,6 +9,7 @@ from archivebox.base_models.admin import KeyValueWidget
 from archivebox.config.common import get_config, parse_delete_after
 from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_PUBLIC, filter_personas_by_permissions
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
+from archivebox.crawls.forms import URLFiltersField
 from archivebox.crawls.schedule_util import validate_schedule
 from archivebox.misc.util import URL_REGEX, find_all_urls, parse_filesize_to_bytes
 from archivebox.personas.models import Persona
@@ -90,6 +91,18 @@ def edit_string_for_tag_names(tags) -> str:
     return ", ".join(sorted(names))
 
 
+class FileSizeField(forms.CharField):
+    def to_python(self, value):
+        raw_value = super().to_python(value)
+        try:
+            size = parse_filesize_to_bytes(raw_value) if raw_value else 0
+        except ValueError as err:
+            raise forms.ValidationError(str(err)) from err
+        if size < 0:
+            raise forms.ValidationError(f"{self.label} must be 0 or a positive number of bytes.")
+        return size
+
+
 class AddLinkForm(PluginConfigFormMixin, forms.Form):
     allow_crawl_execution_config_fields = False
 
@@ -136,7 +149,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             },
         ),
     )
-    crawl_max_size = forms.CharField(
+    crawl_max_size = FileSizeField(
         label="Max crawl size",
         required=False,
         initial="0",
@@ -169,7 +182,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             },
         ),
     )
-    snapshot_max_size = forms.CharField(
+    snapshot_max_size = FileSizeField(
         label="Max snapshot size",
         required=False,
         initial="0",
@@ -210,7 +223,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             },
         ),
     )
-    url_filters = forms.Field(
+    url_filters = URLFiltersField(
         label="URL allowlist / denylist",
         required=False,
         widget=URLFiltersWidget(source_selector='textarea[name="url"]'),
@@ -347,23 +360,7 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             cleaned_data["config"] = {}
             return cleaned_data
 
-        # Combine all plugin groups into single list
-        all_selected_plugins = []
-        for field in [
-            "main_plugins",
-            "page_setup_plugins",
-            "media_plugins",
-            "text_plugins",
-            "metadata_plugins",
-            "postprocessing_plugins",
-            "other_plugins",
-        ]:
-            selected = cleaned_data.get(field)
-            if isinstance(selected, list):
-                all_selected_plugins.extend(selected)
-
-        # Store combined list for easy access
-        cleaned_data["plugins"] = all_selected_plugins
+        cleaned_data["plugins"] = [plugin for _category, field, _title in PLUGIN_GROUPS for plugin in cleaned_data.get(field, [])]
 
         plugin_config_overrides = self.clean_plugin_config_overrides(get_config(persona=cleaned_data.get("persona")))
         custom_config = cleaned_data.get("config") or {}
@@ -380,33 +377,9 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             raise forms.ValidationError("Enter at least one valid URL.")
         return value
 
-    def clean_url_filters(self):
-        from archivebox.crawls.models import Crawl
-
-        value = self.cleaned_data.get("url_filters") or {}
-        return {
-            "allowlist": "\n".join(Crawl.split_filter_patterns(value.get("allowlist", ""))),
-            "denylist": "\n".join(Crawl.split_filter_patterns(value.get("denylist", ""))),
-            "same_domain_only": bool(value.get("same_domain_only")),
-            "subpaths_only": bool(value.get("subpaths_only")),
-            "only_new": bool(value.get("only_new")),
-        }
-
     def clean_max_urls(self):
         value = self.cleaned_data.get("max_urls")
         return int(value or 0)
-
-    def clean_crawl_max_size(self):
-        raw_value = str(self.cleaned_data.get("crawl_max_size") or "").strip()
-        if not raw_value:
-            return 0
-        try:
-            value = parse_filesize_to_bytes(raw_value)
-        except ValueError as err:
-            raise forms.ValidationError(str(err))
-        if value < 0:
-            raise forms.ValidationError("Max crawl size must be 0 or a positive number of bytes.")
-        return value
 
     def clean_crawl_timeout(self):
         return self._clean_timeout_seconds(self.cleaned_data.get("crawl_timeout"), "Max crawl time", blank_value=0)
@@ -437,18 +410,6 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             value = int((amount * multiplier).to_integral_value(rounding=ROUND_CEILING))
         if 0 < value <= 10:
             raise forms.ValidationError(f"{field_label} must be 0 or greater than 10 seconds.")
-        return value
-
-    def clean_snapshot_max_size(self):
-        raw_value = str(self.cleaned_data.get("snapshot_max_size") or "").strip()
-        if not raw_value:
-            return 0
-        try:
-            value = parse_filesize_to_bytes(raw_value)
-        except ValueError as err:
-            raise forms.ValidationError(str(err))
-        if value < 0:
-            raise forms.ValidationError("Max snapshot size must be 0 or a positive number of bytes.")
         return value
 
     def clean_delete_after(self):

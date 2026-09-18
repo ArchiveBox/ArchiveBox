@@ -5,133 +5,21 @@ __package__ = "archivebox"
 # references Django ORM types. For pre-bootstrap logging primitives use
 # misc/logging.py, which has no archivebox or Django dependencies.
 
-import re
 import os
 import sys
 import time
 
-from math import log
-from multiprocessing import Process
 from pathlib import Path
 
-from datetime import datetime, timezone
-from typing import Any, Optional, TYPE_CHECKING, cast
+from typing import Any, TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
-    from archivebox.core.models import Snapshot
+    pass
 
 from rich import print
 
 from archivebox.config import CONSTANTS
-from archivebox.config.common import get_config
 from archivebox.misc.util import enforce_types
-from archivebox.misc.logging import ANSI
-
-
-class TimedProgress:
-    """Show a progress bar and measure elapsed time until .end() is called"""
-
-    def __init__(self, seconds, prefix="", config=None, **config_kwargs):
-
-        config = config or get_config(**config_kwargs)
-        self.SHOW_PROGRESS = config.SHOW_PROGRESS
-        self.ANSI = config.ANSI
-        self.TERM_WIDTH = config.TERM_WIDTH
-
-        if self.SHOW_PROGRESS:
-            self.p = Process(target=progress_bar, args=(seconds, prefix, self.ANSI))
-            self.p.start()
-
-        self.stats = {"start_ts": datetime.now(timezone.utc), "end_ts": None}
-
-    def end(self):
-        """immediately end progress, clear the progressbar line, and save end_ts"""
-
-        end_ts = datetime.now(timezone.utc)
-        self.stats["end_ts"] = end_ts
-
-        if self.SHOW_PROGRESS:
-            # terminate if we havent already terminated
-            try:
-                # kill the progress bar subprocess
-                try:
-                    self.p.close()  # must be closed *before* its terminnated
-                except (KeyboardInterrupt, SystemExit):
-                    print()
-                    raise
-                except BaseException:  # lgtm [py/catch-base-exception]
-                    pass
-                self.p.terminate()
-                time.sleep(0.1)
-                # sometimes the timer doesn't terminate properly, then blocks at the join until
-                # the full time has elapsed. sending a kill tries to avoid that.
-                try:
-                    self.p.kill()
-                except Exception:
-                    pass
-
-                # clear whole terminal line
-                try:
-                    sys.stdout.write("\r{}{}\r".format((" " * self.TERM_WIDTH), self.ANSI["reset"]))
-                except (OSError, BrokenPipeError):
-                    # ignore when the parent proc has stopped listening to our stdout
-                    pass
-            except ValueError:
-                pass
-
-
-@enforce_types
-def progress_bar(seconds: int, prefix: str = "", ANSI: dict[str, str] = ANSI, config=None, **config_kwargs) -> None:
-    """show timer in the form of progress bar, with percentage and seconds remaining"""
-    output_buf = sys.stdout or sys.__stdout__ or sys.stderr or sys.__stderr__
-    chunk = "█" if output_buf and output_buf.encoding.upper() == "UTF-8" else "#"
-    config = config or get_config(**config_kwargs)
-    last_width = config.TERM_WIDTH
-    chunks = last_width - len(prefix) - 20  # number of progress chunks to show (aka max bar width)
-    try:
-        for s in range(seconds * chunks):
-            max_width = config.TERM_WIDTH
-            if max_width < last_width:
-                # when the terminal size is shrunk, we have to write a newline
-                # otherwise the progress bar will keep wrapping incorrectly
-                sys.stdout.write("\r\n")
-                sys.stdout.flush()
-            chunks = max_width - len(prefix) - 20
-            pct_complete = s / chunks / seconds * 100
-            log_pct = (log(pct_complete or 1, 10) / 2) * 100  # everyone likes faster progress bars ;)
-            bar_width = round(log_pct / (100 / chunks))
-            last_width = max_width
-
-            # ████████████████████           0.9% (1/60sec)
-            sys.stdout.write(
-                "\r{}{}{}{} {}% ({}/{}sec)".format(
-                    prefix,
-                    ANSI["green" if pct_complete < 80 else "lightyellow"],
-                    (chunk * bar_width).ljust(chunks),
-                    ANSI["reset"],
-                    round(pct_complete, 1),
-                    round(s / chunks),
-                    seconds,
-                ),
-            )
-            sys.stdout.flush()
-            time.sleep(1 / chunks)
-
-        # ██████████████████████████████████ 100.0% (60/60sec)
-        sys.stdout.write(
-            "\r{}{}{}{} {}% ({}/{}sec)".format(
-                prefix,
-                ANSI["red"],
-                chunk * chunks,
-                ANSI["reset"],
-                100.0,
-                seconds,
-                seconds,
-            ),
-        )
-        sys.stdout.flush()
-    except (KeyboardInterrupt, BrokenPipeError):
-        print()
 
 
 def log_list_started(filter_patterns: list[str] | None, filter_type: str):
@@ -237,152 +125,6 @@ def format_duration(seconds: float) -> str:
 
 
 @enforce_types
-def truncate_url(url: str, max_length: int = 60) -> str:
-    """Truncate URL to max_length, keeping domain and adding ellipsis."""
-    if len(url) <= max_length:
-        return url
-    # Try to keep the domain and beginning of path
-    if "://" in url:
-        protocol, rest = url.split("://", 1)
-        if "/" in rest:
-            domain, path = rest.split("/", 1)
-            available = max_length - len(protocol) - len(domain) - 6  # for "://", "/", "..."
-            if available > 10:
-                return f"{protocol}://{domain}/{path[:available]}..."
-    # Fallback: just truncate
-    return url[: max_length - 3] + "..."
-
-
-@enforce_types
-def log_worker_event(
-    worker_type: str,
-    event: str,
-    indent_level: int = 0,
-    pid: int | None = None,
-    worker_id: str | None = None,
-    url: str | None = None,
-    plugin: str | None = None,
-    metadata: dict[str, Any] | None = None,
-    error: Exception | None = None,
-) -> None:
-    """
-    Log a worker event with structured metadata and indentation.
-
-    Args:
-        worker_type: Type of worker (Orchestrator, CrawlWorker, SnapshotWorker)
-        event: Event name (Starting, Completed, Failed, etc.)
-        indent_level: Indentation level (0=Orchestrator, 1=CrawlWorker, 2=SnapshotWorker)
-        pid: Process ID
-        worker_id: Worker ID (UUID for workers)
-        url: URL being processed (for SnapshotWorker)
-        plugin: Plugin name (for hook processes)
-        metadata: Dict of metadata to show in curly braces
-        error: Exception if event is an error
-    """
-    indent = "    " * indent_level
-
-    from rich.markup import escape
-
-    # Build worker identifier (without URL/plugin)
-    worker_parts = [worker_type]
-    # Don't add pid/worker_id for DB operations (they happen in whatever process is running)
-    if pid and worker_type != "DB":
-        worker_parts.append(f"pid={pid}")
-    if worker_id and worker_type in ("CrawlWorker", "Orchestrator") and worker_type != "DB":
-        worker_parts.append(f"id={worker_id}")
-
-    # Build worker label parts for brackets (shown inside brackets)
-    worker_label_base = worker_parts[0]
-    worker_bracket_content = ", ".join(worker_parts[1:]) if len(worker_parts) > 1 else None
-
-    # Build URL/plugin display (shown AFTER the label, outside brackets)
-    url_extractor_parts = []
-    if url:
-        url_extractor_parts.append(f"url: {escape(url)}")
-    if plugin:
-        url_extractor_parts.append(f"extractor: {escape(plugin)}")
-
-    url_extractor_str = " | ".join(url_extractor_parts) if url_extractor_parts else ""
-
-    # Build metadata string
-    metadata_str = ""
-    if metadata:
-        # Format metadata nicely
-        meta_parts = []
-        for k, v in metadata.items():
-            if isinstance(v, float):
-                # Format floats nicely (durations, sizes)
-                if "duration" in k.lower():
-                    meta_parts.append(f"{k}: {format_duration(v)}")
-                elif "size" in k.lower():
-                    meta_parts.append(f"{k}: {printable_filesize(int(v))}")
-                else:
-                    meta_parts.append(f"{k}: {v:.2f}")
-            elif isinstance(v, int):
-                # Format integers - check if it's a size
-                if "size" in k.lower() or "bytes" in k.lower():
-                    meta_parts.append(f"{k}: {printable_filesize(v)}")
-                else:
-                    meta_parts.append(f"{k}: {v}")
-            elif isinstance(v, (list, tuple)):
-                meta_parts.append(f"{k}: {len(v)}")
-            else:
-                meta_parts.append(f"{k}: {v}")
-        metadata_str = " | ".join(meta_parts)
-
-    # Determine color based on event
-    color = "white"
-    if event in ("Starting...", "Started", "STARTED", "Started in background"):
-        color = "green"
-    elif event.startswith("Created"):
-        color = "cyan"  # DB creation events
-    elif event in ("Completed", "COMPLETED", "All work complete"):
-        color = "blue"
-    elif event in ("Failed", "ERROR", "Failed to spawn worker"):
-        color = "red"
-    elif event in ("Shutting down", "SHUTDOWN"):
-        color = "grey53"
-
-    # Build final message
-    error_str = f" {type(error).__name__}: {error}" if error else ""
-    from archivebox.misc.logging import CONSOLE, STDERR
-    from rich.text import Text
-
-    # Create a Rich Text object for proper formatting
-    # Text.append() treats content as literal (no markup parsing)
-    text = Text()
-    text.append(indent)
-    text.append(worker_label_base, style=color)
-
-    # Add bracketed content if present (using Text.append to avoid markup issues)
-    if worker_bracket_content:
-        text.append("[", style=color)
-        text.append(worker_bracket_content, style=color)
-        text.append("]", style=color)
-
-    text.append(f" {event}{error_str}", style=color)
-
-    # Add URL/plugin info first (more important)
-    if url_extractor_str:
-        text.append(f" | {url_extractor_str}")
-
-    # Then add other metadata
-    if metadata_str:
-        text.append(f" | {metadata_str}")
-
-    # Stdout is reserved for JSONL records whenever commands are piped together.
-    # Route worker/DB progress to stderr in non-TTY contexts so pipelines like
-    # `archivebox snapshot list | archivebox run` keep stdout machine-readable.
-    output_console = CONSOLE if sys.stdout.isatty() else STDERR
-    output_console.print(text, soft_wrap=True)
-
-
-@enforce_types
-def printable_folders(folders: dict[str, Optional["Snapshot"]], with_headers: bool = False) -> str:
-    return "\n".join(f'{folder} {snapshot and snapshot.url} "{snapshot and snapshot.title}"' for folder, snapshot in folders.items())
-
-
-@enforce_types
 def printable_config(config: dict, prefix: str = "") -> str:
     return f"\n{prefix}".join(f"{key}={val}" for key, val in config.items() if not (isinstance(val, dict) or callable(val)))
 
@@ -432,32 +174,100 @@ def printable_folder_status(name: str, folder: dict) -> str:
     )
 
 
-@enforce_types
-def printable_dependency_version(name: str, dependency: dict) -> str:
-    color, symbol, note, version = "red", "X", "invalid", "?"
+def _warn_background_cleanup(context: str, err: BaseException) -> None:
+    from archivebox.misc.logging import STDERR
 
-    if dependency["enabled"]:
-        if dependency["is_valid"]:
-            color, symbol, note = "green", "√", "valid"
+    STDERR.print(f"[yellow][!] {context}: {err!s}[/yellow]")
 
-            parsed_version_num = re.search(r"[\d\.]+", dependency["version"])
-            if parsed_version_num:
-                version = f"v{parsed_version_num[0]}"
-    else:
-        color, symbol, note, version = "lightyellow", "-", "disabled", "-"
 
-    path = pretty_path(dependency["path"])
+def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep_running=None):
+    """Tail multiple log files simultaneously, interleaving their output.
 
-    return " ".join(
-        (
-            ANSI[color],
-            symbol,
-            ANSI["reset"],
-            name.ljust(21),
-            version.ljust(14),
-            ANSI[color],
-            note.ljust(8),
-            ANSI["reset"],
-            path.ljust(76),
-        ),
-    )
+    Args:
+        log_files: List of log file paths to tail
+        follow: Whether to keep following (True) or just read existing content (False)
+        proc: Optional subprocess.Popen object - stop tailing when this process exits
+    """
+    import re
+    from archivebox.config.common import rprint as print
+
+    # Convert relative paths to absolute paths
+    log_paths = []
+    for log_file in log_files:
+        log_path = Path(log_file)
+        if not log_path.is_absolute():
+            log_path = CONSTANTS.DATA_DIR / log_path
+
+        # Create log file if it doesn't exist
+        if not log_path.exists():
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.touch()
+
+        log_paths.append(log_path)
+
+    # Open all log files
+    file_handles = []
+    for log_path in log_paths:
+        try:
+            f = log_path.open()
+            # Seek to end - only show NEW logs from now on, not old logs
+            f.seek(0, 2)  # Go to end
+
+            file_handles.append((log_path, f))
+            print(f"    [tailing {log_path.name}]")
+        except OSError as e:
+            sys.stderr.write(f"Warning: Could not open {log_path}: {e}\n")
+
+    if not file_handles:
+        sys.stderr.write("No log files could be opened\n")
+        return
+
+    print()
+
+    # Log display needs a short refresh interval, but each ownership check
+    # queries the database and validates OS processes. Check leadership once
+    # per second even when workers continuously produce log output.
+    next_ownership_check = 0.0
+    try:
+        while follow:
+            now = time.monotonic()
+            if keep_running is not None and now >= next_ownership_check:
+                if not keep_running():
+                    print("\n[newer ArchiveBox process is now running the orchestrator and server]")
+                    return "transferred"
+                next_ownership_check = time.monotonic() + 1.0
+
+            # Check if the monitored process has exited
+            if proc is not None and proc.poll() is not None:
+                print(f"\n[server process exited with code {proc.returncode}]")
+                return "exited"
+
+            had_output = False
+            # Read ALL available lines from all files (not just one per iteration)
+            for log_path, f in file_handles:
+                while True:
+                    line = f.readline()
+                    if not line:
+                        break  # No more lines available in this file
+                    had_output = True
+                    # Strip ANSI codes if present (supervisord does this but just in case)
+                    line_clean = re.sub(r"\x1b\[[0-9;]*m", "", line.rstrip())
+                    if line_clean:
+                        print(line_clean)
+
+            # Small sleep to avoid busy-waiting (only when no output)
+            if not had_output:
+                time.sleep(0.05)
+
+    except (KeyboardInterrupt, BrokenPipeError, OSError):
+        return "interrupted"  # Let the caller handle the cleanup message
+    except SystemExit:
+        return "interrupted"
+    finally:
+        # Close all file handles
+        for _, f in file_handles:
+            try:
+                f.close()
+            except OSError as err:
+                _warn_background_cleanup("Could not close worker log file", err)
+    return "stopped"

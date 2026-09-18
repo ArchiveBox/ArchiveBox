@@ -129,7 +129,11 @@ class ModelWithQueue(models.Model):
                         if frame_path == MODULE_PATH:
                             frame = frame.f_back
                             continue
-                        if frame_path.is_relative_to(PACKAGE_ROOT) and frame_path.name == "models.py" and frame.f_code.co_name == "save":
+                        if (
+                            frame_path.is_relative_to(PACKAGE_ROOT)
+                            and (frame_path.name == "models.py" or frame_path.parent.name == "models")
+                            and frame.f_code.co_name == "save"
+                        ):
                             frame = frame.f_back
                             continue
                         if "site-packages" in frame_path.parts:

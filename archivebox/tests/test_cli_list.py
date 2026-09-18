@@ -274,8 +274,8 @@ def test_list_limit_zero_streams_one_million_snapshots_without_materializing(ini
     with output_path.open("w") as stdout:
         result = run_archivebox_cmd(
             ["list", "--limit=0"],
-            cwd=initialized_archive,
             stdout=stdout,
+            cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
@@ -439,7 +439,7 @@ def test_snapshot_list_search_meta(initialized_archive):
     assert result.returncode == 0, f"Command failed: {result.stderr}"
     records = parse_jsonl_output(result.stdout)
     assert len(records) == 1
-    assert "meta-search-example.com" in records[0]["url"]
+    assert records[0]["url"] == url
 
 
 def test_list_search_meta_matches_metadata(initialized_archive):
@@ -457,7 +457,7 @@ def test_list_search_meta_matches_metadata(initialized_archive):
     assert result.returncode == 0, f"Command failed: {result.stderr}"
     records = parse_jsonl_output(result.stdout)
     assert len(records) == 1
-    assert "top-level-meta-search-example.com" in records[0]["url"]
+    assert records[0]["url"] == url
 
 
 def test_search_command_finds_snapshots(initialized_archive):
@@ -482,12 +482,7 @@ def test_search_command_returns_no_results_for_missing_term(initialized_archive)
         disable_extractors=True,
     )
 
-    result = run_archivebox_cmd(
-        ["search", "nonexistentterm12345"],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
-    )
+    result = run_archivebox_cmd(["search", "nonexistentterm12345"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
     assert result.returncode in [0, 1]
 
@@ -510,7 +505,7 @@ def test_search_command_outputs_matching_snapshots_as_jsonl(initialized_archive)
 
     assert result.returncode == 0, result.stderr
     records = parse_jsonl_output(result.stdout)
-    assert any("example.com" in row.get("url", "") for row in records)
+    assert [row["url"] for row in records] == ["https://example.com"]
 
 
 def test_search_command_json_outputs_matching_snapshots(initialized_archive):
@@ -525,7 +520,7 @@ def test_search_command_json_outputs_matching_snapshots(initialized_archive):
 
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
-    assert any("example.com" in row.get("url", "") for row in payload)
+    assert [row["url"] for row in payload] == ["https://example.com"]
 
 
 def test_search_command_json_with_headers_wraps_links_payload(initialized_archive):
@@ -546,7 +541,7 @@ def test_search_command_json_with_headers_wraps_links_payload(initialized_archiv
     assert result.returncode == 0, result.stderr
     payload = json.loads(result.stdout)
     assert "links" in payload
-    assert any("example.com" in row.get("url", "") for row in payload["links"])
+    assert [row["url"] for row in payload["links"]] == ["https://example.com"]
 
 
 def test_search_command_html_outputs_markup(initialized_archive):
@@ -561,7 +556,7 @@ def test_search_command_html_outputs_markup(initialized_archive):
 
     assert result.returncode == 0, result.stderr
     assert "<" in result.stdout
-    assert "example.com" in result.stdout
+    assert 'href="https://example.com"' in result.stdout
 
 
 def test_search_command_csv_outputs_requested_column(initialized_archive):

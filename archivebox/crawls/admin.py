@@ -1,37 +1,27 @@
 __package__ = "archivebox.crawls"
 
-import json
-from copy import copy
 from typing import ClassVar
-from urllib.parse import urlencode, urlparse
 
-from django import forms
 from django.contrib import admin, messages
-from django.core.paginator import Paginator
-from django.db.models import Count, F, Q
+from django.db.models import Count, Q
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
-from django.template.loader import render_to_string
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
-from django.utils.html import escape, format_html, format_html_join
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
 from django_object_actions import action
 
-from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
-from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.core.widgets import render_permissions_badge
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin, ConfigEditorMixin
+from archivebox.core.models import Snapshot
 from archivebox.core.permissions import (
-    PERMISSIONS_CHOICES,
     PERMISSIONS_META,
-    PERMISSIONS_PRIVATE,
-    PERMISSIONS_PUBLIC,
-    PERMISSIONS_UNLISTED,
     PERMISSIONS_VALUES,
-    normalize_permissions,
 )
-from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.models import Crawl, CrawlSchedule
+from archivebox.crawls.forms import CrawlAdminForm
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.progressmonitor.views import progress_endpoint
 from archivebox.workers.models import RETRY_AT_MAX
@@ -49,554 +39,6 @@ class MaxDepthListFilter(admin.SimpleListFilter):
         if value is not None and value.isdigit():
             return queryset.filter(max_depth=int(value))
         return queryset
-
-
-def render_snapshots_list(snapshots_qs, request=None, crawl=None, page_size=50, prefix="snapshots"):
-    """Render a nice inline list view of snapshots with status, title, URL, and progress."""
-
-    query_param = f"{prefix}_q"
-    status_param = f"{prefix}_status"
-    page_param = f"{prefix}_page"
-    query = (request.GET.get(query_param, "") if request is not None else "").strip()
-    status_filter = (request.GET.get(status_param, "") if request is not None else "").strip()
-    valid_statuses = {choice[0] for choice in Snapshot.StatusChoices.choices}
-
-    filtered_qs = snapshots_qs
-    if query:
-        from archivebox.misc.util import filter_queryset_by_uuid_substring
-
-        id_match_pks = list(filter_queryset_by_uuid_substring(Snapshot.objects.all(), query).values_list("pk", flat=True)[:100])
-        filtered_qs = filtered_qs.filter(Q(pk__in=id_match_pks) | Q(url__icontains=query) | Q(title__icontains=query))
-    if status_filter in valid_statuses:
-        filtered_qs = filtered_qs.filter(status=status_filter)
-
-    # Keep ArchiveResult counters as scalar subqueries so the paginated
-    # Snapshot queryset does not become a join+GROUP BY over every result row.
-    snapshots_qs = filtered_qs.order_by("-created_at").annotate(
-        total_results=ArchiveResult.snapshot_count_expr(),
-        succeeded_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SUCCEEDED),
-        failed_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.FAILED),
-        started_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.STARTED),
-        skipped_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SKIPPED),
-        snapshot_permissions=F("permissions"),
-    )
-
-    page_number = request.GET.get(page_param, 1) if request is not None else 1
-    paginator = Paginator(snapshots_qs, page_size)
-    page_obj = paginator.get_page(page_number)
-    snapshots = page_obj.object_list
-    total_count = paginator.count
-
-    def querystring(**updates):
-        if request is None:
-            return "#"
-        params = request.GET.copy()
-        for key, value in updates.items():
-            if value in (None, ""):
-                params.pop(key, None)
-            else:
-                params[key] = str(value)
-        return f"?{params.urlencode()}" if params else "?"
-
-    preserved_inputs = ""
-    if request is not None:
-        managed_params = {query_param, status_param, page_param}
-        preserved_inputs = "".join(
-            f'<input type="hidden" name="{escape(key)}" value="{escape(value)}">'
-            for key, values in request.GET.lists()
-            if key not in managed_params
-            for value in values
-        )
-
-    status_options = "".join(
-        f'<option value="{escape(value)}"{" selected" if status_filter == value else ""}>{escape(label)}</option>'
-        for value, label in Snapshot.StatusChoices.choices
-    )
-
-    controls = f"""
-        <div class="crawl-snapshots-toolbar" style="display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
-            <form method="get" style="display: flex; gap: 8px; align-items: center; flex: 1 1 540px; margin: 0;">
-                {preserved_inputs}
-                <input type="search" name="{query_param}" value="{escape(query)}" placeholder="Filter snapshots by title, URL, or ID"
-                       style="min-width: 260px; flex: 1 1 360px; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
-                <select name="{status_param}" style="max-width: 170px; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
-                    <option value="">All statuses</option>
-                    {status_options}
-                </select>
-                <input type="hidden" name="{page_param}" value="1">
-                <button type="submit" class="button" style="padding: 7px 12px;">Filter</button>
-                {f'<a href="{querystring(**{query_param: None, status_param: None, page_param: None})}" style="font-size: 12px; color: #64748b;">Clear</a>' if query or status_filter else ""}
-            </form>
-            <div style="font-size: 12px; color: #64748b; white-space: nowrap;">
-                {page_obj.start_index() if total_count else 0}-{page_obj.end_index() if total_count else 0} of {total_count}
-            </div>
-        </div>
-    """
-
-    if not snapshots:
-        return mark_safe(f"""
-            <div data-crawl-snapshots-list style="border: 1px solid #ddd; border-radius: 6px; overflow: hidden; max-width: 100%;">
-                {controls}
-                <div style="color: #666; font-style: italic; padding: 12px;">No Snapshots found.</div>
-            </div>
-        """)
-
-    # Status colors matching Django admin and progress monitor
-    status_colors = {
-        "queued": ("#6c757d", "#f8f9fa"),  # gray
-        "started": ("#856404", "#fff3cd"),  # amber
-        "paused": ("#1d4ed8", "#dbeafe"),  # blue
-        "sealed": ("#155724", "#d4edda"),  # green
-        "failed": ("#721c24", "#f8d7da"),  # red
-    }
-
-    rows = []
-    for snapshot in snapshots:
-        status = snapshot.status or "queued"
-        color, bg = status_colors.get(status, ("#6c757d", "#f8f9fa"))
-        permissions = snapshot.snapshot_permissions
-        permission_icon = {
-            PERMISSIONS_PUBLIC: "👁",
-            PERMISSIONS_UNLISTED: "🔗",
-            PERMISSIONS_PRIVATE: "🔒",
-        }[permissions]
-        permission_fg, permission_bg = {
-            PERMISSIONS_PUBLIC: ("#047857", "#d1fae5"),
-            PERMISSIONS_UNLISTED: ("#1d4ed8", "#dbeafe"),
-            PERMISSIONS_PRIVATE: ("#991b1b", "#fee2e2"),
-        }[permissions]
-
-        # Calculate progress
-        total = snapshot.total_results
-        succeeded = snapshot.succeeded_results
-        failed = snapshot.failed_results
-        running = snapshot.started_results
-        skipped = snapshot.skipped_results
-        done = succeeded + failed + skipped
-        pending = max(total - done - running, 0)
-        progress_pct = int((done / total) * 100) if total > 0 else 0
-        progress_text = f"{done}/{total}" if total > 0 else "-"
-        progress_title = f"{succeeded} succeeded, {failed} failed, {running} running, {pending} pending, {skipped} skipped"
-        progress_color = "#28a745"
-        if failed:
-            progress_color = "#dc3545"
-        elif running:
-            progress_color = "#17a2b8"
-        elif pending:
-            progress_color = "#ffc107"
-
-        # Truncate title and URL
-        snapshot_title = snapshot.title or "Untitled"
-        title = snapshot_title[:60]
-        if len(snapshot_title) > 60:
-            title += "..."
-        url_display = snapshot.url[:50]
-        if len(snapshot.url) > 50:
-            url_display += "..."
-        delete_button = ""
-        exclude_button = ""
-        if crawl is not None:
-            delete_url = reverse("admin:crawls_crawl_snapshot_delete", args=[crawl.pk, snapshot.pk])
-            exclude_url = reverse("admin:crawls_crawl_snapshot_exclude_domain", args=[crawl.pk, snapshot.pk])
-            delete_button = f'''
-                <button type="button"
-                        class="crawl-snapshots-action"
-                        data-post-url="{escape(delete_url)}"
-                        data-confirm="Delete this snapshot from the crawl?"
-                        title="Delete this snapshot from the crawl and remove its URL from the crawl queue."
-                        aria-label="Delete snapshot"
-                        style="border: 1px solid #ddd; background: #fff; color: #666; border-radius: 4px; width: 28px; height: 28px; cursor: pointer;">🗑</button>
-            '''
-            exclude_button = f'''
-                <button type="button"
-                        class="crawl-snapshots-action"
-                        data-post-url="{escape(exclude_url)}"
-                        data-confirm="Exclude this domain from the crawl? This removes matching queued URLs, deletes pending matching snapshots, and blocks future matches."
-                        title="Exclude this domain from this crawl. This removes matching URLs from the crawl queue, deletes pending matching snapshots, and blocks future matches."
-                        aria-label="Exclude domain from crawl"
-                        style="border: 1px solid #ddd; background: #fff; color: #666; border-radius: 4px; width: 28px; height: 28px; cursor: pointer;">⊘</button>
-            '''
-
-        # Format date
-        date_str = snapshot.created_at.strftime("%Y-%m-%d %H:%M") if snapshot.created_at else "-"
-
-        rows.append(f'''
-            <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 6px 8px; white-space: nowrap;">
-                    <span style="display: inline-block; padding: 2px 8px; border-radius: 10px;
-                                 font-size: 11px; font-weight: 500; text-transform: uppercase;
-                                 color: {color}; background: {bg};">{status}</span>
-                </td>
-                <td style="padding: 6px 8px; white-space: nowrap; text-align: center;">
-                    <span title="{permissions}" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:999px; font-size:12px; color:{permission_fg}; background:{permission_bg};">{permission_icon}</span>
-                </td>
-                <td style="padding: 6px 8px; white-space: nowrap;">
-                    <a href="/{snapshot.archive_path}/" style="text-decoration: none;">
-                        <img src="/{snapshot.archive_path}/favicon.ico"
-                             style="width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;"
-                             onerror="this.style.display='none'"/>
-                    </a>
-                </td>
-                <td style="padding: 6px 8px; max-width: 300px;">
-                    <a href="{snapshot.admin_change_url}" style="color: #417690; text-decoration: none; font-weight: 500;"
-                       title="{escape(snapshot_title)}">{escape(title)}</a>
-                </td>
-                <td style="padding: 6px 8px; max-width: 250px;">
-                    <a href="{escape(snapshot.url)}" target="_blank"
-                       style="color: #666; text-decoration: none; font-family: monospace; font-size: 11px;"
-                       title="{escape(snapshot.url)}">{escape(url_display)}</a>
-                </td>
-                <td style="padding: 6px 8px; white-space: nowrap; text-align: center;">
-                    <div style="display: inline-flex; align-items: center; gap: 6px;" title="{escape(progress_title)}">
-                        <div style="width: 60px; height: 6px; background: #eee; border-radius: 3px; overflow: hidden;">
-                            <div style="width: {progress_pct}%; height: 100%;
-                                        background: {progress_color};
-                                        transition: width 0.3s;"></div>
-                        </div>
-                        <a href="/admin/core/archiveresult/?snapshot__id__exact={snapshot.id}"
-                           style="font-size: 11px; color: #417690; min-width: 35px; text-decoration: none;"
-                           title="View archive results">{progress_text}</a>
-                    </div>
-                </td>
-                <td style="padding: 6px 8px; white-space: nowrap; color: #888; font-size: 11px;">
-                    {date_str}
-                </td>
-                {f'<td style="padding: 6px 8px; white-space: nowrap; text-align: right;"><div style="display: inline-flex; gap: 6px;">{exclude_button}{delete_button}</div></td>' if crawl is not None else ""}
-            </tr>
-        ''')
-
-    pagination = ""
-    if paginator.num_pages > 1:
-        pagination = f"""
-            <div style="display: flex; gap: 10px; align-items: center; justify-content: center; padding: 10px 12px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px;">
-                {"<a class='button' style='padding: 5px 10px;' href='" + querystring(**{page_param: page_obj.previous_page_number()}) + "'>Previous</a>" if page_obj.has_previous() else "<span style='color:#94a3b8;'>Previous</span>"}
-                <span style="color: #64748b;">Page {page_obj.number} of {paginator.num_pages}</span>
-                {"<a class='button' style='padding: 5px 10px;' href='" + querystring(**{page_param: page_obj.next_page_number()}) + "'>Next</a>" if page_obj.has_next() else "<span style='color:#94a3b8;'>Next</span>"}
-            </div>
-        """
-
-    return mark_safe(f"""
-        <div data-crawl-snapshots-list style="border: 1px solid #ddd; border-radius: 6px; overflow: hidden; max-width: 100%;">
-            {controls}
-            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                <thead>
-                    <tr style="background: #f5f5f5; border-bottom: 2px solid #ddd;">
-                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Status</th>
-                        <th style="padding: 8px 4px; text-align: center; font-weight: 600; color: #333; width: 22px;">🔒</th>
-                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333; width: 24px;"></th>
-                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Title</th>
-                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">URL</th>
-                        <th style="padding: 8px; text-align: center; font-weight: 600; color: #333;">Progress</th>
-                        <th style="padding: 8px; text-align: left; font-weight: 600; color: #333;">Created</th>
-                        {
-        '<th style="padding: 8px; text-align: right; font-weight: 600; color: #333;">Actions</th>' if crawl is not None else ""
-    }
-                    </tr>
-                </thead>
-                <tbody>
-                    {"".join(rows)}
-                </tbody>
-            </table>
-            {pagination}
-        </div>
-        {
-        '''
-        <script>
-        (function() {
-            if (window.__archiveboxCrawlSnapshotActionsBound) {
-                return;
-            }
-            window.__archiveboxCrawlSnapshotActionsBound = true;
-
-            function getCookie(name) {
-                var cookieValue = null;
-                if (!document.cookie) {
-                    return cookieValue;
-                }
-                var cookies = document.cookie.split(';');
-                for (var i = 0; i < cookies.length; i++) {
-                    var cookie = cookies[i].trim();
-                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-                return cookieValue;
-            }
-
-            document.addEventListener('click', function(event) {
-                var button = event.target.closest('.crawl-snapshots-action');
-                if (!button) {
-                    return;
-                }
-                event.preventDefault();
-
-                var confirmMessage = button.getAttribute('data-confirm');
-                if (confirmMessage && !window.confirm(confirmMessage)) {
-                    return;
-                }
-
-                button.disabled = true;
-
-                fetch(button.getAttribute('data-post-url'), {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken') || '',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                }).then(function(response) {
-                    return response.json().then(function(data) {
-                        if (!response.ok) {
-                            throw new Error(data.error || 'Request failed');
-                        }
-                        return data;
-                    });
-                }).then(function() {
-                    window.location.reload();
-                }).catch(function(error) {
-                    button.disabled = false;
-                    window.alert(error.message || 'Request failed');
-                });
-            });
-        })();
-        </script>
-        '''
-        if crawl is not None
-        else ""
-    }
-    """)
-
-
-class URLFiltersField(forms.Field):
-    widget = URLFiltersWidget(source_selector="#id_urls")
-
-    def to_python(self, value):
-        if isinstance(value, dict):
-            return value
-        return {"allowlist": "", "denylist": "", "same_domain_only": False, "subpaths_only": False, "only_new": False}
-
-
-class CrawlAdminForm(forms.ModelForm):
-    """Custom form for Crawl admin to render urls field as textarea."""
-
-    tags_editor = forms.CharField(
-        label="Tags",
-        required=False,
-        widget=TagEditorWidget(),
-        help_text="Type tag names and press Enter or Space to add. Click × to remove.",
-    )
-    url_filters = URLFiltersField(
-        label="URL Filters",
-        required=False,
-        help_text="Set URL_ALLOWLIST / URL_DENYLIST for this crawl.",
-    )
-
-    class Meta:
-        model = Crawl
-        fields = "__all__"
-        widgets: ClassVar[dict[str, forms.Widget]] = {
-            "urls": forms.Textarea(
-                attrs={
-                    "rows": 8,
-                    "style": "width: 100%; font-family: monospace; font-size: 13px;",
-                    "placeholder": "https://example.com\nhttps://example2.com\n# Comments start with #",
-                },
-            ),
-            "notes": forms.Textarea(
-                attrs={
-                    "rows": 1,
-                    "style": "width: 100%; min-height: 0; resize: vertical;",
-                },
-            ),
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        config = dict(self.instance.config or {}) if self.instance and self.instance.pk else {}
-        if self.instance and self.instance.pk:
-            self.initial["tags_editor"] = self.instance.tags_str
-        effective_only_new = self.effective_only_new(self.instance if self.instance and self.instance.pk else None)
-        derived_filter_toggles = self.derive_filter_toggles(
-            self.instance.urls if self.instance and self.instance.pk else "",
-            config.get("URL_ALLOWLIST", ""),
-        )
-        self.initial["url_filters"] = {
-            "allowlist": config.get("URL_ALLOWLIST", ""),
-            "denylist": config.get("URL_DENYLIST", ""),
-            "same_domain_only": derived_filter_toggles["same_domain_only"],
-            "subpaths_only": derived_filter_toggles["subpaths_only"],
-            "only_new": effective_only_new,
-        }
-
-    @staticmethod
-    def extract_url_line(line):
-        line = str(line or "").strip()
-        if not line or line.startswith("#"):
-            return ""
-        if line.startswith("{"):
-            try:
-                return str(json.loads(line).get("url", "")).strip()
-            except (TypeError, ValueError, json.JSONDecodeError):
-                return ""
-        return line
-
-    @staticmethod
-    def regex_escape(text):
-        escaped = ""
-        for char in str(text or ""):
-            escaped += f"\\{char}" if char in r".*+?^${}()|[]\\" else char
-        return escaped
-
-    @classmethod
-    def generated_host_allowlist(cls, urls):
-        seen = set()
-        domains = []
-        for raw_line in str(urls or "").splitlines():
-            url = cls.extract_url_line(raw_line)
-            if not url:
-                continue
-            parsed = urlparse(url)
-            domain = (parsed.hostname or "").lower()
-            if not domain or domain in seen:
-                continue
-            seen.add(domain)
-            domains.append(domain)
-        if not domains:
-            return ""
-        return "^https?://(" + "|".join(cls.regex_escape(domain) for domain in domains) + ")([:/]|$)"
-
-    @staticmethod
-    def subpath_prefix(pathname):
-        path = str(pathname or "/")
-        while "//" in path:
-            path = path.replace("//", "/")
-        if not path or path == "/":
-            return "/"
-        if path.endswith("/"):
-            return path
-        last_slash = path.rfind("/")
-        last_part = path[last_slash + 1 :]
-        if "." in last_part:
-            return path[: last_slash + 1] or "/"
-        return path
-
-    @staticmethod
-    def parsed_host_and_port(parsed):
-        host = (parsed.hostname or "").lower()
-        if not host:
-            return ""
-        try:
-            port = parsed.port
-        except ValueError:
-            port = None
-        return f"{host}:{port}" if port is not None else host
-
-    @classmethod
-    def generated_subpath_allowlist(cls, urls):
-        seen = set()
-        paths = []
-        for raw_line in str(urls or "").splitlines():
-            url = cls.extract_url_line(raw_line)
-            if not url:
-                continue
-            parsed = urlparse(url)
-            domain = (parsed.hostname or "").lower()
-            if domain:
-                seen.add(domain)
-            host = cls.parsed_host_and_port(parsed)
-            path = cls.subpath_prefix(parsed.path)
-            path_key = f"{host}{path}"
-            if not host or path_key in seen:
-                continue
-            seen.add(path_key)
-            paths.append((host, path))
-        if not paths:
-            return ""
-        patterns = []
-        for host, path in paths:
-            if path == "/":
-                patterns.append(f"^https?://{cls.regex_escape(host)}([/?#]|$)")
-            elif path.endswith("/"):
-                patterns.append(f"^https?://{cls.regex_escape(host)}{cls.regex_escape(path)}")
-            else:
-                patterns.append(f"^https?://{cls.regex_escape(host)}{cls.regex_escape(path)}([/?#]|$)")
-        return "\n".join(patterns)
-
-    @classmethod
-    def derive_filter_toggles(cls, urls, allowlist):
-        normalized_allowlist = "\n".join(Crawl.split_filter_patterns(allowlist))
-        if not normalized_allowlist:
-            return {"same_domain_only": False, "subpaths_only": False}
-        if normalized_allowlist == cls.generated_subpath_allowlist(urls):
-            return {"same_domain_only": True, "subpaths_only": True}
-        if normalized_allowlist == cls.generated_host_allowlist(urls):
-            return {"same_domain_only": True, "subpaths_only": False}
-        return {"same_domain_only": False, "subpaths_only": False}
-
-    @staticmethod
-    def effective_only_new(crawl=None):
-        from archivebox.config.common import get_config
-
-        if crawl is not None:
-            return bool(get_config(crawl=crawl, resolve_plugins=False).ONLY_NEW)
-        return bool(get_config(resolve_plugins=False).ONLY_NEW)
-
-    @staticmethod
-    def inherited_only_new(crawl):
-        crawl_without_only_new = copy(crawl)
-        config = dict(crawl.config or {})
-        config.pop("ONLY_NEW", None)
-        crawl_without_only_new.config = config
-        return CrawlAdminForm.effective_only_new(crawl_without_only_new)
-
-    def clean_tags_editor(self):
-        tags_str = self.cleaned_data.get("tags_editor", "")
-        tag_names = []
-        seen = set()
-        for raw_name in tags_str.split(","):
-            name = raw_name.strip()
-            if not name:
-                continue
-            lowered = name.lower()
-            if lowered in seen:
-                continue
-            seen.add(lowered)
-            tag_names.append(name)
-        return ",".join(tag_names)
-
-    def clean_url_filters(self):
-        value = self.cleaned_data.get("url_filters") or {}
-        return {
-            "allowlist": "\n".join(Crawl.split_filter_patterns(value.get("allowlist", ""))),
-            "denylist": "\n".join(Crawl.split_filter_patterns(value.get("denylist", ""))),
-            "same_domain_only": bool(value.get("same_domain_only")),
-            "subpaths_only": bool(value.get("subpaths_only")),
-            "only_new": bool(value.get("only_new")),
-        }
-
-    def save(self, commit=True):
-        instance = super().save(commit=False)
-        instance.tags_str = self.cleaned_data.get("tags_editor", "")
-        if f"{self.add_prefix('url_filters')}_allowlist" in self.data or f"{self.add_prefix('url_filters')}_denylist" in self.data:
-            url_filters = self.cleaned_data.get("url_filters") or {}
-            instance.set_url_filters(
-                url_filters.get("allowlist", ""),
-                url_filters.get("denylist", ""),
-            )
-            config = dict(instance.config or {})
-            only_new = bool(url_filters.get("only_new"))
-            inherited_only_new = self.inherited_only_new(instance)
-            if only_new != inherited_only_new:
-                config["ONLY_NEW"] = only_new
-            else:
-                config.pop("ONLY_NEW", None)
-            instance.config = config
-        if commit:
-            instance.save()
-            instance.apply_crawl_config_filters()
-            self._save_m2m()
-        return instance
 
 
 class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
@@ -646,13 +88,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     readonly_fields = ("created_at", "modified_at", "stop_reason_display")
 
     fieldsets = (
-        (
-            "URLs",
-            {
-                "fields": ("urls", "url_filters"),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("URLs", ("urls", "url_filters"), wide=True),
         (
             "Overview",
             {
@@ -674,13 +110,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         ),
     )
     add_fieldsets = (
-        (
-            "URLs",
-            {
-                "fields": ("urls", "url_filters"),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("URLs", ("urls", "url_filters"), wide=True),
         (
             "Overview",
             {
@@ -1024,45 +454,11 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(description="👁", ordering="permissions")
     def permissions_badge(self, obj):
-        permissions = normalize_permissions(obj.permissions)
-        icon, label, fg, bg = PERMISSIONS_META[permissions]
-        menu_items = format_html_join(
-            "",
-            (
-                '<button type="button" class="snapshot-permissions-menu-item{}" data-permissions="{}">'
-                '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
-                "<span>{}</span>"
-                "</button>"
-            ),
-            (
-                (
-                    " is-active" if choice_value == permissions else "",
-                    choice_value,
-                    choice_fg,
-                    choice_bg,
-                    choice_icon,
-                    choice_label,
-                )
-                for choice_value, choice_label in PERMISSIONS_CHOICES
-                for choice_icon, _choice_title, choice_fg, choice_bg in [PERMISSIONS_META[choice_value]]
-            ),
-        )
-        return format_html(
-            '<span class="snapshot-permissions-quick" data-current-permissions="{}" data-permissions-url="{}">'
-            '<button type="button" class="snapshot-permissions-button snapshot-permissions-{}" title="{}" aria-label="Change crawl permissions: {}" aria-expanded="false">'
-            '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
-            "</button>"
-            '<span class="snapshot-permissions-menu" role="menu" hidden>{}</span>'
-            "</span>",
+        permissions = obj.permissions
+        return render_permissions_badge(
             permissions,
-            reverse(f"{self.admin_site.name}:crawls_crawl_set_permissions", args=[obj.pk]),
-            permissions,
-            label,
-            label,
-            fg,
-            bg,
-            icon,
-            menu_items,
+            url=reverse(f"{self.admin_site.name}:crawls_crawl_set_permissions", args=[obj.pk]),
+            object_name="crawl",
         )
 
     @admin.display(description="Pause")
@@ -1089,36 +485,11 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(description="Snapshots")
     def snapshots_changelist(self, obj):
-        request = self.request
-        snapshot_changelist = reverse("admin:core_snapshot_changelist")
-        scoped_params = {"crawl_id": str(obj.pk)}
-        full_url = f"{snapshot_changelist}?{urlencode(scoped_params)}"
-
-        snapshot_admin = self.admin_site._registry[Snapshot]
-        changelist_request = copy(request)
-        changelist_request.method = "GET"
-        changelist_request.path = snapshot_changelist
-        changelist_request.GET = request.GET.copy()
-        changelist_request.GET.update(
-            {
-                **scoped_params,
-                "_embedded": "crawl",
-                "per_page": "200",
-            },
+        return self.admin_site._registry[Snapshot].render_embedded_changelist(
+            self.request,
+            filters={"crawl_id": str(obj.pk)},
+            title="Snapshots in this crawl",
         )
-        changelist_request.POST = request.POST.copy()
-        changelist_request.POST.clear()
-
-        response = snapshot_admin.changelist_view(
-            changelist_request,
-            extra_context={"embedded_changelist": True},
-        )
-        context = {
-            **response.context_data,
-            "snapshot_changelist_url": full_url,
-            "crawl": obj,
-        }
-        return mark_safe(render_to_string("admin/crawls/crawl/snapshots_changelist.html", context, request=request))
 
     def delete_snapshot_view(self, request: HttpRequest, object_id: str, snapshot_id: str):
         if request.method != "POST":
@@ -1178,83 +549,25 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         first_url = next((line.strip() for line in (obj.urls or "").splitlines() if line.strip() and not line.strip().startswith("#")), "")
         return first_url[:80] + "..." if len(first_url) > 80 else first_url
 
-    @admin.display(description="URLs")
-    def urls_editor(self, obj):
-        """Editor for crawl URLs."""
-        widget_id = f"crawl_urls_{obj.pk}"
-
-        # Escape for safe HTML embedding
-        escaped_urls = (obj.urls or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
-
-        # Count lines for auto-expand logic
-        line_count = len((obj.urls or "").split("\n"))
-        uri_rows = min(max(3, line_count), 10)
-
-        html = f'''
-        <div id="{widget_id}_container" style="max-width: 900px;">
-            <!-- URLs input -->
-            <div style="margin-bottom: 12px;">
-                <label style="font-weight: bold; display: block; margin-bottom: 4px;">URLs (one per line):</label>
-                <textarea id="{widget_id}_urls"
-                          style="width: 100%; font-family: monospace; font-size: 13px;
-                                 padding: 8px; border: 1px solid #ccc; border-radius: 4px;
-                                 resize: vertical;"
-                          rows="{uri_rows}"
-                          placeholder="https://example.com&#10;https://example2.com&#10;# Comments start with #"
-                          readonly>{escaped_urls}</textarea>
-                <p style="color: #666; font-size: 12px; margin: 4px 0 0 0;">
-                    {line_count} URL{"s" if line_count != 1 else ""} · Note: URLs displayed here for reference only
-                </p>
-            </div>
-        </div>
-        '''
-        return mark_safe(html)
-
 
 class CrawlScheduleAdmin(BaseModelAdmin):
+    change_form_template = "admin/crawls/crawlschedule/change_form.html"
+
+    class Media:
+        css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("admin/crawls/crawl_change.css",)}
+
     list_display = ("id", "created_at", "created_by", "label", "notes", "template_str", "crawls", "num_crawls", "num_snapshots")
     sort_fields = ("id", "created_at", "created_by", "label", "notes", "template_str")
     search_fields = ("id", "created_by__username", "label", "notes", "schedule_id", "template_id", "template__urls")
 
-    readonly_fields = ("created_at", "modified_at", "crawls", "snapshots")
+    readonly_fields = ("created_at", "modified_at", "crawls")
     autocomplete_fields = ("template", "created_by")
 
     fieldsets = (
-        (
-            "Schedule Info",
-            {
-                "fields": ("label", "notes"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Configuration",
-            {
-                "fields": ("is_enabled", "schedule", "template"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Metadata",
-            {
-                "fields": ("created_by", "created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Crawls",
-            {
-                "fields": ("crawls",),
-                "classes": ("card", "wide"),
-            },
-        ),
-        (
-            "Snapshots",
-            {
-                "fields": ("snapshots",),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("Schedule Info", ("label", "notes")),
+        card_fieldset("Configuration", ("is_enabled", "schedule", "template")),
+        card_fieldset("Metadata", ("created_by", "created_at", "modified_at")),
+        card_fieldset("Crawls", ("crawls",), wide=True),
     )
 
     list_filter = ("created_by",)
@@ -1276,6 +589,15 @@ class CrawlScheduleAdmin(BaseModelAdmin):
 
     def change_view(self, request, object_id, form_url="", extra_context=None):
         self.request = request
+        schedule = self.get_object(request, object_id)
+        extra_context = {**(extra_context or {})}
+        if schedule:
+            extra_context["schedule_snapshots_changelist"] = self.admin_site._registry[Snapshot].render_embedded_changelist(
+                request,
+                filters={"crawl__schedule__id__exact": str(schedule.pk)},
+                title="Snapshots in this schedule",
+                default_search_mode="meta",
+            )
         from django.db import connections, router
 
         connection = connections[router.db_for_write(self.model)]
@@ -1297,7 +619,7 @@ class CrawlScheduleAdmin(BaseModelAdmin):
 
     def get_fieldsets(self, request, obj=None):
         if obj is None:
-            return tuple(fieldset for fieldset in self.fieldsets if fieldset[0] not in {"Crawls", "Snapshots"})
+            return tuple(fieldset for fieldset in self.fieldsets if fieldset[0] != "Crawls")
         return self.fieldsets
 
     def save_model(self, request, obj, form, change):
@@ -1329,14 +651,6 @@ class CrawlScheduleAdmin(BaseModelAdmin):
             ' - <a href="{}">{}</a>',
             ((crawl.admin_change_url, crawl) for crawl in obj.crawl_set.all().order_by("-created_at")[:20]),
         ) or mark_safe("<i>No Crawls yet...</i>")
-
-    def snapshots(self, obj):
-        crawl_ids = obj.crawl_set.values_list("pk", flat=True)
-        return render_snapshots_list(
-            Snapshot.objects.filter(crawl_id__in=crawl_ids),
-            request=self.request,
-            prefix="schedule_snapshots",
-        )
 
 
 def register_admin(admin_site):

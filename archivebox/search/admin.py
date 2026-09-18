@@ -23,7 +23,7 @@ class SearchResultsChangeList(ChangeList):
         self.search_mode = get_search_mode(request.GET.get("search_mode"), config=request.archivebox_config)
         self.search_mode_backend = get_search_mode_backend(self.search_mode, config=request.archivebox_config)
         super().__init__(request, *args, **kwargs)
-        self.embedded_changelist = request.GET.get("_embedded") == "crawl"
+        self.embedded_changelist = request.GET.get("_embedded") in {"crawl", "snapshot"}
 
     def get_results(self, request):
         """Populate normal admin results plus search-index hint state."""
@@ -69,7 +69,7 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
         if not search_term:
             return super().get_search_results(request, queryset, search_term)
         search_mode = get_search_mode(request.GET.get("search_mode"), config=request.archivebox_config)
-        if queryset.model._meta.label_lower == "core.snapshot" and request.GET.get("_embedded") != "crawl":
+        if queryset.model._meta.label_lower == "core.snapshot" and request.GET.get("_embedded") not in {"crawl", "snapshot"}:
             cached_ids = get_cached_admin_search_ids(request)
             if cached_ids is not None:
                 if not cached_ids:
@@ -84,7 +84,7 @@ class SearchResultsAdminMixin(admin.ModelAdmin):
         if get_search_mode_base(search_mode, config=request.archivebox_config) == "meta":
             qs, use_distinct = super().get_search_results(request, queryset, search_term)
             return qs, use_distinct
-        if request.GET.get("_embedded") == "crawl":
+        if request.GET.get("_embedded") in {"crawl", "snapshot"}:
             try:
                 return queryset.filter(
                     pk__in=query_search_index(

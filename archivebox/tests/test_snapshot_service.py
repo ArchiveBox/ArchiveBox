@@ -113,6 +113,26 @@ def test_snapshot_keyset_iterator_reads_more_than_eight_pages(admin_user):
     assert yielded_ids == sorted(snapshot.id for snapshot in snapshots)
 
 
+@pytest.mark.parametrize(
+    "ordering",
+    [("id",), ("-pk",), ("url", "-id"), ("title", "id"), ("url",), ("crawl__label", "id"), ("expression",)],
+)
+def test_snapshot_paged_iterator_preserves_ordering_and_membership(admin_user, ordering):
+    from archivebox.crawls.models import Crawl
+    from django.db.models import F
+
+    crawl = Crawl.objects.create(urls="https://example.com/pages", created_by=admin_user)
+    for idx in range(7):
+        Snapshot.objects.create(url=f"https://example.com/{6 - idx}", title=None if idx % 2 else f"Title {idx}", crawl=crawl)
+    if ordering == ("expression",):
+        ordering = (F("url").desc(),)
+    queryset = crawl.snapshot_set.select_related("crawl").order_by(*ordering)
+    expected = list(queryset.values_list("id", flat=True))
+    yielded = list(queryset.paged_iterator(chunk_size=2))
+    assert [snapshot.id for snapshot in yielded] == expected
+    assert all(snapshot.crawl.id == crawl.id for snapshot in yielded)
+
+
 def test_snapshot_merge_consolidates_only_exact_hook_identity(admin_user):
     from archivebox.crawls.models import Crawl
 

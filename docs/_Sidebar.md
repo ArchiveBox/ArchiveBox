@@ -49,7 +49,7 @@
 ---
 
 <p align="center">
-<a href="https://archivebox.io"><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/fd4d3161-3860-4b31-a4e9-251c05f75cdf" height="30px"/></a>
+<a href="https://archivebox.io"><img style="height: 30px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/fd4d3161-3860-4b31-a4e9-251c05f75cdf"/></a>
 <br/><br/>
 <a href="https://github.com/ArchiveBox/ArchiveBox"><img src="https://img.shields.io/github/stars/ArchiveBox/ArchiveBox.svg?logo=github&label=Stars&logoColor=blue"/></a> &nbsp; <a href="https://archivebox-shop.fourthwall.com/"><img src="https://img.shields.io/badge/Merch-%23903851.svg"/></a>
 <br/>

@@ -137,7 +137,8 @@ def _admin_get_request(path="/"):
 
 @pytest.fixture
 def running_process_record(initialized_archive):
-    from archivebox.machine.models import Machine, Process, psutil
+    import psutil
+    from archivebox.machine.models import Machine, Process
 
     cmd = ["archivebox", "manage", "shell"]
     popen = run_archivebox_cmd(
@@ -209,6 +210,12 @@ def test_archiveresult_admin_links_plugin_and_process(real_hook_result):
     assert 'class="archive-results-actions"' in inline_html
     assert "display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis;" in inline_html
     assert '<wbr> <span style="white-space: nowrap;">' in inline_html
+
+    hostile_output = '<script>alert("output")</script>&'
+    ArchiveResult.objects.filter(id=result.id).update(output_str=hostile_output)
+    escaped_html = str(render_archiveresults_list(ArchiveResult.objects.filter(id=result.id)))
+    assert hostile_output not in escaped_html
+    assert html.escape(hostile_output) in escaped_html
 
     admin_css = (Path(__file__).parents[1] / "templates" / "static" / "admin.css").read_text()
     assert ".archive-results-table th,\n.archive-results-table td {\n    word-break: normal;" in admin_css

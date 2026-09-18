@@ -44,7 +44,7 @@ def test_archiveresult_relpath_uses_sibling_hook_that_owns_output(admin_user):
 
 
 def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
-    from archivebox.misc.serve_static import _rewrite_html_image_sources_to_responses
+    from archivebox.misc.replay_preview import _rewrite_html_image_sources_to_responses
 
     responses_dir = tmp_path / "responses" / "all"
     responses_dir.mkdir(parents=True)
@@ -81,7 +81,7 @@ def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
 
 
 def test_html_image_response_index_preserves_first_image_and_last_fallback(tmp_path):
-    from archivebox.misc.serve_static import _encoded_responses_image_url, _index_responses_paths_for_html_images
+    from archivebox.misc.replay_preview import _encoded_responses_image_url, _index_responses_paths_for_html_images
 
     responses_dir = tmp_path / "responses" / "all"
     responses_dir.mkdir(parents=True)
@@ -172,6 +172,50 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
     assert b"width: min(100%, 72rem)" in response.content
     assert b"min-height: 100vh" in response.content
     assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
+
+
+def test_markdown_preview_preserves_structure_and_heading_links(tmp_path):
+    import re
+    from django.test import RequestFactory
+    from archivebox.misc.serve_static import serve_static_with_byterange_support
+
+    source = """# Article
+
+[TOC]
+
+## Section
+
+1. First
+   - Nested **bold** and *italic*
+2. Second
+
+> A quotation
+
+```html
+<div>literal HTML</div>
+```
+
+<span>Inline HTML</span> with [a link](https://example.com).
+
+| Column | Value |
+| --- | --- |
+| One | Two |
+"""
+    (tmp_path / "content.txt").write_text(source)
+    request = RequestFactory().get("/content.txt")
+    response = serve_static_with_byterange_support(request, "content.txt", document_root=tmp_path)
+    assert response.status_code == 200
+    document = response.content.decode()
+    assert '<h1 id="Article">Article</h1>' in document
+    assert '<h2 id="Section">Section</h2>' in document
+    assert '<a href="#Article">Article</a>' in document
+    assert '<a href="#Section">Section</a>' in document
+    assert re.search(r"<ol>\s*<li>First\s*<ul>\s*<li>Nested <strong>bold</strong> and <em>italic</em></li>\s*</ul>\s*</li>", document)
+    assert re.search(r"<blockquote>\s*<p>A quotation</p>\s*</blockquote>", document)
+    assert "&lt;div&gt;literal HTML&lt;/div&gt;\n</code></pre>" in document
+    assert "<span>Inline HTML</span>" in document
+    assert '<a href="https://example.com">a link</a>' in document
+    assert re.search(r"<tbody>\s*<tr>\s*<td>One</td>\s*<td>Two</td>\s*</tr>\s*</tbody>", document)
 
 
 @pytest.fixture
@@ -671,6 +715,117 @@ class TestUrlRouting:
 
             print("OK")
             """,
+        )
+
+    def test_replay_auth_rejects_backslash_network_paths(self) -> None:
+        self._run(
+            r"""
+            from urllib.parse import parse_qs, urlsplit
+
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            admin_client = Client()
+            assert admin_client.login(username="testadmin", password="testpassword")
+            for next_path, expected in [
+                (r"/\attacker.example/private", "/index.html"),
+                (r"\attacker.example/private", "/index.html"),
+                ("/screenshot/output.png?download=1", "/screenshot/output.png?download=1"),
+            ]:
+                handoff = admin_client.get(
+                    "/admin/core/snapshot/replay-auth/",
+                    {"snapshot": str(snapshot.id), "next": next_path},
+                    HTTP_HOST=get_admin_host(),
+                )
+                assert handoff.status_code == 302
+                target = urlsplit(handoff["Location"])
+                query = parse_qs(target.query)
+                assert query["next"] == [expected], (next_path, query["next"])
+                replay_client = Client()
+                replay = replay_client.get(
+                    "/_auth", {"grant": query["grant"][0], "next": next_path},
+                    HTTP_HOST=get_snapshot_host(str(snapshot.id)),
+                )
+                assert replay.status_code == 302
+                assert replay["Location"] == expected, (next_path, replay["Location"])
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
+    def test_replay_rejects_parent_paths_for_files_and_zip_downloads(self) -> None:
+        self._run(
+            """
+            snapshot = get_snapshot()
+            outside = Path(snapshot.output_dir).parent / "outside-replay-probe.txt"
+            outside.write_text("private-outside-replay-probe")
+            ensure_admin_user()
+            client = Client()
+            assert client.login(username="testadmin", password="testpassword")
+            try:
+                for parent in ("..", "%2e%2e"):
+                    for suffix in ("/outside-replay-probe.txt", "/?files=1&download=zip"):
+                        for host, prefix in (
+                            (get_snapshot_host(str(snapshot.id)), ""),
+                            (get_web_host(), f"/{snapshot.url_path}"),
+                        ):
+                            response = client.get(f"{prefix}/{parent}{suffix}", HTTP_HOST=host, follow=True)
+                            assert response.status_code in (400, 404), (host, prefix, parent, suffix, response.status_code)
+                            assert b"private-outside-replay-probe" not in response_body(response)
+            finally:
+                outside.unlink()
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
+    def test_replay_does_not_follow_symlinks_outside_snapshot(self) -> None:
+        self._run(
+            """
+            import io
+            import zipfile
+
+            snapshot = get_snapshot()
+            root = Path(snapshot.output_dir)
+            outside = root.parent / "outside-symlink-probe.txt"
+            outside.write_text("private-outside-symlink-probe")
+            linked = root / "linked-secret.txt"
+            linked.symlink_to(outside)
+            linked_dir = root / "linked-parent"
+            linked_dir.symlink_to(root.parent, target_is_directory=True)
+            inside = root / "inside-symlink-probe.txt"
+            inside.write_text("public-inside-symlink-probe")
+            linked_inside = root / "linked-inside.txt"
+            linked_inside.symlink_to(inside)
+            client = Client()
+            try:
+                for path in (
+                    "/linked-secret.txt",
+                    "/LINKED-SECRET.TXT",
+                    "/linked-parent/outside-symlink-probe.txt",
+                    "/linked-parent/?files=1&download=zip",
+                ):
+                    response = client.get(path, HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+                    assert response.status_code == 404, (path, response.status_code)
+                    assert b"private-outside-symlink-probe" not in response_body(response)
+                response = client.get("/linked-inside.txt", HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+                assert response.status_code == 200
+                assert response_body(response) == b"public-inside-symlink-probe"
+                response = client.get("/?files=1&download=zip", HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+                assert response.status_code == 200
+                with zipfile.ZipFile(io.BytesIO(response_body(response))) as archive:
+                    assert not any(name.endswith("/linked-secret.txt") for name in archive.namelist())
+                    assert not any("/linked-parent/" in name for name in archive.namelist())
+                    linked_name = next(name for name in archive.namelist() if name.endswith("/linked-inside.txt"))
+                    assert archive.read(linked_name) == b"public-inside-symlink-probe"
+            finally:
+                linked.unlink()
+                linked_dir.unlink()
+                linked_inside.unlink()
+                inside.unlink()
+                outside.unlink()
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
         )
 
     def test_snapshot_routing_and_hosts(self) -> None:

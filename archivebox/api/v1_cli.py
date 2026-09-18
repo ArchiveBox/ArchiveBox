@@ -117,16 +117,27 @@ def snapshot_filter_kwargs(args: SnapshotFilterCommandSchema, *, default_filter_
     return kwargs
 
 
+def cli_response(request, result, *, result_format="json", success=True, errors=()):
+    """Use one response envelope for CLI-backed endpoints, including captured output."""
+    payload = {"success": success, "errors": list(errors), "result": result, "result_format": result_format}
+    for stream_name in ("stdout", "stderr"):
+        stream = request.__dict__.get(stream_name)
+        payload[stream_name] = ansi_to_html(stream.getvalue().strip()) if isinstance(stream, StringIO) else ""
+    return payload
+
+
+def command_config(args) -> dict[str, object] | None:
+    """Translate shared legacy add/schedule flags into runtime config overrides."""
+    if args.update or args.overwrite:
+        return {"ONLY_NEW": False}
+    return {"ONLY_NEW": bool(args.only_new)} if args.only_new is not None else None
+
+
 @router.post("/add", response=CLICommandResponseSchema, summary="archivebox add [args] [urls]")
 def cli_add(request: HttpRequest, args: AddCommandSchema):
     from archivebox.cli.archivebox_add import add
     from archivebox.misc.util import validate_url
 
-    config_overrides: dict[str, object] = {}
-    if args.only_new is not None:
-        config_overrides["ONLY_NEW"] = bool(args.only_new)
-    if args.update or args.overwrite:
-        config_overrides["ONLY_NEW"] = False
     submitted_urls: str | list[str] = args.urls
     if len(args.urls) == 1:
         try:
@@ -144,20 +155,10 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
             raise HttpError(400, "No valid URLs were submitted")
     crawl, snapshots = add(
         urls=submitted_urls,
-        snapshot_ids=args.snapshot_ids,
-        tag=args.tag,
-        depth=args.depth,
-        max_urls=args.max_urls,
-        crawl_max_size=args.crawl_max_size,
-        crawl_timeout=args.crawl_timeout,
-        snapshot_max_size=args.snapshot_max_size,
-        index_only=args.index_only,
-        plugins=args.plugins,
-        persona=args.persona,
-        parser=args.parser,
+        **args.model_dump(exclude={"urls", "only_new", "update", "overwrite"}),
         bg=True,  # Always run in background for API calls
         created_by_id=request.user.pk,
-        config=config_overrides or None,
+        config=command_config(args),
     )
 
     snapshot_ids = [str(snapshot_id) for snapshot_id in snapshots.values_list("id", flat=True)]
@@ -167,17 +168,7 @@ def cli_add(request: HttpRequest, args: AddCommandSchema):
         "snapshot_ids": snapshot_ids,
         "queued_urls": args.urls if isinstance(submitted_urls, str) else submitted_urls,
     }
-    stdout = request.__dict__.get("stdout")
-    stderr = request.__dict__.get("stderr")
-
-    return {
-        "success": True,
-        "errors": [],
-        "result": result_payload,
-        "result_format": "json",
-        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else "",
-        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else "",
-    }
+    return cli_response(request, result_payload, result_format="json")
 
 
 @router.post("/update", response=CLICommandResponseSchema, summary="archivebox update [args] [filter_patterns]")
@@ -204,55 +195,20 @@ def cli_update(request: HttpRequest, args: UpdateCommandSchema):
         ]
 
     update(**update_kwargs)
-    stdout = request.__dict__.get("stdout")
-    stderr = request.__dict__.get("stderr")
-    return {
-        "success": True,
-        "errors": [],
-        "result": {
-            "matched_count": len(matched_snapshot_ids),
-            "snapshot_ids": matched_snapshot_ids,
-        }
-        if is_filtered_update
-        else None,
-        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else "",
-        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else "",
-    }
+    return cli_response(
+        request,
+        {"matched_count": len(matched_snapshot_ids), "snapshot_ids": matched_snapshot_ids} if is_filtered_update else None,
+        result_format="str",
+    )
 
 
 @router.post("/schedule", response=CLICommandResponseSchema, summary="archivebox schedule [args] [import_path]")
 def cli_schedule(request: HttpRequest, args: ScheduleCommandSchema):
     from archivebox.cli.archivebox_schedule import schedule
 
-    config_overrides: dict[str, object] = {}
-    if args.only_new is not None:
-        config_overrides["ONLY_NEW"] = bool(args.only_new)
-    if args.update or args.overwrite:
-        config_overrides["ONLY_NEW"] = False
-    result = schedule(
-        import_path=args.import_path,
-        add=args.add,
-        show=args.show,
-        foreground=args.foreground,
-        run_all=args.run_all,
-        quiet=args.quiet,
-        clear=args.clear,
-        every=args.every,
-        tag=args.tag,
-        depth=args.depth,
-        config=config_overrides or None,
-    )
+    result = schedule(**args.model_dump(exclude={"only_new", "update", "overwrite"}), config=command_config(args))
 
-    stdout = request.__dict__.get("stdout")
-    stderr = request.__dict__.get("stderr")
-    return {
-        "success": True,
-        "errors": [],
-        "result": result,
-        "result_format": "json",
-        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else "",
-        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else "",
-    }
+    return cli_response(request, result, result_format="json")
 
 
 @router.post("/search", response=CLICommandResponseSchema, summary="archivebox search [args] [filter_patterns]")
@@ -287,16 +243,7 @@ def cli_search(request: HttpRequest, args: ListCommandSchema):
     else:
         result = "\n".join(snapshot.url for snapshot in snapshots.iterator(chunk_size=500))
 
-    stdout = request.__dict__.get("stdout")
-    stderr = request.__dict__.get("stderr")
-    return {
-        "success": True,
-        "errors": [],
-        "result": result,
-        "result_format": result_format,
-        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else "",
-        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else "",
-    }
+    return cli_response(request, result, result_format=result_format)
 
 
 @router.post("/remove", response=CLICommandResponseSchema, summary="archivebox remove [args] [filter_patterns]")
@@ -317,13 +264,10 @@ def cli_remove(request: HttpRequest, args: RemoveCommandSchema):
         snapshots=snapshots_to_remove,
         timeout=timeout,
     )
-    stdout = request.__dict__.get("stdout")
-    stderr = request.__dict__.get("stderr")
-    return {
-        "success": bool(result["success"]),
-        "errors": [str(result["error"])] if result["error"] else [],
-        "result": result,
-        "result_format": "json",
-        "stdout": ansi_to_html(stdout.getvalue().strip()) if isinstance(stdout, StringIO) else "",
-        "stderr": ansi_to_html(stderr.getvalue().strip()) if isinstance(stderr, StringIO) else "",
-    }
+    return cli_response(
+        request,
+        result,
+        result_format="json",
+        success=bool(result["success"]),
+        errors=[str(result["error"])] if result["error"] else [],
+    )

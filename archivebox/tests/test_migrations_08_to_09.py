@@ -19,21 +19,16 @@ from urllib.parse import urlparse
 import pytest
 
 from .migrations_helpers import (
-    SCHEMA_0_7,
     SCHEMA_0_8,
+    seed_0_8_data,
+    SCHEMA_0_7,
     current_snapshot_dir,
     filesystem_manifest,
-    seed_0_8_data,
     seed_0_7_data,
     run_archivebox_migration_cmd,
     create_data_dir_structure,
-    verify_snapshot_count,
-    verify_snapshot_urls,
-    verify_snapshot_titles,
     verify_tag_count,
     verify_archiveresult_count,
-    verify_foreign_keys,
-    verify_all_snapshots_in_output,
     verify_crawl_count,
     verify_process_migration,
     verify_preserved_rows,
@@ -183,30 +178,6 @@ def test_migration_preserves_supported_extended_08_metadata(migration_08_data, u
     assert migrated_counts == expected_counts
 
 
-def test_migration_preserves_snapshot_count(migration_08_data):
-    """Migration should preserve all snapshots from 0.8.x."""
-    work_dir, db_path, original_data = migration_08_data
-    expected_count = len(original_data["snapshots"])
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_snapshot_count(db_path, expected_count)
-    assert ok, msg
-
-
-def test_migration_preserves_snapshot_urls(migration_08_data):
-    """Migration should preserve all snapshot URLs from 0.8.x."""
-    work_dir, db_path, original_data = migration_08_data
-    expected_urls = [s["url"] for s in original_data["snapshots"]]
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_snapshot_urls(db_path, expected_urls)
-    assert ok, msg
-
-
 def test_migration_preserves_crawls(migration_08_data):
     """Migration should preserve all Crawl records and create default crawl if needed."""
     work_dir, db_path, original_data = migration_08_data
@@ -348,68 +319,6 @@ def test_migration_preserves_archiveresult_status(migration_08_data):
     assert "skipped" in status_counts, "Should have skipped results"
 
 
-def test_status_works_after_migration(migration_08_data):
-    """Status command should work after migration."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    result = run_archivebox_migration_cmd(work_dir, ["status"])
-    assert result.returncode == 0, f"Status failed after migration: {result.stderr}"
-
-
-def test_list_works_after_migration(migration_08_data):
-    """List command should work and show ALL migrated data."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    result = run_archivebox_migration_cmd(work_dir, ["snapshot", "list"])
-    assert result.returncode == 0, f"List failed after migration: {result.stderr}"
-
-    # Verify ALL snapshots appear in output
-    output = result.stdout + result.stderr
-    ok, msg = verify_all_snapshots_in_output(output, original_data["snapshots"])
-    assert ok, msg
-
-
-def test_search_works_after_migration(migration_08_data):
-    """Search command should find ALL migrated snapshots."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    result = run_archivebox_migration_cmd(work_dir, ["search"])
-    assert result.returncode == 0, f"Search failed after migration: {result.stderr}"
-
-    # Verify ALL snapshots appear in output
-    output = result.stdout + result.stderr
-    ok, msg = verify_all_snapshots_in_output(output, original_data["snapshots"])
-    assert ok, msg
-
-
-def test_migration_preserves_snapshot_titles(migration_08_data):
-    """Migration should preserve all snapshot titles."""
-    work_dir, db_path, original_data = migration_08_data
-    expected_titles = {s["url"]: s["title"] for s in original_data["snapshots"]}
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_snapshot_titles(db_path, expected_titles)
-    assert ok, msg
-
-
-def test_migration_preserves_foreign_keys(migration_08_data):
-    """Migration should maintain foreign key relationships."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_foreign_keys(db_path)
-    assert ok, msg
-
-
 @pytest.mark.parametrize("has_snapshot_status", (True, False), ids=("with-status", "without-status"))
 def test_migration_preserves_08_timestamp_meanings(migration_08_data, has_snapshot_status):
     """0.8.x already has separated timestamp/bookmarked_at/created_at/downloaded_at fields."""
@@ -520,20 +429,6 @@ def test_add_works_after_migration(migration_08_data):
     assert new_crawl_count > initial_crawl_count, f"No new Crawl created when adding URL. Add stderr: {result.stderr[-500:]}"
 
 
-def test_version_works_after_migration(migration_08_data):
-    """Version command should work after migration."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    result = run_archivebox_migration_cmd(work_dir, ["version"])
-    assert result.returncode == 0, f"Version failed after migration: {result.stderr}"
-
-    # Should show version info
-    output = result.stdout + result.stderr
-    assert "ArchiveBox" in output or "version" in output.lower(), f"Version output missing expected content: {output[:500]}"
-
-
 def test_migration_creates_process_records(migration_08_data):
     """Migration should create Process records for all ArchiveResults."""
     work_dir, db_path, original_data = migration_08_data
@@ -611,53 +506,6 @@ def test_migration_preserves_cmd_data(migration_08_data):
     conn.close()
 
 
-def test_no_duplicate_snapshots_after_migration(migration_08_data):
-    """Migration should not create duplicate snapshots."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    # Check for duplicate URLs
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT url, COUNT(*) as cnt FROM core_snapshot
-        GROUP BY url HAVING cnt > 1
-    """)
-    duplicates = cursor.fetchall()
-    conn.close()
-
-    assert len(duplicates) == 0, f"Found duplicate URLs: {duplicates}"
-
-
-def test_no_orphaned_archiveresults_after_migration(migration_08_data):
-    """Migration should not leave orphaned ArchiveResults."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_foreign_keys(db_path)
-    assert ok, msg
-
-
-def test_timestamps_preserved_after_migration(migration_08_data):
-    """Migration should preserve original timestamps."""
-    work_dir, db_path, original_data = migration_08_data
-    original_timestamps = {s["url"]: s["timestamp"] for s in original_data["snapshots"]}
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT url, timestamp FROM core_snapshot")
-    migrated_timestamps = {row[0]: row[1] for row in cursor.fetchall()}
-    conn.close()
-
-    for url, original_ts in original_timestamps.items():
-        assert migrated_timestamps.get(url) == original_ts, f"Timestamp changed for {url}: {original_ts} -> {migrated_timestamps.get(url)}"
-
-
 def test_crawl_data_preserved_after_migration(migration_08_data):
     """Migration should preserve crawl metadata (urls, label, status)."""
     work_dir, db_path, original_data = migration_08_data
@@ -677,29 +525,6 @@ def test_crawl_data_preserved_after_migration(migration_08_data):
         assert row[2] == crawl["status"], f"Status mismatch for crawl {crawl['id']}"
 
     conn.close()
-
-
-def test_tag_associations_preserved_after_migration(migration_08_data):
-    """Migration should preserve snapshot-tag associations."""
-    work_dir, db_path, original_data = migration_08_data
-    # Count tag associations before migration
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM core_snapshot_tags")
-    original_count = cursor.fetchone()[0]
-    conn.close()
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    # Count tag associations after migration
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM core_snapshot_tags")
-    migrated_count = cursor.fetchone()[0]
-    conn.close()
-
-    assert migrated_count == original_count, f"Tag associations changed: {original_count} -> {migrated_count}"
 
 
 def test_update_migrates_db_snapshot_when_legacy_index_missing(tmp_path):

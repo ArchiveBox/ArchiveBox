@@ -14,6 +14,7 @@ from importlib.resources import files
 from pathlib import Path
 
 import pytest
+from archivebox.tests.conftest import run_archivebox_cmd
 
 from archivebox.core.models import Snapshot
 from archivebox.machine.models import Binary
@@ -21,7 +22,6 @@ from archivebox.tests.conftest import (
     assert_jsonl_only,
     create_test_url,
     parse_jsonl_output,
-    run_archivebox_cmd,
 )
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -89,17 +89,17 @@ def test_read_args_or_stdin_handles_args_stdin_and_mixed_jsonl(tmp_path, initial
 
     snapshot_result = run_archivebox_cmd(
         ["snapshot", "create", "--tag=test", "https://jsonl-url.com"],
+        check=True,
         cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
-        check=True,
     )
     crawl_result = run_archivebox_cmd(
         ["crawl", "create", "https://crawl-url.com"],
+        check=True,
         cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
-        check=True,
     )
     snapshot_record = next(record for record in parse_jsonl_output(snapshot_result.stdout) if record.get("type") == "Snapshot")
 
@@ -168,12 +168,7 @@ def test_crawl_create_stdout_pipes_into_run(initialized_archive):
     """`archivebox crawl create | archivebox run` should queue and materialize snapshots."""
     url = create_test_url()
 
-    _cmd_result = run_archivebox_cmd(
-        ["crawl", "create", url],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
-    )
+    _cmd_result = run_archivebox_cmd(["crawl", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
     create_stdout, create_stderr, create_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert create_code == 0, create_stderr
     assert_jsonl_only(create_stdout)
@@ -183,9 +178,9 @@ def test_crawl_create_stdout_pipes_into_run(initialized_archive):
     _cmd_result = run_archivebox_cmd(
         ["run"],
         stdin=create_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -206,12 +201,7 @@ def test_snapshot_list_stdout_pipes_into_run(initialized_archive):
     """`archivebox snapshot list | archivebox run` should requeue listed snapshots."""
     url = create_test_url()
 
-    _cmd_result = run_archivebox_cmd(
-        ["snapshot", "create", url],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
-    )
+    _cmd_result = run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
     create_stdout, create_stderr, create_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert create_code == 0, create_stderr
     snapshot = next(record for record in parse_jsonl_output(create_stdout) if record.get("type") == "Snapshot")
@@ -237,9 +227,9 @@ def test_snapshot_list_stdout_pipes_into_run(initialized_archive):
     _cmd_result = run_archivebox_cmd(
         ["run"],
         stdin=list_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -261,8 +251,8 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
 
     _cmd_result = run_archivebox_cmd(
         ["snapshot", "create", url],
-        cwd=initialized_archive,
         env=PIPE_TEST_ENV,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -272,8 +262,8 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     _cmd_result = run_archivebox_cmd(
         ["archiveresult", "create", "--plugin=favicon"],
         stdin=snapshot_stdout,
-        cwd=initialized_archive,
         env=PIPE_TEST_ENV,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -283,17 +273,17 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     run_archivebox_cmd(
         ["run"],
         stdin=ar_create_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
 
     _cmd_result = run_archivebox_cmd(
         ["archiveresult", "list", "--plugin=favicon"],
-        cwd=initialized_archive,
         env=PIPE_TEST_ENV,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -306,9 +296,9 @@ def test_archiveresult_list_stdout_pipes_into_run(initialized_archive):
     _cmd_result = run_archivebox_cmd(
         ["run"],
         stdin=list_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -337,8 +327,8 @@ def test_binary_create_stdout_pipes_into_run(initialized_archive):
     _cmd_result = run_archivebox_cmd(
         ["run"],
         stdin=create_stdout,
-        cwd=initialized_archive,
         timeout=120,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
@@ -358,12 +348,7 @@ def test_multi_stage_pipeline_into_run(initialized_archive):
     """`crawl create | snapshot create | archiveresult create | run` should preserve JSONL and finish work."""
     url = create_test_url()
 
-    _cmd_result = run_archivebox_cmd(
-        ["crawl", "create", url],
-        cwd=initialized_archive,
-        default_cli_env=True,
-        disable_extractors=True,
-    )
+    _cmd_result = run_archivebox_cmd(["crawl", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
     crawl_stdout, crawl_stderr, crawl_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
     assert crawl_code == 0, crawl_stderr
     assert_jsonl_only(crawl_stdout)
@@ -393,9 +378,9 @@ def test_multi_stage_pipeline_into_run(initialized_archive):
     _cmd_result = run_archivebox_cmd(
         ["run"],
         stdin=archiveresult_stdout,
-        cwd=initialized_archive,
         timeout=120,
         env=PIPE_TEST_ENV,
+        cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )

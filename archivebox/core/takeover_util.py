@@ -131,20 +131,10 @@ def ensure_daemon_stack(*, reason: str = ""):
             rprint(f"[yellow][*] Starting daemon stack for {reason}...[/yellow]")
         worker = start_worker(supervisor, sonic_worker)
 
-    # Supervisord marks this worker RUNNING with startsecs=0, before Sonic has
-    # opened its search socket. A query launched at that point fails even though
-    # the daemon is about to become ready.
-    deadline = time.monotonic() + 30.0
-    while time.monotonic() < deadline:
-        if is_port_listening(sonic_event.host, sonic_event.port):
-            if time.monotonic() < deadline:
-                return worker
-            break
-        worker = get_worker(supervisor, sonic_worker["name"])
-        if not isinstance(worker, dict) or worker.get("statename") not in ("STARTING", "RUNNING"):
-            raise RuntimeError(f"Sonic search backend worker failed to start: {worker}")
-        time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
-    raise RuntimeError(f"Sonic search backend is not listening at {sonic_event.url}")
+    from archivebox.search.sonic_daemon import wait_for_sonic_daemon
+
+    wait_for_sonic_daemon(sonic_event)
+    return worker
 
 
 def live_runner_processes(*, data_dir: str | Path):

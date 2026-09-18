@@ -17,6 +17,7 @@ from importlib.resources import files
 from pathlib import Path
 
 import pytest
+from archivebox.tests.conftest import run_archivebox_cmd
 
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
@@ -486,7 +487,7 @@ class TestDependencyRecordOutput:
         install_real_binary("wget", binproviders="env,apt,brew")
         wget_path = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=WGET_CONFIG)["WGET_BINARY"]
         version = subprocess.run([wget_path, "--version"], capture_output=True, text=True, check=True).stdout.split()[2]
-        from archivebox.tests.conftest import parse_jsonl_output, run_archivebox_cmd
+        from archivebox.tests.conftest import parse_jsonl_output
 
         result = run_archivebox_cmd(
             ["binary", "create", "--name=wget", f"--abspath={wget_path}", f"--version={version}"],

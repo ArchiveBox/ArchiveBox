@@ -6,3 +6,6 @@ venv/
 
 queue.sqlite3
 index.sqlite3
+
+# Regenerated from Python source by sphinx-autodoc2.
+apidocs/

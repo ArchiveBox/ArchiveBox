@@ -8,7 +8,7 @@ from signal_webhooks.admin import WebhookAdmin, WebhookModelForm
 from signal_webhooks.settings import webhook_settings
 from signal_webhooks.utils import get_webhook_model, model_from_reference
 
-from archivebox.base_models.admin import BaseModelAdmin
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin
 
 from archivebox.api.models import APIToken
 
@@ -25,27 +25,9 @@ class APITokenAdmin(BaseModelAdmin):
     search_fields = ("id", "created_by__username", "token")
 
     fieldsets = (
-        (
-            "Token",
-            {
-                "fields": ("token", "expires"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Owner",
-            {
-                "fields": ("created_by",),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Timestamps",
-            {
-                "fields": ("created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
+        card_fieldset("Token", ("token", "expires")),
+        card_fieldset("Owner", ("created_by",)),
+        card_fieldset("Timestamps", ("created_at", "modified_at")),
     )
 
     list_filter = ("created_by",)
@@ -73,41 +55,11 @@ class CustomWebhookAdmin(WebhookAdmin, BaseModelAdmin):
     readonly_fields = _webhook_fields("created_at", "modified_at", *WebhookAdmin.readonly_fields)
 
     fieldsets = (
-        (
-            "Webhook",
-            {
-                "fields": _webhook_fields("name", "signal", "ref", "endpoint", "headers", "keep_last_response"),
-                "classes": ("card", "wide"),
-            },
-        ),
-        (
-            "Authentication",
-            {
-                "fields": _webhook_fields("auth_token"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Status",
-            {
-                "fields": _webhook_fields("enabled", "last_success", "last_failure", "last_response"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Owner",
-            {
-                "fields": _webhook_fields("created_by"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Timestamps",
-            {
-                "fields": _webhook_fields("created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
+        card_fieldset("Webhook", _webhook_fields("name", "signal", "ref", "endpoint", "headers", "keep_last_response"), wide=True),
+        card_fieldset("Authentication", _webhook_fields("auth_token")),
+        card_fieldset("Status", _webhook_fields("enabled", "last_success", "last_failure", "last_response")),
+        card_fieldset("Owner", _webhook_fields("created_by")),
+        card_fieldset("Timestamps", _webhook_fields("created_at", "modified_at")),
     )
 
     def lookup_allowed(self, lookup: str, value: str, request: HttpRequest | None = None) -> bool:

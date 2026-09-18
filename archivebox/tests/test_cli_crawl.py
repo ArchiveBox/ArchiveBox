@@ -33,12 +33,7 @@ class TestCrawlCreate:
         """Create crawl from URL arguments."""
         url = create_test_url()
 
-        result = run_archivebox_cmd(
-            ["crawl", "create", url],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        result = run_archivebox_cmd(["crawl", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0, f"Command failed: {result.stderr}"
         assert "Created crawl" in result.stderr
@@ -158,12 +153,7 @@ class TestCrawlList:
 
     def test_list_empty(self, initialized_archive):
         """List with no crawls returns empty."""
-        result = run_archivebox_cmd(
-            ["crawl", "list"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        result = run_archivebox_cmd(["crawl", "list"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         assert "Listed 0 crawls" in result.stderr
@@ -173,12 +163,7 @@ class TestCrawlList:
         url = create_test_url()
         run_archivebox_cmd(["crawl", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-        result = run_archivebox_cmd(
-            ["crawl", "list"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        result = run_archivebox_cmd(["crawl", "list"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         records = parse_jsonl_output(result.stdout)
@@ -213,12 +198,7 @@ class TestCrawlList:
                 disable_extractors=True,
             )
 
-        result = run_archivebox_cmd(
-            ["crawl", "list", "--limit=2"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        result = run_archivebox_cmd(["crawl", "list", "--limit=2"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         records = parse_jsonl_output(result.stdout)

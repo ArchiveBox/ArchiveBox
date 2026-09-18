@@ -1,10 +1,10 @@
 <div align="center" style="text-align: center; width: 100%">
-<img src="https://archivebox.io/icon.png" height="90px"/>
+<img style="height: 90px" src="https://archivebox.io/icon.png"/>
 <h1>ArchiveBox<br/><sub>Open-source self-hosted web archiving.</sub></h1>
 
 <br/>
 
-▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://demo.archivebox.io">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> | <a href="#background--motivation">Info & Motivation</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a>
+▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://demo.archivebox.io">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> | <a href="https://github.com/ArchiveBox/ArchiveBox#background--motivation">Info & Motivation</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a>
 
 <br/>
 
@@ -108,7 +108,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 
 <div align="center" style="text-align: center">
 <br/><br/>
-<img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic"> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/b2765a33-0d1e-4019-a1db-920c7e00e20e" height="75px" alt="logo" align="top"/> &nbsp; <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" height="70px" alt="bookshelf graphic">
+<img style="height: 70px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" alt="bookshelf graphic"> &nbsp; <img style="height: 75px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/b2765a33-0d1e-4019-a1db-920c7e00e20e" alt="logo" align="top"/> &nbsp; <img style="height: 70px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/5a7d95f2-6977-4de6-9f08-42851a1fe1d2" alt="bookshelf graphic">
 <br/><br/>
 <small><a href="https://demo.archivebox.io">Demo</a> | <a href="#screenshots">Screenshots</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a></small>
 <br/>
@@ -152,7 +152,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 #### ✳️&nbsp; Easy Setup
 
 <details>
-<summary><b><img src="https://archivebox.github.io/ios-archivebox/docs/icons/apple.svg" alt="Apple" height="28px" align="top"/> <code>ArchiveBox Server.app</code></b> (macOS)</summary>
+<summary><b><img style="height: 28px" src="https://archivebox.github.io/ios-archivebox/docs/icons/apple.svg" alt="Apple"  align="top"/> <code>ArchiveBox Server.app</code></b> (macOS)</summary>
 <br/>
 <ol>
 <li><a href="https://github.com/ArchiveBox/ios-archivebox/releases">Download <code>ArchiveBox Server.app</code></a>, move it to Applications, and open it.</li>
@@ -163,7 +163,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker-compose</code></b>  (macOS/Linux) &nbsp; <b>👈&nbsp; recommended</b> &nbsp; <i>(click to expand)</i></summary>
+<summary><b><img style="height: 28px" src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker"  align="top"/> <code>docker-compose</code></b>  (macOS/Linux) &nbsp; <b>👈&nbsp; recommended</b> &nbsp; <i>(click to expand)</i></summary>
 <br/>
 <i>👍 Docker Compose is recommended for the easiest install/update UX + best security + all <a href="#dependencies">extras</a> out-of-the-box.</i>
 <br/><br/>
@@ -187,12 +187,12 @@ docker compose exec archivebox archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
 <br/><br/>
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker run</code></b>  (macOS/Linux)</summary>
+<summary><b><img style="height: 28px" src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" align="top"/> <code>docker run</code></b>  (macOS/Linux)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
@@ -211,12 +211,12 @@ docker exec archivebox archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh uv install shortcut" height="28px" align="top"/> <code>bash</code> uv install shortcut</b>  (macOS/Linux/BSD)</summary>
+<summary><b><img style="height: 28px" src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh uv install shortcut" align="top"/> <code>bash</code> uv install shortcut</b>  (macOS/Linux/BSD)</summary>
 <br/>
 <ol>
 <li>Run the shortcut for the <code>uv</code> install method. It installs <code>uv</code> first when needed.
@@ -225,7 +225,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 See <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh"><code>setup.sh</code></a> for the source code of the <code>uv</code> install shortcut.<br/>
 See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as an install method"</a> blog post for my thoughts on the shortcomings of this install method.
 <br/><br/>
@@ -239,7 +239,7 @@ See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as a
 
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="uv" height="28px" align="top"/> <code>uv</code></b> (macOS/Linux/BSD)</summary>
+<summary><b><img style="height: 28px" src="https://user-images.githubusercontent.com/511499/117447613-ba4c5d80-af0b-11eb-8f89-1d98e31b6a79.png" alt="uv" align="top"/> <code>uv</code></b> (macOS/Linux/BSD)</summary>
 <br/>
 <ol>
 
@@ -265,7 +265,7 @@ archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <br/>
 <sub>See the <a href="https://docs.astral.sh/uv/guides/tools/"><code>uv tool</code> documentation</a> for more details about this installation method.</sub>
 <br/><br/>
@@ -273,7 +273,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" height="28px" align="top"/> <code>apt</code></b> (Ubuntu/Debian/etc.)</summary>
+<summary><b><img style="height: 28px" src="https://user-images.githubusercontent.com/511499/117448075-49597580-af0c-11eb-91ba-f34fff10096b.png" alt="aptitude" align="top"/> <code>apt</code></b> (Ubuntu/Debian/etc.)</summary>
 <br/>
 <ol>
 <li>Add the third-party ArchiveBox apt repo and install <code>archivebox</code>.
@@ -300,13 +300,13 @@ archivebox help
 </code></pre>
 </li>
 </ol>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <sub>The apt package is a thin dev-channel wrapper around the normal Python install flow. <code>sudo archivebox install</code> uses apt for missing system dependencies while preserving ownership of the user-owned collection. See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for details.</sub>
 <br/><br/>
 </details>
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" height="28px" align="top"/> <code>brew</code></b> (macOS and Linux)</summary>
+<summary><b><img style="height: 28px" src="https://user-images.githubusercontent.com/511499/117447803-f2ec3700-af0b-11eb-87d3-671d114f011d.png" alt="homebrew" align="top"/> <code>brew</code></b> (macOS and Linux)</summary>
 <br/>
 Run Homebrew as your normal non-root user on both macOS and Linux; do not use <code>sudo brew</code>.
 <ol>
@@ -334,13 +334,13 @@ archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <sub>See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebrew-archivebox</code></a> repo for more details about this distribution.</sub>
 <br/><br/>
 </details>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" height="28px" align="top"/> <code>pacman</code> / <img src="https://user-images.githubusercontent.com/511499/118077946-29e6a080-b383-11eb-94f0-d4871da08c3f.png" alt="FreeBSD" height="28px" align="top"/> <code>pkg</code> / <img src="https://user-images.githubusercontent.com/511499/118077861-002d7980-b383-11eb-86a7-5936fad9190f.png" alt="Nix" height="28px" align="top"/> <code>nix</code> (Arch/FreeBSD/NixOS/more)</summary>
+<summary><img style="height: 28px" src="https://user-images.githubusercontent.com/511499/118077361-f0616580-b381-11eb-973c-ee894a3349fb.png" alt="Arch" align="top"/> <code>pacman</code> / <img style="height: 28px" src="https://user-images.githubusercontent.com/511499/118077946-29e6a080-b383-11eb-94f0-d4871da08c3f.png" alt="FreeBSD" align="top"/> <code>pkg</code> / <img style="height: 28px" src="https://user-images.githubusercontent.com/511499/118077861-002d7980-b383-11eb-86a7-5936fad9190f.png" alt="Nix" align="top"/> <code>nix</code> (Arch/FreeBSD/NixOS/more)</summary>
 <br/>
 
 > *Warning: These are contributed by external volunteers and may lag behind the official `uv` and Docker channels.*
@@ -352,7 +352,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Guix: <a href="https://packages.guix.gnu.org/packages/archivebox/"><code>guix install archivebox</code></a> (contributed by <a href="https://github.com/rakino"><code>@rakino</code></a>)</li>
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
 </ul>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
@@ -361,7 +361,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 #### 🎗&nbsp; Other Options
 
 <details>
-<summary><b><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="28px" align="top"/> <code>docker</code> + <img src="https://user-images.githubusercontent.com/511499/117447263-4316c980-af0b-11eb-928d-eaf1292ac646.png" alt="Electron" height="28px" align="top"/> <code>electron</code> Desktop App</b> (macOS/Linux/Windows)</summary>
+<summary><b><img style="height: 28px" src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" align="top"/> <code>docker</code> + <img style="height: 28px" src="https://user-images.githubusercontent.com/511499/117447263-4316c980-af0b-11eb-928d-eaf1292ac646.png" alt="Electron" align="top"/> <code>electron</code> Desktop App</b> (macOS/Linux/Windows)</summary>
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
@@ -380,7 +380,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 </details>
 
 <details>
-<summary><img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0c46e949-00fe-49c8-a613-ee14501c014c" alt="Self-hosting Platforms" height="28px" align="top"/><b> TrueNAS / UNRAID / YunoHost / Cloudron / etc.</b> (self-hosting solutions)</summary>
+<summary><img style="height: 28px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/0c46e949-00fe-49c8-a613-ee14501c014c" alt="Self-hosting Platforms" align="top"/><b> TrueNAS / UNRAID / YunoHost / Cloudron / etc.</b> (self-hosting solutions)</summary>
 <br/>
 
 > *Warning: These are contributed by external volunteers and may lag behind the official Docker and `uv` channels.*
@@ -399,31 +399,31 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
 </ul>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" height="27px" align="top"/> Third-party paid hosting options (cloud VPS)</summary>
+<summary><img style="height: 27px" src="https://user-images.githubusercontent.com/511499/117448723-1663b180-af0d-11eb-837f-d43959227810.png" alt="paid" align="top"/> Third-party paid hosting options (cloud VPS)</summary>
 <br/>
 <ul>
-<li><a href="https://elest.io/open-source/archivebox"><img src="https://img.shields.io/badge/Managed_Hosting-Elest.io-%23193f7e.svg?style=flat" height="22px"/></a></li>
-<li><a href="https://www.stellarhosted.com/archivebox/"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat" height="22px"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
-<li><a href="https://www.pikapods.com/pods?run=archivebox"><img src="https://img.shields.io/badge/Semi_Managed_Hosting-PikaPods.com-%2343a047.svg?style=flat" height="22px"/></a> (from USD $2.6/mo)</li>
+<li><a href="https://elest.io/open-source/archivebox"><img style="height: 22px" src="https://img.shields.io/badge/Managed_Hosting-Elest.io-%23193f7e.svg?style=flat"/></a></li>
+<li><a href="https://www.stellarhosted.com/archivebox/"><img style="height: 22px" src="https://img.shields.io/badge/Semi_Managed_Hosting-StellarHosted.com-%23193f7e.svg?style=flat"/></a> (USD $29-250/mo, <a href="https://www.stellarhosted.com/archivebox/#pricing">pricing</a>)</li>
+<li><a href="https://www.pikapods.com/pods?run=archivebox"><img style="height: 22px" src="https://img.shields.io/badge/Semi_Managed_Hosting-PikaPods.com-%2343a047.svg?style=flat"/></a> (from USD $2.6/mo)</li>
 <li><a href="https://m.do.co/c/cbc4c0c17840">
- <img src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean.com-%232f7cf7.svg?style=flat" height="22px"/>
+ <img style="height: 22px" src="https://img.shields.io/badge/Unmanaged_VPS-DigitalOcean.com-%232f7cf7.svg?style=flat"/>
 </a> (USD $5-50+/mo, <a href="https://m.do.co/c/cbc4c0c17840">🎗&nbsp; referral link</a>, <a href="https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
 <li><a href="https://www.vultr.com/?ref=7130289">
- <img src="https://img.shields.io/badge/Unmanaged_VPS-Vultr.com-%232337a8.svg?style=flat" height="22px"/>
+ <img style="height: 22px" src="https://img.shields.io/badge/Unmanaged_VPS-Vultr.com-%232337a8.svg?style=flat"/>
 </a> (USD $2.5-50+/mo, <a href="https://www.vultr.com/?ref=7130289">🎗&nbsp; referral link</a>, <a href="https://www.vultr.com/docs/install-docker-compose-on-ubuntu-20-04">instructions</a>)</li>
 <li><a href="https://fly.io/">
- <img src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat" height="22px"/>
+ <img style="height: 22px" src="https://img.shields.io/badge/Unmanaged_App-Fly.io-%239a2de6.svg?style=flat"/>
 </a> (USD $10-50+/mo, <a href="https://fly.io/docs/hands-on/start/">instructions</a>)</li>
 <li><a href="https://railway.app/template/2Vvhmy">
- <img src="https://img.shields.io/badge/Unmanaged_App-Railway-%23A11BE6.svg?style=flat" height="22px"/>
+ <img style="height: 22px" src="https://img.shields.io/badge/Unmanaged_App-Railway-%23A11BE6.svg?style=flat"/>
 </a> (USD $0-5+/mo)</li>
-<li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
-<li><a href="https://azuremarketplace.microsoft.com/en-us/marketplace/apps/meanio.archivebox?ocid=gtmrewards_whatsnewblog_archivebox_vol118"><img src="https://img.shields.io/badge/Unmanaged_VPS-Azure-%237cb300.svg?style=flat" height="22px"/></a> (USD $60-200+/mo)</li>
+<li><a href="https://aws.amazon.com/marketplace/pp/Linnovate-Open-Source-Innovation-Support-For-Archi/B08RVW6MJ2"><img style="height: 22px" src="https://img.shields.io/badge/Unmanaged_VPS-AWS-%23ee8135.svg?style=flat"/></a> (USD $60-200+/mo)</li>
+<li><a href="https://azuremarketplace.microsoft.com/en-us/marketplace/apps/meanio.archivebox?ocid=gtmrewards_whatsnewblog_archivebox_vol118"><img style="height: 22px" src="https://img.shields.io/badge/Unmanaged_VPS-Azure-%237cb300.svg?style=flat"/></a> (USD $60-200+/mo)</li>
 <br/>
 <sub><i>Referral links marked 🎗 provide $5-10 of free credit for new users and help pay for our <a href="https://demo.archivebox.io">demo server</a> hosting costs.</i></sub>
 </ul>
@@ -437,7 +437,7 @@ For more discussion on third-party hosting options see here: <a href="https://gi
 #### ➡️&nbsp; Next Steps
 
 - Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
-- (Optional) [Import browser cookies and settings into a persona](docs/Chromium-Install.md#import-an-existing-browser-profile).
+- (Optional) [Import browser cookies and settings into a persona](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile).
 - Tweak your UI or archiving behavior [Configuration](#configuration), read about some of the [Caveats](#caveats), or [Troubleshoot](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 - Read about the [Dependencies](#dependencies) used for archiving, the [Upgrading Process](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives), or the [Archive Layout](#archive-layout) on disk...
 - Or check out our full [Documentation](#documentation) or [Community Wiki](#internet-archiving-ecosystem)...
@@ -476,7 +476,7 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev help
 
 <br/>
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" height="22px" align="top"/> <b>CLI Usage Examples: non-Docker</b></summary>
+<summary><img style="height: 22px" src="https://user-images.githubusercontent.com/511499/117456282-08665e80-af16-11eb-91a1-8102eff54091.png" alt="curl sh automatic setup script" align="top"/> <b>CLI Usage Examples: non-Docker</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have uv-installed ArchiveBox and it's available in your $PATH first
@@ -495,7 +495,7 @@ archivebox help              # get list of archivebox subcommands that can be ru
 <br/>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>CLI Usage Examples: Docker Compose</b></summary>
+<summary><img style="height: 22px" src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" align="top"/> <b>CLI Usage Examples: Docker Compose</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure you have `docker-compose.yml` from the Quickstart instructions first
@@ -512,7 +512,7 @@ docker compose exec archivebox archivebox add 'https://example.com'
 <br/>
 
 <details>
-<summary><img src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" height="22px" align="top"/> <b>CLI Usage Examples: Docker</b></summary>
+<summary><img style="height: 22px" src="https://user-images.githubusercontent.com/511499/117447182-29758200-af0b-11eb-97bd-58723fee62ab.png" alt="Docker" align="top"/> <b>CLI Usage Examples: Docker</b></summary>
 <br/>
 <pre lang="bash"><code style="white-space: pre-line">
 # make sure the `archivebox` server container from the Quickstart is running first
@@ -575,7 +575,7 @@ docker compose run --rm archivebox config --set PERMISSIONS=public
 <br/>
 
 <details>
-<summary><b><img src="https://archivebox.github.io/ios-archivebox/docs/icons/apple.svg" alt="Apple" height="22px" align="top"/> <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.17.0/icons/windows11/windows11-original.svg" alt="Windows" height="22px" align="top"/> 🐧&nbsp; Desktop / Mobile / Extension Usage</b></summary>
+<summary><b><img style="height: 22px" src="https://archivebox.github.io/ios-archivebox/docs/icons/apple.svg" alt="Apple"  align="top"/> <img style="height: 22px" src="https://cdn.jsdelivr.net/gh/devicons/devicon@v2.17.0/icons/windows11/windows11-original.svg" alt="Windows"  align="top"/> 🐧&nbsp; Desktop / Mobile / Extension Usage</b></summary>
 <br/>
 
 - 📱 [<code>ArchiveBox</code> iOS Mobile App](https://archivebox.github.io/ios-archivebox/)
@@ -617,7 +617,7 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://ex
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
 <a href="https://demo.archivebox.io">DEMO: <code>https://demo.archivebox.io</code></a><br/>
-<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> | <a href="#Caveats">Caveats</a>
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> | <a href="#caveats">Caveats</a>
 <br/>
 </div>
 
@@ -638,22 +638,22 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://ex
 ##  Input Formats: How to pass URLs into ArchiveBox for saving
 
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>From the official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a></b>  
+- <img style="height: 28px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" /> <b>From the official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a></b>  
   <i>Provides realtime archiving of browsing history or selected pages from Chrome/Chromium/Firefox/Safari browsers.</i>
 
-- <img src="https://archivebox.github.io/ios-archivebox/App/AppIcon.icon/Assets/ArchiveBox.png" alt="ArchiveBox app icon" height="28px"/> <b>From the official <a href="https://archivebox.github.io/ios-archivebox/">ArchiveBox macOS Desktop App or iOS Mobile App</a></b><br/>
+- <img style="height: 28px" src="https://archivebox.github.io/ios-archivebox/App/AppIcon.icon/Assets/ArchiveBox.png" alt="ArchiveBox app icon" /> <b>From the official <a href="https://archivebox.github.io/ios-archivebox/">ArchiveBox macOS Desktop App or iOS Mobile App</a></b><br/>
   <i>Save directly from the Share menu or Siri/Shortcuts to your server.</i>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> From manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, etc. files  
+- <img style="height: 22px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8"/> From manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, etc. files<br>
   <i>ArchiveBox supports injesting URLs in [any text-based format](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Import-a-list-of-URLs-from-a-text-file).</i>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34" height="22px"/> From manually exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (in Netscape format)  
+- <img style="height: 22px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/32b494e6-4de1-4984-8d88-dc02f18e5c34"/> From manually exported [browser history](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) or [browser bookmarks](https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive) (in Netscape format)<br>
   <i>Instructions: <a href="https://support.google.com/chrome/answer/96816?hl=en">Chrome</a>, <a href="https://support.mozilla.org/en-US/kb/export-firefox-bookmarks-to-backup-or-transfer">Firefox</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/assets/511499/24ad068e-0fa6-41f4-a7ff-4c26fc91f71a">Safari</a>, <a href="https://support.microsoft.com/en-us/help/211089/how-to-import-and-export-the-internet-explorer-favorites-folder-to-a-32-bit-version-of-windows">IE</a>, <a href="https://help.opera.com/en/latest/features/#bookmarks:~:text=Click%20the%20import/-,export%20button,-on%20the%20bottom">Opera</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
 
-- <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12" height="22px"/> From URLs visited through a [MITM Proxy](https://mitmproxy.org/) with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy)  
+- <img style="height: 22px" src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/4f7bd318-265c-4235-ad25-38be89946b12"/> From URLs visited through a [MITM Proxy](https://mitmproxy.org/) with [`archivebox-proxy`](https://github.com/ArchiveBox/archivebox-proxy)<br>
   <i>Provides [realtime archiving](https://github.com/ArchiveBox/ArchiveBox/issues/577) of all traffic from any device going through the proxy.</i>
 
-- <img src="https://getpocket.com/favicon.ico" height="22px"/> From bookmarking services or social media (e.g. Twitter bookmarks, Reddit saved posts, etc.)  
+- <img style="height: 22px" src="https://getpocket.com/favicon.ico"/> From bookmarking services or social media (e.g. Twitter bookmarks, Reddit saved posts, etc.)<br>
   <i>Instructions: <a href="https://getpocket.com/export">Pocket</a>, <a href="https://pinboard.in/export/">Pinboard</a>, <a href="https://www.instapaper.com/user">Instapaper</a>, <a href="https://shaarli.readthedocs.io/en/master/Usage/#importexport">Shaarli</a>, <a href="https://www.groovypost.com/howto/howto/export-delicious-bookmarks-xml/">Delicious</a>, <a href="https://github.com/csu/export-saved-reddit">Reddit Saved</a>, <a href="https://doc.wallabag.org/en/user/import/wallabagv2.html">Wallabag</a>, <a href="http://help.unmark.it/import-export">Unmark.it</a>, <a href="https://www.addictivetips.com/web/onetab-save-close-all-chrome-tabs-to-restore-export-or-import/">OneTab</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/issues/648">Firefox Sync</a>, <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart#2-get-your-list-of-urls-to-archive">and more...</a></i>
 
 
@@ -1037,7 +1037,7 @@ Each re-archive creates a distinct Snapshot row for the same URL:
 archivebox add --no-only-new 'https://example.com'
 </code></pre>
 
-The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI performs the same explicit re-archive.
+The <img style="height: 24px" src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button"/> button in the Admin UI performs the same explicit re-archive.
 
 <h4>Learn More</h4>
 
@@ -1356,7 +1356,7 @@ archivebox server 0.0.0.0:8000
 
 ```bash
 # Optional: develop via docker by mounting the code dir into the container
-# if you edit e.g. ./archivebox/core/models.py on the docker host, runserver
+# if you edit e.g. ./archivebox/core/models/snapshots.py on the docker host, runserver
 # inside the container will reload and pick up your changes
 ./bin/build_docker.sh dev
 

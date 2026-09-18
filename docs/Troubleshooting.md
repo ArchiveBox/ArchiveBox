@@ -4,18 +4,18 @@
 
 What are you having an issue with?:
 
-- [Installing ArchiveBox](#Installing)
+- [Installing ArchiveBox](#installing)
 - [Upgrading ArchiveBox](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)
 - [Configuring ArchiveBox](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)
-- [Archiving content with ArchiveBox](#Archiving)
-- [Hosting your collection publicly](#Hosting-the-Archive)
+- [Archiving content with ArchiveBox](#archiving)
+- [Hosting your collection publicly](#hosting-the-archive)
 - [Database and filesystem issues](#database)
 
 ---
 
 ## Installing
 
-If using `archivebox` without Docker, make sure you've followed the full guide in the [[Install]] instructions first.  Then check here for help depending on what component you need help with.
+If using `archivebox` without Docker, make sure you've followed the full guide in the [Install](Install.md) instructions first.  Then check here for help depending on what component you need help with.
 
 Then make sure `archivebox` is installed available in your `$PATH`.
 ```bash
@@ -57,11 +57,11 @@ uv tool list
 archivebox version
 ```
 
-If `archivebox` is missing, repeat the `uv tool install` command from the [[Install]] guide.
+If `archivebox` is missing, repeat the `uv tool install` command from the [Install](Install.md) guide.
 
 ### Chromium/Google Chrome
 
-For more info, see the [[Chromium Install]] page.
+For more info, see the [Chromium Install](Chromium-Install.md) page.
 
 ArchiveBox resolves Chrome through `abxpkg`, preferring a compatible browser already installed on the host and otherwise installing a managed build:
 

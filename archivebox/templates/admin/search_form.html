@@ -9,18 +9,18 @@
         type="button"
         class="button snapshot-view-icon-toggle"
         id="snapshot-view-toggle"
-        aria-label="{% translate 'Switch to list view' %}"
-        title="{% translate 'Switch to list view' %}"
-        onclick="window.location.href='{% url 'admin:core_snapshot_changelist' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}'"
+        aria-label="{% translate 'List view' %}"
+        title="{% translate 'List view' %}"
+        onclick="selectSnapshotView('list', event)"
       ><span class="snapshot-view-icon snapshot-view-icon-list" aria-hidden="true"><span></span><span></span><span></span></span></button>
     {% else %}
       <button
         type="button"
         class="button snapshot-view-icon-toggle"
         id="snapshot-view-toggle"
-        aria-label="{% translate 'Switch to grid view' %}"
-        title="{% translate 'Switch to grid view' %}"
-        onclick="window.location.href='{% url 'admin:grid' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}'"
+        aria-label="{% translate 'Grid view' %}"
+        title="{% translate 'Grid view' %}"
+        onclick="selectSnapshotView('grid', event)"
       ><span class="snapshot-view-icon snapshot-view-icon-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></span></button>
     {% endif %}
 {% endif %}
@@ -52,12 +52,21 @@
     <input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
 </span>
 {% endif %}
+{% if cl.embedded_changelist %}
+<select name="snapshot_status" aria-label="Snapshot status">
+    <option value="">All statuses</option>
+    {% for value, label in cl.snapshot_status_choices %}
+    <option value="{{ value }}"{% if cl.params.snapshot_status == value %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+</select>
+{% endif %}
 <button type="{% if cl.embedded_changelist %}button{% else %}submit{% endif %}" class="changelist-search-submit">{% translate 'Search' %}</button>
 {% if show_result_count and cl.opts.model_name != 'snapshot' %}
     <span class="small quiet">{% blocktranslate count counter=cl.result_count %}{{ counter }} result{% plural %}{{ counter }} results{% endblocktranslate %} (<a href="?{% if cl.is_popup %}{{ is_popup_var }}=1{% if cl.add_facets %}&{% endif %}{% endif %}{% if cl.add_facets %}{{ is_facets_var }}{% endif %}">{% if cl.show_full_result_count %}{% blocktranslate with full_result_count=cl.full_result_count %}{{ full_result_count }} total{% endblocktranslate %}{% else %}{% translate "Show all" %}{% endif %}</a>)</span>
 {% endif %}
 {% for pair in cl.params.items %}
-    {% if pair.0 != search_var and pair.0 != "search_mode" %}<input type="hidden" name="{{ pair.0 }}" value="{{ pair.1 }}">{% endif %}
+    {% if pair.0 == "snapshot_status" and cl.embedded_changelist %}
+    {% elif pair.0 != search_var and pair.0 != "search_mode" %}<input type="hidden" name="{{ pair.0 }}" value="{{ pair.1 }}">{% endif %}
 {% endfor %}
 </div>
 {% if cl.search_help_text %}

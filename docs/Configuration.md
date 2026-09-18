@@ -11,7 +11,7 @@ TIMEOUT=120
 env TIMEOUT=120 archivebox add ~/Downloads/bookmarks_export.html
 ```
 
-Environment variables seed process-level defaults. Persisted Machine, Persona, Crawl, and Snapshot settings can override them depending on scope, and existing Crawl config is not silently overwritten by later environment changes. Runtime-derived values like crawl/snapshot output dirs are resolved fresh for each run instead of being stored in frozen crawl config. For more examples see [Usage: Configuration](Usage#run-archivebox-with-configuration-options)...
+Environment variables seed process-level defaults. Persisted Machine, Persona, Crawl, and Snapshot settings can override them depending on scope, and existing Crawl config is not silently overwritten by later environment changes. Runtime-derived values like crawl/snapshot output dirs are resolved fresh for each run instead of being stored in frozen crawl config. For more examples see [Usage: Configuration](Usage.md#run-archivebox-with-configuration-options)...
 
 <br/>
 

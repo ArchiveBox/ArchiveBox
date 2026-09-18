@@ -70,7 +70,7 @@ def create_tags(names: Iterable[str]) -> int:
         if not name:
             continue
 
-        tag, created = Tag.objects.get_or_create(name=name)
+        tag, created = Tag.get_or_create_by_name(name)
 
         if not is_tty:
             write_record(tag.to_json())
@@ -90,42 +90,17 @@ def create_tags(names: Iterable[str]) -> int:
 # =============================================================================
 
 
-def list_tags(
-    name: str | None = None,
-    name__icontains: str | None = None,
-    limit: int | None = None,
-) -> int:
-    """
-    List Tags as JSONL with optional filters.
-
-    Exit codes:
-        0: Success (even if no results)
-    """
-    from archivebox.misc.jsonl import write_record
+def list_tags(name: str | None = None, name__icontains: str | None = None, limit: int | None = None) -> int:
+    """List tags as JSONL, or formatted rows in a terminal."""
     from archivebox.core.models import Tag
+    from archivebox.cli.cli_util import list_records
 
-    is_tty = sys.stdout.isatty()
-
-    queryset = Tag.objects.all().order_by("name")
-
-    # Apply filters
-    filter_kwargs = {
-        "name": name,
-        "name__icontains": name__icontains,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for tag in queryset:
-        snapshot_count = tag.snapshot_set.count()
-        if is_tty:
-            rprint(f"[cyan]{tag.name:30}[/cyan] [dim]({snapshot_count} snapshots)[/dim]")
-        else:
-            write_record(tag.to_json())
-        count += 1
-
-    rprint(f"[dim]Listed {count} tags[/dim]", file=sys.stderr)
-    return 0
+    queryset = apply_filters(Tag.objects.order_by("name"), {"name": name, "name__icontains": name__icontains}, limit=limit)
+    return list_records(
+        queryset,
+        plural="tags",
+        render=lambda tag: f"[cyan]{tag.name:30}[/cyan] [dim]({tag.snapshot_set.count()} snapshots)[/dim]",
+    )
 
 
 # =============================================================================
@@ -134,56 +109,15 @@ def list_tags(
 
 
 def update_tags(name: str | None = None) -> int:
-    """
-    Update Tags from stdin JSONL.
-
-    Reads Tag records from stdin and applies updates.
-    Uses PATCH semantics - only specified fields are updated.
-
-    Exit codes:
-        0: Success
-        1: No input or error
-    """
-    from archivebox.misc.jsonl import read_stdin, write_record
+    """Apply supplied fields to each JSONL-selected Tag."""
     from archivebox.core.models import Tag
+    from archivebox.cli.cli_util import update_records
 
-    is_tty = sys.stdout.isatty()
+    def update(tag):
+        if name:
+            tag.rename(name)
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    updated_count = 0
-    for record in records:
-        tag_id = record.get("id")
-        old_name = record.get("name")
-
-        if not tag_id and not old_name:
-            continue
-
-        try:
-            if tag_id:
-                tag = Tag.objects.get(id=tag_id)
-            else:
-                tag = Tag.objects.get(name=old_name)
-
-            # Apply updates from CLI flags
-            if name:
-                tag.name = name
-                tag.save()
-
-            updated_count += 1
-
-            if not is_tty:
-                write_record(tag.to_json())
-
-        except Tag.DoesNotExist:
-            rprint(f"[yellow]Tag not found: {tag_id or old_name}[/yellow]", file=sys.stderr)
-            continue
-
-    rprint(f"[green]Updated {updated_count} tags[/green]", file=sys.stderr)
-    return 0
+    return update_records(Tag, update, plural="tags", by_name=True)
 
 
 # =============================================================================
@@ -192,65 +126,19 @@ def update_tags(name: str | None = None) -> int:
 
 
 def delete_tags(yes: bool = False, dry_run: bool = False) -> int:
-    """
-    Delete Tags from stdin JSONL.
-
-    Requires --yes flag to confirm deletion.
-
-    Exit codes:
-        0: Success
-        1: No input or missing --yes flag
-    """
-    from archivebox.misc.jsonl import read_stdin
+    """Delete tags selected by stdin JSONL; --yes confirms, --dry-run previews."""
+    from archivebox.cli.cli_util import delete_records
     from archivebox.core.models import Tag
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    # Collect tag IDs or names
-    tag_ids = []
-    tag_names = []
-    for r in records:
-        if r.get("id"):
-            tag_ids.append(r["id"])
-        elif r.get("name"):
-            tag_names.append(r["name"])
-
-    if not tag_ids and not tag_names:
-        rprint("[yellow]No valid tag IDs or names in input[/yellow]", file=sys.stderr)
-        return 1
-
-    from django.db.models import Q
-
-    query = Q()
-    if tag_ids:
-        query |= Q(id__in=tag_ids)
-    if tag_names:
-        query |= Q(name__in=tag_names)
-
-    tags = Tag.objects.filter(query)
-    count = tags.count()
-
-    if count == 0:
-        rprint("[yellow]No matching tags found[/yellow]", file=sys.stderr)
-        return 0
-
-    if dry_run:
-        rprint(f"[yellow]Would delete {count} tags (dry run)[/yellow]", file=sys.stderr)
-        for tag in tags:
-            rprint(f"  {tag.name}", file=sys.stderr)
-        return 0
-
-    if not yes:
-        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
-        return 1
-
-    # Perform deletion
-    deleted_count, _ = tags.delete()
-    rprint(f"[green]Deleted {deleted_count} tags[/green]", file=sys.stderr)
-    return 0
+    return delete_records(
+        Tag,
+        label="tag",
+        plural="tags",
+        preview=lambda obj: obj.name,
+        yes=yes,
+        dry_run=dry_run,
+        by_name=True,
+    )
 
 
 # =============================================================================
@@ -275,24 +163,24 @@ def create_cmd(names: tuple):
 @click.option("--name", help="Filter by exact name")
 @click.option("--name__icontains", help="Filter by name contains")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(name: str | None, name__icontains: str | None, limit: int | None):
+def list_cmd(**kwargs):
     """List Tags as JSONL."""
-    sys.exit(list_tags(name=name, name__icontains=name__icontains, limit=limit))
+    sys.exit(list_tags(**kwargs))
 
 
 @main.command("update")
 @click.option("--name", "-n", help="Set new name")
-def update_cmd(name: str | None):
+def update_cmd(**kwargs):
     """Update Tags from stdin JSONL."""
-    sys.exit(update_tags(name=name))
+    sys.exit(update_tags(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete Tags from stdin JSONL."""
-    sys.exit(delete_tags(yes=yes, dry_run=dry_run))
+    sys.exit(delete_tags(**kwargs))
 
 
 if __name__ == "__main__":

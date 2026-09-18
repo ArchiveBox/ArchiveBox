@@ -33,12 +33,7 @@ class TestSnapshotCreate:
         """Create snapshot from URL arguments."""
         url = create_test_url()
 
-        result = run_archivebox_cmd(
-            ["snapshot", "create", url],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        result = run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0, f"Command failed: {result.stderr}"
         assert "Created" in result.stderr
@@ -77,6 +72,10 @@ class TestSnapshotCreate:
 
         snapshot = next(r for r in records if r["type"] == "Snapshot")
         assert snapshot["url"] == url
+        assert snapshot["crawl_id"] == crawl["id"]
+        listed = run_archivebox_cmd(["crawl", "list"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
+        assert listed.returncode == 0, listed.stderr
+        assert [record["id"] for record in parse_jsonl_output(listed.stdout)] == [crawl["id"]]
 
     def test_create_with_tag(self, initialized_archive):
         """Create snapshot with --tag flag."""
@@ -124,12 +123,7 @@ class TestSnapshotCreate:
         """Create snapshots from multiple URLs."""
         urls = [create_test_url() for _ in range(3)]
 
-        result = run_archivebox_cmd(
-            ["snapshot", "create"] + urls,
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        result = run_archivebox_cmd(["snapshot", "create"] + urls, cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         records = parse_jsonl_output(result.stdout)
@@ -145,12 +139,7 @@ class TestSnapshotList:
 
     def test_list_empty(self, initialized_archive):
         """List with no snapshots returns empty."""
-        result = run_archivebox_cmd(
-            ["snapshot", "list"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        result = run_archivebox_cmd(["snapshot", "list"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         assert "Listed 0 snapshots" in result.stderr
@@ -160,12 +149,7 @@ class TestSnapshotList:
         url = create_test_url()
         run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-        result = run_archivebox_cmd(
-            ["snapshot", "list"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
-        )
+        result = run_archivebox_cmd(["snapshot", "list"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
         assert result.returncode == 0
         records = parse_jsonl_output(result.stdout)

@@ -5,7 +5,6 @@ from collections import defaultdict
 from typing import Any
 from urllib.parse import unquote
 
-from django.contrib.auth.models import User
 from django.db.models import Count, Exists, F, OuterRef, QuerySet
 from django.db.models.functions import Lower
 from django.http import HttpRequest
@@ -147,34 +146,6 @@ def get_tag_by_ref(tag_ref: str | int) -> Tag:
     return Tag.objects.get(name__iexact=decoded)
 
 
-def get_or_create_tag(name: str, created_by: User | None = None) -> tuple[Tag, bool]:
-    normalized_name = normalize_tag_name(name)
-    if not normalized_name:
-        raise ValueError("Tag name is required")
-
-    defaults = {"created_by": created_by} if created_by is not None else None
-    return Tag.get_or_create_by_name(normalized_name, defaults=defaults)
-
-
-def rename_tag(tag: Tag, name: str) -> Tag:
-    normalized_name = normalize_tag_name(name)
-    if not normalized_name:
-        raise ValueError("Tag name is required")
-
-    existing = Tag.objects.filter(name__iexact=normalized_name).exclude(pk=tag.pk).first()
-    if existing:
-        raise ValueError(f'Tag "{existing.name}" already exists')
-
-    if tag.name != normalized_name:
-        tag.name = normalized_name
-        tag.save()
-    return tag
-
-
-def delete_tag(tag: Tag) -> tuple[int, dict[str, int]]:
-    return tag.delete()
-
-
 def export_tag_urls(tag: Tag) -> str:
     urls = tag.snapshot_set.order_by("-downloaded_at", "-created_at", "-pk").values_list("url", flat=True)
     return "\n".join(urls)
@@ -250,10 +221,10 @@ def build_tag_card(tag: Tag, snapshot_previews: list[dict[str, Any]] | None = No
         "num_snapshots": count,
         "filter_url": f"/admin/core/snapshot/?tags__id__exact={tag.pk}",
         "edit_url": f"/admin/core/tag/{tag.pk}/change/",
-        "export_urls_url": f"/api/v1/core/tag/{tag.pk}/urls.txt",
-        "export_jsonl_url": f"/api/v1/core/tag/{tag.pk}/snapshots.jsonl",
-        "rename_url": f"/api/v1/core/tag/{tag.pk}/rename",
-        "delete_url": f"/api/v1/core/tag/{tag.pk}/",
+        "export_urls_url": reverse("api-1:tag_urls_export", args=[tag.pk]),
+        "export_jsonl_url": reverse("api-1:tag_snapshots_export", args=[tag.pk]),
+        "rename_url": reverse("api-1:rename_tag", args=[tag.pk]),
+        "delete_url": reverse("api-1:delete_tag", args=[tag.pk]),
         "snapshots": snapshot_previews or [],
     }
 

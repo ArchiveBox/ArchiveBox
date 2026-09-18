@@ -6,7 +6,7 @@ import pytest
 from django.urls import reverse
 
 from archivebox.core.models import Snapshot
-from archivebox.crawls.admin import CrawlAdminForm
+from archivebox.crawls.forms import CrawlAdminForm
 from archivebox.crawls.models import Crawl
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
@@ -468,3 +468,29 @@ def test_crawl_stop_reason_reports_paused_for_paused_crawl(admin_user):
     )
 
     assert crawl.stop_reason() == "paused"
+
+
+@pytest.mark.parametrize("query, status, expected_count", [("", "", 2), ("matching", "", 1), ("absent", "", 0), ("", "sealed", 0)])
+def test_schedule_uses_scoped_snapshot_changelist(admin_client, admin_user, query, status, expected_count):
+    from archivebox.crawls.models import CrawlSchedule
+
+    template = Crawl.objects.create(urls="https://example.com/template", created_by=admin_user)
+    schedule = CrawlSchedule.objects.create(template=template, schedule="0 0 * * *", created_by=admin_user)
+    crawl = Crawl.objects.create(urls="https://example.com/one", schedule=schedule, created_by=admin_user)
+    for suffix in ("matching", "second"):
+        Snapshot.objects.create(crawl=crawl, url=f"https://example.com/{suffix}", title=f"Scheduled {suffix}")
+    other_crawl = Crawl.objects.create(urls="https://example.org/foreign", created_by=admin_user)
+    Snapshot.objects.create(crawl=other_crawl, url="https://example.org/foreign", title="Foreign matching snapshot")
+    url = reverse("admin:crawls_crawlschedule_change", args=[schedule.pk])
+    response = admin_client.get(url, {"q": query, "snapshot_status": status}, HTTP_HOST=ADMIN_TEST_HOST)
+
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert "Snapshots in this schedule" in html
+    assert "snapshot-changelist-widget" in html
+    assert "Foreign matching snapshot" not in html
+    assert html.count('class="action-select"') == expected_count
+    assert f"crawl__schedule__id__exact={schedule.pk}" in html
+    # Keep the embedded table outside the schedule edit form so its actions can submit.
+    assert html.index('id="crawlschedule_form"') < html.index('class="crawl-snapshots-embed')
+    assert "</form>" in html[html.index('id="crawlschedule_form"') : html.index('class="crawl-snapshots-embed')]

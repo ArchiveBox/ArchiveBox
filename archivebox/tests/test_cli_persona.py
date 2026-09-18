@@ -3,6 +3,8 @@
 Tests for archivebox persona command.
 """
 
+from pathlib import Path
+
 from archivebox.tests.conftest import run_archivebox_cmd
 
 
@@ -14,6 +16,26 @@ def test_persona_help_runs_successfully(tmp_path):
     assert result.returncode == 0
     assert "persona" in result.stdout.lower()
     assert "list" in result.stdout
+
+
+def test_persona_commands_emit_consistent_model_records(initialized_archive):
+    import json
+
+    created = run_archivebox_cmd(["persona", "create", "portable"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
+    assert created.returncode == 0, created.stderr
+    record = json.loads(created.stdout)
+    assert record == {
+        "id": record["id"],
+        "name": "portable",
+        "path": str(initialized_archive / "personas/portable"),
+        "CHROME_USER_DATA_DIR": str(initialized_archive / "personas/portable/chrome_profile"),
+        "COOKIES_FILE": "",
+    }
+    for command in (["persona", "list", "--name=portable"], ["persona", "update"]):
+        result = run_archivebox_cmd(command, input=created.stdout, cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == record
+    assert Path(record["CHROME_USER_DATA_DIR"]).is_dir()
 
 
 def test_persona_import_missing_source_is_actionable_and_does_not_create(initialized_archive, tmp_path):

@@ -144,15 +144,7 @@ def create_snapshots(
                     write_record(record)
 
                 # Input is a Crawl - get or create it, then create Snapshots for its URLs
-                crawl = None
-                crawl_id = record.get("id")
-                if crawl_id:
-                    try:
-                        crawl = Crawl.objects.get(id=crawl_id)
-                    except Crawl.DoesNotExist:
-                        crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
-                else:
-                    crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
+                crawl = Crawl.from_json(record, overrides={"created_by_id": created_by_id})
 
                 if not crawl:
                     continue
@@ -174,7 +166,7 @@ def create_snapshots(
                         "depth": depth,
                         "status": status,
                     }
-                    snapshot = Snapshot.from_json(snapshot_record, overrides={"created_by_id": created_by_id})
+                    snapshot = Snapshot.from_json(snapshot_record, overrides={"crawl": crawl, "created_by_id": created_by_id})
                     if snapshot:
                         created_snapshots.append(snapshot)
                         if not is_tty:
@@ -368,77 +360,29 @@ def list_snapshots(
 # =============================================================================
 
 
-def update_snapshots(
-    status: str | None = None,
-    tag: str | None = None,
-) -> int:
-    """
-    Update Snapshots from stdin JSONL.
-
-    Reads Snapshot records from stdin and applies updates.
-    Uses PATCH semantics - only specified fields are updated.
-
-    Exit codes:
-        0: Success
-        1: No input or error
-    """
+def update_snapshots(status: str | None = None, tag: str | None = None) -> int:
+    """Update JSONL-selected snapshots through their lifecycle operations."""
     from django.utils import timezone
-
-    from archivebox.misc.jsonl import read_stdin, write_record
     from archivebox.core.models import Snapshot
+    from archivebox.cli.cli_util import update_records, update_record_status
 
-    is_tty = sys.stdout.isatty()
+    def update(snapshot):
+        if status:
+            try:
+                update_record_status(snapshot, status)
+            except ValueError as err:
+                rprint(f"[red]{err}[/red]", file=sys.stderr)
+                return False
+        if tag:
+            from archivebox.core.models import Tag
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
+            tag_obj, _ = Tag.objects.get_or_create(name=tag)
+            snapshot.tags.add(tag_obj)
+            snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
+        if not status and not tag:
+            snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
 
-    updated_count = 0
-    for record in records:
-        snapshot_id = record.get("id")
-        if not snapshot_id:
-            continue
-
-        try:
-            snapshot = Snapshot.objects.get(id=snapshot_id)
-
-            if status:
-                if status not in Snapshot.StatusChoices.values:
-                    rprint(f"[red]Invalid snapshot status: {status}[/red]", file=sys.stderr)
-                    continue
-                if status == Snapshot.StatusChoices.SEALED:
-                    snapshot.cancel()
-                elif status == Snapshot.StatusChoices.PAUSED:
-                    snapshot.pause()
-                elif status == Snapshot.StatusChoices.QUEUED:
-                    if snapshot.status == Snapshot.StatusChoices.PAUSED:
-                        snapshot.resume()
-                    else:
-                        snapshot.update_and_requeue(status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now())
-                elif status == Snapshot.StatusChoices.STARTED:
-                    snapshot.update_and_requeue(status=Snapshot.StatusChoices.STARTED, retry_at=timezone.now())
-            if tag:
-                from archivebox.core.models import Tag
-
-                tag_obj, _ = Tag.objects.get_or_create(name=tag)
-                snapshot.tags.add(tag_obj)
-                snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
-
-            if not status and not tag:
-                snapshot.safe_update({"modified_at": timezone.now()}, refresh=False)
-            updated_count += 1
-
-            if not is_tty:
-                snapshot.refresh_from_db()
-                write_record(snapshot.to_json())
-
-        except Snapshot.DoesNotExist:
-            rprint(f"[yellow]Snapshot not found: {snapshot_id}[/yellow]", file=sys.stderr)
-            continue
-
-    rprint(f"[green]Updated {updated_count} snapshots[/green]", file=sys.stderr)
-    return 0
+    return update_records(Snapshot, update, plural="snapshots", refresh=True)
 
 
 # =============================================================================
@@ -447,50 +391,18 @@ def update_snapshots(
 
 
 def delete_snapshots(yes: bool = False, dry_run: bool = False) -> int:
-    """
-    Delete Snapshots from stdin JSONL.
-
-    Requires --yes flag to confirm deletion.
-
-    Exit codes:
-        0: Success
-        1: No input or missing --yes flag
-    """
-    from archivebox.misc.jsonl import read_stdin
+    """Delete snapshots selected by stdin JSONL; --yes confirms, --dry-run previews."""
+    from archivebox.cli.cli_util import delete_records
     from archivebox.core.models import Snapshot
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    snapshot_ids = [r.get("id") for r in records if r.get("id")]
-
-    if not snapshot_ids:
-        rprint("[yellow]No valid snapshot IDs in input[/yellow]", file=sys.stderr)
-        return 1
-
-    snapshots = Snapshot.objects.filter(id__in=snapshot_ids)
-    count = snapshots.count()
-
-    if count == 0:
-        rprint("[yellow]No matching snapshots found[/yellow]", file=sys.stderr)
-        return 0
-
-    if dry_run:
-        rprint(f"[yellow]Would delete {count} snapshots (dry run)[/yellow]", file=sys.stderr)
-        for snapshot in snapshots:
-            rprint(f"  [dim]{snapshot.id}[/dim] {snapshot.url[:60]}", file=sys.stderr)
-        return 0
-
-    if not yes:
-        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
-        return 1
-
-    # Perform deletion
-    deleted_count, _ = snapshots.delete()
-    rprint(f"[green]Deleted {deleted_count} snapshots[/green]", file=sys.stderr)
-    return 0
+    return delete_records(
+        Snapshot,
+        label="snapshot",
+        plural="snapshots",
+        preview=lambda obj: f"[dim]{obj.id}[/dim] {obj.url[:60]}",
+        yes=yes,
+        dry_run=dry_run,
+    )
 
 
 # =============================================================================
@@ -525,17 +437,17 @@ def list_cmd(**kwargs):
 @main.command("update")
 @click.option("--status", "-s", help="Set status")
 @click.option("--tag", "-t", help="Add tag")
-def update_cmd(status: str | None, tag: str | None):
+def update_cmd(**kwargs):
     """Update Snapshots from stdin JSONL."""
-    sys.exit(update_snapshots(status=status, tag=tag))
+    sys.exit(update_snapshots(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete Snapshots from stdin JSONL."""
-    sys.exit(delete_snapshots(yes=yes, dry_run=dry_run))
+    sys.exit(delete_snapshots(**kwargs))
 
 
 if __name__ == "__main__":

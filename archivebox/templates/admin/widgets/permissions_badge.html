@@ -1,0 +1,13 @@
+<span class="snapshot-permissions-quick" data-current-permissions="{{ permissions }}" data-permissions-url="{{ url }}">
+    <button type="button" class="snapshot-permissions-button snapshot-permissions-{{ permissions }}" title="{{ label }}" aria-label="Change {{ object_name }} permissions: {{ label }}" aria-expanded="false">
+        <span class="snapshot-permissions-icon" aria-hidden="true" style="color:{{ fg }}; background:{{ bg }};">{{ icon }}</span>
+    </button>
+    <span class="snapshot-permissions-menu" role="menu" hidden>
+        {% for value, choice_icon, choice_label, choice_fg, choice_bg in choices %}
+        <button type="button" class="snapshot-permissions-menu-item{% if value == permissions %} is-active{% endif %}" data-permissions="{{ value }}">
+            <span class="snapshot-permissions-icon" aria-hidden="true" style="color:{{ choice_fg }}; background:{{ choice_bg }};">{{ choice_icon }}</span>
+            <span>{{ choice_label }}</span>
+        </button>
+        {% endfor %}
+    </span>
+</span>

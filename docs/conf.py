@@ -11,6 +11,7 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
 import datetime
+import inspect
 import os
 import sys
 from pathlib import Path
@@ -25,7 +26,6 @@ project = "ArchiveBox"
 copyright = f"{datetime.date.today().year} ArchiveBox"
 author = "Nick Sweeting"
 github_url = "https://github.com/ArchiveBox/ArchiveBox"
-github_doc_root = "https://github.com/ArchiveBox/docs/tree/master/"  # docs repo uses master branch
 github_view_style = "blob"
 language = "en"
 
@@ -36,6 +36,10 @@ tag = release
 # 0.8.5 -> v0.8.5
 if release[0].isdigit():
     tag = f"v{release}"  # .split('rc')[0]
+
+# Branch and PR builds must link to the code they actually document.
+tag = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH") or os.environ.get("READTHEDOCS_GIT_IDENTIFIER") or tag
+github_doc_root = f"{github_url}/tree/{tag}/docs/"
 
 # Detect if this is a dev/pre-release build using PEP 440 parsing.
 # A version like "0.9.10" with no suffix is stable.
@@ -60,6 +64,7 @@ if rtd_version in ("latest", "dev", "main", "master"):
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.linkcode",
@@ -106,6 +111,8 @@ autodoc2_skip_module_regexes = [
 autodoc2_hidden_regexes = [
     r".*__package__",
 ]
+# Preserve GitHub-compatible heading fragments used by the shared wiki pages.
+myst_heading_anchors = 6
 myst_enable_extensions = ["linkify"]  # pip install linkify-it-py
 myst_fence_as_directive = ["mermaid"]  # render ```mermaid blocks via sphinxcontrib-mermaid
 
@@ -167,13 +174,14 @@ html_theme_options = {
 html_context = {
     "display_github": True,
     "github_user": "ArchiveBox",
-    "github_repo": "docs",
-    "github_version": "master",  # docs repo uses master branch
-    "conf_py_path": "/",
+    "github_repo": "ArchiveBox",
+    "github_version": tag,
+    "conf_py_path": "/docs/",
     # RTD injects these automatically when building on RTD:
     #   current_version, versions, downloads, READTHEDOCS, etc.
     # For local/non-RTD builds, set version info explicitly:
-    "current_version": f"{release} (dev)" if is_dev else release,
+    "current_version": rtd_version or release,
+    "is_dev": is_dev,
 }
 html_show_sphinx = False
 
@@ -210,38 +218,44 @@ man_pages = [
 
 
 def linkcode_resolve(domain, info):
-    """
-    Calculate link to source code on Github
-    Docs: https://www.sphinx-doc.org/en/master/usage/extensions/linkcode.html
-    """
-    module_name = str(info["module"] or "")
-    package_name = module_name.split(".", 1)[0]  # archivebox
-    submodule_name = module_name.split(f"{package_name}", 1)[-1].strip(".")  # core.models
-    symbol_name = str(info["fullname"] or "")  # Crawl.abid_ts_src
-    full_name = f"{package_name}.{submodule_name}.{symbol_name}".replace("..", ".")  # archivebox.core.models.Crawl.abid_ts_src
-    fallback_url = f"https://github.com/search?type=code&q=repo%3AArchiveBox%2FArchiveBox%20{full_name.replace('.', '%20')}"
+    """Link re-exported symbols to their defining file without importing Django."""
+    if domain != "py" or not info.get("module", "").startswith("archivebox"):
+        return None
+    root = Path(__file__).resolve().parent.parent
+    module_name = info["module"]
+    obj = sys.modules.get(module_name)
+    source = None
+    anchor = ""
+    try:
+        for part in info.get("fullname", "").split("."):
+            if part:
+                obj = inspect.getattr_static(obj, part)
+        if isinstance(obj, property):
+            obj = obj.fget
+        obj = inspect.unwrap(obj)
+        source = inspect.getsourcefile(obj)
+        lines, start = inspect.getsourcelines(obj)
+        anchor = f"#L{start}-L{start + len(lines) - 1}"
+    except (AttributeError, TypeError, OSError):
+        # Static autodoc builds may not have loaded the object. Link its module.
+        module_path = root.joinpath(*module_name.split("."))
+        source = next((path for path in (module_path.with_suffix(".py"), module_path / "__init__.py") if path.is_file()), None)
+    if source is None:
+        return None
+    try:
+        relative = Path(source).resolve().relative_to(root)
+    except ValueError:
+        return None
+    return f"{github_url}/{github_view_style}/{tag}/{relative.as_posix()}{anchor}"
 
-    # 'archivebox.core.models.Crawl' -> archivebox/core/models.py
-    file_path = f"{package_name}/{submodule_name.replace('.', '/')}.py"  # archivebox/core/models.py
 
-    # correct for any extra / or .py
-    file_path = file_path.strip("/").strip(".py") + ".py"
+def configure_source_links(app, pagename, templatename, context, doctree):
+    """Generated API pages have Python source links, not editable Markdown files."""
+    if pagename.startswith("apidocs/"):
+        context["display_github"] = False
+    elif pagename == "README":
+        context["conf_py_path"] = "/"
 
-    # fallback to using Github search instead if URL doesn't look like a valid file path
-    if not file_path.startswith("archivebox/"):
-        return fallback_url
-    if "//" in file_path:
-        return fallback_url
-    if file_path.count(".py") > 1:
-        return fallback_url
 
-    # correct for archivebox/cli.py -> archivebox/cli/__init__.py
-    init_path = f"{package_name}/{submodule_name.replace('.', '/')}/__init__.py"
-    if not Path(f"../{file_path}").is_file():
-        if Path(f"../{init_path}").is_file():
-            file_path = init_path
-        else:
-            return fallback_url
-
-    # https://github.com/ArchiveBox/ArchiveBox/blob/v0.8.5/archivebox/core/models.py#archivebox.core.models.Crawl.abid_ts_src#:~:text=abid_ts_src
-    return f"{github_url}/{github_view_style}/{tag}/{file_path}#{full_name}#:~:text={symbol_name.rsplit('.', 1)[-1]}"
+def setup(app):
+    app.connect("html-page-context", configure_source_links)

@@ -107,13 +107,8 @@ class TestLDAPIntegration:
                 "manage",
                 "shell",
                 "-c",
-                (
-                    "from django.conf import settings; "
-                    "print('LDAP_BACKENDS=' + ','.join(settings.AUTHENTICATION_BACKENDS)); "
-                    "print('LDAP_SERVER_URI=' + settings.AUTH_LDAP_SERVER_URI)"
-                ),
+                "from django.conf import settings; print('LDAP_BACKENDS=' + ','.join(settings.AUTHENTICATION_BACKENDS)); print('LDAP_SERVER_URI=' + settings.AUTH_LDAP_SERVER_URI)",
             ],
-            cwd=initialized_archive,
             timeout=45,
             env={
                 "LDAP_ENABLED": "True",
@@ -122,6 +117,7 @@ class TestLDAPIntegration:
                 "LDAP_BIND_PASSWORD": "password",
                 "LDAP_USER_BASE": "ou=users,dc=example,dc=com",
             },
+            cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )

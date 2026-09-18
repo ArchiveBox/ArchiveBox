@@ -190,7 +190,7 @@ def test_extract_runs_on_snapshot_id(initialized_archive):
         for record in records
         if record.get("type") == "ArchiveResult"
         and record.get("snapshot_id") == str(snapshot_id)
-        and record.get("plugin") in {"wget", "title"}
+        and (record.get("plugin") in {"wget", "title"})
     }
     assert set(result_records) == {"wget", "title"}, records
     assert result_records["title"]["status"] == ArchiveResult.StatusChoices.SUCCEEDED
@@ -239,7 +239,7 @@ def test_extract_with_enabled_extractor_creates_archiveresult(initialized_archiv
         for record in records
         if record.get("type") == "ArchiveResult"
         and record.get("snapshot_id") == str(snapshot_id)
-        and record.get("plugin") in {"wget", "title"}
+        and (record.get("plugin") in {"wget", "title"})
     }
     assert set(result_records) == {"wget", "title"}, records
     assert result_records["title"]["status"] == ArchiveResult.StatusChoices.SUCCEEDED
@@ -286,7 +286,7 @@ def test_extract_plugin_option_accepted(initialized_archive):
         for record in records
         if record.get("type") == "ArchiveResult"
         and record.get("snapshot_id") == str(snapshot_id)
-        and record.get("plugin") in {"wget", "title"}
+        and (record.get("plugin") in {"wget", "title"})
     }
     assert set(result_records) == {"wget", "title"}, records
     assert result_records["title"]["status"] == ArchiveResult.StatusChoices.SUCCEEDED
@@ -334,7 +334,7 @@ def test_extract_stdin_snapshot_id(initialized_archive):
         for record in records
         if record.get("type") == "ArchiveResult"
         and record.get("snapshot_id") == str(snapshot_id)
-        and record.get("plugin") in {"wget", "title"}
+        and (record.get("plugin") in {"wget", "title"})
     }
     assert set(result_records) == {"wget", "title"}, records
     assert result_records["title"]["status"] == ArchiveResult.StatusChoices.SUCCEEDED
@@ -388,7 +388,7 @@ def test_extract_stdin_jsonl_input(initialized_archive):
         for record in records
         if record.get("type") == "ArchiveResult"
         and record.get("snapshot_id") == str(snapshot_id)
-        and record.get("plugin") in {"wget", "title"}
+        and (record.get("plugin") in {"wget", "title"})
     }
     assert set(result_records) == {"wget", "title"}, records
     assert result_records["title"]["status"] == ArchiveResult.StatusChoices.SUCCEEDED
@@ -437,7 +437,7 @@ def test_extract_pipeline_from_snapshot(initialized_archive):
         for record in records
         if record.get("type") == "ArchiveResult"
         and record.get("snapshot_id") == str(snapshot.id)
-        and record.get("plugin") in {"wget", "title"}
+        and (record.get("plugin") in {"wget", "title"})
     }
     assert set(result_records) == {"wget", "title"}, records
     assert result_records["title"]["status"] == ArchiveResult.StatusChoices.SUCCEEDED

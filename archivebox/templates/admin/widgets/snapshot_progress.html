@@ -1,0 +1,16 @@
+<div class="snapshot-files-progress" title="{{ completed }} of {{ total }} hooks complete" style="min-width: 96px;">
+    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+        <span class="snapshot-progress-spinner" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: snapshot-spin 0.8s linear infinite;"></span>
+        <span style="font-size: 11px; color: #64748b;">{{ completed }}/{{ total }} hooks</span>
+    </div>
+    <div style="background: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden;">
+        <div style="background: linear-gradient(90deg, #10b981 0%, #10b981 {{ succeeded_percent }}%, #ef4444 {{ succeeded_percent }}%, #ef4444 {{ failed_percent }}%, #3b82f6 {{ failed_percent }}%, #3b82f6 100%); width: {{ percent }}%; height: 100%; transition: width 0.3s;"></div>
+    </div>
+    <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">✓{{ succeeded }} ✗{{ failed }} ⏳{{ running }}</div>
+    {% if show_plugins %}
+    <div class="snapshot-successful-plugin-icons" style="display:flex; flex-wrap:wrap; gap:2px; margin-top:4px;">
+        {% for name, icon in plugins %}<span title="{{ name }}">{{ icon }}</span>{% endfor %}
+        {% if remaining_plugins %}<span title="{{ remaining_plugins }} more successful plugins">+{{ remaining_plugins }}</span>{% endif %}
+    </div>
+    {% endif %}
+</div>

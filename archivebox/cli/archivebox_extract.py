@@ -18,7 +18,7 @@ def _resolve_requests(records: list[dict], plugins: str) -> tuple[dict[str, set[
     ArchiveResult input is accepted as a convenient reference to its parent
     Snapshot and plugin. It is never reset or converted into queued work.
     """
-    from archivebox.api.v1_core import _uuid_ref_query
+    from archivebox.misc.db import uuid_ref_query
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.misc.jsonl import TYPE_ARCHIVERESULT
 
@@ -36,7 +36,7 @@ def _resolve_requests(records: list[dict], plugins: str) -> tuple[dict[str, set[
             continue
 
         if record_type == TYPE_ARCHIVERESULT:
-            result = ArchiveResult.objects.filter(_uuid_ref_query("id", record_id)).only("snapshot_id", "plugin").first()
+            result = ArchiveResult.objects.filter(uuid_ref_query("id", record_id)).only("snapshot_id", "plugin").first()
             if result is not None:
                 requested[str(result.snapshot_id)].update(explicit_plugins or {result.plugin})
                 continue
@@ -50,7 +50,7 @@ def _resolve_requests(records: list[dict], plugins: str) -> tuple[dict[str, set[
         # convenience of passing an ArchiveResult ID by trying that reference
         # only after the Snapshot lookup misses.
         if snapshot is None and record_id and not record.get("url"):
-            result = ArchiveResult.objects.filter(_uuid_ref_query("id", record_id)).only("snapshot_id", "plugin").first()
+            result = ArchiveResult.objects.filter(uuid_ref_query("id", record_id)).only("snapshot_id", "plugin").first()
             if result is not None:
                 requested[str(result.snapshot_id)].update(explicit_plugins or {result.plugin})
                 continue
@@ -175,11 +175,6 @@ def run_plugins(
             else:
                 write_record(result.to_json())
     return 0
-
-
-def process_archiveresult_by_id(archiveresult_id: str) -> int:
-    """Re-run the parent Snapshot plugin referenced by an ArchiveResult."""
-    return run_plugins((), records=[{"id": archiveresult_id}], wait=True)
 
 
 @click.command()

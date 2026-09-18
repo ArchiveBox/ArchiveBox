@@ -1,3 +1,8 @@
+from archivebox.base_models.models import get_or_create_system_user_pk
+from archivebox.cli.archivebox_update import _build_filtered_snapshots_queryset
+from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.crawls.models import Crawl
+
 import json
 import os
 from datetime import datetime, timedelta
@@ -8,7 +13,6 @@ from archivebox.tests.conftest import cli_env, run_archivebox_cmd
 import pytest
 from django.utils import timezone
 
-from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.tests.migrations_helpers import filesystem_manifest
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -139,10 +143,7 @@ def test_update_migrates_every_declared_filesystem_version(tmp_path, initialized
 
 @pytest.mark.django_db(transaction=True)
 def test_reindex_snapshots_runs_only_missing_sealed_search_indexes():
-    from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.cli.archivebox_update import reindex_snapshots
-    from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.crawls.models import Crawl
 
     crawl = Crawl.objects.create(
         urls="https://example.com\nhttps://example.org",
@@ -219,8 +220,6 @@ def test_reindex_snapshots_runs_only_missing_sealed_search_indexes():
 
 @pytest.mark.django_db(transaction=True)
 def test_update_schedule_backfills_missing_search_index_without_reopening_snapshot():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl, CrawlSchedule
 
     user_id = get_or_create_system_user_pk()
@@ -287,10 +286,6 @@ def test_update_schedule_backfills_missing_search_index_without_reopening_snapsh
 
 @pytest.mark.django_db
 def test_build_filtered_snapshots_queryset_respects_resume_cutoff():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.cli.archivebox_update import _build_filtered_snapshots_queryset
-    from archivebox.core.models import Snapshot
-    from archivebox.crawls.models import Crawl
 
     crawl = Crawl.objects.create(
         urls="https://example.com\nhttps://example.org\nhttps://example.net",
@@ -329,10 +324,7 @@ def test_build_filtered_snapshots_queryset_respects_resume_cutoff():
 
 @pytest.mark.django_db
 def test_build_filtered_snapshots_queryset_accepts_list_style_filters():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.cli.archivebox_update import _build_filtered_snapshots_queryset
     from archivebox.core.models import Snapshot, Tag
-    from archivebox.crawls.models import Crawl
 
     crawl = Crawl.objects.create(
         urls="https://example.com\nhttps://example.org",
@@ -370,9 +362,6 @@ def test_build_filtered_snapshots_queryset_accepts_list_style_filters():
 
 @pytest.mark.django_db
 def test_reconcile_with_index_json_tolerates_null_title(tmp_path):
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.core.models import Snapshot
-    from archivebox.crawls.models import Crawl
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -405,9 +394,6 @@ def test_reconcile_with_index_json_tolerates_null_title(tmp_path):
 
 @pytest.mark.django_db
 def test_reconcile_with_index_json_imports_legacy_archive_results_and_process(tmp_path):
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.crawls.models import Crawl
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -460,9 +446,6 @@ def test_reconcile_with_index_json_imports_legacy_archive_results_and_process(tm
 
 @pytest.mark.django_db
 def test_reconcile_with_index_json_merges_retried_archive_results(tmp_path):
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.crawls.models import Crawl
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -516,9 +499,6 @@ def test_reconcile_with_index_json_merges_retried_archive_results(tmp_path):
 
 @pytest.mark.django_db
 def test_reconcile_with_index_json_trusts_legacy_archive_results(tmp_path):
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.crawls.models import Crawl
 
     crawl = Crawl.objects.create(
         urls="https://example.com/page",
