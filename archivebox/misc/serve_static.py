@@ -130,10 +130,13 @@ class _ZipBuffer(io.RawIOBase):
 def _iter_visible_files(root: Path):
     """Yield non-hidden files in a stable order so ZIP output is deterministic."""
 
+    resolved_root = root.resolve()
     for current_root, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(dirname for dirname in dirnames if not dirname.startswith("."))
         for filename in sorted(name for name in filenames if not name.startswith(".")):
-            yield Path(current_root) / filename
+            entry = Path(current_root) / filename
+            if entry.resolve().is_relative_to(resolved_root):
+                yield entry
 
 
 def _iter_directory_zip(fullpath: Path, root_name: str):
@@ -369,6 +372,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     if config is None:
         config = get_config(resolve_plugins=False)
     fullpath, path = _resolve_archive_path(document_root, path)
+    if not fullpath.resolve().is_relative_to(Path(document_root).resolve()):
+        raise Http404(_("Path is outside the archive directory."))
     replay_response = partial(_apply_archive_replay_headers, fullpath=fullpath, is_archive_replay=is_archive_replay, config=config)
     if os.access(fullpath, os.R_OK) and fullpath.is_dir():
         if request.GET.get("download") == "zip" and show_indexes:

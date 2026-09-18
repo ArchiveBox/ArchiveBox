@@ -778,6 +778,56 @@ class TestUrlRouting:
             mode="safe-subdomains-fullreplay",
         )
 
+    def test_replay_does_not_follow_symlinks_outside_snapshot(self) -> None:
+        self._run(
+            """
+            import io
+            import zipfile
+
+            snapshot = get_snapshot()
+            root = Path(snapshot.output_dir)
+            outside = root.parent / "outside-symlink-probe.txt"
+            outside.write_text("private-outside-symlink-probe")
+            linked = root / "linked-secret.txt"
+            linked.symlink_to(outside)
+            linked_dir = root / "linked-parent"
+            linked_dir.symlink_to(root.parent, target_is_directory=True)
+            inside = root / "inside-symlink-probe.txt"
+            inside.write_text("public-inside-symlink-probe")
+            linked_inside = root / "linked-inside.txt"
+            linked_inside.symlink_to(inside)
+            client = Client()
+            try:
+                for path in (
+                    "/linked-secret.txt",
+                    "/LINKED-SECRET.TXT",
+                    "/linked-parent/outside-symlink-probe.txt",
+                    "/linked-parent/?files=1&download=zip",
+                ):
+                    response = client.get(path, HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+                    assert response.status_code == 404, (path, response.status_code)
+                    assert b"private-outside-symlink-probe" not in response_body(response)
+                response = client.get("/linked-inside.txt", HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+                assert response.status_code == 200
+                assert response_body(response) == b"public-inside-symlink-probe"
+                response = client.get("/?files=1&download=zip", HTTP_HOST=get_snapshot_host(str(snapshot.id)))
+                assert response.status_code == 200
+                with zipfile.ZipFile(io.BytesIO(response_body(response))) as archive:
+                    assert not any(name.endswith("/linked-secret.txt") for name in archive.namelist())
+                    assert not any("/linked-parent/" in name for name in archive.namelist())
+                    linked_name = next(name for name in archive.namelist() if name.endswith("/linked-inside.txt"))
+                    assert archive.read(linked_name) == b"public-inside-symlink-probe"
+            finally:
+                linked.unlink()
+                linked_dir.unlink()
+                linked_inside.unlink()
+                inside.unlink()
+                outside.unlink()
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
     def test_snapshot_routing_and_hosts(self) -> None:
         self._run(
             """
