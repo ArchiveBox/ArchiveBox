@@ -38,6 +38,8 @@ jobs:
           grep -q 'class="version-switch"' "$RUNNER_TEMP/docs-html/index.html"
           grep -q 'readthedocs-addons-data-ready' "$RUNNER_TEMP/docs-html/_static/js/versions.js"
           grep -q 'const themeVersionSelector = true' "$RUNNER_TEMP/docs-html/_static/js/versions.js"
+          ! grep -q 'Edit on GitHub' "$RUNNER_TEMP/docs-html/apidocs/archivebox/archivebox.core.models.snapshots.html"
+          grep -q "github.com/ArchiveBox/ArchiveBox/blob/$GITHUB_SHA/README.md" "$RUNNER_TEMP/docs-html/README.html"
 
   discover:
     name: Discover documentation examples

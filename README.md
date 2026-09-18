@@ -4,7 +4,7 @@
 
 <br/>
 
-▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://demo.archivebox.io">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> | <a href="#background--motivation">Info & Motivation</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a>
+▶️ <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Quickstart">Quickstart</a> | <a href="https://demo.archivebox.io">Demo</a> | <a href="https://github.com/ArchiveBox/ArchiveBox">GitHub</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki">Documentation</a> | <a href="https://github.com/ArchiveBox/ArchiveBox#background--motivation">Info & Motivation</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Community">Community</a>
 
 <br/>
 
@@ -187,7 +187,7 @@ docker compose exec archivebox archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
 <br/><br/>
 </details>
 
@@ -211,7 +211,7 @@ docker exec archivebox archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
@@ -225,7 +225,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 See <a href="https://github.com/ArchiveBox/ArchiveBox/blob/dev/bin/setup.sh"><code>setup.sh</code></a> for the source code of the <code>uv</code> install shortcut.<br/>
 See <a href="https://docs.sweeting.me/s/against-curl-sh">"Against curl | sh as an install method"</a> blog post for my thoughts on the shortcomings of this install method.
 <br/><br/>
@@ -265,7 +265,7 @@ archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <br/>
 <sub>See the <a href="https://docs.astral.sh/uv/guides/tools/"><code>uv tool</code> documentation</a> for more details about this installation method.</sub>
 <br/><br/>
@@ -300,7 +300,7 @@ archivebox help
 </code></pre>
 </li>
 </ol>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <sub>The apt package is a thin dev-channel wrapper around the normal Python install flow. <code>sudo archivebox install</code> uses apt for missing system dependencies while preserving ownership of the user-owned collection. See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for details.</sub>
 <br/><br/>
 </details>
@@ -334,7 +334,7 @@ archivebox help
 </li>
 </ol>
 
-See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
+See <a href="#usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
 <sub>See the <a href="https://github.com/ArchiveBox/homebrew-archivebox"><code>homebrew-archivebox</code></a> repo for more details about this distribution.</sub>
 <br/><br/>
 </details>
@@ -352,7 +352,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for more usage examples using the C
 <li>Guix: <a href="https://packages.guix.gnu.org/packages/archivebox/"><code>guix install archivebox</code></a> (contributed by <a href="https://github.com/rakino"><code>@rakino</code></a>)</li>
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
 </ul>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
@@ -399,7 +399,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 
 <li>More: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/new"><i>contribute another distribution...!</i></a></li>
 </ul>
-See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
+See <a href="#usage">below</a> for usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.
 <br/><br/>
 </details>
 
@@ -437,7 +437,7 @@ For more discussion on third-party hosting options see here: <a href="https://gi
 #### ➡️&nbsp; Next Steps
 
 - Import URLs from some of the supported [Input Formats](#input-formats) or view the supported [Output Formats](#output-formats)...
-- (Optional) [Import browser cookies and settings into a persona](docs/Chromium-Install.md#import-an-existing-browser-profile).
+- (Optional) [Import browser cookies and settings into a persona](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile).
 - Tweak your UI or archiving behavior [Configuration](#configuration), read about some of the [Caveats](#caveats), or [Troubleshoot](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting)
 - Read about the [Dependencies](#dependencies) used for archiving, the [Upgrading Process](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives), or the [Archive Layout](#archive-layout) on disk...
 - Or check out our full [Documentation](#documentation) or [Community Wiki](#internet-archiving-ecosystem)...
@@ -617,7 +617,7 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://ex
 <sub>. . . . . . . . . . . . . . . . . . . . . . . . . . . .</sub>
 <br/><br/>
 <a href="https://demo.archivebox.io">DEMO: <code>https://demo.archivebox.io</code></a><br/>
-<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> | <a href="#Caveats">Caveats</a>
+<a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage">Usage</a> | <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration">Configuration</a> | <a href="#caveats">Caveats</a>
 <br/>
 </div>
 

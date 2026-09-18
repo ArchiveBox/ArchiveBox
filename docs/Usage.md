@@ -6,18 +6,18 @@
 
 <img src="https://imgur.zervice.io/aQZZcku.png" width="20%" align="right"/>
 
-- [CLI Usage](#CLI-Usage): Docs and examples for the ArchiveBox command line interface.
-- [Admin UI Usage](#UI-Usage): Docs and screenshots for the outputted HTML archive interface.
-- [Browser Extension Usage](#Browser-Extension-Usage): Docs and screenshots for the outputted HTML archive interface.
-- [Disk Layout](#Disk-Layout): Description of the archive folder structure and contents.
+- [CLI Usage](#cli-usage): Docs and examples for the ArchiveBox command line interface.
+- [Admin UI Usage](#ui-usage): Docs and screenshots for the outputted HTML archive interface.
+- [Browser Extension Usage](#browser-extension-usage): Docs and screenshots for the outputted HTML archive interface.
+- [Disk Layout](#disk-layout): Description of the archive folder structure and contents.
 
 **Related:**
 
-- [[Docker]]: Learn about ArchiveBox usage with Docker and Docker Compose
-- [[Configuration]]: Learn about the various archive method options
-- [[Scheduled Archiving]]: Learn how to set up automatic daily archiving
-- [[Publishing Your Archive]]: Learn how to host your archive for others to access
-- [[Troubleshooting]]: Resources if you encounter any problems
+- [Docker](Docker.md): Learn about ArchiveBox usage with Docker and Docker Compose
+- [Configuration](Configuration.md): Learn about the various archive method options
+- [Scheduled Archiving](Scheduled-Archiving.md): Learn how to set up automatic daily archiving
+- [Publishing Your Archive](Publishing-Your-Archive.md): Learn how to host your archive for others to access
+- [Troubleshooting](Troubleshooting.md): Resources if you encounter any problems
 
 ## CLI Usage
 
@@ -26,7 +26,7 @@
 All three of these ways of running ArchiveBox are equivalent and interchangeable:
 
 - `archivebox [subcommand] [...args]`  
-  *Using the Python package via the current `uv` instructions in [[Install]]*
+  *Using the Python package via the current `uv` instructions in [Install](Install.md)*
 - `docker run ... archivebox/archivebox [subcommand] [...args]`  
   *Using the official Docker image*
 - `docker compose run --rm archivebox [subcommand] [...args]`
@@ -34,12 +34,12 @@ All three of these ways of running ArchiveBox are equivalent and interchangeable
 
 You can share a single archivebox data directory between Docker and non-Docker instances as well, allowing you to run the server in a container but still execute CLI commands on the host for example.
 
-For more examples see [README: Usage](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-cli-usage) and [[Docker]] pages.
+For more examples see [README: Usage](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-cli-usage) and [Docker](Docker.md) pages.
 
-- [Run ArchiveBox with configuration options](#Run-ArchiveBox-with-configuration-options)
-- [Import a single URL](#Import-a-single-URL)
-- [Import a list of URLs from a text file](#Import-a-list-of-URLs-from-a-text-file)
-- [Import list of links from browser history](#Import-list-of-links-from-browser-history)
+- [Run ArchiveBox with configuration options](#run-archivebox-with-configuration-options)
+- [Import a single URL](#import-a-single-url)
+- [Import a list of URLs from a text file](#import-a-list-of-urls-from-a-text-file)
+- [Import list of links from browser history](#import-list-of-links-from-browser-history)
 
 ---
 
@@ -58,8 +58,8 @@ TIMEOUT=120
 env TIMEOUT=120 archivebox add 'https://example.com'
 ```
 
-See [[Configuration]] page for core ArchiveBox config options and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options (e.g. `YTDLP_MAX_SIZE`, `CHROME_USER_DATA_DIR`, `WGET_ARGS`, etc.).
-If you're using Docker, also make sure to read the Configuration section on the [[Docker]] page.
+See [Configuration](Configuration.md) page for core ArchiveBox config options and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options (e.g. `YTDLP_MAX_SIZE`, `CHROME_USER_DATA_DIR`, `WGET_ARGS`, etc.).
+If you're using Docker, also make sure to read the Configuration section on the [Docker](Docker.md) page.
 
 > [!TIP]  
 > You can run ArchiveBox commands from anywhere (without having to `cd` into a data directory first):  

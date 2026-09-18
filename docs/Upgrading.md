@@ -156,7 +156,7 @@ More info:
 
 ## Merge two or more existing archives
 
-See [[Merging Collections]]...
+See [Merging Collections](Merging-Collections.md)...
 
 <br/>
 

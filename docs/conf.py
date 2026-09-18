@@ -111,6 +111,8 @@ autodoc2_skip_module_regexes = [
 autodoc2_hidden_regexes = [
     r".*__package__",
 ]
+# Preserve GitHub-compatible heading fragments used by the shared wiki pages.
+myst_heading_anchors = 6
 myst_enable_extensions = ["linkify"]  # pip install linkify-it-py
 myst_fence_as_directive = ["mermaid"]  # render ```mermaid blocks via sphinxcontrib-mermaid
 
@@ -245,3 +247,15 @@ def linkcode_resolve(domain, info):
     except ValueError:
         return None
     return f"{github_url}/{github_view_style}/{tag}/{relative.as_posix()}{anchor}"
+
+
+def configure_source_links(app, pagename, templatename, context, doctree):
+    """Generated API pages have Python source links, not editable Markdown files."""
+    if pagename.startswith("apidocs/"):
+        context["display_github"] = False
+    elif pagename == "README":
+        context["conf_py_path"] = "/"
+
+
+def setup(app):
+    app.connect("html-page-context", configure_source_links)

@@ -2,6 +2,6 @@
 
 Moved to:
 
-- [[Upgrading]]
-- [[Merging Collections]]
-- [Database Troubleshooting](./Troubleshooting#database)
+- [Upgrading](Upgrading.md)
+- [Merging Collections](Merging-Collections.md)
+- [Database Troubleshooting](Troubleshooting.md#database)

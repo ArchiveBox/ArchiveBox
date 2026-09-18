@@ -8,7 +8,7 @@ Running ArchiveBox with Docker allows you to manage it in a container without ex
 
 <img src="https://imgur.zervice.io/qFAPRwC.png" width="20%" align="right"/>
 
-- [Overview](#Overview)
+- [Overview](#overview)
 - [Docker Compose](#docker-compose) ⭐️ (recommended)
   - [Setup](#setup)
   - [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#upgrading-with-docker-compose-%EF%B8%8F)
@@ -154,7 +154,7 @@ Then open [`http://web.archivebox.localhost:8000`](http://web.archivebox.localho
 
 ### Configuration
 
-ArchiveBox running with `docker compose` accepts all the same config options as other ArchiveBox distributions, see the full list of options available on the [[Configuration]] page.
+ArchiveBox running with `docker compose` accepts all the same config options as other ArchiveBox distributions, see the full list of options available on the [Configuration](Configuration.md) page.
 
 The recommended way configure ArchiveBox in Docker Compose is using `archivebox config --set ...` or by editing `ArchiveBox.conf`.
 ```bash
@@ -287,7 +287,7 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev config --set TIMEOUT=120
 TIMEOUT=120
 ```
 
-ArchiveBox in Docker also accepts config as environment variables, see more on the [[Configuration]] page (and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options).
+ArchiveBox in Docker also accepts config as environment variables, see more on the [Configuration](Configuration.md) page (and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options).
 
 For example, this disables the screenshot extractor for a single run (without persisting for other runs):
 ```bash

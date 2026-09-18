@@ -1,0 +1,33 @@
+name: Documentation version policy
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: documentation-version-policy
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: github.repository == 'ArchiveBox/ArchiveBox' && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: dev
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.11.3'
+      - name: Reconcile published versions without removing historical URLs
+        env:
+          READTHEDOCS_TOKEN: ${{ secrets.READTHEDOCS_TOKEN }}
+        run: uv run --no-project --with 'requests==2.34.2' --with 'packaging==26.2' python bin/sync_docs_versions.py --apply

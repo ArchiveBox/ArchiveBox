@@ -10,7 +10,7 @@ archivebox config --set PERMISSIONS=private     # default new snapshots to login
 archivebox manage [createsuperuser|changepassword] # create/modify admin UI users
 ```
 
-See [[Setting Up Authentication]] for more...
+See [Setting Up Authentication](Setting-up-Authentication.md) for more...
 
 <br/>
 
@@ -50,7 +50,7 @@ To get started, import a dedicated browser profile into a [persona](https://gith
 
 ➡️ For full instructions on setting up a Chromium user profile see here: https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
 
-If you're importing private links or authenticated content, you probably don't want to share your archive folder publicly on a webserver, so don't follow the [[Publishing Your Archive]] instructions unless you are only serving it on a trusted LAN or have some sort of authentication in front of it.  Make sure to point ArchiveBox to an output folder with conservative permissions, as it may contain archived content with secret session tokens or pieces of your user data.  You may also wish to encrypt the archive using an encrypted disk image or filesystem like ZFS as it will contain all requests and response data, including session keys, user data, usernames, etc.
+If you're importing private links or authenticated content, you probably don't want to share your archive folder publicly on a webserver, so don't follow the [Publishing Your Archive](Publishing-Your-Archive.md) instructions unless you are only serving it on a trusted LAN or have some sort of authentication in front of it.  Make sure to point ArchiveBox to an output folder with conservative permissions, as it may contain archived content with secret session tokens or pieces of your user data.  You may also wish to encrypt the archive using an encrypted disk image or filesystem like ZFS as it will contain all requests and response data, including session keys, user data, usernames, etc.
 
 #### ⚠️ Things to watch out for: ⚠️
 
