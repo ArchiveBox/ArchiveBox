@@ -4,9 +4,11 @@ The `docs` submodule remains pinned to the wiki revision shipped with 0.8.6rc1.
 This configuration renders that historical user guide without installing
 ArchiveBox, importing Django, or updating the wiki checkout.
 
+Prerequisites: [uv](https://docs.astral.sh/uv/getting-started/installation/) 0.11.3 and Python 3.13, matching CI and Read the Docs. `uv` can install Python when needed.
+
 ```sh
 git submodule update --init docs
-uv run --no-project --with-requirements .github/docs/requirements.txt \
+uv run --no-project --python 3.13 --with-requirements .github/docs/requirements.txt \
   sphinx-build -W --keep-going -b html -c .github/docs docs /tmp/archivebox-docs
 ```
 
@@ -21,3 +23,11 @@ Keep its project configuration-file setting pointed at that path.
 
 The release label follows the immutable `v0.8.6rc1` tag; its original
 `pyproject.toml` still declares `0.8.6rc0` and is left unchanged.
+
+`requirements.txt` pins the complete documentation dependency set. To update it,
+edit `requirements.in` and run:
+
+```sh
+uv pip compile --universal --python-version 3.13 .github/docs/requirements.in \
+  --output-file .github/docs/requirements.txt
+```

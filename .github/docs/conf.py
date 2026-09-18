@@ -44,6 +44,22 @@ myst_heading_anchors = 6
 myst_fence_as_directive = ["mermaid"]
 
 
+def rewrite_prose(text, transform):
+    """Rewrite navigation outside fenced and indented code blocks."""
+    lines = text.splitlines(keepends=True)
+    output = []
+    start = 0
+    for token in MarkdownIt().parse(text):
+        if token.type not in {"fence", "code_block"}:
+            continue
+        first, last = token.map
+        output.append(transform("".join(lines[start:first])))
+        output.append("".join(lines[first:last]))
+        start = last
+    output.append(transform("".join(lines[start:])))
+    return "".join(output)
+
+
 def prepare_source(app, docname, source):
     """Adapt GitHub wiki navigation in memory, preserving the pinned sources."""
     text = source[0]
@@ -62,7 +78,7 @@ def prepare_source(app, docname, source):
             "==========\nArchiveBox\n==========",
             f"ArchiveBox {release}\n" + "=" * (11 + len(release)),
         )
-    if app.env.doc2path(docname).endswith(".md"):
+    if Path(app.env.doc2path(docname)).suffix == ".md":
 
         def wiki_link(match):
             parts = match.group(1).split("|", 1)
@@ -73,14 +89,14 @@ def prepare_source(app, docname, source):
             suffix = f"#{anchor}" if separator else ""
             return f"[{label}]({page}.md{suffix})"
 
-        text = re.sub(r"\[\[([^\]\n]+)\]\]", wiki_link, text)
+        text = rewrite_prose(text, lambda prose: re.sub(r"\[\[([^\]\n]+)\]\]", wiki_link, prose))
     source[0] = text
 
 
 # GitHub wiki headings allow skipped levels; normalize their hierarchy before MyST
 # parses them, without changing fenced code blocks or the historical source files.
 def normalize_markdown(app, docname, source):
-    if not app.env.doc2path(docname).endswith(".md"):
+    if Path(app.env.doc2path(docname)).suffix != ".md":
         return
     text = source[0]
     if docname == "Upgrading":
@@ -157,20 +173,24 @@ def normalize_markdown(app, docname, source):
             }.get(anchor, anchor)
         return "](" + page + ("#" + anchor if sep else "") + ")"
 
-    text = re.sub(r"\]\(([^)\s]+)\)", link, text)
-    # Raw HTML links are outside MyST's cross-reference resolver.
-    html_anchors = {
-        "background--motivation": "background-motivation",
-        "Caveats": "caveats",
-        "contents": "web-archiving-community",
-        "%EF%B8%8F-cli-usage": "cli-usage",
-        "url_whitelist": "url-allowlist",
-        "url_blacklist": "url-denylist",
-        "input-formats": "input-formats-how-to-pass-urls-into-archivebox-for-saving",
-    }
-    for old, new in html_anchors.items():
-        text = text.replace(f'href="#{old}"', f'href="#{new}"')
-    text = text.replace("#️-cli-usage", "#cli-usage")
+    def rewrite_links(prose):
+        prose = re.sub(r"\]\(([^)\s]+)\)", link, prose)
+        # Raw HTML links are outside MyST's cross-reference resolver.
+        html_anchors = {
+            "background--motivation": "background-motivation",
+            "Caveats": "caveats",
+            "contents": "web-archiving-community",
+            "%EF%B8%8F-cli-usage": "cli-usage",
+            "url_whitelist": "url-allowlist",
+            "url_blacklist": "url-denylist",
+            "input-formats": "input-formats-how-to-pass-urls-into-archivebox-for-saving",
+        }
+        for old, new in html_anchors.items():
+            prose = prose.replace(f'href="#{old}"', f'href="#{new}"')
+        prose = prose.replace("#️-cli-usage", "#cli-usage")
+        return prose
+
+    text = rewrite_prose(text, rewrite_links)
     source[0] = text
 
 
