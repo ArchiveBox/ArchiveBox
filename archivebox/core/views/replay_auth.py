@@ -1,4 +1,4 @@
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 
 from django.conf import settings
 from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY, get_user_model
@@ -7,6 +7,7 @@ from django.core import signing
 from django.http import Http404, HttpRequest, HttpResponseForbidden
 from django.shortcuts import redirect
 from django.views import View
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from archivebox.config import CONSTANTS
 from archivebox.config.common import (
@@ -41,8 +42,7 @@ def _replay_cookie_name(snapshot: Snapshot) -> str:
 def _clean_replay_next(path: str | None) -> str:
     """Only allow same-snap relative replay paths; grants must never redirect off-host."""
     path = f"/{(path or 'index.html').lstrip('/')}"
-    parsed = urlparse(path)
-    if parsed.scheme or parsed.netloc or path.startswith("//"):
+    if not url_has_allowed_host_and_scheme(path, allowed_hosts=set()):
         return "/index.html"
     return path
 

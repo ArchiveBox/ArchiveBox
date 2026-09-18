@@ -717,6 +717,67 @@ class TestUrlRouting:
             """,
         )
 
+    def test_replay_auth_rejects_backslash_network_paths(self) -> None:
+        self._run(
+            r"""
+            from urllib.parse import parse_qs, urlsplit
+
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            admin_client = Client()
+            assert admin_client.login(username="testadmin", password="testpassword")
+            for next_path, expected in [
+                (r"/\attacker.example/private", "/index.html"),
+                (r"\attacker.example/private", "/index.html"),
+                ("/screenshot/output.png?download=1", "/screenshot/output.png?download=1"),
+            ]:
+                handoff = admin_client.get(
+                    "/admin/core/snapshot/replay-auth/",
+                    {"snapshot": str(snapshot.id), "next": next_path},
+                    HTTP_HOST=get_admin_host(),
+                )
+                assert handoff.status_code == 302
+                target = urlsplit(handoff["Location"])
+                query = parse_qs(target.query)
+                assert query["next"] == [expected], (next_path, query["next"])
+                replay_client = Client()
+                replay = replay_client.get(
+                    "/_auth", {"grant": query["grant"][0], "next": next_path},
+                    HTTP_HOST=get_snapshot_host(str(snapshot.id)),
+                )
+                assert replay.status_code == 302
+                assert replay["Location"] == expected, (next_path, replay["Location"])
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
+    def test_replay_rejects_parent_paths_for_files_and_zip_downloads(self) -> None:
+        self._run(
+            """
+            snapshot = get_snapshot()
+            outside = Path(snapshot.output_dir).parent / "outside-replay-probe.txt"
+            outside.write_text("private-outside-replay-probe")
+            ensure_admin_user()
+            client = Client()
+            assert client.login(username="testadmin", password="testpassword")
+            try:
+                for parent in ("..", "%2e%2e"):
+                    for suffix in ("/outside-replay-probe.txt", "/?files=1&download=zip"):
+                        for host, prefix in (
+                            (get_snapshot_host(str(snapshot.id)), ""),
+                            (get_web_host(), f"/{snapshot.url_path}"),
+                        ):
+                            response = client.get(f"{prefix}/{parent}{suffix}", HTTP_HOST=host, follow=True)
+                            assert response.status_code in (400, 404), (host, prefix, parent, suffix, response.status_code)
+                            assert b"private-outside-replay-probe" not in response_body(response)
+            finally:
+                outside.unlink()
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
     def test_snapshot_routing_and_hosts(self) -> None:
         self._run(
             """
