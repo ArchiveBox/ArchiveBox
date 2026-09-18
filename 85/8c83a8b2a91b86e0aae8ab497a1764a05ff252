@@ -1,0 +1,46 @@
+.github/workflows/docs-versions.yml
+  h_923c208e183a7b 1-33
+.github/workflows/docs.yml
+  h_923c208e183a7b 41-42
+README.md
+  h_923c208e183a7b 7,190,214,228,268,303,337,355,402,440,620
+archivebox/tests/test_docs_version_policy.py
+  h_923c208e183a7b 1-38
+bin/sync_docs_versions.py
+  h_923c208e183a7b 1-115
+docs/Configuration.md
+  h_923c208e183a7b 14
+docs/Docker.md
+  h_923c208e183a7b 11,157,290
+docs/Install.md
+  h_923c208e183a7b 11,14-15,53,102,230,257,293-297
+docs/Quickstart.md
+  h_923c208e183a7b 11,87-91
+docs/Security-Overview.md
+  h_923c208e183a7b 13,53
+docs/Troubleshooting.md
+  h_923c208e183a7b 7,10-11,18,60,64
+docs/Upgrading-or-Merging-Archives.md
+  h_923c208e183a7b 5-7
+docs/Upgrading.md
+  h_923c208e183a7b 159
+docs/Usage.md
+  h_923c208e183a7b 9-12,16-20,29,37,39-42,61-62
+docs/Web-Archiving-Community.md
+  h_923c208e183a7b 19,22,30,32-33,37,507
+docs/codeblocks.toml
+  h_923c208e183a7b 8-9
+docs/conf.py
+  h_923c208e183a7b 114-115,250-261
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "858c83a8b2a91b86e0aae8ab497a1764a05ff252",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
