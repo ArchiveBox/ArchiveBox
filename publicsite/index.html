@@ -20,7 +20,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./shadcn-theme.css">
-  <link rel="stylesheet" href="./styles.css?v=audience-capture-options">
+  <link rel="stylesheet" href="./styles.css?v=plugin-icons-v2">
   <script src="./install.js" defer></script>
   <script type="application/ld+json">
   {
@@ -336,11 +336,24 @@ archivebox server 0.0.0.0:8000</code></pre></div></div></div></div>
     </section>
 
     <section id="configuration" class="section deep-section">
-      <div class="section-heading">
-        <p class="eyebrow">Configuration</p>
-        <h2>Configure ArchiveBox with a wide range of plugins &amp; options.</h2>
-        <p><a href="https://abx-plugins.archivebox.io/"><strong>Browse plugins and extractors ↗</strong></a></p>
-        <p>ArchiveBox can be configured with environment variables, the <code>archivebox config</code> CLI, or by editing <code>./ArchiveBox.conf</code>. The same configuration model works in Docker, Docker Compose, bare-metal installs, scheduled jobs, and one-off CLI runs.</p>
+      <div class="section-heading configuration-heading">
+        <div>
+          <p class="eyebrow">Configuration</p>
+          <h2>50+ plugins &amp; flexible configuration options.</h2>
+          <p><a href="https://abx-plugins.archivebox.io/"><strong>Browse plugins and extractors ↗</strong></a></p>
+        </div>
+        <ul class="plugin-stack" aria-label="Featured plugins">
+          <li><a href="https://abx-plugins.archivebox.io/#chrome" aria-label="Chrome plugin" title="Chrome"><img src="./assets/plugins/chrome.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://abx-plugins.archivebox.io/#ublock" aria-label="uBlock Origin plugin" title="uBlock Origin"><img src="./assets/plugins/ublock.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://abx-plugins.archivebox.io/#git" aria-label="GitHub / Git plugin" title="GitHub / Git"><img src="./assets/plugins/github.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://abx-plugins.archivebox.io/#archivedotorg" aria-label="Internet Archive plugin" title="Internet Archive"><img src="./assets/plugins/archive-org.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://abx-plugins.archivebox.io/#claudecode" aria-label="Claude / Anthropic plugin" title="Claude / Anthropic"><img src="./assets/plugins/claude.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://abx-plugins.archivebox.io/#archivewebpage" aria-label="Webrecorder plugin" title="Webrecorder"><img src="./assets/plugins/webrecorder.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://abx-plugins.archivebox.io/#singlefile" aria-label="SingleFile plugin" title="SingleFile"><img src="./assets/plugins/singlefile.png" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://abx-plugins.archivebox.io/#ytdlp" aria-label="YouTube / yt-dlp plugin" title="YouTube / yt-dlp"><img src="./assets/plugins/youtube.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+          <li><a href="https://tailscale.com/" aria-label="Tailscale" title="Tailscale"><img src="./assets/plugins/tailscale.svg" width="44" height="44" loading="lazy" alt=""></a></li>
+        </ul>
+        <p class="configuration-description">ArchiveBox can be configured with environment variables, the <code>archivebox config</code> CLI, or by editing <code>./ArchiveBox.conf</code>. The same configuration model works in Docker, Docker Compose, bare-metal installs, scheduled jobs, and one-off CLI runs.</p>
       </div>
       <div class="prose-grid">
         <article>
