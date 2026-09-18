@@ -1,0 +1,14 @@
+archivebox/tests/test_opencode_browser.py
+  h_923c208e183a7b 172-181
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "363b79e13f682f9b2ebcdcbb22d1aa8f0c3bbee3",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
