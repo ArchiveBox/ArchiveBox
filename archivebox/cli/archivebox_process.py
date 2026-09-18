@@ -28,7 +28,6 @@ __command__ = "archivebox process"
 import sys
 
 import rich_click as click
-from rich import print as rprint
 
 from archivebox.cli.cli_util import apply_filters
 
@@ -38,46 +37,20 @@ from archivebox.cli.cli_util import apply_filters
 # =============================================================================
 
 
-def list_processes(
-    binary_name: str | None = None,
-    machine_id: str | None = None,
-    limit: int | None = None,
-) -> int:
-    """
-    List Processes as JSONL with optional filters.
-
-    Exit codes:
-        0: Success (even if no results)
-    """
-    from archivebox.misc.jsonl import write_record
+def list_processes(binary_name: str | None = None, machine_id: str | None = None, limit: int | None = None) -> int:
+    """List processes as JSONL, or exit codes and binary names in a terminal."""
     from archivebox.machine.models import Process
+    from archivebox.cli.cli_util import list_records
 
-    is_tty = sys.stdout.isatty()
+    def render(process):
+        name = process.binary.name if process.binary else "unknown"
+        exit_code = process.exit_code if process.exit_code is not None else "?"
+        color = "green" if process.exit_code == 0 else "red" if process.exit_code else "yellow"
+        return f"[{color}]exit={exit_code:3}[/{color}] [cyan]{name:15}[/cyan] [dim]{process.id}[/dim]"
 
-    queryset = Process.objects.all().select_related("binary", "machine").order_by("-started_at", "-created_at")
-
-    # Apply filters
-    filter_kwargs = {}
-    if binary_name:
-        filter_kwargs["binary__name"] = binary_name
-    if machine_id:
-        filter_kwargs["machine_id"] = machine_id
-
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for process in queryset:
-        if is_tty:
-            binary_name_str = process.binary.name if process.binary else "unknown"
-            exit_code = process.exit_code if process.exit_code is not None else "?"
-            status_color = "green" if process.exit_code == 0 else "red" if process.exit_code else "yellow"
-            rprint(f"[{status_color}]exit={exit_code:3}[/{status_color}] [cyan]{binary_name_str:15}[/cyan] [dim]{process.id}[/dim]")
-        else:
-            write_record(process.to_json())
-        count += 1
-
-    rprint(f"[dim]Listed {count} processes[/dim]", file=sys.stderr)
-    return 0
+    queryset = Process.objects.select_related("binary", "machine").order_by("-started_at", "-created_at")
+    filters = {"binary__name": binary_name or None, "machine_id": machine_id or None}
+    return list_records(apply_filters(queryset, filters, limit=limit), plural="processes", render=render)
 
 
 # =============================================================================
@@ -95,15 +68,9 @@ def main():
 @click.option("--binary-name", "-b", help="Filter by binary name")
 @click.option("--machine-id", "-m", help="Filter by machine ID")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(binary_name: str | None, machine_id: str | None, limit: int | None):
+def list_cmd(**kwargs):
     """List Processes as JSONL."""
-    sys.exit(
-        list_processes(
-            binary_name=binary_name,
-            machine_id=machine_id,
-            limit=limit,
-        ),
-    )
+    sys.exit(list_processes(**kwargs))
 
 
 if __name__ == "__main__":

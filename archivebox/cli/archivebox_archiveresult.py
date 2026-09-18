@@ -72,7 +72,7 @@ def create_archiveresults(
     """
     from archivebox.config.common import get_config
     from archivebox.plugins.hooks import discover_hooks
-    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_SNAPSHOT, TYPE_ARCHIVERESULT
+    from archivebox.misc.jsonl import read_stdin, write_record, TYPE_SNAPSHOT
     from archivebox.core.models import Snapshot
 
     is_tty = sys.stdout.isatty()
@@ -99,26 +99,9 @@ def create_archiveresults(
         for record in records:
             record_type = record.get("type", "")
 
-            if record_type == TYPE_SNAPSHOT:
-                # Pass through the Snapshot record itself
+            if record_type:
                 pass_through_records.append(record)
-                if record.get("id"):
-                    snapshot_ids.append(record["id"])
-
-            elif record_type == TYPE_ARCHIVERESULT:
-                # ArchiveResult records: pass through if they have an id
-                if record.get("id"):
-                    pass_through_records.append(record)
-                # If no id, we could create it, but for now just pass through
-                else:
-                    pass_through_records.append(record)
-
-            elif record_type:
-                # Other typed records (Crawl, Tag, etc): pass through
-                pass_through_records.append(record)
-
-            elif record.get("id"):
-                # Untyped record with id - assume it's a snapshot ID
+            if record.get("id") and record_type in ("", TYPE_SNAPSHOT):
                 snapshot_ids.append(record["id"])
 
         # Output pass-through records first
@@ -169,48 +152,20 @@ def list_archiveresults(
     snapshot_id: str | None = None,
     limit: int | None = None,
 ) -> int:
-    """
-    List ArchiveResults as JSONL with optional filters.
-
-    Exit codes:
-        0: Success (even if no results)
-    """
-    from archivebox.misc.jsonl import write_record
+    """List archive results as JSONL, or formatted rows in a terminal."""
     from archivebox.core.models import ArchiveResult
+    from archivebox.cli.cli_util import list_records, format_status
 
-    is_tty = sys.stdout.isatty()
-
-    queryset = ArchiveResult.objects.all().order_by("-start_ts")
-
-    # Apply filters
-    filter_kwargs = {
-        "status": status,
-        "plugin": plugin,
-        "snapshot_id": snapshot_id,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for result in queryset:
-        if is_tty:
-            status_color = {
-                "queued": "yellow",
-                "started": "blue",
-                "succeeded": "green",
-                "failed": "red",
-                "skipped": "dim",
-                "noresults": "dim",
-                "backoff": "magenta",
-            }.get(result.status, "dim")
-            rprint(
-                f"[{status_color}]{result.status:10}[/{status_color}] {result.plugin:15} [dim]{result.id}[/dim] {result.snapshot.url[:40]}",
-            )
-        else:
-            write_record(result.to_json())
-        count += 1
-
-    rprint(f"[dim]Listed {count} archive results[/dim]", file=sys.stderr)
-    return 0
+    queryset = apply_filters(
+        ArchiveResult.objects.order_by("-start_ts"),
+        {"status": status, "plugin": plugin, "snapshot_id": snapshot_id},
+        limit=limit,
+    )
+    return list_records(
+        queryset,
+        plural="archive results",
+        render=lambda result: f"{format_status(result.status, 10)} {result.plugin:15} [dim]{result.id}[/dim] {result.snapshot.url[:40]}",
+    )
 
 
 # =============================================================================
@@ -218,54 +173,17 @@ def list_archiveresults(
 # =============================================================================
 
 
-def update_archiveresults(
-    status: str | None = None,
-) -> int:
-    """
-    Update ArchiveResults from stdin JSONL.
-
-    Reads ArchiveResult records from stdin and applies updates.
-    Uses PATCH semantics - only specified fields are updated.
-
-    Exit codes:
-        0: Success
-        1: No input or error
-    """
-    from archivebox.misc.jsonl import read_stdin, write_record
+def update_archiveresults(status: str | None = None) -> int:
+    """Apply supplied fields to each JSONL-selected ArchiveResult."""
     from archivebox.core.models import ArchiveResult
+    from archivebox.cli.cli_util import update_records
 
-    is_tty = sys.stdout.isatty()
+    def update(archiveresult):
+        if status:
+            archiveresult.status = status
+        archiveresult.save()
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    updated_count = 0
-    for record in records:
-        result_id = record.get("id")
-        if not result_id:
-            continue
-
-        try:
-            result = ArchiveResult.objects.get(id=result_id)
-
-            # Apply updates from CLI flags
-            if status:
-                result.status = status
-
-            result.save()
-            updated_count += 1
-
-            if not is_tty:
-                write_record(result.to_json())
-
-        except ArchiveResult.DoesNotExist:
-            rprint(f"[yellow]ArchiveResult not found: {result_id}[/yellow]", file=sys.stderr)
-            continue
-
-    rprint(f"[green]Updated {updated_count} archive results[/green]", file=sys.stderr)
-    return 0
+    return update_records(ArchiveResult, update, plural="archive results")
 
 
 # =============================================================================
@@ -274,52 +192,19 @@ def update_archiveresults(
 
 
 def delete_archiveresults(yes: bool = False, dry_run: bool = False) -> int:
-    """
-    Delete ArchiveResults from stdin JSONL.
-
-    Requires --yes flag to confirm deletion.
-
-    Exit codes:
-        0: Success
-        1: No input or missing --yes flag
-    """
-    from archivebox.misc.jsonl import read_stdin
+    """Delete archive results selected by stdin JSONL; --yes confirms, --dry-run previews."""
+    from archivebox.cli.cli_util import delete_records
     from archivebox.core.models import ArchiveResult
 
-    records = list(read_stdin())
-    if not records:
-        rprint("[yellow]No records provided via stdin[/yellow]", file=sys.stderr)
-        return 1
-
-    result_ids = [r.get("id") for r in records if r.get("id")]
-
-    if not result_ids:
-        rprint("[yellow]No valid archive result IDs in input[/yellow]", file=sys.stderr)
-        return 1
-
-    results = ArchiveResult.objects.filter(id__in=result_ids)
-    count = results.count()
-
-    if count == 0:
-        rprint("[yellow]No matching archive results found[/yellow]", file=sys.stderr)
-        return 0
-
-    if dry_run:
-        rprint(f"[yellow]Would delete {count} archive results (dry run)[/yellow]", file=sys.stderr)
-        for result in results[:10]:
-            rprint(f"  [dim]{result.id}[/dim] {result.plugin} {result.snapshot.url[:40]}", file=sys.stderr)
-        if count > 10:
-            rprint(f"  ... and {count - 10} more", file=sys.stderr)
-        return 0
-
-    if not yes:
-        rprint("[red]Use --yes to confirm deletion[/red]", file=sys.stderr)
-        return 1
-
-    # Perform deletion
-    deleted_count, _ = results.delete()
-    rprint(f"[green]Deleted {deleted_count} archive results[/green]", file=sys.stderr)
-    return 0
+    return delete_records(
+        ArchiveResult,
+        label="archive result",
+        plural="archive results",
+        preview=lambda obj: f"[dim]{obj.id}[/dim] {obj.plugin} {obj.snapshot.url[:40]}",
+        yes=yes,
+        dry_run=dry_run,
+        preview_limit=10,
+    )
 
 
 # =============================================================================
@@ -337,9 +222,9 @@ def main():
 @click.option("--snapshot-id", help="Snapshot ID to create results for")
 @click.option("--plugin", "-p", help="Plugin name (e.g., screenshot, singlefile)")
 @click.option("--status", "-s", default="queued", help="Initial status (default: queued)")
-def create_cmd(snapshot_id: str | None, plugin: str | None, status: str):
+def create_cmd(**kwargs):
     """Emit Snapshot plugin extraction requests as JSONL."""
-    sys.exit(create_archiveresults(snapshot_id=snapshot_id, plugin=plugin, status=status))
+    sys.exit(create_archiveresults(**kwargs))
 
 
 @main.command("list")
@@ -347,36 +232,24 @@ def create_cmd(snapshot_id: str | None, plugin: str | None, status: str):
 @click.option("--plugin", "-p", help="Filter by plugin name")
 @click.option("--snapshot-id", help="Filter by snapshot ID")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(
-    status: str | None,
-    plugin: str | None,
-    snapshot_id: str | None,
-    limit: int | None,
-):
+def list_cmd(**kwargs):
     """List ArchiveResults as JSONL."""
-    sys.exit(
-        list_archiveresults(
-            status=status,
-            plugin=plugin,
-            snapshot_id=snapshot_id,
-            limit=limit,
-        ),
-    )
+    sys.exit(list_archiveresults(**kwargs))
 
 
 @main.command("update")
 @click.option("--status", "-s", help="Set status")
-def update_cmd(status: str | None):
+def update_cmd(**kwargs):
     """Update ArchiveResults from stdin JSONL."""
-    sys.exit(update_archiveresults(status=status))
+    sys.exit(update_archiveresults(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete ArchiveResults from stdin JSONL."""
-    sys.exit(delete_archiveresults(yes=yes, dry_run=dry_run))
+    sys.exit(delete_archiveresults(**kwargs))
 
 
 if __name__ == "__main__":

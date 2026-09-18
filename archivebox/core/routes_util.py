@@ -60,13 +60,6 @@ def _csrf_trusted_origins(config) -> list[str]:
     return seen
 
 
-def _allowed_hosts(config) -> set[str]:
-    raw = (config.ALLOWED_HOSTS or "").strip()
-    if not raw:
-        return set()
-    return {entry.strip().lower() for entry in raw.split(",") if entry.strip() and entry.strip() != "*"}
-
-
 def derive_base_url_from_csrf(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     """Pick a single CSRF_TRUSTED_ORIGINS entry to act as the implicit BASE_URL.
 

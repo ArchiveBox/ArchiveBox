@@ -1,6 +1,6 @@
 __package__ = "archivebox.crawls"
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 from collections.abc import Iterable, Mapping
 import uuid
 import json
@@ -31,7 +31,7 @@ from archivebox.base_models.models import (
     ModelWithHealthStats,
     get_or_create_system_user_pk,
 )
-from archivebox.workers.models import ModelWithQueue
+from archivebox.workers.models import DefaultStatusChoices, ModelWithQueue
 from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
 from archivebox.misc.util import parse_date, sanitize_html_text, validate_url, validate_url_length
 
@@ -184,7 +184,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
     retry_at_field_name = "retry_at"
     state_field_name = "status"
-    StatusChoices = ModelWithQueue.StatusChoices
+    StatusChoices: ClassVar[type[DefaultStatusChoices]] = DefaultStatusChoices
     INITIAL_STATE = StatusChoices.QUEUED
     ACTIVE_STATE = StatusChoices.STARTED
     FINAL_STATES = (StatusChoices.SEALED,)

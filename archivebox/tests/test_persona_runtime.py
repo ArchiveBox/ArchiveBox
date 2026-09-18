@@ -4,6 +4,8 @@
 import json
 import textwrap
 
+import pytest
+
 from .conftest import run_python_cwd
 
 
@@ -310,3 +312,41 @@ def test_get_config_resolves_parent_scopes_for_snapshot_runtime(initialized_arch
     assert payload["snap_dir"] == payload["expected_snap_dir"]
     assert payload["crawl_dir"] == payload["expected_crawl_dir"]
     assert payload["active_persona"] == "StackPersona"
+
+
+@pytest.mark.django_db
+def test_snapshot_runtime_inherits_crawl_auth_with_template_fallback(crawl, snapshot):
+    from pathlib import Path
+    from archivebox.personas.models import Persona
+
+    persona = Persona.get_or_create_named("RuntimeAuth")
+    persona.ensure_dirs()
+    template = Path(persona.CHROME_USER_DATA_DIR)
+    (template / "Preferences").write_text("template profile")
+    (persona.path / "cookies.txt").write_text("template cookies")
+    (persona.path / "auth.json").write_text('{"origins": []}')
+    crawl_config = persona.prepare_runtime_for_crawl(crawl)
+    crawl_root = persona.runtime_root_for_crawl(crawl)
+    (crawl_root / "cookies.txt").write_text("crawl cookies")
+    (crawl_root / "auth.json").unlink()
+    (persona.runtime_profile_dir_for_crawl(crawl) / "Preferences").write_text("crawl profile")
+
+    config = persona.prepare_runtime_for_snapshot(snapshot, chrome_binary="chromium")
+    runtime_root = persona.runtime_root_for_snapshot(snapshot)
+    assert Path(config["COOKIES_FILE"]).read_text() == "crawl cookies"
+    assert Path(config["AUTH_STORAGE_FILE"]).read_text() == '{"origins": []}'
+    assert (persona.runtime_profile_dir_for_snapshot(snapshot) / "Preferences").read_text() == "crawl profile"
+    assert config["PERSONAS_DIR"] == str(runtime_root.parent)
+    assert (runtime_root / "chrome_binary.txt").read_text() == "chromium"
+    assert (template / "Preferences").read_text() == "template profile"
+    assert Path(crawl_config["COOKIES_FILE"]).read_text() == "crawl cookies"
+
+    # Re-preparation must remove prior downloads and auth that no longer exists.
+    persona.runtime_downloads_dir_for_snapshot(snapshot).joinpath("stale.txt").write_text("stale")
+    (crawl_root / "cookies.txt").unlink()
+    (persona.path / "cookies.txt").unlink()
+    config = persona.prepare_runtime_for_snapshot(snapshot)
+    assert "COOKIES_FILE" not in config
+    assert not (runtime_root / "cookies.txt").exists()
+    assert not (runtime_root / "chrome_binary.txt").exists()
+    assert not persona.runtime_downloads_dir_for_snapshot(snapshot).joinpath("stale.txt").exists()

@@ -482,17 +482,14 @@ class TestDependencyRecordOutput:
     """Test Binary JSONL emitted by the real CLI and persisted model."""
 
     @pytest.mark.django_db(transaction=True)
-    def test_binary_cli_emits_resolved_dependency_record(self, initialized_archive, hermetic_lib_dir):
+    def test_binary_cli_emits_resolved_dependency_record(self, archivebox_cli, initialized_archive, hermetic_lib_dir):
         install_real_binary("wget", binproviders="env,apt,brew")
         wget_path = resolve_abxpkg_binary_env(hermetic_lib_dir, deps_from=WGET_CONFIG)["WGET_BINARY"]
         version = subprocess.run([wget_path, "--version"], capture_output=True, text=True, check=True).stdout.split()[2]
-        from archivebox.tests.conftest import parse_jsonl_output, run_archivebox_cmd
+        from archivebox.tests.conftest import parse_jsonl_output
 
-        result = run_archivebox_cmd(
+        result = archivebox_cli(
             ["binary", "create", "--name=wget", f"--abspath={wget_path}", f"--version={version}"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
         )
         assert result.returncode == 0, result.stderr
 
@@ -502,11 +499,8 @@ class TestDependencyRecordOutput:
         assert data["abspath"] == wget_path
         assert data["version"] == version
 
-        list_result = run_archivebox_cmd(
+        list_result = archivebox_cli(
             ["binary", "list", "--name=wget"],
-            cwd=initialized_archive,
-            default_cli_env=True,
-            disable_extractors=True,
         )
         assert list_result.returncode == 0, list_result.stderr
         listed = parse_jsonl_output(list_result.stdout)

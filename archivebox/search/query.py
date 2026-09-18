@@ -309,6 +309,8 @@ def iter_query_search_ids(
                     ids.close()
                 successful_backends += 1
             except Exception as err:
+                if isinstance(err, CalledProcessError) and err.stderr:
+                    err.add_note(f"{backend_name} search command stderr:\n{err.stderr.strip()}")
                 errors.append(err)
                 if not fallback_enabled:
                     raise
@@ -320,8 +322,6 @@ def iter_query_search_ids(
             f"[X] The search backend threw an exception={err}:",
             color="red",
         )
-        if isinstance(err, CalledProcessError) and err.stderr:
-            stderr(err.stderr.rstrip(), color="red")
         raise
 
 

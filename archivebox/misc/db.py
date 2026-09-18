@@ -350,7 +350,9 @@ def sqlite_lock_holders(db_path: Path = CONSTANTS.DATABASE_FILE) -> list[str]:
     for proc in psutil.process_iter(["pid", "ppid", "name", "cmdline", "status"]):
         try:
             open_files = proc.open_files()
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess):
+        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, RuntimeError):
+            # macOS libproc can report an uninspectable process as RuntimeError.
+            # Optional holder diagnostics must not abort the database operation.
             continue
         for open_file in open_files:
             try:
@@ -662,3 +664,24 @@ def apply_migrations(
         out1 = retry_sqlite_locks(migrate, label="applying migrations")
 
         return [line.strip() for line in out1.readlines() if line.strip()]
+
+
+def uuid_ref_query(field_name: str, ref: str):
+    from uuid import UUID
+    from django.db.models import Q
+
+    raw_ref = str(ref or "").strip()
+    query = Q(**{f"{field_name}__startswith": raw_ref})
+    if raw_ref:
+        query |= Q(**{f"{field_name}__icontains": raw_ref})
+    try:
+        parsed_uuid = UUID(raw_ref)
+    except (TypeError, ValueError):
+        normalized_ref = raw_ref.replace("-", "")
+        if normalized_ref and normalized_ref != raw_ref:
+            query |= Q(**{f"{field_name}__startswith": normalized_ref})
+            query |= Q(**{f"{field_name}__icontains": normalized_ref})
+    else:
+        query |= Q(**{field_name: parsed_uuid})
+        query |= Q(**{f"{field_name}__startswith": parsed_uuid.hex})
+    return query

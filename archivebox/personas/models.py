@@ -131,6 +131,16 @@ class Persona(ModelWithConfig):
     def __str__(self) -> str:
         return self.name
 
+    def to_json(self) -> dict:
+        """Portable CLI record, shared by create, list, and update."""
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "path": str(self.path),
+            "CHROME_USER_DATA_DIR": self.CHROME_USER_DATA_DIR,
+            "COOKIES_FILE": self.COOKIES_FILE,
+        }
+
     @property
     def path(self) -> Path:
         """Path to persona directory under PERSONAS_DIR."""
@@ -289,87 +299,54 @@ class Persona(ModelWithConfig):
 
     def prepare_runtime_for_crawl(self, crawl, chrome_binary: str = "") -> dict[str, str]:
         self.ensure_dirs()
-
-        template_dir = Path(self.CHROME_USER_DATA_DIR)
-        runtime_root = self.runtime_root_for_crawl(crawl)
-        runtime_profile_dir = self.runtime_profile_dir_for_crawl(crawl)
-        runtime_downloads_dir = self.runtime_downloads_dir_for_crawl(crawl)
-
         with self.lock_runtime_for_crawl():
-            if runtime_root.exists():
-                shutil.rmtree(runtime_root, ignore_errors=True)
-            if template_dir.exists() and any(template_dir.iterdir()):
-                self.copy_chrome_profile(template_dir, runtime_profile_dir)
-            else:
-                runtime_profile_dir.mkdir(parents=True, exist_ok=True)
-
-            for filename in ("cookies.txt", "auth.json"):
-                source = self.path / filename
-                if source.is_file():
-                    shutil.copy2(source, runtime_root / filename)
-            runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
-            self.cleanup_chrome_profile(runtime_profile_dir)
-
-            (runtime_root / "persona_name.txt").write_text(self.name)
-            (runtime_root / "template_dir.txt").write_text(str(template_dir))
-            if chrome_binary:
-                (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
-
-        return {
-            # Hooks derive CHROME_USER_DATA_DIR/CHROME_DOWNLOADS_DIR from
-            # PERSONAS_DIR + ACTIVE_PERSONA. Point PERSONAS_DIR at the
-            # per-crawl runtime root here so CHROME_ISOLATION=crawl never
-            # leaks or reuses the template profile while keeping Chrome path
-            # derivation centralized in the Chrome plugin helpers.
-            "PERSONAS_DIR": str(runtime_root.parent),
-            "ACTIVE_PERSONA": self.name,
-            **{
-                key: str(runtime_root / filename)
-                for key, filename in (("COOKIES_FILE", "cookies.txt"), ("AUTH_STORAGE_FILE", "auth.json"))
-                if (runtime_root / filename).is_file()
-            },
-        }
+            return self._prepare_runtime(
+                self.runtime_root_for_crawl(crawl),
+                Path(self.CHROME_USER_DATA_DIR),
+                (self.path,),
+                chrome_binary,
+            )
 
     def prepare_runtime_for_snapshot(self, snapshot, chrome_binary: str = "") -> dict[str, str]:
-        crawl_runtime_profile_dir = self.runtime_profile_dir_for_crawl(snapshot.crawl)
-        template_dir = crawl_runtime_profile_dir if crawl_runtime_profile_dir.exists() else Path(self.CHROME_USER_DATA_DIR)
-        runtime_root = self.runtime_root_for_snapshot(snapshot)
-        runtime_profile_dir = self.runtime_profile_dir_for_snapshot(snapshot)
-        runtime_downloads_dir = self.runtime_downloads_dir_for_snapshot(snapshot)
+        crawl_profile = self.runtime_profile_dir_for_crawl(snapshot.crawl)
+        return self._prepare_runtime(
+            self.runtime_root_for_snapshot(snapshot),
+            crawl_profile if crawl_profile.exists() else Path(self.CHROME_USER_DATA_DIR),
+            (self.runtime_root_for_crawl(snapshot.crawl), self.path),
+            chrome_binary,
+        )
 
-        if runtime_root.exists():
-            shutil.rmtree(runtime_root, ignore_errors=True)
+    def _prepare_runtime(
+        self,
+        runtime_root: Path,
+        template_dir: Path,
+        auth_sources: tuple[Path, ...],
+        chrome_binary: str,
+    ) -> dict[str, str]:
+        """Clone one isolated profile, taking each auth file from its first available source."""
+        profile_dir = runtime_root / "chrome_profile"
+        shutil.rmtree(runtime_root, ignore_errors=True)
         if template_dir.exists() and any(template_dir.iterdir()):
-            self.copy_chrome_profile(template_dir, runtime_profile_dir)
+            self.copy_chrome_profile(template_dir, profile_dir)
         else:
-            runtime_profile_dir.mkdir(parents=True, exist_ok=True)
+            profile_dir.mkdir(parents=True, exist_ok=True)
 
-        for filename in ("cookies.txt", "auth.json"):
-            source = self.runtime_root_for_crawl(snapshot.crawl) / filename
-            if not source.is_file():
-                source = self.path / filename
-            if source.is_file():
-                shutil.copy2(source, runtime_root / filename)
-        runtime_downloads_dir.mkdir(parents=True, exist_ok=True)
-        self.cleanup_chrome_profile(runtime_profile_dir)
-
+        overrides = {"PERSONAS_DIR": str(runtime_root.parent), "ACTIVE_PERSONA": self.name}
+        for key, filename in (("COOKIES_FILE", "cookies.txt"), ("AUTH_STORAGE_FILE", "auth.json")):
+            source = next((root / filename for root in auth_sources if (root / filename).is_file()), None)
+            if source is not None:
+                destination = runtime_root / filename
+                shutil.copy2(source, destination)
+                overrides[key] = str(destination)
+        (runtime_root / "chrome_downloads").mkdir(parents=True, exist_ok=True)
+        self.cleanup_chrome_profile(profile_dir)
         (runtime_root / "persona_name.txt").write_text(self.name)
         (runtime_root / "template_dir.txt").write_text(str(template_dir))
         if chrome_binary:
             (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
 
-        return {
-            # See prepare_runtime_for_crawl(): snapshot isolation changes the
-            # persona root, not individual CHROME_* config keys, so standalone
-            # Chrome hooks and ArchiveBox-driven hooks resolve paths the same way.
-            "PERSONAS_DIR": str(runtime_root.parent),
-            "ACTIVE_PERSONA": self.name,
-            **{
-                key: str(runtime_root / filename)
-                for key, filename in (("COOKIES_FILE", "cookies.txt"), ("AUTH_STORAGE_FILE", "auth.json"))
-                if (runtime_root / filename).is_file()
-            },
-        }
+        # Chrome hooks derive their directories from this isolated persona root.
+        return overrides
 
     def cleanup_runtime_for_crawl(self, crawl) -> None:
         shutil.rmtree(Path(crawl.output_dir) / ".persona", ignore_errors=True)

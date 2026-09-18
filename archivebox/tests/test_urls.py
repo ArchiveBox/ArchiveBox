@@ -44,7 +44,7 @@ def test_archiveresult_relpath_uses_sibling_hook_that_owns_output(admin_user):
 
 
 def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
-    from archivebox.misc.serve_static import _rewrite_html_image_sources_to_responses
+    from archivebox.misc.replay_preview import _rewrite_html_image_sources_to_responses
 
     responses_dir = tmp_path / "responses" / "all"
     responses_dir.mkdir(parents=True)
@@ -81,7 +81,7 @@ def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
 
 
 def test_html_image_response_index_preserves_first_image_and_last_fallback(tmp_path):
-    from archivebox.misc.serve_static import _encoded_responses_image_url, _index_responses_paths_for_html_images
+    from archivebox.misc.replay_preview import _encoded_responses_image_url, _index_responses_paths_for_html_images
 
     responses_dir = tmp_path / "responses" / "all"
     responses_dir.mkdir(parents=True)
@@ -172,6 +172,50 @@ def test_static_html_and_markdown_preview_images_rewrite_to_captured_responses(t
     assert b"width: min(100%, 72rem)" in response.content
     assert b"min-height: 100vh" in response.content
     assert b'src="../responses/all/20260722T061544__GET__https_3A_2F_2Fsweeting.me_2Fimages_2Ftwitter.png"' in response.content
+
+
+def test_markdown_preview_preserves_structure_and_heading_links(tmp_path):
+    import re
+    from django.test import RequestFactory
+    from archivebox.misc.serve_static import serve_static_with_byterange_support
+
+    source = """# Article
+
+[TOC]
+
+## Section
+
+1. First
+   - Nested **bold** and *italic*
+2. Second
+
+> A quotation
+
+```html
+<div>literal HTML</div>
+```
+
+<span>Inline HTML</span> with [a link](https://example.com).
+
+| Column | Value |
+| --- | --- |
+| One | Two |
+"""
+    (tmp_path / "content.txt").write_text(source)
+    request = RequestFactory().get("/content.txt")
+    response = serve_static_with_byterange_support(request, "content.txt", document_root=tmp_path)
+    assert response.status_code == 200
+    document = response.content.decode()
+    assert '<h1 id="Article">Article</h1>' in document
+    assert '<h2 id="Section">Section</h2>' in document
+    assert '<a href="#Article">Article</a>' in document
+    assert '<a href="#Section">Section</a>' in document
+    assert re.search(r"<ol>\s*<li>First\s*<ul>\s*<li>Nested <strong>bold</strong> and <em>italic</em></li>\s*</ul>\s*</li>", document)
+    assert re.search(r"<blockquote>\s*<p>A quotation</p>\s*</blockquote>", document)
+    assert "&lt;div&gt;literal HTML&lt;/div&gt;\n</code></pre>" in document
+    assert "<span>Inline HTML</span>" in document
+    assert '<a href="https://example.com">a link</a>' in document
+    assert re.search(r"<tbody>\s*<tr>\s*<td>One</td>\s*<td>Two</td>\s*</tr>\s*</tbody>", document)
 
 
 @pytest.fixture

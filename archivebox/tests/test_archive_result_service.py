@@ -1,3 +1,14 @@
+from abx_dl.services.process_service import ProcessService as DlProcessService
+from archivebox.base_models.models import get_or_create_system_user_pk
+from archivebox.core.models import ArchiveResult
+from archivebox.core.models import Snapshot
+from archivebox.crawls.models import Crawl
+from archivebox.machine.models import Process
+from archivebox.machine.models import Process as MachineProcess
+from archivebox.plugins.discovery import get_plugin_catalog
+from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
+import asyncio
+
 from pathlib import Path
 from importlib.resources import files
 import json
@@ -19,7 +30,6 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def _snapshot_hook_name(plugin_name: str) -> str:
-    from archivebox.plugins.discovery import get_plugin_catalog
 
     plugin = get_plugin_catalog().get(plugin_name)
     assert plugin is not None, f"missing test plugin {plugin_name}"
@@ -29,7 +39,6 @@ def _snapshot_hook_name(plugin_name: str) -> str:
 
 
 def _cleanup_machine_process_rows() -> None:
-    from archivebox.machine.models import Process
 
     Process.objects.all().delete()
 
@@ -45,14 +54,10 @@ def _run_shipped_snapshot_hook(
     expected_exit_codes: tuple[int, ...] = (0,),
 ):
     """Run one shipped hook through the production process/result bus services."""
-    import asyncio
 
     from abx_dl.services.process_service import ProcessService as HookProcessService
     from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
     from abx_plugins.plugins.base.utils import get_hydrated_required_binaries
-    from archivebox.core.models import ArchiveResult
-    from archivebox.machine.models import Process
-    from archivebox.plugins.discovery import get_plugin_catalog
     from archivebox.services.archive_result_service import ArchiveResultService
     from archivebox.services.process_service import ProcessService as PersistedProcessService
 
@@ -136,11 +141,7 @@ def _run_shipped_snapshot_hook(
 
 
 def _run_real_title_crawl(url: str, lib_dir: Path):
-    import asyncio
 
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
     from archivebox.services.runner import CrawlRunner, run_install
 
     run_install(plugin_names=["title"])
@@ -154,9 +155,6 @@ def _run_real_title_crawl(url: str, lib_dir: Path):
 
 
 def _create_snapshot():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
 
     crawl = Crawl(
         urls="https://example.com",
@@ -174,7 +172,6 @@ def _create_snapshot():
 
 
 def test_process_completed_projects_inline_archiveresult(tmp_path, hermetic_lib_dir):
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     snapshot_dir = Path(snapshot.output_dir)
@@ -202,7 +199,6 @@ def test_process_completed_projects_inline_archiveresult(tmp_path, hermetic_lib_
 
 
 def test_archiveresult_event_retry_updates_existing_hook_row(tmp_path, hermetic_lib_dir):
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     snapshot_dir = Path(snapshot.output_dir)
@@ -234,7 +230,6 @@ def test_archiveresult_event_retry_updates_existing_hook_row(tmp_path, hermetic_
 
 def test_archiveresult_duplicate_hook_rows_are_rejected():
     from django.db import IntegrityError, transaction
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     ArchiveResult.objects.create(
@@ -280,7 +275,6 @@ def test_archiveresult_event_create_uses_one_result_lookup():
 
 
 def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_path, hermetic_lib_dir):
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     process, result = _run_shipped_snapshot_hook(
@@ -297,7 +291,6 @@ def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_p
 
 
 def test_failed_title_archiveresult_does_not_overwrite_snapshot_title(tmp_path, hermetic_lib_dir):
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     _, result = _run_shipped_snapshot_hook(
@@ -316,7 +309,6 @@ def test_failed_title_archiveresult_does_not_overwrite_snapshot_title(tmp_path, 
 
 
 def test_snapshot_resolved_title_ignores_failed_title_output_str():
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     ArchiveResult.objects.create(
@@ -334,7 +326,6 @@ def test_snapshot_resolved_title_ignores_failed_title_output_str():
 
 
 def test_snapshot_title_ignores_noresults_hook_output_str(tmp_path, hermetic_lib_dir):
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     staticfile_dir = Path(snapshot.output_dir) / "staticfile"
@@ -355,7 +346,6 @@ def test_snapshot_title_ignores_noresults_hook_output_str(tmp_path, hermetic_lib
 
 
 def test_snapshot_save_normalizes_url_title_to_none():
-    from archivebox.core.models import Snapshot
 
     snapshot = _create_snapshot()
     snapshot.title = snapshot.url
@@ -386,13 +376,11 @@ def test_snapshot_save_normalizes_url_title_to_none():
     ),
 )
 def test_snapshot_title_normalization_decodes_entities_without_restoring_markup(candidate, expected):
-    from archivebox.core.models import Snapshot
 
     assert Snapshot._normalize_title_candidate(candidate, snapshot_url="https://example.com") == expected
 
 
 def test_process_completed_projects_noresults_archiveresult(tmp_path, hermetic_lib_dir):
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     staticfile_dir = Path(snapshot.output_dir) / "staticfile"
@@ -410,7 +398,6 @@ def test_process_completed_projects_noresults_archiveresult(tmp_path, hermetic_l
 
 
 def test_skipped_shipped_hook_does_not_infer_success_from_snapshot_files(snapshot, hermetic_lib_dir):
-    from archivebox.core.models import ArchiveResult
 
     snapshot_dir = Path(snapshot.output_dir)
     snapshot_dir.mkdir(parents=True, exist_ok=True)
@@ -501,7 +488,6 @@ def test_process_completed_projects_snapshot_title_from_title_file(recursive_tes
 
 
 def test_snapshot_resolved_title_falls_back_to_title_file_without_db_title():
-    from archivebox.core.models import ArchiveResult
 
     snapshot = _create_snapshot()
     plugin_dir = Path(snapshot.output_dir) / "title"
@@ -571,9 +557,6 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
 ):
     from abx_plugins.plugins.base.utils import get_hydrated_required_binary
     from archivebox.machine.models import NetworkInterface
-    from archivebox.machine.models import Process as MachineProcess
-    from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
-    from abx_dl.services.process_service import ProcessService as DlProcessService
 
     iface = NetworkInterface.current()
     machine = iface.machine
@@ -643,8 +626,6 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
         await started.wait()
         await started.event_results_list()
 
-    import asyncio
-
     asyncio.run(run_test())
 
     process = MachineProcess.objects.get(
@@ -667,10 +648,7 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
 @pytest.mark.django_db(transaction=True)
 def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp_path, hermetic_lib_dir):
     from archivebox.machine.models import Binary, NetworkInterface
-    from archivebox.machine.models import Process as MachineProcess
-    from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
     from archivebox.services.runner import run_install
-    from abx_dl.services.process_service import ProcessService as DlProcessService
 
     lib_dir = hermetic_lib_dir
     run_install(plugin_names=["chrome"])
@@ -723,8 +701,6 @@ def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp
         await started.wait()
         await started.event_results_list()
 
-    import asyncio
-
     asyncio.run(run_test())
 
     process = MachineProcess.objects.get(
@@ -745,7 +721,6 @@ def test_binary_event_updates_existing_row_from_native_abxpkg_resolution():
     from archivebox.machine.models import Binary, Machine
     from archivebox.services.binary_service import ArchiveBoxBinaryService
     from abxpkg.binary_service import BinaryService
-    import asyncio
 
     machine = Machine.current()
     binary = install_real_binary("wget", machine=machine, binproviders="env,apt,brew")

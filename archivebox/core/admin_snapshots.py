@@ -1,6 +1,8 @@
 __package__ = "archivebox.core"
 
 import json
+from copy import copy
+from urllib.parse import urlencode
 from functools import lru_cache
 from types import SimpleNamespace
 
@@ -9,11 +11,12 @@ from django.urls import path, reverse
 from django.shortcuts import get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed
 from django.utils import timezone
-from django.utils.html import format_html, format_html_join
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.db.models import Q, Count, Exists, F, OuterRef, Prefetch
 from django import forms
 from django.template import Template, RequestContext
+from django.template.loader import render_to_string
 from django.contrib.admin.helpers import ActionForm
 
 from archivebox.config.common import get_config
@@ -23,11 +26,11 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
 from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import build_snapshot_url, build_web_url
-from archivebox.core.tag_util import get_or_create_tag
 from archivebox.plugins.hooks import discover_hooks
 from archivebox.plugins.discovery import get_plugin_icon, get_plugin_name, get_plugins
 
-from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
+from archivebox.core.widgets import render_permissions_badge, render_snapshot_progress
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
 from archivebox.crawls.models import Crawl
@@ -38,7 +41,6 @@ from archivebox.core.permissions import (
     PERMISSIONS_CHOICES,
     PERMISSIONS_META,
     get_snapshot_permissions,
-    normalize_permissions,
 )
 from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 
@@ -230,10 +232,12 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
 
 
 class SnapshotChangeList(SearchResultsChangeList):
+    snapshot_status_choices = Snapshot.StatusChoices.choices
+
     def __init__(self, request, *args, **kwargs):
         super().__init__(request, *args, **kwargs)
         resolver_name = request.resolver_match.url_name
-        self.embedded_changelist = request.GET.get("_embedded") == "crawl"
+        self.embedded_changelist = request.GET.get("_embedded") in {"crawl", "snapshot"}
         self.snapshot_is_grid_view = not self.embedded_changelist and (
             resolver_name == "grid" or request.path.rstrip("/").endswith("/grid")
         )
@@ -297,7 +301,7 @@ class SnapshotChangeList(SearchResultsChangeList):
 
     def get_results(self, request):
         super().get_results(request)
-        if request.GET.get("_embedded") == "crawl":
+        if request.GET.get("_embedded") in {"crawl", "snapshot"}:
             self.full_result_count = self.result_count
             self.show_full_result_count = True
         self._attach_archiveresult_summaries()
@@ -411,70 +415,19 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 "classes": ("card", "actions-card"),
             },
         ),
-        (
-            "Snapshot",
-            {
-                "fields": ("snapshot_summary",),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "URL",
-            {
-                "fields": (("url_favicon", "url"), ("title", "tags_badges")),
-                "classes": ("card", "wide"),
-            },
-        ),
-        (
-            "Tags",
-            {
-                "fields": ("tags_editor", "permissions_config"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Status",
-            {
-                "fields": ("status", "retry_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Timestamps",
-            {
-                "fields": ("bookmarked_at", "created_at", "modified_at", "downloaded_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Relations",
-            {
-                "fields": ("crawl",),
-                "classes": ("card",),
-            },
-        ),
-        (
+        card_fieldset("Snapshot", ("snapshot_summary",)),
+        card_fieldset("URL", (("url_favicon", "url"), ("title", "tags_badges")), wide=True),
+        card_fieldset("Tags", ("tags_editor", "permissions_config")),
+        card_fieldset("Status", ("status", "retry_at")),
+        card_fieldset("Timestamps", ("bookmarked_at", "created_at", "modified_at", "downloaded_at")),
+        card_fieldset("Relations", ("crawl",)),
+        card_fieldset(
             "Config",
-            {
-                "fields": ("config",),
-                "description": '<span style="display:block; margin:-4px 0 6px; font-size:11px; line-height:1.35; color:#94a3b8;">Uses <code>Crawl.config</code> by default. Only set per-snapshot overrides here when needed.</span>',
-                "classes": ("card",),
-            },
+            ("config",),
+            description='<span style="display:block; margin:-4px 0 6px; font-size:11px; line-height:1.35; color:#94a3b8;">Uses <code>Crawl.config</code> by default. Only set per-snapshot overrides here when needed.</span>',
         ),
-        (
-            "Files",
-            {
-                "fields": ("output_dir",),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Archive Results",
-            {
-                "fields": ("archiveresults_list",),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("Files", ("output_dir",)),
+        card_fieldset("Archive Results", ("archiveresults_list",), wide=True),
     )
 
     ordering = ["-created_at"]
@@ -520,7 +473,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def changelist_view(self, request, extra_context=None):
         self.request = request
         saved_list_per_page = self.list_per_page
-        embedded_changelist = request.GET.get("_embedded") == "crawl"
+        embedded_changelist = request.GET.get("_embedded") in {"crawl", "snapshot"}
         if embedded_changelist:
             try:
                 requested_per_page = int(request.GET.get("per_page", "200"))
@@ -541,6 +494,27 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         finally:
             self.list_per_page = saved_list_per_page
 
+    def render_embedded_changelist(self, request, *, filters, title, default_search_mode=None):
+        """Reuse snapshot search, rows, pagination, and actions in parent admin pages."""
+        changelist_path = reverse(f"{self.admin_site.name}:core_snapshot_changelist")
+        full_url = f"{changelist_path}?{urlencode(filters)}"
+        changelist_request = copy(request)
+        changelist_request.method = "GET"
+        changelist_request.path = changelist_path
+        changelist_request.GET = request.GET.copy()
+        if default_search_mode:
+            changelist_request.GET.setdefault("search_mode", default_search_mode)
+        changelist_request.GET.update({**filters, "_embedded": "snapshot", "per_page": "200"})
+        changelist_request.POST = request.POST.copy()
+        changelist_request.POST.clear()
+        response = self.changelist_view(changelist_request)
+        context = {
+            **response.context_data,
+            "snapshot_changelist_url": full_url,
+            "snapshot_changelist_title": title,
+        }
+        return mark_safe(render_to_string("admin/core/snapshot/embedded_changelist.html", context, request=request))
+
     def get_actions(self, request):
         actions = super().get_actions(request)
         if not actions:
@@ -549,7 +523,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return actions
 
     def lookup_allowed(self, lookup, value, request=None):
-        if lookup in {"crawl__id__exact", "crawl_id__exact", "crawl_id"}:
+        if lookup in {"crawl__id__exact", "crawl_id__exact", "crawl_id", "crawl__schedule__id__exact"}:
             return True
         return super().lookup_allowed(lookup, value, request=request)
 
@@ -650,7 +624,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def get_queryset(self, request):
         self.request = request
-        ordering_fields = self._get_ordering_fields(request)
+        ordering_fields = self.get_ordering_fields(request)
         needs_files_sort = "files" in ordering_fields
         needs_tags_sort = "tags_inline" in ordering_fields
         is_change_view = request.resolver_match.url_name == "core_snapshot_change"
@@ -714,45 +688,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         permissions = obj.__dict__.get("snapshot_permissions")
         if permissions is None:
             permissions = obj.permissions
-        permissions = normalize_permissions(permissions)
-        icon, label, fg, bg = SNAPSHOT_PERMISSION_META[permissions]
-        menu_items = format_html_join(
-            "",
-            (
-                '<button type="button" class="snapshot-permissions-menu-item{}" data-permissions="{}">'
-                '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
-                "<span>{}</span>"
-                "</button>"
-            ),
-            (
-                (
-                    " is-active" if choice_value == permissions else "",
-                    choice_value,
-                    choice_fg,
-                    choice_bg,
-                    choice_icon,
-                    choice_label,
-                )
-                for choice_value, choice_label in PERMISSIONS_CHOICES
-                for choice_icon, _choice_title, choice_fg, choice_bg in [SNAPSHOT_PERMISSION_META[choice_value]]
-            ),
-        )
-        return format_html(
-            '<span class="snapshot-permissions-quick" data-current-permissions="{}" data-permissions-url="{}">'
-            '<button type="button" class="snapshot-permissions-button snapshot-permissions-{}" title="{}" aria-label="Change snapshot permissions: {}" aria-expanded="false">'
-            '<span class="snapshot-permissions-icon" aria-hidden="true" style="color:{}; background:{};">{}</span>'
-            "</button>"
-            '<span class="snapshot-permissions-menu" role="menu" hidden>{}</span>'
-            "</span>",
+        return render_permissions_badge(
             permissions,
-            reverse(f"{self.admin_site.name}:core_snapshot_set_permissions", args=[obj.pk]),
-            permissions,
-            label,
-            label,
-            fg,
-            bg,
-            icon,
-            menu_items,
+            url=reverse(f"{self.admin_site.name}:core_snapshot_set_permissions", args=[obj.pk]),
+            object_name="snapshot",
         )
 
     @admin.display(description="Imported Timestamp")
@@ -850,23 +789,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             redo_failed_url,
             obj.pk,
             obj.pk,
-        )
-
-    def status_info(self, obj):
-        request = self.request
-        config = request.archivebox_config
-        favicon_url = build_snapshot_url(str(obj.id), "favicon.ico", request=request, config=config)
-        return format_html(
-            """
-            Archived: {} ({} files {}) &nbsp; &nbsp;
-            Favicon: <img src="{}" style="height: 20px"/> &nbsp; &nbsp;
-            Extension: {} &nbsp; &nbsp;
-            """,
-            "✅" if obj.is_archived else "❌",
-            obj.num_outputs,
-            self.size(obj) or "0kb",
-            favicon_url,
-            obj.extension or "-",
         )
 
     @admin.display(description="Archive Results")
@@ -1189,36 +1111,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         # For started snapshots, show progress bar
         if obj.status == "started" and stats["total"] > 0:
-            percent = stats["percent"]
-            running = stats["running"]
-            succeeded = stats["succeeded"]
-            failed = stats["failed"]
-
-            return format_html(
-                """<div style="min-width: 90px;">
-                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-                        <span class="snapshot-progress-spinner"></span>
-                        <span style="font-size: 11px; color: #64748b;">{}/{} hooks</span>
-                    </div>
-                    <div style="background: #e2e8f0; border-radius: 4px; height: 6px; overflow: hidden;">
-                        <div style="background: linear-gradient(90deg, #10b981 0%, #10b981 {}%, #ef4444 {}%, #ef4444 {}%, #3b82f6 {}%, #3b82f6 100%);
-                                    width: {}%; height: 100%; transition: width 0.3s;"></div>
-                    </div>
-                    <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">
-                        ✓{} ✗{} ⏳{}
-                    </div>
-                </div>""",
-                succeeded + failed + stats["skipped"],
-                stats["total"],
-                int(succeeded / stats["total"] * 100) if stats["total"] else 0,
-                int(succeeded / stats["total"] * 100) if stats["total"] else 0,
-                int((succeeded + failed) / stats["total"] * 100) if stats["total"] else 0,
-                int((succeeded + failed) / stats["total"] * 100) if stats["total"] else 0,
-                percent,
-                succeeded,
-                failed,
-                running,
-            )
+            return render_snapshot_progress(stats)
 
         # For other statuses, show simple badge
         return format_html(
@@ -1266,48 +1159,12 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         )
 
     def _get_progress_stats(self, obj):
-        cached_stats = obj.__dict__.get("_admin_progress_stats")
-        if cached_stats is not None:
-            return cached_stats
-
-        results = self._get_prefetched_results(obj)
-        if results is None:
-            stats = obj.get_progress_stats()
-            expected_total = self._get_expected_hook_total(obj)
-            total = max(stats["total"], expected_total)
-            completed = stats["succeeded"] + stats["failed"] + stats.get("skipped", 0) + stats.get("noresults", 0)
-            stats["total"] = total
-            stats["pending"] = max(total - completed - stats["running"], 0)
-            stats["percent"] = int((completed / total * 100) if total > 0 else 0)
-            obj._admin_progress_stats = stats
-            return stats
-
-        expected_total = self._get_expected_hook_total(obj)
-        observed_total = len(results)
-        total = max(observed_total, expected_total)
-        succeeded = sum(1 for r in results if r.status == "succeeded")
-        failed = sum(1 for r in results if r.status == "failed")
-        running = sum(1 for r in results if r.status == "started")
-        skipped = sum(1 for r in results if r.status == "skipped")
-        noresults = sum(1 for r in results if r.status == "noresults")
-        pending = max(total - succeeded - failed - running - skipped - noresults, 0)
-        completed = succeeded + failed + skipped + noresults
-        percent = int((completed / total * 100) if total > 0 else 0)
-        is_sealed = obj.status not in (obj.StatusChoices.QUEUED, obj.StatusChoices.STARTED, obj.StatusChoices.PAUSED)
-        stats = {
-            "total": total,
-            "succeeded": succeeded,
-            "failed": failed,
-            "running": running,
-            "pending": pending,
-            "skipped": skipped,
-            "noresults": noresults,
-            "percent": percent,
-            "output_size": obj.output_size or 0,
-            "is_sealed": is_sealed,
-        }
-        obj._admin_progress_stats = stats
-        return stats
+        if "_admin_progress_stats" not in obj.__dict__:
+            obj._admin_progress_stats = obj.get_progress_stats(
+                results=self._get_prefetched_results(obj),
+                expected_total=self._get_expected_hook_total(obj),
+            )
+        return obj._admin_progress_stats
 
     def _get_prefetched_results(self, obj):
         if "_admin_output_results" in obj.__dict__:
@@ -1363,22 +1220,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return list(prefetched_cache["tags"])
         return None
 
-    def _get_ordering_fields(self, request):
-        ordering = request.GET.get("o")
-        if not ordering:
-            return set()
-        fields = set()
-        for part in ordering.split("."):
-            if not part:
-                continue
-            try:
-                idx = abs(int(part)) - 1
-            except ValueError:
-                continue
-            if 0 <= idx < len(self.list_display):
-                fields.add(self.list_display[idx])
-        return fields
-
     @admin.display(
         description="Original URL",
         ordering="url",
@@ -1389,12 +1230,6 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             obj.url,
             obj.url[:128],
         )
-
-    @admin.display(description="Health", ordering="health")
-    def health_display(self, obj):
-        h = obj.health
-        color = "green" if h >= 80 else "orange" if h >= 50 else "red"
-        return format_html('<span style="color: {};">{}</span>', color, h)
 
     def grid_view(self, request, extra_context=None):
         extra_context = extra_context or {}
@@ -1499,7 +1334,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         tag_names = [name.strip() for name in tags_str.split(",") if name.strip()]
         tags = []
         for name in tag_names:
-            tag, _ = get_or_create_tag(
+            tag, _ = Tag.get_or_create_by_name(
                 name,
                 created_by=request.user if request.user.is_authenticated else None,
             )

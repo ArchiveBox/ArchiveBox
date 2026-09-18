@@ -192,30 +192,6 @@ document.addEventListener('DOMContentLoaded', function () {
     let similarCards = JSON.parse(document.getElementById('abx-tag-similar-data').textContent || '[]');
     let timeoutId = null;
 
-    function escapeHtml(value) {
-        const div = document.createElement('div');
-        div.textContent = value == null ? '' : String(value);
-        return div.innerHTML;
-    }
-
-    function getApiKey() {
-        return (window.ARCHIVEBOX_API_KEY || '').trim();
-    }
-
-    function withApiKey(url) {
-        const apiKey = getApiKey();
-        if (!apiKey) return url;
-        const separator = url.includes('?') ? '&' : '?';
-        return url + separator + 'api_key=' + encodeURIComponent(apiKey);
-    }
-
-    function buildHeaders() {
-        const headers = {};
-        const apiKey = getApiKey();
-        if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
-        return headers;
-    }
-
     function render(cards) {
         const filtered = (cards || []).filter(function (card) {
             return (card.name || '').toLowerCase() !== (nameInput.value || '').trim().toLowerCase();
@@ -230,23 +206,23 @@ document.addEventListener('DOMContentLoaded', function () {
             const snapshots = (card.snapshots || []).slice(0, 3).map(function (snapshot) {
                 return '' +
                     '<span class="tag-similar-snapshot">' +
-                        '<img src="' + escapeHtml(snapshot.favicon_url) + '" alt="" onerror="this.style.display=\\'none\\'">' +
-                        '<span>' + escapeHtml(snapshot.title) + '</span>' +
+                        '<img src="' + ArchiveBoxUI.escapeHtml(snapshot.favicon_url) + '" alt="" onerror="this.style.display=\\'none\\'">' +
+                        '<span>' + ArchiveBoxUI.escapeHtml(snapshot.title) + '</span>' +
                     '</span>';
             }).join('');
 
             return '' +
-                '<a class="tag-similar-card" href="' + escapeHtml(card.filter_url) + '">' +
-                    '<strong>' + escapeHtml(card.name) + '</strong>' +
-                    '<span>' + escapeHtml(card.num_snapshots) + ' snapshots</span>' +
+                '<a class="tag-similar-card" href="' + ArchiveBoxUI.escapeHtml(card.filter_url) + '">' +
+                    '<strong>' + ArchiveBoxUI.escapeHtml(card.name) + '</strong>' +
+                    '<span>' + ArchiveBoxUI.escapeHtml(card.num_snapshots) + ' snapshots</span>' +
                     '<div class="tag-similar-card__snapshots">' + (snapshots || '<span class="tag-similar-snapshot">No snapshots</span>') + '</div>' +
                 '</a>';
         }).join('');
     }
 
     async function fetchSimilar(query) {
-        const response = await fetch(withApiKey(searchUrl + '?q=' + encodeURIComponent(query || '')), {
-            headers: buildHeaders(),
+        const response = await fetch(ArchiveBoxUI.apiUrl(searchUrl + '?q=' + encodeURIComponent(query || '')), {
+            headers: ArchiveBoxUI.apiHeaders(false),
             credentials: 'same-origin',
         });
         if (!response.ok) return [];

@@ -217,26 +217,27 @@ def get_isp_info(ip=None):
     }
 
 
+def get_local_interface(address: str) -> dict[str, str]:
+    """Describe the real host interface owning an IPv4 address."""
+    for interface, addresses in psutil.net_if_addrs().items():
+        if any(ip.address == address for ip in ip_addrs(addresses)):
+            return {
+                "iface": interface,
+                "mac_address": next((mac.address for mac in mac_addrs(addresses)), ""),
+                "ip_local": address,
+            }
+    raise ValueError(f"No host interface owns {address}")
+
+
 def get_host_network() -> dict[str, Any]:
-    default_gateway_local_ip = get_local_ip()
-    gateways = psutil.net_if_addrs()
-
-    for interface, ips in gateways.items():
-        for local_ip in ip_addrs(ips):
-            if default_gateway_local_ip == local_ip.address:
-                mac_address = next(mac_addrs(ips)).address
-                public_ip = get_public_ip()
-                return {
-                    "hostname": max([socket.gethostname(), platform.node()], key=len),
-                    "iface": interface,
-                    "mac_address": mac_address,
-                    "ip_local": local_ip.address,
-                    "ip_public": public_ip,
-                    # "is_behind_nat": local_ip.address != public_ip,
-                    **get_isp_info(public_ip),
-                }
-
-    raise Exception("Could not determine host network info")
+    interface = get_local_interface(get_local_ip())
+    public_ip = get_public_ip()
+    return {
+        "hostname": max([socket.gethostname(), platform.node()], key=len),
+        **interface,
+        "ip_public": public_ip,
+        **get_isp_info(public_ip),
+    }
 
 
 def get_os_info() -> dict[str, Any]:

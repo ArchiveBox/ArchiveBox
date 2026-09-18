@@ -229,21 +229,20 @@ def update(
                 continue
             raise SystemExit(exit_code)
 
-    is_filtered_update = any(
-        (
-            filter_patterns,
-            status,
-            url__icontains,
-            url__istartswith,
-            tag,
-            crawl_id,
-            limit,
-            sort,
-            search,
-            before,
-            after,
-        ),
-    )
+    filters = {
+        "filter_patterns": filter_patterns,
+        "status": status,
+        "url__icontains": url__icontains,
+        "url__istartswith": url__istartswith,
+        "tag": tag,
+        "crawl_id": crawl_id,
+        "limit": limit,
+        "sort": sort,
+        "search": search,
+        "before": before,
+        "after": after,
+    }
+    is_filtered_update = any(filters.values())
     touched_snapshot_ids: set[str] = set()
     exit_code = 0
 
@@ -256,33 +255,11 @@ def update(
                 do_index = index_only or not migrate_only
 
                 if do_migrate:
-                    if (
-                        filter_patterns
-                        or status
-                        or url__icontains
-                        or url__istartswith
-                        or tag
-                        or crawl_id
-                        or limit
-                        or sort
-                        or search
-                        or before
-                        or after
-                    ):
+                    if is_filtered_update:
                         print("[*] Processing filtered snapshots from database...")
                         stats = process_filtered_snapshots(
-                            filter_patterns=filter_patterns,
+                            **filters,
                             filter_type=filter_type,
-                            status=status,
-                            url__icontains=url__icontains,
-                            url__istartswith=url__istartswith,
-                            tag=tag,
-                            crawl_id=crawl_id,
-                            limit=limit,
-                            sort=sort,
-                            search=search,
-                            before=before,
-                            after=after,
                             resume=resume,
                             batch_size=batch_size,
                             queue_for_archiving=True,
@@ -324,18 +301,8 @@ def update(
                         print("[*] No search indexing plugins are available, nothing to backfill.")
                     else:
                         snapshots = _build_filtered_snapshots_queryset(
-                            filter_patterns=filter_patterns,
+                            **filters,
                             filter_type=filter_type,
-                            status=status,
-                            url__icontains=url__icontains,
-                            url__istartswith=url__istartswith,
-                            tag=tag,
-                            crawl_id=crawl_id,
-                            limit=limit,
-                            sort=sort,
-                            search=search,
-                            before=before,
-                            after=after,
                             resume=resume,
                         )
                         stats = reindex_snapshots(
@@ -362,32 +329,17 @@ def update(
             resume_cmd.append("--migrate-only")
         if index_only:
             resume_cmd.append("--index-only")
-        if batch_size != 500:
-            resume_cmd.extend(["--batch-size", str(batch_size)])
-        if exact_resume or resume:
-            resume_cmd.extend(["--resume", str(exact_resume or resume)])
-        if before is not None:
-            resume_cmd.extend(["--before", str(before)])
-        if after is not None:
-            resume_cmd.extend(["--after", str(after)])
-        if filter_type != "exact":
-            resume_cmd.extend(["--filter-type", filter_type])
-        if status:
-            resume_cmd.extend(["--status", status])
-        if url__icontains:
-            resume_cmd.extend(["--url__icontains", url__icontains])
-        if url__istartswith:
-            resume_cmd.extend(["--url__istartswith", url__istartswith])
-        if tag:
-            resume_cmd.extend(["--tag", tag])
-        if crawl_id:
-            resume_cmd.extend(["--crawl-id", crawl_id])
-        if limit:
-            resume_cmd.extend(["--limit", str(limit)])
-        if sort:
-            resume_cmd.extend(["--sort", sort])
-        if search:
-            resume_cmd.extend(["--search", search])
+        resume_options = {
+            "batch-size": batch_size if batch_size != 500 else None,
+            "resume": exact_resume or resume,
+            "filter-type": filter_type if filter_type != "exact" else None,
+            **{key: value for key, value in filters.items() if key != "filter_patterns"},
+        }
+        for name, value in resume_options.items():
+            # Zero is a meaningful date boundary, but remains an unset limit.
+            if value or (name in {"before", "after"} and value is not None):
+                option = "crawl-id" if name == "crawl_id" else name
+                resume_cmd.extend([f"--{option}", str(value)])
         resume_cmd.extend(str(pattern) for pattern in filter_patterns)
         print("\n[red][X] archivebox update interrupted.[/red]")
         print("[yellow]Hint: resume this idempotent update with:[/yellow]")
