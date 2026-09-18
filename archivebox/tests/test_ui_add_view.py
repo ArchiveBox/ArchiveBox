@@ -20,6 +20,23 @@ WEB_HOST = "web.archivebox.localhost:8000"
 ADMIN_HOST = "admin.archivebox.localhost:8000"
 
 
+ADD_FORM_DEFAULTS = {
+    "tag": "",
+    "depth": "0",
+    "max_urls": "0",
+    "crawl_max_size": "0",
+    "snapshot_max_size": "0",
+    "url_filters_allowlist": "",
+    "url_filters_denylist": "",
+    "notes": "",
+    "schedule": "",
+    "persona": "Default",
+    "permissions": "public",
+    "start_paused": "",
+    "config": "{}",
+}
+
+
 @pytest.fixture
 def admin_user(db):
     return User.objects.create_superuser(
@@ -140,22 +157,13 @@ def test_add_view_staff_user_cannot_override_raw_or_plugin_config(client):
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com/staff-config",
-            "tag": "",
-            "depth": "0",
-            "max_urls": "0",
-            "crawl_max_size": "0",
             "crawl_timeout": "0",
             "timeout": "60",
-            "snapshot_max_size": "0",
             "delete_after": "0",
             "crawl_max_concurrent_snapshots": "1",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
-            "notes": "",
             "schedule": "daily",
-            "persona": "Default",
-            "permissions": "public",
             "start_paused": "on",
             "main_plugins": ["wget"],
             "plugin_config__wget__WGET_TIMEOUT": "77",
@@ -246,6 +254,7 @@ def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com\nhttps://cdn.example.com/asset.js",
             "tag": "alpha,beta",
             "depth": "1",
@@ -260,11 +269,6 @@ def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_
             "url_filters_denylist": "cdn.example.com",
             "url_filters_only_new": "1",
             "notes": "Created from /add/",
-            "schedule": "",
-            "persona": "Default",
-            "permissions": "public",
-            "start_paused": "",
-            "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,
     )
@@ -290,24 +294,12 @@ def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_
 
 def _csrf_test_add_data(url: str) -> dict[str, str]:
     return {
+        **ADD_FORM_DEFAULTS,
         "url": url,
-        "tag": "",
-        "depth": "0",
-        "max_urls": "0",
-        "crawl_max_size": "0",
         "crawl_timeout": "0",
         "timeout": "",
-        "snapshot_max_size": "0",
         "delete_after": "0",
         "crawl_max_concurrent_snapshots": "1",
-        "url_filters_allowlist": "",
-        "url_filters_denylist": "",
-        "notes": "",
-        "schedule": "",
-        "persona": "Default",
-        "permissions": "public",
-        "start_paused": "",
-        "config": "{}",
     }
 
 
@@ -337,24 +329,14 @@ def test_add_view_sanitizes_crawl_notes_before_safe_update(client, admin_user):
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com/notes-xss",
-            "tag": "",
-            "depth": "0",
             "max_urls": "1",
-            "crawl_max_size": "0",
             "crawl_timeout": "0",
             "timeout": "",
-            "snapshot_max_size": "0",
             "delete_after": "0",
             "crawl_max_concurrent_snapshots": "1",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
             "notes": malicious_notes,
-            "schedule": "",
-            "persona": "Default",
-            "permissions": "public",
-            "start_paused": "",
-            "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,
     )
@@ -373,20 +355,8 @@ def test_add_view_unchecked_only_new_sets_crawl_override(client, admin_user):
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com/rearchive",
-            "tag": "",
-            "depth": "0",
-            "max_urls": "0",
-            "crawl_max_size": "0",
-            "snapshot_max_size": "0",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
-            "notes": "",
-            "schedule": "",
-            "persona": "Default",
-            "permissions": "public",
-            "start_paused": "",
-            "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,
     )
@@ -407,20 +377,10 @@ def test_add_view_selected_persona_wins_over_stale_config_override(client, admin
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com/private",
-            "tag": "",
-            "depth": "0",
-            "max_urls": "0",
-            "crawl_max_size": "0",
-            "snapshot_max_size": "0",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
             "url_filters_only_new": "1",
-            "notes": "",
-            "schedule": "",
             "persona": "Private",
-            "permissions": "public",
-            "start_paused": "",
             "config": '{"DEFAULT_PERSONA": "Default"}',
         },
         HTTP_HOST=ADMIN_HOST,
@@ -447,20 +407,9 @@ def test_add_view_applies_plugin_config_overrides(client, admin_user):
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com/plugin-config",
-            "tag": "",
-            "depth": "0",
-            "max_urls": "0",
-            "crawl_max_size": "0",
-            "snapshot_max_size": "0",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
             "url_filters_only_new": "1",
-            "notes": "",
-            "schedule": "",
-            "persona": "Default",
-            "permissions": "public",
-            "start_paused": "",
             "main_plugins": ["wget"],
             "plugin_config__wget__WGET_ENABLED": "false",
             "plugin_config__wget__WGET_TIMEOUT": "77",
@@ -488,9 +437,8 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com/public-safe",
-            "tag": "",
-            "depth": "0",
             "max_urls": "10",
             "crawl_max_size": "45mb",
             "crawl_timeout": "120",
@@ -503,8 +451,6 @@ def test_add_view_public_submission_ignores_plugin_and_custom_config(client, adm
             "url_filters_only_new": "1",
             "notes": "public add",
             "schedule": "daily",
-            "persona": "Default",
-            "permissions": "public",
             "start_paused": "on",
             "main_plugins": ["wget"],
             "plugin_config__twocaptcha__TWOCAPTCHA_API_KEY": "posted-token",
@@ -541,21 +487,9 @@ def test_add_view_queues_crawl_for_background_runner(client, admin_user):
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com",
-            "tag": "",
-            "depth": "0",
-            "max_urls": "0",
-            "crawl_max_size": "0",
-            "snapshot_max_size": "0",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
             "url_filters_only_new": "1",
-            "notes": "",
-            "schedule": "",
-            "persona": "Default",
-            "permissions": "public",
-            "start_paused": "",
-            "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,
     )
@@ -575,21 +509,11 @@ def test_add_view_start_paused_creates_paused_crawl_without_snapshots(client, ad
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": "https://example.com/paused",
-            "tag": "",
             "depth": "1",
-            "max_urls": "0",
-            "crawl_max_size": "0",
-            "snapshot_max_size": "0",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
             "url_filters_only_new": "1",
-            "notes": "",
-            "schedule": "",
-            "persona": "Default",
-            "permissions": "public",
             "start_paused": "on",
-            "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,
     )
@@ -610,6 +534,7 @@ def test_add_view_extracts_urls_from_mixed_text_input(client, admin_user):
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": (
                 "https://sweeting.me,https://google.com\n"
                 "Notes: [ArchiveBox](https://github.com/ArchiveBox/ArchiveBox), https://news.ycombinator.com\n"
@@ -617,20 +542,7 @@ def test_add_view_extracts_urls_from_mixed_text_input(client, admin_user):
                 '{"items":["https://example.com/three"]}\n'
                 "csv,https://example.com/four"
             ),
-            "tag": "",
-            "depth": "0",
-            "max_urls": "0",
-            "crawl_max_size": "0",
-            "snapshot_max_size": "0",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
             "url_filters_only_new": "1",
-            "notes": "",
-            "schedule": "",
-            "persona": "Default",
-            "permissions": "public",
-            "start_paused": "",
-            "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,
     )
@@ -656,21 +568,9 @@ def test_add_view_trims_trailing_punctuation_from_markdown_urls(client, admin_us
     response = client.post(
         reverse("add"),
         data={
+            **ADD_FORM_DEFAULTS,
             "url": ("Docs: https://github.com/ArchiveBox/ArchiveBox.\nIssue: https://github.com/abc?abc#234234?."),
-            "tag": "",
-            "depth": "0",
-            "max_urls": "0",
-            "crawl_max_size": "0",
-            "snapshot_max_size": "0",
-            "url_filters_allowlist": "",
-            "url_filters_denylist": "",
             "url_filters_only_new": "1",
-            "notes": "",
-            "schedule": "",
-            "persona": "Default",
-            "permissions": "public",
-            "start_paused": "",
-            "config": "{}",
         },
         HTTP_HOST=ADMIN_HOST,
     )

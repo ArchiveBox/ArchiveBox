@@ -635,7 +635,22 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
         for _snapshot_id, url, depth, plugin, hook_name, status, _files, _size, output_str in archive_results
         if not (status in allowed_statuses or (plugin == "archivedotorg" and status == ArchiveResult.StatusChoices.FAILED))
     ]
-    assert not unexpected_results
+    # This fixture serves HTTP. TLSNotary must reject every plaintext document;
+    # a setup, timeout, or verifier error must not count as that expected refusal.
+    tlsnotary_results = [row for row in archive_results if row[3] == "tlsnotary"]
+    assert {row[1] for row in tlsnotary_results} == expected_urls
+    assert len(tlsnotary_results) == len(expected_urls)
+    with use_archivebox_db(initialized_archive):
+        for snapshot_id, _url, _depth, _plugin, hook_name, status, files, size, _output in tlsnotary_results:
+            assert status == ArchiveResult.StatusChoices.FAILED
+            assert not files
+            assert size == 0
+            process = ArchiveResult.objects.get(snapshot_id=snapshot_id, plugin="tlsnotary", hook_name=hook_name).process
+            assert process is not None
+            assert process.status == Process.StatusChoices.EXITED
+            assert process.exit_code == 1
+            assert process.stderr.strip() == "[tlsnotary] TLSNotary requires an HTTPS document"
+    assert not [result for result in unexpected_results if result["plugin"] != "tlsnotary"]
     ytdlp_results = [
         (url, status, output_str)
         for _snapshot_id, url, _depth, plugin, _hook_name, status, _files, _size, output_str in archive_results
@@ -682,19 +697,6 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
     assert set(recursive_test_site["deep_urls"]).issubset(parsed_urls)
 
     assert processes
-    failed_hook_results = [
-        {
-            "url": url,
-            "depth": depth,
-            "plugin": plugin,
-            "hook_name": hook_name,
-            "status": status,
-            "output_str": output_str,
-        }
-        for _snapshot_id, url, depth, plugin, hook_name, status, _files, _size, output_str in archive_results
-        if status == ArchiveResult.StatusChoices.FAILED and plugin != "archivedotorg"
-    ]
-    assert not failed_hook_results
     assert all(status == Process.StatusChoices.EXITED for _id, _pwd, _cmd, status, _exit_code, _started_at, _ended_at in processes)
 
     intervals = []

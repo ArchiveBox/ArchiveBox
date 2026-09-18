@@ -142,18 +142,17 @@ class TestArchiveResultCreate:
         assert crawl_result.returncode == 0, crawl_result.stderr
         crawl_record = parse_jsonl_output(crawl_result.stdout)[0]
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["archiveresult", "create"],
             stdin=crawl_result.stdout,
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        assert "Passed through" in stderr
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        assert "Passed through" in result.stderr
+        records = parse_jsonl_output(result.stdout)
         assert len(records) == 1
         assert records[0]["id"] == crawl_record["id"]
 
@@ -163,16 +162,15 @@ class TestArchiveResultList:
 
     def test_list_empty(self, initialized_archive):
         """List with no archive results returns empty."""
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["archiveresult", "list"],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        assert "Listed 0 archive results" in stderr
+        assert result.returncode == 0
+        assert "Listed 0 archive results" in result.stderr
 
     def test_list_filter_by_status(self, initialized_archive):
         """Filter archive results by status."""

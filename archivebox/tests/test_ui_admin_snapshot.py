@@ -607,7 +607,14 @@ class TestSnapshotProgressStats:
 
         assert result.embed_path_db() is None
 
-    def test_embed_path_db_prefers_valid_output_str_over_first_output_file(self, snapshot, real_hash_projection):
+    @pytest.mark.parametrize(
+        "output_str",
+        [
+            ("wget/example.com/index.html"),
+            (""),
+        ],
+    )
+    def test_embed_path_db_selects_html_output(self, snapshot, real_hash_projection, output_str):
         from archivebox.core.models import ArchiveResult
 
         output_dir = Path(snapshot.output_dir) / "wget" / "example.com" / "assets" / "css"
@@ -619,32 +626,7 @@ class TestSnapshotProgressStats:
         _process, result = real_hash_projection
         ArchiveResult.objects.filter(pk=result.pk).update(
             plugin="wget",
-            output_str="wget/example.com/index.html",
-            output_files={
-                "example.com/assets/css/mobile.css": {"size": (output_dir / "mobile.css").stat().st_size, "mimetype": "text/css"},
-                "example.com/index.html": {
-                    "size": (Path(snapshot.output_dir) / "wget" / "example.com" / "index.html").stat().st_size,
-                    "mimetype": "text/html",
-                },
-            },
-        )
-        result.refresh_from_db()
-
-        assert result.embed_path_db() == "wget/example.com/index.html"
-
-    def test_embed_path_db_scores_output_files_instead_of_using_first_entry(self, snapshot, real_hash_projection):
-        from archivebox.core.models import ArchiveResult
-
-        output_dir = Path(snapshot.output_dir) / "wget" / "example.com" / "assets" / "css"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        (Path(snapshot.output_dir) / "wget" / "example.com" / "index.html").parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(REPO_ROOT / "README.md", Path(snapshot.output_dir) / "wget" / "example.com" / "index.html")
-        shutil.copyfile(REPO_ROOT / "archivebox" / "templates" / "static" / "bootstrap.min.css", output_dir / "mobile.css")
-
-        _process, result = real_hash_projection
-        ArchiveResult.objects.filter(pk=result.pk).update(
-            plugin="wget",
-            output_str="",
+            output_str=output_str,
             output_files={
                 "example.com/assets/css/mobile.css": {"size": (output_dir / "mobile.css").stat().st_size, "mimetype": "text/css"},
                 "example.com/index.html": {

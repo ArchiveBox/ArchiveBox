@@ -33,19 +33,18 @@ class TestCrawlCreate:
         """Create crawl from URL arguments."""
         url = create_test_url()
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "create", url],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0, f"Command failed: {stderr}"
-        assert "Created crawl" in stderr
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
+        assert "Created crawl" in result.stderr
 
         # Check JSONL output
-        records = parse_jsonl_output(stdout)
+        records = parse_jsonl_output(result.stdout)
         assert len(records) == 1
         assert records[0]["type"] == "Crawl"
         assert url in records[0]["urls"]
@@ -55,18 +54,17 @@ class TestCrawlCreate:
         urls = [create_test_url() for _ in range(3)]
         stdin = "\n".join(urls)
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "create"],
             stdin=stdin,
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0, f"Command failed: {stderr}"
+        assert result.returncode == 0, f"Command failed: {result.stderr}"
 
-        records = parse_jsonl_output(stdout)
+        records = parse_jsonl_output(result.stdout)
         assert len(records) == 1
         crawl = records[0]
         assert crawl["type"] == "Crawl"
@@ -78,32 +76,30 @@ class TestCrawlCreate:
         """Create crawl with --depth flag."""
         url = create_test_url()
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "create", "--depth=2", url],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         assert records[0]["max_depth"] == 2
 
     def test_create_with_tag(self, initialized_archive):
         """Create crawl with --tag flag."""
         url = create_test_url()
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "create", "--tag=test-tag", url],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         assert "test-tag" in records[0].get("tags_str", "")
 
     def test_create_passes_through_tag_emitted_by_cli(self, initialized_archive):
@@ -119,17 +115,16 @@ class TestCrawlCreate:
         url = create_test_url()
         stdin = tag_result.stdout + json.dumps({"url": url}) + "\n"
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "create"],
             stdin=stdin,
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
 
         assert any(record.get("type") == "Tag" and record["id"] == tag_record["id"] for record in records)
         assert any(record.get("type") == "Crawl" and url in record["urls"] for record in records)
@@ -163,32 +158,30 @@ class TestCrawlList:
 
     def test_list_empty(self, initialized_archive):
         """List with no crawls returns empty."""
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "list"],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        assert "Listed 0 crawls" in stderr
+        assert result.returncode == 0
+        assert "Listed 0 crawls" in result.stderr
 
     def test_list_returns_created(self, initialized_archive):
         """List returns previously created crawls."""
         url = create_test_url()
         run_archivebox_cmd(["crawl", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "list"],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         assert len(records) >= 1
         assert any(url in r.get("urls", "") for r in records)
 
@@ -197,16 +190,15 @@ class TestCrawlList:
         url = create_test_url()
         run_archivebox_cmd(["crawl", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "list", "--status=queued"],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         for r in records:
             assert r["status"] == "queued"
 
@@ -221,16 +213,15 @@ class TestCrawlList:
                 disable_extractors=True,
             )
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["crawl", "list", "--limit=2"],
             cwd=initialized_archive,
             default_cli_env=True,
             disable_extractors=True,
         )
-        stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert code == 0
-        records = parse_jsonl_output(stdout)
+        assert result.returncode == 0
+        records = parse_jsonl_output(result.stdout)
         assert len(records) == 2
 
 

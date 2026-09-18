@@ -963,14 +963,13 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
             log_name="archivewebpage_server.log",
         )
         get_http_response(port, host=f"archivebox.localhost:{port}", path="/")
-        _cmd_result = run_archivebox_cmd(
+        command_result = run_archivebox_cmd(
             ["add", "--depth=0", "--max-urls=1", "--plugins=archivewebpage", url],
             cwd=initialized_archive,
             env=env,
             timeout=120,
         )
-        stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        assert returncode == 0, f"archivebox add failed:\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+        assert command_result.returncode == 0, f"archivebox add failed:\nSTDOUT:\n{command_result.stdout}\nSTDERR:\n{command_result.stderr}"
 
         capture = _get_archivewebpage_capture(initialized_archive, url)
         snapshot_host = f"{get_snapshot_subdomain(capture['snapshot_id'])}.archivebox.localhost:{port}"
