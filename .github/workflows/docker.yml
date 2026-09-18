@@ -3,8 +3,9 @@ name: Build Docker image
 on:
   workflow_dispatch:
   push:
-    branches:
-      - '**'
+    branches-ignore:
+      - docs
+      - 'docs/**'
     tags:
       - 'v*'
   # pull_request:
@@ -14,6 +15,8 @@ env:
       
 jobs:
   buildx:
+    # Also prevent a manual dispatch on a docs repair branch from publishing.
+    if: github.ref != 'refs/heads/docs' && !startsWith(github.ref, 'refs/heads/docs/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -49,7 +52,7 @@ jobs:
 
       - name: Docker Login
         uses: docker/login-action@v3
-        if: github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/heads/docs/')
+        if: github.event_name != 'pull_request'
         with:
            username: ${{ secrets.DOCKER_USERNAME }}
            password: ${{ secrets.DOCKER_PASSWORD }}
@@ -73,7 +76,7 @@ jobs:
           context: ./
           file: ./Dockerfile
           builder: ${{ steps.buildx.outputs.name }}
-          push: ${{ github.event_name != 'pull_request' && !startsWith(github.ref, 'refs/heads/docs/') }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.docker_meta.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new
