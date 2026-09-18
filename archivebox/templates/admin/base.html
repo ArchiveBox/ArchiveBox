@@ -1339,18 +1339,34 @@
                 display: inline-block;
             }
 
-            .action-rearchive-select,
-            .action-permissions-select {
+            /* The native select receives the actual click, including in WKWebView. */
+            body.change-list #changelist .actions .action-rearchive-select,
+            body.change-list #changelist .actions .action-permissions-select {
                 position: absolute;
-                left: 0;
-                bottom: 0;
-                width: 1px;
-                height: 1px;
+                inset: 0;
+                width: 100%;
+                height: 100%;
                 opacity: 0;
-                pointer-events: none;
-                border: 0;
-                padding: 0;
+                cursor: pointer;
+                z-index: 1;
                 margin: 0;
+            }
+
+            body.change-list #changelist .action-rearchive-wrapper > .button,
+            body.change-list #changelist .action-permissions-wrapper > .button {
+                padding: 8px 16px !important;
+                width: max-content;
+                min-width: max-content;
+                flex: 0 0 auto;
+                gap: 6px;
+                white-space: nowrap;
+            }
+
+            .action-rearchive-wrapper:focus-within,
+            .action-permissions-wrapper:focus-within {
+                outline: 2px solid #2563eb;
+                outline-offset: 2px;
+                border-radius: 6px;
             }
 
             /* Object count */
@@ -1960,22 +1976,10 @@
                             .addClass('action-rearchive-select')
                             .attr('aria-label', 'Re-Archive')
                             .appendTo(wrapper)
-                        $('<button>')
-                            .attr('type', 'button')
+                        $('<span>')
+                            .attr('aria-hidden', 'true')
                             .addClass('button')
                             .html('Re-Archive <span aria-hidden="true">▾</span>')
-                            .click(function (e) {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                const el = select[0]
-                                if (typeof el.showPicker === 'function') {
-                                    try { el.showPicker() } catch (err) { el.focus(); el.click() }
-                                } else {
-                                    el.focus()
-                                    el.click()
-                                }
-                                return false
-                            })
                             .appendTo(wrapper)
                         $('<option></option>').attr('value', '').attr('hidden', true).appendTo(select)
                         rearchiveActions.forEach(function (action_value) {
@@ -2021,23 +2025,11 @@
                             .addClass('action-permissions-select')
                             .attr('aria-label', 'Permissions')
                             .appendTo(wrapper)
-                        $('<button>')
-                            .attr('type', 'button')
+                        $('<span>')
+                            .attr('aria-hidden', 'true')
                             .attr('name', action_type)
                             .addClass('button')
                             .text(this.text)
-                            .click(function (e) {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                const el = select[0]
-                                if (typeof el.showPicker === 'function') {
-                                    try { el.showPicker() } catch (err) { el.focus(); el.click() }
-                                } else {
-                                    el.focus()
-                                    el.click()
-                                }
-                                return false
-                            })
                             .appendTo(wrapper)
                         $('<option></option>').attr('value', '').attr('hidden', true).appendTo(select)
                         ;[
