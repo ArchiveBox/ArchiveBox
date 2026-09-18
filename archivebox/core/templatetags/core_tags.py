@@ -460,9 +460,9 @@ def system_warnings_banner(context):
     """Render the top-of-page warning banner for one of the conditions below,
     in priority order (highest first):
 
-    1. ``mode="unconfigured"``— ``BASE_URL`` is empty. Security/correctness
-       issue: until it's pinned, generated URLs can echo any Host the client
-       sends, and admin/web/api routing has no canonical anchor.
+    1. ``mode="unconfigured"``— ``BASE_URL`` is empty and the operator has
+       not selected safe single-domain routing. That mode intentionally uses
+       each device's connection address, including LAN and Tailscale IPs.
     2. ``mode="base_url_mismatch"`` — the browser reached ArchiveBox through
        an origin that differs from the configured canonical ``BASE_URL``.
     3. ``mode="unsafe"``      — ``SERVER_SECURITY_MODE`` explicitly enables
@@ -489,7 +489,7 @@ def system_warnings_banner(context):
 
         config = get_config(resolve_plugins=False)
 
-    if not config.BASE_URL:
+    if not config.BASE_URL and config.SERVER_SECURITY_MODE != "safe-onedomain-nojsreplay":
         return get_setup_wizard_context(context.get("request"), config)
     mismatch = get_base_url_mismatch_context(context.get("request"), config)
     if mismatch and not _is_web_subdomain_alias(mismatch["browser_url"], mismatch["configured_base_url"]):

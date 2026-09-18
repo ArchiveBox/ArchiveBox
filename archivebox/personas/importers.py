@@ -362,6 +362,12 @@ def validate_persona_name(name: str) -> tuple[bool, str]:
 
 
 def discover_local_browser_profiles() -> list[PersonaImportSource]:
+    # The macOS companion exports with the host Keychain before creating personas.
+    # Raw mounts alone cannot decrypt macOS cookies in the Linux container.
+    if host_profiles := os.environ.get("ARCHIVEBOX_HOST_BROWSER_PROFILES"):
+        host_templates = discover_persona_template_profiles(Path(host_profiles))
+        host_names = {source.source_name for source in host_templates}
+        return host_templates + [source for source in discover_persona_template_profiles() if source.source_name not in host_names]
     discovered: list[PersonaImportSource] = []
 
     for browser, finder in BROWSER_PROFILE_FINDERS.items():
@@ -438,6 +444,11 @@ def discover_persona_template_profiles(personas_dir: Path | None = None) -> list
 
 def resolve_browser_import_source(browser: str, profile_dir: str | None = None) -> PersonaImportSource:
     browser = browser.lower().strip()
+    if host_profiles := os.environ.get("ARCHIVEBOX_HOST_BROWSER_PROFILES"):
+        label = BROWSER_LABELS.get(browser, browser)
+        exported = Path(host_profiles) / f"{label} - {profile_dir or 'Default'}"
+        if exported.is_dir():
+            return resolve_custom_import_source(str(exported))
     if browser not in BROWSER_PROFILE_FINDERS:
         supported = ", ".join(BROWSER_PROFILE_FINDERS)
         raise ValueError(f"Unknown browser: {browser}. Supported browsers: {supported}")

@@ -16,6 +16,23 @@ def test_persona_help_runs_successfully(tmp_path):
     assert "list" in result.stdout
 
 
+def test_persona_create_permissions_preserves_existing_persona(initialized_archive):
+    from archivebox.tests.conftest import run_python_cwd
+
+    result = run_archivebox_cmd(["persona", "create", "--permissions=private", "host-profile"], cwd=initialized_archive)
+    assert result.returncode == 0, result.stderr
+    existing = run_archivebox_cmd(["persona", "create", "--permissions=public", "host-profile"], cwd=initialized_archive)
+    assert existing.returncode == 0, existing.stderr
+    stdout, stderr, returncode = run_python_cwd(
+        "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings'); "
+        "import django; django.setup(); from archivebox.personas.models import Persona; "
+        "p = Persona.objects.get(name='host-profile'); assert p.permissions == 'private'; print('private')",
+        cwd=initialized_archive,
+    )
+    assert returncode == 0, stderr
+    assert "private" in stdout
+
+
 def test_persona_import_missing_source_is_actionable_and_does_not_create(initialized_archive, tmp_path):
     result = run_archivebox_cmd(
         ["persona", "create", "--import=brave", "--source", str(tmp_path / "missing"), "broken"],

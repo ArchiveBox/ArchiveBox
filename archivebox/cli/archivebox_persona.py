@@ -109,6 +109,7 @@ def create_personas(
     profile: str | None = None,
     source: str | None = None,
     browser_binary: str | None = None,
+    permissions: str | None = None,
 ) -> int:
     """
     Create Personas from names.
@@ -162,7 +163,10 @@ def create_personas(
             rprint(f'[red]Invalid persona name "{name}": {error_msg}[/red]', file=sys.stderr)
             continue
 
-        persona, created = Persona.objects.get_or_create(name=name)
+        persona, created = Persona.objects.get_or_create(
+            name=name,
+            defaults={"config": {"PERMISSIONS": permissions}} if permissions else {},
+        )
 
         if created:
             persona.ensure_dirs()
@@ -453,9 +457,30 @@ def main():
     help="Source Chromium browser executable; required for other Chromium-based browsers",
 )
 @click.option("--profile", help="Profile directory name under the user data dir (e.g. Default, Profile 1)")
-def create_cmd(names: tuple, import_from: str | None, profile: str | None, source: str | None, browser_binary: str | None):
+@click.option(
+    "--permissions",
+    type=click.Choice(["public", "unlisted", "private"]),
+    help="Visibility for a newly created persona (existing personas are unchanged)",
+)
+def create_cmd(
+    names: tuple,
+    import_from: str | None,
+    profile: str | None,
+    source: str | None,
+    browser_binary: str | None,
+    permissions: str | None,
+):
     """Create Personas, optionally importing from a browser profile."""
-    sys.exit(create_personas(names, import_from=import_from, profile=profile, source=source, browser_binary=browser_binary))
+    sys.exit(
+        create_personas(
+            names,
+            import_from=import_from,
+            profile=profile,
+            source=source,
+            browser_binary=browser_binary,
+            permissions=permissions,
+        ),
+    )
 
 
 @main.command("list")
