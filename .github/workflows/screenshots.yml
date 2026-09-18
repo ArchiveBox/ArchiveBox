@@ -21,7 +21,7 @@ permissions:
 
 concurrency:
   group: ${{ github.event_name == 'workflow_dispatch' && format('publicsite-captures-manual-{0}', github.run_id) || 'publicsite-captures' }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+  cancel-in-progress: false
 
 jobs:
   deploy:
