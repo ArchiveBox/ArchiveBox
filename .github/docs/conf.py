@@ -33,6 +33,22 @@ html_show_sphinx = False
 myst_heading_anchors = 6
 
 
+def rewrite_prose(text, transform):
+    """Rewrite navigation outside fenced and indented code blocks."""
+    lines = text.splitlines(keepends=True)
+    output = []
+    start = 0
+    for token in MarkdownIt().parse(text):
+        if token.type not in {"fence", "code_block"}:
+            continue
+        first, last = token.map
+        output.append(transform("".join(lines[start:first])))
+        output.append("".join(lines[first:last]))
+        start = last
+    output.append(transform("".join(lines[start:])))
+    return "".join(output)
+
+
 def prepare_source(app, docname, source):
     text = (ROOT / "README.md").read_text() if docname == "index" else source[0]
     directory = ROOT if docname == "index" else ROOT / "docs"
@@ -41,7 +57,7 @@ def prepare_source(app, docname, source):
         parts = match.group(1).split("|", 1)
         return f"[{parts[0]}]({parts[-1].replace(' ', '-')}.md)"
 
-    text = re.sub(r"\[\[([^\]\n]+)\]\]", wiki, text)
+    text = rewrite_prose(text, lambda prose: re.sub(r"\[\[([^\]\n]+)\]\]", wiki, prose))
 
     def resource(target):
         # These README images were deleted just before 0.1.0 without fixing its links.
@@ -64,10 +80,14 @@ def prepare_source(app, docname, source):
             )
         return target
 
-    text = re.sub(
-        r'((?:src|href)=["\'])([^"\']+)', lambda m: m[1] + resource(m[2]), text
-    )
-    text = re.sub(r"\]\(([^)\s]+)\)", lambda m: "](" + resource(m[1]) + ")", text)
+    def rewrite_links(prose):
+        prose = re.sub(
+            r'((?:src|href)=["\'])([^"\']+)', lambda m: m[1] + resource(m[2]), prose
+        )
+        prose = re.sub(r"\]\(([^)\s]+)\)", lambda m: "](" + resource(m[1]) + ")", prose)
+        return prose
+
+    text = rewrite_prose(text, rewrite_links)
     text = (
         f"# ArchiveBox {release}"
         + (
