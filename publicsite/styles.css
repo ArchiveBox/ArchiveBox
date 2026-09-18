@@ -766,7 +766,7 @@ h3 {
   }
 
   .integration-stack {
-    grid-template-columns: repeat(7, 30px);
+    grid-template-columns: repeat(7, 38px);
   }
 
   .plugin-stack a {
