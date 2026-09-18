@@ -3,8 +3,9 @@ name: Build Docker image
 on:
   workflow_dispatch:
   push:
-    branches:
-      - '**'
+    branches-ignore:
+      - docs
+      - 'docs/**'
     tags:
       - 'v*'
   # pull_request:
@@ -14,6 +15,8 @@ env:
       
 jobs:
   buildx:
+    # Also prevent a manual dispatch on a docs repair branch from publishing.
+    if: github.ref != 'refs/heads/docs' && !startsWith(github.ref, 'refs/heads/docs/')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
