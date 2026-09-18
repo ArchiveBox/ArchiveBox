@@ -1,0 +1,20 @@
+publicsite/assets/integrations/SOURCES.md
+  h_923c208e183a7b 12
+publicsite/assets/integrations/postgresql.svg
+  h_923c208e183a7b 1
+publicsite/index.html
+  h_923c208e183a7b 23,408
+publicsite/styles.css
+  h_923c208e183a7b 769
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8ab2311725d6626f3bdb0faf5ed9891f9f6eccb3",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
