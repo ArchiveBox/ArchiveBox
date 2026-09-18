@@ -26,7 +26,6 @@ project = "ArchiveBox"
 copyright = f"{datetime.date.today().year} ArchiveBox"
 author = "Nick Sweeting"
 github_url = "https://github.com/ArchiveBox/ArchiveBox"
-github_doc_root = "https://github.com/ArchiveBox/docs/tree/master/"  # docs repo uses master branch
 github_view_style = "blob"
 language = "en"
 
@@ -37,6 +36,10 @@ tag = release
 # 0.8.5 -> v0.8.5
 if release[0].isdigit():
     tag = f"v{release}"  # .split('rc')[0]
+
+# Branch and PR builds must link to the code they actually document.
+tag = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH") or os.environ.get("READTHEDOCS_GIT_IDENTIFIER") or tag
+github_doc_root = f"{github_url}/tree/{tag}/docs/"
 
 # Detect if this is a dev/pre-release build using PEP 440 parsing.
 # A version like "0.9.10" with no suffix is stable.
@@ -61,6 +64,7 @@ if rtd_version in ("latest", "dev", "main", "master"):
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.linkcode",
@@ -168,13 +172,14 @@ html_theme_options = {
 html_context = {
     "display_github": True,
     "github_user": "ArchiveBox",
-    "github_repo": "docs",
-    "github_version": "master",  # docs repo uses master branch
-    "conf_py_path": "/",
+    "github_repo": "ArchiveBox",
+    "github_version": tag,
+    "conf_py_path": "/docs/",
     # RTD injects these automatically when building on RTD:
     #   current_version, versions, downloads, READTHEDOCS, etc.
     # For local/non-RTD builds, set version info explicitly:
-    "current_version": f"{release} (dev)" if is_dev else release,
+    "current_version": rtd_version or release,
+    "is_dev": is_dev,
 }
 html_show_sphinx = False
 

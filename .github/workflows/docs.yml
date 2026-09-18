@@ -9,6 +9,36 @@ env:
   SHOW_PROGRESS: "False"
 
 jobs:
+  build:
+    name: Build Sphinx site and generated API reference
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+      - name: Install documentation build dependencies
+        run: uv sync --locked --dev
+      - name: Build documentation from source, including untracked API pages
+        env:
+          READTHEDOCS: "True"
+          READTHEDOCS_VERSION: ${{ github.head_ref || github.ref_name }}
+          READTHEDOCS_GIT_COMMIT_HASH: ${{ github.sha }}
+        run: uv run --no-sync sphinx-build -W --keep-going -b html docs "$RUNNER_TEMP/docs-html"
+      - name: Verify API navigation and Read the Docs version-selector assets
+        run: |
+          test -s "$RUNNER_TEMP/docs-html/apidocs/index.html"
+          test -s "$RUNNER_TEMP/docs-html/apidocs/archivebox/archivebox.core.models.snapshots.html"
+          test -s "$RUNNER_TEMP/docs-html/apidocs/archivebox/archivebox.api.v1_core.snapshots.html"
+          grep -q 'apidocs/index.html' "$RUNNER_TEMP/docs-html/Contents.html"
+          grep -q 'class="version-switch"' "$RUNNER_TEMP/docs-html/index.html"
+          grep -q 'readthedocs-addons-data-ready' "$RUNNER_TEMP/docs-html/_static/js/versions.js"
+          grep -q 'const themeVersionSelector = true' "$RUNNER_TEMP/docs-html/_static/js/versions.js"
+
   discover:
     name: Discover documentation examples
     runs-on: ubuntu-24.04

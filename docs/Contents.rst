@@ -9,6 +9,7 @@ Overview
 
     Home.md
     README.md
+    Screenshots.md
 
 
 Getting Started
@@ -73,6 +74,7 @@ Meta
 
     Roadmap.md
     Changelog.md
+    Release-Notes-v0.9.md
     Donations.md
 
 
