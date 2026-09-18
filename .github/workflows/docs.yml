@@ -1,0 +1,34 @@
+name: Historical Sphinx documentation
+
+on:
+  pull_request:
+    branches: [docs/restore-08-sphinx]
+    paths: ['.github/docs/**', '.github/.readthedocs.yaml', '.github/workflows/docs.yml', 'docs', 'README.md']
+  push:
+    branches: [docs/restore-08-sphinx]
+    paths: ['.github/docs/**', '.github/.readthedocs.yaml', '.github/workflows/docs.yml', 'docs', 'README.md']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - run: git submodule update --init docs
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: '0.11.3'
+          python-version: '3.13'
+      - name: Build the pinned historical user guide
+        env:
+          READTHEDOCS: 'True'
+          READTHEDOCS_VERSION: v0.8.6rc1
+        run: uv run --no-project --with-requirements .github/docs/requirements.txt sphinx-build -W --keep-going -b html -c .github/docs docs "$RUNNER_TEMP/docs-html"
+      - name: Verify the version selector
+        run: |
+          grep -q 'class="version-switch"' "$RUNNER_TEMP/docs-html/index.html"
+          grep -q 'readthedocs-addons-data-ready' "$RUNNER_TEMP/docs-html/_static/js/versions.js"
