@@ -645,7 +645,7 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
             assert status == ArchiveResult.StatusChoices.FAILED
             assert not files
             assert size == 0
-            process = ArchiveResult.objects.get(snapshot_id=snapshot_id, hook_name=hook_name).process
+            process = ArchiveResult.objects.get(snapshot_id=snapshot_id, plugin="tlsnotary", hook_name=hook_name).process
             assert process is not None
             assert process.status == Process.StatusChoices.EXITED
             assert process.exit_code == 1
