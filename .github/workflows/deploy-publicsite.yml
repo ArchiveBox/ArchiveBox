@@ -12,7 +12,8 @@ permissions:
   contents: read
   actions: read
 concurrency:
-  group: fast-pages-${{ github.ref }}
+  # Failed captures must not displace a pending push deployment.
+  group: fast-pages-${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && github.run_id || github.ref }}
   cancel-in-progress: false
 jobs:
   build:
