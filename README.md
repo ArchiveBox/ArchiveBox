@@ -155,9 +155,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 <summary><b><img src="https://archivebox.github.io/ios-archivebox/docs/icons/apple.svg" alt="Apple" height="28px" align="top"/> <code>ArchiveBox Server.app</code></b> (macOS)</summary>
 <br/>
 <ol>
-<li><a href="https://github.com/ArchiveBox/ios-archivebox/releases">Download <code>ArchiveBox Server.app</code></a>, move it to Applications, and open it.
-<pre lang="bash"><code style="white-space: pre-line">open -a 'ArchiveBox Server'
-</code></pre></li>
+<li><a href="https://github.com/ArchiveBox/ios-archivebox/releases">Download <code>ArchiveBox Server.app</code></a>, move it to Applications, and open it.</li>
 <li>Set up an admin account and generate an API Key.</li>
 <li>Use the Web UI or <a href="https://archivebox.github.io/ios-archivebox/"><code>ArchiveBox.app</code></a>, and optionally connect REST API clients, the <a href="https://archivebox.github.io/ios-archivebox/">mobile app</a>, the <a href="https://archivebox.github.io/archivebox-browser-extension/">browser extension</a>, and other integrations to your server using your API Key.</li>
 </ol>
