@@ -1,0 +1,22 @@
+archivebox/cli/archivebox_update.py
+  s_ffefb637465167::t_283e627539d227 722-728,777-778
+archivebox/tests/test_filesystem_collection_merge.py
+  s_ffefb637465167::t_aea8fee224f320 19-60
+  s_ffefb637465167::t_92dfbf40627e5e 61-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "770cd12152c7c1738d97cbe7081e5075c3f22d2a",
+  "prompts": {},
+  "sessions": {
+    "s_ffefb637465167": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a07a32-a857-7453-a522-512c1140b8a1",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
