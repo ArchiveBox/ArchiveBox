@@ -113,6 +113,26 @@ def test_snapshot_keyset_iterator_reads_more_than_eight_pages(admin_user):
     assert yielded_ids == sorted(snapshot.id for snapshot in snapshots)
 
 
+@pytest.mark.parametrize(
+    "ordering",
+    [("id",), ("-pk",), ("url", "-id"), ("title", "id"), ("url",), ("crawl__label", "id"), ("expression",)],
+)
+def test_snapshot_paged_iterator_preserves_ordering_and_membership(admin_user, ordering):
+    from archivebox.crawls.models import Crawl
+    from django.db.models import F
+
+    crawl = Crawl.objects.create(urls="https://example.com/pages", created_by=admin_user)
+    for idx in range(7):
+        Snapshot.objects.create(url=f"https://example.com/{6 - idx}", title=None if idx % 2 else f"Title {idx}", crawl=crawl)
+    if ordering == ("expression",):
+        ordering = (F("url").desc(),)
+    queryset = crawl.snapshot_set.select_related("crawl").order_by(*ordering)
+    expected = list(queryset.values_list("id", flat=True))
+    yielded = list(queryset.paged_iterator(chunk_size=2))
+    assert [snapshot.id for snapshot in yielded] == expected
+    assert all(snapshot.crawl.id == crawl.id for snapshot in yielded)
+
+
 def test_snapshot_merge_consolidates_only_exact_hook_identity(admin_user):
     from archivebox.crawls.models import Crawl
 
@@ -163,14 +183,15 @@ def test_snapshot_service_cli_add_seals_snapshot_and_writes_indexes(tmp_path, re
 
     port = get_free_port()
     env = cli_env(port=port, server=True, PLUGINS="wget", SAVE_WGET="True")
-    _cmd_result = run_archivebox_cmd(
+    command_result = run_archivebox_cmd(
         ["add", "--depth=0", "--plugins=wget", recursive_test_site["root_url"]],
         cwd=tmp_path,
         env=env,
         timeout=180,
     )
-    stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-    assert code == 0, f"archivebox add failed with code {code}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}"
+    assert command_result.returncode == 0, (
+        f"archivebox add failed with code {command_result.returncode}\nSTDOUT:\n{command_result.stdout}\nSTDERR:\n{command_result.stderr}"
+    )
 
     state = _snapshot_state(tmp_path, recursive_test_site["root_url"])
     snapshot_dir = state["snapshot_dir"]

@@ -2,6 +2,7 @@
 
 import os
 import json
+from functools import partial
 import re
 import secrets
 import signal
@@ -219,7 +220,9 @@ def run_archivebox_cmd(
 ) -> ArchiveBoxCmdResult:
     """Run an ArchiveBox CLI command under test isolation."""
     cwd = cwd or Path.cwd()
-    cmd = ["archivebox", *args]
+    # abxpkg dependency environments can prepend unrelated uv tool installs to
+    # PATH. Run this test environment's real console entry point consistently.
+    cmd = [str(Path(sys.executable).with_name("archivebox")), *args]
 
     _assert_not_repo_path(cwd, label="cwd")
 
@@ -445,6 +448,12 @@ def initialized_archive(tmp_path):
     stderr, returncode = _cmd_result.stderr, _cmd_result.returncode
     assert returncode == 0, f"archivebox init failed: {stderr}"
     return tmp_path
+
+
+@pytest.fixture
+def archivebox_cli(initialized_archive):
+    """Public CLI bound to this test's collection with extraction opt-in."""
+    return partial(run_archivebox_cmd, cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
 
 @pytest.fixture
@@ -1905,3 +1914,16 @@ def create_test_snapshot_json(url: str | None = None, **kwargs) -> dict[str, Any
         "status": kwargs.get("status", "queued"),
         **{k: v for k, v in kwargs.items() if k not in ("tags_str", "status")},
     }
+
+
+def install_real_chrome(data_dir, env, *, isolation):
+    env["CHROME_ISOLATION"] = isolation
+    env["CHROME_HEADLESS"] = "true"
+    env["CHROME_SANDBOX"] = "false"
+    install_process = run_archivebox_cmd(
+        ["install", "chrome"],
+        cwd=data_dir,
+        env=env,
+        timeout=600,
+    )
+    assert install_process.returncode == 0, install_process.stderr or install_process.stdout

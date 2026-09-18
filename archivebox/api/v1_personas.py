@@ -7,6 +7,8 @@ from uuid import UUID
 
 from django.db.models import Q
 from django.http import HttpRequest
+from archivebox.api.schemas import OwnedObjectSchema
+
 from ninja import Router, Schema
 from ninja.pagination import paginate
 from pydantic import Field
@@ -36,22 +38,12 @@ class PersonaSyncSchema(Schema):
     auth_json: dict[str, Any] = Field(default_factory=dict)
 
 
-class PersonaSchema(Schema):
+class PersonaSchema(OwnedObjectSchema):
     TYPE: str = "personas.models.Persona"
     id: UUID
     name: str
     created_at: datetime
-    created_by_id: str
-    created_by_username: str
     config: dict[str, Any] | None
-
-    @staticmethod
-    def resolve_created_by_id(obj):
-        return str(obj.created_by.pk)
-
-    @staticmethod
-    def resolve_created_by_username(obj) -> str:
-        return obj.created_by.username
 
     @staticmethod
     def resolve_config(obj):

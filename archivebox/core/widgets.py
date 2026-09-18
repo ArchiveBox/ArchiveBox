@@ -6,6 +6,7 @@ import hashlib
 from django import forms
 from django.db.models.manager import BaseManager
 from django.db.models.query import QuerySet
+from django.template.loader import render_to_string
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
 
@@ -19,11 +20,7 @@ class TagEditorWidget(forms.Widget):
     - Uses AJAX for autocomplete and tag creation
     """
 
-    template_name = ""  # We render manually
-
-    class Media:
-        css = {"all": []}
-        js = []
+    template_name = "admin/widgets/tags.html"
 
     def __init__(self, attrs=None, snapshot_id=None):
         self.snapshot_id = snapshot_id
@@ -39,16 +36,6 @@ class TagEditorWidget(forms.Widget):
         if not normalized or not re.match(r"[A-Za-z_]", normalized):
             normalized = f"t_{normalized}"
         return normalized
-
-    def _json_for_inline_script(self, value):
-        """Serialize JSON so it cannot close the surrounding inline <script> tag."""
-        return json.dumps(value).translate(
-            {
-                ord(">"): "\\u003E",
-                ord("<"): "\\u003C",
-                ord("&"): "\\u0026",
-            },
-        )
 
     def _tag_style(self, value):
         """Compute a stable pastel color style for a tag value."""
@@ -106,293 +93,10 @@ class TagEditorWidget(forms.Widget):
         widget_id_raw = attrs.get("id", name) if attrs else name
         widget_id = self._normalize_id(widget_id_raw)
 
-        # Build pills HTML
-        pills_html = ""
-        for tag in tags:
-            pills_html += f'''
-                <span class="tag-pill" data-tag="{self._escape(tag)}" style="{self._tag_style(tag)}">
-                    {self._escape(tag)}
-                    <button type="button" class="tag-remove-btn" data-tag-name="{self._escape(tag)}">&times;</button>
-                </span>
-            '''
-
-        tags_json = self._json_for_inline_script(tags)
-
-        # Build the widget HTML
-        html = f'''
-        <div id="{widget_id}_container" class="tag-editor-container" onclick="focusTagInput_{widget_id}(event)">
-            <div id="{widget_id}_pills" class="tag-pills">
-                {pills_html}
-            </div>
-            <input type="text"
-                   id="{widget_id}_input"
-                   class="tag-inline-input"
-                   list="{widget_id}_datalist"
-                   placeholder="Add tag..."
-                   autocomplete="off"
-                   onkeydown="handleTagKeydown_{widget_id}(event)"
-                   onkeypress="if(event.key==='Enter' || event.keyCode===13 || event.key===' ' || event.code==='Space' || event.key==='Spacebar'){{event.preventDefault(); event.stopPropagation();}}"
-                   oninput="fetchTagAutocomplete_{widget_id}(this.value)"
-            >
-            <datalist id="{widget_id}_datalist"></datalist>
-            <input type="hidden" name="{name}" id="{widget_id}" value="{self._escape(",".join(tags))}">
-        </div>
-
-        <script>
-        (function() {{
-            var currentTags_{widget_id} = {tags_json};
-            var autocompleteTimeout_{widget_id} = null;
-
-            window.focusTagInput_{widget_id} = function(event) {{
-                if (event.target.classList.contains('tag-remove-btn')) return;
-                document.getElementById('{widget_id}_input').focus();
-            }};
-
-            window.updateHiddenInput_{widget_id} = function() {{
-                var hiddenInput = document.getElementById('{widget_id}');
-                if (!hiddenInput) {{
-                    return;
-                }}
-                hiddenInput.value = currentTags_{widget_id}.join(',');
-                hiddenInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                hiddenInput.dispatchEvent(new Event('change', {{ bubbles: true }}));
-            }};
-
-            function normalizeTags_{widget_id}(value) {{
-                var rawTags = Array.isArray(value) ? value : String(value || '').split(',');
-                var seen = {{}};
-                return rawTags
-                    .map(function(tag) {{ return String(tag || '').trim(); }})
-                    .filter(function(tag) {{
-                        if (!tag) return false;
-                        var normalized = tag.toLowerCase();
-                        if (seen[normalized]) return false;
-                        seen[normalized] = true;
-                        return true;
-                    }})
-                    .sort(function(a, b) {{
-                        return a.toLowerCase().localeCompare(b.toLowerCase());
-                    }});
-            }}
-
-            window.setTags_{widget_id} = function(value, options) {{
-                currentTags_{widget_id} = normalizeTags_{widget_id}(value);
-                rebuildPills_{widget_id}();
-                if (!(options && options.skipHiddenUpdate)) {{
-                    updateHiddenInput_{widget_id}();
-                }}
-            }};
-
-            window.syncTagEditorFromHidden_{widget_id} = function() {{
-                var hiddenInput = document.getElementById('{widget_id}');
-                if (!hiddenInput) {{
-                    return;
-                }}
-                setTags_{widget_id}(hiddenInput.value, {{ skipHiddenUpdate: true }});
-            }};
-
-            function computeTagStyle_{widget_id}(tagName) {{
-                var hash = 0;
-                var name = String(tagName || '').toLowerCase();
-                for (var i = 0; i < name.length; i++) {{
-                    hash = (hash * 31 + name.charCodeAt(i)) % 360;
-                }}
-                var bg = 'hsl(' + hash + ', 70%, 92%)';
-                var border = 'hsl(' + hash + ', 60%, 82%)';
-                var fg = 'hsl(' + hash + ', 35%, 28%)';
-                return {{ bg: bg, border: border, fg: fg }};
-            }}
-
-            function applyTagStyle_{widget_id}(el, tagName) {{
-                var colors = computeTagStyle_{widget_id}(tagName);
-                el.style.setProperty('--tag-bg', colors.bg);
-                el.style.setProperty('--tag-border', colors.border);
-                el.style.setProperty('--tag-fg', colors.fg);
-            }}
-
-            function getApiKey() {{
-                return (window.ARCHIVEBOX_API_KEY || '').trim();
-            }}
-
-            function buildApiUrl(path) {{
-                var apiKey = getApiKey();
-                if (!apiKey) return path;
-                var sep = path.indexOf('?') !== -1 ? '&' : '?';
-                return path + sep + 'api_key=' + encodeURIComponent(apiKey);
-            }}
-
-            function buildApiHeaders() {{
-                var headers = {{
-                    'Content-Type': 'application/json',
-                }};
-                var apiKey = getApiKey();
-                if (apiKey) headers['X-ArchiveBox-API-Key'] = apiKey;
-                var csrfToken = getCSRFToken();
-                if (csrfToken) headers['X-CSRFToken'] = csrfToken;
-                return headers;
-            }}
-
-            window.addTag_{widget_id} = function(tagName) {{
-                tagName = tagName.trim();
-                if (!tagName) return;
-
-                // Check if tag already exists (case-insensitive)
-                var exists = currentTags_{widget_id}.some(function(t) {{
-                    return t.toLowerCase() === tagName.toLowerCase();
-                }});
-                if (exists) {{
-                    document.getElementById('{widget_id}_input').value = '';
-                    return;
-                }}
-
-                // Add to current tags
-                currentTags_{widget_id}.push(tagName);
-                currentTags_{widget_id} = normalizeTags_{widget_id}(currentTags_{widget_id});
-
-                // Rebuild pills
-                rebuildPills_{widget_id}();
-                updateHiddenInput_{widget_id}();
-
-                // Clear input
-                document.getElementById('{widget_id}_input').value = '';
-
-                // Create tag via API if it doesn't exist (fire and forget)
-                fetch(buildApiUrl('/api/v1/core/tags/create/'), {{
-                    method: 'POST',
-                    headers: buildApiHeaders(),
-                    body: JSON.stringify({{ name: tagName }})
-                }}).catch(function(err) {{
-                    console.log('Tag creation note:', err);
-                }});
-            }};
-
-            window.removeTag_{widget_id} = function(tagName) {{
-                currentTags_{widget_id} = currentTags_{widget_id}.filter(function(t) {{
-                    return t.toLowerCase() !== tagName.toLowerCase();
-                }});
-                rebuildPills_{widget_id}();
-                updateHiddenInput_{widget_id}();
-            }};
-
-            window.rebuildPills_{widget_id} = function() {{
-                var container = document.getElementById('{widget_id}_pills');
-                container.innerHTML = '';
-                currentTags_{widget_id}.forEach(function(tag) {{
-                    var pill = document.createElement('span');
-                    pill.className = 'tag-pill';
-                    pill.setAttribute('data-tag', tag);
-                    applyTagStyle_{widget_id}(pill, tag);
-
-                    var tagText = document.createTextNode(tag);
-                    pill.appendChild(tagText);
-
-                    var removeBtn = document.createElement('button');
-                    removeBtn.type = 'button';
-                    removeBtn.className = 'tag-remove-btn';
-                    removeBtn.setAttribute('data-tag-name', tag);
-                    removeBtn.innerHTML = '&times;';
-                    pill.appendChild(removeBtn);
-
-                    container.appendChild(pill);
-                }});
-            }};
-
-            // Add event delegation for remove buttons
-            document.getElementById('{widget_id}_pills').addEventListener('click', function(event) {{
-                if (event.target.classList.contains('tag-remove-btn')) {{
-                    var tagName = event.target.getAttribute('data-tag-name');
-                    if (tagName) {{
-                        removeTag_{widget_id}(tagName);
-                    }}
-                }}
-            }});
-
-            document.getElementById('{widget_id}').addEventListener('change', function() {{
-                syncTagEditorFromHidden_{widget_id}();
-            }});
-
-            document.getElementById('{widget_id}').addEventListener('archivebox:sync-tags', function() {{
-                syncTagEditorFromHidden_{widget_id}();
-            }});
-
-            window.handleTagKeydown_{widget_id} = function(event) {{
-                var input = event.target;
-                var value = input.value.trim();
-                var isSpace = event.key === ' ' || event.code === 'Space' || event.key === 'Spacebar';
-                var isEnter = event.key === 'Enter' || event.keyCode === 13;
-                var isComma = event.key === ',';
-
-                if (isEnter || isSpace || isComma) {{
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if (value) {{
-                        // Treat commas and whitespace as tag boundaries.
-                        value.split(/[\\s,]+/).forEach(function(tag) {{
-                            addTag_{widget_id}(tag.trim());
-                        }});
-                    }}
-                    return false;
-                }} else if (event.key === 'Backspace' && !value && currentTags_{widget_id}.length > 0) {{
-                    // Remove last tag on backspace when input is empty
-                    var lastTag = currentTags_{widget_id}.pop();
-                    rebuildPills_{widget_id}();
-                    updateHiddenInput_{widget_id}();
-                }}
-            }};
-
-            window.fetchTagAutocomplete_{widget_id} = function(query) {{
-                if (autocompleteTimeout_{widget_id}) {{
-                    clearTimeout(autocompleteTimeout_{widget_id});
-                }}
-
-                autocompleteTimeout_{widget_id} = setTimeout(function() {{
-                    if (!query || query.length < 1) {{
-                        document.getElementById('{widget_id}_datalist').innerHTML = '';
-                        return;
-                    }}
-
-                    fetch(buildApiUrl('/api/v1/core/tags/autocomplete/?q=' + encodeURIComponent(query)))
-                        .then(function(response) {{ return response.json(); }})
-                        .then(function(data) {{
-                            var datalist = document.getElementById('{widget_id}_datalist');
-                            datalist.innerHTML = '';
-                            (data.tags || []).forEach(function(tag) {{
-                                var option = document.createElement('option');
-                                option.value = tag.name;
-                                datalist.appendChild(option);
-                            }});
-                        }})
-                        .catch(function(err) {{
-                            console.log('Autocomplete error:', err);
-                        }});
-                }}, 150);
-            }};
-
-            function escapeHtml(text) {{
-                var div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }}
-
-            function getCSRFToken() {{
-                var cookies = document.cookie.split(';');
-                for (var i = 0; i < cookies.length; i++) {{
-                    var cookie = cookies[i].trim();
-                    if (cookie.startsWith('csrftoken=')) {{
-                        return cookie.substring('csrftoken='.length);
-                    }}
-                }}
-                // Fallback to hidden input
-                var input = document.querySelector('input[name="csrfmiddlewaretoken"]');
-                return input ? input.value : '';
-            }}
-
-            syncTagEditorFromHidden_{widget_id}();
-        }})();
-        </script>
-        '''
-
-        return mark_safe(html)
+        return render_to_string(
+            self.template_name,
+            {"name": name, "widget_id": widget_id, "tags_id": f"{widget_id}_tags", "tags": tags},
+        )
 
 
 class URLFiltersWidget(forms.Widget):
@@ -748,3 +452,58 @@ class InlineTagEditorWidget(TagEditorWidget):
         '''
 
         return mark_safe(html)
+
+
+def render_copy_block(text: str, *, multiline: bool = False, copy_text: str | None = None):
+    return render_to_string(
+        "admin/widgets/copy_block.html",
+        {
+            "text": text,
+            "copy_text": text if copy_text is None else copy_text,
+            "element": "pre" if multiline else "code",
+            "multiline": multiline,
+        },
+    )
+
+
+def render_permissions_badge(permissions, *, url: str, object_name: str):
+    from archivebox.core.permissions import PERMISSIONS_CHOICES, PERMISSIONS_META, normalize_permissions
+
+    permissions = normalize_permissions(permissions)
+    icon, label, fg, bg = PERMISSIONS_META[permissions]
+    return render_to_string(
+        "admin/widgets/permissions_badge.html",
+        {
+            "permissions": permissions,
+            "url": url,
+            "object_name": object_name,
+            "icon": icon,
+            "label": label,
+            "fg": fg,
+            "bg": bg,
+            "choices": [(value, *PERMISSIONS_META[value]) for value, _label in PERMISSIONS_CHOICES],
+        },
+    )
+
+
+def render_snapshot_progress(stats: dict, *, successful_plugins=None):
+    """Render the same hook counts and progress bar on snapshot cards and rows."""
+    from archivebox.plugins.discovery import get_plugin_icon
+
+    counts = {name: int(stats.get(name) or 0) for name in ("total", "succeeded", "failed", "skipped", "noresults", "running")}
+    total = counts["total"]
+    completed = sum(counts[name] for name in ("succeeded", "failed", "skipped", "noresults"))
+    plugins = sorted(successful_plugins or ())
+    return render_to_string(
+        "admin/widgets/snapshot_progress.html",
+        {
+            **counts,
+            "completed": completed,
+            "percent": int(completed / total * 100) if total else 0,
+            "succeeded_percent": int(counts["succeeded"] / total * 100) if total else 0,
+            "failed_percent": int((counts["succeeded"] + counts["failed"]) / total * 100) if total else 0,
+            "show_plugins": successful_plugins is not None,
+            "plugins": [(name, mark_safe(icon)) for name in plugins[:8] if str(icon := get_plugin_icon(name)).strip()],
+            "remaining_plugins": max(len(plugins) - 8, 0),
+        },
+    )

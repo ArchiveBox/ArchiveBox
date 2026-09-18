@@ -20,6 +20,20 @@ def test_archivebox_db_path_accepts_collection_or_database_path(tmp_path: Path) 
     assert archivebox_db_path(database_path) == database_path
 
 
+def test_sqlite_lock_holders_finds_open_database(tmp_path: Path) -> None:
+    import os
+    import sqlite3
+    from contextlib import closing
+
+    from archivebox.misc.db import sqlite_lock_holders
+
+    database_path = tmp_path / "index.sqlite3"
+    with closing(sqlite3.connect(database_path)) as connection:
+        connection.execute("CREATE TABLE lock_probe (id INTEGER PRIMARY KEY)")
+        holders = sqlite_lock_holders(database_path)
+        assert any(holder.startswith(f"pid={os.getpid()} ") for holder in holders)
+
+
 def _reset_thread_sensitive_default_connection() -> None:
     """Discard the default connection owned by asgiref's thread-sensitive worker."""
 

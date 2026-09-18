@@ -56,14 +56,6 @@ def get_cached_admin_search_ids(request) -> list[str] | None:
     return None
 
 
-def get_cached_public_search_ids(request) -> list[str] | None:
-    """Return streamed public search IDs from Django cache."""
-    cached = get_cached_public_search_state(request)
-    if isinstance(cached, dict):
-        return cached.get("ids") or []
-    return None
-
-
 def get_cached_public_search_state(request) -> dict | None:
     """Return streamed public search state from Django cache."""
     cached = cache.get(get_public_search_cache_key(request))

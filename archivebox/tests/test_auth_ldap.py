@@ -97,12 +97,12 @@ class TestLDAPIntegration:
         ldap_backends = [b for b in settings.AUTHENTICATION_BACKENDS if "ldap" in b.lower()]
         assert len(ldap_backends) == 0, "LDAP backend should not be present when LDAP_ENABLED=False"
 
-    def test_django_settings_with_ldap_enabled(self, initialized_archive):
+    def test_django_settings_with_ldap_enabled(self, archivebox_cli, initialized_archive):
         """Test the real enabled LDAP settings path with installed libraries."""
         assert find_spec("django_auth_ldap") is not None
         assert find_spec("ldap") is not None
 
-        result = run_archivebox_cmd(
+        result = archivebox_cli(
             [
                 "manage",
                 "shell",
@@ -113,7 +113,6 @@ class TestLDAPIntegration:
                     "print('LDAP_SERVER_URI=' + settings.AUTH_LDAP_SERVER_URI)"
                 ),
             ],
-            cwd=initialized_archive,
             timeout=45,
             env={
                 "LDAP_ENABLED": "True",
@@ -122,8 +121,6 @@ class TestLDAPIntegration:
                 "LDAP_BIND_PASSWORD": "password",
                 "LDAP_USER_BASE": "ou=users,dc=example,dc=com",
             },
-            default_cli_env=True,
-            disable_extractors=True,
         )
 
         assert result.returncode == 0, result.stderr or result.stdout
@@ -153,7 +150,7 @@ class TestArchiveBoxWithLDAP:
 
     def test_archivebox_init_without_ldap(self, tmp_path):
         """Test that archivebox init works without LDAP enabled."""
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["init"],
             cwd=tmp_path,
             timeout=45,
@@ -161,14 +158,13 @@ class TestArchiveBoxWithLDAP:
             default_cli_env=True,
             disable_extractors=True,
         )
-        _, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
         # Should succeed
-        assert code == 0, f"archivebox init failed: {stderr}"
+        assert result.returncode == 0, f"archivebox init failed: {result.stderr}"
 
     def test_archivebox_version_with_ldap_config(self, tmp_path):
         """Test that archivebox version works with LDAP config set."""
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["version"],
             cwd=tmp_path,
             timeout=10,
@@ -179,10 +175,9 @@ class TestArchiveBoxWithLDAP:
             default_cli_env=True,
             disable_extractors=True,
         )
-        _, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
         # Should succeed
-        assert code == 0, f"archivebox version failed: {stderr}"
+        assert result.returncode == 0, f"archivebox version failed: {result.stderr}"
 
 
 class TestLDAPConfigValidationInArchiveBox:
@@ -190,7 +185,7 @@ class TestLDAPConfigValidationInArchiveBox:
 
     def test_archivebox_init_with_incomplete_ldap_config(self, tmp_path):
         """Test that archivebox init fails with helpful error when LDAP config is incomplete."""
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["init"],
             cwd=tmp_path,
             timeout=45,
@@ -201,10 +196,9 @@ class TestLDAPConfigValidationInArchiveBox:
             default_cli_env=True,
             disable_extractors=True,
         )
-        _, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
         # Should fail with validation error
-        assert code != 0, "Should fail with incomplete LDAP config"
+        assert result.returncode != 0, "Should fail with incomplete LDAP config"
 
         # Check error message
-        assert "LDAP_* config options must all be set" in stderr, f"Expected validation error message in: {stderr}"
+        assert "LDAP_* config options must all be set" in result.stderr, f"Expected validation error message in: {result.stderr}"

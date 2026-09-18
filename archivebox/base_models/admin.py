@@ -13,8 +13,14 @@ from django.db import DatabaseError, models
 from django.forms.renderers import BaseRenderer
 from django.http import HttpRequest, QueryDict
 from django.urls import path, register_converter
+from django.utils.html import format_html
 from django.utils.safestring import SafeString, mark_safe
 from django_object_actions import DjangoObjectActions
+
+
+def card_fieldset(title: str | None, fields: tuple, *, wide: bool = False, **options):
+    """Build a Django fieldset using the shared card layout."""
+    return title, {"fields": fields, "classes": ("card", "wide") if wide else ("card",), **options}
 
 
 class HexUUIDConverter:
@@ -81,6 +87,11 @@ class KeyValueWidget(forms.Widget):
             options: dict[str, ConfigOption] = {}
             for key, metadata in config_field_metadata().items():
                 option_type = metadata.get("type", "string")
+                # Core fields expose Python type names; plugins use JSON Schema.
+                # The editor should apply the same typed validation to both.
+                type_names = {"bool": "boolean", "int": "integer", "float": "number", "str": "string", "dict": "object", "list": "array"}
+                if isinstance(option_type, str):
+                    option_type = type_names.get(option_type, option_type)
                 option: ConfigOption = {
                     "plugin": str(metadata.get("plugin", "archivebox")),
                     "type": cast(str | list[str], option_type if isinstance(option_type, (str, list)) else str(option_type)),
@@ -118,649 +129,35 @@ class KeyValueWidget(forms.Widget):
         attrs: Mapping[str, str] | None = None,
         renderer: BaseRenderer | None = None,
     ) -> SafeString:
-        data = self._parse_value(value)
+        from django.template.loader import render_to_string
 
         widget_id = attrs.get("id", name) if attrs else name
-        config_options = self._get_config_options()
-
-        # Build datalist options
-        datalist_options = "\n".join(
-            f'<option value="{self._escape(key)}">{self._escape(opt["description"][:60] or opt["type"])}</option>'
-            for key, opt in sorted(config_options.items())
+        options = self._get_config_options()
+        rows = [
+            mark_safe(self._render_row(widget_id, key, val if isinstance(val, str) else json.dumps(val)))
+            for key, val in self._parse_value(value).items()
+        ]
+        empty_row = mark_safe(self._render_row(widget_id, "", ""))
+        # JSON is embedded in a script, so escape HTML delimiters without changing data.
+        metadata = json.dumps(options).translate({ord("<"): r"\u003C", ord(">"): r"\u003E", ord("&"): r"\u0026"})
+        return mark_safe(
+            render_to_string(
+                "admin/widgets/config.html",
+                {
+                    "name": name,
+                    "widget_id": widget_id,
+                    "datalist_options": mark_safe(
+                        "\n".join(
+                            f'<option value="{self._escape(key)}">{self._escape(opt["description"][:60] or opt["type"])}</option>'
+                            for key, opt in sorted(options.items())
+                        ),
+                    ),
+                    "config_meta_json": metadata,
+                    "rows": [*rows, empty_row],
+                    "empty_row": empty_row,
+                },
+            ),
         )
-
-        # Build config metadata as JSON for JS
-        config_meta_json = json.dumps(config_options)
-
-        html = f'''
-        <div id="{widget_id}_container" class="key-value-editor" style="width: 100%; max-width: none;">
-            <datalist id="{widget_id}_keys">
-                {datalist_options}
-            </datalist>
-            <div id="{widget_id}_rows" class="key-value-rows">
-        '''
-
-        # Render existing key-value pairs
-        for key, val in data.items():
-            val_str = json.dumps(val) if not isinstance(val, str) else val
-            html += self._render_row(widget_id, key, val_str)
-
-        # Always add one empty row for new entries
-        html += self._render_row(widget_id, "", "")
-
-        html += f'''
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
-                <button type="button" onclick="addKeyValueRow_{widget_id}()"
-                        style="padding: 4px 12px; cursor: pointer; background: #417690; color: white; border: none; border-radius: 4px;">
-                    + Add Row
-                </button>
-            </div>
-            <input type="hidden" name="{name}" id="{widget_id}" value="">
-            <script>
-                (function() {{
-                    var configMeta_{widget_id} = {config_meta_json};
-                    var rowCounter_{widget_id} = 0;
-
-                    function stringifyValue_{widget_id}(value) {{
-                        return typeof value === 'string' ? value : JSON.stringify(value);
-                    }}
-
-                    function getTypes_{widget_id}(meta) {{
-                        if (!meta || meta.type === undefined || meta.type === null) {{
-                            return [];
-                        }}
-                        return Array.isArray(meta.type) ? meta.type : [meta.type];
-                    }}
-
-                    function getMetaForKey_{widget_id}(key) {{
-                        if (!key) {{
-                            return null;
-                        }}
-
-                        var explicitMeta = configMeta_{widget_id}[key];
-                        if (explicitMeta) {{
-                            return Object.assign({{ key: key }}, explicitMeta);
-                        }}
-
-                        if (key.endsWith('_BINARY')) {{
-                            return {{
-                                key: key,
-                                plugin: 'custom',
-                                type: 'string',
-                                default: '',
-                                description: 'Path to binary executable',
-                            }};
-                        }}
-
-                        if (isRegexConfigKey_{widget_id}(key)) {{
-                            return {{
-                                key: key,
-                                plugin: 'custom',
-                                type: 'string',
-                                default: '',
-                                description: 'Regex pattern list',
-                            }};
-                        }}
-
-                        return null;
-                    }}
-
-                    function describeMeta_{widget_id}(meta) {{
-                        if (!meta) {{
-                            return '';
-                        }}
-
-                        var details = '';
-                        if (Array.isArray(meta.enum) && meta.enum.length) {{
-                            details = 'Allowed: ' + meta.enum.map(stringifyValue_{widget_id}).join(', ');
-                        }} else {{
-                            var types = getTypes_{widget_id}(meta);
-                            if (types.length) {{
-                                details = 'Expected: ' + types.join(' or ');
-                            }}
-                        }}
-
-                        if (meta.minimum !== undefined || meta.maximum !== undefined) {{
-                            var bounds = [];
-                            if (meta.minimum !== undefined) bounds.push('min ' + meta.minimum);
-                            if (meta.maximum !== undefined) bounds.push('max ' + meta.maximum);
-                            details += (details ? ' ' : '') + '(' + bounds.join(', ') + ')';
-                        }}
-
-                        return [meta.description || '', details].filter(Boolean).join(' ');
-                    }}
-
-                    function getExampleInput_{widget_id}(key, meta) {{
-                        var types = getTypes_{widget_id}(meta);
-                        if (key.endsWith('_BINARY')) {{
-                            return 'Example: wget or /usr/bin/wget';
-                        }}
-                        if (key.endsWith('_ARGS_EXTRA') || key.endsWith('_ARGS')) {{
-                            return 'Example: ["--extra-arg"]';
-                        }}
-                        if (types.includes('array')) {{
-                            return 'Example: ["value"]';
-                        }}
-                        if (types.includes('object')) {{
-                            return 'Example: {{"key": "value"}}';
-                        }}
-                        return '';
-                    }}
-
-                    function isRegexConfigKey_{widget_id}(key) {{
-                        return key === 'URL_ALLOWLIST' ||
-                            key === 'URL_DENYLIST' ||
-                            key.endsWith('_PATTERN') ||
-                            key.includes('REGEX');
-                    }}
-
-                    function isSimpleFilterPattern_{widget_id}(pattern) {{
-                        return /^[\\w.*:-]+$/.test(pattern);
-                    }}
-
-                    function validateRegexPattern_{widget_id}(pattern) {{
-                        if (!pattern || isSimpleFilterPattern_{widget_id}(pattern)) {{
-                            return '';
-                        }}
-
-                        try {{
-                            new RegExp(pattern);
-                        }} catch (error) {{
-                            return error && error.message ? error.message : 'Invalid regex';
-                        }}
-                        return '';
-                    }}
-
-                    function validateRegexConfig_{widget_id}(key, raw, typeName) {{
-                        if (typeName === 'object') {{
-                            var parsed;
-                            try {{
-                                parsed = JSON.parse(raw);
-                            }} catch (error) {{
-                                return {{ ok: false, value: raw, message: 'Must be valid JSON' }};
-                            }}
-                            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {{
-                                return {{ ok: false, value: parsed, message: 'Must be a JSON object' }};
-                            }}
-                            for (var regexKey in parsed) {{
-                                var objectRegexError = validateRegexPattern_{widget_id}(regexKey);
-                                if (objectRegexError) {{
-                                    return {{ ok: false, value: parsed, message: 'Invalid regex key "' + regexKey + '": ' + objectRegexError }};
-                                }}
-                            }}
-                            return {{ ok: true, value: parsed, message: '' }};
-                        }}
-
-                        var patterns = raw.split(/[\\n,]+/).map(function(pattern) {{
-                            return pattern.trim();
-                        }}).filter(Boolean);
-                        for (var i = 0; i < patterns.length; i++) {{
-                            var regexError = validateRegexPattern_{widget_id}(patterns[i]);
-                            if (regexError) {{
-                                return {{ ok: false, value: raw, message: 'Invalid regex "' + patterns[i] + '": ' + regexError }};
-                            }}
-                        }}
-                        return {{ ok: true, value: raw, message: '' }};
-                    }}
-
-                    function validateBinaryValue_{widget_id}(raw) {{
-                        if (!raw) {{
-                            return {{ ok: true, value: raw, message: '' }};
-                        }}
-
-                        if (/['"`]/.test(raw)) {{
-                            return {{ ok: false, value: raw, message: 'Binary paths cannot contain quotes' }};
-                        }}
-
-                        if (/[;&|<>$(){{}}\\[\\]!]/.test(raw)) {{
-                            return {{ ok: false, value: raw, message: 'Binary paths can only be a binary name or absolute path' }};
-                        }}
-
-                        if (raw.startsWith('/')) {{
-                            if (/^[A-Za-z0-9_./+\\- ]+$/.test(raw)) {{
-                                return {{ ok: true, value: raw, message: '' }};
-                            }}
-                            return {{ ok: false, value: raw, message: 'Absolute paths may only contain path-safe characters' }};
-                        }}
-
-                        if (/^[A-Za-z0-9_.+-]+$/.test(raw)) {{
-                            return {{ ok: true, value: raw, message: '' }};
-                        }}
-
-                        return {{ ok: false, value: raw, message: 'Enter a binary name like wget or an absolute path like /usr/bin/wget' }};
-                    }}
-
-                    function parseValue_{widget_id}(raw) {{
-                        try {{
-                            if (raw === 'true') return true;
-                            if (raw === 'false') return false;
-                            if (raw === 'null') return null;
-                            if (raw !== '' && !isNaN(raw)) return Number(raw);
-                            if ((raw.startsWith('{{') && raw.endsWith('}}')) ||
-                                (raw.startsWith('[') && raw.endsWith(']')) ||
-                                (raw.startsWith('"') && raw.endsWith('"'))) {{
-                                return JSON.parse(raw);
-                            }}
-                        }} catch (error) {{
-                            return raw;
-                        }}
-                        return raw;
-                    }}
-
-                    function sameValue_{widget_id}(left, right) {{
-                        return left === right || JSON.stringify(left) === JSON.stringify(right);
-                    }}
-
-                    function parseTypedValue_{widget_id}(raw, typeName, meta) {{
-                        var numberValue;
-                        var parsed;
-
-                        if (typeName && meta && meta.key && isRegexConfigKey_{widget_id}(meta.key)) {{
-                            return validateRegexConfig_{widget_id}(meta.key, raw, typeName);
-                        }}
-
-                        if (typeName === 'string' && meta && meta.key && meta.key.endsWith('_BINARY')) {{
-                            return validateBinaryValue_{widget_id}(raw);
-                        }}
-
-                        if (typeName === 'string') {{
-                            if (meta.pattern) {{
-                                try {{
-                                    if (!(new RegExp(meta.pattern)).test(raw)) {{
-                                        return {{ ok: false, value: raw, message: 'Must match pattern ' + meta.pattern }};
-                                    }}
-                                }} catch (error) {{}}
-                            }}
-                            return {{ ok: true, value: raw, message: '' }};
-                        }}
-
-                        if (typeName === 'integer') {{
-                            if (!/^-?\\d+$/.test(raw)) {{
-                                return {{ ok: false, value: raw, message: 'Must be an integer' }};
-                            }}
-                            numberValue = Number(raw);
-                            if (meta.minimum !== undefined && numberValue < meta.minimum) {{
-                                return {{ ok: false, value: numberValue, message: 'Must be at least ' + meta.minimum }};
-                            }}
-                            if (meta.maximum !== undefined && numberValue > meta.maximum) {{
-                                return {{ ok: false, value: numberValue, message: 'Must be at most ' + meta.maximum }};
-                            }}
-                            return {{ ok: true, value: numberValue, message: '' }};
-                        }}
-
-                        if (typeName === 'number') {{
-                            if (raw === '' || isNaN(raw)) {{
-                                return {{ ok: false, value: raw, message: 'Must be a number' }};
-                            }}
-                            numberValue = Number(raw);
-                            if (meta.minimum !== undefined && numberValue < meta.minimum) {{
-                                return {{ ok: false, value: numberValue, message: 'Must be at least ' + meta.minimum }};
-                            }}
-                            if (meta.maximum !== undefined && numberValue > meta.maximum) {{
-                                return {{ ok: false, value: numberValue, message: 'Must be at most ' + meta.maximum }};
-                            }}
-                            return {{ ok: true, value: numberValue, message: '' }};
-                        }}
-
-                        if (typeName === 'boolean') {{
-                            var lowered = raw.toLowerCase();
-                            if (lowered === 'true' || raw === '1') return {{ ok: true, value: true, message: '' }};
-                            if (lowered === 'false' || raw === '0') return {{ ok: true, value: false, message: '' }};
-                            return {{ ok: false, value: raw, message: 'Must be true or false' }};
-                        }}
-
-                        if (typeName === 'null') {{
-                            return raw === 'null'
-                                ? {{ ok: true, value: null, message: '' }}
-                                : {{ ok: false, value: raw, message: 'Must be null' }};
-                        }}
-
-                        if (typeName === 'array' || typeName === 'object') {{
-                            try {{
-                                parsed = JSON.parse(raw);
-                            }} catch (error) {{
-                                return {{ ok: false, value: raw, message: 'Must be valid JSON' }};
-                            }}
-
-                            if (typeName === 'array' && Array.isArray(parsed)) {{
-                                return {{ ok: true, value: parsed, message: '' }};
-                            }}
-                            if (typeName === 'object' && parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {{
-                                return {{ ok: true, value: parsed, message: '' }};
-                            }}
-
-                            return {{
-                                ok: false,
-                                value: parsed,
-                                message: typeName === 'array' ? 'Must be a JSON array' : 'Must be a JSON object',
-                            }};
-                        }}
-
-                        return {{ ok: true, value: parseValue_{widget_id}(raw), message: '' }};
-                    }}
-
-                    function validateValueAgainstMeta_{widget_id}(raw, meta) {{
-                        if (!meta || raw === '') {{
-                            return {{ state: 'neutral', value: raw, message: '' }};
-                        }}
-
-                        var enumValues = Array.isArray(meta.enum) ? meta.enum : [];
-                        var types = getTypes_{widget_id}(meta);
-                        if (!types.length) {{
-                            types = ['string'];
-                        }}
-
-                        var error = 'Invalid value';
-                        for (var i = 0; i < types.length; i++) {{
-                            var candidate = parseTypedValue_{widget_id}(raw, types[i], meta);
-                            if (!candidate.ok) {{
-                                error = candidate.message || error;
-                                continue;
-                            }}
-                            if (enumValues.length && !enumValues.some(function(enumValue) {{
-                                return sameValue_{widget_id}(enumValue, candidate.value) || stringifyValue_{widget_id}(enumValue) === raw;
-                            }})) {{
-                                error = 'Must be one of: ' + enumValues.map(stringifyValue_{widget_id}).join(', ');
-                                continue;
-                            }}
-                            return {{ state: 'valid', value: candidate.value, message: '' }};
-                        }}
-
-                        return {{ state: 'invalid', value: raw, message: error }};
-                    }}
-
-                    function ensureRowId_{widget_id}(row) {{
-                        if (!row.dataset.rowId) {{
-                            row.dataset.rowId = String(rowCounter_{widget_id}++);
-                        }}
-                        return row.dataset.rowId;
-                    }}
-
-                    function setRowHelp_{widget_id}(row) {{
-                        var keyInput = row.querySelector('.kv-key');
-                        var help = row.querySelector('.kv-help');
-                        if (!keyInput || !help) {{
-                            return;
-                        }}
-
-                        var key = keyInput.value.trim();
-                        if (!key) {{
-                            help.textContent = '';
-                            return;
-                        }}
-
-                        var meta = getMetaForKey_{widget_id}(key);
-                        if (meta) {{
-                            var extra = isRegexConfigKey_{widget_id}(key)
-                                ? ((meta.type === 'object' || (Array.isArray(meta.type) && meta.type.includes('object')))
-                                    ? ' Expected: JSON object with regex keys.'
-                                    : ' Expected: valid regex.')
-                                : '';
-                            var example = getExampleInput_{widget_id}(key, meta);
-                            help.textContent = [describeMeta_{widget_id}(meta) + extra, example].filter(Boolean).join(' ');
-                        }} else {{
-                            help.textContent = 'Custom key';
-                        }}
-                    }}
-
-                    function configureValueInput_{widget_id}(row) {{
-                        var keyInput = row.querySelector('.kv-key');
-                        var valueInput = row.querySelector('.kv-value');
-                        var datalist = row.querySelector('.kv-value-options');
-                        if (!keyInput || !valueInput || !datalist) {{
-                            return;
-                        }}
-
-                        var rowId = ensureRowId_{widget_id}(row);
-                        datalist.id = '{widget_id}_value_options_' + rowId;
-
-                        var meta = getMetaForKey_{widget_id}(keyInput.value.trim());
-                        var enumValues = Array.isArray(meta && meta.enum) ? meta.enum : [];
-                        var types = getTypes_{widget_id}(meta);
-                        if (!enumValues.length && types.includes('boolean')) {{
-                            enumValues = ['True', 'False'];
-                        }}
-                        if (enumValues.length) {{
-                            datalist.innerHTML = enumValues.map(function(enumValue) {{
-                                return '<option value="' + stringifyValue_{widget_id}(enumValue).replace(/"/g, '&quot;') + '"></option>';
-                            }}).join('');
-                            valueInput.setAttribute('list', datalist.id);
-                        }} else {{
-                            datalist.innerHTML = '';
-                            valueInput.removeAttribute('list');
-                        }}
-                    }}
-
-                    function setValueValidationState_{widget_id}(input, state, message) {{
-                        if (!input) {{
-                            return;
-                        }}
-
-                        if (state === 'valid') {{
-                            input.style.borderColor = '#2da44e';
-                            input.style.boxShadow = '0 0 0 1px rgba(45, 164, 78, 0.18)';
-                            input.style.backgroundColor = '#f6ffed';
-                        }} else if (state === 'invalid') {{
-                            input.style.borderColor = '#cf222e';
-                            input.style.boxShadow = '0 0 0 1px rgba(207, 34, 46, 0.18)';
-                            input.style.backgroundColor = '#fff8f8';
-                        }} else {{
-                            input.style.borderColor = '#ccc';
-                            input.style.boxShadow = 'none';
-                            input.style.backgroundColor = '';
-                        }}
-                        input.title = message || '';
-                    }}
-
-                    function applyValueValidation_{widget_id}(row) {{
-                        var keyInput = row.querySelector('.kv-key');
-                        var valueInput = row.querySelector('.kv-value');
-                        if (!keyInput || !valueInput) {{
-                            return;
-                        }}
-
-                        var key = keyInput.value.trim();
-                        if (!key) {{
-                            setValueValidationState_{widget_id}(valueInput, 'neutral', '');
-                            return;
-                        }}
-
-                        var meta = getMetaForKey_{widget_id}(key);
-                        if (!meta) {{
-                            setValueValidationState_{widget_id}(valueInput, 'neutral', '');
-                            return;
-                        }}
-
-                        var validation = validateValueAgainstMeta_{widget_id}(valueInput.value.trim(), meta);
-                        setValueValidationState_{widget_id}(valueInput, validation.state, validation.message);
-                    }}
-
-                    function coerceValueForStorage_{widget_id}(key, raw) {{
-                        var meta = getMetaForKey_{widget_id}(key);
-                        if (!meta) {{
-                            return parseValue_{widget_id}(raw);
-                        }}
-
-                        var validation = validateValueAgainstMeta_{widget_id}(raw, meta);
-                        return validation.state === 'valid' ? validation.value : raw;
-                    }}
-
-                    function initializeRows_{widget_id}() {{
-                        var container = document.getElementById('{widget_id}_rows');
-                        container.querySelectorAll('.key-value-row').forEach(function(row) {{
-                            ensureRowId_{widget_id}(row);
-                            configureValueInput_{widget_id}(row);
-                            setRowHelp_{widget_id}(row);
-                            applyValueValidation_{widget_id}(row);
-                        }});
-                    }}
-
-                    function updateHiddenField_{widget_id}() {{
-                        var container = document.getElementById('{widget_id}_rows');
-                        var rows = container.querySelectorAll('.key-value-row');
-                        var result = {{}};
-                        rows.forEach(function(row) {{
-                            var keyInput = row.querySelector('.kv-key');
-                            var valInput = row.querySelector('.kv-value');
-                            if (keyInput && valInput && keyInput.value.trim()) {{
-                                var key = keyInput.value.trim();
-                                var val = valInput.value.trim();
-                                result[key] = coerceValueForStorage_{widget_id}(key, val);
-                            }}
-                        }});
-                        document.getElementById('{widget_id}').value = JSON.stringify(result);
-                    }}
-
-                    window.addKeyValueRow_{widget_id} = function() {{
-                        var container = document.getElementById('{widget_id}_rows');
-                        var newRow = document.createElement('div');
-                        newRow.className = 'key-value-row';
-                        newRow.style.cssText = 'margin-bottom: 6px;';
-                        newRow.innerHTML = '<div class="kv-inputs" style="display: flex; gap: 8px; align-items: center;">' +
-                            '<input type="text" class="kv-key" placeholder="KEY" list="{widget_id}_keys" ' +
-                            'style="flex: 1; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 12px;">' +
-                            '<input type="text" class="kv-value" placeholder="value" ' +
-                            'style="flex: 2; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 12px;">' +
-                            '<datalist class="kv-value-options"></datalist>' +
-                            '<button type="button" onclick="removeKeyValueRow_{widget_id}(this)" ' +
-                            'style="padding: 4px 10px; cursor: pointer; background: #ba2121; color: white; border: none; border-radius: 4px; font-weight: bold;">−</button>' +
-                            '</div>' +
-                            '<div class="kv-help" style="margin-top: 4px; font-size: 11px; color: #666; font-style: italic;"></div>';
-                        container.appendChild(newRow);
-                        ensureRowId_{widget_id}(newRow);
-                        configureValueInput_{widget_id}(newRow);
-                        setRowHelp_{widget_id}(newRow);
-                        applyValueValidation_{widget_id}(newRow);
-                        updateHiddenField_{widget_id}();
-                        newRow.querySelector('.kv-key').focus();
-                    }};
-
-                    window.removeKeyValueRow_{widget_id} = function(btn) {{
-                        var row = btn.closest('.key-value-row');
-                        row.remove();
-                        updateHiddenField_{widget_id}();
-                    }};
-
-                    window.updateHiddenField_{widget_id} = updateHiddenField_{widget_id};
-
-                    function configRowForKey_{widget_id}(key) {{
-                        var container = document.getElementById('{widget_id}_rows');
-                        if (!container) {{
-                            return null;
-                        }}
-                        var match = null;
-                        container.querySelectorAll('.key-value-row').forEach(function(row) {{
-                            if (match) {{ return; }}
-                            var keyInput = row.querySelector('.kv-key');
-                            if (keyInput && keyInput.value.trim() === key) {{
-                                match = row;
-                            }}
-                        }});
-                        if (!match) {{
-                            window.addKeyValueRow_{widget_id}();
-                            var rows = container.querySelectorAll('.key-value-row');
-                            match = rows[rows.length - 1];
-                            var keyInput = match.querySelector('.kv-key');
-                            if (keyInput) {{
-                                keyInput.value = key;
-                                keyInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            }}
-                        }}
-                        return match;
-                    }}
-
-                    function prefillConfigFromQuery_{widget_id}() {{
-                        var params = new URLSearchParams(window.location.search);
-                        var consumedConfigKeys = [];
-                        params.forEach(function(value, key) {{
-                            if (!/^[A-Z][A-Z0-9_]*$/.test(key) || !configMeta_{widget_id}[key]) {{
-                                return;
-                            }}
-                            consumedConfigKeys.push(key);
-                            var match = configRowForKey_{widget_id}(key);
-                            var valueInput = match && match.querySelector('.kv-value');
-                            if (valueInput) {{
-                                valueInput.value = value;
-                                valueInput.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                            }}
-                        }});
-                        updateHiddenField_{widget_id}();
-                        if (consumedConfigKeys.length) {{
-                            var cleanUrl = new URL(window.location.href);
-                            consumedConfigKeys.forEach(function(key) {{ cleanUrl.searchParams.delete(key); }});
-                            window.history.replaceState(null, '', cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
-                        }}
-                    }}
-
-                    function focusConfigKeyFromHash_{widget_id}() {{
-                        // Deep-link affordance: ``…/change/#SOME_KEY`` jumps directly
-                        // to (or creates) the matching row in this editor. Used by
-                        // the setup wizard and live-config detail pages.
-                        var hash = (window.location.hash || '').replace(/^#/, '').trim();
-                        if (!hash || !/^[A-Z][A-Z0-9_]*$/.test(hash)) {{
-                            return;
-                        }}
-                        var match = configRowForKey_{widget_id}(hash);
-                        if (!match) {{
-                            return;
-                        }}
-                        match.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
-                        var prevOutline = match.style.outline;
-                        match.style.outline = '2px solid #f59e0b';
-                        match.style.outlineOffset = '2px';
-                        match.style.transition = 'outline 1.2s ease-out';
-                        setTimeout(function() {{
-                            match.style.outline = prevOutline || 'none';
-                        }}, 1400);
-                        var valueInput = match.querySelector('.kv-value');
-                        if (valueInput) {{
-                            valueInput.focus();
-                            try {{ valueInput.setSelectionRange(valueInput.value.length, valueInput.value.length); }} catch (e) {{}}
-                        }}
-                    }}
-
-                    // Initialize on load
-                    document.addEventListener('DOMContentLoaded', function() {{
-                        initializeRows_{widget_id}();
-                        prefillConfigFromQuery_{widget_id}();
-                        updateHiddenField_{widget_id}();
-                        focusConfigKeyFromHash_{widget_id}();
-                    }});
-                    // Also run immediately in case DOM is already ready
-                    if (document.readyState !== 'loading') {{
-                        initializeRows_{widget_id}();
-                        prefillConfigFromQuery_{widget_id}();
-                        updateHiddenField_{widget_id}();
-                        focusConfigKeyFromHash_{widget_id}();
-                    }}
-
-                    window.addEventListener('hashchange', focusConfigKeyFromHash_{widget_id});
-
-                    // Update on any input change
-                    var rowsEl_{widget_id} = document.getElementById('{widget_id}_rows');
-
-                    rowsEl_{widget_id}.addEventListener('input', function(event) {{
-                        var row = event.target.closest('.key-value-row');
-                        if (!row) {{
-                            return;
-                        }}
-
-                        if (event.target.classList.contains('kv-key')) {{
-                            configureValueInput_{widget_id}(row);
-                            setRowHelp_{widget_id}(row);
-                        }}
-
-                        if (event.target.classList.contains('kv-key') || event.target.classList.contains('kv-value')) {{
-                            applyValueValidation_{widget_id}(row);
-                            updateHiddenField_{widget_id}();
-                        }}
-                    }});
-                }})();
-            </script>
-        </div>
-        '''
-        return mark_safe(html)
 
     def _render_row(self, widget_id: str, key: str, value: str) -> str:
         from archivebox.config.common import is_sensitive_config_key
@@ -871,6 +268,28 @@ class BaseModelAdmin(DjangoObjectActions, admin.ModelAdmin):
     readonly_fields = ("id", "created_at", "modified_at")
     show_search_mode_selector = False
     change_form_template = "admin/archivebox_change_form.html"
+
+    @admin.display(description="Health", ordering="health")
+    def health_display(self, obj):
+        h = obj.health
+        color = "green" if h >= 80 else "orange" if h >= 50 else "red"
+        return format_html('<span style="color: {};">{}</span>', color, h)
+
+    def get_ordering_fields(self, request):
+        ordering = request.GET.get("o")
+        if not ordering:
+            return set()
+        fields = set()
+        for part in ordering.split("."):
+            if not part:
+                continue
+            try:
+                idx = abs(int(part)) - 1
+            except ValueError:
+                continue
+            if 0 <= idx < len(self.list_display):
+                fields.add(self.list_display[idx])
+        return fields
 
     def get_admin_toolbar_actions(self, request, obj):
         """Return extra action button dicts for the shared change-form toolbar.

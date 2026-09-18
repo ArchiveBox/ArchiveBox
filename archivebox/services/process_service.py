@@ -63,8 +63,7 @@ class ProcessService(BaseService):
 
     def __init__(self, bus):
         self._iface = None
-        self._completed_queue: asyncio.Queue[ProcessCompletedEvent | None] = asyncio.Queue()
-        self._completed_worker: asyncio.Task | None = None
+        self._completed_lock = asyncio.Lock()
         super().__init__(bus)
         self.bus.on(ProcessStartedEvent, self.on_ProcessStartedEvent__save_to_db)
         self.bus.on(ProcessCompletedEvent, self.on_ProcessCompletedEvent__save_to_db)
@@ -76,7 +75,7 @@ class ProcessService(BaseService):
             self._iface = await sync_to_async(current_network_interface_with_machine, thread_sensitive=True)()
         return self._iface
 
-    async def on_ProcessStartedEvent__save_to_db(self, event: ProcessStartedEvent) -> None:
+    async def _get_or_create_process(self, event: ProcessStartedEvent | ProcessCompletedEvent):
         from archivebox.machine.models import Process
 
         iface = await self.current_iface()
@@ -84,7 +83,7 @@ class ProcessService(BaseService):
         worker_type = event.worker_type or ""
         started_at = parse_event_datetime(event.start_ts)
         if started_at is None:
-            raise ValueError("ProcessStartedEvent.start_ts is required")
+            raise ValueError(f"{type(event).__name__}.start_ts is required")
         if event.pid:
             process_query = Process.objects.filter(pid=event.pid, started_at=started_at)
         else:
@@ -113,7 +112,15 @@ class ProcessService(BaseService):
                 status=Process.StatusChoices.RUNNING,
                 retry_at=None,
             )
-        elif process.iface_id != iface.id or process.machine_id != iface.machine_id:
+        return process, iface, started_at, process_env
+
+    async def on_ProcessStartedEvent__save_to_db(self, event: ProcessStartedEvent) -> None:
+        from archivebox.machine.models import Process
+
+        process, iface, started_at, process_env = await self._get_or_create_process(event)
+        process_type = event.process_type or Process.TypeChoices.HOOK
+        worker_type = event.worker_type or ""
+        if process.iface_id != iface.id or process.machine_id != iface.machine_id:
             process.iface = iface
             process.machine = iface.machine
             await process.asave(update_fields=["iface", "machine", "modified_at"])
@@ -165,31 +172,16 @@ class ProcessService(BaseService):
                     process_id=str(process.id),
                 )
 
-    async def _completed_worker_loop(self) -> None:
-        while True:
-            event = await self._completed_queue.get()
-            try:
-                if event is None:
-                    return
-                await self._save_completed_process_to_db(event)
-            finally:
-                self._completed_queue.task_done()
-
-    def _ensure_completed_worker(self) -> None:
-        if self._completed_worker is None or self._completed_worker.done():
-            self._completed_worker = asyncio.create_task(self._completed_worker_loop())
-
     async def on_ProcessCompletedEvent__save_to_db(self, event: ProcessCompletedEvent) -> None:
-        self._ensure_completed_worker()
-        completed_worker = self._completed_worker
-        assert completed_worker is not None
-        await self._completed_queue.put(event)
-        await self.flush_completed()
-        if completed_worker.done():
-            await completed_worker
+        # Serialize completion writes without a detached queue worker. Awaiting
+        # the write here also delivers database failures to the originating event.
+        async with self._completed_lock:
+            await self._save_completed_process_to_db(event)
 
     async def flush_completed(self) -> None:
-        await self._completed_queue.join()
+        # asyncio locks are FIFO: cleanup waits for earlier completion writers.
+        async with self._completed_lock:
+            pass
 
     async def on_CrawlCleanupEvent__flush_completed(self, event: CrawlCleanupEvent) -> None:
         await self.flush_completed()
@@ -200,43 +192,9 @@ class ProcessService(BaseService):
     async def _save_completed_process_to_db(self, event: ProcessCompletedEvent) -> None:
         from archivebox.machine.models import Process
 
-        iface = await self.current_iface()
+        process, iface, started_at, process_env = await self._get_or_create_process(event)
         process_type = event.process_type or Process.TypeChoices.HOOK
         worker_type = event.worker_type or ""
-        started_at = parse_event_datetime(event.start_ts)
-        if started_at is None:
-            raise ValueError("ProcessCompletedEvent.start_ts is required")
-        if event.pid:
-            process_query = Process.objects.filter(pid=event.pid, started_at=started_at)
-        else:
-            process_query = Process.objects.filter(
-                process_type=process_type,
-                worker_type=worker_type,
-                pwd=event.output_dir,
-                started_at=started_at,
-            )
-        process = await process_query.order_by("-modified_at").afirst()
-        process_env = normalize_process_env(event.env)
-        if process is None:
-            await Process.objects.acreate(
-                machine=iface.machine,
-                iface=iface,
-                parent_id=None,
-                process_type=process_type,
-                worker_type=worker_type,
-                pwd=event.output_dir,
-                cmd=[event.hook_path, *event.hook_args],
-                env=process_env,
-                timeout=event.timeout,
-                pid=event.pid or None,
-                url=event.url or None,
-                started_at=started_at,
-                status=Process.StatusChoices.RUNNING,
-                retry_at=None,
-            )
-            process = await process_query.order_by("-modified_at").afirst()
-            if process is None:
-                return
 
         missing_cmd = not process.cmd
         updates = {

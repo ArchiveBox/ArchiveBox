@@ -10,7 +10,6 @@ on:
       - bin/collect_ui_screenshots.*
       - bin/generate_ui_screenshot_gallery.py
       - bin/take_screenshot.js
-      - docs/Screenshots.md
       - pyproject.toml
       - uv.lock
       - .github/workflows/deploy-publicsite.yml

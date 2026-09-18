@@ -87,23 +87,14 @@ def _coerce_plugin_config_value(raw_value: Any, schema: Mapping[str, Any]) -> An
             return False
         raise forms.ValidationError("Must be true or false.")
 
-    if "integer" in schema_types:
-        value = int(str(raw_value).strip())
+    if "integer" in schema_types or "number" in schema_types:
+        convert = int if "integer" in schema_types else float
+        value = convert(str(raw_value).strip())
         minimum = schema.get("minimum")
         maximum = schema.get("maximum")
-        if minimum is not None and value < int(minimum):
+        if minimum is not None and value < convert(minimum):
             raise forms.ValidationError(f"Must be at least {minimum}.")
-        if maximum is not None and value > int(maximum):
-            raise forms.ValidationError(f"Must be at most {maximum}.")
-        return value
-
-    if "number" in schema_types:
-        value = float(str(raw_value).strip())
-        minimum = schema.get("minimum")
-        maximum = schema.get("maximum")
-        if minimum is not None and value < float(minimum):
-            raise forms.ValidationError(f"Must be at least {minimum}.")
-        if maximum is not None and value > float(maximum):
+        if maximum is not None and value > convert(maximum):
             raise forms.ValidationError(f"Must be at most {maximum}.")
         return value
 
@@ -148,28 +139,24 @@ class PluginConfigFormMixin:
         self.plugin_config_binary_urls = get_plugin_config_binary_urls(runtime_config)
         grouped_plugins = catalog.groups()
 
-        group_specs = []
-        for category, field_name, title in PLUGIN_GROUPS:
-            plugin_names = tuple(plugin.name for plugin in grouped_plugins.get(category, []))
-            group_specs.append((field_name, title, "", "", "", plugin_names))
-            if field_name in self.fields:
-                get_choice_field(self, field_name).choices = [
-                    (p, get_plugin_choice_label(p, plugin_configs)) for p in plugin_names if p in all_plugins
-                ]
         binary_url_lookup = _build_required_binary_url_lookup(plugin_configs, runtime_config)
-        self.plugin_groups = [
-            {
-                "field_name": field_name,
-                "title": title,
-                "note": note,
-                "dom_id": dom_id,
-                "select_all_group": select_all_group,
-                "show_selectors": field_name in self.fields,
-                "plugins": self._build_plugin_cards(field_name, plugin_names, plugin_configs, runtime_config, binary_url_lookup),
-            }
-            for field_name, title, note, dom_id, select_all_group, plugin_names in group_specs
-            if any(plugin in all_plugins for plugin in plugin_names)
-        ]
+        self.plugin_groups = []
+        for category, field_name, title in PLUGIN_GROUPS:
+            plugin_names = tuple(plugin.name for plugin in grouped_plugins.get(category, []) if plugin.name in all_plugins)
+            if field_name in self.fields:
+                get_choice_field(self, field_name).choices = [(p, get_plugin_choice_label(p, plugin_configs)) for p in plugin_names]
+            if plugin_names:
+                self.plugin_groups.append(
+                    {
+                        "field_name": field_name,
+                        "title": title,
+                        "note": "",
+                        "dom_id": "",
+                        "select_all_group": "",
+                        "show_selectors": field_name in self.fields,
+                        "plugins": self._build_plugin_cards(field_name, plugin_names, plugin_configs, runtime_config, binary_url_lookup),
+                    },
+                )
 
     def _build_plugin_cards(
         self,

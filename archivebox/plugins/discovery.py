@@ -55,10 +55,6 @@ def get_plugins() -> list[str]:
     return sorted(get_plugin_catalog())
 
 
-def get_plugin_models():
-    return get_plugin_catalog().plugins
-
-
 def get_plugin_name(plugin: str) -> str:
     """
     Get the base plugin name without numeric prefix.

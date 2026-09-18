@@ -10,96 +10,38 @@ from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
 
 
 class CrawlService(BaseService):
+    """Project crawl phase changes without resurrecting paused or sealed work."""
+
     LISTENS_TO = [CrawlSetupEvent, CrawlStartEvent, CrawlCleanupEvent, CrawlCompletedEvent]
     EMITS = []
 
     def __init__(self, bus, *, crawl_id: str):
         self.crawl_id = crawl_id
         super().__init__(bus)
-        self.bus.on(CrawlSetupEvent, self.on_CrawlSetupEvent__save_to_db)
-        self.bus.on(CrawlStartEvent, self.on_CrawlStartEvent__save_to_db)
-        self.bus.on(CrawlCleanupEvent, self.on_CrawlCleanupEvent__save_to_db)
-        self.bus.on(CrawlCompletedEvent, self.on_CrawlCompletedEvent__save_to_db)
+        for event_type in self.LISTENS_TO:
+            self.bus.on(event_type, self.on_CrawlEvent__save_to_db)
 
-    async def on_CrawlSetupEvent__save_to_db(self, event: CrawlSetupEvent) -> None:
-        from archivebox.crawls.models import Crawl
-
-        await (
-            Crawl.objects.filter(id=self.crawl_id)
-            .exclude(
-                status__in=Crawl.INACTIVE_STATES,
-            )
-            .aupdate(
-                status=Crawl.StatusChoices.STARTED,
-                retry_at=timezone.now() + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS),
-                modified_at=timezone.now(),
-            )
-        )
-
-    async def on_CrawlStartEvent__save_to_db(self, event: CrawlStartEvent) -> None:
-        from archivebox.crawls.models import Crawl
-
-        await (
-            Crawl.objects.filter(id=self.crawl_id)
-            .exclude(
-                status__in=Crawl.INACTIVE_STATES,
-            )
-            .aupdate(
-                status=Crawl.StatusChoices.STARTED,
-                retry_at=timezone.now() + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS),
-                modified_at=timezone.now(),
-            )
-        )
-
-    async def on_CrawlCleanupEvent__save_to_db(self, event: CrawlCleanupEvent) -> None:
-        from archivebox.crawls.models import Crawl
-
-        # Cleanup is still inside the active crawl lifecycle. Snapshot hooks may
-        # have just written discovery output that the runner consumes before the
-        # completion phase, so only CrawlCompleted/finalize_run_state makes the
-        # final sealed-vs-requeue decision.
-        await (
-            Crawl.objects.filter(id=self.crawl_id)
-            .exclude(
-                status__in=Crawl.INACTIVE_STATES,
-            )
-            .aupdate(
-                status=Crawl.StatusChoices.STARTED,
-                retry_at=timezone.now(),
-                modified_at=timezone.now(),
-            )
-        )
-
-    async def on_CrawlCompletedEvent__save_to_db(self, event: CrawlCompletedEvent) -> None:
+    async def on_CrawlEvent__save_to_db(
+        self,
+        event: CrawlSetupEvent | CrawlStartEvent | CrawlCleanupEvent | CrawlCompletedEvent,
+    ) -> None:
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot
 
-        crawl = await Crawl.objects.aget(id=self.crawl_id)
-        if crawl.is_paused or crawl.status == Crawl.StatusChoices.SEALED:
-            return
-        is_finished = not await crawl.snapshot_set.filter(status__in=Snapshot.OPEN_STATES).aexists()
-        if not is_finished:
-            await (
-                Crawl.objects.filter(id=self.crawl_id)
-                .exclude(
-                    status__in=Crawl.INACTIVE_STATES,
-                )
-                .aupdate(
-                    status=Crawl.StatusChoices.STARTED,
-                    retry_at=timezone.now(),
-                    modified_at=timezone.now(),
-                )
-            )
-            return
-
+        status = Crawl.StatusChoices.STARTED
+        retry_at = timezone.now()
+        if isinstance(event, (CrawlSetupEvent, CrawlStartEvent)):
+            retry_at += timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS)
+        elif isinstance(event, CrawlCompletedEvent):
+            crawl = await Crawl.objects.aget(id=self.crawl_id)
+            if crawl.status in Crawl.INACTIVE_STATES:
+                return
+            if not await crawl.snapshot_set.filter(status__in=Snapshot.OPEN_STATES).aexists():
+                status, retry_at = Crawl.StatusChoices.SEALED, None
+        # Cleanup remains active: parser outputs may still be projected before
+        # completion. Only completion can seal; every write rechecks cancellation.
         await (
             Crawl.objects.filter(id=self.crawl_id)
-            .exclude(
-                status__in=Crawl.INACTIVE_STATES,
-            )
-            .aupdate(
-                status=Crawl.StatusChoices.SEALED,
-                retry_at=None,
-                modified_at=timezone.now(),
-            )
+            .exclude(status__in=Crawl.INACTIVE_STATES)
+            .aupdate(status=status, retry_at=retry_at, modified_at=timezone.now())
         )

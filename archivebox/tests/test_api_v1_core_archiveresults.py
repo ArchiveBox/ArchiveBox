@@ -34,6 +34,8 @@ def test_archiveresult_upload_upserts_by_snapshot_plugin_and_hook(client, api_ad
 
     extension_response = upload("on_Snapshot__archivebox_browser_extension_upload", "browser.png", b"browser")
     server_response = upload("on_Snapshot__50_screenshot", "server.png", b"server")
+    assert extension_response.status_code == 200, extension_response.content
+    stale_result = ArchiveResult.objects.get(pk=extension_response.json()["id"])
     extension_update = upload("on_Snapshot__archivebox_browser_extension_upload", "browser-2.png", b"browser-2")
 
     assert extension_response.status_code == 200, extension_response.content
@@ -48,6 +50,16 @@ def test_archiveresult_upload_upserts_by_snapshot_plugin_and_hook(client, api_ad
     server_result = results.get(hook_name="on_Snapshot__50_screenshot")
     assert set(extension_result.output_files) == {"browser.png", "browser-2.png"}
     assert set(server_result.output_files) == {"server.png"}
+    snapshot.refresh_from_db()
+    assert snapshot.output_size == len(b"browser") + len(b"browser-2") + len(b"server")
+
+    # A writer loaded before the second upload must merge against its fresh row
+    # after losing the CAS, without reverting a completed result to started.
+    merged = stale_result.apply_upload(stale_result.output_file_map(), metadata={"status": "started"})
+    assert set(merged.output_files) == {"browser.png", "browser-2.png"}
+    assert merged.status == ArchiveResult.StatusChoices.SUCCEEDED
+    merged.refresh_from_db()
+    assert set(merged.output_files) == {"browser.png", "browser-2.png"}
     snapshot.refresh_from_db()
     assert snapshot.output_size == len(b"browser") + len(b"browser-2") + len(b"server")
 

@@ -806,6 +806,7 @@ class TestProcessLifecycle:
         assert proc.is_running
         assert proc.kill() is False
         assert proc.kill_tree() == 0
+        assert proc.terminate() is False
 
         proc.refresh_from_db()
         assert proc.status == Process.StatusChoices.RUNNING
@@ -842,6 +843,54 @@ class TestProcessLifecycle:
         assert exit_code == 137
         proc.refresh_from_db()
         assert proc.exit_code == 137
+
+    @pytest.mark.parametrize("force_parent", [False, True], ids=["graceful", "forced"])
+    def test_kill_tree_reaps_children_and_parent(self, force_parent):
+        import psutil
+        import signal
+
+        script = r"""
+import signal, subprocess, sys
+child = subprocess.Popen([sys.executable, '-c', "print('READY', flush=True); input()"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+assert child.stdout.readline() == 'READY\n'
+def stop(signum, frame):
+    child.wait(timeout=5)
+    if not RESIST_EXIT:
+        raise SystemExit(0)
+signal.signal(signal.SIGTERM, stop)
+print(child.pid, flush=True)
+while True:
+    signal.pause()
+""".replace("RESIST_EXIT", repr(force_parent))
+        parent = subprocess.Popen([self.binary.abspath, "-c", script], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        assert parent.stdout is not None
+        child_pid = int(parent.stdout.readline())
+        os_parent = psutil.Process(parent.pid)
+        child = psutil.Process(child_pid)
+        record = Process.objects.create(
+            machine=self.machine,
+            status=Process.StatusChoices.RUNNING,
+            pid=parent.pid,
+            started_at=datetime.fromtimestamp(os_parent.create_time(), tz=timezone.get_current_timezone()),
+        )
+        try:
+            assert record.kill_tree(graceful_timeout=1) == 2
+            returncode = parent.wait(timeout=5)
+            if not force_parent:
+                assert returncode == 0
+            assert not os_parent.is_running()
+            assert not child.is_running()
+            record.refresh_from_db()
+            assert record.status == Process.StatusChoices.EXITED
+            assert record.exit_code == 128 + (signal.SIGKILL if force_parent else signal.SIGTERM)
+            assert record.ended_at is not None
+        finally:
+            for process in (child, os_parent):
+                try:
+                    process.kill()
+                except psutil.NoSuchProcess:
+                    pass
+            parent.wait(timeout=5)
 
     def test_process_terminate_dead_process(self):
         """terminate() should handle already-dead process."""
@@ -994,3 +1043,13 @@ class TestProcessClassMethods:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_real_loopback_interface_does_not_require_a_mac_address():
+    from archivebox.machine.detect import get_local_interface
+
+    interface = get_local_interface("127.0.0.1")
+    assert interface["ip_local"] == "127.0.0.1"
+    assert interface["iface"]
+    # Loopback is a real interface but has no link-layer MAC on macOS.
+    assert isinstance(interface["mac_address"], str)

@@ -1,3 +1,22 @@
+from abx_dl.events import CrawlCompletedEvent
+from abx_dl.events import CrawlStartEvent
+from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
+from abx_dl.orchestrator import create_bus
+from archivebox.base_models.models import get_or_create_system_user_pk
+from archivebox.core.models import Snapshot
+from archivebox.crawls.models import Crawl
+from archivebox.machine.models import Binary, Machine
+from archivebox.machine.models import Process
+from archivebox.personas.models import Persona
+from archivebox.services import runner as runner_module
+from archivebox.services.crawl_service import CrawlService
+from archivebox.services.runner import CrawlRunner
+from archivebox.services.runner import ensure_background_runner
+from archivebox.services.snapshot_service import SnapshotService
+from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_existing_supervisord_process
+from asgiref.sync import sync_to_async
+from django.utils import timezone
+
 import asyncio
 import json
 from importlib.resources import files
@@ -5,7 +24,6 @@ from pathlib import Path
 import sys
 
 import pytest
-from asgiref.sync import sync_to_async
 
 from archivebox.tests.conftest import install_real_binary, resolve_abxpkg_binary_env
 
@@ -14,10 +32,6 @@ pytestmark = pytest.mark.django_db
 
 @pytest.mark.django_db(transaction=True)
 def test_snapshot_payload_keeps_unbounded_content_out_of_hook_environment():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
 
     title = "界" * 70000 + " $(touch injected) `touch injected`"
     crawl = Crawl.objects.create(urls="https://example.com", created_by_id=get_or_create_system_user_pk())
@@ -42,7 +56,6 @@ def test_snapshot_payload_keeps_unbounded_content_out_of_hook_environment():
 
 @pytest.mark.django_db(transaction=True)
 def test_crawl_runner_creates_progress_reporter_without_a_tty(crawl):
-    from archivebox.services.runner import CrawlRunner
 
     runner = CrawlRunner(crawl)
     runner.load_run_state()
@@ -56,10 +69,6 @@ def test_crawl_runner_creates_progress_reporter_without_a_tty(crawl):
 
 @pytest.mark.django_db(transaction=True)
 def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
     from abx_dl.events import CrawlAbortEvent, CrawlEvent
 
     crawl = Crawl.objects.create(
@@ -103,11 +112,6 @@ def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
 
 @pytest.mark.django_db(transaction=True)
 def test_snapshot_payload_uses_crawl_chrome_dirs_by_default():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.personas.models import Persona
-    from archivebox.services.runner import CrawlRunner
 
     persona = Persona(name="RuntimePersona")
     persona.save()
@@ -146,11 +150,6 @@ def test_snapshot_payload_uses_crawl_chrome_dirs_by_default():
 
 @pytest.mark.django_db(transaction=True)
 def test_snapshot_payload_uses_snapshot_chrome_dirs_when_snapshot_isolated():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.personas.models import Persona
-    from archivebox.services.runner import CrawlRunner
 
     persona = Persona(name="SnapshotRuntimePersona")
     persona.save()
@@ -193,9 +192,6 @@ def test_ensure_background_runner_does_not_start_duplicate_orchestrator():
 
     import psutil
     from archivebox.machine.models import Machine, Process
-    from archivebox.services.runner import ensure_background_runner
-    from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_existing_supervisord_process
-    from django.utils import timezone
 
     stop_existing_supervisord_process()
     assert get_existing_supervisord_process(quiet=True) is None
@@ -216,8 +212,6 @@ def test_ensure_background_runner_does_not_start_duplicate_orchestrator():
 
 @pytest.mark.django_db(transaction=True)
 def test_ensure_background_runner_does_not_spawn_runner_without_supervisord():
-    from archivebox.services.runner import ensure_background_runner
-    from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_existing_supervisord_process
 
     stop_existing_supervisord_process()
     assert get_existing_supervisord_process(quiet=True) is None
@@ -228,9 +222,8 @@ def test_ensure_background_runner_does_not_spawn_runner_without_supervisord():
 
 def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
     from abx_dl.events import CrawlEvent, MachineEvent
-    from abx_dl.orchestrator import create_bus
     from abxbus.event_bus import in_handler_context
-    from archivebox.services import runner as runner_module
+    from archivebox.services.runner.crawl import _runner_task_context
 
     bus = create_bus(name="test_runner_task_context_clears_inherited_abxbus_handler_context")
     observations = []
@@ -243,7 +236,7 @@ def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
 
     async def on_crawl(event):
         assert in_handler_context() is True
-        task = asyncio.create_task(emit_from_runner_task(), context=runner_module._runner_task_context())
+        task = asyncio.create_task(emit_from_runner_task(), context=_runner_task_context())
         await task
 
     bus.on(CrawlEvent, on_crawl)
@@ -271,10 +264,6 @@ def test_runner_task_context_clears_inherited_abxbus_handler_context(tmp_path):
 
 @pytest.mark.django_db(transaction=True)
 def test_snapshot_started_state_keeps_retry_at_lease():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from django.utils import timezone
 
     before = timezone.now()
     crawl = Crawl.objects.create(
@@ -302,13 +291,6 @@ def test_snapshot_started_state_keeps_retry_at_lease():
 
 @pytest.mark.django_db(transaction=True)
 def test_crawl_start_event_keeps_retry_at_lease():
-    from abx_dl.events import CrawlStartEvent
-    from abx_dl.orchestrator import create_bus
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.crawl_service import CrawlService
-    from django.utils import timezone
 
     before = timezone.now()
     crawl = Crawl.objects.create(
@@ -349,13 +331,6 @@ def test_crawl_start_event_keeps_retry_at_lease():
 
 @pytest.mark.django_db(transaction=True)
 def test_crawl_start_event_does_not_reschedule_sealed_parent_until_explicit_requeue():
-    from abx_dl.events import CrawlStartEvent
-    from abx_dl.orchestrator import create_bus
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.crawl_service import CrawlService
-    from django.utils import timezone
 
     before = timezone.now()
     crawl = Crawl.objects.create(
@@ -425,10 +400,6 @@ def test_crawl_start_event_does_not_reschedule_sealed_parent_until_explicit_requ
 
 @pytest.mark.django_db(transaction=True)
 def test_snapshot_queue_selection_is_retry_at_only_for_sealed_maintenance():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from django.utils import timezone
 
     now = timezone.now()
     crawl = Crawl.objects.create(
@@ -450,8 +421,6 @@ def test_snapshot_queue_selection_is_retry_at_only_for_sealed_maintenance():
 @pytest.mark.django_db(transaction=True)
 def test_machine_service_persists_only_derived_config_events(tmp_path, hermetic_lib_dir):
     from abx_dl.events import MachineEvent
-    from abx_dl.orchestrator import create_bus
-    from archivebox.machine.models import Machine
     from archivebox.services.machine_service import MachineService
 
     machine = Machine.current()
@@ -523,12 +492,7 @@ def test_machine_service_persists_only_derived_config_events(tmp_path, hermetic_
 @pytest.mark.django_db(transaction=True)
 def test_load_run_state_uses_real_lib_dir_for_machine_binary_config(tmp_path, hermetic_lib_dir):
     import archivebox.machine.models as machine_models
-    from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.config.common import get_config
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.machine.models import Machine
-    from archivebox.services.runner import CrawlRunner
 
     resolved_lib_dir = get_config(include_machine=False).ABXPKG_LIB_DIR
     assert resolved_lib_dir == hermetic_lib_dir, f"ABXPKG_LIB_DIR override not applied: {resolved_lib_dir!r} != {hermetic_lib_dir!r}"
@@ -582,11 +546,6 @@ def test_load_run_state_uses_real_lib_dir_for_machine_binary_config(tmp_path, he
 @pytest.mark.django_db(transaction=True)
 def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp_path):
     from abx_dl.events import CrawlCleanupEvent, CrawlCompletedEvent, CrawlEvent, CrawlSetupEvent, CrawlStartEvent, MachineEvent
-    from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -650,9 +609,6 @@ def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp
 @pytest.mark.django_db(transaction=True)
 def test_crawl_runner_preflights_plugins_before_crawl_lifecycle(tmp_path):
     from abx_dl.events import CrawlEvent, CrawlSetupEvent, InstallEvent
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.services.runner import CrawlRunner
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -679,12 +635,7 @@ def test_crawl_runner_preflights_plugins_before_crawl_lifecycle(tmp_path):
 @pytest.mark.django_db(transaction=True)
 def test_crawl_runner_resolves_persona_and_crawl_config_for_each_live_snapshot():
     from abx_dl.events import SnapshotCompletedEvent
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
     from archivebox.core.models import ArchiveResult, Snapshot
-    from archivebox.machine.models import Process
-    from archivebox.personas.models import Persona
-    from archivebox.services.runner import CrawlRunner
 
     persona = Persona.objects.create(
         name="RuntimeConfig",
@@ -757,12 +708,7 @@ def test_crawl_runner_resolves_persona_and_crawl_config_for_each_live_snapshot()
 
 @pytest.mark.django_db(transaction=True)
 def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path):
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.machine.models import Binary, Machine
     from archivebox.services.runner import run_pending_crawls
-    from django.utils import timezone
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -800,9 +746,6 @@ def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path):
 
 @pytest.mark.django_db(transaction=True)
 def test_sealed_crawl_does_not_create_discovered_snapshots():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -824,9 +767,6 @@ def test_sealed_crawl_does_not_create_discovered_snapshots():
 
 
 def test_wait_for_snapshot_tasks_surfaces_already_failed_task():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.services import runner as runner_module
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -845,9 +785,6 @@ def test_wait_for_snapshot_tasks_surfaces_already_failed_task():
 
 
 def test_wait_for_snapshot_tasks_returns_after_completed_tasks_are_pruned():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.services import runner as runner_module
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -868,9 +805,7 @@ def test_wait_for_snapshot_tasks_returns_after_completed_tasks_are_pruned():
 @pytest.mark.django_db(transaction=True)
 def test_abx_process_service_background_process_finishes_after_process_exit(tmp_path, recursive_test_site, hermetic_lib_dir):
     from abx_dl.events import ProcessCompletedEvent, ProcessEvent
-    from abx_dl.orchestrator import create_bus
     from abx_dl.services.process_service import ProcessService
-    from archivebox.machine.models import Process
 
     bus = create_bus(name="test_abx_process_service_background_process_finishes_after_process_exit")
     ProcessService(bus, emit_jsonl=False, interactive_tty=False)
@@ -935,14 +870,12 @@ def test_abx_process_service_background_process_finishes_after_process_exit(tmp_
 
 @pytest.mark.django_db(transaction=True)
 def test_run_pending_crawls_resolves_real_binary_through_abxpkg(tmp_path):
-    from archivebox.machine.models import Binary, Machine
-    from archivebox.services import runner as runner_module
 
     binary = Binary.objects.create(
         machine=Machine.current(),
         name="bash",
         status=Binary.StatusChoices.QUEUED,
-        retry_at=runner_module.timezone.now(),
+        retry_at=timezone.now(),
         binproviders="env",
     )
 
@@ -959,12 +892,6 @@ def test_run_pending_crawls_resolves_real_binary_through_abxpkg(tmp_path):
 
 @pytest.mark.django_db(transaction=True)
 def test_crawl_completed_event_requeues_active_snapshots():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.crawl_service import CrawlService
-    from abx_dl.events import CrawlCompletedEvent
-    from abx_dl.orchestrator import create_bus
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -1006,13 +933,6 @@ def test_crawl_completed_event_requeues_active_snapshots():
 
 @pytest.mark.django_db(transaction=True)
 def test_crawl_start_event_does_not_resurrect_cancelled_crawl():
-    from django.utils import timezone
-
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.services.crawl_service import CrawlService
-    from abx_dl.events import CrawlStartEvent
-    from abx_dl.orchestrator import create_bus
 
     now = timezone.now()
     crawl = Crawl.objects.create(
@@ -1049,12 +969,7 @@ def test_crawl_start_event_does_not_resurrect_cancelled_crawl():
 
 @pytest.mark.django_db(transaction=True)
 def test_crawl_cleanup_event_requeues_unfinished_crawl():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.crawl_service import CrawlService
     from abx_dl.events import CrawlCleanupEvent
-    from abx_dl.orchestrator import create_bus
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -1096,13 +1011,6 @@ def test_crawl_cleanup_event_requeues_unfinished_crawl():
 
 @pytest.mark.django_db(transaction=True)
 def test_crawl_completed_event_seals_finished_crawl():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.crawl_service import CrawlService
-    from abx_dl.events import CrawlCompletedEvent
-    from abx_dl.orchestrator import create_bus
-    from django.utils import timezone
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -1144,13 +1052,6 @@ def test_crawl_completed_event_seals_finished_crawl():
 
 @pytest.mark.django_db(transaction=True)
 def test_snapshot_completed_event_bus_defers_finished_crawl_seal():
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.snapshot_service import SnapshotService
-    from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
-    from abx_dl.orchestrator import create_bus
-    from django.utils import timezone
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -1201,15 +1102,6 @@ def test_snapshot_completed_event_bus_defers_finished_crawl_seal():
 @pytest.mark.django_db(transaction=True)
 def test_delayed_snapshot_completion_cannot_seal_new_run():
     from datetime import timedelta
-
-    from archivebox.base_models.models import get_or_create_system_user_pk
-    from archivebox.crawls.models import Crawl
-    from archivebox.core.models import Snapshot
-    from archivebox.services.snapshot_service import SnapshotService
-    from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
-    from abx_dl.orchestrator import create_bus
-    from asgiref.sync import sync_to_async
-    from django.utils import timezone
 
     crawl = Crawl.objects.create(urls="https://example.com", created_by_id=get_or_create_system_user_pk())
     old_retry_at = timezone.now() + timedelta(minutes=5)

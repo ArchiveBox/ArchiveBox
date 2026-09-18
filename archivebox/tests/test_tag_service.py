@@ -49,3 +49,14 @@ def test_tag_event_projects_tag_to_snapshot():
     snapshot.refresh_from_db()
     assert snapshot.tags.filter(name="example").exists()
     assert Tag.objects.filter(name="example").exists()
+
+
+def test_tag_model_resolves_normalized_existing_name():
+    from archivebox.core.models import Tag
+
+    original = Tag.objects.create(name="normalized-name")
+    tag, created = Tag.get_or_create_by_name("  <b>normalized-name</b>  ")
+
+    assert tag.pk == original.pk
+    assert created is False
+    assert Tag.objects.filter(name="normalized-name").count() == 1

@@ -36,42 +36,8 @@ from collections.abc import Iterable
 import rich_click as click
 from rich import print as rprint
 
-from archivebox.cli.cli_util import apply_filters
+from archivebox.cli.cli_util import apply_filters, list_records
 from archivebox.personas import importers as persona_importers
-
-
-# =============================================================================
-# Validation Helpers
-# =============================================================================
-
-
-def validate_persona_name(name: str) -> tuple[bool, str]:
-    """
-    Validate persona name to prevent path traversal attacks.
-
-    Returns:
-        (is_valid, error_message): tuple indicating if name is valid
-    """
-    if not name or not name.strip():
-        return False, "Persona name cannot be empty"
-
-    # Check for path separators
-    if "/" in name or "\\" in name:
-        return False, "Persona name cannot contain path separators (/ or \\)"
-
-    # Check for parent directory references
-    if ".." in name:
-        return False, "Persona name cannot contain parent directory references (..)"
-
-    # Check for hidden files/directories
-    if name.startswith("."):
-        return False, "Persona name cannot start with a dot (.)"
-
-    # Ensure name doesn't contain null bytes or other dangerous chars
-    if "\x00" in name or "\n" in name or "\r" in name:
-        return False, "Persona name contains invalid characters"
-
-    return True, ""
 
 
 def ensure_path_within_personas_dir(persona_path: Path) -> bool:
@@ -204,15 +170,7 @@ def create_personas(
         if created:
             rprint(f"[green]Created persona: {name}[/green]", file=sys.stderr)
         if not is_tty:
-            write_record(
-                {
-                    "id": str(persona.id),
-                    "name": persona.name,
-                    "path": str(persona.path),
-                    "CHROME_USER_DATA_DIR": persona.CHROME_USER_DATA_DIR,
-                    "COOKIES_FILE": persona.COOKIES_FILE,
-                },
-            )
+            write_record(persona.to_json())
 
     rprint(f"[green]Created {created_count} new persona(s)[/green]", file=sys.stderr)
     return 0
@@ -234,41 +192,20 @@ def list_personas(
     Exit codes:
         0: Success (even if no results)
     """
-    from archivebox.misc.jsonl import write_record
     from archivebox.personas.models import Persona
 
-    is_tty = sys.stdout.isatty()
+    queryset = apply_filters(
+        Persona.objects.order_by("name"),
+        {"name": name, "name__icontains": name__icontains},
+        limit=limit,
+    )
 
-    queryset = Persona.objects.all().order_by("name")
+    def render(persona):
+        cookies = "[green]✓[/green]" if persona.COOKIES_FILE else "[dim]✗[/dim]"
+        chrome = "[green]✓[/green]" if Path(persona.CHROME_USER_DATA_DIR).exists() else "[dim]✗[/dim]"
+        return f"[cyan]{persona.name:20}[/cyan] cookies:{cookies} chrome:{chrome} [dim]{persona.path}[/dim]"
 
-    # Apply filters
-    filter_kwargs = {
-        "name": name,
-        "name__icontains": name__icontains,
-    }
-    queryset = apply_filters(queryset, filter_kwargs, limit=limit)
-
-    count = 0
-    for persona in queryset:
-        cookies_status = "[green]✓[/green]" if persona.COOKIES_FILE else "[dim]✗[/dim]"
-        chrome_status = "[green]✓[/green]" if Path(persona.CHROME_USER_DATA_DIR).exists() else "[dim]✗[/dim]"
-
-        if is_tty:
-            rprint(f"[cyan]{persona.name:20}[/cyan] cookies:{cookies_status} chrome:{chrome_status} [dim]{persona.path}[/dim]")
-        else:
-            write_record(
-                {
-                    "id": str(persona.id),
-                    "name": persona.name,
-                    "path": str(persona.path),
-                    "CHROME_USER_DATA_DIR": persona.CHROME_USER_DATA_DIR,
-                    "COOKIES_FILE": persona.COOKIES_FILE,
-                },
-            )
-        count += 1
-
-    rprint(f"[dim]Listed {count} persona(s)[/dim]", file=sys.stderr)
-    return 0
+    return list_records(queryset, plural="persona(s)", render=render)
 
 
 # =============================================================================
@@ -332,13 +269,7 @@ def update_personas(name: str | None = None) -> int:
             updated_count += 1
 
             if not is_tty:
-                write_record(
-                    {
-                        "id": str(persona.id),
-                        "name": persona.name,
-                        "path": str(persona.path),
-                    },
-                )
+                write_record(persona.to_json())
 
         except Persona.DoesNotExist:
             rprint(f"[yellow]Persona not found: {persona_id or old_name}[/yellow]", file=sys.stderr)
@@ -458,9 +389,9 @@ def create_cmd(names: tuple, import_from: str | None, profile: str | None, sourc
 @click.option("--name", help="Filter by exact name")
 @click.option("--name__icontains", help="Filter by name contains")
 @click.option("--limit", "-n", type=int, help="Limit number of results")
-def list_cmd(name: str | None, name__icontains: str | None, limit: int | None):
+def list_cmd(**kwargs):
     """List Personas as JSONL."""
-    sys.exit(list_personas(name=name, name__icontains=name__icontains, limit=limit))
+    sys.exit(list_personas(**kwargs))
 
 
 @main.command("open")
@@ -477,7 +408,7 @@ def open_cmd(name: str):
     from archivebox.config.common import get_config
     from archivebox.personas.models import Persona
 
-    valid, reason = validate_persona_name(name)
+    valid, reason = persona_importers.validate_persona_name(name)
     if not valid:
         raise click.ClickException(reason)
     persona = Persona.get_or_create_named(name)
@@ -543,17 +474,17 @@ def open_cmd(name: str):
 
 @main.command("update")
 @click.option("--name", "-n", help="Set new name")
-def update_cmd(name: str | None):
+def update_cmd(**kwargs):
     """Update Personas from stdin JSONL."""
-    sys.exit(update_personas(name=name))
+    sys.exit(update_personas(**kwargs))
 
 
 @main.command("delete")
 @click.option("--yes", "-y", is_flag=True, help="Confirm deletion")
 @click.option("--dry-run", is_flag=True, help="Show what would be deleted")
-def delete_cmd(yes: bool, dry_run: bool):
+def delete_cmd(**kwargs):
     """Delete Personas from stdin JSONL."""
-    sys.exit(delete_personas(yes=yes, dry_run=dry_run))
+    sys.exit(delete_personas(**kwargs))
 
 
 if __name__ == "__main__":

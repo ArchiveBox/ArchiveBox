@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
-from archivebox.base_models.admin import BaseModelAdmin
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin
 from archivebox.core.models import SnapshotTag, Tag
 from archivebox.core.tag_util import (
     TAG_HAS_SNAPSHOTS_CHOICES,
@@ -69,44 +69,14 @@ class TagAdmin(BaseModelAdmin):
     ordering = ["name", "id"]
 
     fieldsets = (
-        (
-            "Tag",
-            {
-                "fields": ("name",),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Metadata",
-            {
-                "fields": ("id", "created_by", "created_at", "modified_at"),
-                "classes": ("card",),
-            },
-        ),
-        (
-            "Recent Snapshots",
-            {
-                "fields": ("snapshots",),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("Tag", ("name",)),
+        card_fieldset("Metadata", ("id", "created_by", "created_at", "modified_at")),
+        card_fieldset("Recent Snapshots", ("snapshots",), wide=True),
     )
 
     add_fieldsets = (
-        (
-            "Tag",
-            {
-                "fields": ("name",),
-                "classes": ("card", "wide"),
-            },
-        ),
-        (
-            "Metadata",
-            {
-                "fields": ("created_by",),
-                "classes": ("card",),
-            },
-        ),
+        card_fieldset("Tag", ("name",), wide=True),
+        card_fieldset("Metadata", ("created_by",)),
     )
 
     def get_fieldsets(self, request: HttpRequest, obj: Tag | None = None):

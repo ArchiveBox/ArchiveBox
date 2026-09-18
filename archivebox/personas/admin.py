@@ -5,7 +5,7 @@ import shutil
 from django.contrib import admin, messages
 from django.utils.html import format_html, format_html_join
 
-from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
+from archivebox.base_models.admin import card_fieldset, BaseModelAdmin, ConfigEditorMixin
 from archivebox.personas.forms import PersonaAdminForm
 from archivebox.personas.importers import discover_local_browser_profiles
 from archivebox.personas.models import Persona
@@ -30,28 +30,20 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
                 "classes": ("card", "persona-card-primary"),
             },
         ),
-        (
+        card_fieldset(
             "Browser Import",
-            {
-                "fields": (
-                    "import_mode",
-                    "import_discovered_profile",
-                    "import_source",
-                    "import_profile_name",
-                    "import_copy_profile",
-                    "import_extract_cookies",
-                    "import_capture_storage",
-                ),
-                "classes": ("card", "wide"),
-            },
+            (
+                "import_mode",
+                "import_discovered_profile",
+                "import_source",
+                "import_profile_name",
+                "import_copy_profile",
+                "import_extract_cookies",
+                "import_capture_storage",
+            ),
+            wide=True,
         ),
-        (
-            "Advanced",
-            {
-                "fields": ("config",),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("Advanced", ("config",), wide=True),
     )
 
     change_fieldsets = (
@@ -65,13 +57,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
         ),
         add_fieldsets[1],
         add_fieldsets[2],
-        (
-            "Artifacts",
-            {
-                "fields": ("persona_paths", "import_artifact_status"),
-                "classes": ("card", "wide"),
-            },
-        ),
+        card_fieldset("Artifacts", ("persona_paths", "import_artifact_status"), wide=True),
     )
 
     @admin.display(description="Chrome Profile")

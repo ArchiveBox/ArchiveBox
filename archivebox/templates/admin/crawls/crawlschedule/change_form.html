@@ -1,0 +1,8 @@
+{% extends "admin/archivebox_change_form.html" %}
+
+{% block content %}
+{{ block.super }}
+{% if schedule_snapshots_changelist %}
+  <div id="snapshots">{{ schedule_snapshots_changelist }}</div>
+{% endif %}
+{% endblock %}
