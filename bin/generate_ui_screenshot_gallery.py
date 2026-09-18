@@ -4,6 +4,7 @@ import hashlib
 import html
 import json
 import os
+import re
 import subprocess
 import struct
 import sys
@@ -121,6 +122,53 @@ def append_manifest(manifest_path: Path, screenshot_path: Path) -> None:
             item["ttfb_ms"] = round(ttfb_ms)
     with manifest_path.open("a", encoding="utf-8") as manifest:
         manifest.write(json.dumps(item) + "\n")
+
+
+def render_gallery(gallery_header: str, gallery_sections: str) -> str:
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        "<title>ArchiveBox UI Screenshots</title><style>"
+        ":root{--ink:#28252a;--muted:#716c74;--accent:#9b2854;--paper:#fcfaf7;--line:#e9e2e3}"
+        "*{box-sizing:border-box}body{margin:0;font:16px/1.75 system-ui,sans-serif;"
+        "background:var(--paper);color:var(--ink)}.screenshot-content{max-width:1100px;margin:0 auto;padding:28px}"
+        "a{color:var(--accent)}h1,h2{line-height:1.15;letter-spacing:-.045em}"
+        "article{margin:40px 0 65px}article h2{font-size:29px;margin:0 0 10px}article p{font-size:13px;color:var(--muted);margin:0 0 20px}"
+        ".profile-switch{display:flex;flex-wrap:wrap;gap:4px;background:#f0e8eb;border:1px solid var(--line);padding:5px;"
+        "border-radius:28px;width:max-content;max-width:100%;margin:30px 0}.profile-switch button{font:600 13px system-ui;"
+        "cursor:pointer;border:0;border-radius:22px;background:transparent;color:var(--muted);padding:10px 20px}"
+        ".profile-switch button[aria-pressed=true]{background:var(--accent);color:white;box-shadow:0 3px 10px #9b285425}"
+        "a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:4px}"
+        "figure{min-width:0;margin:0 0 20px;padding:18px;border:1px solid var(--line);border-radius:20px;"
+        "background:linear-gradient(140deg,#fff,#f8edf2)}figure[hidden]{display:none}"
+        ".shot-mobile{max-width:440px;margin-inline:auto}.shot-tablet{max-width:800px;margin-inline:auto}"
+        "figcaption{font-size:12px;color:var(--muted);text-align:center;margin:0 0 12px}"
+        "img{display:block;width:100%;height:auto;border-radius:8px}code{overflow-wrap:anywhere}"
+        "@media(max-width:550px){.screenshot-content{padding:20px}figure{padding:8px;border-radius:12px}.profile-switch button{padding:9px 16px}}"
+        '</style><link rel="stylesheet" href="../site-chrome.css"></head><body>'
+        + (REPO_DIR / "bin/templates/screenshots-header.html").read_text(encoding="utf-8")
+        + '<div class="screenshot-content">'
+        + gallery_header
+        + '<div class="profile-switch" role="group" aria-label="Screenshot viewport">'
+        + "".join(
+            f'<button type="button" data-viewport="{profile}" aria-pressed="{str(profile == "desktop").lower()}">{profile.title()}</button>'
+            for profile in CAPTURE_PROFILES
+        )
+        + "</div><main>"
+        + gallery_sections
+        + """</main><script>
+const figures = document.querySelectorAll('.shot');
+const buttons = document.querySelectorAll('[data-viewport]');
+function selectProfile(profile) {
+  for (const figure of figures) figure.hidden = figure.dataset.profile !== profile;
+  for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.viewport === profile));
+}
+for (const button of buttons) button.addEventListener('click', () => selectProfile(button.dataset.viewport));
+selectProfile('desktop');
+</script></div>"""
+        + (REPO_DIR / "bin/templates/screenshots-footer.html").read_text(encoding="utf-8")
+        + "</body></html>\n"
+    )
 
 
 def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -> None:
@@ -252,55 +300,15 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         encoding="utf-8",
     )
 
-    html_path.write_text(
-        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        "<title>ArchiveBox UI Screenshots</title><style>"
-        ":root{--ink:#28252a;--muted:#716c74;--accent:#9b2854;--paper:#fcfaf7;--line:#e9e2e3}"
-        "*{box-sizing:border-box}body{margin:0;font:16px/1.75 system-ui,sans-serif;"
-        "background:var(--paper);color:var(--ink)}.screenshot-content{max-width:1100px;margin:0 auto;padding:28px}"
-        "a{color:var(--accent)}h1,h2{line-height:1.15;letter-spacing:-.045em}"
-        "article{margin:40px 0 65px}article h2{font-size:29px;margin:0 0 10px}article p{font-size:13px;color:var(--muted);margin:0 0 20px}"
-        ".profile-switch{display:flex;flex-wrap:wrap;gap:4px;background:#f0e8eb;border:1px solid var(--line);padding:5px;"
-        "border-radius:28px;width:max-content;max-width:100%;margin:30px 0}.profile-switch button{font:600 13px system-ui;"
-        "cursor:pointer;border:0;border-radius:22px;background:transparent;color:var(--muted);padding:10px 20px}"
-        ".profile-switch button[aria-pressed=true]{background:var(--accent);color:white;box-shadow:0 3px 10px #9b285425}"
-        "a:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:4px}"
-        "figure{min-width:0;margin:0 0 20px;padding:18px;border:1px solid var(--line);border-radius:20px;"
-        "background:linear-gradient(140deg,#fff,#f8edf2)}figure[hidden]{display:none}"
-        ".shot-mobile{max-width:440px;margin-inline:auto}.shot-tablet{max-width:800px;margin-inline:auto}"
-        "figcaption{font-size:12px;color:var(--muted);text-align:center;margin:0 0 12px}"
-        "img{display:block;width:100%;height:auto;border-radius:8px}code{overflow-wrap:anywhere}"
-        "@media(max-width:550px){.screenshot-content{padding:20px}figure{padding:8px;border-radius:12px}.profile-switch button{padding:9px 16px}}"
-        '</style><link rel="stylesheet" href="../site-chrome.css"></head><body>'
-        + (REPO_DIR / "bin/templates/screenshots-header.html").read_text(encoding="utf-8")
-        + '<div class="screenshot-content"><header><p><a href="../">← ArchiveBox</a></p><h1>ArchiveBox UI Screenshots</h1>'
+    gallery_header = (
+        '<header><p><a href="../">← ArchiveBox</a></p><h1>ArchiveBox UI Screenshots</h1>'
         + f"<p>Generated from ArchiveBox <code>{html.escape(provenance['version'])}</code> at "
         f'<a href="https://github.com/ArchiveBox/ArchiveBox/commit/{html.escape(provenance["revision"])}">'
         f"<code>{html.escape(provenance['revision'][:12])}</code></a> on "
         f'<time datetime="{html.escape(provenance["generated_at"])}">{html.escape(provenance["generated_at"])}</time>. '
         "Desktop, tablet, and mobile viewports are captured from the same build.</p></header>"
-        '<div class="profile-switch" role="group" aria-label="Screenshot viewport">'
-        + "".join(
-            f'<button type="button" data-viewport="{profile}" aria-pressed="{str(profile == "desktop").lower()}">{profile.title()}</button>'
-            for profile in CAPTURE_PROFILES
-        )
-        + "</div><main>"
-        + "".join(html_sections)
-        + """</main><script>
-const figures = document.querySelectorAll('.shot');
-const buttons = document.querySelectorAll('[data-viewport]');
-function selectProfile(profile) {
-  for (const figure of figures) figure.hidden = figure.dataset.profile !== profile;
-  for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.viewport === profile));
-}
-for (const button of buttons) button.addEventListener('click', () => selectProfile(button.dataset.viewport));
-selectProfile('desktop');
-</script></div>"""
-        + (REPO_DIR / "bin/templates/screenshots-footer.html").read_text(encoding="utf-8")
-        + "</body></html>\n",
-        encoding="utf-8",
     )
+    html_path.write_text(render_gallery(gallery_header, "".join(html_sections)), encoding="utf-8")
 
     file_hashes = {
         capture["filename"]: hashlib.sha256((html_path.parent / capture["filename"]).read_bytes()).hexdigest() for capture in captures
@@ -327,7 +335,27 @@ selectProfile('desktop');
                     screenshot_path.unlink()
 
 
+def refresh_gallery(html_path: Path) -> None:
+    """Apply current presentation to published capture content without changing provenance."""
+    document = html_path.read_text(encoding="utf-8")
+    header = re.search(r"<header>.*?</header>", document, re.DOTALL)
+    sections = re.search(r"<main>(.*?)</main>", document, re.DOTALL)
+    if not header or not sections:
+        raise SystemExit("Published screenshot gallery is missing its capture header or content")
+    content = sections[1]
+    for profile in CAPTURE_PROFILES:
+        # Galleries published before the switcher used classes alone.
+        content = content.replace(
+            f'<figure class="shot shot-{profile}">',
+            f'<figure class="shot shot-{profile}" data-profile="{profile}">',
+        )
+    html_path.write_text(render_gallery(header[0], content), encoding="utf-8")
+
+
 def main() -> None:
+    if len(sys.argv) == 3 and sys.argv[1] == "refresh":
+        refresh_gallery(Path(sys.argv[2]))
+        return
     if len(sys.argv) == 4 and sys.argv[1] == "validate":
         validate_navigation(Path(sys.argv[2]), sys.argv[3])
         return

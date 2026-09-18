@@ -1,79 +1,49 @@
 name: Deploy Publicsite to GitHub Pages
-
 on:
   push:
-    branches:
-      - dev
-    paths:
-      - publicsite/**
-      - archivebox/**
-      - bin/collect_ui_screenshots.*
-      - bin/generate_ui_screenshot_gallery.py
-      - bin/take_screenshot.js
-      - docs/Screenshots.md
-      - pyproject.toml
-      - uv.lock
-      - .github/workflows/deploy-publicsite.yml
+    branches: [dev]
+  pull_request:
   workflow_dispatch:
-
+  workflow_run:
+    workflows: ['Capture publicsite screenshots']
+    types: [completed]
+    branches: [dev]
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
+  actions: read
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && format('github-pages-publicsite-manual-{0}', github.run_id) || 'github-pages-publicsite' }}
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
-
+  group: fast-pages-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
+  build:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.ref || 'dev' }}
+      - uses: astral-sh/setup-uv@v7
+      - name: Restore latest complete screenshots
+        run: uv run --no-project python bin/restore_site_screenshots.py archivebox publicsite/screenshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Render current gallery layout without recapturing images
+        run: uv run --no-project python bin/generate_ui_screenshot_gallery.py refresh publicsite/screenshots/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: publicsite
   deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-24.04
     steps:
-      - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 1
-
-      - name: Setup Python and uv
-        uses: astral-sh/setup-uv@v6
-        with:
-          enable-cache: false
-
-      - name: Install ArchiveBox and screenshot dependencies
-        run: uv sync --no-cache --frozen
-
-      - name: Build UI screenshot gallery
-        run: bin/collect_ui_screenshots.sh
-        env:
-          BASE_URL: http://archivebox.localhost:8000
-
-      - name: Verify gallery was generated from this exact revision
-        run: |
-          uv run --no-cache --no-sync python - <<'PY'
-          import json
-          import os
-          import tomllib
-          from pathlib import Path
-
-          provenance = json.loads(Path("publicsite/screenshots/build.json").read_text())
-          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
-          assert provenance["revision"] == os.environ["GITHUB_SHA"], provenance
-          assert provenance["version"] == version, provenance
-          assert provenance["capture_count"] >= 3 * 35, provenance
-          assert len(provenance["files"]) == provenance["capture_count"], provenance
-          PY
-
-      - name: Setup Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
-        with:
-          path: ./publicsite
-
-      - name: Deploy to GitHub Pages
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
