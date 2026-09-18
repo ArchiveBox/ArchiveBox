@@ -387,14 +387,13 @@ def test_live_second_server_takes_over_existing_server_process(tmp_path, initial
         assert "A newer archivebox process took over the orchestrator, server" in first_text
         assert "Starting orchestrator, server" in second_text
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["status"],
             cwd=tmp_path,
             env=env,
             timeout=60,
         )
-        stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        assert returncode == 0, stderr or stdout
+        assert result.returncode == 0, result.stderr or result.stdout
 
         first_resumes = first_log.read_text(encoding="utf-8", errors="replace").count("Other newer archivebox process")
         stop_archivebox_process(second, signal.SIGTERM)
@@ -422,15 +421,14 @@ def test_live_update_index_only_does_not_take_over_server_runtime(tmp_path, init
         supervisor_pid_before = supervisor_pid_from_log(server_log)
         daphne_pid_before = worker_pid_from_log(server_log, "worker_daphne")
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["update", "--index-only", "--before=0"],
             cwd=tmp_path,
             env=env,
             timeout=90,
         )
-        update_stdout, update_stderr, update_returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert update_returncode == 0, update_stderr or update_stdout
+        assert result.returncode == 0, result.stderr or result.stdout
         assert pid_is_alive(server.pid)
         assert pid_is_alive(supervisor_pid_before)
         assert pid_is_alive(daphne_pid_before)
@@ -471,15 +469,14 @@ def test_live_server_keeps_http_runtime_while_update_runs_real_sqlite_indexer(tm
         runner_spawn_text = "spawned: 'worker_runner' with pid"
         runner_spawn_count = supervisord_log.read_text(encoding="utf-8", errors="replace").count(runner_spawn_text)
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["update", "--index-only", "--batch-size=1"],
             cwd=tmp_path,
             env=env,
             timeout=180,
         )
-        update_stdout, update_stderr, update_returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-        assert update_returncode == 0, update_stderr or update_stdout
+        assert result.returncode == 0, result.stderr or result.stdout
         assert pid_is_alive(server.pid)
         assert supervisor_pid_from_log(server_log) == supervisor_pid_before
         assert pid_is_alive(daphne_pid_before)
@@ -628,14 +625,13 @@ def test_live_repeated_server_startups_take_over_cleanly(tmp_path, initialized_a
                 wait_for_pid_to_disappear(daphne_pids[index - 1], timeout=15)
                 wait_for_pid_to_disappear(runner_pids[index - 1], timeout=15)
 
-            _cmd_result = run_archivebox_cmd(
+            result = run_archivebox_cmd(
                 ["status"],
                 cwd=tmp_path,
                 env=env,
                 timeout=60,
             )
-            stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-            assert returncode == 0, stderr or stdout
+            assert result.returncode == 0, result.stderr or result.stdout
 
         assert pid_is_alive(servers[-1].pid)
         assert all(pid_is_alive(server.pid) for server in servers)
@@ -673,14 +669,13 @@ def test_live_background_add_survives_server_exit_and_foreground_run_reclaims(tm
         server_log = server.log_path
         supervisor_pid_before = supervisor_pid_from_log(server_log)
 
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["update", "--index-only", "--batch-size=10"],
             cwd=tmp_path,
             env=env,
             timeout=90,
         )
-        update_stdout, update_stderr, update_returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        assert update_returncode == 0, update_stderr or update_stdout
+        assert result.returncode == 0, result.stderr or result.stdout
         assert pid_is_alive(server.pid)
         assert pid_is_alive(supervisor_pid_before)
         assert supervisor_pid_from_log(server_log) == supervisor_pid_before

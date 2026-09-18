@@ -1204,7 +1204,7 @@ def test_cli_recursive_crawl_processes_discovered_html_urls(initialized_archive,
     root_url = recursive_test_site["root_url"]
     child_url = recursive_test_site["child_urls"][0]
 
-    _cmd_result = run_archivebox_cmd(
+    result = run_archivebox_cmd(
         [
             "add",
             "--depth=2",
@@ -1219,8 +1219,7 @@ def test_cli_recursive_crawl_processes_discovered_html_urls(initialized_archive,
         env=env,
         timeout=180,
     )
-    stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-    assert returncode == 0, stderr or stdout
+    assert result.returncode == 0, result.stderr or result.stdout
 
     with use_archivebox_db(initialized_archive):
         crawl = Crawl.objects.order_by("-created_at").values_list("max_depth", "tags_str", "config").first()

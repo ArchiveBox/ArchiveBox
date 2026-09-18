@@ -427,16 +427,15 @@ def test_snapshot_list_search_meta(initialized_archive):
     url = create_test_url(domain="meta-search-example.com")
     run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-    _cmd_result = run_archivebox_cmd(
+    result = run_archivebox_cmd(
         ["snapshot", "list", "--search=meta", "meta-search-example.com"],
         cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
-    stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-    assert code == 0, f"Command failed: {stderr}"
-    records = parse_jsonl_output(stdout)
+    assert result.returncode == 0, f"Command failed: {result.stderr}"
+    records = parse_jsonl_output(result.stdout)
     assert len(records) == 1
     assert "meta-search-example.com" in records[0]["url"]
 
@@ -446,16 +445,15 @@ def test_list_search_meta_matches_metadata(initialized_archive):
     url = create_test_url(domain="top-level-meta-search-example.com")
     run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-    _cmd_result = run_archivebox_cmd(
+    result = run_archivebox_cmd(
         ["list", "--search=meta", "top-level-meta-search-example.com"],
         cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
-    stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-    assert code == 0, f"Command failed: {stderr}"
-    records = parse_jsonl_output(stdout)
+    assert result.returncode == 0, f"Command failed: {result.stderr}"
+    records = parse_jsonl_output(result.stdout)
     assert len(records) == 1
     assert "top-level-meta-search-example.com" in records[0]["url"]
 
@@ -468,11 +466,10 @@ def test_search_command_finds_snapshots(initialized_archive):
         disable_extractors=True,
     )
 
-    _cmd_result = run_archivebox_cmd(["search", "example"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
-    stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
+    result = run_archivebox_cmd(["search", "example"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-    assert code == 0, stderr
-    assert "example" in stdout
+    assert result.returncode == 0, result.stderr
+    assert "example" in result.stdout
 
 
 def test_search_command_returns_no_results_for_missing_term(initialized_archive):
@@ -483,22 +480,20 @@ def test_search_command_returns_no_results_for_missing_term(initialized_archive)
         disable_extractors=True,
     )
 
-    _cmd_result = run_archivebox_cmd(
+    result = run_archivebox_cmd(
         ["search", "nonexistentterm12345"],
         cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
-    _stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-    assert code in [0, 1]
+    assert result.returncode in [0, 1]
 
 
 def test_search_command_on_empty_archive(initialized_archive):
-    _cmd_result = run_archivebox_cmd(["search", "anything"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
-    _stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
+    result = run_archivebox_cmd(["search", "anything"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-    assert code in [0, 1]
+    assert result.returncode in [0, 1]
 
 
 def test_search_command_outputs_matching_snapshots_as_jsonl(initialized_archive):
@@ -509,11 +504,10 @@ def test_search_command_outputs_matching_snapshots_as_jsonl(initialized_archive)
         disable_extractors=True,
     )
 
-    _cmd_result = run_archivebox_cmd(["search"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
-    stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
+    result = run_archivebox_cmd(["search"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-    assert code == 0, stderr
-    records = parse_jsonl_output(stdout)
+    assert result.returncode == 0, result.stderr
+    records = parse_jsonl_output(result.stdout)
     assert any("example.com" in row.get("url", "") for row in records)
 
 
@@ -576,52 +570,48 @@ def test_search_command_csv_outputs_requested_column(initialized_archive):
         disable_extractors=True,
     )
 
-    _cmd_result = run_archivebox_cmd(
+    result = run_archivebox_cmd(
         ["search", "--csv", "url", "--with-headers"],
         cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
-    stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-    assert code == 0, stderr
-    assert "url" in stdout
-    assert "example.com" in stdout
+    assert result.returncode == 0, result.stderr
+    assert "url" in result.stdout
+    assert "example.com" in result.stdout
 
 
 def test_search_command_with_headers_requires_structured_output_format(initialized_archive):
-    _cmd_result = run_archivebox_cmd(["search", "--with-headers"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
-    _stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
+    result = run_archivebox_cmd(["search", "--with-headers"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-    assert code != 0
-    assert "requires" in stderr.lower()
-    assert "json" in stderr.lower()
+    assert result.returncode != 0
+    assert "requires" in result.stderr.lower()
+    assert "json" in result.stderr.lower()
 
 
 def test_search_command_sort_option_runs_successfully(initialized_archive):
     for url in ["https://iana.org", "https://example.com"]:
         run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-    _cmd_result = run_archivebox_cmd(
+    result = run_archivebox_cmd(
         ["search", "--csv", "url", "--sort=url"],
         cwd=initialized_archive,
         default_cli_env=True,
         disable_extractors=True,
     )
-    stdout, stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
 
-    assert code == 0, stderr
-    assert "example.com" in stdout or "iana.org" in stdout
+    assert result.returncode == 0, result.stderr
+    assert "example.com" in result.stdout or "iana.org" in result.stdout
 
 
 def test_search_command_help_lists_supported_filters(initialized_archive):
-    _cmd_result = run_archivebox_cmd(["search", "--help"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
-    stdout, _stderr, code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
+    result = run_archivebox_cmd(["search", "--help"], cwd=initialized_archive, default_cli_env=True, disable_extractors=True)
 
-    assert code == 0
-    assert "--url__icontains" in stdout
-    assert "--crawl-id" in stdout
-    assert "--status" in stdout
-    assert "--sort" in stdout
-    assert "--json" in stdout
-    assert "--html" in stdout
+    assert result.returncode == 0
+    assert "--url__icontains" in result.stdout
+    assert "--crawl-id" in result.stdout
+    assert "--status" in result.stdout
+    assert "--sort" in result.stdout
+    assert "--json" in result.stdout
+    assert "--html" in result.stdout

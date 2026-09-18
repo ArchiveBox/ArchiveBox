@@ -124,10 +124,17 @@ def test_server_auth_secret_and_cookie_settings_are_restart_stable(tmp_path):
     assert first_lines[3:] == ["None", "False", "False"]
 
 
-def test_https_base_url_enables_proxy_ssl_header_and_secure_cookies(tmp_path):
+@pytest.mark.parametrize(
+    "base_url, secure",
+    [
+        ("https://archive.example.com", True),
+        ("", False),
+    ],
+)
+def test_base_url_controls_secure_cookies(tmp_path, base_url, secure):
     (tmp_path / ".archivebox_id").write_text("testcoll")
     env = os.environ.copy()
-    env["BASE_URL"] = "https://archive.example.com"
+    env["BASE_URL"] = base_url
     env["DJANGO_SETTINGS_MODULE"] = "archivebox.core.settings"
     repo_root = Path(__file__).resolve().parents[2]
     env["PYTHONPATH"] = f"{repo_root}{os.pathsep}{env.get('PYTHONPATH', '')}"
@@ -155,45 +162,8 @@ def test_https_base_url_enables_proxy_ssl_header_and_secure_cookies(tmp_path):
     )
 
     assert json.loads(result.stdout) == {
-        "csrf_secure": True,
-        "session_secure": True,
-        "proxy_ssl_header": ["HTTP_X_FORWARDED_PROTO", "https"],
-    }
-
-
-def test_unconfigured_base_url_enables_proxy_ssl_header_without_secure_cookies(tmp_path):
-    (tmp_path / ".archivebox_id").write_text("testcoll")
-    env = os.environ.copy()
-    env["BASE_URL"] = ""
-    env["DJANGO_SETTINGS_MODULE"] = "archivebox.core.settings"
-    repo_root = Path(__file__).resolve().parents[2]
-    env["PYTHONPATH"] = f"{repo_root}{os.pathsep}{env.get('PYTHONPATH', '')}"
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            (
-                "import django, json;"
-                "django.setup();"
-                "from django.conf import settings;"
-                "print(json.dumps({"
-                "'csrf_secure': settings.CSRF_COOKIE_SECURE,"
-                "'session_secure': settings.SESSION_COOKIE_SECURE,"
-                "'proxy_ssl_header': settings.SECURE_PROXY_SSL_HEADER,"
-                "}))"
-            ),
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-        env=env,
-        cwd=tmp_path,
-    )
-
-    assert json.loads(result.stdout) == {
-        "csrf_secure": False,
-        "session_secure": False,
+        "csrf_secure": secure,
+        "session_secure": secure,
         "proxy_ssl_header": ["HTTP_X_FORWARDED_PROTO", "https"],
     }
 
@@ -759,9 +729,8 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
 
         resumed = start_archivebox_server(initialized_archive, port=port, log_name=f"server-{stop_signal.name}-resumed.log", env=env)
         resumed_log = resumed.log_path
-        _cmd_result = run_archivebox_cmd(["status"], cwd=initialized_archive, env=env, timeout=60)
-        stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        assert returncode == 0, stderr or stdout
+        result = run_archivebox_cmd(["status"], cwd=initialized_archive, env=env, timeout=60)
+        assert result.returncode == 0, result.stderr or result.stdout
 
         os.kill(resumed.pid, signal.SIGTERM)
         resumed.wait(timeout=20)
@@ -783,14 +752,13 @@ def test_live_daemonized_server_keeps_supervisord_owned_by_archivebox_parent(ini
     port = get_free_port()
     bind_url = f"http://127.0.0.1:{port}"
     try:
-        _cmd_result = run_archivebox_cmd(
+        result = run_archivebox_cmd(
             ["server", "--daemonize", f"127.0.0.1:{port}"],
             cwd=initialized_archive,
             env=env,
             timeout=90,
         )
-        stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-        assert returncode == 0, stderr or stdout
+        assert result.returncode == 0, result.stderr or result.stdout
         _wait_for_archivebox_workers(initialized_archive, env, ("worker_daphne", "worker_runner"), timeout=30)
         assert_port_open("127.0.0.1", port, timeout=30)
 

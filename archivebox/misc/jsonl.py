@@ -32,7 +32,6 @@ import sys
 import json
 from typing import Any, TextIO
 from collections.abc import Iterable, Iterator
-from pathlib import Path
 
 
 # Type constants for JSONL records
@@ -118,19 +117,6 @@ def read_stdin(stream: TextIO | None = None) -> Iterator[dict[str, Any]]:
         record = parse_line(line)
         if record:
             yield record
-
-
-def read_file(path: Path) -> Iterator[dict[str, Any]]:
-    """
-    Read JSONL or plain URLs from a file.
-
-    Yields parsed records as dicts.
-    """
-    with open(path) as f:
-        for line in f:
-            record = parse_line(line)
-            if record:
-                yield record
 
 
 def read_args_or_stdin(args: Iterable[str], stream: TextIO | None = None) -> Iterator[dict[str, Any]]:
