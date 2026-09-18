@@ -125,7 +125,8 @@ code {
   gap: 8px 18px;
 }
 
-.site-header nav a {
+.site-header nav a,
+.site-header nav .project-menu > summary {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -140,7 +141,8 @@ code {
   transition: border-color 160ms ease, color 160ms ease;
 }
 
-.site-header nav a:hover {
+.site-header nav a:hover,
+.site-header nav .project-menu > summary:hover {
   color: var(--text);
   text-decoration: none;
   border-color: hsl(var(--primary) / 0.42);
@@ -806,7 +808,7 @@ h3 {
   }
 
   .site-header {
-    position: static;
+    position: relative;
     width: 100%;
     margin: 0;
     padding: 14px 16px;
@@ -816,7 +818,8 @@ h3 {
     width: 100%;
   }
 
-  .site-header nav a {
+  .site-header nav a,
+  .site-header nav .project-menu > summary {
     font-size: 0.74rem;
     letter-spacing: 0.1em;
   }
@@ -884,7 +887,9 @@ h3 {
 
 /* Shared project navigation stays usable without JavaScript. */
 .project-menu { position: relative; flex: 0 0 auto; }
-.project-menu > summary { cursor: pointer; padding: 10px 0; font-size: 13px; font-weight: 600; }
+.project-menu > summary { cursor: pointer; list-style: none; }
+.project-menu > summary::-webkit-details-marker { display: none; }
+.project-menu > summary::after { content: "▾"; }
 .project-menu > summary:focus-visible, .project-menu__links a:focus-visible { outline: 3px solid #9b2854; outline-offset: 3px; }
 .project-menu__links { position: absolute; right: 0; top: 100%; z-index: 30; width: 220px; max-width: calc(100vw - 32px); padding: 8px; border: 1px solid #e9e2e3; border-radius: 12px; background: #fff; box-shadow: 0 12px 32px #28252a20; }
 header nav .project-menu__links a { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; color: #28252a; font-size: 13px; letter-spacing: normal; text-transform: none; text-decoration: none; white-space: nowrap; }
