@@ -1,0 +1,26 @@
+archivebox/cli/archivebox_persona.py
+  h_923c208e183a7b 444-448
+archivebox/personas/admin.py
+  h_923c208e183a7b 30,45
+archivebox/personas/forms.py
+  h_923c208e183a7b 58
+archivebox/personas/importers.py
+  h_923c208e183a7b 21,35,221,225,229,232-239,243,330,558,573
+archivebox/templates/admin/personas/persona/change_form.html
+  h_923c208e183a7b 41-42,50-51,54-55,58-59,61-69,175-182,270-274,282,286
+archivebox/templates/core/add.html
+  h_923c208e183a7b 290-291
+archivebox/tests/test_ui_admin_persona.py
+  h_923c208e183a7b 130-133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "880ab87da2ca2fce044d0dc36f9665a629f99449",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
