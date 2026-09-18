@@ -1,0 +1,22 @@
+.github/docs/README.md
+  h_923c208e183a7b 7-8,11,26-33
+.github/docs/conf.py
+  h_923c208e183a7b 47-62,81,92,99,176-193
+.github/docs/requirements.in
+  h_923c208e183a7b 1-4
+.github/docs/requirements.txt
+  h_923c208e183a7b 1-36,38-61,63-73,75-81
+.github/workflows/docker.yml
+  h_923c208e183a7b 6-8,18-19,55,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0fef07cd4d9e3e6b0ea98f81c81f79ccaae50047",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
