@@ -1,0 +1,18 @@
+.github/docs/README.md
+  h_923c208e183a7b 31-42
+.github/docs/conf.py
+  h_923c208e183a7b 40
+.github/docs/static/archivebox-versions.js
+  h_923c208e183a7b 1-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8209d4844d4f14ff7b2afad3ebc873c04c187782",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
