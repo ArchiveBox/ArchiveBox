@@ -1046,7 +1046,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return None
 
         return format_html(
-            '<img src="{}" alt="{}" class="snapshot-preview {}" decoding="async" loading="lazy" onerror="{}" data-fallbacks="{}">',
+            '<a href="{}" title="Open snapshot details">'
+            '<img src="{}" alt="{}" class="snapshot-preview {}" decoding="async" loading="lazy" onerror="{}" data-fallbacks="{}">'
+            "</a>",
+            build_web_url(f"/{obj.archive_path_from_db}/index.html", request=self.request, config=self.request.archivebox_config),
             preview["img_url"],
             preview["img_alt"],
             preview["preview_class"],

@@ -152,6 +152,8 @@ def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_wa
 def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, snapshot, real_hash_projection):
     from archivebox.core.models import ArchiveResult
 
+    snapshot.title = "Preview destination test"
+    snapshot.save(update_fields=["title"])
     _process, result = real_hash_projection
     ArchiveResult.objects.filter(pk=result.pk).update(
         plugin="screenshot",
@@ -165,6 +167,15 @@ def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, 
     assert response.status_code == 200
     assert b'class="snapshot-preview' in response.content
     assert b"screenshot.png" in response.content
+    html = response.content.decode()
+    preview_cell = re.search(r'<td class="field-preview_icon">(.*?)</td>', html, re.S)
+    title_cell = re.search(r'<td class="field-title_str">(.*?)</td>', html, re.S)
+    assert preview_cell and title_cell
+    preview_link = re.search(r'<a href="([^"]+)"', preview_cell.group(1))
+    title_link = re.search(r'<a href="([^"]+)"', title_cell.group(1))
+    assert preview_link and title_link
+    assert preview_link.group(1) == title_link.group(1)
+    assert preview_link.group(1).endswith(f"/{snapshot.archive_path_from_db}/index.html")
 
 
 def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snapshot):
