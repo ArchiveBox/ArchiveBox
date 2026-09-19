@@ -1,0 +1,16 @@
+archivebox/templates/static/setup_wizard.js
+  h_923c208e183a7b 200-201
+docs/codeblocks.toml
+  h_923c208e183a7b 8,12,17,20,23,29,43-45,47,95,121,123,129,146,163,165,170,181,190,216-219,248,260,308,324,387,403
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "18641be8923dad6296071c011f1587360b2a4f45",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
