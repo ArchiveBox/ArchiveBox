@@ -197,6 +197,8 @@
     }
     if (!publicIndexInput.checked) {
       risks.push('✅ Anonymous visitors cannot browse the snapshot index.');
+    } else {
+      risks.push('⚠️ Anonymous visitors can browse the public snapshot index; saved URLs may contain private share tokens or other secrets.');
     }
     risks.push(!controlPlaneEnabled
       ? '✅ URL submission and other state-changing requests are disabled for everyone in this replay-only mode.'
