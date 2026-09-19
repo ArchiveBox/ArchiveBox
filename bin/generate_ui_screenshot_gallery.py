@@ -128,7 +128,8 @@ def render_gallery(gallery_header: str, gallery_sections: str) -> str:
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        "<title>ArchiveBox UI Screenshots</title><style>"
+        + (REPO_DIR / "bin/templates/screenshots-head.html").read_text(encoding="utf-8")
+        + "<style>"
         ":root{--ink:#28252a;--muted:#716c74;--accent:#9b2854;--paper:#fcfaf7;--line:#e9e2e3}"
         "*{box-sizing:border-box}body{margin:0;font:16px/1.75 system-ui,sans-serif;"
         "background:var(--paper);color:var(--ink)}.screenshot-content{max-width:1100px;margin:0 auto;padding:28px}"
