@@ -208,9 +208,9 @@ archivebox config --set FTS_TOKENIZERS="porter unicode61 remove_diacritics 2"
 ### Further Reading
 
 - https://github.com/ArchiveBox/ArchiveBox/blob/dev/docker-compose.yml#:~:text=SEARCH_BACKEND_ENGINE
-- https://archivebox.github.io/abx-plugins/#search_backend_ripgrep
-- https://archivebox.github.io/abx-plugins/#search_backend_sonic
-- https://archivebox.github.io/abx-plugins/#search_backend_sqlite
+- https://plugins.archivebox.io/#search_backend_ripgrep
+- https://plugins.archivebox.io/#search_backend_sonic
+- https://plugins.archivebox.io/#search_backend_sqlite
 
 * [#22 Original Issue where full-text search functionality was proposed](https://github.com/ArchiveBox/ArchiveBox/issues/22)
 * [#543 + #570 Original PR where full-text search functionality was implemented](https://github.com/ArchiveBox/ArchiveBox/pull/543)

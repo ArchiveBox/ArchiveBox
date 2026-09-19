@@ -162,7 +162,7 @@ docker compose exec archivebox archivebox config --set TIMEOUT=120
 # OR edit ./data/ArchiveBox.conf and add this under its existing [ARCHIVING_CONFIG] section:
 TIMEOUT=120
 
-# plugin-specific options work the same way (see https://archivebox.github.io/abx-plugins/)
+# plugin-specific options work the same way (see https://plugins.archivebox.io/)
 docker compose exec archivebox archivebox config --set YTDLP_MAX_SIZE=750m
 ```
 This will apply the config to all containers or archivebox instances that access the collection.
@@ -287,7 +287,7 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev config --set TIMEOUT=120
 TIMEOUT=120
 ```
 
-ArchiveBox in Docker also accepts config as environment variables, see more on the [[Configuration]] page (and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options).
+ArchiveBox in Docker also accepts config as environment variables, see more on the [[Configuration]] page (and the [abx-plugins config reference](https://plugins.archivebox.io/) for per-plugin options).
 
 For example, this disables the screenshot extractor for a single run (without persisting for other runs):
 ```bash

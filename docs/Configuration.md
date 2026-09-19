@@ -68,7 +68,7 @@ archivebox add --no-only-new https://example.com      # force a re-archive even 
 **Possible Values:** [`60`]/`120`/...
 Maximum allowed runtime **per-extractor, per-Snapshot** in seconds. If you have a slow network connection or are seeing frequent timeout errors, you can raise this value.
 
-This is a *plugin-shared* setting — each individual extractor can override it with its own `<EXTRACTOR>_TIMEOUT` (e.g. [`WGET_TIMEOUT`](https://archivebox.github.io/abx-plugins/#wget), [`CHROME_TIMEOUT`](https://archivebox.github.io/abx-plugins/#chrome), [`YTDLP_TIMEOUT`](https://archivebox.github.io/abx-plugins/#ytdlp)). See the [per-plugin docs](https://archivebox.github.io/abx-plugins/) for the full list.
+This is a *plugin-shared* setting — each individual extractor can override it with its own `<EXTRACTOR>_TIMEOUT` (e.g. [`WGET_TIMEOUT`](https://plugins.archivebox.io/#wget), [`CHROME_TIMEOUT`](https://plugins.archivebox.io/#chrome), [`YTDLP_TIMEOUT`](https://plugins.archivebox.io/#ytdlp)). See the [per-plugin docs](https://plugins.archivebox.io/) for the full list.
 
 > [!NOTE]
 > `TIMEOUT` only caps a single extractor invocation. To bound the *total* wall-clock runtime of an entire crawl, use [`CRAWL_TIMEOUT`](#crawl_timeout) instead.
@@ -84,14 +84,14 @@ This is a *plugin-shared* setting — each individual extractor can override it 
 **Possible Values:** [`1440,2000`]/`1024,768`/...
 Default screenshot/PDF viewport resolution in `width,height` pixels. Used as the fallback for `SCREENSHOT_RESOLUTION`, `PDF_RESOLUTION`, and `CHROME_RESOLUTION`.
 
-This is a *plugin-shared* setting — individual extractors override it via `<EXTRACTOR>_RESOLUTION` (e.g. [`SCREENSHOT_RESOLUTION`](https://archivebox.github.io/abx-plugins/#screenshot), [`PDF_RESOLUTION`](https://archivebox.github.io/abx-plugins/#pdf), [`CHROME_RESOLUTION`](https://archivebox.github.io/abx-plugins/#chrome)). See the [per-plugin docs](https://archivebox.github.io/abx-plugins/) for plugin-specific overrides.
+This is a *plugin-shared* setting — individual extractors override it via `<EXTRACTOR>_RESOLUTION` (e.g. [`SCREENSHOT_RESOLUTION`](https://plugins.archivebox.io/#screenshot), [`PDF_RESOLUTION`](https://plugins.archivebox.io/#pdf), [`CHROME_RESOLUTION`](https://plugins.archivebox.io/#chrome)). See the [per-plugin docs](https://plugins.archivebox.io/) for plugin-specific overrides.
 
 ---
 #### `CHECK_SSL_VALIDITY`
 **Possible Values:** [`True`]/`False`
 Whether to enforce HTTPS certificate validity and HSTS chain of trust when archiving sites. Set this to `False` if you want to archive pages even if they have expired or invalid certificates.
 
-This is a *plugin-shared* setting — every HTTP-fetching extractor ([`wget`](https://archivebox.github.io/abx-plugins/#wget), [`yt-dlp`](https://archivebox.github.io/abx-plugins/#ytdlp), [`gallery-dl`](https://archivebox.github.io/abx-plugins/#gallerydl), [`chrome`](https://archivebox.github.io/abx-plugins/#chrome), etc.) honors it, and individual extractors can override with `<EXTRACTOR>_CHECK_SSL_VALIDITY`. See the [per-plugin docs](https://archivebox.github.io/abx-plugins/).
+This is a *plugin-shared* setting — every HTTP-fetching extractor ([`wget`](https://plugins.archivebox.io/#wget), [`yt-dlp`](https://plugins.archivebox.io/#ytdlp), [`gallery-dl`](https://plugins.archivebox.io/#gallerydl), [`chrome`](https://plugins.archivebox.io/#chrome), etc.) honors it, and individual extractors can override with `<EXTRACTOR>_CHECK_SSL_VALIDITY`. See the [per-plugin docs](https://plugins.archivebox.io/).
 
 > [!WARNING]
 > When `False`, ArchiveBox cannot guarantee that the captured content matches the real site — a man-in-the-middle could substitute responses. Only disable for trusted networks or for archiving legacy/internal sites with expired certs.
@@ -101,7 +101,7 @@ This is a *plugin-shared* setting — every HTTP-fetching extractor ([`wget`](ht
 **Possible Values:** [`Mozilla/5.0 ... ArchiveBox/{VERSION} ...`]/`"Mozilla/5.0 ..."`/...
 The default `User-Agent` string sent during archiving. The built-in default identifies ArchiveBox and links back to the GitHub repo so site operators can identify and contact archivers if needed.
 
-This is a *plugin-shared* setting — each extractor ([`wget`](https://archivebox.github.io/abx-plugins/#wget), [`chrome`](https://archivebox.github.io/abx-plugins/#chrome), [`yt-dlp`](https://archivebox.github.io/abx-plugins/#ytdlp), [`singlefile`](https://archivebox.github.io/abx-plugins/#singlefile), …) can override it with its own `<EXTRACTOR>_USER_AGENT`, otherwise it falls back to this value. See the [per-plugin docs](https://archivebox.github.io/abx-plugins/) for per-extractor specifics.
+This is a *plugin-shared* setting — each extractor ([`wget`](https://plugins.archivebox.io/#wget), [`chrome`](https://plugins.archivebox.io/#chrome), [`yt-dlp`](https://plugins.archivebox.io/#ytdlp), [`singlefile`](https://plugins.archivebox.io/#singlefile), …) can override it with its own `<EXTRACTOR>_USER_AGENT`, otherwise it falls back to this value. See the [per-plugin docs](https://plugins.archivebox.io/) for per-extractor specifics.
 
 > [!NOTE]
 > Some sites block requests that look like bots or that don't match a real browser. If you're getting 403s or empty responses, try setting this to a current Chrome/Firefox UA string.
@@ -115,7 +115,7 @@ This is a *plugin-shared* setting — each extractor ([`wget`](https://archivebo
 
 Path to a [Netscape-format `cookies.txt`](http://www.cookiecentral.com/faq/#3.5) file passed to `wget`, `curl`, `yt-dlp`, and other non-Chrome extractors for authentication. Required when archiving sites behind a login (paywalls, social media feeds, members-only forums, etc.) **if you're not using a persona**.
 
-This is a *plugin-shared* setting — each extractor can override it with `<EXTRACTOR>_COOKIES_FILE` (e.g. [`WGET_COOKIES_FILE`](https://archivebox.github.io/abx-plugins/#wget), [`YTDLP_COOKIES_FILE`](https://archivebox.github.io/abx-plugins/#ytdlp), [`GALLERYDL_COOKIES_FILE`](https://archivebox.github.io/abx-plugins/#gallerydl)). [Chrome](https://archivebox.github.io/abx-plugins/#chrome)-based extractors instead read auth state from the persona's `CHROME_USER_DATA_DIR`. See the [per-plugin docs](https://archivebox.github.io/abx-plugins/) for per-extractor variants.
+This is a *plugin-shared* setting — each extractor can override it with `<EXTRACTOR>_COOKIES_FILE` (e.g. [`WGET_COOKIES_FILE`](https://plugins.archivebox.io/#wget), [`YTDLP_COOKIES_FILE`](https://plugins.archivebox.io/#ytdlp), [`GALLERYDL_COOKIES_FILE`](https://plugins.archivebox.io/#gallerydl)). [Chrome](https://plugins.archivebox.io/#chrome)-based extractors instead read auth state from the persona's `CHROME_USER_DATA_DIR`. See the [per-plugin docs](https://plugins.archivebox.io/) for per-extractor variants.
 
 You can generate a `cookies.txt` using a [browser extension](https://chromewebstore.google.com/detail/get-cookiestxt-locally/cclelndahbckbenkjhflpdbgdldlbecc), or with `wget --save-cookies` + `--user=... --password=...`.
 
@@ -130,7 +130,7 @@ archivebox add --persona=personal https://members.example.com/feed
 > **Use separate burner credentials dedicated to archiving** — don't re-use your normal daily Facebook/Instagram/Youtube/etc. account cookies as server responses often contain your name/email/PII and session tokens, which then get preserved in your snapshots forever!
 
 *Related options:*
-[`DEFAULT_PERSONA`](#default_persona), [`CHROME_USER_DATA_DIR`](https://archivebox.github.io/abx-plugins/#chrome)
+[`DEFAULT_PERSONA`](#default_persona), [`CHROME_USER_DATA_DIR`](https://plugins.archivebox.io/#chrome)
 
 ---
 <a id="active_persona"></a>
@@ -778,7 +778,7 @@ Lower values retry more aggressively (useful if you expect locks to clear quickl
 ArchiveBox can index Snapshot text/HTML output into searchable indexes that power the search bar in the Web UI and the `archivebox search <query>` CLI command. Multiple backend engines can be enabled at once; `SEARCH_BACKEND_ENGINE` selects the default used by the UI and CLI.
 
 > [!NOTE]
-> Each backend has its own tuning knobs (e.g. [Sonic](https://archivebox.github.io/abx-plugins/#search_backend_sonic) host/port, [ripgrep](https://archivebox.github.io/abx-plugins/#search_backend_ripgrep) flags, [SQLite FTS](https://archivebox.github.io/abx-plugins/#search_backend_sqlite) database path). Those backend-specific options now live with the plugin that implements them — see the [abx-plugins docs](https://archivebox.github.io/abx-plugins/) for the full per-backend schema.
+> Each backend has its own tuning knobs (e.g. [Sonic](https://plugins.archivebox.io/#search_backend_sonic) host/port, [ripgrep](https://plugins.archivebox.io/#search_backend_ripgrep) flags, [SQLite FTS](https://plugins.archivebox.io/#search_backend_sqlite) database path). Those backend-specific options now live with the plugin that implements them — see the [abx-plugins docs](https://plugins.archivebox.io/) for the full per-backend schema.
 
 ---
 #### `SEARCH_BACKEND_ENGINE`
@@ -786,13 +786,13 @@ ArchiveBox can index Snapshot text/HTML output into searchable indexes that powe
 
 Which search backend engine to use when running `archivebox search` and rendering the Web UI search bar.
 
-- **`ripgrep`** — Pure filesystem grep across each Snapshot's archived output (HTML, text, metadata) via the [`search_backend_ripgrep`](https://archivebox.github.io/abx-plugins/#search_backend_ripgrep) plugin. No extra daemon, no extra database to maintain — just install `rg` and it works. Slow on very large collections (each query re-scans the disk) but always 100% correct: results reflect what's actually on disk *right now*, no stale index. ArchiveBox keeps it enabled as the fallback when Sonic is unavailable.
+- **`ripgrep`** — Pure filesystem grep across each Snapshot's archived output (HTML, text, metadata) via the [`search_backend_ripgrep`](https://plugins.archivebox.io/#search_backend_ripgrep) plugin. No extra daemon, no extra database to maintain — just install `rg` and it works. Slow on very large collections (each query re-scans the disk) but always 100% correct: results reflect what's actually on disk *right now*, no stale index. ArchiveBox keeps it enabled as the fallback when Sonic is unavailable.
 
-- **`sonic`** *(default)* — Fast, suggest-style fuzzy search via a running [Sonic](https://github.com/valeriansaliou/sonic) daemon (configured via the [`search_backend_sonic`](https://archivebox.github.io/abx-plugins/#search_backend_sonic) plugin). ArchiveBox pushes text into Sonic at index time and queries it at search time. Sub-millisecond queries even at very large scale; ArchiveBox starts the managed service automatically when this backend is selected.
+- **`sonic`** *(default)* — Fast, suggest-style fuzzy search via a running [Sonic](https://github.com/valeriansaliou/sonic) daemon (configured via the [`search_backend_sonic`](https://plugins.archivebox.io/#search_backend_sonic) plugin). ArchiveBox pushes text into Sonic at index time and queries it at search time. Sub-millisecond queries even at very large scale; ArchiveBox starts the managed service automatically when this backend is selected.
 
-- **`sqlite`** — FTS5 full-text index stored alongside ArchiveBox's main `index.sqlite3`, configured via the [`search_backend_sqlite`](https://archivebox.github.io/abx-plugins/#search_backend_sqlite) plugin. No extra processes, no extra binary — uses the SQLite already shipped with Python. Faster than `ripgrep` on large collections, slightly slower than `sonic`, but no daemon to babysit. Good middle ground for users who want a real index without operational overhead.
+- **`sqlite`** — FTS5 full-text index stored alongside ArchiveBox's main `index.sqlite3`, configured via the [`search_backend_sqlite`](https://plugins.archivebox.io/#search_backend_sqlite) plugin. No extra processes, no extra binary — uses the SQLite already shipped with Python. Faster than `ripgrep` on large collections, slightly slower than `sonic`, but no daemon to babysit. Good middle ground for users who want a real index without operational overhead.
 
-*Note: Backend-specific tuning ([Sonic](https://archivebox.github.io/abx-plugins/#search_backend_sonic) host/port/password, [ripgrep](https://archivebox.github.io/abx-plugins/#search_backend_ripgrep) flag overrides, [SQLite FTS](https://archivebox.github.io/abx-plugins/#search_backend_sqlite) database path, indexer batch size, etc.) lives in each search-backend plugin's own config schema — see the [abx-plugins docs](https://archivebox.github.io/abx-plugins/) for the full per-backend option list.*
+*Note: Backend-specific tuning ([Sonic](https://plugins.archivebox.io/#search_backend_sonic) host/port/password, [ripgrep](https://plugins.archivebox.io/#search_backend_ripgrep) flag overrides, [SQLite FTS](https://plugins.archivebox.io/#search_backend_sqlite) database path, indexer batch size, etc.) lives in each search-backend plugin's own config schema — see the [abx-plugins docs](https://plugins.archivebox.io/) for the full per-backend option list.*
 
 ---
 
@@ -1087,21 +1087,21 @@ SHOW_PROGRESS=False archivebox add < urls.txt
 > **Per-plugin configuration has moved to its own documentation site.**
 > This `Configuration.md` doc covers only ArchiveBox's *core* settings. For everything that lives inside a plugin — extractor toggles, binary paths, timeouts, args, user agents, cookies, persona scoping, etc. — see:
 >
-> ## ➡️ **<https://archivebox.github.io/abx-plugins/>**
+> ## ➡️ **<https://plugins.archivebox.io/>**
 
-That site is regenerated from each plugin's `config.json` schema on every release, so it stays in sync with the code. Looking for [`WGET_ARGS`](https://archivebox.github.io/abx-plugins/#wget), [`CHROME_USER_DATA_DIR`](https://archivebox.github.io/abx-plugins/#chrome), [`SCREENSHOT_RESOLUTION`](https://archivebox.github.io/abx-plugins/#screenshot), [`YTDLP_EXTRA_ARGS`](https://archivebox.github.io/abx-plugins/#ytdlp), [`SINGLEFILE_*`](https://archivebox.github.io/abx-plugins/#singlefile), [`SONIC_HOST`](https://archivebox.github.io/abx-plugins/#search_backend_sonic), etc.? They all live there now.
+That site is regenerated from each plugin's `config.json` schema on every release, so it stays in sync with the code. Looking for [`WGET_ARGS`](https://plugins.archivebox.io/#wget), [`CHROME_USER_DATA_DIR`](https://plugins.archivebox.io/#chrome), [`SCREENSHOT_RESOLUTION`](https://plugins.archivebox.io/#screenshot), [`YTDLP_EXTRA_ARGS`](https://plugins.archivebox.io/#ytdlp), [`SINGLEFILE_*`](https://plugins.archivebox.io/#singlefile), [`SONIC_HOST`](https://plugins.archivebox.io/#search_backend_sonic), etc.? They all live there now.
 
 ### Shared core options that plugins fall back to
 
 A handful of *core* options (documented above on this page) act as the **fallback default** for every plugin that has a matching per-extractor override. If you set the core option, every plugin honors it; if you also set the plugin-specific override, that wins for just that one plugin.
 
-| Core option (this doc) | Plugin-level overrides (see [abx-plugins](https://archivebox.github.io/abx-plugins/)) |
+| Core option (this doc) | Plugin-level overrides (see [abx-plugins](https://plugins.archivebox.io/)) |
 |---|---|
-| [`TIMEOUT`](#timeout) | [`WGET_TIMEOUT`](https://archivebox.github.io/abx-plugins/#wget), [`CHROME_TIMEOUT`](https://archivebox.github.io/abx-plugins/#chrome), [`YTDLP_TIMEOUT`](https://archivebox.github.io/abx-plugins/#ytdlp), [`SINGLEFILE_TIMEOUT`](https://archivebox.github.io/abx-plugins/#singlefile), [`TITLE_TIMEOUT`](https://archivebox.github.io/abx-plugins/#title), [`FAVICON_TIMEOUT`](https://archivebox.github.io/abx-plugins/#favicon), ... |
-| [`CHECK_SSL_VALIDITY`](#check_ssl_validity) | [`WGET_CHECK_SSL_VALIDITY`](https://archivebox.github.io/abx-plugins/#wget), [`YTDLP_CHECK_SSL_VALIDITY`](https://archivebox.github.io/abx-plugins/#ytdlp), [`GALLERYDL_CHECK_SSL_VALIDITY`](https://archivebox.github.io/abx-plugins/#gallerydl), [`CHROME_CHECK_SSL_VALIDITY`](https://archivebox.github.io/abx-plugins/#chrome), ... |
-| [`USER_AGENT`](#user_agent) | [`WGET_USER_AGENT`](https://archivebox.github.io/abx-plugins/#wget), [`CHROME_USER_AGENT`](https://archivebox.github.io/abx-plugins/#chrome), ... |
-| [`COOKIES_FILE`](#cookies_file) | [`WGET_COOKIES_FILE`](https://archivebox.github.io/abx-plugins/#wget), [`YTDLP_COOKIES_FILE`](https://archivebox.github.io/abx-plugins/#ytdlp), [`GALLERYDL_COOKIES_FILE`](https://archivebox.github.io/abx-plugins/#gallerydl), ... |
-| [`RESOLUTION`](#resolution) | [`SCREENSHOT_RESOLUTION`](https://archivebox.github.io/abx-plugins/#screenshot), [`PDF_RESOLUTION`](https://archivebox.github.io/abx-plugins/#pdf), [`CHROME_RESOLUTION`](https://archivebox.github.io/abx-plugins/#chrome) |
+| [`TIMEOUT`](#timeout) | [`WGET_TIMEOUT`](https://plugins.archivebox.io/#wget), [`CHROME_TIMEOUT`](https://plugins.archivebox.io/#chrome), [`YTDLP_TIMEOUT`](https://plugins.archivebox.io/#ytdlp), [`SINGLEFILE_TIMEOUT`](https://plugins.archivebox.io/#singlefile), [`TITLE_TIMEOUT`](https://plugins.archivebox.io/#title), [`FAVICON_TIMEOUT`](https://plugins.archivebox.io/#favicon), ... |
+| [`CHECK_SSL_VALIDITY`](#check_ssl_validity) | [`WGET_CHECK_SSL_VALIDITY`](https://plugins.archivebox.io/#wget), [`YTDLP_CHECK_SSL_VALIDITY`](https://plugins.archivebox.io/#ytdlp), [`GALLERYDL_CHECK_SSL_VALIDITY`](https://plugins.archivebox.io/#gallerydl), [`CHROME_CHECK_SSL_VALIDITY`](https://plugins.archivebox.io/#chrome), ... |
+| [`USER_AGENT`](#user_agent) | [`WGET_USER_AGENT`](https://plugins.archivebox.io/#wget), [`CHROME_USER_AGENT`](https://plugins.archivebox.io/#chrome), ... |
+| [`COOKIES_FILE`](#cookies_file) | [`WGET_COOKIES_FILE`](https://plugins.archivebox.io/#wget), [`YTDLP_COOKIES_FILE`](https://plugins.archivebox.io/#ytdlp), [`GALLERYDL_COOKIES_FILE`](https://plugins.archivebox.io/#gallerydl), ... |
+| [`RESOLUTION`](#resolution) | [`SCREENSHOT_RESOLUTION`](https://plugins.archivebox.io/#screenshot), [`PDF_RESOLUTION`](https://plugins.archivebox.io/#pdf), [`CHROME_RESOLUTION`](https://plugins.archivebox.io/#chrome) |
 
 > [!TIP]
 > The resolution order for any plugin-tunable option is always:

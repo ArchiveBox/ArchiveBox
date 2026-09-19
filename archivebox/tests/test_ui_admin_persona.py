@@ -128,7 +128,7 @@ def test_persona_admin_add_view_renders_import_ui(admin_client):
     assert b"Plugin Config" in response.content
     assert b'name="plugin_config__wget__WGET_TIMEOUT"' in response.content
     assert b'<fieldset id="plugin-config" class="module aligned wide persona-plugin-config">' in response.content
-    assert b'href="https://archivebox.github.io/archivebox-browser-extension/"' in response.content
+    assert b'href="https://extension.archivebox.io/"' in response.content
     assert b"import cookies into this persona from another browser" in response.content
     assert "wide" in response.context["adminform"].fieldsets[0][1]["classes"]
 

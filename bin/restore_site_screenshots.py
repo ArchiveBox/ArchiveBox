@@ -39,8 +39,8 @@ if os.environ.get("GH_TOKEN"):
 # Published captures remain available even after Actions artifacts expire.
 base, manifest_name = {
     "archivebox": ("https://archivebox.io/screenshots/", "build.json"),
-    "ios": ("https://archivebox.github.io/ios-archivebox/screenshots/", "manifest.json"),
-    "extension": ("https://archivebox.github.io/archivebox-browser-extension/screenshots/", "manifest.json"),
+    "ios": ("https://app.archivebox.io/screenshots/", "manifest.json"),
+    "extension": ("https://extension.archivebox.io/screenshots/", "manifest.json"),
 }[args.kind]
 
 

@@ -99,7 +99,7 @@ def test_add_view_admin_renders_plugin_config_grid(client, admin_user):
     assert b">Source</a>" in response.content
     assert b">Docs</a>" in response.content
     assert b"https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/" in response.content
-    assert b"https://archivebox.github.io/abx-plugins/#" in response.content
+    assert b"https://plugins.archivebox.io/#" in response.content
     assert not any(
         field["key"].endswith("_BINARY") for group in form.plugin_groups for card in group["plugins"] for field in card["config_fields"]
     )

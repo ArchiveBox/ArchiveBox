@@ -38,7 +38,7 @@ ArchiveBox v0.9 is our biggest release since the 0.7.x series. It makes everyday
 
 - 🔌 **A substantially expanded automation surface.** The Django Ninja REST API now exposes more collection, crawl, Snapshot, result, tag, user, token, and operational workflows. API tokens, outbound webhooks, and browser-extension uploads make ArchiveBox easier to connect to other tools.
 
-- 🤖 **Optional AI agents and Claude-powered archiving.** Disabled by default, the built-in `archivebox mcp` server lets a dedicated AI agent perform crawls, search and manage your archive, prune duplicate results, and more. New optional plugins add [Claude-powered browser interaction](https://archivebox.github.io/abx-plugins/#claudechrome), [custom content extraction](https://archivebox.github.io/abx-plugins/#claudecodeextract), and [duplicate-result cleanup](https://archivebox.github.io/abx-plugins/#claudecodecleanup).
+- 🤖 **Optional AI agents and Claude-powered archiving.** Disabled by default, the built-in `archivebox mcp` server lets a dedicated AI agent perform crawls, search and manage your archive, prune duplicate results, and more. New optional plugins add [Claude-powered browser interaction](https://plugins.archivebox.io/#claudechrome), [custom content extraction](https://plugins.archivebox.io/#claudecodeextract), and [duplicate-result cleanup](https://plugins.archivebox.io/#claudecodecleanup).
 
 - 📦 **Simpler dependency and installation management.** `archivebox install` can discover and install required browser and command-line dependencies, and `uv tool install archivebox` provides a cleaner native installation path with isolated Python dependencies.
 

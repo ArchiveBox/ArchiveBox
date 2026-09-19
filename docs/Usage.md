@@ -58,7 +58,7 @@ TIMEOUT=120
 env TIMEOUT=120 archivebox add 'https://example.com'
 ```
 
-See [[Configuration]] page for core ArchiveBox config options and the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/) for per-plugin options (e.g. `YTDLP_MAX_SIZE`, `CHROME_USER_DATA_DIR`, `WGET_ARGS`, etc.).
+See [[Configuration]] page for core ArchiveBox config options and the [abx-plugins config reference](https://plugins.archivebox.io/) for per-plugin options (e.g. `YTDLP_MAX_SIZE`, `CHROME_USER_DATA_DIR`, `WGET_ARGS`, etc.).
 If you're using Docker, also make sure to read the Configuration section on the [[Docker]] page.
 
 > [!TIP]  
@@ -263,7 +263,7 @@ For more info about ArchiveBox's database/filesystem layout and troubleshooting 
 I've found it takes about an hour to download 1000 articles, and they'll take up roughly 1GB.  
 Those numbers are from running it single-threaded on my i5 machine with 50mbps down. YMMV.
 
-Storage requirements go up immensely if you're using [`MEDIA_ENABLED=True`](https://archivebox.github.io/abx-plugins/#media) (or its [`FETCH_MEDIA`](https://archivebox.github.io/abx-plugins/#ytdlp) / `YTDLP_ENABLED` aliases) and are archiving many pages with audio & video.
+Storage requirements go up immensely if you're using [`MEDIA_ENABLED=True`](https://plugins.archivebox.io/#media) (or its [`FETCH_MEDIA`](https://plugins.archivebox.io/#ytdlp) / `YTDLP_ENABLED` aliases) and are archiving many pages with audio & video.
 
 ArchiveBox's unified crawl runner handles bounded concurrency without starting competing writers:
 ```bash

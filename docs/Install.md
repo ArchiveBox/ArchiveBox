@@ -33,7 +33,7 @@ Other operating systems are not tested or supported for this release.
 
 <br/>
 
-You can reduce crawl-time memory pressure by disabling all Chrome-based archiving methods with [`CHROME_ENABLED=False`](https://archivebox.github.io/abx-plugins/#chrome) (or its `USE_CHROME` alias).
+You can reduce crawl-time memory pressure by disabling all Chrome-based archiving methods with [`CHROME_ENABLED=False`](https://plugins.archivebox.io/#chrome) (or its `USE_CHROME` alias).
 
 It's also recommended to use a filesystem with compression and/or [deduplication](https://www.ixsystems.com/blog/ixsystems-and-klara-systems-celebrate-valentines-day-with-a-heartfelt-donation-of-fast-dedupe-to-openzfs-and-truenas/) (e.g. [ZFS](https://openzfs.github.io/openzfs-docs/Getting%20Started/index.html) or BTRFS) for maximum efficiency.
 
@@ -94,13 +94,13 @@ After running the setup script, continue with the [Quickstart](https://github.co
 
 If you'd rather not use [Docker](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup) or our [`uv` install shortcut](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-easy-setup), you can follow these manual setup instructions to install ArchiveBox and its dependencies using `uv`, `apt`, or Homebrew.
 
-See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) documentation to see the full list of dependencies and how they're used. Not all the dependencies are required for all modes. If you disable some archive methods you can skip installing those dependencies — for example, if you set [`MEDIA_ENABLED=False`](https://archivebox.github.io/abx-plugins/#media) you don't need to install `yt-dlp`, and if you set [`PDF_ENABLED=False`](https://archivebox.github.io/abx-plugins/#pdf), [`SCREENSHOT_ENABLED=False`](https://archivebox.github.io/abx-plugins/#screenshot), and [`DOM_ENABLED=False`](https://archivebox.github.io/abx-plugins/#dom) you don't need `chromium`.
+See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) documentation to see the full list of dependencies and how they're used. Not all the dependencies are required for all modes. If you disable some archive methods you can skip installing those dependencies — for example, if you set [`MEDIA_ENABLED=False`](https://plugins.archivebox.io/#media) you don't need to install `yt-dlp`, and if you set [`PDF_ENABLED=False`](https://plugins.archivebox.io/#pdf), [`SCREENSHOT_ENABLED=False`](https://plugins.archivebox.io/#screenshot), and [`DOM_ENABLED=False`](https://plugins.archivebox.io/#dom) you don't need `chromium`.
 
 <img src="https://avatars0.githubusercontent.com/u/1503512?s=200&v=4" width="100px" align="right"/>
 
 **More info:**
  - For help installing these, see the [Manual Setup](#manual-setup), [[Troubleshooting]] and [[Chromium Install]] pages.
- - For per-plugin binary and enable/disable options (CHROME_BINARY, RIPGREP_BINARY, `<plugin>_ENABLED`, etc.) see the [abx-plugins config reference](https://archivebox.github.io/abx-plugins/).
+ - For per-plugin binary and enable/disable options (CHROME_BINARY, RIPGREP_BINARY, `<plugin>_ENABLED`, etc.) see the [abx-plugins config reference](https://plugins.archivebox.io/).
 
 
 

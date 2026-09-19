@@ -171,4 +171,4 @@ An explicitly set `DISPLAY` is preserved. When it is unset, ArchiveBox probes `n
 
 - **Browser missing or unable to start:** see [Chromium troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#chromiumgoogle-chrome).
 - **Saved a login screen:** confirm you can view the page in the source browser, re-import the correct profile, and select that persona when saving.
-- **Need browser settings:** see the [Chrome plugin configuration](https://archivebox.github.io/abx-plugins/#chrome).
+- **Need browser settings:** see the [Chrome plugin configuration](https://plugins.archivebox.io/#chrome).

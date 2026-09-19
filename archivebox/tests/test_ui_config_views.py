@@ -132,7 +132,7 @@ def test_plugin_detail_view_renders_shipped_plugin_config_in_dedicated_sections(
         "source": "builtin",
     }
     assert "abx_plugins/plugins/wget" in summary_section["description"]
-    assert "https://archivebox.github.io/abx-plugins/#wget" in summary_section["description"]
+    assert "https://plugins.archivebox.io/#wget" in summary_section["description"]
 
     assert hooks_section["name"] == "Hooks"
     assert hooks_section["fields"] == {}

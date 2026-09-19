@@ -213,7 +213,7 @@ class PluginConfigFormMixin:
                     "enabled_config_key": enabled_config_key,
                     "description": str(schema.get("description") or "").strip(),
                     "source_url": f"https://github.com/ArchiveBox/abx-plugins/tree/main/abx_plugins/plugins/{plugin_name}",
-                    "docs_url": f"https://archivebox.github.io/abx-plugins/#{plugin_name}",
+                    "docs_url": f"https://plugins.archivebox.io/#{plugin_name}",
                     "required_plugins": [str(item) for item in schema.get("required_plugins") or []],
                     "required_binary_links": _build_required_binary_links(
                         schema.get("required_binaries") or [],

@@ -110,7 +110,7 @@
 ````{py:data} ABX_PLUGINS_DOCS_BASE_URL
 :canonical: archivebox.plugins.views.ABX_PLUGINS_DOCS_BASE_URL
 :value: >
-   'https://archivebox.github.io/abx-plugins/'
+   'https://plugins.archivebox.io/'
 
 ```{autodoc2-docstring} archivebox.plugins.views.ABX_PLUGINS_DOCS_BASE_URL
 ```
