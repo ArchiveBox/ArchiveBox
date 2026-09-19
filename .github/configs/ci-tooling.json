@@ -117,6 +117,10 @@
   ],
   "docker_binaries": [
     {
+      "name": "{BASH_BINARY}",
+      "binproviders": "env,brew,apt"
+    },
+    {
       "name": "{DOCKER_BINARY}",
       "binproviders": "env"
     },
