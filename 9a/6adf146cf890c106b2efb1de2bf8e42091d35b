@@ -1,0 +1,20 @@
+bin/generate_ui_screenshot_gallery.py
+  h_923c208e183a7b 131-132
+bin/templates/screenshots-head.html
+  h_923c208e183a7b 1-25
+publicsite/assets/social-card.svg
+  h_923c208e183a7b 1-15
+publicsite/index.html
+  h_923c208e183a7b 6,8-10,12-13,15-21,23-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "9a6adf146cf890c106b2efb1de2bf8e42091d35b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
