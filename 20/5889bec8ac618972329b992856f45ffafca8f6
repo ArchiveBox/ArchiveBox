@@ -1,0 +1,52 @@
+README.md
+  h_923c208e183a7b 155,160,578,581-583,644
+archivebox/plugins/forms.py
+  h_923c208e183a7b 216
+archivebox/plugins/views.py
+  h_923c208e183a7b 20
+archivebox/templates/admin/personas/persona/change_form.html
+  h_923c208e183a7b 272
+archivebox/tests/test_ui_add_view.py
+  h_923c208e183a7b 102
+archivebox/tests/test_ui_admin_persona.py
+  h_923c208e183a7b 131
+archivebox/tests/test_ui_config_views.py
+  h_923c208e183a7b 135
+bin/restore_site_screenshots.py
+  h_923c208e183a7b 42-43
+bin/templates/screenshots-footer.html
+  h_923c208e183a7b 3
+bin/templates/screenshots-header.html
+  h_923c208e183a7b 4
+docs/Chromium-Install.md
+  h_923c208e183a7b 174
+docs/Configuration.md
+  h_923c208e183a7b 71,87,94,104,118,133,781,789,791,793,795,1090,1092,1098,1100-1104
+docs/Docker.md
+  h_923c208e183a7b 165,290
+docs/Install.md
+  h_923c208e183a7b 36,97,103
+docs/Release-Notes-v0.9.md
+  h_923c208e183a7b 41
+docs/Security-Overview.md
+  h_923c208e183a7b 31,57-60
+docs/Setting-up-Search.md
+  h_923c208e183a7b 211-213
+docs/Usage.md
+  h_923c208e183a7b 61,266
+docs/apidocs/archivebox/archivebox.plugins.views.md
+  h_923c208e183a7b 113
+publicsite/index.html
+  h_923c208e183a7b 65,118,153,189,224,248,252,340,342,344,355,358-365,557
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "205889bec8ac618972329b992856f45ffafca8f6",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
