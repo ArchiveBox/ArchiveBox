@@ -6,7 +6,7 @@ These desktop, tablet, and mobile screenshots cover ArchiveBox's major public an
 
 ## Login
 
-View: [`/admin/login/`](http://admin.archivebox.localhost:9292/admin/login/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/admin/login.html)
+View: [`/admin/login/`](http://admin.archivebox.localhost:5797/admin/login/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/admin/login.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -16,7 +16,7 @@ View: [`/admin/login/`](http://admin.archivebox.localhost:9292/admin/login/) · 
 
 ## Public snapshot list
 
-View: [`/public/`](http://web.archivebox.localhost:9292/public/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py)
+View: [`/public/`](http://web.archivebox.localhost:5797/public/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -26,7 +26,7 @@ View: [`/public/`](http://web.archivebox.localhost:9292/public/) · [View code](
 
 ## Snapshot View (capture in progress)
 
-View: [`/`](http://snap-8adbc4d6be2e.archivebox.localhost:9292) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/`](http://snap-8adbc4d6be2e.archivebox.localhost:5797) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -36,7 +36,7 @@ View: [`/`](http://snap-8adbc4d6be2e.archivebox.localhost:9292) · [View code](h
 
 ## Add URLs
 
-View: [`/add/`](http://admin.archivebox.localhost:9292/add/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py)
+View: [`/add/`](http://admin.archivebox.localhost:5797/add/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -46,7 +46,7 @@ View: [`/add/`](http://admin.archivebox.localhost:9292/add/) · [View code](http
 
 ## Admin dashboard
 
-View: [`/admin/`](http://admin.archivebox.localhost:9292/admin/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_site.py)
+View: [`/admin/`](http://admin.archivebox.localhost:5797/admin/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_site.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -56,7 +56,7 @@ View: [`/admin/`](http://admin.archivebox.localhost:9292/admin/) · [View code](
 
 ## AI agent
 
-View: [`/admin/agent/`](http://admin.archivebox.localhost:9292/admin/agent/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/abx_plugins/plugins/opencode/views.py)
+View: [`/admin/agent/`](http://admin.archivebox.localhost:5797/admin/agent/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/abx_plugins/plugins/opencode/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -66,7 +66,7 @@ View: [`/admin/agent/`](http://admin.archivebox.localhost:9292/admin/agent/) · 
 
 ## Snapshots table
 
-View: [`/admin/core/snapshot/`](http://admin.archivebox.localhost:9292/admin/core/snapshot/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_snapshots.py)
+View: [`/admin/core/snapshot/`](http://admin.archivebox.localhost:5797/admin/core/snapshot/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_snapshots.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -76,7 +76,7 @@ View: [`/admin/core/snapshot/`](http://admin.archivebox.localhost:9292/admin/cor
 
 ## Snapshots grid
 
-View: [`/admin/core/snapshot/grid/`](http://admin.archivebox.localhost:9292/admin/core/snapshot/grid/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/admin/snapshots_grid.html)
+View: [`/admin/core/snapshot/grid/`](http://admin.archivebox.localhost:5797/admin/core/snapshot/grid/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/admin/snapshots_grid.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -86,7 +86,7 @@ View: [`/admin/core/snapshot/grid/`](http://admin.archivebox.localhost:9292/admi
 
 ## Snapshot admin detail
 
-View: [`/admin/core/snapshot/06a628b5939c74da8000f9864c2b39b4/change/`](http://admin.archivebox.localhost:9292/admin/core/snapshot/06a628b5939c74da8000f9864c2b39b4/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_snapshots.py)
+View: [`/admin/core/snapshot/06a628b5939c74da8000f9864c2b39b4/change/`](http://admin.archivebox.localhost:5797/admin/core/snapshot/06a628b5939c74da8000f9864c2b39b4/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_snapshots.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -96,7 +96,7 @@ View: [`/admin/core/snapshot/06a628b5939c74da8000f9864c2b39b4/change/`](http://a
 
 ## Snapshot files
 
-View: [`/`](http://snap-f9864c2b39b4.archivebox.localhost:9292/?files=1) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/static_index.html)
+View: [`/`](http://snap-f9864c2b39b4.archivebox.localhost:5797/?files=1) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/static_index.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -106,7 +106,7 @@ View: [`/`](http://snap-f9864c2b39b4.archivebox.localhost:9292/?files=1) · [Vie
 
 ## Archive results
 
-View: [`/admin/core/archiveresult/`](http://admin.archivebox.localhost:9292/admin/core/archiveresult/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_archiveresults.py)
+View: [`/admin/core/archiveresult/`](http://admin.archivebox.localhost:5797/admin/core/archiveresult/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_archiveresults.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -116,7 +116,7 @@ View: [`/admin/core/archiveresult/`](http://admin.archivebox.localhost:9292/admi
 
 ## Archive result detail
 
-View: [`/admin/core/archiveresult/06a628b7a41d7052800070cd8ff47301/change/`](http://admin.archivebox.localhost:9292/admin/core/archiveresult/06a628b7a41d7052800070cd8ff47301/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_archiveresults.py)
+View: [`/admin/core/archiveresult/06a628b7a41d7052800070cd8ff47301/change/`](http://admin.archivebox.localhost:5797/admin/core/archiveresult/06a628b7a41d7052800070cd8ff47301/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_archiveresults.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -126,7 +126,7 @@ View: [`/admin/core/archiveresult/06a628b7a41d7052800070cd8ff47301/change/`](htt
 
 ## Tags
 
-View: [`/admin/core/tag/`](http://admin.archivebox.localhost:9292/admin/core/tag/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_tags.py)
+View: [`/admin/core/tag/`](http://admin.archivebox.localhost:5797/admin/core/tag/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_tags.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -136,7 +136,7 @@ View: [`/admin/core/tag/`](http://admin.archivebox.localhost:9292/admin/core/tag
 
 ## Tag detail
 
-View: [`/admin/core/tag/10129/change/`](http://admin.archivebox.localhost:9292/admin/core/tag/10129/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_tags.py)
+View: [`/admin/core/tag/10129/change/`](http://admin.archivebox.localhost:5797/admin/core/tag/10129/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_tags.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -146,7 +146,7 @@ View: [`/admin/core/tag/10129/change/`](http://admin.archivebox.localhost:9292/a
 
 ## Users
 
-View: [`/admin/auth/user/`](http://admin.archivebox.localhost:9292/admin/auth/user/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_users.py)
+View: [`/admin/auth/user/`](http://admin.archivebox.localhost:5797/admin/auth/user/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_users.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -156,7 +156,7 @@ View: [`/admin/auth/user/`](http://admin.archivebox.localhost:9292/admin/auth/us
 
 ## User detail
 
-View: [`/admin/auth/user/49/change/`](http://admin.archivebox.localhost:9292/admin/auth/user/49/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_users.py)
+View: [`/admin/auth/user/49/change/`](http://admin.archivebox.localhost:5797/admin/auth/user/49/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/admin_users.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -166,7 +166,7 @@ View: [`/admin/auth/user/49/change/`](http://admin.archivebox.localhost:9292/adm
 
 ## Crawls
 
-View: [`/admin/crawls/crawl/`](http://admin.archivebox.localhost:9292/admin/crawls/crawl/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/crawls/admin.py)
+View: [`/admin/crawls/crawl/`](http://admin.archivebox.localhost:5797/admin/crawls/crawl/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/crawls/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -176,7 +176,7 @@ View: [`/admin/crawls/crawl/`](http://admin.archivebox.localhost:9292/admin/craw
 
 ## Crawl detail
 
-View: [`/admin/crawls/crawl/06a628b548e575088000fd924686ae24/change/`](http://admin.archivebox.localhost:9292/admin/crawls/crawl/06a628b548e575088000fd924686ae24/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/crawls/admin.py)
+View: [`/admin/crawls/crawl/06a628b548e575088000fd924686ae24/change/`](http://admin.archivebox.localhost:5797/admin/crawls/crawl/06a628b548e575088000fd924686ae24/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/crawls/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -186,7 +186,7 @@ View: [`/admin/crawls/crawl/06a628b548e575088000fd924686ae24/change/`](http://ad
 
 ## Crawl schedules
 
-View: [`/admin/crawls/crawlschedule/`](http://admin.archivebox.localhost:9292/admin/crawls/crawlschedule/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/crawls/admin.py)
+View: [`/admin/crawls/crawlschedule/`](http://admin.archivebox.localhost:5797/admin/crawls/crawlschedule/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/crawls/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -196,7 +196,7 @@ View: [`/admin/crawls/crawlschedule/`](http://admin.archivebox.localhost:9292/ad
 
 ## Crawl schedule detail
 
-View: [`/admin/crawls/crawlschedule/06a5fc0c9ca870e080005b6823701cca/change/`](http://admin.archivebox.localhost:9292/admin/crawls/crawlschedule/06a5fc0c9ca870e080005b6823701cca/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/crawls/admin.py)
+View: [`/admin/crawls/crawlschedule/06a5fc0c9ca870e080005b6823701cca/change/`](http://admin.archivebox.localhost:5797/admin/crawls/crawlschedule/06a5fc0c9ca870e080005b6823701cca/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/crawls/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -206,7 +206,7 @@ View: [`/admin/crawls/crawlschedule/06a5fc0c9ca870e080005b6823701cca/change/`](h
 
 ## Personas
 
-View: [`/admin/personas/persona/`](http://admin.archivebox.localhost:9292/admin/personas/persona/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/personas/admin.py)
+View: [`/admin/personas/persona/`](http://admin.archivebox.localhost:5797/admin/personas/persona/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/personas/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -216,7 +216,7 @@ View: [`/admin/personas/persona/`](http://admin.archivebox.localhost:9292/admin/
 
 ## Persona detail
 
-View: [`/admin/personas/persona/019e84a0ffd376d98b410dfe1a409567/change/`](http://admin.archivebox.localhost:9292/admin/personas/persona/019e84a0ffd376d98b410dfe1a409567/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/personas/admin.py)
+View: [`/admin/personas/persona/019e84a0ffd376d98b410dfe1a409567/change/`](http://admin.archivebox.localhost:5797/admin/personas/persona/019e84a0ffd376d98b410dfe1a409567/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/personas/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -226,7 +226,7 @@ View: [`/admin/personas/persona/019e84a0ffd376d98b410dfe1a409567/change/`](http:
 
 ## Machines
 
-View: [`/admin/machine/machine/`](http://admin.archivebox.localhost:9292/admin/machine/machine/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
+View: [`/admin/machine/machine/`](http://admin.archivebox.localhost:5797/admin/machine/machine/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -236,7 +236,7 @@ View: [`/admin/machine/machine/`](http://admin.archivebox.localhost:9292/admin/m
 
 ## Machine detail
 
-View: [`/admin/machine/machine/019bd48b941f77fcafb2de79f2d2851e/change/`](http://admin.archivebox.localhost:9292/admin/machine/machine/019bd48b941f77fcafb2de79f2d2851e/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
+View: [`/admin/machine/machine/019bd48b941f77fcafb2de79f2d2851e/change/`](http://admin.archivebox.localhost:5797/admin/machine/machine/019bd48b941f77fcafb2de79f2d2851e/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -246,7 +246,7 @@ View: [`/admin/machine/machine/019bd48b941f77fcafb2de79f2d2851e/change/`](http:/
 
 ## Network interfaces
 
-View: [`/admin/machine/networkinterface/`](http://admin.archivebox.localhost:9292/admin/machine/networkinterface/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
+View: [`/admin/machine/networkinterface/`](http://admin.archivebox.localhost:5797/admin/machine/networkinterface/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -256,7 +256,7 @@ View: [`/admin/machine/networkinterface/`](http://admin.archivebox.localhost:929
 
 ## Network interface detail
 
-View: [`/admin/machine/networkinterface/06a2ee559ef570b080003f12b381ab42/change/`](http://admin.archivebox.localhost:9292/admin/machine/networkinterface/06a2ee559ef570b080003f12b381ab42/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
+View: [`/admin/machine/networkinterface/06a2ee559ef570b080003f12b381ab42/change/`](http://admin.archivebox.localhost:5797/admin/machine/networkinterface/06a2ee559ef570b080003f12b381ab42/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -266,7 +266,7 @@ View: [`/admin/machine/networkinterface/06a2ee559ef570b080003f12b381ab42/change/
 
 ## Binaries
 
-View: [`/admin/machine/binary/`](http://admin.archivebox.localhost:9292/admin/machine/binary/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
+View: [`/admin/machine/binary/`](http://admin.archivebox.localhost:5797/admin/machine/binary/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -276,7 +276,7 @@ View: [`/admin/machine/binary/`](http://admin.archivebox.localhost:9292/admin/ma
 
 ## Binary detail
 
-View: [`/admin/machine/binary/06a14cf28b4a7b1d800008b92ca5b94a/change/`](http://admin.archivebox.localhost:9292/admin/machine/binary/06a14cf28b4a7b1d800008b92ca5b94a/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
+View: [`/admin/machine/binary/06a14cf28b4a7b1d800008b92ca5b94a/change/`](http://admin.archivebox.localhost:5797/admin/machine/binary/06a14cf28b4a7b1d800008b92ca5b94a/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -286,7 +286,7 @@ View: [`/admin/machine/binary/06a14cf28b4a7b1d800008b92ca5b94a/change/`](http://
 
 ## Processes
 
-View: [`/admin/machine/process/`](http://admin.archivebox.localhost:9292/admin/machine/process/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
+View: [`/admin/machine/process/`](http://admin.archivebox.localhost:5797/admin/machine/process/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -296,7 +296,7 @@ View: [`/admin/machine/process/`](http://admin.archivebox.localhost:9292/admin/m
 
 ## Process detail
 
-View: [`/admin/machine/process/06a628ec064b72d980002aac0a1bedd1/change/`](http://admin.archivebox.localhost:9292/admin/machine/process/06a628ec064b72d980002aac0a1bedd1/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
+View: [`/admin/machine/process/06a628ec064b72d980002aac0a1bedd1/change/`](http://admin.archivebox.localhost:5797/admin/machine/process/06a628ec064b72d980002aac0a1bedd1/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/machine/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -306,7 +306,7 @@ View: [`/admin/machine/process/06a628ec064b72d980002aac0a1bedd1/change/`](http:/
 
 ## API tokens
 
-View: [`/admin/api/apitoken/`](http://admin.archivebox.localhost:9292/admin/api/apitoken/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
+View: [`/admin/api/apitoken/`](http://admin.archivebox.localhost:5797/admin/api/apitoken/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -316,7 +316,7 @@ View: [`/admin/api/apitoken/`](http://admin.archivebox.localhost:9292/admin/api/
 
 ## API token detail
 
-View: [`/admin/api/apitoken/06a628eae1477aae80008621afbbc237/change/`](http://admin.archivebox.localhost:9292/admin/api/apitoken/06a628eae1477aae80008621afbbc237/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
+View: [`/admin/api/apitoken/06a628eae1477aae80008621afbbc237/change/`](http://admin.archivebox.localhost:5797/admin/api/apitoken/06a628eae1477aae80008621afbbc237/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -326,7 +326,7 @@ View: [`/admin/api/apitoken/06a628eae1477aae80008621afbbc237/change/`](http://ad
 
 ## Webhooks
 
-View: [`/admin/api/outboundwebhook/`](http://admin.archivebox.localhost:9292/admin/api/outboundwebhook/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
+View: [`/admin/api/outboundwebhook/`](http://admin.archivebox.localhost:5797/admin/api/outboundwebhook/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -336,7 +336,7 @@ View: [`/admin/api/outboundwebhook/`](http://admin.archivebox.localhost:9292/adm
 
 ## Webhook detail
 
-View: [`/admin/api/outboundwebhook/06a628eb2801724880009c7991a4a522/change/`](http://admin.archivebox.localhost:9292/admin/api/outboundwebhook/06a628eb2801724880009c7991a4a522/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
+View: [`/admin/api/outboundwebhook/06a628eb2801724880009c7991a4a522/change/`](http://admin.archivebox.localhost:5797/admin/api/outboundwebhook/06a628eb2801724880009c7991a4a522/change/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/api/admin.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -346,7 +346,7 @@ View: [`/admin/api/outboundwebhook/06a628eb2801724880009c7991a4a522/change/`](ht
 
 ## Environment
 
-View: [`/admin/environment/`](http://admin.archivebox.localhost:9292/admin/environment/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/settings.py)
+View: [`/admin/environment/`](http://admin.archivebox.localhost:5797/admin/environment/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/settings.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -356,7 +356,7 @@ View: [`/admin/environment/`](http://admin.archivebox.localhost:9292/admin/envir
 
 ## Configuration
 
-View: [`/admin/environment/config/`](http://admin.archivebox.localhost:9292/admin/environment/config/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py)
+View: [`/admin/environment/config/`](http://admin.archivebox.localhost:5797/admin/environment/config/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -366,7 +366,7 @@ View: [`/admin/environment/config/`](http://admin.archivebox.localhost:9292/admi
 
 ## Configuration detail
 
-View: [`/admin/environment/config/BASE_URL/`](http://admin.archivebox.localhost:9292/admin/environment/config/BASE_URL/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py)
+View: [`/admin/environment/config/BASE_URL/`](http://admin.archivebox.localhost:5797/admin/environment/config/BASE_URL/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -376,7 +376,7 @@ View: [`/admin/environment/config/BASE_URL/`](http://admin.archivebox.localhost:
 
 ## Dependencies
 
-View: [`/admin/environment/binaries/`](http://admin.archivebox.localhost:9292/admin/environment/binaries/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
+View: [`/admin/environment/binaries/`](http://admin.archivebox.localhost:5797/admin/environment/binaries/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -386,7 +386,7 @@ View: [`/admin/environment/binaries/`](http://admin.archivebox.localhost:9292/ad
 
 ## Dependency detail
 
-View: [`/admin/environment/binaries/abxbus/`](http://admin.archivebox.localhost:9292/admin/environment/binaries/abxbus/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
+View: [`/admin/environment/binaries/abxbus/`](http://admin.archivebox.localhost:5797/admin/environment/binaries/abxbus/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -396,7 +396,7 @@ View: [`/admin/environment/binaries/abxbus/`](http://admin.archivebox.localhost:
 
 ## Plugins
 
-View: [`/admin/environment/plugins/`](http://admin.archivebox.localhost:9292/admin/environment/plugins/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/plugins/views.py)
+View: [`/admin/environment/plugins/`](http://admin.archivebox.localhost:5797/admin/environment/plugins/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/plugins/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -406,7 +406,7 @@ View: [`/admin/environment/plugins/`](http://admin.archivebox.localhost:9292/adm
 
 ## Workers
 
-View: [`/admin/environment/workers/`](http://admin.archivebox.localhost:9292/admin/environment/workers/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
+View: [`/admin/environment/workers/`](http://admin.archivebox.localhost:5797/admin/environment/workers/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -416,7 +416,7 @@ View: [`/admin/environment/workers/`](http://admin.archivebox.localhost:9292/adm
 
 ## Worker detail
 
-View: [`/admin/environment/workers/supervisord/`](http://admin.archivebox.localhost:9292/admin/environment/workers/supervisord/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
+View: [`/admin/environment/workers/supervisord/`](http://admin.archivebox.localhost:5797/admin/environment/workers/supervisord/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -426,7 +426,7 @@ View: [`/admin/environment/workers/supervisord/`](http://admin.archivebox.localh
 
 ## Logs
 
-View: [`/admin/environment/logs/`](http://admin.archivebox.localhost:9292/admin/environment/logs/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
+View: [`/admin/environment/logs/`](http://admin.archivebox.localhost:5797/admin/environment/logs/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -436,7 +436,7 @@ View: [`/admin/environment/logs/`](http://admin.archivebox.localhost:9292/admin/
 
 ## Log detail
 
-View: [`/admin/environment/logs/supervisord/`](http://admin.archivebox.localhost:9292/admin/environment/logs/supervisord/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
+View: [`/admin/environment/logs/supervisord/`](http://admin.archivebox.localhost:5797/admin/environment/logs/supervisord/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -446,7 +446,7 @@ View: [`/admin/environment/logs/supervisord/`](http://admin.archivebox.localhost
 
 ## Snapshot View (singlefile)
 
-View: [`/#singlefile`](http://snap-f9864c2b39b4.archivebox.localhost:9292#singlefile) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#singlefile`](http://snap-f9864c2b39b4.archivebox.localhost:5797#singlefile) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -456,7 +456,7 @@ View: [`/#singlefile`](http://snap-f9864c2b39b4.archivebox.localhost:9292#single
 
 ## Snapshot View (screenshot)
 
-View: [`/#screenshot`](http://snap-f9864c2b39b4.archivebox.localhost:9292#screenshot) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#screenshot`](http://snap-f9864c2b39b4.archivebox.localhost:5797#screenshot) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -466,7 +466,7 @@ View: [`/#screenshot`](http://snap-f9864c2b39b4.archivebox.localhost:9292#screen
 
 ## Snapshot View (wget)
 
-View: [`/#wget`](http://snap-f9864c2b39b4.archivebox.localhost:9292#wget) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#wget`](http://snap-f9864c2b39b4.archivebox.localhost:5797#wget) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -476,7 +476,7 @@ View: [`/#wget`](http://snap-f9864c2b39b4.archivebox.localhost:9292#wget) · [Vi
 
 ## Snapshot View (dom)
 
-View: [`/#dom`](http://snap-f9864c2b39b4.archivebox.localhost:9292#dom) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#dom`](http://snap-f9864c2b39b4.archivebox.localhost:5797#dom) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -486,7 +486,7 @@ View: [`/#dom`](http://snap-f9864c2b39b4.archivebox.localhost:9292#dom) · [View
 
 ## Snapshot View (pdf)
 
-View: [`/#pdf`](http://snap-f9864c2b39b4.archivebox.localhost:9292#pdf) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#pdf`](http://snap-f9864c2b39b4.archivebox.localhost:5797#pdf) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -496,7 +496,7 @@ View: [`/#pdf`](http://snap-f9864c2b39b4.archivebox.localhost:9292#pdf) · [View
 
 ## Snapshot View (readability)
 
-View: [`/#readability`](http://snap-f9864c2b39b4.archivebox.localhost:9292#readability) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#readability`](http://snap-f9864c2b39b4.archivebox.localhost:5797#readability) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -506,7 +506,7 @@ View: [`/#readability`](http://snap-f9864c2b39b4.archivebox.localhost:9292#reada
 
 ## Snapshot View (ytdlp)
 
-View: [`/#ytdlp`](http://snap-f9864c2b39b4.archivebox.localhost:9292#ytdlp) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#ytdlp`](http://snap-f9864c2b39b4.archivebox.localhost:5797#ytdlp) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -516,7 +516,7 @@ View: [`/#ytdlp`](http://snap-f9864c2b39b4.archivebox.localhost:9292#ytdlp) · [
 
 ## Snapshot View (responses)
 
-View: [`/#responses`](http://snap-f9864c2b39b4.archivebox.localhost:9292#responses) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#responses`](http://snap-f9864c2b39b4.archivebox.localhost:5797#responses) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -526,7 +526,7 @@ View: [`/#responses`](http://snap-f9864c2b39b4.archivebox.localhost:9292#respons
 
 ## Snapshot View (chrome_mhtml)
 
-View: [`/#chrome_mhtml`](http://snap-f9864c2b39b4.archivebox.localhost:9292#chrome_mhtml) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#chrome_mhtml`](http://snap-f9864c2b39b4.archivebox.localhost:5797#chrome_mhtml) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -536,7 +536,7 @@ View: [`/#chrome_mhtml`](http://snap-f9864c2b39b4.archivebox.localhost:9292#chro
 
 ## Snapshot View (defuddle)
 
-View: [`/#defuddle`](http://snap-f9864c2b39b4.archivebox.localhost:9292#defuddle) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#defuddle`](http://snap-f9864c2b39b4.archivebox.localhost:5797#defuddle) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -546,7 +546,7 @@ View: [`/#defuddle`](http://snap-f9864c2b39b4.archivebox.localhost:9292#defuddle
 
 ## Snapshot View (mercury)
 
-View: [`/#mercury`](http://snap-f9864c2b39b4.archivebox.localhost:9292#mercury) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#mercury`](http://snap-f9864c2b39b4.archivebox.localhost:5797#mercury) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -556,7 +556,7 @@ View: [`/#mercury`](http://snap-f9864c2b39b4.archivebox.localhost:9292#mercury) 
 
 ## Snapshot View (archivewebpage)
 
-View: [`/#archivewebpage`](http://snap-f9864c2b39b4.archivebox.localhost:9292#archivewebpage) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#archivewebpage`](http://snap-f9864c2b39b4.archivebox.localhost:5797#archivewebpage) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -566,7 +566,7 @@ View: [`/#archivewebpage`](http://snap-f9864c2b39b4.archivebox.localhost:9292#ar
 
 ## Snapshot View (chrome)
 
-View: [`/#chrome`](http://snap-f9864c2b39b4.archivebox.localhost:9292#chrome) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#chrome`](http://snap-f9864c2b39b4.archivebox.localhost:5797#chrome) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -576,7 +576,7 @@ View: [`/#chrome`](http://snap-f9864c2b39b4.archivebox.localhost:9292#chrome) ·
 
 ## Snapshot View (consolelog)
 
-View: [`/#consolelog`](http://snap-f9864c2b39b4.archivebox.localhost:9292#consolelog) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#consolelog`](http://snap-f9864c2b39b4.archivebox.localhost:5797#consolelog) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -586,7 +586,7 @@ View: [`/#consolelog`](http://snap-f9864c2b39b4.archivebox.localhost:9292#consol
 
 ## Snapshot View (dns)
 
-View: [`/#dns`](http://snap-f9864c2b39b4.archivebox.localhost:9292#dns) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#dns`](http://snap-f9864c2b39b4.archivebox.localhost:5797#dns) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -596,7 +596,7 @@ View: [`/#dns`](http://snap-f9864c2b39b4.archivebox.localhost:9292#dns) · [View
 
 ## Snapshot View (sslcerts)
 
-View: [`/#sslcerts`](http://snap-f9864c2b39b4.archivebox.localhost:9292#sslcerts) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#sslcerts`](http://snap-f9864c2b39b4.archivebox.localhost:5797#sslcerts) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -606,7 +606,7 @@ View: [`/#sslcerts`](http://snap-f9864c2b39b4.archivebox.localhost:9292#sslcerts
 
 ## Snapshot View (redirects)
 
-View: [`/#redirects`](http://snap-f9864c2b39b4.archivebox.localhost:9292#redirects) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#redirects`](http://snap-f9864c2b39b4.archivebox.localhost:5797#redirects) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -616,7 +616,7 @@ View: [`/#redirects`](http://snap-f9864c2b39b4.archivebox.localhost:9292#redirec
 
 ## Snapshot View (headers)
 
-View: [`/#headers`](http://snap-f9864c2b39b4.archivebox.localhost:9292#headers) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#headers`](http://snap-f9864c2b39b4.archivebox.localhost:5797#headers) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -626,7 +626,7 @@ View: [`/#headers`](http://snap-f9864c2b39b4.archivebox.localhost:9292#headers) 
 
 ## Snapshot View (seo)
 
-View: [`/#seo`](http://snap-f9864c2b39b4.archivebox.localhost:9292#seo) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#seo`](http://snap-f9864c2b39b4.archivebox.localhost:5797#seo) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -636,7 +636,7 @@ View: [`/#seo`](http://snap-f9864c2b39b4.archivebox.localhost:9292#seo) · [View
 
 ## Snapshot View (accessibility)
 
-View: [`/#accessibility`](http://snap-f9864c2b39b4.archivebox.localhost:9292#accessibility) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#accessibility`](http://snap-f9864c2b39b4.archivebox.localhost:5797#accessibility) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -646,7 +646,7 @@ View: [`/#accessibility`](http://snap-f9864c2b39b4.archivebox.localhost:9292#acc
 
 ## Snapshot View (htmltotext)
 
-View: [`/#htmltotext`](http://snap-f9864c2b39b4.archivebox.localhost:9292#htmltotext) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#htmltotext`](http://snap-f9864c2b39b4.archivebox.localhost:5797#htmltotext) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -656,7 +656,7 @@ View: [`/#htmltotext`](http://snap-f9864c2b39b4.archivebox.localhost:9292#htmlto
 
 ## Snapshot View (trafilatura)
 
-View: [`/#trafilatura`](http://snap-f9864c2b39b4.archivebox.localhost:9292#trafilatura) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#trafilatura`](http://snap-f9864c2b39b4.archivebox.localhost:5797#trafilatura) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -666,7 +666,7 @@ View: [`/#trafilatura`](http://snap-f9864c2b39b4.archivebox.localhost:9292#trafi
 
 ## Snapshot View (liteparse)
 
-View: [`/#liteparse`](http://snap-f9864c2b39b4.archivebox.localhost:9292#liteparse) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#liteparse`](http://snap-f9864c2b39b4.archivebox.localhost:5797#liteparse) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -676,7 +676,7 @@ View: [`/#liteparse`](http://snap-f9864c2b39b4.archivebox.localhost:9292#litepar
 
 ## Snapshot View (parse_html_urls)
 
-View: [`/#parse_html_urls`](http://snap-f9864c2b39b4.archivebox.localhost:9292#parse_html_urls) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#parse_html_urls`](http://snap-f9864c2b39b4.archivebox.localhost:5797#parse_html_urls) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -686,7 +686,7 @@ View: [`/#parse_html_urls`](http://snap-f9864c2b39b4.archivebox.localhost:9292#p
 
 ## Snapshot View (parse_txt_urls)
 
-View: [`/#parse_txt_urls`](http://snap-f9864c2b39b4.archivebox.localhost:9292#parse_txt_urls) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#parse_txt_urls`](http://snap-f9864c2b39b4.archivebox.localhost:5797#parse_txt_urls) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -696,7 +696,7 @@ View: [`/#parse_txt_urls`](http://snap-f9864c2b39b4.archivebox.localhost:9292#pa
 
 ## Snapshot View (parse_dom_outlinks)
 
-View: [`/#parse_dom_outlinks`](http://snap-f9864c2b39b4.archivebox.localhost:9292#parse_dom_outlinks) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#parse_dom_outlinks`](http://snap-f9864c2b39b4.archivebox.localhost:5797#parse_dom_outlinks) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -706,7 +706,7 @@ View: [`/#parse_dom_outlinks`](http://snap-f9864c2b39b4.archivebox.localhost:929
 
 ## Snapshot View (hashes)
 
-View: [`/#hashes`](http://snap-f9864c2b39b4.archivebox.localhost:9292#hashes) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/#hashes`](http://snap-f9864c2b39b4.archivebox.localhost:5797#hashes) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -716,7 +716,7 @@ View: [`/#hashes`](http://snap-f9864c2b39b4.archivebox.localhost:9292#hashes) ·
 
 ## Snapshot View (header collapsed)
 
-View: [`/`](http://snap-f9864c2b39b4.archivebox.localhost:9292) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/`](http://snap-f9864c2b39b4.archivebox.localhost:5797) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>

@@ -133,7 +133,7 @@ def canonical_base_host_for_request(request_host: str) -> str:
     """Strip role subdomains and remap loopback hostnames to ``archivebox.localhost``.
 
     Used by the banner suggestion and the in-browser pin endpoint: when the
-    user is hitting the server on raw ``localhost:9292`` or ``127.0.0.1:9292``
+    user is hitting the server on raw ``localhost:5797`` or ``127.0.0.1:5797``
     we want to suggest the wildcard-friendly ``archivebox.localhost`` family
     instead, so the eventual pinned ``BASE_URL`` plays nicely with subdomain
     routing without forcing the user to add a /etc/hosts entry.
