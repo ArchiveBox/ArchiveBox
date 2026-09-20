@@ -4,5 +4,13 @@
   "pages": [
     "index.html",
     "screenshots/index.html"
+  ],
+  "marquee_featured": [
+    "Snapshots grid — desktop",
+    "Snapshot View (header collapsed) — desktop",
+    "AI agent — desktop",
+    "Archive results — desktop",
+    "Add URLs — desktop",
+    "Snapshots table — desktop"
   ]
 }

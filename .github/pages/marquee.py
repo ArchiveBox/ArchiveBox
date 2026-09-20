@@ -54,7 +54,7 @@ class Gallery(HTMLParser):
                 break
 
 
-def render(output, baseurl=""):
+def render(output, baseurl="", featured=()):
     homepage = output / "index.html"
     text = homepage.read_text()
     slots = re.findall(r"<!-- ARCHIVEBOX:(MARQUEE(?:-CLIENT|-SERVER)?) -->", text)
@@ -66,6 +66,8 @@ def render(output, baseurl=""):
     for slot in slots:
         product = slot.removeprefix("MARQUEE-").lower() if "-" in slot else None
         captures = [capture for capture in gallery.captures if product is None or capture["product"] == product]
+        priority = {title: index for index, title in enumerate(featured)}
+        captures.sort(key=lambda capture: priority.get(capture["title"], len(priority)))
         cards = []
         for capture in captures:
             dimensions = "".join(f' {key}="{escape(capture[key])}"' for key in ("width", "height") if capture[key])

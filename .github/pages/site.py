@@ -105,7 +105,7 @@ def render(output, source=None, baseurl=""):
     revision = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     assets = output / "site-base"
     assets.mkdir(parents=True, exist_ok=True)
-    has_marquee = render_marquee(output, baseurl)
+    has_marquee = render_marquee(output, baseurl, config.get("marquee_featured", []))
     common_assets = ["chrome.css", "chrome.js"] + (["marquee.css", "marquee.js"] if has_marquee else [])
     for name in common_assets:
         shutil.copyfile(HERE / "base" / name, assets / name)

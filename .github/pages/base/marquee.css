@@ -1,9 +1,9 @@
 /* Identical standalone gallery strip across ArchiveBox product sites. */
 .abx-marquee { min-width: 0; width: 100%; max-width: 100%; margin: 24px 0 40px; padding: 0; overflow: hidden; }
-.abx-marquee .abx-marquee-viewport { width: 100%; overflow-x: auto; scroll-behavior: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding: 8px 20px 12px; box-sizing: border-box; }
+.abx-marquee .abx-marquee-viewport { width: 100%; overflow-x: auto; scroll-behavior: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding: 16px 24px 28px; box-sizing: border-box; }
 .abx-marquee .abx-marquee-track { display: flex; align-items: flex-start; gap: 24px; width: max-content; margin-inline: auto; }
 .abx-marquee .abx-marquee-card { display: block; flex: none; width: min-content; text-decoration: none; color: #533344; }
-.abx-marquee .abx-marquee-card img { display: block; height: clamp(240px, 30vw, 400px); width: auto; max-width: none; max-height: none; object-fit: contain; border: 0; border-radius: 10px; background: transparent; padding: 0; margin: 0; }
+.abx-marquee .abx-marquee-card img { display: block; height: clamp(240px, 30vw, 400px); width: auto; max-width: none; max-height: none; object-fit: contain; filter: drop-shadow(0 2px 3px rgb(28 24 20 / 9%)) drop-shadow(0 6px 8px rgb(28 24 20 / 10%)); border: 0; border-radius: 10px; background: transparent; padding: 0; margin: 0; }
 .abx-marquee :focus-visible { outline: 2px solid #9b2854; outline-offset: 3px; }
 .abx-marquee .abx-marquee-viewport:focus-visible { outline-offset: -3px; }
 @media (max-width: 600px) { .abx-marquee .abx-marquee-track { gap: 16px; } .abx-marquee .abx-marquee-card img { height: 240px; } }
