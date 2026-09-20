@@ -724,6 +724,7 @@ class TestUrlRouting:
             """
             import hashlib
             import json
+            import shutil
             from urllib.parse import urlsplit
 
             from archivebox.crawls.models import Crawl
@@ -731,6 +732,8 @@ class TestUrlRouting:
             admin = ensure_admin_user()
             snapshot = get_snapshot()
             original_config = snapshot.config
+            created_snapshots = []
+            created_crawls = []
             raw_name = "cache-policy.png"
             raw_bytes = b"\\x89PNG\\r\\n\\x1a\\ncache-policy-payload"
             raw_path = Path(snapshot.output_dir) / raw_name
@@ -981,11 +984,13 @@ class TestUrlRouting:
                         created_by=admin,
                         config={"PERMISSIONS": inherited_permission},
                     )
+                    created_crawls.append(crawl)
                     inherited = Snapshot.objects.create(
                         url=f"https://inherited-{inherited_permission}.example/",
                         crawl=crawl,
                         config={},
                     )
+                    created_snapshots.append(inherited)
                     inherited.refresh_from_db()
                     assert inherited.permissions == inherited_permission
                     inherited.output_dir.mkdir(parents=True, exist_ok=True)
@@ -1002,6 +1007,10 @@ class TestUrlRouting:
                 print("OK")
             finally:
                 Snapshot.objects.filter(pk=snapshot.pk).update(config=original_config)
+                for snap in created_snapshots:
+                    shutil.rmtree(snap.output_dir)
+                for crawl in created_crawls:
+                    crawl.delete()
             """,
             mode="safe-subdomains-fullreplay",
         )
