@@ -1,0 +1,18 @@
+publicsite/index.html
+  h_923c208e183a7b 35,37,87-93,95,236-241
+publicsite/platform-cta.js
+  h_923c208e183a7b 1-15
+publicsite/styles.css
+  h_923c208e183a7b 295-300,926-928
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "aba8f1342a7a94c1abe63d441096f0edd217d315",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
