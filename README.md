@@ -365,17 +365,12 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <br/>
 <ol>
 <li>Install <a href="https://docs.docker.com/get-docker/">Docker</a> on your system (if not already installed).</li>
-<li>Download a binary release for your OS or build the native app from source<br/>
-<ul>
-<li>macOS: <a href="https://github.com/ArchiveBox/ArchiveBox/releases/download/v0.6.2/Electron-ArchiveBox-macOS-x64-0.6.2.app.zip" download><code>ArchiveBox.app.zip</code></a></li>
-<li>Linux: <code>ArchiveBox.deb</code> (alpha: <a href="https://electron.archivebox.io/#get-started">setup guide</a>)</li>
-<li>Windows: <code>ArchiveBox.exe</code> (beta: <a href="https://electron.archivebox.io/#get-started">setup guide</a>)</li>
-</ul>
-</li>
+<li><a href="https://electron.archivebox.io/#get-started">Download the latest installer for Windows, Linux, or Mac</a>.</li>
+<li>Install and open ArchiveBox Desktop, then create your local administrator account to start archiving.</li>
 </ol>
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/575ef92f-bb3e-4a7c-a4ba-986c1fd76ecf" width="320px">
 <br/>
-<i>✨ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://electron.archivebox.io/#get-started">Electron ArchiveBox setup guide</a>.
+<a href="https://electron.archivebox.io/">Desktop app guide</a> · <a href="https://electron.archivebox.io/screenshots/">Screenshots</a>
 <br/>
 </details>
 
