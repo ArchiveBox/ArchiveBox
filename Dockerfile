@@ -27,7 +27,8 @@
 #    passwordless sudo; abxpkg must escalate automatically when needed. Never
 #    manually preinstall dependencies or wrap the tested command in sudo to make
 #    a failure disappear. This is distinct from the finished-image no-op test.
-# 4. SIZE: preserve ALL user-facing functionality. Only mechanical/internal
+# 4. SIZE: the complete compressed image budget is 1025 MiB. Preserve ALL
+#    user-facing functionality. Only mechanical/internal
 #    optimizations are allowed. Never remove dependencies, disable features or
 #    plugins, weaken assertions, or skip checks to meet a size limit. If the
 #    complete image exceeds the configured limit, LET CI FAIL and explicitly

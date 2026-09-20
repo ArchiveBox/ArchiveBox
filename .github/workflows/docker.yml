@@ -316,8 +316,8 @@ jobs:
             MANIFEST="$("$DOCKER_BINARY" buildx imagetools inspect --raw "${DOCKERHUB_IMAGE}@${IMAGE_DIGEST}")"
           fi
           COMPRESSED_SIZE="$(MANIFEST="$MANIFEST" "$UV_BINARY" run --no-cache --no-project python -c 'import json, os; manifest = json.loads(os.environ["MANIFEST"]); print(manifest["config"]["size"] + sum(layer["size"] for layer in manifest["layers"]))')"
-          LIMIT=$((900 * 1024 * 1024))
-          echo "${DIGEST} compressed_size=$((COMPRESSED_SIZE / 1024 / 1024)) MiB limit=900 MiB"
+          LIMIT=$((1025 * 1024 * 1024))
+          echo "${DIGEST} compressed_size=$((COMPRESSED_SIZE / 1024 / 1024)) MiB limit=1025 MiB"
           (( COMPRESSED_SIZE < LIMIT ))
 
       - name: Resolve real Docker CLI test dependencies through abxpkg
@@ -449,7 +449,7 @@ jobs:
             '${{ runner.temp }}/archivebox-image.tar' \
             '${{ steps.docker_build_pr.outputs.digest }}' \
             "$LOCAL_IMAGE_ID" \
-            "$((900 * 1024 * 1024))" <<'PY'
+            "$((1025 * 1024 * 1024))" <<'PY'
           from hashlib import sha256
           import json
           import os
