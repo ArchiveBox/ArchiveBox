@@ -1032,7 +1032,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
 
     # Heuristic fix: some archived HTML outputs are stored with HTML-escaped markup
     # or markdown sources. If so, render sensibly.
-    if not preserve_plain_text and content_type.startswith(("text/plain", "text/html")):
+    if not request.GET.get("raw") and not preserve_plain_text and content_type.startswith(("text/plain", "text/html")):
         try:
             max_unescape_size = 10 * 1024 * 1024  # 10MB cap to avoid heavy memory use
             if statobj.st_size <= max_unescape_size:

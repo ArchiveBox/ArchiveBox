@@ -85,3 +85,17 @@ def test_raw_html_preview_shows_escaped_source_in_text_viewer(tmp_path: Path):
     assert b"archivebox-text-preview" in response.content
     assert b"&lt;script&gt;" in response.content
     assert b"<script>" not in response.content
+
+
+@pytest.mark.parametrize("byte_range", [None, "bytes=2-25"])
+def test_raw_text_file_preserves_markdown_bytes(tmp_path: Path, byte_range: str | None):
+    source = Path(__file__).resolve().parents[2] / "README.md"
+    content = source.read_bytes()
+    (tmp_path / "article.txt").write_bytes(content)
+    request = RequestFactory().get("/article.txt?raw=1", **({"HTTP_RANGE": byte_range} if byte_range else {}))
+
+    response = serve_static_with_byterange_support(request, "article.txt", document_root=tmp_path)
+
+    assert response.status_code == (206 if byte_range else 200)
+    assert response["Content-Type"] == "text/plain; charset=utf-8"
+    assert b"".join(response.streaming_content) == (content[2:26] if byte_range else content)
