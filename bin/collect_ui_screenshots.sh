@@ -205,8 +205,10 @@ PYPORT
 (
     cd "$DATA_DIR"
     uv run --no-cache --project "$REPO_DIR" archivebox config --set \
-        OPENCODE_ENABLED=True "OPENCODE_PORT=$OPENCODE_PORT" TLSNOTARY_ENABLED=True
+        OPENCODE_ENABLED=True "OPENCODE_PORT=$OPENCODE_PORT" TLSNOTARY_ENABLED=True \
+        HASHES_ENABLED=True OPENTIMESTAMPS_ENABLED=True
     uv run --no-cache --project "$REPO_DIR" archivebox install opencode --binproviders=env,pnpm
+    uv run --no-cache --project "$REPO_DIR" archivebox install opentimestamps
 )
 
 echo "[*] Starting ArchiveBox on port $PORT"
@@ -631,17 +633,19 @@ PY
             SCREENSHOT_HEIGHT=1000 \
             node "$REPO_DIR/bin/take_screenshot.js" "$LIVE_SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
         SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --no-cache --project "$REPO_DIR" python -c \
-            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}".format(output["plugin"], "wait-frame-text:Verified · signature and archived response match" if output["plugin"] == "tlsnotary" else "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
+            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}".format(output["plugin"], "wait-frame-text:Verified · signature and archived response match" if output["plugin"] == "tlsnotary" else "wait-frame-text:Calendar submission saved" if output["plugin"] == "opentimestamps" else "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
         if [[ -z "$SNAPSHOT_OUTPUT_PLUGINS" ]]; then
             echo "[!] The Sweeting.me snapshot detail page exposed no selectable outputs" >&2
             exit 1
         fi
-        if ! printf '%s\n' "$SNAPSHOT_OUTPUT_PLUGINS" | cut -f1 | grep -qx tlsnotary; then
-            echo "[!] Live capture did not expose the required TLSNotary verifier output" >&2
-            tail -200 "$CAPTURE_ROOT/sweeting-live-capture.log" >&2
-            cat "$SNAPSHOT_DISCOVERY_REPORT" >&2
-            exit 1
-        fi
+        for required_plugin in tlsnotary opentimestamps; do
+            if ! printf '%s\n' "$SNAPSHOT_OUTPUT_PLUGINS" | cut -f1 | grep -qx "$required_plugin"; then
+                echo "[!] Live capture did not expose the required $required_plugin output" >&2
+                tail -200 "$CAPTURE_ROOT/sweeting-live-capture.log" >&2
+                cat "$SNAPSHOT_DISCOVERY_REPORT" >&2
+                exit 1
+            fi
+        done
         while IFS=$'\t' read -r plugin_name output_capture_mode; do
             [[ -z "$plugin_name" ]] && continue
             VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$plugin_name|/|archivebox/templates/core/snapshot.html|$output_capture_mode")

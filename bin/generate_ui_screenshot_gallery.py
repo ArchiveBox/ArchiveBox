@@ -32,6 +32,7 @@ REQUIRED_VIEW_NAMES = {
     "Snapshot admin detail",
     "Snapshot View (capture in progress)",
     "Snapshot View (header collapsed)",
+    "Snapshot View (opentimestamps)",
     "Snapshot files",
     "Archive results",
     "Archive result detail",

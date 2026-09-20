@@ -235,8 +235,16 @@ async function main() {
       if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT) {
         const frameElement = await page.$('#main-frame');
         const frame = await frameElement.contentFrame();
-        await frame.waitForFunction((text) => document.body.innerText.includes(text),
-          { timeout: 45000 }, process.env.SCREENSHOT_EXPECT_FRAME_TEXT);
+        await frame.waitForFunction((text) => {
+          const containsText = (doc) => {
+            if (doc.body?.innerText.includes(text)) return true;
+            return [...doc.querySelectorAll('iframe')].some((child) => {
+              const nested = child.contentDocument;
+              return nested ? containsText(nested) : false;
+            });
+          };
+          return containsText(document);
+        }, { timeout: 45000 }, process.env.SCREENSHOT_EXPECT_FRAME_TEXT);
       }
     }
 
