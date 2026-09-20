@@ -1,0 +1,16 @@
+archivebox/templates/core/snapshot.html
+  h_923c208e183a7b 829,1030,2097,2108
+archivebox/tests/test_ui_admin_snapshot.py
+  h_923c208e183a7b 697-699
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "183775bf32edce010055dfd56b6c579497f27150",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

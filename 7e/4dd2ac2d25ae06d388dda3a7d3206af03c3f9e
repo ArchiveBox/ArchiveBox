@@ -1,0 +1,21 @@
+archivebox/services/runner.py
+  s_15f59ac80abb8e::t_2da1fcba79b3b0 1378,1380-1385
+  s_15f59ac80abb8e::t_2e97a05af5799d 1362,1631,1664,2022
+  s_15f59ac80abb8e::t_306e85ba7974d1 744
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "7e4dd2ac2d25ae06d388dda3a7d3206af03c3f9e",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

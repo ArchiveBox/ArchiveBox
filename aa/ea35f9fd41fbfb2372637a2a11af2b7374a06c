@@ -1,0 +1,44 @@
+archivebox/services/runner.py
+  s_cec16ad9ba0455::t_3b0f63cb2af424 605-607,610-615
+  s_cec16ad9ba0455::t_49e10b3b70c1a7 608-609
+archivebox/cli/archivebox_add.py
+  s_cec16ad9ba0455::t_e887e383377560 216
+docs/ArchiveBox-Architecture-Diagrams.md
+  s_cec16ad9ba0455::t_e887e383377560 7-8,60,62-66,71-72,78,85,87,89-90,95-96,102,113
+archivebox/tests/test_hooks.py
+  s_cec16ad9ba0455::t_d24763b33b11d2 76-80
+  s_cec16ad9ba0455::t_2866d1dedd30aa 190-218
+archivebox/machine/models.py
+  s_cec16ad9ba0455::t_a0c0bcf70098ea 527-530,569,995-997,1156,2271-2272,2335-2336
+archivebox/plugins/hooks.py
+  s_cec16ad9ba0455::t_dfb957b428782b 168-175,184
+archivebox/services/process_service.py
+  s_cec16ad9ba0455::t_dfb957b428782b 64,66-69,107,141,228,249
+archivebox/tests/test_crawl_runner.py
+  s_cec16ad9ba0455::t_40f2891027cc12 275-312
+  s_cec16ad9ba0455::t_9170dd1b102861 274
+docs/apidocs/archivebox/archivebox.core.models.md
+  s_cec16ad9ba0455::t_1905eda31dc1c6 42-57,295,337,455-465,708-747,853,887,898,1005-1028,1125-1135,1194-1201,1413,1421,1506-1513,1578-1579,1581,1763,1771-1780,1812-1819,1828,1852,2282,2291,2302,2382-2383,2385
+docs/apidocs/archivebox/archivebox.crawls.models.md
+  s_cec16ad9ba0455::t_406ad9d2c7cb09 236,418-457,523,980,982,988,990,995-996,998,1003-1004,1006,1011-1012,1014,1019-1020,1022,1027
+docs/apidocs/archivebox/archivebox.machine.models.md
+  s_cec16ad9ba0455::t_024a5bdba672ce 54-57,134-137,267-283,873,884,1072-1083,1085,1087-1107,1146,1204-1212,1263-1286,1361,1398,2068-2076
+docs/apidocs/archivebox/archivebox.workers.models.md
+  s_cec16ad9ba0455::t_e82fe175599095 20-21,68,197-198,200,202,205,208,212-213,217,222-224,228,233-235,239,244-246,248,250,256,261,266-268,270,272,277-279,281,283,289,294,298,304,308,315-319,321,327,330,336-337,339,345,348,353-354,356,362,365,371,373,378-379,384,386,392,394,399-400,402,408,411,416-417,420,426,428,434,437,442-443,446,451-452,455
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "aaea35f9fd41fbfb2372637a2a11af2b7374a06c",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

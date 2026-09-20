@@ -1,0 +1,21 @@
+docs/Install.md
+  s_7cc75db5230061::t_e48cea51ea72b8 152,209
+README.md
+  s_7cc75db5230061::t_e48cea51ea72b8 306,515
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "2b9a1a78875da3701cc3ec5ebf08bdd834bacfe2",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+bin/release.sh
+  s_70b3b8284ef391::t_57dec7a7d802ab 224-243,435,448-451
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f3c8460767ced4c454b85fd6d882a5d7bbb2e259",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

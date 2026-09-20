@@ -1,0 +1,22 @@
+archivebox/tests/test_server_security_browser.py
+  s_69ddf154c10e6f::t_a2687134835cba 730
+  s_69ddf154c10e6f::t_ce1035ea741727 728-729,731
+docker-compose.yml
+  s_69ddf154c10e6f::t_2f85e9d99722d1 212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "5add8b89083a2083dfeffa43dd4621f360081f6b",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

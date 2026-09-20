@@ -1,0 +1,46 @@
+archivebox/core/models.py
+  s_b989805ae95d6a::t_a8c55606ce93b3 377
+pyproject.toml
+  s_074e76a4b61abc::t_70b14eb28741b3 3
+etc/package.json
+  s_074e76a4b61abc::t_70b14eb28741b3 3
+archivebox/machine/migrations/0015_process_progress_indexes.py
+  s_b989805ae95d6a::t_5bb88a9e500bbe 1-20
+archivebox/crawls/models.py
+  s_b989805ae95d6a::t_0996e5c87ab31b 173
+archivebox/crawls/migrations/0009_crawl_progress_status_idx.py
+  s_b989805ae95d6a::t_dd84f5a58d8507 1-16
+archivebox/core/migrations/0038_snapshot_progress_idx.py
+  s_b989805ae95d6a::t_7b632a0f6013b9 1-16
+archivebox/machine/models.py
+  s_074e76a4b61abc::t_406594a5c2470a 1113-1114
+archivebox/core/views.py
+  s_b989805ae95d6a::t_568b0c0a43bc77 1518-1529,1531-1543
+  s_b989805ae95d6a::t_81a4d558c95e33 1326,1392-1432,1434,1455,1793,1797,1849
+  s_b989805ae95d6a::t_a7b870e7a7ee66 1571,1581,1672,1674,1687-1692,1695,1697,1707,1710,1717-1718,1721,1728,1730-1732
+  s_b989805ae95d6a::t_482720f0934168 1458,1461,1465,1468,1563,1565,1574
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1126c469d061d004bfba3aaf296bda1dc9aedfe1",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,116 @@
+archivebox/core/models.py
+  s_074e76a4b61abc::t_df150c833fdd6d 1109,1125-1128,1131-1132,1134-1135,1137-1138,1204
+  s_074e76a4b61abc::t_618ef848a064cd 1580,1582-1583
+  s_074e76a4b61abc::t_971bd5a250cdee 1108,1112,1139,1176-1188,1190,1194,1202,1258-1259,1278,1371-1377,1383-1384,1397-1403,1409-1410
+  s_074e76a4b61abc::t_46b9527f8a8921 1836-1838,2399-2405,2410-2416
+  s_074e76a4b61abc::t_c9c3c15fd4a647 1561-1563,1569-1572,1589,1599
+  s_074e76a4b61abc::t_b1e483bbf04c33 3371-3384,3389-3395
+  s_074e76a4b61abc::t_259b37b7afd1cf 1039-1040,1042-1046,1136
+  s_074e76a4b61abc::t_c7c64e6dbc6d46 1720-1721,1727
+  s_074e76a4b61abc::t_7d2929fb90734f 3364-3367,3386-3388,3401-3402
+  s_074e76a4b61abc::t_af41aa4a7d195f 3385
+  s_074e76a4b61abc::t_070301786ac213 992,1038,1051,1053,1082,1085-1090,1094,1103,1105,1147-1148
+  s_b989805ae95d6a::t_37ef6f83362499 1041,1555
+  s_074e76a4b61abc::t_cfa78152b115df 1140-1146,1150-1175,1196-1199
+  s_074e76a4b61abc::t_feb3666e8d31ad 1906
+  s_074e76a4b61abc::t_510f526853e39b 1120-1121,1129-1130
+  s_074e76a4b61abc::t_6f76a2e9f2850b 1554
+  s_074e76a4b61abc::t_dfaae6681cbac8 2928-2940
+  s_074e76a4b61abc::t_eb3bb39275a0f8 1579,1581
+  s_074e76a4b61abc::t_983a8aea30d452 1584-1587,1590-1591,1596
+archivebox/tests/test_update.py
+  s_074e76a4b61abc::t_3846cd2e4183ad 254,274-275,282-297,306,308,310
+  s_074e76a4b61abc::t_fea89585d48aed 307,309
+  s_074e76a4b61abc::t_c33c80cd8c43bf 196-253,255-273,276-281,298-305
+.dockerignore
+  s_074e76a4b61abc::t_52a5150ce4fb7c 30-33
+pyproject.toml
+  s_b989805ae95d6a::t_9acdf24044d02d 181
+  s_b989805ae95d6a::t_de75e29b72f4c1 3,83-84
+archivebox/tests/test_urls.py
+  s_074e76a4b61abc::t_f1f99ee9922b67 718
+  s_074e76a4b61abc::t_9d6008838d6010 70
+  s_074e76a4b61abc::t_223fa93171cff1 708-717,719-727
+archivebox/templates/core/index_row.html
+  s_074e76a4b61abc::t_e14bad8d2bb3f7 9,11,14,32
+archivebox/search/admin.py
+  s_074e76a4b61abc::t_a98a71daff85dd 33,36,59
+archivebox/tests/test_cli_update.py
+  s_074e76a4b61abc::t_91a7542d658580 116-117,137,140,143-144
+archivebox/core/views.py
+  s_074e76a4b61abc::t_8dc9b5af9e3461 919
+  s_074e76a4b61abc::t_41d97041c37081 38,875,880,888-891,899-906,908-915
+  s_074e76a4b61abc::t_6e57d5e8923900 158
+  s_074e76a4b61abc::t_8e0492a017de86 885,894,896
+  s_074e76a4b61abc::t_91ac6d6637b6fc 876-879,882-884
+  s_074e76a4b61abc::t_33084a6bf3d98a 895,907
+  s_074e76a4b61abc::t_b76eff0aff9d1b 21
+  s_074e76a4b61abc::t_42e42ad82e0a97 157,256,260
+archivebox/services/runner.py
+  s_b989805ae95d6a::t_3b06aabf5f0561 184
+  s_b989805ae95d6a::t_42afd54fbd88e3 56
+archivebox/core/host_utils.py
+  s_074e76a4b61abc::t_d122acbd43d204 157-164,170,173,183-184,193-194,200-201,206,218,225
+archivebox/templates/admin/snapshots_grid.html
+  s_074e76a4b61abc::t_4a9efe00be5713 184-186,188,190-191
+archivebox/core/admin_snapshots.py
+  s_074e76a4b61abc::t_452388241ca9d9 235
+  s_074e76a4b61abc::t_623b79328f2e7e 252
+  s_074e76a4b61abc::t_e67ff9cbffccca 941,957-959,965-967
+  s_074e76a4b61abc::t_000703413bdb96 942-948
+  s_074e76a4b61abc::t_bc9cb0871b9b21 950
+  s_074e76a4b61abc::t_558869f7582f17 23,238,248-250,254-260,270-271,274-275,484-486,509-510,518,563-564,578,580-582,587,589,616-619,655-656,670,690,737-738,748,820-821,846,855,861-864,874,896,908-909,918-930,1018-1019
+archivebox/tests/test_cli_server.py
+  s_b989805ae95d6a::t_d31c69e415de04 12,79-110
+  s_b989805ae95d6a::t_51bc6f484e11dc 8-9,111-148
+archivebox/cli/archivebox_update.py
+  s_074e76a4b61abc::t_6037ce7cd1d63f 446,453,457,482-483,512,523,536,631-632
+  s_074e76a4b61abc::t_b39de893ae5450 489
+  s_074e76a4b61abc::t_9a7cbb460da2b8 488,490-491
+  s_074e76a4b61abc::t_eb86f0d3c77fd9 492,503-504
+  s_b989805ae95d6a::t_37ef6f83362499 524-535
+archivebox/core/migrations/0023_upgrade_to_0_9_0.py
+  s_074e76a4b61abc::t_3e3d4753ab929d 95-96,109-113,117-122,125,127,130-131,136,138,141,143-146,149-151,159,162,164,167-168,173,175,179-182,185-187,195,198,200-201,206,208,211,213-216,219-221
+  s_b989805ae95d6a::t_37ef6f83362499 97-108
+  s_074e76a4b61abc::t_da5bf1f2b38aa5 87-88,137,152-153,174,188-189,207,222-223
+  s_074e76a4b61abc::t_fa86fb58d5b1f0 31-44
+archivebox/tests/test_runner.py
+  s_b989805ae95d6a::t_7ae0ac44349b5a 1111
+archivebox/workers/supervisord_util.py
+  s_b989805ae95d6a::t_4e65be1188aa83 579-585,589,593,606-609
+  s_b989805ae95d6a::t_25108fd98da91b 641-642,645-647
+archivebox/core/templatetags/core_tags.py
+  s_074e76a4b61abc::t_cd1c15745af4c9 196-197,200,204-205,348,389,399,402,483
+  s_074e76a4b61abc::t_c8b4ce9269ae97 286-290,294,296
+  s_074e76a4b61abc::t_b07ae413889234 280,285,295,307
+  s_074e76a4b61abc::t_a46e876c5a16fe 320,325,330,336,342
+archivebox/search/sonic_daemon.py
+  s_b989805ae95d6a::t_3123149b4a033b 1-38
+archivebox/core/migrations/0025_alter_archiveresult_options_alter_snapshot_options_and_more.py
+  s_074e76a4b61abc::t_05cef862fd81d1 69-86
+  s_074e76a4b61abc::t_d655bf02d8a0d9 28-30,38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "0e2ae425cef1bf678a95af4c13bed21c6d627970",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

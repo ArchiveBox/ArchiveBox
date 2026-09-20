@@ -1,0 +1,26 @@
+archivebox/workers/models.py
+  s_c5ae786df4a14c::t_fc0cf02fd87551 99,347,363,442,478
+  s_c5ae786df4a14c::t_428ee14a6e426f 6,50-57,95,98
+archivebox/crawls/models.py
+  s_c5ae786df4a14c::t_9b4869626ecca3 176-179
+archivebox/machine/models.py
+  s_c5ae786df4a14c::t_6dbd42b7b19e37 554-556
+archivebox/core/models.py
+  s_c5ae786df4a14c::t_0bc79c997513b6 467-470
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "051d16697e55e6a33457f97785dce16ca5314125",
+  "prompts": {},
+  "sessions": {
+    "s_c5ae786df4a14c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c2-3271-70c1-8ea7-2c49783fb389",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

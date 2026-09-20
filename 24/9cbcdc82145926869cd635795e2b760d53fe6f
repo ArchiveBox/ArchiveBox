@@ -1,0 +1,50 @@
+docs/Configuration.md
+  s_9e824b73eb6968::t_a38b41fec4cd85 143
+  s_9e824b73eb6968::t_2f11a4aab4d626 133
+  s_9e824b73eb6968::t_7ed0ab499348ac 222
+  s_9e824b73eb6968::t_b3133a89cd88cb 45,47-48,50-64
+etc/package.json
+  s_074e76a4b61abc::t_9f817a0d3c4fe2 3
+pyproject.toml
+  s_074e76a4b61abc::t_9f817a0d3c4fe2 3
+archivebox/tests/test_api_delete_paths.py
+  s_074e76a4b61abc::t_6020d5a891d66d 8,66-69
+  s_074e76a4b61abc::t_cf3d365f19a2ef 9,65,70,72-73
+archivebox/workers/models.py
+  s_e09843280e6970::t_5de198dce8f688 214-221,225,229-230,232,236,239-240
+archivebox/workers/supervisord_util.py
+  s_074e76a4b61abc::t_a00caa93262ca9 311,352-359
+  s_074e76a4b61abc::t_5ac9c6ce56b68d 370-373
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "249cbcdc82145926869cd635795e2b760d53fe6f",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_9e824b73eb6968": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5a4bdbb-de5b-47b1-b675-e90d58496003",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

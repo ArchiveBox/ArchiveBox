@@ -1,0 +1,23 @@
+.github/workflows/test.yml
+  s_be3edb5822a954::t_da83d85d0695f2 75-76
+.github/workflows/test-parallel.yml
+  s_be3edb5822a954::t_da83d85d0695f2 158-159,269-270
+.github/workflows/lint.yml
+  s_be3edb5822a954::t_da83d85d0695f2 46-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "bcd10ea139e931bfc69b0ab5bea5440bf36ef76f",
+  "prompts": {},
+  "sessions": {
+    "s_be3edb5822a954": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8c46-aad7-7802-ab71-f24622948dc9",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

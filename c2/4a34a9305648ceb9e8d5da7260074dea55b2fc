@@ -1,0 +1,22 @@
+archivebox/templates/core/snapshot.html
+  s_b74dd57520e450::t_26414d49565115 1066,1144-1146,1156-1160
+  s_b74dd57520e450::t_3e4953fa73d5ed 1161
+docs/Screenshots.md
+  s_b74dd57520e450::t_ea01db373b525f 74,84,94,114,124,144,154,159,164,184,204,224,234,244,264,284,304,324,344,374,394,424,444,494,504
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "c24a34a9305648ceb9e8d5da7260074dea55b2fc",
+  "prompts": {},
+  "sessions": {
+    "s_b74dd57520e450": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f8189-7eb5-7382-94e6-83f4f43cd7c3",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+archivebox/cli/archivebox_add.py
+  7496c94959720e0d 159-161
+  ef68b99135455a8d 50-51,56,90-91,127-128,204,229-230,235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.17",
+  "base_commit_sha": "c6285b2281ab4b173fa1fc3bb1963753a12a5c99",
+  "prompts": {
+    "7496c94959720e0d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1531-678a-7c02-bdc6-10fa8dd40153",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 0,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "ef68b99135455a8d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d1500-0e62-7c90-bd52-ea9c99483097",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 11,
+      "total_deletions": 4,
+      "accepted_lines": 11,
+      "overriden_lines": 0
+    }
+  }
+}

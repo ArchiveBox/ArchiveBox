@@ -1,0 +1,28 @@
+docs/Upgrading.md
+  s_69ddf154c10e6f::t_a0fee66e2f80a0 6-9,15
+README.md
+  s_69ddf154c10e6f::t_a0fee66e2f80a0 172
+docs/Install.md
+  s_69ddf154c10e6f::t_c99b0f53ad73fb 24
+  s_69ddf154c10e6f::t_a0fee66e2f80a0 25
+docs/Docker.md
+  s_69ddf154c10e6f::t_a0fee66e2f80a0 42
+docs/codeblocks.toml
+  s_69ddf154c10e6f::t_61a1d97f292790 233
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "64a41766b8ce95b40730fa42712629897d04bc7c",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

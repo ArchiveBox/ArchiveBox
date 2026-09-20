@@ -1,0 +1,43 @@
+Dockerfile.multistage
+  s_7cc75db5230061::t_61a00e9763a4bd 19
+  s_7cc75db5230061::t_8549d628b09700 117-119,147-148
+  s_7cc75db5230061::t_dac994f5d7b08d 96-101
+  s_7cc75db5230061::t_1bb961c0a9e694 84-85
+  s_7cc75db5230061::t_18f808e3d268f4 110-113
+  s_7cc75db5230061::t_f47e040678b69b 75,109,169
+  s_7cc75db5230061::t_e5c23e790297eb 175-179
+  s_7cc75db5230061::t_03309df8c29928 182
+  s_7cc75db5230061::t_34cdea459d3d08 183-184
+  s_7cc75db5230061::t_958a98b0428579 64-71,204-205,215
+  s_7cc75db5230061::t_5cc30c9f08330f 206
+  s_7cc75db5230061::t_80a238b37588ce 202-203,214
+Dockerfile
+  s_7cc75db5230061::t_f47e040678b69b 75,109,169
+  s_7cc75db5230061::t_dac994f5d7b08d 96-101
+  s_7cc75db5230061::t_e5c23e790297eb 175-179
+  s_7cc75db5230061::t_34cdea459d3d08 183-184
+  s_7cc75db5230061::t_5cc30c9f08330f 206
+  s_7cc75db5230061::t_61a00e9763a4bd 19
+  s_7cc75db5230061::t_1bb961c0a9e694 84-85
+  s_7cc75db5230061::t_958a98b0428579 64-71,204-205,215
+  s_7cc75db5230061::t_8549d628b09700 117-119,147-148
+  s_7cc75db5230061::t_306de178798dfc 182
+  s_7cc75db5230061::t_8166f4c8ae6010 202-203,214
+  s_7cc75db5230061::t_18f808e3d268f4 110-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "7cfebc7815c9cd4d94ca5271eb4b50c8bc226c8b",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

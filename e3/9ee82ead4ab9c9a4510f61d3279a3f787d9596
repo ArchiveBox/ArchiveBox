@@ -1,0 +1,25 @@
+archivebox/tests/test_release_workflow.py
+  s_4bc469058f4b62::t_cc47ceac5927e0 1-28
+  s_4bc469058f4b62::t_d761bd1649923a 29-35
+.github/workflows/release-runner.yml
+  s_4bc469058f4b62::t_a65ae4345561ec 42
+bin/release.sh
+  s_4bc469058f4b62::t_a65ae4345561ec 210-212,226-230
+  s_4bc469058f4b62::t_ca810b324648cd 231-232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "e39ee82ead4ab9c9a4510f61d3279a3f787d9596",
+  "prompts": {},
+  "sessions": {
+    "s_4bc469058f4b62": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f773c-e7fe-77c2-8517-75233af0fe5a",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+publicsite/index.html
+  020556377edb817b 1-275
+publicsite/shadcn-theme.css
+  020556377edb817b 1-22
+.github/workflows/gh-pages.yml
+  020556377edb817b 1,5-6,15-16,29,32,35-36
+publicsite/styles.css
+  020556377edb817b 1-624
+publicsite/.nojekyll
+  020556377edb817b 1
+pyproject.toml
+  020556377edb817b 182
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2c1700a8e01e68d24f688da8250ed21b9c926913",
+  "prompts": {
+    "020556377edb817b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dbd76-ef2e-7d33-a193-01420fb06221",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 18771,
+      "total_deletions": 2909,
+      "accepted_lines": 15135,
+      "overriden_lines": 0
+    }
+  }
+}

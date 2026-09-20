@@ -1,0 +1,23 @@
+archivebox/services/runner.py
+  s_15f59ac80abb8e::t_7d5999b2fd35a6 1200-1204
+archivebox/tests/test_config_DELETE_AFTER.py
+  s_15f59ac80abb8e::t_7d5999b2fd35a6 234,236
+archivebox/tests/test_config_MAX_limits.py
+  s_15f59ac80abb8e::t_7d5999b2fd35a6 290,292-296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "29cf3fe4ee1b34c569f48358c60032affeca049a",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

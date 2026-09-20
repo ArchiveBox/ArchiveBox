@@ -1,0 +1,50 @@
+archivebox/personas/models.py
+  s_cdb7ab28cd51df::t_3ba8983e9ec19e 21,231-242,346
+archivebox/misc/util.py
+  s_70b3b8284ef391::t_e0e7ca45837e14 69-84
+archivebox/crawls/models.py
+  s_70b3b8284ef391::t_bc2bde7d0935fd 37,72-76,287-292,389
+  s_70b3b8284ef391::t_0b5120c56b7956 79
+archivebox/tests/test_cli_crawl.py
+  s_cdb7ab28cd51df::t_b633a018cf4ce0 420-421,425,427-439,443,446,450,452-454
+archivebox/core/tag_util.py
+  s_70b3b8284ef391::t_6a195a475a8d9a 15,37
+archivebox/core/forms.py
+  s_70b3b8284ef391::t_87bf9ab8ffb8c2 32-92,486,495
+archivebox/tests/test_core_forms.py
+  s_70b3b8284ef391::t_ca2b09b86fb829 1-31
+archivebox/services/runner.py
+  s_cdb7ab28cd51df::t_c3aad55b3ec6e1 1715-1729,1773-1778
+pyproject.toml
+  s_70b3b8284ef391::t_bae5a40b86bdc2 3,50,82-84
+archivebox/core/models.py
+  s_70b3b8284ef391::t_ffedc1ff5c705f 40,98-103,957-958,2330
+archivebox/tests/test_api_v1_cli_add.py
+  s_cdb7ab28cd51df::t_2698621ece7459 5-6,271-328
+archivebox/cli/archivebox_add.py
+  s_cdb7ab28cd51df::t_b9255cb9a97669 145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "1dbde4776fefcf0ed1763afdecc0dad5186d0740",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

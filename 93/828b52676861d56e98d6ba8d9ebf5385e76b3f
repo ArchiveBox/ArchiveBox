@@ -1,0 +1,28 @@
+Configuration.md
+  s_7cb7d6ca64357f::t_a564990a6dd3b4 367
+  s_b989805ae95d6a::t_10fa91df7be2b3 361
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "93828b52676861d56e98d6ba8d9ebf5385e76b3f",
+  "prompts": {},
+  "sessions": {
+    "s_7cb7d6ca64357f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e5907-1535-77f1-9f6c-47b814136f01",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+archivebox/tests/test_dockerfiles.py
+  s_7cc75db5230061::t_472b8db4b4d31a 18-19,81-84
+Dockerfile.multistage
+  s_7cc75db5230061::t_67c813f06b9ec7 12,162
+  s_7cc75db5230061::t_b976db95f92deb 13,20,201
+.github/workflows/docker.yml
+  s_7cc75db5230061::t_ce7bd6f9aa9655 16,100-117,138,140-141,150,155,169-170,237,239-240
+Dockerfile
+  s_7cc75db5230061::t_66b28a40fc8270 1-11,13-18,20,22,24,26-28,46,49,55-61,63-67,69-75,77,81-82,86,89-97,100-105,107-114,117,119,124-125,128-129,137,146-147,151-161,164-183,200-209,215-218
+  s_7cc75db5230061::t_67c813f06b9ec7 12,162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "09f2894979c92927421d64b450a224e3a7ffacd5",
+  "prompts": {},
+  "sessions": {
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

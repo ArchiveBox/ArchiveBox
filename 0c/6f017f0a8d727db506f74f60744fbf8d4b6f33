@@ -1,0 +1,29 @@
+archivebox/tests/test_migration_archiveresult_hook_identity.py
+  s_cec16ad9ba0455::t_002d7f487df6aa 9-45,66-69,71
+  s_cec16ad9ba0455::t_36334b7b653e97 46-65,72
+  s_cec16ad9ba0455::t_40c56fee88491f 70
+archivebox/core/migrations/0052_unique_archiveresult_per_snapshot_plugin.py
+  s_cec16ad9ba0455::t_5b54712f4547fa 1-2,4-18,22-30,50-51,53-65
+archivebox/tests/test_cli_archiveresult.py
+  s_cec16ad9ba0455::t_59d0768ab4a8e4 64-67,94,96
+archivebox/core/migrations/0054_restore_archiveresult_hook_identity.py
+  s_cec16ad9ba0455::t_519d12f952a24e 1-2,8-52,81
+  s_cec16ad9ba0455::t_1700ff84a28deb 6-7,53-68,79-80
+  s_cec16ad9ba0455::t_833f0c404f31bc 82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "0c6f017f0a8d727db506f74f60744fbf8d4b6f33",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

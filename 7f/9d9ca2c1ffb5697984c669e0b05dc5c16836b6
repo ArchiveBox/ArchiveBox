@@ -1,0 +1,19 @@
+archivebox/core/migrations/0053_alter_archiveresult_options.py
+  s_cec16ad9ba0455::t_05b20fd4b7ea17 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "7f9d9ca2c1ffb5697984c669e0b05dc5c16836b6",
+  "prompts": {},
+  "sessions": {
+    "s_cec16ad9ba0455": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b1d-30f5-7a51-87b6-8499bac7baa6",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+archivebox/core/wsgi.py
+  s_f8414d52051f83::t_1423f8abbf8804 14
+archivebox/config/permissions.py
+  s_f8414d52051f83::t_3a4bac435817a1 8,61,70,112,114
+  s_f8414d52051f83::t_5079a9d7021054 96-110,113,115
+  s_f8414d52051f83::t_1423f8abbf8804 4,7,9,32-33,38,47,60,69,76,83,95
+  s_f8414d52051f83::t_c216daa6e8abc9 111
+archivebox/config/django.py
+  s_f8414d52051f83::t_3d4f7edb15fbf6 85
+  s_f8414d52051f83::t_140702653c87d5 9,86
+  s_f8414d52051f83::t_77913887ba8782 118
+  s_f8414d52051f83::t_1423f8abbf8804 5,10,15,32,34,55,81-83,87-101,103-104,112
+  s_f8414d52051f83::t_de3c4a4a961a6d 151
+archivebox/core/asgi.py
+  s_f8414d52051f83::t_1423f8abbf8804 14
+  s_f8414d52051f83::t_597c860b63de2e 12-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.17",
+  "base_commit_sha": "24efe6fa4dd6824b35c3dc5bcdd7fe6567556603",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

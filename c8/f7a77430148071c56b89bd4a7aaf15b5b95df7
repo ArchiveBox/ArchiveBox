@@ -1,0 +1,20 @@
+.github/workflows/pip.yml
+  h_923c208e183a7b 192-219
+archivebox/config/django.py
+  h_923c208e183a7b 62,65
+archivebox/config/permissions.py
+  h_923c208e183a7b 35,40-41,62,65,144,212,245,247,258,260
+archivebox/tests/test_permissions.py
+  h_923c208e183a7b 48-63,124,127-135,139-140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "c8f7a77430148071c56b89bd4a7aaf15b5b95df7",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

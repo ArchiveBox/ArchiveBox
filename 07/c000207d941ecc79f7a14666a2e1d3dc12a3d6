@@ -1,0 +1,27 @@
+archivebox/cli/archivebox_install.py
+  s_f8414d52051f83::t_09e8c6fbf0772d 50,52-53,65,96-102,105-125,127-128
+  s_f8414d52051f83::t_060ab196d1a8a3 103-104,126
+  s_f8414d52051f83::t_066144ddf890c7 209-210,212,214-218,220,222-225
+etc/package.json
+  s_f8414d52051f83::t_d7f31bf40a7b29 3
+pyproject.toml
+  s_f8414d52051f83::t_d7f31bf40a7b29 3,351
+uv.lock
+  s_f8414d52051f83::t_b6908d05ba30dc 126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.16",
+  "base_commit_sha": "07c000207d941ecc79f7a14666a2e1d3dc12a3d6",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

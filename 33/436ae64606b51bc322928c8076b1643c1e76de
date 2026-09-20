@@ -1,0 +1,20 @@
+archivebox/services/runner.py
+  s_15f59ac80abb8e::t_ecae7757931ed7 1357-1364,1613-1616,1623-1624,1656-1657,2014-2015
+  s_15f59ac80abb8e::t_87ab04a79ee543 1942,1952-1959
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "33436ae64606b51bc322928c8076b1643c1e76de",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

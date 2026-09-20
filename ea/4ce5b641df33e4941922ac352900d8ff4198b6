@@ -1,0 +1,127 @@
+archivebox/tests/test_archive_result_service.py
+  s_074e76a4b61abc::t_f28af040ff0a4d 253-300
+pyproject.toml
+  s_074e76a4b61abc::t_e13e38b0b4ca27 3,83-84
+archivebox/tests/test_cli_server.py
+  s_074e76a4b61abc::t_3381edf0537830 9,115-127
+  s_074e76a4b61abc::t_79fe8829edf25c 22
+archivebox/tests/test_config.py
+  s_b989805ae95d6a::t_0be22d14dd27d9 133-138
+archivebox/core/views.py
+  s_b989805ae95d6a::t_364cb703c5c05f 1361-1363
+  s_074e76a4b61abc::t_19b9cdcc92528e 896
+  s_074e76a4b61abc::t_41bb5049549174 1334,1360,1440,1465-1467,1469-1471
+  s_074e76a4b61abc::t_8eee49e1285df0 1364-1372,1376,1390,1625
+  s_b989805ae95d6a::t_9f388b86de4718 1048-1050,1077,1082,1098
+archivebox/core/admin_archiveresults.py
+  s_074e76a4b61abc::t_db9714fc432558 507-519,538
+  s_074e76a4b61abc::t_ff23a465e61045 523
+  s_074e76a4b61abc::t_8b0deff04ab647 55,59-60,83,163,171,173,480,493,498-504,577-578,581-582,586,589-590,616,619,689,691,712-713,720,730,735,793,796
+  s_074e76a4b61abc::t_6d9bc40270b967 61
+  s_074e76a4b61abc::t_7b746a027961c9 520,524-535,539-540
+  s_074e76a4b61abc::t_4583ba3d27d335 92-96,98
+archivebox/workers/supervisord_util.py
+  s_074e76a4b61abc::t_3c2a78c3169009 580-585
+Dockerfile
+  s_074e76a4b61abc::t_a867ec765f5040 56-57
+  s_074e76a4b61abc::t_f5d91485eeb25b 353-363
+  s_074e76a4b61abc::t_1518f8ebf023d5 366
+archivebox/tests/test_add_view.py
+  s_b989805ae95d6a::t_051fc587332af6 10,110-113,117-143
+  s_b989805ae95d6a::t_16a4f70ae777f3 146
+  s_b989805ae95d6a::t_39bd062b28c9a0 7,114-116,144-145
+archivebox/machine/models.py
+  s_074e76a4b61abc::t_adf85c6c92502b 2398-2402
+  s_074e76a4b61abc::t_54f58b34ff0b6e 131-145
+archivebox/templates/static/admin.css
+  s_b989805ae95d6a::t_c94ef11dc65bb0 148-167,193-194
+.dockerignore
+  s_074e76a4b61abc::t_16c01fa18ba869 54
+archivebox/tests/test_search.py
+  s_074e76a4b61abc::t_7a401c70dba13d 1-34
+archivebox/api/v1_personas.py
+  s_463e8607ca6021::t_c9bb65ae9f061e 1-157
+archivebox/tests/test_admin_views.py
+  s_074e76a4b61abc::t_ad25a8039aae5d 990-1040
+archivebox/api/urls.py
+  s_b989805ae95d6a::t_155160f5483007 3-6,10-11,14-20,23
+archivebox/tests/test_runner.py
+  s_074e76a4b61abc::t_a5b6ddcb6cfc44 358-382
+  s_074e76a4b61abc::t_ff6c61212bcbe7 427,436-438,459,476,543,550-552,568,598
+  s_074e76a4b61abc::t_92fd81e742a0ac 305,314,335,338
+  s_074e76a4b61abc::t_11d17848ab68d7 1277-1304
+archivebox/core/admin_snapshots.py
+  s_074e76a4b61abc::t_51e20db70a419c 1064,1066-1074,1101
+  s_074e76a4b61abc::t_6bccea017fae9c 1065
+  s_074e76a4b61abc::t_4df96c8166f6dc 4,942-945
+  s_074e76a4b61abc::t_25c88f304b6933 336,924-927,937-941,946-953
+  s_074e76a4b61abc::t_004c6c2b93751c 920-922
+  s_074e76a4b61abc::t_520a475e402df6 502-503
+archivebox/search/__init__.py
+  s_074e76a4b61abc::t_65c5b1bba8afe1 37-44
+archivebox/api/v1_api.py
+  s_463e8607ca6021::t_83cae15d7a8673 47
+archivebox/templates/admin/base.html
+  s_074e76a4b61abc::t_304175bb967f58 1687,1718,1720-1721
+archivebox/tests/test_machine_models.py
+  s_074e76a4b61abc::t_8d2c753a867575 136-141,144-145,150,157-158,163,170-172,175,184
+  s_074e76a4b61abc::t_bb068b73d87dc1 836-853
+archivebox/config/constants.py
+  s_b989805ae95d6a::t_0be22d14dd27d9 252
+archivebox/tests/test_urls.py
+  s_b989805ae95d6a::t_dea60964f34ee8 238-259,262-265
+archivebox/cli/archivebox_update.py
+  s_074e76a4b61abc::t_a6d9413e71a232 451
+  s_074e76a4b61abc::t_4edc1f02d86b17 490-508
+archivebox/core/models.py
+  s_074e76a4b61abc::t_9797323b4141f3 3240-3242
+  s_074e76a4b61abc::t_f15e4961713c71 2287,2294-2296,2313-2319
+  s_074e76a4b61abc::t_5de1caaa45b96a 3236-3239,3243-3251,3254-3309
+  s_074e76a4b61abc::t_692c6fa6ba06f8 1043,1047,1058-1059,1061,1066-1067,1645,1661-1662
+  s_074e76a4b61abc::t_e5a4b3cc7ce1e5 2288
+  s_074e76a4b61abc::t_19b9cdcc92528e 2360-2363,2379-2380
+  s_074e76a4b61abc::t_7d2073d100a8e3 3252-3253
+  s_074e76a4b61abc::t_eae144181860a8 2307
+archivebox/services/runner.py
+  s_074e76a4b61abc::t_44115aab95e7ea 1171-1176
+  s_074e76a4b61abc::t_b82bc130e57215 1033,1037-1038,1040,1042-1043
+  s_074e76a4b61abc::t_79fe8829edf25c 140-145
+archivebox/cli/archivebox_status.py
+  s_074e76a4b61abc::t_8abd247a775711 17-19,27,39-40,42-46,48,55-66,68-71,74-75,82-98,133-134,144
+archivebox/core/settings.py
+  s_074e76a4b61abc::t_79fe8829edf25c 229
+archivebox/tests/test_cli_run.py
+  s_074e76a4b61abc::t_86b97f37eca07c 430-465
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "ea4ce5b641df33e4941922ac352900d8ff4198b6",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_463e8607ca6021": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e39eb-05c2-7253-a218-467aed1abfef",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

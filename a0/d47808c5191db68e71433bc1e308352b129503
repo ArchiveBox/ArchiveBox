@@ -1,0 +1,24 @@
+etc/package.json
+  ai_agent 3
+archivebox/config/collection.py
+  s_e09843280e6970::t_2f275b2d411cc5 4
+  s_e09843280e6970::t_524e8952dcfe44 47-53,57-68
+pyproject.toml
+  ai_agent 3,82-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a0d47808c5191db68e71433bc1e308352b129503",
+  "prompts": {},
+  "sessions": {
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

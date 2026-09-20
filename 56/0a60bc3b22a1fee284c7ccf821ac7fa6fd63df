@@ -1,0 +1,24 @@
+bin/release.sh
+  s_59123b31af1a14::t_3e1db06a6f5b64 59-60,73,271
+  s_59123b31af1a14::t_42eb9e52bae003 40-43,53,137,141-143,162,295,299-302,305
+  s_59123b31af1a14::t_519440c9c8fad8 138-140,296-298
+archivebox/tests/test_release_workflow.py
+  s_59123b31af1a14::t_ee291334b91727 31-33,36-37,40,63-70
+  s_59123b31af1a14::t_b1c3281cdaaad8 34-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "560a60bc3b22a1fee284c7ccf821ac7fa6fd63df",
+  "prompts": {},
+  "sessions": {
+    "s_59123b31af1a14": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fbeeb-845e-7963-bf92-8de3b893d5e8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

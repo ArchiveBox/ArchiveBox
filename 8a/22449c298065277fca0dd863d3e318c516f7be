@@ -1,0 +1,28 @@
+docs/Install.md
+  s_02a3d148722916::t_2da22c9c525082 289
+  s_02a3d148722916::t_baa031cc103127 145,148-155,158-161,192,204,206,209,214-218
+README.md
+  s_02a3d148722916::t_f2e537aa646b28 302
+  s_02a3d148722916::t_a53b2e53c2fcf4 534-535,538,553-554,557
+  s_02a3d148722916::t_44f4d5974491dc 306-309,515-518
+docs/Upgrading.md
+  s_02a3d148722916::t_a7fb71b30fd5b8 104-105,110
+docs/Troubleshooting.md
+  s_02a3d148722916::t_37639240611700 113,122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "8a22449c298065277fca0dd863d3e318c516f7be",
+  "prompts": {},
+  "sessions": {
+    "s_02a3d148722916": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9187-0c96-7de0-b9e0-4506eec815e2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

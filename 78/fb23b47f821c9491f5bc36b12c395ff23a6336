@@ -1,0 +1,24 @@
+archivebox/tests/test_server_security_browser.py
+  s_cdb7ab28cd51df::t_f8cc470882b731 781
+archivebox/tests/test_recursive_crawl.py
+  s_cdb7ab28cd51df::t_80655fd22a81f7 434
+old/archivebox.ts
+  s_cdb7ab28cd51df::t_02911303186e4b 1050,1075,1079-1080
+  s_cdb7ab28cd51df::t_2f212b7e82dc0e 182-183,194,873-874,1039,1061,5854
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "78fb23b47f821c9491f5bc36b12c395ff23a6336",
+  "prompts": {},
+  "sessions": {
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

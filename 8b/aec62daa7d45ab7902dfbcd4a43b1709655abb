@@ -1,0 +1,19 @@
+Dockerfile
+  s_cdb7ab28cd51df::t_1c40d50bfddf46 258-259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "8baec62daa7d45ab7902dfbcd4a43b1709655abb",
+  "prompts": {},
+  "sessions": {
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

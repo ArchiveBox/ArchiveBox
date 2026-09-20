@@ -1,0 +1,33 @@
+Dockerfile
+  s_463e8607ca6021::t_0f90aea254845c 196-197
+bin/docker_entrypoint.sh
+  s_463e8607ca6021::t_0f90aea254845c 145-153,216
+pyproject.toml
+  s_7cc75db5230061::t_142e4812f78014 3,82-84
+etc/package.json
+  s_7cc75db5230061::t_142e4812f78014 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "0a3c89e73cb77f2bfcbec0302cc04525cc279afe",
+  "prompts": {},
+  "sessions": {
+    "s_463e8607ca6021": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e39eb-05c2-7253-a218-467aed1abfef",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_7cc75db5230061": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9181-9d0e-7f61-a8dc-95dc82bc59e7",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

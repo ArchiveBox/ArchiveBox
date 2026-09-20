@@ -1,0 +1,23 @@
+archivebox/tests/test_title.py
+  s_074e76a4b61abc::t_b37b5965cd36c5 6,13-17,24
+archivebox/tests/conftest.py
+  s_074e76a4b61abc::t_e688d13fdcf793 382-383,386
+archivebox/tests/test_cli_real_flows.py
+  s_074e76a4b61abc::t_16f8cbc9a0f656 12-13,75-87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "13908547a6c2a798881daab2a01e444f51c067c0",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  h_923c208e183a7b 1021,1810-1811,1833-1835
+archivebox/tests/test_ui_admin_snapshot.py
+  h_923c208e183a7b 135-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "848a4bea10a1a12f5b2c4c0cb65bd8c47e16533b",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

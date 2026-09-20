@@ -1,0 +1,25 @@
+publicsite/index.html
+  bc43cf33d252a7e6 53-61
+publicsite/styles.css
+  bc43cf33d252a7e6 85-86,90,99,101,122-127,129-134,136-140,144-157,178,198,200-202,211,213-215,742-745,783-785,792-799
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "166a161b85667b0d81892f60d0a011e36f46b7be",
+  "prompts": {
+    "bc43cf33d252a7e6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dbdab-ec7d-7a00-9945-e0396df51542",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 71,
+      "total_deletions": 26,
+      "accepted_lines": 114,
+      "overriden_lines": 0
+    }
+  }
+}

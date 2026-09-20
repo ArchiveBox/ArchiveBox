@@ -1,0 +1,26 @@
+archivebox/tests/test_cli_update.py
+  s_ccefc8ac08198c::t_d9cb9469f92abe 21,23,25-32,50,53-59,83,86-93,118-119,145,148-150
+.github/workflows/test-parallel.yml
+  s_ccefc8ac08198c::t_c0ddfedb049b08 52-55,57,161-191
+archivebox/cli/archivebox_update.py
+  s_ccefc8ac08198c::t_fe2d593b12c25f 280-281,318-319,339-346,360-361,365-366,414,451,463-464,468-469
+  s_ccefc8ac08198c::t_2e731cbda0e0e3 279,336-338,358-359,362-364,367-368,378-379,381-413,415-429,431-435,437-439,441-445,447,449-450,735
+  s_ccefc8ac08198c::t_6cd8b5f5141b06 461-462,465-467,470
+  s_ccefc8ac08198c::t_71331f0a19da87 446,471
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "83a2099851939ab92860c99f61276e9576ff8211",
+  "prompts": {},
+  "sessions": {
+    "s_ccefc8ac08198c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e86b5-1bab-7df2-80cb-660ce277c3ec",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

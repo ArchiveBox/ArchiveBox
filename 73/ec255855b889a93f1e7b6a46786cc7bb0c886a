@@ -1,0 +1,54 @@
+archivebox/tests/test_ui_live_progress.py
+  s_70b3b8284ef391::t_14983885ee4a1d 9-10,20-60
+archivebox/core/views.py
+  s_70b3b8284ef391::t_ad93fc625be7ef 55,1495
+archivebox/tests/test_ui_public_snapshot.py
+  s_70b3b8284ef391::t_0d6b5641e70dce 9,284-301,304-313
+  s_70b3b8284ef391::t_fd5ec9e0361e99 302-303
+  s_70b3b8284ef391::t_0e9d3fbc227114 314-315
+archivebox/config/django.py
+  s_70b3b8284ef391::t_9154d57365b3a1 44-49
+archivebox/tests/test_cli_init.py
+  s_70b3b8284ef391::t_48de223c005b36 8,18,134-148
+archivebox/tests/test_ui_admin_snapshot.py
+  s_70b3b8284ef391::t_4619778013a965 45
+  s_70b3b8284ef391::t_e65ebdab07a71e 11,36-44,46-53,55
+  s_70b3b8284ef391::t_e7dae28c40fdff 54,56-76
+archivebox/tests/test_ui_add_view.py
+  s_70b3b8284ef391::t_1f81f3fbc0a9f7 218-219,221-254
+archivebox/core/admin_archiveresults.py
+  s_70b3b8284ef391::t_2e41e56b3f0443 160-165
+archivebox/core/widgets.py
+  s_70b3b8284ef391::t_53847fcb88808d 43-49,51-52,119-120,143
+Dockerfile
+  s_cdb7ab28cd51df::t_da388c62fa5538 226,241
+  s_cdb7ab28cd51df::t_b39ebf5992b39d 69,225
+bin/docker_entrypoint.sh
+  s_cdb7ab28cd51df::t_b39ebf5992b39d 38-41
+archivebox/progressmonitor/views.py
+  s_70b3b8284ef391::t_6e045e8f699686 7,939-961
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "73ec255855b889a93f1e7b6a46786cc7bb0c886a",
+  "prompts": {},
+  "sessions": {
+    "s_70b3b8284ef391": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ec4bb-38fe-7723-b66e-d0af77a36fd0",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_cdb7ab28cd51df": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa76-c893-7193-bd47-d91b6111304f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

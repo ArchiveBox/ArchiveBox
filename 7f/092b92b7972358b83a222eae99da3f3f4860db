@@ -1,0 +1,40 @@
+etc/README.md
+  s_6b96473078dfa1::t_2682ba1bf97916 7-19
+archivebox/core/settings.py
+  s_6b96473078dfa1::t_2682ba1bf97916 425-432,434-438
+  s_02a3d148722916::t_2c2219fe8ed18c 16,422-424,433
+docker-compose.yml
+  s_6b96473078dfa1::t_2682ba1bf97916 23-24,75-227
+docs/Docker.md
+  s_02a3d148722916::t_bd2c75a2fa3b71 182-187
+docs/Publishing-Your-Archive.md
+  s_02a3d148722916::t_0422f165a6929d 23-24
+archivebox/tests/test_cli_server.py
+  s_02a3d148722916::t_5b3ed44df23b2e 104-106,109-128,130-138
+  s_02a3d148722916::t_85d9825bbeb84c 102-103,129
+  s_02a3d148722916::t_feb63cab584e01 17,107-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "7f092b92b7972358b83a222eae99da3f3f4860db",
+  "prompts": {},
+  "sessions": {
+    "s_02a3d148722916": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e9187-0c96-7de0-b9e0-4506eec815e2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

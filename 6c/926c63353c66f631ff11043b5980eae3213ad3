@@ -1,0 +1,32 @@
+archivebox/cli/archivebox_add.py
+  s_a5df2e7b7b6c12::t_f42e1acb9b5f32 220-229
+archivebox/search/__init__.py
+  s_a5df2e7b7b6c12::t_ce12381ead02b8 21,36,139,141-143,148-150,156-167
+archivebox/tests/test_cli_run.py
+  s_e0084e31d181ac::t_f76cdab0ded90c 281
+  s_e0084e31d181ac::t_cfc9118c29c353 11-13,15,282-292,294-302,304-342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6c926c63353c66f631ff11043b5980eae3213ad3",
+  "prompts": {},
+  "sessions": {
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e0084e31d181ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d66-b926-7951-8389-e3d43423bd38",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

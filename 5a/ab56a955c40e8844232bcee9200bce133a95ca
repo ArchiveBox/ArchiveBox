@@ -1,0 +1,23 @@
+bin/setup.sh
+  93b6815d1104957b 8,16-20,22-24,41-83,155,163-164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "5aab56a955c40e8844232bcee9200bce133a95ca",
+  "prompts": {
+    "93b6815d1104957b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d5039-2abb-7712-bdfc-f602d7d31f92",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting",
+      "messages": [],
+      "total_additions": 59,
+      "total_deletions": 14,
+      "accepted_lines": 55,
+      "overriden_lines": 0
+    }
+  }
+}

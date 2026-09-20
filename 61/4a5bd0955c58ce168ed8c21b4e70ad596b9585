@@ -1,0 +1,20 @@
+archivebox/plugins/hooks.py
+  s_960fbddc5f7033::t_70ee2a6be32ecd 298
+  s_960fbddc5f7033::t_0dcd39aea632d3 292,402-404
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "614a5bd0955c58ce168ed8c21b4e70ad596b9585",
+  "prompts": {},
+  "sessions": {
+    "s_960fbddc5f7033": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee904-94b6-7740-ab58-08665a9b96ff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

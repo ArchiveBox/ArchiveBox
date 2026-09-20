@@ -1,0 +1,23 @@
+archivebox/core/urls.py
+  s_6b96473078dfa1::t_022bf453d100bd 46
+etc/package.json
+  s_6b96473078dfa1::t_12e90788fcf11d 3
+pyproject.toml
+  s_6b96473078dfa1::t_12e90788fcf11d 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "2e9686b9013fe959cc1a02540e6ea6dc8ce6814e",
+  "prompts": {},
+  "sessions": {
+    "s_6b96473078dfa1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e8e71-a862-71c3-9b0c-d2bc975f2d0f",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

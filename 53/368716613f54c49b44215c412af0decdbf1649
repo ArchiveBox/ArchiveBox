@@ -1,0 +1,32 @@
+.github/workflows/docker.yml
+  s_f8414d52051f83::t_adef163d4e8727 207-208,234,238,273-275,277-279,281-283,285,291-324,327-330,336-347
+  s_f8414d52051f83::t_3395aec72c03dd 209-210,267-268,272,276,280,284,286-290,325-326,331-335
+AGENTS.md
+  s_f8414d52051f83::t_7008007ba2737e 82
+bin/release.sh
+  s_f8414d52051f83::t_7008007ba2737e 128-130,137-139,141
+  s_f8414d52051f83::t_45badc937b04b9 140
+  s_f8414d52051f83::t_ce7a7f7c1d3e95 142-143
+.github/workflows/update-homebrew-tap.yml
+  s_f8414d52051f83::t_45badc937b04b9 51,78
+skills/archivebox/SKILL.md
+  s_f8414d52051f83::t_7008007ba2737e 76
+bin/build_docker.sh
+  s_f8414d52051f83::t_7008007ba2737e 134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "53368716613f54c49b44215c412af0decdbf1649",
+  "prompts": {},
+  "sessions": {
+    "s_f8414d52051f83": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f73c1-cded-7c63-bb8b-3b3c3e5de67d",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

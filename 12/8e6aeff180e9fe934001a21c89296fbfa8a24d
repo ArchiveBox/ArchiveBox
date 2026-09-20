@@ -1,0 +1,26 @@
+.github/scripts/clone_abx_repo.sh
+  s_960fbddc5f7033::t_86b9ef15469fc9 1-27
+.github/workflows/test.yml
+  s_960fbddc5f7033::t_86b9ef15469fc9 34,37,40
+.github/workflows/lint.yml
+  s_960fbddc5f7033::t_86b9ef15469fc9 25,28,31
+.github/workflows/test-parallel.yml
+  s_960fbddc5f7033::t_f4b5c5b4701b4d 263,266,269
+  s_960fbddc5f7033::t_86b9ef15469fc9 70,127,130,133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "128e6aeff180e9fe934001a21c89296fbfa8a24d",
+  "prompts": {},
+  "sessions": {
+    "s_960fbddc5f7033": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ee904-94b6-7740-ab58-08665a9b96ff",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

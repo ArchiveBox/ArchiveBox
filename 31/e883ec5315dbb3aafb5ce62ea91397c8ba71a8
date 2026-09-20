@@ -1,0 +1,29 @@
+archivebox/tests/test_recursive_crawl.py
+  8988abd867194670 40-54,220,223-227,278-281,283-296,354-357,359-364,394,397-400
+archivebox/tests/test_extractors.py
+  8988abd867194670 36-76,80-82,84,87,91-92,95-96,102,106-107,110-111,117,121-122,125-128,134-136,138,141,145-147
+archivebox/tests/test_hooks.py
+  8988abd867194670 238-265
+archivebox/hooks.py
+  8988abd867194670 215-219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "31e883ec5315dbb3aafb5ce62ea91397c8ba71a8",
+  "prompts": {
+    "8988abd867194670": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf1fd-3bbb-7d51-8d38-60d5462f4e21",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 162,
+      "total_deletions": 59,
+      "accepted_lines": 157,
+      "overriden_lines": 0
+    }
+  }
+}

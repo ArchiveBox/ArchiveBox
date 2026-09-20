@@ -1,0 +1,27 @@
+archivebox/core/middleware.py
+  s_69ddf154c10e6f::t_c5ba9c4dafdc9b 181-188
+docker-compose.yml
+  s_69ddf154c10e6f::t_c5ba9c4dafdc9b 26
+archivebox/tests/test_server_security_browser.py
+  s_69ddf154c10e6f::t_f566e5ece11af8 196
+  s_69ddf154c10e6f::t_041973256b741f 16,654,657-664,667-676,681-682,711,713-714,723-727
+  s_69ddf154c10e6f::t_52d81e67aa51f1 683-694
+  s_69ddf154c10e6f::t_79fe9b82988e79 150-195,197-209,652-653,655-656,665-666,677-680,695-710,712,715-722
+  s_69ddf154c10e6f::t_4def908ec1bea1 728-729
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "6e833a84ba8d1baa73a314476639a03fa9e99e10",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

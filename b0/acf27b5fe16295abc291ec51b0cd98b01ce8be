@@ -1,0 +1,22 @@
+bin/collect_ui_screenshots.sh
+  s_b74dd57520e450::t_c494c5537d2a34 250-254,453
+  s_b74dd57520e450::t_67c695319a4156 390-415
+bin/take_screenshot.js
+  s_b74dd57520e450::t_0a783d92c03390 210,214-217
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "b0acf27b5fe16295abc291ec51b0cd98b01ce8be",
+  "prompts": {},
+  "sessions": {
+    "s_b74dd57520e450": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019f8189-7eb5-7382-94e6-83f4f43cd7c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

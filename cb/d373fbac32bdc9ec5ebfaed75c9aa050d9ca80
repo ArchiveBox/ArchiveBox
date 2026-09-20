@@ -1,0 +1,26 @@
+docker-compose.yml
+  s_69ddf154c10e6f::t_5256228a532320 20-21
+bin/validate_docker_uid_gid.sh
+  s_69ddf154c10e6f::t_de42584479e72e 439
+  s_69ddf154c10e6f::t_db5b200a61e125 9,82-83,437,442
+  s_69ddf154c10e6f::t_5256228a532320 434
+  s_69ddf154c10e6f::t_af6eff63922b98 449
+  s_69ddf154c10e6f::t_7a9c46506d7f14 426-433,435-436,438,440-441,443-448,450-459,510
+  s_69ddf154c10e6f::t_74b10b59d5a18a 511
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "cbd373fbac32bdc9ec5ebfaed75c9aa050d9ca80",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+archivebox/templates/core/setup_wizard.html
+  h_923c208e183a7b 53-54
+archivebox/templates/static/setup_wizard.js
+  h_923c208e183a7b 232,256,258
+archivebox/tests/test_server_security_browser.py
+  h_923c208e183a7b 739-741
+archivebox/tests/test_ui_admin_config_widget.py
+  h_923c208e183a7b 156-157,210
+docs/Docker.md
+  h_923c208e183a7b 176,178,180-183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "849a66c1d503f164c2286b7775ab5f3cfb5bb2d8",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

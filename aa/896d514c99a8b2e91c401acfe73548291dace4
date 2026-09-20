@@ -1,0 +1,19 @@
+archivebox/core/asgi.py
+  s_e09843280e6970::t_6667e33c275481 15-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "aa896d514c99a8b2e91c401acfe73548291dace4",
+  "prompts": {},
+  "sessions": {
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

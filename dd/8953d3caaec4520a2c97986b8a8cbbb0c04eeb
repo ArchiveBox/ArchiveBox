@@ -1,0 +1,19 @@
+docs/codeblocks.toml
+  s_69ddf154c10e6f::t_a69e735724c71e 12,29,142,225,235,303,384
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "dd8953d3caaec4520a2c97986b8a8cbbb0c04eeb",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

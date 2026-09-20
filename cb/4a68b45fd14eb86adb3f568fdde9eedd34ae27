@@ -1,0 +1,33 @@
+archivebox/config/configset.py
+  s_5e83b7ac3f0fa4::t_b9a109b4854b84 66,79-87,89-90,100-104
+  s_5e83b7ac3f0fa4::t_745fb87dd0f799 88,91-99
+  s_5e83b7ac3f0fa4::t_3f5053c70624d5 105-106
+  s_5e83b7ac3f0fa4::t_555c1b4cae655a 5-6,8-9,132-133
+  s_5e83b7ac3f0fa4::t_16fb71c4f165f3 134-136
+  s_5e83b7ac3f0fa4::t_9684c32134bbcc 131
+archivebox/config/collection.py
+  s_5e83b7ac3f0fa4::t_6c71862ce78039 10,172-173
+archivebox/config/common.py
+  s_5e83b7ac3f0fa4::t_6c71862ce78039 25,1233
+  s_5e83b7ac3f0fa4::t_6335da8fa29920 1101,1121-1122,1196-1197
+  s_5e83b7ac3f0fa4::t_16fb71c4f165f3 1235
+archivebox/tests/test_core_config.py
+  s_5e83b7ac3f0fa4::t_e2dbacc8433b78 3-5,26-55
+  s_5e83b7ac3f0fa4::t_fbc2c6a25994c1 1-2,11-25,56-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "cb4a68b45fd14eb86adb3f568fdde9eedd34ae27",
+  "prompts": {},
+  "sessions": {
+    "s_5e83b7ac3f0fa4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a03e91-07ec-7cd0-b057-6702ac3133b9",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}

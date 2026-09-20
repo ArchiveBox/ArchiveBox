@@ -1,0 +1,71 @@
+docs/Publishing-Your-Archive.md
+  s_9e824b73eb6968::t_b44cf9d092a905 88
+  s_9e824b73eb6968::t_d6287c21d4a937 13
+  s_9e824b73eb6968::t_1620e49b06bf08 130
+docs/Install.md
+  s_9e824b73eb6968::t_b0939bb6c512eb 107,113
+  s_9e824b73eb6968::t_13f26ec3fed4e3 43
+  s_9e824b73eb6968::t_1ec5b2188cb2ce 221
+  s_9e824b73eb6968::t_52d05624c317d8 25
+docs/Chromium-Install.md
+  s_9e824b73eb6968::t_a182381801d132 205
+  s_9e824b73eb6968::t_1620e49b06bf08 206
+docs/Scheduled-Archiving.md
+  s_9e824b73eb6968::t_c754d5c70bd11f 78
+  s_9e824b73eb6968::t_0bfb5f1e9304b7 71-72
+docs/Setting-up-Authentication.md
+  s_9e824b73eb6968::t_f2b66a744a3a23 210
+  s_9e824b73eb6968::t_c6babae375ef31 15-18,23
+docs/Usage.md
+  s_9e824b73eb6968::t_611c73c900cf39 299,325
+  s_9e824b73eb6968::t_c4672c99d09541 52,55,58,61
+  s_9e824b73eb6968::t_da6fdba05aba6b 391-392
+  s_9e824b73eb6968::t_fafd59d9123a2b 151,159
+  s_9e824b73eb6968::t_ab476e180a03fd 270
+docs/Docker.md
+  s_9e824b73eb6968::t_27e80f7035dcff 154,156-159
+  s_9e824b73eb6968::t_612f89b758fd33 269,271,273,276,278,280,282
+docs/Configuration.md
+  s_9a304641af0fc1::t_eeec6bd3452248 704,706,713
+docs/Security-Overview.md
+  s_9e824b73eb6968::t_56afe1d937cd9d 34-35
+  s_9e824b73eb6968::t_f872e464d68c6b 47,52
+  s_9e824b73eb6968::t_e4fb9fe72fdd97 11
+  s_9e824b73eb6968::t_68be2dfe1204e9 148
+  s_9e824b73eb6968::t_9e6220663c00cd 134
+  s_9e824b73eb6968::t_45a5bb772844b5 180
+  s_9e824b73eb6968::t_04edc41797f65a 60-63
+  s_9e824b73eb6968::t_d99b96d2872e46 96
+docs/Setting-up-Search.md
+  s_9e824b73eb6968::t_9528a2b021ac6c 245-247
+  s_9e824b73eb6968::t_4468966cf495a9 83
+docs/Troubleshooting.md
+  s_9e824b73eb6968::t_0bd4a32a7ad8aa 137
+  s_9e824b73eb6968::t_48e54bcbc3537e 89,91
+  s_9e824b73eb6968::t_ad932d73c6b86f 65-66
+  s_9e824b73eb6968::t_83e62a0c1c2afc 259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "46b547b88dd2d4d404666fb630a1bd10a5755529",
+  "prompts": {},
+  "sessions": {
+    "s_9a304641af0fc1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e7d7e-a7d3-79c1-a725-1a08ce3019d8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_9e824b73eb6968": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5a4bdbb-de5b-47b1-b675-e90d58496003",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

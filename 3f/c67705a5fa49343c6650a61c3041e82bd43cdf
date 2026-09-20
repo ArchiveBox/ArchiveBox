@@ -1,0 +1,96 @@
+archivebox/plugins/forms.py
+  s_750dfb69a92570::t_9d0632b4f7f870 14,18-25,144-145,149,151-154
+archivebox/services/snapshot_service.py
+  s_750dfb69a92570::t_a2faa198106289 77,80,122
+archivebox/tests/conftest.py
+  s_750dfb69a92570::t_37a63e158913a6 1686,1696
+archivebox/tests/test_migrations_08_to_09.py
+  s_750dfb69a92570::t_a55863a10780c1 9
+archivebox/tests/test_api_v1_crawls_crawl_crawl_id.py
+  s_750dfb69a92570::t_37a63e158913a6 198
+archivebox/tests/test_crawl_runner.py
+  s_750dfb69a92570::t_37a63e158913a6 264-266
+archivebox/core/templatetags/core_tags.py
+  s_750dfb69a92570::t_e7cbd19e0987a2 71-73
+archivebox/services/runner.py
+  s_750dfb69a92570::t_33bfeed636e6d3 1183,1220,1617
+  s_750dfb69a92570::t_50479a6e16838b 41,846
+  s_750dfb69a92570::t_a2faa198106289 695,1196-1197,1206,1537,1572,1582,1713
+  s_750dfb69a92570::t_caf5f7d92f3d6d 62,136
+  s_750dfb69a92570::t_6e1fc46d44a3bf 40,43,132-135,225-226,316,566,592,595,839-845,853,855,865-866,1136-1146,1151-1152
+  s_750dfb69a92570::t_ba10679ff24ad2 1446-1447,2084,2224-2225
+  s_750dfb69a92570::t_cfa6df3e17a4e7 1155,2227
+archivebox/plugins/discovery.py
+  s_750dfb69a92570::t_6ee9a480baa008 9,32-33,36-37,40-43,55,59,88,106,167,179,221-225
+  s_750dfb69a92570::t_2481ab2cd93754 107-108,111-113,115-120,123-124,126-127,129-132,134,136-137
+  s_750dfb69a92570::t_290ebcac9abb2d 38
+archivebox/workers/models.py
+  s_750dfb69a92570::t_7b531dda3a9abf 60
+  s_750dfb69a92570::t_1a4961a78123f2 9,40-41,43-45,47-50,53-54,68-69,72-73,77,80-81,83-84,89,99,101,105-106,116,147,150-151,159-160,162-164,166-169,173-174,176-178,180-182,186-187,191,194,197,202,207,209,213,216-219,224-225,228-229
+archivebox/tests/test_machine_models.py
+  s_750dfb69a92570::t_9abf89d364e4a6 7-8,510-511,517-518,522
+archivebox/tests/test_archive_result_service.py
+  s_750dfb69a92570::t_187a61e7b20e87 557,564-567
+archivebox/machine/models.py
+  s_750dfb69a92570::t_33bfeed636e6d3 520,988
+  s_750dfb69a92570::t_9abf89d364e4a6 603-606,755
+  s_750dfb69a92570::t_7b531dda3a9abf 24,516,568-569,580-583,589
+  s_750dfb69a92570::t_74b2274bdd4561 751-754,756-782,787
+  s_750dfb69a92570::t_37a63e158913a6 1337-1338
+archivebox/tests/test_binary_service.py
+  s_750dfb69a92570::t_37a63e158913a6 25-26,30-31,62
+  s_750dfb69a92570::t_9abf89d364e4a6 101,105,206
+archivebox/core/forms.py
+  s_750dfb69a92570::t_25d401aca3a758 15,17,336-338
+archivebox/plugins/hooks.py
+  s_750dfb69a92570::t_ad6473bc931169 1,3-4,7-8,14-19,24,48-49,56,65-67,69,75-96,99,107-110,113,116-117,126-127,129,131,133-135,140-175,177-178,196-205,217-218,222,224,226,229-233,236,238
+  s_750dfb69a92570::t_0ada94b9e71886 120
+  s_750dfb69a92570::t_4d7670e30ea833 179-195
+archivebox/cli/archivebox_install.py
+  s_750dfb69a92570::t_33bfeed636e6d3 57,182
+archivebox/cli/archivebox_extract.py
+  s_750dfb69a92570::t_33bfeed636e6d3 267
+archivebox/cli/archivebox_update.py
+  s_750dfb69a92570::t_33bfeed636e6d3 84
+archivebox/core/recovery_util.py
+  s_750dfb69a92570::t_187a61e7b20e87 16,203-206
+  s_750dfb69a92570::t_33bfeed636e6d3 293
+archivebox/crawls/models.py
+  s_750dfb69a92570::t_74b2274bdd4561 1313
+  s_750dfb69a92570::t_16828a926331d1 34
+  s_750dfb69a92570::t_7b531dda3a9abf 131,160-162,164,168-172,187
+  s_750dfb69a92570::t_33bfeed636e6d3 255,1297
+  s_750dfb69a92570::t_a46c3064622d08 1357,1362,1365-1367,1369-1370,1372,1374,1376-1377,1379,1381,1386,1389-1396,1398-1410,1412-1413
+  s_750dfb69a92570::t_cf8879cd26348e 1414-1416
+archivebox/core/models.py
+  s_750dfb69a92570::t_33bfeed636e6d3 744,814-825,835-846,2789
+  s_750dfb69a92570::t_187a61e7b20e87 4287-4289,4308,4310,4312-4313,4328,4353,4358-4360
+  s_750dfb69a92570::t_1f0248f1c09ac3 753,809-813,826-834,847-865,868,2785,2799-2800,2802
+  s_750dfb69a92570::t_7b531dda3a9abf 56,525,565-568,591-595,623
+archivebox/config/common.py
+  s_750dfb69a92570::t_51611c35c49105 19,604,606,1217-1219
+archivebox/services/archive_result_service.py
+  s_750dfb69a92570::t_409ae22a4f629d 14,21,73-74,78-81,249-251
+archivebox/tests/test_cli_run.py
+  s_750dfb69a92570::t_37a63e158913a6 2124,3010
+archivebox/cli/archivebox_pluginmap.py
+  s_750dfb69a92570::t_e6b3c5f0ac3bb9 51
+archivebox/api/v1_core.py
+  s_750dfb69a92570::t_187a61e7b20e87 345-348
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "3fc67705a5fa49343c6650a61c3041e82bd43cdf",
+  "prompts": {},
+  "sessions": {
+    "s_750dfb69a92570": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a05b67-229b-7b73-884d-437256ffa903",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

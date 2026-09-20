@@ -1,0 +1,442 @@
+docs/apidocs/archivebox/archivebox.cli.archivebox_archiveresult.md
+  ai_agent 1-141
+docs/apidocs/archivebox/archivebox.config.constants.md
+  ai_agent 1-739
+docs/apidocs/archivebox/archivebox.config.md
+  ai_agent 1-93
+docs/apidocs/archivebox/archivebox.machine.models.md
+  ai_agent 1-2185
+docs/.mkdocs.unused/mkdocs.yml
+  ai_agent 1-32
+docs/apidocs/archivebox/archivebox.cli.archivebox_search.md
+  ai_agent 1-103
+docs/conf.py
+  s_b989805ae95d6a::t_e4c545c6afb774 1-12,15-247
+  s_b989805ae95d6a::t_a8f0a0f12002e9 13-14
+archivebox/core/admin_archiveresults.py
+  s_074e76a4b61abc::t_dc299552ed252a 492,497
+docs/apidocs/archivebox/archivebox.workers.tasks.md
+  ai_agent 1-53
+docs/apidocs/archivebox/archivebox.workers.apps.md
+  ai_agent 1-59
+docs/Donations.md
+  s_b989805ae95d6a::t_e4c545c6afb774 1-23
+docs/apidocs/archivebox/archivebox.cli.archivebox_persona.md
+  s_b989805ae95d6a::t_a8f0a0f12002e9 1-293
+docs/apidocs/archivebox/archivebox.core.asgi.md
+  ai_agent 1-34
+docs/apidocs/archivebox/archivebox.api.apps.md
+  ai_agent 1-68
+docs/apidocs/archivebox/archivebox.core.urls.md
+  ai_agent 1-34
+docs/apidocs/archivebox/archivebox.hooks.md
+  ai_agent 1-406
+docs/apidocs/archivebox/archivebox.search.md
+  ai_agent 1-96
+docs/Makefile
+  ai_agent 1-19
+docs/_templates/layout.html
+  ai_agent 1-13
+docs/Usage.md
+  s_b989805ae95d6a::t_a8f0a0f12002e9 1-430
+docs/.mkdocs.unused/gen_docs_refs.py
+  s_b989805ae95d6a::t_e4c545c6afb774 1-50
+docs/apidocs/archivebox/archivebox.crawls.md
+  ai_agent 1-65
+docs/apidocs/archivebox/archivebox.api.urls.md
+  ai_agent 1-34
+docs/apidocs/archivebox/archivebox.misc.checks.md
+  ai_agent 1-108
+docs/apidocs/archivebox/archivebox.core.templatetags.config_tags.md
+  ai_agent 1-53
+docs/apidocs/archivebox/archivebox.personas.admin.md
+  ai_agent 1-8
+docs/apidocs/archivebox/archivebox.config.version.md
+  ai_agent 1-135
+archivebox/config/common.py
+  s_074e76a4b61abc::t_cff92c3e8fdaac 464,553-562
+docs/apidocs/archivebox/archivebox.api.auth.md
+  ai_agent 1-251
+docs/apidocs/archivebox/archivebox.cli.archivebox_machine.md
+  ai_agent 1-75
+docs/.readthedocs.yaml
+  ai_agent 1-45
+docs/README.md
+  ai_agent 1
+docs/apidocs/archivebox/archivebox.core.apps.md
+  ai_agent 1-79
+docs/Setting-up-Authentication.md
+  ai_agent 1-245
+docs/apidocs/archivebox/archivebox.cli.archivebox_remove.md
+  ai_agent 1-64
+docs/Merging-Collections.md
+  ai_agent 1-124
+docs/apidocs/archivebox/archivebox.cli.archivebox_run.md
+  ai_agent 1-86
+docs/apidocs/archivebox/archivebox.cli.md
+  ai_agent 1-243
+docs/apidocs/archivebox/archivebox.cli.archivebox_add.md
+  ai_agent 1-64
+docs/apidocs/archivebox/archivebox.core.middleware.md
+  ai_agent 1-99
+docs/apidocs/archivebox/archivebox.core.settings_logging.md
+  ai_agent 1-174
+docs/apidocs/archivebox/archivebox.core.wsgi.md
+  ai_agent 1-34
+docs/apidocs/archivebox/archivebox.api.v1_core.md
+  ai_agent 1-1827
+docs/apidocs/archivebox/archivebox.ldap.md
+  ai_agent 1-18
+archivebox/core/views.py
+  s_074e76a4b61abc::t_a64630dc080678 171,491
+  s_074e76a4b61abc::t_a4e75ee760ab89 203-204,243-246
+  s_074e76a4b61abc::t_17522d5d7f44bc 158-169
+  s_074e76a4b61abc::t_66cc0f61556366 489-490,492-494,508,511,514,518,529,531
+  s_b989805ae95d6a::t_e4c545c6afb774 523-528
+  s_074e76a4b61abc::t_a781d808c5bf72 156-157,170,172
+docs/apidocs/archivebox/archivebox.api.v1_machine.md
+  ai_agent 1-720
+docs/apidocs/archivebox/archivebox.core.models.md
+  ai_agent 1-2236
+docs/apidocs/archivebox/archivebox.machine.md
+  ai_agent 1-20
+bin/setup.sh
+  s_b989805ae95d6a::t_2391dc2381e9c5 201-205
+docs/Configuration.md
+  ai_agent 1-1460
+docs/Publishing-Your-Archive.md
+  s_b989805ae95d6a::t_e4c545c6afb774 1-130
+docs/apidocs/archivebox/archivebox.base_models.models.md
+  ai_agent 1-402
+docs/apidocs/archivebox/archivebox.config.views.md
+  ai_agent 1-163
+archivebox/crawls/admin.py
+  s_074e76a4b61abc::t_edbcdc3000ae1a 602
+  s_074e76a4b61abc::t_625b6ce50af139 742
+docs/apidocs/archivebox/archivebox.workers.orchestrator.md
+  ai_agent 1-311
+docs/apidocs/archivebox/archivebox.cli.archivebox_extract.md
+  ai_agent 1-86
+docs/Troubleshooting.md
+  s_b989805ae95d6a::t_a8f0a0f12002e9 1-335
+docs/apidocs/archivebox/archivebox.crawls.models.md
+  ai_agent 1-679
+docs/apidocs/archivebox/archivebox.misc.logging_util.md
+  ai_agent 1-539
+docs/apidocs/archivebox/archivebox.api.v1_cli.md
+  ai_agent 1-908
+docs/apidocs/archivebox/archivebox.core.actors.md
+  ai_agent 1-8
+docs/apidocs/archivebox/archivebox.misc.jsonl.md
+  ai_agent 1-206
+docs/apidocs/index.rst
+  ai_agent 1-11
+docs/index.rst
+  ai_agent 1-40
+docs/apidocs/archivebox/archivebox.core.admin.md
+  ai_agent 1-31
+Dockerfile
+  s_074e76a4b61abc::t_0cb8a0088efcd3 369
+docs/apidocs/archivebox/archivebox.api.v1_auth.md
+  ai_agent 1-145
+docs/Contents.rst
+  ai_agent 1-82
+docs/apidocs/archivebox/archivebox.core.forms.md
+  ai_agent 1-312
+docs/apidocs/archivebox/archivebox.cli.archivebox_install.md
+  ai_agent 1-42
+docs/apidocs/archivebox/archivebox.misc.folders.md
+  ai_agent 1-31
+archivebox/workers/supervisord_util.py
+  s_074e76a4b61abc::t_4bb1f5067fa39e 69,75-77
+docs/apidocs/archivebox/archivebox.machine.admin.md
+  ai_agent 1-505
+docs/apidocs/archivebox/archivebox.mcp.server.md
+  ai_agent 1-163
+docs/apidocs/archivebox/archivebox.misc.util.md
+  ai_agent 1-579
+docs/apidocs/archivebox/archivebox.misc.paginators.md
+  ai_agent 1-45
+docs/apidocs/archivebox/archivebox.personas.apps.md
+  ai_agent 1-59
+docs/apidocs/archivebox/archivebox.cli.archivebox_config.md
+  ai_agent 1-42
+docs/apidocs/archivebox/archivebox.core.admin_archiveresults.md
+  ai_agent 1-412
+docs/apidocs/archivebox/archivebox.core.settings.md
+  ai_agent 1-986
+docs/apidocs/archivebox/archivebox.cli.archivebox_mcp.md
+  ai_agent 1-64
+docs/apidocs/archivebox/archivebox.personas.md
+  ai_agent 1-21
+docs/apidocs/archivebox/archivebox.md
+  ai_agent 1-192
+docs/Changelog.md
+  s_b989805ae95d6a::t_e4c545c6afb774 1-122
+docs/Install.md
+  s_b989805ae95d6a::t_a8f0a0f12002e9 1-311
+docs/apidocs/archivebox/archivebox.config.ldap.md
+  ai_agent 1-202
+docs/apidocs/archivebox/archivebox.cli.archivebox_update.md
+  ai_agent 1-97
+docs/apidocs/archivebox/archivebox.crawls.apps.md
+  ai_agent 1-67
+docs/Docker.md
+  ai_agent 1-281
+archivebox/core/admin_snapshots.py
+  s_074e76a4b61abc::t_7c25432f22ecec 520
+  s_074e76a4b61abc::t_94130f615150d0 866
+  s_074e76a4b61abc::t_625b6ce50af139 740
+  s_b989805ae95d6a::t_e4c545c6afb774 747-751,753
+  s_074e76a4b61abc::t_ad038537099da3 265
+  s_074e76a4b61abc::t_edbcdc3000ae1a 736,744,746,874
+  s_b989805ae95d6a::t_a859352718c4b1 752
+  s_074e76a4b61abc::t_dc299552ed252a 256,263,1025-1026
+docs/apidocs/archivebox/archivebox.ldap.auth.md
+  ai_agent 1-42
+docs/Scheduled-Archiving.md
+  ai_agent 1-86
+docs/apidocs/archivebox/archivebox.workers.management.commands.orchestrator_watch.md
+  ai_agent 1-49
+docs/apidocs/archivebox/archivebox.config.configset.md
+  ai_agent 1-202
+docs/apidocs/archivebox/archivebox.config.collection.md
+  ai_agent 1-149
+docs/Web-Archiving-Community.md
+  s_b989805ae95d6a::t_a8f0a0f12002e9 1-510
+docs/apidocs/archivebox/archivebox.ldap.apps.md
+  ai_agent 1-70
+docs/apidocs/archivebox/archivebox.machine.apps.md
+  ai_agent 1-96
+docs/apidocs/archivebox/archivebox.misc.debugging.md
+  ai_agent 1-31
+docs/apidocs/archivebox/archivebox.base_models.apps.md
+  ai_agent 1-8
+docs/apidocs/archivebox/archivebox.personas.models.md
+  ai_agent 1-190
+docs/apidocs/archivebox/archivebox.cli.archivebox_init.md
+  ai_agent 1-42
+docs/apidocs/archivebox/archivebox.workers.supervisord_util.md
+  ai_agent 1-324
+docs/Setting-Up-Storage.md
+  ai_agent 1-301
+docs/apidocs/archivebox/archivebox.base_models.md
+  ai_agent 1-19
+docs/apidocs/archivebox/archivebox.cli.archivebox_server.md
+  ai_agent 1-42
+docs/Quickstart.md
+  ai_agent 1-89
+docs/apidocs/archivebox/archivebox.cli.archivebox_schedule.md
+  ai_agent 1-42
+docs/apidocs/archivebox/archivebox.config.django.md
+  ai_agent 1-78
+docs/apidocs/archivebox/archivebox.config.common.md
+  ai_agent 1-872
+bin/deploy_dev_demo.sh
+  s_074e76a4b61abc::t_1cca2b5db21e53 79
+docs/apidocs/archivebox/archivebox.workers.admin.md
+  ai_agent 1-31
+docs/apidocs/archivebox/archivebox.ideas.process_plugin.md
+  ai_agent 1-633
+docs/apidocs/archivebox/archivebox.core.md
+  ai_agent 1-100
+docs/apidocs/archivebox/archivebox.core.templatetags.md
+  ai_agent 1-18
+docs/apidocs/archivebox/archivebox.personas.runtime.md
+  ai_agent 1-111
+docs/apidocs/archivebox/archivebox.crawls.admin.md
+  ai_agent 1-438
+docs/apidocs/archivebox/archivebox.misc.shell_welcome_message.md
+  ai_agent 1-34
+docs/apidocs/archivebox/archivebox.cli.archivebox_process.md
+  ai_agent 1-75
+docs/apidocs/archivebox/archivebox.cli.archivebox_help.md
+  ai_agent 1-64
+archivebox/core/templatetags/core_tags.py
+  s_b989805ae95d6a::t_0278f88835b9b9 28,207
+archivebox/core/forms.py
+  s_074e76a4b61abc::t_1c8efd83ae3dde 43
+docs/apidocs/archivebox/archivebox.api.admin.md
+  ai_agent 1-177
+docs/apidocs/archivebox/archivebox.base_models.admin.md
+  ai_agent 1-166
+docs/apidocs/archivebox/archivebox.core.host_utils.md
+  ai_agent 1-372
+docs/apidocs/archivebox/archivebox.api.v1_api.md
+  ai_agent 1-131
+docs/apidocs/archivebox/archivebox.cli.archivebox_list.md
+  ai_agent 1-53
+docs/apidocs/archivebox/archivebox.misc.hashing.md
+  ai_agent 1-86
+archivebox/misc/serve_static.py
+  s_b989805ae95d6a::t_615b430cd827db 805-826
+  s_b989805ae95d6a::t_cf0265022e7364 19
+  s_b989805ae95d6a::t_3e02b09cd567b2 799-804
+  s_b989805ae95d6a::t_07e6cec9299a94 76
+  s_b989805ae95d6a::t_7c26b5ae7a685f 69-75,77-85
+  s_b989805ae95d6a::t_e26928465e8012 732,797-798
+docs/Roadmap.md
+  s_b989805ae95d6a::t_e4c545c6afb774 1-237
+docs/apidocs/archivebox/archivebox.cli.archivebox_status.md
+  ai_agent 1-42
+docs/apidocs/archivebox/archivebox.ideas.md
+  ai_agent 1-17
+docs/apidocs/archivebox/archivebox.misc.progress_layout.md
+  ai_agent 1-455
+docs/apidocs/archivebox/archivebox.personas.views.md
+  ai_agent 1-8
+docs/apidocs/archivebox/archivebox.cli.tests_piping.md
+  ai_agent 1-768
+docs/apidocs/archivebox/archivebox.misc.serve_static.md
+  ai_agent 1-281
+docs/apidocs/archivebox/archivebox.cli.archivebox_snapshot.md
+  ai_agent 1-141
+docs/apidocs/archivebox/archivebox.workers.management.md
+  ai_agent 1-17
+docs/Upgrading-or-Merging-Archives.md
+  s_b989805ae95d6a::t_e4c545c6afb774 1-7
+docs/apidocs/archivebox/archivebox.cli.archivebox_manage.md
+  ai_agent 1-42
+docs/ArchiveBox-Architecture-Diagrams.md
+  s_b989805ae95d6a::t_e4c545c6afb774 1-200
+docs/apidocs/archivebox/archivebox.api.md
+  ai_agent 1-28
+docs/apidocs/archivebox/archivebox.manage.md
+  ai_agent 1-8
+docs/apidocs/archivebox/archivebox.workers.management.commands.md
+  ai_agent 1-18
+docs/.gitignore
+  ai_agent 1-8
+docs/Home.md
+  ai_agent 1-45
+docs/apidocs/archivebox/archivebox.api.v1_crawls.md
+  ai_agent 1-473
+docs/apidocs/archivebox/archivebox.core.admin_tags.md
+  ai_agent 1-213
+docs/apidocs/archivebox/archivebox.machine.detect.md
+  ai_agent 1-183
+archivebox/hooks.py
+  s_074e76a4b61abc::t_b3b8bd685a154e 1055
+docs/apidocs/archivebox/archivebox.cli.archivebox_crawl_compat.md
+  ai_agent 1-53
+docs/apidocs/archivebox/archivebox.misc.md
+  ai_agent 1-33
+docs/apidocs/archivebox/archivebox.config.paths.md
+  ai_agent 1-233
+docs/apidocs/archivebox/archivebox.core.templatetags.core_tags.md
+  ai_agent 1-232
+docs/Security-Overview.md
+  s_b989805ae95d6a::t_a8f0a0f12002e9 1-189
+docs/_Footer.md
+  ai_agent 1-7
+docs/apidocs/archivebox/archivebox.mcp.md
+  ai_agent 1-18
+docs/apidocs/archivebox/archivebox.workers.md
+  ai_agent 1-77
+docs/apidocs/archivebox/archivebox.misc.logging.md
+  ai_agent 1-181
+docs/apidocs/archivebox/archivebox.workers.models.md
+  ai_agent 1-564
+docs/apidocs/archivebox/archivebox.search.admin.md
+  ai_agent 1-37
+docs/apidocs/archivebox/archivebox.misc.legacy.md
+  ai_agent 1-125
+docs/apidocs/archivebox/archivebox.crawls.schedule_utils.md
+  ai_agent 1-76
+docs/apidocs/archivebox/archivebox.cli.archivebox_shell.md
+  ai_agent 1-42
+docs/apidocs/archivebox/archivebox.core.admin_users.md
+  ai_agent 1-138
+docs/apidocs/archivebox/archivebox.cli.archivebox_binary.md
+  ai_agent 1-141
+docs/Setting-up-Search.md
+  s_b989805ae95d6a::t_a8f0a0f12002e9 1-258
+archivebox/core/middleware.py
+  s_074e76a4b61abc::t_8bf0f54db423ef 103-104,106-107,120-121,123-125,150-151,153,278-279,281
+  s_074e76a4b61abc::t_a6953ccb95aa55 105
+  s_074e76a4b61abc::t_aa814a986af7ce 122,152,280
+docs/Upgrading.md
+  s_b989805ae95d6a::t_a8f0a0f12002e9 1-143
+docs/apidocs/archivebox/archivebox.core.widgets.md
+  ai_agent 1-138
+docs/apidocs/archivebox/archivebox.misc.monkey_patches.md
+  ai_agent 1-45
+docs/_static/css/theme.css
+  ai_agent 1-6154
+docs/apidocs/archivebox/archivebox.api.middleware.md
+  ai_agent 1-54
+docs/apidocs/archivebox/archivebox.api.models.md
+  ai_agent 1-250
+docs/apidocs/archivebox/archivebox.cli.archivebox_snapshot_compat.md
+  ai_agent 1-53
+docs/apidocs/archivebox/archivebox.cli.archivebox_tag.md
+  ai_agent 1-141
+docs/apidocs/archivebox/archivebox.cli.cli_utils.md
+  ai_agent 1-31
+docs/apidocs/archivebox/archivebox.config.permissions.md
+  ai_agent 1-304
+docs/apidocs/archivebox/archivebox.core.admin_snapshots.md
+  ai_agent 1-535
+docs/apidocs/archivebox/archivebox.mcp.apps.md
+  ai_agent 1-59
+docs/apidocs/archivebox/archivebox.misc.toml_util.md
+  ai_agent 1-141
+docs/apidocs/archivebox/archivebox.misc.db.md
+  ai_agent 1-53
+docs/apidocs/archivebox/archivebox.core.admin_site.md
+  ai_agent 1-110
+docs/Chromium-Install.md
+  s_b989805ae95d6a::t_e4c545c6afb774 1-207
+archivebox/core/models.py
+  s_074e76a4b61abc::t_27315b5c501353 2540,2542-2543,2548-2554,2617,3251-3252,3527-3528
+docs/apidocs/archivebox/archivebox.cli.archivebox_version.md
+  ai_agent 1-42
+docs/apidocs/archivebox/archivebox.workers.management.commands.orchestrator.md
+  ai_agent 1-49
+docs/apidocs/archivebox/archivebox.__main__.md
+  ai_agent 1-33
+docs/apidocs/archivebox/archivebox.misc.system.md
+  ai_agent 1-119
+docs/apidocs/archivebox/archivebox.cli.archivebox_crawl.md
+  ai_agent 1-141
+docs/apidocs/archivebox/archivebox.cli.archivebox_pluginmap.md
+  ai_agent 1-102
+docs/apidocs/archivebox/archivebox.workers.worker.md
+  ai_agent 1-549
+docs/apidocs/archivebox/archivebox.uuid_compat.md
+  ai_agent 1-53
+archivebox/crawls/models.py
+  s_074e76a4b61abc::t_625b6ce50af139 175
+docs/apidocs/archivebox/archivebox.core.views.md
+  ai_agent 1-519
+docs/requirements.txt
+  ai_agent 1-7
+docs/_Sidebar.md
+  ai_agent 1-58
+archivebox/search/admin.py
+  s_074e76a4b61abc::t_625b6ce50af139 24-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.1",
+  "base_commit_sha": "30c841d477c43a0edc47243b91ab61598da0d1b6",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

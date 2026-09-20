@@ -1,0 +1,19 @@
+bin/release_dev_stack.sh
+  s_15f59ac80abb8e::t_49165a0b374cfd 9,174-178,182,186,196-203,206,251-252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "1da4b79e9d060ecfd7d33da91508e2901ab707e4",
+  "prompts": {},
+  "sessions": {
+    "s_15f59ac80abb8e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019eaa8a-3bcf-7290-a54d-15bd828c06a5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

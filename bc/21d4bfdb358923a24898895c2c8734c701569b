@@ -1,0 +1,62 @@
+README.md
+  1ea1fc813bf38cf1 798,1467
+archivebox/core/admin_tags.py
+  1ea1fc813bf38cf1 5,10,14
+archivebox/core/admin_users.py
+  1ea1fc813bf38cf1 6-7,20
+archivebox/config/constants.py
+  1ea1fc813bf38cf1 48,229
+archivebox/core/management/commands/archivebox.py
+  1ea1fc813bf38cf1 5,17-18
+archivebox/machine/migrations/0006_process.py
+  1ea1fc813bf38cf1 7,20
+pyproject.toml
+  1ea1fc813bf38cf1 88
+archivebox/core/forms.py
+  1ea1fc813bf38cf1 25-31,37,172,175,178,181,184,187,195,201-203,223,242,249,251,253,255-256,258-259
+archivebox/uuid_compat.py
+  1ea1fc813bf38cf1 1,5,8,10,13-14
+archivebox/personas/migrations/0002_alter_persona_id.py
+  1ea1fc813bf38cf1 5,18
+archivebox/core/middleware.py
+  1ea1fc813bf38cf1 168-169
+archivebox/core/migrations/0025_alter_archiveresult_options_alter_snapshot_options_and_more.py
+  1ea1fc813bf38cf1 9,240,250
+archivebox/cli/tests_piping.py
+  1ea1fc813bf38cf1 32,62,64-69,82,91,101,112,121,151,507,542,594,622,661,732,737,748,751
+archivebox/core/migrations/0030_alter_archiveresult_id.py
+  1ea1fc813bf38cf1 5,18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.1.11",
+  "base_commit_sha": "bc21d4bfdb358923a24898895c2c8734c701569b",
+  "prompts": {
+    "1ea1fc813bf38cf1": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf419-281b-7b92-bdfb-6694ed9d9ba4",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 87,
+      "total_deletions": 127,
+      "accepted_lines": 86,
+      "overriden_lines": 0
+    },
+    "a5df5e777f61de1f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019cf423-b4c6-7112-adfe-51c283fb8952",
+        "model": "gpt-5.4"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 4,
+      "overriden_lines": 0
+    }
+  }
+}

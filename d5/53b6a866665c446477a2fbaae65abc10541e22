@@ -1,0 +1,19 @@
+Dockerfile
+  s_c5ae786df4a14c::t_74504203295e38 143,329,387
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d553b6a866665c446477a2fbaae65abc10541e22",
+  "prompts": {},
+  "sessions": {
+    "s_c5ae786df4a14c": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e81c2-3271-70c1-8ea7-2c49783fb389",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

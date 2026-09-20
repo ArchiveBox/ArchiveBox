@@ -1,0 +1,59 @@
+archivebox/cli/archivebox_add.py
+  s_a5df2e7b7b6c12::t_a168f67a73711d 114,220-221
+bin/fuzz_test.sh
+  s_a5df2e7b7b6c12::t_429de3f9e6f0a5 76,81-98,121,126-127,144-146,148,157-161,163-164
+  s_a5df2e7b7b6c12::t_be5a42cf620916 199
+bin/take_screenshot.js
+  s_5f83317b520670::t_2b9070f2c9400a 25,98-100,127-135
+archivebox/cli/archivebox_run.py
+  s_a5df2e7b7b6c12::t_5f6faa60d8cb96 332,343-347
+  s_a5df2e7b7b6c12::t_51919d1ceff61a 80,232-237
+  s_a5df2e7b7b6c12::t_d7594548c86252 251,266-267
+  s_a5df2e7b7b6c12::t_82da368f9d6451 327,334-339,342,348-350
+archivebox/search/sonic_daemon.py
+  s_a5df2e7b7b6c12::t_0b1274ddd191c4 3
+  s_a5df2e7b7b6c12::t_ef5f5c47450bb1 5,26-39,41,45,50-51
+  s_a5df2e7b7b6c12::t_520c14c6503750 40
+archivebox/core/shutdown_util.py
+  s_a5df2e7b7b6c12::t_dddcca585c7ac5 6-7,115-155
+archivebox/workers/supervisord_util.py
+  s_a5df2e7b7b6c12::t_2f9801dcbb570c 504,509
+archivebox/templates/admin/progress_monitor.html
+  s_5f83317b520670::t_5e8eb9ded12d6c 240-242,250-252
+archivebox/tests/test_ui_admin_views.py
+  s_e0084e31d181ac::t_98f8577fe7cc14 189-190,193-200,207,209,213-220,1267,1270,1808
+archivebox/cli/archivebox_update.py
+  s_a5df2e7b7b6c12::t_722b81253ea6a1 204,235-330,334-335,337-339
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b2fa839788f40ad419474ffe70a6c3e969e007c8",
+  "prompts": {},
+  "sessions": {
+    "s_5f83317b520670": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6cc1-bf3e-78d1-8285-d6a184c74581",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a5df2e7b7b6c12": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6ccb-c861-7e33-b618-89ec1e58d9ad",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e0084e31d181ac": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6d66-b926-7951-8389-e3d43423bd38",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

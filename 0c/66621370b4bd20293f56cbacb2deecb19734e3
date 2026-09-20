@@ -1,0 +1,19 @@
+.gitignore
+  s_e09843280e6970::t_e9c4e217b9586c 66-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0c66621370b4bd20293f56cbacb2deecb19734e3",
+  "prompts": {},
+  "sessions": {
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

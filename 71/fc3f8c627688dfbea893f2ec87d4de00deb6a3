@@ -1,0 +1,14 @@
+docs/codeblocks.toml
+  h_923c208e183a7b 159-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "71fc3f8c627688dfbea893f2ec87d4de00deb6a3",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

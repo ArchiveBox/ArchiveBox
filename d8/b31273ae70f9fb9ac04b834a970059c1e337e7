@@ -1,0 +1,22 @@
+archivebox/core/settings.py
+  s_69ddf154c10e6f::t_a6fe36d974eb7a 8,607
+archivebox/tests/test_migrations_04_to_09.py
+  s_69ddf154c10e6f::t_6a1b0a79d94644 5,33-36
+  s_69ddf154c10e6f::t_edbea06ff137f7 37-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "d8b31273ae70f9fb9ac04b834a970059c1e337e7",
+  "prompts": {},
+  "sessions": {
+    "s_69ddf154c10e6f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019faf8b-797c-7c30-9a89-b8c3ca8cc3e2",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

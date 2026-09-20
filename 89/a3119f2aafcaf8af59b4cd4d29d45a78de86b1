@@ -1,0 +1,66 @@
+archivebox/cli/archivebox_add.py
+  s_0519be8d8ec8fd::t_2ae94e3187b64c 88,145,148-164,178
+archivebox/tests/test_cli_add.py
+  s_0519be8d8ec8fd::t_7c39bb273f69fc 239
+archivebox/api/v1_crawls.py
+  s_0519be8d8ec8fd::t_f28835d2b89040 50,122,127-128
+archivebox/tests/test_test_harness.py
+  s_0519be8d8ec8fd::t_390e332ca14c43 17-31
+archivebox/templates/admin/progress_monitor.html
+  s_b989805ae95d6a::t_d6caf74f0f0bcd 247-254,259-269,988-994,1082-1086,1099,1101,1110
+  s_b989805ae95d6a::t_3c035f51095c09 787
+  s_b989805ae95d6a::t_1a74dbfae11ec9 583-597,840-868,908,970,1003,1108,1217,1356
+  s_b989805ae95d6a::t_6ecffd7c14f510 1087
+archivebox/tests/test_add_view.py
+  s_0519be8d8ec8fd::t_d74b9a0ed27f1a 187
+archivebox/tests/test_runner.py
+  s_0519be8d8ec8fd::t_08d8c3157f60b6 381,435
+  s_0519be8d8ec8fd::t_8cade700cc97d0 380,382-434,436-446,448-457
+archivebox/core/views.py
+  s_b989805ae95d6a::t_7ce85ab9cb74a5 1531-1532,1534-1537,1540-1542,1544-1546,1941-1943,1971
+  s_b989805ae95d6a::t_85bfb9f6540e61 1543
+  s_0519be8d8ec8fd::t_4005359058b5c3 1124-1133
+  s_0519be8d8ec8fd::t_9348b5ad3310a3 1100
+archivebox/crawls/models.py
+  s_b989805ae95d6a::t_0fba7af330de41 747,762,769,836,895,993-998
+  s_b989805ae95d6a::t_77abc3d63f2d4c 9,227-228,288-289,293-306
+  s_b989805ae95d6a::t_bde5a678f9c445 184-190,221-226,229-234,254-287,290-292,307-314
+  s_b989805ae95d6a::t_1b6d71facd33f5 748,837-846
+  s_b989805ae95d6a::t_f7cb5bfd329cba 740
+archivebox/tests/test_crawl_admin.py
+  s_b989805ae95d6a::t_482b6c5306c10d 108,120,134,136-137
+  s_b989805ae95d6a::t_b0794b6a6283f6 109-110,112-119,121-133,135,138-151
+  s_b989805ae95d6a::t_5ced424be08be3 111
+archivebox/tests/conftest.py
+  s_0519be8d8ec8fd::t_7c922fc5e5872e 26,136-138,161-165
+  s_0519be8d8ec8fd::t_34605f67a9a241 20,22,24
+archivebox/services/runner.py
+  s_0519be8d8ec8fd::t_d8771635230846 564
+conftest.py
+  s_0519be8d8ec8fd::t_14511ed6648941 25-32
+  s_0519be8d8ec8fd::t_cb08bd5b1cfe4f 1-14,16-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "89a3119f2aafcaf8af59b4cd4d29d45a78de86b1",
+  "prompts": {},
+  "sessions": {
+    "s_0519be8d8ec8fd": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e6897-fd2e-7901-959d-ad7ef7f9e7c4",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_b989805ae95d6a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e1fa8-ca6f-7ef3-af88-ea8dba9078db",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

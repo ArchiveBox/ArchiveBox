@@ -1,0 +1,57 @@
+archivebox/templates/admin/base.html
+  s_25d421ba4ddd4e::t_ec2156466e29f8 1681
+etc/package.json
+  s_074e76a4b61abc::t_0c62a2f28472e6 3
+bin/release.sh
+  s_074e76a4b61abc::t_74243a240ff8b8 331
+archivebox/templates/core/base.html
+  s_25d421ba4ddd4e::t_2e53d9f5480ea3 22
+.github/workflows/lint.yml
+  s_074e76a4b61abc::t_74243a240ff8b8 42
+pyproject.toml
+  s_074e76a4b61abc::t_0c62a2f28472e6 3,82-84
+archivebox/templates/core/system_warnings_banner.html
+  s_25d421ba4ddd4e::t_f9ebb2f5d8eb5f 3-4,10-16
+  s_25d421ba4ddd4e::t_ff9e8aa9bc3ff5 19-72,89
+  s_25d421ba4ddd4e::t_561bbae7c514cb 18
+archivebox/core/templatetags/core_tags.py
+  s_25d421ba4ddd4e::t_4a0157421857fe 327,329,331,334-335,337-341,346-347,350,352,354-358
+  s_25d421ba4ddd4e::t_35f3a33e27df2a 332-333,336,342-345,349,359-360,411,416
+  s_25d421ba4ddd4e::t_0a2304b2d4991a 328,330,348,351,353
+  s_25d421ba4ddd4e::t_b01b6fd14cbcd8 361-382
+  s_25d421ba4ddd4e::t_b22516db25a0a8 395-410,412-415,417
+archivebox/config/permissions.py
+  s_e09843280e6970::t_3c5594cb45f04a 18-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c1e792fee6e9bf8b5082a7366529e5408636740a",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_25d421ba4ddd4e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8480efe-86fa-401e-8cd1-d3c740ccc33a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

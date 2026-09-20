@@ -1,0 +1,19 @@
+publicsite/index.html
+  s_1f1593d0227984::t_85c16002cccea6 102,211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.0",
+  "base_commit_sha": "6d564c14eea3d659f2c5a0896574e869db0b10f3",
+  "prompts": {},
+  "sessions": {
+    "s_1f1593d0227984": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a04f5c-f290-7ff3-a8d7-6c618f2d86ea",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

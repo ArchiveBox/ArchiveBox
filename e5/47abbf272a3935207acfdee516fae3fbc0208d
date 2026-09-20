@@ -1,0 +1,35 @@
+archivebox/cli/archivebox_add.py
+  s_5ecae765c2d31f::t_acc30683a7deb6 132
+  s_5ecae765c2d31f::t_9b70aa79f4b8ba 178-183
+archivebox/tests/test_crawl_service.py
+  s_5ecae765c2d31f::t_609d451532679e 106
+  s_5ecae765c2d31f::t_22464e4fb7a160 83-86
+archivebox/tests/test_ui_add_view.py
+  s_5ecae765c2d31f::t_b00317473d50a3 421,456
+archivebox/services/runner.py
+  s_5ecae765c2d31f::t_872354ba6cdbcb 616-621,630-632
+archivebox/tests/test_api_v1_cli_add.py
+  s_5ecae765c2d31f::t_b00317473d50a3 265
+archivebox/tests/test_cli_add.py
+  s_5ecae765c2d31f::t_6f89f0df7d1599 646,966
+  s_5ecae765c2d31f::t_7b447c004e6a3b 819,827
+  s_5ecae765c2d31f::t_b00317473d50a3 253,494,574,585,611,666-667,946,964
+archivebox/tests/test_ui_add_view_runtime.py
+  s_5ecae765c2d31f::t_eb37112102612d 266-270
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "e547abbf272a3935207acfdee516fae3fbc0208d",
+  "prompts": {},
+  "sessions": {
+    "s_5ecae765c2d31f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c7426d-be4c-43e8-816d-93b20c74d67e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

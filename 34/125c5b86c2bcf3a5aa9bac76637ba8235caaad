@@ -1,0 +1,31 @@
+.github/workflows/codeql.yml
+  s_074e76a4b61abc::t_7f58ace2df4c3f 22-25
+.github/workflows/debian.yml
+  s_074e76a4b61abc::t_7f58ace2df4c3f 19-22
+.github/workflows/test.yml
+  s_074e76a4b61abc::t_7f58ace2df4c3f 4-7
+.github/workflows/release-runner.yml
+  s_074e76a4b61abc::t_7f58ace2df4c3f 13-16
+.github/workflows/lint.yml
+  s_074e76a4b61abc::t_7f58ace2df4c3f 7-10
+.github/workflows/homebrew.yml
+  s_074e76a4b61abc::t_7f58ace2df4c3f 19-22
+.github/workflows/release.yml
+  s_074e76a4b61abc::t_7f58ace2df4c3f 21-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "34125c5b86c2bcf3a5aa9bac76637ba8235caaad",
+  "prompts": {},
+  "sessions": {
+    "s_074e76a4b61abc": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019e3237-ada8-7741-a7c1-098a7ec3e4c8",
+        "model": "gpt-5.5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

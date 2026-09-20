@@ -1,0 +1,99 @@
+pyproject.toml
+  s_e09843280e6970::t_cff624ed08d3a5 205-206
+  ai_agent 3,82-84
+archivebox/tests/test_takeover_util.py
+  s_9e824b73eb6968::t_bafcb811e1cf2f 15,58,104,161,210
+archivebox/search/__init__.py
+  s_9e824b73eb6968::t_bafcb811e1cf2f 291
+archivebox/config/views.py
+  s_e09843280e6970::t_ea9dc2bd06c833 112
+archivebox/misc/logging.py
+  s_9e824b73eb6968::t_07a64a555fedd0 3-6
+archivebox/services/binary_service.py
+  s_56f8597a1153b7::t_71089289e64302 21,23,28,33
+  s_9e824b73eb6968::t_4983ceb6cab903 22,24
+  s_56f8597a1153b7::t_8caf1d716ea87d 118
+  s_56f8597a1153b7::t_396b508e488ca6 144,146,151-153,159,170
+  s_56f8597a1153b7::t_ea1617fa6bf0a6 57,67
+  s_56f8597a1153b7::t_753ce7ca6230a2 187,189,191
+  s_56f8597a1153b7::t_e46824bdd09ba5 85,93
+archivebox/misc/system.py
+  s_9e824b73eb6968::t_245fc6fd769194 3-5
+archivebox/core/templatetags/core_tags.py
+  s_e09843280e6970::t_ea9dc2bd06c833 387
+archivebox/tests/test_cli_run.py
+  s_9e824b73eb6968::t_bafcb811e1cf2f 410
+archivebox/crawls/models.py
+  s_e09843280e6970::t_ea9dc2bd06c833 341
+archivebox/misc/hashing.py
+  s_9e824b73eb6968::t_9a7a4751dffcc7 1-3
+archivebox/misc/jsonl.py
+  s_9e824b73eb6968::t_06b9b4321543fe 25-27
+etc/package.json
+  ai_agent 3
+archivebox/core/migrations/0046_repair_snapshot_permissions.py
+  s_e09843280e6970::t_ea9dc2bd06c833 17-20
+archivebox/config/collection.py
+  s_e09843280e6970::t_ea9dc2bd06c833 164-168,175,184-195
+archivebox/cli/archivebox_run.py
+  s_9e824b73eb6968::t_bafcb811e1cf2f 253
+archivebox/core/admin_snapshots.py
+  s_e09843280e6970::t_ea9dc2bd06c833 1623
+archivebox/misc/db.py
+  s_9e824b73eb6968::t_a90b5fe7a9be3d 3-5
+archivebox/cli/archivebox_update.py
+  s_9e824b73eb6968::t_bafcb811e1cf2f 221
+archivebox/core/views.py
+  s_e09843280e6970::t_ea9dc2bd06c833 338,498,2092,2189,2661
+archivebox/crawls/admin.py
+  s_e09843280e6970::t_ea9dc2bd06c833 263
+archivebox/core/models.py
+  s_e09843280e6970::t_ea9dc2bd06c833 1994
+archivebox/cli/archivebox_add.py
+  s_9e824b73eb6968::t_bafcb811e1cf2f 227
+  s_e09843280e6970::t_ea9dc2bd06c833 289
+archivebox/tests/test_util.py
+  s_9e824b73eb6968::t_1224a101efc974 4-6,34-158
+bin/release_dev_stack.sh
+  s_e09843280e6970::t_8047d0a6a3df54 125-134
+archivebox/core/host_util.py
+  s_e09843280e6970::t_ea9dc2bd06c833 341
+archivebox/misc/logging_util.py
+  s_9e824b73eb6968::t_0b5e06085bd833 3-6
+archivebox/cli/archivebox_server.py
+  s_9e824b73eb6968::t_bafcb811e1cf2f 314
+archivebox/misc/util.py
+  s_9e824b73eb6968::t_2e1125759350a5 3-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5a38193f56206a4391ef9ec1d44bb714f12aac25",
+  "prompts": {},
+  "sessions": {
+    "s_56f8597a1153b7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b4c160c0-b70e-4b8e-8cb5-94f06a3fc2e8",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_9e824b73eb6968": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d5a4bdbb-de5b-47b1-b675-e90d58496003",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e09843280e6970": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3879a2be-5acf-439c-a220-1e40a4ec795a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
