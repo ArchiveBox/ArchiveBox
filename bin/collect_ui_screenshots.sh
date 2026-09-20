@@ -247,9 +247,9 @@ fi
 stop_background_runner
 
 ABXPKG_LIB_DIR="$(uv run --no-cache --project "$REPO_DIR" abx-dl config --get ABXPKG_LIB_DIR | sed 's/^[^=]*=//; s/^"//; s/"$//')"
-SCREENSHOT_CHROME_BINARY="$ABXPKG_LIB_DIR/env/bin/chromium"
+SCREENSHOT_CHROME_BINARY="${CHROME_BINARY:-$ABXPKG_LIB_DIR/env/bin/chromium}"
 if [[ ! -x "$SCREENSHOT_CHROME_BINARY" ]]; then
-    echo "[!] abx-dl projected Chromium was not found at $SCREENSHOT_CHROME_BINARY" >&2
+    echo "[!] Screenshot Chromium was not found at $SCREENSHOT_CHROME_BINARY (set CHROME_BINARY to override)" >&2
     exit 1
 fi
 
