@@ -1,0 +1,16 @@
+archivebox/core/asgi.py
+  h_923c208e183a7b 10,16-29
+archivebox/tests/test_api_v1_core_archiveresult_archiveresult_id.py
+  h_923c208e183a7b 70-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "be857415adecd077dfaa67277fab3dd422b004c9",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
