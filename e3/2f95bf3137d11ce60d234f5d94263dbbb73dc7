@@ -1,0 +1,14 @@
+publicsite/styles.css
+  h_923c208e183a7b 31,43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e32f95bf3137d11ce60d234f5d94263dbbb73dc7",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
