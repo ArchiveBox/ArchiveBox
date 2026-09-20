@@ -375,7 +375,7 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 </ol>
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/575ef92f-bb3e-4a7c-a4ba-986c1fd76ecf" width="320px">
 <br/>
-<i>✨ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://github.com/ArchiveBox/electron-archivebox">Electron ArchiveBox</a> repo.
+<i>✨ Alpha (contributors wanted!)</i>: for more info, see the: <a href="https://electron.archivebox.io/#get-started">Electron ArchiveBox setup guide</a>.
 <br/>
 </details>
 
