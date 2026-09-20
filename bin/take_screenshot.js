@@ -254,6 +254,9 @@ async function main() {
             return summary && content && !summary.includes('unavailable') && !content.startsWith('Unable to read');
           }, { timeout: 45000 });
         }
+        await frame.waitForFunction(() => Array.from(document.images).every(
+          img => img.complete && img.naturalWidth > 0,
+        ), { timeout: 45000 });
       }
       if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT || expectedPlugin === 'opentimestamps') {
         const frameElement = await page.$('#main-frame');

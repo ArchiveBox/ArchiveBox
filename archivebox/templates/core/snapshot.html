@@ -728,14 +728,20 @@
                     grid-column: 1;
                     grid-row: 1;
                     display: grid;
-                    grid-template-columns: auto minmax(0, 1fr);
+                    grid-template-columns: minmax(0, 1fr) auto;
                     align-items: stretch;
                     gap: 4px;
                     font-size: 11px;
                     flex-wrap: nowrap;
                     height: 100%;
                 }
+                .archive-org-label {
+                    display: none;
+                }
                 header .external-links a {
+                    min-width: 0;
+                    white-space: nowrap;
+                    overflow: hidden;
                     justify-content: center;
                     height: 100%;
                     min-height: 32px;
@@ -1711,7 +1717,7 @@
                         <div class="external-links">
                             <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" title="Browse the full SNAP_DIR for this snapshot" target="_blank">📁 {% if STATIC_EXPORT %}Snapshot manifest{% else %}See all files...{% endif %}</a>
                             <span class="external-links-separator">|</span>
-                            <a href="https://web.archive.org/web/{{url}}" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer">🏛️ Archive.org</a>
+                            <a href="https://web.archive.org/web/{{url}}" aria-label="Search Archive.org" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer"><span aria-hidden="true">🏛️</span><span class="archive-org-label">&nbsp;Archive.org</span></a>
                             <!--<a href="https://archive.md/{{url}}" title="Search for a copy of the URL saved in Archive.today" target="_blank" rel="noreferrer">Archive.today</a>  &nbsp;|&nbsp; -->
                             <!--<a href="https://ghostarchive.org/search?term={{url}}" title="Search for a copy of the URL saved in GhostArchive.org" target="_blank" rel="noreferrer">More...</a>-->
                         </div>
