@@ -329,22 +329,24 @@ with socket.socket() as sock:
     print(sock.getsockname()[1])
 PY
 )"
-                SETUP_BASE_URL="http://archivebox.localhost:$SETUP_PORT"
-                SETUP_HOST_RESOLVER_RULES="MAP archivebox.localhost 127.0.0.1"
+                # Auto mode isolates privileged routes on admin.BASE_URL. Waiting
+                # for the real browser probes prevents publishing transient errors.
+                SETUP_BASE_URL="http://admin.archivebox.localhost:$SETUP_PORT"
+                SETUP_HOST_RESOLVER_RULES="MAP *.archivebox.localhost 127.0.0.1, MAP archivebox.localhost 127.0.0.1"
                 mkdir -p "$SETUP_DATA_DIR" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile"
                 (
                     cd "$SETUP_DATA_DIR"
-                    BASE_URL= uv run --no-cache --project "$REPO_DIR" archivebox init --quick
+                    BASE_URL='' SERVER_SECURITY_MODE=auto uv run --no-cache --project "$REPO_DIR" archivebox init --quick
                     UI_SCREENSHOT_USERNAME="$USERNAME" UI_SCREENSHOT_PASSWORD="$PASSWORD" \
-                        BASE_URL= uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+                        BASE_URL='' SERVER_SECURITY_MODE=auto uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
                         'import os; from django.contrib.auth import get_user_model; get_user_model().objects.create_superuser(username=os.environ["UI_SCREENSHOT_USERNAME"], password=os.environ["UI_SCREENSHOT_PASSWORD"])'
                 )
                 (
                     cd "$SETUP_DATA_DIR"
-                    BASE_URL= \
+                    BASE_URL='' SERVER_SECURITY_MODE=auto \
                         exec uv run --no-cache --project "$REPO_DIR" archivebox server "127.0.0.1:$SETUP_PORT"
                 ) >"$SETUP_DATA_DIR/ui-screenshot-setup-wizard-server.log" 2>&1 &
                 SETUP_SERVER_PID=$!
@@ -355,7 +357,7 @@ PY
                         tail -100 "$SETUP_DATA_DIR/ui-screenshot-setup-wizard-server.log" >&2
                         exit 1
                     fi
-                    if curl --fail --silent --show-error --resolve "archivebox.localhost:$SETUP_PORT:127.0.0.1" "$SETUP_BASE_URL/admin/login/" >/dev/null; then
+                    if curl --fail --silent --show-error --resolve "admin.archivebox.localhost:$SETUP_PORT:127.0.0.1" "$SETUP_BASE_URL/admin/login/" >/dev/null; then
                         setup_ready=1
                         break
                     fi
@@ -379,7 +381,7 @@ PY
                     SCREENSHOT_WIDTH=1600 \
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$setup_variants" \
-                    SCREENSHOT_WAIT_SELECTOR="#archivebox-setup-wizard" \
+                    SCREENSHOT_WAIT_SELECTOR="#archivebox-setup-wizard #archivebox-setup-validation.is-success" \
                     SCREENSHOT_HOST_RESOLVER_RULES="$SETUP_HOST_RESOLVER_RULES" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$SETUP_BASE_URL/admin/login/?next=/admin/" "$screenshot_path" >"$capture_dir/report.json"
                 url="$SETUP_BASE_URL/admin/"
