@@ -622,6 +622,64 @@ class TestUrlRouting:
             """,
         )
 
+    def test_private_snapshot_replay_cookie_authorizes_only_its_progress(self) -> None:
+        self._run(
+            """
+            from urllib.parse import urlsplit
+
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            original_config = snapshot.config
+            Snapshot.objects.filter(pk=snapshot.pk).update(config={**snapshot.config, "PERMISSIONS": "private"})
+            other_snapshot = Snapshot.objects.create(
+                url="https://other-private-progress.example/",
+                crawl=snapshot.crawl,
+                config={"PERMISSIONS": "private"},
+            )
+            snapshot_host = get_snapshot_host(str(snapshot.id))
+            admin_host = get_admin_host()
+
+            try:
+                admin_client = Client()
+                assert admin_client.login(username="testadmin", password="testpassword")
+                grant_response = admin_client.get(
+                    f"/admin/core/snapshot/replay-auth/?snapshot={snapshot.id}&next=/index.html",
+                    HTTP_HOST=admin_host,
+                )
+                assert grant_response.status_code in (301, 302)
+                grant_url = urlsplit(grant_response["Location"])
+                assert grant_url.netloc == snapshot_host
+
+                replay_client = Client()
+                auth_response = replay_client.get(
+                    f"{grant_url.path}?{grant_url.query}",
+                    HTTP_HOST=snapshot_host,
+                )
+                assert auth_response.status_code in (301, 302)
+
+                snapshot_id = str(snapshot.id).replace("-", "")
+                progress_response = replay_client.get(
+                    f"/progress.json?snapshot_id={snapshot_id}",
+                    HTTP_HOST=snapshot_host,
+                )
+                assert progress_response.status_code == 200, response_body(progress_response)[:500]
+                assert progress_response.json()["scope"]["snapshot_id"] == snapshot_id
+
+                other_snapshot_id = str(other_snapshot.id).replace("-", "")
+                rejected = replay_client.get(
+                    f"/progress.json?snapshot_id={other_snapshot_id}",
+                    HTTP_HOST=snapshot_host,
+                )
+                assert rejected.status_code == 403
+            finally:
+                other_snapshot.delete()
+                Snapshot.objects.filter(pk=snapshot.pk).update(config=original_config)
+
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
     def test_admin_login_next_allows_archivebox_hosts_only(self) -> None:
         self._run(
             """

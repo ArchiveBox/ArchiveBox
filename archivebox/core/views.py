@@ -911,7 +911,7 @@ def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str =
         # /progress.json on through to the same view used everywhere else. The caller
         # passes snapshot_id explicitly in the query string — we don't read it from the
         # subdomain (this keeps the endpoint identical across all security modes).
-        return live_progress_view(request)
+        return live_progress_view(request, authorized_snapshot=snapshot)
 
     is_directory_request = bool(path) and path.endswith("/")
     show_indexes = bool(request.GET.get("files")) or (request_config.USES_SUBDOMAIN_ROUTING and is_directory_request)

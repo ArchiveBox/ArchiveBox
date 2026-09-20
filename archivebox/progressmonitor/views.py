@@ -43,7 +43,7 @@ def _live_progress_plugin_names() -> tuple[frozenset[str], frozenset[str]]:
     return download_plugin_names, indexing_plugin_names
 
 
-def live_progress_view(request):
+def live_progress_view(request, *, authorized_snapshot=None):
     """Simple JSON endpoint for live progress status - used by admin progress monitor."""
     try:
         from archivebox.core.models import ArchiveResult, Snapshot
@@ -63,7 +63,10 @@ def live_progress_view(request):
             except (TypeError, ValueError):
                 return JsonResponse({"error": "Invalid snapshot_id"}, status=400)
             scoped_snapshot = Snapshot.objects.filter(id=snapshot_id_filter).select_related("crawl").first()
-            if scoped_snapshot is None or not can_view_snapshot(request, scoped_snapshot):
+            authorized_snapshot_id = str(getattr(authorized_snapshot, "id", "")).replace("-", "")
+            if scoped_snapshot is None or (
+                authorized_snapshot_id != str(scoped_snapshot.id).replace("-", "") and not can_view_snapshot(request, scoped_snapshot)
+            ):
                 return JsonResponse({"error": "Permission denied"}, status=403)
         elif crawl_id_filter:
             # Crawl-only scope still requires staff: there's no per-crawl ACL helper,
