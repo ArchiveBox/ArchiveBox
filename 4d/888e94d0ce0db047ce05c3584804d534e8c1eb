@@ -1,0 +1,36 @@
+archivebox/cli/archivebox_init.py
+  h_923c208e183a7b 137
+archivebox/cli/archivebox_update.py
+  h_923c208e183a7b 10,59,61-63,65,69,80,102-104,108,168-169,173,175-179,255-258,263-276,308-309,322-323,331,339-357,376,383,399-402,450,516,520,527,629-635,652,654-656,660,666-672,704,727,746-749,847-852
+archivebox/cli/rescan.py
+  h_923c208e183a7b 1-222
+archivebox/core/models.py
+  h_923c208e183a7b 1549,1621-1622,1627-1634,1639,1649-1650,1851-1857,1935,1951,1965-1968,2025,2852,2866-2868,4028-4029,4243,4283
+archivebox/crawls/models.py
+  h_923c208e183a7b 470-471
+archivebox/tests/test_cli_update.py
+  h_923c208e183a7b 8-11,13-14,22-146,156-158,184-185
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  h_923c208e183a7b 38,40
+archivebox/tests/test_migrations_04_to_09.py
+  h_923c208e183a7b 88-90,92
+docs/Merging-Collections.md
+  h_923c208e183a7b 3-32
+docs/Troubleshooting.md
+  h_923c208e183a7b 253
+docs/Upgrading.md
+  h_923c208e183a7b 51
+docs/codeblocks.toml
+  h_923c208e183a7b 150-151,314-315,395-396
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4d888e94d0ce0db047ce05c3584804d534e8c1eb",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
