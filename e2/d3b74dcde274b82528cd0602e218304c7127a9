@@ -1,0 +1,16 @@
+archivebox/core/recovery_util.py
+  h_923c208e183a7b 143-149
+archivebox/tests/test_cli_run.py
+  h_923c208e183a7b 2099,2111-2158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e2d3b74dcde274b82528cd0602e218304c7127a9",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
