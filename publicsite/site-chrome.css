@@ -1,4 +1,7 @@
 /* Shared ArchiveBox site chrome. Source: ArchiveBox/monorepo/site-chrome. */
+/* Native anchor navigation leaves room for the heading and its surrounding content. */
+html { scroll-behavior: smooth; scroll-padding-top: clamp(96px, 25vh, 240px); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 .abx-header, .abx-footer { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.5; letter-spacing: normal; text-align: left; }
 .abx-header *, .abx-footer * { box-sizing: border-box; }
 .abx-header { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; gap: 24px; width: 100%; max-width: none; margin: 0; padding: 15px max(24px, calc((100% - 1280px) / 2)); border: 0; border-bottom: 1px solid #e9e2e3; background: #fcfaf7f5; color: #28252a; backdrop-filter: blur(16px); }

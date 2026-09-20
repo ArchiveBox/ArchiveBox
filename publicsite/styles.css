@@ -807,10 +807,6 @@ h3 {
   margin-top: 8px;
 }
 
-.install-section {
-  scroll-margin-top: 100px;
-}
-
 .install-window {
   overflow: hidden;
   border: 1px solid #51483c;
@@ -924,7 +920,8 @@ h3 {
   gap: 32px;
   padding: 32px;
   align-items: start;
-  scroll-margin-top: 100px;
+  /* Keep the Quickstart heading and tab bar visible above a linked panel. */
+  scroll-margin-top: clamp(180px, 20vh, 240px);
 }
 
 .install-panel[hidden] {
