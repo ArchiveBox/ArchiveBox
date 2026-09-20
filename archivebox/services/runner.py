@@ -1643,11 +1643,19 @@ def run_install(*, plugin_names: list[str] | None = None) -> None:
     asyncio.run(_run_install(plugin_names=plugin_names))
 
 
-def _first_due_id(queryset):
-    return queryset.order_by("retry_at", "created_at").values_list("id", flat=True).first()
+def _first_due_id(queryset, *, newest_first: bool = False):
+    ordering = ("-retry_at", "-created_at") if newest_first else ("retry_at", "created_at")
+    return queryset.order_by(*ordering).values_list("id", flat=True).first()
 
 
-def _run_due_crawl_status(status: str, *, crawl_id: str | None, lock_seconds: int, interactive_interrupts: bool) -> bool:
+def _run_due_crawl_status(
+    status: str,
+    *,
+    crawl_id: str | None,
+    lock_seconds: int,
+    interactive_interrupts: bool,
+    newest_first: bool = False,
+) -> bool:
     from archivebox.crawls.models import Crawl
 
     due_crawls = Crawl.objects.filter(
@@ -1656,7 +1664,7 @@ def _run_due_crawl_status(status: str, *, crawl_id: str | None, lock_seconds: in
     )
     if crawl_id:
         due_crawls = due_crawls.filter(id=crawl_id)
-    due_crawl_id = _first_due_id(due_crawls)
+    due_crawl_id = _first_due_id(due_crawls, newest_first=newest_first)
     if due_crawl_id is None:
         return False
     due_crawl = Crawl.objects.filter(id=due_crawl_id).first()
@@ -1670,8 +1678,15 @@ def _run_due_crawl_status(status: str, *, crawl_id: str | None, lock_seconds: in
     return True
 
 
-def _run_due_snapshot_query(queryset, *, lock_seconds: int, interactive_interrupts: bool, runtime_config) -> bool:
-    due_snapshot_id = _first_due_id(queryset)
+def _run_due_snapshot_query(
+    queryset,
+    *,
+    lock_seconds: int,
+    interactive_interrupts: bool,
+    runtime_config,
+    newest_first: bool = False,
+) -> bool:
+    due_snapshot_id = _first_due_id(queryset, newest_first=newest_first)
     return _run_due_snapshot_id(
         due_snapshot_id,
         lock_seconds=lock_seconds,
@@ -1786,6 +1801,7 @@ def run_pending_crawls(
                 lock_seconds=60,
                 interactive_interrupts=interactive_interrupts,
                 runtime_config=runtime_config,
+                newest_first=True,
             ):
                 continue
 
@@ -1794,6 +1810,7 @@ def run_pending_crawls(
                 crawl_id=crawl_id,
                 lock_seconds=crawl_claim_lock_seconds,
                 interactive_interrupts=interactive_interrupts,
+                newest_first=True,
             ):
                 continue
 
