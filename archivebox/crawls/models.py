@@ -467,6 +467,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             "tags_str": self.tags_str,
             "label": self.label,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "modified_at": self.modified_at.isoformat() if self.modified_at else None,
+            "created_by": self.created_by.username,
         }
 
     @staticmethod

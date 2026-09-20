@@ -35,9 +35,9 @@ def test_update_imports_orphaned_snapshots(tmp_path, initialized_archive):
         ),
     )
 
-    # Run the migration phase only; default update also runs queued crawl work.
+    # Filesystem-only discovery is explicit; default update stays lazy.
     update_process = run_archivebox_cmd(
-        ["update", "--migrate-only"],
+        ["update", "--rescan", "--migrate-only"],
         env=env,
         timeout=60,
     )

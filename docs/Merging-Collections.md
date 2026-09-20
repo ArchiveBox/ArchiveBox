@@ -1,56 +1,35 @@
 # Merging Collections
 
-Current ArchiveBox collections cannot be merged safely by copying their `archive/users/...` trees: the database owns the Crawl, Snapshot, user, permission, and state-machine records, and `archivebox init` intentionally does not import orphaned current-layout directories. For current collections, use a database-aware migration or export the source URLs and re-archive them into the destination collection. Copying current Snapshot directories alone is a backup operation, not a merge.
+Copy snapshot directories into the destination collection, then explicitly rescan them. Ordinary `archivebox init` and `archivebox update` intentionally avoid discovering current-layout orphan directories: that would make every startup/update scan the entire collection.
 
-The workflow below is retained for **legacy collections whose real Snapshot directories are `archive/<timestamp>/`**. `archivebox update` can import those legacy directories into a fresh index.
+1. Back up both collections and finish active captures before copying. Upgrade legacy collections using the normal [[Upgrading]] instructions.
+2. Initialize the destination collection with `archivebox init`.
+3. Copy or drag the contents of each source `archive/` into the destination `archive/`, preserving the `users/<username>/snapshots/<date>/<domain>/<uuid>/` hierarchy and every snapshot's `index.jsonl`. Inspect collisions; do not overwrite different files at the same path. Do not replace the destination SQLite database.
+4. From the destination data directory, run:
 
-> [!WARNING]
-> Back up every collection before merging. Confirm that the source entries are real legacy timestamp directories containing data, and inspect path conflicts instead of allowing one collection to overwrite another.
+```bash
+archivebox init
+archivebox update --rescan --migrate-only --index-only
+archivebox status
+```
 
-1. Upgrade both old collections to the most recent ArchiveBox version (following instructions above)
-  ```bash
-  cd /path/to/archivebox1/data
-  archivebox init
-  archivebox status
+With Docker Compose:
 
-  cd /path/to/archivebox2/data
-  archivebox init
-  archivebox status
+```bash
+docker compose run --rm archivebox init
+docker compose run --rm archivebox update --rescan --migrate-only --index-only
+docker compose run --rm archivebox status
+```
 
-  # ... repeat the same for each collection if merging more than two
-  ```
+`--rescan` deliberately performs an O(N) scan of snapshot directories. It imports sealed orphan snapshots, restores missing archive-result records and tags, and repairs missing metadata files and crawl links for known snapshots. It does not recover missing payload bytes or guess the identity of malformed metadata. Unresolved directories are reported, retained in place, and cause a nonzero exit status. Real legacy `archive/<timestamp>/` directories still use the existing filesystem migration flow.
 
-2. Create a new empty archivebox collection in a new folder somewhere, this will hold the new merged collection
-  ```bash
-  mkdir -p /path/to/archivebox_new/data
-  cd /path/to/archivebox_new/data
-  archivebox init
-  ```
+The scan preserves Snapshot, Crawl, and ArchiveResult IDs and the timestamps present in their metadata. ID/URL/timestamp conflicts are reported rather than assigned replacement IDs. Existing destination records take precedence over imported metadata. Missing owners are created as inactive accounts, without importing passwords or granting administrator privileges. Older metadata without permissions imports privately; exports without Crawl records or creation timestamps cannot reproduce those missing fields exactly. Machine-local processes, credentials, schedules, and full user accounts are not synchronized.
 
-3. Copy the real legacy `archive/<timestamp>/` directories from each old collection into the new collection's `archive/` folder.
-  ```bash
-  rsync --archive --info=progress2 /path/to/archivebox1/data/archive/ /path/to/archivebox_new/data/archive/
-  rsync --archive --info=progress2 /path/to/archivebox2/data/archive/ /path/to/archivebox_new/data/archive/
-  # ...repeat the same for each collection if merging more than two
-  ```
+Stop with Ctrl+C and rerun the same command to resume. There is no checkpoint file or new database state: each successful record is durable, and the scan compares existing IDs/results/tags/links before doing repair work. It discovers orphans before repairing known snapshots, with newest date/UUID names first in each group. Completed imports move to the known group on restart. Add `--reverse` to process oldest first instead. Known snapshot asset checks reuse the existing output manifest scanner. A restart still enumerates directories and reads metadata to find incomplete work; timestamps alone cannot prove completeness because copied files may retain old dates. Filters, `--resume`, and `--continuous` cannot be combined with `--rescan`.
 
-4. Run `archivebox update` in the new collection to import the legacy directories
-  ```bash
-  cd /path/to/archivebox_new/data
-  archivebox update
-  ```
+`--rescan` discovers filesystem-only snapshots and implies filesystem maintenance without new captures. `--migrate-only` eagerly finishes pending migrations for known database snapshots; ordinary updates leave them lazy. `--index-only` checks known snapshots, rebuilds output metadata, and backfills missing search indexes from archived content. All three explicit modes default to newest first; `--reverse` flips the order. `archivebox update --rescan` is enough when search backfill is unnecessary.
 
-5. The new collection should now contain all the entries from the old collections combined
-  ```bash
-  cd /path/to/archivebox_new/data
-  archivebox status
-
-  # optionally force an update of the snapshot index files (normally done lazily)
-  archivebox update --index-only
-  ```
-  For more information about why Snapshot index files are usually updated lazily, see: https://github.com/ArchiveBox/ArchiveBox/issues/962
-
-After you've confirmed your Snapshots are present in the new index, the old `index.sqlite3`, `index.json`, `index.html`, etc. main index files from the old archives can be safely deleted. You can optionally merge the contents of `ArchiveBox.conf` (your ArchiveBox config options), `sources/` (copies of all URLs imported in their original format), `logs/` (ArchiveBox error logs and debug info), and other root-level items yourself if that data is important to you.
+For shared remote mounts, first make sure newly written objects have uploaded and the destination's directory cache can see them. Sharing `archive/` does not synchronize independent databases automatically. Confirm imported entries and representative archived files before removing any source or backup copies.
 
 ---
 

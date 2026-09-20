@@ -7,6 +7,7 @@ import os
 import asyncio
 import shlex
 import time
+from itertools import islice
 
 from typing import TYPE_CHECKING, Any
 from collections.abc import Iterable
@@ -52,17 +53,20 @@ def _get_search_indexing_plugins() -> list[str]:
 def _build_filtered_snapshots_queryset(
     **kwargs,
 ):
-    from archivebox.core.models import Snapshot
     from archivebox.cli.archivebox_snapshot import build_snapshot_queryset
 
     limit = kwargs.pop("limit", None)
+    reverse = kwargs.pop("reverse", False)
     snapshots = build_snapshot_queryset(**kwargs)
+    snapshots = snapshots.order_by(kwargs.get("sort") or "-created_at", "-id")
+    if reverse:
+        snapshots = snapshots.reverse()
     if kwargs.get("resume"):
-        snapshots = snapshots.filter(timestamp__lte=kwargs["resume"])
+        snapshots = snapshots.filter(**{"timestamp__gte" if reverse else "timestamp__lte": kwargs["resume"]})
     snapshots = snapshots.select_related("crawl")
     if limit is not None and limit > 0:
         snapshot_ids = list(snapshots.values_list("id", flat=True)[:limit])
-        snapshots = Snapshot.objects.filter(id__in=snapshot_ids).select_related("crawl")
+        snapshots = snapshots.filter(id__in=snapshot_ids)
 
     return snapshots
 
@@ -73,6 +77,7 @@ def reindex_snapshots(
     search_plugins: list[str],
     batch_size: int,
     collect_ids: bool = False,
+    reverse: bool = False,
     wait_for_turn=None,
 ) -> dict[str, Any]:
     from archivebox.cli.archivebox_extract import run_plugins
@@ -94,16 +99,15 @@ def reindex_snapshots(
             plugin=plugin_name,
             status__in=completed_statuses,
         )
-        candidates = snapshots.annotate(has_completed_index=Exists(completed_result)).filter(has_completed_index=False).order_by("id")
-        after_id = None
+        candidates = snapshots.annotate(has_completed_index=Exists(completed_result)).filter(has_completed_index=False)
+        candidates = candidates.order_by("created_at", "id") if reverse else candidates.order_by("-created_at", "-id")
+        remaining = candidates.select_related(None).only("id", "timestamp", "created_at").paged_iterator(chunk_size=batch_size)
         while True:
             if wait_for_turn:
                 wait_for_turn()
-            page = candidates.filter(id__gt=after_id) if after_id is not None else candidates
-            batch = list(page.select_related(None).only("id", "timestamp")[:batch_size])
+            batch = list(islice(remaining, batch_size))
             if not batch:
                 break
-            after_id = batch[-1].id
             records = [{"type": "Snapshot", "id": str(snapshot.id)} for snapshot in batch]
             stats["processed"] += len(batch)
             stats["requested"] += len(batch)
@@ -161,18 +165,18 @@ def update(
     continuous: bool = False,
     index_only: bool = False,
     migrate_only: bool = False,
+    rescan: bool = False,
+    reverse: bool = False,
     stop_daemon_stack: bool = True,
 ) -> None:
     """
-    Update snapshots: migrate old dirs, reconcile DB, and re-queue for archiving.
+    Update the database without forcing a filesystem scan by default.
 
-    Three-phase operation (without filters):
-    - Phase 1: Drain legacy archive/ directories into the current layout
-    - Phase 2: Select only stale fs_version rows through the indexed column
-    - Phase 3: Run queued snapshot-level filesystem maintenance until idle
-
-    With filters: Only phase 2 (DB query), no filesystem operations.
-    Without filters: All phases (full update).
+    --migrate-only: eagerly finish pending filesystem migrations for known rows.
+    --index-only: reconcile known snapshot assets/metadata and backfill search.
+    --rescan: discover filesystem orphans first, then repair known snapshots.
+    Explicit scans default to newest first; --reverse selects oldest first.
+    Filters select existing database snapshots for targeted updates.
     """
 
     from rich import print
@@ -248,12 +252,28 @@ def update(
     exit_code = 0
 
     try:
+        if rescan and (is_filtered_update or resume or continuous):
+            raise click.UsageError("--rescan cannot be combined with filters, --resume, or --continuous; rerun it to resume automatically.")
+        if rescan:
+            migrate_only = True  # Discovery must not schedule new captures.
         wait_for_turn()
 
         with foreground_shutdown_signals(), foreground_parent_watchdog():
             while True:
-                do_migrate = migrate_only or not index_only
-                do_index = index_only or not migrate_only
+                if rescan:
+                    from archivebox.cli.rescan import rescan_snapshots
+
+                    rescan_snapshots(
+                        wait_for_turn=wait_for_turn,
+                        reverse=reverse,
+                        scan_legacy=lambda: drain_old_archive_dirs(batch_size=batch_size, reverse=reverse),
+                    )
+                do_migrate = migrate_only or is_filtered_update and not index_only
+                do_index = index_only
+                if not do_migrate and not do_index:
+                    print(
+                        "[*] Collection ready. Filesystem migrations remain lazy; use --migrate-only, --index-only, or --rescan for explicit scans.",
+                    )
 
                 if do_migrate:
                     if (
@@ -285,7 +305,8 @@ def update(
                             after=after,
                             resume=resume,
                             batch_size=batch_size,
-                            queue_for_archiving=True,
+                            queue_for_archiving=not migrate_only,
+                            reverse=reverse,
                             wait_for_turn=wait_for_turn,
                         )
                         print_stats(stats)
@@ -293,17 +314,13 @@ def update(
                     else:
                         stats_combined = {"phase1": {}, "phase2": {}}
 
-                        print("[*] Phase 1: Draining old archive/ directories (0.8.x → 0.9.x migration)...")
-                        stats_combined["phase1"] = drain_old_archive_dirs(
-                            resume_from=resume,
-                            batch_size=batch_size,
-                        )
-
                         print("[*] Phase 2: Selecting database snapshots with stale filesystem versions...")
                         stats_combined["phase2"] = process_all_db_snapshots(
                             batch_size=batch_size,
                             resume=resume,
                             wait_for_turn=wait_for_turn,
+                            reverse=reverse,
+                            migrate=True,
                         )
                         print_combined_stats(stats_combined)
                     # The due selectors are indexed and cheap when empty, so
@@ -311,7 +328,7 @@ def update(
                     # whole-table counts merely to decide whether to call it.
                     print("[*] Phase 3: Running filesystem maintenance until idle...")
                     if is_filtered_update:
-                        for snapshot_id in sorted(touched_snapshot_ids):
+                        for snapshot_id in sorted(touched_snapshot_ids, reverse=not reverse):
                             run_scoped_runner("--snapshot-id", snapshot_id)
                     elif migrate_only:
                         run_scoped_runner("--maintenance-only")
@@ -319,6 +336,25 @@ def update(
                         run_scoped_runner()
 
                 if do_index:
+                    from archivebox.cli.rescan import reconcile_known_snapshots
+
+                    snapshots = _build_filtered_snapshots_queryset(
+                        filter_patterns=filter_patterns,
+                        filter_type=filter_type,
+                        status=status,
+                        url__icontains=url__icontains,
+                        url__istartswith=url__istartswith,
+                        tag=tag,
+                        crawl_id=crawl_id,
+                        limit=limit,
+                        sort=sort,
+                        search=search,
+                        before=before,
+                        after=after,
+                        resume=resume,
+                        reverse=reverse,
+                    )
+                    reconcile_known_snapshots(snapshots, wait_for_turn=wait_for_turn)
                     search_plugins = _get_search_indexing_plugins()
                     if not search_plugins:
                         print("[*] No search indexing plugins are available, nothing to backfill.")
@@ -337,12 +373,14 @@ def update(
                             before=before,
                             after=after,
                             resume=resume,
+                            reverse=reverse,
                         )
                         stats = reindex_snapshots(
                             snapshots,
                             search_plugins=search_plugins,
                             batch_size=batch_size,
                             collect_ids=is_filtered_update,
+                            reverse=reverse,
                             wait_for_turn=wait_for_turn,
                         )
                         print_index_stats(stats)
@@ -358,6 +396,10 @@ def update(
         exit_code = 130
         exact_resume = err.__dict__.get("archivebox_resume")
         resume_cmd = ["archivebox", "update"]
+        if rescan:
+            resume_cmd.append("--rescan")
+        if reverse:
+            resume_cmd.append("--reverse")
         if migrate_only:
             resume_cmd.append("--migrate-only")
         if index_only:
@@ -405,7 +447,7 @@ def update(
             stop_own_supervisord_process()
 
 
-def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500) -> dict[str, int]:
+def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500, reverse: bool = False) -> dict[str, int]:
     """
     Drain old archive/ directories (0.8.x → 0.9.x migration).
 
@@ -471,18 +513,18 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
 
     # Scan real legacy directories only; these still contain data to migrate.
     entries = [
-        (e.stat().st_mtime, e.path)
+        (float(e.name), e.path)
         for e in all_entries
         if e.is_dir(follow_symlinks=False) and Snapshot.is_legacy_archive_dir(Path(e.path))  # Skip symlinks and 0.9.x roots
     ]
-    entries.sort(reverse=True)  # Newest first
+    entries.sort(reverse=not reverse)  # Newest first
     print(f"[*] Found {len(entries)} old directories to drain")
 
     for mtime, entry_path in entries:
         entry_path = Path(entry_path)
 
         # Resume from timestamp if specified
-        if resume_from and entry_path.name > resume_from:
+        if resume_from and (entry_path.name < resume_from if reverse else entry_path.name > resume_from):
             continue
 
         stats["processed"] += 1
@@ -584,7 +626,13 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
     return stats
 
 
-def process_all_db_snapshots(batch_size: int = 500, resume: str | None = None, wait_for_turn=None) -> dict[str, int]:
+def process_all_db_snapshots(
+    batch_size: int = 500,
+    resume: str | None = None,
+    wait_for_turn=None,
+    reverse: bool = False,
+    migrate: bool = False,
+) -> dict[str, int]:
     """Queue only snapshots whose indexed filesystem version is stale."""
     from archivebox.core.models import Snapshot
     from django.db.models import Q
@@ -601,21 +649,27 @@ def process_all_db_snapshots(batch_size: int = 500, resume: str | None = None, w
     }
     queryset = Snapshot.objects.filter(fs_version__in=Snapshot._FS_VERSION_MIGRATION_PATHS)
     if resume:
-        queryset = queryset.filter(timestamp__lte=resume)
+        queryset = queryset.filter(**{"timestamp__gte" if reverse else "timestamp__lte": resume})
     initial_now = timezone.now()
-    rows_to_wake = queryset.filter(Q(retry_at__isnull=True) | Q(retry_at__gt=initial_now))
-    after_id = None
+    rows_to_wake = queryset if migrate else queryset.filter(Q(retry_at__isnull=True) | Q(retry_at__gt=initial_now))
+    ordered = rows_to_wake.order_by("created_at", "id") if reverse else rows_to_wake.order_by("-created_at", "-id")
+    remaining = ordered.select_related("crawl__created_by").paged_iterator(chunk_size=batch_size)
     while True:
         if wait_for_turn:
             wait_for_turn()
-        page = rows_to_wake.filter(id__gt=after_id) if after_id is not None else rows_to_wake
-        batch = list(page.only("id", "fs_version", "modified_at").order_by("id")[:batch_size])
+        batch = list(islice(remaining, batch_size))
         if not batch:
             break
-        after_id = batch[-1].id
         now = timezone.now()
         updated = 0
         for snapshot in batch:
+            if migrate:
+                from archivebox.services.runner import run_snapshot_maintenance
+
+                if wait_for_turn:
+                    wait_for_turn()
+                run_snapshot_maintenance(str(snapshot.id))
+                continue
             updated += int(
                 snapshot.safe_update(
                     {"retry_at": now, "modified_at": now},
@@ -647,6 +701,7 @@ def process_filtered_snapshots(
     resume: str | None,
     batch_size: int,
     queue_for_archiving: bool = True,
+    reverse: bool = False,
     wait_for_turn=None,
 ) -> dict[str, Any]:
     """Process snapshots matching filters (DB query only)."""
@@ -669,6 +724,7 @@ def process_filtered_snapshots(
         before=before,
         after=after,
         resume=resume,
+        reverse=reverse,
     )
 
     total = snapshots.count()
@@ -687,6 +743,10 @@ def process_filtered_snapshots(
             stats["snapshot_ids"].append(str(snapshot.id))
             update_values = {}
             updated = 0
+            if not queue_for_archiving and snapshot.fs_migration_needed:
+                from archivebox.services.runner import run_snapshot_maintenance
+
+                run_snapshot_maintenance(str(snapshot.id))
             if queue_for_archiving:
                 update_values.update(
                     {
@@ -784,6 +844,12 @@ def print_index_stats(stats: dict[str, Any]) -> None:
 @click.option("--continuous", is_flag=True, help="Run continuously as background worker")
 @click.option("--index-only", is_flag=True, help="Backfill available search indexes from existing archived content")
 @click.option("--migrate-only", is_flag=True, help="Only migrate filesystem and update database/index state")
+@click.option("--reverse", is_flag=True, help="Process oldest first instead of newest first for explicit scans")
+@click.option(
+    "--rescan",
+    is_flag=True,
+    help="Scan all snapshot directories for orphans and metadata repairs (slow, opt-in, safe to restart)",
+)
 @snapshot_filter_options(default_filter_type="exact")
 @docstring(update.__doc__)
 def main(**kwargs):

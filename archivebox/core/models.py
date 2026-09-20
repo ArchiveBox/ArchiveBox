@@ -1546,7 +1546,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return cls.objects.select_related("crawl__created_by").filter(url=url, timestamp=timestamp).first()
 
     @classmethod
-    def create_from_directory(cls, snapshot_dir: Path) -> Optional["Snapshot"]:
+    def create_from_directory(cls, snapshot_dir: Path, *, crawl=None, preserve_identity: bool = False) -> Optional["Snapshot"]:
         """
         Create new Snapshot from orphaned directory.
 
@@ -1618,26 +1618,25 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return None
 
         # Ensure uniqueness (reuses existing logic from create_or_update_from_dict)
-        timestamp = cls._ensure_unique_timestamp(url, timestamp)
+        if not preserve_identity:
+            timestamp = cls._ensure_unique_timestamp(url, timestamp)
 
         # Detect version
         fs_version = cls._detect_fs_version_from_index(data)
 
-        system_user_id = get_or_create_system_user_pk()
-        catchall_crawl, _ = Crawl.objects.get_or_create(
-            label="[migration] orphaned snapshots",
-            defaults={
-                "urls": f"# Orphaned snapshot: {url}",
-                "max_depth": 0,
-                "created_by_id": system_user_id,
-            },
-        )
-        if cls.objects.filter(crawl=catchall_crawl, url=url).exists():
+        catchall_crawl = crawl
+        if catchall_crawl is None:
+            system_user_id = get_or_create_system_user_pk()
+            catchall_crawl, _ = Crawl.objects.get_or_create(
+                label="[migration] orphaned snapshots",
+                defaults={"urls": f"# Orphaned snapshot: {url}", "max_depth": 0, "created_by_id": system_user_id},
+            )
+        if not preserve_identity and cls.objects.filter(crawl=catchall_crawl, url=url).exists():
             catchall_crawl = Crawl.objects.create(
                 label=f"[migration] orphaned snapshot {timestamp}",
                 urls=url,
                 max_depth=0,
-                created_by_id=system_user_id,
+                created_by_id=catchall_crawl.created_by_id,
             )
 
         snapshot_kwargs = {
@@ -1647,6 +1646,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "fs_version": fs_version,
             "crawl": catchall_crawl,
         }
+        if preserve_identity:
+            snapshot_kwargs.update({key: data[key] for key in ("id", "depth", "config", "notes") if key in data})
         try:
             bookmarked_at = parse_date(data.get("bookmarked_at") or timestamp)
         except (TypeError, ValueError, OSError):
@@ -1847,7 +1848,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                         result_data["plugin"] = result_data.get("plugin") or result_data.get("extractor") or plugin
                         self._create_archive_result_if_missing(result_data, existing, update_existing=update_existing)
 
-    def _create_archive_result_if_missing(self, result_data: dict, existing: dict, update_existing: bool = True):
+    def _create_archive_result_if_missing(
+        self,
+        result_data: dict,
+        existing: dict,
+        update_existing: bool = True,
+        preserve_identity: bool = False,
+    ):
         """Create ArchiveResult if not already in DB."""
         from dateutil import parser
         from django.db import transaction
@@ -1925,7 +1932,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         # Machine.current() can probe the host and sanitize config. Do that before
         # atomic() so the transaction below only covers the two related row writes.
-        machine = Machine.current() if cmd or pwd else None
+        machine = Machine.current() if (cmd or pwd) and not preserve_identity else None
         with transaction.atomic():
             if machine is not None:
                 process = Process.objects.create(
@@ -1941,6 +1948,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 )
 
             archiveresult = ArchiveResult.objects.create(
+                **({"id": result_data["id"]} if preserve_identity else {}),
                 snapshot=self,
                 plugin=plugin,
                 hook_name=hook_name,
@@ -1954,6 +1962,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 end_ts=end_ts,
                 process=process,
             )
+            if preserve_identity:
+                dates = {key: parse_date(result_data[key]) for key in ("created_at", "modified_at") if result_data.get(key)}
+                if dates:
+                    ArchiveResult.objects.filter(pk=archiveresult.pk).update(**dates)
         existing[(plugin, hook_name)] = archiveresult
 
     def write_index_json(self):
@@ -2010,7 +2022,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # without a corresponding DB row can be retained byte-for-byte.
         binaries_seen = set()
         processes_seen = set()
-        records = [self.to_json()]
+        records = [self.to_json(), self.crawl.to_json()]
         for ar in archive_results:
             process = ar.process_record
             if process and process.binary and process.binary_id not in binaries_seen:
@@ -2837,6 +2849,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         Includes all fields needed to fully reconstruct/identify this snapshot.
         """
         from archivebox.config import VERSION
+        from archivebox.config.common import redact_sensitive_config
 
         archive_size = self.archive_size
 
@@ -2850,6 +2863,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "tags": self.tags_str(),
             "bookmarked_at": self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "modified_at": self.modified_at.isoformat() if self.modified_at else None,
+            "config": redact_sensitive_config(self.config),
+            "notes": self.notes,
             "timestamp": self.timestamp,
             "depth": self.depth,
             "status": self.status,
@@ -4009,6 +4025,8 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             "schema_version": VERSION,
             "id": str(self.id),
             "snapshot_id": str(self.snapshot_id),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "modified_at": self.modified_at.isoformat() if self.modified_at else None,
             "plugin": self.plugin,
             "hook_name": self.hook_name,
             "status": self.status,
@@ -4222,7 +4240,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def output_file_paths(self) -> list[str]:
         return list(self.output_file_map().keys())
 
-    def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True) -> bool:
+    def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True, full_scan: bool = False) -> bool:
         from abx_dl.output_files import OutputManifest, output_file_from_path
 
         if self.plugin == "title":
@@ -4262,7 +4280,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 add_file(snapshot_dir / raw_output, raw_output, root_relative=True)
 
         plugin_dir = snapshot_dir / self.plugin
-        if not output_files and plugin_dir.is_dir():
+        if (full_scan or not output_files) and plugin_dir.is_dir():
             output_files = OutputManifest.scan(plugin_dir, containment_root=snapshot_dir).as_mapping()
 
         if not output_files:

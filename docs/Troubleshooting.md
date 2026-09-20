@@ -250,7 +250,7 @@ sqlite3.DatabaseError: database disk image is malformed
 ```
 
 Generally all index issues should be fixable by running `archivebox init`.  
-You can see the status of Snapshots and find any invalid/orphan/missing snapshots with `archivebox status`.
+Use `archivebox status` to inspect collection health. To deliberately discover copied orphan snapshots and repair metadata/links, run `archivebox update --rescan --migrate-only`. This scans all snapshot directories and may take a long time on remote storage; rerun the same command after interruption. See [[Merging Collections]] for identity preservation and conflict handling.
 
 **Error output:**
 

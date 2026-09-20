@@ -134,7 +134,7 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     print("    > Skipping orphan snapshot import during init.")
     print()
     print("    [violet]Hint:[/violet] To import orphaned snapshot directories and reconcile filesystem state, run:")
-    print("        archivebox update")
+    print("        archivebox update --rescan --migrate-only")
 
     print("\n[green]----------------------------------------------------------------------[/green]")
 

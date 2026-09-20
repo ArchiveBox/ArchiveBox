@@ -85,8 +85,11 @@ def test_oldest_django_collection_migrates_end_to_end_without_data_loss(tmp_path
     result = run_archivebox_migration_cmd(tmp_path, ["init"], timeout=90)
     assert result.returncode == 0, result.stderr
     assert "received a naive datetime" not in result.stderr
+    result = run_archivebox_migration_cmd(tmp_path, ["update"], timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert all((tmp_path / "archive" / timestamp).exists() for timestamp in original_trees)
     for pass_number in (1, 2):
-        result = run_archivebox_migration_cmd(tmp_path, ["update"], timeout=180)
+        result = run_archivebox_migration_cmd(tmp_path, ["update", "--migrate-only"], timeout=180)
         assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
 
     for command in (["status"], ["list", "--json"]):
