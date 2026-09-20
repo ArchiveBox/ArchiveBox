@@ -1,0 +1,16 @@
+bin/templates/screenshots-header.html
+  h_923c208e183a7b 8
+publicsite/index.html
+  h_923c208e183a7b 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3177596156bcb0b97f91ea479b4789f4ad403ab8",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
