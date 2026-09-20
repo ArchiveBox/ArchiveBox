@@ -5,6 +5,11 @@ set -o errtrace
 set -o nounset
 set -o pipefail
 
+# Every real runtime owner (including foreground archiving) must inherit the
+# existing screenshot-only host-load setting when it restarts shared workers.
+# Disk, memory, routing and security warnings remain enabled.
+export UI_SCREENSHOT_HIDE_HIGH_LOAD_WARNING=1
+
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATA_DIR="${UI_SCREENSHOT_DATA_DIR:-$REPO_DIR/data}"
 OUTPUT_DIR="${UI_SCREENSHOT_OUTPUT_DIR:-$REPO_DIR/docs/screenshots}"
@@ -216,8 +221,7 @@ echo "[*] Starting ArchiveBox on port $PORT"
     cd "$DATA_DIR"
     # Use the real server command so the runner, worker, and log views describe
     # the same persistent runtime that an operator sees.
-    UI_SCREENSHOT_HIDE_HIGH_LOAD_WARNING=1 \
-        exec uv run --no-cache --project "$REPO_DIR" archivebox server "127.0.0.1:$PORT"
+    exec uv run --no-cache --project "$REPO_DIR" archivebox server "127.0.0.1:$PORT"
 ) >"$DATA_DIR/ui-screenshot-server.log" 2>&1 &
 SERVER_PID=$!
 
@@ -340,7 +344,7 @@ PY
                 )
                 (
                     cd "$SETUP_DATA_DIR"
-                    BASE_URL= UI_SCREENSHOT_HIDE_HIGH_LOAD_WARNING=1 \
+                    BASE_URL= \
                         exec uv run --no-cache --project "$REPO_DIR" archivebox server "127.0.0.1:$SETUP_PORT"
                 ) >"$SETUP_DATA_DIR/ui-screenshot-setup-wizard-server.log" 2>&1 &
                 SETUP_SERVER_PID=$!
