@@ -1,0 +1,14 @@
+archivebox/tests/test_urls.py
+  h_923c208e183a7b 727,735-736,987,993,1010-1013
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "baa2be4a9599f3f9b07873d948787bd7f0e5eca2",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
