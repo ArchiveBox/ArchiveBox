@@ -327,7 +327,7 @@ def test_system_warning_modes_share_one_banner(context, expected_text):
     assert expected_text in html
 
 
-def test_configured_base_url_mismatch_banner_shows_both_origins():
+def test_configured_base_url_mismatch_banner_links_to_configured_origin():
     config = get_config(include_machine=False).model_copy(update={"BASE_URL": "https://archivebox.example.test"})
     request = RequestFactory().get("/admin/", HTTP_HOST="archivebox.internal:5797")
     request.user = AnonymousUser()
@@ -342,10 +342,10 @@ def test_configured_base_url_mismatch_banner_shows_both_origins():
 
     html = render_to_string("core/system_warnings_banner.html", context)
     assert "base_url mismatch" in html
-    assert "Browser URL:" in html
-    assert "http://archivebox.internal:5797" in html
-    assert "Configured BASE_URL:" in html
-    assert "https://archivebox.example.test" in html
+    assert "Editing disabled from unrecognized URL. Visit" in html
+    assert 'href="https://archivebox.example.test"' in html
+    assert ">https://archivebox.example.test</a>" in html
+    assert "to make changes." in html
 
 
 def test_configured_base_url_accepts_its_isolated_admin_subdomain():
