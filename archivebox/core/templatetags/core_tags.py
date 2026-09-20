@@ -820,6 +820,7 @@ def plugin_card(context, result) -> str:
         return ""
 
     plugin = get_plugin_name(result.plugin)
+    has_card_template = bool(get_plugin_template(plugin, "card", fallback=False))
     template_str = get_plugin_template(plugin, "card")
 
     # Use embed_path() for the display path
@@ -848,9 +849,18 @@ def plugin_card(context, result) -> str:
     output_lower = (raw_output_path or "").lower()
     force_text_preview = output_lower.endswith(_TEXT_PREVIEW_EXTS)
 
+    # Static exports cannot execute live preview routes; keep their text snippets.
+    if context.get("STATIC_EXPORT") and force_text_preview:
+        template_str = None
+
     # Create a mini template and render it with context
     try:
-        if template_str and raw_output_path and str(raw_output_path).strip() not in (".", "/", "./") and not force_text_preview:
+        if (
+            template_str
+            and raw_output_path
+            and str(raw_output_path).strip() not in (".", "/", "./")
+            and (has_card_template or not force_text_preview)
+        ):
             tpl = template.Template(template_str)
             ctx = template.Context(
                 {

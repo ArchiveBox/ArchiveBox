@@ -3548,7 +3548,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
         self.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
 
-        hidden_card_plugins = {"archivedotorg", "favicon", "title"}
+        hidden_card_plugins = {"archivedotorg", "favicon"}
         outputs = [
             output
             for output in self.discover_outputs(include_filesystem_fallback=True, archive_results=archive_results)

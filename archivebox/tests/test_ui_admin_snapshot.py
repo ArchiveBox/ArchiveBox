@@ -875,7 +875,11 @@ class TestSnapshotProgressStats:
         html = str(core_tags.plugin_full({"request": None}, result))
 
         assert embed_path in html
-        assert "?preview=1" not in html
+        # The viewer fetches raw data; its View raw action may use preview=1.
+        output_url = re.search(r"const output\s*=\s*new URL\('([^']+)'", html)
+        assert output_url is not None
+        assert output_url.group(1).endswith(embed_path)
+        assert "?" not in output_url.group(1)
         assert html != "http://snap-ffa4215f6d64.archivebox.localhost:5797"
 
     def test_plugin_full_returns_empty_for_none_result(self):
@@ -1555,3 +1559,46 @@ class TestAdminSnapshotListView:
         assert machine.hostname.encode() in response.content
         assert reverse("admin:machine_process_change", args=[process.id]).encode() in response.content
         assert reverse("admin:machine_machine_change", args=[machine.id]).encode() in response.content
+
+
+def test_metadata_card_uses_dedicated_template_and_static_export_keeps_text(real_hash_projection):
+    from django.template import Context
+
+    from archivebox.core.templatetags.core_tags import plugin_card
+
+    _process, result = real_hash_projection
+    assert result.status == "succeeded"
+    live = plugin_card(Context({}), result)
+    assert '<iframe data-compact="1"' in live
+    assert "preview=1&amp;card=1" in live
+    assert "thumbnail-text-pre" not in live
+
+    exported = plugin_card(Context({"STATIC_EXPORT": True, "STATIC_EXPORT_DIR": result.snapshot.output_dir}), result)
+    assert "thumbnail-text-pre" in exported
+    assert "&amp;card=1" not in exported
+
+
+def test_metadata_raw_preview_bypasses_full_template(real_hash_projection, client):
+    from archivebox.core.routes_util import get_snapshot_host
+
+    _process, result = real_hash_projection
+    snapshot = result.snapshot
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    path = f"/{result.embed_path()}"
+    host = get_snapshot_host(str(snapshot.id))
+    raw_file = snapshot.output_dir / result.embed_path()
+
+    full = client.get(path + "?preview=1", HTTP_HOST=host)
+    assert full.status_code == 200
+    assert b'aria-label="Output actions"' in full.content
+
+    raw = client.get(path + "?preview=1&raw=1", HTTP_HOST=host)
+    assert raw.status_code == 200
+    assert b"archivebox-text-preview" in raw.content
+    assert b'aria-label="Output actions"' not in raw.content
+    assert json.loads(raw_file.read_text())["root_hash"].encode() in raw.content
+
+    download = client.get(path, HTTP_HOST=host)
+    assert download.status_code == 200
+    assert b"".join(download.streaming_content) == raw_file.read_bytes()

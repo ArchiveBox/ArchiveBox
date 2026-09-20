@@ -72,3 +72,16 @@ def test_path_routed_directory_index_keeps_file_browsing_context(tmp_path: Path)
     assert 'href="../?files=1"' in nested_html
     assert 'href="/snapshot/snapshot-id/"' in nested_html
     assert 'href="archivewebpage.wacz"' in nested_html
+
+
+def test_raw_html_preview_shows_escaped_source_in_text_viewer(tmp_path: Path):
+    source = Path(__file__).parent / "fixtures" / "consolelog_preview.html"
+    (tmp_path / source.name).write_bytes(source.read_bytes())
+    request = RequestFactory().get(f"/{source.name}?preview=1&raw=1")
+
+    response = serve_static_with_byterange_support(request, source.name, document_root=tmp_path)
+
+    assert response.status_code == 200
+    assert b"archivebox-text-preview" in response.content
+    assert b"&lt;script&gt;" in response.content
+    assert b"<script>" not in response.content

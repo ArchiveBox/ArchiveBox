@@ -725,7 +725,7 @@ def _plugin_full_preview_response(
     result: ArchiveResult | None,
 ) -> HttpResponse | None:
     """Render an explicit plugin full template as a trusted preview wrapper."""
-    if not request.GET.get("preview"):
+    if not request.GET.get("preview") or request.GET.get("raw") or request.GET.get("files"):
         return None
 
     path_parts = Path(rel_path).parts

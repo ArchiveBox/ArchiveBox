@@ -936,7 +936,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     preview_as_text_html = (
         bool(request.GET.get("preview"))
         and is_text_like
-        and not content_type.startswith("text/html")
+        and (bool(request.GET.get("raw")) or not content_type.startswith("text/html"))
         and not content_type.startswith("image/svg+xml")
     )
     preview_as_image_html = (
