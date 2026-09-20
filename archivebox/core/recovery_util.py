@@ -140,6 +140,13 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             orphaned_hook_processes = orphaned_hook_processes.filter(snapshot_pwd_filter)
         else:
             orphaned_hook_processes = orphaned_hook_processes.none()
+    else:
+        # Global startup recovery must stay database-only. Process.pwd points
+        # into archive payload storage, which may be a cold FUSE mount; scanning
+        # every historical unlinked hook here blocks the sole scheduler before
+        # it can claim newly queued work. Explicit crawl recovery below remains
+        # available for the work the caller asked to resume.
+        orphaned_hook_processes = orphaned_hook_processes.none()
     for process in orphaned_hook_processes.only(
         "id",
         "pwd",

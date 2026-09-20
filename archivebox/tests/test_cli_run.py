@@ -2096,7 +2096,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
                 stdout="\n".join(json.dumps(record) for record in records),
             )
 
-        recovered = recover_orchestrator_state()
+        recovered = recover_orchestrator_state(crawl_id=str(crawl.id))
 
         assert recovered["archiveresults_missing_for_orphaned_hook_processes"] == 1
         assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="title", hook_name=hook_name).count() == 1
@@ -2107,6 +2107,54 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert result.start_ts == newer_start
         assert result.end_ts == newer_start + timedelta(seconds=1)
         assert result.process.started_at == newer_start
+
+    def test_global_recovery_skips_historical_hook_output_scan(self, tmp_path):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.core.recovery_util import recover_orchestrator_state
+        from archivebox.crawls.models import Crawl
+        from archivebox.machine.models import Machine, NetworkInterface, Process
+
+        future = timezone.now() + timedelta(days=1)
+        crawl = Crawl.objects.create(
+            urls="https://example.com/old\nhttps://example.com/new",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=future,
+        )
+        snapshot = Snapshot.objects.create(
+            url="https://example.com/old",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.STARTED,
+            retry_at=future,
+        )
+        historical_plugin_dir = tmp_path / str(snapshot.id) / "title"
+        historical_plugin_dir.mkdir(parents=True)
+        (historical_plugin_dir / "title.txt").write_text("preserved historical output")
+        Process.objects.create(
+            machine=Machine.current(refresh=True),
+            iface=NetworkInterface.current(refresh=True),
+            process_type=Process.TypeChoices.HOOK,
+            worker_type="archiveresult",
+            pwd=str(historical_plugin_dir),
+            cmd=["on_Snapshot__01_title.py"],
+            status=Process.StatusChoices.EXITED,
+            retry_at=None,
+            exit_code=0,
+            started_at=timezone.now() - timedelta(days=30),
+            ended_at=timezone.now() - timedelta(days=30) + timedelta(seconds=1),
+        )
+
+        recovered = recover_orchestrator_state()
+
+        assert recovered["snapshots_started_without_running_results"] == 1
+        assert recovered["archiveresults_missing_for_orphaned_hook_processes"] == 0
+        assert Snapshot.objects.filter(crawl=crawl, retry_at__lte=timezone.now()).count() == 1
+        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
 
     def test_recovery_does_not_seal_queued_snapshot_waiting_for_future_retry_even_with_final_results(self):
         from datetime import timedelta
