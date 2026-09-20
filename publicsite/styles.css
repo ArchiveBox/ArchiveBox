@@ -589,17 +589,21 @@ h3 {
   object-position: center bottom;
 }
 
-.audience-card .phone-pair > a {
+.audience-card .phone-pair {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+}
+
+.audience-card .phone-pair > a {
+  width: calc(50% - 4px);
   padding: 8px;
   background: linear-gradient(135deg, #f4e8ed, #edf1e8);
 }
 
 .audience-card .phone-pair img {
-  width: calc(50% - 4px);
+  width: 100%;
   object-fit: contain;
   object-position: center;
 }
