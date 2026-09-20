@@ -36,7 +36,9 @@
   });
 
   function selectHash() {
-    const index = panels.findIndex(panel => `#${panel.id}` === location.hash);
+    let target;
+    try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch { return; }
+    const index = panels.indexOf(target?.closest('.install-panel'));
     if (index !== -1) selectTab(index);
   }
 

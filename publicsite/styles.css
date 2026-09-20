@@ -884,7 +884,8 @@ h3 {
   white-space: nowrap;
 }
 
-.install-tab img {
+.install-tab img,
+.install-tab > svg {
   flex-shrink: 0;
   width: 24px;
   height: 24px;
@@ -892,6 +893,11 @@ h3 {
   border-radius: 4px;
   background: #fff;
   object-fit: contain;
+}
+
+.install-tab > svg {
+  color: #24201a;
+  fill: currentColor;
 }
 
 .install-tab:hover {
@@ -978,6 +984,21 @@ h3 {
   border-radius: 16px;
   filter: drop-shadow(0 6px 9px #0003);
 }
+
+.install-platform-logo {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  padding: 14px;
+  border-radius: 16px;
+  background: #fff;
+  color: #24201a;
+  box-shadow: 0 6px 9px #0003;
+}
+
+.install-platform-logo svg { width: 100%; height: 100%; fill: currentColor; }
+.install-art--phone .install-art-shot { max-width: 230px; }
 
 .install-art-tile span {
   font-size: 0.74rem;
@@ -1236,6 +1257,36 @@ h3 {
   box-shadow: none;
   background: #3a352c;
 }
+
+.install-recommended {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 4px 8px;
+  border: 1px solid #6c5846;
+  border-radius: 20px;
+  color: #e9cfa8;
+  font-size: .7rem;
+  vertical-align: middle;
+}
+
+.install-alternative {
+  padding: 18px 0 0;
+  background: #14110d;
+}
+
+.install-alternative > summary {
+  padding: 12px 16px;
+  border: 1px solid #51483c;
+  border-radius: 8px;
+  color: #f0d4de;
+  background: #24201a;
+  cursor: pointer;
+}
+
+.install-alternative > summary:hover { background: #302a22; }
+.install-alternative > summary:focus-visible { outline: 2px solid #d59aae; outline-offset: 3px; }
+.install-alternative > summary span { margin-left: 8px; font-family: var(--font-mono); font-size: .8em; color: #b9b0a0; }
+.install-alternative > .command-card { margin-top: 20px; }
 
 .install-panel .step {
   grid-template-columns: 26px minmax(0, 1fr);
