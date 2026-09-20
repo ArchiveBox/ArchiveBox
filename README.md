@@ -129,7 +129,7 @@ curl -fsSL 'https://get.archivebox.io' | bash
 - [**Extracts a wide variety of content out-of-the-box**](https://github.com/ArchiveBox/ArchiveBox/issues/51): [media (yt-dlp), articles (readability), code (git), etc.](#output-formats)
 - [**Supports scheduled/realtime importing**](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) from [many types of sources](#input-formats)
 - [**Uses standard, durable, long-term formats**](#output-formats) like HTML, JSON, PDF, PNG, MP4, TXT, and WARC
-- [**Powerful CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/dev/apidocs/archivebox/archivebox.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://github.com/ArchiveBox/electron-archivebox)
+- [**Powerful CLI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#CLI-Usage), [**self-hosted web UI**](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#UI-Usage), [Python API](https://docs.archivebox.io/en/dev/apidocs/archivebox/archivebox.html) (BETA), [REST API](https://github.com/ArchiveBox/ArchiveBox/issues/496) (ALPHA), or [desktop app](https://electron.archivebox.io/)
 - [**Saves all pages to archive.org as well**](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#save_archive_dot_org) by default for redundancy (can be [disabled](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#stealth-mode) for local-only mode)
 - Advanced users: support for archiving [content requiring login/paywall/cookies](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#chrome_user_data_dir) (see wiki security caveats!)
 - Planned: support for running [JS during archiving](https://github.com/ArchiveBox/ArchiveBox/issues/51) to adblock, [autoscroll](https://github.com/ArchiveBox/ArchiveBox/issues/80), [modal-hide](https://github.com/ArchiveBox/ArchiveBox/issues/175), [thread-expand](https://github.com/ArchiveBox/ArchiveBox/issues/345)
@@ -368,8 +368,8 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <li>Download a binary release for your OS or build the native app from source<br/>
 <ul>
 <li>macOS: <a href="https://github.com/ArchiveBox/ArchiveBox/releases/download/v0.6.2/Electron-ArchiveBox-macOS-x64-0.6.2.app.zip" download><code>ArchiveBox.app.zip</code></a></li>
-<li>Linux: <code>ArchiveBox.deb</code> (alpha: <a href="https://github.com/ArchiveBox/electron-archivebox#quickstart">build manually</a>)</li>
-<li>Windows: <code>ArchiveBox.exe</code> (beta: <a href="https://github.com/ArchiveBox/electron-archivebox#quickstart">build manually</a>)</li>
+<li>Linux: <code>ArchiveBox.deb</code> (alpha: <a href="https://electron.archivebox.io/#get-started">build manually</a>)</li>
+<li>Windows: <code>ArchiveBox.exe</code> (beta: <a href="https://electron.archivebox.io/#get-started">build manually</a>)</li>
 </ul>
 </li>
 </ol>
@@ -581,7 +581,7 @@ docker compose run --rm archivebox config --set PERMISSIONS=public
 - 📱 [<code>ArchiveBox</code> iOS Mobile App](https://app.archivebox.io/)
 - 🖥️ [<code>ArchiveBox.app</code> macOS Desktop App](https://app.archivebox.io/)
 - 🧩 [ArchiveBox Browser Extension](https://extension.archivebox.io/)
-- 💻 [Linux/Windows Desktop App (Requires Docker Desktop)](https://github.com/ArchiveBox/electron-archivebox)
+- 💻 [Linux/Windows Desktop App (Requires Docker Desktop)](https://electron.archivebox.io/)
 
 <br/>
 </details>
