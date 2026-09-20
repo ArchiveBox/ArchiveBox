@@ -150,6 +150,8 @@ docker compose up         # add -d to run in the background
 
 Then open [`http://web.archivebox.localhost:5797`](http://web.archivebox.localhost:5797) for the public UI or [`http://admin.archivebox.localhost:5797`](http://admin.archivebox.localhost:5797) for the admin UI.
 
+Use port **5797** for new deployments. The Docker container also listens on the old port **8000** so existing port mappings remain compatible.
+
 <br/>
 
 ### Configuration
