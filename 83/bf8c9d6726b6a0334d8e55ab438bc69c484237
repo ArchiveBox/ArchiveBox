@@ -1,0 +1,14 @@
+archivebox/templates/core/system_warnings_banner.html
+  h_923c208e183a7b 40-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "83bf8c9d6726b6a0334d8e55ab438bc69c484237",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
