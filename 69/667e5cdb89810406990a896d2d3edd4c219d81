@@ -1,0 +1,24 @@
+archivebox/cli/archivebox_snapshot.py
+  h_923c208e183a7b 47,57-59,87-89
+archivebox/progressmonitor/views.py
+  h_923c208e183a7b 224-225,234-235,558-561
+archivebox/services/runner.py
+  h_923c208e183a7b 1782-1783,1785,1800-1807
+archivebox/tests/test_cli_run.py
+  h_923c208e183a7b 34-72,86-119
+archivebox/tests/test_migrations_08_to_09.py
+  h_923c208e183a7b 723,752,795,837,888
+archivebox/tests/test_ui_live_progress.py
+  h_923c208e183a7b 6,9-10,24-58,369-439
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "69667e5cdb89810406990a896d2d3edd4c219d81",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
