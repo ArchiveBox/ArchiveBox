@@ -255,7 +255,9 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
 # The optional AI service belongs to ArchiveBox, not the downloader base image.
 # Always bundle its executable while leaving OPENCODE_ENABLED opt-in.
 RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-opencode-$TARGETARCH \
-    env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
+    chown -R "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" /var/tmp/abxpkg-cache \
+    && chmod 1777 /var/tmp/abxpkg-cache \
+    && env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
         setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install opencode \
     # pnpm includes musl variants that Debian's glibc runtime cannot use.
     && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules" -type l -name 'opencode-linux-*-musl' -delete \

@@ -9,8 +9,12 @@ DEPLOY_IMAGE="${DEPLOY_IMAGE:-archivebox/archivebox:dev}"
 DEPLOY_INTERVAL="${DEPLOY_INTERVAL:-60}"
 STATE_FILE="${STATE_FILE:-${DEPLOY_PATH}/.archivebox-dev-image.digest}"
 OVERRIDE_FILE="${OVERRIDE_FILE:-${DEPLOY_PATH}/.archivebox-deploy.override.yml}"
+DEPLOY_BASE_OVERRIDE="${DEPLOY_BASE_OVERRIDE:-}"
+DEPLOY_HEALTH_HOST="${DEPLOY_HEALTH_HOST:-admin.archivebox.io}"
+DEPLOY_HEALTH_PORT="${DEPLOY_HEALTH_PORT:-5797}"
+DEPLOY_HEALTH_PATH="${DEPLOY_HEALTH_PATH:-/health/}"
 ABXPKG_LIB_DIR="${ABXPKG_LIB_DIR:-$HOME/.config/archivebox/lib}"
-DOCKER_BINARY="$ABXPKG_LIB_DIR/env/bin/docker"
+DOCKER_BINARY="${DOCKER_BINARY:-$ABXPKG_LIB_DIR/env/bin/docker}"
 test -x "$DOCKER_BINARY"
 
 cd "$DEPLOY_PATH"
@@ -35,7 +39,12 @@ services:
     command: null
 EOF
 
-COMPOSE=("$DOCKER_BINARY" compose -f "$COMPOSE_FILE" -f "$OVERRIDE_FILE")
+COMPOSE=("$DOCKER_BINARY" compose -f "$COMPOSE_FILE")
+if [[ -n "$DEPLOY_BASE_OVERRIDE" ]]; then
+    test -f "$DEPLOY_BASE_OVERRIDE"
+    COMPOSE+=(-f "$DEPLOY_BASE_OVERRIDE")
+fi
+COMPOSE+=(-f "$OVERRIDE_FILE")
 
 remote_digest() {
     local line
@@ -71,7 +80,8 @@ deploy_digest() {
         printf '%s\n' "$line"
         line_count=$((line_count + 1))
     done <<<"$version_output"
-    "${COMPOSE[@]}" exec -T "$DEPLOY_SERVICE" /opt/archivebox/lib/env/bin/curl -fsS --max-time 10 --connect-timeout 2 -H 'Host: admin.archivebox.io' http://127.0.0.1:5797/health/ </dev/null
+    "${COMPOSE[@]}" exec -T "$DEPLOY_SERVICE" /opt/archivebox/lib/env/bin/curl -fsS --max-time 10 --connect-timeout 2 \
+        -H "Host: $DEPLOY_HEALTH_HOST" "http://127.0.0.1:${DEPLOY_HEALTH_PORT}${DEPLOY_HEALTH_PATH}" </dev/null
     printf '%s\n' "$digest" > "$STATE_FILE"
 }
 
