@@ -1,0 +1,16 @@
+archivebox/services/runner.py
+  h_923c208e183a7b 1646-1648,1651-1658,1667,1681-1689,1804,1813
+archivebox/tests/test_cli_run.py
+  h_923c208e183a7b 88,98,105-106,110-116,120-121,123-129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3cb9c3c826113dc9087c5b689d434945be9b9526",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
