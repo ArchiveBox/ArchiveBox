@@ -147,10 +147,20 @@
   }
   .cards .card .card-meta {
       display: grid;
-      grid-template-columns: 18px minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
       gap: 8px;
       align-items: center;
       text-align: center;
+  }
+  .cards .card .card-meta .action-select {
+      justify-self: start;
+  }
+  .cards .card .card-meta .card-date {
+      justify-self: center;
+      max-width: 100%;
+  }
+  .cards .card .card-meta .card-size {
+      justify-self: end;
   }
   .cards .card .card-meta .card-date,
   .cards .card .card-meta .card-size {

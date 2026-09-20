@@ -1987,7 +1987,7 @@ tbody .output-link:hover {opacity: 1;}
 }
 
 .model-snapshot.change-list .cards .card .card-info.card-meta {
-    grid-template-columns: 18px minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
 .model-snapshot.change-list .cards .card .card-info.card-meta > a {
@@ -2070,7 +2070,7 @@ tbody .output-link:hover {opacity: 1;}
     }
 
     .model-snapshot.change-list .cards .card .card-info.card-meta {
-        grid-template-columns: 18px minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     }
 }
 

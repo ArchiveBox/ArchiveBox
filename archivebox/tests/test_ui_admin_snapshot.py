@@ -178,6 +178,30 @@ def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, 
     assert preview_link.group(1).endswith(f"/{snapshot.archive_path_from_db}/index.html")
 
 
+def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_client, snapshot):
+    snapshot.status = snapshot.StatusChoices.SEALED
+    snapshot.save(update_fields=["status"])
+
+    response = admin_client.get(reverse("admin:grid"), HTTP_HOST=ADMIN_TEST_HOST)
+
+    assert response.status_code == 200
+    html = response.content.decode()
+    thumbnail_link = re.search(
+        r'<a href="([^"]+)" class="card-thumbnail">(.*?)</a>',
+        html,
+        re.S,
+    )
+    title_link = re.search(
+        r'<div class="card-title"[^>]*>\s*<a href="([^"]+)">',
+        html,
+        re.S,
+    )
+    assert thumbnail_link and title_link
+    assert thumbnail_link.group(1) == title_link.group(1)
+    assert thumbnail_link.group(1).endswith("/index.html")
+    assert '<span class="missing-preview">No preview captured</span>' in thumbnail_link.group(2)
+
+
 def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snapshot):
     from archivebox.core.models import ArchiveResult
 
