@@ -13,6 +13,7 @@
     let offset = viewport.scrollLeft;
     button.hidden = false;
     function label() {
+      button.hidden = viewport.scrollWidth <= viewport.clientWidth;
       button.textContent = paused ? 'Play screenshots' : 'Pause screenshots';
       button.setAttribute('aria-label', button.textContent);
     }

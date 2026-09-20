@@ -84,24 +84,40 @@ def verify(output, evidence):
                             cards = strip.locator(".abx-marquee-card")
                             assert cards.count() > 0, "Screenshot strip is empty"
                             button = strip.locator(".abx-marquee-toggle")
-                            expect(button).to_have_text("Play screenshots")
                             viewport = strip.locator(".abx-marquee-viewport")
-                            button.click()
-                            expect(button).to_have_text("Pause screenshots")
-                            initial = viewport.evaluate("node => node.scrollLeft")
-                            page.wait_for_function(
-                                "([node, initial]) => node.scrollLeft > initial",
-                                arg=[viewport.element_handle(), initial],
+                            overflowing = viewport.evaluate(
+                                "node => node.scrollWidth > node.clientWidth",
                             )
-                            button.click()
-                            expect(button).to_have_text("Play screenshots")
-                            stopped = viewport.evaluate("node => node.scrollLeft")
-                            viewport.evaluate("node => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
-                            assert viewport.evaluate("node => node.scrollLeft") == stopped
-                            viewport.focus()
-                            page.keyboard.press("ArrowRight")
-                            assert viewport.evaluate("node => node.scrollWidth > node.clientWidth")
-                            expect(button).to_have_text("Play screenshots")
+                            if overflowing:
+                                expect(button).to_have_text("Play screenshots")
+                                button.click()
+                                expect(button).to_have_text("Pause screenshots")
+                                initial = viewport.evaluate("node => node.scrollLeft")
+                                page.wait_for_function(
+                                    "([node, initial]) => node.scrollLeft > initial",
+                                    arg=[viewport.element_handle(), initial],
+                                )
+                                button.click()
+                                expect(button).to_have_text("Play screenshots")
+                                stopped = viewport.evaluate("node => node.scrollLeft")
+                                viewport.evaluate(
+                                    "node => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+                                )
+                                assert viewport.evaluate("node => node.scrollLeft") == stopped
+                                viewport.focus()
+                                page.keyboard.press("ArrowRight")
+                                assert viewport.evaluate("node => node.scrollWidth > node.clientWidth")
+                                expect(button).to_have_text("Play screenshots")
+                            else:
+                                expect(button).to_be_hidden()
+                                centered = viewport.evaluate(
+                                    """node => {
+                                        const view = node.getBoundingClientRect();
+                                        const track = node.querySelector('.abx-marquee-track').getBoundingClientRect();
+                                        return Math.abs((track.left - view.left) - (view.right - track.right)) < 2;
+                                    }""",
+                                )
+                                assert centered, "Short screenshot strips must be centered"
                             for card in cards.all():
                                 href = card.get_attribute("href")
                                 assert href and "/screenshots/" in href
