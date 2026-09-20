@@ -262,6 +262,122 @@ VIEWS=(
     "Login|$ADMIN_BASE_URL/admin/login/|/admin/login/|archivebox/templates/admin/login.html"
     "Public snapshot list|$PUBLIC_BASE_URL/public/|/public/|archivebox/core/views.py"
 )
+REQUIRED_TEMPLATE_PLUGINS=(
+    accessibility
+    chrome
+    consolelog
+    defuddle
+    dns
+    hashes
+    headers
+    htmltotext
+    liteparse
+    opendataloader
+    parse_dom_outlinks
+    parse_html_urls
+    parse_jsonl_urls
+    parse_netscape_urls
+    parse_rss_urls
+    parse_txt_urls
+    redirects
+    seo
+    sslcerts
+    title
+    trafilatura
+)
+DISCOVERED_TEMPLATE_PLUGINS=()
+
+add_supplementary_template_capture() {
+    local plugin_name="$1"
+    local source_url="$2"
+    local capture_plugins="$plugin_name"
+    local capture_log="$CAPTURE_ROOT/${plugin_name}-supplementary-capture.log"
+    local supplementary_plugins=("$plugin_name")
+
+    if [[ "$plugin_name" == "opendataloader" ]]; then
+        capture_plugins="wget"
+        supplementary_plugins=(liteparse opendataloader)
+    fi
+    echo "[*] Capturing real $plugin_name source for template coverage"
+    if ! (
+        cd "$DATA_DIR"
+        uv run --no-cache --project "$REPO_DIR" archivebox add \
+            --depth=0 \
+            --overwrite \
+            --tag=screenshot-gallery \
+            --plugins="$capture_plugins" \
+            "$source_url"
+    ) >"$capture_log" 2>&1; then
+        echo "[!] Supplementary $plugin_name capture failed" >&2
+        tail -100 "$capture_log" >&2
+        exit 1
+    fi
+    stop_background_runner
+
+    local snapshot_record
+    snapshot_record="$( (
+        cd "$DATA_DIR"
+        UI_SCREENSHOT_SOURCE_URL="$source_url" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
+            'import os; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_url; snapshot=Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"]).order_by("-bookmarked_at").first(); print(f"{snapshot.id}\t{build_snapshot_url(str(snapshot.id), "")}" if snapshot else "")'
+    ) | tail -1)"
+    if [[ -z "$snapshot_record" ]]; then
+        echo "[!] Supplementary $plugin_name capture did not create a snapshot" >&2
+        tail -100 "$capture_log" >&2
+        exit 1
+    fi
+
+    local snapshot_id snapshot_view_url
+    IFS=$'\t' read -r snapshot_id snapshot_view_url <<<"$snapshot_record"
+    if [[ "$plugin_name" == "opendataloader" ]]; then
+        if ! (
+            cd "$DATA_DIR"
+            LITEPARSE_ENABLED=True OPENDATALOADER_ENABLED=True uv run --no-cache --project "$REPO_DIR" archivebox extract \
+                --plugins=liteparse,opendataloader \
+                "$snapshot_id"
+        ) >>"$capture_log" 2>&1; then
+            echo "[!] LiteParse/OpenDataLoader extraction failed for the captured wget PDF" >&2
+            tail -100 "$capture_log" >&2
+            exit 1
+        fi
+        stop_background_runner
+    fi
+
+    local discovery_report="$CAPTURE_ROOT/${plugin_name}-output-discovery.json"
+    NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
+        CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
+        SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
+        SCREENSHOT_SNAPSHOT_HEADER=collapsed \
+        SCREENSHOT_WIDTH=1600 \
+        SCREENSHOT_HEIGHT=1000 \
+        node "$REPO_DIR/bin/take_screenshot.js" "$snapshot_view_url" "$CAPTURE_ROOT/${plugin_name}-output-discovery.png" >"$discovery_report"
+
+    local supplementary_plugin discovered_preview_url plugin_already_discovered discovered_plugin
+    for supplementary_plugin in "${supplementary_plugins[@]}"; do
+        discovered_preview_url="$(
+            UI_SCREENSHOT_DISCOVERY_REPORT="$discovery_report" UI_SCREENSHOT_EXPECT_PLUGIN="$supplementary_plugin" \
+                uv run --no-cache --project "$REPO_DIR" python -c \
+                'import json, os; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); match=next((output for output in report["checks"]["snapshotOutputs"] if output["plugin"] == os.environ["UI_SCREENSHOT_EXPECT_PLUGIN"]), None); print(match["previewUrl"] if match else "")'
+        )"
+        if [[ -z "$discovered_preview_url" ]]; then
+            echo "[!] The $supplementary_plugin snapshot did not expose its output in the real snapshot UI" >&2
+            tail -100 "$capture_log" >&2
+            cat "$discovery_report" >&2
+            exit 1
+        fi
+
+        plugin_already_discovered=0
+        for discovered_plugin in "${DISCOVERED_TEMPLATE_PLUGINS[@]}"; do
+            if [[ "$discovered_plugin" == "$supplementary_plugin" ]]; then
+                plugin_already_discovered=1
+                break
+            fi
+        done
+        if [[ "$plugin_already_discovered" == "0" ]]; then
+            DISCOVERED_TEMPLATE_PLUGINS+=("$supplementary_plugin")
+            VIEWS+=("Snapshot View ($supplementary_plugin)|$snapshot_view_url#$supplementary_plugin|/|archivebox/templates/core/snapshot.html")
+        fi
+    done
+}
 
 capture_index=0
 while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
@@ -434,6 +550,7 @@ PY
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
+                    SCREENSHOT_SNAPSHOT_HEADER=collapsed \
                     SCREENSHOT_EXPECT_PLUGIN="$expected_plugin" \
                     SCREENSHOT_EXPECT_FRAME_TEXT="$expected_frame_text" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
@@ -654,8 +771,38 @@ PY
         done
         while IFS=$'\t' read -r plugin_name output_capture_mode; do
             [[ -z "$plugin_name" ]] && continue
+            DISCOVERED_TEMPLATE_PLUGINS+=("$plugin_name")
             VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$plugin_name|/|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
+        add_supplementary_template_capture \
+            parse_jsonl_urls \
+            https://raw.githubusercontent.com/noho/dayu-agent/f4343e490dd096e81a2f4e715c5592a10e126a26/utils/web_ci_urls.jsonl
+        add_supplementary_template_capture \
+            parse_rss_urls \
+            https://github.com/ArchiveBox/ArchiveBox/releases.atom
+        add_supplementary_template_capture \
+            parse_netscape_urls \
+            https://gist.githubusercontent.com/jgarber623/cdc8e2fa1cbcb6889872/raw/2081aac716fd9aeb2dc443cd7cace57b8e830c57/delicious.html
+        add_supplementary_template_capture \
+            opendataloader \
+            https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf
+
+        missing_template_plugins=()
+        for required_plugin in "${REQUIRED_TEMPLATE_PLUGINS[@]}"; do
+            plugin_was_discovered=0
+            for discovered_plugin in "${DISCOVERED_TEMPLATE_PLUGINS[@]}"; do
+                if [[ "$discovered_plugin" == "$required_plugin" ]]; then
+                    plugin_was_discovered=1
+                    break
+                fi
+            done
+            [[ "$plugin_was_discovered" == "0" ]] && missing_template_plugins+=("$required_plugin")
+        done
+        if [[ "$MAX_VIEWS" == "0" && "${#missing_template_plugins[@]}" != "0" ]]; then
+            echo "[!] Real snapshot UI discovery is missing template coverage for: ${missing_template_plugins[*]}" >&2
+            cat "$SNAPSHOT_DISCOVERY_REPORT" >&2
+            exit 1
+        fi
         VIEWS+=("Snapshot View (header collapsed)|$LIVE_SNAPSHOT_VIEW_URL|/|archivebox/templates/core/snapshot.html|snapshot-collapsed")
     fi
     if [[ "$MAX_VIEWS" != "0" && "$capture_index" -ge "$MAX_VIEWS" ]]; then

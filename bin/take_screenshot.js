@@ -205,6 +205,13 @@ async function main() {
 
     if (process.env.SCREENSHOT_EXPECT_PLUGIN) {
       const expectedPlugin = process.env.SCREENSHOT_EXPECT_PLUGIN.toLowerCase();
+      const metadataPlugins = new Set([
+        'title', 'seo', 'sslcerts', 'dns', 'hashes', 'headers', 'redirects',
+        'chrome', 'accessibility', 'consolelog', 'parse_dom_outlinks',
+        'parse_html_urls', 'parse_jsonl_urls', 'parse_txt_urls', 'parse_rss_urls',
+        'parse_netscape_urls', 'htmltotext', 'defuddle', 'trafilatura',
+        'liteparse', 'opendataloader',
+      ]);
       await page.waitForFunction((pluginName) => {
         const selectedCard = document.querySelector('.thumb-card.selected-card[data-plugin-name]');
         const frame = document.querySelector('#main-frame');
@@ -232,6 +239,22 @@ async function main() {
           }
         });
       }, { timeout: 45000, polling: 250 }).catch(() => {});
+      if (metadataPlugins.has(expectedPlugin)) {
+        const frameElement = await page.$('#main-frame');
+        const frame = await frameElement.contentFrame();
+        await frame.waitForSelector('#card-summary');
+        if (expectedPlugin === 'defuddle') {
+          const readerElement = await frame.waitForSelector('#reader');
+          const reader = await readerElement.contentFrame();
+          await reader.waitForFunction(() => document.body?.innerText.trim(), { timeout: 45000 });
+        } else {
+          await frame.waitForFunction(() => {
+            const summary = document.querySelector('#card-summary')?.textContent.trim();
+            const content = document.querySelector('main')?.innerText.trim();
+            return summary && content && !summary.includes('unavailable') && !content.startsWith('Unable to read');
+          }, { timeout: 45000 });
+        }
+      }
       if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT || expectedPlugin === 'opentimestamps') {
         const frameElement = await page.$('#main-frame');
         const frame = await frameElement.contentFrame();
