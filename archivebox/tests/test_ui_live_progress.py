@@ -690,6 +690,60 @@ class TestLiveProgressView:
         assert active_snapshot["all_plugins"][0]["status"] == "started"
         assert active_snapshot["worker_pid"] == pid
 
+    def test_live_progress_filters_process_query_to_displayed_crawls_without_hiding_older_live_hooks(
+        self,
+        client,
+        admin_user,
+        snapshot,
+        real_snapshot_hook_projection,
+        real_unscoped_hook_process,
+    ):
+        import os
+        from datetime import timedelta
+
+        import archivebox.machine.models as machine_models
+        from archivebox.machine.models import Process
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        process, result = real_snapshot_hook_projection
+        machine_models._CURRENT_MACHINE = process.machine
+        result.delete()
+        old_started_at = timezone.now() - timedelta(hours=1)
+        process.status = Process.StatusChoices.RUNNING
+        process.pid = os.getpid()
+        process.started_at = old_started_at
+        process.ended_at = None
+        process.save(update_fields=["status", "pid", "started_at", "ended_at", "modified_at"])
+        Process.objects.filter(pk=process.pk).update(modified_at=old_started_at)
+
+        unrelated = real_unscoped_hook_process
+        unrelated.status = Process.StatusChoices.RUNNING
+        unrelated.pid = os.getpid()
+        unrelated.ended_at = None
+        unrelated.save(update_fields=["status", "pid", "ended_at", "modified_at"])
+        client.force_login(admin_user)
+        with CaptureQueriesContext(connection) as queries:
+            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert response.status_code == 200
+        payload = response.json()
+        active_crawl = next(crawl for crawl in payload["active_crawls"] if crawl["id"] == str(snapshot.crawl_id))
+        active_snapshot = next(item for item in active_crawl["active_snapshots"] if item["id"] == str(snapshot.id))
+        assert active_snapshot["worker_pid"] == os.getpid()
+        assert payload["total_workers"] == 1
+
+        running_process_sql = next(
+            query["sql"]
+            for query in queries.captured_queries
+            if 'FROM "machine_process"' in query["sql"]
+            and '"machine_process"."process_type" IN' in query["sql"]
+            and '"machine_process"."status" = \'running\'' in query["sql"]
+        )
+        assert '"machine_process"."pwd" REGEXP' in running_process_sql
+        assert str(snapshot.id) in running_process_sql
+        assert str(unrelated.pk) not in running_process_sql
+
     def test_live_progress_merges_process_rows_with_archiveresults_when_present(
         self,
         client,

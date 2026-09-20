@@ -481,7 +481,10 @@ def live_progress_view(request, *, authorized_snapshot=None):
         detailed_snapshot_ids = [snapshot["id"] for snapshot in snapshots if snapshot["status"] != Snapshot.StatusChoices.QUEUED]
         process_value_fields = ("id", "process_type", "status", "pwd", "cmd", "pid", "exit_code", "started_at", "ended_at", "modified_at")
         if active_crawl_ids or displayed_snapshot_ids:
+            relevant_process_ids = tuple(dict.fromkeys([*active_crawl_ids, *displayed_snapshot_ids]))
+            relevant_process_path_pattern = "|".join(relevant_process_ids)
             process_scope = Process.objects.filter(
+                pwd__regex=relevant_process_path_pattern,
                 machine_id=machine_id,
                 process_type__in=[
                     Process.TypeChoices.HOOK,
