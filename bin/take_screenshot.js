@@ -232,19 +232,26 @@ async function main() {
           }
         });
       }, { timeout: 45000, polling: 250 }).catch(() => {});
-      if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT) {
+      if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT || expectedPlugin === 'opentimestamps') {
         const frameElement = await page.$('#main-frame');
         const frame = await frameElement.contentFrame();
-        await frame.waitForFunction((text) => {
-          const containsText = (doc) => {
-            if (doc.body?.innerText.includes(text)) return true;
+        await frame.waitForFunction((text, plugin) => {
+          const outputReady = (doc) => {
+            if (plugin === 'opentimestamps') {
+              const hashes = [...doc.querySelectorAll('dd code')];
+              if (doc.querySelector('.status')?.textContent.trim()
+                  && doc.querySelector('a[href="hashes.json.ots"]')
+                  && doc.querySelector('a[href="hashes.json"]')
+                  && hashes.length === 2
+                  && hashes.every((hash) => /^[a-f0-9]{64}$/i.test(hash.textContent.trim()))) return true;
+            } else if (doc.body?.innerText.includes(text)) return true;
             return [...doc.querySelectorAll('iframe')].some((child) => {
               const nested = child.contentDocument;
-              return nested ? containsText(nested) : false;
+              return nested ? outputReady(nested) : false;
             });
           };
-          return containsText(document);
-        }, { timeout: 45000 }, process.env.SCREENSHOT_EXPECT_FRAME_TEXT);
+          return outputReady(document);
+        }, { timeout: 45000 }, process.env.SCREENSHOT_EXPECT_FRAME_TEXT, expectedPlugin);
       }
     }
 

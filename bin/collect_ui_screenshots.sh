@@ -639,7 +639,7 @@ PY
             SCREENSHOT_HEIGHT=1000 \
             node "$REPO_DIR/bin/take_screenshot.js" "$LIVE_SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
         SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --no-cache --project "$REPO_DIR" python -c \
-            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}".format(output["plugin"], "wait-frame-text:Verified · signature and archived response match" if output["plugin"] == "tlsnotary" else "wait-frame-text:Hashes submitted to blockchain" if output["plugin"] == "opentimestamps" else "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
+            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}".format(output["plugin"], "wait-frame-text:Verified · signature and archived response match" if output["plugin"] == "tlsnotary" else "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
         if [[ -z "$SNAPSHOT_OUTPUT_PLUGINS" ]]; then
             echo "[!] The Sweeting.me snapshot detail page exposed no selectable outputs" >&2
             exit 1
