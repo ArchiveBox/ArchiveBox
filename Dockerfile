@@ -5,6 +5,15 @@
 # standalone downloader stays independent of ArchiveBox's server features.
 # ArchiveBox-only dependencies (Sonic, OpenCode, supervisor, Django) belong in
 # the layers added by this Dockerfile, never in the shared abx-dl base image.
+# Preinstall ALL plugins supported by the ArchiveBox runtime, regardless of
+# default enabled state. Reuse dependencies already in abx-dl and install every
+# remaining dependency here, including OpenCode and Sonic. Verify the entire
+# plugin catalog offline as the normal runtime user: enabling a plugin must
+# never require an install or manual repair during a crawl. Never omit a
+# dependency or feature to meet the image size budget.
+# Only mechanical/internal optimizations preserving user-facing functionality
+# are allowed. If the complete image exceeds the limit, let CI fail and ask the
+# maintainer how to proceed; do not disable features or weaken the check.
 # Build abx-dl first, then point this file at it:
 #   docker buildx build ../abx-dl -f ../abx-dl/Dockerfile \
 #       --build-context abxbus=../abxbus \
@@ -49,6 +58,7 @@ ENV ARCHIVEBOX_USER=archivebox \
     IN_DOCKER=True
 
 ENV CODE_DIR=/app \
+    ABX_RUNTIME=archivebox \
     DATA_DIR=/data \
     CONFIG_DIR=/opt/archivebox \
     ABXPKG_LIB_DIR=/opt/archivebox/lib \
@@ -252,18 +262,20 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
     && echo -e "\nARCHIVEBOX_USER=$ARCHIVEBOX_USER ARCHIVEBOX_UID=$(id -u "$ARCHIVEBOX_USER") ARCHIVEBOX_GID=$(id -g "$ARCHIVEBOX_USER")" | tee -a /VERSION.txt \
     && echo -e "TMP_DIR=$TMP_DIR\nABXPKG_LIB_DIR=$ABXPKG_LIB_DIR\nPLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH\nMACHINE_ID=$(cat /etc/machine-id)\n" | tee -a /VERSION.txt
 
-# The optional AI service belongs to ArchiveBox, not the downloader base image.
-# Always bundle its executable while leaving OPENCODE_ENABLED opt-in.
+# Install the complete ArchiveBox catalog, including disabled server plugins.
+# Explicit plugin names make installation independent of enabled defaults.
 RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-opencode-$TARGETARCH \
     chown -R "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" /var/tmp/abxpkg-cache \
     && chmod 1777 /var/tmp/abxpkg-cache \
+    && export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
-        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install opencode \
+        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install $ABX_DOCKER_PLUGINS \
     # pnpm includes musl variants that Debian's glibc runtime cannot use.
     && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules" -type l -name 'opencode-linux-*-musl' -delete \
     && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.pnpm" -maxdepth 1 -type d -name 'opencode-linux-*-musl@*' -exec rm -rf {} +
-RUN --network=none setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
-    bash -c '"$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version && abx-dl install opencode'
+RUN --network=none export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
+    bash -c '"$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version && abx-dl install $ABX_DOCKER_PLUGINS'
 
 WORKDIR "$DATA_DIR"
 RUN echo "[+] Initializing image collection..." \
