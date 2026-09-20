@@ -1,0 +1,28 @@
+README.md
+  h_923c208e183a7b 568-569
+archivebox/core/admin_snapshots.py
+  h_923c208e183a7b 582,606,608
+archivebox/core/middleware.py
+  h_923c208e183a7b 16,132,157-167
+archivebox/core/settings.py
+  h_923c208e183a7b 90
+archivebox/core/views.py
+  h_923c208e183a7b 26,331,355,635,964-972,999-1000
+archivebox/misc/serve_static.py
+  h_923c208e183a7b 132
+archivebox/tests/test_ui_admin_snapshot.py
+  h_923c208e183a7b 16,233-238,241-257
+archivebox/tests/test_urls.py
+  h_923c208e183a7b 722-1008
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7a5ad4c99ad796fd90aea7535e983297cb9f28b5",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
