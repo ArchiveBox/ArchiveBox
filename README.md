@@ -368,8 +368,8 @@ See <a href="#%EF%B8%8F-cli-usage">below</a> for usage examples using the CLI, W
 <li>Download a binary release for your OS or build the native app from source<br/>
 <ul>
 <li>macOS: <a href="https://github.com/ArchiveBox/ArchiveBox/releases/download/v0.6.2/Electron-ArchiveBox-macOS-x64-0.6.2.app.zip" download><code>ArchiveBox.app.zip</code></a></li>
-<li>Linux: <code>ArchiveBox.deb</code> (alpha: <a href="https://electron.archivebox.io/#get-started">build manually</a>)</li>
-<li>Windows: <code>ArchiveBox.exe</code> (beta: <a href="https://electron.archivebox.io/#get-started">build manually</a>)</li>
+<li>Linux: <code>ArchiveBox.deb</code> (alpha: <a href="https://electron.archivebox.io/#get-started">setup guide</a>)</li>
+<li>Windows: <code>ArchiveBox.exe</code> (beta: <a href="https://electron.archivebox.io/#get-started">setup guide</a>)</li>
 </ul>
 </li>
 </ol>
