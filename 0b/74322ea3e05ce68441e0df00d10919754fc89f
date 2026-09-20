@@ -1,0 +1,18 @@
+.github/workflows/release.yml
+  h_923c208e183a7b 30-32,34,51-76
+Dockerfile
+  h_923c208e183a7b 258-260
+bin/watch_dev_image.sh
+  h_923c208e183a7b 12-15,17,42-47,83-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0b74322ea3e05ce68441e0df00d10919754fc89f",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
