@@ -1,0 +1,14 @@
+bin/validate_docker_ports.sh
+  h_923c208e183a7b 35-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0f965972e359209fb44ae6be00e232268240f266",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
