@@ -900,6 +900,9 @@ h3 {
   fill: currentColor;
 }
 
+#install-tab-android > svg { color: #3aab35; }
+#install-tab-windows > svg { color: #0078d4; }
+
 .install-tab:hover {
   background: #302a22;
   color: #fff;
