@@ -264,12 +264,15 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
 
 # Install the complete ArchiveBox catalog, including disabled server plugins.
 # Explicit plugin names make installation independent of enabled defaults.
+# Build as root so missing system dependencies can be installed with apt;
+# verify the complete installation offline as the runtime user below.
 RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-opencode-$TARGETARCH \
     chown -R "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" /var/tmp/abxpkg-cache \
     && chmod 1777 /var/tmp/abxpkg-cache \
     && export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
-        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install $ABX_DOCKER_PLUGINS \
+        abx-dl install $ABX_DOCKER_PLUGINS \
+    && find "$ABXPKG_LIB_DIR" \( ! -user "$DEFAULT_ARCHIVEBOX_UID" -o ! -group "$DEFAULT_ARCHIVEBOX_GID" \) -exec chown -h "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" {} + \
     # pnpm includes musl variants that Debian's glibc runtime cannot use.
     && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules" -type l -name 'opencode-linux-*-musl' -delete \
     && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.pnpm" -maxdepth 1 -type d -name 'opencode-linux-*-musl@*' -exec rm -rf {} +
