@@ -34,7 +34,7 @@ def verify(output, evidence):
     origin = f"http://127.0.0.1:{server.server_port}"
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch()
+            browser = playwright.chromium.launch(ignore_default_args=["--hide-scrollbars"])
             for name in config["pages"]:
                 route = name.removesuffix("index.html")
                 page = browser.new_page(reduced_motion="reduce")
@@ -47,7 +47,7 @@ def verify(output, evidence):
                         missing.append(response.url) if response.url.startswith(origin) and response.status >= 400 else None
                     ),
                 )
-                for width in [1440, 390]:
+                for width in [1716, 2560, 390]:
                     page.set_viewport_size({"width": width, "height": 900})
                     page.goto(f"{origin}/{route}", wait_until="domcontentloaded")
                     header = page.locator(".abx-header")
@@ -75,12 +75,18 @@ def verify(output, evidence):
                     assert box
                     page.mouse.click(box["x"] + 2, box["y"] + 5)
                     expect(menu).not_to_have_attribute("open", "")
-                    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), f"{name}: overflow at {width}"
+                    assert page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth"), (
+                        f"{name}: overflow at {width}"
+                    )
                     if not route and "screenshots/index.html" in config["pages"]:
                         strips = page.locator(".abx-marquee")
                         assert strips.count() > 0, "Homepage must use its screenshot gallery"
                         for strip in strips.all():
                             strip.scroll_into_view_if_needed()
+                            bounds = strip.bounding_box()
+                            usable_width = page.evaluate("document.documentElement.clientWidth")
+                            assert bounds and abs(bounds["x"]) < 1
+                            assert abs(bounds["width"] - usable_width) < 1
                             assert not strip.inner_text().strip(), "Screenshot strips should have no visible captions or links"
                             cards = strip.locator(".abx-marquee-card")
                             assert cards.count() > 0, "Screenshot strip is empty"
@@ -147,6 +153,9 @@ def verify(output, evidence):
                         local_images,
                     )
                     page.evaluate("scrollTo({top: 0, behavior: 'instant'})")
+                    page.evaluate(
+                        "() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))",
+                    )
                     page.screenshot(path=str(evidence / f"{route.replace('/', '-') or 'home-'}{width}.png"))
                     page.locator(".abx-footer").screenshot(path=str(evidence / f"{route.replace('/', '-') or 'home-'}footer-{width}.png"))
                     for link in header.locator(".abx-nav > a").all():
@@ -177,6 +186,12 @@ def verify(output, evidence):
                 expect(plain.locator(".abx-footer-column a").first).to_be_visible()
                 if not route and "screenshots/index.html" in config["pages"]:
                     assert plain.locator(".abx-marquee-card").count() > 0
+                    for strip in plain.locator(".abx-marquee").all():
+                        bounds = strip.bounding_box()
+                        usable_width = plain.evaluate("document.documentElement.clientWidth")
+                        assert bounds and abs(bounds["x"]) < 1
+                        assert abs(bounds["width"] - usable_width) < 1
+                    assert plain.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")
                     expect(plain.locator(".abx-marquee button")).to_have_count(0)
                     expect(plain.locator(".abx-marquee-card").first).to_be_visible()
                 context.close()
