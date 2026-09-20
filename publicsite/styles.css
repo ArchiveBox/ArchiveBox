@@ -1648,3 +1648,13 @@ header nav .project-menu__links a:hover, header nav .project-menu__links a[aria-
 @media (max-width: 700px) { header.site-header { flex-wrap: wrap; } header.site-header nav { flex-wrap: wrap; gap: 8px 16px; } }
 
 @media (max-width: 1100px) { .project-menu__links { position: fixed; left: 16px; right: 16px; top: auto; width: auto; } }
+
+.desktop-downloads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.desktop-downloads .desktop-download { display: flex; align-items: center; gap: 12px; padding: 15px 16px; border: 1px solid #9b285455; border-radius: 10px; background: #9b28541a; color: inherit; text-decoration: none; transition: background .15s, border-color .15s; }
+.desktop-downloads .desktop-download:hover { background: #9b285433; border-color: #c45b83; }
+.desktop-download > svg, .desktop-download .platform-symbol { flex: 0 0 25px; width: 25px; height: 28px; font-size: 25px; line-height: 28px; text-align: center; }
+.desktop-download strong { display: block; font-size: 15px; line-height: 1.4; }
+.desktop-download small { display: block; margin-top: 3px; font-size: 11px; line-height: 1.5; opacity: .75; }
+.desktop-download .download-arrow { margin-left: auto; font-size: 21px; }
+.desktop-download:focus-visible { outline: 3px solid #c45b83; outline-offset: 4px; }
+@media (max-width: 480px) { .desktop-downloads { grid-template-columns: 1fr; } }
