@@ -33,17 +33,13 @@
       — the host is close to OOM. Consider stopping crawls or scaling up.
     {% elif mode == "high_load" %}
       15-min loadavg <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_15 }}</code>
-      exceeds <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_threshold }}</code>
-      ({{ cpu_count }} cores × 3) — recent CPU or I/O contention may slow crawls. This average can stay elevated after load subsides; it does not measure queue growth.
     {% elif mode == "unsafe" %}
       ArchiveBox single-domain mode — archived pages share an origin with this site
       <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Modes" target="_blank" rel="noopener noreferrer" style="color:#fff;text-decoration:underline;margin-left:6px;">why?</a>
     {% elif mode == "base_url_mismatch" %}
-      Browser URL:
-      <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ browser_url }}</code>
-      · Configured BASE_URL:
-      <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ configured_base_url }}</code>
-      — GET access is allowed here, but state-changing requests are accepted only on BASE_URL.
+      Editing disabled from unrecognized URL. Visit
+      <a href="{{ configured_base_url }}" style="color:#fff;text-decoration:underline;text-transform:none;">{{ configured_base_url }}</a>
+      to make changes.
     {% else %}
       Ask an ArchiveBox superuser to finish server setup and pin the canonical URL.
     {% endif %}
