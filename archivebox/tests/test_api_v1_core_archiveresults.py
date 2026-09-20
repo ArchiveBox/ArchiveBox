@@ -15,6 +15,79 @@ from archivebox.tests.conftest import api_client_request
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.parametrize("plugin", [".", "..", "/./", "/../", " . ", " ../ "])
+def test_archiveresult_upload_rejects_dot_directory_names(client, api_admin_user, api_headers, plugin):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/invalid-upload-directory", crawl=crawl)
+    snapshot_dir = snapshot.output_dir
+    filename = "rejected-upload.txt"
+
+    response = client.post(
+        "/api/v1/core/archiveresults",
+        {
+            "snapshot_id": str(snapshot.id),
+            "plugin": plugin,
+            "files": SimpleUploadedFile(filename, b"must not be written", content_type="text/plain"),
+        },
+        **api_headers,
+    )
+
+    assert response.status_code == 400, response.content
+    assert response.json()["detail"] == "Invalid ArchiveResult plugin name"
+    assert not snapshot.archiveresult_set.exists()
+    assert not (snapshot_dir / filename).exists()
+    assert not (snapshot_dir.parent / filename).exists()
+
+
+@pytest.mark.parametrize("plugin", [".", ".."])
+def test_archiveresult_patch_rejects_existing_dot_directory_names(client, api_admin_user, api_headers, plugin):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/invalid-existing-directory", crawl=crawl)
+    result = ArchiveResult.objects.create(snapshot=snapshot, plugin=plugin)
+    snapshot_dir = snapshot.output_dir
+    filename = "rejected-patch.txt"
+
+    response = client.patch(
+        f"/api/v1/core/archiveresult/{result.id}",
+        encode_multipart(
+            BOUNDARY,
+            {"files": SimpleUploadedFile(filename, b"must not be written", content_type="text/plain")},
+        ),
+        content_type=MULTIPART_CONTENT,
+        **api_headers,
+    )
+
+    assert response.status_code == 400, response.content
+    assert response.json()["detail"] == "Invalid ArchiveResult plugin name"
+    result.refresh_from_db()
+    assert result.output_files == {}
+    assert not (snapshot_dir / filename).exists()
+    assert not (snapshot_dir.parent / filename).exists()
+
+
+@pytest.mark.parametrize("plugin", ["custom.files", "custom-files_v1"])
+def test_archiveresult_upload_accepts_unregistered_directory_names(client, api_admin_user, api_headers, plugin):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/custom-upload-directory", crawl=crawl)
+    contents = b"uploaded original file"
+
+    response = client.post(
+        "/api/v1/core/archiveresults",
+        {
+            "snapshot_id": str(snapshot.id),
+            "plugin": plugin,
+            "files": SimpleUploadedFile("original.txt", contents, content_type="text/plain"),
+        },
+        **api_headers,
+    )
+
+    assert response.status_code == 200, response.content
+    result = snapshot.archiveresult_set.get()
+    assert result.plugin == plugin
+    assert result.output_files["original.txt"]["size"] == len(contents)
+    assert (snapshot.output_dir / plugin / "original.txt").read_bytes() == contents
+
+
 def test_archiveresult_upload_upserts_by_snapshot_plugin_and_hook(client, api_admin_user, api_headers):
     crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
     snapshot = Snapshot.objects.create(url="https://example.com/unified-result", crawl=crawl)

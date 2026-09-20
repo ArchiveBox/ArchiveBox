@@ -247,7 +247,7 @@ def get_archiveresult(request: HttpRequest, archiveresult_id: str):
 
 def _normalize_uploaded_archiveresult_plugin(plugin: str) -> str:
     normalized = str(plugin or "").strip().strip("/")
-    if not ARCHIVERESULT_UPLOAD_PLUGIN_RE.fullmatch(normalized):
+    if normalized in (".", "..") or not ARCHIVERESULT_UPLOAD_PLUGIN_RE.fullmatch(normalized):
         raise HttpError(400, "Invalid ArchiveResult plugin name")
     return normalized
 
@@ -386,6 +386,7 @@ def _write_archiveresult_files(
     existing_output_files: dict[str, dict[str, Any]] | None = None,
     allow_empty: bool = False,
 ) -> dict[str, dict[str, Any]]:
+    plugin_name = _normalize_uploaded_archiveresult_plugin(plugin_name)
     files = _get_archiveresult_upload_files(request, allow_empty=allow_empty)
     output_paths = _get_archiveresult_upload_form_values(request, "output_paths", "output_path")
     mime_types = _get_archiveresult_upload_form_values(request, "mime_types", "mime_type")
