@@ -1005,13 +1005,10 @@ For various reasons, many large sites (Reddit, Twitter, Cloudflare, etc.) active
 
 
 <ul>
-<li>Set <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#curl_user_agent"><code>CHROME_USER_AGENT</code>, <code>WGET_USER_AGENT</code>, <code>CURL_USER_AGENT</code></a> to impersonate a real browser (by default, ArchiveBox reveals that it's a bot when using the default user agent settings)</li>
-<li>Set up a logged-in browser session for archiving by <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile">importing a dedicated browser profile into a persona</a></li>
+<li>Set up a logged-in browser session for archiving by <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile">importing a chrome profile into a persona</a></li>
 <li>Rewrite your URLs before archiving to swap in alternative frontends that are more bot-friendly e.g.<br>
 <code>reddit.com/some/url</code> -&gt; <code>teddit.net/some/url</code>: <a href="https://github.com/mendel5/alternative-front-ends">https://github.com/mendel5/alternative-front-ends</a></li>
 </ul>
-
-In the future we plan on adding support for running JS scripts during archiving to block ads, cookie popups, modals, and fix other issues. Follow here for progress: <a href="https://github.com/ArchiveBox/ArchiveBox/issues/51">Issue #51</a>.
 
 </details>
 <br/>
