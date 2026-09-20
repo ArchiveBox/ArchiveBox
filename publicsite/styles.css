@@ -28,6 +28,7 @@ html {
 }
 
 body {
+  isolation: isolate;
   margin: 0;
   overflow-x: hidden;
   background:
@@ -39,6 +40,7 @@ body {
 
 body::before {
   content: "";
+  z-index: -1;
   position: fixed;
   inset: 0;
   pointer-events: none;
