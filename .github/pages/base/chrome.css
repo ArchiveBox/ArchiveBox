@@ -1,4 +1,4 @@
-/* Shared ArchiveBox site chrome. Source: ArchiveBox/monorepo/site-chrome. */
+/* Shared ArchiveBox site chrome. Independent copy; edit alongside the other product sites, without a build dependency. */
 /* Native anchor navigation leaves room for the heading and its surrounding content. */
 html { scroll-behavior: smooth; scroll-padding-top: clamp(96px, 25vh, 240px); }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
@@ -107,4 +107,4 @@ html { scroll-behavior: smooth; scroll-padding-top: clamp(96px, 25vh, 240px); }
 
 .abx-footer-local > div > a + a { margin-left: 12px; }
 
-@media (prefers-reduced-motion: reduce) { .abx-header .abx-icon-stack .abx-integration:is(:hover, :focus-visible) { transform: translateY(-7px) rotate(0deg) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .abx-header .abx-icon-stack .abx-integration:is(:hover, :focus-visible) { transform: none; } }

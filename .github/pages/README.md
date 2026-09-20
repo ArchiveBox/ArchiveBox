@@ -38,3 +38,35 @@ Preserve real links, anchor IDs, no-JavaScript navigation, keyboard operation,
 mobile layout, reduced-motion preferences and existing product-specific content.
 Screenshots stay in English. Translation content, when added, lives in separate
 HTML files; no runtime translation service or cross-repository dependency.
+
+## Editing and building
+
+`base/` and `site.py` are identical independent copies across the seven product
+sites. The base owns the shared logo, Apps menu/icons, footer directory, navigation
+behavior and styles. `site.json` and `nav.html` contain this site's name, routes,
+links and CTA. Product content and additional footer resources stay in the native
+HTML/Jinja/Liquid templates listed above. The `ARCHIVEBOX:*` comments are build
+slots; the renderer fills them with static HTML, never browser-side fetches.
+
+The existing builder calls `site.py render` after generating its content. This
+copies `base/chrome.css` and `base/chrome.js` to `site-base/`, assembles the common
+HTML, validates local resources and writes the site revision to root `build.json`.
+Screenshot manifests are left untouched. No build reads another repository.
+
+Common changes are manual copy/paste edits. Compare `base/` and `site.py` with
+another product repository when updating them; do not add a synchronization job,
+package dependency or reusable cross-repository workflow. `nav.html`, `site.json`
+and the marked workflow build section are intentionally repository-specific.
+
+Build: `uv run --no-project python .github/pages/site.py render _site --source publicsite` after restoring screenshots and refreshing the gallery.
+
+Check the built site with real Chromium (also run by Pages CI):
+
+```sh
+uv run --no-config --no-project --with playwright==1.63.0 playwright install chromium
+uv run --no-config --no-project --with playwright==1.63.0 python .github/pages/verify.py SITE_OUTPUT --evidence /tmp/site-evidence
+```
+
+Use this workflow's `SITE_OUTPUT` directory. The check covers desktop/mobile
+layout, keyboard dismissal, no-JavaScript links, local resources and visible
+images, and uploads its screenshots as `site-verification` for 14 days.

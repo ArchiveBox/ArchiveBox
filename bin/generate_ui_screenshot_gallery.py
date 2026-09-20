@@ -147,7 +147,7 @@ def render_gallery(gallery_header: str, gallery_sections: str) -> str:
         "figcaption{font-size:12px;color:var(--muted);text-align:center;margin:0 0 12px}"
         "img{display:block;width:100%;height:auto;border-radius:8px}code{overflow-wrap:anywhere}"
         "@media(max-width:550px){.screenshot-content{padding:20px}figure{padding:8px;border-radius:12px}.profile-switch button{padding:9px 16px}}"
-        '</style><link rel="stylesheet" href="../site-chrome.css"></head><body>'
+        "</style></head><body>"
         + (REPO_DIR / "bin/templates/screenshots-header.html").read_text(encoding="utf-8")
         + '<div class="screenshot-content">'
         + gallery_header

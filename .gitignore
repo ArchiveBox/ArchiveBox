@@ -68,3 +68,5 @@ ArchiveBox.conf
 
 # Local Claude Code task locks (not project state)
 .claude/scheduled_tasks.lock
+
+/_site/
