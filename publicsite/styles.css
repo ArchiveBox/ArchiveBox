@@ -1233,14 +1233,16 @@ h3 {
 
 .install-panel .install-download {
   width: 100%;
-  gap: 18px;
+  gap: clamp(10px, 1.5vw, 18px);
   margin-bottom: 18px;
-  padding: 22px 24px;
+  padding: 22px clamp(14px, 2vw, 24px);
   color: var(--brand-text);
-  font-size: clamp(1.5rem, 2.5vw, 2rem);
+  font-size: clamp(1.125rem, 2.5vw, 2rem);
   line-height: 1.2;
   text-align: left;
 }
+
+.install-download > span { min-width: 0; overflow-wrap: anywhere; }
 
 .install-download svg {
   flex: 0 0 auto;

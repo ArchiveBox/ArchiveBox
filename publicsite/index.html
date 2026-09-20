@@ -313,6 +313,15 @@ archivebox init
 archivebox install
 archivebox server 0.0.0.0:5797</code></pre></div></div></div></div>
           <div class="step"><span>3</span><div><h4>Finish setup</h4><p>Open <a href="http://admin.archivebox.localhost:5797/admin/">the admin UI</a> to create your first admin account and finish the setup wizard. On a remote server, open <code>/admin/</code> on its hostname or IP instead.</p></div></div>
+          <details class="install-alternative" id="install-pip">
+            <summary>Or use pip instead of uv</summary>
+            <div class="command-card">
+              <div class="step"><span>1</span><div><h4>Install with pip</h4><p>With Python 3.13 installed, create a virtual environment and install ArchiveBox:</p><div class="ab-terminal ab-terminal--inline"><div class="ab-terminal__body"><pre><code>python3.13 -m venv ~/.venvs/archivebox
+source ~/.venvs/archivebox/bin/activate
+python -m pip install --upgrade &#x27;archivebox&gt;=0.9.0rc0,&lt;0.10&#x27;
+archivebox version</code></pre></div></div><p>Then follow steps 2 and 3 above. In each new terminal, run <code>source ~/.venvs/archivebox/bin/activate</code> before using <code>archivebox</code>.</p></div></div>
+            </div>
+          </details>
         </div>
       </div>
       <div class="install-panel" id="install-apt" aria-labelledby="install-tab-apt">
