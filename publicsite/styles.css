@@ -1002,6 +1002,12 @@ h3 {
 
 .install-platform-logo svg { width: 100%; height: 100%; fill: currentColor; }
 .install-art--phone .install-art-shot { max-width: 230px; }
+.install-art--phone .install-phone-frame {
+  border: 6px solid #202024;
+  border-radius: 28px;
+  background: #202024;
+  box-shadow: 0 0 0 1px #68656d, 0 12px 24px #0005;
+}
 
 .install-art-tile span {
   font-size: 0.74rem;
