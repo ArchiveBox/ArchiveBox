@@ -1,0 +1,18 @@
+archivebox/core/views.py
+  h_923c208e183a7b 914
+archivebox/progressmonitor/views.py
+  h_923c208e183a7b 46,66-69
+archivebox/tests/test_urls.py
+  h_923c208e183a7b 625-682
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "3a4696165df2d76e50717885cbdf0b029d629fa9",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}

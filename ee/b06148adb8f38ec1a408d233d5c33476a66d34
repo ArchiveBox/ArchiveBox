@@ -1,0 +1,26 @@
+archivebox/core/admin_snapshots.py
+  h_923c208e183a7b 8,11,24,51-56,580-584,594-613
+archivebox/core/templatetags/core_tags.py
+  h_923c208e183a7b 11,617-623
+archivebox/core/views.py
+  h_923c208e183a7b 26,895,903,959-971
+archivebox/misc/serve_static.py
+  h_923c208e183a7b 608-614,616,867,871,878-879,882,911,952-953,955,970,990,1016,1054,1065,1076,1096,1098,1102
+archivebox/templates/admin/snapshots_grid.html
+  h_923c208e183a7b 262-265,271
+archivebox/tests/test_ui_admin_snapshot.py
+  h_923c208e183a7b 205-248
+archivebox/tests/test_urls.py
+  h_923c208e183a7b 11,18-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "eeb06148adb8f38ec1a408d233d5c33476a66d34",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
