@@ -23,7 +23,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidde
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
-from django.utils.cache import patch_vary_headers
+from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
@@ -328,6 +328,7 @@ class SnapshotView(View):
 
     @staticmethod
     def render_live_index(request, snapshot):
+        request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
         return render(
             template_name="core/snapshot.html",
             request=request,
@@ -351,6 +352,7 @@ class SnapshotView(View):
             try:
                 try:
                     snapshot = Snapshot.objects.get(Q(timestamp=slug) | Q(id__startswith=slug))
+                    request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
                     if not can_view_snapshot(request, snapshot):
                         return _private_snapshot_auth_redirect(request, snapshot, archivefile or "index.html")
                     canonical_base = snapshot.url_path
@@ -630,6 +632,7 @@ class SnapshotPathView(View):
                 status=404,
             )
 
+        request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
         canonical_base = snapshot.url_path
         if date:
             requested_base = f"{username}/{date}/{domain or url or ''}"
@@ -958,14 +961,15 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
     response = _build_snapshot_replay_response(request, snapshot, path)
-    if snapshot.permissions != PERMISSIONS_PUBLIC:
-        cache_control = response.headers.get("Cache-Control", "")
-        if cache_control.startswith("public"):
-            cache_control = f"private{cache_control[len('public') :]}"
-        elif not cache_control:
-            cache_control = "private, no-store"
-        response.headers["Cache-Control"] = cache_control
-        patch_vary_headers(response, ("Cookie",))
+    if path != "progress.json" and response.status_code in (200, 206, 304):
+        if not response.get("Cache-Control"):
+            policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
+            response.headers["Cache-Control"] = f"{policy}, max-age=60, stale-while-revalidate=300"
+        if snapshot.permissions != PERMISSIONS_PUBLIC:
+            patch_cache_control(response, private=True)
+    else:
+        response.headers["Cache-Control"] = "private, no-store"
+    patch_vary_headers(response, ("Cookie", "Authorization"))
     return response
 
 
@@ -992,6 +996,8 @@ def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str =
 
     root_match = (match[0], match[1]) if match else _latest_responses_root(snapshots, domain)
     responses_root = root_match[1] if root_match else None
+    if root_match:
+        request.archivebox_cache_policy = "public" if root_match[0].permissions == PERMISSIONS_PUBLIC else "private"
     if request_config.USES_SUBDOMAIN_ROUTING:
         snapshot = root_match[0] if root_match else (snapshots[0] if requested_root_index and snapshots else None)
         if snapshot:

@@ -129,7 +129,7 @@ def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Pat
 
 def _cache_policy(config=None, **config_kwargs) -> str:
     config = config or get_config(resolve_plugins=False, **config_kwargs)
-    return "private" if config.PERMISSIONS == "private" else "public"
+    return "public" if config.PERMISSIONS == "public" else "private"
 
 
 def _format_direntry_timestamp(stat_result: os.stat_result) -> str:

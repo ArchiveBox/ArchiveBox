@@ -565,6 +565,8 @@ docker compose run --rm archivebox config --set PERMISSIONS=public
 
 # restart the server to apply any config changes
 </code></pre>
+
+Snapshot caching follows each snapshot's saved `PERMISSIONS`, including inherited defaults and snapshot overrides. Public content can be cached by browsers and shared proxies/CDNs; private and unlisted content uses `Cache-Control: private` so only the user's browser can cache it. Both retain normal artifact cache lifetimes and validators for fast repeat viewing. Authentication handoffs are not stored. Changing permissions does not revoke copies already cached under the previous policy; purge any affected shared cache when needed.
 </details>
 
 <br/>

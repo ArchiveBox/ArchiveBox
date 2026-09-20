@@ -579,7 +579,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             path("search-stream/", self.admin_site.admin_view(self.search_stream_view), name="core_snapshot_search_stream"),
             path(
                 "<path:object_id>/preview/<str:plugin>/<path:filename>",
-                self.admin_site.admin_view(self.preview_view),
+                self.admin_site.admin_view(self.preview_view, cacheable=True),
                 name="core_snapshot_preview",
             ),
             path("<path:object_id>/redo-failed/", self.admin_site.admin_view(self.redo_failed_view), name="core_snapshot_redo_failed"),
@@ -603,10 +603,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         if not isinstance(file_info, dict) or int(file_info.get("size") or 0) <= 0:
             raise Http404("Snapshot preview does not exist")
         output_path = filename if file_info.get("root_relative") else f"{plugin}/{filename}"
+        request.archivebox_cache_policy = "private"
         response = serve_static_with_byterange_support(request, output_path, document_root=snapshot.output_dir)
-        if not response.headers.get("Content-Type", "").lower().startswith("image/"):
+        if response.status_code != 304 and not response.headers.get("Content-Type", "").lower().startswith("image/"):
             raise Http404("Snapshot preview is not an image")
-        response.headers["Cache-Control"] = "private, no-store"
         response.headers["Vary"] = "Cookie"
         response.headers["X-Content-Type-Options"] = "nosniff"
         return response

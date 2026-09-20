@@ -13,6 +13,7 @@ from django.http import HttpResponseForbidden, HttpResponseNotModified
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.http import http_date
+from django.utils.cache import patch_cache_control, patch_vary_headers
 
 from archivebox.config import VERSION
 from archivebox.config.common import get_config, get_request_config
@@ -123,13 +124,12 @@ def AdminCookieIsolationMiddleware(get_response):
 
 
 def CacheControlMiddleware(get_response):
-    snapshot_path_re = re.compile(r"^/[^/]+/\\d{8}/[^/]+/[0-9a-fA-F-]{8,36}/")
     static_cache_key = (get_COMMIT_HASH() or VERSION or "dev").strip()
 
     def middleware(request):
         response = get_response(request)
 
-        if request.path.startswith("/static/"):
+        if request.path.startswith("/static/") and response.status_code in (200, 304):
             rel_path = request.path[len("/static/") :]
             static_path = finders.find(rel_path)
             if static_path:
@@ -154,15 +154,17 @@ def CacheControlMiddleware(get_response):
                     response.headers["Last-Modified"] = http_date(mtime)
                 return response
 
-        if ("/archive/" in request.path or "/static/" in request.path or snapshot_path_re.match(request.path)) and not response.get(
-            "Cache-Control",
-        ):
-            config = request.__dict__.get("archivebox_config")
-            if config is None:
-                config = get_config(resolve_plugins=False)
-                request.archivebox_config = config
-            policy = "private" if config.PERMISSIONS == "private" else "public"
-            response["Cache-Control"] = f"{policy}, max-age=60, stale-while-revalidate=300"
+        # Keep artifact freshness/validators, but never let a shared cache store
+        # private or unlisted snapshots. Auth redirects and errors stay unstored.
+        snapshot_policy = getattr(request, "archivebox_cache_policy", None)
+        if snapshot_policy and response.status_code in (200, 206, 304):
+            if not response.get("Cache-Control"):
+                response["Cache-Control"] = f"{snapshot_policy}, max-age=60, stale-while-revalidate=300"
+            if snapshot_policy == "private":
+                patch_cache_control(response, private=True)
+        elif snapshot_policy or not response.get("Cache-Control"):
+            response["Cache-Control"] = "private, no-store"
+        patch_vary_headers(response, ("Cookie", "Authorization"))
         return response
 
     return middleware

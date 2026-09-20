@@ -719,6 +719,293 @@ class TestUrlRouting:
             mode="safe-subdomains-fullreplay",
         )
 
+    def test_snapshot_payload_cache_policy_tracks_effective_permissions_and_revocation(self) -> None:
+        self._run(
+            """
+            import hashlib
+            import json
+            from urllib.parse import urlsplit
+
+            from archivebox.crawls.models import Crawl
+
+            admin = ensure_admin_user()
+            snapshot = get_snapshot()
+            original_config = snapshot.config
+            raw_name = "cache-policy.png"
+            raw_bytes = b"\\x89PNG\\r\\n\\x1a\\ncache-policy-payload"
+            raw_path = Path(snapshot.output_dir) / raw_name
+            raw_path.write_bytes(raw_bytes)
+            metadata_path = Path(snapshot.output_dir) / "index.jsonl"
+            if not metadata_path.exists():
+                metadata_path.write_text('{"type":"Snapshot"}\\n', encoding="utf-8")
+            hashes_dir = Path(snapshot.output_dir) / "hashes"
+            hashes_dir.mkdir(parents=True, exist_ok=True)
+            (hashes_dir / "hashes.json").write_text(
+                json.dumps(
+                    {
+                        "files": [
+                            {"path": raw_name, "hash": hashlib.sha256(raw_bytes).hexdigest()},
+                            {
+                                "path": "index.jsonl",
+                                "hash": hashlib.sha256(metadata_path.read_bytes()).hexdigest(),
+                            },
+                        ],
+                    },
+                ),
+                encoding="utf-8",
+            )
+            snapshot_host = get_snapshot_host(str(snapshot.id))
+
+            def cache_tokens(response):
+                return {token.strip().lower() for token in response.headers.get("Cache-Control", "").split(",") if token.strip()}
+
+            def assert_cache(response, *expected):
+                assert cache_tokens(response) == set(expected), (response.status_code, response.headers)
+
+            def assert_auth_vary(response):
+                vary = {token.strip().lower() for token in response.headers.get("Vary", "").split(",") if token.strip()}
+                assert {"cookie", "authorization"} <= vary, response.headers
+
+            try:
+                snapshot.config = {**snapshot.config, "PERMISSIONS": "public"}
+                snapshot.save(update_fields=["config"])
+                snapshot.refresh_from_db()
+                assert snapshot.permissions == "public"
+
+                public_client = Client()
+                public_index = public_client.get("/index.html", HTTP_HOST=snapshot_host)
+                assert public_index.status_code == 200
+                assert_cache(public_index, "public", "max-age=60", "stale-while-revalidate=300")
+
+                public_files = public_client.get(f"/{snapshot.url_path}/index.html?files=1", HTTP_HOST=get_web_host())
+                assert public_files.status_code == 200
+                assert raw_name.encode() in response_body(public_files)
+                assert_cache(public_files, "public", "max-age=60", "stale-while-revalidate=300")
+
+                public_metadata = public_client.get("/index.jsonl", HTTP_HOST=snapshot_host)
+                assert public_metadata.status_code == 200
+                assert response_body(public_metadata) == metadata_path.read_bytes()
+                assert_cache(public_metadata, "public", "max-age=31536000", "immutable")
+
+                public_raw = public_client.get(f"/{raw_name}", HTTP_HOST=snapshot_host)
+                assert public_raw.status_code == 200
+                assert response_body(public_raw) == raw_bytes
+                assert public_raw.headers.get("ETag")
+                assert_cache(public_raw, "public", "max-age=604800", "immutable")
+
+                public_preview = public_client.get(f"/{raw_name}?preview=1", HTTP_HOST=snapshot_host)
+                assert public_preview.status_code == 200
+                assert public_preview["Content-Type"].startswith("text/html")
+                assert_cache(public_preview, "public", "max-age=60", "stale-while-revalidate=300")
+
+                public_range = public_client.get(f"/{raw_name}", HTTP_HOST=snapshot_host, HTTP_RANGE="bytes=0-7")
+                assert public_range.status_code == 206
+                assert response_body(public_range) == raw_bytes[:8]
+                assert_cache(public_range, "public", "max-age=604800", "immutable")
+
+                public_not_modified = public_client.get(
+                    f"/{raw_name}",
+                    HTTP_HOST=snapshot_host,
+                    HTTP_IF_NONE_MATCH=public_raw["ETag"],
+                )
+                assert public_not_modified.status_code == 304
+                assert_cache(public_not_modified, "public", "max-age=31536000", "immutable")
+
+                public_progress = public_client.get(
+                    f"/progress.json?snapshot_id={str(snapshot.id).replace('-', '')}",
+                    HTTP_HOST=snapshot_host,
+                )
+                assert public_progress.status_code == 200
+                assert_cache(public_progress, "private", "no-store")
+                public_missing = public_client.get("/missing-cache-policy-output", HTTP_HOST=snapshot_host)
+                assert public_missing.status_code == 404
+                assert_cache(public_missing, "private", "no-store")
+                public_redirect = public_client.get(f"/{snapshot.url_path}/index.html", HTTP_HOST=get_admin_host())
+                assert public_redirect.status_code in (301, 302)
+                assert public_redirect["Location"].startswith(f"http://{snapshot_host}")
+                assert_cache(public_redirect, "private", "no-store")
+                legacy_redirect = public_client.get(
+                    f"/{snapshot.legacy_archive_path}/index.html",
+                    HTTP_HOST=get_web_host(),
+                )
+                assert legacy_redirect.status_code in (301, 302)
+                assert snapshot.url_path in legacy_redirect["Location"]
+                assert_cache(legacy_redirect, "private", "no-store")
+
+                static_asset = public_client.get("/static/jquery.min.js", HTTP_HOST=snapshot_host)
+                assert static_asset.status_code == 200
+                assert static_asset.headers.get("ETag")
+                assert_cache(static_asset, "public", "max-age=31536000", "immutable")
+                static_not_modified = public_client.get(
+                    "/static/jquery.min.js",
+                    HTTP_HOST=snapshot_host,
+                    HTTP_IF_NONE_MATCH=static_asset["ETag"],
+                )
+                assert static_not_modified.status_code == 304
+                assert_cache(static_not_modified, "public", "max-age=31536000", "immutable")
+
+                # Tightening permissions must still run authorization before honoring
+                # a stale validator presented in a new request.
+                snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}
+                snapshot.save(update_fields=["config"])
+                snapshot.refresh_from_db()
+                assert snapshot.permissions == "private"
+                revoked = Client().get(
+                    f"/{raw_name}",
+                    HTTP_HOST=snapshot_host,
+                    HTTP_IF_NONE_MATCH=public_raw["ETag"],
+                )
+                assert revoked.status_code in (301, 302)
+                assert "/admin/core/snapshot/replay-auth/" in revoked["Location"]
+                assert_cache(revoked, "private", "no-store")
+                assert_auth_vary(revoked)
+                private_files = Client().get(f"/{snapshot.url_path}/index.html?files=1", HTTP_HOST=get_web_host())
+                assert private_files.status_code in (301, 302)
+                assert "/admin/core/snapshot/replay-auth/" in private_files["Location"]
+                assert_cache(private_files, "private", "no-store")
+                assert_auth_vary(private_files)
+
+                admin_client = Client()
+                assert admin_client.login(username=admin.username, password="testpassword")
+                grant = admin_client.get(
+                    f"/admin/core/snapshot/replay-auth/?snapshot={snapshot.id}&next=/{raw_name}",
+                    HTTP_HOST=get_admin_host(),
+                )
+                assert grant.status_code in (301, 302)
+                grant_url = urlsplit(grant["Location"])
+                replay_client = Client()
+                replay_auth = replay_client.get(f"{grant_url.path}?{grant_url.query}", HTTP_HOST=snapshot_host)
+                assert replay_auth.status_code in (301, 302)
+                assert_cache(replay_auth, "private", "no-store")
+                private_raw = replay_client.get(f"/{raw_name}", HTTP_HOST=snapshot_host)
+                assert private_raw.status_code == 200
+                assert response_body(private_raw) == raw_bytes
+                assert_cache(private_raw, "private", "max-age=604800", "immutable")
+                assert_auth_vary(private_raw)
+                private_index = replay_client.get("/index.html", HTTP_HOST=snapshot_host)
+                assert private_index.status_code == 200
+                assert_cache(private_index, "private", "max-age=60", "stale-while-revalidate=300")
+                assert_auth_vary(private_index)
+                private_zip = replay_client.get("/?files=1&download=zip", HTTP_HOST=snapshot_host)
+                assert private_zip.status_code == 200
+                assert private_zip["Content-Type"] == "application/zip"
+                assert response_body(private_zip).startswith(b"PK")
+                assert_cache(private_zip, "private", "max-age=60", "stale-while-revalidate=300")
+                private_metadata = replay_client.get("/index.jsonl", HTTP_HOST=snapshot_host)
+                assert private_metadata.status_code == 200
+                assert response_body(private_metadata) == metadata_path.read_bytes()
+                assert_cache(private_metadata, "private", "max-age=31536000", "immutable")
+                private_preview = replay_client.get(f"/{raw_name}?preview=1", HTTP_HOST=snapshot_host)
+                assert private_preview.status_code == 200
+                assert private_preview["Content-Type"].startswith("text/html")
+                assert_cache(private_preview, "private", "max-age=60", "stale-while-revalidate=300")
+                private_range = replay_client.get(f"/{raw_name}", HTTP_HOST=snapshot_host, HTTP_RANGE="bytes=0-7")
+                assert private_range.status_code == 206
+                assert response_body(private_range) == raw_bytes[:8]
+                assert_cache(private_range, "private", "max-age=604800", "immutable")
+                private_not_modified = replay_client.get(
+                    f"/{raw_name}",
+                    HTTP_HOST=snapshot_host,
+                    HTTP_IF_NONE_MATCH=private_raw["ETag"],
+                )
+                assert private_not_modified.status_code == 304
+                assert_cache(private_not_modified, "private", "max-age=31536000", "immutable")
+                assert_auth_vary(private_not_modified)
+                private_missing = replay_client.get("/missing-cache-policy-output", HTTP_HOST=snapshot_host)
+                assert private_missing.status_code == 404
+                assert_cache(private_missing, "private", "no-store")
+                private_redirect = admin_client.get(f"/{snapshot.url_path}/index.html", HTTP_HOST=get_admin_host())
+                assert private_redirect.status_code in (301, 302)
+                assert private_redirect["Location"].startswith(f"http://{snapshot_host}")
+                assert_cache(private_redirect, "private", "no-store")
+
+                snapshot.config = {**snapshot.config, "PERMISSIONS": "unlisted"}
+                snapshot.save(update_fields=["config"])
+                snapshot.refresh_from_db()
+                assert snapshot.permissions == "unlisted"
+                unlisted_raw = Client().get(f"/{raw_name}", HTTP_HOST=snapshot_host)
+                assert unlisted_raw.status_code == 200
+                assert response_body(unlisted_raw) == raw_bytes
+                assert_cache(unlisted_raw, "private", "max-age=604800", "immutable")
+                unlisted_index = Client().get("/index.html", HTTP_HOST=snapshot_host)
+                assert unlisted_index.status_code == 200
+                assert_cache(unlisted_index, "private", "max-age=60", "stale-while-revalidate=300")
+                unlisted_files = Client().get(f"/{snapshot.url_path}/index.html?files=1", HTTP_HOST=get_web_host())
+                assert unlisted_files.status_code == 200
+                assert raw_name.encode() in response_body(unlisted_files)
+                assert_cache(unlisted_files, "private", "max-age=60", "stale-while-revalidate=300")
+                unlisted_zip = Client().get(
+                    f"/{snapshot.url_path}/index.html?files=1&download=zip",
+                    HTTP_HOST=get_web_host(),
+                )
+                assert unlisted_zip.status_code == 200
+                assert unlisted_zip["Content-Type"] == "application/zip"
+                assert response_body(unlisted_zip).startswith(b"PK")
+                assert_cache(unlisted_zip, "private", "max-age=60", "stale-while-revalidate=300")
+                unlisted_metadata = Client().get("/index.jsonl", HTTP_HOST=snapshot_host)
+                assert unlisted_metadata.status_code == 200
+                assert response_body(unlisted_metadata) == metadata_path.read_bytes()
+                assert_cache(unlisted_metadata, "private", "max-age=31536000", "immutable")
+                unlisted_preview = Client().get(f"/{raw_name}?preview=1", HTTP_HOST=snapshot_host)
+                assert unlisted_preview.status_code == 200
+                assert unlisted_preview["Content-Type"].startswith("text/html")
+                assert_cache(unlisted_preview, "private", "max-age=60", "stale-while-revalidate=300")
+                unlisted_range = Client().get(f"/{raw_name}", HTTP_HOST=snapshot_host, HTTP_RANGE="bytes=0-7")
+                assert unlisted_range.status_code == 206
+                assert response_body(unlisted_range) == raw_bytes[:8]
+                assert_cache(unlisted_range, "private", "max-age=604800", "immutable")
+                unlisted_not_modified = Client().get(
+                    f"/{raw_name}",
+                    HTTP_HOST=snapshot_host,
+                    HTTP_IF_NONE_MATCH=unlisted_raw["ETag"],
+                )
+                assert unlisted_not_modified.status_code == 304
+                assert_cache(unlisted_not_modified, "private", "max-age=31536000", "immutable")
+                unlisted_missing = Client().get("/missing-cache-policy-output", HTTP_HOST=snapshot_host)
+                assert unlisted_missing.status_code == 404
+                assert_cache(unlisted_missing, "private", "no-store")
+                unlisted_redirect = Client().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=get_admin_host())
+                assert unlisted_redirect.status_code in (301, 302)
+                assert unlisted_redirect["Location"].startswith(f"http://{snapshot_host}")
+                assert_cache(unlisted_redirect, "private", "no-store")
+
+                # Snapshots materialize their crawl's permission when no explicit
+                # snapshot override is supplied, and each effective permission drives caching.
+                for inherited_permission, expected_cache in (
+                    ("public", ("public", "max-age=604800", "immutable")),
+                    ("unlisted", ("private", "max-age=604800", "immutable")),
+                    ("private", ("private", "no-store")),
+                ):
+                    crawl = Crawl.objects.create(
+                        urls=f"https://inherited-{inherited_permission}.example/",
+                        created_by=admin,
+                        config={"PERMISSIONS": inherited_permission},
+                    )
+                    inherited = Snapshot.objects.create(
+                        url=f"https://inherited-{inherited_permission}.example/",
+                        crawl=crawl,
+                        config={},
+                    )
+                    inherited.refresh_from_db()
+                    assert inherited.permissions == inherited_permission
+                    inherited.output_dir.mkdir(parents=True, exist_ok=True)
+                    (inherited.output_dir / raw_name).write_bytes(raw_bytes)
+                    inherited_host = get_snapshot_host(str(inherited.id))
+                    response = Client().get(f"/{raw_name}", HTTP_HOST=inherited_host)
+                    if inherited_permission == "private":
+                        assert response.status_code in (301, 302)
+                    else:
+                        assert response.status_code == 200
+                        assert response_body(response) == raw_bytes
+                    assert_cache(response, *expected_cache)
+
+                print("OK")
+            finally:
+                Snapshot.objects.filter(pk=snapshot.pk).update(config=original_config)
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
     def test_admin_login_next_allows_archivebox_hosts_only(self) -> None:
         self._run(
             """

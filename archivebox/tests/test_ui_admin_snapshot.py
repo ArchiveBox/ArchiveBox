@@ -13,7 +13,7 @@ import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.core.paginator import UnorderedObjectListWarning
-from django.test import RequestFactory
+from django.test import Client, RequestFactory
 from django.urls import reverse
 
 from archivebox.core.middleware import ADMIN_LOGIN_HINT_COOKIE
@@ -230,10 +230,30 @@ def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(
     assert preview_response.status_code == 200
     assert b"".join(preview_response.streaming_content) == preview_bytes
     assert preview_response["Content-Type"] == "image/png"
-    assert "private" in preview_response["Cache-Control"]
-    assert "no-store" in preview_response["Cache-Control"]
-    assert preview_response["Vary"] == "Cookie"
+    assert {part.strip() for part in preview_response["Cache-Control"].split(",")} == {
+        "private",
+        "max-age=604800",
+        "immutable",
+    }
+    assert {part.strip() for part in preview_response["Vary"].split(",")} >= {"Cookie", "Authorization"}
     assert preview_response["X-Content-Type-Options"] == "nosniff"
+
+    not_modified = admin_client.get(
+        preview_url,
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_IF_MODIFIED_SINCE=preview_response["Last-Modified"],
+    )
+    assert not_modified.status_code == 304
+    assert {part.strip() for part in not_modified["Cache-Control"].split(",")} == {
+        "private",
+        "max-age=60",
+        "stale-while-revalidate=300",
+    }
+    assert {part.strip() for part in not_modified["Vary"].split(",")} >= {"Cookie", "Authorization"}
+
+    denied = Client().get(preview_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert denied.status_code in (301, 302)
+    assert {part.strip() for part in denied["Cache-Control"].split(",")} == {"private", "no-store"}
 
     disallowed_dir = Path(snapshot.output_dir) / "singlefile"
     disallowed_dir.mkdir(parents=True, exist_ok=True)

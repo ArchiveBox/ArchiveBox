@@ -87,6 +87,7 @@ DJANGO_OBJECT_ACTIONS_DEFAULT_HTTP_METHOD = "POST"
 MIDDLEWARE = [
     "archivebox.core.middleware.TimezoneMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "archivebox.core.middleware.CacheControlMiddleware",
     "archivebox.core.middleware.AdminCookieIsolationMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -97,7 +98,6 @@ MIDDLEWARE = [
     "archivebox.core.middleware.ServerSecurityModeMiddleware",
     "archivebox.core.middleware.HostRoutingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
-    "archivebox.core.middleware.CacheControlMiddleware",
     # Additional middlewares from plugins (if any)
 ]
 
