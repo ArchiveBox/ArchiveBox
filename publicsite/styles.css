@@ -292,6 +292,12 @@ h3 {
   color: var(--text);
 }
 
+.hero-platforms { gap: 8px; margin-bottom: 12px; }
+.hero-platforms .button { gap: 8px; padding: 0 12px; font-size: .85rem; }
+.hero-platforms svg { width: 18px; height: 18px; fill: currentColor; }
+.hero-platforms .button.is-platform-match { background: #9b2854; color: #fff; border-color: #9b2854; }
+.hero-platforms .button.is-platform-match:hover { background: #782040; }
+
 .hero-links a,
 .mini-links a {
   color: var(--muted-text);
@@ -916,6 +922,9 @@ h3 {
   color: #fff;
   box-shadow: inset 0 2px #d59aae;
 }
+
+.install-tab.is-platform-match { background: #9b2854; color: #fff; }
+.install-tab.is-platform-match:hover { background: #782040; }
 
 .install-tab:focus-visible,
 .install-panel:focus-visible {
