@@ -31,6 +31,45 @@ RUN_TEST_ENV = {
 }
 
 
+@pytest.mark.django_db(transaction=True)
+def test_cli_run_retries_snapshot_after_filesystem_failure(initialized_archive):
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    env = cli_env(live=True, PLUGINS="hashes")
+    created = run_archivebox_cmd(["snapshot", "create", create_test_url()], cwd=initialized_archive, env=env)
+    assert created.returncode == 0, created.stdout + created.stderr
+    snapshot_id = next(record["id"] for record in parse_jsonl_output(created.stdout) if record.get("type") == "Snapshot")
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(pk=snapshot_id)
+        crawl_id = str(snapshot.crawl_id)
+        directory = snapshot.output_dir
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "input.txt").write_text("Capture survives a temporary filesystem failure")
+    broken_directory = directory / "hashes"
+    broken_directory.symlink_to("hashes")
+
+    failed = run_archivebox_cmd(["run", f"--snapshot-id={snapshot_id}"], cwd=initialized_archive, env=env, timeout=60)
+    assert failed.returncode == 1, failed.stdout + failed.stderr
+    assert "FileExistsError: [Errno 17]" in failed.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(pk=snapshot_id)
+        assert snapshot.status == Snapshot.StatusChoices.STARTED
+        assert snapshot.retry_at is not None
+        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
+
+    broken_directory.unlink()
+    resumed = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=60)
+    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(pk=snapshot_id)
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        result = snapshot.archiveresult_set.get(plugin="hashes")
+        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert result.output_size > 0
+    assert (directory / "hashes").is_dir()
+
+
 def _install_real_chrome_for_test(data_dir, env, *, isolation):
     env["CHROME_ISOLATION"] = isolation
     env["CHROME_HEADLESS"] = "true"
@@ -42,6 +81,40 @@ def _install_real_chrome_for_test(data_dir, env, *, isolation):
         timeout=600,
     )
     assert install_process.returncode == 0, install_process.stderr or install_process.stdout
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("precreate_snapshot", [False, True])
+def test_new_crawls_run_before_an_existing_crawls_backlog(initialized_archive, precreate_snapshot):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    env = cli_env(live=True, PLUGINS="hashes")
+    old_url, new_url = create_test_url(), create_test_url()
+    old = run_archivebox_cmd(["snapshot", "create", old_url], cwd=initialized_archive, env=env)
+    assert old.returncode == 0, old.stdout + old.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(url=old_url)
+        Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED)
+        Snapshot.objects.filter(pk=snapshot.pk).update(retry_at=timezone.now() - timedelta(days=1))
+    new = run_archivebox_cmd(
+        ["snapshot" if precreate_snapshot else "crawl", "create", new_url],
+        cwd=initialized_archive,
+        env=env,
+    )
+    assert new.returncode == 0, new.stdout + new.stderr
+
+    result = run_archivebox_cmd(["run", "--no-stdin"], cwd=initialized_archive, env=env, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert new_url in result.stdout and old_url in result.stdout
+    assert result.stdout.index(new_url) < result.stdout.index(old_url), result.stdout
+    with use_archivebox_db(initialized_archive):
+        assert Snapshot.objects.filter(url__in=[old_url, new_url], status=Snapshot.StatusChoices.SEALED).count() == 2
 
 
 @pytest.mark.django_db(transaction=True)

@@ -720,7 +720,7 @@ def test_update_migrates_db_snapshot_when_legacy_index_missing(tmp_path):
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
     for pass_number in (1, 2):
-        result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
+        result = run_archivebox_migration_cmd(work_dir, ["update", "--rescan", "--migrate-only"], timeout=120)
         assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
 
     migrated_files = list((work_dir / "archive" / "users").glob("*/snapshots/*/*/*/screenshot.png"))
@@ -749,7 +749,7 @@ def test_update_recovers_orphan_with_corrupt_index_from_archive_org_url(tmp_path
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
+    result = run_archivebox_migration_cmd(work_dir, ["update", "--rescan", "--migrate-only"], timeout=120)
     assert result.returncode == 0, f"Update failed: {result.stderr}"
 
     conn = sqlite3.connect(str(db_path))
@@ -792,7 +792,7 @@ def test_update_preserves_legacy_folder_timestamp_over_index_float_variant(tmp_p
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
+    result = run_archivebox_migration_cmd(work_dir, ["update", "--rescan", "--migrate-only"], timeout=120)
     assert result.returncode == 0, f"Update failed: {result.stderr}"
 
     conn = sqlite3.connect(str(db_path))
@@ -834,7 +834,7 @@ def test_update_preserves_distinct_legacy_dirs_with_integer_and_float_timestamps
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
-    result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
+    result = run_archivebox_migration_cmd(work_dir, ["update", "--rescan", "--migrate-only"], timeout=120)
     assert result.returncode == 0, f"Update failed: {result.stderr}"
 
     conn = sqlite3.connect(str(db_path))
@@ -885,7 +885,7 @@ def test_update_preserves_legacy_plugin_directory_without_output_files(migration
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=60)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
     for pass_number in (1, 2):
-        result = run_archivebox_migration_cmd(work_dir, ["update"], timeout=120)
+        result = run_archivebox_migration_cmd(work_dir, ["update", "--rescan", "--migrate-only"], timeout=120)
         assert result.returncode == 0, f"Update pass {pass_number} failed: {result.stderr}"
 
     migrated_outputs = list((work_dir / "archive" / "users").glob("*/snapshots/*/*/*/media/stderr.log"))

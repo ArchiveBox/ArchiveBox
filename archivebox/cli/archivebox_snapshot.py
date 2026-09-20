@@ -44,6 +44,7 @@ SNAPSHOT_LIST_CHUNK_SIZE = 5000
 
 def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
     from archivebox.config import VERSION
+    from archivebox.config.common import redact_sensitive_config
     from archivebox.core.models import SnapshotTag
 
     fields = (
@@ -53,6 +54,9 @@ def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
         "title",
         "bookmarked_at",
         "created_at",
+        "modified_at",
+        "config",
+        "notes",
         "timestamp",
         "depth",
         "status",
@@ -80,6 +84,9 @@ def iter_snapshot_json(queryset: QuerySet) -> Iterator[dict[str, object]]:
                 "tags": ",".join(sorted(tags_by_snapshot[row["id"]])),
                 "bookmarked_at": row["bookmarked_at"].isoformat() if row["bookmarked_at"] else None,
                 "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                "modified_at": row["modified_at"].isoformat() if row["modified_at"] else None,
+                "config": redact_sensitive_config(row["config"]),
+                "notes": row["notes"],
                 "timestamp": row["timestamp"],
                 "depth": row["depth"],
                 "status": row["status"],

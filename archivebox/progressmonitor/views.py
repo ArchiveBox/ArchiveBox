@@ -221,6 +221,8 @@ def live_progress_view(request):
 
         api_base = get_api_base_url(request=request, config=request_config) if scoped_snapshot is not None else ""
 
+        running_screencasts = {}
+
         def screencast_frame_url(crawl_id: str, crawl_dir: Path) -> str:
             frame_path = crawl_dir / "chrome_screencast" / "latest.jpg"
             try:
@@ -229,7 +231,8 @@ def live_progress_view(request):
                 return ""
             if frame_stat.st_size <= 0:
                 return ""
-            if now.timestamp() - frame_stat.st_mtime > 15:
+            started_at = running_screencasts.get(crawl_id)
+            if started_at is None or frame_stat.st_mtime < started_at.timestamp():
                 return ""
             rel = f"/api/v1/crawls/crawl/{crawl_id}/files/chrome_screencast/latest.jpg?v={frame_stat.st_mtime_ns}"
             return f"{api_base}{rel}" if api_base else rel
@@ -552,6 +555,10 @@ def live_progress_view(request):
                 snapshot_id = str(matched_snapshot["id"])
             running_worker_ids.add(str(proc["id"]))
             _plugin, _label, phase, _hook_name = process_label(proc["cmd"])
+            if _plugin == "chrome_screencast" and proc["started_at"] and Process(**proc, machine_id=machine_id).is_running:
+                # CDP sends frames only when the page changes. Keep a still
+                # frame visible for its live capture, never for a previous run.
+                running_screencasts[crawl_id] = max(proc["started_at"], running_screencasts.get(crawl_id, proc["started_at"]))
             if crawl_id and proc["pid"]:
                 crawl_process_pids.setdefault(crawl_id, proc["pid"])
             if phase == "snapshot" and snapshot_id and proc["pid"]:

@@ -3,9 +3,11 @@
 import subprocess
 import uuid
 from datetime import datetime, timezone as dt_timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
-from threading import Thread
+from threading import Event, Thread
+from types import SimpleNamespace
 
 import pytest
 from django.test import override_settings
@@ -17,6 +19,41 @@ from archivebox.tests.conftest import cli_env, resolve_abxpkg_binary_env, run_ar
 from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.fixture
+def painted_http_server():
+    """Serve a complete static page so CDP stops emitting changed frames."""
+
+    request_started = Event()
+
+    class PaintedBlockingHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = b"""<!doctype html>
+                <html><head><title>Still frame</title></head>
+                <body style="background:#246;color:white"><h1>Visible page</h1></body></html>
+            """
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            self.wfile.flush()
+            request_started.set()
+
+        def log_message(self, format, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), PaintedBlockingHandler)
+    thread = Thread(target=server.serve_forever, name="archivebox-test-painted-http-barrier")
+    thread.start()
+    yield SimpleNamespace(
+        url=f"http://127.0.0.1:{server.server_port}/",
+        request_started=request_started,
+    )
+    server.shutdown()
+    server.server_close()
+    thread.join()
 
 
 @pytest.fixture
@@ -328,6 +365,77 @@ class TestLiveProgressView:
         assert errors == []
         result.refresh_from_db()
         assert result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS)
+
+    def test_live_progress_keeps_still_browser_frame_while_screencast_runs(
+        self,
+        client,
+        admin_user,
+        crawl,
+        snapshot,
+        painted_http_server,
+        cached_abxpkg_lib_dir,
+    ):
+        import time
+
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import run_due_snapshot
+
+        now = timezone.now()
+        Crawl.objects.filter(pk=crawl.pk).update(
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=now,
+            urls=painted_http_server.url,
+            config={"PLUGINS": "chrome,chrome_screencast", "CHROME_ISOLATION": "snapshot"},
+        )
+        Snapshot.objects.filter(pk=snapshot.pk).update(
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=now,
+            url=painted_http_server.url,
+            config={
+                "PLUGINS": "chrome,chrome_screencast",
+                "CHROME_HEADLESS": True,
+                "CHROME_SANDBOX": False,
+                "CHROME_ISOLATION": "snapshot",
+                "CHROME_TIMEOUT": 90,
+                "CHROME_PAGELOAD_TIMEOUT": 90,
+                "CHROME_DELAY_AFTER_LOAD": 30,
+                "TIMEOUT": 90,
+            },
+        )
+        snapshot.refresh_from_db()
+        frame = Path(snapshot.crawl.output_dir) / "chrome_screencast" / "latest.jpg"
+        errors = []
+
+        def run_snapshot():
+            try:
+                assert run_due_snapshot(snapshot, lock_seconds=120) is True
+            except BaseException as err:
+                errors.append(err)
+
+        runner = Thread(target=run_snapshot, name="archivebox-test-screencast-runner")
+        runner.start()
+        try:
+            assert painted_http_server.request_started.wait(timeout=60)
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                assert errors == []
+                if frame.is_file() and time.time() - frame.stat().st_mtime > 16:
+                    break
+                time.sleep(0.1)
+            assert frame.is_file()
+            assert frame.read_bytes().startswith(b"\xff\xd8\xff")
+            assert time.time() - frame.stat().st_mtime > 16
+            client.force_login(admin_user)
+            response = client.get("/progress.json", HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200, response.content
+            active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
+            assert active_crawl["screencast_url"].startswith(f"/api/v1/crawls/crawl/{crawl.pk}/files/chrome_screencast/latest.jpg")
+        finally:
+            runner.join(timeout=120)
+        assert not runner.is_alive()
+        assert errors == []
+        assert not frame.exists()
 
     def test_live_progress_hides_finished_cancelled_crawl(self, client, admin_user, crawl, snapshot):
         from archivebox.core.models import ArchiveResult, Snapshot

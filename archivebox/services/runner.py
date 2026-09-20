@@ -1779,20 +1779,29 @@ def run_pending_crawls(
             )
             if crawl_id:
                 active_snapshots = active_snapshots.filter(crawl_id=crawl_id)
+            # Admit new submissions between captures instead of making them
+            # wait behind every overdue child of an old, resumed crawl.
             if _run_due_snapshot_query(
-                active_snapshots,
+                active_snapshots.filter(crawl__status=Crawl.StatusChoices.QUEUED),
                 lock_seconds=60,
                 interactive_interrupts=interactive_interrupts,
                 runtime_config=runtime_config,
             ):
                 continue
 
-        if not maintenance_only:
             if _run_due_crawl_status(
                 Crawl.StatusChoices.QUEUED,
                 crawl_id=crawl_id,
                 lock_seconds=crawl_claim_lock_seconds,
                 interactive_interrupts=interactive_interrupts,
+            ):
+                continue
+
+            if _run_due_snapshot_query(
+                active_snapshots,
+                lock_seconds=60,
+                interactive_interrupts=interactive_interrupts,
+                runtime_config=runtime_config,
             ):
                 continue
 
