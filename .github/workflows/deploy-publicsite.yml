@@ -83,16 +83,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Publish only the current default-branch revision
-        id: current
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REVISION: ${{ needs.build.outputs.revision }}
-        run: |
-          latest=$(gh api "repos/$GITHUB_REPOSITORY/commits/$DEFAULT_BRANCH" --jq .sha)
-          echo "deploy=$([ "$latest" = "$REVISION" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
       - uses: actions/configure-pages@v5
-        if: steps.current.outputs.deploy == 'true'
       - uses: actions/deploy-pages@v4
-        if: steps.current.outputs.deploy == 'true'
         id: deployment

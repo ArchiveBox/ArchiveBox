@@ -23,8 +23,9 @@ workflow. Common files are ordinary committed copies; update them deliberately.
    Android's checked-in bootstrap captures retain their local provenance.
 5. Render current content and layout around those captures. Site revision and
    capture revision are separate facts; reusing captures must not relabel them.
-6. Serialize production restore/build/deploy under one concurrency group.
-   Before deployment, confirm the built source is still the default-branch HEAD.
+6. Serialize production restore/build/deploy under one concurrency group and
+   check out the latest default-branch revision when each build starts. Keep the
+   built revision in provenance; later release-bot commits must not block deploys.
 7. Keep platform-specific build, installation, capture, and completeness checks
    in the application's existing capture workflow. Site-only edits do not need
    to rerun those jobs.
@@ -41,8 +42,9 @@ HTML files; no runtime translation service or cross-repository dependency.
 
 ## Editing and building
 
-`base/` and `site.py` are identical independent copies across the seven product
-sites. The base owns the shared logo, Apps menu/icons, footer directory, navigation
+`base/` contains identical independent copies across the seven product sites.
+Common Python scripts share the same behavior; repository formatters may change
+line wrapping without changing their syntax trees. The base owns the shared logo, Apps menu/icons, footer directory, navigation
 behavior and styles. `site.json` and `nav.html` contain this site's name, routes,
 links and CTA. Product content and additional footer resources stay in the native
 HTML/Jinja/Liquid templates listed above. The `ARCHIVEBOX:*` comments are build
@@ -103,3 +105,6 @@ The strip scrolls once, pauses on hover, focus or manual interaction, and has an
 explicit Play/Pause button. Reduced-motion users start paused. Without JavaScript,
 normal image links and horizontal scrolling remain available. Screenshot capture
 manifests and provenance are never rewritten by this presentation step.
+
+Standalone one- or two-image illustrations remain in their authored source.
+Gallery strips with three or more images use the latest restored captures.
