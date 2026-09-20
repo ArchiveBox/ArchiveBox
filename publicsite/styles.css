@@ -30,7 +30,7 @@ html {
 body {
   isolation: isolate;
   margin: 0;
-  overflow-x: hidden;
+  overflow-x: clip;
   background:
     linear-gradient(180deg, hsl(339 49% 99%) 0%, hsl(99 20% 97%) 44%, #ffffff 100%);
   color: var(--text);
