@@ -14,6 +14,13 @@ HERE = Path(__file__).resolve().parent
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def handle(self):
+        # Browser navigation can cancel an in-flight lazy image response.
+        try:
+            super().handle()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+
     def log_message(self, *args):
         pass
 
@@ -45,6 +52,13 @@ def verify(output, evidence):
                     page.goto(f"{origin}/{route}", wait_until="domcontentloaded")
                     header = page.locator(".abx-header")
                     expect(header).to_have_count(1)
+                    expect(header).to_be_visible()
+                    expect(header).to_be_in_viewport()
+                    brand = header.locator(".abx-brand")
+                    expect(brand).to_be_visible()
+                    expect(brand).to_contain_text("ArchiveBox")
+                    expect(brand.locator(".abx-logo")).to_be_visible()
+                    expect(brand.locator(".abx-logo")).to_be_in_viewport()
                     expect(header).to_have_css("display", "flex")
                     expect(page.locator(".abx-footer")).to_have_count(1)
                     expect(page.locator(".abx-footer-column")).to_have_count(3)
@@ -62,6 +76,40 @@ def verify(output, evidence):
                     page.mouse.click(box["x"] + 2, box["y"] + 5)
                     expect(menu).not_to_have_attribute("open", "")
                     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), f"{name}: overflow at {width}"
+                    if not route and "screenshots/index.html" in config["pages"]:
+                        strips = page.locator(".abx-marquee")
+                        assert strips.count() > 0, "Homepage must use its screenshot gallery"
+                        for strip in strips.all():
+                            strip.scroll_into_view_if_needed()
+                            cards = strip.locator(".abx-marquee-card")
+                            assert cards.count() > 0, "Screenshot strip is empty"
+                            button = strip.locator(".abx-marquee-toggle")
+                            expect(button).to_have_text("Play screenshots")
+                            viewport = strip.locator(".abx-marquee-viewport")
+                            button.click()
+                            expect(button).to_have_text("Pause screenshots")
+                            initial = viewport.evaluate("node => node.scrollLeft")
+                            page.wait_for_function(
+                                "([node, initial]) => node.scrollLeft > initial",
+                                arg=[viewport.element_handle(), initial],
+                            )
+                            button.click()
+                            expect(button).to_have_text("Play screenshots")
+                            stopped = viewport.evaluate("node => node.scrollLeft")
+                            viewport.evaluate("node => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+                            assert viewport.evaluate("node => node.scrollLeft") == stopped
+                            viewport.focus()
+                            page.keyboard.press("ArrowRight")
+                            assert viewport.evaluate("node => node.scrollWidth > node.clientWidth")
+                            expect(button).to_have_text("Play screenshots")
+                            for card in cards.all():
+                                href = card.get_attribute("href")
+                                assert href and "/screenshots/" in href
+                                response = page.request.get(urljoin(page.url, href))
+                                assert response.ok, f"Broken screenshot link: {href}"
+                                anchor = urlsplit(href).fragment
+                                if anchor:
+                                    assert f'id="{anchor}"' in response.text(), f"Missing screenshot anchor: {href}"
                     # Decode every local content image using the real browser loader,
                     # including images in offscreen carousel tracks and lazy galleries.
                     images = page.locator("main img").evaluate_all("nodes => [...new Set(nodes.map(image => image.src))]")
@@ -100,9 +148,16 @@ def verify(output, evidence):
                 context = browser.new_context(java_script_enabled=False, viewport={"width": 390, "height": 900})
                 plain = context.new_page()
                 plain.goto(f"{origin}/{route}", wait_until="domcontentloaded")
+                expect(plain.locator(".abx-header")).to_be_visible()
+                expect(plain.locator(".abx-header .abx-brand")).to_be_in_viewport()
+                expect(plain.locator(".abx-header .abx-logo")).to_be_visible()
                 plain.locator(".abx-apps summary").click()
                 expect(plain.locator(".abx-app-links a").first).to_be_visible()
                 expect(plain.locator(".abx-footer-column a").first).to_be_visible()
+                if not route and "screenshots/index.html" in config["pages"]:
+                    assert plain.locator(".abx-marquee-card").count() > 0
+                    expect(plain.locator(".abx-marquee-toggle").first).to_be_hidden()
+                    expect(plain.locator(".abx-marquee-card").first).to_be_visible()
                 context.close()
                 print(
                     f"PASS {name}: desktop/mobile, keyboard, no-JS, images and resources",

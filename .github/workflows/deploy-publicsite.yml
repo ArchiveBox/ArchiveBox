@@ -43,7 +43,7 @@ jobs:
       # BEGIN REPOSITORY-SPECIFIC BUILD
       - uses: astral-sh/setup-uv@v7
       - name: Restore latest complete screenshots
-        run: uv run --no-project python bin/restore_site_screenshots.py archivebox publicsite/screenshots
+        run: uv run --no-project python bin/restore_site_screenshots.py publicsite/screenshots
         env:
           GH_TOKEN: ${{ github.token }}
       - name: Render current gallery layout without recapturing images

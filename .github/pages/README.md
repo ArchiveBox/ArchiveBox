@@ -70,3 +70,36 @@ uv run --no-config --no-project --with playwright==1.63.0 python .github/pages/v
 Use this workflow's `SITE_OUTPUT` directory. The check covers desktop/mobile
 layout, keyboard dismissal, no-JavaScript links, local resources and visible
 images, and uploads its screenshots as `site-verification` for 14 days.
+
+## Branding and future translations
+
+`base/chrome.css` owns the shared system font stacks, plum accent and CTA shape,
+including the existing `.button` and `.ab-btn` classes. Product styles own their
+layouts, feature sections and platform-specific button states. Shared system
+fonts need no external font downloads. `site.py` emits the same complete SEO/OG/
+Twitter tags everywhere while retaining each native template's title, description,
+canonical URL, locale and social artwork; edit those values with that page's copy.
+
+For translations, keep complete separate HTML files under `es/`, `fr/` and `zh/`,
+and list their output paths in `site.json` alongside the English pages. Share CSS,
+JS, social artwork and the English screenshot gallery. Translate each page's title
+and description, set its own canonical and `lang` (`zh` for Chinese), and add
+reciprocal `hreflang` links only for translations that actually exist. The renderer
+preserves these tags and computes shared asset paths for nested pages. Localized
+header/footer copy and the small language selector can be added with those pages;
+there is no language redirect, placeholder translation or translation runtime now.
+
+## Screenshot strips
+
+`marquee.py` and `base/marquee.css` / `base/marquee.js` are also identical copies.
+Product homepages choose their placement with an `ARCHIVEBOX:MARQUEE` comment.
+The renderer takes real images, captions, dimensions and links from the generated
+`screenshots/index.html`; there is no second screenshot list or browser fetch.
+Desktop/tablet/mobile galleries contribute their desktop views. Apple uses
+`MARQUEE-CLIENT` and `MARQUEE-SERVER` slots to keep its two products separate.
+Catalog sites without a slot do not load the strip assets.
+
+The strip scrolls once, pauses on hover, focus or manual interaction, and has an
+explicit Play/Pause button. Reduced-motion users start paused. Without JavaScript,
+normal image links and horizontal scrolling remain available. Screenshot capture
+manifests and provenance are never rewritten by this presentation step.

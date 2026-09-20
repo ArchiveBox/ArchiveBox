@@ -6,13 +6,13 @@
   document.addEventListener('click', event => { if (menu?.open && !menu.contains(event.target)) menu.open = false; });
   function revealAnchor() {
     let target;
-    try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch { return; }
+    try { target = document.getElementById(decodeURIComponent(window.location.hash.slice(1))); } catch { return; }
     if (!target) return;
     let details = target.closest('details');
     let opened = false;
     while (details) { if (!details.open) { details.open = true; opened = true; } details = details.parentElement.closest('details'); }
-    if (opened) requestAnimationFrame(() => target.scrollIntoView());
+    if (opened) window.requestAnimationFrame(() => target.scrollIntoView());
   }
-  addEventListener('hashchange', revealAnchor);
+  window.addEventListener('hashchange', revealAnchor);
   revealAnchor();
 })();
