@@ -1,0 +1,16 @@
+.github/pages/README.md
+  h_923c208e183a7b 26-28,45-47,108-110
+.github/pages/base/marquee.css
+  h_923c208e183a7b 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "dcd4382e2139b2c019429d45a17e129676e2c671",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
