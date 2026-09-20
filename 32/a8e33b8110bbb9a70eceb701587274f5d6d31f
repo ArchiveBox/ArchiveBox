@@ -1,0 +1,14 @@
+archivebox/tests/test_archive_result_service.py
+  h_923c208e183a7b 3,193-196,201,203,205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "32a8e33b8110bbb9a70eceb701587274f5d6d31f",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
