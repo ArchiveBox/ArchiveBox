@@ -1,14 +1,9 @@
 /* Identical standalone gallery strip across ArchiveBox product sites. */
-.abx-marquee { min-width: 0; width: 100%; max-width: 100%; margin: 24px 0 40px; padding: 16px 0; overflow: hidden; border-block: 1px solid #e9e2e3; background: radial-gradient(ellipse at 25% 60%, #efdae5 0, transparent 65%), linear-gradient(120deg, #f5f0f4, #faf8f3 70%, #eaf0ec); }
-.abx-marquee .abx-marquee-controls { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 0 20px 8px; font: 500 13px/1.5 var(--abx-font-sans); }
-.abx-marquee .abx-marquee-controls a { color: #9b2854; text-decoration: none; }
-.abx-marquee .abx-marquee-toggle { min-height: 36px; padding: 6px 12px; color: #533344; border: 1px solid #d7c5ce; border-radius: 20px; background: #fff9; cursor: pointer; font: inherit; }
-.abx-marquee .abx-marquee-toggle[hidden] { display: none; }
+.abx-marquee { min-width: 0; width: 100%; max-width: 100%; margin: 24px 0 40px; padding: 0; overflow: hidden; }
 .abx-marquee .abx-marquee-viewport { width: 100%; overflow-x: auto; scroll-behavior: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding: 8px 20px 12px; box-sizing: border-box; }
 .abx-marquee .abx-marquee-track { display: flex; align-items: flex-start; gap: 24px; width: max-content; margin-inline: auto; }
 .abx-marquee .abx-marquee-card { display: block; flex: none; width: min-content; text-decoration: none; color: #533344; }
 .abx-marquee .abx-marquee-card img { display: block; height: clamp(240px, 30vw, 400px); width: auto; max-width: none; max-height: none; object-fit: contain; border: 0; border-radius: 10px; background: transparent; padding: 0; margin: 0; }
-.abx-marquee .abx-marquee-card span { display: block; padding: 10px 4px 0; font: 500 12px/1.5 var(--abx-font-sans); }
 .abx-marquee :focus-visible { outline: 2px solid #9b2854; outline-offset: 3px; }
 .abx-marquee .abx-marquee-viewport:focus-visible { outline-offset: -3px; }
 @media (max-width: 600px) { .abx-marquee .abx-marquee-track { gap: 16px; } .abx-marquee .abx-marquee-card img { height: 240px; } }

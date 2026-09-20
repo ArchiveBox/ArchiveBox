@@ -70,11 +70,11 @@ def render(output, baseurl=""):
         for capture in captures:
             dimensions = "".join(f' {key}="{escape(capture[key])}"' for key in ("width", "height") if capture[key])
             cards.append(
-                f'<a class="abx-marquee-card" href="{escape(capture["href"])}"><img src="{escape(capture["src"])}" alt="{escape(capture["title"])}"{dimensions} loading="lazy" decoding="async"><span>{escape(capture["title"])}</span></a>',
+                f'<a class="abx-marquee-card" href="{escape(capture["href"])}"><img src="{escape(capture["src"])}" alt="{escape(capture["title"])}"{dimensions} loading="lazy" decoding="async"></a>',
             )
         viewport_id = slot.lower()
         content = (
-            f'<section class="abx-marquee" aria-label="App screenshots"><div class="abx-marquee-controls"><a href="{base}screenshots/{"#gallery-server" if product == "server" else ""}">Explore screenshots →</a><button type="button" class="abx-marquee-toggle" aria-controls="{viewport_id}" hidden>Pause screenshots</button></div><div class="abx-marquee-viewport" id="{viewport_id}" tabindex="0" aria-label="Screenshots. Scroll sideways to explore."><div class="abx-marquee-track">{"".join(cards)}</div></div></section>'
+            f'<section class="abx-marquee" aria-label="App screenshots"><div class="abx-marquee-viewport" id="{viewport_id}" tabindex="0" aria-label="Screenshots. Scroll sideways to explore."><div class="abx-marquee-track">{"".join(cards)}</div></div></section>'
             if cards
             else ""
         )
