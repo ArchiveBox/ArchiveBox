@@ -1,5 +1,6 @@
 from pathlib import Path
 from importlib.resources import files
+import hashlib
 import json
 import os
 import shutil
@@ -189,15 +190,19 @@ def test_process_completed_projects_inline_archiveresult(tmp_path, hermetic_lib_
 
     assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
     assert result.process_id == process.id
-    assert result.output_str.endswith(json.loads((snapshot_dir / "hashes" / "hashes.json").read_text())["root_hash"][:12])
+    manifest = snapshot_dir / "hashes" / "hashes.json"
+    checksum = snapshot_dir / "hashes" / "hashes.sha256"
+    assert checksum.read_text() == hashlib.sha256(manifest.read_bytes()).hexdigest() + "\n"
+    assert result.output_str.endswith(json.loads(manifest.read_text())["root_hash"][:12])
     assert result.output_files == {
         "hashes.json": {
             "extension": "json",
             "mimetype": "application/json",
-            "size": (snapshot_dir / "hashes" / "hashes.json").stat().st_size,
+            "size": manifest.stat().st_size,
         },
+        "hashes.sha256": {"extension": "sha256", "mimetype": "", "size": 65},
     }
-    assert result.output_size == (snapshot_dir / "hashes" / "hashes.json").stat().st_size
+    assert result.output_size == manifest.stat().st_size + checksum.stat().st_size
     _cleanup_machine_process_rows()
 
 
