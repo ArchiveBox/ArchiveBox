@@ -5,15 +5,33 @@
 # standalone downloader stays independent of ArchiveBox's server features.
 # ArchiveBox-only dependencies (Sonic, OpenCode, supervisor, Django) belong in
 # the layers added by this Dockerfile, never in the shared abx-dl base image.
-# Preinstall ALL plugins supported by the ArchiveBox runtime, regardless of
-# default enabled state. Reuse dependencies already in abx-dl and install every
-# remaining dependency here, including OpenCode and Sonic. Verify the entire
-# plugin catalog offline as the normal runtime user: enabling a plugin must
-# never require an install or manual repair during a crawl. Never omit a
-# dependency or feature to meet the image size budget.
-# Only mechanical/internal optimizations preserving user-facing functionality
-# are allowed. If the complete image exceeds the limit, let CI fail and ask the
-# maintainer how to proceed; do not disable features or weaken the check.
+# REQUIRED INSTALLATION CONTRACT — do not work around failures:
+# 1. IMAGE CONSTRUCTION: preinstall ALL plugins supported by runtime="archivebox"
+#    and ALL their required_binaries, regardless of default enabled state.
+#    Inherit the complete downloader dependencies from the tested abx-dl image;
+#    install every remaining ArchiveBox-only dependency in this image's layers,
+#    including OpenCode and Sonic. Never put server dependencies in abx-dl.
+#    Use the normal plugin dependency pipeline: install command -> config.json
+#    required_binaries -> abxpkg. Never add manual apt/pip/npm installs to hide
+#    failures in that pipeline. OS/interpreter bootstrap is a separate concern,
+#    not a second hand-maintained list of plugin dependencies.
+# 2. FINISHED IMAGE: archivebox install and the full plugin installation check
+#    must discover everything already present and be NO-OPS offline as UID 911.
+#    No downloads, package installs, sudo, or root repair may be needed to enable
+#    ANY plugin or start a new crawl. Never run verification as root or manually
+#    preinstall packages before it. If the inherited image lacks a downloader
+#    dependency, fix/release abx-dl and consume that tested image; do not patch
+#    over the missing base dependency here or repair deployed containers by SSH.
+# 3. NON-CONTAINER CI: exercise real runtime auto-installation through the same
+#    CLI/required_binaries/abxpkg path users invoke. GitHub's runner has
+#    passwordless sudo; abxpkg must escalate automatically when needed. Never
+#    manually preinstall dependencies or wrap the tested command in sudo to make
+#    a failure disappear. This is distinct from the finished-image no-op test.
+# 4. SIZE: preserve ALL user-facing functionality. Only mechanical/internal
+#    optimizations are allowed. Never remove dependencies, disable features or
+#    plugins, weaken assertions, or skip checks to meet a size limit. If the
+#    complete image exceeds the configured limit, LET CI FAIL and explicitly
+#    ask the maintainer what to do. Do not raise the limit unilaterally.
 # Build abx-dl first, then point this file at it:
 #   docker buildx build ../abx-dl -f ../abx-dl/Dockerfile \
 #       --build-context abxbus=../abxbus \
@@ -21,7 +39,7 @@
 #       --build-context abx-plugins=../abx-plugins \
 #       -t archivebox/abx-dl:dev
 #   docker buildx build . -f Dockerfile \
-#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:1.12.342 \
+#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:dev \
 #       -t archivebox:multistage
 
 ARG ABX_DL_IMAGE=archivebox/abx-dl:1.12.342
