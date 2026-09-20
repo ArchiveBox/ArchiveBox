@@ -1,0 +1,44 @@
+.github/pages/README.md
+  h_923c208e183a7b 41-72
+.github/pages/base/chrome.css
+  h_923c208e183a7b 1,110
+.github/pages/base/chrome.js
+  h_923c208e183a7b 1-18
+.github/pages/base/footer-end.html
+  h_923c208e183a7b 1-2
+.github/pages/base/footer-start.html
+  h_923c208e183a7b 1-3
+.github/pages/base/header.html
+  h_923c208e183a7b 1-14
+.github/pages/nav.html
+  h_923c208e183a7b 1-4
+.github/pages/site.json
+  h_923c208e183a7b 1-8
+.github/pages/site.py
+  h_923c208e183a7b 1-138
+.github/pages/verify.py
+  h_923c208e183a7b 1-123
+.github/workflows/deploy-publicsite.yml
+  h_923c208e183a7b 19,51-52,55-67
+.gitignore
+  h_923c208e183a7b 71-72
+bin/generate_ui_screenshot_gallery.py
+  h_923c208e183a7b 150
+bin/templates/screenshots-footer.html
+  h_923c208e183a7b 1-2
+bin/templates/screenshots-header.html
+  h_923c208e183a7b 1
+publicsite/index.html
+  h_923c208e183a7b 61,611-612,619
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "863882fa9352a11efd520e7f69a26b4971ddea89",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
