@@ -5,9 +5,10 @@ from functools import lru_cache
 from types import SimpleNamespace
 
 from django.contrib import admin, messages
+from django.core.exceptions import PermissionDenied
 from django.urls import path, reverse
 from django.shortcuts import get_object_or_404, redirect
-from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponseNotAllowed, Http404
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
@@ -20,6 +21,7 @@ from archivebox.config.common import get_config
 from archivebox.misc.util import htmldecode, urldecode
 from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.misc.logging_util import printable_filesize
+from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
 from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import build_snapshot_url, build_web_url
@@ -46,6 +48,12 @@ from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 GLOBAL_CONTEXT = {}
 
 SNAPSHOT_PERMISSION_META = PERMISSIONS_META
+GRID_PREVIEW_OUTPUTS = {
+    ("screenshot", "screenshot.png"),
+    ("chrome_extension_screenshot", "screenshot-1.png"),
+    ("chrome_extension_screenshot", "screenshot.png"),
+    ("favicon", "favicon.ico"),
+}
 
 
 @lru_cache(maxsize=1)
@@ -569,6 +577,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         custom_urls = [
             path("grid/", self.admin_site.admin_view(self.grid_view), name="grid"),
             path("search-stream/", self.admin_site.admin_view(self.search_stream_view), name="core_snapshot_search_stream"),
+            path(
+                "<path:object_id>/preview/<str:plugin>/<path:filename>",
+                self.admin_site.admin_view(self.preview_view),
+                name="core_snapshot_preview",
+            ),
             path("<path:object_id>/redo-failed/", self.admin_site.admin_view(self.redo_failed_view), name="core_snapshot_redo_failed"),
             path(
                 "<path:object_id>/set-permissions/",
@@ -577,6 +590,26 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             ),
         ]
         return custom_urls + urls
+
+    def preview_view(self, request, object_id, plugin, filename):
+        """Serve grid thumbnails from the authenticated admin origin."""
+        if (plugin, filename) not in GRID_PREVIEW_OUTPUTS:
+            raise Http404("Unsupported snapshot preview")
+        snapshot = get_object_or_404(Snapshot, pk=object_id)
+        if not self.has_view_or_change_permission(request, snapshot):
+            raise PermissionDenied
+        result = snapshot.archiveresult_set.filter(plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED).first()
+        file_info = (result.output_files or {}).get(filename) if result else None
+        if not isinstance(file_info, dict) or int(file_info.get("size") or 0) <= 0:
+            raise Http404("Snapshot preview does not exist")
+        output_path = filename if file_info.get("root_relative") else f"{plugin}/{filename}"
+        response = serve_static_with_byterange_support(request, output_path, document_root=snapshot.output_dir)
+        if not response.headers.get("Content-Type", "").lower().startswith("image/"):
+            raise Http404("Snapshot preview is not an image")
+        response.headers["Cache-Control"] = "private, no-store"
+        response.headers["Vary"] = "Cookie"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
 
     def search_stream_view(self, request):
         return admin_snapshot_search_stream_view(self, request)

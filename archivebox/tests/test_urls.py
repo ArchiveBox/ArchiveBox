@@ -8,10 +8,49 @@ from pathlib import Path
 from threading import Thread
 
 import pytest
+from types import SimpleNamespace
 
 from archivebox.tests.conftest import run_archivebox_cmd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_private_snapshot_image_response_is_not_publicly_cacheable(tmp_path):
+    from django.test import RequestFactory
+
+    from archivebox.misc.serve_static import serve_static_with_byterange_support
+
+    (tmp_path / "screenshot.png").write_bytes(b"\x89PNG\r\n\x1a\nprivate")
+    request = RequestFactory().get("/snapshot/private/screenshot.png")
+    request.archivebox_config = SimpleNamespace(PERMISSIONS="public")
+    request.archivebox_cache_policy = "private"
+
+    response = serve_static_with_byterange_support(request, "screenshot.png", document_root=tmp_path)
+
+    assert response.status_code == 200
+    assert response["Content-Type"] == "image/png"
+    assert response["Cache-Control"] == "private, max-age=604800, immutable"
+
+
+@pytest.mark.django_db
+def test_private_snapshot_replay_never_returns_public_cache_headers(snapshot):
+    from django.test import RequestFactory
+
+    from archivebox.core.views import _serve_snapshot_replay
+
+    snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}
+    snapshot.save(update_fields=["config"])
+    snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+    (snapshot.output_dir / "screenshot.png").write_bytes(b"\x89PNG\r\n\x1a\nprivate-replay")
+    request = RequestFactory().get(f"/snapshot/{snapshot.id}/screenshot.png")
+
+    response = _serve_snapshot_replay(request, snapshot, "screenshot.png")
+
+    assert response.status_code == 200
+    assert response["Cache-Control"].startswith("private,")
+    assert "public" not in response["Cache-Control"]
+    assert "Cookie" in response["Vary"]
+    assert b"".join(response.streaming_content).endswith(b"private-replay")
 
 
 @pytest.mark.django_db

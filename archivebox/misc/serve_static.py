@@ -605,9 +605,15 @@ def _apply_transformed_html_preview_style(html_text: str) -> str:
     return f"{TRANSFORMED_HTML_PREVIEW_STYLE}\n{html_text}"
 
 
-def _set_transformed_response_headers(response, fullpath: Path, statobj: os.stat_result, encoding: str | None, config) -> None:
+def _set_transformed_response_headers(
+    response,
+    fullpath: Path,
+    statobj: os.stat_result,
+    encoding: str | None,
+    cache_policy: str,
+) -> None:
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
-    response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
+    response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
     response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
     if encoding:
         response.headers["Content-Encoding"] = encoding
@@ -858,19 +864,22 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     config = request.__dict__.get("archivebox_config")
     if config is None:
         config = get_config(resolve_plugins=False)
+    cache_policy = getattr(request, "archivebox_cache_policy", None) or _cache_policy(config=config)
     fullpath, path = _resolve_archive_path(document_root, path)
     if os.access(fullpath, os.R_OK) and fullpath.is_dir():
         if request.GET.get("download") == "zip" and show_indexes:
-            return _build_directory_zip_response(
+            response = _build_directory_zip_response(
                 fullpath,
                 path,
                 is_archive_replay=is_archive_replay,
                 use_async_stream=_is_asgi_request(request),
                 config=config,
             )
+            response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
+            return response
         if show_indexes:
             response = _render_directory_index(request, path, fullpath)
-            response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
+            response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
             response.headers["Last-Modified"] = http_date(fullpath.stat().st_mtime)
             return _apply_archive_replay_headers(
                 response,
@@ -899,7 +908,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             if etag in inm_list or etag.strip('"') in [i.strip('"') for i in inm_list]:
                 not_modified = HttpResponseNotModified()
                 not_modified.headers["ETag"] = etag
-                not_modified.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
+                not_modified.headers["Cache-Control"] = f"{cache_policy}, max-age=31536000, immutable"
                 not_modified.headers["Last-Modified"] = http_date(statobj.st_mtime)
                 return _apply_archive_replay_headers(
                     not_modified,
@@ -940,8 +949,10 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         request.META.get("HTTP_IF_MODIFIED_SINCE"),
         statobj.st_mtime,
     ):
+        not_modified = HttpResponseNotModified()
+        not_modified.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
         return _apply_archive_replay_headers(
-            HttpResponseNotModified(),
+            not_modified,
             fullpath=fullpath,
             content_type=content_type,
             is_archive_replay=is_archive_replay,
@@ -956,7 +967,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 decoded = fullpath.read_text(encoding="utf-8", errors="replace")
                 wrapped = _render_text_preview_document(decoded, fullpath.name)
                 response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-                _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
+                _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
                 return _apply_archive_replay_headers(
                     response,
                     fullpath=fullpath,
@@ -976,7 +987,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 raw_image_url = f"{raw_image_url}?{urlencode(list(preview_query.lists()), doseq=True)}"
             wrapped = _render_image_preview_document(raw_image_url, fullpath.name)
             response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-            _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
+            _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
             return _apply_archive_replay_headers(
                 response,
                 fullpath=fullpath,
@@ -1002,9 +1013,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 last_modified=http_date(statobj.st_mtime),
                 etag=etag or "",
                 cache_control=(
-                    f"{_cache_policy(config=config)}, max-age=31536000, immutable"
-                    if etag
-                    else f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
+                    f"{cache_policy}, max-age=31536000, immutable" if etag else f"{cache_policy}, max-age=60, stale-while-revalidate=300"
                 ),
                 content_encoding=encoding or "",
             )
@@ -1042,7 +1051,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     wrapped, _rewrite_count = _rewrite_html_image_sources_for_request(request, wrapped, document_root, rel_path)
                     wrapped = _apply_transformed_html_preview_style(wrapped)
                     response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
-                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
+                    _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
@@ -1053,7 +1062,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 if rewritten_count:
                     rewritten_html = _apply_transformed_html_preview_style(rewritten_html)
                     response = HttpResponse(rewritten_html, content_type=content_type)
-                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
+                    _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
@@ -1064,7 +1073,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 if escaped_count and escaped_count > tag_count * 2:
                     decoded = _apply_transformed_html_preview_style(decoded)
                     response = HttpResponse(decoded, content_type=content_type)
-                    _set_transformed_response_headers(response, fullpath, statobj, encoding, config)
+                    _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
                     return _apply_archive_replay_headers(
                         response,
                         fullpath=fullpath,
@@ -1084,13 +1093,13 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
     if etag:
         response.headers["ETag"] = etag
-        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=31536000, immutable"
+        response.headers["Cache-Control"] = f"{cache_policy}, max-age=31536000, immutable"
     else:
-        response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
+        response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
     if is_text_like:
         response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
     if content_type.startswith("image/"):
-        response.headers["Cache-Control"] = "public, max-age=604800, immutable"
+        response.headers["Cache-Control"] = f"{cache_policy}, max-age=604800, immutable"
 
     # handle byte-range requests by serving chunk of file
     if stat.S_ISREG(statobj.st_mode):

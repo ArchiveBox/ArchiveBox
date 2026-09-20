@@ -23,6 +23,7 @@ from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidde
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
+from django.utils.cache import patch_vary_headers
 from django.utils.safestring import mark_safe
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
@@ -891,7 +892,7 @@ def _serve_responses_path(request, responses_root: Path, rel_path: str, show_ind
     return None
 
 
-def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
+def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, path: str = ""):
     rel_path = path or ""
     request_config = get_request_config(
         request,
@@ -899,6 +900,7 @@ def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str =
     )
     request.archivebox_config = request_config
     request.archivebox_snapshot_url = snapshot.url
+    request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
     snapshot._runtime_config = request_config
 
     if rel_path.startswith("replay/") or rel_path == "replay":
@@ -952,6 +954,19 @@ def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str =
             return response
 
     raise Http404
+
+
+def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
+    response = _build_snapshot_replay_response(request, snapshot, path)
+    if snapshot.permissions != PERMISSIONS_PUBLIC:
+        cache_control = response.headers.get("Cache-Control", "")
+        if cache_control.startswith("public"):
+            cache_control = f"private{cache_control[len('public') :]}"
+        elif not cache_control:
+            cache_control = "private, no-store"
+        response.headers["Cache-Control"] = cache_control
+        patch_vary_headers(response, ("Cookie",))
+    return response
 
 
 def _serve_original_domain_replay(request: HttpRequest, domain: str, path: str = ""):

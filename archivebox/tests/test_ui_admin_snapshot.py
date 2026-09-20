@@ -202,6 +202,50 @@ def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_clie
     assert '<span class="missing-preview">No preview captured</span>' in thumbnail_link.group(2)
 
 
+def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(admin_client, snapshot, real_hash_projection):
+    _process, result = real_hash_projection
+    preview_dir = Path(snapshot.output_dir) / "chrome_extension_screenshot"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    preview_bytes = b"\x89PNG\r\n\x1a\nreal-extension-preview"
+    (preview_dir / "screenshot.png").write_bytes(preview_bytes)
+    result.plugin = "chrome_extension_screenshot"
+    result.status = "succeeded"
+    result.output_files = {"screenshot.png": {"size": len(preview_bytes), "mimetype": "image/png"}}
+    result.save(update_fields=["plugin", "status", "output_files"])
+
+    grid_response = admin_client.get(reverse("admin:grid"), HTTP_HOST=ADMIN_TEST_HOST)
+
+    assert grid_response.status_code == 200
+    html = grid_response.content.decode()
+    preview_url = reverse(
+        "admin:core_snapshot_preview",
+        args=(snapshot.pk, "chrome_extension_screenshot", "screenshot.png"),
+    )
+    assert f'src="{preview_url}"' in html
+    assert "new URL(candidate, document.baseURI).href" in html
+    assert "candidate !== current" in html
+
+    preview_response = admin_client.get(preview_url, HTTP_HOST=ADMIN_TEST_HOST)
+
+    assert preview_response.status_code == 200
+    assert b"".join(preview_response.streaming_content) == preview_bytes
+    assert preview_response["Content-Type"] == "image/png"
+    assert "private" in preview_response["Cache-Control"]
+    assert "no-store" in preview_response["Cache-Control"]
+    assert preview_response["Vary"] == "Cookie"
+    assert preview_response["X-Content-Type-Options"] == "nosniff"
+
+    disallowed_dir = Path(snapshot.output_dir) / "singlefile"
+    disallowed_dir.mkdir(parents=True, exist_ok=True)
+    (disallowed_dir / "singlefile.html").write_text("<script>document.cookie</script>", encoding="utf-8")
+    result.plugin = "singlefile"
+    result.output_files = {"singlefile.html": {"size": 32, "mimetype": "text/html"}}
+    result.save(update_fields=["plugin", "output_files"])
+    disallowed_url = reverse("admin:core_snapshot_preview", args=(snapshot.pk, "singlefile", "singlefile.html"))
+
+    assert admin_client.get(disallowed_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
+
+
 def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snapshot):
     from archivebox.core.models import ArchiveResult
 

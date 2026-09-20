@@ -8,6 +8,7 @@ from urllib.parse import quote, urlparse
 from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
 from django import template
 from django.templatetags.static import static
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
@@ -611,6 +612,13 @@ def snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) ->
 
     url_cache[cache_key] = ""
     return ""
+
+
+@register.simple_tag(takes_context=True)
+def admin_snapshot_archiveresult_url(context, snapshot, plugin: str, filename: str) -> str:
+    if not snapshot_archiveresult_url(context, snapshot, plugin, filename):
+        return ""
+    return reverse("admin:core_snapshot_preview", args=(snapshot.pk, plugin, filename))
 
 
 @register.simple_tag(takes_context=True)

@@ -259,16 +259,16 @@
           <code class="card-url" title="{{obj.url}}">{{obj.url}}</code>
           <div class="card-media">
             <a href="{% snapshot_base_url obj %}/index.html" class="card-thumbnail">
-              {% snapshot_archiveresult_url obj 'screenshot' 'screenshot.png' as screenshot_url %}
-              {% snapshot_archiveresult_url obj 'chrome_extension_screenshot' 'screenshot-1.png' as extension_screenshot_1_url %}
-              {% snapshot_archiveresult_url obj 'chrome_extension_screenshot' 'screenshot.png' as extension_screenshot_url %}
-              {% snapshot_archiveresult_url obj 'favicon' 'favicon.ico' as favicon_url %}
+              {% admin_snapshot_archiveresult_url obj 'screenshot' 'screenshot.png' as screenshot_url %}
+              {% admin_snapshot_archiveresult_url obj 'chrome_extension_screenshot' 'screenshot-1.png' as extension_screenshot_1_url %}
+              {% admin_snapshot_archiveresult_url obj 'chrome_extension_screenshot' 'screenshot.png' as extension_screenshot_url %}
+              {% admin_snapshot_archiveresult_url obj 'favicon' 'favicon.ico' as favicon_url %}
               {% if screenshot_url or extension_screenshot_1_url or extension_screenshot_url or favicon_url %}
                 <img
                   src="{% firstof screenshot_url extension_screenshot_1_url extension_screenshot_url favicon_url %}"
                   alt="{{obj.title|default:'Not yet archived...'}}"
                   data-fallbacks="{{ extension_screenshot_1_url }},{{ extension_screenshot_url }},{{ favicon_url }}"
-                  onerror="const fallbacks=(this.dataset.fallbacks || '').split(',').filter(Boolean); if (fallbacks.length) { this.dataset.fallbacks=fallbacks.slice(1).join(','); this.src=fallbacks[0]; } else { this.onerror=null; this.closest('.card-thumbnail').classList.add('missing'); this.remove(); }"
+                  onerror="const current=this.src; const fallbacks=(this.dataset.fallbacks || '').split(',').filter(Boolean).map(candidate => new URL(candidate, document.baseURI).href).filter((candidate, index, all) => candidate !== current && all.indexOf(candidate) === index); if (fallbacks.length) { this.dataset.fallbacks=fallbacks.slice(1).join(','); this.src=fallbacks[0]; } else { this.onerror=null; this.closest('.card-thumbnail').classList.add('missing'); this.remove(); }"
                 />
               {% elif obj.status == 'started' %}
                 <img src="{% static 'spinner.gif' %}" class="loading-preview" alt="Archiving in progress"/>
