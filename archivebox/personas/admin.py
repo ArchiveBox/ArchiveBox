@@ -63,7 +63,6 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
                 "classes": ("card", "persona-card-timestamps"),
             },
         ),
-        add_fieldsets[1],
         add_fieldsets[2],
         (
             "Artifacts",
@@ -136,7 +135,7 @@ class PersonaAdmin(ConfigEditorMixin, BaseModelAdmin):
         return super().get_form(request, obj=obj, change=change, **kwargs)
 
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
-        context["detected_profile_count"] = len(discover_local_browser_profiles())
+        context["detected_profile_count"] = len(discover_local_browser_profiles()) if add else 0
         return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def save_model(self, request, obj, form, change):

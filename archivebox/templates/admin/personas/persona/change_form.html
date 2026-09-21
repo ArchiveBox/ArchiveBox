@@ -231,6 +231,7 @@
 
 {% block extrahead %}
 {{ block.super }}
+{% if add %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const modeInputs = Array.from(document.querySelectorAll('input[name="import_mode"]'));
@@ -256,9 +257,11 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+{% endif %}
 {% endblock %}
 
 {% block form_top %}
+{% if add %}
 <section class="persona-import-hero">
     <div>
         <h2>Create a new Persona (Authentication + Configuration Profile)</h2>
@@ -274,6 +277,7 @@ document.addEventListener('DOMContentLoaded', function () {
         </p>
     </div>
 </section>
+{% endif %}
 {{ block.super }}
 {% endblock %}
 

@@ -2,7 +2,7 @@ __package__ = "archivebox.api"
 
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from django.db.models import Q
@@ -23,6 +23,7 @@ class PersonaBrowserSettingsSchema(Schema):
     user_agent: str = ""
     viewport_size: str = ""
     viewport_device_scale_factor: float | None = None
+    color_scheme: Literal["", "light", "dark"] = ""
     language: str = ""
     timezone: str = ""
     geolocation: dict[str, Any] | None = None
@@ -94,6 +95,8 @@ def browser_settings_to_config(extension_persona_id: str, settings: PersonaBrows
         )
     if settings.viewport_device_scale_factor is not None:
         config["BROWSER_DEVICE_SCALE_FACTOR"] = settings.viewport_device_scale_factor
+    if "color_scheme" in settings.model_fields_set:
+        config["BROWSER_COLOR_SCHEME"] = settings.color_scheme
     if settings.language:
         config["BROWSER_LANGUAGE"] = settings.language
     if settings.timezone:
@@ -150,12 +153,12 @@ def sync_persona(request: HttpRequest, payload: PersonaSyncSchema):
     persona.ensure_dirs()
 
     cookies_written = False
-    if payload.cookies_txt.strip():
+    if "cookies_txt" in payload.model_fields_set:
         (persona.path / "cookies.txt").write_text(payload.cookies_txt)
         cookies_written = True
 
     auth_written = False
-    if payload.auth_json:
+    if "auth_json" in payload.model_fields_set:
         (persona.path / "auth.json").write_text(json.dumps(payload.auth_json, indent=2, sort_keys=True) + "\n")
         auth_written = True
 

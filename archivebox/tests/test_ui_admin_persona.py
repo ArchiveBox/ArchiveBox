@@ -269,3 +269,11 @@ def test_persona_config_save_heals_json_encoded_string_values(admin_user):
 
     assert persona.config["EXTRA_CONTEXT"] == 'prefix "inner" suffix'
     assert persona.config["USER_AGENT"] == 'ArchiveBox "Quoted" Agent'
+
+
+def test_existing_persona_does_not_offer_bootstrap(admin_client, admin_user):
+    persona = Persona.objects.create(name="Extension-synced", created_by=admin_user)
+    response = admin_client.get(reverse("admin:personas_persona_change", args=[persona.pk]), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert b'name="import_mode"' not in response.content
+    assert b"Create a new Persona" not in response.content
