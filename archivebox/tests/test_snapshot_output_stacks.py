@@ -60,7 +60,7 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
     def names(group):
         return [output["name"] for output in outputs if output["output_group"] == group]
 
-    assert names("html") == ["archivewebpage", "singlefile", "chrome_mhtml", "wget", "responses", "dom"]
+    assert names("html") == ["archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom"]
     assert names("raster") == ["screenshot", "pdf"]
     assert names("article_text") == ["defuddle", "readability", "mercury", "htmltotext"]
     assert names("ocr") == ["trafilatura", "liteparse"]

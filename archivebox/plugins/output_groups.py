@@ -6,7 +6,7 @@ from archivebox.plugins.discovery import get_plugin_name
 
 # Ordered tuples are preference lists; unordered groups sort by total output bytes.
 OUTPUT_GROUPS = (
-    ("html", "HTML", ("archivewebpage", "singlefile", "chrome_mhtml", "wget", "responses", "dom")),
+    ("html", "HTML", ("archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom")),
     ("raster", "Raster", ("screenshot", "pdf")),
     ("article_text", "Article text", ("defuddle", "readability", "mercury", "htmltotext")),
     ("embedded_media", "Embedded media", ()),
@@ -15,7 +15,7 @@ OUTPUT_GROUPS = (
     ("other", "Other files", ()),
 )
 UNORDERED_OUTPUTS = {
-    "embedded_media": {"ytdlp", "yt-dlp", "youtube-dl", "gallerydl", "forumdl", "git", "media"},
+    "embedded_media": {"responses", "ytdlp", "yt-dlp", "youtube-dl", "gallerydl", "forumdl", "git", "media"},
     "metadata": {
         "dns",
         "headers",
