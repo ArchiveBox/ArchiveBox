@@ -1,0 +1,13 @@
+<span class="snapshot-thumbnail" role="img" aria-label="Preview of {{ host }}" style="display:inline-flex;position:relative;vertical-align:middle;align-items:center;justify-content:center;overflow:hidden;border-radius:6px;width:{{ width }};height:{{ height }};background:hsl({{ hue }} 35% 92%);color:hsl({{ hue }} 35% 30%);">
+  <span style="display:flex;flex-direction:column;align-items:center;gap:4px;max-width:90%;">
+    <span aria-hidden="true" style="font:bold 28px sans-serif;">{{ initial }}</span>
+    <span style="font:10px sans-serif;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ host }}</span>
+    <span aria-hidden="true" style="font-size:12px;">▤</span>
+  </span>
+  {% if first %}
+  <img src="{{ first.url }}" alt="" loading="lazy" decoding="async" data-candidates="{{ candidates }}" data-index="0"
+       style="position:absolute;inset:0;margin:auto;display:block;border:0;max-width:100%;max-height:100%;width:{% if first.kind == 'favicon' %}28px{% else %}100%{% endif %};height:{% if first.kind == 'favicon' %}28px{% else %}100%{% endif %};object-fit:{% if first.kind == 'favicon' %}contain{% else %}cover{% endif %};object-position:top;background:#f8fafc;"
+       onload="try{const c=JSON.parse(this.dataset.candidates)[Number(this.dataset.index)];if(c.kind==='response'&&(Math.min(this.naturalWidth,this.naturalHeight)&lt;=2||Math.max(this.naturalWidth,this.naturalHeight)&lt;=64)){this.onerror();return}if(c.kind==='favicon'){this.previousElementSibling.style.visibility='hidden'}}catch(e){this.remove()}"
+       onerror="try{const cs=JSON.parse(this.dataset.candidates);const i=Number(this.dataset.index)+1;this.dataset.index=i;if(i>=cs.length){this.remove();return}const c=cs[i];this.style.width=this.style.height=c.kind==='favicon'?'28px':'100%';this.style.objectFit=c.kind==='favicon'?'contain':'cover';this.style.objectPosition=c.kind==='favicon'?'center':'top';this.src=c.url}catch(e){this.remove()}">
+  {% endif %}
+</span>

@@ -1,5 +1,7 @@
 __package__ = "archivebox.core"
 
+from archivebox.core.preview_util import PREVIEW_PLUGINS, preview_candidates
+
 import json
 import os
 import posixpath
@@ -1193,7 +1195,7 @@ class PublicIndexView(ListView):
         snapshots = list(context.get("object_list") or ())
         icons_by_snapshot: dict[str, set[str]] = {str(snapshot.id): set() for snapshot in snapshots}
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
-        preview_paths_by_snapshot: dict[str, list[tuple[int, int, str]]] = {str(snapshot.id): [] for snapshot in snapshots}
+        preview_results_by_snapshot = {str(snapshot.id): [] for snapshot in snapshots}
         favicon_paths_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
         progress_by_snapshot: dict[str, dict[str, int]] = {
             str(snapshot.id): {
@@ -1214,24 +1216,6 @@ class PublicIndexView(ListView):
                 .iterator(chunk_size=1000)
             ):
                 tag_names_by_snapshot[str(snapshot_id)].append(tag_name)
-
-            preview_plugin_order = {
-                "screenshot": 0,
-                "chrome_extension_screenshot": 1,
-            }
-            preview_candidates = {
-                "screenshot": ("screenshot.png",),
-                "chrome_extension_screenshot": ("screenshot-1.png", "screenshot.png"),
-            }
-
-            def result_output_path(result: ArchiveResult, filename: str) -> str | None:
-                output_files = result.output_files or {}
-                file_info = output_files.get(filename)
-                if not isinstance(file_info, dict) or int(file_info.get("size") or 0) <= 0:
-                    return None
-                if file_info.get("root_relative"):
-                    return filename
-                return f"{result.plugin}/{filename}"
 
             for snapshot_id, plugin, status in (
                 ArchiveResult.objects.filter(
@@ -1259,23 +1243,16 @@ class PublicIndexView(ListView):
             for result in (
                 ArchiveResult.objects.filter(
                     snapshot_id__in=icons_by_snapshot.keys(),
-                    status=ArchiveResult.StatusChoices.SUCCEEDED,
-                    plugin__in=(*preview_candidates, "favicon"),
+                    plugin__in=PREVIEW_PLUGINS,
                 )
-                .only("snapshot_id", "plugin", "output_files")
+                .only("snapshot_id", "plugin", "status", "output_files")
                 .iterator(chunk_size=1000)
             ):
                 snapshot_key = str(result.snapshot_id)
-                if result.plugin in preview_candidates:
-                    plugin_rank = preview_plugin_order[result.plugin]
-                    for filename_rank, filename in enumerate(preview_candidates[result.plugin]):
-                        output_path = result_output_path(result, filename)
-                        if output_path:
-                            preview_paths_by_snapshot[snapshot_key].append((plugin_rank, filename_rank, output_path))
-                elif result.plugin == "favicon":
-                    output_path = result_output_path(result, "favicon.ico")
-                    if output_path:
-                        favicon_paths_by_snapshot[snapshot_key].append(output_path)
+                preview_results_by_snapshot[snapshot_key].append(result)
+                for candidate in preview_candidates([result]):
+                    if candidate["kind"] == "favicon":
+                        favicon_paths_by_snapshot[snapshot_key].append(candidate["path"])
 
         for snapshot in snapshots:
             snapshot._icons_compact = True
@@ -1283,9 +1260,7 @@ class PublicIndexView(ListView):
             snapshot._icons_progress_stats = progress_by_snapshot.get(str(snapshot.id), {})
             snapshot.num_outputs_cached = snapshot._icons_progress_stats.get("succeeded", 0)
             snapshot._tags_str_cached = ",".join(tag_names_by_snapshot.get(str(snapshot.id), []))
-            snapshot._public_preview_paths = [
-                output_path for _plugin_rank, _filename_rank, output_path in sorted(preview_paths_by_snapshot.get(str(snapshot.id), []))
-            ]
+            snapshot._preview_results = preview_results_by_snapshot.get(str(snapshot.id), [])
             snapshot._public_favicon_paths = favicon_paths_by_snapshot.get(str(snapshot.id), [])
             snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         context["object_list"] = snapshots

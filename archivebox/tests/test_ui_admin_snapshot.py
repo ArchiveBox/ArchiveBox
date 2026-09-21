@@ -199,7 +199,8 @@ def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_clie
     assert thumbnail_link and title_link
     assert thumbnail_link.group(1) == title_link.group(1)
     assert thumbnail_link.group(1).endswith("/index.html")
-    assert '<span class="missing-preview">No preview captured</span>' in thumbnail_link.group(2)
+    assert 'aria-label="Preview of example.com"' in thumbnail_link.group(2)
+    assert "▤" in thumbnail_link.group(2)
 
 
 def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(admin_client, snapshot, real_hash_projection):
@@ -222,8 +223,13 @@ def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(
         args=(snapshot.pk, "chrome_extension_screenshot", "screenshot.png"),
     )
     assert f'src="{preview_url}"' in html
-    assert "new URL(candidate, document.baseURI).href" in html
-    assert "candidate !== current" in html
+    assert "JSON.parse(this.dataset.candidates)" in html
+    assert "this.dataset.index=i" in html
+    from html import unescape
+    import json
+
+    candidates = json.loads(unescape(re.search(r'data-candidates="([^"]+)"', html).group(1)))
+    assert [candidate["url"] for candidate in candidates] == [preview_url]
 
     preview_response = admin_client.get(preview_url, HTTP_HOST=ADMIN_TEST_HOST)
 
@@ -1602,3 +1608,56 @@ def test_metadata_raw_preview_bypasses_full_template(real_hash_projection, clien
     download = client.get(path, HTTP_HOST=host)
     assert download.status_code == 200
     assert b"".join(download.streaming_content) == raw_file.read_bytes()
+
+
+def test_snapshot_grid_and_list_use_responses_image_fallback(client, admin_user, snapshot):
+    from archivebox.core.models import ArchiveResult
+
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="responses",
+        status=ArchiveResult.StatusChoices.FAILED,
+        output_files={"all/largest.png": {"size": 500, "mimetype": "image/png"}},
+    )
+    client.force_login(admin_user)
+    for route in ("admin:grid", "admin:core_snapshot_changelist"):
+        response = client.get(reverse(route), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert b"responses/all/largest.png" in response.content
+
+
+def test_central_preview_ranking_and_malformed_metadata(snapshot):
+    from archivebox.core.models import ArchiveResult
+    from archivebox.core.preview_util import snapshot_preview_candidates, render_snapshot_preview
+
+    for plugin, files in (
+        ("screenshot", {"screenshot.png": {"size": 1}}),
+        ("seo", {"featured-image.jpg": {"size": 40}}),
+        (
+            "responses",
+            {
+                "all/tracker.png": {"size": 9999, "mimetype": "image/png", "width": 1, "height": 1},
+                "all/banner.png": {"size": 500, "mimetype": "image/png", "width": 5000, "height": 20},
+                "all/photo.png": {"size": 300, "mimetype": "image/png", "width": 1000, "height": 600},
+                "all/legacy.png": {"size": 700, "mimetype": "image/png"},
+                "all/broken.png": {"size": "invalid"},
+                "all/no-info.png": None,
+            },
+        ),
+        ("favicon", {"favicon.ico": {"size": 10}}),
+    ):
+        ArchiveResult.objects.create(snapshot=snapshot, plugin=plugin, status="failed", output_files=files)
+    candidates = snapshot_preview_candidates(snapshot)
+    assert [item["path"] for item in candidates] == [
+        "screenshot/screenshot.png",
+        "seo/featured-image.jpg",
+        "responses/all/photo.png",
+        "responses/all/legacy.png",
+        "responses/all/banner.png",
+        "favicon/favicon.ico",
+    ]
+    html = render_snapshot_preview(snapshot, lambda candidate: "/" + candidate["path"])
+    assert "snapshot-thumbnail" in html
+    assert "data-candidates=" in html
+    assert "this.remove()" in html
+    assert "▤" in html

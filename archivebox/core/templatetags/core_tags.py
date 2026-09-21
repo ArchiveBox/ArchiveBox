@@ -7,7 +7,6 @@ from urllib.parse import quote, urlparse
 
 from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
 from django import template
-from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import escape
@@ -622,6 +621,20 @@ def admin_snapshot_archiveresult_url(context, snapshot, plugin: str, filename: s
 
 
 @register.simple_tag(takes_context=True)
+def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="100px"):
+    from archivebox.core.preview_util import render_snapshot_preview
+
+    if admin:
+        url_for_candidate = lambda candidate: reverse(
+            "admin:core_snapshot_preview",
+            args=(snapshot.pk, candidate["plugin"], candidate["filename"]),
+        )
+    else:
+        url_for_candidate = lambda candidate: _snapshot_url_for_context(context, snapshot, candidate["path"])
+    return render_snapshot_preview(snapshot, url_for_candidate, width=width, height=height)
+
+
+@register.simple_tag(takes_context=True)
 def snapshot_index_row(context, link) -> str:
     snapshot_base = _snapshot_base_url_for_context(context, link)
 
@@ -642,7 +655,6 @@ def snapshot_index_row(context, link) -> str:
 
     url = getattr(link, "url", "") or ""
     title = unescape(getattr(link, "title", "") or "")
-    is_pending = status in {"queued", "started", "backoff"}
     title_text = title or url
     tags_str = link.tags_str() if callable(getattr(link, "tags_str", None)) else getattr(link, "tags_str", "")
     tag_html = "".join(f'<span class="snapshot-tag">{escape(tag)}</span>' for tag in (tags_str or "").split(",") if tag)
@@ -662,43 +674,7 @@ def snapshot_index_row(context, link) -> str:
     output_plural = "" if num_outputs == 1 else "s"
     files_url = _snapshot_url_for_context(context, link, "index.jsonl") if context.get("STATIC_EXPORT") else f"{snapshot_base}/?files=1"
 
-    if is_pending:
-        preview_html = '<span class="snapshot-preview snapshot-preview-spinner" aria-label="Archiving in progress"></span>'
-        if not context.get("STATIC_EXPORT"):
-            preview_html = (
-                '<span class="snapshot-preview snapshot-preview-spinner" aria-label="Archiving in progress">'
-                f'<img src="{escape(static("spinner.gif"))}" alt="" decoding="async" loading="lazy">'
-                "</span>"
-            )
-    elif "_public_preview_paths" in link.__dict__:
-        preview_paths = list(getattr(link, "_public_preview_paths", []) or [])
-        if preview_paths:
-            preview_urls = [_snapshot_url_for_context(context, link, path) for path in preview_paths]
-            preview_html = (
-                f'<img src="{escape(preview_urls[0])}" '
-                f'data-fallbacks="{escape(",".join(preview_urls[1:]))}" '
-                'onerror="nextPublicSnapshotPreview(this)" class="snapshot-preview screenshot" alt="" decoding="async" loading="lazy">'
-            )
-        else:
-            preview_html = '<span class="snapshot-preview snapshot-preview-empty" aria-label="No preview available"></span>'
-    else:
-        preview_urls = [
-            url
-            for url in (
-                snapshot_archiveresult_url(context, link, "screenshot", "screenshot.png"),
-                snapshot_archiveresult_url(context, link, "chrome_extension_screenshot", "screenshot-1.png"),
-                snapshot_archiveresult_url(context, link, "chrome_extension_screenshot", "screenshot.png"),
-            )
-            if url
-        ]
-        if preview_urls:
-            preview_html = (
-                f'<img src="{escape(preview_urls[0])}" '
-                f'data-fallbacks="{escape(",".join(preview_urls[1:]))}" '
-                'onerror="nextPublicSnapshotPreview(this)" class="snapshot-preview screenshot" alt="" decoding="async" loading="lazy">'
-            )
-        else:
-            preview_html = '<span class="snapshot-preview snapshot-preview-empty" aria-label="No preview available"></span>'
+    preview_html = snapshot_thumbnail(context, link)
 
     if "_public_favicon_paths" in link.__dict__:
         favicon_paths = list(getattr(link, "_public_favicon_paths", []) or [])

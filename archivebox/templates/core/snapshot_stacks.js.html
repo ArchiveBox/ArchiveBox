@@ -182,7 +182,14 @@ function initializeOutputStacks() {
         if (!top) pile.append(el('span', 'stack-no-output', 'No captures'));
         heading.append(el('span', 'stack-chevron', '⌄'));
         button.append(heading, pile);
-        button.addEventListener('click', () => expand(group));
+        button.addEventListener('click', () => {
+            const opening = active !== group;
+            expand(group);
+            const first = group.cards[0];
+            if (opening && first) {
+                activateCardPreview(first, first.querySelector('a[target=preview]') || first.querySelector('a'));
+            }
+        });
         buttons.set(group.id, button);
         shelf.append(button);
 

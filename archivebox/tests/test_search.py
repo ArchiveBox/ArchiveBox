@@ -670,15 +670,57 @@ class TestPublicIndexSearch:
         assert "/screenshot/screenshot.png" not in content
         assert "chrome_extension_screenshot/screenshot-2.png" not in content
 
+    def test_public_index_responses_preview_largest_first_even_after_failure(self, client, public_snapshot):
+        from archivebox.core.models import ArchiveResult
+
+        ArchiveResult.objects.create(
+            snapshot=public_snapshot,
+            plugin="responses",
+            status=ArchiveResult.StatusChoices.FAILED,
+            output_files={
+                "all/small.png": {"size": 10, "mimetype": "image/png"},
+                "all/large.png": {"size": 500, "mimetype": "image/png"},
+                "all/page.html": {"size": 1000, "mimetype": "text/html"},
+            },
+        )
+        ArchiveResult.objects.create(
+            snapshot=public_snapshot,
+            plugin="favicon",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"favicon.ico": {"size": 20}},
+        )
+        response = client.get("/public/", HTTP_HOST=WEB_HOST)
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert content.index("responses/all/large.png") < content.index("responses/all/small.png") < content.index("favicon/favicon.ico")
+        assert "responses/all/page.html" not in content
+
+    def test_public_index_favicon_only_preview_is_small(self, client, public_snapshot):
+        from archivebox.core.models import ArchiveResult
+
+        ArchiveResult.objects.create(
+            snapshot=public_snapshot,
+            plugin="favicon",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"favicon.ico": {"size": 20}},
+        )
+        response = client.get("/public/", HTTP_HOST=WEB_HOST)
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert 'class="snapshot-thumbnail"' in content
+        assert "width:28px;height:28px" in content
+        assert "snapshot-preview-empty" not in content
+
     def test_public_index_snapshot_without_preview_renders_placeholder(self, client, public_snapshot):
         response = client.get("/public/", HTTP_HOST=WEB_HOST)
 
         assert response.status_code == 200
         content = response.content.decode()
-        assert "snapshot-preview-empty" in content
+        assert 'aria-label="Preview of public-example.com"' in content
+        assert "▤" in content
         assert "screenshot/screenshot.png" not in content
 
-    def test_public_index_pending_snapshot_uses_small_preview_spinner(self, client, crawl):
+    def test_public_index_pending_snapshot_uses_site_tile(self, client, crawl):
         from archivebox.core.models import Snapshot
 
         Snapshot.objects.create(
@@ -692,8 +734,8 @@ class TestPublicIndexSearch:
 
         assert response.status_code == 200
         content = response.content.decode()
-        assert "snapshot-preview-spinner" in content
-        assert "spinner.gif" in content
+        assert 'aria-label="Preview of pending-public-example.com"' in content
+        assert "▤" in content
 
     def test_public_index_finished_snapshot_without_title_falls_back_to_url(self, client, public_snapshot):
         public_snapshot.title = ""

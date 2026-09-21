@@ -34,7 +34,7 @@ from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
 from archivebox.crawls.models import Crawl
 from archivebox.core.admin_archiveresults import render_archiveresults_list
-from archivebox.core.preview_util import EXTENSION_SCREENSHOT_PLUGIN
+from archivebox.core.preview_util import PREVIEW_PLUGINS, snapshot_preview_candidates, render_snapshot_preview
 from archivebox.progressmonitor.views import progress_endpoint
 from archivebox.core.permissions import (
     PERMISSIONS_CHOICES,
@@ -280,7 +280,17 @@ class SnapshotChangeList(SearchResultsChangeList):
                 SimpleNamespace(plugin=plugin, status=status, output_size=output_size, output_files=output_files),
             )
 
+        response_results_by_snapshot = {snapshot_id: [] for snapshot_id in snapshot_ids}
+        for result in ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids, plugin__in=PREVIEW_PLUGINS).only(
+            "snapshot_id",
+            "plugin",
+            "status",
+            "output_files",
+        ):
+            response_results_by_snapshot[result.snapshot_id].append(result)
+
         for obj in self.result_list:
+            obj._preview_results = response_results_by_snapshot[obj.pk]
             counts = status_counts_by_snapshot.get(obj.pk, {})
             total = int(counts.get("total") or 0)
             succeeded = int(counts.get("succeeded") or 0)
@@ -593,16 +603,22 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     def preview_view(self, request, object_id, plugin, filename):
         """Serve grid thumbnails from the authenticated admin origin."""
-        if (plugin, filename) not in GRID_PREVIEW_OUTPUTS:
+        if plugin not in PREVIEW_PLUGINS:
             raise Http404("Unsupported snapshot preview")
         snapshot = get_object_or_404(Snapshot, pk=object_id)
         if not self.has_view_or_change_permission(request, snapshot):
             raise PermissionDenied
-        result = snapshot.archiveresult_set.filter(plugin=plugin, status=ArchiveResult.StatusChoices.SUCCEEDED).first()
-        file_info = (result.output_files or {}).get(filename) if result else None
-        if not isinstance(file_info, dict) or int(file_info.get("size") or 0) <= 0:
+        candidate = next(
+            (
+                candidate
+                for candidate in snapshot_preview_candidates(snapshot)
+                if candidate["plugin"] == plugin and candidate["filename"] == filename
+            ),
+            None,
+        )
+        if candidate is None:
             raise Http404("Snapshot preview does not exist")
-        output_path = filename if file_info.get("root_relative") else f"{plugin}/{filename}"
+        output_path = candidate["path"]
         request.archivebox_cache_policy = "private"
         response = serve_static_with_byterange_support(request, output_path, document_root=snapshot.output_dir)
         if response.status_code != 304 and not response.headers.get("Content-Type", "").lower().startswith("image/"):
@@ -971,78 +987,30 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return mark_safe(f'<span class="tags-inline-editor">{tags_html}</span>')
 
     def _get_preview_data(self, obj):
-        request = self.request
-        config = request.archivebox_config
-        results = self._get_prefetched_results(obj)
-        if results is not None:
-            results = [r for r in results if r.plugin in ("screenshot", EXTENSION_SCREENSHOT_PLUGIN, "favicon")]
-        else:
-            results = list(
-                obj.archiveresult_set.filter(plugin__in=("screenshot", EXTENSION_SCREENSHOT_PLUGIN, "favicon")).only(
-                    "snapshot_id",
-                    "plugin",
-                    "status",
-                    "output_files",
-                    "output_str",
-                ),
-            )
-
-        def result_output_path(result, filename: str) -> str | None:
-            output_files = result.output_files or {}
-            file_info = output_files.get(filename)
-            if not isinstance(file_info, dict) or int(file_info.get("size") or 0) <= 0:
-                return None
-            if file_info.get("root_relative"):
-                return filename
-            return f"{result.plugin}/{filename}"
-
-        def result_urls(plugin: str, filenames: tuple[str, ...]) -> list[str]:
-            urls: list[str] = []
-            for result in results:
-                if result.plugin != plugin or result.status != ArchiveResult.StatusChoices.SUCCEEDED:
-                    continue
-                for filename in filenames:
-                    output_path = result_output_path(result, filename)
-                    if output_path:
-                        urls.append(build_snapshot_url(str(obj.id), output_path, request=request, config=config))
-            return urls
-
-        screenshot_urls = result_urls("screenshot", ("screenshot.png",))
-        extension_screenshot_urls = result_urls(EXTENSION_SCREENSHOT_PLUGIN, ("screenshot-1.png", "screenshot.png"))
-        favicon_urls = result_urls("favicon", ("favicon.ico",))
-
-        if not screenshot_urls and not extension_screenshot_urls and not favicon_urls:
+        candidates = snapshot_preview_candidates(obj)
+        if not candidates:
             return None
-
-        all_screenshot_urls = [*screenshot_urls, *extension_screenshot_urls]
-        if all_screenshot_urls:
-            img_url = all_screenshot_urls[0]
-            fallbacks = [*all_screenshot_urls[1:], *favicon_urls]
-            img_alt = "Screenshot"
-            preview_class = "screenshot"
-        else:
-            img_url = favicon_urls[0]
-            fallbacks = favicon_urls[1:]
-            img_alt = "Favicon"
-            preview_class = "favicon"
-
-        fallback_list = ",".join(fallbacks)
-        onerror_js = (
-            "this.dataset.fallbacks && this.dataset.fallbacks.length ? "
-            "(this.src=this.dataset.fallbacks.split(',').shift(), "
-            "this.dataset.fallbacks=this.dataset.fallbacks.split(',').slice(1).join(',')) : "
-            "this.remove()"
-        )
-
+        urls = [
+            build_snapshot_url(str(obj.id), candidate["path"], request=self.request, config=self.request.archivebox_config)
+            for candidate in candidates
+        ]
+        favicons = [url for candidate, url in zip(candidates, urls) if candidate["kind"] == "favicon"]
         return {
-            "img_url": img_url,
-            "img_alt": img_alt,
-            "preview_class": preview_class,
-            "onerror_js": onerror_js,
-            "fallback_list": fallback_list,
-            "favicon_url": favicon_urls[0] if favicon_urls else "",
-            "favicon_fallback_list": ",".join(favicon_urls[1:]),
+            "img_url": urls[0],
+            "fallback_list": ",".join(urls[1:]),
+            "img_alt": "Favicon" if candidates[0]["kind"] == "favicon" else "Screenshot",
+            "preview_class": "favicon" if candidates[0]["kind"] == "favicon" else "screenshot",
+            "favicon_url": favicons[0] if favicons else "",
+            "favicon_fallback_list": ",".join(favicons[1:]),
         }
+
+    def _render_preview(self, obj, width="100px", height="100px"):
+        return render_snapshot_preview(
+            obj,
+            lambda candidate: reverse("admin:core_snapshot_preview", args=(obj.pk, candidate["plugin"], candidate["filename"])),
+            width=width,
+            height=height,
+        )
 
     @admin.display(description="", empty_value="")
     def url_favicon(self, obj):
@@ -1074,45 +1042,24 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     @admin.display(description="Preview", empty_value="")
     def preview_icon(self, obj):
-        preview = self._get_preview_data(obj)
-        if not preview:
-            return None
-
         return format_html(
-            '<a href="{}" title="Open snapshot details">'
-            '<img src="{}" alt="{}" class="snapshot-preview {}" decoding="async" loading="lazy" onerror="{}" data-fallbacks="{}">'
-            "</a>",
+            '<a href="{}" title="Open snapshot details">{}</a>',
             build_web_url(f"/{obj.archive_path_from_db}/index.html", request=self.request, config=self.request.archivebox_config),
-            preview["img_url"],
-            preview["img_alt"],
-            preview["preview_class"],
-            preview["onerror_js"],
-            preview["fallback_list"],
+            self._render_preview(obj),
         )
 
     @admin.display(description=" ", empty_value="")
     def snapshot_summary(self, obj):
         request = self.request
         config = request.archivebox_config
-        preview = self._get_preview_data(obj)
         stats = self._get_progress_stats(obj)
         archive_size = stats["output_size"] or 0
         size_txt = printable_filesize(archive_size) if archive_size else "pending"
-        screenshot_html = ""
-
-        if preview:
-            screenshot_html = format_html(
-                '<a href="{href}" title="Open snapshot live view" style="display:block; flex:0 0 220px; width:220px;">'
-                '<img src="{src}" alt="{alt}" decoding="async" loading="lazy" onerror="{onerror}" data-fallbacks="{fallbacks}" '
-                'style="display:block; width:100%; max-width:220px; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; '
-                'border-radius: 10px; border: 1px solid #e2e8f0; background: #f8fafc;">'
-                "</a>",
-                href=build_web_url(f"/{obj.archive_path}", request=request, config=config),
-                src=preview["img_url"],
-                alt=preview["img_alt"],
-                onerror=preview["onerror_js"],
-                fallbacks=preview["fallback_list"],
-            )
+        screenshot_html = format_html(
+            '<a href="{}" title="Open snapshot live view" style="display:block;flex:0 0 220px;">{}</a>',
+            build_web_url(f"/{obj.archive_path}", request=request, config=config),
+            self._render_preview(obj, width="220px", height="138px"),
+        )
 
         return format_html(
             '<div style="display:flex; gap:16px; align-items:flex-start;">'
