@@ -488,18 +488,37 @@ run_compose_personas_case() {
     total=$((total + 1))
     local case_dir="$VALIDATION_ROOT/compose-personas-persist"
     local log_file="$case_dir/output.log"
-    local status
+    local status image_volumes
     mkdir -p "$case_dir/data"
+
+    # Image VOLUME declarations are inherited. A nested anonymous mount would
+    # hide the profiles even when the user correctly bind-mounts all of /data.
+    image_volumes="$("$DOCKER_BINARY" image inspect "$IMAGE" --format '{{range $path, $opts := .Config.Volumes}}{{println $path}}{{end}}')"
+    if grep -q '^/data/' <<< "$image_volumes"; then
+        failed=$((failed + 1))
+        log "FAIL image declares a nested /data volume that shadows collection data: $image_volumes"
+        return
+    fi
 
     set +e
     # shellcheck disable=SC2016
     ARCHIVEBOX_IMAGE="$IMAGE" "$DOCKER_BINARY" compose \
         --project-directory "$case_dir" \
         -f "$COMPOSE_PATH" \
-        run --rm -T archivebox sh -c \
+        run --rm -T archivebox sh -ec \
         'printf "ABX_UID=%s\nABX_GID=%s\n" "$(id -u)" "$(id -g)"; archivebox init; printf persisted > "$PERSONAS_DIR/Default/chrome_profile/persisted"; echo ABX_OK' \
         >"$log_file" 2>&1
     status=$?
+    if [[ "$status" == "0" ]]; then
+        # A second container must read the same profile through the parent mount.
+        ARCHIVEBOX_IMAGE="$IMAGE" "$DOCKER_BINARY" compose \
+            --project-directory "$case_dir" \
+            -f "$COMPOSE_PATH" \
+            run --rm -T archivebox sh -ec \
+            'test "$PERSONAS_DIR" = /data/personas; test "$(cat "$PERSONAS_DIR/Default/chrome_profile/persisted")" = persisted' \
+            >>"$log_file" 2>&1
+        status=$?
+    fi
     "$DOCKER_BINARY" compose --project-directory "$case_dir" -f "$COMPOSE_PATH" down --volumes --remove-orphans >/dev/null 2>&1
     set -e
 
@@ -508,10 +527,10 @@ run_compose_personas_case() {
         && [[ -f "$case_dir/data/personas/Default/chrome_profile/persisted" ]] \
         && [[ "$(< "$case_dir/data/personas/Default/chrome_profile/persisted")" == persisted ]]; then
         passed=$((passed + 1))
-        log "PASS compose persists persona data outside the inherited anonymous volume"
+        log "PASS compose persists personas across containers through the parent /data mount"
     else
         failed=$((failed + 1))
-        log "FAIL compose persists persona data outside the inherited anonymous volume (status=$status log=$log_file)"
+        log "FAIL compose persona persistence through the parent /data mount (status=$status log=$log_file)"
         sed -n '1,160p' "$log_file"
     fi
 }

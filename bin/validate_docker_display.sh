@@ -18,7 +18,6 @@ services:
     image: ${IMAGE}
     volumes:
       - ./data:/data
-      - ./data/personas:/data/personas
       - tmp:/tmp/archivebox
     shm_size: 1gb
   novnc:

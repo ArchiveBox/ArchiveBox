@@ -22,9 +22,8 @@ services:
         ports:
             - "${ARCHIVEBOX_PORT:-5797}:5797"
         volumes:
+            # Includes personas at /data/personas; no separate profile mount is needed.
             - ./data:/data
-            # Override abx-dl's nested VOLUME so profiles persist across containers.
-            - ./data/personas:/data/personas
             # Let one-off `docker compose run` commands reuse the server's supervisor.
             - tmp:/tmp/archivebox
         pids_limit: 2048                       # avoids low systemd task caps with Chrome and parallel extractors

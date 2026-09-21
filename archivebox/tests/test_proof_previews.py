@@ -1,6 +1,8 @@
 """Proof viewers use installed templates and actual saved cryptographic evidence."""
 
+import json
 import shutil
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -22,12 +24,18 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
     machine.save(update_fields=["config"])
     plugins = Path(get_plugins_dir())
     evidence = snapshot.output_dir / "tlsnotary"
-    shutil.copytree(plugins / "tlsnotary/tests/fixtures/hacker-news", evidence)
+    fixture = plugins / "tlsnotary/tests/fixtures/hacker-news"
+    evidence.mkdir(parents=True)
+    for name in ("receipt.json", "response.http", "metadata.json"):
+        shutil.copyfile(fixture / name, evidence / name)
+    (snapshot.output_dir / "chrome").mkdir()
+    shutil.copyfile(fixture / "navigation.json", snapshot.output_dir / "chrome/navigation.json")
     snapshot.permissions = "public"
     snapshot.save(update_fields=["permissions"])
     result = ArchiveResult.objects.create(
         snapshot=snapshot,
         plugin="tlsnotary",
+        start_ts=datetime.fromisoformat(json.loads((fixture / "navigation.json").read_text())["timestamp"]),
         status="succeeded",
         output_str="tlsnotary/receipt.json",
     )
@@ -53,14 +61,15 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
         page.on("request", lambda request: requests.append(request.url))
         page.goto(url)
         page.wait_for_function("document.querySelector('#status').classList.contains('verified')")
-        assert "news.ycombinator.com" in page.locator("#summary").inner_text()
+        assert len(page.locator("#summary .status-hash").inner_text()) == 64
         assert page.locator("#content").is_visible()
         topology = page.locator("#proof-tree")
         assert "SHA-256(response.http ∥ blinder)" in topology.inner_text()
         assert "server_name" in topology.inner_text()
-        assert "Verifier → your archive" in topology.inner_text()
-        assert "Your extension generates 16 random hiding bytes" in topology.inner_text()
-        assert "start" in topology.inner_text() and "end" in topology.inner_text()
+        assert topology.locator(".participants .info-card").count() == 3
+        assert topology.locator(".timeline-entry").count() == 4
+        assert "Your ArchiveBox server generates 16 random hiding bytes" in topology.inner_text()
+        assert "Signed response byte range" in topology.inner_text()
         assert topology.locator('a[href*="response.http"]').count() > 0
         assert topology.locator('a[href*="receipt.json"]').count() > 0
         assert page.locator("a", has_text="Verify independently").get_attribute("href") == "https://tlsnotary.zervice.io/"
@@ -90,7 +99,6 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
 
 def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, live_server, tmp_path):
     import hashlib
-    import json
 
     from abx_plugins.plugins.base.testing import install_required_binary_from_config
     from abx_plugins.plugins.opentimestamps.tests.test_opentimestamps import run_plugin
@@ -141,22 +149,27 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
         page = browser.new_page()
         page.goto(f"http://{hostname}:{port}{path}")
         page.wait_for_function("document.querySelector('#manifest-sha256').textContent.length === 64")
-        assert page.locator("#root-hash").inner_text() == json.loads(manifest)["root_hash"]
         assert page.locator("#manifest-sha256").inner_text() == hashlib.sha256(manifest).hexdigest()
-        assert page.locator("#status").inner_text() == "Timestamp proof saved · Bitcoin confirmation not checked"
+        assert page.locator("#status > span").inner_text() == "Hashes submitted to opentimestamps.org"
+        assert page.locator("#summary .status-hash").inner_text() == page.locator("#submitted-sha256").inner_text()
         topology = page.locator("#proof-tree")
-        for field in ("root_hash", "tree_levels", "files", "metadata", "timestamp", "file_count", "total_size", "tree_depth"):
-            assert field in topology.inner_text()
-        assert page.locator("#root-hash").get_attribute("href").endswith("#hashes")
-        page.wait_for_function("document.querySelector('#submission-tree').textContent.includes('Calendar servers combine')")
+        assert "Hash submitted to OpenTimestamps" in topology.inner_text()
+        inventory = topology.locator("#manifest-sha256")
+        assert inventory.get_attribute("href").endswith("#hashes")
+        assert topology.locator("details").count() == 0
+        nonce = bytes.fromhex(page.locator("#submission-nonce").inner_text())
+        assert len(nonce) == 16
+        assert page.locator("#submitted-sha256").inner_text() == hashlib.sha256(hashlib.sha256(manifest).digest() + nonce).hexdigest()
+        page.wait_for_function("document.querySelector('#submission-tree').textContent.includes('POST /digest')")
+        page.get_by_text("Recorded submission details", exact=True).click()
         assert "POST /digest" in page.locator("#submission-tree").inner_text()
-        assert "no manifest JSON" in page.locator("#submission-tree").inner_text()
+        assert "Blinded digest, source IP, request timing and HTTP client headers" in page.locator("#submission-tree").inner_text()
         page.screenshot(path=str(tmp_path / "opentimestamps-desktop.png"), full_page=True)
         page.set_viewport_size({"width": 390, "height": 844})
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         page.screenshot(path=str(tmp_path / "opentimestamps-mobile.png"), full_page=True)
         print(f"OpenTimestamps screenshots: {tmp_path}")
-        manifest_link = page.locator("#manifest-sha256").get_attribute("href")
+        manifest_link = topology.get_by_role("link", name="hashes.json", exact=True).get_attribute("href")
         assert "preview=1" in manifest_link and "raw=1" in manifest_link
         page.goto(manifest_link)
         assert page.locator("pre").inner_text() == manifest.decode()
