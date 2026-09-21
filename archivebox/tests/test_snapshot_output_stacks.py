@@ -60,7 +60,7 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
     def names(group):
         return [output["name"] for output in outputs if output["output_group"] == group]
 
-    assert names("html") == ["archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom"]
+    assert names("html") == ["archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom", "responses_html"]
     assert names("raster") == ["screenshot", "pdf"]
     assert names("article_text") == ["defuddle", "readability", "mercury", "htmltotext"]
     assert names("ocr") == ["trafilatura", "liteparse"]
@@ -121,3 +121,28 @@ def test_filesystem_fallback_uses_directory_size_for_equal_outputs(snapshot):
     media = [output for output in context["archiveresults"] if output["output_group"] == "embedded_media"]
     assert [output["name"] for output in media] == ["git", "gallerydl"]
     assert media[0]["size"] == 3 * FIXTURE.stat().st_size
+
+
+def test_responses_html_card_requires_saved_html_and_keeps_gallery(snapshot):
+    result = save_output(snapshot, "responses")
+    outputs = snapshot.get_html_details_context()["archiveresults"]
+    cards = {output["name"]: output for output in outputs}
+    assert cards["responses"]["output_group"] == "embedded_media"
+    assert cards["responses_html"]["output_group"] == "html"
+    assert cards["responses_html"]["path"] == "responses/content.html"
+    assert cards["responses_html"]["direct_preview"] is True
+    assert cards["responses_html"]["result"] is None
+    assert sum(output["size"] for output in outputs) == result.output_size
+    request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
+    request.user = AnonymousUser()
+    from django.template.loader import render_to_string
+
+    html = render_to_string("core/snapshot_output_cards.html", snapshot.get_html_details_context(request=request), request=request)
+    assert 'data-plugin-name="responses_html"' in html
+    assert "responses/content.html?raw=1" in html
+    assert "responses/content.html?preview=1" in html
+    (Path(snapshot.output_dir) / "responses" / "data.json").write_text("{}")
+    result.output_str = "data.json"
+    result.output_files = {"data.json": {"size": 2, "mimetype": "application/json"}}
+    result.save()
+    assert "responses_html" not in {output["name"] for output in snapshot.get_html_details_context()["archiveresults"]}
