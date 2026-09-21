@@ -1,3 +1,13 @@
+<!--
+Shared ArchiveBox website navbar and Apps menu.
+Keep this file in sync with .github/pages/base/header.html in:
+ArchiveBox/ArchiveBox, abx-plugins, abxpkg, android-archivebox,
+electron-archivebox, ios-archivebox, and archivebox-browser-extension (all repositories are in the ArchiveBox GitHub organization).
+Each site builds its committed copy independently; there is no central generator.
+Keep site-specific navigation, CTAs, and extra footer links outside this base.
+Also review the inline navbar/footer in abx-dl/website/index.html and
+ debian-archivebox/website/index.html when shared links or branding change.
+-->
 <header class="abx-header">
   <a class="abx-brand" href="https://archivebox.io/"><svg class="abx-logo" viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="10" fill="#9b2854"/><path d="M10 14h20v17H10z" fill="#fff4ed"/><path d="M8 9h24v6H8z" fill="#fff4ed"/><path d="M16 19h8v3h-8z" fill="#9b2854"/><path d="M12 31V17" stroke="#9b2854" stroke-width="2"/></svg><span>ArchiveBox</span><span class="abx-subsite">__SITE_NAME__</span></a>
   <nav class="abx-nav" aria-label="Main navigation">

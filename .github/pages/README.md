@@ -108,3 +108,12 @@ manifests and provenance are never rewritten by this presentation step.
 
 Standalone one- or two-image illustrations remain in their authored source.
 Gallery strips with three or more images use the latest restored captures.
+
+## Keeping the common layout in sync
+
+The comments in `base/header.html`, `base/footer-start.html`,
+`base/footer-end.html`, `base/chrome.css`, and `base/chrome.js` list the peer
+repositories. Update those committed copies together when shared branding,
+Apps links, keyboard behavior, or footer resources change. Preserve each site's
+local navigation and content. The former monorepo `site-chrome` generator is
+retired; builds must use only this repository's files.
