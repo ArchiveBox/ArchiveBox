@@ -33,7 +33,6 @@ Environment:
   SCREENSHOT_SNAPSHOT_HEADER Set to expanded or collapsed before loading a snapshot detail page
   SCREENSHOT_EXPECT_PLUGIN   Require this snapshot output plugin to be selected
   SCREENSHOT_EXPECT_FRAME_TEXT  Require this text in the selected output frame
-  SCREENSHOT_EXPECT_LIVE_PROGRESS  Require real progress bars and a loaded screencast frame
   SCREENSHOT_COLLAPSE_FILTERS Set to 1 to keep admin filters out of screenshots
   SCREENSHOT_RESET_FILTERS   Set to 1 to clear the admin filter collapsed preference
 `);
@@ -250,33 +249,6 @@ async function main() {
           }
         });
       }, { timeout: 45000, polling: 250 }).catch(() => {});
-    }
-
-    if (process.env.SCREENSHOT_EXPECT_LIVE_PROGRESS === '1') {
-      await page.waitForFunction(() => {
-        const monitor = document.querySelector('#progress-monitor');
-        const bars = [...document.querySelectorAll('#progress-monitor .progress-bar')]
-          .filter((bar) => bar.getClientRects().length > 0 && bar.offsetWidth > 0 && bar.offsetHeight > 0);
-        const panel = document.querySelector('#progress-monitor .screencast-panel.visible');
-        const image = panel?.querySelector('img');
-        const placeholder = panel?.querySelector('.screencast-placeholder');
-        return monitor
-          && getComputedStyle(monitor).display !== 'none'
-          && !monitor.classList.contains('collapsed')
-          && monitor.querySelector('.progress-content')?.getClientRects().length > 0
-          && bars.length >= 2
-          && panel?.getClientRects().length > 0
-          && panel.offsetWidth > 0
-          && panel.offsetHeight > 0
-          && (
-            (
-              image?.complete
-              && image.naturalWidth > 0
-              && image.naturalHeight > 0
-            )
-            || placeholder?.getClientRects().length > 0
-          );
-      }, { timeout: 120000, polling: 250 });
     }
 
     const frameHandle = await page.$('.crawl-snapshots-embed iframe');

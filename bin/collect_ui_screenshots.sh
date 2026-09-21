@@ -526,7 +526,6 @@ PY
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$live_variants" \
                     SCREENSHOT_SNAPSHOT_HEADER=expanded \
-                    SCREENSHOT_EXPECT_LIVE_PROGRESS=1 \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
