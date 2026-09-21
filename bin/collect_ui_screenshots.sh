@@ -538,9 +538,13 @@ PY
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile"
+                output_height=1000
+                if [[ "$expected_plugin" == "tlsnotary" || "$expected_plugin" == "opentimestamps" ]]; then
+                    output_height=1600
+                fi
                 output_variants="$(printf \
-                    '[{"path":"%s","width":1600,"height":1000},{"path":"%s","width":1024,"height":1366},{"path":"%s","width":390,"height":844}]' \
-                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
+                    '[{"path":"%s","width":1600,"height":%s},{"path":"%s","width":1024,"height":1366},{"path":"%s","width":390,"height":844}]' \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" "$output_height" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
                 NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
@@ -756,7 +760,7 @@ PY
             SCREENSHOT_HEIGHT=1000 \
             node "$REPO_DIR/bin/take_screenshot.js" "$LIVE_SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
         SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --no-cache --project "$REPO_DIR" python -c \
-            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}".format(output["plugin"], "wait-frame-text:Verified · signature and archived response match" if output["plugin"] == "tlsnotary" else "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
+            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}".format(output["plugin"], "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
         if [[ -z "$SNAPSHOT_OUTPUT_PLUGINS" ]]; then
             echo "[!] The Sweeting.me snapshot detail page exposed no selectable outputs" >&2
             exit 1

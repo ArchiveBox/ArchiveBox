@@ -276,18 +276,25 @@ async function main() {
           img => img.complete && img.naturalWidth > 0,
         ), { timeout: 45000 });
       }
-      if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT || expectedPlugin === 'opentimestamps') {
+      if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT || ['tlsnotary', 'opentimestamps'].includes(expectedPlugin)) {
         const frameElement = await page.$('#main-frame');
         const frame = await frameElement.contentFrame();
         await frame.waitForFunction((text, plugin) => {
           const outputReady = (doc) => {
+            const hash = (selector) => /^[a-f0-9]{64}$/i.test(doc.querySelector(selector)?.textContent.trim() || '');
             if (plugin === 'opentimestamps') {
-              const hashes = [...doc.querySelectorAll('dd code')];
-              if (doc.querySelector('.status')?.textContent.trim()
-                  && doc.querySelector('a[href="hashes.json.ots"]')
-                  && doc.querySelector('a[href="hashes.json"]')
-                  && hashes.length === 2
-                  && hashes.every((hash) => /^[a-f0-9]{64}$/i.test(hash.textContent.trim()))) return true;
+              return doc.querySelector('#status.submitted')
+                && hash('#submitted-sha256') && hash('#manifest-sha256')
+                && doc.querySelector('#summary .status-hash')?.textContent === doc.querySelector('#submitted-sha256')?.textContent
+                && /^[a-f0-9]{32}$/i.test(doc.querySelector('#submission-nonce')?.textContent.trim() || '')
+                && doc.querySelectorAll('#calendar-endpoints .endpoint-badge').length > 0
+                && doc.querySelector('#calendar-submitted-at')?.textContent.includes('UTC');
+            } else if (plugin === 'tlsnotary') {
+              return doc.querySelector('#status.verified') && hash('#summary .status-hash')
+                && doc.querySelector('#verifier-card-domain')?.textContent.trim()
+                && doc.querySelectorAll('.timeline-entry').length === 4
+                && [...doc.querySelectorAll('.card-time')].length === 3
+                && [...doc.querySelectorAll('.card-time')].every(time => time.textContent.includes('UTC'));
             } else if (doc.body?.innerText.includes(text)) return true;
             return [...doc.querySelectorAll('iframe')].some((child) => {
               const nested = child.contentDocument;
