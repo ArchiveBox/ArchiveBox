@@ -1495,7 +1495,7 @@
                     sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads"
                     class="full-page-iframe"
                     src="about:blank"
-                    data-default-src="{% if best_result.direct_preview %}{% snapshot_url snapshot best_result.path|add:'?raw=1' %}{% elif best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% elif STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
+                    data-default-src="{% if best_result.direct_preview_path %}{% snapshot_url snapshot best_result.direct_preview_path %}{% elif best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% elif STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
                     name="preview"
                     loading="eager"
                     fetchpriority="high"></iframe>

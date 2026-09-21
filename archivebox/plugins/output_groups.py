@@ -67,7 +67,7 @@ def _responses_html_card(outputs: list[dict[str, Any]]) -> dict[str, Any] | None
             "ts": output.get("ts"),
             "size": 0,  # Bytes are already counted by the real Responses card.
             "result": None,
-            "direct_preview": True,
+            "direct_preview_path": f"{path}?card=responses_html",
         }
     return None
 

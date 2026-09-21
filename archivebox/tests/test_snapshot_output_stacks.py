@@ -130,7 +130,7 @@ def test_responses_html_card_requires_saved_html_and_keeps_gallery(snapshot):
     assert cards["responses"]["output_group"] == "embedded_media"
     assert cards["responses_html"]["output_group"] == "html"
     assert cards["responses_html"]["path"] == "responses/content.html"
-    assert cards["responses_html"]["direct_preview"] is True
+    assert cards["responses_html"]["direct_preview_path"] == "responses/content.html?card=responses_html"
     assert cards["responses_html"]["result"] is None
     assert sum(output["size"] for output in outputs) == result.output_size
     request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
@@ -139,7 +139,7 @@ def test_responses_html_card_requires_saved_html_and_keeps_gallery(snapshot):
 
     html = render_to_string("core/snapshot_output_cards.html", snapshot.get_html_details_context(request=request), request=request)
     assert 'data-plugin-name="responses_html"' in html
-    assert "responses/content.html?raw=1" in html
+    assert "responses/content.html?card=responses_html" in html
     assert "responses/content.html?preview=1" in html
     (Path(snapshot.output_dir) / "responses" / "data.json").write_text("{}")
     result.output_str = "data.json"
