@@ -473,6 +473,8 @@ class SnapshotQuerySet(models.QuerySet):
         snapshot_list = list(self.iterator(chunk_size=500))
         manifest_records = []
         for snapshot in snapshot_list:
+            # Unarchived snapshots still need an export destination before discovery.
+            snapshot.output_dir.mkdir(parents=True, exist_ok=True)
             outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
             output_paths = [str(output.get("path") or "") for output in outputs]
             snapshot._public_preview_paths = [
