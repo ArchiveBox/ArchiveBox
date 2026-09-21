@@ -1,0 +1,135 @@
+function initializeOutputStacks() {
+    const grid = document.querySelector('.thumb-grid');
+    const data = document.getElementById('snapshot-output-groups');
+    if (!grid || !data) return;
+    const cards = [...grid.children];
+    const groups = JSON.parse(data.textContent).map(group => ({...group, cards: []}));
+    for (const card of cards) {
+        (groups.find(group => group.id === card.dataset.outputGroup) || groups.find(group => group.id === 'other')).cards.push(card);
+    }
+    const name = card => card.dataset.pluginName || 'Files';
+    const el = (tag, className, text) => {
+        const node = document.createElement(tag);
+        node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    };
+    const panel = el('section', 'stack-browser');
+    panel.setAttribute('aria-label', 'Snapshot output groups');
+    const shelf = el('div', 'stack-shelf');
+    shelf.style.setProperty('--stack-columns', groups.filter(group => group.id !== 'other' || group.cards.length).length);
+    const tray = el('section', 'stack-tray');
+    tray.id = 'stack-tray';
+    tray.hidden = true;
+    const close = el('button', 'stack-close', '⌃');
+    close.title = 'Collapse stack';
+    close.setAttribute('aria-label', 'Collapse stack');
+    close.type = 'button';
+    const trayCards = el('div', 'stack-tray-cards');
+    tray.append(close, trayCards);
+    const parked = el('div', 'stack-parked');
+    parked.hidden = true;
+    for (const card of cards) parked.append(card);
+    let active = null;
+    const buttons = new Map();
+    function collapse() {
+        if (!active) return;
+        active.cards.forEach(card => parked.append(card));
+        const button = buttons.get(active.id);
+        button.setAttribute('aria-expanded', 'false');
+        tray.hidden = true;
+        active = null;
+    }
+    function expand(group) {
+        if (active === group) { collapse(); return; }
+        collapse();
+        active = group;
+        buttons.get(group.id).setAttribute('aria-expanded', 'true');
+        trayCards.replaceChildren();
+        if (!group.cards.length) {
+            const empty = el('div', 'stack-empty', 'No captures');
+            trayCards.append(empty);
+        }
+        for (const card of group.cards) {
+            // Promote one-line summaries into real thumbnail previews in the expanded tray.
+            for (const frame of card.querySelectorAll('iframe[data-compact]')) {
+                frame.removeAttribute('data-compact');
+                frame.src = card.dataset.previewUrl;
+                frame.style.cssText = 'width:400%!important;height:560px!important;transform:scale(.25)!important;transform-origin:0 0!important;border:0!important;pointer-events:none';
+            }
+            trayCards.append(card);
+        }
+        tray.setAttribute('aria-label', group.label);
+        tray.hidden = false;
+    }
+    for (const group of groups) {
+        if (group.id === 'other' && !group.cards.length) continue;
+        const button = el('button', `output-stack output-stack-${group.id}`);
+        button.type = 'button';
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-controls', tray.id);
+        button.setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
+        const heading = el('span', 'stack-heading');
+        heading.append(el('strong', '', group.label), el('span', 'stack-count', String(group.cards.length)));
+        const pile = el('span', 'stack-pile');
+        pile.setAttribute('aria-hidden', 'true');
+        const top = group.cards[0];
+        const availableLayers = Math.min(3, group.cards.length);
+        for (let index = availableLayers - 1; index >= 0; index--) {
+            const layer = el('span', `stack-sheet stack-sheet-${index}`);
+            layer.append(el('span', 'stack-sheet-label', name(group.cards[index]) || 'Files'));
+            if (index === 0) {
+                const preview = top.querySelector('.thumbnail-wrapper');
+                if (preview) {
+                    const cover = preview.cloneNode(true);
+                    cover.className = 'stack-cover';
+                    cover.inert = true;
+                    cover.querySelectorAll('a, script, button, [id]').forEach(node => {
+                        if (node.hasAttribute('id')) node.removeAttribute('id');
+                        if (node.matches('script,button,.thumbnail-click-overlay')) node.remove();
+                        else if (node.matches('a')) node.replaceWith(...node.childNodes);
+                    });
+                    cover.querySelectorAll('iframe').forEach(frame => {
+                        if (frame.hasAttribute('data-compact')) {
+                            frame.removeAttribute('data-compact');
+                            frame.src = top.dataset.previewUrl;
+                            frame.removeAttribute('style');
+                        }
+                        frame.tabIndex = -1;
+                        frame.loading = 'lazy';
+                    });
+                    layer.append(cover);
+                } else layer.append(el('span', 'stack-file-symbol', '▤'));
+            }
+            pile.append(layer);
+        }
+        if (!top) pile.append(el('span', 'stack-no-output', 'No captures'));
+        heading.append(el('span', 'stack-chevron', '⌄'));
+        button.append(heading, pile);
+        button.addEventListener('click', () => expand(group));
+        buttons.set(group.id, button);
+        shelf.append(button);
+
+    }
+
+    function syncSelection() {
+        const selected = cards.find(card => card.classList.contains('selected-card'));
+        for (const group of groups) buttons.get(group.id)?.classList.toggle('has-selection', group.cards.includes(selected));
+    }
+    close.addEventListener('click', () => {
+        const button = buttons.get(active?.id);
+        collapse();
+        button?.focus();
+    });
+    panel.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && active) { close.click(); event.preventDefault(); }
+    });
+    // Existing card event handlers continue to drive the real snapshot viewer and URL hash.
+    const observer = new MutationObserver(syncSelection);
+    cards.forEach(card => observer.observe(card, {attributes: true, attributeFilter: ['class']}));
+    panel.append(shelf, tray, parked);
+    grid.before(panel);
+    grid.hidden = true;
+    document.body.classList.add('snapshot-stacks');
+    syncSelection();
+}

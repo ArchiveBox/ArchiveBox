@@ -682,6 +682,8 @@ It also includes a built-in scheduled import feature with `archivebox schedule`,
 
 ## Output Formats: What ArchiveBox saves for each URL
 
+Snapshot detail pages group output cards into expandable stacks: HTML, Raster, Article text, Embedded media, OCR, and Metadata. HTML, Raster, Article text, and OCR use the preference order defined in [`archivebox/plugins/output_groups.py`](archivebox/plugins/output_groups.py); media and metadata put the largest output directory first. Unclassified plugins and auxiliary files remain available under Other files. The same layout is included in portable static exports.
+
 <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ace0954a-ddac-4520-9d18-1c77b1ec50b2" width="330px" align="right" style="float: right"/>
 
 

@@ -1478,6 +1478,7 @@
                 }
             }
         </style>
+        {% include "core/snapshot_stacks.css.html" %}
     </head>
     <body>
         <div id="main-frame-wrapper" class="full-page-wrapper" data-has-outputs="{{ has_outputs|yesno:'1,0' }}" data-snapshot-state="{{ snapshot_state }}">
@@ -1732,7 +1733,7 @@
                         {% with display_path=result.path display_url='' preview_url='' %}
                         {% if display_path %}{% snapshot_url snapshot display_path as display_url %}{% endif %}
                         {% if display_path %}{% snapshot_preview_url snapshot display_path result.result as preview_url %}{% endif %}
-                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
+                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
                                 <div class="thumb-body">
                                     <div class="thumb-actions">
                                         {% if not STATIC_EXPORT %}<a href="{% snapshot_url snapshot result.name %}/?files=1" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
@@ -1827,6 +1828,7 @@
             </div>
         </header>
 
+        {{ output_groups|json_script:"snapshot-output-groups" }}
         {% if can_delete_outputs %}{% include "includes/output_delete_controls.html" %}{% endif %}
 
         <script>
@@ -2197,9 +2199,9 @@
             }
             function loadSnapshotHeaderState() {
                 // collapse snapshot header if user has previously hidden it
-                let snapshotHeaderIsExpanded = 'false'
+                let snapshotHeaderIsExpanded = 'true'
                 try {
-                    snapshotHeaderIsExpanded = localStorage.getItem("archivebox-snapshot-header-visible") || 'false'
+                    snapshotHeaderIsExpanded = localStorage.getItem("archivebox-snapshot-header-visible") || 'true'
                 } catch (e) {
                     console.log('Could not use localStorage to get header collapse state', e)
                 }
@@ -2219,6 +2221,10 @@
 
             // Hide or show the header once when its title row or collapse icon is clicked.
             document.querySelectorAll('.header-toggle-trigger').forEach((trigger) => trigger.addEventListener('click', handleSnapshotHeaderToggle))
+
+            {% include "core/snapshot_stacks.js.html" %}
+            initializeOutputStacks()
+            window.addEventListener('hashchange', selectInitialPreview)
 
             // check URL for hash e.g. #git and load relevant preview
             selectInitialPreview()
