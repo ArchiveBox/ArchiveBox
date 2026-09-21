@@ -1492,7 +1492,7 @@
             {% endif %}
             {% if has_outputs %}
             <iframe id="main-frame"
-                    sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads"
+                    sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                     class="full-page-iframe"
                     src="about:blank"
                     data-default-src="{% if best_result.direct_preview_path %}{% snapshot_url snapshot best_result.direct_preview_path %}{% elif best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% elif STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
@@ -1957,7 +1957,7 @@
                 frame.id = 'main-frame'
                 frame.name = 'preview'
                 frame.className = 'full-page-iframe'
-                frame.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads"
+                frame.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                 frame.loading = 'eager'
                 frame.setAttribute('fetchpriority', 'high')
                 attachPreviewFrameHandlers(frame)
@@ -2021,7 +2021,7 @@
                 if (new URL(target, window.location.href).pathname.endsWith('.pdf')) {
                     iframe_elem.removeAttribute('sandbox')
                 } else {
-                    iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads"
+                    iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                 }
                 if (rawTarget && updateHash) {
                     window.location.hash = getPreviewHashValueFromHref(rawTarget)

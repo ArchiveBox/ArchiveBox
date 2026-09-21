@@ -22,6 +22,7 @@ from archivebox.core.routes_util import (
 )
 from archivebox.core.setup_wizard import get_base_url_mismatch_context, get_setup_wizard_context
 from archivebox.plugins.discovery import (
+    get_plugin_catalog,
     get_plugin_icon,
     get_plugin_name,
     get_plugin_template,
@@ -930,7 +931,11 @@ def plugin_full(context, result) -> str:
     output_url = _snapshot_url_for_context(context, result.snapshot, raw_output_path)
 
     try:
-        tpl = template.Template(template_str)
+        catalog = get_plugin_catalog()
+        tpl = template.Engine(
+            dirs=[catalog[plugin].path] if plugin in catalog else [],
+            libraries=template.Engine.get_default().libraries,
+        ).from_string(template_str)
         ctx = template.Context(
             {
                 "result": result,

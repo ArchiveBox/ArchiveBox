@@ -80,7 +80,7 @@ from archivebox.misc.util import (
     validate_url,
     without_fragment,
 )
-from archivebox.plugins.discovery import get_plugin_name, get_plugin_template
+from archivebox.plugins.discovery import get_plugin_catalog, get_plugin_name, get_plugin_template
 from archivebox.plugins.forms import get_plugin_config_binary_urls
 from archivebox.plugins.views import get_config_definition_link
 from archivebox.progressmonitor.views import live_progress_view
@@ -766,8 +766,9 @@ def _plugin_full_preview_response(
     if raw_query:
         output_url = f"{output_url}?{raw_query.urlencode()}"
 
+    catalog = get_plugin_catalog()
     rendered = (
-        template.Engine(debug=False)
+        template.Engine(debug=False, dirs=[catalog[plugin].path] if plugin in catalog else [])
         .from_string(template_str)
         .render(
             template.Context(
@@ -776,6 +777,7 @@ def _plugin_full_preview_response(
                     "snapshot": snapshot,
                     "output_path": output_url,
                     "output_path_raw": rel_path,
+                    "snapshot_details_url": build_web_url(snapshot.get_absolute_url(), request=request),
                     "plugin": plugin,
                     "preview_base": f"{request.path.rsplit('/', 1)[0]}/",
                 },
