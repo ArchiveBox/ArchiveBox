@@ -348,6 +348,31 @@ select {
   min-width: 0;
 }
 
+.url-file-dragover {
+  outline: 2px dashed #417690;
+  outline-offset: 6px;
+}
+
+.url-upload-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.url-upload-controls button {
+  padding: 3px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #f8f8f8;
+  color: #333;
+  font-size: inherit;
+  cursor: pointer;
+}
+
 .url-editor-shell {
   position: relative;
 }

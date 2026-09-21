@@ -37,6 +37,7 @@
                     Check the server log or the <a href="/admin/core/archiveresult/?o=-1">Log</a> page for detailed progress...
                 </center>
             </div>
+            <input id="url-file-input" type="file" multiple hidden>
             <form id="add-form" method="POST" class="p-form">{% csrf_token %}
                 <center>
                     <h1>Create a new Crawl</h1>
@@ -69,6 +70,11 @@
                                     <pre id="url-highlight-layer" class="url-highlight-layer" aria-hidden="true"></pre>
                                     {{ form.url }}
                                 </div>
+                                <div class="url-upload-controls">
+                                    <button type="button" id="url-upload-button"><span aria-hidden="true">↥</span> Upload</button>
+                                    <span>or drag &amp; drop in files containing URLs</span>
+                                </div>
+                                <div id="url-upload-status" class="help-text" role="status"></div>
                             </div>
                             <aside class="detected-urls-panel" aria-live="polite">
                                 <div class="detected-urls-header">
@@ -1094,6 +1100,59 @@
                 }
 
                 urlTextarea.addEventListener('input', updateURLPreview);
+                const fileInput = document.getElementById('url-file-input');
+                const uploadButton = document.getElementById('url-upload-button');
+                const uploadStatus = document.getElementById('url-upload-status');
+                const dropZone = document.querySelector('.url-editor-column');
+                let pendingFileReads = 0;
+                let fileReadQueue = Promise.resolve();
+
+                function importURLFiles(files) {
+                    if (!files.length) return;
+                    pendingFileReads++;
+                    uploadStatus.textContent = 'Reading files…';
+                    fileReadQueue = fileReadQueue.then(async function() {
+                        const errors = [];
+                        for (const file of files) {
+                            try {
+                                const text = await file.text();
+                                if (!text) continue;
+                                urlTextarea.value += (urlTextarea.value && !urlTextarea.value.endsWith('\n') ? '\n' : '') + text;
+                                urlTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+                                urlTextarea.dispatchEvent(new Event('change', { bubbles: true }));
+                            } catch (error) {
+                                errors.push(file.name);
+                            }
+                        }
+                        pendingFileReads--;
+                        uploadStatus.textContent = errors.length
+                            ? `Could not read: ${errors.join(', ')}. Try selecting these files again.`
+                            : (pendingFileReads ? 'Reading files…' : 'File text added.');
+                        urlTextarea.focus();
+                    });
+                }
+
+                uploadButton.addEventListener('click', () => fileInput.click());
+                fileInput.addEventListener('change', function() {
+                    const files = Array.from(fileInput.files);
+                    fileInput.value = '';
+                    importURLFiles(files);
+                });
+                document.addEventListener('dragover', function(event) {
+                    if (!Array.from(event.dataTransfer.types).includes('Files')) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'copy';
+                    dropZone.classList.add('url-file-dragover');
+                });
+                document.addEventListener('dragleave', function(event) {
+                    if (!event.relatedTarget) dropZone.classList.remove('url-file-dragover');
+                });
+                document.addEventListener('drop', function(event) {
+                    dropZone.classList.remove('url-file-dragover');
+                    if (!Array.from(event.dataTransfer.types).includes('Files')) return;
+                    event.preventDefault();
+                    importURLFiles(Array.from(event.dataTransfer.files));
+                });
                 urlTextarea.addEventListener('scroll', syncHighlightScroll);
                 window.addEventListener('resize', syncHighlightMetrics);
                 window.addEventListener('resize', syncPreviewPanelHeight);
@@ -1307,6 +1366,11 @@
 
                 // Form submission handler
                 document.getElementById('add-form').addEventListener('submit', function(event) {
+                    if (pendingFileReads) {
+                        event.preventDefault();
+                        uploadStatus.textContent = 'Please wait for the files to finish reading.';
+                        return;
+                    }
                     document.getElementById('in-progress').style.display = 'block'
                     document.getElementById('add-form').style.display = 'none'
                     document.getElementById('delay-warning').style.display = 'block'
