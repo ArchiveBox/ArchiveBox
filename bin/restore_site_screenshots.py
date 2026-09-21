@@ -6,6 +6,7 @@ import hashlib
 import importlib
 import json
 import os
+import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -36,6 +37,25 @@ def validate(destination, run=None):
     return manifest
 
 
+def normalize_filenames(destination):
+    """Migrate older capture artifacts to order-independent public filenames."""
+    manifest_path = destination / MANIFEST
+    manifest = validate(destination)
+    names = {name: re.sub(r"^\d+-", "", name) for name in manifest["files"]}
+    if len(set(names.values())) != len(names):
+        raise ValueError("Screenshot names collide after removing capture-order prefixes")
+    gallery_path = destination / "index.html"
+    gallery = gallery_path.read_text()
+    for old, new in names.items():
+        if old != new:
+            (destination / old).replace(destination / new)
+            gallery = gallery.replace(f"./{old}", f"./{new}")
+    manifest["files"] = {names[name]: digest for name, digest in manifest["files"].items()}
+    gallery_path.write_text(gallery)
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+    validate(destination)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("destination", type=Path)
@@ -47,6 +67,7 @@ def main():
                 continue
             artifacts.download(REPO, run, "site-screenshots", args.destination)
             validate(args.destination, run)
+            normalize_filenames(args.destination)
             print(f"Restored validated screenshots from {run['id']} ({run['head_sha']})")
             return
     raw = artifacts.fetch(BASE, MANIFEST)
@@ -63,6 +84,7 @@ def main():
         list(pool.map(restore, names))
     (args.destination / MANIFEST).write_bytes(raw)
     validate(args.destination)
+    normalize_filenames(args.destination)
     print(f"Restored {len(names)} published files from {manifest['revision']}")
 
 

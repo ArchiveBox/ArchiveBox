@@ -407,7 +407,7 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     fi
     view_timing_report=""
     while IFS='|' read -r profile viewport_width viewport_height; do
-        filename="$(printf '%02d' "$capture_index")-$slug-$profile.png"
+        filename="$slug-$profile.png"
         capture_dir="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/$profile"
         timing_report_path="$view_timing_report"
         capture_env=(
