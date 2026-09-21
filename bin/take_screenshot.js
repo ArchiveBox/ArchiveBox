@@ -224,6 +224,24 @@ async function main() {
           && frameRect.width >= Math.min(window.innerWidth * 0.9, window.innerWidth - 8)
           && frameRect.height >= Math.min(window.innerHeight * 0.35, 320);
       }, { timeout: 45000 }, expectedPlugin);
+      // Snapshot output cards are grouped into collapsed stacks. Expand the
+      // selected card's real group before capture so the gallery shows the
+      // available outputs and the loaded preview together. The selected card
+      // is moved into the tray by the page's own stack handler; no duplicate
+      // preview or synthetic content is created here.
+      await page.evaluate(() => {
+        const selectedCard = document.querySelector('.thumb-card.selected-card[data-output-group]');
+        const group = selectedCard?.dataset.outputGroup;
+        if (!group) return;
+        const stack = [...document.querySelectorAll('.output-stack')]
+          .find((button) => button.classList.contains(`output-stack-${group}`));
+        if (stack && stack.getAttribute('aria-expanded') !== 'true') stack.click();
+      });
+      await page.waitForFunction(() => {
+        const tray = document.querySelector('#stack-tray');
+        const selectedCard = document.querySelector('.stack-tray .thumb-card.selected-card');
+        return tray && !tray.hidden && selectedCard && selectedCard.getClientRects().length > 0;
+      }, { timeout: 45000 });
       await page.waitForFunction(() => {
         const frames = [document.querySelector('#main-frame'), document.querySelector('.thumb-card.selected-card iframe')]
           .filter(Boolean);

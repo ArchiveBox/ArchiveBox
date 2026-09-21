@@ -550,7 +550,7 @@ PY
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
-                    SCREENSHOT_SNAPSHOT_HEADER=collapsed \
+                    SCREENSHOT_SNAPSHOT_HEADER=expanded \
                     SCREENSHOT_EXPECT_PLUGIN="$expected_plugin" \
                     SCREENSHOT_EXPECT_FRAME_TEXT="$expected_frame_text" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
