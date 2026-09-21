@@ -151,7 +151,13 @@ def test_snapshot_pause_resume_api_leaves_archiveresult_facts_unchanged(
             expected_exit_codes=(1,),
         )
         assert failed_result.status == ArchiveResult.StatusChoices.FAILED
-        assert failed_result.output_str == "git fetch failed (exit=128)"
+        assert failed_result.output_str == (
+            "git fetch failed (exit=128): fatal: '/nonexistent/archivebox-test-repository.git' "
+            "does not appear to be a git repository\n"
+            "fatal: Could not read from remote repository.\n\n"
+            "Please make sure you have the correct access rights\n"
+            "and the repository exists."
+        )
         install_result = run_archivebox_cmd(["install"], cwd=tmp_path, timeout=600)
         assert install_result.returncode == 0, install_result.stderr or install_result.stdout
         now = timezone.now()
