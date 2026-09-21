@@ -111,7 +111,10 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
     snapshots = Snapshot.objects.select_related("crawl", "crawl__created_by")
 
     if len(lookup) == 12 and "-" not in lookup:
-        return snapshots.filter(id__endswith=lookup).order_by("-created_at", "-downloaded_at").first()
+        # Resolve suffixes using the covering primary-key index before fetching
+        # wide snapshot rows and joining their crawl/user data.
+        matches = list(Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True))
+        return snapshots.filter(pk__in=matches).order_by("-created_at", "-downloaded_at").first()
 
     try:
         return snapshots.get(pk=lookup)
