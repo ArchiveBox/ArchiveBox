@@ -155,10 +155,10 @@ def _count_media_files(result) -> int:
     return count
 
 
-def _list_media_files(result) -> list[dict]:
+def _list_media_files(result, *, include_filesystem_fallback=True) -> list[dict]:
     media_files: list[dict] = []
     try:
-        plugin_dir = Path(result.snapshot_dir) / result.plugin
+        plugin_dir = Path(result.snapshot_dir) / result.plugin if include_filesystem_fallback else None
     except (AttributeError, TypeError, ValueError):
         return media_files
 
@@ -170,7 +170,7 @@ def _list_media_files(result) -> list[dict]:
             if rel_path.suffix.lower() in _MEDIA_FILE_EXTS:
                 candidates.append((rel_path, _coerce_output_file_size(metadata.get("size"))))
 
-    if not candidates and plugin_dir.exists():
+    if not candidates and plugin_dir is not None and plugin_dir.exists():
         scanned = 0
         max_scan = 2000
         for file_path in plugin_dir.rglob("*"):
@@ -829,8 +829,12 @@ def plugin_card(context, result) -> str:
 
     icon_html = get_plugin_icon(plugin)
     plugin_lower = (plugin or "").lower()
-    media_file_count = _count_media_files(result) if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else 0
-    media_files = _list_media_files(result) if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl") else []
+    media_files = (
+        _list_media_files(result, include_filesystem_fallback=bool(context.get("STATIC_EXPORT")))
+        if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl")
+        else []
+    )
+    media_file_count = len(media_files)
     if context.get("STATIC_EXPORT") and media_files:
         media_files = [
             item
@@ -881,7 +885,23 @@ def plugin_card(context, result) -> str:
     except (template.TemplateSyntaxError, AttributeError, TypeError, ValueError):
         rendered = ""
 
-    if force_text_preview:
+    if force_text_preview and not context.get("STATIC_EXPORT"):
+        # Read archived text only when the browser requests its preview, never
+        # while rendering the outer snapshot HTML (payloads may live on B2).
+        preview_url = _build_snapshot_preview_url(
+            str(_snapshot_id(result.snapshot)),
+            raw_output_path,
+            request=context.get("request"),
+            config=context.get("CONFIG"),
+            plugin=plugin,
+        )
+        return mark_safe(
+            f'<iframe src="{escape(preview_url)}" title="{escape(plugin)} preview" '
+            'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
+            'style="border:0;pointer-events:none"></iframe>',
+        )
+
+    if force_text_preview and context.get("STATIC_EXPORT"):
         preview = _render_text_file_preview(result.snapshot_dir, raw_output_path, plugin, icon_html)
         if preview:
             return mark_safe(preview)

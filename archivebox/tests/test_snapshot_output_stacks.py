@@ -117,7 +117,7 @@ def test_filesystem_fallback_uses_directory_size_for_equal_outputs(snapshot):
         directory.mkdir(parents=True)
         for index in range(count):
             shutil.copyfile(FIXTURE, directory / f"page-{index}.html")
-    context = snapshot.get_html_details_context()
+    context = snapshot.get_html_details_context(static_export_dir=Path(snapshot.output_dir))
     media = [output for output in context["archiveresults"] if output["output_group"] == "embedded_media"]
     assert [output["name"] for output in media] == ["git", "gallerydl"]
     assert media[0]["size"] == 3 * FIXTURE.stat().st_size

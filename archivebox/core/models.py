@@ -3278,12 +3278,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self,
         include_filesystem_fallback: bool = True,
         archive_results: list["ArchiveResult"] | None = None,
+        filesystem_index: dict | None = None,
     ) -> list[dict]:
         """Discover output files from ArchiveResults and filesystem."""
         from archivebox.misc.util import ts_to_date_str
 
         ArchiveResult = self.archiveresult_set.model
-        snap_dir = Path(self.output_dir)
+        snap_dir = Path(self.output_dir) if include_filesystem_fallback else None
         outputs: list[dict] = []
         seen: set[str] = set()
 
@@ -3297,13 +3298,23 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             lower = (path or "").lower()
             return lower.endswith(text_exts)
 
-        hashes_index = self.hashes_index if include_filesystem_fallback else {}
+        if filesystem_index is not None:
+            filesystem_index.update(ArchiveResult._scan_output_file_map(snap_dir))
+        hashes_index = filesystem_index if filesystem_index is not None else (self.hashes_index if include_filesystem_fallback else {})
+        if include_filesystem_fallback and not hashes_index and filesystem_index is None:
+            hashes_index = ArchiveResult._scan_output_file_map(snap_dir)
         results = archive_results if archive_results is not None else self.archiveresult_set.all().order_by("start_ts")
         for result in results:
             output_file_map = result.output_file_map()
             embed_path = result.embed_path_db(output_file_map=output_file_map)
+            if include_filesystem_fallback and embed_path not in hashes_index:
+                raw_output = str(result.output_str or "")
+                embed_path = raw_output if raw_output in hashes_index else None
             if not embed_path and include_filesystem_fallback:
-                embed_path = result.embed_path()
+                prefix = f"{result.plugin}/"
+                plugin_files = {path.removeprefix(prefix): meta for path, meta in hashes_index.items() if path.startswith(prefix)}
+                fallback = ArchiveResult._fallback_output_file_path(list(plugin_files), result.plugin, plugin_files)
+                embed_path = f"{prefix}{fallback}" if fallback else None
             if not embed_path or embed_path.strip() in (".", "/", "./"):
                 continue
             size = (
@@ -3312,24 +3323,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 or hashes_index.get(embed_path, {}).get("size")
                 or 0
             )
-            if not size and include_filesystem_fallback and not hashes_index:
-                abs_path = snap_dir / embed_path
-                if not abs_path.exists():
-                    continue
-                if abs_path.is_dir():
-                    if not any(p.is_file() for p in abs_path.rglob("*")):
-                        continue
-                    size = sum(p.stat().st_size for p in abs_path.rglob("*") if p.is_file())
-                else:
-                    size = abs_path.stat().st_size
-                    plugin_lower = (result.plugin or "").lower()
-                    if plugin_lower in ("ytdlp", "yt-dlp", "youtube-dl"):
-                        plugin_dir = snap_dir / result.plugin
-                        if plugin_dir.exists():
-                            try:
-                                size = sum(p.stat().st_size for p in plugin_dir.rglob("*") if p.is_file())
-                            except OSError:
-                                pass
             outputs.append(
                 {
                     "name": result.plugin,
@@ -3374,9 +3367,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 )
                 seen.add(root)
 
-        if not include_filesystem_fallback or hashes_index:
-            return outputs
-        if not snap_dir.is_dir():
+        if not include_filesystem_fallback:
             return outputs
 
         embeddable_exts = {
@@ -3406,53 +3397,26 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "wav",
         }
 
-        for entry in snap_dir.iterdir():
-            if entry.name in ("index.html", "index.json", "favicon.ico", "warc"):
+        for path, metadata in hashes_index.items():
+            entry = Path(path)
+            if len(entry.parts) != 1 or entry.name in ("index.html", "index.json", "favicon.ico"):
                 continue
-            if entry.is_dir():
-                plugin = entry.name
-                if plugin in seen:
-                    continue
-                best_file = ArchiveResult._find_best_output_file(entry, plugin)
-                if not best_file:
-                    continue
-                from abx_dl.output_files import OutputManifest
-
-                best_file_stat = best_file.stat()
-                directory_size = OutputManifest.scan(entry, containment_root=snap_dir).total_size
-                rel_path = str(best_file.relative_to(snap_dir))
-                outputs.append(
-                    {
-                        "name": plugin,
-                        "path": rel_path,
-                        "ts": ts_to_date_str(best_file_stat.st_mtime or 0),
-                        "size": directory_size,
-                        "is_metadata": is_metadata_path(rel_path),
-                        "is_compact": is_compact_path(rel_path),
-                        "result": None,
-                    },
-                )
-                seen.add(plugin)
-            elif entry.is_file():
-                ext = entry.suffix.lstrip(".").lower()
-                if ext not in embeddable_exts:
-                    continue
-                plugin = entry.stem
-                if plugin in seen:
-                    continue
-                entry_stat = entry.stat()
-                outputs.append(
-                    {
-                        "name": plugin,
-                        "path": entry.name,
-                        "ts": ts_to_date_str(entry_stat.st_mtime or 0),
-                        "size": entry_stat.st_size or 0,
-                        "is_metadata": is_metadata_path(entry.name),
-                        "is_compact": is_compact_path(entry.name),
-                        "result": None,
-                    },
-                )
-                seen.add(plugin)
+            if filesystem_index is not None and entry.name == "index.jsonl":
+                continue
+            if entry.suffix.lstrip(".").lower() not in embeddable_exts or entry.stem in seen:
+                continue
+            outputs.append(
+                {
+                    "name": entry.stem,
+                    "path": path,
+                    "ts": ts_to_date_str(self.downloaded_at or self.created_at),
+                    "size": metadata.get("size", 0),
+                    "is_metadata": is_metadata_path(path),
+                    "is_compact": is_compact_path(path),
+                    "result": None,
+                },
+            )
+            seen.add(entry.stem)
 
         return outputs
 
@@ -3532,7 +3496,13 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         path = output_dir / CONSTANTS.JSON_INDEX_FILENAME
         atomic_write(str(path), self.to_dict(extended=True, static_export=True))
 
-    def get_html_details_context(self, request=None, *, static_export_dir: Path | None = None) -> dict[str, Any]:
+    def get_html_details_context(
+        self,
+        request=None,
+        *,
+        static_export_dir: Path | None = None,
+        discover_files: bool = False,
+    ) -> dict[str, Any]:
         """Build the one context used by both served and on-disk snapshot pages."""
         from archivebox.config.common import get_request_config
         from archivebox.core.permissions import get_snapshot_permissions
@@ -3551,10 +3521,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
         self.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
 
+        filesystem_index = {} if discover_files else None
         hidden_card_plugins = {"archivedotorg", "favicon"}
         outputs = [
             output
-            for output in self.discover_outputs(include_filesystem_fallback=True, archive_results=archive_results)
+            for output in self.discover_outputs(
+                include_filesystem_fallback=static_export_dir is not None or filesystem_index is not None,
+                archive_results=archive_results,
+                filesystem_index=filesystem_index,
+            )
             if (output.get("size") or 0) > 0 and output.get("name") not in hidden_card_plugins
         ]
         if static_export_dir is not None:
@@ -3589,11 +3564,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             if files_by_name.get(name):
                 output["size"] = sum(files_by_name[name].values())
 
-        hash_index = self.hashes_index
+        hash_index = filesystem_index if filesystem_index is not None else (self.hashes_index if static_export_dir is not None else {})
         loose_items, failed_items = self.get_detail_page_auxiliary_items(
             outputs,
             hidden_card_plugins=hidden_card_plugins,
             archive_results=archive_results,
+            hashes_index=hash_index,
         )
         ordered_outputs = order_snapshot_outputs(list(outputs_by_name.values()))
         best_result = ordered_outputs[0] if ordered_outputs else {"path": "about:blank", "result": None}
@@ -3706,6 +3682,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         outputs: list[dict] | None = None,
         hidden_card_plugins: set[str] | None = None,
         archive_results: list["ArchiveResult"] | None = None,
+        hashes_index: dict[str, dict[str, Any]] | None = None,
     ) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
         if outputs is None:
             outputs = self.discover_outputs(include_filesystem_fallback=True)
@@ -3724,9 +3701,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         ignore_names = {".DS_Store", "index.html", "index.json", "index.jsonl", "favicon.ico"}
         loose_items: list[dict[str, object]] = []
-        if self.hashes_index:
+        hashes_index = self.hashes_index if hashes_index is None else hashes_index
+        if hashes_index:
             grouped: dict[str, dict[str, object]] = {}
-            for rel_path, meta in self.hashes_index.items():
+            for rel_path, meta in hashes_index.items():
                 parts = Path(rel_path).parts
                 if not parts:
                     continue
@@ -4428,25 +4406,31 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         return None
 
     @staticmethod
+    def _scan_output_file_map(dir_path: Path, *, max_scan: int | None = None) -> dict[str, dict[str, Any]]:
+        """Collect read-only metadata for the existing output preview selector."""
+        file_map: dict[str, dict[str, Any]] = {}
+
+        def scan_error(error):
+            raise error
+
+        scanned = 0
+        for parent, directories, filenames in os.walk(dir_path, onerror=scan_error, followlinks=False):
+            directories[:] = [name for name in directories if not name.startswith(".")]
+            for name in filenames:
+                scanned += 1
+                if max_scan is not None and scanned > max_scan:
+                    return file_map
+                file_path = Path(parent) / name
+                if file_path.is_symlink() or name.startswith("."):
+                    continue
+                file_map[str(file_path.relative_to(dir_path))] = {"size": file_path.stat().st_size}
+        return file_map
+
+    @staticmethod
     def _find_best_output_file(dir_path: Path, plugin_name: str | None = None) -> Path | None:
         if not dir_path.exists() or not dir_path.is_dir():
             return None
-        file_map: dict[str, dict[str, Any]] = {}
-        file_count = 0
-        max_scan = 500
-        for file_path in dir_path.rglob("*"):
-            file_count += 1
-            if file_count > max_scan:
-                break
-            if file_path.is_dir() or file_path.name.startswith("."):
-                continue
-            rel_path = str(file_path.relative_to(dir_path))
-            try:
-                size = file_path.stat().st_size
-            except OSError:
-                size = 0
-            file_map[rel_path] = {"size": size}
-
+        file_map = ArchiveResult._scan_output_file_map(dir_path, max_scan=500)
         fallback_path = ArchiveResult._fallback_output_file_path(list(file_map.keys()), plugin_name, file_map)
         if not fallback_path:
             return None
@@ -4476,7 +4460,17 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                     candidates.append(raw_output)
 
                 if not output_file_map:
-                    return self._existing_output_path(raw_output)
+                    from ipaddress import ip_address
+
+                    try:
+                        ip_address(raw_output)
+                    except ValueError:
+                        pass
+                    else:
+                        return None
+                    # Legacy rows still have a stored display path. Do not probe
+                    # payload storage while rendering a live snapshot page.
+                    return candidates[0] if ".." not in output_path.parts else None
 
                 if raw_output in output_file_map and is_root_relative(raw_output):
                     return raw_output

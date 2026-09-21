@@ -32,7 +32,7 @@ function initializeOutputStacks() {
     const sharedFrames = [];
     function movePreviewNode(frame, parent, before = null) {
         // Preserve the browsing context when supported; never create a second one.
-        if (parent.moveBefore && frame.isConnected && parent.isConnected) parent.moveBefore(frame, before);
+        if (parent.moveBefore && frame.isConnected && parent.isConnected && frame.ownerDocument === parent.ownerDocument) parent.moveBefore(frame, before);
         else parent.insertBefore(frame, before);
     }
     function placeGroupFrames(group, inCover) {
@@ -50,6 +50,57 @@ function initializeOutputStacks() {
         button.setAttribute('aria-expanded', 'false');
         tray.hidden = true;
         active = null;
+    }
+    let discoveryState = 'idle';
+    async function discoverOtherFiles(group) {
+        const other = group.cards.find(card => card.hasAttribute('data-discover-files'));
+        if (!other || discoveryState === 'loading' || discoveryState === 'done') return;
+        const status = other.querySelector('.discovery-status');
+        discoveryState = 'loading';
+        status.textContent = 'Scanning for orphan files…';
+        status.removeAttribute('title');
+        try {
+            const url = new URL(window.location.href);
+            url.hash = '';
+            url.search = '?discover_outputs=1';
+            const response = await fetch(url, {cache: 'no-store'});
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const fragment = new DOMParser().parseFromString(await response.text(), 'text/html');
+            if (!fragment.querySelector('[data-other-files]')) throw new Error('Invalid discovery response');
+            const knownPaths = new Set(cards.map(card => card.dataset.outputPath).filter(Boolean));
+            for (const card of fragment.querySelectorAll('.thumb-card[data-output-path]')) {
+                if (knownPaths.has(card.dataset.outputPath)) continue;
+                knownPaths.add(card.dataset.outputPath);
+                card.classList.remove('selected-card');
+                card.dataset.outputGroup = 'other';
+                group.cards.push(card);
+                cards.push(card);
+                setPreviewResourcePriority(card, false);
+                observer.observe(card, {attributes: true, attributeFilter: ['class']});
+                movePreviewNode(card, active === group ? trayCards : parked);
+            }
+            const existingItems = other.querySelector('.loose-items');
+            const knownLinks = new Set([...existingItems.querySelectorAll('a')].map(link => link.href));
+            for (const link of fragment.querySelectorAll('[data-other-files] .loose-items a')) {
+                if (!knownLinks.has(link.href)) {
+                    knownLinks.add(link.href);
+                    existingItems.append(link);
+                }
+            }
+            buttons.get(group.id).querySelector('.stack-count').textContent = String(group.cards.length);
+            buttons.get(group.id).setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
+            status.textContent = '';
+            discoveryState = 'done';
+        } catch (error) {
+            discoveryState = 'error';
+            status.textContent = 'Could not scan files. ';
+            status.title = error.message;
+            const retry = el('button', '', 'Retry');
+            retry.type = 'button';
+            retry.dataset.noPreview = '1';
+            retry.addEventListener('click', () => discoverOtherFiles(group));
+            status.append(retry);
+        }
     }
     function expand(group) {
         if (active === group) { collapse(); return; }
@@ -73,6 +124,7 @@ function initializeOutputStacks() {
         }
         tray.setAttribute('aria-label', group.label);
         tray.hidden = false;
+        if (group.id === 'other') discoverOtherFiles(group);
     }
     for (const group of groups) {
         if (group.id === 'other' && !group.cards.length) continue;
