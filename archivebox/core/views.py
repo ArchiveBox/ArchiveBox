@@ -331,6 +331,19 @@ class SnapshotView(View):
 
     @staticmethod
     def render_live_index(request, snapshot):
+        if request.GET.get("discover_outputs") == "1":
+            # Reuse the existing output discovery and card/badge classification.
+            request.archivebox_cache_policy = "private"
+            initial_context = snapshot.get_html_details_context(request=request)
+            known_paths = {output["path"] for output in initial_context["archiveresults"]}
+            context = snapshot.get_html_details_context(request=request, discover_files=True)
+            context["archiveresults"] = [output for output in context["archiveresults"] if output["path"] not in known_paths]
+            for output in context["archiveresults"]:
+                output["output_group"] = "other"
+                output["folder_path"] = str(Path(output["path"]).parent)
+            response = render(request, "core/snapshot_output_cards.html", context)
+            patch_cache_control(response, private=True, no_store=True)
+            return response
         request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
         return render(
             template_name="core/snapshot.html",

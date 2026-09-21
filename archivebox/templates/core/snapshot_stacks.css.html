@@ -289,4 +289,21 @@
 @media (prefers-reduced-motion:reduce) {
     .stack-browser * { animation:none!important; transition:none!important; }
 }
+
+.stack-tray .thumb-card[data-other-files] .thumb-body {
+    align-content: start;
+    align-items: start;
+    flex: 1;
+}
+.stack-tray [data-other-files] .loose-items,
+.stack-tray [data-other-files] .discovery-status {
+    grid-column: 1 / -1;
+}
+.stack-tray [data-other-files] .discovery-status:empty {
+    display: none;
+}
+.stack-tray [data-other-files] .loose-items {
+    max-height: 116px;
+}
+
 </style>
