@@ -1492,7 +1492,7 @@
             {% endif %}
             {% if has_outputs %}
             <iframe id="main-frame"
-                    sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
+                    sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads"
                     class="full-page-iframe"
                     src="about:blank"
                     data-default-src="{% if best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% elif STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
@@ -1957,7 +1957,7 @@
                 frame.id = 'main-frame'
                 frame.name = 'preview'
                 frame.className = 'full-page-iframe'
-                frame.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
+                frame.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads"
                 frame.loading = 'eager'
                 frame.setAttribute('fetchpriority', 'high')
                 attachPreviewFrameHandlers(frame)
@@ -2021,7 +2021,7 @@
                 if (new URL(target, window.location.href).pathname.endsWith('.pdf')) {
                     iframe_elem.removeAttribute('sandbox')
                 } else {
-                    iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms"
+                    iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads"
                 }
                 if (rawTarget && updateHash) {
                     window.location.hash = getPreviewHashValueFromHref(rawTarget)
