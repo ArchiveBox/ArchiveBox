@@ -2,11 +2,13 @@
 
 import argparse
 import json
+import re
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from html.parser import HTMLParser
 from pathlib import Path
 from threading import Thread
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import unquote, urljoin, urlsplit
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -25,8 +27,47 @@ class Handler(SimpleHTTPRequestHandler):
         pass
 
 
+class ScreenshotReferences(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.references = []
+        self.ids = set()
+
+    def handle_starttag(self, tag, attributes):
+        attrs = dict(attributes)
+        if attrs.get("id"):
+            self.ids.add(attrs["id"])
+        for attribute in ("src", "href"):
+            if attrs.get(attribute):
+                self.references.append(attrs[attribute])
+
+
+def verify_screenshot_references(output, canonical):
+    """Check gallery embeds on every static page, including optional translations."""
+    pages = {}
+    for path in output.rglob("*.html"):
+        page = ScreenshotReferences()
+        page.feed(path.read_text())
+        pages[path.resolve()] = page
+    for path, page in pages.items():
+        page_url = urljoin(canonical, path.relative_to(output.resolve()).as_posix())
+        for reference in page.references:
+            url = urlsplit(urljoin(page_url, reference))
+            if url.netloc != urlsplit(canonical).netloc or "/screenshots/" not in url.path:
+                continue
+            target = output / unquote(url.path).lstrip("/")
+            if target.is_dir():
+                target /= "index.html"
+            target = target.resolve()
+            assert target.is_relative_to(output.resolve()) and target.is_file(), f"{path}: missing screenshot target {reference}"
+            assert not re.match(r"^\d+-", target.name), f"{path}: screenshot filename depends on capture order: {reference}"
+            if url.fragment and target in pages:
+                assert unquote(url.fragment) in pages[target].ids, f"{path}: missing screenshot anchor {reference}"
+
+
 def verify(output, evidence):
     config = json.loads((HERE / "site.json").read_text())
+    verify_screenshot_references(output, config["url"])
     evidence.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer(("127.0.0.1", 0), partial(Handler, directory=str(output.resolve())))
     thread = Thread(target=server.serve_forever, daemon=True)
