@@ -1849,10 +1849,29 @@ class TestUrlRouting:
             resp = client.get(f"/{snapshot.url_path}/index.html", HTTP_HOST=web_host)
             assert resp.status_code == 200
             live_html = response_body(resp).decode("utf-8", "ignore")
-            assert 'data-plugin="consolelog" data-compact="1"' in live_html
+            from html.parser import HTMLParser
+            class PreviewFrames(HTMLParser):
+                def __init__(self):
+                    super().__init__()
+                    self.frames = []
+                def handle_starttag(self, tag, attrs):
+                    if tag == "iframe":
+                        self.frames.append(dict(attrs))
+            frames = PreviewFrames()
+            frames.feed(live_html)
+            assert any(
+                frame.get("data-plugin") == "consolelog" and frame.get("data-compact") == "1"
+                for frame in frames.frames
+            ), frames.frames
             snapshot_host = get_snapshot_host(str(snapshot.id))
             consolelog_rel = consolelog_file.relative_to(snapshot.output_dir)
             resp = client.get(f"/{consolelog_rel}?preview=1", HTTP_HOST=snapshot_host)
+            assert resp.status_code == 200
+            assert resp["Content-Type"].startswith("text/html")
+            preview_html = response_body(resp).decode("utf-8", "ignore")
+            assert "<title>Console Log</title>" in preview_html
+            assert str(consolelog_rel) in preview_html
+            resp = client.get(f"/{consolelog_rel}?preview=1&raw=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert resp["Content-Type"].startswith("text/html")
             preview_html = response_body(resp).decode("utf-8", "ignore")
