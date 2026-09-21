@@ -80,7 +80,7 @@ dependencies = [
     "abxbus==2.5.57",                 # direct imports only; version constrained by abx-dl -> abx-plugins
     "abxpkg==1.12.142",                # direct imports only; version constrained by abx-dl -> abx-plugins
     "abx-plugins[opencode]==1.12.338", # optional AI runtime clients are owned by the plugin
-    "abx-dl==1.12.374",       # shared ArchiveBox downloader package
+    "abx-dl==1.12.375",       # shared ArchiveBox downloader package
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
     "browser-cookie3>=0.20.1",
