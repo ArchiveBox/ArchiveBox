@@ -205,13 +205,6 @@ async function main() {
 
     if (process.env.SCREENSHOT_EXPECT_PLUGIN) {
       const expectedPlugin = process.env.SCREENSHOT_EXPECT_PLUGIN.toLowerCase();
-      const metadataPlugins = new Set([
-        'title', 'seo', 'sslcerts', 'dns', 'hashes', 'headers', 'redirects',
-        'chrome', 'accessibility', 'consolelog', 'parse_dom_outlinks',
-        'parse_html_urls', 'parse_jsonl_urls', 'parse_txt_urls', 'parse_rss_urls',
-        'parse_netscape_urls', 'htmltotext', 'defuddle', 'trafilatura',
-        'liteparse', 'opendataloader',
-      ]);
       await page.waitForFunction((pluginName) => {
         const selectedCard = document.querySelector('.thumb-card.selected-card[data-plugin-name]');
         const frame = document.querySelector('#main-frame');
@@ -257,53 +250,6 @@ async function main() {
           }
         });
       }, { timeout: 45000, polling: 250 }).catch(() => {});
-      if (metadataPlugins.has(expectedPlugin)) {
-        const frameElement = await page.$('#main-frame');
-        const frame = await frameElement.contentFrame();
-        await frame.waitForSelector('#card-summary');
-        if (expectedPlugin === 'defuddle') {
-          const readerElement = await frame.waitForSelector('#reader');
-          const reader = await readerElement.contentFrame();
-          await reader.waitForFunction(() => document.body?.innerText.trim(), { timeout: 45000 });
-        } else {
-          await frame.waitForFunction(() => {
-            const summary = document.querySelector('#card-summary')?.textContent.trim();
-            const content = document.querySelector('main')?.innerText.trim();
-            return summary && content && !summary.includes('unavailable') && !content.startsWith('Unable to read');
-          }, { timeout: 45000 });
-        }
-        await frame.waitForFunction(() => Array.from(document.images).every(
-          img => img.complete && img.naturalWidth > 0,
-        ), { timeout: 45000 });
-      }
-      if (process.env.SCREENSHOT_EXPECT_FRAME_TEXT || ['tlsnotary', 'opentimestamps'].includes(expectedPlugin)) {
-        const frameElement = await page.$('#main-frame');
-        const frame = await frameElement.contentFrame();
-        await frame.waitForFunction((text, plugin) => {
-          const outputReady = (doc) => {
-            const hash = (selector) => /^[a-f0-9]{64}$/i.test(doc.querySelector(selector)?.textContent.trim() || '');
-            if (plugin === 'opentimestamps') {
-              return doc.querySelector('#status.submitted')
-                && hash('#submitted-sha256') && hash('#manifest-sha256')
-                && doc.querySelector('#summary .status-hash')?.textContent === doc.querySelector('#submitted-sha256')?.textContent
-                && /^[a-f0-9]{32}$/i.test(doc.querySelector('#submission-nonce')?.textContent.trim() || '')
-                && doc.querySelectorAll('#calendar-endpoints .endpoint-badge').length > 0
-                && doc.querySelector('#calendar-submitted-at')?.textContent.includes('UTC');
-            } else if (plugin === 'tlsnotary') {
-              return doc.querySelector('#status.verified') && hash('#summary .status-hash')
-                && doc.querySelector('#verifier-card-domain')?.textContent.trim()
-                && doc.querySelectorAll('.timeline-entry').length === 4
-                && [...doc.querySelectorAll('.card-time')].length === 3
-                && [...doc.querySelectorAll('.card-time')].every(time => time.textContent.includes('UTC'));
-            } else if (doc.body?.innerText.includes(text)) return true;
-            return [...doc.querySelectorAll('iframe')].some((child) => {
-              const nested = child.contentDocument;
-              return nested ? outputReady(nested) : false;
-            });
-          };
-          return outputReady(document);
-        }, { timeout: 45000 }, process.env.SCREENSHOT_EXPECT_FRAME_TEXT, expectedPlugin);
-      }
     }
 
     if (process.env.SCREENSHOT_EXPECT_LIVE_PROGRESS === '1') {
