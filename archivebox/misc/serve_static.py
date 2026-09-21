@@ -919,7 +919,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 )
 
     content_type, encoding = mimetypes.guess_type(str(fullpath))
-    preserve_plain_text = fullpath.suffix.lower() in {".log", ".sh"}
+    preserve_plain_text = fullpath.suffix.lower() in {".log", ".sh", ".jsonl"}
     if preserve_plain_text:
         content_type = "text/plain"
     content_type = content_type or "application/octet-stream"
