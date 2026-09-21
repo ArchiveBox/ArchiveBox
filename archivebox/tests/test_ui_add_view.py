@@ -642,3 +642,30 @@ def test_tags_autocomplete_allows_authenticated_user_when_public_index_disabled(
 
     assert response.status_code == 200
     assert response.json()["tags"][0]["name"] == "archive"
+
+
+@pytest.mark.parametrize("page", ["add", "persona_change"])
+def test_plugin_grid_includes_all_visible_plugins_and_timestamps_last(admin_client, admin_user, page):
+    from archivebox.plugins.discovery import get_plugin_catalog
+
+    if page == "add":
+        url = reverse("add")
+    else:
+        persona = Persona.objects.create(name="PluginGridPersona", created_by=admin_user)
+        url = reverse("admin:personas_persona_change", args=[persona.pk])
+    response = admin_client.get(url, HTTP_HOST=ADMIN_HOST)
+    assert response.status_code == 200
+    form = response.context["form"] if page == "add" else response.context["adminform"].form
+    names = [plugin["name"] for group in form.plugin_groups for plugin in group["plugins"]]
+    expected = {plugin.name for plugin in get_plugin_catalog().values() if not plugin.config.hidden}
+    assert set(names) == expected
+    assert len(names) == len(expected)
+    for name in expected:
+        assert f'data-plugin-name="{name}"'.encode() in response.content
+    postprocessing = next(group for group in form.plugin_groups if group["field_name"] == "postprocessing_plugins")
+    assert postprocessing["plugins"][-1]["name"] == "opentimestamps"
+    assert b'name="plugin_config__opentimestamps__OPENTIMESTAMPS_TIMEOUT"' in response.content
+    if page == "add":
+        assert "opentimestamps" in dict(form.fields["postprocessing_plugins"].choices)
+    else:
+        assert b'name="plugin_config__opentimestamps__OPENTIMESTAMPS_ENABLED"' in response.content
