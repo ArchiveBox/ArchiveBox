@@ -3361,13 +3361,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 fallback_path = ArchiveResult._fallback_output_file_path(list(root_entries.keys()), root, root_entries)
                 if not fallback_path or not (snap_dir / root / fallback_path).exists():
                     continue
-                fallback_meta = root_entries.get(fallback_path, {})
                 outputs.append(
                     {
                         "name": root,
                         "path": f"{root}/{fallback_path}",
                         "ts": fallback_ts,
-                        "size": int(fallback_meta.get("size") or 0),
+                        "size": sum(int(meta.get("size") or 0) for meta in root_entries.values() if not meta.get("is_dir")),
                         "is_metadata": is_metadata_path(fallback_path),
                         "is_compact": is_compact_path(fallback_path),
                         "result": None,
@@ -3417,14 +3416,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 best_file = ArchiveResult._find_best_output_file(entry, plugin)
                 if not best_file:
                     continue
+                from abx_dl.output_files import OutputManifest
+
                 best_file_stat = best_file.stat()
+                directory_size = OutputManifest.scan(entry, containment_root=snap_dir).total_size
                 rel_path = str(best_file.relative_to(snap_dir))
                 outputs.append(
                     {
                         "name": plugin,
                         "path": rel_path,
                         "ts": ts_to_date_str(best_file_stat.st_mtime or 0),
-                        "size": best_file_stat.st_size or 0,
+                        "size": directory_size,
                         "is_metadata": is_metadata_path(rel_path),
                         "is_compact": is_compact_path(rel_path),
                         "result": None,
@@ -3537,6 +3539,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from archivebox.core.widgets import TagEditorWidget
         from archivebox.misc.logging_util import printable_filesize
         from archivebox.progressmonitor.views import progress_endpoint
+        from archivebox.plugins.output_groups import OUTPUT_GROUPS, order_snapshot_outputs
 
         runtime_config = get_request_config(request) if request is not None else get_config()
         self._runtime_config = runtime_config
@@ -3572,8 +3575,19 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             current = outputs_by_name.get(output["name"])
             if current is None or (output.get("size") or 0) > (current.get("size") or 0):
                 outputs_by_name[output["name"]] = output
+        # Several hooks can report the same plugin directory. Count overlapping
+        # files once, while retaining every result ID for the existing delete action.
+        files_by_name: dict[str, dict[str, int]] = {}
+        for result in archive_results:
+            if result.plugin not in outputs_by_name:
+                continue
+            files = files_by_name.setdefault(result.plugin, {})
+            for path, metadata in result.output_file_map().items():
+                files[path] = result._coerce_output_file_size(metadata.get("size"))
         for name, output in outputs_by_name.items():
             output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
+            if files_by_name.get(name):
+                output["size"] = sum(files_by_name[name].values())
 
         hash_index = self.hashes_index
         loose_items, failed_items = self.get_detail_page_auxiliary_items(
@@ -3581,25 +3595,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             hidden_card_plugins=hidden_card_plugins,
             archive_results=archive_results,
         )
-        preview_priority = ("singlefile", "screenshot", "wget", "dom", "pdf", "readability")
-        output_order = {result_type: index for index, result_type in enumerate(outputs_by_name)}
-        ordered_outputs = sorted(
-            outputs_by_name.values(),
-            key=lambda output: (
-                preview_priority.index(output["name"]) if output["name"] in preview_priority else len(preview_priority),
-                output_order.get(output["name"], len(output_order)),
-            ),
-        )
-        best_result = {"path": "about:blank", "result": None}
-        for result_type in preview_priority:
-            if result_type in outputs_by_name:
-                best_result = outputs_by_name[result_type]
-                break
-        if best_result["path"] == "about:blank" and ordered_outputs:
-            best_result = ordered_outputs[0]
+        ordered_outputs = order_snapshot_outputs(list(outputs_by_name.values()))
+        best_result = ordered_outputs[0] if ordered_outputs else {"path": "about:blank", "result": None}
 
-        non_compact_outputs = [output for output in ordered_outputs if not output.get("is_compact") and not output.get("is_metadata")]
-        compact_outputs = [output for output in ordered_outputs if output.get("is_compact") or output.get("is_metadata")]
         archive_dates = [result.start_ts for result in archive_results if result.start_ts]
         output_size = sum(int(output.get("size") or 0) for output in ordered_outputs)
         has_outputs = bool(ordered_outputs)
@@ -3674,7 +3672,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "num_failures": self.num_failures,
             "oldest_archive_date": ts_to_date_str(min(archive_dates) if archive_dates else None),
             "warc_path": warc_path,
-            "archiveresults": [*non_compact_outputs, *compact_outputs],
+            "archiveresults": ordered_outputs,
+            "output_groups": [{"id": group_id, "label": label} for group_id, label, _ in OUTPUT_GROUPS],
             "best_result": best_result,
             "snapshot": self,
             "CONFIG": runtime_config,
