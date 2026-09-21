@@ -99,3 +99,58 @@ def test_raw_text_file_preserves_markdown_bytes(tmp_path: Path, byte_range: str 
     assert response.status_code == (206 if byte_range else 200)
     assert response["Content-Type"] == "text/plain; charset=utf-8"
     assert b"".join(response.streaming_content) == (content[2:26] if byte_range else content)
+
+
+def test_markdown_file_renders_short_document_and_keeps_raw_source(tmp_path: Path):
+    source = "# Repository\n\nA **small** README with `code`.\n"
+    (tmp_path / "README.md").write_text(source)
+    response = serve_static_with_byterange_support(
+        RequestFactory().get("/README.md"),
+        "README.md",
+        document_root=tmp_path,
+    )
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/html")
+    assert b"<h1" in response.content
+    assert b"<strong>small</strong>" in response.content
+    raw = serve_static_with_byterange_support(
+        RequestFactory().get("/README.md?raw=1"),
+        "README.md",
+        document_root=tmp_path,
+    )
+    assert b"".join(raw.streaming_content).decode() == source
+
+
+def test_image_rewrite_uses_optional_saved_artifacts(tmp_path: Path):
+    import json
+    from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
+
+    source = '<img src="https://example.com/badge.svg">'
+    request = RequestFactory().get("/git/README.md")
+
+    def rewrite():
+        return _rewrite_html_image_sources_for_request(request, source, tmp_path, "git/README.md")
+
+    assert rewrite() == (source, 0)
+    responses = tmp_path / "responses"
+    responses.mkdir()
+    (responses / "short.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+    (responses / "index.jsonl").write_text(
+        "broken json\n"
+        + json.dumps(
+            {
+                "url": "https://proxy.example.com/image",
+                "method": "GET",
+                "status": 200,
+                "path": "./short.svg",
+            },
+        )
+        + "\n",
+    )
+    dom = tmp_path / "dom"
+    dom.mkdir()
+    (dom / "output.html").write_text('<img src="https://proxy.example.com/image" data-canonical-src="https://example.com/badge.svg">')
+    assert rewrite() == ('<img src="../responses/short.svg">', 1)
+    (responses / "index.jsonl").unlink()
+    (responses / "index.jsonl").mkdir()
+    assert rewrite() == (source, 0)

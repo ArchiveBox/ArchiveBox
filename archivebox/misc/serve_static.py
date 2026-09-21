@@ -14,6 +14,7 @@ import time
 import zipfile
 from collections.abc import Callable
 from datetime import UTC, datetime
+from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, urlencode, urljoin
 
@@ -527,6 +528,26 @@ def _index_responses_paths_for_html_images(
 
     best_matches: dict[str, str] = {}
     image_matches: set[str] = set()
+    # Optional responses plugin file contract: index.jsonl records contain method,
+    # url, status, and a path relative to responses/. No plugin code is imported.
+    # Legacy captures without an index still use the filename lookup below.
+    # The index retains complete URLs even when response filenames are shortened.
+    index = responses_root / "index.jsonl"
+    if index.is_file():
+        with index.open(errors="replace") as records:
+            for line in records:
+                try:
+                    record = json.loads(line)
+                    encoded = _encoded_responses_image_url(record.get("url", ""), None)
+                    if encoded not in encoded_urls or record.get("method") != "GET" or record.get("status") != 200:
+                        continue
+                    candidate = (responses_root / record.get("path", "")).resolve()
+                    if not candidate.is_relative_to(responses_root.resolve()) or not candidate.is_file():
+                        continue
+                    best_matches[encoded] = posixpath.relpath(candidate, start=snapshot_root / posixpath.dirname(html_rel_path))
+                    image_matches.add(encoded)
+                except (ValueError, TypeError, AttributeError):
+                    continue
     image_suffixes = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"}
     for candidate in responses_root.rglob("*"):
         if not candidate.is_file():
@@ -561,10 +582,30 @@ def _rewrite_html_image_sources_to_responses(
         if image_url not in encoded_urls_by_src:
             encoded_urls_by_src[image_url] = _encoded_responses_image_url(image_url, page_url)
 
+    # Optional dom plugin artifact: dom/output.html. Only image src and
+    # data-canonical-src attributes are read; no scripts or plugin code execute.
+    # Absence of this artifact simply disables proxy-to-original aliases.
+    aliases: dict[str, str] = {}
+
+    class ImageAliases(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            attrs = dict(attrs)
+            original = attrs.get("data-canonical-src")
+            proxy = attrs.get("src")
+            if tag == "img" and original and proxy:
+                original_key = _encoded_responses_image_url(original, page_url)
+                proxy_key = _encoded_responses_image_url(proxy, page_url)
+                if original_key and proxy_key:
+                    aliases[original_key] = proxy_key
+
+    dom = snapshot_root / "dom" / "output.html"
+    if dom.is_file() and dom.stat().st_size <= 10 * 1024 * 1024:
+        ImageAliases().feed(dom.read_text(errors="replace"))
+    wanted = {encoded for encoded in encoded_urls_by_src.values() if encoded}
     response_paths = _index_responses_paths_for_html_images(
         snapshot_root,
         html_rel_path,
-        {encoded_url for encoded_url in encoded_urls_by_src.values() if encoded_url},
+        wanted | {aliases[key] for key in wanted if key in aliases},
     )
     rewrites = 0
 
@@ -572,7 +613,7 @@ def _rewrite_html_image_sources_to_responses(
         nonlocal rewrites
         image_url = html.unescape(match.group(2))
         encoded_url = encoded_urls_by_src.get(image_url)
-        local_path = response_paths.get(encoded_url or "")
+        local_path = response_paths.get(encoded_url or "") or response_paths.get(aliases.get(encoded_url or "", ""))
         if not local_path:
             return match.group(0)
         rewrites += 1
@@ -589,12 +630,17 @@ def _rewrite_html_image_sources_for_request(
 ) -> tuple[str, int]:
     if not document_root:
         return html_text, 0
-    return _rewrite_html_image_sources_to_responses(
-        html_text,
-        document_root,
-        html_rel_path,
-        request.__dict__.get("archivebox_snapshot_url"),
-    )
+    try:
+        return _rewrite_html_image_sources_to_responses(
+            html_text,
+            document_root,
+            html_rel_path,
+            request.__dict__.get("archivebox_snapshot_url"),
+        )
+    except (OSError, ValueError, TypeError, RecursionError):
+        # Saved plugin artifacts are optional and may be incomplete, malformed,
+        # or removed concurrently. Image enrichment must not break file replay.
+        return html_text, 0
 
 
 def _apply_transformed_html_preview_style(html_text: str) -> str:
@@ -620,7 +666,7 @@ def _set_transformed_response_headers(
 
 
 def _render_markdown_fallback(text: str) -> str:
-    if _markdown is not None and not HTML_TAG_RE.search(text):
+    if _markdown is not None:
         try:
             return _markdown(
                 text,
@@ -1032,7 +1078,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
 
     # Heuristic fix: some archived HTML outputs are stored with HTML-escaped markup
     # or markdown sources. If so, render sensibly.
-    if not request.GET.get("raw") and not preserve_plain_text and content_type.startswith(("text/plain", "text/html")):
+    if not request.GET.get("raw") and not preserve_plain_text and content_type.startswith(("text/plain", "text/html", "text/markdown")):
         try:
             max_unescape_size = 10 * 1024 * 1024  # 10MB cap to avoid heavy memory use
             if statobj.st_size <= max_unescape_size:
@@ -1046,7 +1092,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 if content_type.startswith("text/html") and document_root:
                     rewritten_html, rewritten_count = _rewrite_html_image_sources_for_request(request, decoded, document_root, rel_path)
                 markdown_candidate = _extract_markdown_candidate(decoded)
-                if _looks_like_markdown(markdown_candidate):
+                if content_type.startswith("text/markdown") or _looks_like_markdown(markdown_candidate):
                     wrapped = _render_markdown_document(markdown_candidate)
                     wrapped, _rewrite_count = _rewrite_html_image_sources_for_request(request, wrapped, document_root, rel_path)
                     wrapped = _apply_transformed_html_preview_style(wrapped)

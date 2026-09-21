@@ -31,13 +31,22 @@ function initializeOutputStacks() {
     parked.hidden = true;
     const sharedFrames = [];
     function movePreviewNode(frame, parent, before = null) {
-        // Preserve the browsing context when supported; never create a second one.
+        // Preserve the browsing context when moving an existing preview.
         if (parent.moveBefore && frame.isConnected && parent.isConnected && frame.ownerDocument === parent.ownerDocument) parent.moveBefore(frame, before);
         else parent.insertBefore(frame, before);
     }
     function placeGroupFrames(group, inCover) {
         for (const shared of sharedFrames.filter(item => item.group === group)) {
-            movePreviewNode(shared.frame, inCover ? shared.cover : shared.home, inCover ? null : shared.marker);
+            // Create the second thumbnail only when both surfaces become visible.
+            // Keep it in the cover thereafter, so collapsing never blanks either card.
+            if (!inCover && !shared.coverFrame) {
+                shared.coverFrame = shared.frame.cloneNode(true);
+                shared.coverFrame.removeAttribute('id');
+                shared.cover.append(shared.coverFrame);
+            }
+            if (!shared.coverFrame || !inCover) {
+                movePreviewNode(shared.frame, inCover ? shared.cover : shared.home, inCover ? null : shared.marker);
+            }
         }
     }
     let active = null;
