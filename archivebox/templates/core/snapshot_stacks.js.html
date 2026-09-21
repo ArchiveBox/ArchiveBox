@@ -52,6 +52,7 @@ function initializeOutputStacks() {
         active = null;
     }
     let discoveryState = 'idle';
+    let pendingPreviewHash = '';
     async function discoverOtherFiles(group) {
         const other = group.cards.find(card => card.hasAttribute('data-discover-files'));
         if (!other || discoveryState === 'loading' || discoveryState === 'done') return;
@@ -91,6 +92,8 @@ function initializeOutputStacks() {
             buttons.get(group.id).setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
             status.textContent = '';
             discoveryState = 'done';
+            // Resolve the current hash again; navigation may have changed during the scan.
+            if (pendingPreviewHash && pendingPreviewHash === window.location.hash) selectInitialPreview(active === group);
         } catch (error) {
             discoveryState = 'error';
             status.textContent = 'Could not scan files. ';
@@ -180,6 +183,15 @@ function initializeOutputStacks() {
         const selected = cards.find(card => card.classList.contains('selected-card'));
         for (const group of groups) buttons.get(group.id)?.classList.toggle('has-selection', group.cards.includes(selected));
     }
+    document.addEventListener('snapshot-preview-selected', event => {
+        const {card, discover, revealStack} = event.detail;
+        pendingPreviewHash = discover ? window.location.hash : '';
+        if (!revealStack) return;
+        const group = groups.find(group => group.cards.includes(card)) || (discover && groups.find(group => group.id === 'other'));
+        if (!group || !buttons.has(group.id)) return;
+        if (active !== group) expand(group);
+        else if (discover) discoverOtherFiles(group);
+    });
     close.addEventListener('click', () => {
         const button = buttons.get(active?.id);
         collapse();
