@@ -29,12 +29,23 @@ function initializeOutputStacks() {
     tray.append(close, trayCards);
     const parked = el('div', 'stack-parked');
     parked.hidden = true;
-    for (const card of cards) parked.append(card);
+    const sharedFrames = [];
+    function movePreviewNode(frame, parent, before = null) {
+        // Preserve the browsing context when supported; never create a second one.
+        if (parent.moveBefore && frame.isConnected && parent.isConnected) parent.moveBefore(frame, before);
+        else parent.insertBefore(frame, before);
+    }
+    function placeGroupFrames(group, inCover) {
+        for (const shared of sharedFrames.filter(item => item.group === group)) {
+            movePreviewNode(shared.frame, inCover ? shared.cover : shared.home, inCover ? null : shared.marker);
+        }
+    }
     let active = null;
     const buttons = new Map();
     function collapse() {
         if (!active) return;
-        active.cards.forEach(card => parked.append(card));
+        placeGroupFrames(active, true);
+        active.cards.forEach(card => movePreviewNode(card, parked));
         const button = buttons.get(active.id);
         button.setAttribute('aria-expanded', 'false');
         tray.hidden = true;
@@ -46,6 +57,7 @@ function initializeOutputStacks() {
         active = group;
         buttons.get(group.id).setAttribute('aria-expanded', 'true');
         trayCards.replaceChildren();
+        placeGroupFrames(group, false);
         if (!group.cards.length) {
             const empty = el('div', 'stack-empty', 'No captures');
             trayCards.append(empty);
@@ -57,7 +69,7 @@ function initializeOutputStacks() {
                 frame.src = card.dataset.previewUrl;
                 frame.style.cssText = 'width:400%!important;height:560px!important;transform:scale(.25)!important;transform-origin:0 0!important;border:0!important;pointer-events:none';
             }
-            trayCards.append(card);
+            movePreviewNode(card, trayCards);
         }
         tray.setAttribute('aria-label', group.label);
         tray.hidden = false;
@@ -89,14 +101,14 @@ function initializeOutputStacks() {
                         if (node.matches('script,button,.thumbnail-click-overlay')) node.remove();
                         else if (node.matches('a')) node.replaceWith(...node.childNodes);
                     });
-                    cover.querySelectorAll('iframe').forEach(frame => {
-                        if (frame.hasAttribute('data-compact')) {
-                            frame.removeAttribute('data-compact');
-                            frame.src = top.dataset.previewUrl;
-                            frame.removeAttribute('style');
-                        }
-                        frame.tabIndex = -1;
-                        frame.loading = 'lazy';
+                    const originals = [...preview.querySelectorAll('iframe')];
+                    cover.querySelectorAll('iframe').forEach((copy, index) => {
+                        const frame = originals[index];
+                        const marker = document.createComment('Shared stack preview');
+                        frame.before(marker);
+                        sharedFrames.push({group, frame, cover: copy.parentNode, home: frame.parentNode, marker});
+                        // The detached clone must never enter the document with a live src.
+                        copy.remove();
                     });
                     layer.append(cover);
                 } else layer.append(el('span', 'stack-file-symbol', '▤'));
@@ -129,6 +141,8 @@ function initializeOutputStacks() {
     cards.forEach(card => observer.observe(card, {attributes: true, attributeFilter: ['class']}));
     panel.append(shelf, tray, parked);
     grid.before(panel);
+    cards.forEach(card => movePreviewNode(card, parked));
+    groups.forEach(group => placeGroupFrames(group, true));
     grid.hidden = true;
     document.body.classList.add('snapshot-stacks');
     syncSelection();
