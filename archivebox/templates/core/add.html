@@ -1107,28 +1107,44 @@
                 let pendingFileReads = 0;
                 let fileReadQueue = Promise.resolve();
 
+                function setUploadStatus(message, warning = false) {
+                    uploadStatus.textContent = message;
+                    uploadStatus.classList.toggle('url-upload-warning', warning);
+                }
+
                 function importURLFiles(files) {
                     if (!files.length) return;
                     pendingFileReads++;
-                    uploadStatus.textContent = 'Reading files…';
+                    setUploadStatus('Reading files…');
+                    const errors = [];
                     fileReadQueue = fileReadQueue.then(async function() {
-                        const errors = [];
                         for (const file of files) {
                             try {
                                 const text = await file.text();
+                                if (/[\u0000-\u0008\u000e-\u001f]/.test(text)) {
+                                    errors.push(`${file.name}: could not read as text. Use a text or bookmarks export.`);
+                                    continue;
+                                }
+                                if (!extractURLs(text).length) {
+                                    errors.push(`${file.name}: no URLs found.`);
+                                }
                                 if (!text) continue;
                                 urlTextarea.value += (urlTextarea.value && !urlTextarea.value.endsWith('\n') ? '\n' : '') + text;
                                 urlTextarea.dispatchEvent(new Event('input', { bubbles: true }));
                                 urlTextarea.dispatchEvent(new Event('change', { bubbles: true }));
                             } catch (error) {
-                                errors.push(file.name);
+                                errors.push(`${file.name}: could not import this file. Try selecting it again.`);
                             }
                         }
-                        pendingFileReads--;
-                        uploadStatus.textContent = errors.length
-                            ? `Could not read: ${errors.join(', ')}. Try selecting these files again.`
-                            : (pendingFileReads ? 'Reading files…' : 'File text added.');
                         urlTextarea.focus();
+                    }).catch(function() {
+                        errors.push('File import failed. Try selecting the files again.');
+                    }).finally(function() {
+                        pendingFileReads--;
+                        setUploadStatus(
+                            errors.length ? errors.join(' ') : (pendingFileReads ? 'Reading files…' : 'File text added.'),
+                            errors.length > 0,
+                        );
                     });
                 }
 
@@ -1368,7 +1384,7 @@
                 document.getElementById('add-form').addEventListener('submit', function(event) {
                     if (pendingFileReads) {
                         event.preventDefault();
-                        uploadStatus.textContent = 'Please wait for the files to finish reading.';
+                        setUploadStatus('Please wait for the files to finish reading.', true);
                         return;
                     }
                     document.getElementById('in-progress').style.display = 'block'

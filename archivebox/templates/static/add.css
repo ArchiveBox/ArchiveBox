@@ -373,6 +373,10 @@ select {
   cursor: pointer;
 }
 
+#url-upload-status.url-upload-warning {
+  color: #ba2121;
+}
+
 .url-editor-shell {
   position: relative;
 }
