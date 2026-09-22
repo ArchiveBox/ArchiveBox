@@ -182,6 +182,31 @@ code {
   max-width: 760px;
 }
 
+.release-notice {
+  display: inline-flex;
+  justify-self: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  padding: 8px 14px;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 999px;
+  background: hsl(var(--primary) / 0.06);
+  color: var(--brand);
+  font-size: 0.8rem;
+  box-shadow: 0 2px 8px hsl(var(--primary) / 0.05);
+}
+
+.release-notice:hover {
+  background: hsl(var(--primary) / 0.12);
+  text-decoration: none;
+}
+
+.release-notice:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 4px;
+}
+
 .eyebrow {
   margin: 0 0 14px;
   color: var(--brand);
