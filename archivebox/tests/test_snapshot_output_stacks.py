@@ -205,3 +205,36 @@ def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
     )
     assert 'src="./responses/all/example.png?raw=1"' in html
     assert "localhost" not in html
+
+
+@pytest.mark.django_db(transaction=True)
+def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    save_output(snapshot, "defuddle")
+    host = get_snapshot_host(str(snapshot.id)).split(":")[0]
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        page = browser.new_page(viewport={"width": 390, "height": 844})
+        page.goto(f"http://{host}:{port}/index.html")
+        cover = page.locator('.output-stack-article_text .stack-cover iframe[data-plugin="defuddle"]')
+        cover.content_frame.locator("h1").wait_for()
+        cover.content_frame.frame_locator("#reader").locator("body").wait_for()
+        source = cover.get_attribute("src")
+        page.locator(".output-stack-article_text").click()
+        expanded = page.locator('.stack-tray iframe[data-plugin="defuddle"]')
+        expanded.content_frame.locator("h1").wait_for()
+        assert expanded.get_attribute("src") == source
+        assert cover.content_frame.locator("h1").inner_text() == expanded.content_frame.locator("h1").inner_text()
+        assert cover.bounding_box()["height"] > 0
+        page.screenshot(path="/tmp/stack-cover-mobile.png")
+        browser.close()

@@ -29,31 +29,14 @@ function initializeOutputStacks() {
     tray.append(close, trayCards);
     const parked = el('div', 'stack-parked');
     parked.hidden = true;
-    const sharedFrames = [];
-    function movePreviewNode(frame, parent, before = null) {
-        // Preserve the browsing context when moving an existing preview.
-        if (parent.moveBefore && frame.isConnected && parent.isConnected && frame.ownerDocument === parent.ownerDocument) parent.moveBefore(frame, before);
-        else parent.insertBefore(frame, before);
-    }
-    function placeGroupFrames(group, inCover) {
-        for (const shared of sharedFrames.filter(item => item.group === group)) {
-            // Create the second thumbnail only when both surfaces become visible.
-            // Keep it in the cover thereafter, so collapsing never blanks either card.
-            if (!inCover && !shared.coverFrame) {
-                shared.coverFrame = shared.frame.cloneNode(true);
-                shared.coverFrame.removeAttribute('id');
-                shared.cover.append(shared.coverFrame);
-            }
-            if (!shared.coverFrame || !inCover) {
-                movePreviewNode(shared.frame, inCover ? shared.cover : shared.home, inCover ? null : shared.marker);
-            }
-        }
+    function movePreviewNode(node, parent, before = null) {
+        if (parent.moveBefore && node.isConnected && parent.isConnected) parent.moveBefore(node, before);
+        else parent.insertBefore(node, before);
     }
     let active = null;
     const buttons = new Map();
     function collapse() {
         if (!active) return;
-        placeGroupFrames(active, true);
         active.cards.forEach(card => movePreviewNode(card, parked));
         const button = buttons.get(active.id);
         button.setAttribute('aria-expanded', 'false');
@@ -100,6 +83,8 @@ function initializeOutputStacks() {
             buttons.get(group.id).querySelector('.stack-count').textContent = String(group.cards.length);
             buttons.get(group.id).setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
             status.textContent = '';
+            const coverItems = buttons.get(group.id).querySelector('.stack-cover .loose-items');
+            if (coverItems) coverItems.replaceChildren(...[...existingItems.children].map(item => item.cloneNode(true)));
             discoveryState = 'done';
             // Resolve the current hash again; navigation may have changed during the scan.
             if (pendingPreviewHash && pendingPreviewHash === window.location.hash) selectInitialPreview(active === group);
@@ -120,7 +105,6 @@ function initializeOutputStacks() {
         active = group;
         buttons.get(group.id).setAttribute('aria-expanded', 'true');
         trayCards.replaceChildren();
-        placeGroupFrames(group, false);
         if (!group.cards.length) {
             const empty = el('div', 'stack-empty', 'No captures');
             trayCards.append(empty);
@@ -147,29 +131,19 @@ function initializeOutputStacks() {
         const availableLayers = Math.min(3, group.cards.length);
         for (let index = availableLayers - 1; index >= 0; index--) {
             const layer = el('span', `stack-sheet stack-sheet-${index}`);
-            layer.append(el('span', 'stack-sheet-label', name(group.cards[index]) || 'Files'));
             if (index === 0) {
-                const preview = top.querySelector('.thumbnail-wrapper');
-                if (preview) {
-                    const cover = preview.cloneNode(true);
-                    cover.className = 'stack-cover';
-                    cover.inert = true;
-                    cover.querySelectorAll('a, script, button, [id]').forEach(node => {
-                        if (node.hasAttribute('id')) node.removeAttribute('id');
-                        if (node.matches('script,button,.thumbnail-click-overlay')) node.remove();
-                        else if (node.matches('a')) node.replaceWith(...node.childNodes);
-                    });
-                    const originals = [...preview.querySelectorAll('iframe')];
-                    cover.querySelectorAll('iframe').forEach((copy, index) => {
-                        const frame = originals[index];
-                        const marker = document.createComment('Shared stack preview');
-                        frame.before(marker);
-                        sharedFrames.push({group, frame, cover: copy.parentNode, home: frame.parentNode, marker});
-                        // The detached clone must never enter the document with a live src.
-                        copy.remove();
-                    });
-                    layer.append(cover);
-                } else layer.append(el('span', 'stack-file-symbol', '▤'));
+                const cover = el('div', 'stack-cover');
+                const card = top.cloneNode(true);
+                card.classList.remove('selected-card');
+                card.inert = true;
+                for (const key of Object.keys(card.dataset)) delete card.dataset[key];
+                card.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+                // Visible stack covers load the same card document as the expanded tray.
+                setPreviewResourcePriority(card, true);
+                cover.append(card);
+                layer.append(cover);
+            } else {
+                layer.append(el('span', 'stack-sheet-label', name(group.cards[index])));
             }
             pile.append(layer);
         }
@@ -216,8 +190,9 @@ function initializeOutputStacks() {
     panel.append(shelf, tray, parked);
     grid.before(panel);
     cards.forEach(card => movePreviewNode(card, parked));
-    groups.forEach(group => placeGroupFrames(group, true));
     grid.hidden = true;
     document.body.classList.add('snapshot-stacks');
     syncSelection();
+    const otherGroup = groups.find(group => group.id === 'other');
+    if (otherGroup && buttons.has('other')) discoverOtherFiles(otherGroup);
 }

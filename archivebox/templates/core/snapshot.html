@@ -1153,15 +1153,21 @@
             .thumb-card .thumb-body h4 {
                 display: flex;
                 align-items: center;
-                gap: 2px;
-                font-size: 0.8em;
-                text-transform: uppercase;
-                margin: 0 0 2px 0;
-                color: #222;
-                line-height: 1.1;
+                gap: 3px;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                font-size: var(--card-title-size, 11px);
+                font-weight: 600;
+                line-height: 1.2;
+                margin: 0;
+                color: var(--card-title-color, #222);
                 overflow: hidden;
                 text-overflow: ellipsis;
                 white-space: nowrap;
+            }
+            .thumb-card .card-title-size {
+                margin-left: auto;
+                flex-shrink: 0;
+                padding-left: 4px;
             }
 .thumb-card .thumb-body h4 .abx-plugin-icon {
     flex: 0 0 20px;
@@ -1818,7 +1824,7 @@
                 }
                 // Thumbnail frames stay native-lazy even when their output is selected.
                 // The independent main viewer is already eager/high priority.
-                setPreviewResourcePriority(card, false)
+                setPreviewResourcePriority(card, !!card.closest('.stack-cover'))
             }
 
             function prepareThumbnailPriorities() {

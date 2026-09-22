@@ -56,7 +56,7 @@
 .stack-pile {
     position: relative;
     display: block;
-    height: 100px;
+    height: 158px;
     margin: 0 6px 0 0;
     perspective: 500px;
 }
@@ -119,17 +119,25 @@
 }
 .stack-cover {
     display: block;
-    height: 83px;
+    height: 100%;
     width: 100%;
     overflow: hidden;
     pointer-events: none;
     background: #fff;
 }
-.stack-cover img {
-    width: 100%;
+.stack-cover .thumb-card {
     height: 100%;
-    object-fit: cover;
-    object-position: top;
+    min-height: 0;
+    max-height: 100%;
+    content-visibility: visible;
+    border: 0;
+}
+/* Hide only header chrome on stack covers, including icons with inline display styles. */
+.stack-cover .thumb-body > .thumb-actions,
+.stack-cover .thumb-body h4 small,
+.stack-cover .thumb-body h4 .card-title-icon,
+.stack-cover .thumb-body h4 .abx-plugin-icon {
+    display: none !important;
 }
 .stack-chevron {
     display: block;
@@ -185,19 +193,25 @@
     border: 2px solid #ac2258;
     box-shadow: 0 0 0 2px #ac225813;
 }
-.stack-tray .thumb-card .thumb-body {
+.stack-browser .thumb-card .thumb-body {
     padding: 3px 5px;
     background: #fff;
 }
-.stack-tray .thumb-card .thumb-body h4 {
-    font-size: 11px;
-    text-transform: none;
+.stack-browser .stack-cover .thumb-body {
+    min-height: 20px;
+    padding: 3px 6px;
+    background: #faf8f9;
+    border-bottom: 1px solid #eee7eb;
 }
-.stack-tray .thumb-card .thumb-body small {
+.stack-cover {
+    --card-title-size: 10px;
+    --card-title-color: #6c5862;
+}
+.stack-browser .thumb-card .thumb-body small {
     display: inline;
     font-size: 9px;
 }
-.stack-tray .thumb-card .thumbnail-wrapper {
+.stack-browser .thumb-card .thumbnail-wrapper {
     display: block;
     height: 130px!important;
     min-height: 130px;
@@ -262,20 +276,13 @@
     .stack-browser * { animation:none!important; transition:none!important; }
 }
 
-.stack-tray .thumb-card[data-other-files] .thumb-body {
-    align-content: start;
-    align-items: start;
-    flex: 1;
-}
-.stack-tray [data-other-files] .loose-items,
-.stack-tray [data-other-files] .discovery-status {
-    grid-column: 1 / -1;
-}
-.stack-tray [data-other-files] .discovery-status:empty {
-    display: none;
-}
-.stack-tray [data-other-files] .loose-items {
+.other-files-preview { padding: 6px; }
+.other-files-preview .discovery-status:empty { display: none; }
+.other-files-preview .loose-items {
+    height: auto;
     max-height: 116px;
+    align-items: flex-start;
+    align-content: flex-start;
 }
 
 </style>

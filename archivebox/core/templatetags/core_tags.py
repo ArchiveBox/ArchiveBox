@@ -385,12 +385,12 @@ def index(value, position):
 
 
 @register.filter
-def file_size(num_bytes: float) -> str:
+def file_size(num_bytes: float, decimal_places: int = 1) -> str:
     for count in ["Bytes", "KB", "MB", "GB"]:
         if num_bytes > -1024.0 and num_bytes < 1024.0:
-            return f"{num_bytes:3.1f} {count}"
+            return f"{num_bytes:.{decimal_places}f} {count}"
         num_bytes /= 1024.0
-    return "{:3.1f} {}".format(num_bytes, "TB")
+    return f"{num_bytes:.{decimal_places}f} TB"
 
 
 @register.filter
