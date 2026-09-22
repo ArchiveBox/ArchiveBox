@@ -54,7 +54,7 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
 
     context = snapshot.get_html_details_context()
     groups = {group["id"]: group for group in context["output_groups"]}
-    assert list(groups) == ["html", "raster", "article_text", "embedded_media", "ocr", "metadata", "other"]
+    assert list(groups) == ["html", "raster", "article_text", "embedded_media", "metadata", "other"]
     outputs = context["archiveresults"]
 
     def names(group):
@@ -62,8 +62,8 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
 
     assert names("html") == ["archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom", "responses_html"]
     assert names("raster") == ["screenshot", "pdf"]
-    assert names("article_text") == ["defuddle", "readability", "mercury", "htmltotext"]
-    assert names("ocr") == ["trafilatura", "liteparse"]
+    assert names("article_text") == ["defuddle", "readability", "mercury", "trafilatura", "htmltotext"]
+    assert "liteparse" in names("embedded_media")
     assert names("other") == ["custom_output"]
     assert context["best_result"]["name"] == "archivewebpage"
 

@@ -9,14 +9,13 @@ from archivebox.plugins.discovery import get_plugin_name
 OUTPUT_GROUPS = (
     ("html", "HTML", ("archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom")),
     ("raster", "Raster", ("screenshot", "pdf")),
-    ("article_text", "Article text", ("defuddle", "readability", "mercury", "htmltotext")),
+    ("article_text", "Article text", ("defuddle", "readability", "mercury", "trafilatura", "htmltotext")),
     ("embedded_media", "Embedded media", ()),
-    ("ocr", "OCR", ("trafilatura", "liteparse")),
     ("metadata", "Metadata", ()),
     ("other", "Other files", ()),
 )
 UNORDERED_OUTPUTS = {
-    "embedded_media": {"responses", "ytdlp", "yt-dlp", "youtube-dl", "gallerydl", "forumdl", "git", "media"},
+    "embedded_media": {"responses", "ytdlp", "yt-dlp", "youtube-dl", "gallerydl", "forumdl", "git", "media", "liteparse"},
     "metadata": {
         "dns",
         "headers",
