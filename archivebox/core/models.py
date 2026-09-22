@@ -3282,7 +3282,18 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         archive_results: list["ArchiveResult"] | None = None,
         filesystem_index: dict | None = None,
     ) -> list[dict]:
-        """Discover output files from ArchiveResults and filesystem."""
+        """Discover output paths; file availability is not result success.
+
+        Live cards must take succeeded/failed state from ArchiveResult.status.
+        A failed hook can leave useful partial files, and hooks/retries share
+        plugin directories, so an embeddable path or nonzero size is not proof
+        of success. Filesystem discovery also supports portable static exports;
+        it must not overwrite or replace the live database's lifecycle facts.
+
+        TODO: The result loop currently includes embeddable files regardless of
+        status. Card consumers must not interpret membership here as succeeded;
+        the live card path still needs to enforce the DB-status contract.
+        """
         from archivebox.misc.util import ts_to_date_str
 
         ArchiveResult = self.archiveresult_set.model

@@ -62,6 +62,11 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          BRANCH_SHA="$(git ls-remote origin "refs/heads/$RELEASE_BRANCH" | cut -f1)"
+          if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch && "$BRANCH_SHA" != "$RELEASE_SHA" ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
           if [[ "$RELEASE_BRANCH" == main ]]; then
             TAG_TARGET="$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)"
@@ -234,14 +239,28 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       actions: read
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Checkout the tested commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
           ref: ${{ env.RELEASE_SHA }}
+          token: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
+
+      - name: Fast-forward dev to the tested stable release
+        if: env.RELEASE_BRANCH == 'main' && needs.python-release.outputs.release_ready == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --no-tags origin main dev
+          MAIN_SHA="$(git rev-parse origin/main)"
+          DEV_SHA="$(git rev-parse origin/dev)"
+          if [[ "$MAIN_SHA" == "$RELEASE_SHA" && "$DEV_SHA" != "$RELEASE_SHA" ]] &&
+             git merge-base --is-ancestor "$DEV_SHA" "$RELEASE_SHA"; then
+            git push origin "$RELEASE_SHA:refs/heads/dev"
+          fi
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:

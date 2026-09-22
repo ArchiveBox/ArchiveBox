@@ -288,7 +288,9 @@ def run_runner(
     # Only a foreground `archivebox add` gets the interactive "abort current
     # hook, continue/retry, second Ctrl+C exits" flow. Server/update/run owned
     # orchestrators should shut down immediately and cleanly on the first signal.
-    interactive_interrupts = current.root.process_type == Process.TypeChoices.ADD
+    interactive_interrupts = (
+        current.root.process_type == Process.TypeChoices.ADD and os.environ.get("ARCHIVEBOX_INTERACTIVE_INTERRUPTS") == "1"
+    )
     if daemon:
         os.environ[RUNNER_DAEMON_ENV] = "1"
 
@@ -308,7 +310,7 @@ def run_runner(
             )
         return 0
     except KeyboardInterrupt:
-        return 0
+        return 130
     except asyncio.CancelledError as e:
         if daemon:
             rprint(f"[red]Runner cancelled unexpectedly: {type(e).__name__}: {e}[/red]", file=sys.stderr)

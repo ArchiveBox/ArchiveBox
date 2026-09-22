@@ -6,6 +6,15 @@ Verify add creates snapshots in DB, crawls, source files, and archive directorie
 
 import os
 import json
+import pty
+import select
+import time
+import termios
+import signal
+import re
+import subprocess
+
+import psutil
 from pathlib import Path
 
 import pytest
@@ -25,6 +34,208 @@ from archivebox.tests.conftest import (
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.mark.parametrize(
+    "choice,plugins",
+    [(choice, "chrome") for choice in ["skip", "retry", "abort", "ctrl-c", "noninteractive"]] + [("noninteractive", "archivewebpage")],
+)
+def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (40, 160))
+    output = bytearray()
+    result = None
+
+    def read_until(predicate, timeout=45):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], 0.1)[0]:
+                output.extend(os.read(master, 65536))
+            if predicate():
+                return
+        raise AssertionError(output.decode(errors="replace"))
+
+    def active_hook():
+        with use_archivebox_db(initialized_archive):
+            return Process.objects.filter(archiveresult__hook_name__contains="_chrome_navigate", status="running").first()
+
+    try:
+        result = run_archivebox_cmd(
+            ["add", f"--plugins={plugins}", "https://example.com"],
+            cwd=initialized_archive,
+            env=cli_env(CHROME_DELAY_AFTER_LOAD="60", CHROME_TIMEOUT="120", CHROME_HEADLESS="True"),
+            stdin=subprocess.DEVNULL if choice == "noninteractive" else slave,
+            stdout=slave,
+            stderr=slave,
+            wait=False,
+            start_new_session=True,
+        )
+        read_until(lambda: active_hook() is not None)
+        hook = active_hook()
+        assert hook is not None
+        result.send_signal(signal.SIGINT)
+        if choice != "noninteractive":
+            read_until(lambda: b"Choice [skip]:" in output)
+            read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+            assert not psutil.pid_exists(hook.pid)
+            if choice == "retry":
+                os.write(master, b"r")
+                read_until(lambda: (new_hook := active_hook()) is not None and new_hook.pid != hook.pid)
+                prompt_offset = len(output)
+                result.send_signal(signal.SIGINT)
+                read_until(lambda: b"Choice [skip]:" in output[prompt_offset:])
+                read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+            if choice == "ctrl-c":
+                result.send_signal(signal.SIGINT)
+            else:
+                os.write(master, b"a" if choice == "abort" else b"\r")
+        read_until(lambda: result.poll() is not None)
+        assert result.returncode == (130 if choice in {"abort", "ctrl-c", "noninteractive"} else 0), output.decode(errors="replace")
+        if choice == "noninteractive":
+            assert b"Choice [skip]:" not in output
+        assert not psutil.pid_exists(hook.pid)
+        assert b"Traceback" not in output
+        with use_archivebox_db(initialized_archive):
+            interrupted = ArchiveResult.objects.get(hook_name="on_Snapshot__30_chrome_navigate")
+            assert interrupted.status == ArchiveResult.StatusChoices.FAILED
+            assert "interrupted" in interrupted.notes.lower()
+            if plugins == "archivewebpage":
+                start = ArchiveResult.objects.get(hook_name="on_Snapshot__16_archivewebpage_start")
+                stop = ArchiveResult.objects.get(hook_name="on_Snapshot__65_archivewebpage_stop")
+                assert start.status == ArchiveResult.StatusChoices.NORESULTS
+                assert stop.status == ArchiveResult.StatusChoices.FAILED
+                assert not ArchiveResult.objects.filter(plugin="archivewebpage", status="succeeded").exists()
+        for log in (initialized_archive / "logs").glob("worker_runner_add_*.log"):
+            assert "Choice [skip]:" not in log.read_text()
+    finally:
+        if result is not None and result.poll() is None:
+            result.terminate()
+            result.wait(timeout=15)
+        os.close(slave)
+        os.close(master)
+
+
+def test_background_completions_render_above_interrupt_prompt(initialized_archive):
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (40, 200))
+    output = bytearray()
+    result = None
+
+    def read_until(predicate, timeout=45):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], 0.1)[0]:
+                output.extend(os.read(master, 65536))
+            if predicate():
+                return
+        raise AssertionError(output.decode(errors="replace"))
+
+    def result_for(plugin):
+        with use_archivebox_db(initialized_archive):
+            return ArchiveResult.objects.filter(plugin=plugin).first()
+
+    try:
+        result = run_archivebox_cmd(
+            ["add", "--depth=1", "--plugins=wget,infiniscroll,parse_html_urls", "https://example.com"],
+            cwd=initialized_archive,
+            env=cli_env(WGET_ARGS_EXTRA='["--limit-rate=100"]', INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True"),
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            wait=False,
+            start_new_session=True,
+        )
+        read_until(lambda: (scroll := result_for("infiniscroll")) is not None and scroll.status == "started")
+        result.send_signal(signal.SIGINT)
+        read_until(lambda: b"Choice [skip]:" in output)
+        read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+        before_completion = len(output)
+        read_until(lambda: (wget := result_for("wget")) is not None and wget.status == "succeeded")
+        read_until(lambda: b"Choice [skip]:" in output[before_completion:])
+        screen_updates = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output[before_completion:].decode(errors="replace"))
+        completed_at = screen_updates.index("on_Snapshot__35_wget")
+        prompt_at = screen_updates.rindex("Interrupted on_Snapshot__45_infiniscroll")
+        assert "succeeded" in screen_updates[completed_at:prompt_at], screen_updates
+        assert completed_at < prompt_at < screen_updates.rindex("Choice [skip]:"), screen_updates
+        assert result_for("parse_html_urls") is None
+        (initialized_archive / "interrupt-terminal.txt").write_bytes(output)
+        os.write(master, b"a")
+        read_until(lambda: result.poll() is not None)
+        assert result.returncode == 130, output.decode(errors="replace")
+        assert b"Traceback" not in output
+    finally:
+        if result is not None and result.poll() is None:
+            result.terminate()
+            result.wait(timeout=15)
+        os.close(slave)
+        os.close(master)
+
+
+@pytest.mark.parametrize("terminal_stream", ["stdout", "stderr"])
+def test_add_renders_live_progress_in_foreground_terminal(initialized_archive, terminal_stream):
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (40, 160))
+    output = bytearray()
+    result = None
+    try:
+        result = run_archivebox_cmd(
+            ["add", "--plugins=parse_txt_urls", "https://example.com"],
+            cwd=initialized_archive,
+            env=cli_env(USE_COLOR="True", SHOW_PROGRESS="True"),
+            **{terminal_stream: slave},
+            wait=False,
+            start_new_session=True,
+        )
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], 0.1)[0]:
+                output.extend(os.read(master, 65536))
+            elif result.poll() is not None:
+                break
+        assert result.poll() == 0, output.decode(errors="replace")
+        assert b"\x1b[?25l" in output, output.decode(errors="replace")
+        assert b"\x1b[?25h" in output, output.decode(errors="replace")
+        assert b"on_Snapshot__71_parse_txt_urls" in output
+        assert b"\x1b[2K" in output
+        with use_archivebox_db(initialized_archive):
+            assert Crawl.objects.get().status == Crawl.StatusChoices.SEALED
+            snapshot = Snapshot.objects.get()
+            assert snapshot.url == "https://example.com"
+            parsed_urls = Path(snapshot.output_dir) / "parse_txt_urls" / "urls.jsonl"
+            assert json.loads(parsed_urls.read_text())["url"] == "https://iana.org/domains/example"
+    finally:
+        if result is not None and result.poll() is None:
+            result.terminate()
+            result.wait(timeout=10)
+        os.close(slave)
+        os.close(master)
+
+
+def test_add_redirected_progress_remains_plain_text(initialized_archive):
+    result = run_archivebox_cmd(
+        ["add", "--plugins=parse_txt_urls", "https://example.com"],
+        cwd=initialized_archive,
+        env=cli_env(),
+    )
+    assert result.returncode == 0, result.stderr
+    assert "on_Snapshot__71_parse_txt_urls" in result.stderr
+    assert "\x1b[?25l" not in result.stdout + result.stderr
+
+
+def test_add_summary_points_to_snapshot_outputs(initialized_archive):
+    result = run_archivebox_cmd(
+        ["add", "--plugins=parse_txt_urls", "https://example.com"],
+        cwd=initialized_archive,
+        env=cli_env(),
+    )
+    assert result.returncode == 0, result.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get()
+        assert Path(snapshot.output_dir).is_dir()
+        assert str(snapshot.output_dir) in result.stdout
+        assert "snapshot output saved to:" in result.stdout
+        assert "crawl logs and setup:" in result.stdout
+        assert "crawl output saved to:" not in result.stdout
 
 
 IMPORT_FORMAT_EXPECTATIONS = {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import json
 import os
 import signal
 import shutil
@@ -12,7 +13,7 @@ from contextlib import nullcontext
 from datetime import timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
@@ -26,6 +27,9 @@ from abx_dl.events import (
     CrawlCleanupEvent,
     CrawlCompletedEvent,
     CrawlEvent,
+    CrawlPauseEvent,
+    CrawlResumeAndRetryEvent,
+    CrawlResumeAndSkipEvent,
     CrawlSetupEvent,
     CrawlStartEvent,
     InstallEvent,
@@ -198,7 +202,12 @@ class CrawlRunner:
         self.crawl = crawl
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
         self.catalog = get_plugin_catalog()
-        HookProcessService(self.bus, emit_jsonl=False, interactive_tty=interactive_interrupts)
+        HookProcessService(
+            self.bus,
+            emit_jsonl=False,
+            interactive_tty=interactive_interrupts,
+            interrupted_hook_prompt=self._prompt_in_foreground if interactive_interrupts else None,
+        )
         register_sonic_daemon_event_handler(self.bus)
         PersistedProcessService(self.bus)
         ArchiveBoxBinaryService(self.bus)
@@ -209,6 +218,12 @@ class CrawlRunner:
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
         self.show_progress = show_progress
         self.interactive_interrupts = interactive_interrupts
+        self._interrupt_pending = False
+        self._interrupt_choice: asyncio.Future[Literal["abort", "retry", "skip"]] | None = None
+        self._user_aborted = False
+        self.bus.on(CrawlAbortEvent, self.on_interrupt_control)
+        self.bus.on(CrawlResumeAndRetryEvent, self.on_interrupt_control)
+        self.bus.on(CrawlResumeAndSkipEvent, self.on_interrupt_control)
         self.config_overrides = dict(config_overrides or {})
 
         self.snapshot_service = SnapshotService(
@@ -231,6 +246,7 @@ class CrawlRunner:
         self.primary_url = ""
         self.crawl_output_dir = ""
         self._live_stream = None
+        self._live_ui: LiveBusUI | None = None
         self.root_crawl_event_id: str | None = None
         self.root_crawl_start_event_id: str | None = None
         self._run_task: asyncio.Task[None] | None = None
@@ -242,6 +258,47 @@ class CrawlRunner:
         self._signal_abort_requested = False
         self._last_lease_heartbeat_at = 0.0
 
+    async def on_interrupt_control(self, event: CrawlAbortEvent | CrawlResumeAndRetryEvent | CrawlResumeAndSkipEvent) -> None:
+        self._interrupt_pending = False
+        if event.event_type == "CrawlAbortEvent":
+            self._signal_abort_requested = True
+
+    def _interrupt_hook(self) -> None:
+        if os.environ.get("ARCHIVEBOX_RUNNER_DAEMON") == "1":
+            self._request_abort_from_signal(signal.SIGINT)
+            return
+        if self._interrupt_choice is not None:
+            self._choose_interrupt_action("abort")
+            return
+        abort = self._interrupt_pending or not self.interactive_interrupts
+        event = CrawlAbortEvent() if abort else CrawlPauseEvent()
+        if abort:
+            self._user_aborted = True
+        self._interrupt_pending = True
+
+        async def dispatch() -> None:
+            await self.bus.emit(event).now()
+
+        asyncio.get_running_loop().create_task(dispatch())
+
+    async def _prompt_in_foreground(self, hook_name: str) -> Literal["abort", "retry", "skip"]:
+        # The outer add command owns stdin. Notify it only after the hook has
+        # stopped, then await its decision via supervisord's signal channel.
+        self._interrupt_choice = asyncio.get_running_loop().create_future()
+        rendered = self._live_ui.show_interrupt_prompt(hook_name) if self._live_ui is not None else False
+        sys.__stderr__.write("ARCHIVEBOX_HOOK_INTERRUPTED " + json.dumps({"hook_name": hook_name, "rendered": rendered}) + "\n")
+        sys.__stderr__.flush()
+        try:
+            return await self._interrupt_choice
+        finally:
+            self._interrupt_choice = None
+
+    def _choose_interrupt_action(self, choice: Literal["abort", "retry", "skip"]) -> None:
+        if self._interrupt_choice is not None and not self._interrupt_choice.done():
+            if choice == "abort":
+                self._user_aborted = True
+            self._interrupt_choice.set_result(choice)
+
     def _request_abort_from_signal(self, _sig: signal.Signals) -> None:
         if os.environ.get("ARCHIVEBOX_RUNNER_DAEMON") == "1":
             # The daemon runner is owned by supervisord, not by the interactive
@@ -249,14 +306,13 @@ class CrawlRunner:
             # and unambiguous: exit non-zero immediately so supervisord restarts
             # the runner, while the parent server and supervisord stay alive.
             os._exit(128 + int(_sig))
-        already_requested = self._signal_abort_requested
         self._signal_abort_requested = True
         self._skip_wait_until_idle = True
         # The foreground signal handler runs while the event loop may be in the
         # middle of shutdown. Flip cheap in-memory flags here and let normal
-        # finally blocks do cleanup; only cancel the runner task immediately for
-        # non-interactive commands or for a second interrupt escalation.
-        if (not self.interactive_interrupts or already_requested) and self._run_task is not None and not self._run_task.done():
+        # finally blocks do cleanup. Interactive SIGINT uses _interrupt_hook;
+        # actual shutdown signals must cancel promptly in either mode.
+        if self._run_task is not None and not self._run_task.done():
             self._run_task.cancel()
 
     async def crawl_is_cancelled(self) -> bool:
@@ -316,6 +372,17 @@ class CrawlRunner:
             with foreground_shutdown_signals(
                 first_signal_message=first_signal_message,
                 on_signal=self._request_abort_from_signal,
+                interrupt_handlers={
+                    signal.SIGINT: self._interrupt_hook,
+                    **(
+                        {
+                            signal.SIGUSR1: lambda: self._choose_interrupt_action("skip"),
+                            signal.SIGUSR2: lambda: self._choose_interrupt_action("retry"),
+                        }
+                        if self.interactive_interrupts
+                        else {}
+                    ),
+                },
                 raise_on_first_signal=False,
             ):
                 if await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(self.crawl):
@@ -330,6 +397,7 @@ class CrawlRunner:
                 self.max_concurrent_snapshots = max_concurrent_snapshots
                 self.snapshot_semaphore = asyncio.Semaphore(max_concurrent_snapshots)
                 live_ui = self._create_live_ui()
+                self._live_ui = live_ui
                 with live_ui if live_ui is not None else nullcontext():
                     try:
                         if snapshot_ids:
@@ -359,6 +427,8 @@ class CrawlRunner:
             if run_state_loaded:
                 await sync_to_async(project_abxpkg_derived_cache_to_db, thread_sensitive=True)(self.base_config.get("ABXPKG_LIB_DIR"))
                 await sync_to_async(self.finalize_run_state, thread_sensitive=True)()
+        if self._user_aborted:
+            raise KeyboardInterrupt
 
     async def enqueue_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         if self._resource_deferred:
@@ -697,10 +767,12 @@ class CrawlRunner:
         stderr_is_tty = sys.stderr.isatty()
         interactive_tty = stdout_is_tty or stderr_is_tty
         stream = sys.stderr if stderr_is_tty or not stdout_is_tty else sys.stdout
-        if interactive_tty and os.path.exists("/dev/tty"):
+        progress_tty = os.environ.get("ARCHIVEBOX_PROGRESS_TTY")
+        if progress_tty or (interactive_tty and os.path.exists("/dev/tty")):
             try:
-                self._live_stream = open("/dev/tty", "w", buffering=1, encoding=stream.encoding or "utf-8")
+                self._live_stream = open(progress_tty or "/dev/tty", "w", buffering=1, encoding=stream.encoding or "utf-8")
                 stream = self._live_stream
+                interactive_tty = stream.isatty()
             except OSError:
                 self._live_stream = None
         try:

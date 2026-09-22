@@ -101,6 +101,7 @@ def foreground_shutdown_signals(
     *,
     first_signal_message: str | None = "\n[🛑] Got {signal_name}, stopping gracefully...\n",
     on_signal: Callable[[signal.Signals], None] | None = None,
+    interrupt_handlers: dict[signal.Signals, Callable[[], None]] | None = None,
     raise_on_first_signal: bool = True,
 ) -> Iterator[ShutdownSignalState]:
     """Install foreground signal handlers that print an immediate exit notice.
@@ -118,10 +119,14 @@ def foreground_shutdown_signals(
 
     state = ShutdownSignalState()
     previous_active_state = _active_shutdown_state
-    previous_handlers = {sig: signal.getsignal(sig) for sig in handled_signals}
+    previous_handlers = {sig: signal.getsignal(sig) for sig in (*handled_signals, *(interrupt_handlers or {}))}
 
     def raise_keyboard_interrupt(signum, _frame):
         sig = signal.Signals(signum)
+        if interrupt_handlers and sig in interrupt_handlers:
+            # Interactive hook interruption is resumable, not a shutdown.
+            interrupt_handlers[sig]()
+            return
         already_requested = state.signal_name is not None
         if not already_requested:
             state.signal_name = sig.name
@@ -129,11 +134,9 @@ def foreground_shutdown_signals(
                 os.write(sys.stdout.fileno(), first_signal_message.format(signal_name=state.signal_name).encode())
         if on_signal is not None:
             on_signal(sig)
-        # Foreground `archivebox add` uses the first signal to abort the active
-        # hook through the bus-facing runner code, then reserves the second
-        # signal for hard foreground-command shutdown. Server/update/run and
-        # other non-interactive commands raise immediately so their finally
-        # blocks can stop owned children without prompting.
+        # Actual shutdown requests remain sticky and a second signal forces
+        # exit. Resumable interactive actions were handled above without
+        # marking this context as shutting down.
         if already_requested:
             os.write(sys.stdout.fileno(), f"\n[🛑] Got {sig.name} again, exiting immediately.\n".encode())
             os._exit(130)
@@ -142,7 +145,7 @@ def foreground_shutdown_signals(
 
     try:
         _active_shutdown_state = state
-        for sig in handled_signals:
+        for sig in previous_handlers:
             signal.signal(sig, raise_keyboard_interrupt)
         yield state
     finally:

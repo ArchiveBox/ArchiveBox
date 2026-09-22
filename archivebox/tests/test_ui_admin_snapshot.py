@@ -1662,3 +1662,22 @@ def test_central_preview_ranking_and_malformed_metadata(snapshot):
     assert "data-candidates=" in html
     assert "this.remove()" in html
     assert "▤" in html
+
+
+def test_archivewebpage_recording_metadata_is_text_not_replay(client, snapshot):
+    from archivebox.core.routes_util import get_snapshot_host
+
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    recording = snapshot.output_dir / "archivewebpage" / "recording.json"
+    recording.parent.mkdir(parents=True, exist_ok=True)
+    recording.write_text('{"collectionId": "recording-metadata"}')
+
+    response = client.get(
+        "/archivewebpage/recording.json?preview=1",
+        HTTP_HOST=get_snapshot_host(str(snapshot.id)),
+    )
+    assert response.status_code == 200
+    assert b"archivebox-text-preview" in response.content
+    assert b"recording-metadata" in response.content
+    assert b"navigator.serviceWorker.register" not in response.content

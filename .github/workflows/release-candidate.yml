@@ -2,7 +2,7 @@ name: Release candidate
 
 on:
   push:
-    branches: [dev]
+    branches: [dev, main]
 
 permissions:
   actions: read
@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-candidate-dev
+  group: release-candidate-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -32,7 +32,7 @@ jobs:
           set -Eeuo pipefail
           VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
           MAIN_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$MAIN_SHA" == "$GITHUB_SHA" ]]; then
+          if [[ "$GITHUB_REF_NAME" == dev && "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$MAIN_SHA" == "$GITHUB_SHA" ]]; then
             echo 'stable=true' >> "$GITHUB_OUTPUT"
           else
             echo 'stable=false' >> "$GITHUB_OUTPUT"
@@ -43,13 +43,14 @@ jobs:
         uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@main
         with:
           package: archivebox
-          branch: dev
+          branch: ${{ github.ref_name }}
           tag-prefix: v
-          version-scheme: rc
+          version-scheme: ${{ github.ref_name == 'main' && 'patch' || 'rc' }}
+          minimum-version: ${{ github.ref_name == 'main' && vars.STABLE_RELEASE_VERSION_FLOOR || '' }}
 
   python-artifacts:
     needs: prepare
-    if: needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved'
+    if: github.ref_name == 'dev' && (needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved')
     uses: ./.github/workflows/pip.yml
     with:
       full_tests: false
@@ -57,7 +58,7 @@ jobs:
 
   docker-digests:
     needs: prepare
-    if: needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved'
+    if: github.ref_name == 'dev' && (needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved')
     uses: ./.github/workflows/docker.yml
     with:
       push_digests: true
@@ -66,7 +67,7 @@ jobs:
 
   opencode:
     needs: prepare
-    if: needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved'
+    if: github.ref_name == 'dev' && (needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved')
     strategy:
       fail-fast: false
       matrix:

@@ -753,7 +753,12 @@ def _plugin_full_preview_response(
 
     # ReplayWeb.page needs plugin-owned WACZ inspection and service-worker
     # context, so it remains the one narrow preview exception below.
-    if plugin == "archivewebpage" and archivewebpage_replay.is_replay_target(rel_path):
+    # Metadata such as recording.json must use the ordinary file preview,
+    # never the replay template (which requires the plugin-owned context).
+    # recording.json only identifies an in-progress capture; it is not a WACZ.
+    # Rendering it as replay also omits replay_base, making sw.js resolve under
+    # the capture directory and return 404 even on a secure localhost origin.
+    if plugin == "archivewebpage":
         return None
 
     template_str = get_plugin_template(plugin, "full", fallback=False)

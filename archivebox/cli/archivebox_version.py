@@ -80,20 +80,6 @@ def _render_binary_abspath(abspath: str):
     return Text(abspath, style="green")
 
 
-def _binary_record_matches_runtime(installed, lib_dir: Path) -> bool:
-    if not installed or not installed.is_valid or not installed.version:
-        return False
-    try:
-        abspath = Path(installed.abspath).expanduser().resolve(strict=False)
-        if not abspath.exists():
-            return False
-        if installed.binprovider not in {"", "env", "apt", "brew"}:
-            abspath.relative_to(lib_dir)
-    except (OSError, ValueError):
-        return False
-    return True
-
-
 def _binary_row_dedupe_key(
     *,
     display_name: str,
@@ -127,7 +113,6 @@ def version(
 
     from rich.panel import Panel
     from rich.console import Console
-    from rich.live import Live
     from abx_dl.tables import binary_dependency_status, binary_dependency_table
 
     from archivebox.config import CONSTANTS
@@ -263,7 +248,6 @@ def version(
     prnt("[pale_green1][i] Binary Dependencies:[/pale_green1]")
     failures = []
     seen_failures: set[str] = set()
-    seen_rows: set[tuple[str, str, str, str]] = set()
 
     from archivebox.plugins.discovery import get_enabled_plugins, get_plugin_catalog
     from abx_dl.config import get_required_binary_requests
@@ -272,37 +256,29 @@ def version(
     from abxpkg.binary_service import BinaryEvent, BinaryService
 
     plugins = get_plugin_catalog()
-    enabled_plugins = plugins.select(get_enabled_plugins(config=config))
-    enabled_plugin_names = set(enabled_plugins)
-    runtime_config = normalize_runtime_config(config.for_crawl(), json_safe=False)
+    enabled_plugin_names = set(get_enabled_plugins(config=config))
+    runtime_config = normalize_runtime_config(dict(config.items()), json_safe=False)
     derived_config: dict[str, object] = {}
-    db_binaries = {}
-    db_available = False
     if in_data_dir:
         try:
             from archivebox.config.django import setup_django
 
             setup_django()
 
-            from archivebox.machine.models import Machine, Binary
+            from archivebox.machine.models import Machine
 
             machine = Machine.current()
             derived_config = normalize_runtime_config(machine.config, json_safe=False)
-            for binary in Binary.objects.filter(machine=machine).order_by("name", "-modified_at"):
-                if _binary_record_matches_runtime(binary, config.ABXPKG_LIB_DIR):
-                    db_binaries.setdefault(binary.name, binary)
-            db_available = True
 
         except Exception as e:
             prnt()
-            prnt("", f"[yellow]Warning: Could not query collection binary records; resolving through abxpkg: {e}[/yellow]")
+            prnt("", f"[yellow]Warning: Could not query collection machine config; resolving through abxpkg: {e}[/yellow]")
 
     declared_binary_specs: dict[str, dict[str, object]] = {}
     for plugin_name, plugin in plugins.items():
         if not plugin_may_have_requested_binary(plugin):
             continue
-        plugin_requested = bool(requested_names)
-        plugin_enabled = plugin_name in enabled_plugin_names
+        plugin_requested = plugin_name.lower() in {name.lower() for name in requested_names}
         binary_records = get_required_binary_requests(
             plugin,
             plugin.config.required_binaries,
@@ -320,10 +296,9 @@ def version(
             display_name = logical_name
             if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
                 continue
-            if not plugin_enabled and not requested_names:
-                continue
-            if _binary_record_matches_runtime(db_binaries.get(logical_name), config.ABXPKG_LIB_DIR):
-                continue
+            # This is a diagnostic: recheck the provider instead of trusting an
+            # installation record or a cached version, including disabled plugins.
+            binary_record["no_cache"] = True
             signature = json.dumps(binary_record, sort_keys=True, default=str)
             declared_binary_specs.setdefault(signature, binary_record)
 
@@ -341,126 +316,47 @@ def version(
 
         loaded_binaries = asyncio.run(resolve_declared_binaries())
 
-    rows: list[dict[str, object]] = []
+    rows_by_binary: dict[str, dict] = {}
     any_rows = False
     any_available = False
     compact_paths = console.is_terminal
-    live_enabled = console.is_terminal
-    live_cm = Live(binary_dependency_table(rows), console=console, refresh_per_second=8) if live_enabled else None
-
-    def emit_row(row: dict[str, object]) -> None:
-        rows.append(row)
-        if live_cm is not None:
-            live_cm.update(binary_dependency_table(rows), refresh=True)
-
-    if live_cm is not None:
-        live_cm.start()
-    try:
-        for plugin_name, plugin in plugins.items():
-            if not plugin_may_have_requested_binary(plugin):
-                continue
-            plugin_requested = bool(requested_names)
-            plugin_enabled = plugin_name in enabled_plugin_names
-            binary_records = get_required_binary_requests(
-                plugin,
-                plugin.config.required_binaries,
-                overrides=runtime_config,
-                derived_overrides=derived_config,
-                run_output_dir=CONSTANTS.DATA_DIR,
+    for plugin_name, plugin in plugins.items():
+        if not plugin_may_have_requested_binary(plugin):
+            continue
+        plugin_requested = plugin_name.lower() in {name.lower() for name in requested_names}
+        plugin_enabled = plugin_name in enabled_plugin_names
+        disabled_by = ", ".join(
+            f"{dependency.enabled_key}=False"
+            for dependency in plugins.select([plugin_name]).values()
+            if not config.get(dependency.enabled_key, True)
+        )
+        binary_records = get_required_binary_requests(
+            plugin,
+            plugin.config.required_binaries,
+            overrides=runtime_config,
+            derived_overrides=derived_config,
+            run_output_dir=CONSTANTS.DATA_DIR,
+        )
+        for binary_record in binary_records:
+            binary_record["no_cache"] = True
+            actual_name = str(binary_record["name"])
+            logical_name = (
+                Path(actual_name).expanduser().name
+                if ("/" in actual_name or "\\" in actual_name or actual_name.startswith("~"))
+                else actual_name
             )
-            for binary_record in binary_records:
-                actual_name = str(binary_record["name"])
-                logical_name = (
-                    Path(actual_name).expanduser().name
-                    if ("/" in actual_name or "\\" in actual_name or actual_name.startswith("~"))
-                    else actual_name
-                )
-                display_name = logical_name
-                if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
-                    continue
+            display_name = logical_name
+            if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
+                continue
 
-                installed = db_binaries.get(logical_name) if db_available else None
-                if _binary_record_matches_runtime(installed, config.ABXPKG_LIB_DIR):
-                    abspath = installed.abspath
-                    version_str = (installed.version or "unknown")[:15]
-                    provider = (installed.binprovider or "env")[:8]
-                    valid = True
-                elif not plugin_enabled and not requested_names:
-                    # `archivebox version` is expected to verify the active runtime, not
-                    # cold-load every optional plugin provider. Migration and status
-                    # checks often run with PLUGINS narrowed to a tiny set; resolving
-                    # disabled plugin binaries there can spend most of the command on
-                    # providers the current collection will never execute.
-                    continue
-                else:
-                    loaded = loaded_binaries[json.dumps(binary_record, sort_keys=True, default=str)]
-                    abspath = loaded.abspath if loaded is not None else ""
-                    version_str = str(loaded.version or "unknown")[:15] if loaded is not None else "unknown"
-                    provider = str(loaded.binprovider or "env")[:8] if loaded is not None else "env"
-                    valid = loaded is not None
+            loaded = loaded_binaries[json.dumps(binary_record, sort_keys=True, default=str)]
+            abspath = loaded.abspath if loaded is not None else ""
+            version_str = str(loaded.version or "unknown") if loaded is not None else "unknown"
+            provider = str(loaded.binprovider or "env") if loaded is not None else "env"
+            valid = loaded is not None and Path(abspath).is_file()
 
-                any_rows = True
-                if valid:
-                    display_path = (
-                        _format_binary_abspath(
-                            abspath,
-                            pwd=Path.cwd(),
-                            lib_dir=config.ABXPKG_LIB_DIR,
-                            personas_dir=CONSTANTS.PERSONAS_DIR,
-                            home=Path.home(),
-                        )
-                        if compact_paths
-                        else abspath
-                    )
-                    rendered_path = _render_binary_abspath(display_path) if compact_paths else display_path
-                    any_available = True
-                else:
-                    rendered_path = "[grey53]not installed[/grey53]"
-                    if plugin_enabled and display_name not in seen_failures:
-                        failures.append(display_name)
-                        seen_failures.add(display_name)
-
-                row_key = _binary_row_dedupe_key(
-                    display_name=display_name,
-                    valid=valid,
-                    version=version_str if valid else "-",
-                    provider=provider if valid else "-",
-                    abspath=abspath,
-                )
-                if row_key in seen_rows:
-                    continue
-                seen_rows.add(row_key)
-
-                emit_row(
-                    {
-                        "plugin": plugin_name,
-                        "status": binary_dependency_status(enabled=plugin_enabled, valid=valid),
-                        "binary": display_name,
-                        "version": version_str if valid else "-",
-                        "provider": provider if valid else "-",
-                        "path": rendered_path,
-                        "style": "" if plugin_enabled else "dim",
-                    },
-                )
-
-        if db_available:
-            for binary_name, installed in db_binaries.items():
-                if requested_names and binary_name not in requested_names:
-                    continue
-                abspath = installed.abspath
-                version_str = (installed.version or "unknown")[:15]
-                provider = (installed.binprovider or "env")[:8]
-                row_key = _binary_row_dedupe_key(
-                    display_name=binary_name,
-                    valid=True,
-                    version=version_str,
-                    provider=provider,
-                    abspath=abspath,
-                )
-                if row_key in seen_rows:
-                    continue
-                seen_rows.add(row_key)
-
+            any_rows = True
+            if valid:
                 display_path = (
                     _format_binary_abspath(
                         abspath,
@@ -472,24 +368,67 @@ def version(
                     if compact_paths
                     else abspath
                 )
-                emit_row(
-                    {
-                        "plugin": "(database)",
-                        "status": binary_dependency_status(enabled=True, valid=True),
-                        "binary": binary_name,
-                        "version": version_str,
-                        "provider": provider,
-                        "path": _render_binary_abspath(display_path) if compact_paths else display_path,
-                        "style": "dim",
-                    },
-                )
-                any_rows = True
+                rendered_path = _render_binary_abspath(display_path) if compact_paths else display_path
                 any_available = True
-    finally:
-        if live_cm is not None:
-            live_cm.stop()
-        else:
-            prnt(binary_dependency_table(rows))
+            else:
+                rendered_path = "[grey53]not installed[/grey53]"
+                if plugin_enabled and display_name not in seen_failures:
+                    failures.append(display_name)
+                    seen_failures.add(display_name)
+
+            if not plugin_enabled:
+                rendered_path = f"[grey53]disabled by {disabled_by or 'PLUGINS configuration'}[/grey53]"
+
+            row = {
+                "plugin": plugin_name,
+                "status": binary_dependency_status(enabled=plugin_enabled, valid=valid),
+                "binary": display_name,
+                "version": version_str if valid else "-",
+                "provider": provider if valid else "-",
+                "path": rendered_path,
+                "style": "" if plugin_enabled else "dim",
+                "enabled": plugin_enabled,
+                "valid": valid,
+                "plugins": [plugin_name],
+                "disabled_by": [disabled_by or "PLUGINS configuration"] if not plugin_enabled else [],
+            }
+            existing = rows_by_binary.get(display_name)
+            if existing is None:
+                rows_by_binary[display_name] = row
+            else:
+                consumers = list(dict.fromkeys([*existing["plugins"], plugin_name]))
+                disabled_reasons = list(dict.fromkeys([*existing["disabled_by"], *row["disabled_by"]]))
+                # Disabled consumers cannot mask an active requirement. If any
+                # active request fails (e.g. a version floor), keep that failure.
+                if plugin_enabled and (not existing["enabled"] or not valid):
+                    existing.update(row)
+                existing["plugins"] = consumers
+                existing["disabled_by"] = disabled_reasons
+                existing["plugin"] = ", ".join(consumers)
+                if not existing["enabled"]:
+                    existing["path"] = f"[grey53]disabled by {', '.join(disabled_reasons)}[/grey53]"
+
+    rows = list(rows_by_binary.values())
+
+    if console.is_terminal and console.width < 120:
+        from rich.text import Text
+
+        for row in rows:
+            heading = Text.from_markup(str(row["status"]))
+            heading.append(f" {row['binary']} {row['version']} ({row['provider']}) · {row['plugin']}")
+            prnt(heading, style=str(row["style"]))
+            path = row["path"]
+            prnt(Text.assemble("   ", path if isinstance(path, Text) else Text.from_markup(str(path))), style=str(row["style"]))
+    else:
+        table = binary_dependency_table(rows)
+        table.expand = False
+        table.title = None
+        table.box = None
+        for column in table.columns:
+            column.width = None
+            column.max_width = None
+            column.ratio = None
+        prnt(table)
 
     if not any_rows:
         prnt("", "[grey53]No required binaries declared for discovered plugins.[/grey53]")

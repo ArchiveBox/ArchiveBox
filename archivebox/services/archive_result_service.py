@@ -224,7 +224,15 @@ def _save_archiveresult_event_to_db(
 
 
 def mark_archiveresult_started(event: ProcessStartedEvent, *, snapshot_id: str, process_id: str) -> None:
-    """Project a running abx-dl hook after its OS process is persisted."""
+    """Project a running abx-dl hook after its OS process is persisted.
+
+    This DB state records process execution; the scheduler separately waits for
+    stdout readiness before advancing past a background hook. Neither boundary
+    proves that an archive was produced. Final status comes from the owning
+    hook's ArchiveResultEvent, including corrections after an abnormal exit.
+    Rows are per snapshot/plugin/hook: a recorder's start hook cannot declare
+    that its separate export hook succeeded.
+    """
     from archivebox.core.models import ArchiveResult, Snapshot
 
     started_at = parse_event_datetime(event.start_ts)

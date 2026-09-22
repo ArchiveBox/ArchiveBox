@@ -9,6 +9,10 @@ import shutil
 import signal
 import subprocess
 import sys
+import pty
+import select
+import termios
+import time
 from pathlib import Path
 
 import pytest
@@ -39,6 +43,99 @@ from archivebox.tests.conftest import (
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.mark.parametrize("interrupt_before_takeover", [False, True], ids=["running", "prompt"])
+@pytest.mark.parametrize("after_takeover", ["resume", "cancel-standby"])
+def test_interactive_add_takeover(initialized_archive, interrupt_before_takeover, after_takeover):
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (40, 160))
+    output = bytearray()
+    add = None
+    server = None
+    port = get_free_port()
+    env = cli_env(
+        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_SONIC_ENABLED="False",
+        CHROME_DELAY_AFTER_LOAD="60",
+        CHROME_TIMEOUT="120",
+        CHROME_HEADLESS="True",
+    )
+
+    def read_until(predicate, timeout=45):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], 0.1)[0]:
+                output.extend(os.read(master, 65536))
+            if predicate():
+                return
+        raise AssertionError(output.decode(errors="replace"))
+
+    def active_hook_for(parent_pid):
+        with use_archivebox_db(initialized_archive):
+            for hook in Process.objects.filter(archiveresult__hook_name="on_Snapshot__30_chrome_navigate", status="running"):
+                if hook.is_running and parent_pid in {parent.pid for parent in psutil.Process(hook.pid).parents()}:
+                    return hook
+        return None
+
+    try:
+        add = run_archivebox_cmd(
+            ["add", "--plugins=chrome", "https://example.com"],
+            cwd=initialized_archive,
+            env=env,
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            wait=False,
+            start_new_session=True,
+        )
+        read_until(lambda: active_hook_for(add.pid) is not None)
+        old_hook = active_hook_for(add.pid)
+        assert old_hook is not None
+        if interrupt_before_takeover:
+            add.send_signal(signal.SIGINT)
+            read_until(lambda: b"Choice [skip]:" in output)
+            read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+            assert not pid_is_alive(old_hook.pid)
+
+        server = start_archivebox_server(initialized_archive, port=port, log_name="interrupt-takeover-server.log", env=env)
+        read_until(lambda: b"A newer archivebox process took over" in output)
+        assert add.poll() is None, output.decode(errors="replace")
+        assert termios.tcgetattr(slave)[3] & termios.ICANON
+        assert not pid_is_alive(old_hook.pid)
+        assert get_http_response(port, host=f"archivebox.localhost:{port}").status_code < 500
+
+        if after_takeover == "cancel-standby":
+            add.send_signal(signal.SIGINT)
+            read_until(lambda: add.poll() is not None)
+            assert add.returncode == 130, output.decode(errors="replace")
+            assert pid_is_alive(server.pid)
+            assert get_http_response(port, host=f"archivebox.localhost:{port}").status_code < 500
+        else:
+            read_until(lambda: active_hook_for(server.pid) is not None)
+            stop_archivebox_process(server, signal.SIGTERM)
+            server = None
+            read_until(lambda: active_hook_for(add.pid) is not None)
+            resumed_hook = active_hook_for(add.pid)
+            assert resumed_hook is not None and resumed_hook.pid != old_hook.pid
+            prompt_offset = len(output)
+            add.send_signal(signal.SIGINT)
+            read_until(lambda: b"Choice [skip]:" in output[prompt_offset:])
+            read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+            os.write(master, b"\r")
+            read_until(lambda: add.poll() is not None)
+            assert add.returncode == 0, output.decode(errors="replace")
+            with use_archivebox_db(initialized_archive):
+                assert Crawl.objects.get().status == Crawl.StatusChoices.SEALED
+        assert b"Traceback" not in output
+    finally:
+        for process in (server, add):
+            if process is not None and process.poll() is None:
+                stop_archivebox_process(process, signal.SIGTERM)
+        os.close(slave)
+        os.close(master)
+        kill_processes_for_data_dir(initialized_archive)
+        assert_no_processes_for_data_dir(initialized_archive, timeout=12)
 
 
 def test_pid_is_alive_treats_unreaped_archivebox_cli_as_exited(tmp_path, initialized_archive):

@@ -27,6 +27,8 @@ from archivebox.config.permissions import ARCHIVEBOX_USER
 from archivebox.core.shutdown_util import (
     configured_stopwaitsecs,
     foreground_shutdown_signals,
+    kill_remaining_processes,
+    raise_if_shutdown_requested,
     wait_popen_and_kill_children,
     wait_psutil_and_kill_children,
 )
@@ -646,8 +648,8 @@ def sync_supervisord_workers(supervisor, workers: list[tuple[dict[str, str], boo
                     stop_stale_sonic_processes(_worker, supervisor_pid=supervisor.getPID(), host=sonic_host, port=sonic_port)
                     if is_port_in_use(sonic_host, sonic_port):
                         print(
-                            f"[yellow][*] Sonic is already listening on {sonic_host}:{sonic_port}; "
-                            f"not starting duplicate {worker_name}.[/yellow]",
+                            f"[yellow][*] Cannot bind {sonic_host}:{sonic_port}; "
+                            f"skipping {worker_name}. Do you have another service already running on that port?[/yellow]",
                         )
                         procs_by_name[worker_name] = proc
                         break
@@ -726,6 +728,24 @@ def stop_existing_supervisord_process():
     PID_FILE = SOCK_FILE.parent / PID_FILE_NAME
     stop_grace_seconds = configured_stopwaitsecs(tuple(_desired_supervisord_workers.values()))
     live_supervisord = _live_supervisord_processes_from_db()
+
+    # Hooks use separate process groups and can be reparented as soon as their
+    # runner exits. Retain their process identities before requesting shutdown.
+    old_children: set[psutil.Process] = set()
+    old_supervisors = [proc for _process, proc in live_supervisord]
+    fallback = _fallback_supervisord_process_from_db()
+    if fallback is not None:
+        old_supervisors.append(fallback)
+    if _supervisord_proc is not None and _supervisord_proc.poll() is None:
+        try:
+            old_supervisors.append(psutil.Process(_supervisord_proc.pid))
+        except psutil.NoSuchProcess:
+            pass
+    for proc in old_supervisors:
+        try:
+            old_children.update(proc.children(recursive=True))
+        except psutil.NoSuchProcess:
+            pass
 
     for process, _proc in live_supervisord:
         if process is None or process.parent_id is None:
@@ -840,6 +860,7 @@ def stop_existing_supervisord_process():
             except (BrokenPipeError, OSError, psutil.TimeoutExpired, Fault):
                 pass
     finally:
+        kill_remaining_processes(list(old_children))
         try:
             # clear PID file and socket file
             PID_FILE.unlink(missing_ok=True)
@@ -1038,6 +1059,17 @@ def run_runner_worker(
 
     supervisor = get_or_create_supervisord_process(daemonize=False)
     worker = RUNNER_ONCE_WORKER(args, name=name)
+    if interactive_interrupts and sys.stdin.isatty() and (sys.stdout.isatty() or sys.stderr.isatty()):
+        worker["environment"] += ',ARCHIVEBOX_INTERACTIVE_INTERRUPTS="1"'
+    else:
+        interactive_interrupts = False
+    # Supervisord replaces the worker's standard streams with log pipes. Pass
+    # this command's terminal explicitly so the shared live UI can still draw
+    # there, including when supervisord was started by a different command.
+    for stream in (sys.stderr, sys.stdout):
+        if stream.isatty():
+            worker["environment"] += f',ARCHIVEBOX_PROGRESS_TTY="{os.ttyname(stream.fileno())}"'
+            break
     workers = [(worker, False)]
 
     sonic_worker = get_sonic_supervisord_worker_from_plugin(config if config is not None else get_config())
@@ -1052,7 +1084,7 @@ def run_runner_worker(
     log_handle.seek(0, 2)
     sync_supervisord_workers(supervisor, workers, prune=False)
     final_states = {"STOPPED", "EXITED", "FATAL", "UNKNOWN"}
-    forwarded_interrupt = False
+    abort_forwarded = False
     try:
         while True:
             try:
@@ -1068,6 +1100,31 @@ def run_runner_worker(
                     line = log_handle.readline()
                     if not line:
                         break
+                    if interactive_interrupts and line.startswith("ARCHIVEBOX_HOOK_INTERRUPTED "):
+                        from abx_dl.services.process_service import ProcessService
+
+                        prompt = json.loads(line.removeprefix("ARCHIVEBOX_HOOK_INTERRUPTED "))
+                        interrupted_worker = get_worker(supervisor, name)
+                        if interrupted_worker is None or interrupted_worker.get("statename") != "RUNNING":
+                            continue
+
+                        def prompt_is_active() -> bool:
+                            current = get_worker(supervisor, name)
+                            return bool(
+                                current and current.get("statename") == "RUNNING" and current.get("pid") == interrupted_worker["pid"],
+                            )
+
+                        choice = ProcessService.on_InterruptedHookPrompt(
+                            prompt["hook_name"],
+                            render=not prompt["rendered"],
+                            is_active=prompt_is_active,
+                        )
+                        raise_if_shutdown_requested()
+                        if choice is None or not prompt_is_active():
+                            continue
+                        supervisor.signalProcess(name, {"skip": "SIGUSR1", "retry": "SIGUSR2", "abort": "SIGINT"}[choice])
+                        abort_forwarded = choice == "abort"
+                        continue
                     sys.stderr.write(line)
                     sys.stderr.flush()
                 proc = get_worker(supervisor, name)
@@ -1080,12 +1137,15 @@ def run_runner_worker(
                             break
                         sys.stderr.write(line)
                         sys.stderr.flush()
+                    if abort_forwarded:
+                        raise KeyboardInterrupt
                     if proc["statename"] in {"EXITED", "STOPPED"}:
                         return int(proc.get("exitstatus") or 0)
                     return 1
                 time.sleep(0.5)
             except KeyboardInterrupt:
-                if not interactive_interrupts or forwarded_interrupt:
+                raise_if_shutdown_requested()
+                if abort_forwarded:
                     raise
                 # Route the signal through supervisord by worker name rather than
                 # raw os.kill on a cached PID. The cached proc["pid"] can be
@@ -1099,7 +1159,7 @@ def run_runner_worker(
                 if proc is None or proc.get("statename") != "RUNNING":
                     raise
                 supervisor.signalProcess(name, "SIGINT")
-                forwarded_interrupt = True
+                abort_forwarded = not interactive_interrupts
                 print("[yellow][*] Forwarding Ctrl+C to the active crawl hook...[/yellow]")
     finally:
         log_handle.close()
@@ -1108,8 +1168,12 @@ def run_runner_worker(
 def get_worker(supervisor, daemon_name):
     try:
         return supervisor.getProcessInfo(daemon_name)
+    except Fault as err:
+        # BAD_NAME is expected when checking a worker before it has been created.
+        if err.faultCode != 10:
+            _warn_background_cleanup(f"Could not query supervisord worker {daemon_name}", err)
     except _SUPERVISORD_ERRORS as err:
-        _warn_background_cleanup(f"Could not get supervisord worker {daemon_name}", err)
+        _warn_background_cleanup(f"Could not query supervisord worker {daemon_name}", err)
     return None
 
 
@@ -1180,7 +1244,9 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
             sonic_host,
             sonic_port,
         ):
-            print(f"[yellow][*] Sonic is already listening on {sonic_host}:{sonic_port}; not starting a duplicate worker.[/yellow]")
+            print(
+                f"[yellow][*] Cannot bind {sonic_host}:{sonic_port}; skipping Sonic startup. Do you have another service already running on that port?[/yellow]",
+            )
         else:
             bg_workers.insert(0, (sonic_worker, False))
             log_files.append(str(sonic_worker["stdout_logfile"]))

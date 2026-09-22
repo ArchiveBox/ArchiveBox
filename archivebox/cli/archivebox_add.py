@@ -6,6 +6,7 @@ __command__ = "archivebox add"
 
 import sys
 import os
+import signal
 from pathlib import Path
 
 from typing import Any, TYPE_CHECKING
@@ -227,6 +228,10 @@ def add(
 
         assert command is not None
         exit_code = 0
+        interactive_interrupts = sys.stdin.isatty() and (sys.stdout.isatty() or sys.stderr.isatty())
+
+        def interrupt_hook() -> None:
+            raise KeyboardInterrupt
 
         def crawl_is_complete() -> bool:
             crawl.refresh_from_db(fields=["status"])
@@ -234,7 +239,13 @@ def add(
 
         try:
             try:
-                with foreground_shutdown_signals(first_signal_message=None), foreground_parent_watchdog():
+                with (
+                    foreground_shutdown_signals(
+                        first_signal_message=None,
+                        interrupt_handlers={signal.SIGINT: interrupt_hook},
+                    ),
+                    foreground_parent_watchdog(),
+                ):
                     while True:
                         standby = standby_until_foreground_runner_needed(
                             command,
@@ -246,7 +257,7 @@ def add(
                         exit_code = run_runner_worker(
                             ["--crawl-id", str(crawl.id)],
                             name=f"worker_runner_add_{os.getpid()}",
-                            interactive_interrupts=True,
+                            interactive_interrupts=interactive_interrupts,
                             config=get_config(crawl=crawl),
                         )
                         crawl.refresh_from_db(fields=["status", "retry_at"])
@@ -311,9 +322,13 @@ def add(
 
             admin_url = build_admin_url(f"/admin/crawls/crawl/{crawl.id}/change/", config=config)
 
-            print("\n[bold]crawl output saved to:[/bold]")
-            print(f"  {rel_output_str}")
-            print(f"  {admin_url}")
+            if snapshots_count:
+                print("\n[bold]snapshot output saved to:[/bold]")
+                for snapshot in crawl.snapshot_set.order_by("created_at").iterator():
+                    click.echo(f"  {snapshot.output_dir}")
+            print("\n[bold]crawl logs and setup:[/bold]")
+            click.echo(f"  {rel_output_str}")
+            click.echo(f"  {admin_url}")
             print(f"\n[bold]total urls snapshotted:[/bold] {snapshots_count}")
             print(f"[bold]total size:[/bold] {total_size}")
             print(f"[bold]total time:[/bold] {duration_str}")
