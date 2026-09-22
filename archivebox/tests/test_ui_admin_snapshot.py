@@ -1271,7 +1271,8 @@ class TestAdminSnapshotListView:
         assert many_response.status_code == 200
         single_result_queries = [query for query in single_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
         many_result_queries = [query for query in many_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
-        assert len(single_result_queries) == len(many_result_queries) == 2
+        # Status totals, successful outputs, and preview candidates each load in bulk.
+        assert len(single_result_queries) == len(many_result_queries) == 3
 
     def test_list_view_uses_prefetched_tags_without_row_queries(self, client, admin_user, crawl, db):
         """Changelist tag rendering should reuse the prefetched tag cache."""
