@@ -131,22 +131,6 @@
     object-fit: cover;
     object-position: top;
 }
-.stack-cover iframe:not([data-compact]) {
-    width: 400%!important;
-    height: 400px!important;
-    transform: scale(.25)!important;
-    transform-origin: 0 0!important;
-    border: 0!important;
-}
-.stack-cover:has([data-compact]) {
-    display: flex;
-    align-items: center;
-    background: linear-gradient(145deg,#fff,#f5eff2);
-    padding: 10px 4px;
-}
-.stack-cover [data-compact] {
-    width: 100%!important;
-}
 .stack-chevron {
     display: block;
     font-size: 15px;
@@ -186,7 +170,7 @@
     grid-template-columns: repeat(auto-fill,minmax(200px,1fr));
     gap: 6px;
 }
-.stack-tray .thumb-card,.stack-tray .thumb-card:has([data-compact]) {
+.stack-tray .thumb-card {
     min-height: 158px;
     max-height: 158px;
     height: 158px;
@@ -213,18 +197,12 @@
     display: inline;
     font-size: 9px;
 }
-.stack-tray .thumb-card .thumbnail-wrapper,.stack-tray .thumb-card:has([data-compact]) .thumbnail-wrapper {
+.stack-tray .thumb-card .thumbnail-wrapper {
     display: block;
     height: 130px!important;
     min-height: 130px;
     max-height: 130px!important;
     overflow: hidden;
-}
-.stack-tray .thumb-card .thumbnail-wrapper > iframe[data-compact] {
-    position: static;
-}
-.stack-tray .thumb-card .thumbnail-wrapper:has([data-compact]) {
-    background: #fff;
 }
 .stack-empty {
     grid-column: 1/-1;
@@ -236,9 +214,6 @@
 .stack-browser button:focus-visible {
     outline: 3px solid #b64574;
     outline-offset: 5px;
-}
-.stack-tray .thumb-card .thumbnail-wrapper iframe {
-    max-width: none!important;
 }
 .stack-close {
     border: 0;
@@ -269,9 +244,6 @@
     background: #eae3e6;
     font-size: 15px;
     line-height: 14px;
-}
-.stack-cover iframe {
-    max-width: none!important;
 }
 @media (max-width:1000px) {
     .stack-shelf { grid-template-columns:repeat(4,minmax(0,1fr)); }

@@ -330,7 +330,7 @@ def _render_text_preview(plugin: str, icon_html: str, snippet: str) -> str:
     plugin_label = escape(plugin or "")
     escaped = escape(snippet)
     return (
-        f'<div class="thumbnail-text" data-plugin="{plugin_attr}" data-compact="1">'
+        f'<div class="thumbnail-text" data-plugin="{plugin_attr}">'
         f'<div class="thumbnail-text-header">'
         f'<span class="thumbnail-compact-icon">{icon_html}</span>'
         f'<span class="thumbnail-text-title">{plugin_label}</span>'
@@ -345,7 +345,7 @@ def _render_fallback_card(plugin: str, icon_html: str, fallback_label: str) -> s
     plugin_label = escape(plugin or "")
     fallback_attr = escape(fallback_label)
     return (
-        f'<div class="thumbnail-compact" data-plugin="{plugin_attr}" data-compact="1">'
+        f'<div class="thumbnail-compact" data-plugin="{plugin_attr}">'
         f'<span class="thumbnail-compact-icon">{icon_html}</span>'
         f'<span class="thumbnail-compact-label">{plugin_label}</span>'
         f'<span class="thumbnail-compact-meta">{fallback_attr}</span>'
@@ -845,6 +845,7 @@ def plugin_card(context, result) -> str:
             tpl = template.Template(template_str)
             ctx = template.Context(
                 {
+                    **context.flatten(),
                     "result": result,
                     "snapshot": result.snapshot,
                     "output_path": output_url,

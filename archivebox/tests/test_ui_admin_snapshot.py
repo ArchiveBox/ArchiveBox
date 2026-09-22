@@ -966,12 +966,11 @@ class TestSnapshotProgressStats:
         assert static_json["archive_path"].startswith("archive/users/")
         assert static_json["archive_url"] == f"./{static_json['archive_path']}/index.html"
 
-    def test_compact_output_cards_pack_into_dense_grid_rows(self):
+    def test_output_cards_use_consistent_preview_grid_rows(self):
         template = (REPO_ROOT / "archivebox" / "templates" / "core" / "snapshot.html").read_text()
         thumb_grid_css = template.split(".thumb-grid {", 1)[1].split("}", 1)[0]
         thumb_card_css = template.split(".thumb-card {", 1)[1].split("}", 1)[0]
         auxiliary_card_css = template.split(".thumb-card:not([data-plugin-name]) {", 1)[1].split("}", 1)[0]
-        compact_card_css = template.split(".thumb-card:has([data-compact]) {", 1)[1].split("}", 1)[0]
 
         assert "display: grid;" in thumb_grid_css
         assert "grid-template-columns: repeat(auto-fit, minmax(clamp(180px, 14vw, 250px), 1fr));" in thumb_grid_css
@@ -979,8 +978,7 @@ class TestSnapshotProgressStats:
         assert "grid-auto-rows: 42px;" in thumb_grid_css
         assert "grid-row: span 3;" in thumb_card_css
         assert "order: 1;" in auxiliary_card_css
-        assert "grid-row: span 1;" in compact_card_css
-        assert "order: 2;" in compact_card_css
+        assert ".thumb-card:has([data-compact])" not in template
 
 
 class TestSnapshotOutputDeletion:
@@ -1575,8 +1573,10 @@ def test_metadata_card_uses_dedicated_template_and_static_export_keeps_text(real
     _process, result = real_hash_projection
     assert result.status == "succeeded"
     live = plugin_card(Context({}), result)
-    assert '<iframe data-compact="1"' in live
-    assert "preview=1&amp;card=1" in live
+    assert "<iframe " in live
+    assert 'preview=1"' in live
+    assert "data-compact" not in live
+    assert "card=1" not in live
     assert "thumbnail-text-pre" not in live
 
     exported = plugin_card(Context({"STATIC_EXPORT": True, "STATIC_EXPORT_DIR": result.snapshot.output_dir}), result)

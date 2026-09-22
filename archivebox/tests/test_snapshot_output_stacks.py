@@ -5,14 +5,17 @@ from pathlib import Path
 
 import pytest
 from django.contrib.auth.models import AnonymousUser
+from django.template import Context
 from django.test import RequestFactory
 
 from archivebox.core.models import ArchiveResult
 from archivebox.core.views import SnapshotView
+from archivebox.config.common import ServerConfig
 from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 pytestmark = pytest.mark.django_db
 FIXTURE = Path(__file__).parent / "fixtures" / "consolelog_preview.html"
+IMAGE_FIXTURE = Path(__file__).parents[2] / "publicsite" / "screenshots" / "snapshot-view-responses-desktop.png"
 
 
 def save_output(snapshot, plugin, filename="content.html", *, hook="50", extra_files=()):
@@ -29,6 +32,27 @@ def save_output(snapshot, plugin, filename="content.html", *, hook="50", extra_f
         output_str=filename,
         output_files=files,
         output_size=sum(file["size"] for file in files.values()),
+    )
+
+
+def save_response_image(snapshot, filename="all/example.png"):
+    path = Path(snapshot.output_dir) / "responses" / filename
+    path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(IMAGE_FIXTURE, path)
+    return ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="responses",
+        hook_name="on_Snapshot__24_responses.daemon.bg.js",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str=filename,
+        output_files={
+            filename: {
+                "size": path.stat().st_size,
+                "mimetype": "image/png",
+                "extension": "png",
+            },
+        },
+        output_size=path.stat().st_size,
     )
 
 
@@ -146,3 +170,38 @@ def test_responses_html_card_requires_saved_html_and_keeps_gallery(snapshot):
     result.output_files = {"data.json": {"size": 2, "mimetype": "application/json"}}
     result.save()
     assert "responses_html" not in {output["name"] for output in snapshot.get_html_details_context()["archiveresults"]}
+
+
+@pytest.mark.parametrize(
+    ("security_mode", "expected_host"),
+    (
+        ("safe-onedomain-nojsreplay", "archivebox.localhost:8937"),
+        ("safe-subdomains-fullreplay", "snap-{snapshot_suffix}.archivebox.localhost:8937"),
+    ),
+)
+def test_responses_card_preserves_request_origin_for_nested_preview_urls(snapshot, security_mode, expected_host):
+    from archivebox.core.templatetags.core_tags import plugin_card
+
+    result = save_response_image(snapshot)
+    request = RequestFactory().get(
+        f"/{snapshot.url_path}/index.html",
+        secure=True,
+        HTTP_HOST="archivebox.localhost:8937",
+    )
+    config = ServerConfig(BASE_URL="https://archivebox.localhost:8937", SERVER_SECURITY_MODE=security_mode)
+    html = plugin_card(Context({"request": request, "CONFIG": config}), result)
+    expected_host = expected_host.format(snapshot_suffix=str(snapshot.id)[-12:])
+    assert f"https://{expected_host}/" in html
+    assert "/responses/all/example.png?raw=1" in html
+
+
+def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
+    from archivebox.core.templatetags.core_tags import plugin_card
+
+    result = save_response_image(snapshot)
+    html = plugin_card(
+        Context({"STATIC_EXPORT": True, "STATIC_EXPORT_DIR": snapshot.output_dir}),
+        result,
+    )
+    assert 'src="./responses/all/example.png?raw=1"' in html
+    assert "localhost" not in html

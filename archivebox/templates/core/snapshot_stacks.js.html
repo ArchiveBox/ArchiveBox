@@ -126,12 +126,6 @@ function initializeOutputStacks() {
             trayCards.append(empty);
         }
         for (const card of group.cards) {
-            // Promote one-line summaries into real thumbnail previews in the expanded tray.
-            for (const frame of card.querySelectorAll('iframe[data-compact]')) {
-                frame.removeAttribute('data-compact');
-                frame.src = card.dataset.previewUrl;
-                frame.style.cssText = 'width:400%!important;height:560px!important;transform:scale(.25)!important;transform-origin:0 0!important;border:0!important;pointer-events:none';
-            }
             movePreviewNode(card, trayCards);
         }
         tray.setAttribute('aria-label', group.label);

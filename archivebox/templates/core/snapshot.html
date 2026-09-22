@@ -778,9 +778,6 @@
                 overflow: hidden;
                 min-height: 130px;
             }
-            .header-bottom-frames .card:has([data-compact]) {
-                min-height: 0;
-            }
             .card h4 {
                 font-size: 0.8em;
                 display: inline-block;
@@ -1094,14 +1091,6 @@
             .thumb-card:not([data-plugin-name]) {
                 order: 1;
             }
-            .thumb-card:has([data-compact]) {
-                height: 42px;
-                min-height: 42px;
-                max-height: 42px;
-                grid-row: span 1;
-                order: 2;
-                contain-intrinsic-size: 42px;
-            }
             .thumb-card .thumb-body {
                 display: grid;
                 grid-template-columns: minmax(0, 1fr) auto;
@@ -1225,11 +1214,13 @@
                 transform: none !important;
                 margin: 0 !important;
             }
+            .stack-cover iframe,
             .thumb-card .thumbnail-wrapper iframe,
             .thumb-card .thumbnail-wrapper object,
             .thumb-card .thumbnail-wrapper embed {
                 width: 405% !important;
                 height: 405% !important;
+                max-width: none !important;
                 transform: scale(0.25);
                 transform-origin: 0 0;
                 margin: 0 !important;
@@ -1257,42 +1248,6 @@
             .thumb-card .thumbnail-wrapper > :not(.thumbnail-click-overlay),
             .thumb-card .thumbnail-wrapper > :not(.thumbnail-click-overlay) * {
                 pointer-events: none !important;
-            }
-            .thumb-card:has([data-compact]) .thumbnail-wrapper,
-            .thumb-card:has([data-compact]) .thumbnail-wrapper.compact {
-                height: 20px;
-                flex: 0 0 auto;
-            }
-            .thumb-card:has([data-compact]) .thumb-body {
-                min-height: 22px;
-                padding: 2px 4px 2px 6px;
-                font-size: 12px;
-                max-height: 24px;
-            }
-            .thumb-card:has([data-compact]) .thumb-actions a,
-            .thumb-card:has([data-compact]) .thumb-actions button {
-                width: 18px;
-                height: 18px;
-                border-radius: 4px;
-            }
-            .thumb-card:has([data-compact]) .thumb-actions .delete-pending {
-                width: auto;
-            }
-            .thumb-card:has([data-compact]) .thumb-body h4 {
-                font-size: 0.9em;
-                margin-bottom: 0px;
-                line-height: 1;
-                display: flex;
-                align-items: center;
-                gap: 4px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
-            .thumb-card:has([data-compact]) .thumbnail-text-header,
-            .thumb-card:has([data-compact]) .thumbnail-compact-icon,
-            .thumb-card:has([data-compact]) .thumbnail-compact-label {
-                display: none;
             }
             .thumb-card.selected-card {
                 border: 2px solid orange;
@@ -1418,18 +1373,6 @@
                 break-inside: avoid;
                 margin-bottom: 6px;
                 vertical-align: top;
-            }
-            .header-bottom-frames .card:has([data-compact]) .thumbnail-wrapper,
-            .header-bottom-frames .card:has([data-compact]) .thumbnail-wrapper.compact {
-                height: 32px;
-            }
-            .header-bottom-frames .card:has([data-compact]) .thumbnail-text {
-                height: auto;
-                max-height: 64px;
-            }
-            .header-bottom-frames .card:has([data-compact]) .card-body {
-                padding: 4px 8px;
-                max-height: 44px;
             }
             .header-bottom-frames .card-title {
                 width: 100%;
@@ -1791,7 +1734,7 @@
 
             function resetPreviewFrameSize(frame) {
                 const wrapper = document.getElementById('main-frame-wrapper')
-                if (!wrapper || !frame) return
+                if (!wrapper || !frame || frame.id !== 'main-frame') return
                 wrapper.style.height = ''
                 wrapper.style.overflow = ''
                 frame.style.height = ''
@@ -1799,7 +1742,7 @@
 
             function fitPreviewFrameToContent(frame) {
                 const wrapper = document.getElementById('main-frame-wrapper')
-                if (!wrapper || !frame || frame.src.includes('.pdf')) return
+                if (!wrapper || !frame || frame.id !== 'main-frame' || frame.src.includes('.pdf')) return
                 try {
                     const doc = frame.contentDocument || frame.contentWindow.document
                     if (!doc || !doc.documentElement) return
@@ -1826,7 +1769,11 @@
                 resetPreviewFrameSize(frame)
                 if (new URL(frame.src || 'about:blank', window.location.href).pathname.endsWith('.pdf')) {
                     frame.removeAttribute('sandbox')
-                    frame.src = frame.src + '#toolbar=0'
+                    const pdfUrl = new URL(frame.src, window.location.href)
+                    const options = new URLSearchParams(pdfUrl.hash.slice(1))
+                    options.set('toolbar', '0')
+                    pdfUrl.hash = options.toString()
+                    if (frame.src !== pdfUrl.href) frame.src = pdfUrl.href
                 }
                 frame.onload = function() {
                     if (new URL(this.src || 'about:blank', window.location.href).pathname.endsWith('.pdf')) {
