@@ -39,7 +39,12 @@
     let target;
     try { target = document.getElementById(decodeURIComponent(location.hash.slice(1))); } catch { return; }
     const index = panels.indexOf(target?.closest('.install-panel'));
-    if (index !== -1) selectTab(index);
+    if (index !== -1) {
+      selectTab(index);
+      // Selecting a panel changes the page height, so the browser's native
+      // hash jump can land at the old position. Re-align after the layout settles.
+      requestAnimationFrame(() => target.scrollIntoView({ block: 'start' }));
+    }
   }
 
   selectTab(0);
