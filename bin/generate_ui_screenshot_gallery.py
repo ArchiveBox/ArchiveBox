@@ -99,7 +99,11 @@ def append_manifest(manifest_path: Path, screenshot_path: Path) -> None:
     profile = os.environ["UI_SCREENSHOT_PROFILE"]
     if profile not in CAPTURE_PROFILES:
         raise SystemExit(f"unknown screenshot profile: {profile}")
-    expected_dimensions = CAPTURE_PROFILES[profile]
+    default_width, default_height = CAPTURE_PROFILES[profile]
+    expected_dimensions = (
+        int(os.environ.get("UI_SCREENSHOT_WIDTH", default_width)),
+        int(os.environ.get("UI_SCREENSHOT_HEIGHT", default_height)),
+    )
     if dimensions != expected_dimensions:
         raise SystemExit(
             f"expected {expected_dimensions[0]}x{expected_dimensions[1]} for {profile}, "
@@ -240,8 +244,9 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         ttfb_text = f" · ~{round(sum(ttfb_values) / len(ttfb_values))}ms TTFB" if ttfb_values else ""
         markdown_cells = []
         html_figures = []
-        for profile, (width, height) in CAPTURE_PROFILES.items():
+        for profile in CAPTURE_PROFILES:
             variant = variants[profile]
+            width, height = variant["width"], variant["height"]
             label = f"{profile.title()} ({width}x{height})"
             filename = str(variant["filename"])
             screenshot_path = markdown_path.parent / "screenshots" / filename
