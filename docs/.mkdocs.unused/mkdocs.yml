@@ -1,0 +1,32 @@
+site_name: ArchiveBox
+site_url: https://github.com/ArchiveBox/ArchiveBox
+
+theme:
+  name: material
+
+
+
+plugins:
+- exclude:
+    glob:
+      - archivebox/vendor
+      - data/
+      - data*/
+      - '*.sqlite3'
+      - deb_dist/
+      - brew_dist/
+      - dist/
+- search
+- autorefs
+- mkdocstrings:
+    handlers:
+      python:
+        options:
+          show_submodules: true
+        import:
+        - url: https://docs.python-requests.org/en/master/objects.inv
+          domains: [std, py]
+
+- gen-files:
+    scripts:
+      - gen_docs_refs.py  

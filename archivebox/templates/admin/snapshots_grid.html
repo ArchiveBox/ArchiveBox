@@ -16,7 +16,7 @@
 
   .cards .card {
       position: relative;
-      max-height: 380px;
+      max-height: none;
       overflow: hidden;
     
       background-color: #fffcfc;
@@ -36,7 +36,7 @@
   .cards .card .card-thumbnail {
       display: block;
       width: 100%;
-      height: 345px;
+      height: 245px;
       overflow: hidden;
       border-radius: 4px;
       background-color: #fffcfc;
@@ -47,11 +47,31 @@
       height: auto;
       border: 0;
   }
+  .cards .card .card-thumbnail img.loading-preview {
+      width: 48px;
+      height: 48px;
+      margin-top: 98px;
+      object-fit: contain;
+  }
   .cards .card .card-thumbnail.missing img {
-      opacity: 0.03;
-      width: 20%;
-      height: auto;
-      margin-top: 84px;
+      display: none;
+  }
+  .cards .card .card-thumbnail.missing::after {
+      content: "No preview captured";
+      display: grid;
+      place-items: center;
+      height: 100%;
+      color: #94a3b8;
+      font-size: 12px;
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  }
+  .cards .card .card-thumbnail .missing-preview {
+      display: grid;
+      place-items: center;
+      height: 100%;
+      color: #94a3b8;
+      font-size: 12px;
+      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
   }
 
   .cards .card .card-tags {
@@ -73,6 +93,19 @@
       position: absolute;
       bottom: 0;
       text-align: center;
+  }
+  .cards .card .card-media {
+      position: relative;
+      overflow: hidden;
+  }
+  .cards .card .card-media .card-tags {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      text-align: center;
+      pointer-events: none;
   }
   .cards .card .card-title {
       padding: 4px 5px;
@@ -106,16 +139,40 @@
   }
 
   .cards .card .card-info {
-      padding: 2px 4px;
+      padding: 6px 8px;
       /*border-top: 1px solid #ddd;*/
       background-color: #fffcfc;
       font-size: 11px;
       color: #333;
   }
+  .cards .card .card-meta {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+      text-align: center;
+  }
+  .cards .card .card-meta .action-select {
+      justify-self: start;
+  }
+  .cards .card .card-meta .card-date {
+      justify-self: center;
+      max-width: 100%;
+  }
+  .cards .card .card-meta .card-size {
+      justify-self: end;
+  }
+  .cards .card .card-meta .card-date,
+  .cards .card .card-meta .card-size {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+  }
   .cards .card .card-info input[type=checkbox] {
-      float: right;
       width: 18px;
       height: 18px;
+      margin: 0;
   }
   .cards .card .card-info label {
       display: inline-block;
@@ -125,6 +182,40 @@
   }
   .cards .card .card-info .timestamp {
       font-weight: 600;
+  }
+  .cards .card .card-url {
+      display: block;
+      width: 100%;
+      padding: 0 8px 6px;
+      font-size: 10px;
+      opacity: 0.4;
+      user-select: all;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      background: #fffcfc;
+      box-sizing: border-box;
+  }
+  .cards .card .card-outputs {
+      min-height: 24px;
+      padding: 5px 8px 7px;
+      background: #fffcfc;
+      text-align: center;
+  }
+  .cards .card .card-progress {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 0;
+  }
+  .cards .card .card-progress .progress-text {
+      font-size: 11px;
+      color: #3b82f6;
+      font-weight: 500;
+  }
+  .cards .card.archiving {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
   }
   .cards .card .card-footer code {
       display: inline-block;
@@ -145,21 +236,31 @@
 {% block content %}
   <section class="cards">
     {% for obj in results %}
-      <div class="card">
-          <div class="card-info">
-            <a href="{% url 'admin:core_snapshot_change' obj.id %}">
-              <span class="timestamp">{{obj.added}}</span>
+      <div class="card{% if obj.status == 'started' %} archiving{% endif %}">
+          <div class="card-info card-meta">
+            <input type="checkbox" class="action-select" name="_selected_action" value="{{obj.pk}}"/>
+            <a href="{% url 'admin:core_snapshot_change' obj.pk %}" class="card-date">
+              <span class="timestamp">{{obj.bookmarked_at}}</span>
             </a>
-            <label>
-              <span class="num_outputs">📄 &nbsp; {{obj.num_outputs}}</span> &nbsp; &nbsp;
-              <span>🗄&nbsp; {{ obj.archive_size | file_size }}</span>
-              <input type="checkbox" name="_selected_action" value="{{obj.pk}}"/>
-            </label>
+            <span class="card-size">{{ obj.archive_size | file_size }}</span>
           </div>
-          <a href="/{{obj.archive_path}}/index.html" class="card-thumbnail {% if not obj.thumbnail_url %}missing{% endif %}">
-            <img src="{{obj.thumbnail_url|default:'/static/spinner.gif' }}" alt="{{obj.title|default:'Not yet archived...'}}" /> 
-          </a>
-          <div class="card-footer">
+          <div class="card-title" title="{{obj.title}}">
+            <a href="{% snapshot_base_url obj %}/index.html">
+              <h4>
+                {% if obj.is_archived %}
+                    <img src="{% snapshot_base_url obj %}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
+                {% else %}
+                    <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
+                {% endif %}
+                <span class="title-text">{{obj.title|default:'Pending...' }}</span>
+              </h4>
+            </a>
+          </div>
+          <code class="card-url" title="{{obj.url}}">{{obj.url}}</code>
+          <div class="card-media">
+            <a href="{% snapshot_base_url obj %}/index.html" class="card-thumbnail">
+              {% snapshot_thumbnail obj admin=True width="100%" height="245px" %}
+            </a>
               {% if obj.tags_str %}
                 <div class="card-tags">
                   {% for tag in obj.tags_str|split:',' %}
@@ -169,20 +270,17 @@
                   {% endfor %}
                 </div>
               {% endif %}
-              <div class="card-title" title="{{obj.title}}">
-                <a href="/{{obj.archive_path}}/index.html">
-                  <h4>
-                    {% if obj.is_archived %}
-                        <img src="/{{obj.archive_path}}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
-                    {% else %}
-                        <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
-                    {% endif %}
-                    <span class="title-text">{{obj.title|default:'Pending...' }}</span>
-                  </h4>
-                </a>
-                <code title="{{obj.url}}">{{obj.url}}</code>
+          </div>
+          <div class="card-outputs">
+            {% if obj.status == 'started' %}
+              <div class="card-progress">
+                <span class="snapshot-progress-spinner"></span>
+                <span class="progress-text">Archiving...</span>
               </div>
-          </div> 
+            {% else %}
+              {{ obj.icons|safe }}
+            {% endif %}
+          </div>
       </div>
     {% endfor %}
   </section>

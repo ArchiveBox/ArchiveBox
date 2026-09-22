@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+{% load core_tags %}
 <html lang="en">
     <head>
         <title>Archived Sites</title>
@@ -8,15 +9,18 @@
         <table id="table-bookmarks">
             <thead>
                 <tr class="thead-tr">
-                    <th style="width: 100px;">Bookmarked</th>
-                    <th style="width: 26vw;">Saved Link ({{num_links}})</th>
-                    <th style="width: 50px">Files</th>
-                    <th style="width: 16vw;whitespace:nowrap;overflow-x:hidden;">Original URL</th>
+                    <th class="snapshot-time">Saved</th>
+                    <th class="snapshot-preview-cell">Preview</th>
+                    <th>Snapshot ({{num_links}})</th>
+                    <th class="snapshot-tags-cell">Tags</th>
+                    <th class="snapshot-status-cell">Status</th>
+                    <th class="snapshot-files-cell">Files</th>
+                    <th class="snapshot-size-cell">Size</th>
                 </tr>
             </thead>
             <tbody>
                 {% for link in links %}
-                    {% include "index_row.html" with link=link %} 
+                    {% snapshot_index_row link %}
                 {% endfor %}
             </tbody>
         </table>

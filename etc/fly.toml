@@ -16,7 +16,7 @@ destination="/data"
 
 [[services]]
   http_checks = []
-  internal_port = 8000
+  internal_port = 5797
   protocol = "tcp"
   script_checks = []
 

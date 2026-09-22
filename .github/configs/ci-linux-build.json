@@ -1,0 +1,81 @@
+{
+  "properties": {
+    "CC_BINARY": {
+      "default": "cc"
+    },
+    "LDAPSEARCH_BINARY": {
+      "default": "ldapsearch"
+    },
+    "INITDB_BINARY": {
+      "default": "initdb"
+    },
+    "PG_CTL_BINARY": {
+      "default": "pg_ctl"
+    }
+  },
+  "required_binaries": [
+    {
+      "name": "{CC_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "build-essential"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{LDAPSEARCH_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "env": {
+          "version": [
+            "ldapsearch",
+            "-VV"
+          ]
+        },
+        "apt": {
+          "install_args": [
+            "ldap-utils",
+            "python3-dev",
+            "python3-setuptools",
+            "libssl-dev",
+            "libldap2-dev",
+            "libsasl2-dev",
+            "zlib1g-dev",
+            "libatomic1"
+          ],
+          "version": [
+            "ldapsearch",
+            "-VV"
+          ]
+        }
+      }
+    }
+  ],
+  "postgres_binaries": [
+    {
+      "name": "{INITDB_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "postgresql"
+          ]
+        }
+      }
+    },
+    {
+      "name": "{PG_CTL_BINARY}",
+      "binproviders": "env,apt",
+      "overrides": {
+        "apt": {
+          "install_args": [
+            "postgresql"
+          ]
+        }
+      }
+    }
+  ]
+}

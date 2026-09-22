@@ -1,0 +1,165 @@
+name: Parallel Tests
+
+on:
+  workflow_call:
+    inputs:
+      test_file:
+        description: Run one discovered test file; empty runs the complete matrix
+        required: false
+        default: ""
+        type: string
+
+env:
+  PYTHONIOENCODING: utf-8
+  PYTHONLEGACYWINDOWSSTDIO: utf-8
+  USE_COLOR: False
+  UV_NO_SOURCES: "1"
+  CI_PYTHON_VERSION: "3.13"
+
+jobs:
+  discover-tests:
+    name: Discover every test
+    runs-on: ubuntu-24.04
+    outputs:
+      tests: ${{ steps.discover.outputs.tests }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+          cache-dependency-glob: uv.lock
+
+      - name: Resolve discovery tools through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/abx-lib
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+          test -n "$ABXPKG_SPEC"
+          mkdir -p "$ABXPKG_LIB_DIR/env/bin"
+          export PYTHON_BINARY="$pythonLocation/bin/python"
+          test -x "$PYTHON_BINARY"
+          uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env \
+            --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries"
+          {
+            echo "PYTHON_BINARY=$ABXPKG_LIB_DIR/env/bin/python"
+            echo "JQ_BINARY=$ABXPKG_LIB_DIR/env/bin/jq"
+          } >> "$GITHUB_ENV"
+          test -L "$ABXPKG_LIB_DIR/env/bin/python"
+          test -x "$ABXPKG_LIB_DIR/env/bin/python"
+          test -L "$ABXPKG_LIB_DIR/env/bin/jq"
+          test -x "$ABXPKG_LIB_DIR/env/bin/jq"
+
+      - name: Discover every test exactly once
+        id: discover
+        env:
+          TEST_FILE: ${{ inputs.test_file }}
+        run: |
+          set -Eeuo pipefail
+          mapfile -t output < <("$PYTHON_BINARY" .github/scripts/discover_test_matrix.py)
+          test "${#output[@]}" -eq 2
+          if [[ -n "$TEST_FILE" ]]; then
+            output[1]="$("$JQ_BINARY" -ce '[.[] | select(.paths == [env.TEST_FILE])] | select(length == 1)' <<< "${output[1]}")"
+          fi
+          echo "tests=${output[1]}" >> "$GITHUB_OUTPUT"
+          echo "${output[0]}"
+          "$JQ_BINARY" -e 'length > 0 and length <= 256 and ([.[].paths[]] | length == (unique | length))' <<< "${output[1]}"
+
+  tests:
+    name: ${{ matrix.test.name }}
+    needs: discover-tests
+    runs-on: ubuntu-24.04
+    env:
+      ABXPKG_LIB_DIR: /tmp/archivebox-lib
+      CHROME_HEADLESS: "true"
+      DATA_DIR: /tmp/archivebox-test-data
+      PERSONAS_DIR: /tmp/abx-personas
+      CHROME_USER_DATA_DIR: /tmp/abx-personas/Default/chrome_profile
+
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJson(needs.discover-tests.outputs.tests) }}
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+          fetch-depth: 1
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+          architecture: x64
+
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+          cache-dependency-glob: uv.lock
+
+      - name: Resolve optional build dependencies through abxpkg
+        if: matrix.test.extra != '' || contains(matrix.test.paths_arg, 'test_postgres_backend')
+        env:
+          TEST_EXTRA: ${{ matrix.test.extra }}
+          TEST_PATHS: ${{ matrix.test.paths_arg }}
+        run: |
+          set -Eeuo pipefail
+          ABXPKG_SPEC="$(uv run --no-cache --no-project python -c 'import tomllib; package = next(item for item in tomllib.load(open("uv.lock", "rb"))["package"] if item["name"] == "abxpkg"); wheel = package["wheels"][0]; print("abxpkg @ {}#{}".format(wheel["url"], wheel["hash"].replace(":", "=")))')"
+          test -n "$ABXPKG_SPEC"
+          dependency_sources=()
+          if [[ -n "$TEST_EXTRA" ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries")
+          fi
+          if [[ "$TEST_PATHS" == *test_postgres_backend* ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:postgres_binaries")
+          fi
+          uv run --no-cache --no-project --with "$ABXPKG_SPEC" abxpkg env \
+            --install \
+            --no-cache \
+            --json \
+            --lib="$ABXPKG_LIB_DIR" \
+            "${dependency_sources[@]}"
+
+      - name: Install test dependencies
+        env:
+          TEST_EXTRA: ${{ matrix.test.extra }}
+        run: |
+          set -Eeuo pipefail
+          extra_args=()
+          if [[ -n "$TEST_EXTRA" ]]; then
+            extra_args=(--extra "$TEST_EXTRA")
+          fi
+          uv sync --no-cache --locked --dev "${extra_args[@]}"
+
+      - name: Run ${{ matrix.test.name }}
+        env:
+          TEST_PATHS: ${{ matrix.test.paths_arg }}
+        run: |
+          set -Eeuo pipefail
+          read -r -a test_paths <<< "$TEST_PATHS"
+          for test_path in "${test_paths[@]}"; do
+            test -f "$test_path"
+          done
+          for test_path in "${test_paths[@]}"; do
+            test_name="$(basename "$test_path" .py)"
+            test_slug="${test_name//[^A-Za-z0-9_.-]/_}"
+            export DATA_DIR="$RUNNER_TEMP/archivebox-test-data/$test_slug"
+            export PERSONAS_DIR="$RUNNER_TEMP/abx-personas/$test_slug"
+            export CHROME_USER_DATA_DIR="$PERSONAS_DIR/Default/chrome_profile"
+            mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest/$test_slug"
+            uv run --no-cache --no-sync --no-sources pytest -vs "$test_path" \
+              --basetemp="$RUNNER_TEMP/pytest/$test_slug"
+          done

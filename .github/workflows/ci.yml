@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+  packages: write
+  security-events: write
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'workflow_dispatch' && format('manual-{0}', github.run_id) || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  lint:
+    name: Linters
+    uses: ./.github/workflows/lint.yml
+    secrets: inherit
+
+  install-cli-platform:
+    name: Install and CLI platform compatibility
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  tests:
+    name: Discovered test matrix
+    uses: ./.github/workflows/test-parallel.yml
+    secrets: inherit
+
+  documentation:
+    name: Documentation and root tests
+    uses: ./.github/workflows/docs.yml
+    secrets: inherit
+
+  codeql:
+    name: CodeQL
+    uses: ./.github/workflows/codeql.yml
+    secrets: inherit
+
+  python-artifacts:
+    name: Tested Python artifacts
+    uses: ./.github/workflows/pip.yml
+    secrets: inherit
+
+  docker-digests:
+    name: Tested Docker images
+    uses: ./.github/workflows/docker.yml
+    with:
+      push_digests: false
+    secrets: inherit
+
+  required:
+    name: All required CI lanes
+    if: ${{ always() }}
+    needs:
+      - lint
+      - install-cli-platform
+      - tests
+      - documentation
+      - codeql
+      - python-artifacts
+      - docker-digests
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify every required lane succeeded
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          INSTALL_CLI_PLATFORM_RESULT: ${{ needs.install-cli-platform.result }}
+          TESTS_RESULT: ${{ needs.tests.result }}
+          DOCUMENTATION_RESULT: ${{ needs.documentation.result }}
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          PYTHON_ARTIFACTS_RESULT: ${{ needs.python-artifacts.result }}
+          DOCKER_DIGESTS_RESULT: ${{ needs.docker-digests.result }}
+        run: |
+          for result in \
+            "$LINT_RESULT" \
+            "$INSTALL_CLI_PLATFORM_RESULT" \
+            "$TESTS_RESULT" \
+            "$DOCUMENTATION_RESULT" \
+            "$CODEQL_RESULT" \
+            "$PYTHON_ARTIFACTS_RESULT" \
+            "$DOCKER_DIGESTS_RESULT"
+          do
+            [[ "$result" == success ]]
+          done
+          echo 'All required CI lanes and tested release artifacts succeeded.'

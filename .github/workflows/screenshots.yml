@@ -1,0 +1,71 @@
+name: Capture publicsite screenshots
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - archivebox/**
+      - bin/collect_ui_screenshots.*
+      - bin/generate_ui_screenshot_gallery.py
+      - bin/take_screenshot.js
+      - docs/Screenshots.md
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/screenshots.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.event_name == 'workflow_dispatch' && format('publicsite-captures-manual-{0}', github.run_id) || 'publicsite-captures' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python and uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Install ArchiveBox and screenshot dependencies
+        run: uv sync --no-cache --frozen
+
+      - name: Build UI screenshot gallery
+        run: bin/collect_ui_screenshots.sh
+        env:
+          BASE_URL: http://archivebox.localhost:5797
+
+      - name: Verify gallery was generated from this exact revision
+        run: |
+          uv run --no-cache --no-sync python - <<'PY'
+          import json
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          provenance = json.loads(Path("publicsite/screenshots/build.json").read_text())
+          version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
+          assert provenance["revision"] == os.environ["GITHUB_SHA"], provenance
+          assert provenance["version"] == version, provenance
+          assert provenance["capture_count"] >= 3 * 35, provenance
+          assert len(provenance["files"]) == provenance["capture_count"], provenance
+          assert all(not re.match(r"^\d+-", name) for name in provenance["files"]), provenance
+          PY
+
+      - name: Save validated screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-screenshots
+          path: publicsite/screenshots
+          if-no-files-found: error
+          retention-days: 90

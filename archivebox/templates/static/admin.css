@@ -1,8 +1,8 @@
-* {
+/* * {
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
     box-sizing: border-box;
-}
+} */
 
 #logo {
     height: 30px;
@@ -35,6 +35,30 @@
     font-size: 13px;
 
 }
+#user-tools .navbar-logout-form {
+    display: inline;
+    margin: 0;
+}
+#user-tools button.navbar-logout {
+    appearance: none;
+    background: none;
+    border: 0;
+    color: var(--header-link-color);
+    cursor: pointer;
+    font: inherit;
+    padding: 0;
+}
+#user-tools a.navbar-add-link,
+#user-tools a.navbar-add-link:link,
+#user-tools a.navbar-add-link:visited {
+    border: 1px solid #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+.navbar-separator-wide {
+    display: inline-block;
+    width: 1em;
+}
 
 div.breadcrumbs {
     background: #772948;
@@ -46,21 +70,50 @@ div.breadcrumbs {
     height: 25px;
 }
 
+/* View Mode Switcher - Prominent Toggle */
 #snapshot-view-mode {
     float: right;
     margin-bottom: -40px;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     margin-top: 3px;
     margin-right: 10px;
-    font-size: 14px;
-    opacity: 0.8;
+    font-size: 13px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 2px;
+    gap: 2px;
 }
 #snapshot-view-mode a {
-    color: #ccc;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 12px;
+    color: #64748b;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+#snapshot-view-mode a:hover {
+    color: #334155;
+    background: #e2e8f0;
+}
+#snapshot-view-mode a.active {
+    background: #fff;
+    color: #1e293b;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+#snapshot-view-mode .view-icon {
+    font-size: 14px;
+    line-height: 1;
 }
 
-body.model-snapshot.change-list div.breadcrumbs,
-body.model-snapshot.change-list #content .object-tools {
+.model-snapshot.change-list div.breadcrumbs,
+.model-snapshot.change-list #content .object-tools {
     display: none;
 }
 
@@ -68,22 +121,87 @@ body.model-snapshot.change-list #content .object-tools {
     background: #772948;
 }
 
+#content .adv-data textarea {
+    width: 82vw;
+    max-width: 100%;
+    min-height: 100px;
+    height: auto;
+    background-color: #145454;
+    color: #f1f1fd;
+    font-size: 12px;
+    font-family: monospace;
+    border-radius: 8px;
+    line-height: 1.2;
+    padding: 6px 9px;
+}
+
+
 #content .object-tools {
     margin-top: -35px;
     margin-right: -10px;
     float: right;
 }
 
-#content .object-tools a:link, #content .object-tools a:visited {
+body.change-list #content .object-tools {
+    margin-top: 0;
+    margin-right: 0;
+    float: none;
+    display: flex;
+    justify-content: flex-end;
+    clear: both;
+}
+
+#content .object-tools a:link,
+#content .object-tools a:visited,
+#content .object-tools form button {
     border-radius: 0px;
     background-color: #f5dd5d;
     color: #333;
     font-size: 12px;
     font-weight: 800;
 }
+#content .object-tools form {
+    display: inline;
+    margin: 0;
+}
+#content .object-tools form button {
+    border: 0;
+    cursor: pointer;
+}
 
 #content .object-tools a.addlink {
     background-blend-mode: difference;
+}
+
+@media (max-width: 900px) {
+    body.change-form div.breadcrumbs {
+        overflow-wrap: anywhere;
+    }
+
+    body.change-form #content .object-tools {
+        display: flex;
+        float: none;
+        clear: both;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 0 16px;
+        padding: 0;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        box-sizing: border-box;
+    }
+
+    body.change-form #content .object-tools li {
+        min-width: 0;
+        margin: 0;
+    }
+
+    body.change-form #content .object-tools a,
+    body.change-form #content .object-tools form button {
+        white-space: normal;
+        text-align: center;
+    }
 }
 
 #content #changelist #toolbar {
@@ -92,6 +210,55 @@ body.model-snapshot.change-list #content .object-tools {
     margin-bottom: 10px;
     border-top: 0px; 
     border-bottom: 0px;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+}
+
+body.change-list:not(.model-snapshot) #content #changelist #toolbar .changelist-toolbar-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: start;
+    width: 100%;
+    min-width: 0;
+}
+
+#content #changelist #toolbar #changelist-search,
+#content #changelist #toolbar #changelist-search > div {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#content #changelist #toolbar #changelist-search > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: center;
+}
+
+#content #changelist #toolbar .changelist-search-submit {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    min-width: 0 !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    clip-path: inset(50%) !important;
+    border: 0 !important;
+    white-space: nowrap !important;
+}
+
+#content #changelist #toolbar #searchbar {
+    width: clamp(180px, 32vw, 420px);
+    max-width: 100%;
+    flex: 0 1 auto;
 }
 
 #content #changelist #toolbar form input[type="submit"] {
@@ -103,30 +270,8 @@ body.model-snapshot.change-list #content .object-tools {
 }
 
 
-/*#content #changelist .actions {
-    position: fixed;
-    bottom: 0px;
-    z-index: 800;
-}*/
-#content #changelist .actions {
-    float: right;
-    margin-top: -34px;
-    padding: 0px;
-    background: none;
-    margin-right: 0px;
-    width: auto;
-    max-height: 40px;
-    overflow: hidden;
-    display: block;
-}
-@media (max-width: 1000px) {
-    #content #changelist .actions {
-        max-height: 200px;
-    }
-}
-
 #content #changelist .actions .button {
-    border-radius: 2px;
+    border-radius: 0px;
     background-color: #f5dd5d;
     color: #333;
     font-size: 12px;
@@ -144,11 +289,11 @@ body.model-snapshot.change-list #content .object-tools {
     color: #333;
 }
 #content #changelist .actions .button[name=update_snapshots] {
-    background-color:lightseagreen;
+    background-color: #9ee54b;
     color: #333;
 }
 #content #changelist .actions .button[name=resnapshot_snapshot] {
-    background-color: #9ee54b;
+    background-color:lightseagreen;
     color: #333;
 }
 #content #changelist .actions .button[name=overwrite_snapshots] {
@@ -166,19 +311,650 @@ body.model-snapshot.change-list #content .object-tools {
     margin-right: 25px;
 }
 
-#content #changelist .actions .select2-selection {
+#content #changelist .actions > label {
     max-height: 25px;
 }
-#content #changelist .actions .select2-container--admin-autocomplete.select2-container {
+#content #changelist .actions > label {
     width: auto !important;
     min-width: 90px;
 }
-#content #changelist .actions .select2-selection__rendered .select2-selection__choice {
+#content #changelist .actions > label > select {
     margin-top: 3px;
 }
 
+body.change-list:not(.model-snapshot) #changelist .changelist-form-container > div {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px 12px;
+    min-width: 0;
+}
+
+body.change-list:not(.model-snapshot) #changelist #toolbar {
+    flex: 2 1 520px;
+    min-width: min(100%, 420px);
+    margin: 0 !important;
+}
+
+body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search,
+body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search > div {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal !important;
+}
+
+body.change-list:not(.model-snapshot) #changelist #toolbar #searchbar {
+    flex: 1 1 220px;
+    min-width: 180px;
+    width: auto;
+}
+
+body.change-list:not(.model-snapshot) #changelist #toolbar .search-mode-selector {
+    flex: 1 1 300px !important;
+    flex-wrap: wrap !important;
+    margin-left: 0 !important;
+    min-width: 260px;
+    white-space: normal !important;
+}
+
+body.change-list #changelist #changelist-form {
+    display: contents;
+}
+
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top {
+    flex: 3 1 560px;
+    width: auto;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin-left: auto;
+    flex-wrap: wrap !important;
+    overflow: visible;
+    align-items: flex-start;
+    align-content: flex-start;
+}
+
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-left {
+    flex: 0 1 auto;
+    flex-wrap: wrap !important;
+    min-width: 0;
+    align-items: flex-start;
+}
+
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-right {
+    margin-left: 0;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .action-buttons {
+    display: flex !important;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+
+body.change-list:not(.model-snapshot) #changelist .actions-tags-with-buttons {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 280px;
+    min-width: 220px;
+    max-width: 420px;
+}
+
+body.change-list:not(.model-snapshot) #changelist .actions-tags-with-buttons .tag-editor-container {
+    flex: 1 1 180px;
+    width: auto;
+    max-width: none;
+}
+
+body.change-list:not(.model-snapshot) #content #changelist .actions-tags-with-buttons .button[name="add_tags"],
+body.change-list:not(.model-snapshot) #content #changelist .actions-tags-with-buttons .button[name="remove_tags"] {
+    flex: 0 0 30px;
+    width: 30px;
+    min-width: 30px;
+    padding-left: 0;
+    padding-right: 0;
+    margin: 0;
+    justify-content: center;
+}
+
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-bottom,
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .results,
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .changelist-footer,
+body.change-list:not(.model-snapshot) #changelist .xfull {
+    flex: 1 0 100%;
+    width: 100%;
+    max-width: 100%;
+}
+
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .results,
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .changelist-footer,
+body.change-list:not(.model-snapshot) #changelist #toolbar,
+body.change-list:not(.model-snapshot) #changelist .xfull {
+    margin-right: 0 !important;
+}
+
+body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.model-snapshot.change-list #result_list {
+    min-width: 1060px;
+}
+
+@media (max-width: 1180px) {
+    body.change-list #changelist {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    body.change-list #changelist-filter {
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #toolbar,
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top {
+        flex: 1 0 100%;
+        width: 100%;
+        margin-left: 0;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar .small.quiet {
+        flex: 1 0 100%;
+        width: 100%;
+        white-space: normal;
+        text-align: left;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}
+
+@media (max-width: 1180px) {
+    body.change-list #content,
+    body.change-list #content-main,
+    body.change-list #changelist,
+    body.change-list #changelist .changelist-form-container,
+    body.change-list:not(.model-snapshot) #changelist .changelist-form-container > div {
+        max-width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+    }
+
+    body.change-list #changelist .changelist-form-container > div {
+        gap: 8px;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search > div {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 7px;
+        align-items: center;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar .search-input-wrap {
+        grid-column: 1;
+        min-width: 0;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar .changelist-search-submit {
+        grid-column: 2;
+        flex: none !important;
+        width: auto !important;
+        min-width: 76px;
+        white-space: nowrap;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar .search-mode-selector {
+        grid-column: 1 / -1;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        flex: none !important;
+        width: 100% !important;
+        max-width: 100%;
+        min-width: 0;
+        gap: 6px !important;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar .small.quiet {
+        grid-column: 1 / -1;
+        flex: none !important;
+        width: 100% !important;
+        max-width: 100%;
+        min-width: 0;
+        white-space: normal;
+        text-align: left;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar .search-mode-selector label {
+        justify-content: center;
+        min-width: 0 !important;
+        width: 100%;
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top {
+        padding: 8px;
+        gap: 8px;
+        overflow-x: visible !important;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-left,
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-right,
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .action-buttons {
+        width: 100%;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-right {
+        justify-content: flex-start;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-left {
+        display: grid !important;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        white-space: normal !important;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .action-buttons {
+        display: flex !important;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist .actions .button {
+        flex: 1 1 135px;
+        width: auto;
+        min-height: 30px;
+        margin: 0;
+        justify-content: center;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist .actions .button[name="add_tags"],
+    body.change-list:not(.model-snapshot) #content #changelist .actions .button[name="remove_tags"] {
+        flex: 0 0 48px;
+        width: 48px;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .action-buttons .button[name="resnapshot_snapshot"],
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .action-buttons .button[name="update_snapshots"],
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .action-buttons .button[name="overwrite_snapshots"],
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .action-buttons .button[name="delete_snapshots"] {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-right {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-tags-with-buttons {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-basis: 100% !important;
+        min-width: 0;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .actions-tags-with-buttons .tag-editor-container {
+        width: auto !important;
+        max-width: none !important;
+        flex: 1 1 160px !important;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #changelist-form > .actions-top .action-counter {
+        width: 100%;
+        white-space: normal;
+    }
+
+}
+
+@media (max-width: 520px) {
+    #container {
+        width: 100%;
+        min-width: 0 !important;
+    }
+
+    #header {
+        height: auto !important;
+        min-height: 0;
+        flex-shrink: 0 !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        gap: 4px;
+    }
+
+    #branding {
+        flex: none !important;
+        width: 100%;
+        text-align: center;
+    }
+
+    #user-tools {
+        width: 100%;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 1.8;
+        text-align: center;
+        white-space: normal !important;
+        overflow-wrap: anywhere;
+}
+
+@media (max-width: 430px) {
+    #user-tools {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        line-height: 1.2;
+        overflow-wrap: normal;
+    }
+
+    #user-tools .navbar-item {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 32px;
+        padding: 5px 8px;
+        border-radius: 5px;
+        white-space: nowrap;
+    }
+
+    #user-tools a.navbar-add-link,
+    #user-tools a.navbar-add-link:link,
+    #user-tools a.navbar-add-link:visited {
+        padding: 5px 8px;
+    }
+
+    #user-tools .navbar-item:where(
+        .navbar-log,
+        .navbar-tags,
+        .navbar-docs,
+        .navbar-api,
+        .navbar-admin,
+        .navbar-user,
+        .navbar-account
+    ),
+    #user-tools .navbar-separator {
+        display: none;
+    }
+}
+
+body.change-list:not(.model-snapshot) #changelist #toolbar,
+    body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search,
+    body.change-list:not(.model-snapshot) #changelist #toolbar #changelist-search > div {
+        width: 100%;
+        min-width: 0;
+    }
+
+    body.change-list:not(.model-snapshot) #changelist #toolbar .search-input-wrap {
+        height: 40px;
+    }
+
+    body.change-list:not(.model-snapshot) #content #changelist #toolbar #searchbar {
+        height: 100%;
+    }
+}
+
+/* Keep the global admin navigation on one compact row at tablet/mobile sizes. */
+@media (max-width: 1180px) {
+    #archivebox-system-warning-banner {
+        position: relative !important;
+        inset: auto !important;
+        transform: none !important;
+        width: 100%;
+        max-width: none !important;
+        padding: 6px 8px !important;
+        border-radius: 0 !important;
+        box-sizing: border-box;
+        text-align: center;
+    }
+
+    #header {
+        display: grid !important;
+        grid-template-columns: 30px minmax(0, 1fr);
+        align-items: center !important;
+        column-gap: clamp(4px, 1vw, 12px);
+        width: 100%;
+        height: auto !important;
+        min-height: 42px;
+        padding: 5px 8px;
+        box-sizing: border-box;
+    }
+
+    #branding {
+        width: auto !important;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        text-align: left;
+    }
+
+    #site-name {
+        margin: 0;
+        line-height: 1;
+    }
+
+    #site-name a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        overflow: hidden;
+    }
+
+    #site-name .branding-label {
+        display: none;
+    }
+
+    #site-name #logo,
+    #site-name img {
+        display: block;
+        width: auto;
+        height: auto !important;
+        max-width: 28px;
+        max-height: 28px;
+        margin: 0;
+        padding: 0;
+        object-fit: contain;
+    }
+
+    #user-tools {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: center;
+        justify-content: flex-end;
+        gap: clamp(3px, 0.7vw, 10px);
+        width: 100%;
+        min-width: 0;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+        line-height: 1.2;
+        text-align: right;
+        white-space: nowrap !important;
+    }
+
+    #user-tools .navbar-item {
+        flex: 0 0 auto;
+        min-width: 0;
+        white-space: nowrap;
+    }
+
+    #user-tools .navbar-user {
+        display: inline-flex;
+        flex: 0 1 min(18vw, 180px);
+        min-width: 0;
+        max-width: min(18vw, 180px);
+        gap: 4px;
+        overflow: hidden;
+    }
+
+    #user-tools .navbar-user-label {
+        display: none;
+    }
+
+    #user-tools .navbar-username {
+        display: block;
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #user-tools .navbar-separator {
+        display: none;
+    }
+}
+
+@media (max-width: 520px) {
+    #header {
+        grid-template-columns: 26px minmax(0, 1fr);
+        column-gap: 4px;
+        min-height: 38px;
+        padding: 4px 6px;
+    }
+
+    #site-name a,
+    #site-name #logo,
+    #site-name img {
+        width: 26px;
+        height: 26px !important;
+    }
+
+    #site-name #logo,
+    #site-name img {
+        width: auto;
+        height: auto !important;
+        max-width: 24px;
+        max-height: 24px;
+    }
+
+    #user-tools {
+        justify-content: space-between;
+        gap: 2px;
+        font-size: 11px;
+    }
+
+    #user-tools .navbar-item {
+        min-height: 28px;
+        padding: 4px 3px;
+        border-radius: 4px;
+    }
+
+    #user-tools a.navbar-add-link,
+    #user-tools a.navbar-add-link:link,
+    #user-tools a.navbar-add-link:visited {
+        padding: 4px 5px;
+    }
+
+    #user-tools .navbar-item:where(
+        .navbar-log,
+        .navbar-tags,
+        .navbar-docs,
+        .navbar-api,
+        .navbar-admin,
+        .navbar-user,
+        .navbar-account
+    ) {
+        display: none;
+    }
+}
+
+/* Filter Sidebar - Improved Layout */
+#content #changelist-filter {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
 #content #changelist-filter h2 {
-    border-radius: 4px 4px 0px 0px;
+    border-radius: 0;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 12px;
+    margin: 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+#content #changelist-filter h3 {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 10px 12px 4px;
+    margin: 0;
+    background: transparent;
+}
+#content #changelist-filter ul {
+    padding: 0 6px 8px;
+    margin: 0;
+    list-style: none;
+}
+#content #changelist-filter li {
+    margin: 0;
+}
+#content #changelist-filter li a {
+    display: block;
+    padding: 6px 10px;
+    color: #475569;
+    text-decoration: none;
+    font-size: 12px;
+    border-radius: 5px;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#content #changelist-filter li a:hover {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+#content #changelist-filter li.selected a {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 500;
+}
+#content #changelist-filter-clear {
+    padding: 8px 12px;
+    margin: 0;
+    border-bottom: 1px solid #e2e8f0;
+    background: #fef2f2;
+}
+#content #changelist-filter-clear a {
+    color: #dc2626;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+}
+#content #changelist-filter-clear a:hover {
+    text-decoration: underline;
 }
 
 #changelist .paginator {
@@ -189,25 +965,15 @@ body.model-snapshot.change-list #content .object-tools {
 @media (min-width: 767px) {
     #content #changelist-filter {
         top: 35px;
-        width: 110px;
+        width: 160px;
         margin-bottom: 35px;
     }
 
     .change-list .filtered .results,
-    .change-list .filtered .paginator, 
-    .filtered #toolbar, 
+    .change-list .filtered .paginator,
+    .filtered #toolbar,
     .filtered div.xfull {
-        margin-right: 115px;
-    }
-}
-
-@media (max-width: 1127px) {
-    #content #changelist .actions {
-        position: fixed;
-        bottom: 6px;
-        left: 10px;
-        float: left;
-        z-index: 1000;
+        margin-right: 168px;
     }
 }
 
@@ -216,6 +982,32 @@ body.model-snapshot.change-list #content .object-tools {
     max-width: 28px;
     vertical-align: -5px;
     padding-right: 6px;
+}
+
+#content img.snapshot-preview {
+    width: 30px;
+    height: 30px;
+    max-width: 30px;
+    max-height: 30px;
+    object-fit: contain;
+    border-radius: 4px;
+    display: block;
+    margin: 0 auto;
+}
+
+#content img.snapshot-preview.screenshot {
+    width: 100px;
+    height: 100px;
+    max-width: 100px;
+    max-height: 100px;
+    object-fit: cover;
+    object-position: top center;
+}
+
+#content th.field-preview_icon,
+#content td.field-preview_icon {
+    width: 100px;
+    max-width: 100px;
 }
 
 #content td, #content th {
@@ -239,10 +1031,310 @@ body.model-snapshot.change-list #content .object-tools {
 
 #content th.field-title_str {
     min-width: 300px;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#content td.field-title_str {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#content th.field-preview_icon,
+#content td.field-preview_icon {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#content th.column-created_at,
+#content tbody th.field-created_at {
+    width: 1%;
+    white-space: nowrap;
+}
+
+#content th.column-action-checkbox,
+#content th.action-checkbox-column,
+#content td.action-checkbox {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+body.change-list:not(.model-snapshot) #result_list th.action-checkbox-column,
+body.change-list:not(.model-snapshot) #result_list td.action-checkbox {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    box-sizing: border-box;
+    text-align: center;
+    background: inherit;
+}
+
+body.change-list:not(.model-snapshot) #result_list th.action-checkbox-column {
+    z-index: 3;
+    background: #f8fafc;
+}
+
+body.change-list:not(.model-snapshot) #result_list th.action-checkbox-column input,
+body.change-list:not(.model-snapshot) #result_list td.action-checkbox input {
+    display: block;
+    margin: 0 auto;
+}
+
+#content th.field-preview_icon,
+#content td.field-preview_icon {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+body.model-snapshot.change-list #result_list col.snapshot-permissions-col,
+body.model-snapshot.change-list #result_list th.column-permissions_badge,
+body.model-snapshot.change-list #result_list td.field-permissions_badge,
+body.model-crawl.change-list #result_list col.snapshot-permissions-col,
+body.model-crawl.change-list #result_list th.column-permissions_badge,
+body.model-crawl.change-list #result_list td.field-permissions_badge {
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
+}
+
+body.model-snapshot.change-list #result_list th.column-permissions_badge,
+body.model-snapshot.change-list #result_list td.field-permissions_badge,
+body.model-crawl.change-list #result_list th.column-permissions_badge,
+body.model-crawl.change-list #result_list td.field-permissions_badge {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    text-align: center !important;
+    overflow: visible;
+}
+
+body.model-snapshot.change-list #result_list th.column-permissions_badge .text,
+body.model-snapshot.change-list #result_list th.column-permissions_badge .text span,
+body.model-crawl.change-list #result_list th.column-permissions_badge .text,
+body.model-crawl.change-list #result_list th.column-permissions_badge .text span {
+    display: inline-flex !important;
+    width: 22px !important;
+    min-width: 22px !important;
+    justify-content: center !important;
+    padding: 0 !important;
+}
+
+body.model-crawl.change-list #result_list th.column-short_id,
+body.model-crawl.change-list #result_list td.field-short_id {
+    width: 70px !important;
+    min-width: 70px !important;
+    max-width: 70px !important;
+}
+
+body.model-crawl.change-list #result_list th.column-short_id,
+body.model-crawl.change-list #result_list td.field-short_id {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+}
+
+body.model-crawl.change-list #result_list td.field-short_id a {
+    display: inline-block;
+    max-width: 62px;
+    overflow: hidden;
+    text-overflow: clip;
+    white-space: nowrap;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+}
+
+.snapshot-permissions-quick {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.snapshot-permissions-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+}
+
+.snapshot-permissions-button:hover .snapshot-permissions-icon,
+.snapshot-permissions-button:focus .snapshot-permissions-icon {
+    box-shadow: 0 0 0 2px #bfdbfe;
+}
+
+.snapshot-permissions-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 1;
+}
+
+.snapshot-permissions-menu {
+    position: absolute;
+    top: 26px;
+    left: 0;
+    z-index: 30;
+    min-width: 126px;
+    padding: 4px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+}
+
+.snapshot-permissions-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 30px;
+    padding: 0 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+
+.snapshot-permissions-menu-item:hover,
+.snapshot-permissions-menu-item.is-active {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+#content th.column-created_at,
+#content tbody th.field-created_at {
+    padding-left: 6px;
+    padding-right: 6px;
+}
+
+#content th.column-action-checkbox,
+#content th.action-checkbox-column,
+#content td.action-checkbox {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#content th.field-status_with_progress,
+#content td.field-status_with_progress {
+    padding-left: 2px;
+    padding-right: 2px;
+    width: 90px;
+    max-width: 90px;
+}
+
+#content th.field-size_with_stats,
+#content td.field-size_with_stats {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#content th.field-files,
+#content td.field-files {
+    padding-left: 2px;
+    padding-right: 2px;
+    width: 212px;
+    max-width: 212px;
+}
+
+#content th.field-files,
+#content td.field-files {
+    padding-left: 2px;
+    padding-right: 2px;
+    width: 212px;
+    max-width: 212px;
+}
+
+#content th.field-size_with_stats,
+#content td.field-size_with_stats {
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#content th.field-status_with_progress,
+#content td.field-status_with_progress {
+    padding-left: 2px;
+    padding-right: 2px;
+    width: 90px;
+    max-width: 90px;
+}
+
+#content th.field-tags_inline,
+#content td.field-tags_inline {
+    max-width: 400px;
+    width: 380px;
+    min-width: 340px;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#content td.field-tags_inline .tag-pills-inline {
+    flex-wrap: wrap;
+}
+
+#content td.field-tags_inline .tag-editor-inline {
+    max-width: 400px;
+}
+
+#content td.field-tags_inline .tag-editor-inline.readonly {
+    padding-right: 0;
+}
+
+#content th.field-tags_inline,
+#content td.field-tags_inline {
+    max-width: 220px;
+    width: 220px;
+    padding-left: 2px;
+    padding-right: 2px;
+}
+
+#content td.field-tags_inline .tag-pills-inline {
+    flex-wrap: wrap;
+}
+
+#content td.field-tags_inline .tag-editor-inline {
+    max-width: 220px;
 }
 
 #content td.field-files {
     white-space: nowrap;
+    width: 212px;
+    max-width: 212px;
+    overflow: hidden;
+}
+#content td.field-files .files-icons a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    line-height: 1;
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+}
+#content td.field-files .files-icons svg,
+#content td.field-files .files-icons img {
+    display: block;
+    margin: 0;
+    width: 16px;
+    height: 16px;
 }
 #content td.field-files .exists-True {
     opacity: 1;
@@ -289,9 +1381,116 @@ body.model-snapshot.change-list #content .object-tools {
     margin-top: 1px;
 }
 
+.files-icons {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    vertical-align: middle;
+}
+
+.files-icons--compact {
+    display: inline-grid;
+    grid-auto-flow: column;
+    grid-auto-columns: auto;
+    grid-template-rows: repeat(4, auto);
+    gap: 2px 4px;
+    justify-content: start;
+    align-content: start;
+    max-width: 212px;
+}
+
+.files-icons a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+
+.files-icons .abx-output-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    box-shadow: none;
+    font-size: 7px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0;
+}
+
+.files-icons .abx-output-icon svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
 .exists-False {
     opacity: 0.1;
     filter: grayscale(100%);
+}
+
+.archive-results-table th,
+.archive-results-table td {
+    word-break: normal;
+    overflow-wrap: normal;
+}
+
+.archive-results-table .archive-results-plugin {
+    min-width: 120px;
+    white-space: nowrap;
+}
+
+.archive-results-table .archive-results-output {
+    min-width: 180px;
+    white-space: nowrap;
+}
+
+.archive-results-table .archive-results-files {
+    width: 52px;
+    min-width: 52px;
+    white-space: nowrap;
+}
+
+.archive-results-table .archive-results-completed {
+    min-width: 96px;
+    white-space: normal;
+}
+
+.archive-results-table .archive-results-actions-cell {
+    width: 100px;
+    min-width: 100px;
+    padding: 10px 8px;
+    white-space: nowrap;
+}
+
+.archive-results-table .archive-results-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.archive-results-table .archive-results-actions a,
+.archive-results-table .archive-results-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 
@@ -308,17 +1507,238 @@ body.model-snapshot.change-list #content .object-tools {
     border-radius: 4px;
 }
 
+body.model-archiveresult.change-list #result_list td.field-cmd_str {
+    width: 180px !important;
+    max-width: 180px !important;
+    min-width: 0 !important;
+}
+
+body.model-archiveresult.change-list #result_list td.field-cmd_str > div,
+body.model-archiveresult.change-list #result_list td.field-cmd_str code {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+}
+
+.archivebox-zip-button {
+    position: relative;
+}
+
+.archivebox-zip-spinner {
+    display: none;
+    width: 1em;
+    height: 1em;
+    border: 2px solid #2563eb;
+    border-right-color: transparent;
+    border-radius: 999px;
+    animation: archivebox-zip-spin 0.75s linear infinite;
+    flex: 0 0 auto;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+    vertical-align: -0.125em;
+}
+
+.archivebox-zip-button.is-loading {
+    pointer-events: none !important;
+    opacity: 0.96;
+}
+
+.archivebox-zip-button.is-loading .archivebox-zip-spinner {
+    display: inline-block;
+}
+
+.archivebox-zip-button.is-loading .archivebox-zip-label {
+    opacity: 0.72;
+}
+
+.archivebox-zip-button[data-loading-mode="spinner-only"].is-loading {
+    gap: 0 !important;
+    justify-content: center !important;
+}
+
+.archivebox-zip-button[data-loading-mode="spinner-only"].is-loading .archivebox-zip-label {
+    flex: 0 0 0 !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 0;
+}
+
+@keyframes archivebox-zip-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+body.model-archiveresult.change-list #result_list {
+    table-layout: fixed;
+    width: 100%;
+}
+
+body.model-archiveresult.change-list #result_list th,
+body.model-archiveresult.change-list #result_list td {
+    box-sizing: border-box;
+    padding-left: 8px;
+    padding-right: 8px;
+    overflow: hidden;
+}
+
+body.model-archiveresult.change-list #result_list th.column-cmd_str,
+body.model-archiveresult.change-list #result_list td.field-cmd_str {
+    width: 180px !important;
+    max-width: 180px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
+}
+
+body.model-archiveresult.change-list #result_list th.column-details_link,
+body.model-archiveresult.change-list #result_list td.field-details_link {
+    width: 64px;
+    max-width: 64px;
+}
+
+body.model-archiveresult.change-list #result_list th.column-zip_link,
+body.model-archiveresult.change-list #result_list td.field-zip_link {
+    width: 62px;
+    max-width: 62px;
+    white-space: nowrap;
+}
+
+body.model-archiveresult.change-list #result_list th.column-created_at,
+body.model-archiveresult.change-list #result_list td.field-created_at {
+    width: 128px;
+    max-width: 128px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+body.model-archiveresult.change-list #result_list th.column-snapshot_info,
+body.model-archiveresult.change-list #result_list td.field-snapshot_info {
+    width: 150px;
+    max-width: 150px;
+}
+
+body.model-archiveresult.change-list #result_list th.column-tags_inline,
+body.model-archiveresult.change-list #result_list td.field-tags_inline {
+    width: 82px;
+    max-width: 82px;
+}
+
+body.model-archiveresult.change-list #result_list th.column-status_badge,
+body.model-archiveresult.change-list #result_list td.field-status_badge {
+    width: 84px;
+    max-width: 84px;
+}
+
+body.model-archiveresult.change-list #result_list th.column-plugin_with_icon,
+body.model-archiveresult.change-list #result_list td.field-plugin_with_icon {
+    width: 92px;
+    max-width: 92px;
+}
+
+body.model-archiveresult.change-list #result_list th.column-process_link,
+body.model-archiveresult.change-list #result_list td.field-process_link {
+    width: 56px;
+    white-space: nowrap;
+}
+
+body.model-archiveresult.change-list #result_list th.column-machine_link,
+body.model-archiveresult.change-list #result_list td.field-machine_link {
+    width: 108px;
+    max-width: 108px;
+}
+
+body.model-archiveresult.change-list #result_list th.column-output_str_display,
+body.model-archiveresult.change-list #result_list td.field-output_str_display {
+    width: 110px;
+    max-width: 110px;
+}
+
+body.model-archiveresult.change-list #result_list td.field-snapshot_info a {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.model-archiveresult.change-list #result_list td.field-machine_link a,
+body.model-archiveresult.change-list #result_list td.field-output_str_display a,
+body.model-archiveresult.change-list #result_list td.field-output_str_display span,
+body.model-archiveresult.change-list #result_list td.field-plugin_with_icon a:last-child {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+body.model-archiveresult.change-list #result_list td.field-cmd_str > div,
+body.model-archiveresult.change-list #result_list td.field-cmd_str code {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+
+body.filters-collapsed #content #changelist-filter {
+    display: none !important;
+}
+
+body.filters-collapsed .change-list .filtered .results,
+body.filters-collapsed .change-list .filtered .paginator,
+body.filters-collapsed .filtered #toolbar,
+body.filters-collapsed .filtered div.xfull {
+    margin-right: 0 !important;
+}
+
+body.filters-collapsed #content #changelist-filter {
+    display: none !important;
+}
+
+body.filters-collapsed .change-list .filtered .results,
+body.filters-collapsed .change-list .filtered .paginator,
+body.filters-collapsed .filtered #toolbar,
+body.filters-collapsed .filtered div.xfull {
+    margin-right: 0 !important;
+}
+
 #result_list tbody td.field-extractor {
     font-weight: 800;
     font-variant: small-caps;
 }
 
-#result_list tbody td.field-status {
+#result_list tbody td.field-status,
+#result_list tbody td.field-status_badge {
     font-variant: small-caps;
 }
 
+body.model-archiveresult.change-list #result_list tbody tr {
+    transition: background-color 0.15s ease, opacity 0.15s ease;
+}
+
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.started),
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.backoff) {
+    background: rgba(251, 191, 36, 0.14);
+}
+
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.failed) {
+    background: rgba(239, 68, 68, 0.12);
+}
+
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.succeeded) {
+    background: rgba(34, 197, 94, 0.11);
+}
+
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.skipped),
+body.model-archiveresult.change-list #result_list tbody tr:has(td.field-status_badge .status-badge.noresults) {
+    background: rgba(148, 163, 184, 0.10);
+    opacity: 0.82;
+}
+
 .inline-group .tabular td.original p {
-    margin-top: -33px;
+    margin-top: -28px;
 }
 
 tbody .output-link {
@@ -330,3 +1750,1906 @@ tbody .output-link {
     box-shadow:   4px 4px 4px rgba(0,0,0,0.1);
 }
 tbody .output-link:hover {opacity: 1;}
+
+
+
+@keyframes fadeIn {
+    0% { opacity: 0; }
+    30% { opacity: 0.1;}
+    100% { opacity: 1; }
+}
+
+.fade-in-progress-url {
+    animation: fadeIn 14s;
+}
+
+/* Snapshot Progress Spinner */
+.snapshot-progress-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #e2e8f0;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: snapshot-spin 0.8s linear infinite;
+}
+
+@keyframes snapshot-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+.status-badge.queued { background: #fef3c7; color: #f59e0b; }
+.status-badge.started { background: #dbeafe; color: #3b82f6; }
+.status-badge.sealed { background: #d1fae5; color: #10b981; }
+.status-badge.succeeded { background: #d1fae5; color: #10b981; }
+.status-badge.failed { background: #fee2e2; color: #ef4444; }
+.status-badge.backoff { background: #fef3c7; color: #f59e0b; }
+.status-badge.skipped { background: #f3f4f6; color: #6b7280; }
+.status-badge.noresults { background: #f1f5f9; color: #64748b; }
+
+/* Progress Bar */
+.snapshot-progress-bar {
+    background: #e2e8f0;
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+}
+.snapshot-progress-bar-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+    border-radius: 4px;
+}
+
+@media (max-width: 1500px) {
+    .model-snapshot.change-list #result_list {
+        display: block;
+        min-width: 0 !important;
+        width: 100% !important;
+        border-collapse: separate;
+    }
+
+    .model-snapshot.change-list #result_list thead {
+        display: none;
+    }
+
+    .model-snapshot.change-list #result_list tbody {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .model-snapshot.change-list #result_list tbody tr {
+        display: grid;
+        grid-template-columns: 24px 84px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "check preview date status"
+            "check preview title title"
+            "check preview tags tags"
+            "check preview files size";
+        gap: 5px 8px;
+        align-items: start;
+        min-width: 0;
+        margin: 0 !important;
+        padding: 10px !important;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #ffffff;
+    }
+
+    .model-snapshot.change-list #result_list tbody tr.selected {
+        border-color: #facc15;
+        background: #fffde7;
+    }
+
+    .model-snapshot.change-list #result_list tbody th,
+    .model-snapshot.change-list #result_list tbody td {
+        display: block;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-sizing: border-box;
+        overflow: visible;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.action-checkbox {
+        grid-area: check;
+        padding-top: 2px !important;
+    }
+
+    .model-snapshot.change-list #result_list tbody th.field-created_at,
+    .model-snapshot.change-list #result_list tbody td.field-created_at {
+        grid-area: date;
+        font-size: 12px;
+        color: #64748b;
+        white-space: nowrap;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-preview_icon {
+        display: grid;
+        grid-area: preview;
+        align-self: stretch;
+        place-items: center;
+        min-height: 84px;
+        overflow: hidden;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-preview_icon img.snapshot-preview.screenshot {
+        width: 80px;
+        height: 80px;
+        max-width: 80px;
+        max-height: 80px;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-title_str {
+        grid-area: title;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-title_str a {
+        display: block;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-tags_inline {
+        grid-area: tags;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-status_with_progress {
+        grid-area: status;
+        justify-self: end;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-files {
+        grid-area: files;
+        white-space: normal;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-files .files-icons,
+    .model-snapshot.change-list #result_list tbody td.field-files .files-icons--compact {
+        display: flex !important;
+        flex-wrap: wrap;
+        max-width: 100%;
+        gap: 4px;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-size_with_stats {
+        grid-area: size;
+        justify-self: end;
+        color: #64748b;
+        font-size: 12px;
+        text-align: right;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 720px) {
+    .model-snapshot.change-list #changelist #toolbar #changelist-search > div {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .model-snapshot.change-list #changelist #toolbar label[for="searchbar"] {
+        top: 0;
+    }
+
+    .model-snapshot.change-list #changelist #toolbar .search-mode-selector {
+        gap: 5px !important;
+    }
+
+    .model-snapshot.change-list #changelist #toolbar .search-mode-selector label {
+        font-size: 12px !important;
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .model-snapshot.change-list #result_list tbody {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 8px;
+    }
+}
+
+.model-snapshot.change-list .cards {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+    padding: 10px 8px;
+}
+
+.model-snapshot.change-list .cards .card {
+    min-width: 0;
+}
+
+.model-snapshot.change-list .cards .card .card-info {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px 8px;
+    align-items: center;
+    padding: 6px 8px;
+    text-align: left;
+}
+
+.model-snapshot.change-list .cards .card .card-info:not(.card-meta) > a {
+    grid-column: 1 / -1;
+    justify-self: center;
+    max-width: 100%;
+}
+
+.model-snapshot.change-list .cards .card .card-info.card-meta {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.model-snapshot.change-list .cards .card .card-info.card-meta > a {
+    grid-column: auto;
+    justify-self: center;
+    text-align: center;
+}
+
+.model-snapshot.change-list .cards .card .card-info .timestamp {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-snapshot.change-list .cards .card .card-info.card-meta .card-size {
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-snapshot.change-list .cards .card .card-info > div {
+    min-width: 0;
+}
+
+.model-snapshot.change-list .cards .card .card-info .files-icons,
+.model-snapshot.change-list .cards .card .card-outputs .files-icons {
+    display: inline-flex !important;
+    flex-flow: row wrap !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 2px !important;
+    max-width: 100%;
+}
+
+.model-snapshot.change-list .cards .card .card-info .files-icons a,
+.model-snapshot.change-list .cards .card .card-info .files-icons .abx-output-icon,
+.model-snapshot.change-list .cards .card .card-outputs .files-icons a,
+.model-snapshot.change-list .cards .card .card-outputs .files-icons .abx-output-icon {
+    flex: 0 0 16px;
+}
+
+.model-snapshot.change-list .cards .card .card-info label {
+    display: inline-grid;
+    grid-template-columns: auto 18px;
+    gap: 8px;
+    align-items: center;
+    justify-self: end;
+    width: auto;
+    height: auto;
+    margin: 0;
+}
+
+.model-snapshot.change-list .cards .card .card-info input[type=checkbox] {
+    float: none;
+    margin: 0;
+}
+
+.model-snapshot.change-list .cards .card .card-thumbnail {
+    background: #fbfafb;
+}
+
+@media (max-width: 900px) {
+    .model-snapshot.change-list .cards {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 430px) {
+    .model-snapshot.change-list .cards {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 8px 6px;
+    }
+
+    .model-snapshot.change-list .cards .card .card-info {
+        grid-template-columns: minmax(0, 1fr) auto;
+        padding: 6px;
+    }
+
+    .model-snapshot.change-list .cards .card .card-info.card-meta {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
+    .model-snapshot.change-list #result_list tbody {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 430px) {
+    .model-snapshot.change-list #content {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    .model-snapshot.change-list #changelist #toolbar,
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top {
+        padding: 7px !important;
+    }
+
+    .model-snapshot.change-list #changelist #toolbar form input[type="submit"] {
+        min-width: 72px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .model-snapshot.change-list #changelist .actions-tags-with-buttons {
+        grid-template-columns: minmax(0, 1fr) 34px 34px;
+    }
+
+    .model-snapshot.change-list #result_list tbody tr {
+        grid-template-columns: 24px 72px minmax(0, 1fr);
+        grid-template-areas:
+            "check preview date"
+            "check preview title"
+            "check preview tags"
+            "check preview status"
+            "check preview files"
+            "check preview size";
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-preview_icon img.snapshot-preview.screenshot {
+        width: 68px;
+        height: 68px;
+        max-width: 68px;
+        max-height: 68px;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-status_with_progress,
+    .model-snapshot.change-list #result_list tbody td.field-size_with_stats {
+        justify-self: start;
+        text-align: left;
+    }
+}
+
+body.embedded-change-list #content {
+    padding: 0;
+}
+
+body.embedded-change-list #header,
+body.embedded-change-list .breadcrumbs,
+body.embedded-change-list #progress,
+body.embedded-change-list #progress-monitor,
+body.embedded-change-list #footer {
+    display: none;
+}
+
+body.embedded-change-list #content-main {
+    width: 100%;
+}
+
+body.embedded-change-list #changelist {
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+body.embedded-change-list #changelist-filter {
+    display: none;
+}
+
+body.embedded-change-list.model-snapshot.change-list #changelist .changelist-form-container {
+    display: block;
+}
+
+body.embedded-change-list.model-snapshot.change-list #toolbar,
+body.embedded-change-list.model-snapshot.change-list #changelist .actions {
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+}
+
+/* Snapshot changelist final layout pass.
+   The toolbar, action bar, results, and footer are children of the wrapper inside
+   .changelist-form-container, so the row layout has to be applied there. */
+.model-snapshot.change-list #changelist .changelist-form-container > div {
+    display: grid !important;
+    grid-template-columns: minmax(480px, 0.8fr) minmax(720px, 1.2fr);
+    gap: 8px;
+    align-items: stretch;
+}
+
+.model-snapshot.change-list #changelist #toolbar {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0 !important;
+    box-sizing: border-box;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    align-self: stretch;
+    box-sizing: border-box;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .cards,
+.model-snapshot.change-list #changelist #changelist-form > .results,
+.model-snapshot.change-list #changelist #changelist-form > .changelist-footer,
+.model-snapshot.change-list #changelist .paginator,
+.model-snapshot.change-list #changelist .xfull {
+    grid-column: 1 / -1;
+}
+
+.model-snapshot.change-list #toolbar .changelist-toolbar-row {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) 96px;
+    gap: 8px;
+    align-items: start;
+}
+
+.model-snapshot.change-list #toolbar .snapshot-view-icon-toggle {
+    display: inline-flex;
+    width: 36px;
+    min-width: 36px;
+    height: 40px;
+    padding: 0;
+    margin: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.model-snapshot.change-list #toolbar .snapshot-view-icon {
+    display: grid;
+    width: 15px;
+    height: 15px;
+    gap: 2px;
+}
+
+.model-snapshot.change-list #toolbar .snapshot-view-icon span {
+    display: block;
+    min-width: 0;
+    min-height: 0;
+    border: 1px solid #64748b;
+    border-radius: 2px;
+    background: #f8fafc;
+}
+
+.model-snapshot.change-list #toolbar .snapshot-view-icon-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+}
+
+.model-snapshot.change-list #toolbar .snapshot-view-icon-list {
+    grid-template-rows: repeat(3, 1fr);
+}
+
+.model-snapshot.change-list #toolbar .filter-pane-toggle {
+    display: inline-flex;
+    width: 96px;
+    min-width: 96px;
+    height: 40px;
+    padding: 0 10px;
+    margin: 0;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.model-snapshot.change-list #toolbar #changelist-search {
+    min-width: 0;
+}
+
+.model-snapshot.change-list #toolbar .search-mode-selector {
+    grid-column: 1 / -1;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    gap: 6px !important;
+    width: 100%;
+    min-width: 0;
+    margin: 0 !important;
+    overflow: visible;
+}
+
+.model-snapshot.change-list #toolbar .search-mode-selector .search-mode-option {
+    flex: 0 0 auto;
+    height: 28px;
+    justify-content: center;
+    padding: 4px 8px !important;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.model-snapshot.change-list #toolbar .search-mode-selector .search-mode-meta,
+.model-snapshot.change-list #toolbar .search-mode-selector .search-mode-deep {
+    min-width: 78px !important;
+}
+
+.model-snapshot.change-list #toolbar .search-mode-selector .search-mode-contents {
+    min-width: 112px !important;
+}
+
+.model-snapshot.change-list #toolbar .small.quiet {
+    grid-column: 1 / -1;
+    margin: 0 !important;
+    line-height: 1.35;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
+    display: grid !important;
+    grid-template-columns: minmax(170px, 0.65fr) minmax(280px, 1.35fr) auto;
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+    width: 100%;
+    white-space: normal !important;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 34px 34px;
+    gap: 0;
+    align-items: stretch;
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    height: 34px;
+    box-sizing: border-box;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .tag-editor-container {
+    width: auto !important;
+    max-width: none !important;
+    height: 32px !important;
+    min-height: 0 !important;
+    padding: 0 9px !important;
+    box-sizing: border-box;
+    flex: 1 1 auto !important;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: hidden;
+    flex-wrap: nowrap;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .tag-inline-input {
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .button[name="add_tags"],
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .button[name="remove_tags"] {
+    width: 34px;
+    min-width: 34px;
+    height: 32px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-left: 1px solid #cbd5e1;
+    border-radius: 0;
+    justify-content: center;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    min-width: 0;
+    width: 100%;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button {
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    padding-left: 6px;
+    padding-right: 6px;
+    font-size: 12px;
+    margin: 0;
+    justify-content: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-counter {
+    align-self: center;
+    justify-self: start;
+    white-space: nowrap;
+}
+
+@media (max-width: 1420px) {
+    .model-snapshot.change-list #changelist .changelist-form-container > div {
+        grid-template-columns: minmax(420px, 0.8fr) minmax(560px, 1.2fr);
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
+        grid-template-columns: minmax(170px, 0.55fr) minmax(340px, 1.45fr);
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button {
+        font-size: 11px;
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary {
+        grid-column: 1 / -1;
+        grid-row: auto;
+    }
+}
+
+@media (max-width: 1180px) {
+    .model-snapshot.change-list #changelist .changelist-form-container > div {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .model-snapshot.change-list #changelist #toolbar,
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top {
+        grid-column: 1;
+        grid-row: auto;
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+}
+
+@media (max-width: 520px) {
+    .model-snapshot.change-list #toolbar .changelist-toolbar-row {
+        grid-template-columns: 36px minmax(0, 1fr) 84px;
+    }
+
+    .model-snapshot.change-list #toolbar .filter-pane-toggle {
+        width: 84px;
+        min-width: 84px;
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    .model-snapshot.change-list #toolbar .search-mode-selector label span[aria-hidden="true"] {
+        display: none;
+    }
+}
+
+#toolbar .search-input-wrap {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+#toolbar .search-input-wrap:focus-within {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 1px #93c5fd;
+}
+
+#toolbar .filter-pane-toggle {
+    display: inline-flex;
+    align-self: start;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    margin: 0;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    box-shadow: none;
+    background: #ffffff;
+    box-sizing: border-box;
+    line-height: 1;
+}
+
+#toolbar .search-input-addon {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    box-sizing: border-box;
+    max-width: calc(100% - 2px);
+    padding: 0 8px;
+    border-right: 1px solid #cbd5e1;
+    border-radius: 0;
+    background: #f8fafc;
+}
+
+#toolbar .search-input-addon label[for="searchbar"],
+.model-snapshot.change-list #content #changelist #toolbar .search-input-wrap .search-input-addon label[for="searchbar"] {
+    position: static !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center !important;
+    width: 16px !important;
+    min-width: 16px !important;
+    height: 16px !important;
+    margin: 0 !important;
+    transform: none !important;
+    opacity: 0.72;
+    pointer-events: none;
+}
+
+#toolbar .search-input-addon label[for="searchbar"] img,
+.model-snapshot.change-list #content #changelist #toolbar .search-input-wrap .search-input-addon label[for="searchbar"] img {
+    display: block;
+    width: 16px;
+    height: 16px;
+}
+
+#toolbar .search-mode-select {
+    max-width: 82px;
+    height: 28px;
+    padding: 0 18px 0 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #475569;
+    font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0;
+}
+
+#toolbar .search-mode-select:focus {
+    color: #0f172a;
+}
+
+#toolbar .search-input-wrap #searchbar,
+.model-snapshot.change-list #content #changelist #toolbar .search-input-wrap #searchbar {
+    height: 100%;
+    margin: 0 !important;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: transparent;
+    box-sizing: border-box;
+    padding-left: 48px !important;
+}
+
+#toolbar .search-input-wrap-with-mode #searchbar,
+.model-snapshot.change-list #content #changelist #toolbar .search-input-wrap-with-mode #searchbar {
+    padding-left: 120px !important;
+}
+
+.model-snapshot.change-list #content #changelist #toolbar #changelist-search > div {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+}
+
+.model-snapshot.change-list #content #changelist #toolbar .search-input-wrap {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+}
+
+.model-snapshot.change-list #content #changelist #toolbar form input[type="submit"] {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+}
+
+#content form .search-input-wrap {
+    display: block !important;
+    max-width: none !important;
+    box-sizing: border-box;
+}
+
+#content form .search-input-wrap:not(.search-input-wrap-with-mode) .search-input-addon {
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    padding: 0 !important;
+}
+
+#content form .search-input-wrap #searchbar {
+    width: 100% !important;
+    max-width: none !important;
+    box-sizing: border-box;
+}
+
+/* Snapshot action row visual polish. Keep this last so older Django admin button
+   and tag-widget rules cannot leak inconsistent type styles into the row. */
+.model-snapshot.change-list #changelist #changelist-form > .actions-top,
+.model-snapshot.change-list #changelist #changelist-form > .actions-top * {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: 0;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top {
+    padding: 10px 14px !important;
+    background: #ffffff;
+    border-color: #e2e8f0;
+    border-radius: 8px;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
+    align-items: center;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons {
+    height: 40px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .tag-editor-container {
+    height: 38px !important;
+    min-height: 0 !important;
+    padding: 0 12px !important;
+    align-items: center;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .tag-inline-input {
+    font-size: 14px;
+    font-weight: 400;
+    color: #334155;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .tag-inline-input::placeholder {
+    color: #94a3b8;
+}
+
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .button[name="add_tags"],
+.model-snapshot.change-list #changelist .actions-tags-with-buttons .button[name="remove_tags"] {
+    height: 38px;
+    width: 40px;
+    min-width: 40px;
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1;
+    color: #1f2937;
+    background: #f6e46f;
+    border-left: 1px solid #d9c759;
+    box-shadow: none;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
+    grid-template-columns: repeat(4, minmax(84px, 1fr));
+    gap: 6px;
+    align-items: center;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button {
+    height: 40px;
+    min-width: 0;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 0;
+    box-shadow: none;
+    font-size: 14px !important;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #102a2c;
+    text-align: center;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="resnapshot_snapshot"] {
+    background: #4fb5ad;
+    color: #082f2c;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="update_snapshots"] {
+    background: #a8df57;
+    color: #17310b;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="overwrite_snapshots"] {
+    background: #f7ad43;
+    color: #3b2405;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="delete_snapshots"] {
+    background: #e43d79;
+    color: #fff7fb;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="set_snapshot_permissions"] {
+    background: #f6e46f;
+    color: #1f2937;
+    text-decoration: none;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-permissions-wrapper {
+    display: inline-flex;
+    min-width: 0;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-permissions-wrapper > .button {
+    width: 100%;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary {
+    display: inline-flex;
+    flex-direction: column;
+    grid-column: 3;
+    grid-row: 1;
+    gap: 3px;
+    align-items: flex-start;
+    align-self: center;
+    justify-self: start;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary .action-selected-count,
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary .action-total-count {
+    color: #475569;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary a {
+    color: #2563eb;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary .action-counter,
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary .question,
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary .all,
+.model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary .clear {
+    display: none !important;
+}
+
+body.change-list #changelist #changelist-form > .actions-top .action-summary {
+    display: inline-flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 2px;
+    margin-left: auto;
+    min-width: 0;
+    text-align: right;
+}
+
+body.change-list #changelist #changelist-form > .actions-top .action-selected-count,
+body.change-list #changelist #changelist-form > .actions-top .action-total-count {
+    display: inline-flex;
+    flex: 0 0 auto !important;
+    align-items: baseline;
+    gap: 3px;
+    width: auto !important;
+    white-space: nowrap;
+}
+
+body.change-list #changelist #changelist-form > .actions-top .action-selected-current {
+    flex: 0 0 auto !important;
+    width: auto !important;
+}
+
+@media (max-width: 1180px) {
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr);
+        width: 100%;
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary {
+        grid-column: 1;
+        grid-row: 1;
+        width: 100%;
+        max-width: 100%;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        align-items: flex-end;
+        justify-content: flex-start;
+        justify-self: stretch;
+        gap: 2px;
+        overflow: visible;
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-selected-count,
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-total-count {
+        display: inline-flex !important;
+        flex: 0 0 auto !important;
+        width: auto !important;
+        overflow: visible;
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
+        grid-template-columns: repeat(4, minmax(78px, 1fr));
+    }
+
+    .model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button {
+        padding: 0 7px;
+        font-size: 13px !important;
+    }
+}
+
+/* Snapshot search input group: mode dropdown + search icon inside the field. */
+.model-snapshot.change-list #toolbar #changelist-search > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.model-snapshot.change-list #toolbar .search-input-wrap {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.model-snapshot.change-list #toolbar .search-input-addon {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    z-index: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: 100%;
+    width: 54px;
+    min-width: 54px;
+    max-width: 54px;
+    padding: 0;
+    border-right: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: #f8fafc;
+    box-sizing: border-box;
+    cursor: pointer;
+}
+
+.model-snapshot.change-list #toolbar .search-input-wrap-with-mode .search-input-addon::before {
+    content: "";
+    position: absolute;
+    left: 12px;
+    top: 10px;
+    z-index: 6;
+    display: block;
+    width: 11px;
+    height: 11px;
+    border: 2px solid #64748b;
+    border-radius: 999px;
+    background: transparent;
+    pointer-events: none;
+}
+
+.model-snapshot.change-list #toolbar .search-input-wrap-with-mode .search-input-addon::after {
+    content: "";
+    position: absolute;
+    left: 25px;
+    top: 24px;
+    z-index: 6;
+    display: block;
+    width: 7px;
+    height: 2px;
+    border-radius: 999px;
+    background: #64748b;
+    transform: rotate(45deg);
+    pointer-events: none;
+}
+
+.model-snapshot.change-list #toolbar .search-input-wrap-with-mode .search-input-addon label[for="searchbar"],
+.model-snapshot.change-list #content #changelist #toolbar .search-input-wrap-with-mode .search-input-addon label[for="searchbar"] {
+    position: absolute !important;
+    z-index: 0;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 17px !important;
+    min-width: 17px !important;
+    height: 17px !important;
+    margin: 0 !important;
+    transform: none !important;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.model-snapshot.change-list #toolbar .search-input-wrap-with-mode .search-input-addon label[for="searchbar"] img {
+    width: 17px;
+    height: 17px;
+    display: block;
+}
+
+.model-snapshot.change-list #toolbar .search-mode-select {
+    appearance: none;
+    -webkit-appearance: none;
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 54px !important;
+    min-width: 54px !important;
+    max-width: 54px !important;
+    height: 100%;
+    padding: 0 26px 0 10px !important;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    outline: 0;
+    opacity: 1;
+    text-indent: -9999px;
+    cursor: pointer;
+    z-index: 5;
+}
+
+.model-snapshot.change-list #toolbar .search-mode-select option {
+    background: #ffffff;
+    color: #111827;
+    font-size: 14px;
+    line-height: 1.4;
+    text-indent: 0;
+}
+
+.model-snapshot.change-list #toolbar .search-mode-caret {
+    position: absolute;
+    right: 8px;
+    top: 17px;
+    display: block;
+    z-index: 6;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #475569;
+    color: transparent;
+    font-size: 0;
+    line-height: 0;
+    pointer-events: none;
+    transform: none;
+}
+
+.model-snapshot.change-list #toolbar .search-input-wrap #searchbar,
+.model-snapshot.change-list #content #changelist #toolbar .search-input-wrap #searchbar {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100% !important;
+    min-width: 0;
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 12px !important;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #ffffff;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 400;
+    box-sizing: border-box;
+}
+
+.model-snapshot.change-list #toolbar .search-input-wrap #searchbar:focus {
+    outline: 0;
+    box-shadow: none;
+}
+
+.model-snapshot.change-list #toolbar form input[type="submit"] {
+    position: absolute !important;
+}
+
+#content #changelist #toolbar .changelist-search-submit {
+    border-color: #aa1e55;
+}
+
+body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-submit {
+    flex: 0 0 auto;
+}
+
+.model-snapshot.change-list #toolbar .changelist-search-submit {
+    position: absolute !important;
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #toolbar .changelist-toolbar-row {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #changelist .changelist-form-container > div {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #changelist #toolbar,
+.snapshot-changelist-widget.model-snapshot.change-list #changelist #changelist-form > .actions-top,
+.snapshot-changelist-widget.model-snapshot.change-list #changelist #changelist-form > .cards,
+.snapshot-changelist-widget.model-snapshot.change-list #changelist #changelist-form > .results,
+.snapshot-changelist-widget.model-snapshot.change-list #changelist #changelist-form > .changelist-footer,
+.snapshot-changelist-widget.model-snapshot.change-list #changelist .paginator,
+.snapshot-changelist-widget.model-snapshot.change-list #changelist .xfull {
+    grid-column: 1;
+    grid-row: auto;
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #changelist {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    flex: none;
+    overflow: hidden;
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #changelist #changelist-form > .results {
+    overflow-x: auto;
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #toolbar .search-mode-selector {
+    flex-wrap: wrap !important;
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #toolbar #changelist-search {
+    grid-column: 1;
+    grid-row: 1;
+    display: block !important;
+    width: 100%;
+    min-width: 0;
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #toolbar #changelist-search > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    width: 100% !important;
+    min-width: 0;
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #toolbar .search-input-wrap {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: 100% !important;
+}
+
+.snapshot-changelist-widget.model-snapshot.change-list #toolbar .changelist-search-submit {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+}
+
+/* Crawl changelist: match the snapshot toolbar/action layout without the grid/list toggle. */
+.model-crawl.change-list #changelist .changelist-form-container > div {
+    display: grid !important;
+    grid-template-columns: minmax(420px, 1fr) auto;
+    grid-template-areas:
+        "toolbar actions"
+        "results results"
+        "footer footer";
+    gap: 10px 12px;
+    align-items: start;
+    min-width: 0;
+}
+
+.model-crawl.change-list #toolbar {
+    grid-area: toolbar;
+    width: auto;
+    min-width: 0;
+    margin: 0 !important;
+    position: relative;
+    z-index: 2;
+}
+
+.model-crawl.change-list #toolbar .changelist-toolbar-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 96px;
+    gap: 8px;
+    align-items: start;
+}
+
+.model-crawl.change-list #toolbar #changelist-search {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0;
+    position: relative;
+    z-index: 2;
+    pointer-events: auto;
+}
+
+.model-crawl.change-list #content #changelist #toolbar #changelist-search > div,
+.model-crawl.change-list #toolbar #changelist-search > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+        "search"
+        "count";
+    gap: 8px;
+    align-items: center;
+    width: 100% !important;
+    min-width: 0;
+    flex-wrap: nowrap !important;
+}
+
+.model-crawl.change-list #toolbar .search-input-wrap {
+    grid-area: search;
+    position: relative;
+    z-index: 3;
+    display: grid !important;
+    grid-template-columns: 46px minmax(0, 1fr);
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    height: 40px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+    box-sizing: border-box;
+    pointer-events: auto;
+}
+
+.model-crawl.change-list #toolbar .search-input-addon {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    grid-column: 1;
+    grid-row: 1;
+    width: 46px !important;
+    min-width: 46px !important;
+    max-width: 46px !important;
+    height: 100%;
+    padding: 0 !important;
+    border-right: 1px solid #e2e8f0;
+    border-radius: 0;
+    background: #f8fafc;
+    box-sizing: border-box;
+}
+
+.model-crawl.change-list #toolbar .search-input-addon label {
+    position: static !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px !important;
+    min-width: 17px !important;
+    height: 17px !important;
+    margin: 0 !important;
+    transform: none !important;
+    opacity: 0.72;
+    pointer-events: none;
+}
+
+.model-crawl.change-list #toolbar .search-input-addon img {
+    display: block;
+    width: 17px;
+    height: 17px;
+}
+
+.model-crawl.change-list #toolbar .search-input-wrap #searchbar,
+.model-crawl.change-list #content #changelist #toolbar .search-input-wrap #searchbar {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100% !important;
+    min-width: 0;
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 12px !important;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #ffffff;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 400;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 4;
+    pointer-events: auto;
+}
+
+.model-crawl.change-list #toolbar .changelist-search-submit,
+.model-crawl.change-list #toolbar .filter-pane-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    margin: 0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.model-crawl.change-list #toolbar .changelist-search-submit {
+    position: absolute !important;
+}
+
+.model-crawl.change-list #content #changelist #toolbar .small.quiet {
+    grid-area: count;
+    margin: -2px 0 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+.model-crawl.change-list #toolbar .filter-pane-toggle {
+    width: 96px;
+    min-width: 96px;
+    padding: 0 10px;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top {
+    grid-area: actions;
+    justify-self: end;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    overflow: visible;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .actions-left {
+    display: flex !important;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons {
+    display: grid !important;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(74px, auto);
+    gap: 6px;
+    align-items: center;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    min-width: 0;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 0;
+    box-shadow: none;
+    font-size: 14px !important;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    justify-content: center;
+}
+
+.model-crawl.change-list #content .object-tools {
+    display: none !important;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button::before {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    min-width: 14px;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="pause_selected_crawls"]::before {
+    content: "⏸";
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="resume_selected_crawls"]::before {
+    content: "▶";
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="seal_selected_crawls"]::before {
+    content: "✓";
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="delete_selected_batched"]::before {
+    content: "🗑";
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="set_crawl_permissions"]::before {
+    content: "👁";
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="pause_selected_crawls"] {
+    background: #4fb5ad;
+    color: #082f2c;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="resume_selected_crawls"] {
+    background: #a8df57;
+    color: #17310b;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="seal_selected_crawls"] {
+    background: #f7ad43;
+    color: #3b2405;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="delete_selected_batched"] {
+    background: #e43d79;
+    color: #fff7fb;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-buttons .button[name="set_crawl_permissions"] {
+    background: #f6e46f;
+    color: #1f2937;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-permissions-wrapper {
+    display: inline-flex;
+    min-width: 130px;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-permissions-wrapper > .button {
+    width: 100%;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-summary {
+    display: inline-flex;
+    align-items: flex-end;
+    justify-content: center;
+    height: auto;
+    min-height: 40px;
+    padding: 3px 4px;
+    margin-left: auto;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .actions-top .action-summary .action-selected-count {
+    display: inline-flex;
+    align-items: center;
+    height: auto;
+    color: inherit;
+    font: inherit;
+    line-height: 1;
+}
+
+.model-crawl.change-list #result_list .crawl-status-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+
+.model-crawl.change-list #result_list .crawl-status,
+.model-crawl.change-list #result_list .crawl-status-reason {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.model-crawl.change-list #result_list .crawl-status {
+    text-transform: uppercase;
+}
+
+.model-crawl.change-list #result_list .crawl-status--queued {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.model-crawl.change-list #result_list .crawl-status--started {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.model-crawl.change-list #result_list .crawl-status--paused {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.model-crawl.change-list #result_list .crawl-status--sealed {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.model-crawl.change-list #result_list .crawl-status-reason {
+    background: #f1f5f9;
+    color: #475569;
+    min-height: 18px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.model-crawl.change-list #result_list .crawl-status-reason--crawl_max_urls,
+.model-crawl.change-list #result_list .crawl-status-reason--crawl_max_size,
+.model-crawl.change-list #result_list .crawl-status-reason--snapshot_max_size {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.model-crawl.change-list #result_list .crawl-status-reason--crawl_timeout {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .results,
+.model-crawl.change-list #changelist #changelist-form > .changelist-footer,
+.model-crawl.change-list #changelist #changelist-form > .actions-bottom,
+.model-crawl.change-list #changelist .xfull {
+    grid-area: auto;
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: 100%;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .results {
+    grid-area: results;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.model-crawl.change-list #changelist #changelist-form > .changelist-footer {
+    grid-area: footer;
+}
+
+@media (max-width: 1180px) {
+    .model-crawl.change-list #changelist .changelist-form-container > div {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "toolbar"
+            "actions"
+            "results"
+            "footer";
+    }
+
+    .model-crawl.change-list #changelist #changelist-form > .actions-top {
+        justify-self: stretch;
+        width: 100%;
+    }
+
+    .model-crawl.change-list #changelist #changelist-form > .actions-top .actions-left {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+}
+
+@media (max-width: 720px) {
+    .model-crawl.change-list #toolbar .changelist-toolbar-row {
+        grid-template-columns: minmax(0, 1fr) 84px;
+    }
+
+    .model-crawl.change-list #toolbar .filter-pane-toggle {
+        width: 84px;
+        min-width: 84px;
+    }
+}
+
+body.change-list #changelist #changelist-form > .actions-top .action-buttons[hidden],
+body.change-list #changelist #changelist-form > .actions-top .actions-tags-with-buttons[hidden] {
+    display: none !important;
+}
+
+/* Keep the search controls and the clickable selection totals in one compact
+   toolbar row on every changelist. The action form is rendered as a sibling of
+   #toolbar, so the shared wrapper owns the two-column layout. */
+body.change-list:not(.embedded-change-list) #changelist .changelist-form-container > div {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) max-content !important;
+    grid-template-areas:
+        "toolbar counts"
+        "results results"
+        "footer footer" !important;
+    gap: 10px 8px !important;
+    align-items: start;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #toolbar {
+    grid-area: toolbar !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+}
+
+/* The action summary already exposes selected, filtered, and total counts with
+   clickable values. Django's older search-result count duplicates that data
+   below the field and makes the toolbar row taller on large result sets. */
+body.change-list:not(.embedded-change-list) #changelist #toolbar .small.quiet {
+    display: none !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top {
+    grid-area: counts !important;
+    display: flex !important;
+    align-items: center !important;
+    align-self: start !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    margin: 0 !important;
+    padding: 3px 4px 3px 0 !important;
+    box-sizing: border-box !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .actions-left {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    padding: 0 !important;
+    gap: 4px !important;
+    overflow: visible !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    color: #475569;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1.2 !important;
+    text-align: right !important;
+    white-space: nowrap !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary a,
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary span {
+    font-size: inherit !important;
+    line-height: inherit !important;
+}
+
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .cards,
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .results,
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .changelist-footer,
+body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-bottom,
+body.change-list:not(.embedded-change-list) #changelist .paginator,
+body.change-list:not(.embedded-change-list) #changelist .xfull {
+    grid-column: 1 / -1 !important;
+}
+
+/* Keep the icon/mode background inside the grouped control's border box.
+   Painting it from inset 0 covered the anti-aliased upper-left border curve. */
+#toolbar .search-input-addon {
+    left: 1px;
+    top: 1px;
+    bottom: 1px;
+    border-radius: 7px 0 0 7px;
+}
+
+/* Change forms use a dense grid so ordinary cards keep tiling even when a
+   full-width card appears earlier in document order. */
+body.change-form #content-main > form > div {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-flow: dense;
+    gap: 20px;
+    align-items: stretch;
+}
+
+body.change-form #content-main > form > div > fieldset,
+body.change-form #content-main > form > div > .module:not(.inline-group) {
+    grid-column: span 1;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
+
+body.change-form #content-main > form > div > fieldset.module.wide,
+body.change-form #content-main > form > div > .inline-group,
+body.change-form #content-main > form > div > .submit-row {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 1500px) {
+    body.change-form #content-main > form > div {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* Django's stock change-form stylesheet is loaded after the card rules in the
+   template. Reassert the shared mobile geometry here so every admin detail
+   view fills the viewport instead of retaining the desktop 320px card width. */
+@media (max-width: 900px) {
+    body.change-form #content-main > form > div {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    body.change-form #content,
+    body.change-form #content-main,
+    body.change-form #content-main > form,
+    body.change-form #content-main > form > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+    }
+
+    body.change-form #content-main form fieldset,
+    body.change-form #content form fieldset,
+    body.change-form #content-main form .module:not(.inline-group),
+    body.change-form #content form .module:not(.inline-group) {
+        flex: 1 1 100% !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body.change-form #content-main form fieldset > div,
+    body.change-form #content form fieldset > div,
+    body.change-form #content-main form fieldset .form-row,
+    body.change-form #content form fieldset .form-row,
+    body.change-form #content-main form fieldset .form-row > div,
+    body.change-form #content form fieldset .form-row > div,
+    body.change-form #content-main form fieldset .flex-container,
+    body.change-form #content form fieldset .flex-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
+    }
+}

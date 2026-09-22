@@ -7,10 +7,10 @@ For more information on this file, see
 https://docs.djangoproject.com/en/2.1/howto/deployment/wsgi/
 """
 
-
-from archivebox.config import setup_django
-setup_django(in_memory_db=False, check_db=True)
-
+import archivebox  # noqa
+from archivebox.config.django import setup_django
 from django.core.wsgi import get_wsgi_application
+
+setup_django(check_db=True)
 
 application = get_wsgi_application()

@@ -1,0 +1,276 @@
+__package__ = "archivebox.core"
+
+import re
+import os
+import tempfile
+import logging
+
+
+from archivebox.config import CONSTANTS
+from archivebox.misc.logging import STDERR
+
+
+IGNORABLE_URL_PATTERNS = [
+    re.compile(r"/.*/?apple-touch-icon.*\.png"),
+    re.compile(r"/.*/?favicon\.ico"),
+    re.compile(r"/.*/?robots\.txt"),
+    re.compile(r"/.*/?.*\.(css|js)\.map"),
+    re.compile(r"/.*/?.*\.(css|js)\.map"),
+    re.compile(r"/static/.*"),
+    re.compile(r"/admin/jsi18n/"),
+]
+
+
+class NoisyRequestsFilter(logging.Filter):
+    def filter(self, record) -> bool:
+        logline = record.getMessage()
+        # '"GET /api/v1/docs HTTP/1.1" 200 1023'
+        # '"GET /static/admin/js/SelectFilter2.js HTTP/1.1" 200 15502'
+        # '"GET /static/admin/js/SelectBox.js HTTP/1.1" 304 0'
+        # '"GET /admin/jsi18n/ HTTP/1.1" 200 3352'
+        # '"GET /admin/api/apitoken/0191bbf8-fd5e-0b8c-83a8-0f32f048a0af/change/ HTTP/1.1" 200 28778'
+
+        # ignore harmless 404s for the patterns in IGNORABLE_URL_PATTERNS
+        for pattern in IGNORABLE_URL_PATTERNS:
+            ignorable_GET_request = re.compile(f'"GET {pattern.pattern} HTTP/.*" (2..|30.|404) .+$', re.I | re.M)
+            if ignorable_GET_request.match(logline):
+                return False
+
+            ignorable_404_pattern = re.compile(f"Not Found: {pattern.pattern}", re.I | re.M)
+            if ignorable_404_pattern.match(logline):
+                return False
+
+        return True
+
+
+class DaphneCloseTimeoutFilter(logging.Filter):
+    """Drop daphne's noisy "killed slow response after client disconnect" warning.
+
+    Daphne emits this whenever a request handler is still running when the
+    client disconnects (e.g. iframe gets navigated away mid-response while
+    fetching favicon / screenshot / preview html). For our use case these are
+    always benign — the disconnect is the browser cancelling a request, not a
+    server-side fault — so we suppress them outright rather than spamming
+    WARNING. Other daphne.server lines pass through unchanged.
+    """
+
+    def filter(self, record) -> bool:
+        if record.name != "daphne.server":
+            return True
+        logline = record.getMessage()
+        if (
+            "Application instance" in logline
+            and "for connection <WebRequest" in logline
+            and "took too long to shut down" in logline
+            and "was killed" in logline
+        ):
+            return False
+        return True
+
+
+class AsyncioCancelledShieldFilter(logging.Filter):
+    """Drop asyncio's "CancelledError exception in shielded future" noise.
+
+    When a browser disconnects mid-request, daphne cancels the asgi task and
+    asgiref's ``sync_to_async`` shields the synchronous Django view via
+    ``asyncio.shield(exec_coro)``. The shield wakes up to find its parent
+    cancelled and re-raises ``CancelledError``; asyncio's default exception
+    handler then logs the full traceback via the ``asyncio`` logger. There's
+    nothing the server can do (the client is already gone), so these tracebacks
+    are pure noise and cause hundreds of lines of spam per disconnect.
+
+    We match conservatively: only drop the specific shielded-future message
+    that points back into asgiref's shield path. Other asyncio errors fall
+    through unchanged.
+    """
+
+    def filter(self, record) -> bool:
+        if record.name != "asyncio":
+            return True
+        logline = record.getMessage()
+        if "CancelledError exception in shielded future" in logline:
+            return False
+        exc_info = record.exc_info
+        if exc_info and exc_info[0] is not None:
+            try:
+                import asyncio as _asyncio
+
+                if issubclass(exc_info[0], _asyncio.CancelledError):
+                    return False
+            except Exception:
+                pass
+        return True
+
+
+class CustomOutboundWebhookLogFormatter(logging.Formatter):
+    def format(self, record):
+        result = super().format(record)
+        return result.replace("HTTP Request: ", "OutboundWebhook: ")
+
+
+class StripANSIColorCodesFilter(logging.Filter):
+    _ansi_re = re.compile(r"\x1b\[[0-9;]*m")
+    _bare_re = re.compile(r"\[[0-9;]*m")
+
+    def filter(self, record) -> bool:
+        msg = record.getMessage()
+        if isinstance(msg, str) and ("\x1b[" in msg or "[m" in msg):
+            msg = self._ansi_re.sub("", msg)
+            msg = self._bare_re.sub("", msg)
+            record.msg = msg
+            record.args = ()
+        return True
+
+
+ERROR_LOG = tempfile.NamedTemporaryFile().name
+
+LOGS_DIR = CONSTANTS.LOGS_DIR
+
+if os.access(LOGS_DIR, os.W_OK) and LOGS_DIR.is_dir():
+    ERROR_LOG = LOGS_DIR / "errors.log"
+else:
+    # historically too many edge cases here around creating log dir w/ correct permissions early on
+    pass
+
+LOG_LEVEL_DATABASE = "WARNING"  # change to DEBUG to log all SQL queries
+LOG_LEVEL_REQUEST = "WARNING"  # if DEBUG else 'WARNING'
+
+if LOG_LEVEL_DATABASE == "DEBUG":
+    db_logger = logging.getLogger("django.db.backends")
+    db_logger.setLevel(logging.DEBUG)
+    db_logger.addHandler(logging.StreamHandler())
+
+
+SETTINGS_LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "rich": {
+            "datefmt": "[%Y-%m-%d %H:%M:%S]",
+            "format": "%(name)s %(message)s",
+        },
+        "outbound_webhooks": {
+            "()": CustomOutboundWebhookLogFormatter,
+            "datefmt": "[%Y-%m-%d %H:%M:%S]",
+        },
+    },
+    "filters": {
+        "noisyrequestsfilter": {
+            "()": NoisyRequestsFilter,
+        },
+        "daphneclosetimeout": {
+            "()": DaphneCloseTimeoutFilter,
+        },
+        "asynciocancelledshield": {
+            "()": AsyncioCancelledShieldFilter,
+        },
+        "stripansi": {
+            "()": StripANSIColorCodesFilter,
+        },
+        "require_debug_false": {
+            "()": "django.utils.log.RequireDebugFalse",
+        },
+        "require_debug_true": {
+            "()": "django.utils.log.RequireDebugTrue",
+        },
+    },
+    "handlers": {
+        "default": {
+            "class": "rich.logging.RichHandler",
+            "formatter": "rich",
+            "level": "DEBUG",
+            "markup": False,
+            "enable_link_path": False,
+            "rich_tracebacks": False,  # Use standard Python tracebacks (no frame/box)
+            "console": STDERR,
+            "filters": ["noisyrequestsfilter", "daphneclosetimeout", "asynciocancelledshield", "stripansi"],
+        },
+        "logfile": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": ERROR_LOG,
+            "maxBytes": 1024 * 1024 * 25,  # 25 MB
+            "backupCount": 10,
+            "formatter": "rich",
+            "filters": ["noisyrequestsfilter", "daphneclosetimeout", "asynciocancelledshield", "stripansi"],
+        },
+        "outbound_webhooks": {
+            "class": "rich.logging.RichHandler",
+            "markup": False,
+            "enable_link_path": False,
+            "rich_tracebacks": False,  # Use standard Python tracebacks (no frame/box)
+            "formatter": "outbound_webhooks",
+        },
+        # "mail_admins": {
+        #     "level": "ERROR",
+        #     "filters": ["require_debug_false"],
+        #     "class": "django.utils.log.AdminEmailHandler",
+        # },
+        "null": {
+            "class": "logging.NullHandler",
+        },
+    },
+    "root": {
+        "handlers": ["default", "logfile"],
+        "level": "INFO",
+        "formatter": "rich",
+    },
+    "loggers": {
+        "api": {
+            "handlers": ["default", "logfile"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "checks": {
+            "handlers": ["default", "logfile"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "core": {
+            "handlers": ["default", "logfile"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "httpx": {
+            "handlers": ["outbound_webhooks"],
+            "level": "INFO",
+            "formatter": "outbound_webhooks",
+            "propagate": False,
+        },
+        "django": {
+            "handlers": ["default", "logfile"],
+            "level": "INFO",
+            "filters": ["noisyrequestsfilter"],
+            "propagate": False,
+        },
+        "django.utils.autoreload": {
+            "propagate": False,
+            "handlers": [],
+            "level": "ERROR",
+        },
+        "django.channels.server": {
+            # see archivebox.misc.monkey_patches.ModifiedAccessLogGenerator for dedicated daphne server logging settings
+            "propagate": False,
+            "handlers": ["default", "logfile"],
+            "level": "INFO",
+            "filters": ["noisyrequestsfilter"],
+        },
+        "django.server": {  # logs all requests (2xx, 3xx, 4xx)
+            "propagate": False,
+            "handlers": ["default", "logfile"],
+            "level": "INFO",
+            "filters": ["noisyrequestsfilter"],
+        },
+        "django.request": {  # only logs 4xx and 5xx errors
+            "propagate": False,
+            "handlers": ["default", "logfile"],
+            "level": "ERROR",
+            "filters": ["noisyrequestsfilter"],
+        },
+        "django.db.backends": {
+            "propagate": False,
+            "handlers": ["default"],
+            "level": LOG_LEVEL_DATABASE,
+        },
+    },
+}

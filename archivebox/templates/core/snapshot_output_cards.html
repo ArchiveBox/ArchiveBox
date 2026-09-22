@@ -1,0 +1,72 @@
+{% load core_tags %}
+                    {% for result in archiveresults %}
+                        {% with display_path=result.path display_url='' preview_url='' %}
+                        {% if display_path %}{% snapshot_url snapshot display_path as display_url %}{% endif %}
+                        {% if display_path %}{% if result.direct_preview_path %}{% snapshot_url snapshot result.direct_preview_path as preview_url %}{% else %}{% snapshot_preview_url snapshot display_path result.result as preview_url %}{% endif %}{% endif %}
+                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
+                                <div class="thumb-body">
+                                    <div class="thumb-actions">
+                                        {% if not STATIC_EXPORT %}<a href="{% snapshot_url snapshot result.folder_path|default:result.name %}/?files=1" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
+                                        {% if display_path %}
+                                            <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
+                                        {% endif %}
+                                        {% if can_delete_outputs and result.result %}
+                                            <button type="button" data-no-preview="1" data-archive-result-ids="{{result.result_ids}}" data-delete-url="{% admin_base_url %}/admin/core/archiveresult/" data-delete-handoff="1" data-delete-snapshot-id="{{snapshot.id}}" title="Delete this output">×</button>
+                                        {% endif %}
+                                    </div>
+                                    {% if display_path %}
+                                        <a href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})">
+                                            <h4><span class="card-title-icon">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size:0}}</small>{% endif %}</h4>
+                                        </a>
+                                    {% else %}
+                                        <h4><span class="card-title-icon">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size:0}}</small>{% endif %}</h4>
+                                    {% endif %}
+                                </div>
+                                {% if result.result and display_path %}
+                                    <div class="card-img-top thumbnail-wrapper">
+                                        {% with plugin_base=result.name|plugin_name %}
+                                        {% if plugin_base != 'ytdlp' and plugin_base != 'yt-dlp' and plugin_base != 'youtube-dl' %}
+                                        <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})" aria-label="Preview {{result.name|plugin_name}}"></a>
+                                        {% endif %}
+                                        {% endwith %}
+                                        {% plugin_card result.result %}
+                                    </div>
+                                {% elif result.is_metadata and display_path %}
+                                    <div class="card-img-top thumbnail-wrapper">
+                                        <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}}" aria-label="Preview {{result.name|plugin_name}}"></a>
+                                        {% output_card snapshot display_path result.name %}
+                                    </div>
+                                {% elif display_path %}
+                                    {# Fall back to generic iframe for filesystem-discovered files #}
+                                    <div class="card-img-top thumbnail-wrapper">
+                                        <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}}" aria-label="Preview {{result.name|plugin_name}}"></a>
+                                        <iframe class="card-img-top" src="{{display_url}}?autoplay=0" allow="autoplay 'none'; fullscreen 'none'; navigation-override 'none'; " sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms" scrolling="no" loading="lazy" fetchpriority="low"></iframe>
+                                    </div>
+                                {% endif %}
+                        </div>
+                        {% endwith %}
+                    {% endfor %}
+                    {% if loose_items or not STATIC_EXPORT %}
+                    <div class="thumb-card" data-other-files{% if not STATIC_EXPORT %} data-discover-files{% endif %}>
+                            <div class="thumb-body">
+                                <div class="thumb-actions">
+                                    <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
+                                </div>
+                                <h4><span class="card-title-icon">📦</span> Other files</h4>
+                            </div>
+                            <div class="thumbnail-wrapper other-files-preview">
+                                <small class="discovery-status" aria-live="polite"></small>
+                                <div class="loose-items">
+                                    {% for item in loose_items %}
+                                        {% if item.is_dir %}
+                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                        {% else %}
+                                            <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
+                                        {% endif %}
+                                    {% empty %}
+                                        <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 Browse all files</a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                    </div>
+                    {% endif %}

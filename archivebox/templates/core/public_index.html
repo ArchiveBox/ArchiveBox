@@ -1,65 +1,802 @@
 {% extends "base.html" %}
 {% load static tz %}
+{% load core_tags %}
+
+{% block extra_head %}
+<style>
+    #content.flex {
+        display: block;
+    }
+
+    .public-snapshot-list {
+        width: 100%;
+    }
+
+    .public-snapshot-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin: 0 0 14px;
+        padding: 10px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    .public-snapshot-toolbar form {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        flex: 1;
+        margin: 0;
+    }
+
+    .public-search-input {
+        position: relative;
+        display: grid;
+        grid-template-columns: 46px minmax(0, 1fr);
+        align-items: center;
+        flex: 1 1 420px;
+        min-width: 220px;
+        height: 34px;
+        border: 1px solid #cbd5e1;
+        border-radius: 7px;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .public-search-addon {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        box-sizing: border-box;
+        width: 46px;
+        height: 100%;
+        padding: 0;
+        border-right: 1px solid #e2e8f0;
+        background: #f8fafc;
+        cursor: pointer;
+    }
+
+    .public-snapshot-toolbar label.search-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        margin: 0;
+        opacity: 0.65;
+    }
+
+    .public-search-mode-select {
+        appearance: none;
+        -webkit-appearance: none;
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 46px;
+        min-width: 46px;
+        max-width: 46px;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #111827;
+        font-size: 14px;
+        opacity: 1;
+        outline: 0;
+        text-indent: -9999px;
+        cursor: pointer;
+        z-index: 3;
+    }
+
+    .public-search-mode-select option {
+        background: #ffffff;
+        color: #111827;
+        font-size: 14px;
+        line-height: 1.4;
+        text-indent: 0;
+    }
+
+    .public-search-addon .search-mode-caret {
+        color: #64748b;
+        font-size: 10px;
+        line-height: 1;
+        pointer-events: none;
+        transform: translateY(1px);
+    }
+
+    .public-snapshot-toolbar #searchbar {
+        width: 100%;
+        min-width: 180px;
+        height: 100%;
+        box-sizing: border-box;
+        padding: 6px 10px;
+        border: 0;
+        border-radius: 0;
+        font-size: 13px;
+    }
+
+    .public-snapshot-toolbar input[type="submit"] {
+        height: 34px;
+        margin: 0;
+        padding: 0 14px;
+        border-radius: 7px;
+    }
+
+    .public-snapshot-count {
+        color: #64748b;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .public-snapshot-table-wrap {
+        width: 100%;
+        overflow-x: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    #table-bookmarks {
+        width: 100%;
+        min-width: 980px;
+        table-layout: fixed;
+        border-collapse: collapse;
+    }
+
+    #table-bookmarks thead th {
+        padding: 9px 10px;
+        border-bottom: 1px solid #e2e8f0;
+        background: #f8fafc;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    #table-bookmarks tbody td {
+        padding: 8px 10px;
+        border-bottom: 1px solid #edf2f7;
+        vertical-align: middle;
+    }
+
+    #table-bookmarks tbody tr:hover {
+        background: #f8fafc;
+    }
+
+    #table-bookmarks tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .snapshot-time {
+        width: 102px;
+        white-space: nowrap;
+    }
+
+    .snapshot-time a {
+        display: inline-flex;
+        flex-direction: column;
+        color: #334155;
+        text-decoration: none;
+        line-height: 1.2;
+    }
+
+    .snapshot-time small {
+        color: #94a3b8;
+        font-size: 11px;
+    }
+
+    .snapshot-mobile-saved {
+        display: none;
+    }
+
+    .snapshot-preview-cell {
+        width: 116px;
+        min-width: 116px;
+        vertical-align: middle;
+    }
+
+    .snapshot-preview-cell a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 102px;
+        height: 102px;
+        line-height: 0;
+        vertical-align: middle;
+    }
+
+    #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview,
+    #content .public-snapshot-list .snapshot-preview-cell img.snapshot-preview.screenshot {
+        box-sizing: border-box;
+        display: block;
+        width: 100px;
+        height: 100px;
+        max-width: 100px;
+        max-height: 100px;
+        margin: 0;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #f8fafc;
+        object-fit: cover;
+        object-position: top;
+    }
+
+    #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview-spinner {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        object-fit: unset;
+    }
+
+    #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview-spinner img {
+        display: block;
+        width: 18px;
+        height: 18px;
+        max-width: 18px;
+        max-height: 18px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+    }
+
+    .snapshot-title-cell {
+        min-width: 0;
+    }
+
+    .snapshot-title-line {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        margin-bottom: 2px;
+    }
+
+    .snapshot-favicon-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        min-width: 22px;
+        height: 22px;
+    }
+
+    #content .snapshot-favicon-link .link-favicon {
+        display: block;
+        width: 18px;
+        height: 18px;
+        max-width: 18px;
+        border-radius: 4px;
+        object-fit: contain;
+    }
+
+    .snapshot-title {
+        display: block;
+        min-width: 0;
+        overflow: hidden;
+        color: #0f172a;
+        font-size: 14px;
+        font-weight: 650;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-decoration: none;
+    }
+
+    .snapshot-url {
+        display: block;
+        margin-left: 30px;
+        overflow: hidden;
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-decoration: none;
+    }
+
+    .snapshot-url:hover,
+    .snapshot-title:hover {
+        text-decoration: underline;
+    }
+
+    .snapshot-tags-cell {
+        width: 190px;
+    }
+
+    .snapshot-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        max-height: 46px;
+        overflow: hidden;
+    }
+
+    .snapshot-tag {
+        display: inline-flex;
+        align-items: center;
+        max-width: 160px;
+        padding: 2px 7px;
+        border: 1px solid #bfdbfe;
+        border-radius: 999px;
+        background: #eff6ff;
+        color: #1d4ed8;
+        font-size: 11px;
+        font-weight: 600;
+        line-height: 1.35;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .snapshot-status-cell {
+        width: 96px;
+    }
+
+    .snapshot-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 68px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: #f1f5f9;
+        color: #475569;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.2;
+        text-transform: uppercase;
+    }
+
+    .status-sealed .snapshot-status,
+    .status-succeeded .snapshot-status {
+        background: #d1fae5;
+        color: #047857;
+    }
+
+    .status-started .snapshot-status {
+        background: #dbeafe;
+        color: #1d4ed8;
+    }
+
+    .status-queued .snapshot-status,
+    .status-backoff .snapshot-status {
+        background: #fef3c7;
+        color: #b45309;
+    }
+
+    .status-failed .snapshot-status {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .snapshot-files-cell {
+        width: 220px;
+        overflow: hidden;
+    }
+
+    .snapshot-files-cell .files-icons {
+        max-width: 200px;
+    }
+
+    @keyframes snapshot-spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .snapshot-size-cell {
+        width: 102px;
+        white-space: nowrap;
+    }
+
+    .snapshot-size-cell a {
+        display: block;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
+    .snapshot-size-cell small {
+        display: block;
+        color: #94a3b8;
+        font-size: 10px;
+        line-height: 1.2;
+    }
+
+    .empty-value {
+        color: #cbd5e1;
+    }
+
+    .public-search-empty {
+        padding: 28px 18px;
+        color: #475569;
+        text-align: center;
+        background: #f8fafc;
+    }
+
+    .public-search-empty code {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 2px 6px;
+        border-radius: 5px;
+        background: #e2e8f0;
+        color: #0f172a;
+        font-size: 12px;
+    }
+
+    .public-pagination {
+        margin: 18px 0 0;
+        text-align: center;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .public-pagination .step-links {
+        display: inline-flex;
+        gap: 12px;
+        align-items: center;
+        margin-top: 6px;
+    }
+
+    @media (max-width: 980px) {
+        .public-snapshot-toolbar,
+        .public-snapshot-toolbar form {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .public-snapshot-count {
+            align-self: flex-start;
+        }
+
+        .public-search-input {
+            width: 100%;
+            flex-basis: auto;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .public-snapshot-toolbar {
+            padding: 8px;
+        }
+
+        .public-snapshot-toolbar form {
+            width: 100%;
+        }
+
+        .public-search-input {
+            min-width: 0;
+        }
+
+        .public-snapshot-toolbar input[type="submit"] {
+            display: none;
+        }
+
+        #table-bookmarks {
+            min-width: 0;
+        }
+
+        #table-bookmarks th:nth-child(n + 4),
+        #table-bookmarks td:nth-child(n + 4) {
+            display: none;
+        }
+
+        #table-bookmarks th.snapshot-time,
+        #table-bookmarks td.snapshot-time {
+            display: none;
+        }
+
+        #table-bookmarks .snapshot-preview-cell {
+            width: 92px;
+            min-width: 92px;
+            padding-left: 5px;
+            padding-right: 5px;
+        }
+
+        .snapshot-preview-cell a {
+            width: 82px;
+            height: 82px;
+        }
+
+        #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview,
+        #content .public-snapshot-list .snapshot-preview-cell img.snapshot-preview.screenshot {
+            width: 80px;
+            height: 80px;
+            max-width: 80px;
+            max-height: 80px;
+        }
+
+        .snapshot-mobile-saved {
+            display: block;
+            margin: 4px 0 0 30px;
+            color: #64748b;
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        #table-bookmarks thead th,
+        #table-bookmarks tbody td {
+            padding-top: 7px;
+            padding-bottom: 7px;
+        }
+    }
+</style>
+<script>
+    function nextPublicSnapshotPreview(img) {
+        const fallbacks = (img.dataset.fallbacks || '').split(',').filter(Boolean)
+        if (fallbacks.length) {
+            img.src = fallbacks.shift()
+            img.dataset.fallbacks = fallbacks.join(',')
+            return
+        }
+        img.style.opacity = 0
+    }
+</script>
+{% endblock %}
 
 {% block body %}
-    <div id="toolbar">
-        <form id="changelist-search" action="{% url 'public-index' %}" method="get">
-            <div>
-                <label for="searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
-                <input type="text" size="40" name="q" value="" id="searchbar" autofocus placeholder="Title, URL, tags, timestamp, or content...".>
-                <input type="submit" value="Search" style="height: 36px; padding-top: 6px; margin: 8px"/>
-                <input type="button"
-                       value="♺"
-                       title="Refresh..."
-                       onclick="location.href='{% url 'public-index' %}'"
-                       style="background-color: rgba(121, 174, 200, 0.8); height: 30px; font-size: 0.8em; margin-top: 12px; padding-top: 6px; float:right">
-                </input>
-                &nbsp;
-                &nbsp;
-                {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} total
-                &nbsp;
-               (Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }})
+    <div class="public-snapshot-list">
+        <div class="public-snapshot-toolbar">
+            <form id="changelist-search" action="{{ request.path }}" method="get">
+                <span class="public-search-input">
+                    <span class="public-search-addon">
+                        <label class="search-icon" for="searchbar"><img src="/static/admin/img/search.svg" alt="Search"></label>
+                        <select name="search_mode" class="public-search-mode-select" aria-label="Search mode">
+                            {% for option in search_mode_options %}
+                            <option value="{{ option.value }}"{% if search_mode == option.value %} selected{% endif %}>{{ option.label }}</option>
+                            {% endfor %}
+                        </select>
+                        <span class="search-mode-caret" aria-hidden="true">▾</span>
+                    </span>
+                    <input type="text" size="40" name="q" value="{{ request.GET.q }}" id="searchbar" autofocus placeholder="Search title, URL, tags, timestamp, or content...">
+                </span>
+                <input type="submit" value="Search">
+            </form>
+            <div class="public-snapshot-count">
+                {% if public_search_stream_pending %}
+                    <span class="archivebox-search-stream-status" role="status" aria-live="polite">Searching...</span>
+                {% else %}
+                    {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+                    <span>(page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }})</span>
+                {% endif %}
             </div>
-        </form>
-    </div>
-    <div style="width: 100%; overflow-x: auto;">
-        <table id="table-bookmarks" style="width: 100%; table-layout: fixed">
-            <thead>
-                <tr>
-                    <th style="width: 132px">Bookmarked</th>
-                    <th>Snapshot ({{page_obj.paginator.count}})</th>
-                    <th style="width: 280px">Files</th>
-                    <th>Original URL</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for link in object_list %}
-                    {% include 'index_row.html' with link=link  %}
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <br/>
-    <center>
-        Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} total
-        <br/>
-        <span class="step-links">
-            {% if page_obj.has_previous %}
-                <a href="{% url 'public-index' %}?page=1">&laquo; first</a> &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.previous_page_number }}">previous</a>
-                &nbsp;
-            {% endif %}
-    
-            <span class="current">
-                Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </div>
+        <div class="public-snapshot-table-wrap">
+            <table id="table-bookmarks">
+                <thead>
+                    <tr>
+                        <th class="snapshot-time">Saved</th>
+                        <th class="snapshot-preview-cell">Preview</th>
+                        <th>Snapshot ({{ page_obj.paginator.count }})</th>
+                        <th class="snapshot-tags-cell">Tags</th>
+                        <th class="snapshot-status-cell">Status</th>
+                        <th class="snapshot-files-cell">Files</th>
+                        <th class="snapshot-size-cell">Size</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for link in object_list %}
+                        {% snapshot_index_row link %}
+                    {% empty %}
+                        <tr>
+                            <td colspan="7" class="public-search-empty">
+                                {% if public_search_stream_pending %}
+                                    Searching {{ search_mode }} for matching snapshots...
+                                {% elif show_search_index_hint %}
+                                    0 results from {{ search_mode }}. If this looks wrong, the search index may need to be updated:
+                                    <code>archivebox update --index-only</code>
+                                {% else %}
+                                    No snapshots found.
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="public-pagination">
+            Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} total
+            <br>
+            <span class="step-links">
+                {% if page_obj.has_previous %}
+                    <a href="?{% url_replace page='1' %}">&laquo; first</a>
+                    <a href="?{% url_replace page=page_obj.previous_page_number %}">previous</a>
+                {% endif %}
+
+                <span class="current">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                    <a href="?{% url_replace page=page_obj.next_page_number %}">next</a>
+                {% endif %}
+                {% if page_obj.has_next %}
+                    <a href="?{% url_replace page=page_obj.paginator.num_pages %}">last &raquo;</a>
+                {% endif %}
             </span>
-        
-            {% if page_obj.has_next %}
-                &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.next_page_number }}">next </a> &nbsp;
-                <a href="{% url 'public-index' %}?page={{ page_obj.paginator.num_pages }}">last &raquo;</a>
-            {% endif %}
-        </span>
-        <br>
-    </center>
+        </div>
+    </div>
+    <script>
+        (function() {
+            if (window.archiveboxPublicSearchStreamReady) return
+            window.archiveboxPublicSearchStreamReady = true
+
+            const storageKey = 'archivebox-admin-search-mode'
+            let activeSearch = null
+
+            function initPublicSearchMode() {
+                const params = new URLSearchParams(window.location.search)
+                document.querySelectorAll('.public-search-mode-select').forEach(function(select) {
+                    if (select.dataset.publicSearchModeReady) return
+                    select.dataset.publicSearchModeReady = '1'
+                    const values = Array.from(select.options).map(option => option.value)
+                    const stored = localStorage.getItem(storageKey)
+                    if (!params.has('search_mode') && values.includes(stored)) {
+                        select.value = stored
+                        if ((params.get('q') || '').trim()) {
+                            params.set('search_mode', stored)
+                            params.delete('page')
+                            window.location.replace(window.location.pathname + '?' + params.toString() + window.location.hash)
+                            return
+                        }
+                    }
+                    select.addEventListener('change', function() {
+                        localStorage.setItem(storageKey, select.value)
+                    })
+                })
+            }
+
+            function setSearchLoading(controller, text) {
+                if (activeSearch !== controller) return
+                const toolbar = document.querySelector('.public-snapshot-toolbar')
+                if (!toolbar) return
+                let status = toolbar.querySelector('.archivebox-search-stream-status')
+                if (!status) {
+                    status = document.createElement('span')
+                    status.className = 'archivebox-search-stream-status'
+                    status.setAttribute('role', 'status')
+                    status.setAttribute('aria-live', 'polite')
+                    const count = toolbar.querySelector('.public-snapshot-count')
+                    if (count) count.appendChild(status)
+                    else toolbar.appendChild(status)
+                }
+                status.textContent = text || 'Searching...'
+                status.hidden = false
+                toolbar.setAttribute('aria-busy', 'true')
+            }
+
+            function clearSearchLoading(controller) {
+                if (activeSearch && activeSearch !== controller) return
+                const toolbar = document.querySelector('.public-snapshot-toolbar')
+                if (!toolbar) return
+                const status = toolbar.querySelector('.archivebox-search-stream-status')
+                if (status) status.hidden = true
+                toolbar.removeAttribute('aria-busy')
+            }
+
+            function clearStaleSearchResults(mode) {
+                const tbody = document.querySelector('#table-bookmarks tbody')
+                if (tbody) {
+                    tbody.innerHTML = '<tr><td colspan="7" class="public-search-empty">Searching ' + mode + ' for matching snapshots...</td></tr>'
+                }
+                const snapshotHeading = document.querySelector('#table-bookmarks thead th:nth-child(3)')
+                if (snapshotHeading) snapshotHeading.textContent = 'Snapshot'
+                const pagination = document.querySelector('.public-pagination')
+                if (pagination) pagination.textContent = 'Searching...'
+            }
+
+            function cancelActiveSearch(event) {
+                if (!event.target || (event.target.name !== 'q' && event.target.name !== 'search_mode')) return
+                if (activeSearch) {
+                    const controller = activeSearch
+                    activeSearch.abort()
+                    clearSearchLoading(controller)
+                }
+            }
+
+            function streamPublicSnapshotSearch(eventOrForm) {
+                const form = eventOrForm && eventOrForm.target ? eventOrForm.target : eventOrForm
+                if (!form || form.id !== 'changelist-search') return
+
+                const formData = new FormData(form)
+                const mode = String(formData.get('search_mode') || 'meta')
+                const query = String(formData.get('q') || '').trim()
+                if (!query) return
+
+                if (eventOrForm && eventOrForm.preventDefault) eventOrForm.preventDefault()
+                if (activeSearch) activeSearch.abort()
+
+                const controller = new AbortController()
+                activeSearch = controller
+                setSearchLoading(controller, 'Searching...')
+                let resultVersion = 0
+
+                function buildListUrl() {
+                    const url = new URL(window.location.href)
+                    for (const pair of formData.entries()) url.searchParams.set(pair[0], pair[1])
+                    url.searchParams.delete('page')
+                    url.searchParams.delete('p')
+                    return url
+                }
+
+                function replaceRegionFromDocument(doc, selector) {
+                    const next = doc.querySelector(selector)
+                    const current = document.querySelector(selector)
+                    if (next && current) current.innerHTML = next.innerHTML
+                }
+
+                async function renderNow() {
+                    const url = buildListUrl()
+                    const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}, signal: controller.signal})
+                    const html = await response.text()
+                    const doc = new DOMParser().parseFromString(html, 'text/html')
+                    replaceRegionFromDocument(doc, '.public-snapshot-count')
+                    replaceRegionFromDocument(doc, '#table-bookmarks thead th:nth-child(3)')
+                    replaceRegionFromDocument(doc, '#table-bookmarks tbody')
+                    replaceRegionFromDocument(doc, '.public-pagination')
+                    setSearchLoading(controller, resultVersion ? 'Searching... ' + resultVersion + ' found' : 'Searching...')
+                }
+
+                const listUrl = buildListUrl()
+                history.replaceState(null, '', listUrl)
+                clearStaleSearchResults(mode)
+                const streamUrl = new URL("{% url 'public-search-stream' %}", window.location.href)
+                streamUrl.searchParams.set('q', query)
+                streamUrl.searchParams.set('search_mode', mode)
+                streamUrl.searchParams.set('search_url', listUrl.pathname + listUrl.search)
+                fetch(streamUrl, {signal: controller.signal})
+                    .then(function(response) {
+                        const reader = response.body.getReader()
+                        const decoder = new TextDecoder()
+                        let buffer = ''
+                        async function read() {
+                            const result = await reader.read()
+                            buffer += decoder.decode(result.value || new Uint8Array(), {stream: !result.done})
+                            const lines = buffer.split('\n')
+                            buffer = lines.pop()
+                            let shouldRender = false
+                            lines.forEach(function(count) {
+                                count = parseInt(count.trim(), 10)
+                                if (Number.isFinite(count)) {
+                                    resultVersion = count
+                                    if (count > 0) shouldRender = true
+                                } else {
+                                    resultVersion += 1
+                                    shouldRender = true
+                                }
+                            })
+                            setSearchLoading(controller, resultVersion ? 'Searching... ' + resultVersion + ' found' : 'Searching...')
+                            if (shouldRender || result.done) await renderNow()
+                            if (!result.done) return read()
+                        }
+                        return read()
+                    })
+                    .catch(function(error) {
+                        if (error.name !== 'AbortError') throw error
+                    })
+                    .finally(function() {
+                        clearSearchLoading(controller)
+                        if (activeSearch === controller) activeSearch = null
+                    })
+            }
+
+            initPublicSearchMode()
+            document.addEventListener('input', cancelActiveSearch)
+            document.addEventListener('change', cancelActiveSearch)
+            document.addEventListener('submit', streamPublicSnapshotSearch)
+            const initialForm = document.getElementById('changelist-search')
+            if (initialForm && initialForm.tagName === 'FORM' && String(new FormData(initialForm).get('q') || '').trim()) {
+                streamPublicSnapshotSearch(initialForm)
+            }
+        })()
+    </script>
 {% endblock %}

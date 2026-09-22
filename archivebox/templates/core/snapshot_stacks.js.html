@@ -1,0 +1,198 @@
+function initializeOutputStacks() {
+    const grid = document.querySelector('.thumb-grid');
+    const data = document.getElementById('snapshot-output-groups');
+    if (!grid || !data) return;
+    const cards = [...grid.children];
+    const groups = JSON.parse(data.textContent).map(group => ({...group, cards: []}));
+    for (const card of cards) {
+        (groups.find(group => group.id === card.dataset.outputGroup) || groups.find(group => group.id === 'other')).cards.push(card);
+    }
+    const name = card => card.dataset.pluginName || 'Files';
+    const el = (tag, className, text) => {
+        const node = document.createElement(tag);
+        node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    };
+    const panel = el('section', 'stack-browser');
+    panel.setAttribute('aria-label', 'Snapshot output groups');
+    const shelf = el('div', 'stack-shelf');
+    shelf.style.setProperty('--stack-columns', groups.filter(group => group.id !== 'other' || group.cards.length).length);
+    const tray = el('section', 'stack-tray');
+    tray.id = 'stack-tray';
+    tray.hidden = true;
+    const close = el('button', 'stack-close', '⌃');
+    close.title = 'Collapse stack';
+    close.setAttribute('aria-label', 'Collapse stack');
+    close.type = 'button';
+    const trayCards = el('div', 'stack-tray-cards');
+    tray.append(close, trayCards);
+    const parked = el('div', 'stack-parked');
+    parked.hidden = true;
+    function movePreviewNode(node, parent, before = null) {
+        if (parent.moveBefore && node.isConnected && parent.isConnected) parent.moveBefore(node, before);
+        else parent.insertBefore(node, before);
+    }
+    let active = null;
+    const buttons = new Map();
+    function collapse() {
+        if (!active) return;
+        active.cards.forEach(card => movePreviewNode(card, parked));
+        const button = buttons.get(active.id);
+        button.setAttribute('aria-expanded', 'false');
+        tray.hidden = true;
+        active = null;
+    }
+    let discoveryState = 'idle';
+    let pendingPreviewHash = '';
+    async function discoverOtherFiles(group) {
+        const other = group.cards.find(card => card.hasAttribute('data-discover-files'));
+        if (!other || discoveryState === 'loading' || discoveryState === 'done') return;
+        const status = other.querySelector('.discovery-status');
+        discoveryState = 'loading';
+        status.textContent = 'Scanning for orphan files…';
+        status.removeAttribute('title');
+        try {
+            const url = new URL(window.location.href);
+            url.hash = '';
+            url.search = '?discover_outputs=1';
+            const response = await fetch(url, {cache: 'no-store'});
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const fragment = new DOMParser().parseFromString(await response.text(), 'text/html');
+            if (!fragment.querySelector('[data-other-files]')) throw new Error('Invalid discovery response');
+            const knownPaths = new Set(cards.map(card => card.dataset.outputPath).filter(Boolean));
+            for (const card of fragment.querySelectorAll('.thumb-card[data-output-path]')) {
+                if (knownPaths.has(card.dataset.outputPath)) continue;
+                knownPaths.add(card.dataset.outputPath);
+                card.classList.remove('selected-card');
+                card.dataset.outputGroup = 'other';
+                group.cards.push(card);
+                cards.push(card);
+                setPreviewResourcePriority(card, false);
+                observer.observe(card, {attributes: true, attributeFilter: ['class']});
+                movePreviewNode(card, active === group ? trayCards : parked);
+            }
+            const existingItems = other.querySelector('.loose-items');
+            const knownLinks = new Set([...existingItems.querySelectorAll('a')].map(link => link.href));
+            for (const link of fragment.querySelectorAll('[data-other-files] .loose-items a')) {
+                if (!knownLinks.has(link.href)) {
+                    knownLinks.add(link.href);
+                    existingItems.append(link);
+                }
+            }
+            buttons.get(group.id).querySelector('.stack-count').textContent = String(group.cards.length);
+            buttons.get(group.id).setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
+            status.textContent = '';
+            const coverItems = buttons.get(group.id).querySelector('.stack-cover .loose-items');
+            if (coverItems) coverItems.replaceChildren(...[...existingItems.children].map(item => item.cloneNode(true)));
+            discoveryState = 'done';
+            // Resolve the current hash again; navigation may have changed during the scan.
+            if (pendingPreviewHash && pendingPreviewHash === window.location.hash) selectInitialPreview(active === group);
+        } catch (error) {
+            discoveryState = 'error';
+            status.textContent = 'Could not scan files. ';
+            status.title = error.message;
+            const retry = el('button', '', 'Retry');
+            retry.type = 'button';
+            retry.dataset.noPreview = '1';
+            retry.addEventListener('click', () => discoverOtherFiles(group));
+            status.append(retry);
+        }
+    }
+    function expand(group) {
+        if (active === group) { collapse(); return; }
+        collapse();
+        active = group;
+        buttons.get(group.id).setAttribute('aria-expanded', 'true');
+        trayCards.replaceChildren();
+        if (!group.cards.length) {
+            const empty = el('div', 'stack-empty', 'No captures');
+            trayCards.append(empty);
+        }
+        for (const card of group.cards) {
+            movePreviewNode(card, trayCards);
+        }
+        tray.setAttribute('aria-label', group.label);
+        tray.hidden = false;
+        if (group.id === 'other') discoverOtherFiles(group);
+    }
+    for (const group of groups) {
+        if (group.id === 'other' && !group.cards.length) continue;
+        const button = el('button', `output-stack output-stack-${group.id}`);
+        button.type = 'button';
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-controls', tray.id);
+        button.setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
+        const heading = el('span', 'stack-heading');
+        heading.append(el('strong', '', group.label), el('span', 'stack-count', String(group.cards.length)));
+        const pile = el('span', 'stack-pile');
+        pile.setAttribute('aria-hidden', 'true');
+        const top = group.cards[0];
+        const availableLayers = Math.min(3, group.cards.length);
+        for (let index = availableLayers - 1; index >= 0; index--) {
+            const layer = el('span', `stack-sheet stack-sheet-${index}`);
+            if (index === 0) {
+                const cover = el('div', 'stack-cover');
+                const card = top.cloneNode(true);
+                card.classList.remove('selected-card');
+                card.inert = true;
+                for (const key of Object.keys(card.dataset)) delete card.dataset[key];
+                card.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+                // Visible stack covers load the same card document as the expanded tray.
+                setPreviewResourcePriority(card, true);
+                cover.append(card);
+                layer.append(cover);
+            } else {
+                layer.append(el('span', 'stack-sheet-label', name(group.cards[index])));
+            }
+            pile.append(layer);
+        }
+        if (!top) pile.append(el('span', 'stack-no-output', 'No captures'));
+        heading.append(el('span', 'stack-chevron', '⌄'));
+        button.append(heading, pile);
+        button.addEventListener('click', () => {
+            const opening = active !== group;
+            expand(group);
+            const first = group.cards[0];
+            if (opening && first) {
+                activateCardPreview(first, first.querySelector('a[target=preview]') || first.querySelector('a'));
+            }
+        });
+        buttons.set(group.id, button);
+        shelf.append(button);
+
+    }
+
+    function syncSelection() {
+        const selected = cards.find(card => card.classList.contains('selected-card'));
+        for (const group of groups) buttons.get(group.id)?.classList.toggle('has-selection', group.cards.includes(selected));
+    }
+    document.addEventListener('snapshot-preview-selected', event => {
+        const {card, discover, revealStack} = event.detail;
+        pendingPreviewHash = discover ? window.location.hash : '';
+        if (!revealStack) return;
+        const group = groups.find(group => group.cards.includes(card)) || (discover && groups.find(group => group.id === 'other'));
+        if (!group || !buttons.has(group.id)) return;
+        if (active !== group) expand(group);
+        else if (discover) discoverOtherFiles(group);
+    });
+    close.addEventListener('click', () => {
+        const button = buttons.get(active?.id);
+        collapse();
+        button?.focus();
+    });
+    panel.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && active) { close.click(); event.preventDefault(); }
+    });
+    // Existing card event handlers continue to drive the real snapshot viewer and URL hash.
+    const observer = new MutationObserver(syncSelection);
+    cards.forEach(card => observer.observe(card, {attributes: true, attributeFilter: ['class']}));
+    panel.append(shelf, tray, parked);
+    grid.before(panel);
+    cards.forEach(card => movePreviewNode(card, parked));
+    grid.hidden = true;
+    document.body.classList.add('snapshot-stacks');
+    syncSelection();
+    const otherGroup = groups.find(group => group.id === 'other');
+    if (otherGroup && buttons.has('other')) discoverOtherFiles(otherGroup);
+}

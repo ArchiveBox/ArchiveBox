@@ -1,37 +1,59 @@
-# This is the Dockerfile for ArchiveBox, it bundles the following dependencies:
-#     python3, ArchiveBox, curl, wget, git, chromium, youtube-dl, yt-dlp, single-file
-# Usage:
-#     git submodule update --init --recursive
-#     git pull --recurse-submodules
-#     docker build . -t archivebox --no-cache
-#     docker run -v "$PWD/data":/data archivebox init
-#     docker run -v "$PWD/data":/data archivebox add 'https://example.com'
-#     docker run -v "$PWD/data":/data -it archivebox manage createsuperuser
-#     docker run -v "$PWD/data":/data -p 8000:8000 archivebox server
-# Multi-arch build:
-#     docker buildx create --use
-#     docker buildx build . --platform=linux/amd64,linux/arm64,linux/arm/v7 --push -t archivebox/archivebox:latest -t archivebox/archivebox:dev
-#
-# Read more about [developing Archivebox](https://github.com/ArchiveBox/ArchiveBox#archivebox-development).
+# syntax=docker/dockerfile:1.7
 
+# Multistage ArchiveBox Dockerfile that consumes the abx-dl runtime image.
+# WHY: abx-dl owns Python, Node, Chromium, and extraction dependencies so the
+# standalone downloader stays independent of ArchiveBox's server features.
+# ArchiveBox-only dependencies (Sonic, OpenCode, supervisor, Django) belong in
+# the layers added by this Dockerfile, never in the shared abx-dl base image.
+# REQUIRED INSTALLATION CONTRACT — do not work around failures:
+# 1. IMAGE CONSTRUCTION: preinstall ALL plugins supported by runtime="archivebox"
+#    and ALL their required_binaries, regardless of default enabled state.
+#    Inherit the complete downloader dependencies from the tested abx-dl image;
+#    install every remaining ArchiveBox-only dependency in this image's layers,
+#    including OpenCode and Sonic. Never put server dependencies in abx-dl.
+#    Use the normal plugin dependency pipeline: install command -> config.json
+#    required_binaries -> abxpkg. Never add manual apt/pip/npm installs to hide
+#    failures in that pipeline. OS/interpreter bootstrap is a separate concern,
+#    not a second hand-maintained list of plugin dependencies.
+# 2. FINISHED IMAGE: archivebox install and the full plugin installation check
+#    must discover everything already present and be NO-OPS offline as UID 911.
+#    No downloads, package installs, sudo, or root repair may be needed to enable
+#    ANY plugin or start a new crawl. Never run verification as root or manually
+#    preinstall packages before it. If the inherited image lacks a downloader
+#    dependency, fix/release abx-dl and consume that tested image; do not patch
+#    over the missing base dependency here or repair deployed containers by SSH.
+# 3. NON-CONTAINER CI: exercise real runtime auto-installation through the same
+#    CLI/required_binaries/abxpkg path users invoke. GitHub's runner has
+#    passwordless sudo; abxpkg must escalate automatically when needed. Never
+#    manually preinstall dependencies or wrap the tested command in sudo to make
+#    a failure disappear. This is distinct from the finished-image no-op test.
+# 4. SIZE: the complete compressed image budget is 1025 MiB. Preserve ALL
+#    user-facing functionality. Only mechanical/internal
+#    optimizations are allowed. Never remove dependencies, disable features or
+#    plugins, weaken assertions, or skip checks to meet a size limit. If the
+#    complete image exceeds the configured limit, LET CI FAIL and explicitly
+#    ask the maintainer what to do. Do not raise the limit unilaterally.
+# Build abx-dl first, then point this file at it:
+#   docker buildx build ../abx-dl -f ../abx-dl/Dockerfile \
+#       --build-context abxbus=../abxbus \
+#       --build-context abxpkg=../abxpkg \
+#       --build-context abx-plugins=../abx-plugins \
+#       -t archivebox/abx-dl:dev
+#   docker buildx build . -f Dockerfile \
+#       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:dev \
+#       -t archivebox:multistage
 
-# Use Debian 12 w/ faster package updates: https://packages.debian.org/bookworm-backports/
-FROM python:3.11-slim-bookworm
+ARG ABX_DL_IMAGE=archivebox/abx-dl:dev
 
-LABEL name="archivebox" \
-    maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
-    description="All-in-one personal internet archiving container" \
-    homepage="https://github.com/ArchiveBox/ArchiveBox" \
-    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker"
+FROM archivebox/sonic:1.4.9 AS sonic
+FROM ${ABX_DL_IMAGE} AS archivebox-runtime-base
 
 ARG TARGETPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
+ARG ARCHIVEBOX_COMMIT_HASH=""
 
-######### Environment Variables #################################
-
-# Global system-level config
 ENV TZ=UTC \
     LANGUAGE=en_US:en \
     LC_ALL=C.UTF-8 \
@@ -40,271 +62,276 @@ ENV TZ=UTC \
     APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 \
     PYTHONIOENCODING=UTF-8 \
     PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_COMPILE=1 \
+    PIP_ONLY_BINARY=aiohttp \
     npm_config_loglevel=error
 
-# Version config
-ENV PYTHON_VERSION=3.11 \
-    NODE_VERSION=24 \
-    PLAYWRIGHT_VERSION=1.59.0 \
-    YTDLP_VERSION=2026.3.17 \
-    GOSU_VERSION=1.19
+ENV PYTHON_VERSION=3.13 \
+    NODE_VERSION=24
 
-# User config
-ENV ARCHIVEBOX_USER="archivebox" \
-    DEFAULT_PUID=911 \
-    DEFAULT_PGID=911
+ENV ARCHIVEBOX_USER=archivebox \
+    DEFAULT_ARCHIVEBOX_UID=911 \
+    DEFAULT_ARCHIVEBOX_GID=911 \
+    IN_DOCKER=True
 
-# Global paths
 ENV CODE_DIR=/app \
+    ABX_RUNTIME=archivebox \
     DATA_DIR=/data \
-    GLOBAL_VENV=/venv \
-    PLAYWRIGHT_BROWSERS_PATH=/browsers
+    CONFIG_DIR=/opt/archivebox \
+    ABXPKG_LIB_DIR=/opt/archivebox/lib \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/archivebox/lib/playwright/cache \
+    PERSONAS_DIR=/data/personas \
+    CHROME_HEADLESS=true \
+    CHROME_SANDBOX=false \
+    CHROME_ISOLATION=crawl \
+    CHROME_ARGS_EXTRA='["--disable-gpu","--disable-features=Translate,OptimizationGuideModelDownloading,MediaRouter"]'
 
-# Application-level paths
-ENV APP_VENV=/app/.venv \
-    NODE_MODULES=/app/node_modules
+ENV TMP_DIR=/tmp/archivebox \
+    PIP_VENV_PYTHON=/venv/bin/python3 \
+    GOOGLE_API_KEY=no \
+    GOOGLE_DEFAULT_CLIENT_ID=no \
+    GOOGLE_DEFAULT_CLIENT_SECRET=no
 
-# Build shell config
-ENV PATH="$PATH:$GLOBAL_VENV/bin:$APP_VENV/bin:$NODE_MODULES/.bin"
-SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "nounset", "-c"] 
+ENV HOME=/home/archivebox \
+    XDG_CONFIG_HOME=/home/archivebox/.config \
+    XDG_CACHE_HOME=/opt/archivebox/lib/cache \
+    TIMEOUT=600
 
-######### System Environment ####################################
+ENV UV_COMPILE_BYTECODE=false \
+    UV_PYTHON_PREFERENCE=managed \
+    UV_PYTHON_INSTALL_DIR=/opt/uv/python \
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=/venv \
+    VIRTUAL_ENV=/venv \
+    PATH="/venv/bin:/opt/node/bin:$PATH"
 
-# Detect ArchiveBox version number by reading package.json
-COPY --chown=root:root --chmod=755 package.json "$CODE_DIR/"
-RUN grep '"version": ' "${CODE_DIR}/package.json" | awk -F'"' '{print $4}' > /VERSION.txt
+SHELL ["/bin/bash", "-o", "pipefail", "-o", "errexit", "-o", "errtrace", "-o", "nounset", "-c"]
+WORKDIR "$CODE_DIR"
 
-# Force apt to leave downloaded binaries in /var/cache/apt (massively speeds up Docker builds)
-RUN echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache \
-    && rm -f /etc/apt/apt.conf.d/docker-clean
-
-# Print debug info about build and save it to disk, for human eyes only, not used by anything else
-RUN (echo "[i] Docker build for ArchiveBox $(cat /VERSION.txt) starting..." \
-    && echo "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})" \
+RUN cp /VERSION.txt /ABX-DL-VERSION.txt \
+    && (echo "[i] Docker build for ArchiveBox multistage starting..." \
+    && echo "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) (${TARGETARCH} ${TARGETVARIANT})" \
     && echo "BUILD_START_TIME=$(date +"%Y-%m-%d %H:%M:%S %s") TZ=${TZ} LANG=${LANG}" \
-    && echo \
-    && echo "GLOBAL_VENV=${GLOBAL_VENV} APP_VENV=${APP_VENV} NODE_MODULES=${NODE_MODULES}" \
-    && echo "PYTHON=${PYTHON_VERSION} NODE=${NODE_VERSION} PATH=${PATH}" \
-    && echo "CODE_DIR=${CODE_DIR} DATA_DIR=${DATA_DIR}" \
-    && echo \
     && uname -a \
-    && cat /etc/os-release | head -n7 \
-    && which bash && bash --version | head -n1 \
-    && which dpkg && dpkg --version | head -n1 \
-    && echo -e '\n\n' && env && echo -e '\n\n' \
+    && sed -n '1,7p' /etc/os-release \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abxpkg load --binproviders=env node \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abxpkg load --binproviders=env uv \
     ) | tee -a /VERSION.txt
 
-# Create non-privileged user for archivebox and chrome
-RUN echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_PUID}..." \
-    && groupadd --system $ARCHIVEBOX_USER \
-    && useradd --system --create-home --gid $ARCHIVEBOX_USER --groups audio,video $ARCHIVEBOX_USER \
-    && usermod -u "$DEFAULT_PUID" "$ARCHIVEBOX_USER" \
-    && groupmod -g "$DEFAULT_PGID" "$ARCHIVEBOX_USER" \
-    && echo -e "\nARCHIVEBOX_USER=$ARCHIVEBOX_USER PUID=$(id -u $ARCHIVEBOX_USER) PGID=$(id -g $ARCHIVEBOX_USER)\n\n" \
-    | tee -a /VERSION.txt
-    # DEFAULT_PUID and DEFAULT_PID are overriden by PUID and PGID in /bin/docker_entrypoint.sh at runtime
-    # https://docs.linuxserver.io/general/understanding-puid-and-pgid
+FROM archivebox-runtime-base AS archivebox-builder
 
-# Install system apt dependencies (adding backports to access more recent apt updates)
+WORKDIR "$CODE_DIR"
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing APT base system dependencies for $TARGETPLATFORM..." \
-    && echo 'deb https://deb.debian.org/debian bookworm-backports main contrib non-free' >> /etc/apt/sources.list.d/backports.list \
-    && mkdir -p /etc/apt/keyrings \
-    && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        # 1. packaging dependencies
-        apt-transport-https ca-certificates apt-utils gnupg2 curl wget \
-        # 2. docker and init system dependencies
-        zlib1g-dev dumb-init cron unzip grep \
-        # 3. frivolous CLI helpers to make debugging failed archiving easier
-        # nano iputils-ping dnsutils htop procps jq yq
-    && rm -rf /var/lib/apt/lists/* \
-    && case "$TARGETARCH/$TARGETVARIANT" in \
-        amd64/) GOSU_ARCH=amd64; GOSU_SHA256=52c8749d0142edd234e9d6bd5237dff2d81e71f43537e2f4f66f75dd4b243dd0 ;; \
-        arm64/) GOSU_ARCH=arm64; GOSU_SHA256=3a8ef022d82c0bc4a98bcb144e77da714c25fcfa64dccc57f6aba7ae47ff1a44 ;; \
-        arm/v7) GOSU_ARCH=armhf; GOSU_SHA256=8457a0bfd28e016c2c7d8ea6e5f7eed1376033ffbd36491bb455094c8b1dc9fd ;; \
-        *) echo "Unsupported gosu platform: $TARGETARCH/$TARGETVARIANT"; exit 1 ;; \
-    esac \
-    && curl -fsSL -o /usr/local/bin/gosu "https://github.com/tianon/gosu/releases/download/$GOSU_VERSION/gosu-$GOSU_ARCH" \
-    && echo "$GOSU_SHA256  /usr/local/bin/gosu" | sha256sum -c - \
-    && chmod +x /usr/local/bin/gosu \
-    && gosu --version | head -n1 | tee -a /VERSION.txt
+    --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
+    <<'EOF'
+echo "[+] UV Installing ArchiveBox dependencies from pyproject.toml..."
+export UV_NO_CACHE=true
+rm -f /etc/apt/apt.conf.d/docker-clean
+apt-get update -qq
+apt-get install -qq -y --no-install-recommends x11-utils
+# Extend abx-dl's existing venv instead of clearing it. Clearing and later
+# copying a complete replacement over the base duplicates every venv byte in
+# the final overlay history even when most packages are unchanged.
+# Do not rewrite inherited native libraries merely to strip them again.
+/usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print > /tmp/archivebox-inherited-libraries
 
-######### Language Environments ####################################
+mkdir -p /tmp/archivebox-uv-project
+/venv/bin/python - <<'PY'
+from pathlib import Path
+import json
+import re
+import urllib.request
 
-# Install Node environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Node $NODE_VERSION environment in $NODE_MODULES..." \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_VERSION}.x nodistro main" >> /etc/apt/sources.list.d/nodejs.list \
-    && curl -fsSL "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key" | gpg --dearmor | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        nodejs libatomic1 python3-minimal \
-    && rm -rf /var/lib/apt/lists/* \
-    # Update NPM to latest version
-    && npm i -g npm --cache /root/.npm \
-    # Save version info
-    && ( \
-        which node && node --version \
-        && which npm && npm --version \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
+source = Path("/app/pyproject.toml")
+target = Path("/tmp/archivebox-uv-project/pyproject.toml")
+text = source.read_text()
+text = text.replace(
+    'environments = ["sys_platform == \'darwin\'", "sys_platform == \'linux\'"]',
+    'environments = ["sys_platform == \'linux\'"]',
+)
 
-# Install Python environment
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Setting up Python $PYTHON_VERSION runtime..." \
-    # tell PDM to allow using global system python site packages
-    # && rm /usr/lib/python3*/EXTERNALLY-MANAGED \
-    # create global virtual environment GLOBAL_VENV to use (better than using pip install --global)
-    # && python3 -m venv --system-site-packages --symlinks $GLOBAL_VENV \
-    # && python3 -m venv --system-site-packages $GLOBAL_VENV \
-    # && python3 -m venv $GLOBAL_VENV \
-    # install global dependencies / python build dependencies in GLOBAL_VENV
-    # && pip install --upgrade pip setuptools wheel \
-    # Save version info
-    && ( \
-        which python3 && python3 --version | grep " $PYTHON_VERSION" \
-        && which pip && pip --version \
-        # && which pdm && pdm --version \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
+# Docker builds need the just-published internal abx wheels immediately, but
+# PyPI simple can lag the version JSON endpoints by tens of minutes. Generate a
+# Docker-only dependency view from the version JSON so the published package
+# metadata stays normal while image builds remain resumable after a release.
+for package in ("abxbus", "abxpkg", "abx-plugins", "abx-dl"):
+    match = re.search(
+        rf'"{re.escape(package)}(?P<operator>==|>=)(?P<version>[^"]+)"',
+        text,
+    )
+    if not match:
+        continue
+    version = match.group("version")
+    with urllib.request.urlopen(f"https://pypi.org/pypi/{package}/{version}/json", timeout=20) as response:
+        data = json.load(response)
+    wheel_url = next(url["url"] for url in data["urls"] if url["filename"].endswith(".whl"))
+    text = re.sub(
+        rf'"{re.escape(package)}(?:==|>=)[^"]+"',
+        f'"{package} @ {wheel_url}"',
+        text,
+        count=1,
+    )
 
-######### Extractor Dependencies ##################################
+target.write_text(text)
+PY
 
-# Install apt dependencies
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing APT extractor dependencies globally using apt..." \
-    && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        curl wget git ffmpeg ripgrep \
-        # Packages we have also needed in the past:
-        # youtube-dl wget2 aria2 python3-pyxattr rtmpdump libfribidi-bin mpv \
-        # fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
-    && rm -rf /var/lib/apt/lists/* \
-    # Save version info
-    && ( \
-        which curl && curl --version | head -n1 \
-        && which wget && wget --version 2>&1 | head -n1 \
-        && which git && git --version 2>&1 | head -n1 \
-        && which rg && rg --version 2>&1 | head -n1 \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
+/usr/bin/uv sync \
+    --project /tmp/archivebox-uv-project \
+    --no-cache \
+    --no-dev \
+    --inexact \
+    --no-install-project \
+    --no-install-workspace \
+    --no-install-package abxbus \
+    --no-install-package abxpkg \
+    --no-install-package abx-plugins \
+    --no-install-package abx-dl \
+    --no-sources
+builder_abxpkg_lib_dir=/tmp/archivebox-builder-abxpkg
+ABXPKG_NO_CACHE=True abxpkg env --install --binproviders=env,apt --lib="$builder_abxpkg_lib_dir" --overrides='{"apt":{"install_args":["binutils"]}}' strip >/dev/null
+/usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print0 > /tmp/archivebox-native-libraries
+while IFS= read -r -d '' native_library; do
+    if grep -Fxq "$native_library" /tmp/archivebox-inherited-libraries; then
+        continue
+    fi
+    magic=''
+    if IFS= read -r -N 4 magic < "$native_library" && [[ "$magic" == $'\x7fELF' ]]; then
+        "$builder_abxpkg_lib_dir/env/bin/strip" --strip-unneeded "$native_library" || exit $?
+    fi
+done < /tmp/archivebox-native-libraries
+rm -f /tmp/archivebox-native-libraries /tmp/archivebox-inherited-libraries
+rm -f /venv/bin/uv /venv/bin/uvx
+abxpkg run --binproviders=env --lib="$builder_abxpkg_lib_dir" apt-get purge -y binutils
+abxpkg run --binproviders=env --lib="$builder_abxpkg_lib_dir" apt-get autoremove -y
+rm -rf "$builder_abxpkg_lib_dir"
+rm -rf /venv/lib/python3.*/site-packages/pip* \
+    /venv/lib/python3.*/site-packages/wheel* \
+    /venv/bin/pip /venv/bin/pip3 /venv/bin/pip3.* /venv/bin/wheel
+rm -rf /var/lib/apt/lists/* /tmp/archivebox-uv-project
+EOF
 
-# Install chromium browser using playwright
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/ms-playwright,sharing=locked,id=browsers-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing Browser binary dependencies to $PLAYWRIGHT_BROWSERS_PATH..." \
-    && apt-get update -qq \
-    && if [[ "$TARGETPLATFORM" == *amd64* || "$TARGETPLATFORM" == *arm64* ]]; then \
-        # install Chromium using playwright
-        pip install "playwright==$PLAYWRIGHT_VERSION" \
-        && cp -r /root/.cache/ms-playwright "$PLAYWRIGHT_BROWSERS_PATH" \
-        && playwright install --with-deps chromium \
-        && export CHROME_BINARY="$(python -c 'from playwright.sync_api import sync_playwright; print(sync_playwright().start().chromium.executable_path)')"; \
-    else \
-        # fall back to installing Chromium via apt-get on platforms not supported by playwright (e.g. risc, ARMv7, etc.) 
-        apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-            chromium fontconfig fonts-ipafont-gothic fonts-wqy-zenhei fonts-thai-tlwg fonts-kacst fonts-symbola fonts-noto fonts-freefont-ttf \
-        && export CHROME_BINARY="$(which chromium)"; \
-    fi \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -s "$CHROME_BINARY" /usr/bin/chromium-browser \
-    && mkdir -p "/home/${ARCHIVEBOX_USER}/.config/chromium/Crash Reports/pending/" \
-    && chown -R $ARCHIVEBOX_USER "/home/${ARCHIVEBOX_USER}/.config" \
-    && mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" \
-    && chown -R $ARCHIVEBOX_USER "$PLAYWRIGHT_BROWSERS_PATH" \
-    # Save version info
-    && ( \
-        which chromium-browser && /usr/bin/chromium-browser --version || /usr/lib/chromium/chromium --version \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
-
-# Install Node dependencies
-WORKDIR "$CODE_DIR"
-COPY --chown=root:root --chmod=755 "package.json" "package-lock.json" "$CODE_DIR"/
-RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing NPM extractor dependencies from package.json into $NODE_MODULES..." \
-    && npm ci --prefer-offline --no-audit --cache /root/.npm \
-    && ( \
-        which node && node --version \
-        && which npm && npm version \
-        && echo -e '\n\n' \
-    ) | tee -a /VERSION.txt
-
-######### Build Dependencies ####################################
-
-# Install ArchiveBox Python dependencies
-WORKDIR "$CODE_DIR"
-COPY --chown=root:root --chmod=755 "./pyproject.toml" "requirements.txt" "$CODE_DIR"/
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    echo "[+] Installing PIP ArchiveBox dependencies from requirements.txt for ${TARGETPLATFORM}..." \
-    && apt-get update -qq \
-    && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-        build-essential \
-        libssl-dev libldap2-dev libsasl2-dev \
-        python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps \
-    # && ln -s "$GLOBAL_VENV" "$APP_VENV" \
-    # && pdm use --venv in-project \
-    # && pdm run python -m ensurepip \
-    # && pdm sync --fail-fast --no-editable --group :all --no-self \
-    # && pdm export -o requirements.txt --without-hashes \
-    # && source $GLOBAL_VENV/bin/activate \
-    && pip install -r requirements.txt \
-    && pip install --upgrade "yt-dlp==$YTDLP_VERSION" \
-    && apt-get purge -y \
-        build-essential \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install ArchiveBox Python package from source
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT --mount=type=cache,target=/root/.cache/pip,sharing=locked,id=pip-$TARGETARCH$TARGETVARIANT \
-    echo "[*] Installing PIP ArchiveBox package from $CODE_DIR..." \
-    # && apt-get update -qq \
-    # install C compiler to build deps on platforms that dont have 32-bit wheels available on pypi
-    # && apt-get install -qq -y -t bookworm-backports --no-install-recommends \
-    #     build-essential  \
-    # INSTALL ARCHIVEBOX python package globally from CODE_DIR, with all optional dependencies
-    && pip install -e "$CODE_DIR"[sonic,ldap] \
-    # save docker image size and always remove compilers / build tools after building is complete
-    # && apt-get purge -y build-essential \
-    # && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+# Compile only ArchiveBox's installed package. Touching all of /venv here would
+# copy every inherited abx-dl file into a new layer merely to change its mtime.
+RUN echo "[*] Installing ArchiveBox Python source code from $CODE_DIR..." \
+    && COMMIT_HASH="$( \
+        if [[ "$ARCHIVEBOX_COMMIT_HASH" =~ ^[0-9a-fA-F]{40}$ ]]; then \
+            echo "$ARCHIVEBOX_COMMIT_HASH"; \
+        elif [[ -f "$CODE_DIR/.git/HEAD" ]]; then \
+            HEAD_REF="$(cat "$CODE_DIR/.git/HEAD")"; \
+            if [[ "$HEAD_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then \
+                echo "$HEAD_REF"; \
+            elif [[ "$HEAD_REF" == ref:\ * ]]; then \
+                REF_PATH="${HEAD_REF#ref: }"; \
+                cat "$CODE_DIR/.git/$REF_PATH" 2>/dev/null || awk -v ref="$REF_PATH" '$2 == ref {print $1}' "$CODE_DIR/.git/packed-refs" 2>/dev/null || true; \
+            fi; \
+        fi)" \
+    && if [[ "$COMMIT_HASH" =~ ^[0-9a-fA-F]{40}$ ]]; then echo "COMMIT_HASH=$COMMIT_HASH" | tee -a /VERSION.txt; fi \
+    && /usr/bin/uv pip install --no-cache --no-deps "$CODE_DIR" \
+    && rm -f /venv/bin/uv /venv/bin/uvx \
+    && cd / \
+    && ARCHIVEBOX_PY_DIR="$(/venv/bin/python -c 'import pathlib, archivebox; print(pathlib.Path(archivebox.__file__).parent)')" \
+    && /venv/bin/python -m compileall --invalidation-mode checked-hash -q "$ARCHIVEBOX_PY_DIR" \
+    && test -f "$(/venv/bin/python -c 'import archivebox; print(archivebox.__cached__)')" \
+    && /usr/bin/uv pip show archivebox | tee -a /VERSION.txt
 
-####################################################
+# The builder installs and purges stripping tools in one layer, so its final
+# filesystem is already runtime-clean. Preserve that ancestry: starting again
+# from archivebox-runtime-base and COPYing /venv would bake a second full venv
+# over the inherited one instead of recording only ArchiveBox's package delta.
+FROM archivebox-builder
 
-# Setup ArchiveBox runtime config
+LABEL name="archivebox" \
+    maintainer="Nick Sweeting <dockerfile@archivebox.io>" \
+    description="All-in-one self-hosted internet archiving solution" \
+    homepage="https://github.com/ArchiveBox/ArchiveBox" \
+    documentation="https://github.com/ArchiveBox/ArchiveBox/wiki/Docker" \
+    org.opencontainers.image.title="ArchiveBox" \
+    org.opencontainers.image.vendor="ArchiveBox" \
+    org.opencontainers.image.description="All-in-one self-hosted internet archiving solution" \
+    org.opencontainers.image.source="https://github.com/ArchiveBox/ArchiveBox" \
+    com.docker.image.source.entrypoint="Dockerfile"
+
+COPY --from=sonic /usr/local/bin/sonic /usr/local/bin/sonic
+COPY --chown=root:root --chmod=755 "etc/sonic.cfg" /etc/sonic.cfg
+
+# The builder invokes abxpkg as root for temporary ELF stripping, which can
+# rewrite derived state ownership. Restore UID 911 before resolving binaries
+# as the runtime user; the old copy-based final stage hid this dependency.
+RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777,id=archivebox-runtime-config-$TARGETARCH \
+    echo "[*] Setting up $ARCHIVEBOX_USER user uid=${DEFAULT_ARCHIVEBOX_UID}..." \
+    && printf 'export PATH="/venv/bin:/opt/node/bin:$PATH"\n' > /etc/profile.d/archivebox-path.sh \
+    && ln -sf /venv/bin/archivebox /usr/local/bin/archivebox \
+    && ln -sf /venv/bin/daphne /usr/local/bin/daphne \
+    && ln -sf /venv/bin/supervisord /usr/local/bin/supervisord \
+    && ln -sf /venv/bin/supervisorctl /usr/local/bin/supervisorctl \
+    && getent group "$ARCHIVEBOX_USER" >/dev/null || groupadd --system "$ARCHIVEBOX_USER" \
+    && id -u "$ARCHIVEBOX_USER" >/dev/null 2>&1 || useradd --system --create-home --gid "$ARCHIVEBOX_USER" --groups audio,video "$ARCHIVEBOX_USER" \
+    && usermod --append --groups audio,video "$ARCHIVEBOX_USER" \
+    && [[ "$(id -u "$ARCHIVEBOX_USER")" == "$DEFAULT_ARCHIVEBOX_UID" ]] || usermod -u "$DEFAULT_ARCHIVEBOX_UID" "$ARCHIVEBOX_USER" \
+    && [[ "$(id -g "$ARCHIVEBOX_USER")" == "$DEFAULT_ARCHIVEBOX_GID" ]] || groupmod -g "$DEFAULT_ARCHIVEBOX_GID" "$ARCHIVEBOX_USER" \
+    && install -d -o "$DEFAULT_ARCHIVEBOX_UID" -g "$DEFAULT_ARCHIVEBOX_GID" "$DATA_DIR" "$TMP_DIR" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$XDG_CACHE_HOME" "$PLAYWRIGHT_BROWSERS_PATH" \
+    && install -d -o "$DEFAULT_ARCHIVEBOX_UID" -g "$DEFAULT_ARCHIVEBOX_GID" "/home/$ARCHIVEBOX_USER" \
+    && chown "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" "$DATA_DIR" "$TMP_DIR" \
+    && find "$ABXPKG_LIB_DIR" \( ! -user "$DEFAULT_ARCHIVEBOX_UID" -o ! -group "$DEFAULT_ARCHIVEBOX_GID" \) -exec chown -h "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" {} + \
+    && UV_NO_CACHE=true setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abxpkg load --binproviders=env sonic | tee -a /VERSION.txt \
+    && openssl rand -hex 16 > /etc/machine-id \
+    && echo -e "\nARCHIVEBOX_USER=$ARCHIVEBOX_USER ARCHIVEBOX_UID=$(id -u "$ARCHIVEBOX_USER") ARCHIVEBOX_GID=$(id -g "$ARCHIVEBOX_USER")" | tee -a /VERSION.txt \
+    && echo -e "TMP_DIR=$TMP_DIR\nABXPKG_LIB_DIR=$ABXPKG_LIB_DIR\nPLAYWRIGHT_BROWSERS_PATH=$PLAYWRIGHT_BROWSERS_PATH\nMACHINE_ID=$(cat /etc/machine-id)\n" | tee -a /VERSION.txt
+
+# Install the complete ArchiveBox catalog, including disabled server plugins.
+# Explicit plugin names make installation independent of enabled defaults.
+RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-opencode-$TARGETARCH \
+    chown -R "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" /var/tmp/abxpkg-cache \
+    && chmod 1777 /var/tmp/abxpkg-cache \
+    && export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
+    && env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
+        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install $ABX_DOCKER_PLUGINS \
+    # pnpm includes musl variants that Debian's glibc runtime cannot use.
+    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules" -type l -name 'opencode-linux-*-musl' -delete \
+    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.pnpm" -maxdepth 1 -type d -name 'opencode-linux-*-musl@*' -exec rm -rf {} +
+RUN --network=none export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
+    bash -c '"$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version && abx-dl install $ABX_DOCKER_PLUGINS'
+
 WORKDIR "$DATA_DIR"
-ENV IN_DOCKER=True
-    ## No need to set explicitly, these values will be autodetected by archivebox in docker:
-    # CHROME_SANDBOX=False \
-    # WGET_BINARY="wget" \
-    # YOUTUBEDL_BINARY="yt-dlp" \
-    # CHROME_BINARY="/usr/bin/chromium-browser" \
-    # USE_SINGLEFILE=True \
-    # SINGLEFILE_BINARY="$NODE_MODULES/.bin/single-file" \
-    # USE_READABILITY=True \
-    # READABILITY_BINARY="$NODE_MODULES/.bin/readability-extractor" \
-    # USE_MERCURY=True \
-    # MERCURY_BINARY="$NODE_MODULES/.bin/postlight-parser"
+RUN echo "[+] Initializing image collection..." \
+    && find "$DATA_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} + \
+    && HOME="$TMP_DIR" archivebox init \
+    && (chown "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" \
+        "$DATA_DIR" "$DATA_DIR"/.archivebox_id "$DATA_DIR"/ArchiveBox.conf "$DATA_DIR"/index.sqlite3 \
+        "$DATA_DIR"/logs "$DATA_DIR"/logs/* "$DATA_DIR"/sources \
+        "$DATA_DIR"/archive "$DATA_DIR"/archive/users "$DATA_DIR"/personas \
+        "$DATA_DIR"/tmp "$DATA_DIR"/tmp/* \
+        "$CONFIG_DIR" "$CONFIG_DIR"/config.env "$CONFIG_DIR"/derived.env \
+        "$TMP_DIR" "$ABXPKG_LIB_DIR" "$XDG_CACHE_HOME" "$PLAYWRIGHT_BROWSERS_PATH" \
+        2>/dev/null || true) \
+    && find "$TMP_DIR" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
 
-# Print version for nice docker finish summary
-RUN (echo -e "\n\n[√] Finished Docker build succesfully. Saving build summary in: /VERSION.txt" \
-    && echo -e "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) ($(uname -s) ${TARGETARCH} ${TARGETVARIANT})\n" \
+RUN chmod +x "$CODE_DIR"/bin/*.sh \
+    && chmod g+w "$TMP_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH"
+
+RUN for forbidden_bin in gcc g++ make; do ! abxpkg load --binproviders=env "$forbidden_bin" >/dev/null 2>&1 || (echo "Unexpected build tool in runtime: $forbidden_bin" >&2 && exit 1); done \
+    && stat -c "%U:%G %a %n" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$CONFIG_DIR" \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$ABXPKG_LIB_DIR" \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox install \
+    && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups archivebox version 2>&1 | tee -a /VERSION.txt \
+    && rm -rf /root/.cache /var/cache/apt/* /var/lib/apt/lists/*
+
+RUN (echo -e "\n\n[√] Finished ArchiveBox multistage Docker build successfully." \
+    && echo -e "PLATFORM=${TARGETPLATFORM} ARCH=$(uname -m) (${TARGETARCH} ${TARGETVARIANT})" \
     && echo -e "BUILD_END_TIME=$(date +"%Y-%m-%d %H:%M:%S %s")\n\n" \
     ) | tee -a /VERSION.txt
-RUN "$CODE_DIR"/bin/docker_entrypoint.sh version 2>&1 | tee -a /VERSION.txt
 
-####################################################
-
-# Open up the interfaces to the outside world
 WORKDIR "$DATA_DIR"
 VOLUME "$DATA_DIR"
-EXPOSE 8000
+EXPOSE 5797
 
-# Optional:
-# HEALTHCHECK --interval=30s --timeout=20s --retries=15 \
-#     CMD curl --silent 'http://localhost:8000/admin/login/' || exit 1
+HEALTHCHECK --interval=30s --timeout=20s --retries=15 \
+    CMD curl --fail --silent --show-error --max-time 5 --connect-timeout 2 'http://admin.archivebox.localhost:5797/health/' | grep -q 'OK'
 
 ENTRYPOINT ["dumb-init", "--", "/app/bin/docker_entrypoint.sh"]
-CMD ["archivebox", "server", "--quick-init", "0.0.0.0:8000"]
+CMD ["archivebox", "server", "--init", "0.0.0.0:5797"]

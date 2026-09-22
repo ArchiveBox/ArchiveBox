@@ -1,73 +1,49 @@
 #!/usr/bin/env python3
 
-__package__ = 'archivebox.cli'
-__command__ = 'archivebox oneshot'
+__package__ = "archivebox.cli"
+__command__ = "archivebox oneshot"
 
+import subprocess
 import sys
-import argparse
-
 from pathlib import Path
-from typing import List, Optional, IO
 
-from ..main import oneshot
-from ..util import docstring
-from ..config import OUTPUT_DIR
-from ..logging_util import SmartFormatter, accept_stdin, stderr
+import rich_click as click
+
+from archivebox.config import CONSTANTS
+from archivebox.config.common import get_config
 
 
-@docstring(oneshot.__doc__)
-def main(args: Optional[List[str]]=None, stdin: Optional[IO]=None, pwd: Optional[str]=None) -> None:
-    parser = argparse.ArgumentParser(
-        prog=__command__,
-        description=oneshot.__doc__,
-        add_help=True,
-        formatter_class=SmartFormatter,
-    )
-    parser.add_argument(
-        'url',
-        type=str,
-        default=None,
-        help=(
-            'URLs or paths to archive e.g.:\n'
-            '    https://getpocket.com/users/USERNAME/feed/all\n'
-            '    https://example.com/some/rss/feed.xml\n'
-            '    https://example.com\n'
-            '    ~/Downloads/firefox_bookmarks_export.html\n'
-            '    ~/Desktop/sites_list.csv\n'
+@click.command(add_help_option=False, context_settings=dict(ignore_unknown_options=True))
+@click.argument("args", nargs=-1)
+def main(args: tuple[str, ...] = ()) -> None:
+    """Download URLs using abx-dl"""
+    from archivebox.misc.checks import check_not_inside_source_dir
+
+    check_not_inside_source_dir()
+
+    cwd = Path.cwd()
+    if any((path / CONSTANTS.SQL_INDEX_FILENAME).exists() for path in (cwd, *cwd.parents)):
+        raise click.ClickException(
+            "Refusing to run `archivebox oneshot` inside an ArchiveBox DATA_DIR. Use `archivebox add` here, or run oneshot from another directory.",
         )
-    )
-    parser.add_argument(
-        "--extract",
-        type=str,
-        help="Pass a list of the extractors to be used. If the method name is not correct, it will be ignored. \
-              This does not take precedence over the configuration",
-        default=""
-    )
-    parser.add_argument(
-        '--out-dir',
-        type=str,
-        default=OUTPUT_DIR,
-        help= "Path to save the single archive folder to, e.g. ./example.com_archive"
-    )
-    command = parser.parse_args(args or ())
-    stdin_url = None
-    url = command.url
-    if not url:
-        stdin_url = accept_stdin(stdin)
-
-    if (stdin_url and url) or (not stdin and not url):
-        stderr(
-            '[X] You must pass a URL/path to add via stdin or CLI arguments.\n',
-            color='red',
-        )
-        raise SystemExit(2)
-    
-    oneshot(
-        url=stdin_url or url,
-        out_dir=Path(command.out_dir).resolve(),
-        extractors=command.extract,
+    abxpkg_binary = Path(sys.executable).with_name("abxpkg")
+    if not abxpkg_binary.is_file():
+        raise click.ClickException(f"abxpkg executable is missing from the ArchiveBox environment: {abxpkg_binary}")
+    abxpkg_lib_dir = get_config(include_machine=False).ABXPKG_LIB_DIR
+    raise SystemExit(
+        subprocess.run(
+            [
+                str(abxpkg_binary),
+                f"--lib={abxpkg_lib_dir}",
+                "--binproviders=env",
+                "--install",
+                "run",
+                "abx-dl",
+                *args,
+            ],
+        ).returncode,
     )
 
 
-if __name__ == '__main__':
-    main(args=sys.argv[1:], stdin=sys.stdin)
+if __name__ == "__main__":
+    main()

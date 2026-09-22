@@ -1,0 +1,760 @@
+<style>
+.plugin-config-form {
+    min-width: 0;
+}
+
+.plugin-config-form,
+.plugin-config-form * {
+    box-sizing: border-box;
+}
+
+.plugin-groups-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.plugin-group {
+    min-width: 0;
+    padding: 14px 16px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.plugin-group > .plugin-group-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #004882;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.plugin-group[open] > .plugin-group-header {
+    margin-bottom: 12px;
+}
+
+.plugin-group > .plugin-group-header::-webkit-details-marker {
+    display: none;
+}
+
+.plugin-group-caret {
+    display: inline-block;
+    color: #004882;
+    font-size: 11px;
+    line-height: 1;
+    transition: transform 0.15s ease;
+    width: 12px;
+    flex: 0 0 12px;
+}
+
+.plugin-group[open] > .plugin-group-header > .plugin-group-caret {
+    transform: rotate(90deg);
+}
+
+.plugin-group-header label {
+    margin: 0;
+    color: #004882;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.plugin-group-header .select-all-btn {
+    margin-left: auto;
+}
+
+.plugin-group-note {
+    color: #7a7a7a;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.select-all-btn {
+    padding: 4px 12px;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.select-all-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.plugin-checkboxes {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    min-width: 0;
+}
+
+.plugin-card {
+    min-width: 0;
+    overflow: hidden;
+    background-color: #fff;
+    border: 1px solid #e3e8ef;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.plugin-card:hover {
+    background-color: #f5f5f5;
+}
+
+.plugin-card-main {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto auto auto;
+    column-gap: 8px;
+    row-gap: 2px;
+    align-items: start;
+    min-width: 0;
+    padding: 8px 10px;
+}
+
+.plugin-card-main--static {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.plugin-card-main > input[type="checkbox"] {
+    grid-column: 1;
+    grid-row: 1;
+    width: auto;
+    margin: 3px 0 0;
+}
+
+.plugin-config-form .plugin-card-label {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid !important;
+    grid-template-columns: 20px minmax(0, 1fr);
+    column-gap: 8px;
+    row-gap: 3px;
+    align-items: start;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+    font-size: 14px;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.plugin-config-form .plugin-card-label-static {
+    grid-column: 1;
+}
+
+.plugin-choice-name {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    color: #1f2937;
+    font-weight: 500;
+}
+
+.plugin-config-form .plugin-choice-icon {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    color: #7a7a7a;
+}
+
+.plugin-config-form .plugin-choice-icon .abx-output-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plugin-config-form .plugin-choice-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.plugin-config-form .plugin-choice-description {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: block !important;
+    min-width: 0;
+    width: 100%;
+    margin: 0;
+    color: #7a7a7a;
+    font-size: 12px !important;
+    font-weight: 400;
+    line-height: 1.35;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+}
+
+.plugin-config-form .plugin-choice-description:hover {
+    color: #4b5563;
+    text-decoration: underline;
+}
+
+.plugin-config-toggle-hack {
+    display: none;
+}
+
+.plugin-config-marker {
+    grid-column: 5;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.plugin-card-main--static .plugin-config-marker {
+    grid-column: 4;
+}
+
+.plugin-card-badge,
+.plugin-config-form .plugin-config-marker {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 3px 8px;
+    border: 1px solid #d7e2eb;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12px !important;
+    font-weight: 700;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.plugin-config-marker:hover {
+    background: #eef4fa;
+    color: #1f2937;
+}
+
+.plugin-card-badge {
+    text-decoration: none !important;
+}
+
+.plugin-card-badge:link,
+.plugin-card-badge:visited,
+.plugin-card-badge:active {
+    color: #475569;
+}
+
+.plugin-card-badge:hover,
+.plugin-card-badge:focus {
+    background: #eef4fa;
+    color: #1f2937;
+}
+
+.plugin-source-badge {
+    grid-column: 3;
+    grid-row: 1;
+}
+
+.plugin-docs-badge {
+    grid-column: 4;
+    grid-row: 1;
+}
+
+.plugin-card-main--static .plugin-source-badge {
+    grid-column: 2;
+}
+
+.plugin-card-main--static .plugin-docs-badge {
+    grid-column: 3;
+}
+
+.plugin-config-marker::before {
+    content: "▶";
+    display: inline-block;
+    font-size: 10px;
+    transition: transform 0.2s;
+}
+
+.plugin-config-toggle-hack:checked ~ .plugin-card-main .plugin-config-marker::before {
+    transform: rotate(90deg);
+}
+
+.plugin-config-details {
+    width: 100%;
+    min-width: 0;
+    margin-top: 0;
+    padding-top: 0;
+    display: none;
+}
+
+.plugin-config-toggle-hack:checked ~ .plugin-config-details {
+    display: block;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #eef0f3;
+}
+
+.plugin-config-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #334155;
+    font-size: 11px;
+}
+
+.plugin-config-empty {
+    grid-column: 1 / -1;
+    margin-bottom: 8px;
+    padding: 7px 9px;
+    border: 1px solid #e5edf5;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.plugin-config-uses {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid #e5edf5;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.plugin-config-uses a {
+    color: #475569;
+    text-decoration: none;
+}
+
+.plugin-config-uses a:hover {
+    color: #1f2937;
+    text-decoration: underline;
+}
+
+.plugin-config-uses code {
+    padding: 1px 5px;
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 999px;
+    font-size: 11px;
+}
+
+.plugin-config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    max-width: 100%;
+    max-height: 360px;
+    overflow: auto;
+    padding: 10px;
+    border: 1px solid #e5edf5;
+    border-radius: 6px;
+    background: #fbfdff;
+}
+
+.plugin-config-field {
+    min-width: 0;
+}
+
+.plugin-config-form .plugin-config-field > label {
+    display: flex !important;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+    color: #24303b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.plugin-config-field code {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.plugin-config-type {
+    flex: 0 0 auto;
+    color: #7a8794;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.plugin-config-field input[type="text"],
+.plugin-config-field input[type="password"],
+.plugin-config-field input[type="number"],
+.plugin-config-field select,
+.plugin-config-field textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 34px;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    box-shadow: none;
+    background: #fff;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.plugin-config-field textarea {
+    min-height: 0 !important;
+    height: auto !important;
+    field-sizing: content;
+    resize: vertical;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.plugin-config-form .plugin-config-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 34px;
+    margin: 0;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 4px;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.plugin-config-toggle input[type="checkbox"] {
+    width: auto;
+    margin: 0;
+}
+
+.plugin-config-help,
+.plugin-config-default {
+    margin-top: 4px;
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.plugin-config-default code {
+    color: #475569;
+    white-space: normal;
+    word-break: break-word;
+}
+
+@media (max-width: 768px) {
+    .plugin-checkboxes,
+    .plugin-groups-grid,
+    .plugin-config-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .plugin-card-main {
+        grid-template-columns: 18px minmax(0, 1fr) auto auto auto;
+    }
+
+    .plugin-card-main--static {
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+    }
+
+    .plugin-config-marker,
+    .plugin-card-main--static .plugin-config-marker {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        justify-content: flex-start;
+    }
+
+    .plugin-choice-description {
+        grid-row: 2;
+    }
+
+    .plugin-group > .plugin-group-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+}
+</style>
+<div class="plugin-config-form">
+    <div class="plugin-groups-grid">
+        {% for group in plugin_groups %}
+            {% if group.plugins %}
+                <details class="plugin-group"{% if group.field_name != "metadata_plugins" and group.field_name != "postprocessing_plugins" %} open{% endif %}>
+                    <summary class="plugin-group-header">
+                        <span class="plugin-group-caret" aria-hidden="true">▶</span>
+                        <label>{{ group.title }}</label>
+                        {% if group.note %}
+                            <span class="plugin-group-note">{{ group.note }}</span>
+                        {% endif %}
+                        {% if group.show_selectors and group.select_all_group %}
+                            <button type="button" class="select-all-btn" data-group="{{ group.select_all_group }}" onclick="event.stopPropagation();">
+                                Select All Chrome
+                            </button>
+                        {% endif %}
+                    </summary>
+                    <div class="plugin-checkboxes"{% if group.dom_id %} id="{{ group.dom_id }}"{% endif %}>
+                        {% for plugin in group.plugins %}
+                            <div
+                                class="plugin-card"
+                                data-plugin-name="{{ plugin.name }}"
+                                {% if plugin.enabled_config_key %}data-plugin-enabled-key="{{ plugin.enabled_config_key }}"{% endif %}
+                            >
+                                <input type="checkbox" id="plugin-config-toggle-{{ group.field_name }}-{{ plugin.name }}" class="plugin-config-toggle-hack">
+                                <div class="plugin-card-main{% if not group.show_selectors %} plugin-card-main--static{% endif %}">
+                                    {% if group.show_selectors %}
+                                        <input type="checkbox" name="{{ group.field_name }}" value="{{ plugin.name }}" id="{{ plugin.checkbox_id }}" class="plugin-section-toggle" {% if plugin.checked %}checked{% endif %}>
+                                        <label for="{{ plugin.checkbox_id }}" class="plugin-card-label">
+                                            {{ plugin.label }}
+                                        </label>
+                                    {% else %}
+                                        <div class="plugin-card-label plugin-card-label-static">
+                                            {{ plugin.label }}
+                                        </div>
+                                    {% endif %}
+                                    {% if plugin.description %}
+                                        <label for="plugin-config-toggle-{{ group.field_name }}-{{ plugin.name }}" class="plugin-choice-description">{{ plugin.description }}</label>
+                                    {% endif %}
+                                    <a class="plugin-card-badge plugin-source-badge" href="{{ plugin.source_url }}" target="_blank" rel="noopener noreferrer">Source</a>
+                                    <a class="plugin-card-badge plugin-docs-badge" href="{{ plugin.docs_url }}" target="_blank" rel="noopener noreferrer">Docs</a>
+                                    <label for="plugin-config-toggle-{{ group.field_name }}-{{ plugin.name }}" class="plugin-config-marker">
+                                        <span class="plugin-config-marker-label">Config</span>
+                                        <span class="plugin-config-count">{{ plugin.config_count }}</span>
+                                    </label>
+                                </div>
+                                <div class="plugin-config-details">
+                                        {% if plugin.config_fields %}
+                                            <div class="plugin-config-grid">
+                                                {% for field in plugin.config_fields %}
+                                                    <div class="plugin-config-field">
+                                                        <label for="id_{{ field.input_name }}">
+                                                            <code>{{ field.key }}</code>
+                                                            <span class="plugin-config-type">{{ field.type_label }}</span>
+                                                        </label>
+                                                        {% if field.kind == "boolean" %}
+                                                            <input type="hidden" name="{{ field.input_name }}" value="false">
+                                                            <label class="plugin-config-toggle">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    class="plugin-config-input"
+                                                                    data-config-key="{{ field.key }}"
+                                                                    name="{{ field.input_name }}"
+                                                                    id="id_{{ field.input_name }}"
+                                                                    value="true"
+                                                                    {% if field.checked %}checked{% endif %}
+                                                                >
+                                                                <span>Enabled</span>
+                                                            </label>
+                                                        {% elif field.kind == "select" %}
+                                                            <select class="plugin-config-input" data-config-key="{{ field.key }}" name="{{ field.input_name }}" id="id_{{ field.input_name }}">
+                                                                {% for option in field.options %}
+                                                                    <option value="{{ option.value }}" {% if option.selected %}selected{% endif %}>{{ option.label }}</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        {% elif field.kind == "json" %}
+                                                            <textarea
+                                                                class="plugin-config-input"
+                                                                data-config-key="{{ field.key }}"
+                                                                name="{{ field.input_name }}"
+                                                                id="id_{{ field.input_name }}"
+                                                                rows="3"
+                                                                spellcheck="false"
+                                                                {% if field.is_sensitive %}placeholder="Leave blank to keep current value"{% endif %}
+                                                            >{{ field.value }}</textarea>
+                                                        {% else %}
+                                                            <input
+                                                                class="plugin-config-input"
+                                                                data-config-key="{{ field.key }}"
+                                                                type="{{ field.input_type }}"
+                                                                name="{{ field.input_name }}"
+                                                                id="id_{{ field.input_name }}"
+                                                                value="{{ field.value }}"
+                                                                {% if field.pattern %}pattern="{{ field.pattern }}"{% endif %}
+                                                                {% if field.is_sensitive %}autocomplete="off" placeholder="Leave blank to keep current value"{% endif %}
+                                                            >
+                                                        {% endif %}
+                                                        {% if field.description %}
+                                                            <div class="plugin-config-help">{{ field.description }}</div>
+                                                        {% endif %}
+                                                        <div class="plugin-config-default">
+                                                            Current:
+                                                            <span class="plugin-config-current" data-config-key="{{ field.key }}">
+                                                                {% if field.current_url %}
+                                                                    <a href="{{ field.current_url }}" target="_blank" rel="noopener"><code>{{ field.current }}</code></a>
+                                                                {% else %}
+                                                                    <code>{{ field.current }}</code>
+                                                                {% endif %}
+                                                            </span>
+                                                            · Default: <code>{{ field.default }}</code>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                                {% if plugin.required_binary_links %}
+                                                    <div class="plugin-config-uses">
+                                                        Uses:
+                                                        {% for binary in plugin.required_binary_links %}<a href="{{ binary.url }}" target="_blank" rel="noopener"><code>{{ binary.name }}</code></a>{% if not forloop.last %}, {% endif %}{% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <div class="plugin-config-empty">
+                                                This plugin has no crawl-configurable options.
+                                                {% if plugin.required_binary_links %}
+                                                    <div class="plugin-config-uses">
+                                                        Uses:
+                                                        {% for binary in plugin.required_binary_links %}<a href="{{ binary.url }}" target="_blank" rel="noopener"><code>{{ binary.name }}</code></a>{% if not forloop.last %}, {% endif %}{% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </details>
+            {% endif %}
+        {% endfor %}
+    </div>
+</div>
+<script>
+(function() {
+    if (window.archiveboxPluginConfigSyncLoaded) return;
+    window.archiveboxPluginConfigSyncLoaded = true;
+    let syncing = false;
+
+    function valueToFieldString(value) {
+        if (value === undefined || value === null) return '';
+        if (typeof value === 'object') return JSON.stringify(value, null, 2);
+        return String(value);
+    }
+
+    function setPluginInputValue(input, value) {
+        if (!input) return;
+        if (input.type === 'checkbox') {
+            input.checked = value === true || value === 'true' || value === '1' || value === 'on';
+        } else {
+            input.value = valueToFieldString(value);
+        }
+    }
+
+    function getPluginInputValue(input) {
+        return input.type === 'checkbox' ? input.checked : input.value;
+    }
+
+    function syncMatchingPluginInputs(source) {
+        if (syncing || !source || !source.dataset.configKey) return;
+        syncing = true;
+        document.querySelectorAll(`.plugin-config-input[data-config-key="${CSS.escape(source.dataset.configKey)}"]`).forEach((input) => {
+            if (input !== source) setPluginInputValue(input, getPluginInputValue(source));
+        });
+        syncing = false;
+    }
+
+    function dispatchPluginInputChange(input) {
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    function setChecked(input, checked, shouldDispatch = true) {
+        if (!input || input.checked === checked) return;
+        input.checked = checked;
+        if (shouldDispatch) dispatchPluginInputChange(input);
+    }
+
+    function getCardEnabledInput(card) {
+        if (!card || !card.dataset.pluginEnabledKey) return null;
+        return card.querySelector(`.plugin-config-input[data-config-key="${CSS.escape(card.dataset.pluginEnabledKey)}"]`);
+    }
+
+    function getCardSectionToggle(card) {
+        return card ? card.querySelector('.plugin-section-toggle') : null;
+    }
+
+    function closeCardConfig(card) {
+        const details = card ? card.querySelector('.plugin-config-details') : null;
+        if (details) details.open = false;
+    }
+
+    function syncEnabledInputFromSectionToggle(sectionToggle) {
+        const card = sectionToggle ? sectionToggle.closest('.plugin-card') : null;
+        const enabledInput = getCardEnabledInput(card);
+        if (!enabledInput) return;
+        setChecked(enabledInput, sectionToggle.checked);
+        if (!sectionToggle.checked) closeCardConfig(card);
+    }
+
+    function syncSectionToggleFromEnabledInput(enabledInput) {
+        const card = enabledInput ? enabledInput.closest('.plugin-card') : null;
+        if (!card || enabledInput.dataset.configKey !== card.dataset.pluginEnabledKey) return;
+        setChecked(getCardSectionToggle(card), enabledInput.checked);
+        if (!enabledInput.checked) closeCardConfig(card);
+    }
+
+    function setPluginCurrentValue(key, value, currentUrl) {
+        document.querySelectorAll(`.plugin-config-current[data-config-key="${CSS.escape(key)}"]`).forEach((container) => {
+            let code = container.querySelector('code');
+            if (!code) {
+                code = document.createElement('code');
+                container.textContent = '';
+                container.appendChild(code);
+            }
+            code.textContent = valueToFieldString(value);
+            const existingLink = container.querySelector('a');
+            if (currentUrl && existingLink) {
+                existingLink.href = currentUrl;
+            } else if (currentUrl && !existingLink) {
+                const link = document.createElement('a');
+                link.href = currentUrl;
+                link.target = '_blank';
+                link.rel = 'noopener';
+                container.textContent = '';
+                link.appendChild(code);
+                container.appendChild(link);
+            } else if (!currentUrl && existingLink) {
+                container.textContent = '';
+                container.appendChild(code);
+            }
+        });
+    }
+
+    window.archiveboxSetPluginConfigValues = function(values, binaryUrls) {
+        if (!values || typeof values !== 'object') return;
+        syncing = true;
+        document.querySelectorAll('.plugin-config-input[data-config-key]').forEach((input) => {
+            if (Object.prototype.hasOwnProperty.call(values, input.dataset.configKey)) {
+                setPluginInputValue(input, values[input.dataset.configKey]);
+                setPluginCurrentValue(input.dataset.configKey, values[input.dataset.configKey], binaryUrls ? binaryUrls[input.dataset.configKey] : '');
+            }
+        });
+        syncing = false;
+    };
+
+    document.addEventListener('input', function(event) {
+        if (!event.target || !event.target.matches('.plugin-config-input')) return;
+        syncMatchingPluginInputs(event.target);
+        syncSectionToggleFromEnabledInput(event.target);
+    });
+    document.addEventListener('change', function(event) {
+        if (!event.target) return;
+        if (event.target.matches('.plugin-section-toggle')) {
+            syncEnabledInputFromSectionToggle(event.target);
+            return;
+        }
+        if (event.target.matches('.plugin-config-input')) {
+            syncMatchingPluginInputs(event.target);
+            syncSectionToggleFromEnabledInput(event.target);
+        }
+    });
+
+})();
+</script>

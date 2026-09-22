@@ -1,0 +1,47 @@
+{% comment %}
+  Render exactly one system warning. Configuration/security warnings take
+  precedence over host-health warnings; superusers get the full setup wizard
+  while BASE_URL is unset.
+{% endcomment %}
+{% if mode == "unconfigured" and can_configure and machine_admin_url %}
+  {% include "setup_wizard.html" %}
+{% elif mode %}
+  <div id="archivebox-system-warning-banner" role="alert" aria-live="polite"
+       style="position:fixed;top:-10px;left:50%;transform:translateX(-50%);
+              z-index:2147483647;background:{% if mode == 'unsafe' %}#aa1e55{% else %}#dc2626{% endif %};color:#fff;
+              font:600 11px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+              padding:14px 14px 4px;border-radius:0 0 6px 6px;
+              box-shadow:0 2px 10px rgba(0,0,0,.35);pointer-events:auto;
+              max-width:90vw;letter-spacing:.3px;text-transform:uppercase;">
+    <span style="display:inline-block;background:#fff;color:{% if mode == 'unsafe' %}#aa1e55{% else %}#dc2626{% endif %};
+                 border-radius:3px;padding:1px 5px;margin-right:6px;font-weight:800;">
+      {% if mode == "low_disk" %}⚠ low disk
+      {% elif mode == "high_memory" %}⚠ high memory
+      {% elif mode == "high_load" %}⚠ high load
+      {% elif mode == "unsafe" %}⚠ unsafe
+      {% elif mode == "base_url_mismatch" %}⚠ base_url mismatch
+      {% else %}⚠ base_url not set{% endif %}
+    </span>
+
+    {% if mode == "low_disk" %}
+      Only <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ free_gb }} GiB</code>
+      free on <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">DATA_DIR</code>
+      — new archive jobs will fail until space is reclaimed.
+      <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Disk-Usage" target="_blank" rel="noopener noreferrer" style="color:#fff;text-decoration:underline;margin-left:6px;">docs</a>
+    {% elif mode == "high_memory" %}
+      Virtual memory at <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ mem_pct }}%</code>
+      — the host is close to OOM. Consider stopping crawls or scaling up.
+    {% elif mode == "high_load" %}
+      15-min loadavg <code style="background:#000;color:#fff;padding:1px 6px;border-radius:3px;font:700 11px/1.3 ui-monospace,Menlo,Consolas,monospace;text-transform:none;">{{ load_15 }}</code>
+    {% elif mode == "unsafe" %}
+      ArchiveBox single-domain mode — archived pages share an origin with this site
+      <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Modes" target="_blank" rel="noopener noreferrer" style="color:#fff;text-decoration:underline;margin-left:6px;">why?</a>
+    {% elif mode == "base_url_mismatch" %}
+      Editing disabled from unrecognized URL. Visit
+      <a href="{{ configured_base_url }}" style="color:#fff;text-decoration:underline;text-transform:none;">{{ configured_base_url }}</a>
+      to make changes.
+    {% else %}
+      Ask an ArchiveBox superuser to finish server setup and pin the canonical URL.
+    {% endif %}
+  </div>
+{% endif %}

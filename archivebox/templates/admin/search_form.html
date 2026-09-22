@@ -1,0 +1,82 @@
+{% load i18n static %}
+{% if cl.search_fields %}
+<div id="toolbar">
+<h2 id="changelist-search-form" class="visually-hidden">{% blocktranslate with name=cl.opts.verbose_name_plural %}Search {{ name }}{% endblocktranslate %}</h2>
+<div class="changelist-toolbar-row">
+{% if cl.opts.model_name == 'snapshot' and not cl.embedded_changelist %}
+    {% if cl.snapshot_is_grid_view %}
+      <button
+        type="button"
+        class="button snapshot-view-icon-toggle"
+        id="snapshot-view-toggle"
+        aria-label="{% translate 'Switch to list view' %}"
+        title="{% translate 'Switch to list view' %}"
+        onclick="window.location.href='{% url 'admin:core_snapshot_changelist' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}'"
+      ><span class="snapshot-view-icon snapshot-view-icon-list" aria-hidden="true"><span></span><span></span><span></span></span></button>
+    {% else %}
+      <button
+        type="button"
+        class="button snapshot-view-icon-toggle"
+        id="snapshot-view-toggle"
+        aria-label="{% translate 'Switch to grid view' %}"
+        title="{% translate 'Switch to grid view' %}"
+        onclick="window.location.href='{% url 'admin:grid' %}{% if request.GET.urlencode %}?{{ request.GET.urlencode }}{% endif %}'"
+      ><span class="snapshot-view-icon snapshot-view-icon-grid" aria-hidden="true"><span></span><span></span><span></span><span></span></span></button>
+    {% endif %}
+{% endif %}
+{% if cl.embedded_changelist %}
+<div id="changelist-search" data-embedded-search="1" role="search" aria-labelledby="changelist-search-form">
+{% else %}
+<form id="changelist-search" method="get" role="search" aria-labelledby="changelist-search-form">
+{% endif %}
+<div><!-- DIV needed for valid HTML -->
+{% if cl.model_admin.show_search_mode_selector %}
+    {% with current_search_mode=cl.params.search_mode|default:cl.model_admin.get_default_search_mode %}
+    <span class="search-input-wrap search-input-wrap-with-mode">
+        <span class="search-input-addon">
+            <select name="search_mode" class="search-mode-select" aria-label="{% translate 'Search mode' %}">
+                {% for option in cl.model_admin.get_search_mode_options %}
+                <option value="{{ option.value }}"{% if current_search_mode == option.value %} selected{% endif %}>{{ option.label }}</option>
+                {% endfor %}
+            </select>
+            <span class="search-mode-caret" aria-hidden="true">▾</span>
+        </span>
+        <input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
+    </span>
+    {% endwith %}
+{% else %}
+<span class="search-input-wrap">
+    <span class="search-input-addon">
+        <label for="searchbar"><img src="{% static "admin/img/search.svg" %}" alt="Search"></label>
+    </span>
+    <input type="text" size="40" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
+</span>
+{% endif %}
+<button type="{% if cl.embedded_changelist %}button{% else %}submit{% endif %}" class="changelist-search-submit">{% translate 'Search' %}</button>
+{% if show_result_count and cl.opts.model_name != 'snapshot' %}
+    <span class="small quiet">{% blocktranslate count counter=cl.result_count %}{{ counter }} result{% plural %}{{ counter }} results{% endblocktranslate %} (<a href="?{% if cl.is_popup %}{{ is_popup_var }}=1{% if cl.add_facets %}&{% endif %}{% endif %}{% if cl.add_facets %}{{ is_facets_var }}{% endif %}">{% if cl.show_full_result_count %}{% blocktranslate with full_result_count=cl.full_result_count %}{{ full_result_count }} total{% endblocktranslate %}{% else %}{% translate "Show all" %}{% endif %}</a>)</span>
+{% endif %}
+{% for pair in cl.params.items %}
+    {% if pair.0 != search_var and pair.0 != "search_mode" %}<input type="hidden" name="{{ pair.0 }}" value="{{ pair.1 }}">{% endif %}
+{% endfor %}
+</div>
+{% if cl.search_help_text %}
+<br class="clear">
+<div class="help" id="searchbar_helptext">{{ cl.search_help_text }}</div>
+{% endif %}
+{% if cl.embedded_changelist %}
+</div>
+{% else %}
+</form>
+{% endif %}
+{% if cl.has_filters and not cl.embedded_changelist %}
+  <button
+    type="button"
+    class="button filter-pane-toggle"
+    id="changelist-toolbar-filter-toggle"
+    aria-expanded="true"
+  >{% translate "Filters" %} ◂</button>
+{% endif %}
+</div>
+</div>
+{% endif %}

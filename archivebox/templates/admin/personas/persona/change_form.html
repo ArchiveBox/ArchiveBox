@@ -1,0 +1,291 @@
+{% extends "admin/archivebox_change_form.html" %}
+{% load static %}
+
+{% block bodyclass %}{{ block.super }} app-personas model-persona{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'add.css' %}">
+<style>
+    .persona-import-hero {
+        margin: 0 0 22px;
+        padding: 22px 24px;
+        border-radius: 18px;
+        border: 1px solid #d8dee9;
+        background:
+            radial-gradient(circle at top right, rgba(67, 97, 238, 0.10), transparent 32%),
+            linear-gradient(135deg, #fff7ed 0%, #ffffff 45%, #ecfeff 100%);
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+    }
+
+    .persona-import-hero h2 {
+        margin: 0 0 8px;
+        font-size: 28px;
+        line-height: 1.1;
+        color: #111827;
+    }
+
+    .persona-import-hero p {
+        margin: 0;
+        color: #475569;
+        max-width: 92ch;
+        font-size: 14px;
+    }
+
+    .persona-import-copy {
+        cursor: pointer;
+        color: #0f172a;
+        border-bottom: 1px dashed #64748b;
+    }
+
+    .abx-import-mode,
+    .abx-profile-picker {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 12px;
+    }
+
+    .abx-import-mode {
+        grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+    }
+
+    .abx-profile-picker {
+        grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+    }
+
+    .abx-import-mode > div,
+    .abx-profile-picker > div {
+        margin: 0;
+        min-width: 0;
+    }
+
+    /* Import rows grow with their contents instead of sharing a fixed flex
+       height. Avoid overflow-x:hidden turning overflow-y:visible into auto. */
+    #content-main #persona_form .persona-card-import > .form-row,
+    #content-main #persona_form .persona-card-import fieldset > div {
+        flex: none;
+        overflow: visible;
+    }
+
+    .field-import_mode label,
+    .field-import_discovered_profile label {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 14px 16px;
+        border-radius: 14px;
+        border: 1px solid #dbe4ee;
+        background: #fff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .field-import_mode label:hover,
+    .field-import_discovered_profile label:hover {
+        transform: translateY(-1px);
+        border-color: #7c3aed;
+        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.10);
+    }
+
+    .field-import_mode input[type="radio"],
+    .field-import_discovered_profile input[type="radio"] {
+        margin-top: 3px;
+        flex: 0 0 auto;
+    }
+
+    .abx-import-mode-option,
+    .abx-profile-option {
+        display: grid;
+        gap: 6px;
+    }
+
+    .abx-import-mode-option strong,
+    .abx-profile-option strong {
+        color: #0f172a;
+        font-size: 15px;
+    }
+
+    .abx-import-mode-option span:last-child,
+    .abx-profile-option__meta {
+        color: #64748b;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .abx-profile-option code {
+        font-size: 11px;
+        line-height: 1.5;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        color: #334155;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 8px 10px;
+    }
+
+    .abx-persona-path-list,
+    .abx-persona-artifacts {
+        display: grid;
+        gap: 10px;
+    }
+
+    .abx-persona-path-list div,
+    .abx-persona-artifact {
+        display: grid;
+        gap: 6px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+
+    .abx-persona-path-list code,
+    .abx-persona-artifact code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        font-size: 12px;
+    }
+
+    .abx-artifact-state {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .abx-artifact-state--yes {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .abx-artifact-state--no {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    #content-main #persona_form .field-name .flex-container {
+        max-width: 100% !important;
+    }
+
+    #persona_form .field-name input {
+        width: 100%;
+        max-width: none;
+        box-sizing: border-box;
+    }
+
+    body.model-persona.change-form #content-main form fieldset.persona-card-timestamps {
+        flex: 0 1 300px !important;
+        min-width: 240px !important;
+        max-width: 320px !important;
+        align-self: flex-start;
+    }
+
+    body.model-persona.change-form #content-main form fieldset.persona-card-timestamps > div {
+        padding: 12px 14px;
+    }
+
+    body.model-persona.change-form #content-main form fieldset.persona-card-timestamps .form-row {
+        padding: 5px 0;
+    }
+
+    body.model-persona.change-form #content-main form fieldset.persona-card-timestamps .readonly {
+        font-size: 12px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+    }
+
+    body.model-persona.change-form #content-main form .persona-plugin-config {
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box;
+        margin: 0 0 24px !important;
+    }
+
+    .persona-plugin-config h2 {
+        color: #334155 !important;
+    }
+
+    .persona-plugin-config > p {
+        margin: 12px 16px 0;
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    .persona-plugin-config .plugin-config-grid {
+        padding: 16px;
+    }
+
+</style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{% if add %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modeInputs = Array.from(document.querySelectorAll('input[name="import_mode"]'));
+    const discoveredRow = document.querySelector('.form-row.field-import_discovered_profile');
+    const sourceRow = document.querySelector('.form-row.field-import_source');
+    const profileRow = document.querySelector('.form-row.field-import_profile_name');
+    const copyInspect = document.querySelector('[data-copy-text]');
+
+    const updateVisibility = () => {
+        const selected = modeInputs.find((input) => input.checked)?.value || 'none';
+        if (discoveredRow) discoveredRow.style.display = selected === 'discovered' ? '' : 'none';
+        if (sourceRow) sourceRow.style.display = selected === 'custom' ? '' : 'none';
+        if (profileRow) profileRow.style.display = selected === 'custom' ? '' : 'none';
+    };
+
+    modeInputs.forEach((input) => input.addEventListener('change', updateVisibility));
+    updateVisibility();
+
+    if (copyInspect) {
+        copyInspect.addEventListener('click', function () {
+            navigator.clipboard?.writeText(this.dataset.copyText || this.textContent.trim());
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
+
+{% block form_top %}
+{% if add %}
+<section class="persona-import-hero">
+    <div>
+        <h2>Create a new Persona (Authentication + Configuration Profile)</h2>
+        <p>
+            Import cookies and settings from any Chrome-based browser by pasting in its <code>Profile Path</code> from <code class="persona-import-copy" data-copy-text="chrome://version" title="Copy chrome://version">chrome://version</code>,
+            or by pasting in a CDP url from
+            <code class="persona-import-copy" data-copy-text="chrome://inspect#remote-debugging" title="Copy chrome://inspect#remote-debugging">chrome://inspect#remote-debugging</code> (e.g. <code>http://127.0.0.1:9222</code>).
+        </p>
+        <p>
+            You can also import cookies into this persona from another browser using the
+            <a href="https://extension.archivebox.io/" target="_blank" rel="noopener noreferrer">ArchiveBox browser extension</a>.
+            Create the persona here, then select it in the extension's settings to sync cookies from that browser.
+        </p>
+    </div>
+</section>
+{% endif %}
+{{ block.super }}
+{% endblock %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<fieldset id="plugin-config" class="module aligned wide persona-plugin-config">
+    <h2>Plugin Config</h2>
+    <p>These typed controls update the same Persona config JSON shown above. Shared config keys stay synced across plugin sections.</p>
+    {% include "plugins/plugin_config_grid.html" with plugin_groups=adminform.form.plugin_groups %}
+</fieldset>
+{% endblock %}

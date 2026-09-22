@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0007_archiveresult'),
+        ("core", "0007_archiveresult"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='archiveresult',
-            name='cmd_version',
+            model_name="archiveresult",
+            name="cmd_version",
             field=models.CharField(blank=True, default=None, max_length=32, null=True),
         ),
     ]

@@ -1,0 +1,40 @@
+{% extends "admin/archivebox_change_form.html" %}
+{% load core_tags %}
+
+{% block extrastyle %}{{ block.super }}
+<style>
+  .archivebox-rss-toolbar-btn {
+    background: #fff3e0;
+    border-color: #f59e0b;
+    color: #7c2d12;
+  }
+  .archivebox-rss-toolbar-btn:hover {
+    background: #ffe0b2;
+    border-color: #d97706;
+    color: #7c2d12;
+  }
+  .archivebox-rss-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, .18);
+  }
+</style>
+{% endblock %}
+
+{% block toolbar_extras %}
+{% if original %}
+  {% api_token as api_token %}
+  <div class="ab-toolbar-group">
+    <a class="ab-btn archivebox-rss-toolbar-btn"
+       role="button"
+       href="/api/v1/core/snapshots.rss?created_by={{ original.username|urlencode }}&amp;limit=50{% if api_token %}&amp;api_key={{ api_token|urlencode }}{% endif %}"
+       title="Snapshot RSS feed for {{ original.username }}">
+      <span class="archivebox-rss-dot" aria-hidden="true"></span>
+      Snapshot Feed
+    </a>
+  </div>
+{% endif %}
+{% endblock %}

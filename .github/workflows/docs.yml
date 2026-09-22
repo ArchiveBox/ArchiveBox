@@ -1,0 +1,158 @@
+name: Documentation tests
+
+on:
+  workflow_call:
+
+env:
+  PYTHONIOENCODING: utf-8
+  USE_COLOR: "False"
+  SHOW_PROGRESS: "False"
+
+jobs:
+  discover:
+    name: Discover documentation examples
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.inventory.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+          fetch-depth: 1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+          cache-dependency-glob: uv.lock
+      - name: Install ArchiveBox development dependencies
+        run: uv sync --no-cache --locked --dev
+      - name: Resolve documentation tools through abxpkg
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/archivebox-docs-lib
+        run: |
+          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+          uv run --no-cache --no-sync abxpkg env \
+            --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/docs/mermaid-binary.json:required_binaries" \
+            --deps-from="$GITHUB_WORKSPACE/docs/nginx-binary.json:required_binaries"
+          bash_binary="$ABXPKG_LIB_DIR/env/bin/bash"
+          mmdc_binary="$ABXPKG_LIB_DIR/env/bin/mmdc"
+          nginx_binary="$ABXPKG_LIB_DIR/env/bin/nginx"
+          test -L "$bash_binary"
+          test -L "$mmdc_binary"
+          test -L "$nginx_binary"
+          test -x "$bash_binary"
+          test -x "$mmdc_binary"
+          test -x "$nginx_binary"
+          {
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+            echo "BASH_BINARY=$bash_binary"
+          } >> "$GITHUB_ENV"
+      - id: inventory
+        name: Validate the complete authored documentation inventory
+        run: |
+          matrix="$(uv run --no-cache --no-sync python docs/test_codeblocks_manifest.py matrix)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  examples:
+    name: docs/${{ matrix.name }}
+    needs: discover
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+          fetch-depth: 1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
+        with:
+          version: "0.11.3"
+          enable-cache: false
+          cache-dependency-glob: uv.lock
+      - name: Install ArchiveBox
+        if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
+        run: uv sync --no-cache --locked --dev
+      - name: Resolve documentation runtime through abxpkg
+        if: ${{ !contains(fromJSON('["freebsd", "openbsd"]'), matrix.environment) }}
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/archivebox-docs-lib
+        run: |
+          export PATH="$ABXPKG_LIB_DIR/env/bin:$PATH"
+          dependency_sources=(
+            --deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:ci_binaries"
+          )
+          if [[ '${{ matrix.environment }}' != macos ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docs_binaries")
+          fi
+          if [[ '${{ matrix.name }}' == ubuntu-AGENTS || '${{ matrix.name }}' == ubuntu-skills-archivebox-SKILL || '${{ matrix.name }}' == ubuntu-docs-Configuration || '${{ matrix.name }}' == ubuntu-docs-Setting-up-Authentication ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-linux-build.json:required_binaries")
+          fi
+          if [[ '${{ matrix.environment }}' == docker ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-tooling.json:docker_binaries")
+          elif [[ '${{ matrix.environment }}' == macos ]]; then
+            dependency_sources+=(--deps-from="$GITHUB_WORKSPACE/.github/configs/ci-macos-brew.json:required_binaries")
+          fi
+          uv run --no-cache --no-sync abxpkg env \
+            --install \
+            --lib="$ABXPKG_LIB_DIR" \
+            "${dependency_sources[@]}"
+          bash_binary="$ABXPKG_LIB_DIR/env/bin/bash"
+          python_binary="$ABXPKG_LIB_DIR/env/bin/python"
+          uv_binary="$ABXPKG_LIB_DIR/env/bin/uv"
+          test -L "$bash_binary"
+          test -x "$bash_binary"
+          test -L "$python_binary"
+          test -x "$python_binary"
+          test -L "$uv_binary"
+          test -x "$uv_binary"
+          {
+            echo "ABXPKG_LIB_DIR=$ABXPKG_LIB_DIR"
+            echo "BASH_BINARY=$bash_binary"
+            echo "PYTHON_BINARY=$python_binary"
+            echo "UV_BINARY=$uv_binary"
+          } >> "$GITHUB_ENV"
+          if [[ '${{ matrix.environment }}' != macos ]]; then
+            sudo_binary="$ABXPKG_LIB_DIR/env/bin/sudo"
+            test -L "$sudo_binary"
+            test -x "$sudo_binary"
+            echo "SUDO_BINARY=$sudo_binary" >> "$GITHUB_ENV"
+          fi
+          if [[ '${{ matrix.environment }}' != macos ]]; then
+            echo "$ABXPKG_LIB_DIR/env/bin" >> "$GITHUB_PATH"
+          fi
+          if [[ '${{ matrix.environment }}' == docker ]]; then
+            docker_binary="$ABXPKG_LIB_DIR/env/bin/docker"
+            test -L "$docker_binary"
+            test -x "$docker_binary"
+            echo "DOCKER_BINARY=$docker_binary" >> "$GITHUB_ENV"
+          elif [[ '${{ matrix.environment }}' == macos ]]; then
+            test -L "$ABXPKG_LIB_DIR/env/bin/brew"
+            test -x "$ABXPKG_LIB_DIR/env/bin/brew"
+          fi
+      - name: Build the exact checkout's documentation image
+        if: ${{ matrix.environment == 'docker' }}
+        run: '"$DOCKER_BINARY" build --tag archivebox/archivebox:dev .'
+      - name: Run the Ubuntu, Docker, or macOS documentation lane
+        if: ${{ !contains(fromJSON('["root", "freebsd", "openbsd"]'), matrix.environment) }}
+        run: uv run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-group '${{ matrix.snippet_ids }}'
+      - name: Run the root documentation lane
+        if: ${{ matrix.environment == 'root' }}
+        run: |
+          "$SUDO_BINARY" \
+            --preserve-env=PATH,ABXPKG_LIB_DIR,BASH_BINARY,PYTHON_BINARY,SUDO_BINARY,UV_BINARY \
+            "$UV_BINARY" run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-group '${{ matrix.snippet_ids }}'

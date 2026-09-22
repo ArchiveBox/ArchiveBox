@@ -1,0 +1,8 @@
+_build/
+.venv
+venv/
+.env
+.DS_Store
+
+queue.sqlite3
+index.sqlite3

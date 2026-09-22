@@ -1,0 +1,184 @@
+{% if opts.app_label == "core" and opts.model_name == "snapshot" and not embedded_changelist %}
+<script>
+  (function() {
+    if (window.archiveboxSnapshotSearchStreamReady) return;
+    window.archiveboxSnapshotSearchStreamReady = true;
+    var activeSearch = null;
+
+    function setSearchLoading(controller, text) {
+      if (activeSearch !== controller) return;
+      var form = document.querySelector('form#changelist-search');
+      if (!form) return;
+      var status = form.querySelector('.archivebox-search-stream-status');
+      if (!status) {
+        status = document.createElement('span');
+        status.className = 'archivebox-search-stream-status';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+        form.appendChild(status);
+      }
+      status.textContent = text || 'Searching...';
+      status.hidden = false;
+      form.setAttribute('aria-busy', 'true');
+    }
+
+    function clearSearchLoading(controller) {
+      if (activeSearch && activeSearch !== controller) return;
+      var form = document.querySelector('form#changelist-search');
+      if (!form) return;
+      var status = form.querySelector('.archivebox-search-stream-status');
+      if (status) status.hidden = true;
+      form.removeAttribute('aria-busy');
+    }
+
+    function cancelActiveSearch(event) {
+      if (!event.target || (event.target.name !== "q" && event.target.name !== "search_mode")) return;
+      if (activeSearch) {
+        var controller = activeSearch;
+        activeSearch.abort();
+        clearSearchLoading(controller);
+      }
+    }
+
+    function setChangelistSearchingState(controller) {
+      if (activeSearch !== controller) return;
+      var changelist = document.getElementById("changelist");
+      if (!changelist) return;
+
+      var results = changelist.querySelector(".results");
+      if (!results) {
+        results = document.createElement("div");
+        var toolbar = changelist.querySelector("#toolbar");
+        if (toolbar && toolbar.nextSibling) {
+          toolbar.parentNode.insertBefore(results, toolbar.nextSibling);
+        } else {
+          changelist.appendChild(results);
+        }
+      }
+      results.className = "results search-empty-state";
+      while (results.firstChild) results.removeChild(results.firstChild);
+      var message = document.createElement("p");
+      message.textContent = "Searching matching snapshots...";
+      results.appendChild(message);
+
+      var paginator = changelist.querySelector(".paginator");
+      if (paginator) paginator.hidden = true;
+      var actions = changelist.querySelector(".actions");
+      if (actions) actions.hidden = true;
+    }
+
+    function streamSnapshotSearch(eventOrForm) {
+      var form = eventOrForm && eventOrForm.target ? eventOrForm.target : eventOrForm;
+      if (!form || form.id !== "changelist-search") return;
+
+      var formData = new FormData(form);
+      var mode = String(formData.get("search_mode") || "meta");
+      var query = String(formData.get("q") || "").trim();
+      if (!query) return;
+
+      if (eventOrForm && eventOrForm.preventDefault) eventOrForm.preventDefault();
+      if (activeSearch) activeSearch.abort();
+
+      var controller = new AbortController();
+      activeSearch = controller;
+      setSearchLoading(controller, "Searching...");
+      setChangelistSearchingState(controller);
+      var resultVersion = 0;
+      var pendingRender = null;
+      var renderInFlight = false;
+      var renderedVersion = -1;
+      var lastRender = 0;
+
+      function buildListUrl() {
+        var url = new URL(window.location.href);
+        for (var pair of formData.entries()) url.searchParams.set(pair[0], pair[1]);
+        url.searchParams.delete("p");
+        return url;
+      }
+
+      function renderNow() {
+        clearTimeout(pendingRender);
+        pendingRender = null;
+        if (renderInFlight || renderedVersion === resultVersion) return;
+        var url = buildListUrl();
+        renderInFlight = true;
+        renderedVersion = resultVersion;
+        lastRender = Date.now();
+        fetch(url, {headers: {"X-Requested-With": "XMLHttpRequest"}, signal: controller.signal})
+          .then(function(response) { return response.text(); })
+          .then(function(html) {
+            var doc = new DOMParser().parseFromString(html, "text/html");
+            var nextMain = doc.getElementById("content-main");
+            var currentMain = document.getElementById("content-main");
+            if (nextMain && currentMain) {
+              currentMain.replaceWith(nextMain);
+              if (window.archiveboxInitAdminChangelist) window.archiveboxInitAdminChangelist();
+              if (window.archiveboxInitChangelistFilters) window.archiveboxInitChangelistFilters();
+              setSearchLoading(controller, resultVersion ? "Searching... " + resultVersion + " found" : "Searching...");
+              history.replaceState(null, "", url);
+            }
+          })
+          .catch(function(error) {
+            if (error.name !== "AbortError") throw error;
+          })
+          .finally(function() {
+            renderInFlight = false;
+            if (renderedVersion !== resultVersion) renderSoon();
+          });
+      }
+
+      function renderSoon(force) {
+        if (force) return renderNow();
+        if (!pendingRender) {
+          pendingRender = setTimeout(renderNow, Math.max(0, 300 - (Date.now() - lastRender)));
+        }
+      }
+
+      var listUrl = buildListUrl();
+      var streamUrl = new URL("{% url 'admin:core_snapshot_search_stream' %}", window.location.href);
+      streamUrl.searchParams.set("q", query);
+      streamUrl.searchParams.set("search_mode", mode);
+      // The backend cache key is this exact changelist URL plus the user id.
+      // Stream chunks only say "new result count"; the page fetch reads IDs from cache.
+      streamUrl.searchParams.set("search_url", listUrl.pathname + listUrl.search);
+      fetch(streamUrl, {signal: controller.signal})
+        .then(function(response) {
+          var reader = response.body.getReader();
+          var decoder = new TextDecoder();
+          var buffer = "";
+          function read() {
+            return reader.read().then(function(result) {
+              buffer += decoder.decode(result.value || new Uint8Array(), {stream: !result.done});
+              var lines = buffer.split("\n");
+              buffer = lines.pop();
+              lines.forEach(function(count) {
+                count = parseInt(count.trim(), 10);
+                resultVersion = Number.isFinite(count) ? count : resultVersion + 1;
+              });
+              setSearchLoading(controller, resultVersion ? "Searching... " + resultVersion + " found" : "Searching...");
+              if (lines.length) renderSoon();
+              if (!result.done) return read();
+              renderSoon(true);
+            });
+          }
+          return read();
+        })
+        .catch(function(error) {
+          if (error.name !== "AbortError") throw error;
+	        })
+	        .finally(function() {
+	          clearSearchLoading(controller);
+	          if (activeSearch === controller) activeSearch = null;
+	        });
+    }
+
+    document.addEventListener("input", cancelActiveSearch);
+    document.addEventListener("change", cancelActiveSearch);
+    document.addEventListener("submit", streamSnapshotSearch);
+    var initialForm = document.getElementById("changelist-search");
+    if (initialForm && initialForm.tagName === "FORM" && String(new FormData(initialForm).get("q") || "").trim()) {
+      streamSnapshotSearch(initialForm);
+    }
+  })();
+</script>
+{% endif %}

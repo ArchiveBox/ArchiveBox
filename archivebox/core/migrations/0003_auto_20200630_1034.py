@@ -4,35 +4,34 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0002_auto_20200625_1521'),
+        ("core", "0002_auto_20200625_1521"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='snapshot',
-            name='added',
+            model_name="snapshot",
+            name="added",
             field=models.DateTimeField(auto_now_add=True, db_index=True),
         ),
         migrations.AlterField(
-            model_name='snapshot',
-            name='tags',
+            model_name="snapshot",
+            name="tags",
             field=models.CharField(db_index=True, default=None, max_length=256, null=True),
         ),
         migrations.AlterField(
-            model_name='snapshot',
-            name='timestamp',
+            model_name="snapshot",
+            name="timestamp",
             field=models.CharField(db_index=True, default=None, max_length=32, null=True),
         ),
         migrations.AlterField(
-            model_name='snapshot',
-            name='title',
+            model_name="snapshot",
+            name="title",
             field=models.CharField(db_index=True, default=None, max_length=128, null=True),
         ),
         migrations.AlterField(
-            model_name='snapshot',
-            name='updated',
+            model_name="snapshot",
+            name="updated",
             field=models.DateTimeField(db_index=True, default=None, null=True),
         ),
     ]

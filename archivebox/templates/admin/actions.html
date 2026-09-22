@@ -1,0 +1,50 @@
+{% load i18n core_tags %}
+<div class="actions {% if action_index|default:0 == 0 %}actions-top{% else %}actions-bottom{% endif %}">
+  <div class="actions-left">
+    {% block actions %}
+      {% block actions-form %}
+      {% for field in action_form %}
+        {% if field.name == "tags" %}
+          <span class="actions-tags">{{ field }}</span>
+        {% else %}
+          {% if field.label %}<label>{{ field.label }} {{ field }}</label>{% else %}{{ field }}{% endif %}
+        {% endif %}
+      {% endfor %}
+      {% endblock %}
+      {% block actions-submit %}
+      <button type="submit" class="button" name="index" value="{{ action_index|default:0 }}">{% translate "Run" %}</button>
+      {% endblock %}
+      {% block actions-counter %}
+      {% if actions_selection_counter %}
+        <span class="action-summary" data-page-count="{{ cl.result_list|length }}" data-result-count="{{ cl.result_count }}" data-full-result-count="{{ cl.full_result_count|default:cl.result_count }}">
+          <span class="action-selected-count">
+            <span class="action-selected-current">0</span>
+            /
+            <a class="action-page-select" href="#" title="{% translate "Select all rows on this page" %}">{{ cl.result_list|length|intcomma }}</a>
+            selected
+          </span>
+          <span class="action-counter hidden" data-actions-icnt="{{ cl.result_list|length }}" style="display: none !important;" aria-hidden="true">{{ selection_note }}</span>
+          <span class="action-total-count">
+            {% if cl.full_result_count and cl.full_result_count != cl.result_count %}
+              <a class="action-match-count-static action-total-select" href="#" title="{% translate "Select all matching rows across all pages" %}">{{ cl.result_count|intcomma }}</a>
+              filtered /
+              <a class="action-total-reset" href="?" title="{% translate "Show all rows" %}">{{ cl.full_result_count|intcomma }}</a>
+              total
+            {% else %}
+              <a class="action-total-reset" href="?" title="{% translate "Show all rows" %}">{{ cl.result_count|intcomma }}</a>
+              total
+            {% endif %}
+          </span>
+          {% if cl.result_count != cl.result_list|length %}
+          <span class="all hidden">{{ selection_note_all }}</span>
+          <span class="question hidden">
+              <a role="button" href="#" title="{% translate "Click here to select the objects across all pages" %}">{% blocktranslate with cl.result_count as total_count %}Select all {{ total_count }} {{ module_name }}{% endblocktranslate %}</a>
+          </span>
+          <span class="clear hidden"><a role="button" href="#">{% translate "Clear selection" %}</a></span>
+          {% endif %}
+        </span>
+      {% endif %}
+      {% endblock %}
+    {% endblock %}
+  </div>
+</div>

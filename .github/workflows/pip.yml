@@ -1,78 +1,243 @@
 name: Build Pip package
 
 on:
-  workflow_dispatch:
-  push:
+  workflow_call:
+    inputs:
+      full_tests:
+        description: Run the full package compatibility matrix instead of one release smoke check
+        required: false
+        default: true
+        type: boolean
 
+env:
+  UV_VERSION: "0.11.3"
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-
-    permissions:
-      id-token: write
-
+    name: build distributions
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 1
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Python 3.13
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: '3.11'
+          python-version: "3.13"
           architecture: x64
 
-      - uses: awalsh128/cache-apt-pkgs-action@latest
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
-          packages: ripgrep build-essential python3-dev python3-setuptools libssl-dev libldap2-dev libsasl2-dev zlib1g-dev libatomic1 gnupg2 curl wget python3-ldap python3-msgpack python3-mutagen python3-regex python3-pycryptodome procps
-          version: 1.0
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+          cache-dependency-glob: uv.lock
 
-      - uses: pdm-project/setup-pdm@v3
+      - name: Build every distribution
+        run: |
+          set -Eeuo pipefail
+          uv build --no-cache --all-packages --no-sources --out-dir dist --clear
+
+          shopt -s nullglob
+          artifacts=(dist/*)
+          wheels=(dist/archivebox-*.whl)
+          sdists=(dist/archivebox-*.tar.gz)
+          [[ "${#artifacts[@]}" -gt 0 ]]
+          [[ "${#wheels[@]}" -eq 1 ]]
+          [[ "${#sdists[@]}" -eq 1 ]]
+          printf '%s\n' "$GITHUB_SHA" > dist/COMMIT_SHA
+          uv run --no-cache --no-project python - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          root = Path("dist")
+          wheels = list(root.glob("archivebox-*.whl"))
+          sdists = list(root.glob("archivebox-*.tar.gz"))
+          if len(wheels) != 1 or len(sdists) != 1:
+              raise SystemExit("Expected exactly one ArchiveBox wheel and one sdist")
+          artifacts = [root / "COMMIT_SHA", wheels[0], sdists[0]]
+          checksum_lines = []
+          for artifact in artifacts:
+              digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+              line = f"{digest}  {artifact.name}"
+              checksum_lines.append(line)
+              print(line)
+          Path("dist/SHA256SUMS").write_text("\n".join(checksum_lines) + "\n")
+          PY
+
+      - name: Release wheel import and CLI smoke
+        if: ${{ !inputs.full_tests }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          shopt -s nullglob
+          wheels=(dist/archivebox-*.whl)
+          [[ "${#wheels[@]}" -eq 1 ]]
+          uv sync --locked --no-cache --no-sources --no-dev --no-install-project
+          uv pip install --no-cache --no-deps --python .venv/bin/python "${wheels[0]}"
+          unset PYTHONPATH
+          cd "$(mktemp -d)"
+          VIRTUAL_ENV="$GITHUB_WORKSPACE/.venv" uv run --no-cache --active --no-project python -c 'import archivebox'
+          VIRTUAL_ENV="$GITHUB_WORKSPACE/.venv" uv run --no-cache --active --no-project archivebox version
+
+      - name: Upload every distribution
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          python-version: '3.11'
-          cache: true
+          name: python-distributions
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
 
-      - name: Install dependencies
-        run: pdm install --fail-fast --no-lock --group :all --no-self
+  install-smoke:
+    name: install ${{ matrix.artifact }} / Python ${{ matrix.python }} / ${{ matrix.os }}
+    if: inputs.full_tests
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        python: ["3.13", "3.14"]
+        artifact: [wheel, sdist]
 
-      - name: Build package
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python ${{ matrix.python }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: false
+          cache-dependency-glob: uv.lock
+
+      - name: Download distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: python-distributions
+          path: ${{ runner.temp }}/python-distributions
+
+      - name: Install and smoke-test the built ${{ matrix.artifact }}
+        shell: bash
         run: |
-          pdm build
+          set -Eeuo pipefail
+          shopt -s nullglob
 
-      - name: Install from build
-        run: pip install ./dist/archivebox-*.whl
+          case "${{ matrix.artifact }}" in
+            wheel) candidates=("$RUNNER_TEMP"/python-distributions/archivebox-*.whl) ;;
+            sdist) candidates=("$RUNNER_TEMP"/python-distributions/archivebox-*.tar.gz) ;;
+            *) exit 2 ;;
+          esac
+          [[ "${#candidates[@]}" -eq 1 ]]
+          artifact="${candidates[0]}"
 
-      - name: Add some links to test
-        run: |
-          mkdir data && cd data
-          archivebox init
-          archivebox add 'https://example.com'
-          archivebox version
-          archivebox status
+          smoke_root="$(mktemp -d "$RUNNER_TEMP/archivebox-package-smoke.XXXXXX")"
+          trap 'rm -rf "$smoke_root"' EXIT
+          smoke_env="$smoke_root/env"
+          data_dir="$smoke_root/data"
+          mkdir -p "$data_dir"
 
-      #- name: Publish package distributions to PyPI
-      #  run: pdm publish --no-build
+          dependency_artifacts=()
+          while IFS= read -r dependency_artifact; do
+            dependency_artifacts+=("$dependency_artifact")
+          done < <(uv run --no-cache --no-project python - <<'PY'
+          import tomllib
 
-      # - name: Push build to PyPI
-      #   run: |
-      #     cd pip_dist/
-      #     python3 -m twine upload --repository testpypi pip_dist/*.{whl,tar.gz}
-      #     python3 -m twine upload --repository pypi pip_dist/*.{whl,tar.gz}
+          locked = {
+              package["name"]: package
+              for package in tomllib.load(open("uv.lock", "rb"))["package"]
+          }
+          for package_name in ("abx-dl", "abx-plugins", "abxpkg", "abxbus"):
+              package = locked[package_name]
+              wheels = package.get("wheels") or []
+              if len(wheels) != 1:
+                  raise SystemExit(f"Expected exactly one locked wheel for {package_name}")
+              print(wheels[0]["url"])
+          PY
+          )
 
-      # - name: Commit built package
-      #   run: |
-      #     cd pip_dist/
-      #     git config --local user.email "action@github.com"
-      #     git config --local user.name "GitHub Action"
-      #     git commit -m "Pip package autobuild" -a
-      
-      # - name: Push build to Github
-      #   uses: ad-m/github-push-action@master
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     repository: ArchiveBox/pip-archivebox
-      #     branch: ${{ github.ref }}
-      #     directory: pip_dist
+          uv venv --python "${{ matrix.python }}" "$smoke_env"
+          uv pip install --no-cache \
+            --python "$smoke_env" \
+            "${dependency_artifacts[@]}" \
+            "$artifact"
 
+          unset PYTHONPATH
+          cd "$data_dir"
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync python - <<'PY'
+          import os
+          from pathlib import Path
+
+          import archivebox
+
+          installed_path = Path(archivebox.__file__).resolve()
+          environment_path = Path(os.environ["VIRTUAL_ENV"]).resolve()
+          workspace_path = Path(os.environ["GITHUB_WORKSPACE"]).resolve()
+          assert installed_path.is_relative_to(environment_path), (installed_path, environment_path)
+          assert not installed_path.is_relative_to(workspace_path), (installed_path, workspace_path)
+          print(installed_path)
+          PY
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox version
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox init
+          VIRTUAL_ENV="$smoke_env" uv run --no-cache --active --no-project --no-sync archivebox status
+
+          if [[ "${{ runner.os }}" == "Linux" ]]; then
+            root_tool_dir="/root/archivebox-package-smoke-${{ matrix.artifact }}-${{ matrix.python }}"
+            uv_binary="$(command -v uv)"
+            sudo rm -rf "$root_tool_dir"
+            sudo mkdir -p "$root_tool_dir/data"
+
+            root_install_args=()
+            for dependency_artifact in "${dependency_artifacts[@]}"; do
+              root_install_args+=(--with "$dependency_artifact")
+            done
+            sudo UV_TOOL_DIR="$root_tool_dir/tools" UV_TOOL_BIN_DIR="$root_tool_dir/bin" \
+              "$uv_binary" tool install --no-cache --python "${{ matrix.python }}" \
+              "${root_install_args[@]}" "$artifact"
+
+            sudo useradd --system --create-home --home-dir /var/lib/archivebox --shell /bin/bash archivebox 2>/dev/null || true
+            sudo rm -rf /var/lib/archivebox
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data' && archivebox init"
+            sudo stat -c %U /var/lib/archivebox | grep -qx archivebox
+            sudo stat -c %U "$root_tool_dir/data" | grep -qx archivebox
+            if sudo find "$root_tool_dir/data" -xdev -user root -print -quit | grep -q .; then
+              echo "Root-owned files remain in $root_tool_dir/data" >&2
+              exit 1
+            fi
+
+            sudo mkdir "$root_tool_dir/external"
+            sudo ln -s "$root_tool_dir/external" "$root_tool_dir/data/external-link"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data' && archivebox status"
+            sudo stat -c %U "$root_tool_dir/external" | grep -qx root
+
+            sudo mkdir "$root_tool_dir/data-universal-init"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-universal-init' && archivebox status --init"
+            sudo stat -c %U "$root_tool_dir/data-universal-init" | grep -qx archivebox
+
+            sudo mkdir "$root_tool_dir/data-install"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-install' && archivebox install --dry-run"
+            sudo stat -c %U "$root_tool_dir/data-install" | grep -qx archivebox
+
+            sudo useradd --create-home archivebox-smoke-user
+            smoke_user_group="$(id -gn archivebox-smoke-user)"
+            sudo mkdir "$root_tool_dir/data-mixed-owner"
+            sudo chown archivebox-smoke-user:root "$root_tool_dir/data-mixed-owner"
+            sudo env PATH="$root_tool_dir/bin:$PATH" \
+              bash -c "cd '$root_tool_dir/data-mixed-owner' && archivebox init"
+            sudo stat -c %U:%G "$root_tool_dir/data-mixed-owner" | grep -qx "archivebox-smoke-user:$smoke_user_group"
+            if sudo find "$root_tool_dir/data-mixed-owner" -xdev -user root -print -quit | grep -q .; then
+              echo "Root-owned files remain in $root_tool_dir/data-mixed-owner" >&2
+              exit 1
+            fi
+            sudo rm -rf "$root_tool_dir"
+          fi

@@ -2,23 +2,30 @@
 {% load i18n static %}
 
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{% static "admin/css/login.css" %}">
+<style>
+.login .form-row #id_password1, .login .form-row #id_password2 { padding: 8px; width: 100%; box-sizing: border-box; }
+</style>
 {{ form.media }}
 {% endblock %}
 
 {% block bodyclass %}{{ block.super }} login{% endblock %}
 
+<a href="{% url 'Home' %}">
 {% block branding %}<h1>ArchiveBox Admin</h1>{% endblock %}
-
-{% block usertools %}
+</a>
 <br/>
-  <a href="{% url 'Home' %}">Back to Main Index</a>
+{% block usertools %}
 {% endblock %}
 
 {% block nav-global %}{% endblock %}
 
 {% block content_title %}
   <center>
+    {% if first_admin_setup %}
+    Create your first admin account to continue setup.
+    {% else %}
     Log in to add, edit, and remove links from your archive.
+    {% endif %}
   </center><br/><br/>
   <img src="{% static 'archive.png' %}" style="width: 80px; display: block; margin: auto"/><br/>
 {% endblock %}
@@ -42,6 +49,28 @@
 
 <div id="content-main">
 
+{% if first_admin_setup %}
+<form action="{{ app_path }}" method="post" id="first-admin-form">{% csrf_token %}
+  <input type="hidden" name="create_first_admin" value="1">
+  <div class="form-row" style="gap: 0;">
+    {{ form.username.errors }}
+    {{ form.username.label_tag }} {{ form.username }}
+  </div>
+  <div class="form-row" style="gap: 0;">
+    {{ form.password1.errors }}
+    {{ form.password1.label_tag }} {{ form.password1 }}
+    {% if form.password1.help_text %}<div class="help">{{ form.password1.help_text|safe }}</div>{% endif %}
+  </div>
+  <div class="form-row" style="gap: 0;">
+    {{ form.password2.errors }}
+    {{ form.password2.label_tag }} {{ form.password2 }}
+    {% if form.password2.help_text %}<div class="help">{{ form.password2.help_text|safe }}</div>{% endif %}
+  </div>
+  <div class="submit-row" style="border: none;">
+    <label>&nbsp;</label><input type="submit" value="{% trans 'Create admin and continue' %}">
+  </div>
+</form>
+{% else %}
 {% if user.is_authenticated %}
 <p class="errornote">
 {% blocktrans trimmed %}
@@ -53,47 +82,43 @@
 
 <br/>
 <form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
-  <div class="form-row">
+  <div class="form-row" style="gap: 0;">
     {{ form.username.errors }}
     {{ form.username.label_tag }} {{ form.username }}
   </div>
-  <div class="form-row">
+  <div class="form-row" style="gap: 0;">
     {{ form.password.errors }}
     {{ form.password.label_tag }} {{ form.password }}
     <input type="hidden" name="next" value="{{ next }}">
   </div>
-  {% url 'admin_password_reset' as password_reset_url %}
-  {% if password_reset_url %}
-  <div class="password-reset-link">
-    <a href="{{ password_reset_url }}">{% trans 'Forgotten your password or username?' %}</a>
-  </div>
-  {% endif %}
-  <div class="submit-row">
+  <div class="submit-row" style="border: none;">
     <label>&nbsp;</label><input type="submit" value="{% trans 'Log in' %}">
   </div>
 </form>
+{% endif %}
 
+{% if not first_admin_setup %}
 <center>
   <br/><br/>
   <hr/>
   <br/>
-  If you forgot your password, <a href="/accounts/password_reset/">reset it here</a> or run:<br/>
+  To create a new admin user or reset a password, run:<br/>
 <pre>
-archivebox manage changepassword USERNAME
-</pre>
+# Docker Compose
+docker compose exec archivebox archivebox manage createsuperuser --username &lt;username&gt;
+docker compose exec archivebox archivebox manage changepassword &lt;username&gt;
 
-  <br/><br/>
-  <hr/>
-  <br/>
-  To create a new admin user, run the following:
+# Native installs (run inside your data folder)
+cd data/
+archivebox manage createsuperuser --username &lt;username&gt;
+archivebox manage changepassword &lt;username&gt;
+</pre>
 <pre>
-archivebox manage createsuperuser
+
 </pre>
   <br/>
-  <hr/>
-
-  <small><i>(cd into your archive folder before running commands)</i></small>
 </center>
+{% endif %}
 
 
 </div>

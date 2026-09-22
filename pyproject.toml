@@ -1,26 +1,12 @@
 [project]
 name = "archivebox"
-version = "0.7.4"
+version = "0.9.36"
+requires-python = ">=3.13"
 description = "Self-hosted internet archiving solution."
-authors = [
-    {name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"},
-]
-dependencies = [
-    "croniter>=6.2.2",
-    "dateparser>=1.2.2",
-    "django-extensions>=3.0.3",
-    "django>=3.1.3,<3.2",
-    "ipython>5.0.0",
-    "mypy-extensions>=1.1.0",
-    "python-crontab>=3.3.0",
-    "requests>=2.32.5",
-    "w3lib>=2.3.1",
-    "yt-dlp>=2025.10.14",
-    # "playwright>=1.39.0; platform_machine != 'armv7l'",
-]
-requires-python = ">=3.9,<3.12"
-readme = "README.md"
+authors = [{name = "Nick Sweeting", email = "pyproject.toml@archivebox.io"}]
 license = {text = "MIT"}
+readme = "README.md"
+keywords = ["internet archiving", "web archiving", "digipres", "warc", "preservation", "backups", "archiving", "web", "bookmarks", "puppeteer", "browser", "download"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -36,12 +22,8 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
     "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
@@ -54,58 +36,296 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-# pdm lock -G:all
-# pdm install -G:all
-[tool.pdm.dev-dependencies]
-dev = [
-    # build
-    "setuptools>=69.0.3",
-    "wheel",
-    "pdm",
-    "homebrew-pypi-poet>=0.10.0",
-    # docs
-    "recommonmark",
-    "sphinx",
-    "sphinx-rtd-theme",
-    # debug
-    "django-debug-toolbar",
-    "djdt_flamegraph",
-    "ipdb",
-    # test
-    "pytest",
-    # lint
-    "flake8",
-    "mypy",
-    "django-stubs",
-]
 
-[tool.pdm.scripts]
-lint = "./bin/lint.sh"
-test = "./bin/test.sh"
-# all = {composite = ["lint mypackage/", "test -v tests/"]}
+dependencies = [
+    ### Django libraries
+    "setuptools>=74.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
+    "django>=6.1",
+    "psycopg[binary]>=3.2",  # for: PostgreSQL database backend (ARCHIVEBOX_DATABASE_ENGINE=postgres)
+    "daphne>=4.2.1",  # ASGI server for Django and optional plugin WebSockets (no channels needed)
+    "django-ninja>=1.5.1",
+    "django-extensions>=3.2.3",
+    "django-signal-webhooks>=0.3.0",
+    "django-admin-data-views>=0.4.1",
+    "django-object-actions>=4.3.0",
+    "bleach>=6.2.0",          # for: stripping unsafe HTML from user-editable titles, notes, labels, tags
+    ### CLI / Logging
+    "click>=8.3.1",          # for: nicer CLI command + argument definitions
+    "rich>=14.2.0",          # for: pretty CLI output
+    "rich-click>=1.9.5",     # for: pretty CLI command help text & output
+    "ipython>=8.27.0",       # for: archivebox shell (TODO: replace with bpython?)
+    "toml>=0.10.2",          # for: archivebox config output and TOML migration helpers
+    ### Host OS / System
+    "supervisor>=4.2.5",     # for: archivebox server starting daphne and workers
+    "psutil>=6.0.0",         # for: monitoring orchestractor,actors,workers,etc. and machine.models.Process
+    "platformdirs>=4.3.6",   # for: finding a xdg-config dir to store tmp/lib files in
+    "py-machineid>=0.6.0",   # for: machine/detect.py calculating unique machine guid
+    "atomicwrites==1.4.1",   # for: config file writes, index.json file writes, etc. (TODO: remove this deprecated lib in favor of archivebox.filestore.util/os.rename/os.replace)
+    ### Base Types
+    "pydantic>=2.8.0",       # for: archivebox.api (django-ninja), archivebox.config (pydantic-settings), and archivebox.index.schema (pydantic)
+    "pydantic-settings>=2.5.2", # for: archivebox.config
+    "base32-crockford>=0.3.0", # for: encoding UUIDs in base32
+    ### Static Typing
+    "django-stubs>=5.0.4",   # for: vscode type hints on models and common django APIs
+    ### API clients
+    "requests>=2.32.3",      # for: fetching title, static files, headers (TODO: replace with httpx?)
+    "sonic-client>=1.0.0",
+    ### Parsers
+    "dateparser>=1.2.0",     # for: parsing pocket/pinboard/etc. RSS/bookmark import dates
+    "croniter>=6.0.0",       # for: validating and computing crawl schedules
+    "tzdata>=2024.2",        # needed for dateparser {TZ: UTC} on some systems: https://github.com/ArchiveBox/ArchiveBox/issues/1553
+    "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
+    ### Extractor dependencies (runtime binaries resolved through abxpkg)
+    ### Binary/Package Management
+    "abxbus==2.5.57",                 # direct imports only; version constrained by abx-dl -> abx-plugins
+    "abxpkg==1.13.1",                # direct imports only; version constrained by abx-dl -> abx-plugins
+    "abx-plugins[opencode]==1.13.17", # optional AI runtime clients are owned by the plugin
+    "abx-dl==1.13.12",       # shared ArchiveBox downloader package
+    ### UUID7 backport for Python <3.14
+    "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
+    "browser-cookie3>=0.20.1",
+]
 
 [project.optional-dependencies]
 sonic = [
+    # sonic client lib now included by default, sonic group is now a no-op:
+    # "sonic-client>=1.0.0",
+
+    # to use sonic make sure you have a sonic server running in docker (archivebox/sonic) or locally:
     # echo "deb [signed-by=/usr/share/keyrings/valeriansaliou_sonic.gpg] https://packagecloud.io/valeriansaliou/sonic/debian/ bookworm main" > /etc/apt/sources.list.d/valeriansaliou_sonic.list
     # curl -fsSL https://packagecloud.io/valeriansaliou/sonic/gpgkey | gpg --dearmor -o /usr/share/keyrings/valeriansaliou_sonic.gpg
-    "sonic-client>=0.0.5",
+    # apt install sonic
 ]
 ldap = [
-    # apt install libldap2-dev libsasl2-dev
-    "python-ldap>=3.4.6",
+    # python-ldap depends on the openldap bindings which provide no prebuilt wheels because they link against tons of other system packages
+    # apt install build-essential python3-dev python3-ldap libsasl2-dev libldap2-dev libssl-dev
+    "python-ldap>=3.4.3",
     "django-auth-ldap>=4.1.0",
 ]
-# playwright = [
-#     platform_machine isnt respected by pdm export -o requirements.txt, this breaks arm/v7
-#     "playwright>=1.39.0; platform_machine != 'armv7l'",
-# ]
+debug = [
+    # packages needed for running with DEBUG=True
+    "django-debug-toolbar>=4.4.6",
+    "djdt_flamegraph>=0.2.13",
+    "ipdb>=0.13.13",
+    "requests-tracker>=0.3.3",
+    "django-autotyping>=0.5.1",
+]
+all = [
+    "archivebox[sonic,ldap,debug]"
+]
 
-[project.scripts]
-archivebox = "archivebox.cli:main"
+[dependency-groups]
+dev = [
+    ### BUILD
+    "uv>=0.11.3",
+    "bumpver>=2023.1129",
+    ### DOCS
+    "recommonmark>=0.7.1",
+    "sphinx>=8.1.3",
+    "sphinx-rtd-theme>=2.0.0",
+    "sphinxcontrib-mermaid>=1.0.0",
+    "myst-parser>=4.0.0",
+    "sphinx-autodoc2>=0.5.0",
+    "linkify-it-py>=2.0.3",
+    ### DEBUGGING
+    "django-debug-toolbar>=4.4.6",
+    "requests-tracker>=0.3.3",
+    "djdt_flamegraph>=0.2.13",
+    "ipdb>=0.13.13",
+    "logfire[django]>=0.51.0",
+    "opentelemetry-instrumentation-django>=0.47b0",
+    "opentelemetry-instrumentation-sqlite3>=0.47b0",
+    "viztracer>=0.17.0",                               # usage: viztracer ../.venv/bin/archivebox manage check
+    # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
+    ### TESTING
+    "pytest-django>=4.11.1",
+    "pytest>=8.3.3",
+    "pytest-cov>=6.0.0",
+    "pytest-github-actions-annotate-failures>=0.4.0",
+    "pytest-httpserver>=1.1.0",
+    "pytest-sugar>=1.0.0",
+    "pytest-timeout>=2.3.1",
+    "coverage[toml]>=7.6.0",
+    "bottle>=0.13.1",
+    ### LINTING
+    "prek>=0.3.6",
+    "ruff>=0.6.6",
+    "pyright>=1.1.406",
+    "ty>=0.0.1a19",
+]
+
+[tool.uv]
+environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
+package = true
+exclude-newer = "5 days"
+exclude-newer-package = { abx-plugins = "2100-01-01T00:00:00Z", abx-dl = "2100-01-01T00:00:00Z", abxpkg = "2100-01-01T00:00:00Z", abxbus = "1 second" }
+# compile-bytecode = true
 
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
+# https://github.com/astral-sh/uv/issues/3957
+
+[tool.pdm.build]
+includes = ["archivebox/"]
+excludes = [
+    ".cache",
+    ".mypy_cache",
+    ".pdm-build",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tmp",
+    ".uv-cache",
+    ".venv",
+    "ArchiveBox.conf",
+    "archive",
+    "archivebox/.DS_Store",
+    "archivebox/*/.DS_Store",
+    "archivebox/.flake8",
+    "archivebox/__pycache__",
+    "archivebox/index.sqlite3",
+    "archivebox/index.sqlite3-*",
+    "archivebox/machine/tests",
+    "archivebox/mcp/README.md",
+    "archivebox/tests/",
+    "archivebox/workers/tests",
+    "build",
+    "cache",
+    "caches",
+    "chrome_profile",
+    "chromeprofile",
+    "crawls",
+    "data",
+    "data*",
+    "deb_dist",
+    "dist",
+    "index.sqlite3",
+    "index.sqlite3-*",
+    "lib",
+    "logs",
+    "node_modules",
+    "out",
+    "output",
+    "personas",
+    "pip_dist",
+    "queue.sqlite3",
+    "queue.sqlite3-*",
+    "snapshots",
+    "sources",
+    "tests",
+    "tmp",
+    "users",
+    "venv",
+]
+
+[tool.setuptools]
+packages = ["archivebox"]
+package-dir = {"archivebox" = "archivebox"}
+
+[tool.ruff]
+line-length = 140
+target-version = "py313"
+src = ["archivebox"]
+force-exclude = true
+exclude = ["*.pyi", "*.html", "**/*.html", "typings/", "migrations/", "archivebox/tests/data/"]
+
+# https://docs.astral.sh/ruff/rules/
+[tool.ruff.lint]
+ignore = ["E731", "E303", "E266", "E241", "E222"]
+
+[tool.codespell]
+ignore-words-list = "abx,archivebox,adminsnapshots,bu,wit,dont,cant,wont,havent,thats,shouldnt,doesnt,doenst,succeded,re-use,re-used,re-using,re-usable,generat,te"
+skip = "*.json,*.min.js,*.min.css,uv.lock,old/*,publicsite/*,docs/apidocs/*"
+
+[tool.pytest.ini_options]
+testpaths = [ "archivebox/tests" ]
+timeout = 600
+timeout_method = "thread"
+
+[tool.coverage.run]
+# Enable branch coverage (tracks if/else branches)
+branch = true
+# What to measure
+source = ["archivebox"]
+# Support parallel execution (for integration tests, dev server, etc.)
+parallel = true
+# Store data in .coverage instead of .coverage.<pid>
+data_file = ".coverage"
+# What to exclude
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/migrations/*",
+    "*/typings/*",
+    "*/__pycache__/*",
+    "*/node_modules/*",
+    "*/.venv/*",
+    "*/manage.py",
+]
+
+[tool.coverage.report]
+# Show lines missing coverage
+show_missing = true
+# Skip files with no executable code
+skip_empty = true
+# Fail if coverage below this (set to 0 for now)
+fail_under = 0
+# Exclude patterns (regex)
+exclude_lines = [
+    # Standard pragma
+    "pragma: no cover",
+    # Don't complain about missing debug code
+    "def __repr__",
+    "if self.debug",
+    # Don't complain if tests don't cover defensive assertion code
+    "raise AssertionError",
+    "raise NotImplementedError",
+    # Don't complain if non-runnable code isn't run
+    "if 0:",
+    "if False:",
+    "if __name__ == .__main__.:",
+    # Type checking blocks
+    "if TYPE_CHECKING:",
+    # Abstract methods
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.json]
+output = "coverage.json"
+show_contexts = true
+
+[tool.pyright]
+include = [
+    "archivebox",
+]
+exclude = [
+    ".venv",
+    "**/*.pyi",
+    "**/__init__.pyi",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/migrations",
+    "archivebox/tests/data",
+    "archivebox/tests/data/**",
+]
+stubPath = "./typings"
+venvPath = "."
+venv = ".venv"
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.13"
+pythonPlatform = "Linux"
+
+[tool.ty]
+environment = { python-version = "3.13", python-platform = "linux" }
+src = { include = ["archivebox"], exclude = [".venv", "**/*.pyi", "**/__init__.pyi", "**/node_modules", "**/__pycache__", "**/migrations", "archivebox/tests/data", "archivebox/tests/data/**"] }
+
+
+[project.scripts]
+archivebox = "archivebox.cli:main"
 
 
 [project.urls]
@@ -119,3 +339,25 @@ Community = "https://github.com/ArchiveBox/ArchiveBox/wiki/Web-Archiving-Communi
 Demo = "https://demo.archivebox.io"
 Donate = "https://github.com/ArchiveBox/ArchiveBox/wiki/Donations"
 
+
+
+[tool.bumpver]
+current_version = "v0.9.36"
+version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
+commit_message = "bump version {old_version} -> {new_version}"
+tag_message = "{new_version}"
+tag_scope = "default"
+pre_commit_hook = "bin/bumpver_update_lock.sh"
+post_commit_hook = ""
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"',
+    'version = "{pep440_version}"',
+]
+"etc/package.json" = [
+    '"version": "{pep440_version}"',
+]

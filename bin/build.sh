@@ -14,16 +14,13 @@ REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && p
 
 cd "$REPO_DIR"
 
-# pipenv install --dev
 
 # the order matters
 ./bin/build_docs.sh
 ./bin/build_pip.sh
-./bin/build_deb.sh
-./bin/build_brew.sh
 ./bin/build_docker.sh
 
 echo "[√] Done. Install the built package by running:"
-echo "    python3 setup.py install"
+echo "    uv tool install --force dist/archivebox-*.whl"
 echo "    # or"
-echo "    pip3 install ."
+echo "    brew tap archivebox/archivebox && brew install archivebox"

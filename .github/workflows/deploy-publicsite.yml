@@ -1,0 +1,87 @@
+name: Publish website
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ['Capture publicsite screenshots']
+    types: [completed]
+    branches: [dev]
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  # Repository-specific output; all publication logic below is a local copy.
+  SITE_OUTPUT: _site
+  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+
+# One production queue covers restore, build and deploy. PRs have separate queues.
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'production' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      revision: ${{ steps.source.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.ref || env.DEFAULT_BRANCH }}
+          persist-credentials: false
+      - name: Record website source revision
+        id: source
+        run: echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      # BEGIN REPOSITORY-SPECIFIC BUILD
+      - uses: astral-sh/setup-uv@v7
+      - name: Restore latest complete screenshots
+        run: uv run --no-project python bin/restore_site_screenshots.py publicsite/screenshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Render current gallery layout without recapturing images
+        run: uv run --no-project python bin/generate_ui_screenshot_gallery.py refresh publicsite/screenshots/index.html
+      - name: Assemble website with the local base components
+        run: uv run --no-project python .github/pages/site.py render _site --source publicsite
+      # END REPOSITORY-SPECIFIC BUILD
+
+      - name: Verify website in Chromium
+        run: |
+          uv run --no-config --no-project --with playwright==1.63.0 playwright install --with-deps chromium
+          uv run --no-config --no-project --with playwright==1.63.0 python .github/pages/verify.py "$SITE_OUTPUT" --evidence "$RUNNER_TEMP/site-evidence"
+      - name: Save website verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-verification
+          path: ${{ runner.temp }}/site-evidence
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.SITE_OUTPUT }}
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - uses: actions/deploy-pages@v4
+        id: deployment

@@ -1,0 +1,316 @@
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+}
+
+body.model-crawl.change-form #content {
+    max-width: none;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview > div {
+    padding: 14px;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-row {
+    padding: 10px 0;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-multiline {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    align-items: start;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-multiline > div {
+    min-width: 0;
+    margin: 0 !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-multiline input,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-multiline select,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-multiline textarea,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-multiline .readonly {
+    width: 100% !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-row.field-max_depth.field-max_urls.field-crawl_max_size .help,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .timezonewarning {
+    display: none !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-row.field-stop_reason_display {
+    padding: 4px 0;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-row.field-stop_reason_display .readonly {
+    min-height: 0;
+    padding: 6px 8px !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .field-notes,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .field-tags_editor {
+    min-width: 0;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-row.field-notes.field-tags_editor .form-multiline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .field-url_filters > div,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .field-url_filters #id_url_filters_container {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config > div,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .form-row,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .field-config,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .field-config > div,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .key-value-editor {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .key-value-rows {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .key-value-row {
+    margin: 0 !important;
+    padding: 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #fbfdff;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .kv-inputs {
+    display: grid !important;
+    grid-template-columns: minmax(180px, 0.42fr) minmax(260px, 1fr) 34px;
+    gap: 10px !important;
+    align-items: center !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .kv-key,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .kv-value {
+    width: 100% !important;
+    min-width: 0;
+    flex: none !important;
+    font-size: 13.5px !important;
+    line-height: 1.45 !important;
+    padding: 8px 10px !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .kv-help {
+    margin-top: 7px !important;
+    color: #526070 !important;
+    font-size: 12px !important;
+    line-height: 1.35;
+}
+
+.archivebox-crawl-resume-tool {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.crawl-resume-action-form {
+    display: inline-flex;
+    margin: 0;
+}
+
+.crawl-stop-reason,
+.crawl-stop-reason-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 12px;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+.crawl-stop-reason--empty,
+.crawl-resume-muted {
+    color: #94a3b8;
+}
+
+.crawl-status-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+}
+
+.crawl-status,
+.crawl-status-reason {
+    display: inline-flex;
+    align-items: center;
+    min-height: 20px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.crawl-status {
+    text-transform: uppercase;
+}
+
+.crawl-status--queued {
+    background: #fef9c3;
+    color: #854d0e;
+}
+
+.crawl-status--started {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.crawl-status--paused {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.crawl-status--sealed {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.crawl-status-reason {
+    background: #f1f5f9;
+    color: #475569;
+    min-height: 18px;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.crawl-status-reason--crawl_max_urls,
+.crawl-status-reason--crawl_max_size,
+.crawl-status-reason--snapshot_max_size {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.crawl-status-reason--crawl_timeout {
+    background: #ffedd5;
+    color: #9a3412;
+}
+
+.crawl-resume-row,
+.crawl-resume-submit,
+.crawl-pause-row,
+.crawl-pause-submit {
+    cursor: pointer;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots > div,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .form-row,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .field-snapshots_changelist,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .field-snapshots_changelist > div {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    width: 100% !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots > div {
+    padding: 0;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .form-row,
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .field-snapshots_changelist {
+    padding: 0;
+    border: 0;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .field-snapshots_changelist > label {
+    display: none !important;
+}
+
+body.model-crawl.change-form #content-main form fieldset.crawl-admin-snapshots .readonly {
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    font-family: inherit !important;
+    line-height: inherit !important;
+}
+
+.crawl-snapshots-embed {
+    width: 100%;
+    overflow: hidden;
+    border-radius: 0 0 12px 12px;
+    background: #fff;
+}
+
+.crawl-snapshots-embed__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+}
+
+.crawl-snapshots-embed__toolbar strong {
+    color: #334155;
+    font-size: 13px;
+}
+
+.crawl-snapshots-embed__toolbar .button {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+@media (max-width: 900px) {
+    body.model-crawl.change-form #content .object-tools .archivebox-crawl-resume-tool {
+        display: flex;
+        flex: 1 1 100%;
+        min-width: 0;
+        margin: 0;
+        gap: 8px;
+        justify-content: flex-start;
+    }
+
+    body.model-crawl.change-form #content .object-tools .crawl-stop-reason-inline {
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-multiline,
+    body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview .form-row.field-notes.field-tags_editor .form-multiline,
+    body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .key-value-rows {
+        grid-template-columns: 1fr;
+    }
+
+    body.model-crawl.change-form #content-main form fieldset.crawl-admin-config .kv-inputs {
+        grid-template-columns: 1fr;
+        align-items: stretch !important;
+    }
+
+    body.model-crawl.change-form #content-main form fieldset.crawl-admin-config *,
+    body.model-crawl.change-form #content-main form fieldset.crawl-admin-overview * {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+}

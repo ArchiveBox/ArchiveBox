@@ -1,35 +1,38 @@
 name: Run linters
 
 on:
-  workflow_dispatch:
-  push:
+  workflow_call:
 
 env:
-  MAX_LINE_LENGTH: 110
+  UV_NO_SOURCES: "1"
 
 jobs:
   lint:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
           fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
-          python-version: 3.9
+          python-version: "3.13"
           architecture: x64
 
-      - name: Install flake8
-        run: |
-          pip install flake8
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+          cache-dependency-glob: uv.lock
 
-      - name: Lint with flake8
-        run: |
-          cd archivebox
-          # one pass for show-stopper syntax errors or undefined names
-          flake8 . --count --show-source --statistics
-          # one pass for small stylistic things
-          flake8 . --count --max-line-length="$MAX_LINE_LENGTH" --statistics
+      - name: Verify checked dependency lock
+        run: uv lock --no-cache --check
+
+      - name: Install dependencies with uv
+        run: uv sync --no-cache --locked --dev --extra sonic --extra debug
+
+      - name: Run prek
+        run: uv run --no-cache --no-sync --no-sources prek run --all-files

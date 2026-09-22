@@ -14,11 +14,33 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd .. && pwd )"
 
 source "$DIR/.venv/bin/activate"
 
-echo "[*] Running flake8..."
-cd archivebox
-flake8 . && echo "√ No errors found."
+cd "$DIR"
+
+FAILED=0
+
+echo "[*] Running ruff..."
+if ruff check --fix archivebox; then
+    echo "√ No errors found."
+else
+    FAILED=1
+fi
 
 echo
 
-echo "[*] Running mypy..."
-echo "(skipping for now, run 'mypy archivebox' to run it manually)"
+echo "[*] Running pyright..."
+if pyright; then
+    echo "√ No errors found."
+else
+    FAILED=1
+fi
+
+echo
+
+echo "[*] Running ty..."
+if ty check --force-exclude --exclude '**/migrations/**' archivebox; then
+    echo "√ No errors found."
+else
+    FAILED=1
+fi
+
+exit "$FAILED"

@@ -1,0 +1,82 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static admin_list %}
+
+{% block title %}{% if cl.formset and cl.formset.errors %}{% translate "Error:" %} {% endif %}{{ block.super }}{% endblock %}
+{% block extrastyle %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static "admin/css/changelists.css" %}">
+  {% if cl.formset %}
+    <link rel="stylesheet" href="{% static "admin/css/forms.css" %}">
+  {% endif %}
+  {% if cl.formset or action_form %}
+    <script src="{% url 'admin:jsi18n' %}"></script>
+  {% endif %}
+  {{ media.css }}
+  <style>
+    {% if not actions_on_top and not actions_on_bottom %}
+      #changelist table thead th:first-child {width: inherit}
+    {% endif %}
+    #changelist:is(.search-mode-contents, .search-mode-deep) #result_list tbody tr.search-rank-0 {
+      background: #ffffff;
+      color: #111827;
+    }
+    #changelist:is(.search-mode-contents, .search-mode-deep) #result_list tbody tr.search-rank-0 td a {
+      color: #111827;
+    }
+    #changelist:is(.search-mode-contents, .search-mode-deep) #result_list tbody tr.search-rank-1 {
+      background: #f7f8fa;
+      color: #4b5563;
+    }
+    #changelist:is(.search-mode-contents, .search-mode-deep) #result_list tbody tr.search-rank-1 td a {
+      color: #374151;
+    }
+    #changelist.search-mode-deep #result_list tbody tr.search-rank-2 {
+      background: #f3f4f6;
+      color: #6b7280;
+    }
+    #changelist.search-mode-deep #result_list tbody tr.search-rank-2 td a {
+      color: #4b5563;
+    }
+  </style>
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{{ media.js }}
+<script src="{% static 'admin/js/filters.js' %}" defer></script>
+{% endblock %}
+
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list{% if embedded_changelist %} embedded-change-list{% endif %}{% endblock %}
+
+{% if not is_popup %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=cl.opts.app_label %}">{{ cl.opts.app_config.verbose_name }}</a>
+&rsaquo; {{ cl.opts.verbose_name_plural|capfirst }}
+</div>
+{% endblock %}
+{% endif %}
+
+{% block coltype %}{% endblock %}
+
+{% block content %}
+  <div id="content-main">
+    {% block object-tools %}
+      {% if not embedded_changelist %}
+        <ul class="object-tools">
+          {% block object-tools-items %}
+            {% change_list_object_tools %}
+          {% endblock %}
+        </ul>
+      {% endif %}
+    {% endblock %}
+    {% if cl.formset and cl.formset.errors %}
+        <p class="errornote">
+        {% blocktranslate count counter=cl.formset.total_error_count %}Please correct the error below.{% plural %}Please correct the errors below.{% endblocktranslate %}
+        </p>
+        {{ cl.formset.non_form_errors }}
+    {% endif %}
+    {% include "admin/change_list_panel.html" %}
+  </div>
+{% endblock %}

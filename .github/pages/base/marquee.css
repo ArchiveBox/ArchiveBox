@@ -1,0 +1,11 @@
+/* Identical standalone gallery strip across ArchiveBox product sites. */
+/* The root query container measures the usable width, excluding scrollbars. */
+html { container-type: inline-size; }
+.abx-marquee { min-width: 0; width: 100cqw; max-width: none; margin: 24px calc(50% - 50cqw) 40px; padding: 0; overflow: hidden; }
+.abx-marquee .abx-marquee-viewport { width: 100%; overflow-x: auto; scroll-behavior: auto; overscroll-behavior-x: contain; scrollbar-width: thin; padding: 16px 24px 28px; box-sizing: border-box; }
+.abx-marquee .abx-marquee-track { display: flex; align-items: flex-start; gap: 24px; width: max-content; margin-inline: auto; }
+.abx-marquee .abx-marquee-card { display: block; flex: none; width: min-content; overflow: hidden; border-radius: 10px; background: #fff; box-shadow: 0 0 0 1px rgb(0 0 0 / 12%), 0 2px 4px rgb(0 0 0 / 10%), 0 8px 16px rgb(0 0 0 / 16%); text-decoration: none; color: #533344; }
+.abx-marquee .abx-marquee-card img { display: block; height: clamp(240px, 30vw, 400px); width: auto; max-width: none; max-height: none; object-fit: contain; box-shadow: none; border: 0; border-radius: 0; background: transparent; padding: 0; margin: 0; }
+.abx-marquee :focus-visible { outline: 2px solid #9b2854; outline-offset: 3px; }
+.abx-marquee .abx-marquee-viewport:focus-visible { outline-offset: -3px; }
+@media (max-width: 600px) { .abx-marquee .abx-marquee-track { gap: 16px; } .abx-marquee .abx-marquee-card img { height: 240px; } }

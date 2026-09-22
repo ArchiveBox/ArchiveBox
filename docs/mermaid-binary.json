@@ -1,0 +1,19 @@
+{
+  "required_binaries": [
+    {
+      "name": "mmdc",
+      "binproviders": "env,pnpm",
+      "min_version": "11.16.0",
+      "min_release_age": 0,
+      "overrides": {
+        "pnpm": {
+          "install_root": "{ABXPKG_LIB_DIR}/pnpm/packages/mermaid-cli",
+          "install_args": [
+            "@mermaid-js/mermaid-cli@11.16.0"
+          ],
+          "postinstall_scripts": true
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{% load i18n admin_list core_tags %}
+
+{% if cl.model_admin.show_search_mode_selector %}
+  {% with current_search_mode=cl.params.search_mode|default:cl.model_admin.get_default_search_mode %}
+    <div class="module{% if cl.has_filters %} filtered{% endif %}{% if current_search_mode == 'contents' %} search-mode-contents{% elif current_search_mode|slice:':4' == 'deep' %} search-mode-deep{% endif %}" id="changelist">
+  {% endwith %}
+{% else %}
+    <div class="module{% if cl.has_filters %} filtered{% endif %}" id="changelist">
+{% endif %}
+  <div class="changelist-form-container">
+    <div>
+      {% search_form cl %}
+      {% if cl.date_hierarchy %}{% date_hierarchy cl %}{% endif %}
+
+      <form id="changelist-form" method="post"{% if changelist_form_action %} action="{{ changelist_form_action }}"{% endif %}{% if cl.formset and cl.formset.is_multipart %} enctype="multipart/form-data"{% endif %} novalidate>{% csrf_token %}
+      {% if cl.formset %}
+        <div>{{ cl.formset.management_form }}</div>
+      {% endif %}
+
+      {% if action_form and actions_on_top and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+      {% if cl.snapshot_is_grid_view %}
+        {% snapshots_grid cl %}
+      {% else %}
+        {% result_list cl %}
+      {% endif %}
+      {% if action_form and actions_on_bottom and cl.show_admin_actions %}{% admin_actions %}{% endif %}
+      <div class="changelist-footer">
+        {% pagination cl %}
+        {% if cl.formset and cl.result_count %}<input type="submit" name="_save" class="default" value="{% translate 'Save' %}">{% endif %}
+      </div>
+      </form>
+    </div>
+  </div>
+  {% if cl.has_filters and not embedded_changelist %}
+  <div id="changelist-filter">
+    <h2>
+      {% translate 'Filter' %}
+      <button
+        type="button"
+        id="changelist-filter-toggle"
+        class="filter-toggle"
+        aria-expanded="true"
+        data-show-label="{% translate 'Filters' %}"
+        data-hide-label="{% translate 'Hide' %}"
+      >
+        {% translate 'Hide' %}
+      </button>
+    </h2>
+    {% if cl.is_facets_optional or cl.has_active_filters %}<div id="changelist-filter-extra-actions">
+      {% if cl.is_facets_optional %}<h3>
+        {% if cl.add_facets %}<a href="{{ cl.remove_facet_link }}" class="hidelink">{% translate "Hide counts" %}</a>
+        {% else %}<a href="{{ cl.add_facet_link }}" class="viewlink">{% translate "Show counts" %}</a>{% endif %}
+      </h3>{% endif %}
+      {% if cl.has_active_filters %}<h3>
+        <a href="{{ cl.clear_all_filters_qs }}">&#10006; {% translate "Clear all filters" %}</a>
+      </h3>{% endif %}
+    </div>{% endif %}
+    {% for spec in cl.filter_specs %}{% admin_list_filter cl spec %}{% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{% if cl.has_filters and not embedded_changelist %}
+  <script>
+    window.archiveboxInitChangelistFilters = function() {
+      var storageKey = 'admin-filters-collapsed';
+      var toggle = document.getElementById('changelist-filter-toggle');
+      var toolbarToggle = document.getElementById('changelist-toolbar-filter-toggle');
+      if (!toggle) return;
+
+      function applyState() {
+        var storedState = localStorage.getItem(storageKey);
+        var collapsed = storedState === null
+          ? window.matchMedia('(max-width: 1180px)').matches
+          : storedState === 'true';
+        document.body.classList.toggle('filters-collapsed', collapsed);
+        toggle.textContent = collapsed ? toggle.dataset.showLabel : toggle.dataset.hideLabel;
+        toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        if (toolbarToggle) {
+          toolbarToggle.textContent = collapsed ? 'Filters ▸' : 'Filters ◂';
+          toolbarToggle.style.display = 'inline-flex';
+          toolbarToggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        }
+      }
+
+      if (!toggle.dataset.archiveboxFiltersReady) {
+        toggle.dataset.archiveboxFiltersReady = '1';
+        toggle.addEventListener('click', function() {
+          localStorage.setItem(storageKey, document.body.classList.contains('filters-collapsed') ? 'false' : 'true');
+          applyState();
+        });
+      }
+
+      if (toolbarToggle && !toolbarToggle.dataset.archiveboxFiltersReady) {
+        toolbarToggle.dataset.archiveboxFiltersReady = '1';
+        toolbarToggle.addEventListener('click', function() {
+          localStorage.setItem(storageKey, document.body.classList.contains('filters-collapsed') ? 'false' : 'true');
+          applyState();
+        });
+      }
+
+      applyState();
+    };
+    window.archiveboxInitChangelistFilters();
+  </script>
+{% endif %}
+{% include "admin/snapshot_search_stream.html" %}

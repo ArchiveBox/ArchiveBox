@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0009_auto_20210216_1038'),
+        ("core", "0009_auto_20210216_1038"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='archiveresult',
-            name='start_ts',
+            model_name="archiveresult",
+            name="start_ts",
             field=models.DateTimeField(db_index=True),
         ),
     ]

@@ -17,27 +17,32 @@
 </style>
 <script>
     // Page Loading Bar
+    const archiveboxJQuery = (window.django && window.django.jQuery) || window.jQuery;
     window.loadStart = function(distance) {
+        if (!archiveboxJQuery) return;
         var distance = distance || 0;
         // only add progrstess bar if not already present
-        if (django.jQuery("#loading-bar").length == 0) {
-            django.jQuery("body").add("<div id=\"loading-bar\"></div>");
+        if (archiveboxJQuery("#loading-bar").length == 0) {
+            archiveboxJQuery("body").add("<div id=\"loading-bar\"></div>");
         }
-        if (django.jQuery("#progress").length === 0) {
-            django.jQuery("body").append(django.jQuery("<div></div>").attr("id", "progress"));
+        if (archiveboxJQuery("#progress").length === 0) {
+            archiveboxJQuery("body").append(archiveboxJQuery("<div></div>").attr("id", "progress"));
             let last_distance = (distance || (30 + (Math.random() * 30)))
-            django.jQuery("#progress").width(last_distance + "%");
+            archiveboxJQuery("#progress").width(last_distance + "%");
             setInterval(function() {
                 last_distance += Math.random()
-                django.jQuery("#progress").width(last_distance + "%");
+                archiveboxJQuery("#progress").width(last_distance + "%");
             }, 1000)
         }
     };
 
     window.loadFinish = function() {
-        django.jQuery("#progress").width("101%").delay(200).fadeOut(400, function() {
-            django.jQuery(this).remove();
-        });
+        if (!archiveboxJQuery) return;
+        const progress = archiveboxJQuery("#progress");
+        progress.width("101%");
+        window.setTimeout(function() {
+            progress.remove();
+        }, 600);
     };
     window.loadStart();
     window.addEventListener('beforeunload', function() {window.loadStart(27)});

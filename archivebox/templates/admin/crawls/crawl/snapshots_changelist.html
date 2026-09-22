@@ -1,0 +1,9 @@
+{% load i18n %}
+
+<div class="crawl-snapshots-embed snapshot-changelist-widget model-snapshot change-list embedded-change-list">
+  <div class="crawl-snapshots-embed__toolbar">
+    <strong>{% translate "Snapshots in this crawl" %}</strong>
+    <a class="button" href="{{ snapshot_changelist_url }}">{% translate "Open full changelist" %}</a>
+  </div>
+  {% include "admin/change_list_panel.html" with changelist_form_action=snapshot_changelist_url %}
+</div>

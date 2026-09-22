@@ -1,0 +1,123 @@
+{% load i18n %}
+
+<article class="abx-admin-card abx-admin-card--{{ model.object_name|default:model.name|slugify }} abx-admin-card--{{ tone|default:'default' }}{% if model.object_name == 'Crawl' %} abx-admin-card--has-action{% endif %}">
+    {% if model.admin_url %}
+    <a class="abx-admin-card__main abx-admin-card__main--link" href="{{ model.admin_url }}">
+    {% else %}
+    <div class="abx-admin-card__main">
+    {% endif %}
+        <span class="abx-admin-card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" role="presentation" focusable="false">
+                {% if model.object_name == "Crawl" %}
+                    <path d="M7 5h10a2 2 0 0 1 2 2v10" />
+                    <path d="M5 8h10a2 2 0 0 1 2 2v10H5z" />
+                    <path d="M8 12h6M8 16h4" />
+                {% elif model.object_name == "CrawlSchedule" %}
+                    <path d="M7 3v4M17 3v4M4 9h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />
+                    <path d="M9 14h3v3" />
+                {% elif model.object_name == "Snapshot" %}
+                    <path d="M6 3h9l4 4v14H6z" />
+                    <path d="M15 3v5h5" />
+                    <path d="M10 14h4M12 12v4" />
+                {% elif model.object_name == "ArchiveResult" %}
+                    <path d="M6 3h8l4 4v14H6z" />
+                    <path d="M14 3v5h5M9 14l2 2 4-5" />
+                {% elif model.object_name == "Tag" %}
+                    <path d="M20 13 12 21l-9-9V4h8z" />
+                    <path d="M7.5 7.5h.01" />
+                {% elif model.object_name == "Persona" or model.object_name == "User" %}
+                    <path d="M20 21a8 8 0 0 0-16 0" />
+                    <path d="M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z" />
+                {% elif model.object_name == "Machine" %}
+                    <path d="M8 3h8v4H8zM6 7h12v10H6zM9 21h6M12 17v4" />
+                    <path d="M9 11h1M14 11h1" />
+                {% elif model.object_name == "NetworkInterface" %}
+                    <path d="M12 4v6M6 20v-4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v4" />
+                    <path d="M7 4h10v6H7zM4 20h4M10 20h4M16 20h4" />
+                {% elif model.object_name == "Binary" %}
+                    <path d="M4 7h16v10H4z" />
+                    <path d="m8 11 2 2-2 2M12 15h4" />
+                {% elif model.object_name == "Process" %}
+                    <path d="M4 12h4l2-6 4 12 2-6h4" />
+                {% elif model.object_name == "APIToken" %}
+                    <path d="M15 7a4 4 0 1 1-3 6.65L6 20H3v-3l6.35-6A4 4 0 0 1 15 7z" />
+                    <path d="M18 7h.01" />
+                {% elif model.object_name == "OutboundWebhook" or model.object_name == "Webhook" %}
+                    <path d="M9 7H6a3 3 0 0 0 0 6h3M15 7h3a3 3 0 0 1 0 6h-3M8 17h8" />
+                    <path d="M8 10h8" />
+                {% else %}
+                    <path d="M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" />
+                    <path d="M8 8h8M8 12h8M8 16h5" />
+                {% endif %}
+            </svg>
+        </span>
+        <span class="abx-admin-card__copy">
+            <span class="abx-admin-card__title-row">
+                <strong class="abx-admin-card__title">
+                    {% if model.object_name == "Persona" %}
+                        {% translate "Personas & Configs" %}
+                    {% elif model.object_name == "User" %}
+                        {% translate "Admin Users" %}
+                    {% elif model.name == "Configuration" %}
+                        {% translate "Admin Configuration" %}
+                    {% else %}
+                        {{ model.name }}
+                    {% endif %}
+                </strong>
+                {% if model.object_count_label %}
+                    <span class="abx-admin-card__count" title="{{ model.object_count_title }}">{{ model.object_count_label }}</span>
+                {% endif %}
+            </span>
+            <span class="abx-admin-card__text">
+                {% if model.object_name == "Crawl" %}
+                    Create and monitor URL collection jobs.
+                {% elif model.object_name == "CrawlSchedule" %}
+                    Recurring crawl definitions and timers.
+                {% elif model.object_name == "Snapshot" %}
+                    Archived pages and page-level metadata.
+                {% elif model.object_name == "ArchiveResult" %}
+                    Extractor outputs generated per snapshot.
+                {% elif model.object_name == "Tag" %}
+                    Labels, saved groupings, and collection filters.
+                {% elif model.object_name == "Persona" %}
+                    Browser profiles, cookies, and crawl identity.
+                {% elif model.object_name == "User" %}
+                    Admin users, permissions, and access.
+                {% elif model.object_name == "Machine" %}
+                    Host identity and runtime configuration.
+                {% elif model.object_name == "NetworkInterface" %}
+                    Network interfaces and endpoint metadata.
+                {% elif model.object_name == "Binary" %}
+                    Installed tools discovered by ArchiveBox.
+                {% elif model.object_name == "Process" %}
+                    Hook, binary, and crawl process history.
+                {% elif model.object_name == "APIToken" %}
+                    API credentials for automation.
+                {% elif model.object_name == "OutboundWebhook" or model.object_name == "Webhook" %}
+                    Outbound webhook integrations.
+                {% elif model.name == "Configuration" %}
+                    Live settings and plugin configuration.
+                {% elif model.name == "Dependencies" %}
+                    Runtime binaries and installed packages.
+                {% elif model.name == "Plugins" %}
+                    Enabled extractors and integration plugins.
+                {% elif model.name == "Workers" %}
+                    Background worker and queue state.
+                {% elif model.name == "Logs" %}
+                    Runtime logs and diagnostics.
+                {% else %}
+                    {{ model.object_name|default:model.name }}
+                {% endif %}
+            </span>
+        </span>
+    {% if model.admin_url %}
+    </a>
+    {% else %}
+    </div>
+    {% endif %}
+    {% if model.object_name == "Crawl" %}
+        <div class="abx-admin-card__actions">
+            <a class="abx-admin-action abx-admin-action--add" href="{% url 'add' %}">{% translate "Add" %}</a>
+        </div>
+    {% endif %}
+</article>
