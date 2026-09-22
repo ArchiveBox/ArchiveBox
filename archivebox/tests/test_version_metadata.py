@@ -25,7 +25,10 @@ def test_release_metadata_versions_match() -> None:
 
     assert package_version == project_version
     assert docker_abx_dl_version
-    assert docker_abx_dl_version.group(1) == abx_dl_version
+    # abx-dl publishes its development image as main; CI supplies the locked release.
+    assert docker_abx_dl_version.group(1) == "main"
+    locked = tomllib.loads((REPO_DIR / "uv.lock").read_text())
+    assert next(package["version"] for package in locked["package"] if package["name"] == "abx-dl") == abx_dl_version
 
 
 def _resolve_git_with_abxpkg(tmp_path: Path) -> Path:
