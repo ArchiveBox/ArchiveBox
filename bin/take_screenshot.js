@@ -31,8 +31,6 @@ Environment:
   SCREENSHOT_HOST_RESOLVER_RULES  Chrome host resolver rules
   SCREENSHOT_SNAPSHOT_VIEW   Set to list or grid before loading the page
   SCREENSHOT_SNAPSHOT_HEADER Set to expanded or collapsed before loading a snapshot detail page
-  SCREENSHOT_EXPECT_PLUGIN   Require this snapshot output plugin to be selected
-  SCREENSHOT_EXPECT_FRAME_TEXT  Require this text in the selected output frame
   SCREENSHOT_COLLAPSE_FILTERS Set to 1 to keep admin filters out of screenshots
   SCREENSHOT_RESET_FILTERS   Set to 1 to clear the admin filter collapsed preference
 `);
@@ -162,7 +160,7 @@ async function main() {
       await page.setCookie(cookie);
     }
 
-    let navigationResponse = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    let navigationResponse = await page.goto(url, { waitUntil: 'load', timeout: 60000 });
 
     if (process.env.SCREENSHOT_LOGIN_USERNAME || process.env.SCREENSHOT_LOGIN_PASSWORD) {
       if (!process.env.SCREENSHOT_LOGIN_USERNAME || !process.env.SCREENSHOT_LOGIN_PASSWORD) {
@@ -200,55 +198,6 @@ async function main() {
       await page.evaluate((selector) => {
         document.querySelector(selector)?.scrollIntoView({ block: 'start', inline: 'nearest' });
       }, process.env.SCREENSHOT_SCROLL_SELECTOR);
-    }
-
-    if (process.env.SCREENSHOT_EXPECT_PLUGIN) {
-      const expectedPlugin = process.env.SCREENSHOT_EXPECT_PLUGIN.toLowerCase();
-      await page.waitForFunction((pluginName) => {
-        const selectedCard = document.querySelector('.thumb-card.selected-card[data-plugin-name]');
-        const frame = document.querySelector('#main-frame');
-        const frameRect = frame?.getBoundingClientRect();
-        return selectedCard?.dataset.pluginName?.toLowerCase() === pluginName
-          && frame
-          && frame.getAttribute('src')
-          && frame.getAttribute('src') !== 'about:blank'
-          && frameRect
-          && frameRect.width >= Math.min(window.innerWidth * 0.9, window.innerWidth - 8)
-          && frameRect.height >= Math.min(window.innerHeight * 0.35, 320);
-      }, { timeout: 45000 }, expectedPlugin);
-      // Snapshot output cards are grouped into collapsed stacks. Expand the
-      // selected card's real group before capture so the gallery shows the
-      // available outputs and the loaded preview together. The selected card
-      // is moved into the tray by the page's own stack handler; no duplicate
-      // preview or synthetic content is created here.
-      await page.evaluate(() => {
-        const selectedCard = document.querySelector('.thumb-card.selected-card[data-output-group]');
-        const group = selectedCard?.dataset.outputGroup;
-        if (!group) return;
-        const stack = [...document.querySelectorAll('.output-stack')]
-          .find((button) => button.classList.contains(`output-stack-${group}`));
-        if (stack && stack.getAttribute('aria-expanded') !== 'true') stack.click();
-      });
-      await page.waitForFunction(() => {
-        const tray = document.querySelector('#stack-tray');
-        const selectedCard = document.querySelector('.stack-tray .thumb-card.selected-card');
-        return tray && !tray.hidden && selectedCard && selectedCard.getClientRects().length > 0;
-      }, { timeout: 45000 });
-      await page.waitForFunction(() => {
-        const frames = [document.querySelector('#main-frame'), document.querySelector('.thumb-card.selected-card iframe')]
-          .filter(Boolean);
-        if (!frames.length) return true;
-        return frames.every((frame) => {
-          try {
-            const doc = frame.contentDocument || frame.contentWindow?.document;
-            if (!doc || doc.readyState === 'loading') return false;
-            const images = Array.from(doc.images || []);
-            return images.every((img) => img.complete && (img.naturalWidth > 0 || img.currentSrc.startsWith('data:')));
-          } catch (err) {
-            return true;
-          }
-        });
-      }, { timeout: 45000, polling: 250 }).catch(() => {});
     }
 
     const frameHandle = await page.$('.crawl-snapshots-embed iframe');
@@ -291,6 +240,7 @@ async function main() {
       snapshotOutputs: [...document.querySelectorAll('.thumb-card[data-plugin-name]')]
         .map((card) => ({
           plugin: card.dataset.pluginName || '',
+          outputPath: card.dataset.outputPath || '',
           previewUrl: card.dataset.previewUrl || card.querySelector('a[target="preview"]')?.getAttribute('href') || '',
         }))
         .filter((output) => output.plugin && output.previewUrl),

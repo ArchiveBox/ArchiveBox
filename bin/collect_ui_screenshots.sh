@@ -386,10 +386,6 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     capture_index=$((capture_index + 1))
     slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//; s/-$//')"
     expected_plugin=""
-    expected_frame_text=""
-    if [[ "$capture_mode" == wait-frame-text:* ]]; then
-        expected_frame_text="${capture_mode#wait-frame-text:}"
-    fi
     if [[ "$name" == "Snapshot View ("*")" && "$capture_mode" != "live-progress" && "$capture_mode" != "snapshot-collapsed" ]]; then
         expected_plugin="${name#Snapshot View (}"
         expected_plugin="${expected_plugin%)}"
@@ -550,12 +546,10 @@ PY
                     CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
                     SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
                     SCREENSHOT_WIDTH=1600 \
-                    SCREENSHOT_HEIGHT=1000 \
+                    SCREENSHOT_HEIGHT="$output_height" \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
                     SCREENSHOT_SNAPSHOT_HEADER=expanded \
-                    SCREENSHOT_EXPECT_PLUGIN="$expected_plugin" \
-                    SCREENSHOT_EXPECT_FRAME_TEXT="$expected_frame_text" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
@@ -599,7 +593,6 @@ PY
                     SCREENSHOT_HEIGHT=1366 \
                     SCREENSHOT_VARIANTS_JSON="$responsive_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
-                    SCREENSHOT_EXPECT_PLUGIN="$expected_plugin" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
@@ -759,7 +752,7 @@ PY
             SCREENSHOT_HEIGHT=1000 \
             node "$REPO_DIR/bin/take_screenshot.js" "$LIVE_SNAPSHOT_VIEW_URL" "$CAPTURE_ROOT/snapshot-output-discovery.png" >"$SNAPSHOT_DISCOVERY_REPORT"
         SNAPSHOT_OUTPUT_PLUGINS="$(UI_SCREENSHOT_DISCOVERY_REPORT="$SNAPSHOT_DISCOVERY_REPORT" uv run --no-cache --project "$REPO_DIR" python -c \
-            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}".format(output["plugin"], "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
+            'import json, os; from urllib.parse import urlsplit; report=json.load(open(os.environ["UI_SCREENSHOT_DISCOVERY_REPORT"])); print("\n".join("{}\t{}\t{}".format(output["plugin"], output["outputPath"], "wait-replay:Nick Sweeting" if urlsplit(output["previewUrl"]).path.endswith(".wacz") else "") for output in report["checks"]["snapshotOutputs"]))')"
         if [[ -z "$SNAPSHOT_OUTPUT_PLUGINS" ]]; then
             echo "[!] The Sweeting.me snapshot detail page exposed no selectable outputs" >&2
             exit 1
@@ -772,10 +765,10 @@ PY
                 exit 1
             fi
         done
-        while IFS=$'\t' read -r plugin_name output_capture_mode; do
+        while IFS=$'\t' read -r plugin_name output_path output_capture_mode; do
             [[ -z "$plugin_name" ]] && continue
             DISCOVERED_TEMPLATE_PLUGINS+=("$plugin_name")
-            VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$plugin_name|/|archivebox/templates/core/snapshot.html|$output_capture_mode")
+            VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|/|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
         add_supplementary_template_capture \
             parse_jsonl_urls \

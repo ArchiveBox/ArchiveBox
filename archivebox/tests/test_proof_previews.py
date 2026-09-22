@@ -148,7 +148,7 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
         browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {hostname} 127.0.0.1"])
         page = browser.new_page()
         page.goto(f"http://{hostname}:{port}{path}")
-        page.wait_for_function("document.querySelector('#manifest-sha256').textContent.length === 64")
+        page.wait_for_function("document.querySelector('#manifest-sha256')?.textContent.length === 64")
         assert page.locator("#manifest-sha256").inner_text() == hashlib.sha256(manifest).hexdigest()
         assert page.locator("#status > span").inner_text() == "Hashes submitted to opentimestamps.org"
         assert page.locator("#summary .status-hash").inner_text() == page.locator("#submitted-sha256").inner_text()
@@ -175,7 +175,7 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
         assert page.locator("pre").inner_text() == manifest.decode()
         page.goto(f"http://{hostname}:{port}{path}")
         page.goto(f"http://{hostname}:{port}{path}&card=1")
-        page.wait_for_function("document.querySelector('#manifest-sha256').textContent.length === 64")
+        page.wait_for_function("document.querySelector('#manifest-sha256')?.textContent.length === 64")
         assert page.locator("nav").is_hidden()
         assert page.locator("#status").is_visible()
         browser.close()
