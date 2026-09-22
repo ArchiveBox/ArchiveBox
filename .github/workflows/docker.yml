@@ -13,6 +13,22 @@ on:
         required: false
         default: true
         type: boolean
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Exact 40-character commit SHA to build
+        required: true
+        type: string
+      push_digests:
+        description: Push validated per-platform images by digest for the release workflow
+        required: false
+        default: true
+        type: boolean
+      full_tests:
+        description: Run storage, CLI, and size validation in addition to release smoke checks
+        required: false
+        default: true
+        type: boolean
 
 env:
   DOCKERHUB_IMAGE: archivebox/archivebox
@@ -42,6 +58,18 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+
+      - name: Verify exact source commit
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+        run: |
+          set -Eeuo pipefail
+          [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$(git rev-parse HEAD)" == "$SOURCE_REF" ]]
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -183,7 +211,7 @@ jobs:
           {
             echo 'labels<<EOF'
             echo "org.opencontainers.image.version=${VERSION}"
-            echo "org.opencontainers.image.revision=${GITHUB_SHA}"
+            echo "org.opencontainers.image.revision=${{ inputs.source_ref || github.sha }}"
             echo 'org.opencontainers.image.source=https://github.com/ArchiveBox/ArchiveBox'
             echo "io.archivebox.abx-dl.image=${{ steps.abx_dl_image.outputs.image }}"
             echo 'EOF'
@@ -203,7 +231,7 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
           build-args: |
             ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
-            ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
+            ARCHIVEBOX_COMMIT_HASH=${{ inputs.source_ref || github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
           # Keep the released image as the one cache authority. A second GHA
@@ -232,7 +260,7 @@ jobs:
           labels: ${{ steps.docker_meta.outputs.labels }}
           build-args: |
             ABX_DL_IMAGE=${{ steps.abx_dl_image.outputs.image }}
-            ARCHIVEBOX_COMMIT_HASH=${{ github.sha }}
+            ARCHIVEBOX_COMMIT_HASH=${{ inputs.source_ref || github.sha }}
           pull: true
           platforms: ${{ matrix.platform }}
           # Test the same layer lineage users receive. Reusing :dev avoids a
@@ -271,8 +299,9 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          IMAGE="${{ matrix.local_tag }}"
-          SHORT_SHA="${GITHUB_SHA::7}"
+          IMAGE="${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}"
+          SHORT_SHA="${{ (inputs.source_ref || github.sha) }}"
+          SHORT_SHA="${SHORT_SHA::7}"
 
           DATA_DIR="$(mktemp -d)"
           "$DOCKER_BINARY" run --rm --platform '${{ matrix.platform }}' -v "$DATA_DIR":/data "$IMAGE" archivebox init
@@ -395,7 +424,7 @@ jobs:
 
           NFS_TEST_DIR="$NFS_MOUNT" \
           SMB_TEST_DIR="$SMB_MOUNT" \
-          IMAGE="${{ matrix.local_tag }}" \
+          IMAGE="${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}" \
             "$BASH_BINARY" bin/validate_docker_uid_gid.sh --local-only
 
       - name: Validate Docker port compatibility
@@ -408,7 +437,7 @@ jobs:
         if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         env:
-          ARCHIVEBOX_IMAGE: ${{ matrix.local_tag }}
+          ARCHIVEBOX_IMAGE: ${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}
         run: |
           set -Eeuo pipefail
           "$MKDIR_BINARY" "${{ github.workspace }}/data"
@@ -529,6 +558,7 @@ jobs:
           mkdir -p /tmp/digests
           digest="${{ steps.docker_build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
+          printf '%s\n' '${{ inputs.source_ref || github.sha }}' > /tmp/digests/source-ref
 
       - name: Upload digest
         if: inputs.push_digests

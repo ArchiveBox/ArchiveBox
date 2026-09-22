@@ -25,7 +25,21 @@ jobs:
           submodules: true
           token: ${{ secrets.RELEASE_GH_TOKEN }}
 
+      - name: Keep synchronized stable branches on the released version
+        id: channel
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
+          MAIN_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
+          if [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$MAIN_SHA" == "$GITHUB_SHA" ]]; then
+            echo 'stable=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'stable=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - id: version
+        if: steps.channel.outputs.stable != 'true'
         uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@main
         with:
           package: archivebox
