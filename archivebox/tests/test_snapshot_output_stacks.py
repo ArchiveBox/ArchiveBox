@@ -15,7 +15,7 @@ from archivebox.tests.conftest import ADMIN_TEST_HOST
 
 pytestmark = pytest.mark.django_db
 FIXTURE = Path(__file__).parent / "fixtures" / "consolelog_preview.html"
-IMAGE_FIXTURE = Path(__file__).parents[2] / "publicsite" / "screenshots" / "snapshot-view-responses-desktop.png"
+IMAGE_FIXTURE = Path(__file__).parents[2] / "publicsite" / "assets" / "social-card.png"
 
 
 def save_output(snapshot, plugin, filename="content.html", *, hook="50", extra_files=()):

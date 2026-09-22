@@ -146,7 +146,9 @@ jobs:
           fi
       - name: Build the exact checkout's documentation image
         if: ${{ matrix.environment == 'docker' }}
-        run: '"$DOCKER_BINARY" build --tag archivebox/archivebox:dev .'
+        run: |
+          ABX_DL_VERSION="$(uv run --no-cache --no-project python -c 'import tomllib; print(next(dep.removeprefix("abx-dl==") for dep in tomllib.load(open("pyproject.toml", "rb"))["project"]["dependencies"] if dep.startswith("abx-dl==")))')"
+          "$DOCKER_BINARY" build --build-arg "ABX_DL_IMAGE=archivebox/abx-dl:${ABX_DL_VERSION}" --tag archivebox/archivebox:dev .
       - name: Run the Ubuntu, Docker, or macOS documentation lane
         if: ${{ !contains(fromJSON('["root", "freebsd", "openbsd"]'), matrix.environment) }}
         run: uv run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-group '${{ matrix.snippet_ids }}'

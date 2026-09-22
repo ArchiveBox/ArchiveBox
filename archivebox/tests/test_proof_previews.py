@@ -1,6 +1,7 @@
 """Proof viewers use installed templates and actual saved cryptographic evidence."""
 
 import json
+import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +13,24 @@ from playwright.sync_api import sync_playwright
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
+PROOF_FIXTURE = Path(__file__).parent / "fixtures" / "tlsnotary" / "hacker-news"
+
+
+def run_plugin(name: str, snap: Path, **config: str):
+    from abx_plugins.plugins.base.testing import get_hook_script, run_hook_and_parse
+
+    plugins = Path(get_plugins_dir())
+    hook = get_hook_script(plugins / name, "on_Snapshot__*")
+    assert hook is not None
+    return run_hook_and_parse(
+        hook,
+        "https://news.ycombinator.com/",
+        None,
+        cwd=snap,
+        env={**os.environ, "SNAP_DIR": str(snap), **config},
+        timeout=90,
+    )
+
 
 def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snapshot, client, live_server, tmp_path):
     from archivebox.core.models import ArchiveResult
@@ -22,9 +41,8 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
     machine = Machine.current()
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
     machine.save(update_fields=["config"])
-    plugins = Path(get_plugins_dir())
     evidence = snapshot.output_dir / "tlsnotary"
-    fixture = plugins / "tlsnotary/tests/fixtures/hacker-news"
+    fixture = PROOF_FIXTURE
     evidence.mkdir(parents=True)
     for name in ("receipt.json", "response.http", "metadata.json"):
         shutil.copyfile(fixture / name, evidence / name)
@@ -79,9 +97,9 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
         assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
         page.screenshot(path=str(tmp_path / "tlsnotary-mobile.png"), full_page=True)
         print(f"TLSNotary screenshots: {tmp_path}")
-        page.goto(url + "&card=1")
+        page.goto(url)
         page.wait_for_function("document.querySelector('#status').classList.contains('verified')")
-        assert page.locator("nav").is_hidden()
+        assert page.locator("nav").is_visible()
         assert page.locator("#summary").is_visible()
 
         response_path = evidence / "response.http"
@@ -101,7 +119,6 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
     import hashlib
 
     from abx_plugins.plugins.base.testing import install_required_binary_from_config
-    from abx_plugins.plugins.opentimestamps.tests.test_opentimestamps import run_plugin
 
     from archivebox.core.models import ArchiveResult
     from archivebox.core.routes_util import get_snapshot_host
@@ -112,7 +129,7 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
     machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
     machine.save(update_fields=["config"])
     plugins = Path(get_plugins_dir())
-    shutil.copytree(plugins / "tlsnotary/tests/fixtures/hacker-news", snapshot.output_dir / "tlsnotary")
+    shutil.copytree(PROOF_FIXTURE, snapshot.output_dir / "tlsnotary")
     code, record, stderr = run_plugin("hashes", snapshot.output_dir, HASHES_ENABLED="true")
     assert code == 0 and record["status"] == "succeeded", stderr
     binary = install_required_binary_from_config(plugins / "opentimestamps", "ots")
@@ -174,8 +191,8 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
         page.goto(manifest_link)
         assert page.locator("pre").inner_text() == manifest.decode()
         page.goto(f"http://{hostname}:{port}{path}")
-        page.goto(f"http://{hostname}:{port}{path}&card=1")
+        page.goto(f"http://{hostname}:{port}{path}")
         page.wait_for_function("document.querySelector('#manifest-sha256')?.textContent.length === 64")
-        assert page.locator("nav").is_hidden()
+        assert page.locator("nav").is_visible()
         assert page.locator("#status").is_visible()
         browser.close()

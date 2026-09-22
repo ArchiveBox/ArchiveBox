@@ -1155,12 +1155,12 @@ class TestUrlRouting:
             with zipfile.ZipFile(io.BytesIO(response_body(resp))) as zip_file:
                 assert any(name.endswith(f"/{output_rel}") for name in zip_file.namelist())
 
-            output_dir = next((output.get("path", "").split("/", 1)[0] for output in snapshot.discover_outputs() if "/" in (output.get("path") or "")), None)
-            assert output_dir is not None
+            output_dir = response_rel.split("/", 1)[0]
             resp = client.get(f"/{output_dir}/", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             dir_html = response_body(resp).decode("utf-8", "ignore")
             assert f"Index of {output_dir}/" in dir_html
+            assert Path(response_rel).parts[1] in dir_html
 
             print("OK")
             """,
@@ -1745,7 +1745,7 @@ class TestUrlRouting:
             assert f"http://{web_host}/static/archive.png" in live_html
             assert "?preview=1" in live_html
             assert "function createMainFrame(previousFrame)" in live_html
-            assert "function activateCardPreview(card, link, updateHash=true)" in live_html
+            assert "function activateCardPreview(card, link, updateHash=true, explicitTarget='')" in live_html
             assert "ensureMainFrame(currentSrc !== nextSrcAbs)" in live_html
             assert "previousFrame.parentNode.replaceChild(frame, previousFrame)" in live_html
             assert "previousFrame.src = 'about:blank'" in live_html
@@ -1757,7 +1757,8 @@ class TestUrlRouting:
             assert "doc.body.style.alignItems = 'center'" in live_html
             assert "img.style.margin = '0 auto'" in live_html
             assert "window.location.hash = getPreviewHashValueFromHref(rawTarget)" in live_html
-            assert "const selectedPreviewHash = window.location.hash ? decodeURIComponent(window.location.hash.slice(1)).toLowerCase() : ''" in live_html
+            assert "let selectedPreviewHash = window.location.hash.slice(1)" in live_html
+            assert "selectedPreviewHash = decodeURIComponent(selectedPreviewHash)" in live_html
             assert "pointer-events: none;" in live_html
             assert "pointer-events: auto;" in live_html
             assert 'class="thumbnail-click-overlay"' in live_html
@@ -1778,7 +1779,7 @@ class TestUrlRouting:
             assert 'href="./' in static_html
             assert "?preview=1" in static_html
             assert "function createMainFrame(previousFrame)" in static_html
-            assert "function activateCardPreview(card, link, updateHash=true)" in static_html
+            assert "function activateCardPreview(card, link, updateHash=true, explicitTarget='')" in static_html
             assert "ensureMainFrame(currentSrc !== nextSrcAbs)" in static_html
             assert "previousFrame.parentNode.replaceChild(frame, previousFrame)" in static_html
             assert "previousFrame.src = 'about:blank'" in static_html
@@ -1790,10 +1791,11 @@ class TestUrlRouting:
             assert "doc.body.style.alignItems = 'center'" in static_html
             assert "img.style.margin = '0 auto'" in static_html
             assert "window.location.hash = getPreviewHashValueFromHref(rawTarget)" in static_html
-            assert "const selectedPreviewHash = window.location.hash ? decodeURIComponent(window.location.hash.slice(1)).toLowerCase() : ''" in static_html
+            assert "let selectedPreviewHash = window.location.hash.slice(1)" in static_html
+            assert "selectedPreviewHash = decodeURIComponent(selectedPreviewHash)" in static_html
             assert "pointer-events: none;" in static_html
             assert "pointer-events: auto;" in static_html
-            assert 'class="thumbnail-click-overlay"' in static_html
+            assert 'class="thumbnail-click-overlay"' not in static_html
             assert "window.location.hash = getPreviewTypeFromPath(link)" not in static_html
             assert ">WARC<" not in static_html
             assert ">Media<" not in static_html
@@ -1843,6 +1845,7 @@ class TestUrlRouting:
             assert "__CONSOLE_MARKER__" in consolelog_text
             console_result = ArchiveResult.objects.get(snapshot=snapshot, plugin="consolelog")
             assert consolelog_file.name in console_result.output_files
+            consolelog_rel = consolelog_file.relative_to(snapshot.output_dir)
             snapshot.write_html_details()
 
             client = Client()
@@ -1859,12 +1862,14 @@ class TestUrlRouting:
                         self.frames.append(dict(attrs))
             frames = PreviewFrames()
             frames.feed(live_html)
-            assert any(
-                frame.get("data-plugin") == "consolelog" and frame.get("data-compact") == "1"
-                for frame in frames.frames
-            ), frames.frames
+            console_frames = [
+                frame for frame in frames.frames
+                if frame.get("data-plugin") == "consolelog"
+            ]
+            assert len(console_frames) == 1, frames.frames
+            assert console_frames[0]["src"].endswith(f"/{consolelog_rel}?preview=1"), frames.frames
+            assert "data-compact" not in console_frames[0]
             snapshot_host = get_snapshot_host(str(snapshot.id))
-            consolelog_rel = consolelog_file.relative_to(snapshot.output_dir)
             resp = client.get(f"/{consolelog_rel}?preview=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert resp["Content-Type"].startswith("text/html")

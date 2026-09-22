@@ -1,0 +1,8 @@
+{
+  "waitUntil": "domcontentloaded",
+  "elapsed": 123,
+  "url": "https://news.ycombinator.com/",
+  "finalUrl": "https://news.ycombinator.com/",
+  "status": 200,
+  "timestamp": "2026-09-21T23:11:15.783Z"
+}

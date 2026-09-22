@@ -43,7 +43,7 @@
 #       --build-arg ABX_DL_IMAGE=archivebox/abx-dl:dev \
 #       -t archivebox:multistage
 
-ARG ABX_DL_IMAGE=archivebox/abx-dl:dev
+ARG ABX_DL_IMAGE=archivebox/abx-dl:main
 
 FROM archivebox/sonic:1.4.9 AS sonic
 FROM ${ABX_DL_IMAGE} AS archivebox-runtime-base
