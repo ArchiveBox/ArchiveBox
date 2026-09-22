@@ -403,9 +403,6 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     fi
     view_timing_report=""
     while IFS='|' read -r profile viewport_width viewport_height; do
-        if [[ "$profile" == "desktop" && ( "$expected_plugin" == "tlsnotary" || "$expected_plugin" == "opentimestamps" ) ]]; then
-            viewport_height=1600
-        fi
         filename="$slug-$profile.png"
         capture_dir="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/$profile"
         timing_report_path="$view_timing_report"
@@ -536,17 +533,16 @@ PY
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile"
-                output_height="$viewport_height"
                 output_variants="$(printf \
-                    '[{"path":"%s","width":1600,"height":%s},{"path":"%s","width":1024,"height":1366},{"path":"%s","width":390,"height":844}]' \
-                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" "$output_height" \
+                    '[{"path":"%s","width":1600,"height":1000},{"path":"%s","width":1024,"height":1366},{"path":"%s","width":390,"height":844}]' \
+                    "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
                 NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
                     CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
                     SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
                     SCREENSHOT_WIDTH=1600 \
-                    SCREENSHOT_HEIGHT="$output_height" \
+                    SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
                     SCREENSHOT_SNAPSHOT_HEADER=expanded \
@@ -609,7 +605,6 @@ PY
         cp "$screenshot_path" "$PUBLIC_OUTPUT_DIR/$filename"
         UI_SCREENSHOT_NAME="$name" UI_SCREENSHOT_URL="$url" UI_SCREENSHOT_SOURCE="$source" \
             UI_SCREENSHOT_FILENAME="$filename" UI_SCREENSHOT_PROFILE="$profile" \
-            UI_SCREENSHOT_WIDTH="$viewport_width" UI_SCREENSHOT_HEIGHT="$viewport_height" \
             UI_SCREENSHOT_TIMING_REPORT="$timing_report_path" \
             uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" append \
                 "$MANIFEST_FILE" "$OUTPUT_DIR/$filename"
