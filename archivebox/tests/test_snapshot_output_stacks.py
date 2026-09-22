@@ -86,7 +86,7 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
 
     assert names("html") == ["archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom", "responses_html"]
     assert names("raster") == ["screenshot", "pdf"]
-    assert names("article_text") == ["defuddle", "readability", "mercury", "trafilatura", "htmltotext"]
+    assert names("article_text") == ["readability", "defuddle", "mercury", "trafilatura", "htmltotext"]
     assert "liteparse" in names("embedded_media")
     assert names("other") == ["custom_output"]
     assert context["best_result"]["name"] == "archivewebpage"
