@@ -77,7 +77,12 @@ jobs:
             echo 'ready=true' >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
+          # A stable release fast-forwards dev to main. Only main publishes it;
+          # the resulting dev workflow is not a new release candidate.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           TARGET="$(git ls-remote origin "refs/tags/release-candidate/$VERSION" | awk '{print $1}')"
           [[ "$TARGET" == "$RELEASE_SHA" ]] && echo 'ready=true' >> "$GITHUB_OUTPUT" || echo 'ready=false' >> "$GITHUB_OUTPUT"
 
