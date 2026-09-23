@@ -111,10 +111,15 @@ jobs:
               --json databaseId,status,conclusion \
               --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
             [[ -n "$CANDIDATE_RUN_ID" && -n "$CI_RUN_ID" ]] || exit 0
-            PRIOR_SUCCESS="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
-              --commit "$RELEASE_SHA" --limit 20 --json status,conclusion \
-              --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
-            [[ "$PRIOR_SUCCESS" == 0 ]] || exit 0
+            RELEASE_RUN_IDS="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
+              --commit "$RELEASE_SHA" --limit 20 --json databaseId,status,conclusion \
+              --jq '.[] | select(.status == "completed" and .conclusion == "success") | .databaseId')"
+            while read -r RELEASE_RUN_ID; do
+              [[ -n "$RELEASE_RUN_ID" ]] || continue
+              PUBLISHED="$(gh run view "$RELEASE_RUN_ID" --repo "$GITHUB_REPOSITORY" --json jobs \
+                --jq '.jobs[] | select(.name == "Publish tested Python artifacts" and .conclusion == "success") | .name')"
+              [[ -z "$PUBLISHED" ]] || exit 0
+            done <<< "$RELEASE_RUN_IDS"
             if [[ "$RELEASE_BRANCH" == dev ]]; then
               DIGEST_RUN_ID="$CANDIDATE_RUN_ID"
             else
