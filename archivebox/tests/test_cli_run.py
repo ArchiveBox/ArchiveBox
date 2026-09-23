@@ -176,6 +176,7 @@ def test_run_third_interrupt_forces_chosen_abort(initialized_archive, choice):
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
     env = cli_env(CHROME_DELAY_AFTER_LOAD="60", CHROME_TIMEOUT="120", CHROME_HEADLESS="True", PLUGINS="chrome")
+    _install_real_chrome_for_test(initialized_archive, env, isolation="crawl")
     created = run_archivebox_cmd(["snapshot", "create", create_test_url()], cwd=initialized_archive, env=env)
     assert created.returncode == 0, created.stdout + created.stderr
     crawl_id = next(record["crawl_id"] for record in parse_jsonl_output(created.stdout) if record.get("type") == "Snapshot")
@@ -195,7 +196,11 @@ def test_run_third_interrupt_forces_chosen_abort(initialized_archive, choice):
 
     def active_hook_pid():
         with use_archivebox_db(initialized_archive):
-            hook = Process.objects.filter(archiveresult__hook_name="on_Snapshot__30_chrome_navigate", status="running").first()
+            hook = Process.objects.filter(
+                process_type=Process.TypeChoices.HOOK,
+                cmd__0__endswith="on_Snapshot__30_chrome_navigate.js",
+                status="running",
+            ).first()
             return hook.pid if hook is not None and hook.is_running else None
 
     try:

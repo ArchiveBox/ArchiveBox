@@ -61,6 +61,8 @@ def test_interactive_add_takeover(initialized_archive, interrupt_before_takeover
         CHROME_TIMEOUT="120",
         CHROME_HEADLESS="True",
     )
+    installed = run_archivebox_cmd(["install", "chrome"], cwd=initialized_archive, env=env, timeout=600)
+    assert installed.returncode == 0, installed.stderr or installed.stdout
 
     def read_until(predicate, timeout=45):
         deadline = time.monotonic() + timeout
@@ -73,7 +75,11 @@ def test_interactive_add_takeover(initialized_archive, interrupt_before_takeover
 
     def active_hook_for(parent_pid):
         with use_archivebox_db(initialized_archive):
-            for hook in Process.objects.filter(archiveresult__hook_name="on_Snapshot__30_chrome_navigate", status="running"):
+            for hook in Process.objects.filter(
+                process_type=Process.TypeChoices.HOOK,
+                cmd__0__endswith="on_Snapshot__30_chrome_navigate.js",
+                status="running",
+            ):
                 if hook.is_running and parent_pid in {parent.pid for parent in psutil.Process(hook.pid).parents()}:
                     return hook
         return None
@@ -154,6 +160,8 @@ def test_interactive_add_borrowing_server_supervisor_can_abort(initialized_archi
         CHROME_TIMEOUT="120",
         CHROME_HEADLESS="True",
     )
+    installed = run_archivebox_cmd(["install", "chrome"], cwd=initialized_archive, env=env, timeout=600)
+    assert installed.returncode == 0, installed.stderr or installed.stdout
 
     def read_until(predicate, timeout=45):
         deadline = time.monotonic() + timeout
@@ -166,7 +174,11 @@ def test_interactive_add_borrowing_server_supervisor_can_abort(initialized_archi
 
     def active_hook():
         with use_archivebox_db(initialized_archive):
-            for hook in Process.objects.filter(archiveresult__hook_name="on_Snapshot__30_chrome_navigate", status="running"):
+            for hook in Process.objects.filter(
+                process_type=Process.TypeChoices.HOOK,
+                cmd__0__endswith="on_Snapshot__30_chrome_navigate.js",
+                status="running",
+            ):
                 if hook.is_running:
                     return hook
         return None
