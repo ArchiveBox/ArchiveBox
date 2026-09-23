@@ -77,10 +77,10 @@ dependencies = [
     "w3lib>=2.2.1",          # used for parsing content-type encoding from http response headers & html tags
     ### Extractor dependencies (runtime binaries resolved through abxpkg)
     ### Binary/Package Management
-    "abxbus==2.5.57",                 # direct imports only; version constrained by abx-dl -> abx-plugins
-    "abxpkg==1.13.2",                # direct imports only; version constrained by abx-dl -> abx-plugins
-    "abx-plugins[opencode]==1.13.21", # optional AI runtime clients are owned by the plugin
-    "abx-dl==1.13.19",       # shared ArchiveBox downloader package
+    "abxbus==2.5.58",                 # direct imports only; version constrained by abx-dl -> abx-plugins
+    "abxpkg==1.13.3",                # direct imports only; version constrained by abx-dl -> abx-plugins
+    "abx-plugins[opencode]==1.13.26", # optional AI runtime clients are owned by the plugin
+    "abx-dl==1.13.25",       # shared ArchiveBox downloader package
     ### UUID7 backport for Python <3.14
     "uuid7>=0.1.0; python_version < '3.14'",  # provides the uuid_extensions module on Python 3.13
     "browser-cookie3>=0.20.1",
