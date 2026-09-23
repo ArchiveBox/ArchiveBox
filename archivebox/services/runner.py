@@ -244,6 +244,7 @@ class CrawlRunner:
         self.root_crawl_event_id: str | None = None
         self.root_crawl_start_event_id: str | None = None
         self._run_task: asyncio.Task[None] | None = None
+        self._run_started = False
         self._skip_wait_until_idle = False
         # This is intentionally a synchronous OS-signal side channel, not bus
         # state. During SIGINT/SIGTERM/SIGHUP, asyncio.run() may already be
@@ -339,7 +340,7 @@ class CrawlRunner:
                 self._user_aborted = True
             self._interrupt_choice.set_result(choice)
 
-    def _request_abort_from_signal(self, _sig: signal.Signals) -> None:
+    def _request_abort_from_signal(self, sig: signal.Signals) -> None:
         # Daemons also need cooperative cleanup. os._exit used to leave hook
         # process groups orphaned and Process rows running forever. A daemon's
         # nonzero exit still lets supervisord restart it, AFTER finally blocks
@@ -352,6 +353,10 @@ class CrawlRunner:
         # waiting prompt must never keep a displaced worker or its hooks alive.
         self._signal_abort_requested = True
         self._skip_wait_until_idle = True
+        if not self._run_started and os.environ.get("ARCHIVEBOX_RUNNER_DAEMON") == "1":
+            # A signal before run() starts has no async task or hooks to drain.
+            # It must still be an unexpected supervisor exit, not a clean idle exit.
+            raise SystemExit(128 + sig.value)
         # The foreground signal handler runs while the event loop may be in the
         # middle of shutdown. Flip cheap in-memory flags here and let normal
         # finally blocks do cleanup. Interactive SIGINT uses _interrupt_hook;
@@ -400,6 +405,7 @@ class CrawlRunner:
         bus_destroyed = False
         run_state_loaded = False
         self._run_task = asyncio.current_task()
+        self._run_started = True
         # Do not raise KeyboardInterrupt directly from an OS signal while
         # the asyncio loop is active. Python can inject it into whichever
         # task is currently running, which produces noisy "Task exception
@@ -450,6 +456,7 @@ class CrawlRunner:
                         self._run_task = None
                         await self.stop_snapshot_tasks()
                         try:
+                            await self.process_service.stop_background_hooks()
                             await self.bus.wait_until_idle(timeout=1.0 if self._skip_wait_until_idle else 30.0)
                         except TimeoutError:
                             pass
@@ -460,6 +467,7 @@ class CrawlRunner:
                 if not bus_destroyed:
                     self._run_task = None
                     await self.stop_snapshot_tasks()
+                    await self.process_service.stop_background_hooks()
                     await self.bus.destroy(clear=False)
                 if self._live_stream is not None:
                     try:

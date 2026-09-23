@@ -53,10 +53,10 @@ from rich import print as rprint
 RUNNER_DAEMON_ENV = "ARCHIVEBOX_RUNNER_DAEMON"
 
 
-def _exit_daemon_runner_on_signal(_sig: signal.Signals) -> None:
+def _exit_daemon_runner_on_signal(sig: signal.Signals) -> None:
     # A supervised daemon must exit non-zero so supervisord restarts it, while
     # still unwinding the active crawl's hooks and persisted process state.
-    raise KeyboardInterrupt
+    raise SystemExit(128 + sig.value)
 
 
 def process_stdin_records() -> int:
@@ -295,12 +295,13 @@ def run_runner(
     if daemon:
         os.environ[RUNNER_DAEMON_ENV] = "1"
 
+    shutdown_state = None
     try:
         with (
             foreground_shutdown_signals(
                 on_signal=_exit_daemon_runner_on_signal if daemon else None,
                 raise_on_first_signal=not daemon,
-            ),
+            ) as shutdown_state,
             foreground_parent_watchdog(enabled=not daemon),
         ):
             run_pending_crawls(
@@ -309,10 +310,16 @@ def run_runner(
                 maintenance_only=maintenance_only,
                 interactive_interrupts=interactive_interrupts,
             )
+        if daemon and shutdown_state.signal_name:
+            return 128 + signal.Signals[shutdown_state.signal_name].value
         return 0
     except KeyboardInterrupt:
+        if daemon and shutdown_state and shutdown_state.signal_name:
+            return 128 + signal.Signals[shutdown_state.signal_name].value
         return 130
     except asyncio.CancelledError as e:
+        if daemon and shutdown_state and shutdown_state.signal_name:
+            return 128 + signal.Signals[shutdown_state.signal_name].value
         if daemon:
             rprint(f"[red]Runner cancelled unexpectedly: {type(e).__name__}: {e}[/red]", file=sys.stderr)
             return 1

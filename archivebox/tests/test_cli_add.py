@@ -41,6 +41,13 @@ pytestmark = pytest.mark.django_db(transaction=True)
     [(choice, "chrome") for choice in ["skip", "retry", "abort", "ctrl-c", "noninteractive"]] + [("noninteractive", "archivewebpage")],
 )
 def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
+    env = cli_env(CHROME_DELAY_AFTER_LOAD="60", CHROME_TIMEOUT="120", CHROME_HEADLESS="True")
+    # The timed observation below is for a running navigate hook. Resolve the
+    # selected plugin's real binaries before starting it, so a cold install is
+    # not counted as a hook-start failure.
+    installed = run_archivebox_cmd(["install", plugins], cwd=initialized_archive, env=env, timeout=600)
+    assert installed.returncode == 0, installed.stderr or installed.stdout
+
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (40, 160))
     output = bytearray()
@@ -57,13 +64,17 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
 
     def active_hook():
         with use_archivebox_db(initialized_archive):
-            return Process.objects.filter(archiveresult__hook_name__contains="_chrome_navigate", status="running").first()
+            return Process.objects.filter(
+                process_type=Process.TypeChoices.HOOK,
+                cmd__0__endswith="on_Snapshot__30_chrome_navigate.js",
+                status="running",
+            ).first()
 
     try:
         result = run_archivebox_cmd(
             ["add", f"--plugins={plugins}", "https://example.com"],
             cwd=initialized_archive,
-            env=cli_env(CHROME_DELAY_AFTER_LOAD="60", CHROME_TIMEOUT="120", CHROME_HEADLESS="True"),
+            env=env,
             stdin=subprocess.DEVNULL if choice == "noninteractive" else slave,
             stdout=slave,
             stderr=slave,

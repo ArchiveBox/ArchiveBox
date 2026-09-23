@@ -461,10 +461,17 @@ def test_add_archivewebpage_installs_required_chrome_dependency(initialized_arch
 
     plugins_seen = {plugin for plugin, _hook_name, _status, _output_str, _output_files in archive_results}
     assert {"chrome", "archivewebpage"}.issubset(plugins_seen)
+    archivewebpage_statuses = {
+        hook_name: status for plugin, hook_name, status, _output_str, _output_files in archive_results if plugin == "archivewebpage"
+    }
+    assert archivewebpage_statuses == {
+        "on_Snapshot__16_archivewebpage_start": ArchiveResult.StatusChoices.NORESULTS,
+        "on_Snapshot__65_archivewebpage_stop": ArchiveResult.StatusChoices.SUCCEEDED,
+    }, archive_results
     assert all(
         status == ArchiveResult.StatusChoices.SUCCEEDED
         for plugin, _hook_name, status, _output_str, _output_files in archive_results
-        if plugin in {"chrome", "archivewebpage"}
+        if plugin == "chrome"
     ), archive_results
     assert snapshot_output_dirs
     archivewebpage_wacz = Path(snapshot_output_dirs[0]) / "archivewebpage" / "archivewebpage.wacz"
