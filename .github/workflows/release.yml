@@ -103,23 +103,14 @@ jobs:
             [[ "$CI_STATUS" == "$(printf 'completed\tsuccess\t%s\tpush\tCI' "$RELEASE_SHA")" ]]
           else
             CANDIDATE_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release-candidate.yml \
-              --commit "$RELEASE_SHA" --event push --limit 1 \
+              --commit "$RELEASE_SHA" --branch "$RELEASE_BRANCH" --event push --limit 1 \
               --json databaseId,status,conclusion \
               --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
             CI_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
-              --commit "$RELEASE_SHA" --event push --limit 1 \
+              --commit "$RELEASE_SHA" --branch "$RELEASE_BRANCH" --event push --limit 1 \
               --json databaseId,status,conclusion \
               --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
             [[ -n "$CANDIDATE_RUN_ID" && -n "$CI_RUN_ID" ]] || exit 0
-            RELEASE_RUN_IDS="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
-              --commit "$RELEASE_SHA" --limit 20 --json databaseId,status,conclusion \
-              --jq '.[] | select(.status == "completed" and .conclusion == "success") | .databaseId')"
-            while read -r RELEASE_RUN_ID; do
-              [[ -n "$RELEASE_RUN_ID" ]] || continue
-              PUBLISHED="$(gh run view "$RELEASE_RUN_ID" --repo "$GITHUB_REPOSITORY" --json jobs \
-                --jq '.jobs[] | select(.name == "Publish tested Python artifacts" and .conclusion == "success") | .name')"
-              [[ -z "$PUBLISHED" ]] || exit 0
-            done <<< "$RELEASE_RUN_IDS"
             if [[ "$RELEASE_BRANCH" == dev ]]; then
               DIGEST_RUN_ID="$CANDIDATE_RUN_ID"
             else
