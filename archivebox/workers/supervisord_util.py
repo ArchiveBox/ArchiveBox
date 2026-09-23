@@ -9,6 +9,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 from functools import cache
 from pathlib import Path
@@ -1057,9 +1058,10 @@ def run_runner_worker(
 ) -> int:
     from archivebox.config.common import get_config
 
+    can_handle_sigint = threading.current_thread() is threading.main_thread()
     supervisor = get_or_create_supervisord_process(daemonize=False)
     worker = RUNNER_ONCE_WORKER(args, name=name)
-    if interactive_interrupts and sys.stdin.isatty() and (sys.stdout.isatty() or sys.stderr.isatty()):
+    if interactive_interrupts and can_handle_sigint and sys.stdin.isatty() and (sys.stdout.isatty() or sys.stderr.isatty()):
         worker["environment"] += ',ARCHIVEBOX_INTERACTIVE_INTERRUPTS="1"'
     else:
         interactive_interrupts = False
@@ -1129,7 +1131,8 @@ def run_runner_worker(
     # SIGTERM/SIGHUP keep the enclosing shutdown handlers, so takeover/parent
     # loss still unwinds this owner. Restore SIGINT before returning to standby:
     # Ctrl+C there must exit add without signalling the replacement owner's work.
-    signal.signal(signal.SIGINT, queue_interrupt)
+    if can_handle_sigint:
+        signal.signal(signal.SIGINT, queue_interrupt)
     try:
         while True:
             while pending_interrupts:
@@ -1205,7 +1208,8 @@ def run_runner_worker(
                         # another signal. The prompt context's final restore
                         # then installs the same handler idempotently.
                         abort_forwarded = True
-                        signal.signal(signal.SIGINT, queue_interrupt)
+                        if can_handle_sigint:
+                            signal.signal(signal.SIGINT, queue_interrupt)
 
                     choice = ProcessService.on_InterruptedHookPrompt(
                         prompt["hook_name"],
@@ -1246,7 +1250,8 @@ def run_runner_worker(
                 return 1
             time.sleep(0.5)
     finally:
-        signal.signal(signal.SIGINT, previous_sigint)
+        if can_handle_sigint:
+            signal.signal(signal.SIGINT, previous_sigint)
         log_handle.close()
 
 
