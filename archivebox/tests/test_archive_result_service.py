@@ -52,6 +52,7 @@ def _run_shipped_snapshot_hook(
     from abx_dl.services.process_service import ProcessService as HookProcessService
     from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
     from abx_plugins.plugins.base.utils import get_hydrated_required_binaries
+    from abxpkg import prepare_script_exec_plan
     from archivebox.core.models import ArchiveResult
     from archivebox.machine.models import Process
     from archivebox.plugins.discovery import get_plugin_catalog
@@ -75,6 +76,14 @@ def _run_shipped_snapshot_hook(
             overrides=required_binary.get("overrides"),
         )
     binary_env = resolve_abxpkg_binary_env(lib_dir, deps_from=hook_config)
+    hook_env = {
+        **binary_env,
+        "ABXPKG_LIB_DIR": str(lib_dir),
+        "SNAP_DIR": str(snapshot.output_dir),
+        "PATH": f"{Path(os.sys.executable).parent}{os.pathsep}{os.environ['PATH']}",
+        **(env or {}),
+    }
+    assert prepare_script_exec_plan(hook_path, env=hook_env), f"Could not prepare shipped hook {hook_path}"
     output_dir = Path(snapshot.output_dir) / plugin
     output_dir.mkdir(parents=True, exist_ok=True)
     bus = create_bus(name=f"test_real_{plugin}_{snapshot.id}")
@@ -97,13 +106,7 @@ def _run_shipped_snapshot_hook(
                     hook_name=projected_hook_name,
                     hook_path=str(hook_path),
                     hook_args=[f"--url={snapshot.url}"],
-                    env={
-                        **binary_env,
-                        "ABXPKG_LIB_DIR": str(lib_dir),
-                        "SNAP_DIR": str(snapshot.output_dir),
-                        "PATH": f"{Path(os.sys.executable).parent}{os.pathsep}{os.environ['PATH']}",
-                        **(env or {}),
-                    },
+                    env=hook_env,
                     output_dir=str(output_dir),
                     timeout=60,
                     is_background=".bg." in hook_name,
