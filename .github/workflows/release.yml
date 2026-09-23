@@ -36,16 +36,13 @@ env:
   GHCR_IMAGE: ghcr.io/archivebox/archivebox
   RELEASE_BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.release_branch || github.event.workflow_run.head_branch }}
   RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.release_sha || github.event.workflow_run.head_sha }}
-  CI_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.ci_run_id || github.event.workflow_run.id }}
-  DOCKER_DIGEST_RUN_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.docker_digest_run_id || github.event.workflow_run.id }}
 
 jobs:
   candidate:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
-      ((github.event.workflow_run.head_branch == 'dev' && github.event.workflow_run.name == 'Release candidate') ||
-       (github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.name == 'CI')) ||
+      (github.event.workflow_run.head_branch == 'dev' || github.event.workflow_run.head_branch == 'main') ||
       (github.event_name == 'workflow_dispatch' && inputs.release_branch == 'main')
     runs-on: ubuntu-24.04
     permissions:
@@ -53,6 +50,8 @@ jobs:
       contents: read
     outputs:
       ready: ${{ steps.verified.outputs.ready }}
+      artifact_run_id: ${{ steps.verified.outputs.artifact_run_id }}
+      digest_run_id: ${{ steps.verified.outputs.digest_run_id }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -89,42 +88,57 @@ jobs:
       - name: Require successful full CI for this commit
         id: verified
         if: steps.owner.outputs.ready == 'true'
-        timeout-minutes: 40
         env:
           GH_TOKEN: ${{ github.token }}
+          MANUAL_CI_RUN_ID: ${{ inputs.ci_run_id }}
+          MANUAL_DIGEST_RUN_ID: ${{ inputs.docker_digest_run_id }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
-            CI_RUN_ID=''
-            for _ in {1..12}; do
-              CI_RUN_ID="$(gh run list \
-                --repo "$GITHUB_REPOSITORY" \
-                --workflow ci.yml \
-                --commit "$RELEASE_SHA" \
-                --event push \
-                --limit 1 \
-                --json databaseId \
-                --jq '.[0].databaseId // empty')"
-              [[ -n "$CI_RUN_ID" ]] && break
-              sleep 5
-            done
+          if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            CI_RUN_ID="$MANUAL_CI_RUN_ID"
+            DIGEST_RUN_ID="$MANUAL_DIGEST_RUN_ID"
+            CI_STATUS="$(gh run view "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --json status,conclusion,headSha,event,name \
+              --jq '[.status, .conclusion, .headSha, .event, .name] | @tsv')"
+            [[ "$CI_STATUS" == "$(printf 'completed\tsuccess\t%s\tpush\tCI' "$RELEASE_SHA")" ]]
+          else
+            CANDIDATE_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release-candidate.yml \
+              --commit "$RELEASE_SHA" --event push --limit 1 \
+              --json databaseId,status,conclusion \
+              --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
+            CI_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+              --commit "$RELEASE_SHA" --event push --limit 1 \
+              --json databaseId,status,conclusion \
+              --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
+            [[ -n "$CANDIDATE_RUN_ID" && -n "$CI_RUN_ID" ]] || exit 0
+            PRIOR_SUCCESS="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
+              --commit "$RELEASE_SHA" --limit 20 --json status,conclusion \
+              --jq '[.[] | select(.status == "completed" and .conclusion == "success")] | length')"
+            [[ "$PRIOR_SUCCESS" == 0 ]] || exit 0
+            if [[ "$RELEASE_BRANCH" == dev ]]; then
+              DIGEST_RUN_ID="$CANDIDATE_RUN_ID"
+            else
+              DIGEST_RUN_ID="$CI_RUN_ID"
+            fi
           fi
-          [[ -n "$CI_RUN_ID" ]]
-          CI_HEAD_SHA="$(gh run view "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --json headSha --jq '.headSha')"
-          CI_EVENT="$(gh run view "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --json event --jq '.event')"
-          CI_NAME="$(gh run view "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --json name --jq '.name')"
-          [[ "$CI_HEAD_SHA" == "$RELEASE_SHA" ]]
-          [[ "$CI_EVENT" == push ]]
-          [[ "$CI_NAME" == CI ]]
-          gh run watch "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --exit-status
-          echo 'ready=true' >> "$GITHUB_OUTPUT"
+          if [[ "$RELEASE_BRANCH" == dev && "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
+            ARTIFACT_RUN_ID="$CANDIDATE_RUN_ID"
+          else
+            ARTIFACT_RUN_ID="$CI_RUN_ID"
+          fi
+          {
+            echo 'ready=true'
+            echo "artifact_run_id=$ARTIFACT_RUN_ID"
+            echo "digest_run_id=$DIGEST_RUN_ID"
+          } >> "$GITHUB_OUTPUT"
 
   python-release:
     name: Publish tested Python artifacts
     needs: candidate
     if: needs.candidate.outputs.ready == 'true'
     runs-on: ubuntu-24.04
+    env:
+      CI_RUN_ID: ${{ needs.candidate.outputs.artifact_run_id }}
     environment: pypi
     permissions:
       actions: read
@@ -240,8 +254,10 @@ jobs:
       (github.event_name == 'workflow_dispatch') ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push')
-    needs: python-release
+    needs: [candidate, python-release]
     runs-on: ubuntu-24.04
+    env:
+      DOCKER_DIGEST_RUN_ID: ${{ needs.candidate.outputs.digest_run_id }}
     permissions:
       actions: read
       contents: write
@@ -437,6 +453,7 @@ jobs:
     name: Cascade verified release
     if: needs.python-release.outputs.release_ready == 'true'
     needs:
+      - candidate
       - python-release
       - docker-release
     permissions:
@@ -447,6 +464,6 @@ jobs:
       upstream_package: archivebox
       upstream_version: ${{ needs.python-release.outputs.version }}
       upstream_artifact_name: python-distributions
-      upstream_run_id: ${{ github.event_name == 'workflow_dispatch' && inputs.ci_run_id || github.event.workflow_run.id }}
+      upstream_run_id: ${{ needs.candidate.outputs.artifact_run_id }}
     secrets:
       release_token: ${{ secrets.RELEASE_GH_TOKEN }}
