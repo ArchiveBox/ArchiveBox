@@ -22,7 +22,8 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert python_release["environment"] == "pypi"
     checkout = python_release["steps"][0]
     assert checkout["with"]["token"] == "${{ secrets.RELEASE_GH_TOKEN || github.token }}"
-    assert docker_release["needs"] == "python-release"
+    assert docker_release["needs"] == ["candidate", "python-release"]
+    assert docker_release["env"]["DOCKER_DIGEST_RUN_ID"] == "${{ needs.candidate.outputs.digest_run_id }}"
     assert "release_ready" not in docker_release["if"]
     assert jobs["cascade"]["if"] == "needs.python-release.outputs.release_ready == 'true'"
 
