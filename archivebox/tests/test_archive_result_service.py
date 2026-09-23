@@ -44,6 +44,7 @@ def _run_shipped_snapshot_hook(
     lib_dir: Path,
     env: dict | None = None,
     expected_exit_codes: tuple[int, ...] = (0,),
+    cancel_when=None,
 ):
     """Run one shipped hook through the production process/result bus services."""
     import asyncio
@@ -77,7 +78,7 @@ def _run_shipped_snapshot_hook(
     output_dir = Path(snapshot.output_dir) / plugin
     output_dir.mkdir(parents=True, exist_ok=True)
     bus = create_bus(name=f"test_real_{plugin}_{snapshot.id}")
-    HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
+    hook_process_service = HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
     HookArchiveResultService(bus, emit_jsonl=False)
     PersistedProcessService(bus)
     ArchiveResultService(bus)
@@ -113,12 +114,19 @@ def _run_shipped_snapshot_hook(
                 ),
             )
             await process_event.now()
+            if cancel_when is not None:
+                assert await asyncio.to_thread(cancel_when.wait, 30)
+                tasks = list(hook_process_service._background_completion_tasks)
+                assert len(tasks) == 1
+                tasks[0].cancel()
+                outcomes = await asyncio.gather(*tasks, return_exceptions=True)
+                assert isinstance(outcomes[0], asyncio.CancelledError), outcomes[0]
             if ".bg." in hook_name:
                 completed_event = await bus.find(
                     ProcessCompletedEvent,
                     child_of=process_event,
                     past=True,
-                    future=90,
+                    future=False if cancel_when is not None else 90,
                 )
                 assert completed_event is not None
                 await completed_event.wait(timeout=90)
@@ -132,7 +140,8 @@ def _run_shipped_snapshot_hook(
     assert process is not None
     process.refresh_from_db()
     assert process.exit_code in expected_exit_codes, (process.stdout, process.stderr)
-    result = ArchiveResult.objects.get(snapshot=snapshot, plugin=plugin, hook_name=projected_hook_name)
+    results = ArchiveResult.objects.filter(snapshot=snapshot, plugin=plugin, hook_name=projected_hook_name)
+    result = results.first() if cancel_when is not None else results.get()
     return process, result
 
 

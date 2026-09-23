@@ -1082,86 +1082,171 @@ def run_runner_worker(
     log_path.touch()
     log_handle = log_path.open()
     log_handle.seek(0, 2)
-    sync_supervisord_workers(supervisor, workers, prune=False)
+    started_workers = sync_supervisord_workers(supervisor, workers, prune=False)
     final_states = {"STOPPED", "EXITED", "FATAL", "UNKNOWN"}
     abort_forwarded = False
+    pending_interrupts = 0
+    force_worker_process = None
+    initial_worker = started_workers.get(name)
+    if isinstance(initial_worker, dict) and initial_worker.get("pid"):
+        try:
+            force_worker_process = psutil.Process(initial_worker["pid"])
+        except psutil.NoSuchProcess:
+            pass
+    previous_sigint = signal.getsignal(signal.SIGINT)
+
+    def queue_interrupt(_signum, _frame) -> None:
+        nonlocal pending_interrupts
+        if abort_forwarded:
+            # The user already chose whole-crawl abort. A further Ctrl+C must
+            # bypass both the 15s hook grace and any in-flight supervisor RPC.
+            # The cached psutil object checks PID identity; only this named
+            # add worker and its descendants are killed. Supervisord may belong
+            # to a server, whose HTTP/daemon workers must survive and reclaim
+            # ownership after this add exits.
+            os.write(sys.stderr.fileno(), b"\n[!] Forcing aborted crawl to exit now.\n")
+            worker_process = force_worker_process
+            if worker_process is not None:
+                try:
+                    if worker_process.is_running() and worker_process.status() != psutil.STATUS_ZOMBIE:
+                        descendants = worker_process.children(recursive=True)
+                        for child in reversed(descendants):
+                            try:
+                                if child.is_running() and child.status() != psutil.STATUS_ZOMBIE:
+                                    child.kill()
+                            except psutil.Error:
+                                pass
+                        worker_process.kill()
+                except psutil.Error:
+                    pass
+            os._exit(130)
+        pending_interrupts += 1
+
+    # This is a transport shield, not a competing pause/abort policy. Raising
+    # KeyboardInterrupt inside an XML-RPC request leaves its reusable HTTP
+    # connection half-sent (CannotSendRequest on the next call). Queue terminal
+    # intent until a request boundary; abx-dl decides what each interrupt means.
+    # SIGTERM/SIGHUP keep the enclosing shutdown handlers, so takeover/parent
+    # loss still unwinds this owner. Restore SIGINT before returning to standby:
+    # Ctrl+C there must exit add without signalling the replacement owner's work.
+    signal.signal(signal.SIGINT, queue_interrupt)
     try:
         while True:
-            try:
-                if keep_running is not None and not keep_running():
+            while pending_interrupts:
+                pending_interrupts -= 1
+                proc = get_worker(supervisor, name)
+                if proc is None or proc.get("statename") != "RUNNING":
+                    raise KeyboardInterrupt
+                try:
+                    force_worker_process = psutil.Process(proc["pid"])
+                except psutil.NoSuchProcess:
+                    force_worker_process = None
+                # Route by supervised name, never a cached PID that may have
+                # been reused after takeover. Only this add's worker is targeted.
+                supervisor.signalProcess(name, "SIGINT")
+                if not interactive_interrupts:
+                    abort_forwarded = True
+                print("[yellow][*] Forwarding Ctrl+C to the active crawl hook...[/yellow]")
+            if keep_running is not None and not keep_running():
+                try:
+                    proc = get_worker(supervisor, name)
+                    if proc is not None and proc.get("statename") not in final_states:
+                        supervisor.stopProcess(name, False)
+                except Fault:
+                    pass
+                return 1
+            while True:
+                line = log_handle.readline()
+                if not line:
+                    break
+                if line.strip() == "ARCHIVEBOX_CRAWL_ABORTED":
+                    # A user abort is terminal for this add command. A plain
+                    # worker exit (including 130/143) can instead be takeover:
+                    # in that case add must stay available to reclaim later.
+                    # Do not infer intent from an exit code or kill a new
+                    # owner merely because the old worker stopped.
+                    abort_forwarded = True
+                    continue
+                if interactive_interrupts and line.startswith("ARCHIVEBOX_HOOK_INTERRUPTED "):
+                    from abx_dl.services.process_service import ProcessService
+
+                    prompt = json.loads(line.removeprefix("ARCHIVEBOX_HOOK_INTERRUPTED "))
+                    interrupted_worker = get_worker(supervisor, name)
+                    if interrupted_worker is None or interrupted_worker.get("statename") != "RUNNING":
+                        continue
+
                     try:
-                        proc = get_worker(supervisor, name)
-                        if proc is not None and proc.get("statename") not in final_states:
-                            supervisor.stopProcess(name, False)
-                    except Fault:
-                        pass
-                    return 1
+                        interrupted_process = psutil.Process(interrupted_worker["pid"])
+                    except psutil.NoSuchProcess:
+                        continue
+                    force_worker_process = interrupted_process
+
+                    def prompt_is_active() -> bool:
+                        # The reader temporarily restores immediate SIGINT so a
+                        # second Ctrl+C can choose abort. Do not make XML-RPC
+                        # requests under that handler: interrupting one corrupts
+                        # its HTTP connection. psutil retains process identity
+                        # (PID + start time), so takeover still withdraws a stale
+                        # prompt even if the PID is reused, without touching the
+                        # replacement owner or depending on a reusable socket.
+                        try:
+                            return interrupted_process.is_running() and interrupted_process.status() != psutil.STATUS_ZOMBIE
+                        except psutil.NoSuchProcess:
+                            return False
+
+                    def mark_abort_chosen() -> None:
+                        nonlocal abort_forwarded
+                        # The key reader calls this before restoring terminal
+                        # mode or returning to the XML-RPC transport. The next
+                        # Ctrl+C can force this worker even in that gap. The
+                        # synchronous prompt temporarily installs Python's
+                        # default SIGINT handler; restore our force handler
+                        # here, before its terminal/asyncio teardown can see
+                        # another signal. The prompt context's final restore
+                        # then installs the same handler idempotently.
+                        abort_forwarded = True
+                        signal.signal(signal.SIGINT, queue_interrupt)
+
+                    choice = ProcessService.on_InterruptedHookPrompt(
+                        prompt["hook_name"],
+                        render=not prompt["rendered"],
+                        is_active=prompt_is_active,
+                        on_abort=mark_abort_chosen,
+                    )
+                    raise_if_shutdown_requested()
+                    if choice is None or not prompt_is_active():
+                        continue
+                    if choice == "abort":
+                        # The reader normally recorded this at the keypress;
+                        # retain the fallback for an inactive/closed prompt.
+                        mark_abort_chosen()
+                    supervisor.signalProcess(name, {"skip": "SIGUSR1", "retry": "SIGUSR2", "abort": "SIGINT"}[choice])
+                    if choice != "abort":
+                        abort_forwarded = False
+                    continue
+                sys.stderr.write(line)
+                sys.stderr.flush()
+            proc = get_worker(supervisor, name)
+            if proc is None:
+                return 1
+            if proc["statename"] in final_states:
                 while True:
                     line = log_handle.readline()
                     if not line:
                         break
-                    if interactive_interrupts and line.startswith("ARCHIVEBOX_HOOK_INTERRUPTED "):
-                        from abx_dl.services.process_service import ProcessService
-
-                        prompt = json.loads(line.removeprefix("ARCHIVEBOX_HOOK_INTERRUPTED "))
-                        interrupted_worker = get_worker(supervisor, name)
-                        if interrupted_worker is None or interrupted_worker.get("statename") != "RUNNING":
-                            continue
-
-                        def prompt_is_active() -> bool:
-                            current = get_worker(supervisor, name)
-                            return bool(
-                                current and current.get("statename") == "RUNNING" and current.get("pid") == interrupted_worker["pid"],
-                            )
-
-                        choice = ProcessService.on_InterruptedHookPrompt(
-                            prompt["hook_name"],
-                            render=not prompt["rendered"],
-                            is_active=prompt_is_active,
-                        )
-                        raise_if_shutdown_requested()
-                        if choice is None or not prompt_is_active():
-                            continue
-                        supervisor.signalProcess(name, {"skip": "SIGUSR1", "retry": "SIGUSR2", "abort": "SIGINT"}[choice])
-                        abort_forwarded = choice == "abort"
+                    if line.strip() == "ARCHIVEBOX_CRAWL_ABORTED":
+                        abort_forwarded = True
                         continue
                     sys.stderr.write(line)
                     sys.stderr.flush()
-                proc = get_worker(supervisor, name)
-                if proc is None:
-                    return 1
-                if proc["statename"] in final_states:
-                    while True:
-                        line = log_handle.readline()
-                        if not line:
-                            break
-                        sys.stderr.write(line)
-                        sys.stderr.flush()
-                    if abort_forwarded:
-                        raise KeyboardInterrupt
-                    if proc["statename"] in {"EXITED", "STOPPED"}:
-                        return int(proc.get("exitstatus") or 0)
-                    return 1
-                time.sleep(0.5)
-            except KeyboardInterrupt:
-                raise_if_shutdown_requested()
                 if abort_forwarded:
-                    raise
-                # Route the signal through supervisord by worker name rather than
-                # raw os.kill on a cached PID. The cached proc["pid"] can be
-                # stale: if the worker exited between supervisord's last status
-                # poll and the user's Ctrl+C, the OS may have already reused
-                # that pid for an unrelated process (e.g. another shell the
-                # user has open) and raw os.kill would target it instead of the
-                # crawl hook. signalProcess goes through supervisord, which
-                # only signals workers it still owns.
-                proc = get_worker(supervisor, name)
-                if proc is None or proc.get("statename") != "RUNNING":
-                    raise
-                supervisor.signalProcess(name, "SIGINT")
-                abort_forwarded = not interactive_interrupts
-                print("[yellow][*] Forwarding Ctrl+C to the active crawl hook...[/yellow]")
+                    raise KeyboardInterrupt
+                if proc["statename"] in {"EXITED", "STOPPED"}:
+                    return int(proc.get("exitstatus") or 0)
+                return 1
+            time.sleep(0.5)
     finally:
+        signal.signal(signal.SIGINT, previous_sigint)
         log_handle.close()
 
 

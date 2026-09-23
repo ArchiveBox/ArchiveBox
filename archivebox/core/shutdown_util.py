@@ -124,7 +124,13 @@ def foreground_shutdown_signals(
     def raise_keyboard_interrupt(signum, _frame):
         sig = signal.Signals(signum)
         if interrupt_handlers and sig in interrupt_handlers:
-            # Interactive hook interruption is resumable, not a shutdown.
+            # Shield resumable terminal intent from sticky shutdown state.
+            # Ctrl+C is delegated to abx-dl's pause/abort controller; SIGUSR1/2
+            # carry prompt answers. Recording any of these as shutdown here
+            # makes a later skip/retry fail raise_if_shutdown_requested(), or
+            # makes a second Ctrl+C hard-exit before hooks can flush output.
+            # SIGTERM/SIGHUP deliberately bypass this shield: ownership takeover
+            # and parent loss must cancel the old worker without asking for input.
             interrupt_handlers[sig]()
             return
         already_requested = state.signal_name is not None

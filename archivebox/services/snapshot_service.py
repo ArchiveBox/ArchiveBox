@@ -6,7 +6,6 @@ from pathlib import Path
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 from abx_dl.events import SnapshotCompletedEvent, SnapshotEvent
-from abx_dl.limits import CrawlLimitState
 from abx_dl.services.base import BaseService
 
 
@@ -34,7 +33,7 @@ def project_discovered_snapshots(snapshot_id: str) -> list:
         crawl_output_dir=crawl.output_dir,
         snapshot_output_dir=snapshot.output_dir,
     )
-    if CrawlLimitState.from_config(config).get_stop_reason() in ("crawl_max_size", "crawl_timeout"):
+    if crawl.limit_stop_reason(config=config) in ("crawl_max_size", "crawl_timeout"):
         return []
     return crawl.create_discovered_snapshots(snapshot, discovered_urls, depth=snapshot.depth + 1)
 
@@ -114,12 +113,7 @@ def finalize_completed_snapshot(
 def _crawl_limit_stop_reason(crawl) -> str:
     from archivebox.config.common import get_config
 
-    config_model = get_config(crawl=crawl)
-    config = config_model.for_crawl_runtime(
-        crawl=crawl,
-        persona=crawl.resolve_persona(),
-    )
-    return CrawlLimitState.from_config(config).get_stop_reason()
+    return crawl.limit_stop_reason(config=get_config(crawl=crawl))
 
 
 class SnapshotService(BaseService):

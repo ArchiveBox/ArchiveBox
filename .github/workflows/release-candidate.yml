@@ -46,7 +46,6 @@ jobs:
           branch: ${{ github.ref_name }}
           tag-prefix: v
           version-scheme: ${{ github.ref_name == 'main' && 'patch' || 'rc' }}
-          minimum-version: ${{ github.ref_name == 'main' && vars.STABLE_RELEASE_VERSION_FLOOR || '' }}
 
   python-artifacts:
     needs: prepare

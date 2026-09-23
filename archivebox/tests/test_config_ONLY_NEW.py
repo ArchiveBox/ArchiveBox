@@ -1,7 +1,10 @@
 """Tests for ONLY_NEW crawl config behavior."""
 
+from pathlib import Path
+
 import pytest
 
+from archivebox.config.constants import CONSTANTS
 from archivebox.core.models import Snapshot
 from archivebox.crawls.models import Crawl
 
@@ -55,6 +58,7 @@ def test_create_snapshots_from_urls_allows_existing_exact_url_when_only_new_fals
     assert Snapshot.objects.filter(url="https://example.com/existing").count() == 2
 
 
+@pytest.mark.django_db(transaction=True)
 def test_create_discovered_snapshots_respects_only_new_exact_url_matches(admin_user):
     existing_crawl = Crawl.objects.create(urls="https://example.com/existing", created_by=admin_user)
     Snapshot.objects.create(
@@ -85,3 +89,8 @@ def test_create_discovered_snapshots_respects_only_new_exact_url_matches(admin_u
         "https://example.com/fresh",
     ]
     assert Snapshot.objects.filter(url="https://example.com/existing").count() == 1
+    for snapshot in created:
+        crawl_link = (
+            Path(crawl.output_dir) / CONSTANTS.SNAPSHOTS_DIR_NAME / snapshot.extract_domain_from_url(snapshot.url) / str(snapshot.id)
+        )
+        assert crawl_link.is_symlink()

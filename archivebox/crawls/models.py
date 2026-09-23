@@ -846,24 +846,31 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         output_dir: Path | None = None,
         num_snapshots: int | None = None,
     ) -> str:
-        from abx_dl.limits import CrawlLimitState
+        from abx_dl.limits import parse_filesize_to_bytes
 
-        if output_dir is None:
-            output_dir = self.output_dir
         if config is None:
             from archivebox.config.common import get_config
 
-            config = get_config(crawl=self, include_machine=False).for_crawl_runtime(
-                crawl=self,
-                persona=self.resolve_persona(),
-                crawl_output_dir=output_dir,
-            )
+            config = get_config(crawl=self, include_machine=False)
 
-        limits_path = output_dir / ".abx-dl" / "limits.json"
-        if limits_path.exists():
-            stop_reason = CrawlLimitState.from_config(config).get_stop_reason()
-            if stop_reason:
-                return stop_reason
+        # The DB is the shared authority for workers and the UI. A second
+        # ledger beside the artifacts can disagree after cancellation/retry and
+        # would require filesystem access just to render a crawl's status.
+        # Recompute against the current limits so increasing a cap permits work.
+        timeout = int(self._config_value(config, "CRAWL_TIMEOUT", 0) or 0)
+        if timeout:
+            # Snapshot creation already supplies a durable crawl clock. Using
+            # that existing fact avoids another timestamp to keep in sync and
+            # survives cancellation, which deliberately removes unfinished
+            # ArchiveResult rows while preserving the Snapshot for retry.
+            first_snapshot_time = self.snapshot_set.aggregate(first=models.Min("created_at"))["first"]
+            if first_snapshot_time and (timezone.now() - first_snapshot_time).total_seconds() >= timeout:
+                return "crawl_timeout"
+        max_size = parse_filesize_to_bytes(self._config_value(config, "CRAWL_MAX_SIZE", 0) or 0)
+        if max_size:
+            total_size = self.snapshot_set.aggregate(total=models.Sum("output_size"))["total"] or 0
+            if total_size >= max_size:
+                return "crawl_max_size"
 
         max_urls = int(self._config_value(config, "CRAWL_MAX_URLS", 0) or 0)
         if num_snapshots is None:
@@ -1250,10 +1257,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             }
             if tag_names:
                 tag_names_by_url[snapshot.url] = tag_names
-            # Snapshot.save() handles model-level validation. The crawl symlink
-            # can still wait until after commit so SQLite does not hold a write
-            # lock while touching the filesystem.
-            transaction.on_commit(lambda snapshot=snapshot: snapshot.ensure_crawl_symlink())
 
         tag_names = {tag for tags in tag_names_by_url.values() for tag in tags}
         if tag_names:

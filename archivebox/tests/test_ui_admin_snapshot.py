@@ -24,6 +24,25 @@ pytestmark = pytest.mark.django_db(transaction=True)
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_failed_hook_partial_file_does_not_become_successful_card(snapshot, cached_abxpkg_lib_dir):
+    partial = Path(snapshot.output_dir) / "title" / "partial.html"
+    partial.parent.mkdir(parents=True, exist_ok=True)
+    partial.write_text("<html>incomplete capture</html>")
+    _process, result = _run_shipped_snapshot_hook(
+        snapshot,
+        plugin="title",
+        hook_name="on_Snapshot__54_title.js",
+        lib_dir=cached_abxpkg_lib_dir,
+        expected_exit_codes=(1,),
+    )
+    assert result.status == "failed"
+    assert "partial.html" in result.output_files
+    context = snapshot.get_html_details_context()
+    assert not any(output["name"] == "title" for output in context["archiveresults"])
+    assert any(item["name"].endswith("(failed)") for item in context["failed_items"])
+    assert partial.read_text() == "<html>incomplete capture</html>"
+
+
 def test_current_snapshot_layout_has_no_top_level_timestamp_projection(snapshot):
     from archivebox.config import CONSTANTS
 

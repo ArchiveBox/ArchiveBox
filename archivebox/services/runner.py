@@ -28,8 +28,6 @@ from abx_dl.events import (
     CrawlCompletedEvent,
     CrawlEvent,
     CrawlPauseEvent,
-    CrawlResumeAndRetryEvent,
-    CrawlResumeAndSkipEvent,
     CrawlSetupEvent,
     CrawlStartEvent,
     InstallEvent,
@@ -40,7 +38,6 @@ from abx_dl.events import (
     SnapshotEvent,
     slow_warning_timeout,
 )
-from abx_dl.limits import CrawlLimitState
 from abx_dl.catalog import PluginCatalog
 from abx_dl.config import GlobalConfig, RuntimeConfig
 from abx_dl.models import Snapshot as AbxSnapshot
@@ -202,7 +199,7 @@ class CrawlRunner:
         self.crawl = crawl
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
         self.catalog = get_plugin_catalog()
-        HookProcessService(
+        self.process_service = HookProcessService(
             self.bus,
             emit_jsonl=False,
             interactive_tty=interactive_interrupts,
@@ -218,12 +215,9 @@ class CrawlRunner:
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
         self.show_progress = show_progress
         self.interactive_interrupts = interactive_interrupts
-        self._interrupt_pending = False
         self._interrupt_choice: asyncio.Future[Literal["abort", "retry", "skip"]] | None = None
         self._user_aborted = False
-        self.bus.on(CrawlAbortEvent, self.on_interrupt_control)
-        self.bus.on(CrawlResumeAndRetryEvent, self.on_interrupt_control)
-        self.bus.on(CrawlResumeAndSkipEvent, self.on_interrupt_control)
+        self.bus.on(CrawlAbortEvent, self.on_CrawlAbortEvent)
         self.config_overrides = dict(config_overrides or {})
 
         self.snapshot_service = SnapshotService(
@@ -258,34 +252,80 @@ class CrawlRunner:
         self._signal_abort_requested = False
         self._last_lease_heartbeat_at = 0.0
 
-    async def on_interrupt_control(self, event: CrawlAbortEvent | CrawlResumeAndRetryEvent | CrawlResumeAndSkipEvent) -> None:
-        self._interrupt_pending = False
-        if event.event_type == "CrawlAbortEvent":
-            self._signal_abort_requested = True
+    async def on_CrawlAbortEvent(self, event: CrawlAbortEvent) -> None:
+        self._signal_abort_requested = True
+        # An abort can arrive while the prompt transport is being established,
+        # before another SIGINT sees _interrupt_choice. Release that waiter too;
+        # shutdown must never depend on a subsequent keypress or IPC response.
+        if self._interrupt_choice is not None and not self._interrupt_choice.done():
+            self._interrupt_choice.set_result("abort")
+        if event.user_initiated:
+            self._user_aborted = True
+            # Exit 130 alone cannot distinguish a user's abort from a worker
+            # displaced by takeover. Tell the owning add command explicitly
+            # so it exits instead of reclaiming and restarting this crawl.
+            if os.environ.get("SUPERVISOR_PROCESS_NAME"):
+                sys.__stderr__.write("ARCHIVEBOX_CRAWL_ABORTED\n")
+                sys.__stderr__.flush()
 
     def _interrupt_hook(self) -> None:
-        if os.environ.get("ARCHIVEBOX_RUNNER_DAEMON") == "1":
-            self._request_abort_from_signal(signal.SIGINT)
+        if self._user_aborted:
+            # An explicit abort is already draining hook groups with normal
+            # grace periods. A further Ctrl+C requests immediate force exit.
+            # This service owns only this runner's hook groups and children;
+            # a server's supervisor or another foreground command is outside
+            # the boundary. Tell a supervising add parent this was user intent
+            # before bypassing the worker's normal finalization path.
+            if os.environ.get("SUPERVISOR_PROCESS_NAME"):
+                os.write(sys.__stderr__.fileno(), b"ARCHIVEBOX_CRAWL_ABORTED\n")
+            os.write(sys.__stderr__.fileno(), b"\n[!] Forcing aborted crawl to exit now.\n")
+            self.process_service.force_kill_owned_processes()
+            os._exit(130)
+        if self._run_task is None:
+            # The crawl is already draining/finalizing; there is no live bus on
+            # which to reopen a prompt. Remember the user's abort and finish the
+            # cleanup that is already in progress. In particular do not hand a
+            # second signal to Python's default handler in this teardown window.
+            self._user_aborted = True
+            if os.environ.get("SUPERVISOR_PROCESS_NAME"):
+                os.write(sys.__stderr__.fileno(), b"ARCHIVEBOX_CRAWL_ABORTED\n")
+            stream = self._live_stream if self._live_stream is not None and not self._live_stream.closed else sys.__stderr__
+            os.write(stream.fileno(), b"\nAborting crawl - finishing shutdown... Ctrl+C again to force exit.\n")
             return
         if self._interrupt_choice is not None:
             self._choose_interrupt_action("abort")
             return
-        abort = self._interrupt_pending or not self.interactive_interrupts
-        event = CrawlAbortEvent() if abort else CrawlPauseEvent()
-        if abort:
-            self._user_aborted = True
-        self._interrupt_pending = True
 
         async def dispatch() -> None:
-            await self.bus.emit(event).now()
+            # ArchiveBox transports terminal intent; abx-dl alone decides pause
+            # versus abort. No local counter may compete with its controller.
+            await self.bus.emit(CrawlPauseEvent()).now()
 
         asyncio.get_running_loop().create_task(dispatch())
 
     async def _prompt_in_foreground(self, hook_name: str) -> Literal["abort", "retry", "skip"]:
-        # The outer add command owns stdin. Notify it only after the hook has
-        # stopped, then await its decision via supervisord's signal channel.
-        self._interrupt_choice = asyncio.get_running_loop().create_future()
         rendered = self._live_ui.show_interrupt_prompt(hook_name) if self._live_ui is not None else False
+        if sys.stdin.isatty():
+            # Direct run is itself the outer terminal owner. Keep its asyncio
+            # loop alive so background completions render above the prompt. No
+            # supervisor parent exists here to consume an IPC prompt request.
+            choice = (
+                await HookProcessService.read_interrupt_choice(
+                    hook_name,
+                    render=not rendered,
+                    is_active=lambda: not self._signal_abort_requested,
+                    on_abort=lambda: setattr(self, "_user_aborted", True),
+                )
+                or "abort"
+            )
+            if choice == "abort":
+                # Also cover an inactive prompt that defaulted to abort. A
+                # typed answer is recorded at the keypress by on_abort above.
+                self._user_aborted = True
+            return choice
+        # A supervised worker has log pipes instead of terminal input. Its add
+        # parent owns the same shared reader and returns the answer via signals.
+        self._interrupt_choice = asyncio.get_running_loop().create_future()
         sys.__stderr__.write("ARCHIVEBOX_HOOK_INTERRUPTED " + json.dumps({"hook_name": hook_name, "rendered": rendered}) + "\n")
         sys.__stderr__.flush()
         try:
@@ -300,12 +340,16 @@ class CrawlRunner:
             self._interrupt_choice.set_result(choice)
 
     def _request_abort_from_signal(self, _sig: signal.Signals) -> None:
-        if os.environ.get("ARCHIVEBOX_RUNNER_DAEMON") == "1":
-            # The daemon runner is owned by supervisord, not by the interactive
-            # CLI foreground flow. A direct signal to this child should be short
-            # and unambiguous: exit non-zero immediately so supervisord restarts
-            # the runner, while the parent server and supervisord stay alive.
-            os._exit(128 + int(_sig))
+        # Daemons also need cooperative cleanup. os._exit used to leave hook
+        # process groups orphaned and Process rows running forever. A daemon's
+        # nonzero exit still lets supervisord restart it, AFTER finally blocks
+        # stop descendants and finalize the ledger. SIGINT uses the same shared
+        # controller as other runners, with interactive_tty=False (whole abort).
+        # Takeover/parent loss stops this execution owner, not the user's crawl
+        # intent. Do not set _user_aborted or emit ARCHIVEBOX_CRAWL_ABORTED here:
+        # the outer add may need to wait for the new owner and reclaim afterward.
+        # Cancellation intentionally bypasses the interactive pause gate; a
+        # waiting prompt must never keep a displaced worker or its hooks alive.
         self._signal_abort_requested = True
         self._skip_wait_until_idle = True
         # The foreground signal handler runs while the event loop may be in the
@@ -340,7 +384,7 @@ class CrawlRunner:
             await asyncio.sleep(poll_interval)
             if not await self.crawl_is_cancelled():
                 continue
-            abort_event = parent_event.emit(CrawlAbortEvent())
+            abort_event = parent_event.emit(CrawlAbortEvent(user_initiated=False))
             await _run_event_now(abort_event, abort_event.event_timeout)
             return
 
@@ -355,36 +399,35 @@ class CrawlRunner:
         root_snapshot_id: str | None = None
         bus_destroyed = False
         run_state_loaded = False
-        try:
-            first_signal_message = (
-                "\n[🛑] Got {signal_name}, aborting the active hook...\n"
-                if self.interactive_interrupts
-                else "\n[🛑] Got {signal_name}, stopping gracefully...\n"
-            )
-            self._run_task = asyncio.current_task()
-            # Do not raise KeyboardInterrupt directly from an OS signal while
-            # the asyncio loop is active. Python can inject it into whichever
-            # task is currently running, which produces noisy "Task exception
-            # was never retrieved" logs from unrelated abxbus housekeeping
-            # tasks. _request_abort_from_signal() cancels the runner task
-            # cooperatively instead; repeated signals still hard-exit in the
-            # shared foreground signal handler.
-            with foreground_shutdown_signals(
-                first_signal_message=first_signal_message,
-                on_signal=self._request_abort_from_signal,
-                interrupt_handlers={
-                    signal.SIGINT: self._interrupt_hook,
-                    **(
-                        {
-                            signal.SIGUSR1: lambda: self._choose_interrupt_action("skip"),
-                            signal.SIGUSR2: lambda: self._choose_interrupt_action("retry"),
-                        }
-                        if self.interactive_interrupts
-                        else {}
-                    ),
-                },
-                raise_on_first_signal=False,
-            ):
+        self._run_task = asyncio.current_task()
+        # Do not raise KeyboardInterrupt directly from an OS signal while
+        # the asyncio loop is active. Python can inject it into whichever
+        # task is currently running, which produces noisy "Task exception
+        # was never retrieved" logs from unrelated abxbus housekeeping
+        # tasks. _request_abort_from_signal() cancels the runner task
+        # cooperatively instead; repeated signals still hard-exit in the
+        # shared foreground signal handler.
+        # Keep signal ownership through bus destruction AND durable finalization.
+        # Restoring the outer/default handler before those awaits leaves a real
+        # race: a rapid second Ctrl+C can kill Python during teardown, producing
+        # supervisor exit -1 / shell 255 instead of an acknowledged user abort.
+        with foreground_shutdown_signals(
+            first_signal_message="\n[🛑] Got {signal_name}, stopping crawl worker...\n",
+            on_signal=self._request_abort_from_signal,
+            interrupt_handlers={
+                signal.SIGINT: self._interrupt_hook,
+                **(
+                    {
+                        signal.SIGUSR1: lambda: self._choose_interrupt_action("skip"),
+                        signal.SIGUSR2: lambda: self._choose_interrupt_action("retry"),
+                    }
+                    if self.interactive_interrupts
+                    else {}
+                ),
+            },
+            raise_on_first_signal=False,
+        ):
+            try:
                 if await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(self.crawl):
                     return
                 # Startup and its first snapshot are one admission. Browser
@@ -413,22 +456,22 @@ class CrawlRunner:
                         finally:
                             await self.bus.destroy(clear=False)
                             bus_destroyed = True
-        finally:
-            if not bus_destroyed:
-                self._run_task = None
-                await self.stop_snapshot_tasks()
-                await self.bus.destroy(clear=False)
-            if self._live_stream is not None:
-                try:
-                    self._live_stream.close()
-                except Exception:
-                    pass
-                self._live_stream = None
-            if run_state_loaded:
-                await sync_to_async(project_abxpkg_derived_cache_to_db, thread_sensitive=True)(self.base_config.get("ABXPKG_LIB_DIR"))
-                await sync_to_async(self.finalize_run_state, thread_sensitive=True)()
-        if self._user_aborted:
-            raise KeyboardInterrupt
+            finally:
+                if not bus_destroyed:
+                    self._run_task = None
+                    await self.stop_snapshot_tasks()
+                    await self.bus.destroy(clear=False)
+                if self._live_stream is not None:
+                    try:
+                        self._live_stream.close()
+                    except Exception:
+                        pass
+                    self._live_stream = None
+                if run_state_loaded:
+                    await sync_to_async(project_abxpkg_derived_cache_to_db, thread_sensitive=True)(self.base_config.get("ABXPKG_LIB_DIR"))
+                    await sync_to_async(self.finalize_run_state, thread_sensitive=True)()
+            if self._user_aborted:
+                raise KeyboardInterrupt
 
     async def enqueue_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         if self._resource_deferred:
@@ -1105,7 +1148,9 @@ class CrawlRunner:
             snapshot_selected_plugins = (
                 self.requested_plugins or snapshot["retry_plugins"] or snapshot["selected_plugins"] or self.selected_plugins
             )
-            if snapshot["depth"] > 0 and CrawlLimitState.from_config(snapshot["config"]).get_stop_reason() in (
+            # All remaining URLs share the crawl budget, including explicitly
+            # submitted roots. abx-dl only enforces the current snapshot's size.
+            if await sync_to_async(snapshot["_snapshot"].crawl.limit_stop_reason, thread_sensitive=True)(config=config) in (
                 "crawl_max_size",
                 "crawl_timeout",
             ):

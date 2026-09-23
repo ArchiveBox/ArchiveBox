@@ -3290,9 +3290,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         of success. Filesystem discovery also supports portable static exports;
         it must not overwrite or replace the live database's lifecycle facts.
 
-        TODO: The result loop currently includes embeddable files regardless of
-        status. Card consumers must not interpret membership here as succeeded;
-        the live card path still needs to enforce the DB-status contract.
+        This includes partial files for browsing. get_html_details_context
+        separately admits successful DB results to the output cards.
         """
         from archivebox.misc.util import ts_to_date_str
 
@@ -3543,7 +3542,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 archive_results=archive_results,
                 filesystem_index=filesystem_index,
             )
-            if (output.get("size") or 0) > 0 and output.get("name") not in hidden_card_plugins
+            if (output.get("size") or 0) > 0
+            and output.get("name") not in hidden_card_plugins
+            # Files left by failed/started/noresults hooks remain browsable,
+            # but only the DB can authorize a successful live output card.
+            and (
+                output["result"].status == ArchiveResult.StatusChoices.SUCCEEDED
+                if output.get("result") is not None
+                else static_export_dir is not None
+            )
         ]
         if static_export_dir is not None:
 

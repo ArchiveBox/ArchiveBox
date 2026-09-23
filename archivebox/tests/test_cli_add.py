@@ -96,21 +96,91 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
         assert not psutil.pid_exists(hook.pid)
         assert b"Traceback" not in output
         with use_archivebox_db(initialized_archive):
-            interrupted = ArchiveResult.objects.get(hook_name="on_Snapshot__30_chrome_navigate")
-            assert interrupted.status == ArchiveResult.StatusChoices.FAILED
-            assert "interrupted" in interrupted.notes.lower()
+            assert not ArchiveResult.objects.filter(hook_name="on_Snapshot__30_chrome_navigate").exists()
             if plugins == "archivewebpage":
                 start = ArchiveResult.objects.get(hook_name="on_Snapshot__16_archivewebpage_start")
-                stop = ArchiveResult.objects.get(hook_name="on_Snapshot__65_archivewebpage_stop")
                 assert start.status == ArchiveResult.StatusChoices.NORESULTS
-                assert stop.status == ArchiveResult.StatusChoices.FAILED
+                assert not ArchiveResult.objects.filter(hook_name="on_Snapshot__65_archivewebpage_stop").exists()
                 assert not ArchiveResult.objects.filter(plugin="archivewebpage", status="succeeded").exists()
+                assert not any(output["name"] == "archivewebpage" for output in start.snapshot.get_html_details_context()["archiveresults"])
         for log in (initialized_archive / "logs").glob("worker_runner_add_*.log"):
             assert "Choice [skip]:" not in log.read_text()
     finally:
         if result is not None and result.poll() is None:
             result.terminate()
             result.wait(timeout=15)
+        os.close(slave)
+        os.close(master)
+
+
+@pytest.mark.parametrize("choice", ["skip", "retry", "ctrl-c", "double", "noninteractive"])
+def test_add_interrupts_background_only_capture(initialized_archive, choice):
+    """Neither pause nor abort/reclaim semantics may depend on a foreground hook."""
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (40, 200))
+    output = bytearray()
+    result = None
+
+    def read_until(predicate, timeout=45):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], 0.05)[0]:
+                output.extend(os.read(master, 65536))
+            if predicate():
+                return
+        raise AssertionError(output.decode(errors="replace"))
+
+    def active_hook():
+        with use_archivebox_db(initialized_archive):
+            return Process.objects.filter(archiveresult__plugin="forumdl", status="running").order_by("-started_at").first()
+
+    try:
+        result = run_archivebox_cmd(
+            ["add", "--depth=1", "--plugins=forumdl", "https://news.ycombinator.com"],
+            cwd=initialized_archive,
+            env=cli_env(),
+            stdin=subprocess.DEVNULL if choice == "noninteractive" else slave,
+            stdout=slave,
+            stderr=slave,
+            wait=False,
+            start_new_session=True,
+        )
+        read_until(lambda: active_hook() is not None)
+        hook = active_hook()
+        children = psutil.Process(result.pid).children(recursive=True)
+        result.send_signal(signal.SIGINT)
+        if choice == "double":
+            read_until(lambda: b"Forwarding Ctrl+C" in output)
+            result.send_signal(signal.SIGINT)
+        elif choice != "noninteractive":
+            read_until(lambda: b"Choice [skip]:" in output, timeout=20)
+            read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+            assert not psutil.pid_exists(hook.pid)
+            if choice == "retry":
+                os.write(master, b"r")
+                read_until(lambda: (next_hook := active_hook()) is not None and next_hook.pid != hook.pid)
+                children.extend(psutil.Process(result.pid).children(recursive=True))
+                offset = len(output)
+                result.send_signal(signal.SIGINT)
+                read_until(lambda: b"Choice [skip]:" in output[offset:], timeout=20)
+                read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+            os.write(master, b"\r" if choice == "skip" else b"\x03")
+        read_until(lambda: result.poll() is not None, timeout=30)
+        assert result.returncode == (0 if choice == "skip" else 130), output.decode(errors="replace")
+        assert not [child.pid for child in children if child.is_running() and child.status() != psutil.STATUS_ZOMBIE]
+        assert not psutil.pid_exists(hook.pid)
+        assert b"Traceback" not in output
+        if choice == "noninteractive":
+            assert b"Choice [skip]:" not in output
+        # An explicit abort must not be mistaken for takeover and restart work.
+        with use_archivebox_db(initialized_archive):
+            assert Process.objects.filter(worker_type="worker_runner", process_type="orchestrator").count() == 1
+        if choice != "skip":
+            assert b"Aborting crawl" in output
+    finally:
+        if result is not None and result.poll() is None:
+            result.terminate()
+            result.wait(timeout=20)
         os.close(slave)
         os.close(master)
 
@@ -162,6 +232,62 @@ def test_background_completions_render_above_interrupt_prompt(initialized_archiv
         os.write(master, b"a")
         read_until(lambda: result.poll() is not None)
         assert result.returncode == 130, output.decode(errors="replace")
+        assert b"Traceback" not in output
+    finally:
+        if result is not None and result.poll() is None:
+            result.terminate()
+            result.wait(timeout=15)
+        os.close(slave)
+        os.close(master)
+
+
+def test_abort_stops_long_running_background_hook(initialized_archive):
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (40, 200))
+    output = bytearray()
+    result = None
+
+    def read_until(predicate, timeout=45):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], 0.1)[0]:
+                output.extend(os.read(master, 65536))
+            if predicate():
+                return
+        raise AssertionError(output.decode(errors="replace"))
+
+    def result_for(plugin):
+        with use_archivebox_db(initialized_archive):
+            return ArchiveResult.objects.filter(plugin=plugin).first()
+
+    try:
+        result = run_archivebox_cmd(
+            ["add", "--depth=1", "--plugins=forumdl,infiniscroll", "https://news.ycombinator.com"],
+            cwd=initialized_archive,
+            env=cli_env(INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True"),
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            wait=False,
+            start_new_session=True,
+        )
+        read_until(lambda: (scroll := result_for("infiniscroll")) is not None and scroll.status == "started")
+        read_until(lambda: "running pid=" in re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output.decode(errors="replace")))
+        result.send_signal(signal.SIGINT)
+        read_until(lambda: b"Choice [skip]:" in output)
+        read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+        forum = result_for("forumdl")
+        assert forum is not None and forum.status == "started"
+        children = psutil.Process(result.pid).children(recursive=True)
+        abort_offset = len(output)
+        os.write(master, b"\x03")
+        read_until(lambda: b"Aborting crawl" in output[abort_offset:], timeout=3)
+        read_until(lambda: result.poll() is not None, timeout=25)
+        assert result.returncode == 130, output.decode(errors="replace")
+        assert not [child.pid for child in children if child.is_running() and child.status() != psutil.STATUS_ZOMBIE]
+        assert any("INFO:root:GET" in log.read_text() for log in initialized_archive.rglob("on_Snapshot__33_forumdl.*.stderr.log"))
+        assert b"Stopped during crawl abort" in output
+        assert b"INFO:root:GET" not in output[abort_offset:]
         assert b"Traceback" not in output
     finally:
         if result is not None and result.poll() is None:

@@ -141,6 +141,23 @@ def _save_archiveresult_event_to_db(
     if snapshot is None:
         return
 
+    if event.status == "cancelled":
+        # Stopping a capture tells the user nothing about whether it would have
+        # succeeded. Remove this attempt instead of showing a failure card or
+        # adding it to "retry failed". The next scheduled run creates a new row.
+        results = ArchiveResult.objects.filter(snapshot=snapshot, plugin=event.plugin, hook_name=event.hook_name)
+        if process_started is not None:
+            # A late completion must not erase a newer retry of the same hook.
+            results = results.filter(start_ts=parse_event_datetime(process_started.start_ts))
+        # Ordinary deletion invokes output-directory cleanup. Cancellation is
+        # only withdrawing the DB fact: retain partial files and sibling hooks'
+        # shared output: they may be the only copy we ever capture. A rerun's
+        # hook owns replacing files without deleting the old copy first (see
+        # abx-plugins README, Rules). Retain Process/logs to explain the stop.
+        results._raw_delete(results.db)
+        ArchiveResult.refresh_snapshot_output_sizes([snapshot.id])
+        return
+
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.plugin_dir"):
         plugin_dir = (
             Path(process_started.output_dir)

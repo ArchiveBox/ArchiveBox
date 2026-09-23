@@ -1,7 +1,6 @@
 """Tests for MAX/SIZE crawl limit config behavior."""
 
 import asyncio
-import json
 from importlib.resources import files
 from pathlib import Path
 
@@ -127,8 +126,6 @@ def test_run_snapshot_seals_descendant_when_crawl_max_size_is_reached(tmp_path):
         urls="https://example.com",
         config={
             "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
-            "PLUGINS": "__archivebox_test_no_plugins__",
-            "CHROME_BINARY": "",
             "CRAWL_MAX_SIZE": 16,
         },
         created_by_id=get_or_create_system_user_pk(),
@@ -146,19 +143,7 @@ def test_run_snapshot_seals_descendant_when_crawl_max_size_is_reached(tmp_path):
         parent_snapshot=root,
         status=Snapshot.StatusChoices.QUEUED,
     )
-    state_dir = Path(crawl.output_dir) / ".abx-dl"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    (state_dir / "limits.json").write_text(
-        json.dumps(
-            {
-                "admitted_snapshot_ids": [str(root.id), str(child.id)],
-                "counted_event_ids": ["proc-1"],
-                "total_size": 32,
-                "stop_reason": "crawl_max_size",
-            },
-        ),
-        encoding="utf-8",
-    )
+    Snapshot.objects.filter(pk=root.pk).update(output_size=32)
 
     runner = CrawlRunner(crawl)
     runner.load_run_state()
@@ -216,19 +201,7 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
         status=Snapshot.StatusChoices.QUEUED,
     )
 
-    state_dir = Path(crawl.output_dir) / ".abx-dl"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    (state_dir / "limits.json").write_text(
-        json.dumps(
-            {
-                "admitted_snapshot_ids": [str(root.id), str(child.id)],
-                "counted_event_ids": ["proc-1"],
-                "total_size": 32,
-                "stop_reason": "crawl_max_size",
-            },
-        ),
-        encoding="utf-8",
-    )
+    Snapshot.objects.filter(pk=root.pk).update(output_size=32)
 
     bus = create_bus(name=f"test_snapshot_limit_cancel_{str(crawl.id).replace('-', '_')}")
     SnapshotService(bus, crawl_id=str(crawl.id))
@@ -313,3 +286,56 @@ def test_recursive_crawl_respects_max_urls(tmp_path, initialized_archive, recurs
     assert depth_counts.get(2, 0) == 0
     assert depth_counts.get(3, 0) == 0
     assert set(recursive_test_site["child_urls"]).issubset({url for url, depth, _parent in snapshot_rows if depth == 1})
+
+
+def test_crawl_limits_use_database_and_allow_increased_budgets(admin_user):
+    from datetime import timedelta
+    from django.utils import timezone
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by=admin_user,
+        config={"CRAWL_MAX_URLS": 1, "CRAWL_MAX_SIZE": 16, "CRAWL_TIMEOUT": 1},
+    )
+    snapshot = crawl.create_snapshots_from_urls()[0]
+    Snapshot.objects.filter(pk=snapshot.pk).update(output_size=32)
+    assert crawl.limit_stop_reason() == "crawl_max_size"
+    assert crawl.mark_started()
+    first_snapshot_time = timezone.now() - timedelta(seconds=2)
+    Snapshot.objects.filter(pk=snapshot.pk).update(created_at=first_snapshot_time)
+    assert crawl.limit_stop_reason() == "crawl_timeout"
+    crawl.config = {"CRAWL_MAX_URLS": 1, "CRAWL_MAX_SIZE": 64, "CRAWL_TIMEOUT": 60}
+    crawl.save(update_fields=["config"])
+    assert crawl.limit_stop_reason() == "crawl_max_urls"
+    crawl.config["CRAWL_MAX_URLS"] = 2
+    crawl.save(update_fields=["config"])
+    assert crawl.limit_stop_reason() == ""
+    assert crawl.add_url({"url": "https://example.com/next", "depth": 0})
+    assert len(crawl.create_snapshots_from_urls()) == 1
+    assert crawl.snapshot_set.count() == 2
+    assert crawl.limit_stop_reason() == "crawl_max_urls"
+    Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.QUEUED)
+    crawl.refresh_from_db()
+    assert crawl.mark_started()
+    snapshot.refresh_from_db()
+    assert snapshot.created_at == first_snapshot_time
+    assert not (Path(crawl.output_dir) / ".abx-dl").exists()
+
+
+def test_crawl_timeout_starts_with_first_snapshot_not_crawl_creation(admin_user):
+    from datetime import timedelta
+    from django.utils import timezone
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com",
+        created_by=admin_user,
+        created_at=timezone.now() - timedelta(days=1),
+        config={"CRAWL_TIMEOUT": 60},
+    )
+    assert crawl.limit_stop_reason() == ""
+    first = crawl.create_snapshots_from_urls()[0]
+    assert crawl.limit_stop_reason() == ""
+    Snapshot.objects.filter(pk=first.pk).update(created_at=timezone.now() - timedelta(seconds=61))
+    Snapshot.objects.create(crawl=crawl, url="https://example.com/next")
+    assert crawl.limit_stop_reason() == "crawl_timeout"
+    assert not first.archiveresult_set.exists()

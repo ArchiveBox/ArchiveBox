@@ -53,13 +53,10 @@ from rich import print as rprint
 RUNNER_DAEMON_ENV = "ARCHIVEBOX_RUNNER_DAEMON"
 
 
-def _exit_daemon_runner_on_signal(sig: signal.Signals) -> None:
-    # A supervised `archivebox run --daemon` is intentionally a disposable
-    # child. If it receives SIGINT/SIGTERM directly, exit with the conventional
-    # signal status so supervisord treats it as an unexpected worker death and
-    # restarts only the runner. The parent `archivebox server` owns supervisord
-    # shutdown and must not be pulled down by a killed daemon worker.
-    os._exit(128 + int(sig))
+def _exit_daemon_runner_on_signal(_sig: signal.Signals) -> None:
+    # A supervised daemon must exit non-zero so supervisord restarts it, while
+    # still unwinding the active crawl's hooks and persisted process state.
+    raise KeyboardInterrupt
 
 
 def process_stdin_records() -> int:
@@ -285,11 +282,15 @@ def run_runner(
         # future ownership lease cannot hide it from the unified scheduler.
         if crawl is not None:
             crawl.update_and_requeue(retry_at=now, refresh=False)
-    # Only a foreground `archivebox add` gets the interactive "abort current
-    # hook, continue/retry, second Ctrl+C exits" flow. Server/update/run owned
-    # orchestrators should shut down immediately and cleanly on the first signal.
-    interactive_interrupts = (
-        current.root.process_type == Process.TypeChoices.ADD and os.environ.get("ARCHIVEBOX_INTERACTIVE_INTERRUPTS") == "1"
+    # Interactivity follows terminal ownership, not the spelling of the command.
+    # A supervised add worker has pipes and receives terminal intent/answers from
+    # its parent; direct run owns the terminal itself. Daemons and redirected
+    # commands must never wait for a person who cannot answer their prompt.
+    # Trust the explicit terminal-owner flag, not Process.root: when add borrows
+    # a server-owned supervisord, its worker's OS ancestry still leads to server.
+    # Gating on root=ADD silently made the first Ctrl+C abort after takeover.
+    interactive_interrupts = not daemon and (
+        (sys.stdin.isatty() and (sys.stdout.isatty() or sys.stderr.isatty())) or os.environ.get("ARCHIVEBOX_INTERACTIVE_INTERRUPTS") == "1"
     )
     if daemon:
         os.environ[RUNNER_DAEMON_ENV] = "1"
@@ -364,11 +365,11 @@ def main(
             ):
                 sys.exit(run_runner(daemon=True, maintenance_only=maintenance_only))
         except KeyboardInterrupt:
-            sys.exit(0)
+            sys.exit(130)
 
     with foreground_shutdown_signals(), foreground_parent_watchdog(enabled=not daemon):
         if snapshot_id:
-            sys.exit(run_snapshot_worker(snapshot_id))
+            sys.exit(run_snapshot_worker(snapshot_id, daemon=daemon))
 
         if binary_id:
             try:
@@ -388,7 +389,7 @@ def main(
         if crawl_id:
             sys.exit(
                 run_runner(
-                    daemon=False,
+                    daemon=daemon,
                     crawl_id=crawl_id,
                     maintenance_only=maintenance_only,
                 ),
@@ -403,7 +404,7 @@ def main(
             sys.exit(run_runner(daemon=daemon, maintenance_only=maintenance_only))
 
 
-def run_snapshot_worker(snapshot_id: str) -> int:
+def run_snapshot_worker(snapshot_id: str, *, daemon: bool = False) -> int:
     from archivebox.config import CONSTANTS
     from archivebox.core.takeover_util import enter_single_runner_gate
     from archivebox.core.shutdown_util import foreground_parent_watchdog, foreground_shutdown_signals
@@ -418,6 +419,7 @@ def run_snapshot_worker(snapshot_id: str) -> int:
         return 0
 
     snapshot = None
+    interactive_interrupts = not daemon and sys.stdin.isatty() and (sys.stdout.isatty() or sys.stderr.isatty())
     try:
         with foreground_shutdown_signals(), foreground_parent_watchdog():
             for _ in range(10):
@@ -426,7 +428,7 @@ def run_snapshot_worker(snapshot_id: str) -> int:
                     snapshot.update_and_requeue(retry_at=timezone.now())
                 elif snapshot.retry_at > timezone.now():
                     break
-                if not run_due_snapshot(snapshot, lock_seconds=60):
+                if not run_due_snapshot(snapshot, lock_seconds=60, interactive_interrupts=interactive_interrupts):
                     break
         return 0
     except KeyboardInterrupt:
@@ -439,7 +441,7 @@ def run_snapshot_worker(snapshot_id: str) -> int:
                 snapshot.update_and_requeue(retry_at=timezone.now())
         except Exception:
             pass
-        return 0
+        return 130
     except Exception as e:
         rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
         import traceback

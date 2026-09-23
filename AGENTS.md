@@ -84,4 +84,4 @@ uv run pytest archivebox/tests/test_cli_add.py::test_add_help_shows_depth_and_ta
 uv run prek run --all-files
 ```
 
-Releases are published only by `.github/workflows/release.yml` after complete CI succeeds for the exact commit. Pushes to `main` prepare stable patch releases automatically; `dev` prepares release candidates. `STABLE_RELEASE_VERSION_FLOOR` can select a minimum stable target without editing package version files. Local development and deployment commands must not publish packages, images, tags, or GitHub releases.
+Releases are published only by `.github/workflows/release.yml` after complete CI succeeds for the exact commit. Pushes to `main` prepare stable patch releases automatically; `dev` prepares release candidates. Version selection and dependency repinning are owned by CI and the monorepo coordinator. Local development and deployment commands must not publish packages, images, tags, or GitHub releases.

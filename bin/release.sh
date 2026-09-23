@@ -308,7 +308,7 @@ fi
 
 if [[ "$GITHUB_EXISTS" == false ]]; then
     RELEASE_NOTES_ARGS=(--generate-notes)
-    RELEASE_NOTES_FILE="$REPO_DIR/docs/Release-Notes-v${VERSION}.md"
+    RELEASE_NOTES_FILE="$REPO_DIR/docs/Release-Notes.md"
     if [[ -f "$RELEASE_NOTES_FILE" ]]; then
         RELEASE_NOTES_ARGS=(--notes-file "$RELEASE_NOTES_FILE")
     fi

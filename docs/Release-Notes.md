@@ -1,4 +1,4 @@
-# ArchiveBox v0.9.40 is now released. 🎉
+# ArchiveBox v0.9 is now released. 🎉
 
 It's been a long time since our last major release back in 2024!
 Thanks for hanging in there, but I promise this release was worth the wait!
@@ -65,4 +65,4 @@ docker compose up -d
 
 [Upgrade guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading) · [Merging collections](https://github.com/ArchiveBox/ArchiveBox/blob/dev/docs/Merging-Collections.md) · [🐛 Report an issue](https://github.com/ArchiveBox/ArchiveBox/issues/new/choose)
 
-**Full Changelog:** https://github.com/ArchiveBox/ArchiveBox/compare/v0.7.4...v0.9.40
+**Full Changelog:** https://github.com/ArchiveBox/ArchiveBox/compare/v0.7.4...main

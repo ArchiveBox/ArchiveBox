@@ -181,7 +181,7 @@ Regex character class used to split tag strings (e.g. `news,politics; longform`)
 **Possible Values:** [`0`]/`50`/`500`/...
 Maximum number of unique URLs (Snapshots) a single crawl is allowed to produce. `0` means unlimited. Counts both seed URLs you submitted and URLs discovered by recursive crawlers (`parse_dom_outlinks`, `parse_html_urls`, etc.).
 
-Once the cap is reached, recursive crawlers stop emitting new Snapshots and the crawl is marked with `stop_reason = "crawl_max_urls"`. **Raising the cap later and re-queuing the crawl will resume discovery** — the limit state is persisted in `<crawl_dir>/.abx-dl/limits.json` and re-evaluated each tick.
+ArchiveBox enforces this cap when admitting URLs and creating Snapshot rows in its database. Hooks still emit discoveries; reaching the cap prevents additional Snapshot rows from being created. Raising the cap and re-queuing the crawl allows further discovery. The standalone `abx-dl` downloader does not enforce crawl-wide limits.
 
 > [!NOTE]
 > Use this as a safety net for recursive crawls (`--depth=N`) that could otherwise blow up to thousands of pages on link-heavy sites.
@@ -194,7 +194,7 @@ Once the cap is reached, recursive crawlers stop emitting new Snapshots and the 
 **Possible Values:** [`0`]/`50MB`/`5GB`/`104857600`/...
 Maximum cumulative output size (in bytes) a single crawl is allowed to produce across all of its Snapshots. `0` means unlimited.
 
-Accepts a raw byte count (`104857600`) or a unit-suffixed string (`100MB`, `5GB`, `1TiB`). Sizes are accumulated by the extractor service as each `ArchiveResult` writes its outputs to disk; once the cap is exceeded, in-flight Snapshots finish but no new ones are admitted and the crawl stops with `stop_reason = "crawl_max_size"`.
+Accepts a raw byte count (`104857600`) or a unit-suffixed string (`100MB`, `5GB`, `1TiB`). ArchiveBox sums the output sizes recorded on its Snapshot rows. Once the cap is reached, in-flight Snapshots finish but no new ones start, and the crawl reports `stop_reason = "crawl_max_size"`. This is a scheduling budget, not a hard filesystem quota; concurrent captures and cleanup can exceed it.
 
 > [!NOTE]
 > Bounds the **disk footprint** of a crawl, not the wire transfer — a 2MB HTML page can produce 50MB of screenshots, PDFs, SingleFile bundles, and media downloads, and this cap applies to the on-disk total.
@@ -207,10 +207,10 @@ Accepts a raw byte count (`104857600`) or a unit-suffixed string (`100MB`, `5GB`
 **Possible Values:** [`0`]/`300`/`3600`/...
 Maximum total wall-clock runtime for a single crawl in seconds. `0` means unlimited.
 
-Distinct from [`TIMEOUT`](#timeout): `TIMEOUT` caps one extractor invocation on one Snapshot; `CRAWL_TIMEOUT` caps the *entire crawl* — all Snapshots, all extractors, all retries, all recursive discovery passes — together. Once exceeded the crawl is marked `stop_reason = "crawl_timeout"` and queued Snapshots are skipped.
+Distinct from [`TIMEOUT`](#timeout): `TIMEOUT` caps one extractor invocation on one Snapshot; `CRAWL_TIMEOUT` caps the *entire crawl* — all Snapshots, all extractors, all retries, all recursive discovery passes — together. The clock uses the earliest Snapshot `created_at` timestamp in the crawl and persists across resumes. Time spent queued after that Snapshot was created counts toward the budget; a crawl with no Snapshots has not started its clock. At Snapshot boundaries, an exhausted budget prevents queued Snapshots from starting and reports `stop_reason = "crawl_timeout"`; in-flight captures and cleanup can finish.
 
 > [!NOTE]
-> Useful as a hard ceiling for unattended/scheduled crawls (e.g. "spend at most 1 hour archiving Hacker News tonight"). Pair with `CRAWL_MAX_URLS` and `CRAWL_MAX_SIZE` for belt-and-suspenders bounds.
+> Useful as a scheduling budget for unattended/scheduled crawls (e.g. "spend at most 1 hour archiving Hacker News tonight"). Pair with `CRAWL_MAX_URLS` and `CRAWL_MAX_SIZE` for belt-and-suspenders bounds.
 
 *Related options:*
 [`TIMEOUT`](#timeout), [`CRAWL_MAX_URLS`](#crawl_max_urls), [`CRAWL_MAX_SIZE`](#crawl_max_size)
@@ -233,7 +233,7 @@ Raising this speeds up large crawls on beefy hardware, but each concurrent Snaps
 **Possible Values:** [`0`]/`10MB`/`500MB`/...
 Maximum cumulative output size (in bytes) **per individual Snapshot**. `0` means unlimited. Same unit-suffix parsing as `CRAWL_MAX_SIZE` (`10MB`, `2GB`, raw bytes, etc.).
 
-Where `CRAWL_MAX_SIZE` is a *crawl-wide* budget, `SNAPSHOT_MAX_SIZE` puts a ceiling on any *one* page's output. Once a Snapshot's outputs exceed the cap, remaining extractors for that Snapshot are skipped and the Snapshot is tagged with `stop_reason = "snapshot_max_size"` — but the rest of the crawl continues normally.
+Where `CRAWL_MAX_SIZE` is a *crawl-wide* budget, `SNAPSHOT_MAX_SIZE` puts a ceiling on any *one* page's output. The downloader tracks reported output metadata in memory for the current run, counting each plugin/path once. At hook boundaries, reaching the cap stops additional hooks from starting; background cleanup still runs to preserve recordings. Retrying starts fresh accounting and preserves partial files until the hooks overwrite them. Unrun hooks receive no ArchiveResult rows, and the rest of the crawl continues normally.
 
 > [!NOTE]
 > Particularly useful when crawling sites with occasional huge pages (e.g. a forum where most threads are small but a few are 500MB media galleries) — it caps the outliers without throttling the whole crawl.

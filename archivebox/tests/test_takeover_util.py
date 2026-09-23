@@ -138,6 +138,91 @@ def test_interactive_add_takeover(initialized_archive, interrupt_before_takeover
         assert_no_processes_for_data_dir(initialized_archive, timeout=12)
 
 
+@pytest.mark.parametrize("force_abort", [None, "typed", "signal"], ids=["graceful", "force-after-choice", "force-after-ctrl-c"])
+def test_interactive_add_borrowing_server_supervisor_can_abort(initialized_archive, force_abort):
+    """A server-owned supervisor must not make an interactive add worker noninteractive."""
+    master, slave = pty.openpty()
+    termios.tcsetwinsize(slave, (40, 160))
+    output = bytearray()
+    server = None
+    add = None
+    port = get_free_port()
+    env = cli_env(
+        SEARCH_BACKEND_ENGINE="ripgrep",
+        SEARCH_BACKEND_SONIC_ENABLED="False",
+        CHROME_DELAY_AFTER_LOAD="60",
+        CHROME_TIMEOUT="120",
+        CHROME_HEADLESS="True",
+    )
+
+    def read_until(predicate, timeout=45):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if select.select([master], [], [], 0.1)[0]:
+                output.extend(os.read(master, 65536))
+            if predicate():
+                return
+        raise AssertionError(output.decode(errors="replace"))
+
+    def active_hook():
+        with use_archivebox_db(initialized_archive):
+            for hook in Process.objects.filter(archiveresult__hook_name="on_Snapshot__30_chrome_navigate", status="running"):
+                if hook.is_running:
+                    return hook
+        return None
+
+    try:
+        server = start_archivebox_server(initialized_archive, port=port, log_name="add-borrows-server.log", env=env)
+        assert get_http_response(port, host=f"archivebox.localhost:{port}").status_code < 500
+        add = run_archivebox_cmd(
+            ["add", "--plugins=chrome", "https://example.com"],
+            cwd=initialized_archive,
+            env=env,
+            stdin=slave,
+            stdout=slave,
+            stderr=slave,
+            wait=False,
+            start_new_session=True,
+        )
+        read_until(lambda: active_hook() is not None)
+        old_hook = active_hook()
+        assert old_hook is not None
+        add.send_signal(signal.SIGINT)
+        read_until(lambda: b"Choice [skip]:" in output)
+        read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
+        assert add.poll() is None, output.decode(errors="replace")
+        assert not pid_is_alive(old_hook.pid)
+
+        if force_abort:
+            # Both abort choices must become forceable before the worker has
+            # time to write its marker or finish the normal hook grace phase.
+            if force_abort == "typed":
+                os.write(master, b"a")
+            else:
+                add.send_signal(signal.SIGINT)
+            read_until(lambda: termios.tcgetattr(slave)[3] & termios.ICANON)
+            forced_at = time.monotonic()
+            add.send_signal(signal.SIGINT)
+        else:
+            add.send_signal(signal.SIGINT)
+        read_until(lambda: add.poll() is not None)
+        if force_abort:
+            assert time.monotonic() - forced_at < 2.0, output.decode(errors="replace")
+            assert b"Forcing aborted crawl to exit now" in output
+        assert add.returncode == 130, output.decode(errors="replace")
+        assert pid_is_alive(server.pid)
+        assert get_http_response(port, host=f"archivebox.localhost:{port}").status_code < 500
+        assert b"Traceback" not in output
+    finally:
+        for process in (add, server):
+            if process is not None and process.poll() is None:
+                stop_archivebox_process(process, signal.SIGTERM)
+        os.close(slave)
+        os.close(master)
+        kill_processes_for_data_dir(initialized_archive)
+        assert_no_processes_for_data_dir(initialized_archive, timeout=12)
+
+
 def test_pid_is_alive_treats_unreaped_archivebox_cli_as_exited(tmp_path, initialized_archive):
     proc = run_archivebox_cmd(
         ["version"],
