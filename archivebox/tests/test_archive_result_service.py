@@ -51,7 +51,7 @@ def _run_shipped_snapshot_hook(
 
     from abx_dl.services.process_service import ProcessService as HookProcessService
     from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
-    from abx_plugins.plugins.base.utils import get_hydrated_required_binaries
+    from abx_plugins.plugins.base.utils import _collect_required_schema_paths, get_hydrated_required_binaries
     from abxpkg import prepare_script_exec_plan
     from archivebox.core.models import ArchiveResult
     from archivebox.machine.models import Process
@@ -75,7 +75,7 @@ def _run_shipped_snapshot_hook(
             binproviders=required_binary["binproviders"],
             overrides=required_binary.get("overrides"),
         )
-    binary_env = resolve_abxpkg_binary_env(lib_dir, deps_from=hook_config)
+    binary_env = resolve_abxpkg_binary_env(lib_dir, deps_from=_collect_required_schema_paths(hook_config))
     hook_env = {
         **binary_env,
         "ABXPKG_LIB_DIR": str(lib_dir),
