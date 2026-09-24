@@ -19,7 +19,7 @@
         .table-wrap { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
         table { width: 100%; min-width: 980px; table-layout: fixed; border-collapse: collapse; }
         th { padding: 9px 10px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: 11px; letter-spacing: .04em; text-align: left; text-transform: uppercase; }
-        td { padding: 8px 10px; border-bottom: 1px solid #edf2f7; vertical-align: middle; }
+        td { padding: 10px; border-bottom: 1px solid #edf2f7; vertical-align: middle; }
         tbody tr:hover { background: #f8fafc; }
         tbody tr:last-child td { border-bottom: 0; }
         .snapshot-time { width: 102px; white-space: nowrap; }
@@ -30,11 +30,13 @@
         .snapshot-preview { display: block; width: 100px; height: 100px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; object-fit: cover; object-position: top; }
         .snapshot-preview-spinner { display: grid; place-items: center; }
         .snapshot-preview-spinner::after { width: 20px; height: 20px; border: 2px solid #cbd5e1; border-top-color: #aa1e55; border-radius: 50%; content: ""; animation: spin .8s linear infinite; }
-        .snapshot-title-line { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 2px; }
+        .snapshot-title-line { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 1px; }
         .snapshot-favicon-link { display: inline-flex; width: 22px; min-width: 22px; height: 22px; align-items: center; justify-content: center; }
         .link-favicon { display: block; width: 18px; height: 18px; border-radius: 4px; object-fit: contain; }
-        .snapshot-title { overflow: hidden; color: #0f172a; font-size: 14px; font-weight: 650; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
-        .snapshot-url { display: block; margin-left: 30px; overflow: hidden; color: #64748b; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+        .snapshot-title { overflow: hidden; color: #0f172a; font-size: 15px; font-weight: 600; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+        .snapshot-url { display: block; margin-left: 30px; overflow: hidden; color: #84909f; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 11.5px; font-weight: 400; line-height: 1.25; user-select: all; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+        .snapshot-url .snapshot-url-domain { color: #64748b; }
+        .snapshot-url:hover, .snapshot-title:hover { text-decoration: underline; }
         .snapshot-mobile-saved { display: none; }
         .snapshot-tags-cell { width: 180px; }
         .snapshot-tags { display: flex; flex-wrap: wrap; gap: 4px; max-height: 46px; overflow: hidden; }
