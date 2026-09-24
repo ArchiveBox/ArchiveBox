@@ -34,7 +34,11 @@ def main():
     seen = set()
     for line in git("log", "--reverse", "--no-merges", "--format=%H%x09%s", f"{previous}..{args.ref}").splitlines():
         sha, subject = line.split("\t", 1)
-        if re.match(r"(?:Bump release version|chore\(release\)|chore\(deps\)|Update .* dependencies|Pin .* release)", subject, re.I):
+        if re.match(
+            r"(?:Bump release version|Bump for |chore\(release\)|chore\(deps\)|Update .* dependencies|Pin .* release)",
+            subject,
+            re.I,
+        ):
             continue
         if subject not in seen:
             print(f"- {subject} ([{sha[:8]}]({root}/commit/{sha})).")
