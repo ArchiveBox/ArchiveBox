@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+import re
 from html import unescape
 from pathlib import Path
 from typing import Any
@@ -37,14 +38,12 @@ register = template.Library()
 def snapshot_url_text(url):
     """Style the URL's authority without changing any of its selectable text."""
     url = str(url or "")
-    try:
-        netloc = urlparse(url).netloc
-    except ValueError:
+    match = re.match(r"^(?:[a-zA-Z][a-zA-Z0-9+.-]*:)?//([^/?#]*)", url)
+    if not match:
         return escape(url)
-    if not netloc:
-        return escape(url)
+    netloc = match[1]
     authority = netloc.rsplit("@", 1)[-1]
-    start = url.index("//") + 2 + len(netloc) - len(authority)
+    start = match.start(1) + len(netloc) - len(authority)
     return format_html(
         '<span class="snapshot-url-prefix">{}</span><span class="snapshot-url-domain">{}</span><span class="snapshot-url-path">{}</span>',
         url[:start],
