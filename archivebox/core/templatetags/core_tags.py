@@ -10,7 +10,7 @@ from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target a
 from django import template
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.html import escape
+from django.utils.html import escape, format_html
 from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 
@@ -31,6 +31,26 @@ from archivebox.plugins.discovery import (
 )
 
 register = template.Library()
+
+
+@register.filter
+def snapshot_url_text(url):
+    """Style the URL's authority without changing any of its selectable text."""
+    url = str(url or "")
+    try:
+        netloc = urlparse(url).netloc
+    except ValueError:
+        return escape(url)
+    if not netloc:
+        return escape(url)
+    authority = netloc.rsplit("@", 1)[-1]
+    start = url.index("//") + 2 + len(netloc) - len(authority)
+    return format_html(
+        '<span class="snapshot-url-prefix">{}</span><span class="snapshot-url-domain">{}</span><span class="snapshot-url-path">{}</span>',
+        url[:start],
+        authority,
+        url[start + len(authority) :],
+    )
 
 
 @register.simple_tag(takes_context=True)
@@ -757,7 +777,7 @@ def snapshot_index_row(context, link) -> str:
             </a>
         </div>
         <a href="{escape(url)}" class="snapshot-url" title="{escape(url)}" target="_blank" rel="noopener noreferrer">
-            {escape(url)}
+            {snapshot_url_text(url)}
         </a>
         <span class="snapshot-mobile-saved">Saved {escape(date_text)} at {escape(time_text)}</span>
     </td>

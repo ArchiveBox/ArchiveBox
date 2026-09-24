@@ -488,6 +488,15 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
             toggle.click()
             assert toggle.get_attribute("aria-expanded") == "true"
             assert page.locator("#snapshot-output-browser").is_visible()
+            page.locator(".header-top").click(position={"x": 2, "y": 2})
+            assert toggle.get_attribute("aria-expanded") == "false"
+            page.locator(".header-top").click(position={"x": 2, "y": 2})
+            assert toggle.get_attribute("aria-expanded") == "true"
+            year_menu = page.locator(".year-variants").first
+            year_menu.locator("summary").click()
+            assert year_menu.get_attribute("open") is not None
+            assert toggle.get_attribute("aria-expanded") == "true"
+            year_menu.locator("summary").click()
             page.locator(".output-stack-article_text").click()
             stack = page.locator(".header-bottom")
             assert stack.evaluate("e => getComputedStyle(e).overflowY") == "visible"

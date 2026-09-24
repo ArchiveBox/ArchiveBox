@@ -1062,6 +1062,11 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
     position: relative;
 }
 
+.model-snapshot.change-list #result_list tbody :is(td, th) {
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
 #result_list tbody .field-title_str > .snapshot-title-detail-hitbox {
     position: absolute;
     inset: 0;
@@ -1069,7 +1074,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
 }
 
 #result_list tbody .field-title_str > a {
-    color: #334155;
+    color: #1e293b;
     font-family: "Helvetica Neue", Arial, sans-serif;
     font-size: 15px;
     line-height: 1.4;
@@ -1082,7 +1087,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
 }
 
 #result_list tbody .field-title_str > .snapshot-title-url {
-    padding-left: 4px;
+    margin-top: 1px;
     position: relative;
     z-index: 2;
     pointer-events: none;
@@ -1094,10 +1099,25 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
 
 #result_list .snapshot-original-url {
     display: block;
+    color: #84909f;
+    text-decoration: none;
+}
+
+#result_list .snapshot-original-url:hover {
+    text-decoration: underline;
+}
+
+#result_list .snapshot-original-url .snapshot-url-domain {
+    color: #64748b;
 }
 
 #result_list .snapshot-original-url code {
     display: block;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 11.5px;
+    font-weight: 400;
+    line-height: 1.25;
+    color: inherit;
     /* Fill the cell without making a long URL widen the table. */
     width: 0;
     min-width: 100%;

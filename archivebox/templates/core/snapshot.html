@@ -1649,8 +1649,11 @@
                 return true
             }
 
-            // The full-height edge control toggles saved outputs without intercepting title/tag clicks.
-            document.querySelectorAll('.header-toggle').forEach((trigger) => trigger.addEventListener('click', handleSnapshotHeaderToggle))
+            // Background and edge clicks toggle the tray; links and dropdowns keep their own actions.
+            document.querySelector('.header-top').addEventListener('click', (event) => {
+                if (!event.target.closest('.header-toggle') && event.target.closest('a, button, input, select, textarea, details, [role="button"]')) return
+                handleSnapshotHeaderToggle(event)
+            })
 
             {% include "core/snapshot_stacks.js.html" %}
             initializeOutputStacks()

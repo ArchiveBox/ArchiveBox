@@ -28,6 +28,7 @@ from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChange
 from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import build_snapshot_url, build_web_url
 from archivebox.core.tag_util import get_or_create_tag
+from archivebox.core.templatetags.core_tags import snapshot_url_text
 from archivebox.plugins.hooks import discover_hooks
 from archivebox.plugins.discovery import get_plugin_icon
 from archivebox.plugins.output_groups import (
@@ -976,13 +977,13 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return format_html(
             '<a class="snapshot-title-detail-hitbox" href="{}" aria-label="Open snapshot details"></a>'
             "{}"
-            '<div class="snapshot-title-url" style="font-size: 11px; color: #64748b; margin-top: 2px;">'
+            '<div class="snapshot-title-url">'
             '<a class="snapshot-original-url" href="{}"><code style="user-select: all;">{}</code></a>'
             "</div>",
             detail_url,
             title_html,
             url_raw or obj.url,
-            url_raw or obj.url,
+            snapshot_url_text(url_raw or obj.url),
         )
 
     @admin.display(description="Tags", ordering="tag_count")
@@ -1436,7 +1437,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return format_html(
             '<a class="snapshot-original-url" href="{}"><code style="user-select: all;">{}</code></a>',
             obj.url,
-            obj.url,
+            snapshot_url_text(obj.url),
         )
 
     @admin.display(description="Health", ordering="health")

@@ -115,14 +115,14 @@
       line-height: 50px;*/
   }
   .cards .card .card-title h4 {
-      color: initial;
+      color: #1e293b;
       display: block;
       vertical-align: middle;
       line-height: normal;
       margin: 0px;
       padding: 5px 0px;
-      font-size: 13.5px;
-      font-weight: 400;
+      font-size: 15px;
+      font-weight: 600;
       word-break: break-all;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -189,8 +189,11 @@
       display: block;
       width: 100%;
       padding: 0 8px 6px;
-      font-size: 10px;
-      opacity: 0.4;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      font-size: 11.5px;
+      font-weight: 400;
+      line-height: 1.25;
+      color: #84909f;
       user-select: all;
       white-space: nowrap;
       overflow: hidden;
@@ -261,7 +264,7 @@
               </h4>
             </a>
           </div>
-          <code class="card-url" title="{{obj.url}}">{{obj.url}}</code>
+          <code class="card-url" title="{{obj.url}}">{{obj.url|snapshot_url_text}}</code>
           <div class="card-media">
             <a href="{% snapshot_detail_url obj %}" class="card-thumbnail">
               {% snapshot_thumbnail obj admin=True width="100%" height="245px" %}
