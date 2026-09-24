@@ -151,7 +151,7 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
 
     Args:
         plugin: Plugin name (e.g., 'screenshot', '15_singlefile')
-        template_name: One of 'icon', 'card', 'full'
+        template_name: A template slot such as 'icon', 'card', or 'full'.
         fallback: If True, return default template if plugin template not found
     """
     base_name = get_plugin_name(plugin)

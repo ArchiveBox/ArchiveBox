@@ -150,7 +150,7 @@ ArchiveBox auto-creates the named persona on disk if it doesn't already exist. S
 
 Regex pattern matched against every URL discovered during a crawl. Any matching URL is **excluded** from archiving — useful for blocking tracking pixels, ad networks, CDN-hosted CSS/fonts, or arbitrary file extensions you don't want to capture.
 
-The default skips common static assets (CSS, fonts, Google Fonts CDN) so they aren't re-fetched as separate Snapshots during recursive crawls — the parent page's `singlefile`/`dom` output already inlines them.
+The default skips common static assets (CSS, fonts, Google Fonts CDN) so they aren't re-fetched as separate Snapshots during recursive crawls — the parent page's `singlefile`/`dom` output already inlines them. It also excludes Hacker News vote and hide actions using `^https?://news\.ycombinator\.com/(?:vote|hide)/?(?:[?#]|$)`, while preserving stories, comments, profiles, and domain listings. Existing crawls retain their saved filter configuration.
 
 *Note: This option is also recognized under its legacy alias `URL_BLACKLIST`.*
 

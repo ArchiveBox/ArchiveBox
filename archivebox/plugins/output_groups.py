@@ -5,12 +5,12 @@ from typing import Any
 
 from archivebox.plugins.discovery import get_plugin_name
 
-# Ordered tuples are preference lists; unordered groups sort by total output bytes.
+# Preferred outputs come first; remaining outputs sort by total output bytes.
 OUTPUT_GROUPS = (
     ("html", "HTML", ("archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom")),
     ("raster", "Raster", ("screenshot", "pdf")),
     ("article_text", "Article text", ("readability", "defuddle", "mercury", "trafilatura", "htmltotext")),
-    ("embedded_media", "Embedded media", ()),
+    ("embedded_media", "Embedded media", ("papersdl",)),
     ("metadata", "Metadata", ()),
     ("other", "Other files", ()),
 )
@@ -39,6 +39,47 @@ UNORDERED_OUTPUTS = {
         "opentimestamps",
     },
 }
+
+COLOR_ICON_PLUGINS = frozenset(
+    {"singlefile", "archivewebpage", "screenshot", "ytdlp", "readability", "forumdl", "papersdl", "git", "gallerydl"},
+)
+HIDDEN_ICON_PLUGINS = frozenset({"archivedotorg"})
+PLUGIN_DISPLAY_NAMES = {
+    "singlefile": "SingleFile",
+    "archivewebpage": "ArchiveWebpage",
+    "ytdlp": "YouTube-DL",
+    "readability": "Readability",
+    "forumdl": "Forum-DL",
+    "git": "Git",
+    "gallerydl": "Gallery-DL",
+}
+
+
+def output_group_for_plugin(plugin: str) -> str:
+    """Return the snapshot-detail stack that contains a plugin output."""
+    for group_id, _, plugins in OUTPUT_GROUPS:
+        if plugin in plugins or plugin in UNORDERED_OUTPUTS.get(group_id, set()):
+            return group_id
+    return "other"
+
+
+def display_plugin_name(plugin: str) -> str:
+    return PLUGIN_DISPLAY_NAMES.get(plugin, plugin.replace("_", " ").replace("-", " ").title())
+
+
+def plugin_output_sizes(results) -> dict[str, int]:
+    """Count each plugin's files once, even when several hooks report them."""
+    files_by_plugin: dict[str, dict[str, int]] = {}
+    for result in results:
+        files = files_by_plugin.setdefault(result.plugin, {})
+        for path, metadata in result.output_file_map().items():
+            files[path] = result._coerce_output_file_size(metadata.get("size"))
+    return {plugin: sum(files.values()) for plugin, files in files_by_plugin.items() if files}
+
+
+def order_output_plugins(plugins, sizes: dict[str, int]) -> list[str]:
+    """Use the detail-card ordering for icon piles, without synthetic cards."""
+    return [output["name"] for output in order_snapshot_outputs([{"name": plugin, "size": sizes.get(plugin, 0)} for plugin in plugins])]
 
 
 def _responses_html_card(outputs: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -90,6 +131,6 @@ def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]
         plugin = get_plugin_name(output["name"])
         group_id, rank = preferences.get(plugin, ("other", None))
         output["output_group"] = group_id
-        return (group_order[group_id], rank if rank is not None else -int(output.get("size") or 0), plugin)
+        return (group_order[group_id], rank is None, rank if rank is not None else -int(output.get("size") or 0), plugin)
 
     return sorted(outputs, key=sort_key)

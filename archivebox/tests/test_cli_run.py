@@ -342,6 +342,69 @@ def test_newest_crawl_runs_before_older_queued_and_started_crawls(initialized_ar
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.timeout(660)
+def test_due_snapshots_share_one_crawl_scoped_chrome(initialized_archive, recursive_test_site):
+    from django.utils import timezone
+
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Process
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    env = cli_env(live=True, PLUGINS="chrome", CHROME_ISOLATION="crawl", CHROME_HEADLESS="true", CHROME_SANDBOX="false")
+    _install_real_chrome_for_test(initialized_archive, env, isolation="crawl")
+    urls = [recursive_test_site["root_url"], recursive_test_site["child_urls"][0]]
+    with use_archivebox_db(initialized_archive):
+        crawl = Crawl.objects.create(
+            urls="\n".join(urls),
+            config={"PLUGINS": "chrome", "CHROME_ISOLATION": "crawl"},
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=timezone.now(),
+        )
+        for url in urls:
+            Snapshot.objects.create(url=url, crawl=crawl, status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now())
+        crawl_id = str(crawl.id)
+
+    result = run_archivebox_cmd(["run", "--no-stdin", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=600)
+    assert result.returncode == 0, result.stdout + result.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshots = Snapshot.objects.filter(crawl_id=crawl_id, url__in=urls, status=Snapshot.StatusChoices.SEALED)
+        assert snapshots.count() == 2
+        assert all((snapshot.output_dir / "chrome" / "navigation.json").is_file() for snapshot in snapshots)
+        launches = Process.objects.filter(
+            pwd__contains=crawl_id,
+            process_type=Process.TypeChoices.HOOK,
+            cmd__0__endswith="on_CrawlSetup__90_chrome_launch.daemon.bg.js",
+        )
+        assert launches.count() == 1, [(process.pid, process.exit_code) for process in launches]
+        assert launches.get().exit_code == 0
+
+
+def test_busy_crawl_does_not_report_snapshot_progress(initialized_archive):
+    from datetime import timedelta
+    from django.utils import timezone
+
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.runner import _run_due_snapshot_id
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    with use_archivebox_db(initialized_archive):
+        crawl = Crawl.objects.create(
+            urls="https://example.com/",
+            config={"PLUGINS": "chrome", "CHROME_ISOLATION": "crawl"},
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=timezone.now() + timedelta(minutes=1),
+        )
+        snapshot = Snapshot.objects.create(url=crawl.urls, crawl=crawl, retry_at=timezone.now())
+        assert _run_due_snapshot_id(str(snapshot.id), lock_seconds=60, interactive_interrupts=False, runtime_config=None) is False
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.timeout(660)
 def test_cli_run_signal_cleans_real_chrome_hook_process_group(initialized_archive, recursive_test_site):
     from archivebox.core.models import Snapshot
     from archivebox.tests.test_orm_helpers import use_archivebox_db

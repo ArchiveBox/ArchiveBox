@@ -14,6 +14,7 @@ from playwright.sync_api import sync_playwright
 pytestmark = pytest.mark.django_db(transaction=True)
 
 PROOF_FIXTURE = Path(__file__).parent / "fixtures" / "tlsnotary" / "hacker-news"
+LEGACY_PROOF_FIXTURE = Path(__file__).parent / "fixtures" / "legacy_proofs"
 
 
 def run_plugin(name: str, snap: Path, **config: str):
@@ -195,4 +196,87 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
         page.wait_for_function("document.querySelector('#manifest-sha256')?.textContent.length === 64")
         assert page.locator("nav").is_visible()
         assert page.locator("#status").is_visible()
+        browser.close()
+
+
+@pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
+def test_legacy_proof_cards_and_viewers_on_canonical_snapshot_origin(snapshot, live_server, client, mode):
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+    from django.utils import timezone
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": mode,
+    }
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    for plugin in ("tlsnotary", "opentimestamps"):
+        shutil.copytree(LEGACY_PROOF_FIXTURE / plugin, snapshot.output_dir / plugin)
+    paths = {
+        "tlsnotary": "tlsnotary/capture-82e4bf62f426a03f80f8f4fb7c6d7b0c634a9ae4fd78b5f4c06e398311a727c4/index.html",
+        "opentimestamps": "opentimestamps/stamp-tc1mgx85/index.html",
+    }
+    results = {}
+    for plugin, path in paths.items():
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin=plugin,
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            start_ts=timezone.now(),
+            output_str=path,
+        )
+        assert result.update_output_metadata_from_filesystem(full_scan=True)
+        results[plugin] = result
+    assert {output["name"] for output in snapshot.get_html_details_context()["archiveresults"]} >= set(paths)
+
+    other = Snapshot.objects.create(url="https://other.example", crawl=snapshot.crawl)
+    other.permissions = "public"
+    other.save(update_fields=["permissions"])
+    foreign_path = (
+        f"/snapshot/{other.id}/_card/{results['tlsnotary'].id}"
+        if mode == "safe-onedomain-nojsreplay"
+        else f"/_card/{results['tlsnotary'].id}"
+    )
+    assert client.get(foreign_path, HTTP_HOST=get_snapshot_host(str(other.id))).status_code == 404
+
+    web_host = "web.archivebox.localhost" if mode == "safe-subdomains-fullreplay" else "archivebox.localhost"
+    snapshot_host = (
+        f"snap-{str(snapshot.id).replace('-', '')[-12:]}.archivebox.localhost" if mode == "safe-subdomains-fullreplay" else web_host
+    )
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1, MAP archivebox.localhost 127.0.0.1"],
+        )
+        page = browser.new_page()
+        requests = []
+        page.on("request", lambda request: requests.append(request.url))
+        page.goto(f"http://{web_host}:{port}/{snapshot.url_path}/index.html")
+        assert urlsplit(page.url).hostname == web_host
+        tls_status = page.frame_locator('.output-stack-metadata .stack-cover iframe[title="tlsnotary card"]').locator("#status.success")
+        tls_status.wait_for(state="visible")
+        assert "trusted verifier key" in tls_status.inner_text()
+        page.locator(".output-stack-metadata").click()
+        stamp_status = page.frame_locator('.stack-tray iframe[title="opentimestamps card"]').locator("#status.legacy")
+        stamp_status.wait_for(state="visible")
+        assert "Legacy timestamp proof saved" in stamp_status.inner_text()
+        assert all(urlsplit(url).hostname == snapshot_host for url in requests if "receipt.json" in url or "hashes.json" in url)
+
+        selected_output = "#opentimestamps/stamp-tc1mgx85/index.html"
+        page.goto(f"http://{web_host}:{port}/{snapshot.url_path}/index.html{selected_output}")
+        assert urlsplit(page.url).hostname == web_host
+        assert urlsplit(page.url).fragment == selected_output.removeprefix("#")
+
+        preview_root = "" if mode == "safe-subdomains-fullreplay" else f"/snapshot/{snapshot.id}"
+        page.goto(f"http://{snapshot_host}:{port}{preview_root}/{paths['tlsnotary']}?preview=1")
+        page.locator("#status.verified").wait_for()
+        assert "trusted verifier key" in page.locator("#status").inner_text()
+        page.goto(f"http://{snapshot_host}:{port}{preview_root}/{paths['opentimestamps']}?preview=1")
+        page.locator("#status.legacy").wait_for()
+        assert "Legacy timestamp proof saved" in page.locator("#status").inner_text()
         browser.close()

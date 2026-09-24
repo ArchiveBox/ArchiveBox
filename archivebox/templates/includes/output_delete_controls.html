@@ -60,6 +60,10 @@
             if (!deleteUrl) return window.alert('Delete failed: missing admin request data')
             deleteOutputButtons.forEach((button) => button.disabled = true)
             if (button.dataset.deleteHandoff) {
+                // web.* and snap-* only get the one-bit login hint, never the
+                // admin session or CSRF cookie. Navigate to admin.* so its
+                // host-only cookies authorize the standard confirmation page;
+                // the queued GET cannot delete anything by itself.
                 deleteUrl = new URL(deleteUrl, window.location.href)
                 deleteUrl.searchParams.set('action', 'delete_selected')
                 deleteUrl.searchParams.set('snapshot', button.dataset.deleteSnapshotId)

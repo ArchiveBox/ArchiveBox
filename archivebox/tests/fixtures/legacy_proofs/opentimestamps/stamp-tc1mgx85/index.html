@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+  <title>OpenTimestamps submission</title>
+  <style>body{font:16px/1.6 system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#243443;background:#fafafa}h1{font-size:1.6rem}code{overflow-wrap:anywhere}pre{white-space:pre-wrap;padding:1rem;background:#edf1f5;border-radius:8px}a{color:#245c93}.status{background:#fff1cf;padding:.6rem 1rem;border-radius:8px}dt{font-weight:600}dd{margin:0 0 1rem}</style>
+  <style>@media(max-width:400px){body{font-size:12px;margin:.5rem auto;padding:0 .5rem}h1{font-size:1rem;margin:.4rem 0}.status{padding:.4rem .6rem;margin:.4rem 0}}</style>
+</head>
+<body>
+  <h1>◷ OpenTimestamps</h1>
+  <p class="status">Calendar submission saved</p>
+  <p>This proof timestamps the saved hash manifest, binding the listed archive files and any included TLS certificates and TLSNotary evidence to the same commitment.</p>
+  <p><a href="hashes.json.ots" download>Download timestamp proof</a> · <a href="hashes.json" download>Download stamped manifest</a></p>
+  <dl><dt>Archive Merkle root</dt><dd><code>09fa04574d0f07fb8a359e62c7e8780c8c0b69745ede2620ffe53067a5ff5542</code></dd><dt>Stamped manifest SHA-256</dt><dd><code>915021e1f15582b4eb2e5c1d949609c65f506f15507340d16b5120737fa813a7</code></dd></dl>
+  <h2>Upgrade and verify later</h2>
+  <p>Keep both files together. After Bitcoin confirmation, upgrade and verify with the OpenTimestamps client:</p>
+  <pre>ots upgrade hashes.json.ots
+ots verify hashes.json.ots</pre>
+  <p><a href="https://tlsnotary.zervice.io/">How the archive trust chain works</a> · <a href="https://github.com/opentimestamps/opentimestamps-client">OpenTimestamps client documentation</a></p>
+</body>
+</html>

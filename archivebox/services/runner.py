@@ -1593,6 +1593,31 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
             return True
         return run_snapshot_maintenance(str(snapshot.id))
 
+    from archivebox.config.common import get_config
+    from archivebox.plugins.discovery import get_enabled_plugins
+
+    config = get_config(crawl=snapshot.crawl, persona=snapshot.crawl.resolve_persona())
+    configured_plugins = {name.strip().lower() for name in str(config.get("PLUGINS") or "").split(",") if name.strip()}
+    chrome_selected = "chrome" in (configured_plugins or set(get_enabled_plugins(config=config)))
+    if chrome_selected and str(config.get("CHROME_ISOLATION") or "crawl").lower() == "crawl":
+        # The due Snapshot is only the scheduler's admission signal. Running
+        # it as an explicit one-snapshot CrawlRunner tears down CrawlSetup after
+        # every URL, even though crawl isolation owns one browser for the whole
+        # crawl. The crawl lifecycle lock already serializes all of its child
+        # work, so let one runner drain the due siblings and discoveries.
+        if any(process.is_running for process in snapshot.process_set.filter(status="running").iterator()):
+            snapshot.update_and_requeue(retry_at=timezone.now() + timedelta(seconds=lock_seconds))
+            return True
+        if not snapshot.crawl.claim_processing_lock(lock_seconds=lock_seconds):
+            return False
+        _runner_console_line(crawl=snapshot.crawl)
+        _run_crawl_locked(
+            str(snapshot.crawl_id),
+            process_discovered_snapshots_inline=True,
+            interactive_interrupts=interactive_interrupts,
+        )
+        return True
+
     if not snapshot.claim_processing_lock(lock_seconds=lock_seconds):
         return False
     snapshot.refresh_from_db()
@@ -1829,13 +1854,14 @@ def _run_due_snapshot_id(snapshot_id, *, lock_seconds: int, interactive_interrup
     due_snapshot = Snapshot.objects.filter(id=due_snapshot_id).first()
     if due_snapshot is None:
         return True
-    run_due_snapshot(
+    # A lost/busy claim is not progress. Let the scheduler try other work and
+    # reach its idle wait instead of spinning on the same due child forever.
+    return run_due_snapshot(
         due_snapshot,
         lock_seconds=lock_seconds,
         interactive_interrupts=interactive_interrupts,
         runtime_config=runtime_config,
     )
-    return True
 
 
 def _run_due_binary() -> bool:

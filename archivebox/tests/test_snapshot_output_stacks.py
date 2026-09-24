@@ -1,6 +1,7 @@
 """Snapshot grouping uses real stored outputs, including portable exports."""
 
 import shutil
+import re
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,91 @@ from archivebox.tests.conftest import ADMIN_TEST_HOST
 pytestmark = pytest.mark.django_db
 FIXTURE = Path(__file__).parent / "fixtures" / "consolelog_preview.html"
 IMAGE_FIXTURE = Path(__file__).parents[2] / "publicsite" / "assets" / "social-card.png"
+
+
+@pytest.mark.parametrize("surface", ["admin", "static", "prefetched", "public", "started"])
+def test_icon_piles_match_detail_stack_priority(snapshot, client, settings, surface):
+    from django.contrib.admin.sites import AdminSite
+    from archivebox.core.admin_snapshots import SnapshotAdmin
+    from archivebox.core.models import Snapshot
+    from archivebox.tests.conftest import WEB_TEST_HOST
+
+    for plugin in (
+        "htmltotext",
+        "mercury",
+        "trafilatura",
+        "defuddle",
+        "readability",
+        "singlefile",
+        "archivewebpage",
+        "pdf",
+        "screenshot",
+        "responses",
+        "papersdl",
+        "forumdl",
+        "git",
+        "headers",
+    ):
+        save_output(snapshot, plugin)
+    save_output(snapshot, "dns", hook="10", extra_files=("first.html",))
+    save_output(snapshot, "dns", hook="20", extra_files=("second.html",))
+    save_output(snapshot, "git", hook="60", extra_files=("extra.html",))
+    expected_groups = [
+        ["archivewebpage", "singlefile"],
+        ["screenshot", "pdf"],
+        ["readability", "defuddle", "mercury", "trafilatura", "htmltotext"],
+        ["papersdl", "git", "forumdl", "responses"],
+        ["dns", "headers"],
+    ]
+    detail = snapshot.get_html_details_context()["archiveresults"]
+    assert [item["name"] for item in detail if item["name"] != "responses_html"] == [
+        plugin for group in expected_groups for plugin in group
+    ]
+
+    if surface == "admin":
+        model_admin = SnapshotAdmin(Snapshot, AdminSite())
+        model_admin.request = RequestFactory().get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
+        model_admin.request.archivebox_config = ServerConfig()
+        rendered = str(model_admin.files(snapshot))
+    elif surface in {"public", "started"}:
+        settings.PUBLIC_INDEX = True
+        snapshot.permissions = "public"
+        snapshot.status = Snapshot.StatusChoices.STARTED if surface == "started" else Snapshot.StatusChoices.SEALED
+        snapshot.save()
+        response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+        assert response.status_code == 200
+        rendered = response.content.decode()
+    else:
+        if surface == "prefetched":
+            snapshot = Snapshot.objects.prefetch_related("archiveresult_set").get(pk=snapshot.pk)
+        rendered = str(snapshot.icons(quote_paths=True))
+
+    # Each group contains its cover first, then popup members in priority order.
+    assert re.findall(r'class="[^"\n]*files-icon-plugin--([\w-]+)', rendered) == [
+        plugin for group in expected_groups for plugin in [group[0], *group]
+    ]
+
+
+@pytest.mark.parametrize(
+    ("security_mode", "expected_host"),
+    [
+        ("safe-subdomains-fullreplay", "web.archivebox.localhost"),
+        ("safe-onedomain-nojsreplay", "archivebox.localhost"),
+    ],
+)
+def test_snapshot_detail_link_stays_on_web_origin(snapshot, security_mode, expected_host):
+    from archivebox.core.templatetags.core_tags import snapshot_detail_url
+
+    config = ServerConfig(BASE_URL="http://archivebox.localhost:5797", SERVER_SECURITY_MODE=security_mode)
+    url = snapshot_detail_url(Context({"CONFIG": config}), snapshot)
+    assert url == f"http://{expected_host}:5797{snapshot.get_absolute_url()}/index.html"
+    assert (
+        snapshot_detail_url(
+            Context({"STATIC_EXPORT": True, "STATIC_EXPORT_DIR": snapshot.output_dir}),
+            snapshot,
+        )
+        == "./index.html"
+    )
 
 
 def save_output(snapshot, plugin, filename="content.html", *, hook="50", extra_files=()):
@@ -67,6 +153,7 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
         "readability",
         "liteparse",
         "trafilatura",
+        "papersdl",
         "custom_output",
         "archivewebpage",
         "chrome_mhtml",
@@ -88,8 +175,20 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
     assert names("raster") == ["screenshot", "pdf"]
     assert names("article_text") == ["readability", "defuddle", "mercury", "trafilatura", "htmltotext"]
     assert "liteparse" in names("embedded_media")
+    assert "papersdl" in names("embedded_media")
     assert names("other") == ["custom_output"]
     assert context["best_result"]["name"] == "archivewebpage"
+
+
+@pytest.mark.parametrize("larger_plugin", ["responses", "papersdl"])
+def test_papersdl_is_above_responses_regardless_of_output_size(snapshot, larger_plugin):
+    for plugin in ("responses", "papersdl"):
+        save_output(snapshot, plugin, extra_files=("extra.html",) if plugin == larger_plugin else ())
+
+    outputs = snapshot.get_html_details_context()["archiveresults"]
+    media = [output for output in outputs if output["output_group"] == "embedded_media"]
+    assert next(output for output in media if output["name"] == larger_plugin)["size"] == 2 * FIXTURE.stat().st_size
+    assert [output["name"] for output in media] == ["papersdl", "responses"]
 
 
 def test_equal_outputs_sort_by_whole_output_size_without_double_counting_hooks(snapshot):
@@ -122,6 +221,9 @@ def test_stacks_render_live_and_static_without_losing_output_actions(snapshot, a
     assert 'title="Download output file"' in live_html
     assert 'title="Open output folder"' in live_html
     assert 'title="Delete this output"' in live_html
+    assert 'title="Browse the full SNAP_DIR for this snapshot"' not in live_html
+    assert "See all files..." not in live_html
+    assert 'aria-label="Search Archive.org"' in live_html
 
     request.user = AnonymousUser()
     assert 'title="Delete this output"' not in SnapshotView.render_live_index(request, snapshot).content.decode()
@@ -179,7 +281,7 @@ def test_responses_html_card_requires_saved_html_and_keeps_gallery(snapshot):
         ("safe-subdomains-fullreplay", "snap-{snapshot_suffix}.archivebox.localhost:8937"),
     ),
 )
-def test_responses_card_preserves_request_origin_for_nested_preview_urls(snapshot, security_mode, expected_host):
+def test_responses_card_uses_snapshot_origin_for_nested_preview_urls(snapshot, security_mode, expected_host):
     from archivebox.core.templatetags.core_tags import plugin_card
 
     result = save_response_image(snapshot)
@@ -192,7 +294,8 @@ def test_responses_card_preserves_request_origin_for_nested_preview_urls(snapsho
     html = plugin_card(Context({"request": request, "CONFIG": config}), result)
     expected_host = expected_host.format(snapshot_suffix=str(snapshot.id)[-12:])
     assert f"https://{expected_host}/" in html
-    assert "/responses/all/example.png?raw=1" in html
+    assert f"_card/{result.id}" in html
+    assert "/responses/all/example.png?raw=1" not in html
 
 
 def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
@@ -211,7 +314,6 @@ def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
 def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server):
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
-    from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
 
     port = urlsplit(live_server.url).port
@@ -221,20 +323,233 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server)
     snapshot.permissions = "public"
     snapshot.save(update_fields=["permissions"])
     save_output(snapshot, "defuddle")
-    host = get_snapshot_host(str(snapshot.id)).split(":")[0]
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
         page = browser.new_page(viewport={"width": 390, "height": 844})
-        page.goto(f"http://{host}:{port}/index.html")
-        cover = page.locator('.output-stack-article_text .stack-cover iframe[data-plugin="defuddle"]')
-        cover.content_frame.locator("h1").wait_for()
-        cover.content_frame.frame_locator("#reader").locator("body").wait_for()
+        page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html")
+        assert "{#" not in page.locator("body").inner_text()
+        cover = page.locator(".output-stack-article_text .stack-cover .thumbnail-wrapper > iframe")
+        cover_viewer = cover.content_frame.locator("iframe")
+        cover_viewer.wait_for()
+        cover_viewer.content_frame.locator("#reader").wait_for()
+        assert cover.get_attribute("loading") == "lazy"
+        assert cover.get_attribute("fetchpriority") == "low"
         source = cover.get_attribute("src")
         page.locator(".output-stack-article_text").click()
-        expanded = page.locator('.stack-tray iframe[data-plugin="defuddle"]')
-        expanded.content_frame.locator("h1").wait_for()
+        expanded = page.locator('.stack-tray .thumb-card[data-plugin-name="defuddle"] .thumbnail-wrapper > iframe')
+        expanded_viewer = expanded.content_frame.locator("iframe")
+        expanded_viewer.wait_for()
+        expanded_viewer.content_frame.locator("#reader").wait_for()
+        assert expanded.get_attribute("loading") == "lazy"
+        assert expanded.get_attribute("fetchpriority") == "low"
         assert expanded.get_attribute("src") == source
-        assert cover.content_frame.locator("h1").inner_text() == expanded.content_frame.locator("h1").inner_text()
+        assert cover_viewer.get_attribute("src") == expanded_viewer.get_attribute("src")
+        assert cover_viewer.content_frame.locator("body > header").is_hidden()
+        assert expanded_viewer.content_frame.locator("body > header").is_hidden()
         assert cover.bounding_box()["height"] > 0
         page.screenshot(path="/tmp/stack-cover-mobile.png")
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_forumdl_card_and_full_view_render_saved_thread(snapshot, live_server):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    output = Path(snapshot.output_dir) / "forumdl/forum.jsonl"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(Path(__file__).parent / "fixtures/forumdl/hn-thread.jsonl", output)
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="forumdl",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="forumdl/forum.jsonl",
+    )
+    host = get_snapshot_host(str(snapshot.id)).split(":")[0]
+    viewer_url = f"http://{host}:{port}/forumdl/forum.jsonl?preview=1"
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        page = browser.new_page()
+        page.goto(viewer_url)
+        page.locator(".thread-title").wait_for()
+        assert "Navier-Stokes" in page.locator(".thread-title").inner_text()
+        assert page.locator(".comment").count() >= 1
+        assert page.locator("body > header").is_visible()
+        page.goto(f"{viewer_url}&titlebar=0")
+        assert page.locator("body > header").is_hidden()
+        page.goto(f"http://{host}:{port}/_card/{result.id}")
+        embedded = page.locator("iframe")
+        embedded.wait_for()
+        assert embedded.get_attribute("src") == f"{viewer_url}&titlebar=0"
+        embedded.content_frame.locator(".thread-title").wait_for()
+        assert "Navier-Stokes" in embedded.content_frame.locator(".thread-title").inner_text()
+        assert embedded.content_frame.locator("body > header").is_hidden()
+        page.set_viewport_size({"width": 250, "height": 170})
+        page.screenshot(path="/tmp/archivebox-forumdl-card-final.png")
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_server):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    output = Path(snapshot.output_dir) / "pdf/output.pdf"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="pdf",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="pdf/output.pdf",
+    )
+    host = get_snapshot_host(str(snapshot.id)).split(":")[0]
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        page = browser.new_page(viewport={"width": 250, "height": 170})
+        page.set_content("<h1>Archived page</h1>")
+        output.write_bytes(page.pdf())
+        page.goto(f"http://{host}:{port}/_card/{result.id}")
+        page.wait_for_function("document.querySelector('#preview').complete && !document.querySelector('#preview').naturalWidth")
+        assert page.locator("#fallback").is_visible()
+        assert "PDF saved" in page.locator("#fallback").inner_text()
+        assert page.locator("#fallback .icon").is_visible()
+        assert page.locator(".label").count() == 0
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapshot, live_server):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    for plugin in ("readability", "defuddle", "mercury", "trafilatura", "htmltotext"):
+        save_output(snapshot, plugin)
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        page = browser.new_page()
+        page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
+        for width, height in ((1440, 1000), (1024, 900), (768, 1024), (600, 900), (390, 844), (320, 700)):
+            page.set_viewport_size({"width": width, "height": height})
+            assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+            logo = page.locator(".header-archivebox img").bounding_box()
+            url = page.locator(".header-url").bounding_box()
+            assert logo["x"] >= 0 and logo["width"] >= 30
+            assert logo["x"] + logo["width"] <= url["x"]
+            assert page.locator(".archive-org-label").is_visible()
+            controls = page.locator(
+                ".header-url, .header-badges > .badge, .header-mobile-badge, .tag-pill, .year-variants > summary, .selected-capture > summary, .external-links a",
+            )
+            for control in controls.all():
+                if control.is_visible():
+                    assert control.bounding_box()["height"] == 28
+            toggle = page.get_by_role("button", name="Toggle saved outputs", exact=True)
+            toggle_box = toggle.bounding_box()
+            header_box = page.locator(".header-top").bounding_box()
+            assert toggle_box["width"] == 20
+            assert toggle_box["height"] == header_box["height"]
+            assert toggle_box["x"] + toggle_box["width"] == width
+            toggle.click()
+            assert toggle.get_attribute("aria-expanded") == "false"
+            assert not page.locator("#snapshot-output-browser").is_visible()
+            toggle.click()
+            assert toggle.get_attribute("aria-expanded") == "true"
+            assert page.locator("#snapshot-output-browser").is_visible()
+            page.locator(".output-stack-article_text").click()
+            stack = page.locator(".header-bottom")
+            assert stack.evaluate("e => getComputedStyle(e).overflowY") == "visible"
+            tray = page.locator("#stack-tray").bounding_box()
+            frame = page.locator("#main-frame-wrapper").bounding_box()
+            assert frame["y"] >= tray["y"] + tray["height"]
+            assert frame["height"] >= height
+            page.locator("#main-frame-wrapper").scroll_into_view_if_needed()
+            assert page.evaluate("scrollY") > 0
+            page.get_by_role("button", name="Collapse stack", exact=True).click()
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, tmp_path):
+    from datetime import datetime, timezone
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.bookmarked_at = datetime(2026, 9, 23, 12, tzinfo=timezone.utc)
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["bookmarked_at", "permissions"])
+    copies = [snapshot]
+    for date in (datetime(2025, 3, 2, 12, tzinfo=timezone.utc), datetime(2026, 6, 1, 12, tzinfo=timezone.utc)):
+        crawl = Crawl.objects.create(urls=snapshot.url, created_by=snapshot.crawl.created_by)
+        copies.append(Snapshot.objects.create(url=snapshot.url, crawl=crawl, permissions="public", bookmarked_at=date))
+    for copy in copies:
+        save_output(copy, "defuddle")
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        page = browser.new_page()
+        for selected, expected_year, expected_date in ((snapshot, "2026", "2026-09-23"), (copies[1], "2025", "2025-03-02")):
+            page.goto(f"http://web.archivebox.localhost:{port}{selected.get_absolute_url()}/index.html", wait_until="domcontentloaded")
+            assert page.locator(".capture-year").evaluate_all("nodes => nodes.map(e => e.dataset.year)") == ["2025", "2026"]
+            assert page.locator(".year-variants > summary").all_text_contents() == ["2025 (1)", "2026 (2)"]
+            group = page.locator(f'.capture-year[data-year="{expected_year}"]')
+            assert group.locator(".selected-capture > summary").inner_text() == expected_date
+            assert page.locator(".selected-capture").count() == 1
+            assert "CAPTURES" not in page.locator(".header-capture-row").inner_text().upper()
+            for width, height in ((1440, 1000), (768, 1024), (390, 844), (320, 700)):
+                page.set_viewport_size({"width": width, "height": height})
+                year = group.locator(".year-variants > summary").bounding_box()
+                date = group.locator(".selected-capture > summary").bounding_box()
+                assert abs(year["y"] - date["y"]) < 1
+                assert abs(year["x"] + year["width"] - date["x"] - 2) < 1
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                page.screenshot(path=str(tmp_path / f"year-badges-{expected_year}-{width}.png"))
+            group.locator(".year-variants > summary").click()
+            year_menu = group.locator(".year-variants .snapshot-variants-list")
+            assert year_menu.locator('[aria-current="page"]').count() == 1
+            year_links = year_menu.locator("a").evaluate_all("nodes => nodes.map(a => a.href)")
+            group.locator(".year-variants > summary").click()
+            group.locator(".selected-capture > summary").click()
+            date_menu = group.locator(".selected-capture .snapshot-variants-list")
+            assert date_menu.locator("a").evaluate_all("nodes => nodes.map(a => a.href)") == year_links
+            assert date_menu.locator('[aria-current="page"]').count() == 1
         browser.close()

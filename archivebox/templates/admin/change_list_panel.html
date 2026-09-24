@@ -69,10 +69,7 @@
       if (!toggle) return;
 
       function applyState() {
-        var storedState = localStorage.getItem(storageKey);
-        var collapsed = storedState === null
-          ? window.matchMedia('(max-width: 1180px)').matches
-          : storedState === 'true';
+        var collapsed = localStorage.getItem(storageKey) !== 'false';
         document.body.classList.toggle('filters-collapsed', collapsed);
         toggle.textContent = collapsed ? toggle.dataset.showLabel : toggle.dataset.hideLabel;
         toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');

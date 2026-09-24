@@ -278,6 +278,91 @@ def test_snapshot_admin_zip_links():
     assert html.escape(zip_url, quote=True) in str(admin.admin_actions(snapshot))
 
 
+def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins():
+    from archivebox.core.admin_snapshots import SnapshotAdmin
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    snapshot = _create_snapshot()
+    output_path = Path(snapshot.output_dir) / "singlefile.html"
+    output_path.write_text("<html>migrated singlefile</html>", encoding="utf-8")
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="singlefile",
+        hook_name="on_Snapshot__50_singlefile.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="singlefile.html",
+        output_files={"singlefile.html": {"size": output_path.stat().st_size, "root_relative": True}},
+        output_size=output_path.stat().st_size,
+    )
+    admin = SnapshotAdmin(Snapshot, AdminSite())
+    admin.request = _admin_get_request()
+
+    file_icons = str(admin.files(snapshot))
+    expected_path = f"/{snapshot.archive_path_from_db}/index.html#singlefile"
+    assert expected_path in html.unescape(file_icons)
+    assert f"/{snapshot.archive_path_from_db}/singlefile/" not in html.unescape(file_icons)
+    assert "files-icon-pile--html" in file_icons
+    assert file_icons.count(expected_path) == 2
+    assert "--files-icon-card-width:116px" in file_icons
+    assert "--files-icon-row-offset:47px" in file_icons
+    assert 'class="files-icon-pile-popup" popover="manual"' in file_icons
+    assert 'class="files-icon-pile-label">HTML</span>' in file_icons
+    assert "interestfor=" not in file_icons
+    assert 'style="font-size: 1em; opacity: 0.8;"' not in file_icons
+    assert 'data-tooltip="HTML"' in file_icons
+    assert 'data-tooltip="singlefile"' in file_icons
+    assert 'title="singlefile"' not in file_icons
+
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="screenshot",
+        hook_name="on_Snapshot__50_screenshot.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="screenshot/screenshot.png",
+        output_files={"screenshot/screenshot.png": {"size": 1}},
+        output_size=1,
+    )
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="papersdl",
+        hook_name="on_Snapshot__50_papersdl.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="papersdl/paper.pdf",
+        output_files={"papersdl/paper.pdf": {"size": 1}},
+        output_size=1,
+    )
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="archivedotorg",
+        hook_name="on_Snapshot__50_archivedotorg.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="archivedotorg/output.html",
+        output_files={"archivedotorg/output.html": {"size": 1}},
+        output_size=1,
+    )
+    file_icons = str(admin.files(snapshot))
+    assert "files-icon-plugin--screenshot" in file_icons
+    assert "files-icon-pile--raster" in file_icons
+    assert "files-icon-plugin--papersdl" in file_icons
+    assert "files-icon-pile--embedded_media" in file_icons
+    assert "files-icon-pile--other" not in file_icons
+    assert "archivedotorg" not in file_icons
+
+    for number in range(15):
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin=f"extra_plugin_{number}",
+            hook_name=f"on_Snapshot__{number:02d}_extra.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str=f"extra_plugin_{number}/output.txt",
+            output_files={f"extra_plugin_{number}/output.txt": {"size": 1}},
+            output_size=1,
+        )
+    all_file_icons = str(admin.files(snapshot))
+    assert all_file_icons.count('class="exists-True') == 22
+    assert "+" not in all_file_icons
+
+
 def test_admin_navigation_hides_agent_link_when_opencode_is_disabled(client, admin_user):
     from archivebox.machine.models import Machine
 

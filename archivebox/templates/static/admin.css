@@ -362,7 +362,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .search-mode-selector
     white-space: normal !important;
 }
 
-body.change-list #changelist #changelist-form {
+:is(body.change-list, .snapshot-changelist-widget) #changelist #changelist-form {
     display: contents;
 }
 
@@ -791,6 +791,7 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
         line-height: 1.2;
         text-align: right;
         white-space: nowrap !important;
+        container: admin-navigation / inline-size;
     }
 
     #user-tools .navbar-item {
@@ -878,6 +879,26 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
         .navbar-user,
         .navbar-account
     ) {
+        display: none;
+    }
+}
+
+/* Drop secondary links before they crowd the primary archive actions. Use the
+   navigation's available width, including space taken by the branding. */
+@container admin-navigation (max-width: 760px) {
+    #user-tools :is(.navbar-user, .navbar-docs, .navbar-api) {
+        display: none;
+    }
+}
+
+@container admin-navigation (max-width: 640px) {
+    #user-tools .navbar-account {
+        display: none;
+    }
+}
+
+@container admin-navigation (max-width: 560px) {
+    #user-tools :is(.navbar-log, .navbar-tags, .navbar-admin) {
         display: none;
     }
 }
@@ -1036,8 +1057,74 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
 }
 
 #content td.field-title_str {
-    padding-left: 2px;
+    padding-left: 8px;
     padding-right: 2px;
+    position: relative;
+}
+
+#result_list tbody .field-title_str > .snapshot-title-detail-hitbox {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+#result_list tbody .field-title_str > a {
+    color: #334155;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.4;
+    position: relative;
+    z-index: 2;
+}
+
+#result_list tbody .field-title_str > a > b {
+    font-weight: 600;
+}
+
+#result_list tbody .field-title_str > .snapshot-title-url {
+    padding-left: 4px;
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+}
+
+#result_list tbody .field-title_str > .snapshot-title-url a {
+    pointer-events: auto;
+}
+
+#result_list .snapshot-original-url {
+    display: block;
+}
+
+#result_list .snapshot-original-url code {
+    display: block;
+    /* Fill the cell without making a long URL widen the table. */
+    width: 0;
+    min-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#result_list tbody :is(.field-size, .field-size_with_stats) a,
+#result_list tbody :is(.field-size, .field-size_with_stats) a:hover {
+    color: #334155;
+    text-decoration: none;
+}
+
+#result_list tbody :is(.field-size, .field-size_with_stats) a:not(:has(b)) {
+    font-weight: 400;
+    opacity: 0.75;
+}
+
+#result_list tbody td.field-preview_icon .snapshot-thumbnail {
+    transition: box-shadow 140ms ease, transform 140ms ease;
+}
+
+#result_list tbody td.field-preview_icon > a:hover .snapshot-thumbnail,
+#result_list tbody td.field-preview_icon > a:focus-visible .snapshot-thumbnail {
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
 }
 
 #content th.field-preview_icon,
@@ -1046,10 +1133,37 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
     padding-right: 2px;
 }
 
-#content th.column-created_at,
-#content tbody th.field-created_at {
-    width: 1%;
+#content th.column-created_at_display,
+#content tbody th.field-created_at_display,
+#content tbody td.field-created_at_display {
+    width: 104px !important;
+    min-width: 104px !important;
+    max-width: 104px !important;
+    box-sizing: border-box;
     white-space: nowrap;
+    text-align: center;
+}
+
+#result_list tbody .field-created_at_display a,
+#result_list tbody .field-title_str a {
+    text-decoration: none;
+}
+
+#result_list tbody .field-created_at_display a:hover,
+#result_list tbody .field-title_str a:hover {
+    text-decoration: underline;
+}
+
+.snapshot-created-at {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+#result_list .snapshot-created-at__time {
+    color: #94a3b8;
 }
 
 #content th.column-action-checkbox,
@@ -1218,8 +1332,8 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     color: #1d4ed8;
 }
 
-#content th.column-created_at,
-#content tbody th.field-created_at {
+#content th.column-created_at_display,
+#content tbody th.field-created_at_display {
     padding-left: 6px;
     padding-right: 6px;
 }
@@ -1243,22 +1357,28 @@ body.model-crawl.change-list #result_list td.field-short_id a {
 #content td.field-size_with_stats {
     padding-left: 2px;
     padding-right: 2px;
+    width: 82px;
+    min-width: 82px;
+    max-width: 82px;
+    white-space: nowrap;
 }
 
+#content th.column-files,
 #content th.field-files,
 #content td.field-files {
     padding-left: 2px;
     padding-right: 2px;
-    width: 212px;
-    max-width: 212px;
+    width: var(--files-icon-card-width, 132px);
+    max-width: 132px;
 }
 
+#content th.column-files,
 #content th.field-files,
 #content td.field-files {
     padding-left: 2px;
     padding-right: 2px;
-    width: 212px;
-    max-width: 212px;
+    width: 132px;
+    max-width: 132px;
 }
 
 #content th.field-size_with_stats,
@@ -1275,48 +1395,40 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     max-width: 90px;
 }
 
-#content th.field-tags_inline,
-#content td.field-tags_inline {
-    max-width: 400px;
-    width: 380px;
-    min-width: 340px;
+#result_list th.column-tags_inline,
+#result_list th.field-tags_inline,
+#result_list td.field-tags_inline {
+    width: 1px;
+    min-width: 0;
+    max-width: 220px;
     padding-left: 2px;
     padding-right: 2px;
 }
 
-#content td.field-tags_inline .tag-pills-inline {
+#result_list td.field-tags_inline .tag-pills-inline {
     flex-wrap: wrap;
 }
 
-#content td.field-tags_inline .tag-editor-inline {
-    max-width: 400px;
+#result_list td.field-tags_inline .tag-editor-inline {
+    width: max-content;
+    max-width: 220px;
+    box-sizing: border-box;
 }
 
-#content td.field-tags_inline .tag-editor-inline.readonly {
+#result_list td.field-tags_inline .tag-editor-inline.readonly {
     padding-right: 0;
-}
-
-#content th.field-tags_inline,
-#content td.field-tags_inline {
-    max-width: 220px;
-    width: 220px;
-    padding-left: 2px;
-    padding-right: 2px;
-}
-
-#content td.field-tags_inline .tag-pills-inline {
-    flex-wrap: wrap;
-}
-
-#content td.field-tags_inline .tag-editor-inline {
-    max-width: 220px;
 }
 
 #content td.field-files {
     white-space: nowrap;
-    width: 212px;
-    max-width: 212px;
-    overflow: hidden;
+    width: 132px;
+    max-width: 132px;
+    overflow: visible !important;
+}
+#content td.field-files:has(.files-icon-pile:hover),
+#content td.field-files:has(.files-icon-pile:focus-within) {
+    position: relative;
+    z-index: 10000;
 }
 #content td.field-files .files-icons a {
     display: inline-flex;
@@ -1382,21 +1494,177 @@ body.model-crawl.change-list #result_list td.field-short_id a {
 }
 
 .files-icons {
-    display: inline-flex;
-    flex-wrap: wrap;
-    gap: 2px;
+    display: inline-grid;
+    grid-template-columns: repeat(5, 22px);
+    grid-template-rows: 18px;
+    grid-auto-flow: column;
+    grid-auto-columns: 22px;
+    gap: 0;
     vertical-align: middle;
+    align-content: start;
+    justify-content: start;
 }
 
 .files-icons--compact {
     display: inline-grid;
+    grid-template-columns: repeat(5, 22px);
+    grid-template-rows: 18px;
     grid-auto-flow: column;
-    grid-auto-columns: auto;
-    grid-template-rows: repeat(4, auto);
-    gap: 2px 4px;
+    grid-auto-columns: 22px;
+    gap: 0;
     justify-content: start;
     align-content: start;
-    max-width: 212px;
+    max-width: 100%;
+}
+
+.files-icon-pile {
+    position: relative;
+    display: inline-block;
+    width: 16px;
+    height: 18px;
+    isolation: isolate;
+    vertical-align: top;
+}
+
+.files-icon-pile::before,
+.files-icon-pile::after {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border: 1px solid #d9cdd3;
+    border-radius: 3px;
+    background: #f7f2f4;
+    content: "";
+    pointer-events: none;
+}
+
+.files-icon-pile::before { transform: translate(2px, -2px) rotate(7deg); z-index: -2; }
+.files-icon-pile::after { transform: translate(1px, -1px) rotate(3deg); z-index: -1; background: #ece5e8; }
+.files-icon-pile-popup {
+    position: fixed;
+    z-index: 0;
+    box-sizing: border-box;
+    display: block;
+    width: var(--files-icon-card-width, 116px);
+    min-height: calc(var(--files-icon-rows, 1) * 18px + 34px);
+    margin: 0;
+    padding: 8px 6px;
+    overflow: visible;
+    border: 1px solid #d9cdd3;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 4px 12px #35202d26;
+    opacity: 1;
+}
+.files-icon-pile-popup > a {
+    position: absolute;
+    top: var(--files-icon-member-top, 8px);
+    left: var(--files-icon-member-left, 6px);
+}
+.files-icon-pile-popup::before {
+    position: absolute;
+    top: -5px;
+    left: var(--files-icon-caret-x, 8px);
+    z-index: 1;
+    width: 8px;
+    height: 8px;
+    transform: translateX(-50%) rotate(45deg);
+    border-top: 1px solid #d9cdd3;
+    border-left: 1px solid #d9cdd3;
+    background: #fff;
+    content: "";
+    pointer-events: none;
+}
+.files-icon-pile-popup > .files-icon-pile-label {
+    position: absolute;
+    right: 6px;
+    bottom: 4px;
+    left: 6px;
+    padding-top: 4px;
+    border-top: 1px solid #eef0f2;
+    color: #64748b;
+    font-size: 10px;
+    line-height: 12px;
+    text-align: center;
+    white-space: nowrap;
+}
+.files-icon-pile > .files-icon-pile-top {
+    position: absolute;
+    top: 1px;
+    left: min(calc(var(--files-icon-index, 0) * 1px), 2px);
+    z-index: var(--files-icon-index, 0);
+}
+.files-icon-pile > .files-icon-pile-top {
+    left: var(--files-icon-front-offset, 0px);
+    z-index: calc(100 + var(--files-icon-front-index, 0));
+}
+.files-icon-pile:hover,
+.files-icon-pile:focus-within {
+    z-index: 9999;
+    overflow: visible;
+}
+.files-icon-pile > .files-icon-pile-cover {
+    z-index: 200;
+}
+.files-icon-pile a[data-tooltip]::after,
+.files-icon-pile span[data-tooltip]::after {
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 0;
+    z-index: 10001;
+    padding: 5px 8px;
+    border: 1px solid #111827;
+    border-radius: 6px;
+    background: #1f2937;
+    box-shadow: 0 4px 12px #0f172a33;
+    color: #fff;
+    content: attr(data-tooltip);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.2;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .08s ease, visibility 0s linear .08s;
+    visibility: hidden;
+    white-space: nowrap;
+}
+.files-icon-pile a[data-tooltip]:hover::after,
+.files-icon-pile a[data-tooltip]:focus-visible::after,
+.files-icon-pile span[data-tooltip]:hover::after {
+    opacity: 1;
+    transition-delay: .08s, 0s;
+    visibility: visible;
+}
+.files-icons:has(.files-icon-pile.is-open) .files-icon-pile:not(.is-open) {
+    opacity: .2;
+}
+.files-icons .files-icon-pile.is-open { z-index: 9999; }
+.files-icon-pile > a.files-icon-pile-cover:hover::before,
+.files-icon-pile > a.files-icon-pile-cover:focus-visible::before,
+.files-icon-pile > span.files-icon-pile-cover:hover::before {
+    position: absolute;
+    top: 17px;
+    left: 50%;
+    z-index: 210;
+    width: 7px;
+    height: 7px;
+    transform: translateX(-50%) rotate(45deg);
+    border-top: 1px solid #d9cdd3;
+    border-left: 1px solid #d9cdd3;
+    background: #fff;
+    content: "";
+}
+.files-icon-pile > .files-icon-pile-popup {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+.files-icon-pile > .files-icon-pile-popup:popover-open {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .files-icons a {
@@ -1421,6 +1689,7 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     font-weight: 700;
     line-height: 1;
     letter-spacing: 0;
+    pointer-events: none;
 }
 
 .files-icons .abx-output-icon svg {
@@ -1428,6 +1697,17 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     height: 16px;
     display: block;
 }
+
+.files-icons .abx-output-icon--singlefile { color: #4f46e5; background: #eef2ff; border-color: #c7d2fe; }
+.files-icons .abx-output-icon--archivewebpage { color: #7c3aed; background: #f5f3ff; border-color: #ddd6fe; }
+.files-icons .abx-output-icon--ytdlp { color: #dc2626; background: #fef2f2; border-color: #fecaca; }
+.files-icons .abx-output-icon--readability { color: #b45309; background: #fffbeb; border-color: #fde68a; }
+.files-icons .abx-output-icon--forumdl { color: #0369a1; background: #f0f9ff; border-color: #bae6fd; }
+.files-icons .abx-output-icon--papersdl { color: #0f766e; background: #f0fdfa; border-color: #99f6e4; }
+.files-icons .abx-output-icon--git { color: #c2410c; background: #fff7ed; border-color: #fed7aa; }
+.files-icons .abx-output-icon--gallerydl { color: #be185d; background: #fdf2f8; border-color: #fbcfe8; }
+.files-icons .abx-output-icon--screenshot { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+.files-icons .files-icon-plugin--screenshot { color: #15803d; }
 
 .exists-False {
     opacity: 0.1;
@@ -1653,8 +1933,8 @@ body.model-archiveresult.change-list #result_list td.field-machine_link {
 
 body.model-archiveresult.change-list #result_list th.column-output_str_display,
 body.model-archiveresult.change-list #result_list td.field-output_str_display {
-    width: 110px;
-    max-width: 110px;
+    width: 120px;
+    max-width: 120px;
 }
 
 body.model-archiveresult.change-list #result_list td.field-snapshot_info a {
@@ -1828,6 +2108,7 @@ tbody .output-link:hover {opacity: 1;}
     }
 
     .model-snapshot.change-list #result_list tbody tr {
+        position: relative;
         display: grid;
         grid-template-columns: 24px 84px minmax(0, 1fr) auto;
         grid-template-areas:
@@ -1835,7 +2116,7 @@ tbody .output-link:hover {opacity: 1;}
             "check preview title title"
             "check preview tags tags"
             "check preview files size";
-        gap: 5px 8px;
+        gap: 3px 6px;
         align-items: start;
         min-width: 0;
         margin: 0 !important;
@@ -1843,6 +2124,17 @@ tbody .output-link:hover {opacity: 1;}
         border: 1px solid #e2e8f0;
         border-radius: 8px;
         background: #ffffff;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-permissions_badge {
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        width: 22px !important;
+        min-width: 22px !important;
+        max-width: 22px !important;
+        padding: 0 !important;
+        text-align: center;
     }
 
     .model-snapshot.change-list #result_list tbody tr.selected {
@@ -1868,12 +2160,35 @@ tbody .output-link:hover {opacity: 1;}
         padding-top: 2px !important;
     }
 
-    .model-snapshot.change-list #result_list tbody th.field-created_at,
-    .model-snapshot.change-list #result_list tbody td.field-created_at {
+    .model-snapshot.change-list #result_list tbody th.field-created_at_display,
+    .model-snapshot.change-list #result_list tbody td.field-created_at_display {
         grid-area: date;
         font-size: 12px;
         color: #64748b;
-        white-space: nowrap;
+        white-space: nowrap !important;
+        overflow: visible !important;
+    }
+
+    .model-snapshot.change-list #result_list tbody th.field-created_at_display > a,
+    .model-snapshot.change-list #result_list tbody td.field-created_at_display > a {
+        display: inline-flex;
+        max-width: none;
+        white-space: nowrap !important;
+    }
+
+    .model-snapshot.change-list #result_list tbody th.field-created_at_display .snapshot-created-at,
+    .model-snapshot.change-list #result_list tbody td.field-created_at_display .snapshot-created-at {
+        display: inline-flex;
+        flex-direction: row !important;
+        justify-content: center;
+        gap: 5px;
+        white-space: nowrap !important;
+    }
+
+    .model-snapshot.change-list #result_list tbody .snapshot-created-at__date,
+    .model-snapshot.change-list #result_list tbody .snapshot-created-at__time {
+        flex: 0 0 auto;
+        white-space: nowrap !important;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-preview_icon {
@@ -1881,19 +2196,32 @@ tbody .output-link:hover {opacity: 1;}
         grid-area: preview;
         align-self: stretch;
         place-items: center;
-        min-height: 84px;
+        min-height: 110px;
         overflow: hidden;
     }
 
-    .model-snapshot.change-list #result_list tbody td.field-preview_icon img.snapshot-preview.screenshot {
-        width: 80px;
-        height: 80px;
-        max-width: 80px;
-        max-height: 80px;
+    .model-snapshot.change-list #result_list tbody td.field-preview_icon .snapshot-thumbnail {
+        width: 80px !important;
+        height: 110px !important;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-preview_icon .snapshot-thumbnail > img {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain !important;
+        object-position: center !important;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-title_str {
         grid-area: title;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-title_str > a + div {
+        padding-left: 0;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-title_str a {
@@ -1904,6 +2232,21 @@ tbody .output-link:hover {opacity: 1;}
 
     .model-snapshot.change-list #result_list tbody td.field-tags_inline {
         grid-area: tags;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-tags_inline .tags-inline-editor {
+        margin-left: 0;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-tags_inline .tag-editor-inline {
+        width: 100%;
+        max-width: none;
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .model-snapshot.change-list #result_list tbody td.field-tags_inline .tag-pills-inline {
+        display: contents;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-status_with_progress {
@@ -1918,10 +2261,13 @@ tbody .output-link:hover {opacity: 1;}
 
     .model-snapshot.change-list #result_list tbody td.field-files .files-icons,
     .model-snapshot.change-list #result_list tbody td.field-files .files-icons--compact {
-        display: flex !important;
-        flex-wrap: wrap;
+        display: inline-grid !important;
+        grid-template-columns: none !important;
+        grid-auto-flow: column;
+        grid-auto-columns: 22px;
+        justify-content: start;
         max-width: 100%;
-        gap: 4px;
+        gap: 5px;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-size_with_stats {
@@ -1935,6 +2281,15 @@ tbody .output-link:hover {opacity: 1;}
 }
 
 @media (max-width: 720px) {
+    .files-icons--compact,
+    .model-snapshot.change-list .cards .card .card-info .files-icons,
+    .model-snapshot.change-list .cards .card .card-outputs .files-icons {
+        grid-template-columns: repeat(5, 22px) !important;
+        grid-template-rows: 18px !important;
+        grid-auto-flow: column !important;
+        grid-auto-columns: 22px !important;
+    }
+
     .model-snapshot.change-list #changelist #toolbar #changelist-search > div {
         grid-template-columns: minmax(0, 1fr) auto;
     }
@@ -2017,11 +2372,14 @@ tbody .output-link:hover {opacity: 1;}
 
 .model-snapshot.change-list .cards .card .card-info .files-icons,
 .model-snapshot.change-list .cards .card .card-outputs .files-icons {
-    display: inline-flex !important;
-    flex-flow: row wrap !important;
+    display: inline-grid !important;
+    grid-template-columns: repeat(5, 22px) !important;
+    grid-template-rows: 18px !important;
+    grid-auto-flow: column !important;
+    grid-auto-columns: 22px !important;
     justify-content: center !important;
-    align-items: center !important;
-    gap: 2px !important;
+    align-items: start !important;
+    gap: 0 !important;
     max-width: 100%;
 }
 
@@ -2029,7 +2387,7 @@ tbody .output-link:hover {opacity: 1;}
 .model-snapshot.change-list .cards .card .card-info .files-icons .abx-output-icon,
 .model-snapshot.change-list .cards .card .card-outputs .files-icons a,
 .model-snapshot.change-list .cards .card .card-outputs .files-icons .abx-output-icon {
-    flex: 0 0 16px;
+    flex: 0 0 17px;
 }
 
 .model-snapshot.change-list .cards .card .card-info label {
@@ -2102,7 +2460,8 @@ tbody .output-link:hover {opacity: 1;}
     }
 
     .model-snapshot.change-list #result_list tbody tr {
-        grid-template-columns: 24px 72px minmax(0, 1fr);
+        grid-template-columns: 24px 84px minmax(0, 1fr);
+        gap: 2px 4px;
         grid-template-areas:
             "check preview date"
             "check preview title"
@@ -2112,11 +2471,8 @@ tbody .output-link:hover {opacity: 1;}
             "check preview size";
     }
 
-    .model-snapshot.change-list #result_list tbody td.field-preview_icon img.snapshot-preview.screenshot {
-        width: 68px;
-        height: 68px;
-        max-width: 68px;
-        max-height: 68px;
+    .model-snapshot.change-list #result_list tbody td.field-files .files-icons {
+        gap: 0;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-status_with_progress,
@@ -2194,6 +2550,12 @@ body.embedded-change-list.model-snapshot.change-list #changelist .actions {
 .model-snapshot.change-list #changelist .paginator,
 .model-snapshot.change-list #changelist .xfull {
     grid-column: 1 / -1;
+}
+
+/* Keep snapshot results in the page's scroll area. Django's overflow-x: auto
+   also makes overflow-y auto, creating a second scrollbar around the table. */
+body.model-snapshot.change-list #changelist-form > .results {
+    overflow: visible;
 }
 
 .model-snapshot.change-list #toolbar .changelist-toolbar-row {
@@ -3472,15 +3834,15 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
     }
 }
 
-body.change-list #changelist #changelist-form > .actions-top .action-buttons[hidden],
-body.change-list #changelist #changelist-form > .actions-top .actions-tags-with-buttons[hidden] {
+:is(body.change-list, .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-buttons[hidden],
+:is(body.change-list, .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .actions-tags-with-buttons[hidden] {
     display: none !important;
 }
 
 /* Keep the search controls and the clickable selection totals in one compact
-   toolbar row on every changelist. The action form is rendered as a sibling of
+   toolbar row on standalone and embedded changelists. The action form is rendered as a sibling of
    #toolbar, so the shared wrapper owns the two-column layout. */
-body.change-list:not(.embedded-change-list) #changelist .changelist-form-container > div {
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist .changelist-form-container > div {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) max-content !important;
     grid-template-areas:
@@ -3491,7 +3853,7 @@ body.change-list:not(.embedded-change-list) #changelist .changelist-form-contain
     align-items: start;
 }
 
-body.change-list:not(.embedded-change-list) #changelist #toolbar {
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #toolbar {
     grid-area: toolbar !important;
     width: 100% !important;
     min-width: 0 !important;
@@ -3501,11 +3863,11 @@ body.change-list:not(.embedded-change-list) #changelist #toolbar {
 /* The action summary already exposes selected, filtered, and total counts with
    clickable values. Django's older search-result count duplicates that data
    below the field and makes the toolbar row taller on large result sets. */
-body.change-list:not(.embedded-change-list) #changelist #toolbar .small.quiet {
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #toolbar .small.quiet {
     display: none !important;
 }
 
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top {
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top {
     grid-area: counts !important;
     display: flex !important;
     align-items: center !important;
@@ -3523,7 +3885,7 @@ body.change-list:not(.embedded-change-list) #changelist #changelist-form > .acti
     overflow: visible !important;
 }
 
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .actions-left {
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .actions-left {
     display: flex !important;
     align-items: center !important;
     justify-content: flex-end !important;
@@ -3535,7 +3897,7 @@ body.change-list:not(.embedded-change-list) #changelist #changelist-form > .acti
     overflow: visible !important;
 }
 
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary {
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary {
     display: inline-flex !important;
     flex: 0 0 auto !important;
     flex-direction: column !important;
@@ -3557,18 +3919,18 @@ body.change-list:not(.embedded-change-list) #changelist #changelist-form > .acti
     white-space: nowrap !important;
 }
 
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary a,
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-top .action-summary span {
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary a,
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-top .action-summary span {
     font-size: inherit !important;
     line-height: inherit !important;
 }
 
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .cards,
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .results,
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .changelist-footer,
-body.change-list:not(.embedded-change-list) #changelist #changelist-form > .actions-bottom,
-body.change-list:not(.embedded-change-list) #changelist .paginator,
-body.change-list:not(.embedded-change-list) #changelist .xfull {
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .cards,
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .results,
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .changelist-footer,
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .actions-bottom,
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist .paginator,
+:is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist .xfull {
     grid-column: 1 / -1 !important;
 }
 
@@ -3579,6 +3941,37 @@ body.change-list:not(.embedded-change-list) #changelist .xfull {
     top: 1px;
     bottom: 1px;
     border-radius: 7px 0 0 7px;
+}
+
+/* Keep the snapshot list flush with the page and its heading rows compact. */
+body.model-snapshot.change-list #content {
+    padding: 0;
+}
+
+.model-snapshot.change-list #changelist {
+    margin: 0;
+    border-radius: 0;
+}
+
+body.model-snapshot.change-list #changelist .changelist-form-container > div {
+    row-gap: 4px !important;
+}
+
+.model-snapshot.change-list #changelist #toolbar {
+    padding-top: 2px !important;
+    padding-left: 2px !important;
+    padding-bottom: 0 !important;
+}
+
+.model-snapshot.change-list #result_list thead th {
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+.model-snapshot.change-list #content #result_list thead th .text a,
+.model-snapshot.change-list #content #result_list thead th .text span {
+    padding-top: 4px;
+    padding-bottom: 4px;
 }
 
 /* Change forms use a dense grid so ordinary cards keep tiling even when a

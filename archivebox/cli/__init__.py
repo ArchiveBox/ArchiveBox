@@ -155,13 +155,10 @@ def cli(ctx, help=False):
     wants_help = any(arg in ("-h", "--help", "--version") for arg in sys.argv[1:])
     if not wants_help and (subcommand in ArchiveBoxGroup.archive_commands or subcommand in ArchiveBoxGroup.model_commands):
         try:
-            if subcommand == "server":
-                run_in_debug = "--reload" in sys.argv or os.environ.get("DEBUG") in ("1", "true", "True", "TRUE", "yes")
-                if run_in_debug:
-                    os.environ["ARCHIVEBOX_RUNSERVER"] = "1"
-                    if "--reload" in sys.argv:
-                        os.environ["ARCHIVEBOX_AUTORELOAD"] = "1"
-
+            # RUNSERVER_WORKER sets the web-worker markers on its own child.
+            # Setting them on the server parent leaks them through supervisord
+            # into runners waiting for takeover, which then register themselves
+            # as web workers and trigger spurious runner_watch reloads.
             from archivebox.config.django import setup_django
             from archivebox.misc.checks import check_data_folder, check_migrations
 

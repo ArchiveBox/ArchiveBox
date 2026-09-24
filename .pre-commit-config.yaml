@@ -56,6 +56,8 @@ repos:
       - id: mixed-line-ending
       - id: fix-byte-order-marker
       - id: end-of-file-fixer
+        # Preserve the exact bytes of captured cryptographic proof fixtures.
+        exclude: ^archivebox/tests/fixtures/legacy_proofs/.*\.json$
       - id: detect-private-key
       - id: debug-statements
       - id: forbid-submodules

@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 from html import unescape
 from pathlib import Path
@@ -15,6 +16,7 @@ from django.utils.text import Truncator
 
 from archivebox.config import CONSTANTS
 from archivebox.core.routes_util import (
+    build_web_url,
     build_snapshot_url,
     get_admin_base_url,
     get_snapshot_base_url,
@@ -388,9 +390,26 @@ def index(value, position):
 def file_size(num_bytes: float, decimal_places: int = 1) -> str:
     for count in ["Bytes", "KB", "MB", "GB"]:
         if num_bytes > -1024.0 and num_bytes < 1024.0:
+            if num_bytes >= 0:
+                precision = 10 ** max(0, int(decimal_places))
+                num_bytes = math.ceil(num_bytes * precision) / precision
             return f"{num_bytes:.{decimal_places}f} {count}"
         num_bytes /= 1024.0
+    if num_bytes >= 0:
+        precision = 10 ** max(0, int(decimal_places))
+        num_bytes = math.ceil(num_bytes * precision) / precision
     return f"{num_bytes:.{decimal_places}f} TB"
+
+
+@register.filter
+def grid_file_size(num_bytes: float | None) -> str:
+    if not num_bytes or num_bytes <= 0:
+        return ""
+    if num_bytes < 1024**2:
+        return f"{max(1, num_bytes / 1024):.0f}kb"
+    if num_bytes < 1024**3:
+        return f"{num_bytes / 1024**2:.0f}mb"
+    return f"{num_bytes / 1024**3:.1f}gb"
 
 
 @register.filter
@@ -558,6 +577,18 @@ def snapshot_base_url(context, snapshot) -> str:
 
 
 @register.simple_tag(takes_context=True)
+def snapshot_detail_url(context, snapshot) -> str:
+    """Keep the trusted snapshot detail page on web.*, not the replay host."""
+    if context.get("STATIC_EXPORT"):
+        return _snapshot_url_for_context(context, snapshot, "index.html")
+    return build_web_url(
+        f"{snapshot.get_absolute_url().rstrip('/')}/index.html",
+        request=context.get("request"),
+        config=context.get("CONFIG"),
+    )
+
+
+@register.simple_tag(takes_context=True)
 def snapshot_url(context, snapshot, path: str = "") -> str:
     return _snapshot_url_for_context(context, snapshot, path)
 
@@ -638,6 +669,7 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
 @register.simple_tag(takes_context=True)
 def snapshot_index_row(context, link) -> str:
     snapshot_base = _snapshot_base_url_for_context(context, link)
+    detail_url = snapshot_detail_url(context, link)
 
     status = getattr(link, "status", None) or "unknown"
     bookmarked_at = getattr(link, "bookmarked_at", None)
@@ -705,23 +737,23 @@ def snapshot_index_row(context, link) -> str:
     html = f"""
 <tr class="snapshot-row status-{escape(status)}">
     <td class="snapshot-time" title="{escape(title_time)}" data-sort="{escape(sort_value)}">
-        <a href="{escape(snapshot_base)}/index.html">
+        <a href="{escape(detail_url)}">
             <span>{escape(date_text)}</span>
             <small>{escape(time_text)}</small>
         </a>
     </td>
     <td class="snapshot-preview-cell">
-        <a href="{escape(snapshot_base)}/index.html" title="Open archived snapshot">
+        <a href="{escape(detail_url)}" title="Open archived snapshot">
             {preview_html}
         </a>
     </td>
     <td class="snapshot-title-cell" title="{escape(title or url)}">
         <div class="snapshot-title-line">
-            <a href="{escape(snapshot_base)}/index.html" class="snapshot-favicon-link" title="Open archived snapshot">
+            <a href="{escape(detail_url)}" class="snapshot-favicon-link" title="Open archived snapshot">
                 {favicon_html}
             </a>
-            <a href="{escape(snapshot_base)}/index.html" class="snapshot-title">
-                {escape(Truncator(title_text).chars(110))}
+            <a href="{escape(detail_url)}" class="snapshot-title">
+                {escape(Truncator(title_text).chars(110) if title_text != url else url)}
             </a>
         </div>
         <a href="{escape(url)}" class="snapshot-url" title="{escape(url)}" target="_blank" rel="noopener noreferrer">
@@ -797,6 +829,27 @@ def plugin_card(context, result) -> str:
         return ""
 
     plugin = get_plugin_name(result.plugin)
+    if not context.get("STATIC_EXPORT"):
+        # The cover and expanded stack both embed this one card document. Run
+        # plugin code on the snapshot origin so it can read saved files without
+        # exposing raw archives or the admin session to the collection page.
+        card_url = build_snapshot_url(
+            str(_snapshot_id(result.snapshot)),
+            f"_card/{result.id}",
+            request=context.get("request"),
+            config=context.get("CONFIG"),
+        )
+        return mark_safe(
+            f'<iframe src="{escape(card_url)}" title="{escape(plugin)} card" '
+            'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
+            'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>',
+        )
+    return render_plugin_card_document(context, result)
+
+
+def render_plugin_card_document(context, result) -> str:
+    """Render one plugin card template for the trusted snapshot-origin frame."""
+    plugin = get_plugin_name(result.plugin)
     has_card_template = bool(get_plugin_template(plugin, "card", fallback=False))
     template_str = get_plugin_template(plugin, "card")
 
@@ -859,6 +912,16 @@ def plugin_card(context, result) -> str:
             rendered = tpl.render(ctx)
             # Only return non-empty content (strip whitespace to check)
             if rendered.strip():
+                if context.get("STATIC_EXPORT") and rendered.lstrip().lower().startswith("<!doctype html"):
+                    # Static exports have no _card route. Keep the same card
+                    # document in both stack positions, with relative saved-file
+                    # URLs resolved against the exported index page.
+                    return mark_safe(
+                        f'<iframe srcdoc="{escape(rendered)}" title="{escape(plugin)} card" '
+                        'loading="lazy" sandbox="allow-scripts allow-same-origin" '
+                        'style="width:100% !important;height:100% !important;max-width:100% !important;'
+                        'transform:none !important;border:0"></iframe>',
+                    )
                 return mark_safe(rendered)
     except (template.TemplateSyntaxError, AttributeError, TypeError, ValueError):
         rendered = ""

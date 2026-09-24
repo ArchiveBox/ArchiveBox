@@ -76,6 +76,8 @@ def command_owns_runtime_stack(command, *, data_dir: str | Path) -> bool:
 
 def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
     """Return the newest live local parent allowed to borrow runner/sonic."""
+    from django.db.models import Q
+
     from archivebox.machine.models import Machine, Process
 
     machine = Machine.current()
@@ -83,7 +85,13 @@ def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
         machine=machine,
         status=Process.StatusChoices.RUNNING,
         pwd=str(data_dir),
-        process_type__in=(Process.TypeChoices.SERVER, Process.TypeChoices.ADD, Process.TypeChoices.UPDATE),
+    ).filter(
+        Q(process_type__in=(Process.TypeChoices.SERVER, Process.TypeChoices.ADD, Process.TypeChoices.UPDATE))
+        # A direct `run` owns its own hooks, just as add/update own theirs via
+        # a supervised one-shot worker. Respawning the server daemon must not
+        # steal the gate back from that newer foreground command. Supervised
+        # runner children cannot elect themselves above their parent command.
+        | (Q(process_type=Process.TypeChoices.ORCHESTRATOR) & ~Q(parent__process_type=Process.TypeChoices.SUPERVISORD)),
     )
     if exclude_id is not None:
         qs = qs.exclude(id=exclude_id)

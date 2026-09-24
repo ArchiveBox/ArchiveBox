@@ -1036,7 +1036,6 @@
             }
 
             #result_list tbody td {
-                padding: 12px 16px;
                 color: #334155;
                 vertical-align: middle;
             }
@@ -1246,8 +1245,8 @@
             body.change-list #changelist {
                 border: 0 !important;
             }
-            body.change-list #changelist .actions .button,
-            body.change-list #changelist .actions select {
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .button,
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .actions select {
                 display: inline-flex;
                 align-items: center;
                 box-sizing: border-box;
@@ -1340,8 +1339,8 @@
             }
 
             /* The native select receives the actual click, including in WKWebView. */
-            body.change-list #changelist .actions .action-rearchive-select,
-            body.change-list #changelist .actions .action-permissions-select {
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-rearchive-select,
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .actions .action-permissions-select {
                 position: absolute;
                 inset: 0;
                 width: 100%;
@@ -1352,9 +1351,9 @@
                 margin: 0;
             }
 
-            body.change-list #changelist .action-rearchive-wrapper > .button,
-            body.change-list #changelist .action-permissions-wrapper > .button {
-                padding: 8px 16px !important;
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .action-rearchive-wrapper > .button,
+            :is(body.change-list, .snapshot-changelist-widget) #changelist .action-permissions-wrapper > .button {
+                padding: 8px 18px !important;
                 width: max-content;
                 min-width: max-content;
                 flex: 0 0 auto;
@@ -2548,6 +2547,7 @@
             }
         </script>
         <script src="{% static 'admin-inline-tags.js' %}"></script>
+        <script src="{% static 'files-icon-piles.js' %}"></script>
         {% include "includes/output_delete_controls.html" %}
     </body>
 </html>

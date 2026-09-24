@@ -3,7 +3,7 @@
                         {% with display_path=result.path display_url='' preview_url='' %}
                         {% if display_path %}{% snapshot_url snapshot display_path as display_url %}{% endif %}
                         {% if display_path %}{% if result.direct_preview_path %}{% snapshot_url snapshot result.direct_preview_path as preview_url %}{% else %}{% snapshot_preview_url snapshot display_path result.result as preview_url %}{% endif %}{% endif %}
-                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
+                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}" data-output-size="{{result.size|default:0}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
                                 <div class="thumb-body">
                                     <div class="thumb-actions">
                                         {% if not STATIC_EXPORT %}<a href="{% snapshot_url snapshot result.folder_path|default:result.name %}/?files=1" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
@@ -24,6 +24,10 @@
                                 </div>
                                 {% if result.result and display_path %}
                                     <div class="card-img-top thumbnail-wrapper">
+                                        {% comment %}The outer detail UI is trusted and may be on web.*. Every
+                                           live plugin card uses the same scoped _card document on the
+                                           snapshot origin in both stack positions. Never run saved
+                                           HTML/JS/CSS on web.* or share the admin session with snap-*.{% endcomment %}
                                         {% with plugin_base=result.name|plugin_name %}
                                         {% if plugin_base != 'ytdlp' and plugin_base != 'yt-dlp' and plugin_base != 'youtube-dl' %}
                                         <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})" aria-label="Preview {{result.name|plugin_name}}"></a>
@@ -47,7 +51,7 @@
                         {% endwith %}
                     {% endfor %}
                     {% if loose_items or not STATIC_EXPORT %}
-                    <div class="thumb-card" data-other-files{% if not STATIC_EXPORT %} data-discover-files{% endif %}>
+                    <div class="thumb-card" data-other-files data-output-size="0"{% if not STATIC_EXPORT %} data-discover-files{% endif %}>
                             <div class="thumb-body">
                                 <div class="thumb-actions">
                                     <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
@@ -59,9 +63,9 @@
                                 <div class="loose-items">
                                     {% for item in loose_items %}
                                         {% if item.is_dir %}
-                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
                                         {% else %}
-                                            <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
+                                            <a href="{% snapshot_url snapshot item.path %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
                                     {% empty %}
                                         <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 Browse all files</a>

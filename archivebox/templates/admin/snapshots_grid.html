@@ -156,8 +156,10 @@
       justify-self: start;
   }
   .cards .card .card-meta .card-date {
+      display: block;
       justify-self: center;
       max-width: 100%;
+      text-align: center;
   }
   .cards .card .card-meta .card-size {
       justify-self: end;
@@ -240,12 +242,15 @@
           <div class="card-info card-meta">
             <input type="checkbox" class="action-select" name="_selected_action" value="{{obj.pk}}"/>
             <a href="{% url 'admin:core_snapshot_change' obj.pk %}" class="card-date">
-              <span class="timestamp">{{obj.bookmarked_at}}</span>
+              <span class="timestamp">{{ obj.bookmarked_at|date:"Y-m-d" }}</span>
+              <span class="timestamp" style="white-space:nowrap">{{ obj.bookmarked_at|date:"g:i A" }}</span>
             </a>
-            <span class="card-size">{{ obj.archive_size | file_size }}</span>
+            {% with size=obj.archive_size|grid_file_size %}
+              {% if size %}<span class="card-size">{{ size }}</span>{% endif %}
+            {% endwith %}
           </div>
           <div class="card-title" title="{{obj.title}}">
-            <a href="{% snapshot_base_url obj %}/index.html">
+            <a href="{% snapshot_detail_url obj %}">
               <h4>
                 {% if obj.is_archived %}
                     <img src="{% snapshot_base_url obj %}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
@@ -258,7 +263,7 @@
           </div>
           <code class="card-url" title="{{obj.url}}">{{obj.url}}</code>
           <div class="card-media">
-            <a href="{% snapshot_base_url obj %}/index.html" class="card-thumbnail">
+            <a href="{% snapshot_detail_url obj %}" class="card-thumbnail">
               {% snapshot_thumbnail obj admin=True width="100%" height="245px" %}
             </a>
               {% if obj.tags_str %}

@@ -8,6 +8,27 @@ function initializeOutputStacks() {
         (groups.find(group => group.id === card.dataset.outputGroup) || groups.find(group => group.id === 'other')).cards.push(card);
     }
     const name = card => card.dataset.pluginName || 'Files';
+    const formatStackSize = bytes => {
+        if (!bytes || bytes <= 0) return '';
+        const kb = 1024;
+        const mb = kb * 1024;
+        const gb = mb * 1024;
+        if (bytes < mb) return `${Math.max(1, Math.ceil(bytes / kb))} KB`;
+        if (bytes < gb) return `${Math.ceil(bytes / mb)} MB`;
+        return `${(Math.ceil(bytes / gb * 10) / 10).toFixed(1)} GB`;
+    };
+    const groupSize = group => group.cards.reduce((sum, card) => {
+        const cardSize = Number.parseInt(card.dataset.outputSize, 10) || 0;
+        const looseSize = [...card.querySelectorAll('.loose-items a[data-output-size]')]
+            .reduce((total, link) => total + (Number.parseInt(link.dataset.outputSize, 10) || 0), 0);
+        return sum + cardSize + looseSize;
+    }, 0);
+    const updateGroupSize = group => {
+        const size = buttons.get(group.id)?.querySelector('.stack-size');
+        if (!size) return;
+        size.textContent = formatStackSize(groupSize(group));
+        size.hidden = !size.textContent;
+    };
     const el = (tag, className, text) => {
         const node = document.createElement(tag);
         node.className = className;
@@ -82,6 +103,7 @@ function initializeOutputStacks() {
             }
             buttons.get(group.id).querySelector('.stack-count').textContent = String(group.cards.length);
             buttons.get(group.id).setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
+            updateGroupSize(group);
             status.textContent = '';
             const coverItems = buttons.get(group.id).querySelector('.stack-cover .loose-items');
             if (coverItems) coverItems.replaceChildren(...[...existingItems.children].map(item => item.cloneNode(true)));
@@ -124,7 +146,16 @@ function initializeOutputStacks() {
         button.setAttribute('aria-controls', tray.id);
         button.setAttribute('aria-label', `${group.label}, ${group.cards.length} outputs, expand stack`);
         const heading = el('span', 'stack-heading');
-        heading.append(el('strong', '', group.label), el('span', 'stack-count', String(group.cards.length)));
+        const headingLabel = el('span', 'stack-heading-label');
+        headingLabel.append(el('strong', '', group.label));
+        const size = el('span', 'stack-size', formatStackSize(groupSize(group)));
+        size.hidden = !size.textContent;
+        headingLabel.append(size);
+        const headingRight = el('span', 'stack-heading-right');
+        const chevron = el('span', 'stack-chevron');
+        chevron.setAttribute('aria-hidden', 'true');
+        headingRight.append(el('span', 'stack-count', String(group.cards.length)), chevron);
+        heading.append(headingLabel, headingRight);
         const pile = el('span', 'stack-pile');
         pile.setAttribute('aria-hidden', 'true');
         const top = group.cards[0];
@@ -138,8 +169,9 @@ function initializeOutputStacks() {
                 card.inert = true;
                 for (const key of Object.keys(card.dataset)) delete card.dataset[key];
                 card.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
-                // Visible stack covers load the same card document as the expanded tray.
-                setPreviewResourcePriority(card, true);
+                // Covers stay visible, but native lazy loading defers offscreen
+                // iframe work. The expanded tray has its own copy of this card.
+                setPreviewResourcePriority(card, false);
                 cover.append(card);
                 layer.append(cover);
             } else {
@@ -148,7 +180,6 @@ function initializeOutputStacks() {
             pile.append(layer);
         }
         if (!top) pile.append(el('span', 'stack-no-output', 'No captures'));
-        heading.append(el('span', 'stack-chevron', '⌄'));
         button.append(heading, pile);
         button.addEventListener('click', () => {
             const opening = active !== group;

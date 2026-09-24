@@ -549,6 +549,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        position: relative;
         width: 84px;
         height: 52px;
         flex: 0 0 84px;
@@ -570,6 +571,17 @@
         object-position: top center;
         display: block;
     }
+    #progress-monitor .snapshot-preview img:not([data-loaded]),
+    #progress-monitor .snapshot-favicon:not([data-loaded]) {
+        visibility: hidden;
+    }
+    #progress-monitor .snapshot-preview-loading {
+        position: absolute;
+        font-size: 20px;
+    }
+    #progress-monitor .snapshot-preview img[data-loaded] + .snapshot-preview-loading {
+        display: none;
+    }
     #progress-monitor .snapshot-preview.placeholder {
         font-size: 20px;
     }
@@ -580,12 +592,17 @@
     #progress-monitor .snapshot-title-line {
         display: flex;
         align-items: center;
-        gap: 7px;
+        position: relative;
+        padding-left: 23px;
         min-width: 0;
     }
     #progress-monitor .snapshot-favicon {
         width: 16px;
         height: 16px;
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
         border-radius: 3px;
         object-fit: contain;
         background: #fff;
@@ -1061,54 +1078,133 @@
     }
     function stableSnapshotMedia(snapshot) {
         // The progress endpoint can briefly omit media URLs while ArchiveResult
-        // rows settle. Once this page has seen a snapshot image URL, keep using
-        // it so the preview/favicon branch does not flicker back to placeholder.
+        // rows settle. Keep displaying the last *loaded* image while probing
+        // new URLs offscreen: an output URL may 404 until its capture finishes.
         const snapshotId = String(snapshot.id || '');
         const media = snapshotMedia.get(snapshotId) || {};
-        if (snapshot.favicon_url) media.favicon_url ||= snapshot.favicon_url;
+        if (snapshot.favicon_url && snapshot.favicon_url !== media.favicon_url) {
+            media.favicon_url = snapshot.favicon_url;
+            media.favicon_next_probe = 0;
+            media.favicon_retry_delay = 5000;
+        }
         if (snapshot.preview_url) {
-            media.preview_url ||= snapshot.preview_url;
-            media.preview_link ||= snapshot.preview_link;
-            media.preview_fallbacks ||= snapshot.preview_fallbacks || [];
+            if (snapshot.preview_url !== media.preview_url) {
+                media.preview_url = snapshot.preview_url;
+                media.preview_next_probe = 0;
+                media.preview_retry_delay = 5000;
+            }
+            media.preview_link = snapshot.preview_link || media.preview_link;
         }
         if (snapshotId) snapshotMedia.set(snapshotId, media);
+        probeSnapshotImage(media, 'favicon');
+        probeSnapshotImage(media, 'preview');
         return media;
     }
-    function preserveStableMediaNodes(nextRoot) {
-        // Snapshot preview/favicon files are immutable once visible. Keep the
-        // loaded DOM nodes across poll renders so the browser never reloads
-        // them while progress text/badges continue updating around them.
-        const currentCards = new Map(
-            Array.from(crawlTree.querySelectorAll('.snapshot-item[data-snapshot-id]')).map(card => [card.dataset.snapshotId, card])
-        );
-        nextRoot.querySelectorAll('.snapshot-item[data-snapshot-id]').forEach(nextCard => {
-            const currentCard = currentCards.get(nextCard.dataset.snapshotId);
-            if (!currentCard) return;
-            currentCard.querySelectorAll('[data-stable-media]').forEach(currentNode => {
-                const nextNode = nextCard.querySelector(`[data-stable-media="${currentNode.dataset.stableMedia}"]`);
-                if (nextNode) nextNode.replaceWith(currentNode);
-            });
-        });
+    function probeSnapshotImage(media, kind) {
+        const url = media[`${kind}_url`];
+        if (!url || media[`${kind}_ready_url`] === url || media[`${kind}_probing`] === url || Date.now() < (media[`${kind}_next_probe`] || 0)) return;
+        media[`${kind}_probing`] = url;
+        const probe = new Image();
+        probe.onload = function() {
+            if (media[`${kind}_url`] !== url) return;
+            media[`${kind}_ready_url`] = url;
+            media[`${kind}_ready_src`] = probe.src;
+            media[`${kind}_probing`] = '';
+            media[`${kind}_retry_delay`] = 5000;
+        };
+        probe.onerror = function() {
+            if (media[`${kind}_url`] !== url) return;
+            media[`${kind}_probing`] = '';
+            const delay = media[`${kind}_retry_delay`] || 5000;
+            media[`${kind}_next_probe`] = Date.now() + delay;
+            media[`${kind}_retry_delay`] = Math.min(delay * 2, 30000);
+        };
+        // A previous 404 may be cached. Bust only the background probe URL;
+        // the visible card keeps its loaded image or fixed-size placeholder.
+        const probeUrl = new URL(url, window.location.href);
+        probeUrl.searchParams.set('progress_retry', String(Date.now()));
+        probe.src = probeUrl.href;
+    }
+    function sameProgressNode(current, next) {
+        if (current.nodeType !== next.nodeType) return false;
+        if (current.nodeType !== Node.ELEMENT_NODE) return true;
+        if (current.tagName !== next.tagName) return false;
+        for (const key of ['crawlId', 'snapshotId', 'stableMedia']) {
+            if ((current.dataset[key] || next.dataset[key]) && current.dataset[key] !== next.dataset[key]) return false;
+        }
+        return (current.className || '').split(' ')[0] === (next.className || '').split(' ')[0];
+    }
+    function reconcileProgressNode(current, next) {
+        if (current.nodeType === Node.TEXT_NODE) {
+            if (current.textContent !== next.textContent) current.textContent = next.textContent;
+            return;
+        }
+        if (current.nodeType !== Node.ELEMENT_NODE) return;
+        // Never detach a loaded image on a poll. Its URL only changes when the
+        // progress API reports a new output; keep a successful fallback too.
+        if (current.dataset.stableMedia && current.dataset.mediaUrl === next.dataset.mediaUrl) {
+            if (current.tagName === 'A' && current.getAttribute('href') !== next.getAttribute('href')) {
+                current.setAttribute('href', next.getAttribute('href'));
+            }
+            return;
+        }
+        for (const attr of Array.from(current.attributes)) {
+            if (!next.hasAttribute(attr.name)) current.removeAttribute(attr.name);
+        }
+        for (const attr of Array.from(next.attributes)) {
+            if (current.getAttribute(attr.name) !== attr.value) current.setAttribute(attr.name, attr.value);
+        }
+        reconcileProgressChildren(current, next);
+    }
+    function reconcileProgressChildren(current, next) {
+        let position = 0;
+        const nextNodes = Array.from(next.childNodes);
+        for (const nextChild of nextNodes) {
+            let child = current.childNodes[position];
+            if (!child) {
+                current.appendChild(nextChild);
+            } else if (sameProgressNode(child, nextChild)) {
+                reconcileProgressNode(child, nextChild);
+            } else {
+                const laterNext = nextNodes.slice(position + 1);
+                if (laterNext.some(node => sameProgressNode(child, node))) {
+                    // A new optional node (such as a favicon) precedes the old
+                    // one. Insert it without detaching the old loaded image.
+                    current.insertBefore(nextChild, child);
+                } else if (Array.from(current.childNodes).slice(position + 1).some(node => sameProgressNode(node, nextChild))) {
+                    // The old optional node disappeared; remove only that node.
+                    child.remove();
+                    reconcileProgressNode(current.childNodes[position], nextChild);
+                } else {
+                    child.replaceWith(nextChild);
+                }
+            }
+            position += 1;
+        }
+        while (current.childNodes.length > position) current.lastChild.remove();
     }
     function replaceCrawlTree(html) {
         const template = document.createElement('template');
         template.innerHTML = html;
-        preserveStableMediaNodes(template.content);
-        crawlTree.replaceChildren(...template.content.childNodes);
+        reconcileProgressChildren(crawlTree, template.content);
     }
-    window.nextPreviewFallback = function(img) {
-        const fallbacks = (img.dataset.fallbacks || '').split(',').filter(Boolean);
-        if (fallbacks.length > 0) {
-            img.src = fallbacks.shift();
-            img.dataset.fallbacks = fallbacks.join(',');
-        } else {
-            const preview = img.closest('.snapshot-preview');
-            if (preview) {
-                preview.removeAttribute('data-stable-media');
-                preview.classList.add('placeholder');
-                preview.innerHTML = '<span>▤</span>';
+    window.failedProgressImage = function(img) {
+        const snapshotId = img.closest('.snapshot-item')?.dataset.snapshotId;
+        const media = snapshotMedia.get(snapshotId);
+        if (media) {
+            for (const kind of ['favicon', 'preview']) {
+                if (media[`${kind}_ready_src`] === img.src) {
+                    media[`${kind}_ready_url`] = '';
+                    media[`${kind}_ready_src`] = '';
+                    media[`${kind}_next_probe`] = 0;
+                }
             }
         }
+        const preview = img.closest('.snapshot-preview');
+        if (preview) {
+            preview.classList.add('placeholder');
+            preview.innerHTML = '<span>▤</span>';
+        } else img.remove();
     };
     function formatUrl(url) {
         if (!url) return '(no URL)';
@@ -1466,11 +1562,13 @@
         const titleText = snapshot.title || formatUrl(snapshot.full_url || snapshot.url);
         const urlText = snapshot.full_url || snapshot.url || '';
         const media = stableSnapshotMedia(snapshot);
-        const faviconHtml = media.favicon_url
-            ? `<img class="snapshot-favicon" data-stable-media="favicon" src="${escapeAttr(media.favicon_url)}" alt="" decoding="async" loading="lazy" onerror="this.remove()">`
+        const faviconHtml = media.favicon_ready_src
+            ? `<img class="snapshot-favicon" data-stable-media="favicon" data-media-url="${escapeAttr(media.favicon_ready_url)}" src="${escapeAttr(media.favicon_ready_src)}" alt="" decoding="async" loading="lazy" onload="this.dataset.loaded='1'" onerror="failedProgressImage(this)">`
             : '';
-        const previewHtml = media.preview_url
-            ? `<a class="snapshot-preview" data-stable-media="preview" href="${escapeAttr(media.preview_link || snapshot.view_url || adminUrl)}" title="Open snapshot output"><img src="${escapeAttr(media.preview_url)}" alt="" decoding="async" loading="lazy" data-fallbacks="${escapeAttr((media.preview_fallbacks || []).join(','))}" onerror="nextPreviewFallback(this)"></a>`
+        const previewSrc = media.preview_ready_src || media.favicon_ready_src;
+        const previewMediaUrl = media.preview_ready_src ? media.preview_ready_url : media.favicon_ready_url;
+        const previewHtml = previewSrc
+            ? `<a class="snapshot-preview" data-stable-media="preview" data-media-url="${escapeAttr(previewMediaUrl)}" href="${escapeAttr(media.preview_link || snapshot.view_url || adminUrl)}" title="Open snapshot output"><img src="${escapeAttr(previewSrc)}" alt="" decoding="async" loading="lazy" onload="this.dataset.loaded='1'" onerror="failedProgressImage(this)"><span class="snapshot-preview-loading">▤</span></a>`
             : `<a class="snapshot-preview placeholder" href="${escapeAttr(snapshot.view_url || adminUrl)}" title="Open snapshot"><span>${statusIcon}</span></a>`;
 
         let extractorHtml = '';

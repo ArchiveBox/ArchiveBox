@@ -666,6 +666,8 @@ def _get_archivewebpage_capture(data_dir: Path, url: str) -> dict[str, str]:
         assert wacz_path.is_file()
         return {
             "snapshot_id": str(snapshot.id),
+            "snapshot_path": snapshot.url_path,
+            "result_id": str(result.id),
             "wacz_path": str(wacz_path),
         }
 
@@ -973,6 +975,21 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
 
         capture = _get_archivewebpage_capture(initialized_archive, url)
         snapshot_host = f"{get_snapshot_subdomain(capture['snapshot_id'])}.archivebox.localhost:{port}"
+        detail = requests.get(
+            f"http://127.0.0.1:{port}/{capture['snapshot_path']}/index.html",
+            headers={"Host": f"web.archivebox.localhost:{port}"},
+            timeout=10,
+        )
+        assert detail.status_code == 200
+        assert f"http://{snapshot_host}/_card/{capture['result_id']}" in detail.text
+        card = requests.get(
+            f"http://127.0.0.1:{port}/_card/{capture['result_id']}",
+            headers={"Host": snapshot_host},
+            timeout=10,
+        )
+        assert card.status_code == 200
+        assert "archivewebpage-thumbnail" in card.text
+        assert f"http://web.archivebox.localhost:{port}" in card.headers["Content-Security-Policy"]
         detail_url = f"http://{snapshot_host}/#archivewebpage/archivewebpage.wacz"
         result = _run_wacz_preview_probe(initialized_archive, browser_runtime, detail_url, tmp_path)
     finally:

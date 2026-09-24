@@ -8,6 +8,7 @@ import warnings
 from pathlib import Path
 from threading import Thread
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 
 import pytest
 from django.contrib.auth.models import AnonymousUser
@@ -51,6 +52,75 @@ def test_current_snapshot_layout_has_no_top_level_timestamp_projection(snapshot)
     assert Path(snapshot.output_dir).is_relative_to(CONSTANTS.ARCHIVE_DIR / "users")
     assert not legacy_path.exists()
     assert not legacy_path.is_symlink()
+
+
+def test_isolated_snapshot_delete_button_hands_off_to_admin_without_sharing_admin_cookies(
+    snapshot,
+    admin_user,
+    real_hash_projection,
+    live_server,
+):
+    from playwright.sync_api import sync_playwright
+
+    from archivebox.core.models import ArchiveResult
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+
+    _process, result = real_hash_projection
+    assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    output_paths = [Path(snapshot.output_dir) / "hashes" / path for path in result.output_file_paths()]
+    assert output_paths and all(path.is_file() for path in output_paths)
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+
+    admin_origin = f"http://admin.archivebox.localhost:{port}"
+    web_origin = f"http://web.archivebox.localhost:{port}"
+    snap_origin = f"http://{get_snapshot_host(str(snapshot.id))}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1, MAP archivebox.localhost 127.0.0.1"],
+        )
+        context = browser.new_context()
+        page = context.new_page()
+        page.goto(f"{admin_origin}/admin/login/")
+        page.locator("#id_username").fill(admin_user.username)
+        page.locator("#id_password").fill("testpassword")
+        page.locator('input[type="submit"]').click()
+        page.wait_for_url(f"{admin_origin}/admin/")
+
+        admin_cookies = {cookie["name"] for cookie in context.cookies([admin_origin])}
+        web_cookies = {cookie["name"] for cookie in context.cookies([web_origin])}
+        snap_cookies = {cookie["name"] for cookie in context.cookies([snap_origin])}
+        assert any(name.startswith("archivebox_sessionid_") for name in admin_cookies)
+        assert ADMIN_LOGIN_HINT_COOKIE in web_cookies & snap_cookies
+        assert not any(name.startswith("archivebox_sessionid_") or "csrf" in name.lower() for name in web_cookies | snap_cookies)
+
+        page.goto(f"{web_origin}/{snapshot.url_path}/index.html")
+        assert urlsplit(page.url).hostname == "web.archivebox.localhost"
+        page.locator(".output-stack-metadata").click()
+        delete_button = page.locator(f'.stack-tray [data-archive-result-ids="{result.id}"]')
+        delete_button.click()
+        page.wait_for_url(
+            lambda url: (
+                urlsplit(url).hostname == "admin.archivebox.localhost" and urlsplit(url).path.endswith("/admin/core/archiveresult/")
+            ),
+        )
+        confirm_button = page.locator('input[type="submit"][value="Yes, I’m sure"]')
+        assert confirm_button.is_visible()
+        assert all(path.is_file() for path in output_paths)
+        confirm_button.click()
+        page.wait_for_load_state("domcontentloaded")
+        browser.close()
+    assert not ArchiveResult.objects.filter(pk=result.pk).exists()
+    assert not any(path.exists() for path in output_paths)
 
 
 @pytest.fixture
@@ -1594,7 +1664,7 @@ def test_metadata_card_uses_dedicated_template_and_static_export_keeps_text(real
     assert result.status == "succeeded"
     live = plugin_card(Context({}), result)
     assert "<iframe " in live
-    assert 'preview=1"' in live
+    assert f"_card/{result.id}" in live
     assert "data-compact" not in live
     assert "card=1" not in live
     assert "thumbnail-text-pre" not in live

@@ -36,723 +36,279 @@
             .badge-danger { background: #f8d7da; color: #721c24; }
             .alert { padding: 6px 10px; border-radius: 6px; background: #f5f5f5; color: #333; }
             header {
-                background-color: #aa1e55;
+                background: #aa1e55;
+                color: #fff;
                 order: 1;
                 flex: 0 0 auto;
                 container-type: inline-size;
                 container-name: snapshot-header;
             }
-            small {
-                font-weight: 200;
-            }
-            header a:hover {
-                text-decoration: none;
-            }
             .header-top {
-                width: 100%;
-                height: auto;
-                min-height: 40px;
-                margin: 0px;
-                text-align: center;
-                color: #f6f6f6;
-                font-size: calc(10px + 0.44vw);
-                font-weight: 200;
-                padding: 3px 4px;
-                background-color: #aa1e55;
+                position: relative;
+                padding: 6px 32px 6px 10px;
+                font-size: 13px;
+                line-height: 1.3;
             }
-            .header-top .header-nav {
+            .header-top a { text-decoration: none; }
+            .header-top a:hover { text-decoration: underline; }
+            .header-nav {
                 display: grid;
-                grid-template-columns: auto minmax(0, 1fr) auto auto;
-                align-items: start;
-                gap: 16px;
-                width: 100%;
+                grid-template-columns: auto minmax(0, 1fr) auto;
+                gap: 4px 12px;
+                align-items: center;
             }
-            .header-top .header-col {
-                min-height: 30px;
-                line-height: 1.2;
-                min-width: 0;
-            }
-            .header-top .header-left {
-                white-space: nowrap;
-            }
-            .header-top .header-main {
+            .header-col { min-width: 0; }
+            .header-left { grid-column: 1; grid-row: 1 / 3; }
+            .header-main { display: contents; }
+            .header-meta { grid-column: 3; grid-row: 1; }
+            .header-archivebox {
                 display: flex;
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 4px;
-                min-width: 0;
-            }
-            .header-top .header-meta {
-                display: flex;
-                flex-direction: column;
-                align-items: flex-end;
-                gap: 4px;
-                min-width: 0;
-            }
-            .header-top .header-right {
-                text-align: right;
+                align-items: center;
+                gap: 7px;
                 white-space: nowrap;
-                padding-right: 10px;
+                font-size: 15px;
+                font-weight: 600;
             }
-            .header-right .header-date {
-                text-align: center;
+            .header-archivebox img {
+                display: block;
+                flex: 0 0 auto;
+                width: 32px;
+                height: 32px;
+                object-fit: contain;
             }
-            .header-right .snapshot-date-summary {
+            .header-url {
+                grid-column: 2;
+                grid-row: 1;
+                min-width: 0;
+                border: 1px solid #ffffff20;
+                border-radius: 6px;
+                background: #00000012;
+            }
+            .header-url-text {
+                display: block;
+                padding: 3px 8px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                font: 17px/1.3 monospace;
+                user-select: all;
+            }
+            .header-title-line {
+                grid-column: 2;
+                grid-row: 2;
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 4px 6px;
+                min-width: 0;
+            }
+            .favicon { width: 18px; height: 18px; object-fit: contain; border-radius: 3px; }
+            .header-title-text {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 100%;
+            }
+            .header-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+            .header-tags .tag-pill {
                 display: inline-flex;
                 align-items: center;
-                gap: 8px;
+                padding: 2px 6px;
+                border: 1px solid var(--tag-border, #ffffff50);
+                border-radius: 999px;
+                background: var(--tag-bg, #ffffff20);
+                color: var(--tag-fg, #fff);
+                font-size: 10px;
+                line-height: 1.2;
+                white-space: nowrap;
             }
-            .header-right .snapshot-count-badge {
-                display: inline-flex;
+            .permission-pill { border-style: dashed !important; text-transform: uppercase; }
+            .header-toggle {
+                position: absolute;
+                inset: 0 0 0 auto;
+                display: flex;
                 align-items: center;
                 justify-content: center;
-                min-width: 18px;
-                height: 18px;
-                padding: 0 5px;
-                border-radius: 999px;
-                background: rgba(255,255,255,0.18);
-                color: #f6f6f6;
-                font-size: 11px;
-                font-weight: 600;
+                width: 20px;
+                padding: 0;
+                border: 0;
+                border-left: 1px solid #ffffff20;
+                border-radius: 0;
+                background: #00000020;
+                color: #fff;
+                font-family: inherit;
+                font-size: 12px;
                 line-height: 1;
-                box-sizing: border-box;
-            }
-            .snapshot-variants {
-                position: relative;
-                display: inline-block;
-                white-space: nowrap;
-            }
-            .snapshot-variants summary {
-                list-style: none;
                 cursor: pointer;
-                color: #f6f6f6 !important;
             }
-            .snapshot-variants summary:hover {
-                color: #f6f6f6 !important;
+            .header-toggle:hover { background: #00000038; }
+            .header-toggle:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+            .header-badges { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+            .header-top .badge { margin: 0; padding: 3px 6px;  }
+            .header-top .badge { font-family: inherit; font-size: 12px; line-height: 1.2; font-weight: 500; }
+            .badge-label, .badge-mobile-text, .header-mobile-badges { display: none; }
+            .header-capture-row {
+                grid-column: 3;
+                grid-row: 2;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                flex-wrap: wrap;
+                gap: 6px;
+                min-width: 0;
+                font-size: 12px;
             }
-            .header-top .snapshot-variants summary {
-                color: #f6f6f6 !important;
+            .header-year-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+            .capture-year { display: inline-flex; align-items: center; }
+            .snapshot-variants { position: relative; min-width: 0; }
+            .snapshot-variants summary { list-style: none; cursor: pointer; white-space: nowrap; }
+            .snapshot-variants summary::-webkit-details-marker { display: none; }
+            .snapshot-variants[open] { z-index: 60; }
+            .header-top .year-variants > summary {
+                position: relative;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+                min-height: 26px;
+                padding: 3px 7px;
+                background: #c65580;
             }
-            .snapshot-variants summary::-webkit-details-marker {
-                display: none;
+            .year-capture-count { opacity: .85; font-size: 11px; }
+            .current-year .year-variants { z-index: 2; }
+            .current-year .year-variants[open] { z-index: 60; }
+            .current-year .year-variants > summary::after {
+                content: "";
+                position: absolute;
+                right: -5px;
+                top: calc(50% - 5px);
+                width: 10px;
+                height: 10px;
+                transform: rotate(45deg);
+                background: #c65580;
+            }
+            .selected-capture > summary {
+                display: flex;
+                align-items: center;
+                min-height: 26px;
+                padding: 3px 8px 3px 12px;
+                margin-left: -2px;
+                border-radius: 0 4px 4px 0;
+                background: #861840;
+                color: #fff;
+                font-size: 12px;
+            }
+            .header-top .external-links { width: auto; margin: 0; padding: 0; font-size: 12px; overflow: visible; }
+            .header-top .external-links a {
+                display: inline-flex;
+                align-items: center;
+                min-height: 26px;
+                padding: 3px 6px;
+                border: 1px solid #ffffff26;
+                border-radius: 5px;
+                background: #00000012;
+                white-space: nowrap;
             }
             .snapshot-variants-list {
                 position: absolute;
                 right: 0;
-                top: calc(100% + 6px);
-                background: rgba(18, 18, 18, 0.95);
-                border: 1px solid rgba(255,255,255,0.15);
-                border-radius: 8px;
-                min-width: 260px;
-                max-width: 420px;
+                top: calc(100% + 5px);
+                z-index: 50;
+                width: max-content;
+                max-width: calc(100vw - 20px);
                 max-height: 240px;
                 overflow: auto;
-                box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-                z-index: 50;
                 padding: 6px;
+                border: 1px solid #ffffff26;
+                border-radius: 8px;
+                background: #181818f5;
+                box-shadow: 0 6px 20px #0004;
             }
-            .snapshot-variants-list a {
-                display: block;
-                padding: 6px 8px;
-                color: #f6f6f6;
-                font-size: 12px;
-                line-height: 1.3;
-                border-radius: 6px;
-            }
-            .snapshot-variants-list a:hover {
-                background: rgba(255,255,255,0.08);
-                color: #fff;
-            }
-            .header-top .snapshot-variants-list a {
-                color: #f6f6f6 !important;
-            }
-            .header-top .snapshot-variants-list a:hover {
-                color: #fff !important;
-            }
-            .year-variants summary {
-                list-style: none;
-                cursor: pointer;
-            }
-            .year-variants summary::-webkit-details-marker {
-                display: none;
-            }
-            .header-top .header-url {
-                width: 100%;
-                background-color: rgb(216, 216, 235, 0.05);
-                text-align: left;
-                line-height: 1.3;
-                font-family: monospace;
-                font-weight: 200;
-                margin-top: 0;
-                font-size: 23px;
-                opacity: 0.8;
-                border-radius: 0px 0px 8px 8px;
-            }
-            .header-top .header-url a.header-url-text {
-                display: block;
-                color: #f6f6f6;
-                user-select: all;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                padding: 2px 10px;
-            }
-            .header-top .header-url a.header-url-text:hover {
-                color: rgb(144, 161, 255);
-            }
-            .header-top a {
-                text-decoration: none;
-                color: rgba(0,0,0,0.6);
-            }
-            .header-top a:hover {
-                text-decoration: none;
-                color: rgba(0,0,0,0.9);
-            }
-            .header-title-line {
-                color: rgba(0,0,0,0.6);
-                display: flex;
-                align-items: center;
-                flex-wrap: wrap;
-                gap: 6px;
-                min-width: 0;
-                width: 100%;
-            }
-            .header-title-text {
-                display: inline-block;
-                max-width: 100%;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                text-align: left;
-            }
-            .header-tags {
-                display: flex;
-                flex-wrap: wrap;
-                justify-content: flex-start;
-                gap: 4px;
-                align-items: center;
-            }
-            .header-tags .tag-pill {
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-                padding: 3px 8px;
-                border-radius: 999px;
-                background: var(--tag-bg, rgba(255,255,255,0.2));
-                color: var(--tag-fg, #fff);
-                border: 1px solid var(--tag-border, rgba(255,255,255,0.26));
-                font-size: 12px;
-                line-height: 1.2;
-                white-space: nowrap;
-            }
-            .header-tags .permission-pill {
-                border-style: dashed;
-                text-transform: uppercase;
-            }
-            .header-badges {
-                display: flex;
-                flex-wrap: wrap;
-                justify-content: flex-end;
-                align-items: center;
-                gap: 6px;
-            }
-            .header-mobile-badges {
-                display: none;
-            }
-            .badge-label,
-            .badge-mobile-text,
-            .header-date-label {
-                display: none;
-            }
-            .header-year-badges {
-                display: flex;
-                flex-wrap: wrap;
-                justify-content: flex-end;
-                align-items: center;
-                gap: 6px;
-                margin-top: 4px;
-            }
-            .header-top .favicon {
-                width: 20px;
-                height: 20px;
-                max-width: 30px;
-                max-height: 30px;
-                vertical-align: -4px;
-                margin-right: 6px;
-                object-fit: contain;
-                border-radius: 3px;
-                background: rgba(255,255,255,0.08);
-            }
-            .header-top .col-lg-4 {
-                text-align: center;
-                padding-top: 4px;
-                padding-bottom: 4px;
-            }
-            .header-archivebox img {
-                display: inline-block;
-                margin-right: 3px;
-                height: 30px;
-                margin-left: 12px;
-                margin-top: -4px;
-                margin-bottom: 2px;
-            }
-            .header-archivebox {
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-                white-space: nowrap;
-            }
-            .header-right .header-date {
-                display: inline-block;
-                white-space: nowrap;
-            }
-            .header-archivebox img:hover {
-                opacity: 0.5;
-            }
-            header small code {
-                white-space: nowrap;
-                font-weight: 200;
-                display: block;
-                margin-top: -1px;
-                font-size: 13px;
-                opacity: 0.8;
-                user-select: all;
-            }
-            .header-toggle {
-                line-height: 1;
-                font-size: 24px;
-                margin-top: 0;
-                margin-left: 4px;
-            }
-            @container snapshot-header (max-width: 900px) {
-                .header-top .header-nav {
-                    grid-template-columns: 1fr;
-                    gap: 8px;
-                }
-                .header-top .header-left,
-                .header-top .header-main,
-                .header-top .header-meta,
-                .header-top .header-right {
-                    width: 100%;
-                    text-align: left;
-                    align-items: flex-start;
-                }
-                .header-archivebox img {
-                    margin-left: 0;
-                }
-            }
-            @container snapshot-header (max-width: 900px) {
-                .header-top {
-                    padding: 10px 12px 12px;
-                    font-size: 14px;
-                    text-align: left;
-                }
-                .header-top .header-nav {
-                    gap: 10px;
-                }
-                .header-top .header-left {
-                    order: 1;
-                    padding-bottom: 2px;
-                }
-                .header-top .header-main {
-                    order: 2;
-                    gap: 8px;
-                }
-                .header-top .header-meta {
-                    order: 3;
-                    gap: 8px;
-                }
-                .header-top .header-right {
-                    order: 4;
-                    display: grid;
-                    grid-template-columns: minmax(0, 1fr);
-                    gap: 8px;
-                    padding: 0 !important;
-                }
-                .header-archivebox {
-                    color: #fff !important;
-                    font-size: 16px;
-                    font-weight: 600;
-                }
-                .header-archivebox img {
-                    width: 28px;
-                    height: 28px;
-                    margin: 0;
-                }
-                .header-top .header-url {
-                    font-size: 15px;
-                    background: rgba(0, 0, 0, 0.14);
-                    border: 1px solid rgba(255, 255, 255, 0.12);
-                    border-radius: 7px;
-                }
-                .header-title-text,
-                .header-top .header-url a.header-url-text {
-                    white-space: normal;
-                    overflow: hidden;
-                    display: -webkit-box;
-                    -webkit-line-clamp: 2;
-                    -webkit-box-orient: vertical;
-                }
-                .header-top .header-url a.header-url-text {
-                    padding: 7px 9px;
-                    line-height: 1.35;
-                }
+            .snapshot-variants-list a { display: block; padding: 6px 8px; font-size: 12px; border-radius: 4px; color: #fff; }
+            .snapshot-variants-list a:hover { background: #ffffff18; }
+            @container snapshot-header (max-width: 1100px) {
+                .header-nav { grid-template-columns: 32px minmax(0, 1fr); gap: 4px 6px; }
+                .header-left { grid-row: 1; }
+                .header-archivebox { width: 32px; height: 32px; font-size: 0; gap: 0; }
+                .header-url { grid-column: 2; }
+                .header-url-text { font-size: 14px; }
                 .header-title-line {
-                    display: grid;
-                    grid-template-columns: 22px minmax(0, 1fr) 28px;
-                    gap: 7px;
-                    align-items: center;
-                    color: #fff;
-                }
-                .header-title-text {
-                    grid-column: 2;
-                    grid-row: 1;
-                    color: #fff;
-                    font-size: 14px;
-                    font-weight: 500;
-                    line-height: 1.35;
-                }
-                .header-top .favicon {
-                    grid-column: 1;
-                    grid-row: 1;
-                    width: 22px;
-                    height: 22px;
-                    margin: 0;
-                }
-                .header-tags {
                     grid-column: 1 / -1;
-                    grid-row: 2;
-                    width: 100%;
-                    justify-content: flex-start;
-                }
-                .header-tags .tag-pill {
-                    padding: 4px 8px;
-                    font-size: 11px;
-                    background: rgba(255, 255, 255, 0.15);
-                    color: #fff;
-                }
-                .header-toggle {
-                    grid-column: 3;
-                    grid-row: 1;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 28px;
-                    height: 28px;
-                    margin: 0;
-                    border-radius: 6px;
-                    background: rgba(0, 0, 0, 0.14);
-                    color: #fff !important;
-                    font-size: 24px;
-                    line-height: 1;
-                }
-                .header-badges {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
-                    width: 100%;
-                    gap: 6px;
+                    grid-template-columns: 18px minmax(0,1fr);
+                    gap: 4px 6px;
                 }
-                header .header-badges .badge {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    min-width: 0;
-                    min-height: 34px;
-                    margin: 0;
-                    padding: 6px 8px;
-                    border: 1px solid rgba(255, 255, 255, 0.16);
-                    font-family: inherit;
-                    font-size: 12px;
-                    font-weight: 600;
+                .header-title-text { grid-column: 2; grid-row: 1; }
+                .favicon { grid-column: 1; grid-row: 1; }
+                .header-tags { grid-column: 1 / -1; grid-row: 2; }
+                .header-meta { grid-column: 1 / -1; grid-row: 3; }
+                .header-badges { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
+                .header-top .header-badges .badge { display: flex; align-items: center; gap: 5px; min-height: 26px; font-size: 11px; }
+                .badge-label { display: inline; font-size: 9px; text-transform: uppercase; opacity: .8; }
+                .badge-desktop-icon { display: none; }
+                .badge-mobile-text { display: inline; }
+                .header-capture-row { grid-column: 1 / -1; grid-row: 4; justify-content: flex-start; }
+                .header-top .external-links a {
+                    min-height: 28px;
+                    padding: 3px 6px;
+                    border: 1px solid #ffffff26;
+                    border-radius: 5px;
+                    background: #00000012;
                 }
-                .badge-label,
-                .header-date-label {
-                    display: inline;
-                    margin-right: 6px;
-                    color: currentColor;
-                    font-size: 10px;
-                    font-weight: 600;
-                    letter-spacing: 0.04em;
-                    opacity: 0.72;
-                    text-transform: uppercase;
-                }
-                .badge-desktop-icon {
-                    display: none;
-                }
-                .badge-mobile-text {
-                    display: inline;
-                }
-                .header-year-badges {
-                    width: 100%;
-                    margin: 0;
-                    padding: 1px 0 0;
-                    justify-content: flex-start;
-                }
-                .header-year-badges::before {
-                    content: "Years";
-                    color: rgba(255, 255, 255, 0.7);
-                    font-size: 10px;
-                    font-weight: 600;
-                    letter-spacing: 0.04em;
-                    text-transform: uppercase;
-                }
-                header .header-year-badges .badge {
-                    margin: 0;
-                    padding: 4px 7px;
-                    font-size: 11px;
-                }
-                .header-right .header-date,
-                .header-right .snapshot-variants {
-                    display: block;
-                    width: 100%;
-                    min-width: 0;
-                    white-space: normal;
-                }
-                .header-right .snapshot-date-summary,
-                .header-right > .header-date {
-                    display: flex;
-                    align-items: center;
-                    justify-content: flex-start;
-                    min-height: 34px;
-                    padding: 6px 8px;
-                    border: 1px solid rgba(255, 255, 255, 0.16);
-                    border-radius: 6px;
-                    background: rgba(0, 0, 0, 0.12);
-                    color: #fff !important;
-                    gap: 7px;
-                }
-                .header-right br {
-                    display: none;
-                }
-                header .external-links {
-                    display: flex;
-                    align-items: center;
-                    flex-wrap: wrap;
-                    gap: 6px;
-                    width: 100%;
-                    padding: 0;
-                    color: #fff;
-                    font-size: 12px;
-                    text-align: left;
-                    overflow: visible;
-                }
-                header .external-links a {
-                    display: inline-flex;
-                    align-items: center;
-                    min-height: 32px;
-                    padding: 6px 9px;
-                    border: 1px solid rgba(255, 255, 255, 0.16);
-                    border-radius: 6px;
-                    background: rgba(0, 0, 0, 0.12);
-                    color: #fff;
-                }
-                .external-links-separator {
-                    display: none;
-                }
-                .snapshot-variants-list {
-                    right: auto;
-                    left: 0;
-                    width: min(360px, calc(100vw - 24px));
-                    min-width: 0;
-                }
+                .snapshot-variants-list { right: auto; left: 0; }
             }
             @container snapshot-header (max-width: 480px) {
-                .header-top {
-                    padding: 6px 8px 7px;
-                    font-size: 12px;
-                }
-                .header-top .header-nav {
-                    grid-template-columns: 22px minmax(0, 1fr);
-                    gap: 6px;
-                }
-                .header-top .header-left {
-                    grid-column: 1;
-                    grid-row: 1;
-                    min-height: 0;
-                    padding-bottom: 0;
-                    line-height: 1 !important;
-                }
-                .header-top .header-main {
-                    display: contents;
-                }
-                .header-top .header-meta {
-                    grid-column: 1 / -1;
-                    grid-row: 3;
-                    gap: 4px;
-                }
-                .header-top .header-right {
-                    grid-column: 1 / -1;
-                    grid-row: 4;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    align-items: stretch;
-                    gap: 4px;
-                }
-                .header-archivebox {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 22px;
-                    height: 22px;
-                    overflow: hidden;
-                    font-size: 0;
-                    line-height: 1;
-                }
-                .header-archivebox img {
-                    display: block;
-                    width: auto;
-                    height: auto;
-                    max-width: 20px;
-                    max-height: 20px;
-                    margin: 0;
-                    object-fit: contain;
-                }
-                .header-top .header-url {
-                    grid-column: 2;
-                    grid-row: 1;
-                    font-size: 13px;
-                }
-                .header-top .header-url a.header-url-text {
-                    display: block;
-                    padding: 5px 7px;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
-                .header-title-line {
-                    grid-column: 1 / -1;
-                    grid-row: 2;
-                    grid-template-columns: 22px minmax(0, 1fr) 24px;
-                    gap: 5px;
-                }
-                .header-top .favicon {
-                    width: 18px;
-                    height: 18px;
-                    justify-self: center;
-                }
-                .header-title-text {
-                    display: block;
-                    font-size: 13px;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
-                .header-toggle {
-                    width: 24px;
-                    height: 24px;
-                    font-size: 20px;
-                }
-                .header-tags {
-                    gap: 3px;
-                }
-                .header-tags .tag-pill {
-                    padding: 2px 6px;
-                    font-size: 10px;
-                }
-                .header-badges {
-                    display: none;
-                }
-                .header-mobile-badges {
-                    display: grid;
-                    grid-template-columns: repeat(2, minmax(0, 1fr));
-                    gap: 4px;
-                    width: 100%;
-                }
+                .header-top { padding: 5px 30px 5px 8px; }
+                .header-badges { display: none; }
+                .header-mobile-badges { display: flex; flex-wrap: wrap; gap: 4px; }
                 .header-mobile-badge {
                     display: flex;
+                    flex: 1 1 auto;
                     align-items: center;
                     justify-content: space-between;
-                    min-width: 0;
-                    min-height: 28px;
-                    padding: 4px 7px;
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    border-radius: 6px;
-                    background: rgba(255, 255, 255, 0.14);
-                    color: #fff !important;
-                    font-size: 11px;
-                    font-weight: 600;
-                    line-height: 1;
-                }
-                .header-mobile-badge:last-child {
-                    background: rgba(212, 237, 218, 0.96);
-                    color: #315d3b !important;
-                }
-                .header-mobile-badge-separator {
-                    margin: 0 5px;
-                    opacity: 0.45;
-                }
-                .badge-label,
-                .header-date-label,
-                .header-year-badges::before {
-                    font-size: 9px;
-                }
-                .header-year-badges {
-                    display: none;
-                }
-                .header-right .snapshot-date-summary,
-                .header-right > .header-date {
-                    height: 100%;
-                    min-height: 32px;
-                    padding: 4px 6px;
                     gap: 5px;
+                    padding: 5px 7px;
+                    border: 1px solid #ffffff30;
+                    border-radius: 5px;
+                    background: #ffffff20;
                     font-size: 11px;
-                    font-family: inherit;
-                    font-weight: 600;
-                    line-height: 1;
+                    line-height: 1.2;
                 }
-                .header-right .snapshot-date-summary > * {
-                    display: inline-flex;
-                    align-items: center;
-                    height: 16px;
-                    margin: 0;
-                    font-family: inherit;
-                    font-size: 11px;
-                    font-weight: 600;
-                    line-height: 1;
-                    letter-spacing: 0;
-                    text-transform: none;
-                    opacity: 1;
-                }
-                .header-right > .snapshot-variants,
-                .header-right > .header-date {
-                    grid-column: 2;
-                    grid-row: 1;
-                    height: 100%;
-                }
-                .header-right .snapshot-count-badge {
-                    min-width: 16px;
-                    height: 16px;
-                    padding: 0 4px;
-                    font-size: 9px;
-                }
-                header .external-links {
-                    grid-column: 1;
-                    grid-row: 1;
-                    display: grid;
-                    grid-template-columns: minmax(0, 1fr) auto;
-                    align-items: stretch;
-                    gap: 4px;
-                    font-size: 11px;
-                    flex-wrap: nowrap;
-                    height: 100%;
-                }
-                .archive-org-label {
-                    display: none;
-                }
-                header .external-links a {
-                    min-width: 0;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    justify-content: center;
-                    height: 100%;
-                    min-height: 32px;
-                    font-family: inherit;
-                    font-size: 11px;
-                    font-weight: 600;
-                    line-height: 1;
-                    padding: 4px 7px;
-                }
+                .header-mobile-badge:last-child { background: #d4edda; color: #315d3b; }
+                .header-mobile-badge-separator { opacity: .5; }
+                .header-capture-row { gap: 4px; font-size: 11px; }
+                .header-top .external-links { font-size: 11px; }
             }
-            
+
+            .header-top .header-url,
+            .header-top .header-badges > .badge,
+            .header-top .header-mobile-badge,
+            .header-top .tag-pill,
+            .header-top .year-variants > summary,
+            .header-top .selected-capture > summary,
+            .header-top .external-links a {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                height: 28px;
+                min-height: 28px;
+                margin-top: 0;
+                padding: 3px 7px;
+                border: 1px solid #ffffff30;
+                border-radius: 5px;
+                font-family: inherit;
+                font-size: 12px;
+                font-weight: 500;
+                line-height: 20px;
+                white-space: nowrap;
+            }
+            .header-top .header-url { display: block; padding: 0; }
+            .header-top .header-url-text { padding: 3px 7px; font-size: 13px; line-height: 20px; }
+            .header-top .tag-pill { background: var(--tag-bg, #ffffff20); color: var(--tag-fg, #fff); }
+            .header-top .selected-capture > summary { padding-left: 12px; border-left: 0; border-radius: 0 5px 5px 0; }
+            .header-top .header-mobile-badge:last-child { color: #315d3b; }
+            .header-top .badge small { font-size: inherit; font-weight: inherit; }
+
             .info-row {
                 margin-top: 2px;
                 margin-bottom: 5px;
@@ -836,12 +392,12 @@
             }
             #main-frame-wrapper {
                 width: 100%;
-                height: auto;
+                height: 100svh;
                 border-top: 3px solid #aa1e55;
                 overflow: hidden;
                 order: 2;
-                flex: 1 1 auto;
-                min-height: 0;
+                flex: 0 0 auto;
+                min-height: max(360px, 100svh);
                 display: flex;
                 flex-direction: column;
             }
@@ -1195,6 +751,9 @@
                 overflow: hidden;
                 pointer-events: auto;
             }
+            .other-files-preview {
+                flex-direction: column;
+            }
             .thumb-card .thumbnail-wrapper > *,
             .thumb-card iframe.card-img-top {
                 width: 100% !important;
@@ -1236,7 +795,7 @@
             .thumb-card iframe.card-img-top {
                 width: 405% !important;
                 height: 405% !important;
-                transform: scale(0.25);
+                transform: scale(0.25) !important;
                 transform-origin: 0 0;
                 margin: 0 !important;
                 border: 0 !important;
@@ -1266,10 +825,20 @@
                 gap: 4px 8px;
                 font-size: 12px;
                 line-height: 1.2;
-                max-height: 84px;
-                overflow: auto;
                 min-width: 0;
                 max-width: 100%;
+            }
+            .thumb-card .other-files-preview > .loose-items {
+                flex: 1 1 auto;
+                min-height: 0;
+                max-height: none;
+                height: auto !important;
+                overflow: auto;
+                align-content: flex-start;
+            }
+            .thumb-card .other-files-preview > .loose-items,
+            .thumb-card .other-files-preview > .loose-items * {
+                pointer-events: auto !important;
             }
             .loose-items a {
                 color: #333;
@@ -1286,8 +855,12 @@
                 background: rgba(0, 0, 0, 0.08);
             }
             .failed-items a {
+                flex: 1 1 100%;
                 color: #b91c1c;
                 background: rgba(185, 28, 28, 0.08);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .failed-items a:hover {
                 background: rgba(185, 28, 28, 0.16);
@@ -1440,6 +1013,11 @@
             {% endif %}
             {% endif %}
             {% if has_outputs %}
+            {% comment %}Keep this trusted collection UI on web.* in subdomain mode. The
+               selected output opens in an iframe whose URL is built for its
+               isolated snap-* origin; on one-domain no-JS mode both URLs use
+               the base host and raw replay scripts are blocked by CSP. Never
+               move admin session/CSRF cookies to a snap-* domain.{% endcomment %}
             <iframe id="main-frame"
                     sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                     class="full-page-iframe"
@@ -1526,7 +1104,7 @@
         <header>
             <div class="header-top">
                 <div class="header-nav">
-                    <div class="header-col header-left" style="line-height: 58px; vertical-align: middle">
+                    <div class="header-col header-left">
                         {% web_base_url as web_base %}
                         {% static_export_root_url as static_root %}
                         <a href="{% if STATIC_EXPORT %}{{ static_root }}index.html{% elif web_base %}{{ web_base }}/public/{% else %}/{% endif %}" class="header-archivebox" title="Go to Public Index...">
@@ -1540,7 +1118,7 @@
                                 {{url}}
                             </a>
                         </div>
-                        <div class="header-title-line header-toggle-trigger">
+                        <div class="header-title-line">
                             {% snapshot_archiveresult_url snapshot 'favicon' 'favicon.ico' as header_favicon_url %}
                             {% if header_favicon_url %}
                                 <img src="{{ header_favicon_url }}" onerror="this.onerror=null;this.src=&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;&quot;" alt="Favicon" class="favicon"/>
@@ -1560,12 +1138,11 @@
                                     <span class="tag-pill permission-pill">{{ snapshot_permissions_icon }} {{ snapshot_permissions }}</span>
                                 </span>
                             {% endif %}
-                            <a href="#" class="header-toggle">▾</a>
                         </div>
                     </div>
                     <div class="header-col header-meta">
                         <div class="header-badges">
-                            <div class="badge badge-default" style="font-weight: 200">
+                            <div class="badge badge-default">
                                 <span class="badge-label">Outputs</span>
                                 <span class="badge-value">
                                     {{num_outputs}}
@@ -1605,7 +1182,7 @@
                         </div>
                         <div class="header-mobile-badges">
                             <a class="header-mobile-badge" href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" title="Browse all files for this snapshot">
-                                <span>{{num_outputs}} Files</span>
+                                <span>{{num_outputs}} Files{% if num_failures %} + {{num_failures}} errors{% endif %}</span>
                                 <span class="header-mobile-badge-separator">|</span>
                                 <span>{{size}}</span>
                             </a>
@@ -1615,67 +1192,36 @@
                                 <span>Edit</span>
                             </a>{% endif %}
                         </div>
-                        {% if related_years %}
-                        <div class="header-year-badges">
-                            {% for entry in related_years %}
-                                {% if entry.snapshots|length > 1 %}
-                                    <details class="snapshot-variants year-variants">
-                                        <summary class="badge badge-default">{{ entry.year }}</summary>
-                                        <div class="snapshot-variants-list">
-                                            {% for snap in entry.snapshots %}
-                                                <a href="{% snapshot_base_url snap %}/index.html" title="{{ snap.url }}">
-                                                    {{ snap.bookmarked_at|default:snap.created_at|default:snap.downloaded_at|date:"Y-m-d H:i:s" }} &nbsp; 💾 {{ snap.output_size|filesizeformat }}
-                                                </a>
-                                            {% endfor %}
-                                        </div>
-                                    </details>
-                                {% else %}
-                                    <div class="badge badge-default">
-                                        <a href="{% snapshot_base_url entry.latest %}/index.html" title="{{ entry.latest.url }}">
-                                            {{ entry.year }}
-                                        </a>
-                                    </div>
-                                {% endif %}
-                            {% endfor %}
-                        </div>
-                        {% endif %}
                     </div>
-                    <div class="header-col header-right" style="padding-top: 4px">
-                        {% if related_snapshots %}
-                            <details class="snapshot-variants">
-                                <summary class="header-date" title="Click to see other snapshots for this URL">
-                                    <span class="snapshot-date-summary">
-                                        <span class="snapshot-count-badge">{{ related_snapshots|length }}</span>
-                                        <span class="header-date-label">Captures</span>
-                                        <span>{{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date|slice:":10"}}</span>
-                                    </span>
-                                </summary>
-                                <div class="snapshot-variants-list">
-                                    {% for snap in related_snapshots %}
-                                        <a href="{% snapshot_base_url snap %}/index.html" title="{{ snap.url }}">
-                                            {{ snap.bookmarked_at|default:snap.created_at|default:snap.downloaded_at|date:"Y-m-d H:i:s" }} &nbsp; 💾 {{ snap.output_size|filesizeformat }}
-                                        </a>
-                                    {% endfor %}
-                                </div>
-                            </details>
-                        {% else %}
-                            <a class="header-date" href="{% snapshot_base_url snapshot %}/index.html" title="Date Added: {{bookmarked_date}}  |  First Archived: {{oldest_archive_date|default:downloaded_datestr}}  |  Last Checked: {{downloaded_datestr}}   (UTC)">
-                                <span class="header-date-label">Captures</span>
-                                {{oldest_archive_date|default:downloaded_datestr|default:bookmarked_date|slice:":10"}}
-                            </a>
-                        {% endif %}
-                        <br/>
+                    <div class="header-capture-row">
                         <div class="external-links">
-                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" title="Browse the full SNAP_DIR for this snapshot" target="_blank">📁 {% if STATIC_EXPORT %}Snapshot manifest{% else %}See all files...{% endif %}</a>
-                            <span class="external-links-separator">|</span>
                             <a href="https://web.archive.org/web/{{url}}" aria-label="Search Archive.org" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer"><span aria-hidden="true">🏛️</span><span class="archive-org-label">&nbsp;Archive.org</span></a>
                             <!--<a href="https://archive.md/{{url}}" title="Search for a copy of the URL saved in Archive.today" target="_blank" rel="noreferrer">Archive.today</a>  &nbsp;|&nbsp; -->
                             <!--<a href="https://ghostarchive.org/search?term={{url}}" title="Search for a copy of the URL saved in GhostArchive.org" target="_blank" rel="noreferrer">More...</a>-->
                         </div>
+                        <div class="header-year-badges">
+                            {% for entry in related_years %}
+                            <div class="capture-year{% if entry.selected_date %} current-year{% endif %}" data-year="{{ entry.year }}">
+                                <details class="snapshot-variants year-variants">
+                                    <summary class="badge badge-default">{{ entry.year }} <span class="year-capture-count">({{ entry.snapshots|length }})</span></summary>
+                                    {% include "core/snapshot_capture_list.html" with captures=entry.snapshots %}
+                                </details>
+                                {% if entry.selected_date %}
+                                <details class="snapshot-variants selected-capture">
+                                    <summary class="header-date" title="Click to see captures from {{ entry.year }}" aria-label="Selected capture {{ entry.selected_date|date:'Y-m-d' }}">
+                                        {{ entry.selected_date|date:"Y-m-d" }}
+                                    </summary>
+                                    {% include "core/snapshot_capture_list.html" with captures=entry.snapshots %}
+                                </details>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
                 </div>
+                <button type="button" class="header-toggle" aria-label="Toggle saved outputs" aria-expanded="true" aria-controls="snapshot-output-browser">▾</button>
             </div>
-            <div class="header-bottom container-fluid" hidden>
+            <div class="header-bottom container-fluid" id="snapshot-output-browser" hidden>
                 <div class="thumb-grid">
                     
                     
@@ -1686,7 +1232,9 @@
                                 <div class="thumb-actions">
                                     <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
-                                <h4>⚠️ Failed</h4>
+                                <h4><span class="card-title-icon">⚠️</span> Failed</h4>
+                            </div>
+                            <div class="thumbnail-wrapper other-files-preview">
                                 <div class="loose-items failed-items">
                                     {% for item in failed_items %}
                                         {% if item.is_dir %}
@@ -1758,7 +1306,7 @@
                         ...doc.querySelectorAll('main, [role="main"], #doc, .ui-content, .markdown-body'),
                     ].filter(Boolean)
                     const contentHeight = Math.ceil(Math.max(...candidates.map((element) => element.scrollHeight || 0)))
-                    const minimumHeight = Math.max(window.innerHeight - wrapper.getBoundingClientRect().top, 320)
+                    const minimumHeight = Math.max(window.innerHeight, 360)
                     if (!Number.isFinite(contentHeight) || contentHeight <= minimumHeight + 4) {
                         resetPreviewFrameSize(frame)
                         return
@@ -1818,18 +1366,18 @@
                 }
             }
 
-            function prioritizeCardThumbnail(card, highPriority=false) {
+            function prioritizeCardThumbnail(card) {
                 if (!card) {
                     return
                 }
-                // Thumbnail frames stay native-lazy even when their output is selected.
+                // All thumbnail frames, including stack covers, stay native-lazy.
                 // The independent main viewer is already eager/high priority.
-                setPreviewResourcePriority(card, !!card.closest('.stack-cover'))
+                setPreviewResourcePriority(card, false)
             }
 
             function prepareThumbnailPriorities() {
                 const cards = [...document.querySelectorAll('.thumb-card')]
-                cards.forEach((card) => prioritizeCardThumbnail(card, card.classList.contains('selected-card')))
+                cards.forEach(prioritizeCardThumbnail)
             }
 
             // un-sandbox iframes showing pdfs (required to display pdf viewer)
@@ -1946,7 +1494,7 @@
                 if (!card && !explicitTarget) {
                     return false
                 }
-                prioritizeCardThumbnail(card, true)
+                prioritizeCardThumbnail(card)
                 const previewUrl = card?.dataset.previewUrl
                 const rawTarget = explicitTarget || (link ? link.getAttribute('href') : '') || previewUrl || ''
                 const target = resolvePreviewUrl(rawTarget)
@@ -2059,7 +1607,7 @@
 
             function hideSnapshotHeader() {
                 console.log('Collapsing Snapshot header...')
-                document.querySelectorAll('.header-toggle').forEach((toggle) => { toggle.textContent = '▸' })
+                document.querySelectorAll('.header-toggle').forEach((toggle) => { toggle.textContent = '▸'; toggle.setAttribute('aria-expanded', 'false') })
                 document.querySelectorAll('.header-bottom').forEach((header) => { header.hidden = true })
                 try {
                     localStorage.setItem("archivebox-snapshot-header-visible", "false")
@@ -2069,7 +1617,7 @@
             }
             function showSnapshotHeader() {
                 console.log('Expanding Snapshot header...')
-                document.querySelectorAll('.header-toggle').forEach((toggle) => { toggle.textContent = '▾' })
+                document.querySelectorAll('.header-toggle').forEach((toggle) => { toggle.textContent = '▾'; toggle.setAttribute('aria-expanded', 'true') })
                 document.querySelectorAll('.header-bottom').forEach((header) => { header.hidden = false })
                 try {
                     localStorage.setItem("archivebox-snapshot-header-visible", "true")
@@ -2101,8 +1649,8 @@
                 return true
             }
 
-            // Hide or show the header once when its title row or collapse icon is clicked.
-            document.querySelectorAll('.header-toggle-trigger').forEach((trigger) => trigger.addEventListener('click', handleSnapshotHeaderToggle))
+            // The full-height edge control toggles saved outputs without intercepting title/tag clicks.
+            document.querySelectorAll('.header-toggle').forEach((trigger) => trigger.addEventListener('click', handleSnapshotHeaderToggle))
 
             {% include "core/snapshot_stacks.js.html" %}
             initializeOutputStacks()

@@ -27,7 +27,7 @@
 {{ media.js }}
 {% endblock %}
 
-{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list{% endblock %}
+{% block bodyclass %}{{ block.super }} app-{{ opts.app_label }} model-{{ opts.model_name }} change-list filters-collapsed{% endblock %}
 
 {% if not is_popup %}
 {% block breadcrumbs %}
@@ -113,7 +113,7 @@
         if (!toggle) return;
 
         function applyState() {
-          var collapsed = localStorage.getItem(storageKey) === 'true';
+          var collapsed = localStorage.getItem(storageKey) !== 'false';
           document.body.classList.toggle('filters-collapsed', collapsed);
           toggle.textContent = collapsed ? toggle.dataset.showLabel : toggle.dataset.hideLabel;
           toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');

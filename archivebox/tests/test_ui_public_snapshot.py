@@ -241,21 +241,25 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
         response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
     assert len(captured_queries) <= 7
 
-    assert (
-        f"/snapshot/{second.id.hex}/index.html" in response.redirect_chain[0][0]
-        or f"snap-{second.id.hex[-12:]}" in response.redirect_chain[0][0]
-    )
+    assert f"/{second.get_absolute_url().strip('/')}/index.html" in response.redirect_chain[0][0]
     assert response.status_code == 200
     assert b"Resolved second copy" in response.content
-    assert b"Click to see other snapshots for this URL" in response.content
-    assert re.search(rb'snapshot-count-badge">\s*1\s*</span>', response.content)
+    assert b"Click to see captures from" in response.content
+    assert b'class="year-capture-count">(2)</span>' in response.content
+    assert b"snapshot-count-badge" not in response.content
     chooser = re.search(
-        rb'<details class="snapshot-variants">.*?Click to see other snapshots for this URL.*?</details>',
+        rb'<details class="snapshot-variants selected-capture">.*?</details>',
         response.content,
         re.DOTALL,
     )
     assert chooser
+    assert first.get_absolute_url().encode() in chooser.group()
+    assert second.get_absolute_url().encode() in chooser.group()
     assert b"4.0\xc2\xa0KB" in chooser.group()
+    year_chooser = re.search(rb'<details class="snapshot-variants year-variants">.*?</details>', response.content, re.DOTALL)
+    assert year_chooser
+    assert first.get_absolute_url().encode() in year_chooser.group()
+    assert second.get_absolute_url().encode() in year_chooser.group()
     assert b"\xf0\x9f\x93\x81 2" not in chooser.group()
     assert b"\xf0\x9f\x93\x81 2" not in response.content
 
@@ -388,6 +392,9 @@ class TestPublicIndex:
             crawl=crawl,
             status=Snapshot.StatusChoices.SEALED,
         )
+        migrated_singlefile = snapshot.output_dir / "singlefile.html"
+        migrated_singlefile.parent.mkdir(parents=True, exist_ok=True)
+        migrated_singlefile.write_text("<html>migrated output</html>", encoding="utf-8")
         ArchiveResult.objects.create(
             snapshot=snapshot,
             plugin="readability",
@@ -395,6 +402,15 @@ class TestPublicIndex:
             status=ArchiveResult.StatusChoices.SUCCEEDED,
             output_files={"content.html": {"size": 100_000}},
             output_str="unused" * 10_000,
+        )
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="singlefile",
+            hook_name="on_Snapshot__50_singlefile.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_files={"singlefile.html": {"size": migrated_singlefile.stat().st_size, "root_relative": True}},
+            output_str="singlefile.html",
+            output_size=migrated_singlefile.stat().st_size,
         )
         ArchiveResult.objects.create(
             snapshot=snapshot,
@@ -408,11 +424,18 @@ class TestPublicIndex:
             response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
 
         result_queries = [query["sql"].lower() for query in captured_queries if "core_archiveresult" in query["sql"].lower()]
-        assert len(result_queries) == 2
-        assert sum("output_files" in query for query in result_queries) == 1
-        assert all("output_str" not in query for query in result_queries)
+        assert len(result_queries) == 1
+        assert "output_files" in result_queries[0]
+        assert "output_str" not in result_queries[0]
         assert response.status_code == 200
         assert b"screenshot.png" in response.content
+        expected_path = f"/{snapshot.archive_path_from_db}/index.html#singlefile".encode()
+        assert expected_path in response.content
+        assert f"/{snapshot.archive_path_from_db}/singlefile/".encode() not in response.content
+        assert b"files-icon-pile--html" in response.content
+        assert b"files-icon-pile--raster" in response.content
+        assert b'data-tooltip="singlefile"' in response.content
+        assert b'title="singlefile"' not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_index_renders_title_html_entities_once(self, client, admin_user):
@@ -506,7 +529,9 @@ class TestPublicIndex:
         unlisted_response = client.get(f"/snapshot/{unlisted_snapshot.id}/", HTTP_HOST=WEB_TEST_HOST)
         private_response = client.get(f"/snapshot/{private_snapshot.id}/", HTTP_HOST=WEB_TEST_HOST)
 
-        assert unlisted_response.status_code == 200
+        assert unlisted_response.status_code == 302
+        assert unlisted_response["Location"].endswith(f"{unlisted_snapshot.get_absolute_url()}/index.html")
+        assert client.get(f"{unlisted_snapshot.get_absolute_url()}/index.html", HTTP_HOST=WEB_TEST_HOST).status_code == 200
         assert private_response.status_code == 302
         assert "/admin/core/snapshot/replay-auth/" in private_response["Location"]
 

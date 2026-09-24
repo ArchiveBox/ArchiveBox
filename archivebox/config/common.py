@@ -468,7 +468,13 @@ class ArchivingConfig(BaseConfigSet):
     COOKIES_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
     AUTH_STORAGE_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
 
-    URL_DENYLIST: str = Field(default=r"\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$", alias="URL_BLACKLIST")
+    URL_DENYLIST: str = Field(
+        default=(
+            r"\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$"
+            r"|^https?://news\.ycombinator\.com/(?:vote|hide)/?(?:[?#]|$)"
+        ),
+        alias="URL_BLACKLIST",
+    )
     URL_ALLOWLIST: str | None = Field(default=None, alias="URL_WHITELIST")
 
     DEFAULT_PERSONA: str = Field(default="Default", json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})

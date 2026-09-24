@@ -777,8 +777,8 @@ class TestUrlRouting:
 
                 public_client = Client()
                 public_index = public_client.get("/index.html", HTTP_HOST=snapshot_host)
-                assert public_index.status_code == 200
-                assert_cache(public_index, "public", "max-age=60", "stale-while-revalidate=300")
+                assert public_index.status_code in (301, 302)
+                assert public_index["Location"] == f"http://{get_web_host()}{snapshot.get_absolute_url()}/index.html"
 
                 public_files = public_client.get(f"/{snapshot.url_path}/index.html?files=1", HTTP_HOST=get_web_host())
                 assert public_files.status_code == 200
@@ -931,8 +931,8 @@ class TestUrlRouting:
                 assert response_body(unlisted_raw) == raw_bytes
                 assert_cache(unlisted_raw, "private", "max-age=604800", "immutable")
                 unlisted_index = Client().get("/index.html", HTTP_HOST=snapshot_host)
-                assert unlisted_index.status_code == 200
-                assert_cache(unlisted_index, "private", "max-age=60", "stale-while-revalidate=300")
+                assert unlisted_index.status_code in (301, 302)
+                assert unlisted_index["Location"] == f"http://{get_web_host()}{snapshot.get_absolute_url()}/index.html"
                 unlisted_files = Client().get(f"/{snapshot.url_path}/index.html?files=1", HTTP_HOST=get_web_host())
                 assert unlisted_files.status_code == 200
                 assert raw_name.encode() in response_body(unlisted_files)
@@ -1134,8 +1134,9 @@ class TestUrlRouting:
             assert response_body(resp) == response_file.read_bytes()
 
             resp = client.get("/index.html", HTTP_HOST=snapshot_host)
-            assert resp.status_code == 200
-            snapshot_html = response_body(resp).decode("utf-8", "ignore")
+            assert resp.status_code in (301, 302)
+            assert resp["Location"] == f"http://{web_host}{snapshot.get_absolute_url()}/index.html"
+            snapshot_html = response_body(client.get(f"{snapshot.get_absolute_url()}/index.html", HTTP_HOST=web_host)).decode("utf-8", "ignore")
             assert f"http://{snapshot_host}/" in snapshot_html
             assert "See all files..." in snapshot_html
             assert ">WARC<" not in snapshot_html
