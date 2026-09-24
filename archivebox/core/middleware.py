@@ -33,6 +33,7 @@ from archivebox.core.routes_util import (
     split_host_port,
 )
 from archivebox.core.views import OriginalDomainHostView, SnapshotHostView
+from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL
 
 ADMIN_LOGIN_HINT_COOKIE = "archivebox_admin_logged_in"
 
@@ -154,8 +155,21 @@ def CacheControlMiddleware(get_response):
                     response.headers["Last-Modified"] = http_date(mtime)
                 return response
 
-        # Keep artifact freshness/validators, but never let a shared cache store
-        # private or unlisted snapshots. Auth redirects and errors stay unstored.
+        if response.status_code in (200, 206, 304) and response.get("Cache-Control") == FAVICON_CACHE_CONTROL:
+            # The same raw favicon bytes are shared across authenticated viewers.
+            # Session middleware may have added Cookie to Vary during authorization.
+            vary = [
+                value.strip()
+                for value in response.get("Vary", "").split(",")
+                if value.strip().lower() not in {"", "cookie", "authorization"}
+            ]
+            if vary:
+                response["Vary"] = ", ".join(vary)
+            else:
+                response.headers.pop("Vary", None)
+            return response
+
+        # Other private/unlisted artifacts remain private; auth errors stay unstored.
         snapshot_policy = getattr(request, "archivebox_cache_policy", None)
         if snapshot_policy and response.status_code in (200, 206, 304):
             if not response.get("Cache-Control"):

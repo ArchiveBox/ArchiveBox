@@ -193,29 +193,9 @@
                 background: #c65580;
             }
             .year-capture-count { opacity: .85; font-size: 11px; }
-            .current-year .year-variants { z-index: 2; }
-            .current-year .year-variants[open] { z-index: 60; }
-            .current-year .year-variants > summary::after {
-                content: "";
-                position: absolute;
-                right: -5px;
-                top: calc(50% - 5px);
-                width: 10px;
-                height: 10px;
-                transform: rotate(45deg);
-                background: #c65580;
-            }
-            .selected-capture > summary {
-                display: flex;
-                align-items: center;
-                min-height: 26px;
-                padding: 3px 8px 3px 12px;
-                margin-left: -2px;
-                border-radius: 0 4px 4px 0;
-                background: #861840;
-                color: #fff;
-                font-size: 12px;
-            }
+            .current-year .year-label { position: relative; z-index: 1; background: #c65580; border-radius: 5px; }
+            .current-year .year-label::after { content: ""; position: absolute; right: -5px; top: calc(50% - 5px); width: 10px; height: 10px; transform: rotate(45deg); background: #c65580; }
+            .header-date { background: #861840; color: #fff; border-radius: 0 5px 5px 0; }
             .snapshot-variants-list {
                 position: absolute;
                 right: 0;
@@ -233,16 +213,6 @@
             }
             .snapshot-variants-list a { display: block; padding: 6px 8px; font-size: 12px; border-radius: 4px; color: #fff; }
             .snapshot-variants-list a:hover { background: #ffffff18; }
-            @container snapshot-header (max-width: 1100px) {
-                .header-nav { grid-template-columns: 32px minmax(0, 1fr); gap: 4px 6px; }
-                .header-archivebox { width: 32px; height: 32px; font-size: 0; gap: 0; }
-                .header-capture-row { grid-column: 2; grid-row: 2; justify-content: flex-end; }
-                .snapshot-variants-list { right: 0; }
-            }
-            @container snapshot-header (max-width: 480px) {
-                .header-top { padding: 5px 30px 5px 8px; }
-                .header-capture-row { grid-column: 1 / -1; gap: 4px; }
-            }
 
             .header-top .header-url,
             .header-top .header-badges > .badge,
@@ -265,6 +235,8 @@
                 white-space: nowrap;
             }
             .header-top .header-url { display: flex; gap: 0; padding: 0; }
+            .header-page-link, .header-page-metadata { display: contents; }
+            .header-url-location { display: flex; align-items: center; flex: 1; min-width: 0; }
             .header-url-content { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 7px; overflow: hidden; }
             .header-top .header-url-text { flex: 0 1 auto; min-width: 40px; padding: 0; color: #fff; font-size: 13px; line-height: 26px; }
             .header-title-text { flex: 0 1 auto; min-width: 0; color: #efc9d8; font-size: 12px; }
@@ -308,20 +280,52 @@
             .header-url-action.copied .copy-symbol { display: none; }
             .header-url-action.copied .copy-success { display: block; }
             .header-top .tag-pill { background: var(--tag-bg, #ffffff20); color: var(--tag-fg, #fff); }
-            .header-top .selected-capture > summary { padding-left: 12px; border-left: 0; border-radius: 0 5px 5px 0; }
+            .header-top .current-year summary { gap: 0; padding: 0; border: 0; background: none; }
+            .current-year .year-label, .current-year .header-date { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 3px 7px; border: 1px solid #ffffff30; }
+            .current-year .header-date { padding-left: 12px; border-left: 0; }
+            .mobile-size { display: none; }
             .header-top .badge small { font-size: inherit; font-weight: inherit; }
-            @container snapshot-header (max-width: 480px) {
-                .header-top .header-url { flex-wrap: wrap; height: auto; }
-                .header-url-content { flex-basis: calc(100% - 25px); }
-                .header-url-tools { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
-                .header-url-actions { width: 100%; flex-wrap: wrap; justify-content: flex-end; min-height: 27px; border-top: 1px solid #ffffff20; }
-                .header-top .header-url-action { width: 24px; }
-                .header-top .header-url-download { width: auto; }
-                .header-top .header-url .permission-pill { padding: 0 4px; font-size: 10px; }
+            @container snapshot-header (max-width: 1100px) {
+                .header-nav { grid-template-columns: 32px minmax(0, 1fr) auto; gap: 4px 6px; }
+                .header-archivebox { width: 32px; height: 32px; font-size: 0; gap: 0; }
+                .header-top .header-url { display: contents; }
+                .header-url-location { grid-column: 2 / -1; grid-row: 1; height: 28px; border: 1px solid #ffffff30; border-radius: 5px; background: #00000012; }
+                .header-url-actions { grid-column: 1 / 3; grid-row: 2; align-items: center; min-width: 0; }
+                .header-url-tools { border: 1px solid #ffffff30; border-radius: 5px; overflow: hidden; }
+                .header-url-action:first-child { border-left: 0; }
+                .header-top .header-url .permission-pill { margin-left: 0; margin-right: 6px; height: 28px; }
+                .header-capture-row { grid-column: 3; grid-row: 2; justify-content: flex-end; }
+                .snapshot-variants-list { right: 0; }
+            }
+            @container snapshot-header (max-width: 600px) {
+                .header-top { padding: 5px 30px 5px 8px; }
+                .header-nav { grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 5px; }
+                .header-left { grid-column: 1 / 3; width: 32px; }
+                .header-url-location, .header-url-content, .header-page-link { display: contents; }
+                .header-top .header-url-text { grid-column: 1 / -1; grid-row: 1; margin-left: 38px; min-width: 0; padding: 0 7px; height: 28px; border: 1px solid #ffffff30; border-radius: 5px; background: #00000012; }
+                .header-url-favicon { grid-column: 1; grid-row: 2; margin-left: 0; }
+                .header-page-metadata { display: flex; align-items: center; gap: 6px; grid-column: 2 / -1; grid-row: 2; min-width: 0; }
+                .header-title-text { flex: 1 1 auto; max-width: none; font-size: 12px; }
+                .header-text-dot { display: none; }
+                .header-tags { flex: 0 1 auto; max-width: 60%; overflow-x: auto; scrollbar-width: none; }
+                .header-tags::-webkit-scrollbar { display: none; }
+                .header-url-actions { grid-column: 1 / 3; grid-row: 3; justify-content: flex-start; }
+                .header-capture-row { grid-column: 3; grid-row: 3; justify-content: flex-end; max-width: 45vw; }
+                .header-top .header-url-action { width: 26px; }
+                .header-top #copy-original-url, .header-top [aria-label="Open original URL"], .permission-text, .desktop-size { display: none; }
+                .mobile-size { display: inline; }
+                .header-top .header-url-download { width: auto; gap: 2px; padding: 0 4px; }
+                .header-top .header-url .permission-pill { padding: 0 4px; margin-right: 4px; font-size: 10px; }
+                .header-top .header-url-tools [aria-label="Search Archive.org"] { border-left: 0; }
             }
             @container snapshot-header (max-width: 360px) {
-                .header-top .header-url-action { width: 20px; }
-                .header-top .header-url-download { width: auto; padding: 0 4px; font-size: 10px; }
+                .header-top .header-url-action { width: 22px; }
+                .header-top .header-url-download { width: auto; gap: 2px; padding: 0 3px; font-size: 10px; }
+                .header-top .header-status .status-count { margin: 0 1px; padding: 0 2px; }
+                .header-top .year-variants > summary { font-size: 10px; }
+                .current-year .year-label { padding: 3px 4px; }
+                .current-year .header-date { padding: 3px 4px 3px 9px; }
+                .year-capture-count { font-size: 9px; }
             }
             .header-top .header-url .header-status { margin: 0; padding: 0; border: 0; }
             .header-status .status-count { margin: 0 3px; padding: 0 4px; border-radius: 3px; line-height: 18px; font-weight: 600; }
@@ -1122,6 +1126,7 @@
                     </div>
                     <div class="header-col header-main">
                         <div class="header-url">
+                            <div class="header-url-location">
                             <span class="header-url-favicon">
                             {% snapshot_archiveresult_url snapshot 'favicon' 'favicon.ico' as header_favicon_url %}
                             {% if header_favicon_url %}
@@ -1131,16 +1136,21 @@
                             {% endif %}
                             </span>
                             <div class="header-url-content">
+                                <span class="header-page-link">
                                 <a class="header-url-text" href="{{url}}" title="{{url}}" target="_blank" rel="noreferrer">{{url}}</a>
+                                <span class="header-page-metadata">
                                 <span class="header-text-dot" aria-hidden="true">·</span>
-                                <span class="header-title-text" title="{{title}}">{{title|truncatechars:120}}</span>
+                                <span class="header-title-text" title="{{title}}">{{title}}</span>
                                 {% if title_tags %}
-                                    <span class="header-text-dot" aria-hidden="true">·</span>
+                                    <span class="header-text-dot header-tags-dot" aria-hidden="true">·</span>
                                     <span class="header-tags">{% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}">{{tag.name}}</span>{% endfor %}</span>
                                 {% endif %}
+                                </span>
+                                </span>
+                            </div>
                             </div>
                             <div class="header-url-actions">
-                                <span class="badge permission-pill" title="Snapshot visibility">{{ snapshot_permissions_icon }} {{ snapshot_permissions }}</span>
+                                <span class="badge permission-pill" title="{{ snapshot_permissions|capfirst }}" aria-label="{{ snapshot_permissions|capfirst }}">{{ snapshot_permissions_icon }}<span class="permission-text"> {{ snapshot_permissions }}</span></span>
                                 <div class="header-url-tools">
                                 <button type="button" class="header-url-action" id="copy-original-url" data-url="{{url}}" aria-label="Copy original URL" title="Copy original URL">
                                     <svg class="copy-symbol" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="11" rx="2"/><path d="M12 7V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg>
@@ -1169,7 +1179,7 @@
                                 {% endif %}
                                     </span>
                                 {% if not STATIC_EXPORT %}
-                                    <span class="header-download-size">{{size}}</span>
+                                    <span class="header-download-size"><span class="desktop-size">{{size}}</span><span class="mobile-size">{% with parts=size.split %}{% if parts.1 == "MB" or parts.1 == "KB" or parts.1 == "Bytes" %}{{parts.0|floatformat:"0"}} {% if parts.1 == "Bytes" %}B{% else %}{{parts.1}}{% endif %}{% else %}{{size}}{% endif %}{% endwith %}</span></span>
                                     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v11m-4-4 4 4 4-4M3 13v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></svg>
                                 </a>
                                 {% endif %}
@@ -1182,17 +1192,16 @@
                             {% for entry in related_years %}
                             <div class="capture-year{% if entry.selected_date %} current-year{% endif %}" data-year="{{ entry.year }}">
                                 <details class="snapshot-variants year-variants">
-                                    <summary class="badge badge-default">{{ entry.year }} <span class="year-capture-count">({{ entry.snapshots|length }})</span></summary>
-                                    {% include "core/snapshot_capture_list.html" with captures=entry.snapshots %}
-                                </details>
-                                {% if entry.selected_date %}
-                                <details class="snapshot-variants selected-capture">
-                                    <summary class="header-date" title="Click to see captures from {{ entry.year }}" aria-label="Selected capture {{ entry.selected_date|date:'Y-m-d' }}">
-                                        {{ entry.selected_date|date:"Y-m-d" }}
+                                    <summary class="badge badge-default"{% if entry.selected_date %} aria-label="All captures; selected {{ entry.selected_date|date:'Y-m-d' }}"{% endif %}>
+                                        <span class="year-label">{{ entry.year }} <span class="year-capture-count">{{ entry.snapshots|length }}</span></span>
+                                        {% if entry.selected_date %}<span class="header-date">{{ entry.selected_date|date:"Y-m-d" }}</span>{% endif %}
                                     </summary>
-                                    {% include "core/snapshot_capture_list.html" with captures=entry.snapshots %}
+                                    {% if entry.selected_date %}
+                                        {% include "core/snapshot_capture_list.html" with captures=url_snapshots %}
+                                    {% else %}
+                                        {% include "core/snapshot_capture_list.html" with captures=entry.snapshots %}
+                                    {% endif %}
                                 </details>
-                                {% endif %}
                             </div>
                             {% endfor %}
                         </div>

@@ -510,15 +510,26 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
             page.set_viewport_size({"width": width, "height": height})
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             logo = page.locator(".header-archivebox img").bounding_box()
-            url = page.locator(".header-url").bounding_box()
+            url = page.locator(
+                ".header-url" if width > 1100 else ".header-url-location" if width > 600 else ".header-url-text",
+            ).bounding_box()
             assert logo["x"] >= 0 and logo["width"] >= 30
             assert logo["x"] + logo["width"] <= url["x"]
             if width > 1100:
                 assert url["x"] == 104
             favicon = page.locator(".header-url-favicon").bounding_box()
             assert favicon["width"] == favicon["height"] == 22
-            assert favicon["x"] >= url["x"]
-            assert favicon["x"] + favicon["width"] <= page.locator(".header-url-text").bounding_box()["x"]
+            if width > 600:
+                assert favicon["x"] >= url["x"]
+                assert favicon["x"] + favicon["width"] <= page.locator(".header-url-text").bounding_box()["x"]
+            else:
+                title_box = page.locator(".header-title-text").bounding_box()
+                assert favicon["y"] >= url["y"] + url["height"]
+                assert abs(favicon["y"] + favicon["height"] / 2 - title_box["y"] - title_box["height"] / 2) < 1
+                assert not actions.locator("#copy-original-url").is_visible()
+                assert not actions.get_by_role("link", name="Open original URL", exact=True).is_visible()
+                assert not actions.locator(".permission-text").is_visible()
+                assert "." not in actions.locator(".mobile-size").inner_text()
             if width > 480:
                 assert url["height"] == 28
             if width > 1100:
@@ -526,17 +537,26 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
             assert page.locator(".header-url .header-title-text").count() == 1
             status_box = actions.locator(".header-status").bounding_box()
             permission_box = actions.locator(".permission-pill").bounding_box()
-            assert status_box["height"] == permission_box["height"] == 22
+            assert status_box["height"] == 22
+            assert permission_box["height"] == (22 if width > 1100 else 28)
             download_box = actions.locator(".header-url-download").bounding_box()
             assert status_box["x"] >= download_box["x"]
             assert status_box["x"] + status_box["width"] <= download_box["x"] + download_box["width"]
             assert actions.locator(".header-status").evaluate("e => e.tagName") == "SPAN"
             action_box = actions.bounding_box()
-            assert action_box["x"] >= url["x"]
-            assert action_box["x"] + action_box["width"] <= url["x"] + url["width"]
+            if width > 1100:
+                assert action_box["x"] >= url["x"]
+                assert action_box["x"] + action_box["width"] <= url["x"] + url["width"]
+            else:
+                assert action_box["y"] >= url["y"] + url["height"]
+                captures_box = page.locator(".header-capture-row").bounding_box()
+                assert abs(captures_box["y"] - action_box["y"]) <= 1
+                assert action_box["x"] + action_box["width"] <= captures_box["x"]
+            assert action_box["x"] >= 0
+            assert action_box["x"] + action_box["width"] <= width - 20
             assert page.locator('.header-url-actions [aria-label="Search Archive.org"]').is_visible()
             controls = page.locator(
-                ".header-badges > .badge, .tag-pill, .year-variants > summary, .selected-capture > summary",
+                ".header-badges > .badge, .year-variants > summary, .selected-capture > summary",
             )
             for control in controls.all():
                 if control.is_visible():
@@ -604,26 +624,36 @@ def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, 
         for selected, expected_year, expected_date in ((snapshot, "2026", "2026-09-23"), (copies[1], "2025", "2025-03-02")):
             page.goto(f"http://web.archivebox.localhost:{port}{selected.get_absolute_url()}/index.html", wait_until="domcontentloaded")
             assert page.locator(".capture-year").evaluate_all("nodes => nodes.map(e => e.dataset.year)") == ["2025", "2026"]
-            assert page.locator(".year-variants > summary").all_text_contents() == ["2025 (1)", "2026 (2)"]
+            assert [text.split() for text in page.locator(".year-label").all_text_contents()] == [["2025", "1"], ["2026", "2"]]
             group = page.locator(f'.capture-year[data-year="{expected_year}"]')
-            assert group.locator(".selected-capture > summary").inner_text() == expected_date
-            assert page.locator(".selected-capture").count() == 1
+            assert group.locator(".header-date").inner_text() == expected_date
+            assert group.locator("details").count() == 1
+            assert page.locator(".header-date").count() == 1
             assert "CAPTURES" not in page.locator(".header-capture-row").inner_text().upper()
             for width, height in ((1440, 1000), (768, 1024), (390, 844), (320, 700)):
                 page.set_viewport_size({"width": width, "height": height})
-                year = group.locator(".year-variants > summary").bounding_box()
-                date = group.locator(".selected-capture > summary").bounding_box()
+                year = group.locator(".year-label").bounding_box()
+                date = group.locator(".header-date").bounding_box()
                 assert abs(year["y"] - date["y"]) < 1
-                assert abs(year["x"] + year["width"] - date["x"] - 2) < 1
+                assert abs(year["x"] + year["width"] - date["x"]) < 1
                 assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                 page.screenshot(path=str(tmp_path / f"year-badges-{expected_year}-{width}.png"))
-            group.locator(".year-variants > summary").click()
-            year_menu = group.locator(".year-variants .snapshot-variants-list")
-            assert year_menu.locator('[aria-current="page"]').count() == 1
-            year_links = year_menu.locator("a").evaluate_all("nodes => nodes.map(a => a.href)")
-            group.locator(".year-variants > summary").click()
-            group.locator(".selected-capture > summary").click()
-            date_menu = group.locator(".selected-capture .snapshot-variants-list")
-            assert date_menu.locator("a").evaluate_all("nodes => nodes.map(a => a.href)") == year_links
-            assert date_menu.locator('[aria-current="page"]').count() == 1
+            menu = group.locator(".snapshot-variants-list")
+            group.locator(".year-label").click()
+            assert menu.is_visible()
+            assert menu.locator("a").count() == 3
+            assert menu.locator('[aria-current="page"]').count() == 1
+            group.locator(".header-date").click()
+            assert not menu.is_visible()
+            group.locator(".header-date").click()
+            assert menu.is_visible()
+            assert menu.locator("a").count() == 3
+            group.locator(".year-label").click()
+            other_year = "2025" if expected_year == "2026" else "2026"
+            other = page.locator(f'.capture-year[data-year="{other_year}"]')
+            other.locator("summary").click()
+            other_menu = other.locator(".snapshot-variants-list")
+            assert other_menu.locator("a").count() == (1 if other_year == "2025" else 2)
+            assert all(text.strip().startswith(other_year) for text in other_menu.locator("a").all_text_contents())
+            assert other_menu.locator('[aria-current="page"]').count() == 0
         browser.close()

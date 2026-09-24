@@ -32,6 +32,7 @@ from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
+FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
 IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
 html {
@@ -939,6 +940,15 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         raise Http404(_("“%(path)s” does not exist") % {"path": fullpath})
 
     statobj = fullpath.stat()
+    # Captured site icons are intentionally shareable even for private snapshots.
+    # Only raw icon responses qualify, not generated previews or directory pages.
+    favicon_cache_control = (
+        FAVICON_CACHE_CONTROL
+        if fullpath.stem.lower() == "favicon"
+        and fullpath.suffix.lower() in {".ico", ".svg", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".avif"}
+        and not request.GET.get("preview")
+        else None
+    )
     document_root = Path(document_root) if document_root else None
     rel_path = path
     etag = None
@@ -954,7 +964,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             if etag in inm_list or etag.strip('"') in [i.strip('"') for i in inm_list]:
                 not_modified = HttpResponseNotModified()
                 not_modified.headers["ETag"] = etag
-                not_modified.headers["Cache-Control"] = f"{cache_policy}, max-age=31536000, immutable"
+                not_modified.headers["Cache-Control"] = favicon_cache_control or f"{cache_policy}, max-age=31536000, immutable"
                 not_modified.headers["Last-Modified"] = http_date(statobj.st_mtime)
                 return _apply_archive_replay_headers(
                     not_modified,
@@ -1003,7 +1013,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         statobj.st_mtime,
     ):
         not_modified = HttpResponseNotModified()
-        not_modified.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
+        not_modified.headers["Cache-Control"] = favicon_cache_control or f"{cache_policy}, max-age=60, stale-while-revalidate=300"
         return _apply_archive_replay_headers(
             not_modified,
             fullpath=fullpath,
@@ -1153,6 +1163,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         response.headers["Content-Disposition"] = f'inline; filename="{fullpath.name}"'
     if content_type.startswith("image/"):
         response.headers["Cache-Control"] = f"{cache_policy}, max-age=604800, immutable"
+    if favicon_cache_control:
+        response.headers["Cache-Control"] = favicon_cache_control
 
     # handle byte-range requests by serving chunk of file
     if stat.S_ISREG(statobj.st_mode):

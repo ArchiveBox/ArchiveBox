@@ -72,7 +72,7 @@ from archivebox.core.routes_util import (
 )
 from archivebox.crawls.models import Crawl
 from archivebox.misc.paginators import AcceleratedPaginator
-from archivebox.misc.serve_static import serve_static_with_byterange_support
+from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, serve_static_with_byterange_support
 from archivebox.misc.util import (
     base_url,
     filter_queryset_by_uuid_substring,
@@ -1047,6 +1047,8 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
     response = _build_snapshot_replay_response(request, snapshot, path)
+    if response.status_code in (200, 206, 304) and response.get("Cache-Control") == FAVICON_CACHE_CONTROL:
+        return response
     if path != "progress.json" and response.status_code in (200, 206, 304):
         if not response.get("Cache-Control"):
             policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
