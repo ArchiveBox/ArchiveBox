@@ -780,7 +780,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         return qs
 
-    @admin.display(description="👁", ordering="permissions")
+    @admin.display(description="🔒", ordering="permissions")
     def permissions_badge(self, obj):
         permissions = obj.__dict__.get("snapshot_permissions")
         if permissions is None:
@@ -974,15 +974,25 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 urldecode(htmldecode(title_raw))[:128],
             )
 
+        preview = self._get_preview_data(obj) or {}
+        favicon_html = (
+            format_html(
+                '<img class="snapshot-url-favicon" src="{}" alt="" loading="lazy" decoding="async" onerror="this.hidden=true">',
+                preview["favicon_url"],
+            )
+            if preview.get("favicon_url")
+            else ""
+        )
         return format_html(
             '<a class="snapshot-title-detail-hitbox" href="{}" aria-label="Open snapshot details"></a>'
             "{}"
             '<div class="snapshot-title-url">'
-            '<a class="snapshot-original-url" href="{}"><code style="user-select: all;">{}</code></a>'
+            '<a class="snapshot-original-url" href="{}">{}<code style="user-select: all;">{}</code></a>'
             "</div>",
             detail_url,
             title_html,
             url_raw or obj.url,
+            favicon_html,
             snapshot_url_text(url_raw or obj.url),
         )
 

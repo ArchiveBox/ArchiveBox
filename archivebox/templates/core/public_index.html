@@ -259,23 +259,18 @@
         margin-bottom: 1px;
     }
 
-    .snapshot-favicon-link {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 22px;
-        min-width: 22px;
-        height: 22px;
+    #content .snapshot-url .link-favicon {
+        display: block;
+        width: 1em;
+        height: 1em;
+        max-width: 1em;
+        flex: 0 0 1em;
+        border-radius: 50%;
+        object-fit: contain; opacity: 0.75; font-size: inherit;
     }
 
-    #content .snapshot-favicon-link .link-favicon {
-        display: block;
-        width: 18px;
-        height: 18px;
-        max-width: 18px;
-        border-radius: 4px;
-        object-fit: contain;
-    }
+    #content .snapshot-url .link-favicon-empty { display: none; }
+    .snapshot-url-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
     .snapshot-title {
         display: block;
@@ -291,8 +286,10 @@
     }
 
     .snapshot-url {
-        display: block;
-        margin-left: 30px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        margin-left: 0;
         overflow: hidden;
         color: #84909f;
         font-family: "Helvetica Neue", Arial, sans-serif;
@@ -312,6 +309,12 @@
 
     .snapshot-url .snapshot-url-domain {
         color: #64748b;
+        font-weight: 400;
+    }
+
+    .snapshot-url :is(.snapshot-url-prefix, .snapshot-url-suffix) {
+        color: #b0b7c0;
+        font-weight: 400;
     }
 
     .snapshot-tags-cell {

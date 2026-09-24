@@ -1098,7 +1098,10 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
 }
 
 #result_list .snapshot-original-url {
-    display: block;
+    font-size: 11.5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
     color: #84909f;
     text-decoration: none;
 }
@@ -1109,6 +1112,12 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
 
 #result_list .snapshot-original-url .snapshot-url-domain {
     color: #64748b;
+    font-weight: 400;
+}
+
+#result_list .snapshot-original-url :is(.snapshot-url-prefix, .snapshot-url-suffix) {
+    color: #b0b7c0;
+    font-weight: 400;
 }
 
 #result_list .snapshot-original-url code {
@@ -1119,11 +1128,20 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
     line-height: 1.25;
     color: inherit;
     /* Fill the cell without making a long URL widen the table. */
+    flex: 1;
     width: 0;
-    min-width: 100%;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+#result_list .snapshot-original-url .snapshot-url-favicon {
+    width: 1em;
+    height: 1em;
+    flex: 0 0 1em;
+    border-radius: 50%;
+    object-fit: contain; opacity: 0.75; font-size: inherit;
 }
 
 #result_list tbody :is(.field-size, .field-size_with_stats) a,
@@ -1314,6 +1332,22 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     border-radius: 999px;
     font-size: 11px;
     line-height: 1;
+}
+
+.model-snapshot .field-permissions_badge .snapshot-permissions-button {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.model-snapshot .field-permissions_badge .snapshot-permissions-icon {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+    transition: box-shadow 0.15s ease;
+}
+
+.model-snapshot .field-permissions_badge .snapshot-permissions-button:hover .snapshot-permissions-icon,
+.model-snapshot .field-permissions_badge .snapshot-permissions-button:focus-visible .snapshot-permissions-icon {
+    box-shadow: 0 2px 5px rgba(15, 23, 42, 0.24);
 }
 
 .snapshot-permissions-menu {

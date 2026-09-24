@@ -444,7 +444,8 @@ def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_se
 
 
 @pytest.mark.django_db(transaction=True)
-def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapshot, live_server):
+def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapshot, live_server, tmp_path):
+    import zipfile
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
     from archivebox.machine.models import Machine
@@ -457,11 +458,54 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
     snapshot.save(update_fields=["permissions"])
     for plugin in ("readability", "defuddle", "mercury", "trafilatura", "htmltotext"):
         save_output(snapshot, plugin)
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="pdf",
+        hook_name="on_Snapshot__50_pdf.js",
+        status=ArchiveResult.StatusChoices.FAILED,
+    )
+    expected_size = snapshot.get_html_details_context()["size"]
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
         page = browser.new_page()
         page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
+        actions = page.locator(".header-url-actions")
+        assert page.locator(".header-status").inner_text().split() == ["5", "1"]
+        assert page.locator(".status-count-success").evaluate("e => getComputedStyle(e).backgroundColor") == "rgb(172, 212, 182)"
+        assert page.locator(".status-count-failed").evaluate("e => getComputedStyle(e).backgroundColor") == "rgb(181, 42, 66)"
+        assert actions.locator(".header-download-size").inner_text() == expected_size
+        assert actions.locator(".header-url-action").count() == 5
+        assert actions.locator(".header-url-action").evaluate_all("nodes => nodes.map(e => e.getAttribute('aria-label'))") == [
+            "Copy original URL",
+            "Open original URL",
+            "Search Archive.org",
+            "Edit snapshot",
+            "Download snapshot ZIP",
+        ]
+        assert page.locator(".permission-pill").count() == 1
+        assert actions.locator(".permission-pill").inner_text().endswith("PUBLIC")
+        assert page.get_by_role("link", name="Search Archive.org", exact=True).count() == 1
+        original = actions.get_by_role("link", name="Open original URL", exact=True)
+        assert original.get_attribute("href") == snapshot.url
+        assert original.get_attribute("target") == "_blank"
+        assert (
+            actions.get_by_role("link", name="Search Archive.org", exact=True).get_attribute("href")
+            == f"https://web.archive.org/web/{snapshot.url}"
+        )
+        page.context.grant_permissions(["clipboard-read", "clipboard-write"])
+        actions.get_by_role("button", name="Copy original URL", exact=True).click()
+        page.get_by_role("button", name="URL copied", exact=True).wait_for()
+        assert page.evaluate("navigator.clipboard.readText()") == snapshot.url
+        assert page.locator("#snapshot-output-browser").is_visible()
+        with page.expect_download() as download_info:
+            actions.locator(".header-url-download .header-status").click()
+        archive_path = tmp_path / "snapshot.zip"
+        download_info.value.save_as(archive_path)
+        with zipfile.ZipFile(archive_path) as archive:
+            for plugin in ("readability", "defuddle", "mercury", "trafilatura", "htmltotext"):
+                assert any(f"/{plugin}/" in name for name in archive.namelist())
+            assert archive.testzip() is None
         for width, height in ((1440, 1000), (1024, 900), (768, 1024), (600, 900), (390, 844), (320, 700)):
             page.set_viewport_size({"width": width, "height": height})
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -469,9 +513,30 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
             url = page.locator(".header-url").bounding_box()
             assert logo["x"] >= 0 and logo["width"] >= 30
             assert logo["x"] + logo["width"] <= url["x"]
-            assert page.locator(".archive-org-label").is_visible()
+            if width > 1100:
+                assert url["x"] == 104
+            favicon = page.locator(".header-url-favicon").bounding_box()
+            assert favicon["width"] == favicon["height"] == 22
+            assert favicon["x"] >= url["x"]
+            assert favicon["x"] + favicon["width"] <= page.locator(".header-url-text").bounding_box()["x"]
+            if width > 480:
+                assert url["height"] == 28
+            if width > 1100:
+                assert page.locator(".header-top").bounding_box()["height"] == 44
+            assert page.locator(".header-url .header-title-text").count() == 1
+            status_box = actions.locator(".header-status").bounding_box()
+            permission_box = actions.locator(".permission-pill").bounding_box()
+            assert status_box["height"] == permission_box["height"] == 22
+            download_box = actions.locator(".header-url-download").bounding_box()
+            assert status_box["x"] >= download_box["x"]
+            assert status_box["x"] + status_box["width"] <= download_box["x"] + download_box["width"]
+            assert actions.locator(".header-status").evaluate("e => e.tagName") == "SPAN"
+            action_box = actions.bounding_box()
+            assert action_box["x"] >= url["x"]
+            assert action_box["x"] + action_box["width"] <= url["x"] + url["width"]
+            assert page.locator('.header-url-actions [aria-label="Search Archive.org"]').is_visible()
             controls = page.locator(
-                ".header-url, .header-badges > .badge, .header-mobile-badge, .tag-pill, .year-variants > summary, .selected-capture > summary, .external-links a",
+                ".header-badges > .badge, .tag-pill, .year-variants > summary, .selected-capture > summary",
             )
             for control in controls.all():
                 if control.is_visible():

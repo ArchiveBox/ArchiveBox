@@ -31,11 +31,13 @@
         .snapshot-preview-spinner { display: grid; place-items: center; }
         .snapshot-preview-spinner::after { width: 20px; height: 20px; border: 2px solid #cbd5e1; border-top-color: #aa1e55; border-radius: 50%; content: ""; animation: spin .8s linear infinite; }
         .snapshot-title-line { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 1px; }
-        .snapshot-favicon-link { display: inline-flex; width: 22px; min-width: 22px; height: 22px; align-items: center; justify-content: center; }
-        .link-favicon { display: block; width: 18px; height: 18px; border-radius: 4px; object-fit: contain; }
+        .snapshot-url .link-favicon { display: block; width: 1em; height: 1em; flex: 0 0 1em; border-radius: 50%; object-fit: contain; opacity: 0.75; font-size: inherit; }
+        .snapshot-url .link-favicon-empty { display: none; }
+        .snapshot-url-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
         .snapshot-title { overflow: hidden; color: #0f172a; font-size: 15px; font-weight: 600; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
-        .snapshot-url { display: block; margin-left: 30px; overflow: hidden; color: #84909f; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 11.5px; font-weight: 400; line-height: 1.25; user-select: all; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
-        .snapshot-url .snapshot-url-domain { color: #64748b; }
+        .snapshot-url { display: flex; align-items: center; gap: 5px; margin-left: 0; overflow: hidden; color: #84909f; font-family: "Helvetica Neue", Arial, sans-serif; font-size: 11.5px; font-weight: 400; line-height: 1.25; user-select: all; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+        .snapshot-url .snapshot-url-domain { color: #64748b; font-weight: 400; }
+        .snapshot-url :is(.snapshot-url-prefix, .snapshot-url-suffix) { color: #b0b7c0; font-weight: 400; }
         .snapshot-url:hover, .snapshot-title:hover { text-decoration: underline; }
         .snapshot-mobile-saved { display: none; }
         .snapshot-tags-cell { width: 180px; }

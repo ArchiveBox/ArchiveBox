@@ -965,6 +965,13 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 )
 
     content_type, encoding = mimetypes.guess_type(str(fullpath))
+    # Captured favicons retain the conventional .ico filename even when a site
+    # returns SVG. Browsers cannot decode SVG served as image/x-icon.
+    if fullpath.suffix.lower() == ".ico":
+        with fullpath.open("rb") as icon_file:
+            icon_head = icon_file.read(4096)
+        if re.search(rb"<svg(?:\s|>)", icon_head):
+            content_type = "image/svg+xml"
     preserve_plain_text = fullpath.suffix.lower() in {".log", ".sh", ".jsonl"}
     if preserve_plain_text:
         content_type = "text/plain"

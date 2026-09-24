@@ -36,7 +36,7 @@ register = template.Library()
 
 @register.filter
 def snapshot_url_text(url):
-    """Style the URL's authority without changing any of its selectable text."""
+    """Emphasize the hostname while preserving the exact selectable URL."""
     url = str(url or "")
     match = re.match(r"^(?:[a-zA-Z][a-zA-Z0-9+.-]*:)?//([^/?#]*)", url)
     if not match:
@@ -44,11 +44,21 @@ def snapshot_url_text(url):
     netloc = match[1]
     authority = netloc.rsplit("@", 1)[-1]
     start = match.start(1) + len(netloc) - len(authority)
+    host_end = authority.find("]") + 1 if authority.startswith("[") else authority.find(":")
+    hostname = authority[:host_end] if host_end > 0 else authority
+    if hostname.lower().startswith("www."):
+        start += 4
+        hostname = hostname[4:]
+    remainder = url[start + len(hostname) :]
+    suffix = re.search(r"[?&#]", remainder)
+    suffix_start = suffix.start() if suffix else len(remainder)
     return format_html(
-        '<span class="snapshot-url-prefix">{}</span><span class="snapshot-url-domain">{}</span><span class="snapshot-url-path">{}</span>',
+        '<span class="snapshot-url-prefix">{}</span><span class="snapshot-url-domain">{}</span>'
+        '<span class="snapshot-url-path">{}</span><span class="snapshot-url-suffix">{}</span>',
         url[:start],
-        authority,
-        url[start + len(authority) :],
+        hostname,
+        remainder[:suffix_start],
+        remainder[suffix_start:],
     )
 
 
@@ -768,15 +778,12 @@ def snapshot_index_row(context, link) -> str:
     </td>
     <td class="snapshot-title-cell" title="{escape(title or url)}">
         <div class="snapshot-title-line">
-            <a href="{escape(detail_url)}" class="snapshot-favicon-link" title="Open archived snapshot">
-                {favicon_html}
-            </a>
             <a href="{escape(detail_url)}" class="snapshot-title">
                 {escape(Truncator(title_text).chars(110) if title_text != url else url)}
             </a>
         </div>
         <a href="{escape(url)}" class="snapshot-url" title="{escape(url)}" target="_blank" rel="noopener noreferrer">
-            {snapshot_url_text(url)}
+            {favicon_html}<span class="snapshot-url-text">{snapshot_url_text(url)}</span>
         </a>
         <span class="snapshot-mobile-saved">Saved {escape(date_text)} at {escape(time_text)}</span>
     </td>

@@ -6,6 +6,16 @@ from django.test import RequestFactory
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 
 
+def test_svg_favicon_saved_with_ico_extension_uses_svg_content_type(tmp_path):
+    content = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><rect width="16" height="16" fill="#f60"/></svg>'
+    (tmp_path / "favicon.ico").write_bytes(content)
+    request = RequestFactory().get("/favicon.ico")
+    response = serve_static_with_byterange_support(request, "favicon.ico", document_root=tmp_path, is_archive_replay=True)
+    assert response.status_code == 200
+    assert response["Content-Type"] == "image/svg+xml; charset=utf-8"
+    assert b"".join(response.streaming_content) == content
+
+
 @pytest.mark.parametrize("filename", ["output.log", "hook.sh", "index.jsonl", "index.JSONL"])
 @pytest.mark.parametrize("byte_range", [None, "bytes=2-5"])
 def test_logs_shell_scripts_and_jsonl_are_served_as_plain_text(tmp_path: Path, filename: str, byte_range: str | None):

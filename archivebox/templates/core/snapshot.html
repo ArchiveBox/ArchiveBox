@@ -53,20 +53,23 @@
             .header-top a:hover { text-decoration: underline; }
             .header-nav {
                 display: grid;
-                grid-template-columns: auto minmax(0, 1fr) auto;
+                grid-template-columns: 82px minmax(0, 1fr) auto;
                 gap: 4px 12px;
                 align-items: center;
             }
             .header-col { min-width: 0; }
-            .header-left { grid-column: 1; grid-row: 1 / 3; }
+            .header-left { grid-column: 1; grid-row: 1; }
             .header-main { display: contents; }
             .header-meta { grid-column: 3; grid-row: 1; }
             .header-archivebox {
                 display: flex;
                 align-items: center;
-                gap: 7px;
+                flex-direction: row;
+                gap: 4px;
+                padding-right: 2px;
                 white-space: nowrap;
-                font-size: 15px;
+                font-size: 9px;
+                line-height: 12px;
                 font-weight: 600;
             }
             .header-archivebox img {
@@ -123,7 +126,22 @@
                 line-height: 1.2;
                 white-space: nowrap;
             }
-            .permission-pill { border-style: dashed !important; text-transform: uppercase; }
+            .header-top .header-url .permission-pill,
+            .header-top .header-url .header-status {
+                display: inline-flex;
+                align-items: center;
+                flex: 0 0 auto;
+                align-self: center;
+                height: 22px;
+                margin: 0 5px;
+                padding: 0 6px;
+                border: 1px solid #ffffff30;
+                border-radius: 5px;
+                background-clip: padding-box;
+                font-size: 10px;
+                line-height: 20px;
+            }
+            .header-top .permission-pill { background-color: #ffffff20; color: #fff; text-transform: uppercase; }
             .header-toggle {
                 position: absolute;
                 inset: 0 0 0 auto;
@@ -147,10 +165,10 @@
             .header-badges { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
             .header-top .badge { margin: 0; padding: 3px 6px;  }
             .header-top .badge { font-family: inherit; font-size: 12px; line-height: 1.2; font-weight: 500; }
-            .badge-label, .badge-mobile-text, .header-mobile-badges { display: none; }
+            .badge-label, .badge-mobile-text { display: none; }
             .header-capture-row {
                 grid-column: 3;
-                grid-row: 2;
+                grid-row: 1;
                 display: flex;
                 align-items: center;
                 justify-content: flex-end;
@@ -198,17 +216,6 @@
                 color: #fff;
                 font-size: 12px;
             }
-            .header-top .external-links { width: auto; margin: 0; padding: 0; font-size: 12px; overflow: visible; }
-            .header-top .external-links a {
-                display: inline-flex;
-                align-items: center;
-                min-height: 26px;
-                padding: 3px 6px;
-                border: 1px solid #ffffff26;
-                border-radius: 5px;
-                background: #00000012;
-                white-space: nowrap;
-            }
             .snapshot-variants-list {
                 position: absolute;
                 right: 0;
@@ -228,65 +235,20 @@
             .snapshot-variants-list a:hover { background: #ffffff18; }
             @container snapshot-header (max-width: 1100px) {
                 .header-nav { grid-template-columns: 32px minmax(0, 1fr); gap: 4px 6px; }
-                .header-left { grid-row: 1; }
                 .header-archivebox { width: 32px; height: 32px; font-size: 0; gap: 0; }
-                .header-url { grid-column: 2; }
-                .header-url-text { font-size: 14px; }
-                .header-title-line {
-                    grid-column: 1 / -1;
-                    display: grid;
-                    grid-template-columns: 18px minmax(0,1fr);
-                    gap: 4px 6px;
-                }
-                .header-title-text { grid-column: 2; grid-row: 1; }
-                .favicon { grid-column: 1; grid-row: 1; }
-                .header-tags { grid-column: 1 / -1; grid-row: 2; }
-                .header-meta { grid-column: 1 / -1; grid-row: 3; }
-                .header-badges { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); }
-                .header-top .header-badges .badge { display: flex; align-items: center; gap: 5px; min-height: 26px; font-size: 11px; }
-                .badge-label { display: inline; font-size: 9px; text-transform: uppercase; opacity: .8; }
-                .badge-desktop-icon { display: none; }
-                .badge-mobile-text { display: inline; }
-                .header-capture-row { grid-column: 1 / -1; grid-row: 4; justify-content: flex-start; }
-                .header-top .external-links a {
-                    min-height: 28px;
-                    padding: 3px 6px;
-                    border: 1px solid #ffffff26;
-                    border-radius: 5px;
-                    background: #00000012;
-                }
-                .snapshot-variants-list { right: auto; left: 0; }
+                .header-capture-row { grid-column: 2; grid-row: 2; justify-content: flex-end; }
+                .snapshot-variants-list { right: 0; }
             }
             @container snapshot-header (max-width: 480px) {
                 .header-top { padding: 5px 30px 5px 8px; }
-                .header-badges { display: none; }
-                .header-mobile-badges { display: flex; flex-wrap: wrap; gap: 4px; }
-                .header-mobile-badge {
-                    display: flex;
-                    flex: 1 1 auto;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 5px;
-                    padding: 5px 7px;
-                    border: 1px solid #ffffff30;
-                    border-radius: 5px;
-                    background: #ffffff20;
-                    font-size: 11px;
-                    line-height: 1.2;
-                }
-                .header-mobile-badge:last-child { background: #d4edda; color: #315d3b; }
-                .header-mobile-badge-separator { opacity: .5; }
-                .header-capture-row { gap: 4px; font-size: 11px; }
-                .header-top .external-links { font-size: 11px; }
+                .header-capture-row { grid-column: 1 / -1; gap: 4px; }
             }
 
             .header-top .header-url,
             .header-top .header-badges > .badge,
-            .header-top .header-mobile-badge,
             .header-top .tag-pill,
             .header-top .year-variants > summary,
-            .header-top .selected-capture > summary,
-            .header-top .external-links a {
+            .header-top .selected-capture > summary {
                 display: inline-flex;
                 align-items: center;
                 gap: 4px;
@@ -302,12 +264,69 @@
                 line-height: 20px;
                 white-space: nowrap;
             }
-            .header-top .header-url { display: block; padding: 0; }
-            .header-top .header-url-text { padding: 3px 7px; font-size: 13px; line-height: 20px; }
+            .header-top .header-url { display: flex; gap: 0; padding: 0; }
+            .header-url-content { display: flex; flex: 1; align-items: center; gap: 6px; min-width: 0; padding: 0 7px; overflow: hidden; }
+            .header-top .header-url-text { flex: 0 1 auto; min-width: 40px; padding: 0; color: #fff; font-size: 13px; line-height: 26px; }
+            .header-title-text { flex: 0 1 auto; min-width: 0; color: #efc9d8; font-size: 12px; }
+            .header-tags { display: flex; flex-wrap: nowrap; min-width: 0; overflow: hidden; gap: 4px; }
+            .header-top .header-tags .tag-pill { flex: 0 0 auto; height: 20px; min-height: 20px; max-width: 160px; display: block; padding: 0 5px; border-color: var(--tag-border); border-radius: 5px; font-size: 10px; line-height: 18px; overflow: hidden; text-overflow: ellipsis; }
+            .header-text-dot { flex: 0 0 auto; color: #ffffff60; }
+            .header-url-actions { display: flex; align-self: stretch; flex: 0 0 auto; }
+            .header-url-tools { display: flex; align-self: stretch; min-height: 26px; }
+            .header-top .header-url-action {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                padding: 0;
+                border: 0;
+                border-left: 1px solid #ffffff30;
+                border-radius: 0;
+                background: #ffffff12;
+                color: inherit;
+                cursor: pointer;
+            }
+            .header-top .header-url-download { width: auto; gap: 4px; padding: 0 6px; font-size: 11px; }
+            .header-url-favicon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 22px;
+                width: 22px;
+                height: 22px;
+                margin-left: 3px;
+                border: 0;
+                border-radius: 50%;
+                background: #ffffff24;
+            }
+            .header-url-favicon .favicon { width: 16px; height: 16px; border-radius: 50%; }
+            .header-url-action:last-child { border-radius: 0 4px 4px 0; }
+            .header-top .header-url-action:hover { background: #ffffff30; text-decoration: none; }
+            .header-url-action:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
+            .header-url-action svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+            .header-url-action .copy-success { display: none; }
+            .header-url-action.copied .copy-symbol { display: none; }
+            .header-url-action.copied .copy-success { display: block; }
             .header-top .tag-pill { background: var(--tag-bg, #ffffff20); color: var(--tag-fg, #fff); }
             .header-top .selected-capture > summary { padding-left: 12px; border-left: 0; border-radius: 0 5px 5px 0; }
-            .header-top .header-mobile-badge:last-child { color: #315d3b; }
             .header-top .badge small { font-size: inherit; font-weight: inherit; }
+            @container snapshot-header (max-width: 480px) {
+                .header-top .header-url { flex-wrap: wrap; height: auto; }
+                .header-url-content { flex-basis: calc(100% - 25px); }
+                .header-url-tools { flex-wrap: wrap; justify-content: flex-end; max-width: 100%; }
+                .header-url-actions { width: 100%; flex-wrap: wrap; justify-content: flex-end; min-height: 27px; border-top: 1px solid #ffffff20; }
+                .header-top .header-url-action { width: 24px; }
+                .header-top .header-url-download { width: auto; }
+                .header-top .header-url .permission-pill { padding: 0 4px; font-size: 10px; }
+            }
+            @container snapshot-header (max-width: 360px) {
+                .header-top .header-url-action { width: 20px; }
+                .header-top .header-url-download { width: auto; padding: 0 4px; font-size: 10px; }
+            }
+            .header-top .header-url .header-status { margin: 0; padding: 0; border: 0; }
+            .header-status .status-count { margin: 0 3px; padding: 0 4px; border-radius: 3px; line-height: 18px; font-weight: 600; }
+            .header-status .status-count-success { background: #acd4b6; color: #18552b; }
+            .header-status .status-count-failed { background: #b52a42; color: #fff; }
 
             .info-row {
                 margin-top: 2px;
@@ -918,17 +937,6 @@
                 background-color: rgba(0,0,0,0.03);
                 padding: 1px 3px;
             }
-            header .external-links {
-                text-align: center;
-                opacity: 0.9;
-                /*background-color: rgba(0,0,0,0.03);*/
-                margin-top: 0px;
-                padding: 1px 3px;
-                font-size: 14px;
-                color: #ddd;
-                width: 100%;
-                overflow: hidden;
-            }
             .row.header-bottom-frames {
                 padding-top: 5px;
                 display: block !important;
@@ -1114,91 +1122,62 @@
                     </div>
                     <div class="header-col header-main">
                         <div class="header-url">
-                            <a class="header-url-text" href="{{url}}" title="Open original URL in new window..." target="_blank" rel="noreferrer">
-                                {{url}}
-                            </a>
-                        </div>
-                        <div class="header-title-line">
+                            <span class="header-url-favicon">
                             {% snapshot_archiveresult_url snapshot 'favicon' 'favicon.ico' as header_favicon_url %}
                             {% if header_favicon_url %}
-                                <img src="{{ header_favicon_url }}" onerror="this.onerror=null;this.src=&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;&quot;" alt="Favicon" class="favicon"/>
+                                <img src="{{ header_favicon_url }}?raw=1" onerror="this.onerror=null;this.src=&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;&quot;" alt="Favicon" class="favicon"/>
                             {% else %}
                                 <img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;" alt="Favicon" class="favicon"/>
                             {% endif %}
-                            <span class="header-title-text">{{title|truncatechars:120}}</span>
-                            {% if title_tags %}
-                                <span class="header-tags">
-                                    <span class="tag-pill permission-pill">{{ snapshot_permissions_icon }} {{ snapshot_permissions }}</span>
-                                    {% for tag in title_tags %}
-                                        <span class="tag-pill" style="{{ tag.style }}">{{ tag.name }}</span>
-                                    {% endfor %}
-                                </span>
-                            {% else %}
-                                <span class="header-tags">
-                                    <span class="tag-pill permission-pill">{{ snapshot_permissions_icon }} {{ snapshot_permissions }}</span>
-                                </span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="header-col header-meta">
-                        <div class="header-badges">
-                            <div class="badge badge-default">
-                                <span class="badge-label">Outputs</span>
-                                <span class="badge-value">
-                                    {{num_outputs}}
-                                    {% if num_failures %}
-                                        + {{num_failures}} <small>errors</small>
-                                    {% endif %}
-                                </span>
-                            </div>
-                            <div class="badge badge-info">
-                                <span class="badge-label">Size</span>
-                                {% if STATIC_EXPORT %}
-                                <span class="badge-value">{{size}}</span>
-                                {% else %}
-                                <a class="badge-value" href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Click to edit this Snapshot in the Admin UI">
-                                    {{size}}
-                                </a>
+                            </span>
+                            <div class="header-url-content">
+                                <a class="header-url-text" href="{{url}}" title="{{url}}" target="_blank" rel="noreferrer">{{url}}</a>
+                                <span class="header-text-dot" aria-hidden="true">·</span>
+                                <span class="header-title-text" title="{{title}}">{{title|truncatechars:120}}</span>
+                                {% if title_tags %}
+                                    <span class="header-text-dot" aria-hidden="true">·</span>
+                                    <span class="header-tags">{% for tag in title_tags %}<span class="tag-pill" style="{{tag.style}}" title="{{tag.name}}">{{tag.name}}</span>{% endfor %}</span>
                                 {% endif %}
                             </div>
+                            <div class="header-url-actions">
+                                <span class="badge permission-pill" title="Snapshot visibility">{{ snapshot_permissions_icon }} {{ snapshot_permissions }}</span>
+                                <div class="header-url-tools">
+                                <button type="button" class="header-url-action" id="copy-original-url" data-url="{{url}}" aria-label="Copy original URL" title="Copy original URL">
+                                    <svg class="copy-symbol" viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="11" rx="2"/><path d="M12 7V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></svg>
+                                    <svg class="copy-success" viewBox="0 0 20 20" aria-hidden="true"><path d="m4 10 4 4 8-8"/></svg>
+                                </button>
+                                <a class="header-url-action" href="{{url}}" target="_blank" rel="noreferrer" aria-label="Open original URL" title="Open original URL in a new tab">
+                                    <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8"/><ellipse cx="10" cy="10" rx="3.5" ry="8"/><path d="M2 10h16"/></svg>
+                                </a>
+                                <a class="header-url-action" href="https://web.archive.org/web/{{url}}" target="_blank" rel="noreferrer" aria-label="Search Archive.org" title="Search for this URL in Archive.org">
+                                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m2 6 8-4 8 4H2Zm0 12h16M3 15h14M4 8v5m4-5v5m4-5v5m4-5v5"/></svg>
+                                </a>
                             {% if not STATIC_EXPORT %}
-                            <div class="badge badge-default">
-                                <span class="badge-label">Manage</span>
-                                <a class="badge-value" href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Click to edit this Snapshot in the Admin UI">
-                                    <span class="badge-desktop-icon">✏️</span><span class="badge-mobile-text">Edit</span>
-                                </a>
-                            </div>
+                            <a class="header-url-action header-url-edit" href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" aria-label="Edit snapshot" title="Edit this snapshot">
+                                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 3 5 5M3 12 13 2a2 2 0 0 1 3 0l2 2a2 2 0 0 1 0 3L8 17l-6 1 1-6Z"/></svg>
+                            </a>
                             {% endif %}
-                            <div class="badge badge-{{status_color}}">
-                                <span class="badge-label">Status</span>
-                                {% if STATIC_EXPORT %}
-                                <span class="badge-value">{{status|upper}}</span>
-                                {% else %}
-                                <a class="badge-value" href="{% admin_base_url %}/admin/core/snapshot/?q={{snapshot_id|default:id}}" title="Click to see options to pull, re-snapshot, or delete this Snapshot">
-                                    {{status|upper}}
+                                {% if not STATIC_EXPORT %}
+                                <a class="header-url-action header-url-download" href="{% snapshot_base_url snapshot %}/?files=1&amp;download=zip" aria-label="Download snapshot ZIP" title="Download the entire snapshot directory as ZIP">
+                                {% endif %}
+                                    <span class="header-status" title="Snapshot output counts">
+                                {% if num_outputs or num_failures %}
+                                    <span class="status-count status-count-success" title="{{num_outputs}} succeeded">{{num_outputs}}</span>
+                                    {% if num_failures %}
+                                        <span class="status-count status-count-failed" title="{{num_failures}} failed">{{num_failures}}</span>
+                                    {% endif %}
+                                {% endif %}
+                                    </span>
+                                {% if not STATIC_EXPORT %}
+                                    <span class="header-download-size">{{size}}</span>
+                                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v11m-4-4 4 4 4-4M3 13v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></svg>
                                 </a>
                                 {% endif %}
+                                </div>
                             </div>
-                        </div>
-                        <div class="header-mobile-badges">
-                            <a class="header-mobile-badge" href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" title="Browse all files for this snapshot">
-                                <span>{{num_outputs}} Files{% if num_failures %} + {{num_failures}} errors{% endif %}</span>
-                                <span class="header-mobile-badge-separator">|</span>
-                                <span>{{size}}</span>
-                            </a>
-                            {% if not STATIC_EXPORT %}<a class="header-mobile-badge" href="{% admin_base_url %}/admin/core/snapshot/{{snapshot_id|default:id}}/change/" title="Edit this snapshot in the Admin UI">
-                                <span>{{status|capfirst}}</span>
-                                <span class="header-mobile-badge-separator">|</span>
-                                <span>Edit</span>
-                            </a>{% endif %}
                         </div>
                     </div>
                     <div class="header-capture-row">
-                        <div class="external-links">
-                            <a href="https://web.archive.org/web/{{url}}" aria-label="Search Archive.org" title="Search for a copy of the URL saved in Archive.org" target="_blank" rel="noreferrer"><span aria-hidden="true">🏛️</span><span class="archive-org-label">&nbsp;Archive.org</span></a>
-                            <!--<a href="https://archive.md/{{url}}" title="Search for a copy of the URL saved in Archive.today" target="_blank" rel="noreferrer">Archive.today</a>  &nbsp;|&nbsp; -->
-                            <!--<a href="https://ghostarchive.org/search?term={{url}}" title="Search for a copy of the URL saved in GhostArchive.org" target="_blank" rel="noreferrer">More...</a>-->
-                        </div>
                         <div class="header-year-badges">
                             {% for entry in related_years %}
                             <div class="capture-year{% if entry.selected_date %} current-year{% endif %}" data-year="{{ entry.year }}">
@@ -1653,6 +1632,24 @@
             document.querySelector('.header-top').addEventListener('click', (event) => {
                 if (!event.target.closest('.header-toggle') && event.target.closest('a, button, input, select, textarea, details, [role="button"]')) return
                 handleSnapshotHeaderToggle(event)
+            })
+
+            document.querySelector('#copy-original-url').addEventListener('click', async (event) => {
+                const button = event.currentTarget
+                try {
+                    await navigator.clipboard.writeText(button.dataset.url)
+                    button.classList.add('copied')
+                    button.setAttribute('aria-label', 'URL copied')
+                    button.title = 'URL copied'
+                    window.setTimeout(() => {
+                        button.classList.remove('copied')
+                        button.setAttribute('aria-label', 'Copy original URL')
+                        button.title = 'Copy original URL'
+                    }, 2000)
+                } catch (error) {
+                    button.title = 'Could not copy URL. Select the URL to copy it manually.'
+                    button.setAttribute('aria-label', button.title)
+                }
             })
 
             {% include "core/snapshot_stacks.js.html" %}
