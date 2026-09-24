@@ -489,9 +489,7 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
             assert toggle.get_attribute("aria-expanded") == "true"
             assert page.locator("#snapshot-output-browser").is_visible()
             page.locator(".header-top").click(position={"x": 2, "y": 2})
-            assert toggle.get_attribute("aria-expanded") == "false", page.locator(".header-top").evaluate(
-                "e => { const r = e.getBoundingClientRect(); return {width: innerWidth, rect: r.toJSON(), target: document.elementFromPoint(r.x + 2, r.y + 2)?.outerHTML?.slice(0, 500)} }",
-            )
+            assert toggle.get_attribute("aria-expanded") == "false", f"Navbar background did not collapse at {width}px"
             page.locator(".header-top").click(position={"x": 2, "y": 2})
             assert toggle.get_attribute("aria-expanded") == "true"
             year_menu = page.locator(".year-variants").first
