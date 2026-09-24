@@ -4086,7 +4086,7 @@ body.change-form #content-main > form > div > .submit-row {
         min-width: 0 !important;
     }
 
-    body.change-form #content-main form fieldset > div,
+body.change-form #content-main form fieldset > div,
     body.change-form #content form fieldset > div,
     body.change-form #content-main form fieldset .form-row,
     body.change-form #content form fieldset .form-row,
@@ -4100,3 +4100,61 @@ body.change-form #content-main > form > div > .submit-row {
         box-sizing: border-box;
     }
 }
+
+/* Presentation adjustments for the native ArchiveBox shell. The app only
+   marks its document; the server owns the layout and colors. */
+html.archivebox-native-app #header.archivebox-app-header {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    height: auto !important;
+    min-height: 44px;
+    padding: 8px 12px !important;
+    flex-shrink: 0;
+    background: #a51c50 !important;
+    color: #fff !important;
+    font: 500 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif;
+}
+html.archivebox-native-app #header.archivebox-app-header > :not(#branding):not(.breadcrumbs),
+html.archivebox-native-app #header.archivebox-app-header .branding-label,
+html.archivebox-native-app #header.archivebox-app-header #progress-monitor { display: none !important; }
+html.archivebox-native-app #header.archivebox-app-header #branding,
+html.archivebox-native-app #header.archivebox-app-header #site-name { margin: 0 !important; padding: 0 !important; }
+html.archivebox-native-app #header.archivebox-app-header #branding { flex: 0 0 auto; }
+html.archivebox-native-app #header.archivebox-app-header #site-name { line-height: 1 !important; }
+html.archivebox-native-app #header.archivebox-app-header #branding a { display: flex; align-items: center; }
+html.archivebox-native-app #header.archivebox-app-header #branding img {
+    width: 26px !important; height: 26px !important; margin: 0 !important; object-fit: contain;
+}
+html.archivebox-native-app #header.archivebox-app-header .breadcrumbs {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    color: #fff !important;
+    font: inherit !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+}
+html.archivebox-native-app #header.archivebox-app-header .breadcrumbs a {
+    color: #fff !important; font: inherit !important; text-decoration: none; text-underline-offset: 3px;
+}
+html.archivebox-native-app #header.archivebox-app-header .breadcrumbs a:hover { text-decoration: underline; }
+html.archivebox-native-app #header.archivebox-app-header a:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+html.archivebox-native-app:has(body > #progress-monitor),
+html.archivebox-native-app:has(body > #progress-monitor) body {
+    margin: 0 !important; padding: 0 !important; background: #0d1117 !important;
+}
+html.archivebox-native-app #progress-monitor { display: block !important; min-height: 100vh; }
+html.archivebox-native-app #progress-monitor .progress-content { display: flex !important; }
+html.archivebox-native-app #progress-monitor .tree-container { max-height: calc(100vh - 80px) !important; }
+html.archivebox-native-app #progress-monitor .header-bar { pointer-events: none; }
+html.archivebox-native-app #progress-monitor #progress-collapse { display: none !important; }

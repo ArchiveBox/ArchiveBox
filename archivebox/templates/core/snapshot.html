@@ -327,6 +327,77 @@
                 .current-year .header-date { padding: 3px 4px 3px 9px; }
                 .year-capture-count { font-size: 9px; }
             }
+            /* Native ArchiveBox app presentation lives with the snapshot template,
+               so it stays aligned with the server's responsive header markup. */
+            html.archivebox-ios-app #header.archivebox-app-header {
+                box-sizing: border-box; min-height: 60px; padding-left: 64px !important;
+            }
+            @media (max-width: 520px) {
+                html.archivebox-ios-app #header.archivebox-app-header { padding-right: 64px !important; }
+            }
+            html.archivebox-ios-app header:has(> .header-top),
+            html.archivebox-ios-app .header-top { background: #a51c50 !important; }
+            html.archivebox-ios-app .header-top { padding-left: 8px !important; padding-right: 8px !important; }
+            html.archivebox-ios-app .header-top .header-left {
+                box-sizing: border-box; padding-left: 52px !important; min-height: 48px;
+                display: flex; align-items: center;
+            }
+            @container snapshot-header (max-width: 1100px) {
+                html.archivebox-ios-app .header-top .header-nav { grid-template-columns: 84px minmax(0, 1fr) auto !important; }
+                html.archivebox-ios-app .header-top .header-url-location { grid-column: 2 / -1; }
+                html.archivebox-ios-app .header-top .header-url-actions { grid-column: 1 / 3; }
+                html.archivebox-ios-app .header-top .header-capture-row { grid-column: 3; }
+                html.archivebox-ios-app .header-top .header-url-favicon { margin-left: 0; }
+            }
+            @container snapshot-header (max-width: 600px) {
+                /* Keep the native Back clearance on the URL row only. All other
+                   rows use the same narrow tracks as the regular mobile layout. */
+                html.archivebox-ios-app .header-top .header-nav { grid-template-columns: minmax(0, 1fr) auto !important; }
+                html.archivebox-ios-app .header-top .header-left { display: none !important; }
+                html.archivebox-ios-app .header-top .header-url-text {
+                    grid-column: 1 / -1; grid-row: 1; margin-left: 44px !important;
+                    max-width: calc(100% - 44px);
+                }
+                html.archivebox-ios-app .header-top .header-url-favicon { grid-column: 1; grid-row: 2; margin-left: 0; }
+                html.archivebox-ios-app .header-top .header-page-metadata {
+                    grid-column: 1 / -1; grid-row: 2; margin-left: 28px; max-width: calc(100% - 28px);
+                }
+                html.archivebox-ios-app .header-top .header-url-actions {
+                    grid-column: 1; grid-row: 3; justify-self: start; min-width: 0; justify-content: flex-start;
+                }
+                html.archivebox-ios-app .header-top .header-capture-row {
+                    grid-column: 2; grid-row: 3; justify-self: end; max-width: none; flex-wrap: nowrap;
+                }
+                html.archivebox-ios-app .header-top .header-year-badges { flex-wrap: nowrap; }
+            }
+            /* WKWebView can report a desktop-sized layout viewport while the
+               actual iPhone screen is narrow. Use the native phone marker for
+               the same row arrangement when container queries miss it. */
+            html.archivebox-ios-phone .header-top .header-nav { grid-template-columns: minmax(0, 1fr) auto !important; }
+            html.archivebox-ios-phone .header-top .header-url,
+            html.archivebox-ios-phone .header-top .header-url-location,
+            html.archivebox-ios-phone .header-top .header-url-content,
+            html.archivebox-ios-phone .header-top .header-page-link { display: contents !important; }
+            html.archivebox-ios-phone .header-top .header-left { display: none !important; }
+            html.archivebox-ios-phone .header-top .header-url-text {
+                grid-column: 1 / -1; grid-row: 1; margin-left: 44px !important;
+                max-width: calc(100% - 44px);
+            }
+            html.archivebox-ios-phone .header-top .header-url-favicon { grid-column: 1; grid-row: 2; margin-left: 0; }
+            html.archivebox-ios-phone .header-top .header-page-metadata {
+                display: flex; align-items: center; gap: 6px; grid-column: 1 / -1; grid-row: 2;
+                margin-left: 28px; min-width: 0; max-width: calc(100% - 28px);
+            }
+            html.archivebox-ios-phone .header-top .header-url-actions {
+                grid-column: 1; grid-row: 3; justify-self: start; min-width: 0; justify-content: flex-start;
+            }
+            html.archivebox-ios-phone .header-top .header-capture-row {
+                grid-column: 2; grid-row: 3; justify-self: end; max-width: none; flex-wrap: nowrap;
+            }
+            html.archivebox-ios-phone .header-top .header-year-badges { flex-wrap: nowrap; }
+            .header-title-line .header-title-text { min-width: 0; flex: 1 1 0; }
+            .header-title-line .favicon { flex-shrink: 0; }
+            .header-archivebox { white-space: nowrap; }
             .header-top .header-url .header-status { margin: 0; padding: 0; border: 0; }
             .header-status .status-count { margin: 0 3px; padding: 0 4px; border-radius: 3px; line-height: 18px; font-weight: 600; }
             .header-status .status-count-success { background: #acd4b6; color: #18552b; }
@@ -1441,6 +1512,31 @@
                 }
             }
 
+            function isIsolatedLiteParsePreview(urlValue) {
+                if (!urlValue || !snapshotBaseUrl) return false
+                try {
+                    const target = new URL(urlValue, window.location.href)
+                    const base = new URL(snapshotBaseUrl, window.location.href)
+                    const basePath = (base.pathname || '').replace(/\/+$/, '')
+                    // LiteParse's full viewer is an ArchiveBox-authored template, not captured
+                    // page content. It embeds the saved PDF in its own iframe; Chromium/Brave's
+                    // native PDF viewer refuses to run through an ancestor sandbox, even when
+                    // that sandbox allows scripts and same-origin access. Remove the outer
+                    // sandbox only when this exact viewer is served from the isolated snapshot
+                    // origin. On one-domain installs that origin shares the control-plane origin,
+                    // so it must remain sandboxed; all ordinary replays remain sandboxed too.
+                    return (
+                        base.origin !== window.location.origin
+                        && target.origin === base.origin
+                        && target.pathname.startsWith(`${basePath}/liteparse/`)
+                        && target.searchParams.get('preview') === '1'
+                        && target.pathname.toLowerCase().endsWith('.txt')
+                    )
+                } catch (err) {
+                    return false
+                }
+            }
+
             function createMainFrame(previousFrame) {
                 const frame = document.createElement('iframe')
                 frame.id = 'main-frame'
@@ -1507,7 +1603,10 @@
                 // Preview wrappers retain the .pdf path but add ?preview=1.
                 // The native PDF renderer must be allowed before navigation,
                 // not after a failed sandboxed load has already completed.
-                if (new URL(target, window.location.href).pathname.endsWith('.pdf')) {
+                // Native PDF embedding fails when any ancestor keeps a sandbox. A direct PDF is
+                // already handled below; LiteParse needs the same treatment for its trusted
+                // viewer frame, but only after isIsolatedLiteParsePreview proves origin isolation.
+                if (new URL(target, window.location.href).pathname.endsWith('.pdf') || isIsolatedLiteParsePreview(target)) {
                     iframe_elem.removeAttribute('sandbox')
                 } else {
                     iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"

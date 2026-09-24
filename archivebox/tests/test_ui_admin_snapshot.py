@@ -970,6 +970,7 @@ class TestSnapshotProgressStats:
         html = str(core_tags.plugin_full({"request": None}, result))
 
         assert embed_path in html
+        assert 'class="abx-output-icon abx-output-icon--hashes"' in html
         # The viewer fetches raw data; its View raw action may use preview=1.
         output_url = re.search(r"const output\s*=\s*new URL\('([^']+)'", html)
         assert output_url is not None
@@ -1688,6 +1689,7 @@ def test_metadata_raw_preview_bypasses_full_template(real_hash_projection, clien
     full = client.get(path + "?preview=1", HTTP_HOST=host)
     assert full.status_code == 200
     assert b'aria-label="Output actions"' in full.content
+    assert b'class="abx-output-icon abx-output-icon--hashes"' in full.content
 
     raw = client.get(path + "?preview=1&raw=1", HTTP_HOST=host)
     assert raw.status_code == 200

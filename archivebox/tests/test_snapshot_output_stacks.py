@@ -153,6 +153,7 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
         "readability",
         "liteparse",
         "trafilatura",
+        "opendataloader",
         "papersdl",
         "custom_output",
         "archivewebpage",
@@ -173,7 +174,7 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
 
     assert names("html") == ["archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom", "responses_html"]
     assert names("raster") == ["screenshot", "pdf"]
-    assert names("article_text") == ["readability", "defuddle", "mercury", "trafilatura", "htmltotext"]
+    assert names("article_text") == ["readability", "defuddle", "mercury", "trafilatura", "htmltotext", "opendataloader"]
     assert "liteparse" in names("embedded_media")
     assert "papersdl" in names("embedded_media")
     assert names("other") == ["custom_output"]
@@ -388,11 +389,19 @@ def test_forumdl_card_and_full_view_render_saved_thread(snapshot, live_server):
         assert "Navier-Stokes" in page.locator(".thread-title").inner_text()
         assert page.locator(".comment").count() >= 1
         assert page.locator("body > header").is_visible()
+        page.set_viewport_size({"width": 250, "height": 170})
+        page.evaluate("window.scrollTo(0, 200)")
+        assert page.evaluate("scrollY") > 0
         page.goto(f"{viewer_url}&titlebar=0")
         assert page.locator("body > header").is_hidden()
+        assert page.locator("html").evaluate("e => getComputedStyle(e).overflowY") == "clip"
+        assert page.locator(".thread-title").evaluate("e => getComputedStyle(e).overflowY") == "clip"
+        page.evaluate("window.scrollTo(0, 200)")
+        assert page.evaluate("scrollY") == 0
         page.goto(f"http://{host}:{port}/_card/{result.id}")
         embedded = page.locator("iframe")
         embedded.wait_for()
+        assert page.locator("html").evaluate("e => getComputedStyle(e).overflowY") == "clip"
         assert embedded.get_attribute("src") == f"{viewer_url}&titlebar=0"
         embedded.content_frame.locator(".thread-title").wait_for()
         assert "Navier-Stokes" in embedded.content_frame.locator(".thread-title").inner_text()
@@ -583,6 +592,8 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
             assert toggle.get_attribute("aria-expanded") == "true"
             year_menu.locator("summary").click()
             page.locator(".output-stack-article_text").click()
+            for file_list in page.locator(".other-files-preview > .loose-items").all():
+                assert file_list.evaluate("e => getComputedStyle(e).overflowY") == "auto"
             stack = page.locator(".header-bottom")
             assert stack.evaluate("e => getComputedStyle(e).overflowY") == "visible"
             tray = page.locator("#stack-tray").bounding_box()
@@ -592,6 +603,33 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
             page.locator("#main-frame-wrapper").scroll_into_view_if_needed()
             assert page.evaluate("scrollY") > 0
             page.get_by_role("button", name="Collapse stack", exact=True).click()
+        browser.close()
+
+
+def test_ios_phone_header_keeps_actions_and_capture_date_on_one_row(snapshot, live_server):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright
+
+    port = urlsplit(live_server.url).port
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        page = browser.new_page(viewport={"width": 390, "height": 844})
+        page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
+        for native_app in (False, True):
+            if native_app:
+                # This is the marker the native WKWebView adds; CSS remains server-owned.
+                page.evaluate(
+                    "document.documentElement.classList.add('archivebox-native-app', 'archivebox-ios-app', 'archivebox-ios-phone')",
+                )
+            for width in (390, 320, 768) if native_app else (390, 320):
+                page.set_viewport_size({"width": width, "height": 844})
+                actions = page.locator(".header-url-actions").bounding_box()
+                captures = page.locator(".header-capture-row").bounding_box()
+                assert abs(actions["y"] - captures["y"]) < 1
+                assert actions["x"] + actions["width"] <= captures["x"]
+                assert captures["x"] + captures["width"] <= width
+                assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+
         browser.close()
 
 

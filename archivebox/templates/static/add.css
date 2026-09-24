@@ -1049,3 +1049,17 @@ input:focus, select:focus, textarea:focus, button:focus {
     text-align: center;
   }
 }
+html.archivebox-native-app #container {
+  min-width: 0;
+  width: 100%;
+}
+
+html.archivebox-native-app #content {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+html.archivebox-native-app .add-page .crawl-explanation:has(.crawl-tip) {
+  display: none !important;
+}

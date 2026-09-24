@@ -9,7 +9,7 @@ from archivebox.plugins.discovery import get_plugin_name
 OUTPUT_GROUPS = (
     ("html", "HTML", ("archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom")),
     ("raster", "Raster", ("screenshot", "pdf")),
-    ("article_text", "Article text", ("readability", "defuddle", "mercury", "trafilatura", "htmltotext")),
+    ("article_text", "Article text", ("readability", "defuddle", "mercury", "trafilatura", "htmltotext", "opendataloader")),
     ("embedded_media", "Embedded media", ("papersdl",)),
     ("metadata", "Metadata", ()),
     ("other", "Other files", ()),

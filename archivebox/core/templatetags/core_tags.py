@@ -33,6 +33,13 @@ from archivebox.plugins.discovery import (
 
 register = template.Library()
 
+# Preview cards are clipped windows onto their content, never scroll areas.
+# Apply inside the document too: parent overflow cannot constrain an iframe.
+CARD_OVERFLOW_STYLE = (
+    "<style>html,body{height:100%!important;min-height:0!important}"
+    "html,body,body *{overflow:clip!important;scrollbar-width:none!important}</style>"
+)
+
 
 @register.filter
 def snapshot_url_text(url):
@@ -938,6 +945,8 @@ def render_plugin_card_document(context, result) -> str:
             rendered = tpl.render(ctx)
             # Only return non-empty content (strip whitespace to check)
             if rendered.strip():
+                if rendered.lstrip().lower().startswith("<!doctype html"):
+                    rendered = rendered.replace("</head>", CARD_OVERFLOW_STYLE + "</head>", 1)
                 if context.get("STATIC_EXPORT") and rendered.lstrip().lower().startswith("<!doctype html"):
                     # Static exports have no _card route. Keep the same card
                     # document in both stack positions, with relative saved-file
@@ -1033,6 +1042,7 @@ def plugin_full(context, result) -> str:
                 "output_path": output_url,
                 "output_path_raw": raw_output_path,
                 "plugin": plugin,
+                "plugin_icon": get_plugin_icon(plugin),
             },
         )
         rendered = tpl.render(ctx)
