@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-09-18T20:01:05.684869478Z"
+exclude-newer = "2026-09-19T04:05:26.063962461Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-09-23T20:01:04.68488108Z", span = "PT1S" }
+abxbus = { timestamp = "2026-09-24T04:05:25.063977795Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.13.28"
+version = "1.13.30"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -38,14 +38,14 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/37/b7/d834c3ed020260056870898477a3793eade814456091a28b75a42eb6875c/abx_dl-1.13.28.tar.gz", hash = "sha256:dc2f0260b2bb923f4095a7c70ed5a2190114059799e64dfafe4648490db40bbb", size = 96834 }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/33/769f4e932e55ae4fa75c0edd16f919b36d0c4b6ecbe8d66e3934472f1255/abx_dl-1.13.30.tar.gz", hash = "sha256:7f39bdd09c4f52e7d8a2fd3b6495d66145f93bab000c3e1ec14c743d33e08811", size = 96834 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/87/b4/6bdf6ce6ed56d8b6ec9c15b0cdc45e62c571c50689c89c058c85bb1517c7/abx_dl-1.13.28-py3-none-any.whl", hash = "sha256:46aef79075ca3c45b7e331eba945c6d1248bef88062ea3e7b4d52dd58a537ae0", size = 102441 },
+    { url = "https://files.pythonhosted.org/packages/eb/47/6914112484e6ac5afa63ebdfe7b55cb8ba20ff03aabaac575dec6c7f84f2/abx_dl-1.13.30-py3-none-any.whl", hash = "sha256:cc5efc78d67da2ef1069e9a08da581a1452b24ed5fea143ea1d8a3bff7083d26", size = 102443 },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.13.34"
+version = "1.13.37"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -54,9 +54,9 @@ dependencies = [
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uv", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c2/d1/65d2a09dff1415de36057845173cb5bf2d90ae9648645e85a7439d8fc989/abx_plugins-1.13.34.tar.gz", hash = "sha256:eb9d7677009a4b927bf3828f584a230e12e2d95ad96f7e7899b40354c3e55421", size = 430454, upload-time = "2026-09-23T19:45:04.105Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/05/7f5569b6961fe73763c77b93e0826714bfec3082a1fda397dd4efadc75c9/abx_plugins-1.13.37.tar.gz", hash = "sha256:edf5803790ad4244b4909fcd176a08addedbd113b5ae0747790d83d1a7824f95", size = 434419, upload-time = "2026-09-24T03:48:31.698Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/aa/ef5cef51c2c5d8e4f05fe5c9d868c81f5e2446c612206b8c846fecf0179f/abx_plugins-1.13.34-py3-none-any.whl", hash = "sha256:8e7edf6a499d09cc536da49eb48e63b7d814ff455fc4d623166365754a776f8f", size = 634810, upload-time = "2026-09-23T19:45:05.53Z" },
+    { url = "https://files.pythonhosted.org/packages/20/23/fe34a7974e8a15485bdc5765294c1b7db06562e7b3c4e667e092565fb201/abx_plugins-1.13.37-py3-none-any.whl", hash = "sha256:872c14c774e0b8922197c33a2276fce341f704c6e9ca42ed2cb9e02952317421", size = 642252, upload-time = "2026-09-24T03:48:29.849Z" },
 ]
 
 [package.optional-dependencies]
@@ -227,8 +227,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.13.28" },
-    { name = "abx-plugins", extras = ["opencode"], specifier = "==1.13.34" },
+    { name = "abx-dl", specifier = "==1.13.30" },
+    { name = "abx-plugins", extras = ["opencode"], specifier = "==1.13.37" },
     { name = "abxbus", specifier = "==2.5.65" },
     { name = "abxpkg", specifier = "==1.13.10" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
