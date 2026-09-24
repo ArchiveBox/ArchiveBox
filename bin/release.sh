@@ -307,13 +307,14 @@ if [[ "$IS_RC" == true ]]; then
 fi
 
 if [[ "$GITHUB_EXISTS" == false ]]; then
-    RELEASE_NOTES_ARGS=(--generate-notes)
-    RELEASE_NOTES_FILE="$REPO_DIR/docs/Release-Notes.md"
-    if [[ -f "$RELEASE_NOTES_FILE" ]]; then
-        RELEASE_NOTES_ARGS=(--notes-file "$RELEASE_NOTES_FILE")
-    fi
+    # The full 0.9 announcement belongs to v0.9.36 only. Patch releases describe
+    # their own commit range, including when the next tag does not exist locally.
+    RELEASE_NOTES_FILE="$(mktemp)"
+    $UV_BINARY run --no-cache --no-project python "$REPO_DIR/bin/release_notes.py" \
+        "$TAG" "$RELEASE_SHA" --repo "$SLUG" > "$RELEASE_NOTES_FILE"
     $GH_BINARY release create "$TAG" --repo "$SLUG" --verify-tag \
-        --title "$TAG" "${RELEASE_NOTES_ARGS[@]}"
+        --title "$TAG" --notes-file "$RELEASE_NOTES_FILE"
+    rm -f "$RELEASE_NOTES_FILE"
 fi
 
 $GH_BINARY release upload "$TAG" --repo "$SLUG" \
