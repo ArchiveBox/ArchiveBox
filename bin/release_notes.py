@@ -30,6 +30,13 @@ def main():
         key=version,
     )
     root = f"https://github.com/{args.repo}"
+    # Use reviewed, user-facing copy only when this release introduces it.
+    # Unchanged notes belong to an earlier release and must not be repeated.
+    notes_path = "docs/Release-Notes.md"
+    if git("diff", "--name-only", f"{previous}..{args.ref}", "--", notes_path):
+        print(git("show", f"{args.ref}:{notes_path}"))
+        print(f"\n[Full changelog]({root}/compare/{previous}...{args.tag}) · [0.9 announcement]({root}/releases/tag/v0.9.36)")
+        return
     print(f"## Changes since {previous}\n")
     seen = set()
     for line in git("log", "--reverse", "--no-merges", "--format=%H%x09%s", f"{previous}..{args.ref}").splitlines():
