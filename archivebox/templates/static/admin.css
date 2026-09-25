@@ -4153,8 +4153,8 @@ html.archivebox-native-app:has(body > #progress-monitor),
 html.archivebox-native-app:has(body > #progress-monitor) body {
     margin: 0 !important; padding: 0 !important; background: #0d1117 !important;
 }
-html.archivebox-native-app #progress-monitor { display: block !important; min-height: 100vh; }
-html.archivebox-native-app #progress-monitor .progress-content { display: flex !important; }
-html.archivebox-native-app #progress-monitor .tree-container { max-height: calc(100vh - 80px) !important; }
-html.archivebox-native-app #progress-monitor .header-bar { pointer-events: none; }
-html.archivebox-native-app #progress-monitor #progress-collapse { display: none !important; }
+html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor { display: block !important; min-height: 100vh; }
+html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .progress-content { display: flex !important; }
+html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .tree-container { max-height: calc(100vh - 80px) !important; }
+html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor .header-bar { pointer-events: none; }
+html.archivebox-native-app:has(body > #progress-monitor) #progress-monitor #progress-collapse { display: none !important; }
