@@ -29,7 +29,7 @@ from django.views import static
 
 from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
-from archivebox.plugins.discovery import is_plugin_replay_target, render_plugin_replay_preview
+from archivebox.plugins.discovery import render_plugin_replay_response
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
@@ -1005,8 +1005,6 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     preview_as_image_html = (
         bool(request.GET.get("preview")) and content_type.startswith("image/") and not content_type.startswith("image/svg+xml")
     )
-    preview_as_plugin_html = bool(request.GET.get("preview")) and is_plugin_replay_target(fullpath.name)
-
     # Respect the If-Modified-Since header for non-markdown responses.
     if not content_type.startswith(("text/plain", "text/html")) and not static.was_modified_since(
         request.META.get("HTTP_IF_MODIFIED_SINCE"),
@@ -1039,7 +1037,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                     config=config,
                 )
         except (OSError, UnicodeDecodeError, ValueError):
-            preview_as_text_html = False
+            pass
 
     if preview_as_image_html:
         try:
@@ -1059,16 +1057,16 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 config=config,
             )
         except (OSError, ValueError):
-            preview_as_image_html = False
+            pass
 
-    if preview_as_plugin_html:
+    if request.GET.get("preview"):
         try:
             raw_query = request.GET.copy()
             raw_query.pop("preview", None)
             raw_output_path = request.path
             if raw_query:
                 raw_output_path = f"{raw_output_path}?{raw_query.urlencode()}"
-            plugin_preview = render_plugin_replay_preview(
+            plugin_replay = render_plugin_replay_response(
                 fullpath.name,
                 raw_output_path,
                 wacz_path=fullpath,
@@ -1080,21 +1078,20 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 ),
                 content_encoding=encoding or "",
             )
-            if plugin_preview is None:
-                raise Http404
-            body, preview_content_type, headers = plugin_preview
-            response = HttpResponse(body, content_type=preview_content_type)
-            for key, value in headers.items():
-                response.headers[key] = value
-            return _apply_archive_replay_headers(
-                response,
-                fullpath=fullpath,
-                content_type=preview_content_type,
-                is_archive_replay=is_archive_replay,
-                config=config,
-            )
+            if plugin_replay is not None:
+                body, replay_content_type, headers = plugin_replay
+                response = HttpResponse(body, content_type=replay_content_type)
+                for key, value in headers.items():
+                    response.headers[key] = value
+                return _apply_archive_replay_headers(
+                    response,
+                    fullpath=fullpath,
+                    content_type=replay_content_type,
+                    is_archive_replay=is_archive_replay,
+                    config=config,
+                )
         except (OSError, RuntimeError, ValueError):
-            preview_as_plugin_html = False
+            pass
 
     # Heuristic fix: some archived HTML outputs are stored with HTML-escaped markup
     # or markdown sources. If so, render sensibly.

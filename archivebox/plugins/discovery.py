@@ -95,6 +95,12 @@ def plugin_card_is_interactive(plugin_name: str) -> bool:
     return bool(plugin and plugin.manifest.get("card_interactive"))
 
 
+def plugin_uses_snapshot_replay(plugin_name: str) -> bool:
+    """Return whether a plugin asks snapshot cards to open through replay."""
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    return bool(plugin and plugin.manifest.get("snapshot_replay"))
+
+
 def get_plugin_output_extension_preference(plugin_name: str) -> tuple[tuple[str, ...], ...] | None:
     plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
     raw_groups = plugin.manifest.get("output_extension_preference") if plugin else None
@@ -178,11 +184,6 @@ def get_extra_snapshot_output_cards(outputs: list[dict[str, Any]]) -> list[dict[
     return cards
 
 
-def is_plugin_replay_target(path: str) -> bool:
-    """Return whether any plugin claims a saved output for custom replay."""
-    return any(callable(hook := getattr(module, "is_replay_target", None)) and hook(path) for module in get_plugin_presentation_modules())
-
-
 def serve_plugin_replay_asset(path: str, config, response_class):
     """Give plugin presentation hooks the first chance to serve replay assets."""
     for module in get_plugin_presentation_modules():
@@ -192,13 +193,12 @@ def serve_plugin_replay_asset(path: str, config, response_class):
     return None
 
 
-def render_plugin_replay_preview(path: str, output_url: str, **kwargs):
-    """Render a custom preview through the plugin that claims this output."""
+def render_plugin_replay_response(path: str, output_url: str, **kwargs):
+    """Let plugin presentation hooks render a saved output for replay."""
     for module in get_plugin_presentation_modules():
-        claims_path = getattr(module, "is_replay_target", None)
-        render = getattr(module, "render_preview_response", None)
-        if claims_path is not None and render is not None and claims_path(path):
-            return render(path, output_url, **kwargs)
+        render = getattr(module, "render_replay_response", None)
+        if render is not None and (response := render(path, output_url, **kwargs)) is not None:
+            return response
     return None
 
 
