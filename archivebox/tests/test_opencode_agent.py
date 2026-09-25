@@ -189,16 +189,31 @@ def test_opencode_proxy_blocks_cross_site_fetch_metadata(admin_client, db, live_
     assert response.status_code == 403
 
 
+def test_opencode_cold_agent_wrapper_returns_before_server_starts(admin_client, installed_opencode):
+    import time
+
+    from abx_plugins.plugins.opencode import runtime
+
+    assert not runtime._owned_process_running()
+    started = time.monotonic()
+    response = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
+
+    assert response.status_code == 200
+    assert time.monotonic() - started < 3
+    assert not runtime._owned_process_running()
+    assert b'id="opencode-agent-welcome"' in response.content
+    assert f'<iframe src="{runtime._project_route(installed_opencode.config.data_dir)}"'.encode() in response.content
+
+
 def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode):
     from abx_plugins.plugins.opencode import runtime
 
     response = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
-    recent_session_id = response.context["recent_session_id"]
-    session_path = runtime._project_route(live_opencode.config.data_dir, recent_session_id)
+    frame_path = runtime._project_route(live_opencode.config.data_dir)
 
     assert response.status_code == 200
-    assert recent_session_id
-    assert f'<iframe src="{session_path}"'.encode() in response.content
+    assert f'<iframe src="{frame_path}"'.encode() in response.content
+    assert b'id="opencode-agent-welcome"' in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
     assert b'<a href="/admin/agent" class="navbar-item navbar-ai">' in response.content
@@ -211,8 +226,15 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert response.headers["X-Frame-Options"] == "DENY"
     assert response.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
 
+    frame = admin_client.get(
+        frame_path,
+        HTTP_HOST=ADMIN_TEST_HOST,
+        HTTP_SEC_FETCH_SITE="same-origin",
+    )
+    assert frame.status_code == 302
+    assert frame.headers["Location"].startswith(frame_path + "/")
     session = admin_client.get(
-        session_path,
+        frame.headers["Location"],
         HTTP_HOST=ADMIN_TEST_HOST,
         HTTP_SEC_FETCH_SITE="same-origin",
     )
@@ -227,6 +249,12 @@ def test_opencode_proxy_serves_real_project_and_session(admin_client, live_openc
 
     agent = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     assert agent.status_code == 200
+    from abx_plugins.plugins.opencode import runtime
+
+    frame_path = runtime._project_route(live_opencode.config.data_dir)
+    frame = admin_client.get(frame_path, HTTP_HOST=ADMIN_TEST_HOST)
+    assert frame.status_code == 302
+    session_id = frame.headers["Location"].rsplit("/", 1)[-1]
 
     project = admin_client.get(
         f"/admin/agent/opencode/project/current?directory={encoded_workdir}",
@@ -251,7 +279,7 @@ def test_opencode_proxy_serves_real_project_and_session(admin_client, live_openc
         HTTP_SEC_FETCH_SITE="same-origin",
     )
     assert sessions.status_code == 200
-    assert any(session["id"] == agent.context["recent_session_id"] and session["directory"] == workdir for session in sessions.json())
+    assert any(session["id"] == session_id and session["directory"] == workdir for session in sessions.json())
     assert not (Path(workdir) / ".git").exists()
 
 
@@ -529,7 +557,13 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     assert not (Path(workdir) / ".git").exists()
     agent = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     assert agent.status_code == 200
-    assert agent.context["recent_session_id"]
+    from abx_plugins.plugins.opencode import runtime
+
+    frame = admin_client.get(
+        runtime._project_route(live_opencode.config.data_dir),
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert frame.status_code == 302
     assert not (Path(workdir) / ".git").exists()
 
     project = requests.get(
@@ -579,7 +613,12 @@ def test_opencode_invalid_state_does_not_break_archivebox(admin_client, live_ope
     invalid_state.rename(live_opencode.config.state_dir / "saved-config")
     invalid_state.write_text("Preserve this file.")
 
-    for url in ("/admin/agent", "/admin/agent/opencode/global/health"):
+    wrapper = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
+    assert wrapper.status_code == 200
+    for url in (
+        runtime._project_route(live_opencode.config.data_dir),
+        "/admin/agent/opencode/global/health",
+    ):
         response = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 503
         assert str(invalid_state).encode() not in response.content
@@ -641,8 +680,7 @@ if response.status_code == 503:
     assert response.content == b'AI service unavailable. See server logs.'
 if {damaged_file != "runtime.py"!r}:
     from abx_plugins.plugins.opencode import runtime
-    assert runtime._PROCESS is not None
-    assert runtime._PROCESS.poll() is None
+    assert runtime._PROCESS is None
 for path in ('/health/', '/add/', '/admin/core/snapshot/'):
     assert client.get(path).status_code == 200, path
 print('OPTIONAL_SERVICE_FAILURE_ISOLATED')
