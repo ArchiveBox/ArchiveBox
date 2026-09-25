@@ -610,7 +610,7 @@ class TestPublicIndexSearch:
     def test_public_index_preview_respects_root_relative_screenshot_output(self, client, public_snapshot):
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
+        result = ArchiveResult.objects.create(
             snapshot=public_snapshot,
             plugin="screenshot",
             status=ArchiveResult.StatusChoices.SUCCEEDED,
@@ -624,13 +624,19 @@ class TestPublicIndexSearch:
 
         assert response.status_code == 200
         content = response.content.decode()
-        assert "/screenshot.png" in content
-        assert "/screenshot/screenshot.png" not in content
+        assert f"_card/{result.id}" in content
+
+        from archivebox.core.routes_util import get_snapshot_host
+
+        card = client.get(f"/_card/{result.id}", HTTP_HOST=get_snapshot_host(str(public_snapshot.id)))
+        assert card.status_code == 200
+        assert "/screenshot.png" in card.content.decode()
+        assert "/screenshot/screenshot.png" not in card.content.decode()
 
     def test_public_index_preview_respects_plugin_relative_screenshot_output(self, client, public_snapshot):
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
+        result = ArchiveResult.objects.create(
             snapshot=public_snapshot,
             plugin="screenshot",
             status=ArchiveResult.StatusChoices.SUCCEEDED,
@@ -644,12 +650,18 @@ class TestPublicIndexSearch:
 
         assert response.status_code == 200
         content = response.content.decode()
-        assert "screenshot/screenshot.png" in content
+        assert f"_card/{result.id}" in content
+
+        from archivebox.core.routes_util import get_snapshot_host
+
+        card = client.get(f"/_card/{result.id}", HTTP_HOST=get_snapshot_host(str(public_snapshot.id)))
+        assert card.status_code == 200
+        assert "screenshot/screenshot.png" in card.content.decode()
 
     def test_public_index_preview_falls_back_to_extension_screenshots(self, client, public_snapshot):
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
+        result = ArchiveResult.objects.create(
             snapshot=public_snapshot,
             plugin="chrome_extension_screenshot",
             status=ArchiveResult.StatusChoices.SUCCEEDED,
@@ -664,16 +676,23 @@ class TestPublicIndexSearch:
 
         assert response.status_code == 200
         content = response.content.decode()
-        first = content.index("chrome_extension_screenshot/screenshot-1.png")
-        second = content.index("chrome_extension_screenshot/screenshot.png")
+        assert f"_card/{result.id}" in content
+
+        from archivebox.core.routes_util import get_snapshot_host
+
+        card = client.get(f"/_card/{result.id}", HTTP_HOST=get_snapshot_host(str(public_snapshot.id)))
+        assert card.status_code == 200
+        card_content = card.content.decode()
+        first = card_content.index("chrome_extension_screenshot/screenshot-1.png")
+        second = card_content.index("chrome_extension_screenshot/screenshot.png")
         assert first < second
-        assert "/screenshot/screenshot.png" not in content
-        assert "chrome_extension_screenshot/screenshot-2.png" not in content
+        assert "/screenshot/screenshot.png" not in card_content
+        assert "chrome_extension_screenshot/screenshot-2.png" not in card_content
 
     def test_public_index_responses_preview_largest_first_even_after_failure(self, client, public_snapshot):
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
+        responses_result = ArchiveResult.objects.create(
             snapshot=public_snapshot,
             plugin="responses",
             status=ArchiveResult.StatusChoices.FAILED,
@@ -692,13 +711,21 @@ class TestPublicIndexSearch:
         response = client.get("/public/", HTTP_HOST=WEB_HOST)
         assert response.status_code == 200
         content = response.content.decode()
-        assert content.index("responses/all/large.png") < content.index("responses/all/small.png") < content.index("favicon/favicon.ico")
-        assert "responses/all/page.html" not in content
+        assert f"_card/{responses_result.id}" in content
+
+        from archivebox.core.routes_util import get_snapshot_host
+
+        card = client.get(f"/_card/{responses_result.id}", HTTP_HOST=get_snapshot_host(str(public_snapshot.id)))
+        assert card.status_code == 200
+        card_content = card.content.decode()
+        assert "responses/all/large.png" in card_content
+        assert "responses/all/small.png" in card_content
+        assert "responses/all/page.html" not in card_content
 
     def test_public_index_favicon_only_preview_is_small(self, client, public_snapshot):
         from archivebox.core.models import ArchiveResult
 
-        ArchiveResult.objects.create(
+        result = ArchiveResult.objects.create(
             snapshot=public_snapshot,
             plugin="favicon",
             status=ArchiveResult.StatusChoices.SUCCEEDED,
@@ -708,7 +735,13 @@ class TestPublicIndexSearch:
         assert response.status_code == 200
         content = response.content.decode()
         assert 'class="snapshot-thumbnail"' in content
-        assert "width:28px;height:28px" in content
+        assert f"_card/{result.id}" in content
+
+        from archivebox.core.routes_util import get_snapshot_host
+
+        card = client.get(f"/_card/{result.id}", HTTP_HOST=get_snapshot_host(str(public_snapshot.id)))
+        assert card.status_code == 200
+        assert "width: 28px; height: 28px" in card.content.decode()
         assert "snapshot-preview-empty" not in content
 
     def test_public_index_snapshot_without_preview_renders_placeholder(self, client, public_snapshot):

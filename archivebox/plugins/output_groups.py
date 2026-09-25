@@ -1,70 +1,80 @@
 """Snapshot output taxonomy. Display preference is independent of hook order."""
 
-from pathlib import PurePosixPath
 from typing import Any
 
-from archivebox.plugins.discovery import get_plugin_name
+from abx_plugins.plugins.responses.presentation import extra_snapshot_output_card
 
-# Preferred outputs come first; remaining outputs sort by total output bytes.
-OUTPUT_GROUPS = (
-    ("html", "HTML", ("archivewebpage", "singlefile", "chrome_mhtml", "wget", "dom")),
-    ("raster", "Raster", ("screenshot", "pdf")),
-    ("article_text", "Article text", ("readability", "defuddle", "mercury", "trafilatura", "htmltotext", "opendataloader")),
-    ("embedded_media", "Embedded media", ("papersdl",)),
-    ("metadata", "Metadata", ()),
-    ("other", "Other files", ()),
+from archivebox.plugins.discovery import get_plugin_catalog, get_plugin_name, get_snapshot_thumbnail_card_order
+
+_GROUP_LABELS = (
+    ("html", "HTML"),
+    ("raster", "Raster"),
+    ("article_text", "Article text"),
+    ("embedded_media", "Embedded media"),
+    ("metadata", "Metadata"),
+    ("other", "Other files"),
+)
+
+
+def _plugin_presentation() -> dict[str, dict[str, Any]]:
+    presentation = {}
+    for plugin in get_plugin_catalog().values():
+        manifest = plugin.manifest
+        order = manifest.get("snapshot_output_order")
+        presentation[plugin.name] = {
+            "group": manifest.get("snapshot_output_group") or "other",
+            "order": order if isinstance(order, int) and not isinstance(order, bool) else None,
+            "display_name": manifest.get("snapshot_display_name"),
+            "icon_hidden": bool(manifest.get("icon_hidden")),
+            "card_hidden": bool(manifest.get("card_hidden")),
+        }
+    return presentation
+
+
+PLUGIN_PRESENTATION = _plugin_presentation()
+OUTPUT_GROUPS = tuple(
+    (
+        group_id,
+        label,
+        tuple(
+            name
+            for name, metadata in sorted(
+                PLUGIN_PRESENTATION.items(),
+                key=lambda item: (item[1]["order"] is None, item[1]["order"] or 0, item[0]),
+            )
+            if metadata["group"] == group_id and metadata["order"] is not None
+        ),
+    )
+    for group_id, label in _GROUP_LABELS
 )
 UNORDERED_OUTPUTS = {
-    "embedded_media": {"responses", "ytdlp", "yt-dlp", "youtube-dl", "gallerydl", "forumdl", "git", "media", "liteparse"},
-    "metadata": {
-        "dns",
-        "headers",
-        "seo",
-        "accessibility",
-        "redirects",
-        "consolelog",
-        "sslcerts",
-        "ssl",
-        "title",
-        "favicon",
-        "hashes",
-        "chrome",
-        "parse_html_urls",
-        "parse_txt_urls",
-        "parse_dom_outlinks",
-        "parse_jsonl_urls",
-        "parse_netscape_urls",
-        "parse_rss_urls",
-        "tlsnotary",
-        "opentimestamps",
-    },
+    group_id: {name for name, metadata in PLUGIN_PRESENTATION.items() if metadata["group"] == group_id and metadata["order"] is None}
+    for group_id, _label in _GROUP_LABELS
 }
-
-COLOR_ICON_PLUGINS = frozenset(
-    {"singlefile", "archivewebpage", "screenshot", "ytdlp", "readability", "forumdl", "papersdl", "git", "gallerydl"},
-)
-HIDDEN_ICON_PLUGINS = frozenset({"archivedotorg"})
-PLUGIN_DISPLAY_NAMES = {
-    "singlefile": "SingleFile",
-    "archivewebpage": "ArchiveWebpage",
-    "ytdlp": "YouTube-DL",
-    "readability": "Readability",
-    "forumdl": "Forum-DL",
-    "git": "Git",
-    "gallerydl": "Gallery-DL",
-}
+HIDDEN_ICON_PLUGINS = frozenset(name for name, metadata in PLUGIN_PRESENTATION.items() if metadata["icon_hidden"])
+HIDDEN_CARD_PLUGINS = frozenset(name for name, metadata in PLUGIN_PRESENTATION.items() if metadata["card_hidden"])
 
 
 def output_group_for_plugin(plugin: str) -> str:
     """Return the snapshot-detail stack that contains a plugin output."""
+    plugin = get_plugin_name(plugin)
     for group_id, _, plugins in OUTPUT_GROUPS:
         if plugin in plugins or plugin in UNORDERED_OUTPUTS.get(group_id, set()):
             return group_id
     return "other"
 
 
+def plugin_icon_is_hidden(plugin: str) -> bool:
+    return get_plugin_name(plugin) in HIDDEN_ICON_PLUGINS
+
+
+def plugin_card_is_hidden(plugin: str) -> bool:
+    return get_plugin_name(plugin) in HIDDEN_CARD_PLUGINS
+
+
 def display_plugin_name(plugin: str) -> str:
-    return PLUGIN_DISPLAY_NAMES.get(plugin, plugin.replace("_", " ").replace("-", " ").title())
+    canonical = get_plugin_name(plugin)
+    return PLUGIN_PRESENTATION.get(canonical, {}).get("display_name") or plugin.replace("_", " ").replace("-", " ").title()
 
 
 def plugin_output_sizes(results) -> dict[str, int]:
@@ -82,34 +92,21 @@ def order_output_plugins(plugins, sizes: dict[str, int]) -> list[str]:
     return [output["name"] for output in order_snapshot_outputs([{"name": plugin, "size": sizes.get(plugin, 0)} for plugin in plugins])]
 
 
-def _responses_html_card(outputs: list[dict[str, Any]]) -> dict[str, Any] | None:
-    # Presentation-only exception to the usual 1:1 plugin:card rule. Responses
-    # owns both this HTML view and its media gallery; responses_html is only a
-    # unique card/anchor ID, never a plugin or a synthetic ArchiveResult.
-    # Refactor this exception if plugins gain support for multiple cards.
-    for output in outputs:
-        if output["name"] != "responses" or not (result := output.get("result")):
+def snapshot_thumbnail_result(results):
+    """Select the first available card using plugin-owned thumbnail priority."""
+    card_order = get_snapshot_thumbnail_card_order()
+    candidates = []
+    for result in results:
+        if result.plugin not in card_order:
             continue
-        path = str(output.get("path") or "")
-        if not path.startswith("responses/") or ".." in PurePosixPath(path).parts:
+        try:
+            path = result.embed_path()
+        except (TypeError, ValueError, OverflowError):
             continue
-        files = result.output_file_map()
-        info = files.get(path) or files.get(path.removeprefix("responses/")) or {}
-        mime = str(info.get("mimetype") or "").split(";")[0].lower()
-        if not info or result._coerce_output_file_size(info.get("size")) <= 0:
+        if not path:
             continue
-        if mime not in {"text/html", "application/xhtml+xml"} and PurePosixPath(path).suffix.lower() not in {".html", ".htm"}:
-            continue
-        return {
-            "name": "responses_html",
-            "path": path,
-            "folder_path": "responses",
-            "ts": output.get("ts"),
-            "size": 0,  # Bytes are already counted by the real Responses card.
-            "result": None,
-            "direct_preview_path": f"{path}?card=responses_html",
-        }
-    return None
+        candidates.append((card_order[result.plugin], str(result.id), result))
+    return min(candidates, default=(None, None, None))[2]
 
 
 def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -123,13 +120,17 @@ def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]
         for plugin in plugins:
             preferences[plugin] = (group_id, None)
 
-    if card := _responses_html_card(outputs):
+    if card := extra_snapshot_output_card(outputs):
         outputs = [*outputs, card]
-    preferences["responses_html"] = ("html", len(OUTPUT_GROUPS[0][2]))
 
     def sort_key(output):
         plugin = get_plugin_name(output["name"])
-        group_id, rank = preferences.get(plugin, ("other", None))
+        declared_group = output.get("output_group")
+        declared_order = output.get("output_order")
+        if declared_group in group_order and isinstance(declared_order, int) and not isinstance(declared_order, bool):
+            group_id, rank = declared_group, declared_order
+        else:
+            group_id, rank = preferences.get(plugin, ("other", None))
         output["output_group"] = group_id
         return (group_order[group_id], rank is None, rank if rank is not None else -int(output.get("size") or 0), plugin)
 

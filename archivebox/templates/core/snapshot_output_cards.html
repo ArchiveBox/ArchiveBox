@@ -6,7 +6,7 @@
                         <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}" data-output-size="{{result.size|default:0}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
                                 <div class="thumb-body">
                                     <div class="thumb-actions">
-                                        {% if not STATIC_EXPORT %}<a href="{% snapshot_url snapshot result.folder_path|default:result.name %}/?files=1" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
+                                        {% if not STATIC_EXPORT %}<a href="{% snapshot_files_url snapshot result.folder_path|default:result.name %}" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
                                         {% if display_path %}
                                             <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
                                         {% endif %}
@@ -28,11 +28,9 @@
                                            live plugin card uses the same scoped _card document on the
                                            snapshot origin in both stack positions. Never run saved
                                            HTML/JS/CSS on web.* or share the admin session with snap-*.{% endcomment %}
-                                        {% with plugin_base=result.name|plugin_name %}
-                                        {% if plugin_base != 'ytdlp' and plugin_base != 'yt-dlp' and plugin_base != 'youtube-dl' %}
+                                        {% if not result.name|plugin_card_is_interactive %}
                                         <a class="thumbnail-click-overlay" href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})" aria-label="Preview {{result.name|plugin_name}}"></a>
                                         {% endif %}
-                                        {% endwith %}
                                         {% plugin_card result.result %}
                                     </div>
                                 {% elif result.is_metadata and display_path %}
@@ -54,7 +52,7 @@
                     <div class="thumb-card" data-other-files data-output-size="0"{% if not STATIC_EXPORT %} data-discover-files{% endif %}>
                             <div class="thumb-body">
                                 <div class="thumb-actions">
-                                    <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
+                                    <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
                                 <h4><span class="card-title-icon">📦</span> Other files</h4>
                             </div>
@@ -63,12 +61,12 @@
                                 <div class="loose-items">
                                     {% for item in loose_items %}
                                         {% if item.is_dir %}
-                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                            <a href="{% snapshot_files_url snapshot item.path %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
                                         {% else %}
                                             <a href="{% snapshot_url snapshot item.path %}" data-output-size="{{item.size|default:0}}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
                                     {% empty %}
-                                        <a href="{% snapshot_base_url snapshot %}/?files=1" data-no-preview="1" target="_blank" rel="noopener">📁 Browse all files</a>
+                                        <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" target="_blank" rel="noopener">📁 Browse all files</a>
                                     {% endfor %}
                                 </div>
                             </div>

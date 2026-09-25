@@ -24,7 +24,12 @@ from django.utils.text import smart_split
 
 from archivebox.base_models.admin import BaseModelAdmin
 from archivebox.core.models import ArchiveResult, Snapshot
-from archivebox.core.routes_util import build_snapshot_url
+from archivebox.core.routes_util import (
+    build_snapshot_detail_url,
+    build_snapshot_files_url,
+    build_snapshot_url,
+    build_snapshot_zip_url,
+)
 from archivebox.core.widgets import InlineTagEditorWidget
 from archivebox.machine.env_util import env_to_shell_exports
 from archivebox.misc.logging_util import printable_filesize
@@ -186,7 +191,7 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
         if embed_path and result.status == "succeeded":
             output_link = build_snapshot_url(snapshot_id, embed_path, config=config)
         else:
-            output_link = build_snapshot_url(snapshot_id, "", config=config)
+            output_link = build_snapshot_detail_url(result.snapshot.archive_path_from_db, config=config)
         output_link_attr = html.escape(output_link, quote=True)
 
         # Get version - try cmd_version field
@@ -555,8 +560,8 @@ class ArchiveResultAdmin(BaseModelAdmin):
             try:
                 queryset = self.get_queryset(request).filter(pk__in=selected)
                 if not queryset.exists():
-                    snapshot = Snapshot.objects.only("id").filter(pk=request.GET.get("snapshot")).first()
-                    return redirect(build_snapshot_url(str(snapshot.id), "index.html", request=request) if snapshot else request.path)
+                    snapshot = Snapshot.objects.filter(pk=request.GET.get("snapshot")).first()
+                    return redirect(build_snapshot_detail_url(snapshot.archive_path_from_db, request=request) if snapshot else request.path)
             except (ValidationError, ValueError):
                 return redirect(request.path)
             return delete_selected(self, request, queryset)
@@ -568,7 +573,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
             request.GET.clear()
             request.META["QUERY_STRING"] = ""
             try:
-                handoff_snapshot = Snapshot.objects.only("id").filter(pk=handoff_snapshot).first()
+                handoff_snapshot = Snapshot.objects.filter(pk=handoff_snapshot).first()
             except (ValidationError, ValueError):
                 handoff_snapshot = None
         saved_list_per_page = self.list_per_page
@@ -582,7 +587,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
                     pk__in=request.POST.getlist(ACTION_CHECKBOX_NAME),
                 ).exists()
             ):
-                return redirect(build_snapshot_url(str(handoff_snapshot.id), "index.html", request=request))
+                return redirect(build_snapshot_detail_url(handoff_snapshot.archive_path_from_db, request=request))
             return response
         finally:
             self.list_per_page = saved_list_per_page
@@ -656,7 +661,11 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     def get_snapshot_view_url(self, result: ArchiveResult) -> str:
         request = self.request
-        return build_snapshot_url(str(result.snapshot_id), request=request, config=request.archivebox_config)
+        return build_snapshot_detail_url(
+            result.snapshot.archive_path_from_db,
+            request=request,
+            config=request.archivebox_config,
+        )
 
     def get_output_view_url(self, result: ArchiveResult) -> str:
         request = self.request
@@ -668,10 +677,21 @@ class ArchiveResultAdmin(BaseModelAdmin):
 
     def get_output_files_url(self, result: ArchiveResult) -> str:
         request = self.request
-        return f"{build_snapshot_url(str(result.snapshot_id), result.plugin, request=request, config=request.archivebox_config)}/?files=1"
+        return build_snapshot_files_url(
+            str(result.snapshot_id),
+            result.plugin,
+            request=request,
+            config=request.archivebox_config,
+        )
 
     def get_output_zip_url(self, result: ArchiveResult) -> str:
-        return f"{self.get_output_files_url(result)}&download=zip"
+        request = self.request
+        return build_snapshot_zip_url(
+            str(result.snapshot_id),
+            result.plugin,
+            request=request,
+            config=request.archivebox_config,
+        )
 
     @admin.display(description="Details", ordering="id")
     def details_link(self, result):
@@ -729,7 +749,11 @@ class ArchiveResultAdmin(BaseModelAdmin):
         request = self.request
         return format_html(
             '<a href="{}"><b><code>[{}]</code></b> &nbsp; {} &nbsp; {}</a><br/>',
-            build_snapshot_url(snapshot_id, "index.html", request=request, config=request.archivebox_config),
+            build_snapshot_detail_url(
+                result.snapshot.archive_path_from_db,
+                request=request,
+                config=request.archivebox_config,
+            ),
             snapshot_id[:8],
             result.snapshot.bookmarked_at.strftime("%Y-%m-%d %H:%M"),
             result.snapshot.url[:128],
@@ -827,11 +851,14 @@ class ArchiveResultAdmin(BaseModelAdmin):
         config = request.archivebox_config
         # Determine output link path - use embed_path() which checks output_files
         embed_path = result.embed_path()
-        output_path = embed_path if (result.status == "succeeded" and embed_path) else "index.html"
-        snapshot_id = str(result.snapshot_id)
+        output_url = (
+            build_snapshot_url(str(result.snapshot_id), embed_path, request=request, config=config)
+            if result.status == "succeeded" and embed_path
+            else build_snapshot_detail_url(result.snapshot.archive_path_from_db, request=request, config=config)
+        )
         return format_html(
             '<a href="{}" class="output-link">↗️</a><pre>{}</pre>',
-            build_snapshot_url(snapshot_id, output_path, request=request, config=config),
+            output_url,
             result.output_str_for_display(),
         )
 
@@ -863,11 +890,15 @@ class ArchiveResultAdmin(BaseModelAdmin):
             '<pre style="display: inline-block">{}</pre><br/>',
             result.output_str_for_display(),
         )
-        snapshot_id = str(result.snapshot_id)
         request = self.request
         output_html += format_html(
-            '<a href="{}#all">See result files ...</a><br/><pre><code>',
-            build_snapshot_url(snapshot_id, "index.html", request=request, config=request.archivebox_config),
+            '<a href="{}">See result files ...</a><br/><pre><code>',
+            build_snapshot_detail_url(
+                result.snapshot.archive_path_from_db,
+                output_path="all",
+                request=request,
+                config=request.archivebox_config,
+            ),
         )
         embed_path = result.embed_path() or ""
         path_from_embed = snapshot_dir / (embed_path or "")

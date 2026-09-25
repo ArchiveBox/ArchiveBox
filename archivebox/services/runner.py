@@ -1608,6 +1608,24 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         if any(process.is_running for process in snapshot.process_set.filter(status="running").iterator()):
             snapshot.update_and_requeue(retry_at=timezone.now() + timedelta(seconds=lock_seconds))
             return True
+        if snapshot.fs_migration_needed:
+            # Crawl isolation bypasses the per-Snapshot path below, so migrate
+            # this admitted Snapshot before the CrawlRunner derives its output
+            # directory. Claim the Snapshot as well as holding the lifecycle
+            # lock: maintenance-only workers use the Snapshot lease directly.
+            if not snapshot.claim_processing_lock(lock_seconds=lock_seconds):
+                return False
+            snapshot.refresh_from_db()
+            claimed_status = snapshot.status
+            claimed_retry_at = snapshot.retry_at
+            if snapshot.fs_migration_needed:
+                snapshot.migrate_filesystem_to_current_version()
+            if not snapshot.safe_update(
+                {"retry_at": timezone.now()},
+                refresh=True,
+                extra_filter={"status": claimed_status, "retry_at": claimed_retry_at},
+            ):
+                return False
         if not snapshot.crawl.claim_processing_lock(lock_seconds=lock_seconds):
             return False
         _runner_console_line(crawl=snapshot.crawl)

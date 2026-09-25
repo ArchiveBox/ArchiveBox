@@ -238,7 +238,7 @@ def test_snapshot_changelist_uses_stable_ordering_without_unordered_paginator_wa
     assert b"Searching matching snapshots..." in response.content
 
 
-def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, snapshot, real_hash_projection):
+def test_snapshot_changelist_thumbnail_uses_prefetched_plugin_card(admin_client, snapshot, real_hash_projection):
     from archivebox.core.models import ArchiveResult
 
     snapshot.title = "Preview destination test"
@@ -255,7 +255,7 @@ def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, 
 
     assert response.status_code == 200
     assert b'class="snapshot-preview' in response.content
-    assert b"screenshot.png" in response.content
+    assert f"_card/{result.id}".encode() in response.content
     html = response.content.decode()
     preview_cell = re.search(r'<td class="field-preview_icon">(.*?)</td>', html, re.S)
     title_cell = re.search(r'<td class="field-title_str">(.*?)</td>', html, re.S)
@@ -264,7 +264,7 @@ def test_snapshot_changelist_preview_uses_prefetched_output_files(admin_client, 
     title_link = re.search(r'<a href="([^"]+)"', title_cell.group(1))
     assert preview_link and title_link
     assert preview_link.group(1) == title_link.group(1)
-    assert preview_link.group(1).endswith(f"/{snapshot.archive_path_from_db}/index.html")
+    assert preview_link.group(1).endswith(f"/{snapshot.archive_path_from_db}")
 
 
 def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_client, snapshot):
@@ -287,7 +287,7 @@ def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_clie
     )
     assert thumbnail_link and title_link
     assert thumbnail_link.group(1) == title_link.group(1)
-    assert thumbnail_link.group(1).endswith("/index.html")
+    assert thumbnail_link.group(1).endswith(f"/{snapshot.archive_path_from_db}")
     assert 'aria-label="Preview of example.com"' in thumbnail_link.group(2)
     assert "▤" in thumbnail_link.group(2)
 
@@ -311,14 +311,8 @@ def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(
         "admin:core_snapshot_preview",
         args=(snapshot.pk, "chrome_extension_screenshot", "screenshot.png"),
     )
-    assert f'src="{preview_url}"' in html
-    assert "JSON.parse(this.dataset.candidates)" in html
-    assert "this.dataset.index=i" in html
-    from html import unescape
-    import json
-
-    candidates = json.loads(unescape(re.search(r'data-candidates="([^"]+)"', html).group(1)))
-    assert [candidate["url"] for candidate in candidates] == [preview_url]
+    assert f"_card/{result.id}" in html
+    assert "data-candidates=" not in html
 
     preview_response = admin_client.get(preview_url, HTTP_HOST=ADMIN_TEST_HOST)
 
@@ -490,7 +484,7 @@ def test_snapshot_changelist_bulk_permissions_action_updates_selected_snapshots(
     assert snapshot.config["PERMISSIONS"] == "private"
 
 
-def test_snapshot_admin_preview_uses_extension_screenshot_when_standard_screenshot_missing(snapshot, real_hash_projection):
+def test_snapshot_admin_thumbnail_uses_extension_screenshot_card_when_standard_screenshot_missing(snapshot, real_hash_projection):
     from archivebox.config.common import get_config
     from archivebox.core.admin_site import archivebox_admin
     from archivebox.core.admin_snapshots import SnapshotAdmin
@@ -510,12 +504,13 @@ def test_snapshot_admin_preview_uses_extension_screenshot_when_standard_screensh
     request.archivebox_config = get_config()
     admin.request = request
 
-    preview = admin._get_preview_data(snapshot)
+    result.refresh_from_db()
+    snapshot._snapshot_card_results = [result]
+    thumbnail = str(admin._render_thumbnail(snapshot))
 
-    assert preview is not None
-    assert "chrome_extension_screenshot/screenshot-1.png" in preview["img_url"]
-    assert "chrome_extension_screenshot/screenshot.png" in preview["fallback_list"]
-    assert "chrome_extension_screenshot/screenshot-2.png" not in preview["fallback_list"]
+    assert f"_card/{result.id}" in thumbnail
+    assert "screenshot-1.png" not in thumbnail
+    assert "data-candidates=" not in thumbnail
 
 
 def test_snapshot_admin_attributes_new_tags_to_authenticated_user(client, snapshot, admin_user):
@@ -934,7 +929,7 @@ class TestSnapshotProgressStats:
     def test_detail_page_auxiliary_items_include_hidden_failed_plugins(self, snapshot, real_failed_title_projection):
         _process, result = real_failed_title_projection
 
-        _, failed_items = snapshot.get_detail_page_auxiliary_items(outputs=[], hidden_card_plugins={result.plugin})
+        _, failed_items = snapshot.get_detail_page_auxiliary_items(outputs=[])
 
         assert failed_items == [
             {
@@ -1000,41 +995,38 @@ class TestSnapshotProgressStats:
         assert "wrapper.style.height = `${contentHeight}px`" in rendered
         assert 'class="header-toggle header-toggle-trigger"' not in rendered
         assert "event.preventDefault()" in rendered
-        assert rendered.count("addEventListener('click', handleSnapshotHeaderToggle)") == 1
+        assert rendered.count("document.querySelector('.header-top').addEventListener('click', (event) => {") == 1
+        assert "handleSnapshotHeaderToggle(event)" in rendered
 
-    def test_static_snapshot_detail_uses_same_output_cards_with_relative_files(self, snapshot):
+    def test_static_snapshot_detail_uses_same_output_cards_with_relative_files(
+        self,
+        snapshot,
+        recursive_test_site,
+        cached_abxpkg_lib_dir,
+    ):
         from archivebox.config import CONSTANTS
-        from archivebox.core.models import ArchiveResult
         from archivebox.core.views import SnapshotView
 
-        output_dir = Path(snapshot.output_dir)
-        singlefile_dir = output_dir / "singlefile"
-        singlefile_dir.mkdir(parents=True, exist_ok=True)
-        output_file = singlefile_dir / "singlefile.html"
-        output_file.write_text("<html><body>real static output</body></html>", encoding="utf-8")
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="singlefile",
-            hook_name="on_Snapshot__50_singlefile.py",
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            output_str="singlefile.html",
-            output_files={"singlefile.html": {"size": output_file.stat().st_size}},
-            output_size=output_file.stat().st_size,
+        snapshot.url = recursive_test_site["root_url"]
+        snapshot.save(update_fields=["url"])
+        _wget_process, wget_result = _run_shipped_snapshot_hook(
+            snapshot,
+            plugin="wget",
+            hook_name="on_Snapshot__35_wget.finite.bg.py",
+            lib_dir=cached_abxpkg_lib_dir,
         )
-        favicon_dir = output_dir / "favicon"
-        favicon_dir.mkdir(parents=True, exist_ok=True)
-        favicon_file = favicon_dir / "favicon.ico"
-        favicon_file.write_bytes(b"real favicon")
-        ArchiveResult.objects.create(
-            snapshot=snapshot,
+        _favicon_process, favicon_result = _run_shipped_snapshot_hook(
+            snapshot,
             plugin="favicon",
-            hook_name="on_Snapshot__50_favicon.py",
-            status=ArchiveResult.StatusChoices.SUCCEEDED,
-            output_str="favicon.ico",
-            output_files={"favicon.ico": {"size": favicon_file.stat().st_size}},
-            output_size=favicon_file.stat().st_size,
+            hook_name="on_Snapshot__37_favicon.finite.bg.py",
+            lib_dir=cached_abxpkg_lib_dir,
         )
+        assert wget_result.status == "succeeded"
+        assert favicon_result.status == "succeeded"
+        output_path = wget_result.embed_path()
+        assert output_path and (Path(snapshot.output_dir) / output_path).is_file()
 
+        output_dir = Path(snapshot.output_dir)
         request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
         request.user = AnonymousUser()
         live_html = SnapshotView.render_live_index(request, snapshot).content.decode()
@@ -1045,10 +1037,11 @@ class TestSnapshotProgressStats:
         static_json = json.loads((output_dir / "index.json").read_text(encoding="utf-8"))
 
         assert re.findall(r'data-plugin-name="([^"]+)"', static_html) == re.findall(r'data-plugin-name="([^"]+)"', live_html)
-        assert 'data-plugin-name="singlefile"' in static_html
-        assert 'href="./singlefile/singlefile.html"' in static_html
-        assert 'data-default-src="./singlefile/singlefile.html"' in static_html
+        assert f'data-plugin-name="{wget_result.plugin}"' in static_html
+        assert f'href="./{output_path}"' in static_html
+        assert f'data-output-path="{output_path}"' in static_html
         assert 'src="./favicon/favicon.ico"' in static_html
+        assert 'src="./favicon/favicon.ico?raw=1"' not in static_html
         root_href = os.path.relpath(CONSTANTS.DATA_DIR, start=output_dir).replace(os.sep, "/")
         assert f'href="{root_href}/index.html" class="header-archivebox"' in static_html
         assert f"/snapshot/{snapshot.id.hex}" not in static_html
@@ -1470,7 +1463,7 @@ class TestAdminSnapshotListView:
         assert response.context["progress_endpoint"].endswith(f"?snapshot_id={snapshot.pk}")
         assert len(snapshot_reads) == 1
 
-    def test_snapshot_view_url_uses_canonical_replay_url_for_mode(self, snapshot):
+    def test_snapshot_view_url_uses_canonical_live_detail_url_for_mode(self, snapshot):
         from archivebox.core.admin_site import archivebox_admin
         from archivebox.core.admin_snapshots import SnapshotAdmin
         from archivebox.config.common import get_config
@@ -1480,10 +1473,10 @@ class TestAdminSnapshotListView:
         request = RequestFactory().get("/", HTTP_HOST="admin.archivebox.localhost:5797")
         request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"})
         admin.request = request
-        assert admin.get_snapshot_view_url(snapshot) == f"http://snap-{str(snapshot.pk).replace('-', '')[-12:]}.archivebox.localhost:5797"
+        assert admin.get_snapshot_view_url(snapshot) == f"http://web.archivebox.localhost:5797/{snapshot.archive_path_from_db}"
 
         request.archivebox_config = get_config(overrides={"SERVER_SECURITY_MODE": "safe-onedomain-nojsreplay"})
-        assert admin.get_snapshot_view_url(snapshot) == f"http://archivebox.localhost:5797/snapshot/{snapshot.pk}"
+        assert admin.get_snapshot_view_url(snapshot) == f"http://archivebox.localhost:5797/{snapshot.archive_path_from_db}"
 
     def test_find_snapshots_for_url_matches_fragment_suffixed_variants(self, crawl, db):
         from archivebox.core.models import Snapshot
@@ -1702,10 +1695,10 @@ def test_metadata_raw_preview_bypasses_full_template(real_hash_projection, clien
     assert b"".join(download.streaming_content) == raw_file.read_bytes()
 
 
-def test_snapshot_grid_and_list_use_responses_image_fallback(client, admin_user, snapshot):
+def test_snapshot_grid_and_list_use_responses_plugin_card(client, admin_user, snapshot):
     from archivebox.core.models import ArchiveResult
 
-    ArchiveResult.objects.create(
+    result = ArchiveResult.objects.create(
         snapshot=snapshot,
         plugin="responses",
         status=ArchiveResult.StatusChoices.FAILED,
@@ -1715,12 +1708,12 @@ def test_snapshot_grid_and_list_use_responses_image_fallback(client, admin_user,
     for route in ("admin:grid", "admin:core_snapshot_changelist"):
         response = client.get(reverse(route), HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200
-        assert b"responses/all/largest.png" in response.content
+        assert f"_card/{result.id}".encode() in response.content
 
 
-def test_central_preview_ranking_and_malformed_metadata(snapshot):
+def test_snapshot_thumbnail_selection_uses_plugin_declarations(snapshot):
     from archivebox.core.models import ArchiveResult
-    from archivebox.core.preview_util import snapshot_preview_candidates, render_snapshot_preview
+    from archivebox.plugins.output_groups import snapshot_thumbnail_result
 
     for plugin, files in (
         ("screenshot", {"screenshot.png": {"size": 1}}),
@@ -1739,20 +1732,11 @@ def test_central_preview_ranking_and_malformed_metadata(snapshot):
         ("favicon", {"favicon.ico": {"size": 10}}),
     ):
         ArchiveResult.objects.create(snapshot=snapshot, plugin=plugin, status="failed", output_files=files)
-    candidates = snapshot_preview_candidates(snapshot)
-    assert [item["path"] for item in candidates] == [
-        "screenshot/screenshot.png",
-        "seo/featured-image.jpg",
-        "responses/all/photo.png",
-        "responses/all/legacy.png",
-        "responses/all/banner.png",
-        "favicon/favicon.ico",
-    ]
-    html = render_snapshot_preview(snapshot, lambda candidate: "/" + candidate["path"])
-    assert "snapshot-thumbnail" in html
-    assert "data-candidates=" in html
-    assert "this.remove()" in html
-    assert "▤" in html
+    results = snapshot.archiveresult_set.all().order_by("id")
+    selected = snapshot_thumbnail_result(results)
+
+    assert selected is not None
+    assert selected.plugin == "screenshot"
 
 
 def test_archivewebpage_recording_metadata_is_text_not_replay(client, snapshot):

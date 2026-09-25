@@ -94,7 +94,7 @@ def test_snapshot_detail_link_stays_on_web_origin(snapshot, security_mode, expec
 
     config = ServerConfig(BASE_URL="http://archivebox.localhost:5797", SERVER_SECURITY_MODE=security_mode)
     url = snapshot_detail_url(Context({"CONFIG": config}), snapshot)
-    assert url == f"http://{expected_host}:5797{snapshot.get_absolute_url()}/index.html"
+    assert url == f"http://{expected_host}:5797{snapshot.get_absolute_url()}"
     assert (
         snapshot_detail_url(
             Context({"STATIC_EXPORT": True, "STATIC_EXPORT_DIR": snapshot.output_dir}),

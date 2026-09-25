@@ -8,7 +8,7 @@ from urllib.parse import urlencode, urlparse
 from django import forms
 from django.contrib import admin, messages
 from django.core.paginator import Paginator
-from django.db.models import Count, F, Q
+from django.db.models import Count, F, Prefetch, Q
 from django.http import HttpRequest, HttpResponseBadRequest, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.template.loader import render_to_string
@@ -30,6 +30,7 @@ from archivebox.core.permissions import (
     PERMISSIONS_VALUES,
     normalize_permissions,
 )
+from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_plugin_output_url
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.misc.paginators import AcceleratedPaginator
@@ -72,13 +73,29 @@ def render_snapshots_list(snapshots_qs, request=None, crawl=None, page_size=50, 
 
     # Keep ArchiveResult counters as scalar subqueries so the paginated
     # Snapshot queryset does not become a join+GROUP BY over every result row.
-    snapshots_qs = filtered_qs.order_by("-created_at").annotate(
-        total_results=ArchiveResult.snapshot_count_expr(),
-        succeeded_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SUCCEEDED),
-        failed_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.FAILED),
-        started_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.STARTED),
-        skipped_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SKIPPED),
-        snapshot_permissions=F("permissions"),
+    snapshots_qs = (
+        filtered_qs.order_by("-created_at")
+        .annotate(
+            total_results=ArchiveResult.snapshot_count_expr(),
+            succeeded_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SUCCEEDED),
+            failed_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.FAILED),
+            started_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.STARTED),
+            skipped_results=ArchiveResult.snapshot_count_expr(status=ArchiveResult.StatusChoices.SKIPPED),
+            snapshot_permissions=F("permissions"),
+        )
+        .prefetch_related(
+            Prefetch(
+                "archiveresult_set",
+                queryset=ArchiveResult.objects.filter(plugin="favicon", status=ArchiveResult.StatusChoices.SUCCEEDED).only(
+                    "snapshot_id",
+                    "plugin",
+                    "status",
+                    "output_str",
+                    "output_files",
+                ),
+                to_attr="_favicon_results",
+            ),
+        )
     )
 
     page_number = request.GET.get(page_param, 1) if request is not None else 1
@@ -219,6 +236,14 @@ def render_snapshots_list(snapshots_qs, request=None, crawl=None, page_size=50, 
 
         # Format date
         date_str = snapshot.created_at.strftime("%Y-%m-%d %H:%M") if snapshot.created_at else "-"
+        detail_url = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
+        favicon_url = build_snapshot_plugin_output_url(
+            snapshot,
+            "favicon",
+            request=request,
+            archive_results=snapshot._favicon_results,
+            fallback_to_default=True,
+        )
 
         rows.append(f'''
             <tr style="border-bottom: 1px solid #eee;">
@@ -231,8 +256,8 @@ def render_snapshots_list(snapshots_qs, request=None, crawl=None, page_size=50, 
                     <span title="{permissions}" style="display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:999px; font-size:12px; color:{permission_fg}; background:{permission_bg};">{permission_icon}</span>
                 </td>
                 <td style="padding: 6px 8px; white-space: nowrap;">
-                    <a href="/{snapshot.archive_path}/" style="text-decoration: none;">
-                        <img src="/{snapshot.archive_path}/favicon.ico"
+                    <a href="{escape(detail_url)}" style="text-decoration: none;">
+                        <img src="{escape(favicon_url)}"
                              style="width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;"
                              onerror="this.style.display='none'"/>
                     </a>

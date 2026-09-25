@@ -144,7 +144,7 @@ jobs:
           fi
           uv sync --no-cache --locked --dev "${extra_args[@]}"
       - name: Install Playwright Chromium for browser tests
-        if: contains(matrix.test.paths_arg, 'test_proof_previews') || contains(matrix.test.paths_arg, 'test_snapshot_output_stacks')
+        if: contains(matrix.test.paths_arg, 'test_proof_previews') || contains(matrix.test.paths_arg, 'test_snapshot_output_stacks') || contains(matrix.test.paths_arg, 'test_ui_admin_snapshot')
         run: uv run --no-cache --no-sync --no-sources playwright install chromium
 
       - name: Run ${{ matrix.test.name }}

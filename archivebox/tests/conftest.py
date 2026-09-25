@@ -324,6 +324,28 @@ def pytest_configure():
         django.setup()
 
 
+@pytest.fixture(scope="session")
+def django_db_modify_db_settings(
+    django_db_modify_db_settings_parallel_suffix,
+    request,
+):
+    """Use file-backed SQLite for threaded live_server requests in tests.
+
+    pytest-django shares an in-memory SQLite DatabaseWrapper with live_server.
+    Its threaded request handlers close that wrapper after each response, so
+    concurrent browser requests can race over the same connection.
+    """
+    from django.conf import settings
+
+    database = settings.DATABASES["default"]
+    if "sqlite" in database["ENGINE"]:
+        worker_id = getattr(request.config, "workerinput", {}).get("workerid", "")
+        tox_env = os.environ.get("TOX_PARALLEL_ENV", "")
+        suffix = "-".join(part for part in (tox_env, worker_id) if part)
+        filename = f"pytest{('-' + suffix) if suffix else ''}.sqlite3"
+        database.setdefault("TEST", {})["NAME"] = str(SESSION_DATA_DIR / filename)
+
+
 @pytest.fixture(autouse=True)
 def isolate_test_runtime(tmp_path):
     """

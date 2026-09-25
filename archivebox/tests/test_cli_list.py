@@ -144,7 +144,7 @@ def test_static_exports_use_filesystem_paths_not_live_django_routes(snapshot):
 
     assert f"./{static_path}/index.html" in html
     assert f"./{static_path}/screenshot/screenshot.png" in html
-    assert f"./{static_path}/wget/index%253A.html" in html
+    assert f"./{static_path}/index.html#wget/index%253A.html" in html
     assert f"./{static_path}/index.jsonl" in html
     assert f"/snapshot/{snapshot.id.hex}" not in html
     assert "/web/" not in html
@@ -157,6 +157,7 @@ def test_static_exports_use_filesystem_paths_not_live_django_routes(snapshot):
     rendered_detail = detail_html.read_text()
     assert "core/snapshot.html" not in rendered_detail
     assert "screenshot/screenshot.png" in rendered_detail
+    assert 'href="./wget/index%253A.html"' in rendered_detail
     assert "staticfile/prenav.json" not in rendered_detail
     assert "ytdlp/saved.m4a" in rendered_detail
     assert "ytdlp/deleted.temp.m4a" not in rendered_detail

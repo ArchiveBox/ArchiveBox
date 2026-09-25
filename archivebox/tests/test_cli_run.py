@@ -381,6 +381,7 @@ def test_due_snapshots_share_one_crawl_scoped_chrome(initialized_archive, recurs
         assert launches.get().exit_code == 0
 
 
+@pytest.mark.django_db(transaction=True)
 def test_busy_crawl_does_not_report_snapshot_progress(initialized_archive):
     from datetime import timedelta
     from django.utils import timezone

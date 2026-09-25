@@ -6,15 +6,15 @@ from typing import Any
 from urllib.parse import unquote
 
 from django.contrib.auth.models import User
-from django.db.models import Count, Exists, F, OuterRef, QuerySet
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, QuerySet
 from django.db.models.functions import Lower
 from django.http import HttpRequest
 from django.urls import reverse
 
 from archivebox.config.common import get_config
 from archivebox.misc.util import sanitize_html_text
-from archivebox.core.routes_util import build_snapshot_url, build_web_url
-from archivebox.core.models import Snapshot, SnapshotTag, Tag
+from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_plugin_output_url
+from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag, Tag
 
 
 TAG_SNAPSHOT_PREVIEW_LIMIT = 10
@@ -202,9 +202,16 @@ def _build_snapshot_preview(snapshot: Snapshot, request: HttpRequest | None = No
         "id": str(snapshot.pk),
         "title": _display_snapshot_title(snapshot),
         "url": snapshot.url,
-        "favicon_url": build_snapshot_url(str(snapshot.pk), "favicon.ico", request=request, config=config),
+        "favicon_url": build_snapshot_plugin_output_url(
+            snapshot,
+            "favicon",
+            request=request,
+            config=config,
+            archive_results=snapshot._favicon_results,
+            fallback_to_default=True,
+        ),
         "admin_url": reverse("admin:core_snapshot_change", args=[snapshot.pk]),
-        "archive_url": build_web_url(f"/{snapshot.archive_path_from_db}/index.html", request=request, config=config),
+        "archive_url": build_snapshot_detail_url(snapshot.archive_path_from_db, request=request, config=config),
         "downloaded_at": snapshot.downloaded_at.isoformat() if snapshot.downloaded_at else None,
     }
 
@@ -221,6 +228,19 @@ def _build_snapshot_preview_map(
     snapshot_tags = (
         SnapshotTag.objects.filter(tag_id__in=tag_ids)
         .select_related("snapshot__crawl__created_by")
+        .prefetch_related(
+            Prefetch(
+                "snapshot__archiveresult_set",
+                queryset=ArchiveResult.objects.filter(plugin="favicon", status=ArchiveResult.StatusChoices.SUCCEEDED).only(
+                    "snapshot_id",
+                    "plugin",
+                    "status",
+                    "output_str",
+                    "output_files",
+                ),
+                to_attr="_favicon_results",
+            ),
+        )
         .order_by(
             "tag_id",
             F("snapshot__downloaded_at").desc(nulls_last=True),

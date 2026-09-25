@@ -241,14 +241,14 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
         response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
     assert len(captured_queries) <= 7
 
-    assert f"/{second.get_absolute_url().strip('/')}/index.html" in response.redirect_chain[0][0]
+    assert response.redirect_chain[0][0].rstrip("/").endswith(second.get_absolute_url().rstrip("/"))
     assert response.status_code == 200
     assert b"Resolved second copy" in response.content
-    assert b"Click to see captures from" in response.content
-    assert b'class="year-capture-count">(2)</span>' in response.content
+    assert b'aria-label="All captures; selected ' in response.content
+    assert b'class="year-capture-count">2</span>' in response.content
     assert b"snapshot-count-badge" not in response.content
     chooser = re.search(
-        rb'<details class="snapshot-variants selected-capture">.*?</details>',
+        rb'<details class="snapshot-variants year-variants">.*?</details>',
         response.content,
         re.DOTALL,
     )
@@ -256,10 +256,7 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
     assert first.get_absolute_url().encode() in chooser.group()
     assert second.get_absolute_url().encode() in chooser.group()
     assert b"4.0\xc2\xa0KB" in chooser.group()
-    year_chooser = re.search(rb'<details class="snapshot-variants year-variants">.*?</details>', response.content, re.DOTALL)
-    assert year_chooser
-    assert first.get_absolute_url().encode() in year_chooser.group()
-    assert second.get_absolute_url().encode() in year_chooser.group()
+    assert b'aria-current="page"' in chooser.group()
     assert b"\xf0\x9f\x93\x81 2" not in chooser.group()
     assert b"\xf0\x9f\x93\x81 2" not in response.content
 
@@ -379,7 +376,7 @@ class TestPublicIndex:
         assert b"Private Snapshot" not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
-    def test_public_index_only_loads_output_files_for_preview_plugins(self, client, admin_user):
+    def test_public_index_loads_card_metadata_in_one_result_query(self, client, admin_user):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
         from archivebox.core.models import ArchiveResult, Snapshot
@@ -426,16 +423,59 @@ class TestPublicIndex:
         result_queries = [query["sql"].lower() for query in captured_queries if "core_archiveresult" in query["sql"].lower()]
         assert len(result_queries) == 1
         assert "output_files" in result_queries[0]
-        assert "output_str" not in result_queries[0]
+        assert "output_str" in result_queries[0]
         assert response.status_code == 200
-        assert b"screenshot.png" in response.content
-        expected_path = f"/{snapshot.archive_path_from_db}/index.html#singlefile".encode()
+        screenshot_result = ArchiveResult.objects.get(snapshot=snapshot, plugin="screenshot")
+        assert f"_card/{screenshot_result.id}".encode() in response.content
+        expected_path = f"/{snapshot.archive_path_from_db}#singlefile".encode()
         assert expected_path in response.content
         assert f"/{snapshot.archive_path_from_db}/singlefile/".encode() not in response.content
         assert b"files-icon-pile--html" in response.content
         assert b"files-icon-pile--raster" in response.content
         assert b'data-tooltip="singlefile"' in response.content
         assert b'title="singlefile"' not in response.content
+
+    @override_settings(PUBLIC_INDEX=True)
+    def test_upgraded_07_snapshot_icon_target_renders_at_extensionless_live_url(self, client, admin_user):
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.core.routes_util import get_snapshot_host
+        from archivebox.crawls.models import Crawl
+
+        crawl = Crawl.objects.create(urls="https://upgraded-07.example", created_by=admin_user, config={"PERMISSIONS": "public"})
+        snapshot = Snapshot.objects.create(
+            url="https://upgraded-07.example",
+            title="Upgraded 0.7 snapshot",
+            crawl=crawl,
+            fs_version="0.7.0",
+            status=Snapshot.StatusChoices.SEALED,
+        )
+        migrated_output = snapshot.output_dir / "singlefile.html"
+        migrated_output.parent.mkdir(parents=True, exist_ok=True)
+        migrated_output.write_text("<html>migrated output</html>", encoding="utf-8")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="singlefile",
+            hook_name="on_Snapshot__50_singlefile.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="singlefile.html",
+            # 0.9.50 could import the old root file without recording the later
+            # root_relative marker, leaving the DB and filesystem half-migrated.
+            output_files={"singlefile.html": {"size": migrated_output.stat().st_size}},
+            output_size=migrated_output.stat().st_size,
+        )
+
+        public_index = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+        expected_target = f"/{snapshot.archive_path_from_db}#singlefile"
+        assert expected_target.encode() in public_index.content
+
+        live_detail = client.get(f"/{snapshot.archive_path_from_db}", HTTP_HOST=WEB_TEST_HOST, follow=False)
+        legacy_index = client.get(f"/{snapshot.archive_path_from_db}/index.html", HTTP_HOST=WEB_TEST_HOST, follow=False)
+        saved_file = client.get("/singlefile/singlefile.html", HTTP_HOST=get_snapshot_host(str(snapshot.id)), follow=False)
+        assert live_detail.status_code == 200
+        assert legacy_index.status_code == 200
+        assert saved_file.status_code == 200
+        assert b"migrated output" in b"".join(saved_file.streaming_content)
+        assert b"Upgraded 0.7 snapshot" in live_detail.content
 
     @override_settings(PUBLIC_INDEX=True)
     def test_public_index_renders_title_html_entities_once(self, client, admin_user):
@@ -530,7 +570,7 @@ class TestPublicIndex:
         private_response = client.get(f"/snapshot/{private_snapshot.id}/", HTTP_HOST=WEB_TEST_HOST)
 
         assert unlisted_response.status_code == 302
-        assert unlisted_response["Location"].endswith(f"{unlisted_snapshot.get_absolute_url()}/index.html")
+        assert unlisted_response["Location"].rstrip("/").endswith(unlisted_snapshot.get_absolute_url().rstrip("/"))
         assert client.get(f"{unlisted_snapshot.get_absolute_url()}/index.html", HTTP_HOST=WEB_TEST_HOST).status_code == 200
         assert private_response.status_code == 302
         assert "/admin/core/snapshot/replay-auth/" in private_response["Location"]

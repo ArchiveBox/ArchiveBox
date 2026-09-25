@@ -270,7 +270,8 @@
             <a href="{% snapshot_detail_url obj %}">
               <h4>
                 {% if obj.is_archived %}
-                    <img src="{% snapshot_base_url obj %}/favicon.ico" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
+                    {% snapshot_plugin_output_url obj 'favicon' True as favicon_url %}
+                    {% if favicon_url %}<img src="{{ favicon_url }}" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>{% endif %}
                 {% else %}
                     <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
                 {% endif %}

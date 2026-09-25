@@ -7,12 +7,13 @@ from django.contrib import admin, messages
 from django.contrib.admin.options import IS_POPUP_VAR
 from django.http import HttpRequest, HttpResponseRedirect
 from django.template.response import TemplateResponse
+from django.db.models import Prefetch
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 
 from archivebox.base_models.admin import BaseModelAdmin
-from archivebox.core.models import SnapshotTag, Tag
+from archivebox.core.models import ArchiveResult, SnapshotTag, Tag
 from archivebox.core.tag_util import (
     TAG_HAS_SNAPSHOTS_CHOICES,
     TAG_SORT_CHOICES,
@@ -24,7 +25,7 @@ from archivebox.core.tag_util import (
     normalize_has_snapshots_filter,
     normalize_tag_sort,
 )
-from archivebox.core.routes_util import build_snapshot_url
+from archivebox.core.routes_util import build_snapshot_plugin_output_url
 
 
 class TagInline(admin.TabularInline):
@@ -191,7 +192,23 @@ class TagAdmin(BaseModelAdmin):
 
     @admin.display(description="Snapshots")
     def snapshots(self, tag: Tag):
-        snapshots = tag.snapshot_set.select_related("crawl__created_by").order_by("-downloaded_at", "-created_at", "-pk")[:10]
+        snapshots = (
+            tag.snapshot_set.select_related("crawl__created_by")
+            .prefetch_related(
+                Prefetch(
+                    "archiveresult_set",
+                    queryset=ArchiveResult.objects.filter(plugin="favicon", status=ArchiveResult.StatusChoices.SUCCEEDED).only(
+                        "snapshot_id",
+                        "plugin",
+                        "status",
+                        "output_str",
+                        "output_files",
+                    ),
+                    to_attr="_favicon_results",
+                ),
+            )
+            .order_by("-downloaded_at", "-created_at", "-pk")[:10]
+        )
         total_count = tag.snapshot_set.count()
         if not snapshots:
             return mark_safe(
@@ -214,7 +231,12 @@ class TagAdmin(BaseModelAdmin):
                 </a>
                 """,
                     reverse("admin:core_snapshot_change", args=[snapshot.pk]),
-                    build_snapshot_url(str(snapshot.pk), "favicon.ico"),
+                    build_snapshot_plugin_output_url(
+                        snapshot,
+                        "favicon",
+                        archive_results=snapshot._favicon_results,
+                        fallback_to_default=True,
+                    ),
                     title[:120],
                     snapshot.url[:120],
                 ),

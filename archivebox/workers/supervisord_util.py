@@ -333,18 +333,13 @@ def SUPERVISORD_PARENT_WATCHDOG_WORKER(
     }
 
 
-SERVER_WORKER = lambda host, port, extra_port=None: {
+SERVER_WORKER = lambda host, port: {
     "name": "worker_daphne",
     "command": _shell_join(
         [
             str(resolve_env_binary("daphne")),
             f"--bind={host}",
             f"--port={port}",
-            *(
-                ["--endpoint", "tcp:port={}:interface={}".format(extra_port, host.strip("[]").replace(":", r"\:"))]
-                if extra_port is not None
-                else []
-            ),
             "archivebox.core.asgi:application",
         ],
     ),
@@ -1299,9 +1294,6 @@ def active_supervisord_runtime_components(*, supervisor=None) -> list[str]:
 
 def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reload: bool, nothreading: bool, supervisor=None):
     bind_url = f"http://{host}:{port}"
-    # Docker does not expose its host port mappings to the container. Keep both
-    # image defaults reachable so existing mappings survive an image upgrade.
-    extra_port = {"5797": "8000", "8000": "5797"}.get(str(port)) if config.IN_DOCKER else None
 
     if debug:
         server_worker = RUNSERVER_WORKER(host=host, port=port, reload=reload, nothreading=nothreading)
@@ -1312,7 +1304,7 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
         if reload:
             log_files.insert(1, "logs/worker_runner_watch.log")
     else:
-        server_worker = SERVER_WORKER(host=host, port=port, extra_port=extra_port)
+        server_worker = SERVER_WORKER(host=host, port=port)
         bg_workers = [(RUNNER_WORKER(), False)]
         log_files = ["logs/worker_daphne.log", "logs/worker_runner.log"]
 
@@ -1342,12 +1334,6 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
             log_files.append(str(sonic_worker["stdout_logfile"]))
 
     workers = [(server_worker, False), *bg_workers]
-    if debug and extra_port is not None:
-        compatibility_worker = RUNSERVER_WORKER(host=host, port=extra_port, reload=reload, nothreading=nothreading)
-        compatibility_worker["name"] = "worker_runserver_compatibility"
-        compatibility_worker["stdout_logfile"] = "logs/worker_runserver_compatibility.log"
-        workers.insert(1, (compatibility_worker, False))
-        log_files.append(compatibility_worker["stdout_logfile"])
     if os.environ.get("DISPLAY") and (config.IN_DOCKER or os.environ.get("ARCHIVEBOX_VNC_PERSONA")):
         vnc_persona = os.environ.get("ARCHIVEBOX_VNC_PERSONA") or config.DEFAULT_PERSONA
         workers.append(

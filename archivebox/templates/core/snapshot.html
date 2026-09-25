@@ -1105,7 +1105,7 @@
                     sandbox="allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                     class="full-page-iframe"
                     src="about:blank"
-                    data-default-src="{% if best_result.direct_preview_path %}{% snapshot_url snapshot best_result.direct_preview_path %}{% elif best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% elif STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
+                    data-default-src="{% if best_result.direct_preview_path %}{% snapshot_url snapshot best_result.direct_preview_path %}{% elif best_result.path %}{% snapshot_preview_url snapshot best_result.path %}{% else %}{% snapshot_files_url snapshot %}{% endif %}"
                     name="preview"
                     loading="eager"
                     fetchpriority="high"></iframe>
@@ -1157,7 +1157,7 @@
                 const frame = document.getElementById('main-frame')
                 if (!frame) return
                 const snapshotBaseUrlEarly = "{% snapshot_base_url snapshot %}"
-                const snapshotFilesUrlEarly = "{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}"
+                const snapshotFilesUrlEarly = "{% snapshot_files_url snapshot %}"
                 const defaultSrc = frame.dataset.defaultSrc || snapshotFilesUrlEarly
                 const rawHash = window.location.hash ? window.location.hash.slice(1) : ''
 
@@ -1199,9 +1199,9 @@
                         <div class="header-url">
                             <div class="header-url-location">
                             <span class="header-url-favicon">
-                            {% snapshot_archiveresult_url snapshot 'favicon' 'favicon.ico' as header_favicon_url %}
+                            {% snapshot_plugin_output_url snapshot 'favicon' as header_favicon_url %}
                             {% if header_favicon_url %}
-                                <img src="{{ header_favicon_url }}?raw=1" onerror="this.onerror=null;this.src=&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;&quot;" alt="Favicon" class="favicon"/>
+                                <img src="{{ header_favicon_url }}{% if not STATIC_EXPORT %}?raw=1{% endif %}" onerror="this.onerror=null;this.src=&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;&quot;" alt="Favicon" class="favicon"/>
                             {% else %}
                                 <img src="data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;" alt="Favicon" class="favicon"/>
                             {% endif %}
@@ -1239,7 +1239,7 @@
                             </a>
                             {% endif %}
                                 {% if not STATIC_EXPORT %}
-                                <a class="header-url-action header-url-download" href="{% snapshot_base_url snapshot %}/?files=1&amp;download=zip" aria-label="Download snapshot ZIP" title="Download the entire snapshot directory as ZIP">
+                                <a class="header-url-action header-url-download" href="{% snapshot_zip_url snapshot %}" aria-label="Download snapshot ZIP" title="Download the entire snapshot directory as ZIP">
                                 {% endif %}
                                     <span class="header-status" title="Snapshot output counts">
                                 {% if num_outputs or num_failures %}
@@ -1289,7 +1289,7 @@
                     <div class="thumb-card">
                             <div class="thumb-body">
                                 <div class="thumb-actions">
-                                    <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
+                                    <a href="{% snapshot_files_url snapshot %}" data-no-preview="1" title="{% if STATIC_EXPORT %}Open snapshot manifest{% else %}Browse all snapshot files{% endif %}" target="_blank" rel="noopener">📁</a>
                                 </div>
                                 <h4><span class="card-title-icon">⚠️</span> Failed</h4>
                             </div>
@@ -1297,7 +1297,7 @@
                                 <div class="loose-items failed-items">
                                     {% for item in failed_items %}
                                         {% if item.is_dir %}
-                                            <a href="{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_url snapshot item.path %}/?files=1{% endif %}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
+                                            <a href="{% snapshot_files_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📁 {{item.name}}</a>
                                         {% else %}
                                             <a href="{% snapshot_url snapshot item.path %}" data-no-preview="1" target="_blank" rel="noopener">📄 {{item.name}}</a>
                                         {% endif %}
@@ -1315,7 +1315,7 @@
 
         <script>
             const snapshotBaseUrl = "{% snapshot_base_url snapshot %}";
-            const snapshotFilesUrl = "{% if STATIC_EXPORT %}{% snapshot_url snapshot 'index.jsonl' %}{% else %}{% snapshot_base_url snapshot %}/?files=1{% endif %}";
+            const snapshotFilesUrl = "{% snapshot_files_url snapshot %}";
 
             function tryCenterImageFrame(frame) {
                 try {

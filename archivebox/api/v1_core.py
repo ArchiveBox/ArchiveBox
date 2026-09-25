@@ -32,7 +32,7 @@ from archivebox.core.models import Snapshot, ArchiveResult, Tag
 from archivebox.core.permissions import public_snapshots_queryset
 from archivebox.api.auth import authenticated_user_from_request
 from archivebox.config.common import get_config
-from archivebox.core.routes_util import build_web_url
+from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
 from archivebox.misc.util import filter_queryset_by_uuid_substring, validate_url_length
 from archivebox.core.tag_util import (
     add_snapshot_counts,
@@ -800,7 +800,7 @@ def _snapshots_rss_response(
     )
 
     for snapshot in snapshots:
-        archived_url = build_web_url(f"/{snapshot.archive_path_from_db}", request=request)
+        archived_url = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
         tags = [tag.name for tag in snapshot.tags.all()]
         crawl_user = snapshot.crawl.created_by if snapshot.crawl_id else None
         description = f"Original URL: {snapshot.url}\nArchived snapshot: {archived_url}"

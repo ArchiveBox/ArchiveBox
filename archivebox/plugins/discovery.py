@@ -2,7 +2,7 @@ __package__ = "archivebox.plugins"
 
 from collections.abc import Iterable
 from functools import lru_cache
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Protocol, TypedDict
 
 from abx_plugins import get_plugins_dir
@@ -66,8 +66,76 @@ def get_plugin_name(plugin: str) -> str:
     """
     parts = plugin.split("_", 1)
     if len(parts) == 2 and parts[0].isdigit():
-        return parts[1]
-    return plugin
+        plugin = parts[1]
+    return get_archive_result_aliases().get(plugin, plugin)
+
+
+@lru_cache(maxsize=1)
+def get_archive_result_aliases() -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for plugin in get_plugin_catalog().values():
+        for alias in plugin.manifest.get("archive_result_aliases") or []:
+            alias = str(alias or "").strip()
+            if alias:
+                aliases[alias] = plugin.name
+    return aliases
+
+
+def get_archive_result_names(plugin_name: str) -> tuple[str, ...]:
+    """Return the canonical ArchiveResult name and its declared historic aliases."""
+    canonical = get_plugin_name(plugin_name)
+    aliases = get_archive_result_aliases()
+    return tuple(dict.fromkeys((canonical, plugin_name, *(alias for alias, target in aliases.items() if target == canonical))))
+
+
+def plugin_card_is_interactive(plugin_name: str) -> bool:
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    return bool(plugin and plugin.manifest.get("card_interactive"))
+
+
+def get_plugin_output_extension_preference(plugin_name: str) -> tuple[tuple[str, ...], ...] | None:
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    raw_groups = plugin.manifest.get("output_extension_preference") if plugin else None
+    if not isinstance(raw_groups, list):
+        return None
+    groups = []
+    for raw_group in raw_groups:
+        if not isinstance(raw_group, list):
+            continue
+        group = tuple(str(extension).lower() for extension in raw_group if str(extension).startswith("."))
+        if group:
+            groups.append(group)
+    return tuple(groups) or None
+
+
+def get_plugin_default_output_path(plugin_name: str) -> str | None:
+    prefix, separator, base_name = plugin_name.partition("_")
+    archive_result_name = base_name if separator and prefix.isdigit() else plugin_name
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    raw_path = str(plugin.manifest.get("default_output_path") or "").strip() if plugin else ""
+    path = PurePosixPath(raw_path)
+    if not raw_path or raw_path.startswith("/") or ".." in path.parts or len(path.parts) != 1:
+        return None
+    return f"{archive_result_name}/{raw_path}"
+
+
+@lru_cache(maxsize=1)
+def get_snapshot_thumbnail_card_order() -> dict[str, int]:
+    """Return plugin-owned ArchiveResult names eligible for snapshot thumbnails."""
+    ordering: dict[str, int] = {}
+    for plugin in get_plugin_catalog().values():
+        declarations = plugin.manifest.get("snapshot_thumbnail_cards") or []
+        if not isinstance(declarations, list):
+            continue
+        for declaration in declarations:
+            if not isinstance(declaration, dict):
+                continue
+            result_name = str(declaration.get("archive_result_name") or "").strip()
+            order = declaration.get("order")
+            if not result_name or isinstance(order, bool) or not isinstance(order, int):
+                continue
+            ordering[result_name] = order
+    return ordering
 
 
 def get_enabled_plugins(config: ConfigLookup | None = None, **config_kwargs: Any) -> list[str]:
@@ -155,8 +223,6 @@ def get_plugin_template(plugin: str, template_name: str, fallback: bool = True) 
         fallback: If True, return default template if plugin template not found
     """
     base_name = get_plugin_name(plugin)
-    if base_name in ("yt-dlp", "youtube-dl"):
-        base_name = "ytdlp"
 
     catalog = get_plugin_catalog()
     if base_name in catalog:

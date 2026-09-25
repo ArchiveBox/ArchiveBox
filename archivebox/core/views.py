@@ -1,7 +1,5 @@
 __package__ = "archivebox.core"
 
-from archivebox.core.preview_util import PREVIEW_PLUGINS, preview_candidates
-
 import json
 import os
 import posixpath
@@ -62,6 +60,8 @@ from archivebox.core.permissions import (
 )
 from archivebox.core.routes_util import (
     build_admin_url,
+    build_snapshot_detail_url,
+    build_snapshot_files_url,
     build_snapshot_url,
     build_web_url,
     get_admin_host,
@@ -364,10 +364,6 @@ class SnapshotView(View):
 
         # slug is a timestamp
         if slug.replace(".", "").isdigit():
-            # missing trailing slash -> redirect to index
-            if "/" not in path:
-                return redirect(f"{path}/index.html")
-
             try:
                 try:
                     snapshot = Snapshot.objects.get(Q(timestamp=slug) | Q(id__startswith=slug))
@@ -376,7 +372,11 @@ class SnapshotView(View):
                         return _private_snapshot_auth_redirect(request, snapshot, archivefile or "index.html")
                     canonical_base = snapshot.url_path
                     if canonical_base != snapshot.legacy_archive_path:
-                        target_path = f"/{canonical_base}/{archivefile or 'index.html'}"
+                        target_path = (
+                            build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
+                            if not archivefile or archivefile == "index.html"
+                            else build_snapshot_url(str(snapshot.id), archivefile, request=request)
+                        )
                         query = request.META.get("QUERY_STRING")
                         if query:
                             target_path = f"{target_path}?{query}"
@@ -391,8 +391,9 @@ class SnapshotView(View):
                             show_indexes=True,
                             is_archive_replay=True,
                         )
-                    elif archivefile == "index.html":
-                        # if they requested snapshot index, serve live rendered template instead of static html
+                    elif archivefile in ("", "index.html"):
+                        # Both the canonical extensionless URL and the legacy
+                        # index.html URL render the live Django snapshot page.
                         response = self.render_live_index(request, snapshot)
                     else:
                         target = build_snapshot_url(str(snapshot.id), archivefile, request=request)
@@ -426,15 +427,15 @@ class SnapshotView(View):
             except Snapshot.MultipleObjectsReturned:
                 snapshot_hrefs = mark_safe("<br/>").join(
                     format_html(
-                        '{} <a href="/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                        '{} <a href="{}"><b><code>{}</code></b></a> {} <b>{}</b>',
                         snap.bookmarked_at.strftime("%Y-%m-%d %H:%M:%S"),
-                        snap.archive_path,
+                        build_snapshot_detail_url(snap.archive_path_from_db, request=request),
                         snap.timestamp,
                         snap.url,
                         snap.title_stripped[:64] or "",
                     )
                     for snap in direct_snapshots_queryset(request, Snapshot.objects.filter(timestamp__startswith=slug))
-                    .only("url", "timestamp", "title", "bookmarked_at")
+                    .select_related("crawl__created_by")
                     .order_by("-bookmarked_at")
                 )
                 return HttpResponse(
@@ -458,27 +459,27 @@ class SnapshotView(View):
                         <title>Snapshot Not Found</title>
                         </head><body>
                         <center><br/><br/><br/>
-                        Snapshot <a href="/{}/index.html" target="_top"><b><code>[{}]</code></b></a>: <a href="{}" target="_blank" rel="noreferrer">{}</a><br/>
-                        was queued on {}, but no files have been saved yet in:<br/><b><a href="/{}/" target="_top"><code>{}</code></a><code>/{}</code></b><br/><br/>
+                        Snapshot <a href="{}" target="_top"><b><code>[{}]</code></b></a>: <a href="{}" target="_blank" rel="noreferrer">{}</a><br/>
+                        was queued on {}, but no files have been saved yet in:<br/><b><a href="{}" target="_top"><code>{}</code></a><code>/{}</code></b><br/><br/>
                         It's possible {} during the last capture on {},<br/>or that the archiving process has not completed yet.<br/>
                         <pre><code># run this cmd to finish/retry archiving this Snapshot</code><br/>
                         <code style="user-select: all; color: #333">archivebox update -t timestamp {}</code></pre><br/><br/>
                         <div class="text-align: left; width: 100%; max-width: 400px">
                         <i><b>Next steps:</i></b><br/>
-                        - list all the <a href="/{}/" target="_top">Snapshot files <code>.*</code></a><br/>
-                        - view the <a href="/{}/index.html" target="_top">Snapshot <code>./index.html</code></a><br/>
+                        - list all the <a href="{}" target="_top">Snapshot files <code>.*</code></a><br/>
+                        - view the <a href="{}" target="_top">Snapshot <code>./index.html</code></a><br/>
                         - go to the <a href="/admin/core/snapshot/{}/change/" target="_top">Snapshot admin</a> to edit<br/>
                         - go to the <a href="/admin/core/snapshot/?id__exact={}" target="_top">Snapshot actions</a> to re-archive<br/>
                         - or return to <a href="/" target="_top">the main index...</a></div>
                         </center>
                         </body></html>
                         """,
-                        snapshot.archive_path,
+                        build_snapshot_detail_url(snapshot.archive_path_from_db, request=request),
                         snapshot.timestamp,
                         snapshot.url,
                         snapshot.url,
                         str(snapshot.bookmarked_at).split(".")[0],
-                        snapshot.archive_path,
+                        build_snapshot_files_url(str(snapshot.id), request=request),
                         snapshot.timestamp,
                         archivefile if str(archivefile) != "None" else "",
                         f"the {archivefile} resource could not be fetched"
@@ -486,8 +487,8 @@ class SnapshotView(View):
                         else "the original site was not available",
                         str(snapshot.bookmarked_at).split(".")[0],
                         snapshot.timestamp,
-                        snapshot.archive_path,
-                        snapshot.archive_path,
+                        build_snapshot_files_url(str(snapshot.id), request=request),
+                        build_snapshot_detail_url(snapshot.archive_path_from_db, request=request),
                         snapshot.pk,
                         snapshot.id,
                     ),
@@ -534,15 +535,15 @@ class SnapshotView(View):
         except Snapshot.MultipleObjectsReturned:
             snapshot_hrefs = mark_safe("<br/>").join(
                 format_html(
-                    '{} <code style="font-size: 0.8em">{}</code> <a href="/{}/index.html"><b><code>{}</code></b></a> {} <b>{}</b>',
+                    '{} <code style="font-size: 0.8em">{}</code> <a href="{}"><b><code>{}</code></b></a> {} <b>{}</b>',
                     snap.bookmarked_at.strftime("%Y-%m-%d %H:%M:%S"),
                     str(snap.id)[:8],
-                    snap.archive_path,
+                    build_snapshot_detail_url(snap.archive_path_from_db, request=request),
                     snap.timestamp,
                     snap.url,
                     snap.title_stripped[:64] or "",
                 )
-                for snap in snapshots.only("url", "timestamp", "title", "bookmarked_at").order_by("-bookmarked_at")
+                for snap in snapshots.select_related("crawl__created_by").order_by("-bookmarked_at")
             )
             return HttpResponse(
                 format_html(
@@ -555,7 +556,7 @@ class SnapshotView(View):
                 status=404,
             )
 
-        target_path = build_web_url(f"{snapshot.get_absolute_url().rstrip('/')}/index.html", request=request)
+        target_path = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
         query = request.META.get("QUERY_STRING")
         if query:
             target_path = f"{target_path}?{query}"
@@ -660,7 +661,9 @@ class SnapshotPathView(View):
         if snapshot_id:
             requested_base = f"{requested_base}/{snapshot_id}"
         if canonical_base != requested_base:
-            target = f"/{canonical_base}/{path or 'index.html'}"
+            target = f"/{canonical_base}"
+            if path:
+                target = f"{target}/{path}"
             query = request.META.get("QUERY_STRING")
             if query:
                 target = f"{target}?{query}"
@@ -722,17 +725,31 @@ def _resolve_archiveresult_relpath(snapshot: Snapshot, rel_path: str) -> tuple[s
         ).only("plugin", "output_files"),
     )
     if not results:
+        from archivebox.plugins.discovery import get_plugin_default_output_path
+
+        if get_plugin_default_output_path(plugin) == rel_path and (Path(snapshot.output_dir) / plugin_relpath).is_file():
+            return plugin_relpath, None
         return rel_path, None
 
+    declared_paths: list[tuple[str, ArchiveResult]] = []
     for result in results:
-        output_files = result.output_files or {}
+        output_files = result.output_file_map()
         for candidate in (plugin_relpath, rel_path):
-            file_info = output_files.get(candidate)
-            if not isinstance(file_info, dict):
-                continue
-            if file_info.get("root_relative"):
-                return candidate, result
-            return rel_path, result
+            output_path = result.output_file_path(candidate, output_file_map=output_files)
+            if output_path:
+                declared_paths.append((output_path, result))
+                if (Path(snapshot.output_dir) / output_path).is_file():
+                    return output_path, result
+
+        # Partially migrated 0.7 rows can declare ``singlefile.html`` while
+        # the old file still lives at SNAP_DIR/singlefile.html, without the
+        # later root_relative metadata bit. Check that one exact declared key
+        # on the file request; never scan the snapshot during page rendering.
+        if plugin_relpath in output_files and (Path(snapshot.output_dir) / plugin_relpath).is_file():
+            return plugin_relpath, result
+
+    if declared_paths:
+        return declared_paths[0]
 
     return rel_path, results[0]
 
@@ -774,7 +791,7 @@ def _plugin_full_preview_response(
                     "snapshot": snapshot,
                     "output_path": output_url,
                     "output_path_raw": rel_path,
-                    "snapshot_details_url": build_web_url(snapshot.get_absolute_url(), request=request),
+                    "snapshot_details_url": build_snapshot_detail_url(snapshot.archive_path_from_db, request=request),
                     "plugin": plugin,
                     "plugin_icon": get_plugin_icon(plugin),
                     "preview_base": f"{request.path.rsplit('/', 1)[0]}/",
@@ -1001,12 +1018,12 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     is_directory_request = bool(path) and path.endswith("/")
     show_indexes = bool(request.GET.get("files")) or (request_config.USES_SUBDOMAIN_ROUTING and is_directory_request)
     if not show_indexes and (not rel_path or rel_path == "index.html"):
-        if snapshot.permissions in (PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED):
+        if request_config.CONTROL_PLANE_ENABLED and snapshot.permissions in (PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED):
             # Snapshot detail is trusted application UI and belongs on web.*.
             # snap-* is for isolated saved outputs and plugin frames. Keep the
             # private replay-cookie path below: its grant is host-only and must
             # never be mistaken for an admin session on web.*.
-            target = build_web_url(f"{snapshot.get_absolute_url().rstrip('/')}/index.html", request=request, config=request_config)
+            target = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request, config=request_config)
             if request.META.get("QUERY_STRING"):
                 target = f"{target}?{request.META['QUERY_STRING']}"
             return redirect(target)
@@ -1271,7 +1288,6 @@ class PublicIndexView(ListView):
         all_results_by_snapshot = {str(snapshot.id): [] for snapshot in snapshots}
         icons_by_snapshot: dict[str, dict[str, ArchiveResult]] = {str(snapshot.id): {} for snapshot in snapshots}
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
-        preview_results_by_snapshot = {str(snapshot.id): [] for snapshot in snapshots}
         favicon_paths_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
         progress_by_snapshot: dict[str, dict[str, int]] = {
             str(snapshot.id): {
@@ -1300,6 +1316,7 @@ class PublicIndexView(ListView):
                     "snapshot_id",
                     "plugin",
                     "status",
+                    "output_str",
                     "output_files",
                     "output_size",
                 )
@@ -1320,11 +1337,9 @@ class PublicIndexView(ListView):
                     progress["skipped"] += 1
                 elif result.status == ArchiveResult.StatusChoices.NORESULTS:
                     progress["noresults"] += 1
-                if result.plugin in PREVIEW_PLUGINS:
-                    preview_results_by_snapshot[snapshot_key].append(result)
-                    for candidate in preview_candidates([result]):
-                        if candidate["kind"] == "favicon":
-                            favicon_paths_by_snapshot[snapshot_key].append(candidate["path"])
+                if result.plugin == "favicon" and result.status == ArchiveResult.StatusChoices.SUCCEEDED:
+                    if output_path := result.embed_path():
+                        favicon_paths_by_snapshot[snapshot_key].append(output_path)
 
         for snapshot in snapshots:
             snapshot._icons_compact = True
@@ -1333,7 +1348,7 @@ class PublicIndexView(ListView):
             snapshot._icons_progress_stats = progress_by_snapshot.get(str(snapshot.id), {})
             snapshot.num_outputs_cached = snapshot._icons_progress_stats.get("succeeded", 0)
             snapshot._tags_str_cached = ",".join(tag_names_by_snapshot.get(str(snapshot.id), []))
-            snapshot._preview_results = preview_results_by_snapshot.get(str(snapshot.id), [])
+            snapshot._snapshot_card_results = all_results_by_snapshot[str(snapshot.id)]
             snapshot._public_favicon_paths = favicon_paths_by_snapshot.get(str(snapshot.id), [])
             snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         context["object_list"] = snapshots
@@ -1624,7 +1639,7 @@ class WebAddView(AddView):
         if requested_url:
             snapshot = self._latest_snapshot_for_url(requested_url)
             if snapshot:
-                return redirect(f"/{snapshot.url_path}")
+                return redirect(build_snapshot_detail_url(snapshot.archive_path_from_db, request=request))
 
         request_host = (request.get_host() or "").lower()
         request_config = get_request_config(request)
@@ -1664,7 +1679,7 @@ class WebAddView(AddView):
 
         snapshot = self._latest_snapshot_for_url(requested_url)
         if snapshot:
-            return redirect(f"/{snapshot.url_path}")
+            return redirect(build_snapshot_detail_url(snapshot.archive_path_from_db, request=request))
 
         add_url = self._normalize_add_url(requested_url)
         assert self.form_class is not None
@@ -1696,7 +1711,7 @@ class WebAddView(AddView):
         crawl = self._create_crawl_from_form(form)
         snapshot = Snapshot.from_json({"url": add_url, "tags": form.cleaned_data.get("tag", "")}, overrides={"crawl": crawl})
         assert snapshot is not None
-        return redirect(f"/{snapshot.url_path}")
+        return redirect(build_snapshot_detail_url(snapshot.archive_path_from_db, request=request))
 
 
 class HealthCheckView(View):

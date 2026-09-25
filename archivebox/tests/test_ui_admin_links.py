@@ -61,6 +61,7 @@ def real_hook_result(tmp_path):
                 "size": hashes_file.stat().st_size,
             },
         },
+        output_size=hashes_file.stat().st_size,
     )
     return snapshot, process, result
 
@@ -262,11 +263,11 @@ def test_deleting_binary_and_process_records_preserves_results(real_hook_result)
     assert "hashes" in render_archiveresults_list(ArchiveResult.objects.filter(id=result.id))
 
 
-def test_snapshot_admin_zip_links():
+def test_snapshot_admin_zip_links(real_hook_result):
     from archivebox.core.admin_snapshots import SnapshotAdmin
     from archivebox.core.models import Snapshot
 
-    snapshot = _create_snapshot()
+    snapshot, _process, _result = real_hook_result
     admin = SnapshotAdmin(Snapshot, AdminSite())
     admin.request = _admin_get_request()
 
@@ -298,7 +299,7 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     admin.request = _admin_get_request()
 
     file_icons = str(admin.files(snapshot))
-    expected_path = f"/{snapshot.archive_path_from_db}/index.html#singlefile"
+    expected_path = f"/{snapshot.archive_path_from_db}#singlefile"
     assert expected_path in html.unescape(file_icons)
     assert f"/{snapshot.archive_path_from_db}/singlefile/" not in html.unescape(file_icons)
     assert "files-icon-pile--html" in file_icons

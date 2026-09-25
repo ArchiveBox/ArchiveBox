@@ -19,6 +19,7 @@ from archivebox.tests.conftest import (
 )
 
 
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("work", ["idle", "server-crawl", "foreground-add", "foreground-run"])
 def test_reload_restarts_only_server_runner_once(initialized_archive, recursive_test_site, work):
     """Startup is not a reload; a reload is one supervised stop/start."""

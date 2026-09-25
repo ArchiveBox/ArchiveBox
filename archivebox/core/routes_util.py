@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
 from django.utils.http import url_has_allowed_host_and_scheme
 
@@ -11,6 +11,8 @@ from archivebox.config.common import get_config, get_request_config
 _SNAPSHOT_ID_RE = re.compile(r"^[0-9a-fA-F-]{8,36}$")
 _SNAPSHOT_SUBDOMAIN_RE = re.compile(r"^snap-(?P<suffix>[0-9a-fA-F]{12})$")
 _ROLE_SUBDOMAIN_LABELS = ("admin", "web", "api")
+_URL_PATH_SAFE = "/@-._~!$&'()*+,;=%"
+_URL_FRAGMENT_SAFE = "/@-._~!$&'()*+,;="
 
 
 def split_host_port(host: str) -> tuple[str, str | None]:
@@ -397,6 +399,98 @@ def build_snapshot_url(snapshot_id: str, path: str = "", request=None, config: d
     return _build_url(get_snapshot_base_url(snapshot_id, request=request, config=config, **config_kwargs), path)
 
 
+def build_snapshot_detail_path(archive_path: str, output_path: str = "", prefix: str = "/") -> str:
+    """Build the live Django snapshot-detail path and optional output anchor."""
+    normalized_archive_path = quote(str(archive_path or "").strip("/"), safe=_URL_PATH_SAFE)
+    detail_path = f"{prefix}{normalized_archive_path}"
+    normalized_output_path = str(output_path or "").lstrip("#/")
+    if not normalized_output_path:
+        return detail_path
+    fragment = quote(normalized_output_path, safe=_URL_FRAGMENT_SAFE)
+    return f"{detail_path}#{fragment}"
+
+
+def build_snapshot_index_path(archive_path: str, output_path: str = "", prefix: str = "/") -> str:
+    """Build a path to the literal exported ``index.html`` snapshot file."""
+    normalized_archive_path = quote(str(archive_path or "").strip("/"), safe=_URL_PATH_SAFE)
+    index_path = f"{prefix}{normalized_archive_path}/index.html"
+    normalized_output_path = str(output_path or "").lstrip("#/")
+    if not normalized_output_path:
+        return index_path
+    fragment = quote(normalized_output_path, safe=_URL_FRAGMENT_SAFE)
+    return f"{index_path}#{fragment}"
+
+
+def get_snapshot_output_anchor(plugin: str, output_path: str) -> str:
+    """Map root-relative legacy outputs to the plugin card that displays them."""
+    normalized_output_path = str(output_path or "").lstrip("/")
+    return normalized_output_path if normalized_output_path.startswith(f"{plugin}/") else plugin
+
+
+def build_snapshot_detail_url(
+    archive_path: str,
+    output_path: str = "",
+    request=None,
+    config: dict[str, Any] | None = None,
+    **config_kwargs: Any,
+) -> str:
+    """Build a request-aware URL for trusted snapshot UI on the web origin."""
+    return build_web_url(
+        build_snapshot_detail_path(archive_path, output_path=output_path),
+        request=request,
+        config=config,
+        **config_kwargs,
+    )
+
+
+def build_snapshot_plugin_output_url(
+    snapshot,
+    plugin: str,
+    request=None,
+    config: dict[str, Any] | None = None,
+    archive_results=None,
+    fallback_to_default: bool = False,
+    **config_kwargs: Any,
+) -> str:
+    """Build a replay URL for a plugin output declared by an ArchiveResult."""
+    output_path = snapshot.plugin_output_path(plugin, archive_results=archive_results)
+    if not output_path and fallback_to_default:
+        from archivebox.plugins.discovery import get_plugin_default_output_path
+
+        output_path = get_plugin_default_output_path(plugin)
+    if not output_path:
+        return ""
+    return build_snapshot_url(str(snapshot.id), output_path, request=request, config=config, **config_kwargs)
+
+
+def build_snapshot_files_url(
+    snapshot_id: str,
+    path: str = "",
+    request=None,
+    config: dict[str, Any] | None = None,
+    **config_kwargs: Any,
+) -> str:
+    """Build a request-aware directory-browser URL on the isolated replay origin."""
+    directory_path = quote(str(path or "").lstrip("/"), safe=_URL_PATH_SAFE)
+    directory_url = build_snapshot_url(snapshot_id, directory_path, request=request, config=config, **config_kwargs)
+    parts = urlsplit(directory_url)
+    normalized_directory_path = f"{parts.path.rstrip('/')}/"
+    directory_url = urlunsplit((parts.scheme, parts.netloc, normalized_directory_path, parts.query, parts.fragment))
+    return _replace_url_query_params(directory_url, files="1")
+
+
+def build_snapshot_zip_url(
+    snapshot_id: str,
+    path: str = "",
+    request=None,
+    config: dict[str, Any] | None = None,
+    **config_kwargs: Any,
+) -> str:
+    """Build a request-aware ZIP download URL for a snapshot directory."""
+    files_url = build_snapshot_files_url(snapshot_id, path, request=request, config=config, **config_kwargs)
+    return _replace_url_query_params(files_url, download="zip")
+
+
 def build_original_url(domain: str, path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     return _build_url(get_original_base_url(domain, request=request, config=config, **config_kwargs), path)
 
@@ -409,3 +503,11 @@ def _build_url(base_url: str, path: str) -> str:
     if not path:
         return base_url
     return f"{base_url}{path if path.startswith('/') else f'/{path}'}"
+
+
+def _replace_url_query_params(url: str, **params: str) -> str:
+    parts = urlsplit(url)
+    replacement_keys = set(params)
+    query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key not in replacement_keys]
+    query.extend((key, value) for key, value in params.items())
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))

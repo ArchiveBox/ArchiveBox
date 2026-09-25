@@ -357,7 +357,7 @@ def test_daphne_worker_uses_default_application_close_timeout():
     assert "--application-close-timeout=0" not in command
 
 
-@pytest.mark.parametrize("in_docker,port", [(False, "5797"), (False, "8000"), (True, "9579")])
+@pytest.mark.parametrize("in_docker,port", [(False, "5797"), (False, "8000"), (True, "5797"), (True, "9579")])
 @pytest.mark.parametrize("debug", [False, True])
 def test_port_compatibility_does_not_add_listeners_outside_docker_defaults(tmp_path, in_docker, port, debug):
     result = subprocess.run(

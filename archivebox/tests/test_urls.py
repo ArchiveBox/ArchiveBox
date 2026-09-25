@@ -472,7 +472,7 @@ class TestUrlRouting:
 
             snapshot_host = get_snapshot_host(str(snapshot.id)) if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING else get_base_host()
             snapshot_path = "/index.html" if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING else f"/snapshot/{snapshot.id}/index.html"
-            detail = client.get(snapshot_path, HTTP_HOST=snapshot_host)
+            detail = client.get(snapshot_path, HTTP_HOST=snapshot_host, follow=True)
             html = response_body(detail).decode("utf-8", "ignore")
 
             assert detail.status_code == 200, (detail.status_code, detail.headers.get("Location"), html[:200])
@@ -778,7 +778,7 @@ class TestUrlRouting:
                 public_client = Client()
                 public_index = public_client.get("/index.html", HTTP_HOST=snapshot_host)
                 assert public_index.status_code in (301, 302)
-                assert public_index["Location"] == f"http://{get_web_host()}{snapshot.get_absolute_url()}/index.html"
+                assert public_index["Location"] == f"http://{get_web_host()}{snapshot.get_absolute_url()}"
 
                 public_files = public_client.get(f"/{snapshot.url_path}/index.html?files=1", HTTP_HOST=get_web_host())
                 assert public_files.status_code == 200
@@ -832,7 +832,7 @@ class TestUrlRouting:
                     HTTP_HOST=get_web_host(),
                 )
                 assert legacy_redirect.status_code in (301, 302)
-                assert snapshot.url_path in legacy_redirect["Location"]
+                assert legacy_redirect["Location"] == f"http://{get_web_host()}{snapshot.get_absolute_url()}"
                 assert_cache(legacy_redirect, "private", "no-store")
 
                 static_asset = public_client.get("/static/jquery.min.js", HTTP_HOST=snapshot_host)
@@ -932,7 +932,7 @@ class TestUrlRouting:
                 assert_cache(unlisted_raw, "private", "max-age=604800", "immutable")
                 unlisted_index = Client().get("/index.html", HTTP_HOST=snapshot_host)
                 assert unlisted_index.status_code in (301, 302)
-                assert unlisted_index["Location"] == f"http://{get_web_host()}{snapshot.get_absolute_url()}/index.html"
+                assert unlisted_index["Location"] == f"http://{get_web_host()}{snapshot.get_absolute_url()}"
                 unlisted_files = Client().get(f"/{snapshot.url_path}/index.html?files=1", HTTP_HOST=get_web_host())
                 assert unlisted_files.status_code == 200
                 assert raw_name.encode() in response_body(unlisted_files)
@@ -1092,7 +1092,7 @@ class TestUrlRouting:
 
             resp = client.get(f"/web/{snapshot.domain}", HTTP_HOST=web_host)
             assert resp.status_code in (301, 302)
-            assert resp["Location"].endswith(f"/{snapshot.url_path}")
+            assert resp["Location"] == f"http://{web_host}/{snapshot.url_path}"
 
             resp = client.get(f"/{snapshot.url_path}", HTTP_HOST=web_host)
             assert resp.status_code == 200
@@ -1119,7 +1119,7 @@ class TestUrlRouting:
             snapshot_body = response_body(resp)
             if response_rel == "index.html":
                 assert f"http://{snapshot_host}/".encode() in snapshot_body
-                assert b"See all files..." in snapshot_body
+                assert b"Browse all files" in snapshot_body
             elif response_output_path.exists():
                 assert snapshot_body == response_output_path.read_bytes()
             else:
@@ -1135,10 +1135,10 @@ class TestUrlRouting:
 
             resp = client.get("/index.html", HTTP_HOST=snapshot_host)
             assert resp.status_code in (301, 302)
-            assert resp["Location"] == f"http://{web_host}{snapshot.get_absolute_url()}/index.html"
+            assert resp["Location"] == f"http://{web_host}{snapshot.get_absolute_url()}"
             snapshot_html = response_body(client.get(f"{snapshot.get_absolute_url()}/index.html", HTTP_HOST=web_host)).decode("utf-8", "ignore")
             assert f"http://{snapshot_host}/" in snapshot_html
-            assert "See all files..." in snapshot_html
+            assert "Browse all files" in snapshot_html
             assert ">WARC<" not in snapshot_html
             assert ">Media<" not in snapshot_html
             assert ">Git<" not in snapshot_html
@@ -1313,7 +1313,7 @@ class TestUrlRouting:
                 resp = client.get("/", HTTP_HOST=original_host)
                 assert resp.status_code in (301, 302)
                 assert resp["Location"] == f"http://{get_snapshot_host(str(latest_snapshot.id))}"
-                resp = client.get("/", HTTP_HOST=get_snapshot_host(str(latest_snapshot.id)))
+                resp = client.get("/", HTTP_HOST=get_snapshot_host(str(latest_snapshot.id)), follow=True)
                 assert resp.status_code == 200
                 html = response_body(resp).decode("utf-8", "ignore")
                 assert latest_snapshot.url in html
@@ -1865,12 +1865,19 @@ class TestUrlRouting:
             frames.feed(live_html)
             console_frames = [
                 frame for frame in frames.frames
-                if frame.get("data-plugin") == "consolelog"
+                if frame.get("title") == "consolelog card"
+                and frame.get("src", "").endswith(f"/_card/{console_result.id}")
             ]
             assert len(console_frames) == 1, frames.frames
-            assert console_frames[0]["src"].endswith(f"/{consolelog_rel}?preview=1"), frames.frames
+            assert console_frames[0]["loading"] == "lazy"
+            assert console_frames[0]["fetchpriority"] == "low"
             assert "data-compact" not in console_frames[0]
             snapshot_host = get_snapshot_host(str(snapshot.id))
+            card_resp = client.get(f"/_card/{console_result.id}", HTTP_HOST=snapshot_host)
+            assert card_resp.status_code == 200
+            assert card_resp["Content-Type"].startswith("text/html")
+            card_html = response_body(card_resp).decode("utf-8", "ignore")
+            assert f"{consolelog_rel}?preview=1&amp;titlebar=0" in card_html
             resp = client.get(f"/{consolelog_rel}?preview=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert resp["Content-Type"].startswith("text/html")
