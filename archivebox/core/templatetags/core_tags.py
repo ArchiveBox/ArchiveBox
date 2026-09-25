@@ -32,7 +32,6 @@ from archivebox.plugins.discovery import (
     get_plugin_name,
     get_plugin_template,
     plugin_card_is_interactive,
-    plugin_uses_snapshot_replay,
 )
 
 register = template.Library()
@@ -361,9 +360,7 @@ def _build_snapshot_preview_url(
         url = build_snapshot_url(str(snapshot_id), path, request=request, config=config)
     path_parts = Path(path).parts
     plugin = get_plugin_name(plugin) if plugin else (path_parts[0] if len(path_parts) > 1 else "")
-    has_plugin_preview = bool(
-        plugin and (get_plugin_template(plugin, "full", fallback=False) or plugin_uses_snapshot_replay(plugin)),
-    )
+    has_plugin_preview = bool(plugin and get_plugin_template(plugin, "full", fallback=False))
     if not (_is_text_preview_path(path) or _is_image_preview_path(path) or has_plugin_preview):
         return url
     separator = "&" if "?" in url else "?"

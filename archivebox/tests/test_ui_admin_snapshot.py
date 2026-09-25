@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import warnings
+import zipfile
 from pathlib import Path
 from threading import Thread
 from types import SimpleNamespace
@@ -1756,3 +1757,18 @@ def test_archivewebpage_recording_metadata_is_text_not_replay(client, snapshot):
     assert b"archivebox-text-preview" in response.content
     assert b"recording-metadata" in response.content
     assert b"navigator.serviceWorker.register" not in response.content
+
+    wacz = snapshot.output_dir / "archivewebpage" / "archivewebpage.wacz"
+    with zipfile.ZipFile(wacz, "w") as archive:
+        archive.writestr(
+            "pages/pages.jsonl",
+            '{"format":"json-pages-1.0"}\n{"url":"https://example.com/"}\n',
+        )
+
+    response = client.get(
+        "/archivewebpage/archivewebpage.wacz?preview=1",
+        HTTP_HOST=get_snapshot_host(str(snapshot.id)),
+    )
+    assert response.status_code == 200
+    assert b"navigator.serviceWorker.register" in response.content
+    assert b'data-source="/archivewebpage/archivewebpage.wacz"' in response.content

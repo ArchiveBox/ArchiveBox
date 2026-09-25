@@ -95,12 +95,6 @@ def plugin_card_is_interactive(plugin_name: str) -> bool:
     return bool(plugin and plugin.manifest.get("card_interactive"))
 
 
-def plugin_uses_snapshot_replay(plugin_name: str) -> bool:
-    """Return whether a plugin asks snapshot cards to open through replay."""
-    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
-    return bool(plugin and plugin.manifest.get("snapshot_replay"))
-
-
 def get_plugin_output_extension_preference(plugin_name: str) -> tuple[tuple[str, ...], ...] | None:
     plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
     raw_groups = plugin.manifest.get("output_extension_preference") if plugin else None
@@ -166,12 +160,21 @@ def get_snapshot_role_result(results, role: str):
 @lru_cache(maxsize=1)
 def get_plugin_presentation_modules() -> tuple[ModuleType, ...]:
     """Load optional plugin-owned presentation hooks declared in manifests."""
-    modules = []
-    for plugin in get_plugin_catalog().values():
-        module_name = str(plugin.manifest.get("presentation_module") or "").strip()
-        if module_name:
-            modules.append(import_module(module_name))
-    return tuple(modules)
+    return tuple(module for plugin in get_plugin_catalog().values() if (module := get_plugin_presentation_module(plugin.name)) is not None)
+
+
+@lru_cache(maxsize=None)
+def get_plugin_presentation_module(plugin_name: str) -> ModuleType | None:
+    """Load one plugin's optional presentation hooks module."""
+    plugin = get_plugin_catalog().get(get_plugin_name(plugin_name))
+    module_name = str(plugin.manifest.get("presentation_module") or "").strip() if plugin else ""
+    return import_module(module_name) if module_name else None
+
+
+def plugin_has_custom_full_response(plugin_name: str) -> bool:
+    """Return whether a plugin renders its full template through a response hook."""
+    module = get_plugin_presentation_module(plugin_name)
+    return bool(module and getattr(module, "render_full_response", None))
 
 
 def get_extra_snapshot_output_cards(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -193,10 +196,10 @@ def serve_plugin_replay_asset(path: str, config, response_class):
     return None
 
 
-def render_plugin_replay_response(path: str, output_url: str, **kwargs):
-    """Let plugin presentation hooks render a saved output for replay."""
+def render_plugin_full_response(path: str, output_url: str, **kwargs):
+    """Let plugin presentation hooks render a saved output's full template."""
     for module in get_plugin_presentation_modules():
-        render = getattr(module, "render_replay_response", None)
+        render = getattr(module, "render_full_response", None)
         if render is not None and (response := render(path, output_url, **kwargs)) is not None:
             return response
     return None

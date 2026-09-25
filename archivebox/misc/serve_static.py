@@ -29,7 +29,7 @@ from django.views import static
 
 from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
-from archivebox.plugins.discovery import render_plugin_replay_response
+from archivebox.plugins.discovery import render_plugin_full_response
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
@@ -1066,7 +1066,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             raw_output_path = request.path
             if raw_query:
                 raw_output_path = f"{raw_output_path}?{raw_query.urlencode()}"
-            plugin_replay = render_plugin_replay_response(
+            plugin_replay = render_plugin_full_response(
                 fullpath.name,
                 raw_output_path,
                 wacz_path=fullpath,

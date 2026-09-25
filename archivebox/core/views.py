@@ -86,6 +86,7 @@ from archivebox.plugins.discovery import (
     get_plugin_name,
     get_plugin_template,
     get_snapshot_role_names,
+    plugin_has_custom_full_response,
     serve_plugin_replay_asset,
 )
 from archivebox.plugins.forms import get_plugin_config_binary_urls
@@ -785,6 +786,11 @@ def _plugin_full_preview_response(
 
     template_str = get_plugin_template(plugin, "full", fallback=False)
     if not template_str:
+        return None
+    if plugin_has_custom_full_response(plugin):
+        # The plugin owns path selection and rendering for this full template.
+        # Defer to the file-serving response hook so unrelated outputs from the
+        # same plugin continue through their normal MIME-specific renderer.
         return None
 
     raw_query = request.GET.copy()
