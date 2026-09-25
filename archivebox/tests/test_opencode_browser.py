@@ -418,7 +418,7 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
       } else {
         await page.click('#opencode-agent-welcome-dismiss');
         await page.waitForSelector(welcome, {hidden: true});
-        await page.reload({waitUntil: 'domcontentloaded'});
+        await page.goto(config.url, {waitUntil: 'domcontentloaded'});
         assert.equal(await page.$eval(welcome, element => element.hidden), true);
         const existing = {
           list: [{type: 'http', http: {url: 'http://other.example'}}],
@@ -429,7 +429,7 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
           lastProject: {'http://other.example': '/remote-project'},
         };
         await page.evaluate(value => localStorage.setItem('opencode.global.dat:server', JSON.stringify(value)), existing);
-        await page.reload({waitUntil: 'domcontentloaded'});
+        await page.goto(config.url, {waitUntil: 'domcontentloaded'});
         await page.waitForFunction(workdir => {
           const state = JSON.parse(localStorage.getItem('opencode.global.dat:server'));
           return state.projects.local?.some(project => project.worktree === workdir);
@@ -442,7 +442,7 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
         assert.ok(Array.isArray(projects), JSON.stringify({url: page.url(), saved, existing}));
         assert.deepEqual(projects.find(project => project.worktree === '/other-project'), {worktree: '/other-project', expanded: false});
         assert.equal(projects.filter(project => project.worktree === config.workdir).length, 1);
-        await page.reload({waitUntil: 'domcontentloaded'});
+        await page.goto(config.url, {waitUntil: 'domcontentloaded'});
         assert.equal(await page.evaluate(workdir => {
           const state = JSON.parse(localStorage.getItem('opencode.global.dat:server'));
           return state.projects.local.filter(project => project.worktree === workdir).length;
@@ -461,7 +461,7 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
           catch (error) { return error.name; }
         });
         assert.equal(failure, 'QuotaExceededError');
-        await page.reload({waitUntil: 'domcontentloaded'});
+        await page.goto(config.url, {waitUntil: 'domcontentloaded'});
         await page.waitForSelector(welcome, {visible: true});
       }
       await page.click('#opencode-agent-welcome-dismiss');
