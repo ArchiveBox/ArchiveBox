@@ -39,6 +39,10 @@ for mode in default debug; do
     body=$("$CURL_BINARY" -fsS --max-time 10 "http://$address/health/")
     [[ "$body" == *OK* ]]
     echo "PASS: $mode server responds through Docker mapping $address -> 5797"
+    if "$DOCKER_BINARY" exec "$name" curl -fsS --max-time 2 http://127.0.0.1:8000/health/ >/dev/null 2>&1; then
+        echo "FAIL: $mode server also listens on obsolete internal port 8000" >&2
+        exit 1
+    fi
     origin="http://admin.archivebox.localhost:${address##*:}"
     login=$("$CURL_BINARY" -fsS --max-time 10 -c "$cookies" "$origin/admin/login/?next=/admin/")
     csrf=$(printf '%s' "$login" | sed -n 's/.*name="csrfmiddlewaretoken" value="\([^"]*\)".*/\1/p')
