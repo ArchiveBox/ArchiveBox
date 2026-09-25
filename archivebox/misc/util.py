@@ -388,9 +388,12 @@ def parse_date(date: Any) -> datetime | None:
         if date.tzinfo is None:
             return date.replace(tzinfo=timezone.utc)
 
-        offset = date.utcoffset()
-        assert offset == datetime.now(timezone.utc).utcoffset(), "Refusing to load a non-UTC date!"
-        return date
+        # Legacy SQLite ArchiveResult rows can retain explicit timezone offsets
+        # through migration. Django loads those as aware datetimes, whereas JSON
+        # imports reach the string branch below. Normalize both representations
+        # consistently so opening a migrated snapshot does not raise (#1889).
+        # Convert the instant; replacing tzinfo here would shift the capture time.
+        return date.astimezone(timezone.utc)
 
     if isinstance(date, (float, int)):
         date = str(date)

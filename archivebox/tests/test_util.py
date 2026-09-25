@@ -1,9 +1,22 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
+from datetime import datetime, timezone
 
 import pytest
 
-from archivebox.misc.util import download_url, find_all_urls, fix_url_from_markdown
+from archivebox.misc.util import download_url, find_all_urls, fix_url_from_markdown, parse_date
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["2025-07-30T08:00:00-04:00", "2025-07-30T17:30:00+05:30", "2025-07-30T12:00:00+00:00", "2025-07-30T12:00:00"],
+)
+def test_parse_date_normalizes_datetime_and_string_identically(value):
+    expected = datetime(2025, 7, 30, 12, tzinfo=timezone.utc)
+    for source in (value, datetime.fromisoformat(value)):
+        parsed = parse_date(source)
+        assert parsed == expected
+        assert parsed.tzinfo is timezone.utc
 
 
 class _ExampleHandler(BaseHTTPRequestHandler):

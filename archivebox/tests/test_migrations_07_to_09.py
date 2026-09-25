@@ -8,11 +8,15 @@ Migration tests from 0.7.x to 0.9.x.
 """
 
 import json
+import re
 import sqlite3
 import zipfile
 from uuid import UUID
 
 import pytest
+import requests
+
+from .conftest import cli_env, create_admin_and_token, start_archivebox_server, stop_archivebox_process
 
 from .migrations_helpers import (
     SCHEMA_0_7,
@@ -408,6 +412,62 @@ def test_update_saves_migrated_snapshots_without_foreign_key_errors(archive_07):
     assert result.returncode == 0, f"Update failed after migration: {result.stderr}"
     assert "FOREIGN KEY constraint failed" not in output
     assert "Skipping snapshot" not in output
+
+
+def test_migrated_snapshots_with_timezone_offsets_load_over_http(archive_07, free_tcp_port):
+    """Issue #1889: preserved SQLite offsets must not make the snapshot UI return 500."""
+    work_dir, db_path, original_data = archive_07
+    # Reuse the historical collection fixture, varying only the timestamp storage
+    # that triggered the report. Both offsets represent the same UTC instant.
+    offsets = ("2025-07-30 08:00:00-04:00", "2025-07-30 17:30:00+05:30")
+    for index, snapshot in enumerate(original_data["snapshots"]):
+        with sqlite3.connect(db_path) as connection:
+            connection.execute(
+                "UPDATE core_archiveresult SET start_ts = ?, end_ts = ? WHERE snapshot_id = ?",
+                (offsets[index % 2], offsets[index % 2], snapshot["id"]),
+            )
+        output = work_dir / "archive" / snapshot["timestamp"] / "singlefile" / "index.html"
+        output.parent.mkdir(parents=True)
+        output.write_text(f"<html><body>{snapshot['title']}</body></html>")
+
+    env = cli_env(
+        disable_extractors=True,
+        BASE_URL=f"http://127.0.0.1:{free_tcp_port}",
+        SERVER_SECURITY_MODE="danger-onedomain-fullreplay",
+        PERMISSIONS="public",
+        PUBLIC_INDEX="True",
+    )
+    for command in (["init"], ["update", "--migrate-only"]):
+        result = run_archivebox_migration_cmd(work_dir, command, env=env, timeout=90)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    create_admin_and_token(work_dir)
+    server = start_archivebox_server(work_dir, port=free_tcp_port, env=env, log_name="migration-server.log")
+    try:
+        session = requests.Session()
+        login_url = f"http://127.0.0.1:{free_tcp_port}/admin/login/"
+        login_page = session.get(login_url, timeout=30)
+        csrf = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', login_page.text)
+        assert csrf, login_page.text
+        login = session.post(
+            login_url,
+            data={"username": "apitestadmin", "password": "testpass123", "csrfmiddlewaretoken": csrf.group(1), "next": "/admin/"},
+            headers={"Referer": login_url},
+            allow_redirects=False,
+            timeout=30,
+        )
+        assert login.status_code == 302, login.text
+        for snapshot in original_data["snapshots"]:
+            url = f"http://127.0.0.1:{free_tcp_port}/snapshot/{snapshot['id']}/index.html"
+            response = session.get(url, timeout=30)
+            assert response.status_code == 200, response.text
+            assert snapshot["title"] in response.text
+            assert "downloaded 2025-07-30 12:00" in response.text
+            output = session.get(url.removesuffix("index.html") + "singlefile/index.html", timeout=30)
+            assert output.status_code == 200, output.text
+            assert snapshot["title"] in output.text
+    finally:
+        stop_archivebox_process(server)
 
 
 def test_status_works_after_migration(archive_07):
