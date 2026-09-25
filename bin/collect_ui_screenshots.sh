@@ -526,7 +526,7 @@ PY
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
             fi
-        elif [[ -n "$expected_plugin" && "$capture_mode" != wait-replay:* ]]; then
+        elif [[ -n "$expected_plugin" ]]; then
             screenshot_path="$capture_dir/screenshot.png"
             if [[ "$profile" == "desktop" ]]; then
                 mkdir -p \
@@ -538,7 +538,8 @@ PY
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
-                NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
+                env "${capture_env[@]}" \
+                    NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
                     CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
                     SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
                     SCREENSHOT_WIDTH=1600 \
