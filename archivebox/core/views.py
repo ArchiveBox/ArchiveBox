@@ -709,11 +709,14 @@ def _safe_archive_relpath(path: str) -> str | None:
     return cleaned
 
 
-def _resolve_archiveresult_relpath(snapshot: Snapshot, rel_path: str) -> tuple[str, ArchiveResult | None]:
-    """Resolve plugin-relative output paths through ArchiveResult.output_files."""
+def _resolve_archiveresult_relpath(
+    snapshot: Snapshot,
+    rel_path: str,
+) -> tuple[str, ArchiveResult | None, tuple[str, ...]]:
+    """Resolve a declared output path and its exact historical fallbacks."""
     parts = Path(rel_path).parts
     if len(parts) < 2:
-        return rel_path, None
+        return rel_path, None, ()
 
     plugin = parts[0]
     plugin_relpath = posixpath.join(*parts[1:])
@@ -727,31 +730,36 @@ def _resolve_archiveresult_relpath(snapshot: Snapshot, rel_path: str) -> tuple[s
     if not results:
         from archivebox.plugins.discovery import get_plugin_default_output_path
 
-        if get_plugin_default_output_path(plugin) == rel_path and (Path(snapshot.output_dir) / plugin_relpath).is_file():
-            return plugin_relpath, None
-        return rel_path, None
+        fallbacks = (plugin_relpath,) if get_plugin_default_output_path(plugin) == rel_path else ()
+        return rel_path, None, fallbacks
 
     declared_paths: list[tuple[str, ArchiveResult]] = []
+    historical_fallbacks: list[str] = []
     for result in results:
         output_files = result.output_file_map()
         for candidate in (plugin_relpath, rel_path):
             output_path = result.output_file_path(candidate, output_file_map=output_files)
-            if output_path:
+            if output_path and output_path not in {path for path, _result in declared_paths}:
                 declared_paths.append((output_path, result))
-                if (Path(snapshot.output_dir) / output_path).is_file():
-                    return output_path, result
 
         # Partially migrated 0.7 rows can declare ``singlefile.html`` while
         # the old file still lives at SNAP_DIR/singlefile.html, without the
-        # later root_relative metadata bit. Check that one exact declared key
-        # on the file request; never scan the snapshot during page rendering.
-        if plugin_relpath in output_files and (Path(snapshot.output_dir) / plugin_relpath).is_file():
-            return plugin_relpath, result
+        # later root_relative metadata bit. Keep that one exact declared key as
+        # a fallback after the normal path returns 404. Do not preflight either
+        # path: the static response performs the only happy-path filesystem IO.
+        if plugin_relpath in output_files and plugin_relpath not in historical_fallbacks:
+            historical_fallbacks.append(plugin_relpath)
 
     if declared_paths:
-        return declared_paths[0]
+        primary_path, primary_result = declared_paths[0]
+        fallbacks = tuple(
+            dict.fromkeys(
+                path for path in (*[path for path, _result in declared_paths[1:]], *historical_fallbacks) if path != primary_path
+            ),
+        )
+        return primary_path, primary_result, fallbacks
 
-    return rel_path, results[0]
+    return rel_path, results[0], ()
 
 
 def _plugin_full_preview_response(
@@ -1038,22 +1046,23 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     if rel_path is None:
         raise Http404
 
-    rel_path, archive_result = _resolve_archiveresult_relpath(snapshot, rel_path)
+    rel_path, archive_result, fallback_relpaths = _resolve_archiveresult_relpath(snapshot, rel_path)
 
     plugin_preview = _plugin_full_preview_response(request, snapshot, rel_path, archive_result)
     if plugin_preview is not None:
         return plugin_preview
 
-    try:
-        return serve_static_with_byterange_support(
-            request,
-            rel_path,
-            document_root=snapshot.output_dir,
-            show_indexes=show_indexes,
-            is_archive_replay=True,
-        )
-    except Http404:
-        pass
+    for candidate_path in (rel_path, *fallback_relpaths):
+        try:
+            return serve_static_with_byterange_support(
+                request,
+                candidate_path,
+                document_root=snapshot.output_dir,
+                show_indexes=show_indexes,
+                is_archive_replay=True,
+            )
+        except Http404:
+            continue
 
     host = urlparse(snapshot.url).hostname or snapshot.domain
     responses_root = Path(snapshot.output_dir) / "responses" / host

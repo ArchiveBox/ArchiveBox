@@ -471,10 +471,18 @@ class TestPublicIndex:
         live_detail = client.get(f"/{snapshot.archive_path_from_db}", HTTP_HOST=WEB_TEST_HOST, follow=False)
         legacy_index = client.get(f"/{snapshot.archive_path_from_db}/index.html", HTTP_HOST=WEB_TEST_HOST, follow=False)
         saved_file = client.get("/singlefile/singlefile.html", HTTP_HOST=get_snapshot_host(str(snapshot.id)), follow=False)
+        historic_icon_target = client.get(
+            f"/{snapshot.archive_path_from_db}/singlefile/singlefile.html",
+            HTTP_HOST=WEB_TEST_HOST,
+            follow=True,
+        )
         assert live_detail.status_code == 200
         assert legacy_index.status_code == 200
         assert saved_file.status_code == 200
+        assert historic_icon_target.status_code == 200
+        assert historic_icon_target.redirect_chain
         assert b"migrated output" in b"".join(saved_file.streaming_content)
+        assert b"migrated output" in b"".join(historic_icon_target.streaming_content)
         assert b"Upgraded 0.7 snapshot" in live_detail.content
 
     @override_settings(PUBLIC_INDEX=True)
