@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote, urlparse
 
-from abx_plugins.plugins.archivewebpage.replay_preview import is_replay_target as is_archivewebpage_replay_target
 from django import template
 from django.utils import timezone
 from django.utils.html import escape, format_html
@@ -19,7 +18,7 @@ from archivebox.config import CONSTANTS
 from archivebox.core.routes_util import (
     build_snapshot_detail_url,
     build_snapshot_files_url,
-    build_snapshot_plugin_output_url,
+    build_snapshot_role_output_url,
     build_snapshot_url,
     build_snapshot_zip_url,
     get_admin_base_url,
@@ -32,6 +31,7 @@ from archivebox.plugins.discovery import (
     get_plugin_icon,
     get_plugin_name,
     get_plugin_template,
+    is_plugin_replay_target,
     plugin_card_is_interactive,
 )
 
@@ -336,10 +336,6 @@ def _snapshot_url_for_context(context, snapshot, path: str = "") -> str:
     return f"{base_url.rstrip('/')}/{quoted_path}{suffix}"
 
 
-def _build_snapshot_files_url(snapshot_id: str, request=None, config=None, base_url: str | None = None) -> str:
-    return f"{base_url.rstrip('/')}/index.jsonl" if base_url else build_snapshot_files_url(str(snapshot_id), request=request, config=config)
-
-
 def _build_snapshot_preview_url(
     snapshot_id: str,
     path: str = "",
@@ -351,7 +347,11 @@ def _build_snapshot_preview_url(
     if path == "about:blank":
         return path
     if _is_root_snapshot_output_path(path):
-        return _build_snapshot_files_url(snapshot_id, request=request, config=config, base_url=base_url)
+        return (
+            f"{base_url.rstrip('/')}/index.jsonl"
+            if base_url
+            else build_snapshot_files_url(str(snapshot_id), request=request, config=config)
+        )
     if base_url:
         path_part, separator, query = str(path).lstrip("/").partition("?")
         url = f"{base_url.rstrip('/')}/{quote(path_part, safe=_STATIC_URL_SAFE)}"
@@ -362,9 +362,7 @@ def _build_snapshot_preview_url(
     path_parts = Path(path).parts
     plugin = get_plugin_name(plugin) if plugin else (path_parts[0] if len(path_parts) > 1 else "")
     has_plugin_preview = bool(plugin and get_plugin_template(plugin, "full", fallback=False))
-    if not (
-        _is_text_preview_path(path) or _is_image_preview_path(path) or has_plugin_preview or is_archivewebpage_replay_target(path or "")
-    ):
+    if not (_is_text_preview_path(path) or _is_image_preview_path(path) or has_plugin_preview or is_plugin_replay_target(path or "")):
         return url
     separator = "&" if "?" in url else "?"
     return f"{url}{separator}preview=1"
@@ -661,10 +659,10 @@ def snapshot_zip_url(context, snapshot, path: str = "") -> str:
 
 
 @register.simple_tag(takes_context=True)
-def snapshot_plugin_output_url(context, snapshot, plugin: str, fallback_to_default: bool = False) -> str:
-    url_cache = snapshot.__dict__.setdefault("_snapshot_plugin_output_url_cache", {})
+def snapshot_role_output_url(context, snapshot, role: str, fallback_to_default: bool = False) -> str:
+    url_cache = snapshot.__dict__.setdefault("_snapshot_role_output_url_cache", {})
     cache_key = (
-        plugin,
+        role,
         bool(context.get("STATIC_EXPORT")),
         str(context.get("STATIC_EXPORT_DIR") or ""),
         fallback_to_default,
@@ -672,13 +670,19 @@ def snapshot_plugin_output_url(context, snapshot, plugin: str, fallback_to_defau
     if cache_key in url_cache:
         return url_cache[cache_key]
 
+    from archivebox.plugins.discovery import get_snapshot_role_names
+
     if context.get("STATIC_EXPORT"):
-        output_path = snapshot.plugin_output_path(plugin)
+        output_path = None
+        for plugin in get_snapshot_role_names(role):
+            output_path = snapshot.plugin_output_path(plugin)
+            if output_path:
+                break
         url_cache[cache_key] = _snapshot_url_for_context(context, snapshot, output_path) if output_path else ""
     else:
-        url_cache[cache_key] = build_snapshot_plugin_output_url(
+        url_cache[cache_key] = build_snapshot_role_output_url(
             snapshot,
-            plugin,
+            role,
             request=context.get("request"),
             config=context.get("CONFIG"),
             fallback_to_default=fallback_to_default,
@@ -786,10 +790,10 @@ def snapshot_index_row(context, link) -> str:
 
     preview_html = snapshot_thumbnail(context, link)
 
-    if "_public_favicon_paths" in link.__dict__:
-        favicon_paths = list(getattr(link, "_public_favicon_paths", []) or [])
-        if favicon_paths:
-            favicon_urls = [_snapshot_url_for_context(context, link, path) for path in favicon_paths]
+    if "_public_list_icon_paths" in link.__dict__:
+        list_icon_paths = list(getattr(link, "_public_list_icon_paths", []) or [])
+        if list_icon_paths:
+            favicon_urls = [_snapshot_url_for_context(context, link, path) for path in list_icon_paths]
             favicon_html = (
                 f'<img src="{escape(favicon_urls[0])}" '
                 f'data-fallbacks="{escape(",".join(favicon_urls[1:]))}" '
@@ -799,7 +803,7 @@ def snapshot_index_row(context, link) -> str:
         else:
             favicon_html = '<span class="link-favicon link-favicon-empty" aria-hidden="true"></span>'
     else:
-        favicon_url = snapshot_plugin_output_url(context, link, "favicon")
+        favicon_url = snapshot_role_output_url(context, link, "list_icon")
         favicon_html = (
             (
                 f'<img src="{escape(favicon_url)}" '

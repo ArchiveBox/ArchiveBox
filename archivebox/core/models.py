@@ -466,18 +466,21 @@ class SnapshotQuerySet(models.QuerySet):
 
         from archivebox.config import VERSION
         from archivebox.config.version import get_COMMIT_HASH
+        from archivebox.plugins.discovery import get_snapshot_role_names
 
         config = get_config()
 
         template = "static_index.html" if with_headers else "minimal_index.html"
         snapshot_list = list(self.iterator(chunk_size=500))
+        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         manifest_records = []
         for snapshot in snapshot_list:
             # Unarchived snapshots still need an export destination before discovery.
             snapshot.output_dir.mkdir(parents=True, exist_ok=True)
             outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
-            output_paths = [str(output.get("path") or "") for output in outputs]
-            snapshot._public_favicon_paths = [path for path in output_paths if path in ("favicon/favicon.ico", "favicon.ico")]
+            snapshot._public_list_icon_paths = [
+                str(output.get("path") or "") for output in outputs if output.get("name") in list_icon_plugins
+            ]
             snapshot.write_html_details()
             if with_headers:
                 # Use the same portable schema as the JSON export. Rendering
@@ -2548,7 +2551,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     successful_icons,
                 )
 
-            archive_path = path or self.archive_path
+            archive_path = path or self.archive_path_from_db
             icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
 
             for plugin in ordered_plugins:
@@ -2668,7 +2671,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return str(reverse_lazy("api-1:get_snapshot", args=[self.id]))
 
     def get_absolute_url(self):
-        return f"/{self.archive_path}"
+        from archivebox.core.routes_util import build_snapshot_detail_path
+
+        return build_snapshot_detail_path(self.archive_path_from_db)
 
     @cached_property
     def domain(self) -> str:
@@ -2862,30 +2867,49 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def legacy_archive_path(self) -> str:
         return f"{CONSTANTS.ARCHIVE_DIR_NAME}/{self.timestamp}"
 
+    @classmethod
+    def archive_path_for_values(
+        cls,
+        *,
+        fs_version: str,
+        timestamp: str,
+        snapshot_id,
+        url: str,
+        username: str = "web",
+        bookmarked_at=None,
+        created_at=None,
+    ) -> str:
+        """Build the public detail path without consulting the filesystem."""
+        legacy_path = f"{CONSTANTS.ARCHIVE_DIR_NAME}/{timestamp}"
+        if fs_version not in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+            return legacy_path
+
+        date_base = bookmarked_at or created_at
+        if not date_base:
+            return legacy_path
+
+        username = username if username and username != "system" else "web"
+        date_str = date_base.strftime("%Y%m%d")
+        domain = cls.extract_domain_from_url(url)
+        return f"{username}/{date_str}/{domain}/{snapshot_id}"
+
     @cached_property
     def archive_path_from_db(self) -> str:
         """Best-effort public URL path derived from DB fields only."""
-        if self.fs_version in ("0.7.0", "0.8.0"):
-            return self.legacy_archive_path
-
+        username = "web"
         if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
-            username = "web"
             crawl = self.crawl if self.crawl_id else None
             if crawl and crawl.created_by_id:
                 username = crawl.created_by.username
-            if username == "system":
-                username = "web"
-
-            date_base = self.bookmarked_at or self.created_at
-            if date_base:
-                date_str = date_base.strftime("%Y%m%d")
-            else:
-                return self.legacy_archive_path
-
-            domain = self.extract_domain_from_url(self.url)
-            return f"{username}/{date_str}/{domain}/{self.id}"
-
-        return self.legacy_archive_path
+        return self.archive_path_for_values(
+            fs_version=self.fs_version,
+            timestamp=self.timestamp,
+            snapshot_id=self.id,
+            url=self.url,
+            username=username,
+            bookmarked_at=self.bookmarked_at,
+            created_at=self.created_at,
+        )
 
     @cached_property
     def url_path(self) -> str:
@@ -3621,7 +3645,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "extension": self.extension,
             "is_static": self.is_static,
             "is_archived": self.is_archived,
-            "archive_path": self.static_archive_path if static_export else self.archive_path,
+            "archive_path": self.static_archive_path if static_export else self.archive_path_from_db,
             "archive_url": (
                 build_snapshot_index_path(self.static_archive_path, prefix="./")
                 if static_export
@@ -4383,7 +4407,9 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         return str(reverse_lazy("api-1:get_archiveresult", args=[self.id]))
 
     def get_absolute_url(self):
-        return f"/{self.snapshot.archive_path}/{self.plugin}"
+        from archivebox.core.routes_util import build_snapshot_detail_path
+
+        return build_snapshot_detail_path(self.snapshot.archive_path_from_db, output_path=self.plugin)
 
     @property
     def is_paused(self) -> bool:

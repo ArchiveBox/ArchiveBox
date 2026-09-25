@@ -30,10 +30,11 @@ from archivebox.core.permissions import (
     PERMISSIONS_VALUES,
     normalize_permissions,
 )
-from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_plugin_output_url
+from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_role_output_url
 from archivebox.core.widgets import TagEditorWidget, URLFiltersWidget
 from archivebox.crawls.models import Crawl, CrawlSchedule
 from archivebox.misc.paginators import AcceleratedPaginator
+from archivebox.plugins.discovery import get_snapshot_role_names
 from archivebox.progressmonitor.views import progress_endpoint
 from archivebox.workers.models import RETRY_AT_MAX
 
@@ -86,14 +87,17 @@ def render_snapshots_list(snapshots_qs, request=None, crawl=None, page_size=50, 
         .prefetch_related(
             Prefetch(
                 "archiveresult_set",
-                queryset=ArchiveResult.objects.filter(plugin="favicon", status=ArchiveResult.StatusChoices.SUCCEEDED).only(
+                queryset=ArchiveResult.objects.filter(
+                    plugin__in=get_snapshot_role_names("list_icon"),
+                    status=ArchiveResult.StatusChoices.SUCCEEDED,
+                ).only(
                     "snapshot_id",
                     "plugin",
                     "status",
                     "output_str",
                     "output_files",
                 ),
-                to_attr="_favicon_results",
+                to_attr="_list_icon_results",
             ),
         )
     )
@@ -237,11 +241,11 @@ def render_snapshots_list(snapshots_qs, request=None, crawl=None, page_size=50, 
         # Format date
         date_str = snapshot.created_at.strftime("%Y-%m-%d %H:%M") if snapshot.created_at else "-"
         detail_url = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
-        favicon_url = build_snapshot_plugin_output_url(
+        favicon_url = build_snapshot_role_output_url(
             snapshot,
-            "favicon",
+            "list_icon",
             request=request,
-            archive_results=snapshot._favicon_results,
+            archive_results=snapshot._list_icon_results,
             fallback_to_default=True,
         )
 

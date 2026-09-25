@@ -1199,7 +1199,7 @@
                         <div class="header-url">
                             <div class="header-url-location">
                             <span class="header-url-favicon">
-                            {% snapshot_plugin_output_url snapshot 'favicon' as header_favicon_url %}
+                            {% snapshot_role_output_url snapshot 'list_icon' as header_favicon_url %}
                             {% if header_favicon_url %}
                                 <img src="{{ header_favicon_url }}{% if not STATIC_EXPORT %}?raw=1{% endif %}" onerror="this.onerror=null;this.src=&quot;data:image/svg+xml;utf8,&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='rgba(255,255,255,0.65)' stroke-width='1.4'&gt;&lt;circle cx='10' cy='10' r='7.25'/&gt;&lt;ellipse cx='10' cy='10' rx='3.25' ry='7.25'/&gt;&lt;line x1='2.75' y1='10' x2='17.25' y2='10'/&gt;&lt;/svg&gt;&quot;" alt="Favicon" class="favicon"/>
                             {% else %}

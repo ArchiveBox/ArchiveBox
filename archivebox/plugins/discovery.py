@@ -2,7 +2,9 @@ __package__ = "archivebox.plugins"
 
 from collections.abc import Iterable
 from functools import lru_cache
+from importlib import import_module
 from pathlib import Path, PurePosixPath
+from types import ModuleType
 from typing import Any, Protocol, TypedDict
 
 from abx_plugins import get_plugins_dir
@@ -136,6 +138,68 @@ def get_snapshot_thumbnail_card_order() -> dict[str, int]:
                 continue
             ordering[result_name] = order
     return ordering
+
+
+@lru_cache(maxsize=None)
+def get_snapshot_role_names(role: str) -> tuple[str, ...]:
+    """Return ArchiveResult names for a plugin-owned snapshot presentation role."""
+    manifest_key = f"snapshot_{role}"
+    names = []
+    for plugin in get_plugin_catalog().values():
+        if plugin.manifest.get(manifest_key):
+            names.extend(get_archive_result_names(plugin.name))
+    return tuple(dict.fromkeys(names))
+
+
+def get_snapshot_role_result(results, role: str):
+    """Select the first successful result declared for a presentation role."""
+    results_by_name = {result.plugin: result for result in results if result.status == "succeeded"}
+    return next((results_by_name[name] for name in get_snapshot_role_names(role) if name in results_by_name), None)
+
+
+@lru_cache(maxsize=1)
+def get_plugin_presentation_modules() -> tuple[ModuleType, ...]:
+    """Load optional plugin-owned presentation hooks declared in manifests."""
+    modules = []
+    for plugin in get_plugin_catalog().values():
+        module_name = str(plugin.manifest.get("presentation_module") or "").strip()
+        if module_name:
+            modules.append(import_module(module_name))
+    return tuple(modules)
+
+
+def get_extra_snapshot_output_cards(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collect additional cards from plugin-owned presentation hooks."""
+    cards = []
+    for module in get_plugin_presentation_modules():
+        hook = getattr(module, "extra_snapshot_output_cards", None)
+        if hook is not None:
+            cards.extend(hook(outputs) or ())
+    return cards
+
+
+def is_plugin_replay_target(path: str) -> bool:
+    """Return whether any plugin claims a saved output for custom replay."""
+    return any(callable(hook := getattr(module, "is_replay_target", None)) and hook(path) for module in get_plugin_presentation_modules())
+
+
+def serve_plugin_replay_asset(path: str, config, response_class):
+    """Give plugin presentation hooks the first chance to serve replay assets."""
+    for module in get_plugin_presentation_modules():
+        hook = getattr(module, "serve_replay_asset_response", None)
+        if hook is not None and (response := hook(path, config, response_class)) is not None:
+            return response
+    return None
+
+
+def render_plugin_replay_preview(path: str, output_url: str, **kwargs):
+    """Render a custom preview through the plugin that claims this output."""
+    for module in get_plugin_presentation_modules():
+        claims_path = getattr(module, "is_replay_target", None)
+        render = getattr(module, "render_preview_response", None)
+        if claims_path is not None and render is not None and claims_path(path):
+            return render(path, output_url, **kwargs)
+    return None
 
 
 def get_enabled_plugins(config: ConfigLookup | None = None, **config_kwargs: Any) -> list[str]:

@@ -12,9 +12,10 @@ from django.http import HttpRequest
 from django.urls import reverse
 
 from archivebox.config.common import get_config
-from archivebox.misc.util import sanitize_html_text
-from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_plugin_output_url
 from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag, Tag
+from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_role_output_url
+from archivebox.misc.util import sanitize_html_text
+from archivebox.plugins.discovery import get_snapshot_role_names
 
 
 TAG_SNAPSHOT_PREVIEW_LIMIT = 10
@@ -202,12 +203,12 @@ def _build_snapshot_preview(snapshot: Snapshot, request: HttpRequest | None = No
         "id": str(snapshot.pk),
         "title": _display_snapshot_title(snapshot),
         "url": snapshot.url,
-        "favicon_url": build_snapshot_plugin_output_url(
+        "favicon_url": build_snapshot_role_output_url(
             snapshot,
-            "favicon",
+            "list_icon",
             request=request,
             config=config,
-            archive_results=snapshot._favicon_results,
+            archive_results=snapshot._list_icon_results,
             fallback_to_default=True,
         ),
         "admin_url": reverse("admin:core_snapshot_change", args=[snapshot.pk]),
@@ -231,14 +232,17 @@ def _build_snapshot_preview_map(
         .prefetch_related(
             Prefetch(
                 "snapshot__archiveresult_set",
-                queryset=ArchiveResult.objects.filter(plugin="favicon", status=ArchiveResult.StatusChoices.SUCCEEDED).only(
+                queryset=ArchiveResult.objects.filter(
+                    plugin__in=get_snapshot_role_names("list_icon"),
+                    status=ArchiveResult.StatusChoices.SUCCEEDED,
+                ).only(
                     "snapshot_id",
                     "plugin",
                     "status",
                     "output_str",
                     "output_files",
                 ),
-                to_attr="_favicon_results",
+                to_attr="_list_icon_results",
             ),
         )
         .order_by(

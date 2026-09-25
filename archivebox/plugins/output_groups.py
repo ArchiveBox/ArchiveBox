@@ -2,9 +2,12 @@
 
 from typing import Any
 
-from abx_plugins.plugins.responses.presentation import extra_snapshot_output_card
-
-from archivebox.plugins.discovery import get_plugin_catalog, get_plugin_name, get_snapshot_thumbnail_card_order
+from archivebox.plugins.discovery import (
+    get_extra_snapshot_output_cards,
+    get_plugin_catalog,
+    get_plugin_name,
+    get_snapshot_thumbnail_card_order,
+)
 
 _GROUP_LABELS = (
     ("html", "HTML"),
@@ -120,8 +123,8 @@ def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]
         for plugin in plugins:
             preferences[plugin] = (group_id, None)
 
-    if card := extra_snapshot_output_card(outputs):
-        outputs = [*outputs, card]
+    if cards := get_extra_snapshot_output_cards(outputs):
+        outputs = [*outputs, *cards]
 
     def sort_key(output):
         plugin = get_plugin_name(output["name"])

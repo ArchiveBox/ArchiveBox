@@ -12,12 +12,11 @@ from django.db.models.functions import Cast
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
-from archivebox.config import CONSTANTS
 from archivebox.config.common import get_config
 from archivebox.core.permissions import can_view_snapshot, is_admin_user
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_url, get_api_base_url
 from archivebox.misc.logging_util import printable_filesize
-from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_default_output_path
+from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_default_output_path, get_snapshot_role_result
 
 
 def progress_endpoint(scope: Literal["crawl", "snapshot"] | None = None, object_id: object | None = None) -> str:
@@ -156,18 +155,16 @@ def live_progress_view(request, *, authorized_snapshot=None):
             return build_snapshot_url(str(snapshot["id"]), output_path, request=request, config=request_config)
 
         def snapshot_archive_path(snapshot) -> str:
-            if snapshot["fs_version"] in ("0.7.0", "0.8.0"):
-                return f"{CONSTANTS.ARCHIVE_DIR_NAME}/{snapshot['timestamp']}"
             crawl = crawls_by_id.get(str(snapshot["crawl_id"]))
-            username = "web"
-            if crawl is not None and crawl["created_by_id"]:
-                username = crawl["created_by__username"]
-            if username == "system":
-                username = "web"
-            date_base = snapshot["bookmarked_at"] or snapshot["created_at"]
-            date_str = date_base.strftime("%Y%m%d") if date_base else "unknown"
-            domain = Snapshot.extract_domain_from_url(snapshot["url"])
-            return f"{username}/{date_str}/{domain}/{snapshot['id']}"
+            return Snapshot.archive_path_for_values(
+                fs_version=snapshot["fs_version"],
+                timestamp=snapshot["timestamp"],
+                snapshot_id=snapshot["id"],
+                url=snapshot["url"],
+                username=crawl["created_by__username"] if crawl is not None and crawl["created_by_id"] else "web",
+                bookmarked_at=snapshot["bookmarked_at"],
+                created_at=snapshot["created_at"],
+            )
 
         def snapshot_view_url(snapshot, output_path: str = "") -> str:
             return build_snapshot_detail_url(
@@ -643,17 +640,16 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 snapshot_screencast_url = ""
                 snapshot_screencast_link = ""
                 snapshot_fallback_urls: list[str] = []
-                result_by_plugin = {result.plugin: result for result in snapshot_results}
-                title_result = result_by_plugin.get("title")
-                if not snapshot_title and title_result is not None and title_result.status == ArchiveResult.StatusChoices.SUCCEEDED:
+                title_result = get_snapshot_role_result(snapshot_results, "title_source")
+                if not snapshot_title and title_result is not None:
                     snapshot_title = Snapshot._normalize_title_candidate(title_result.output_str, snapshot_url=snapshot["url"])
-                favicon_result = result_by_plugin.get("favicon")
-                if favicon_result is not None and favicon_result.status == ArchiveResult.StatusChoices.SUCCEEDED:
+                favicon_result = get_snapshot_role_result(snapshot_results, "list_icon")
+                if favicon_result is not None:
                     favicon_path = favicon_result.embed_path_db() or get_plugin_default_output_path(favicon_result.plugin)
                     if favicon_path:
                         snapshot_favicon_url = snapshot_output_url(snapshot, favicon_path)
-                screenshot_result = result_by_plugin.get("screenshot")
-                if screenshot_result is not None and screenshot_result.status == ArchiveResult.StatusChoices.SUCCEEDED:
+                screenshot_result = get_snapshot_role_result(snapshot_results, "primary_preview")
+                if screenshot_result is not None:
                     snapshot_preview_link = snapshot_view_url(snapshot)
                     screenshot_path = screenshot_result.embed_path_db() or get_plugin_default_output_path(screenshot_result.plugin)
                     if screenshot_path:

@@ -62,13 +62,6 @@ def _csrf_trusted_origins(config) -> list[str]:
     return seen
 
 
-def _allowed_hosts(config) -> set[str]:
-    raw = (config.ALLOWED_HOSTS or "").strip()
-    if not raw:
-        return set()
-    return {entry.strip().lower() for entry in raw.split(",") if entry.strip() and entry.strip() != "*"}
-
-
 def derive_base_url_from_csrf(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     """Pick a single CSRF_TRUSTED_ORIGINS entry to act as the implicit BASE_URL.
 
@@ -93,11 +86,6 @@ def derive_base_url_from_csrf(config: dict[str, Any] | None = None, **config_kwa
 def get_listen_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     config = config or get_config(**config_kwargs)
     return (config.BIND_ADDR or "").strip()
-
-
-def get_listen_parts(config: dict[str, Any] | None = None, **config_kwargs: Any) -> tuple[str, str | None]:
-    config = config or get_config(**config_kwargs)
-    return split_host_port(get_listen_host(config=config))
 
 
 def _with_port(host: str, port: str | None) -> str:
@@ -148,7 +136,7 @@ def canonical_base_host_for_request(request_host: str) -> str:
 
 def _root_host_from_listen(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     config = config or get_config(**config_kwargs)
-    listen_host, listen_port = get_listen_parts(config=config)
+    listen_host, listen_port = split_host_port(get_listen_host(config=config))
     root_host = "archivebox.localhost" if _is_local_bind_host(listen_host) else listen_host
     return _with_port(root_host, listen_port) if root_host else ""
 
@@ -382,11 +370,6 @@ def get_snapshot_base_url(snapshot_id: str, request=None, config: dict[str, Any]
     )
 
 
-def get_original_base_url(domain: str, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
-    return _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
-
-
 def build_admin_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
     return _build_url(get_admin_base_url(request, config=config, **config_kwargs), path)
 
@@ -443,24 +426,25 @@ def build_snapshot_detail_url(
     )
 
 
-def build_snapshot_plugin_output_url(
+def build_snapshot_role_output_url(
     snapshot,
-    plugin: str,
+    role: str,
     request=None,
     config: dict[str, Any] | None = None,
     archive_results=None,
     fallback_to_default: bool = False,
     **config_kwargs: Any,
 ) -> str:
-    """Build a replay URL for a plugin output declared by an ArchiveResult."""
-    output_path = snapshot.plugin_output_path(plugin, archive_results=archive_results)
-    if not output_path and fallback_to_default:
-        from archivebox.plugins.discovery import get_plugin_default_output_path
+    """Build the first available output URL for a plugin-owned snapshot role."""
+    from archivebox.plugins.discovery import get_plugin_default_output_path, get_snapshot_role_names
 
-        output_path = get_plugin_default_output_path(plugin)
-    if not output_path:
-        return ""
-    return build_snapshot_url(str(snapshot.id), output_path, request=request, config=config, **config_kwargs)
+    for plugin in get_snapshot_role_names(role):
+        output_path = snapshot.plugin_output_path(plugin, archive_results=archive_results)
+        if not output_path and fallback_to_default:
+            output_path = get_plugin_default_output_path(plugin)
+        if output_path:
+            return build_snapshot_url(str(snapshot.id), output_path, request=request, config=config, **config_kwargs)
+    return ""
 
 
 def build_snapshot_files_url(
@@ -492,7 +476,9 @@ def build_snapshot_zip_url(
 
 
 def build_original_url(domain: str, path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    return _build_url(get_original_base_url(domain, request=request, config=config, **config_kwargs), path)
+    config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
+    base_url = _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
+    return _build_url(base_url, path)
 
 
 def _build_url(base_url: str, path: str) -> str:

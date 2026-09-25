@@ -28,7 +28,7 @@ from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import (
     build_snapshot_detail_url,
     build_snapshot_files_url,
-    build_snapshot_plugin_output_url,
+    build_snapshot_role_output_url,
     build_snapshot_url,
     build_snapshot_zip_url,
     get_snapshot_output_anchor,
@@ -36,7 +36,7 @@ from archivebox.core.routes_util import (
 from archivebox.core.tag_util import get_or_create_tag
 from archivebox.core.templatetags.core_tags import snapshot_thumbnail, snapshot_url_text
 from archivebox.plugins.hooks import discover_hooks
-from archivebox.plugins.discovery import get_plugin_icon
+from archivebox.plugins.discovery import get_plugin_icon, get_snapshot_role_names
 from archivebox.plugins.output_groups import (
     OUTPUT_GROUPS,
     display_plugin_name,
@@ -926,9 +926,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def status_info(self, obj):
         request = self.request
         config = request.archivebox_config
-        favicon_url = build_snapshot_plugin_output_url(
+        favicon_url = build_snapshot_role_output_url(
             obj,
-            "favicon",
+            "list_icon",
             request=request,
             config=config,
             fallback_to_default=True,
@@ -1027,12 +1027,16 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return mark_safe(f'<span class="tags-inline-editor">{tags_html}</span>')
 
     def _get_favicon_data(self, obj):
+        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         results = self._get_prefetched_results(obj)
         if results is None:
-            results = obj.archiveresult_set.filter(plugin="favicon", status=ArchiveResult.StatusChoices.SUCCEEDED)
+            results = obj.archiveresult_set.filter(
+                plugin__in=list_icon_plugins,
+                status=ArchiveResult.StatusChoices.SUCCEEDED,
+            )
         urls = []
         for result in results:
-            if result.plugin != "favicon" or result.status != ArchiveResult.StatusChoices.SUCCEEDED:
+            if result.plugin not in list_icon_plugins or result.status != ArchiveResult.StatusChoices.SUCCEEDED:
                 continue
             try:
                 output_path = result.embed_path()
@@ -1116,7 +1120,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             screenshot_html,
             size_txt,
             self.get_snapshot_files_url(obj),
-            obj.archive_path,
+            obj.archive_path_from_db,
         )
 
     @admin.display(

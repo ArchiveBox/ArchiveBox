@@ -25,7 +25,8 @@ from archivebox.core.tag_util import (
     normalize_has_snapshots_filter,
     normalize_tag_sort,
 )
-from archivebox.core.routes_util import build_snapshot_plugin_output_url
+from archivebox.core.routes_util import build_snapshot_role_output_url
+from archivebox.plugins.discovery import get_snapshot_role_names
 
 
 class TagInline(admin.TabularInline):
@@ -197,14 +198,17 @@ class TagAdmin(BaseModelAdmin):
             .prefetch_related(
                 Prefetch(
                     "archiveresult_set",
-                    queryset=ArchiveResult.objects.filter(plugin="favicon", status=ArchiveResult.StatusChoices.SUCCEEDED).only(
+                    queryset=ArchiveResult.objects.filter(
+                        plugin__in=get_snapshot_role_names("list_icon"),
+                        status=ArchiveResult.StatusChoices.SUCCEEDED,
+                    ).only(
                         "snapshot_id",
                         "plugin",
                         "status",
                         "output_str",
                         "output_files",
                     ),
-                    to_attr="_favicon_results",
+                    to_attr="_list_icon_results",
                 ),
             )
             .order_by("-downloaded_at", "-created_at", "-pk")[:10]
@@ -231,10 +235,10 @@ class TagAdmin(BaseModelAdmin):
                 </a>
                 """,
                     reverse("admin:core_snapshot_change", args=[snapshot.pk]),
-                    build_snapshot_plugin_output_url(
+                    build_snapshot_role_output_url(
                         snapshot,
-                        "favicon",
-                        archive_results=snapshot._favicon_results,
+                        "list_icon",
+                        archive_results=snapshot._list_icon_results,
                         fallback_to_default=True,
                     ),
                     title[:120],

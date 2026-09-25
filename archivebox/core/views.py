@@ -8,7 +8,6 @@ from typing import ClassVar, cast
 from urllib.parse import quote, urlparse
 from uuid import UUID
 
-from abx_plugins.plugins.archivewebpage import replay_preview as archivewebpage_replay
 from admin_data_views.typing import ItemContext, SectionData, TableContext
 from admin_data_views.utils import ItemLink, render_with_item_view, render_with_table_view
 from django import template
@@ -81,7 +80,14 @@ from archivebox.misc.util import (
     validate_url,
     without_fragment,
 )
-from archivebox.plugins.discovery import get_plugin_catalog, get_plugin_icon, get_plugin_name, get_plugin_template
+from archivebox.plugins.discovery import (
+    get_plugin_catalog,
+    get_plugin_icon,
+    get_plugin_name,
+    get_plugin_template,
+    get_snapshot_role_names,
+    serve_plugin_replay_asset,
+)
 from archivebox.plugins.forms import get_plugin_config_binary_urls
 from archivebox.plugins.views import get_config_definition_link
 from archivebox.progressmonitor.views import live_progress_view
@@ -1006,7 +1012,7 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     snapshot._runtime_config = request_config
 
     if rel_path.startswith("replay/") or rel_path == "replay":
-        response = archivewebpage_replay.serve_replay_asset_response(rel_path, request_config, HttpResponse)
+        response = serve_plugin_replay_asset(rel_path, request_config, HttpResponse)
         if response is not None:
             return response
 
@@ -1297,7 +1303,8 @@ class PublicIndexView(ListView):
         all_results_by_snapshot = {str(snapshot.id): [] for snapshot in snapshots}
         icons_by_snapshot: dict[str, dict[str, ArchiveResult]] = {str(snapshot.id): {} for snapshot in snapshots}
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
-        favicon_paths_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
+        list_icon_paths_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
+        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         progress_by_snapshot: dict[str, dict[str, int]] = {
             str(snapshot.id): {
                 "total": 0,
@@ -1346,9 +1353,9 @@ class PublicIndexView(ListView):
                     progress["skipped"] += 1
                 elif result.status == ArchiveResult.StatusChoices.NORESULTS:
                     progress["noresults"] += 1
-                if result.plugin == "favicon" and result.status == ArchiveResult.StatusChoices.SUCCEEDED:
+                if result.plugin in list_icon_plugins and result.status == ArchiveResult.StatusChoices.SUCCEEDED:
                     if output_path := result.embed_path():
-                        favicon_paths_by_snapshot[snapshot_key].append(output_path)
+                        list_icon_paths_by_snapshot[snapshot_key].append(output_path)
 
         for snapshot in snapshots:
             snapshot._icons_compact = True
@@ -1358,7 +1365,7 @@ class PublicIndexView(ListView):
             snapshot.num_outputs_cached = snapshot._icons_progress_stats.get("succeeded", 0)
             snapshot._tags_str_cached = ",".join(tag_names_by_snapshot.get(str(snapshot.id), []))
             snapshot._snapshot_card_results = all_results_by_snapshot[str(snapshot.id)]
-            snapshot._public_favicon_paths = favicon_paths_by_snapshot.get(str(snapshot.id), [])
+            snapshot._public_list_icon_paths = list_icon_paths_by_snapshot.get(str(snapshot.id), [])
             snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         context["object_list"] = snapshots
         return context
