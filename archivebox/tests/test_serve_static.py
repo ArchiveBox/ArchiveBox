@@ -35,7 +35,7 @@ def test_favicons_allow_long_lived_shared_caching(tmp_path, validator, filename)
         assert b"".join(response.streaming_content) == (content[:4] if validator == "range" else content)
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
 @pytest.mark.parametrize("permissions", ["public", "unlisted", "private"])
 def test_favicon_cache_policy_survives_replay_and_middleware(snapshot, admin_user, mode, permissions):
