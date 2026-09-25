@@ -76,10 +76,11 @@ def test_archiveresult_relpath_uses_sibling_hook_that_owns_output(admin_user):
         output_files={"screenshot.png": {"size": 6, "root_relative": True}},
     )
 
-    resolved_path, result = _resolve_archiveresult_relpath(snapshot, "screenshot/screenshot.png")
+    resolved_path, result, fallback_paths = _resolve_archiveresult_relpath(snapshot, "screenshot/screenshot.png")
 
     assert resolved_path == "screenshot.png"
     assert result == server_result
+    assert fallback_paths == ()
 
 
 def test_html_image_sources_rewrite_to_captured_responses(tmp_path):
