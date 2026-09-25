@@ -200,15 +200,6 @@ async function main() {
       }, process.env.SCREENSHOT_SCROLL_SELECTOR);
     }
 
-    const frameHandle = await page.$('.crawl-snapshots-embed iframe');
-    if (frameHandle) {
-      const frame = await frameHandle.contentFrame();
-      if (frame) {
-        await frame.waitForSelector('#changelist-form', { timeout: 45000 }).catch(() => {});
-        await frame.waitForSelector('#result_list', { timeout: 45000 }).catch(() => {});
-      }
-    }
-
     await new Promise((resolve) => setTimeout(resolve, 1200));
 
     const checks = await page.evaluate(() => ({
@@ -229,7 +220,6 @@ async function main() {
         const img = document.querySelector('#progress-monitor .screencast-panel.visible img');
         return img ? `${img.naturalWidth}x${img.naturalHeight}` : '';
       })(),
-      snapshotEmbed: Boolean(document.querySelector('.crawl-snapshots-embed iframe')),
       addForm: Boolean(document.querySelector('#add-form')),
       limitFields: Array.from(document.querySelectorAll('.crawl-limit-field label')).map((el) => el.textContent.trim()),
       snapshotOutputPlugins: [...new Set(
@@ -261,22 +251,6 @@ async function main() {
       checks.ttfbMs = timingRecord.ttfbMs;
     }
 
-    let frameChecks = null;
-    const embeddedFrameHandle = await page.$('.crawl-snapshots-embed iframe');
-    if (embeddedFrameHandle) {
-      const frame = await embeddedFrameHandle.contentFrame();
-      if (frame) {
-        frameChecks = await frame.evaluate(() => ({
-          rows: document.querySelectorAll('#result_list tbody tr').length,
-          actionCheckboxes: document.querySelectorAll('#result_list input.action-select').length,
-          searchModeRadios: document.querySelectorAll('#changelist-search input[type="radio"][name="search_mode"]').length,
-          progressMonitorDisplay: document.querySelector('#progress-monitor')
-            ? getComputedStyle(document.querySelector('#progress-monitor')).display
-            : 'missing',
-        }));
-      }
-    }
-
     const screenshotPaths = [];
     if (variants.length) {
       for (const variant of variants) {
@@ -291,7 +265,7 @@ async function main() {
       await page.screenshot({ path: output, fullPage });
       screenshotPaths.push(output);
     }
-    console.log(JSON.stringify({ screenshotPath: screenshotPaths[0], screenshotPaths, checks, frameChecks }, null, 2));
+    console.log(JSON.stringify({ screenshotPath: screenshotPaths[0], screenshotPaths, checks }, null, 2));
   } finally {
     await browser.close();
   }
