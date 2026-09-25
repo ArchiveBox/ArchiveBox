@@ -53,12 +53,12 @@ def _run_savepagenow_script(
                     Snapshot.objects.count(),
                 )
             )
-        assert resp['Location'] == f"/{{snapshot.url_path}}"
+        assert resp['Location'] == f"http://web.archivebox.localhost:5797/{{snapshot.url_path}}", resp['Location']
 
         resp2 = client.get('/web/' + target_url, HTTP_HOST={host!r})
         assert resp2.status_code == 302, resp2.status_code
         assert Snapshot.objects.filter(url={expected_url!r}).count() == 1
-        assert resp2['Location'] == f"/{{snapshot.url_path}}"
+        assert resp2['Location'] == f"http://web.archivebox.localhost:5797/{{snapshot.url_path}}", resp2['Location']
         """,
     )
 
@@ -185,7 +185,7 @@ def _run_onedomain_api_archive_script(initialized_archive: Path, request_url: st
         assert auth_resp.status_code == 302, auth_resp.status_code
         snapshot = Snapshot.objects.filter(url=target_url).order_by('-created_at').first()
         assert snapshot is not None
-        assert auth_resp['Location'] == f"/{{snapshot.url_path}}"
+        assert auth_resp['Location'] == f"https://digestbox.io/{{snapshot.url_path}}", auth_resp['Location']
         """,
     )
 
@@ -235,7 +235,7 @@ def _run_savepagenow_via_web_host_redirect_script(initialized_archive: Path, req
 
         snapshot = Snapshot.objects.filter(url={expected_url!r}).order_by('-created_at').first()
         assert snapshot is not None
-        assert resp2['Location'] == f"/{{snapshot.url_path}}"
+        assert resp2['Location'] == f"http://web.archivebox.localhost:5797/{{snapshot.url_path}}", resp2['Location']
         assert Snapshot.objects.filter(url={expected_url!r}).count() == 1
         """,
     )
@@ -276,7 +276,7 @@ def _run_savepagenow_existing_snapshot_script(initialized_archive: Path, request
         client = Client()
         resp = client.get('/web/' + target_url, HTTP_HOST='web.archivebox.localhost:5797')
         assert resp.status_code == 302, resp.status_code
-        assert resp['Location'] == f"/{{snapshot.url_path}}"
+        assert resp['Location'] == f"http://web.archivebox.localhost:5797/{{snapshot.url_path}}", resp['Location']
         """,
     )
 
