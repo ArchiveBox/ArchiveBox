@@ -231,6 +231,11 @@ main().catch((error) => {
 PUPPETEER_WACZ_PREVIEW_SCRIPT = """\
 const fs = require("node:fs");
 const puppeteer = require("puppeteer");
+let probePage;
+let probeBrowser;
+let probeStage = "launch";
+const probeConsoleMessages = [];
+const probeRequestFailures = [];
 
 function isDescendantOf(frame, ancestor) {
   let parent = frame.parentFrame();
@@ -305,32 +310,36 @@ async function main() {
       "--disable-background-networking",
     ],
   });
+  probeBrowser = browser;
 
   const page = await browser.newPage();
-  const consoleMessages = [];
-  const requestFailures = [];
+  probePage = page;
   page.on("console", (message) => {
-    consoleMessages.push({type: message.type(), text: message.text()});
+    probeConsoleMessages.push({type: message.type(), text: message.text()});
   });
   page.on("pageerror", (error) => {
-    consoleMessages.push({type: "pageerror", text: String(error)});
+    probeConsoleMessages.push({type: "pageerror", text: String(error)});
   });
   page.on("requestfailed", (request) => {
-    requestFailures.push({
+    probeRequestFailures.push({
       url: request.url(),
       error: request.failure() ? request.failure().errorText : "unknown",
     });
   });
 
+  probeStage = "detail navigation";
   const response = await page.goto(config.detailUrl, {
     waitUntil: "domcontentloaded",
     timeout: 30000,
   });
+  probeStage = "preview frame navigation";
   const previewFrame = await page.waitForFrame((frame) => {
     const url = frame.url();
     return url.includes("/archivewebpage/archivewebpage.wacz") && url.includes("preview=1");
   });
+  probeStage = "replay ready";
   await waitForPreviewReady(previewFrame);
+  probeStage = "captured page content";
   const previewResult = await readPreviewText(page, config.expectedText);
 
   console.log(JSON.stringify({
@@ -338,14 +347,39 @@ async function main() {
     status: response ? response.status() : null,
     finalUrl: page.url(),
     previewResult,
-    consoleMessages,
-    requestFailures,
+    consoleMessages: probeConsoleMessages,
+    requestFailures: probeRequestFailures,
   }));
   await browser.close();
 }
 
-main().catch((error) => {
-  console.error(String(error));
+main().catch(async (error) => {
+  const page = probePage;
+  const diagnostics = {
+    stage: probeStage,
+    error: String(error),
+    stack: error.stack,
+    finalUrl: page ? page.url() : null,
+    frames: page ? page.frames().map((frame) => ({name: frame.name(), url: frame.url()})) : [],
+    consoleMessages: probeConsoleMessages,
+    requestFailures: probeRequestFailures,
+  };
+  if (page && !page.isClosed()) {
+    try {
+      diagnostics.document = await Promise.race([
+        page.evaluate(() => ({
+          title: document.title,
+          bodyText: document.body?.innerText.slice(0, 1000),
+          frameSources: Array.from(document.querySelectorAll("iframe")).map((frame) => frame.src),
+        })),
+        new Promise((resolve) => setTimeout(() => resolve("document inspection timed out"), 2000)),
+      ]);
+    } catch (inspectionError) {
+      diagnostics.document = String(inspectionError);
+    }
+  }
+  console.error(JSON.stringify(diagnostics));
+  if (probeBrowser) await probeBrowser.close();
   process.exit(1);
 });
 """
@@ -785,7 +819,9 @@ def _run_wacz_preview_probe(
         text=True,
         timeout=120,
     )
-    assert result.returncode == 0, result.stderr or result.stdout
+    server_log_path = data_dir / "archivewebpage_server.log"
+    server_log = server_log_path.read_text(encoding="utf-8", errors="replace")[-16000:] if server_log_path.exists() else ""
+    assert result.returncode == 0, f"{result.stderr or result.stdout}\n\nSERVER LOG:\n{server_log}"
     return json.loads(result.stdout.strip())
 
 
