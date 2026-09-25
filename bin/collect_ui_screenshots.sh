@@ -318,7 +318,7 @@ add_supplementary_template_capture() {
     snapshot_record="$( (
         cd "$DATA_DIR"
         UI_SCREENSHOT_SOURCE_URL="$source_url" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-            'import os; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_url; snapshot=Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"]).order_by("-bookmarked_at").first(); print(f"{snapshot.id}\t{build_snapshot_url(str(snapshot.id), "")}" if snapshot else "")'
+            'import os; from urllib.parse import urlsplit; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; snapshot=Snapshot.objects.filter(url=os.environ["UI_SCREENSHOT_SOURCE_URL"]).order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{snapshot.id}\t{url}\t{urlsplit(url).path}" if snapshot else "")'
     ) | tail -1)"
     if [[ -z "$snapshot_record" ]]; then
         echo "[!] Supplementary $plugin_name capture did not create a snapshot" >&2
@@ -326,8 +326,8 @@ add_supplementary_template_capture() {
         exit 1
     fi
 
-    local snapshot_id snapshot_view_url
-    IFS=$'\t' read -r snapshot_id snapshot_view_url <<<"$snapshot_record"
+    local snapshot_id snapshot_view_url snapshot_view_path
+    IFS=$'\t' read -r snapshot_id snapshot_view_url snapshot_view_path <<<"$snapshot_record"
     if [[ "$plugin_name" == "opendataloader" ]]; then
         if ! (
             cd "$DATA_DIR"
@@ -374,7 +374,7 @@ add_supplementary_template_capture() {
         done
         if [[ "$plugin_already_discovered" == "0" ]]; then
             DISCOVERED_TEMPLATE_PLUGINS+=("$supplementary_plugin")
-            VIEWS+=("Snapshot View ($supplementary_plugin)|$snapshot_view_url#$supplementary_plugin|/|archivebox/templates/core/snapshot.html")
+            VIEWS+=("Snapshot View ($supplementary_plugin)|$snapshot_view_url#$supplementary_plugin|$snapshot_view_path|archivebox/templates/core/snapshot.html")
         fi
     done
 }
@@ -653,10 +653,10 @@ PY
             LIVE_SNAPSHOT_RECORD="$( (
                 cd "$DATA_DIR"
                 UI_SCREENSHOT_CAPTURE_STARTED_AT="$SWEETING_CAPTURE_STARTED_AT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                    'import os; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url__startswith="https://sweeting.me",bookmarked_at__gte=started_at).order_by("-bookmarked_at").first(); print(build_snapshot_url(str(snapshot.id), "") if snapshot else "")'
+                    'import os; from urllib.parse import urlsplit; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url__startswith="https://sweeting.me",bookmarked_at__gte=started_at).order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{url}\t{urlsplit(url).path}" if snapshot else "")'
             ) | tail -1)"
             if [[ -n "$LIVE_SNAPSHOT_RECORD" ]]; then
-                LIVE_SNAPSHOT_VIEW_URL="$LIVE_SNAPSHOT_RECORD"
+                IFS=$'\t' read -r LIVE_SNAPSHOT_VIEW_URL LIVE_SNAPSHOT_VIEW_PATH <<<"$LIVE_SNAPSHOT_RECORD"
                 break
             fi
             if ! kill -0 "$ARCHIVE_PID" 2>/dev/null; then
@@ -671,13 +671,13 @@ PY
             exit 1
         fi
         VIEWS+=(
-            "Snapshot View (capture in progress)|$LIVE_SNAPSHOT_VIEW_URL|/|archivebox/templates/core/snapshot.html|live-progress"
+            "Snapshot View (capture in progress)|$LIVE_SNAPSHOT_VIEW_URL|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|live-progress"
         )
 
         RECORD_CONFIG="$( (
             cd "$DATA_DIR"
             uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                'from django.db.models import Count; from archivebox.core.models import Snapshot, ArchiveResult, Tag; from archivebox.crawls.models import Crawl, CrawlSchedule; from archivebox.personas.models import Persona; from archivebox.machine.models import Machine, NetworkInterface, Binary, Process; from archivebox.api.models import APIToken; from django.contrib.auth import get_user_model; from signal_webhooks.utils import get_webhook_model; from archivebox.core.routes_util import build_snapshot_url; recent=list(Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED).order_by("-bookmarked_at").values_list("id", flat=True)[:1000]); counts=dict(ArchiveResult.objects.filter(snapshot_id__in=recent,status="succeeded").values_list("snapshot_id").annotate(Count("id"))); snapshot_id=str(max(recent,key=lambda item: counts.get(item,0))); snapshot=Snapshot.objects.get(id=snapshot_id); result=ArchiveResult.objects.filter(snapshot_id=snapshot_id,status="succeeded").order_by("-output_size").first() or ArchiveResult.objects.filter(snapshot_id=snapshot_id).first(); tag=snapshot.tags.first() or Tag.objects.first(); crawl=snapshot.crawl or Crawl.objects.order_by("-created_at").first(); schedule=CrawlSchedule.objects.order_by("-created_at").first(); persona=Persona.objects.exclude(name="Default").order_by("-created_at").first() or Persona.objects.first(); machine=Machine.objects.order_by("-modified_at").first(); interface=NetworkInterface.objects.order_by("-modified_at").first(); binary=Binary.objects.order_by("-modified_at").first(); process=Process.objects.order_by("-created_at").first(); token=APIToken.objects.order_by("-created_at").first(); webhook=get_webhook_model().objects.order_by("-created_at").first(); user=get_user_model().objects.get(username="'"$USERNAME"'"); values={"SNAPSHOT_ID":snapshot_id,"SNAPSHOT_VIEW_URL":build_snapshot_url(snapshot_id,""),"SNAPSHOT_FILES_URL":build_snapshot_url(snapshot_id,"/?files=1"),"ARCHIVERESULT_ID":str(result.id),"TAG_ID":str(tag.id),"USER_ID":str(user.id),"CRAWL_ID":str(crawl.id),"SCHEDULE_ID":str(schedule.id),"PERSONA_ID":str(persona.id),"MACHINE_ID":str(machine.id),"INTERFACE_ID":str(interface.id),"BINARY_ID":str(binary.id),"PROCESS_ID":str(process.id),"TOKEN_ID":str(token.id),"WEBHOOK_ID":str(webhook.id)}; [print(f"{key}={value}") for key,value in values.items()]'
+                'from django.db.models import Count; from archivebox.core.models import Snapshot, ArchiveResult, Tag; from archivebox.crawls.models import Crawl, CrawlSchedule; from archivebox.personas.models import Persona; from archivebox.machine.models import Machine, NetworkInterface, Binary, Process; from archivebox.api.models import APIToken; from django.contrib.auth import get_user_model; from signal_webhooks.utils import get_webhook_model; from archivebox.core.routes_util import build_snapshot_detail_url; from urllib.parse import urlsplit; recent=list(Snapshot.objects.filter(status=Snapshot.StatusChoices.SEALED).order_by("-bookmarked_at").values_list("id", flat=True)[:1000]); counts=dict(ArchiveResult.objects.filter(snapshot_id__in=recent,status="succeeded").values_list("snapshot_id").annotate(Count("id"))); snapshot_id=str(max(recent,key=lambda item: counts.get(item,0))); snapshot=Snapshot.objects.get(id=snapshot_id); snapshot_url=build_snapshot_detail_url(snapshot.archive_path_from_db); snapshot_path=urlsplit(snapshot_url).path; result=ArchiveResult.objects.filter(snapshot_id=snapshot_id,status="succeeded").order_by("-output_size").first() or ArchiveResult.objects.filter(snapshot_id=snapshot_id).first(); tag=snapshot.tags.first() or Tag.objects.first(); crawl=snapshot.crawl or Crawl.objects.order_by("-created_at").first(); schedule=CrawlSchedule.objects.order_by("-created_at").first(); persona=Persona.objects.exclude(name="Default").order_by("-created_at").first() or Persona.objects.first(); machine=Machine.objects.order_by("-modified_at").first(); interface=NetworkInterface.objects.order_by("-modified_at").first(); binary=Binary.objects.order_by("-modified_at").first(); process=Process.objects.order_by("-created_at").first(); token=APIToken.objects.order_by("-created_at").first(); webhook=get_webhook_model().objects.order_by("-created_at").first(); user=get_user_model().objects.get(username="'"$USERNAME"'"); values={"SNAPSHOT_ID":snapshot_id,"SNAPSHOT_VIEW_URL":snapshot_url,"SNAPSHOT_VIEW_PATH":snapshot_path,"SNAPSHOT_FILES_URL":snapshot_url+"?files=1","SNAPSHOT_FILES_PATH":snapshot_path,"ARCHIVERESULT_ID":str(result.id),"TAG_ID":str(tag.id),"USER_ID":str(user.id),"CRAWL_ID":str(crawl.id),"SCHEDULE_ID":str(schedule.id),"PERSONA_ID":str(persona.id),"MACHINE_ID":str(machine.id),"INTERFACE_ID":str(interface.id),"BINARY_ID":str(binary.id),"PROCESS_ID":str(process.id),"TOKEN_ID":str(token.id),"WEBHOOK_ID":str(webhook.id)}; [print(f"{key}={value}") for key,value in values.items()]'
         ) | tail -15)"
         eval "$RECORD_CONFIG"
 
@@ -688,7 +688,7 @@ PY
             "Snapshots table|$ADMIN_BASE_URL/admin/core/snapshot/|/admin/core/snapshot/|archivebox/core/admin_snapshots.py"
             "Snapshots grid|$ADMIN_BASE_URL/admin/core/snapshot/grid/|/admin/core/snapshot/grid/|archivebox/templates/admin/snapshots_grid.html"
             "Snapshot admin detail|$ADMIN_BASE_URL/admin/core/snapshot/$SNAPSHOT_ID/change/|/admin/core/snapshot/$SNAPSHOT_ID/change/|archivebox/core/admin_snapshots.py"
-            "Snapshot files|$SNAPSHOT_FILES_URL|/|archivebox/templates/core/static_index.html"
+            "Snapshot files|$SNAPSHOT_FILES_URL|$SNAPSHOT_FILES_PATH|archivebox/templates/core/static_index.html"
             "Archive results|$ADMIN_BASE_URL/admin/core/archiveresult/|/admin/core/archiveresult/|archivebox/core/admin_archiveresults.py"
             "Archive result detail|$ADMIN_BASE_URL/admin/core/archiveresult/$ARCHIVERESULT_ID/change/|/admin/core/archiveresult/$ARCHIVERESULT_ID/change/|archivebox/core/admin_archiveresults.py"
             "Tags|$ADMIN_BASE_URL/admin/core/tag/|/admin/core/tag/|archivebox/core/admin_tags.py"
@@ -764,7 +764,7 @@ PY
         while IFS=$'\t' read -r plugin_name output_path output_capture_mode; do
             [[ -z "$plugin_name" ]] && continue
             DISCOVERED_TEMPLATE_PLUGINS+=("$plugin_name")
-            VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|/|archivebox/templates/core/snapshot.html|$output_capture_mode")
+            VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
         add_supplementary_template_capture \
             parse_jsonl_urls \
@@ -795,7 +795,7 @@ PY
             cat "$SNAPSHOT_DISCOVERY_REPORT" >&2
             exit 1
         fi
-        VIEWS+=("Snapshot View (header collapsed)|$LIVE_SNAPSHOT_VIEW_URL|/|archivebox/templates/core/snapshot.html|snapshot-collapsed")
+        VIEWS+=("Snapshot View (header collapsed)|$LIVE_SNAPSHOT_VIEW_URL|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|snapshot-collapsed")
     fi
     if [[ "$MAX_VIEWS" != "0" && "$capture_index" -ge "$MAX_VIEWS" ]]; then
         break
