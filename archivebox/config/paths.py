@@ -85,23 +85,31 @@ def get_collection_id(DATA_DIR=DATA_DIR) -> str:
 
 
 @cache
-def get_machine_id() -> str:
-    """Get a short, stable, unique ID for the current machine (e.g. abc45678)"""
+def get_machine_id(length: int = 8) -> str:
+    """Get a machine ID, using the network identity when no OS ID is available."""
+    import machineid
 
-    MACHINE_ID = "unknown"
     try:
-        import machineid
+        return machineid.hashed_id("archivebox")[:length]
+    except machineid.MachineIdNotFound:
+        import uuid
 
-        MACHINE_ID = machineid.hashed_id("archivebox")[:8]
-    except Exception:
-        try:
-            import uuid
-            import hashlib
+        import psutil
 
-            MACHINE_ID = hashlib.sha256(str(uuid.getnode()).encode()).hexdigest()[:8]
-        except Exception:
-            pass
-    return MACHINE_ID
+        node = uuid.getnode()
+        identity = str(node)
+        if node & (1 << 40):
+            # uuid.getnode() silently generates a per-process random value when
+            # tools such as ip/ifconfig are absent. Read interfaces directly so
+            # separate CLI processes agree even in a minimal container.
+            addresses = sorted(
+                address.address
+                for interface in psutil.net_if_addrs().values()
+                for address in interface
+                if address.family == psutil.AF_LINK and address.address not in ("", "00:00:00:00:00:00")
+            )
+            identity = str(int(addresses[0].replace(":", "").replace("-", ""), 16)) if addresses else f"hostname:{socket.gethostname()}"
+        return hashlib.sha256(identity.encode()).hexdigest()[:length]
 
 
 @cache

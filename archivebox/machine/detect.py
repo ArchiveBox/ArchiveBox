@@ -57,7 +57,10 @@ def get_vm_info():
 
     hw_manufacturer = "Docker" if hw_in_docker else "Unknown"
     hw_product = "Container" if hw_in_docker else "Unknown"
-    hw_uuid = machineid.id()
+    try:
+        hw_uuid = machineid.id()
+    except machineid.MachineIdNotFound:
+        hw_uuid = "Unknown"
 
     if platform.system().lower() == "darwin":
         # Get macOS machine info
@@ -301,7 +304,9 @@ def get_host_stats() -> dict[str, Any]:
 
 
 def get_host_guid() -> str:
-    return machineid.hashed_id("archivebox")
+    from archivebox.config.paths import get_machine_id
+
+    return get_machine_id(length=64)
 
 
 # Example usage

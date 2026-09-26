@@ -6,6 +6,38 @@ Tests for archivebox machine command.
 from archivebox.tests.conftest import run_archivebox_cmd
 
 
+def test_machine_identity_is_stable_across_cli_processes(initialized_archive):
+    """Minimal containers without /etc/machine-id must still share one identity."""
+    import sqlite3
+
+    import machineid
+
+    from archivebox.config.paths import get_machine_id
+    from archivebox.machine.detect import get_host_guid, get_vm_info
+
+    guid = get_host_guid()
+    assert len(guid) == 64
+    assert all(char in "0123456789abcdef" for char in guid)
+    assert get_machine_id() == guid[:8]
+    assert isinstance(get_vm_info()["hw_uuid"], str)
+    try:
+        native_guid = machineid.hashed_id("archivebox")
+    except machineid.MachineIdNotFound:
+        pass
+    else:
+        assert guid == native_guid
+
+    identities = []
+    for _ in range(2):
+        result = run_archivebox_cmd(["status"], cwd=initialized_archive)
+        assert result.returncode == 0, result.stdout + result.stderr
+        with sqlite3.connect(initialized_archive / "index.sqlite3") as db:
+            rows = db.execute("SELECT id, guid FROM machine_machine WHERE guid=?", (guid,)).fetchall()
+        assert len(rows) == 1
+        identities.append(rows)
+    assert identities[0] == identities[1]
+
+
 def test_status_refreshes_week_old_machine(initialized_archive):
     """A saved host refresh must not invalidate the instance still in use."""
     import sqlite3
