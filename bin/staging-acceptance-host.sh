@@ -18,7 +18,18 @@ if [[ "$revision" != "$source_sha" ]]; then
     echo "Awaiting automatic deployment: running $revision, expected $source_sha" >&2
     exit 75
 fi
-test "$(docker inspect "$container" --format '{{.State.Health.Status}}')" = healthy
+health="$(docker inspect "$container" --format '{{.State.Health.Status}}')"
+case "$health" in
+    healthy) ;;
+    starting)
+        # The watcher has installed the candidate, but init/migrations and the
+        # first healthcheck can still be running. This is deployment observation,
+        # not acceptance: the caller only waits before its first healthy inspect.
+        echo "Awaiting automatic deployment: candidate health is starting" >&2
+        exit 75
+        ;;
+    *) echo "Staging candidate health is $health, expected healthy" >&2; exit 1 ;;
+esac
 # A source bind mount would invalidate the immutable image's provenance.
 while IFS= read -r destination; do
     case "$destination" in

@@ -53,6 +53,7 @@ def main():
 
     while time.monotonic() < deadline:
         check = remote("inspect")
+        (evidence / "inspection.log").write_text(f"exit_code={check.returncode}\n{check.stdout}{check.stderr}")
         if check.returncode == 75 and inspection is None:
             # Deployment is asynchronous; this is observation, not a test retry
             # or permission to pull/restart a container from CI.
@@ -60,7 +61,7 @@ def main():
             time.sleep(30)
             continue
         if check.returncode:
-            raise RuntimeError(check.stderr)
+            raise RuntimeError(f"Staging inspection failed (exit {check.returncode}): {check.stderr or check.stdout}")
         current = json.loads(check.stdout)
         if current["helper_sha256"] != hashlib.sha256(Path("bin/staging-acceptance-host.sh").read_bytes()).hexdigest():
             raise RuntimeError("Staging host acceptance helper differs from the reviewed candidate")
