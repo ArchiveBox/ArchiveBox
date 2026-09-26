@@ -68,6 +68,15 @@ jobs:
           fi
           VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
           if [[ "$RELEASE_BRANCH" == main ]]; then
+            [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+              echo "Refusing to publish non-stable version $VERSION as a main release" >&2
+              exit 1
+            }
+            git fetch --no-tags origin main
+            git merge-base --is-ancestor "$RELEASE_SHA" origin/main || {
+              echo "Refusing to publish $RELEASE_SHA: it is not on main" >&2
+              exit 1
+            }
             TAG_TARGET="$(git ls-remote origin "refs/tags/v$VERSION" | cut -f1)"
             if [[ "$GITHUB_EVENT_NAME" != workflow_dispatch && -n "$TAG_TARGET" && "$TAG_TARGET" != "$RELEASE_SHA" ]]; then
               echo 'ready=false' >> "$GITHUB_OUTPUT"
@@ -210,6 +219,10 @@ jobs:
           VERSION='${{ steps.version.outputs.version }}'
           case "$RELEASE_BRANCH" in
             main)
+              [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+                echo "Refusing to publish non-stable version $VERSION from main" >&2
+                exit 1
+              }
               ;;
             dev)
               [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+rc[0-9]+$ ]] || {
@@ -368,6 +381,26 @@ jobs:
           if [[ -z "$TAG_TARGET" ]]; then
             TAG_TARGET="$($GIT_BINARY ls-remote origin "refs/tags/v${VERSION}")"
             TAG_TARGET="${TAG_TARGET%%[[:space:]]*}"
+          fi
+          if [[ "$RELEASE_BRANCH" == main ]]; then
+            [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+              echo "Refusing to tag :latest with prerelease $VERSION" >&2
+              exit 1
+            }
+            [[ "$TAG_TARGET" == "$RELEASE_SHA" ]] || {
+              echo "Refusing to tag :latest: v$VERSION does not point to $RELEASE_SHA" >&2
+              exit 1
+            }
+            $GIT_BINARY fetch --no-tags origin main
+            $GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" origin/main || {
+              echo "Refusing to tag :latest: $RELEASE_SHA is not on main" >&2
+              exit 1
+            }
+            MAIN_VERSION="$($GIT_BINARY show origin/main:pyproject.toml | sed -nE 's/^version = "([^"]+)".*/\1/p' | head -n 1)"
+            [[ "$MAIN_VERSION" == "$VERSION" ]] || {
+              echo "Refusing to tag :latest: main is now $MAIN_VERSION, not $VERSION" >&2
+              exit 1
+            }
           fi
           SYNC_DEV=false
           if [[ "$RELEASE_BRANCH" == main ]]; then

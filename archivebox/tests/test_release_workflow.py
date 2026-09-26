@@ -40,6 +40,13 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
 
     docker_meta = next(step for step in docker_release["steps"] if step.get("id") == "docker_meta")
     tag_script = docker_meta["run"]
+    owner_script = next(step["run"] for step in jobs["candidate"]["steps"] if step.get("id") == "owner")
+    assert '[[ "$VERSION" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]' in owner_script
+    assert 'git merge-base --is-ancestor "$RELEASE_SHA" origin/main' in owner_script
+    assert '[[ "$VERSION" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]' in tag_script
+    assert '[[ "$TAG_TARGET" == "$RELEASE_SHA" ]]' in tag_script
+    assert '$GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" origin/main' in tag_script
+    assert '[[ "$MAIN_VERSION" == "$VERSION" ]]' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:dev"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:${VERSION}"' in tag_script
