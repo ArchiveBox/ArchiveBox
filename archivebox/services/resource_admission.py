@@ -2,6 +2,9 @@
 
 import math
 import os
+import re
+import stat
+import sys
 import time
 from pathlib import Path
 
@@ -14,6 +17,65 @@ RESOURCE_RECHECK_SECONDS = 2.0
 # stalls. Require both recent and rolling pressure so transient reclaim does
 # not indefinitely starve otherwise viable work on small hosts.
 MEMORY_FULL_STALL_PERCENT = 10.0
+ZRAM_DEVICE_NAME = re.compile(r"zram\d+")
+
+
+def zram_swap_identifiers(sys_block: Path = Path("/sys/block")) -> set[str]:
+    """Return zram block names and major:minor IDs known to sysfs."""
+    identifiers = set()
+    for device in sys_block.glob("zram*"):
+        if ZRAM_DEVICE_NAME.fullmatch(device.name):
+            identifiers.add(device.name)
+            try:
+                identifiers.add((device / "dev").read_text().strip())
+            except OSError:
+                pass
+    return identifiers
+
+
+def swap_source_identifiers(filename: str) -> set[str]:
+    """Identify a swap source by its visible name and, for block devices, ID."""
+    identifiers = {Path(filename).name}
+    try:
+        source = os.stat(filename)
+        if stat.S_ISBLK(source.st_mode):
+            identifiers.add(f"{os.major(source.st_rdev)}:{os.minor(source.st_rdev)}")
+    except OSError:
+        pass
+    return identifiers
+
+
+def disk_backed_swap_free_bytes(swaps: str, zram_identifiers: set[str]) -> int:
+    """Sum free active swap except zram, whose capacity is already backed by RAM."""
+    lines = swaps.splitlines()
+    free_kib = 0
+    for line in lines[1:]:  # /proc/swaps starts with a column header
+        fields = line.split()
+        if len(fields) < 5:
+            continue
+        filename, _, size_kib, used_kib, _ = fields[:5]
+        source_ids = swap_source_identifiers(filename)
+        if source_ids & zram_identifiers or any(ZRAM_DEVICE_NAME.fullmatch(name) for name in source_ids):
+            continue
+        try:
+            free_kib += max(0, int(size_kib) - int(used_kib))
+        except ValueError:
+            continue
+    return free_kib * 1024
+
+
+def host_swap_free_bytes(meminfo_swap_free: int) -> int:
+    """Use only independently backed swap as extra capacity on Linux."""
+    if not sys.platform.startswith("linux"):
+        return psutil.swap_memory().free
+    try:
+        swaps = Path("/proc/swaps").read_text()
+    except OSError:
+        # If Linux swap sources cannot be classified, fail closed rather than
+        # treating potentially RAM-backed zram capacity as extra headroom.
+        return 0
+    disk_free = disk_backed_swap_free_bytes(swaps, zram_swap_identifiers())
+    return min(max(0, meminfo_swap_free), disk_free)
 
 
 class ResourceAdmission:
@@ -75,10 +137,10 @@ class ResourceAdmission:
                 name: int(value.split()[0]) * 1024
                 for name, value in (line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines() if ":" in line)
             }
-            host_swap_free = meminfo.get("SwapFree", 0)
+            host_swap_free = host_swap_free_bytes(meminfo.get("SwapFree", 0))
             host_available = meminfo["MemAvailable"] + host_swap_free
         except (OSError, ValueError, KeyError):
-            host_swap_free = psutil.swap_memory().free
+            host_swap_free = 0 if sys.platform.startswith("linux") else psutil.swap_memory().free
             host_available = psutil.virtual_memory().available + host_swap_free
 
         available = host_available

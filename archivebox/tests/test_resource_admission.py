@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from archivebox.services.resource_admission import ResourceAdmission
+from archivebox.services.resource_admission import ResourceAdmission, disk_backed_swap_free_bytes
 
 
 def test_cpu_admission_respects_process_affinity():
@@ -22,7 +22,7 @@ def test_snapshot_admission_stages_first_capture_then_uses_measured_headroom():
     assert admission.slots_for_headroom(3, active=1, observed_cost=500_000_000, available=900_000_000) == 0
     assert admission.slots_for_headroom(3, active=1, observed_cost=500_000_000, available=1_100_000_000) == 1
     assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=0) == 1
-    # Swap is included in the observed available bytes by memory_headroom().
+    # Headroom from memory_headroom() also includes disk-backed free swap.
     assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=2_000_000_000) == 3
     assert admission.additional_snapshot_slots(3, active=0, observed_cost=0) == 1
 
@@ -53,6 +53,25 @@ def test_memory_observation_tracks_a_real_child_process():
         assert child.stdin is not None
         child.stdin.close()
         assert child.wait(timeout=10) == 0
+
+
+def test_disk_backed_swap_headroom_excludes_zram_but_keeps_backing_swap():
+    swaps = """Filename Type Size Used Priority
+/dev/zram0 partition 1000 100 100
+/swapfile file 2000 500 -2
+/dev/disk-swap partition 4000 1000 -3
+"""
+
+    assert disk_backed_swap_free_bytes(swaps, {"zram0", "254:0"}) == 4_500 * 1024
+
+
+def test_disk_backed_swap_headroom_excludes_zram_device_alias():
+    swaps = """Filename Type Size Used Priority
+/dev/block/254:0 partition 800 200 100
+/swapfile file 500 100 -2
+"""
+
+    assert disk_backed_swap_free_bytes(swaps, {"zram0", "254:0"}) == 400 * 1024
 
 
 def test_memory_stall_counter_recovers_without_resetting_monitor():
