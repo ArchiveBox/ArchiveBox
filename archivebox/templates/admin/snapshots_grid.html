@@ -275,7 +275,7 @@
                 {% else %}
                     <img src="{% static 'spinner.gif' %}" onerror="this.style.display='none'" class="link-favicon" decoding="async"/>
                 {% endif %}
-                <span class="title-text">{{obj.title|default:'Pending...' }}</span>
+                <span class="title-text">{{ obj.title|default:obj.domain }}</span>
               </h4>
             </a>
           </div>

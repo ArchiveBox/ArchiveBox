@@ -270,7 +270,8 @@ def test_snapshot_changelist_thumbnail_uses_prefetched_plugin_card(admin_client,
 
 def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_client, snapshot):
     snapshot.status = snapshot.StatusChoices.SEALED
-    snapshot.save(update_fields=["status"])
+    snapshot.title = None
+    snapshot.save(update_fields=["status", "title"])
 
     response = admin_client.get(reverse("admin:grid"), HTTP_HOST=ADMIN_TEST_HOST)
 
@@ -291,6 +292,9 @@ def test_snapshot_grid_missing_preview_is_inside_snapshot_detail_link(admin_clie
     assert thumbnail_link.group(1).endswith(f"/{snapshot.archive_path_from_db}")
     assert 'aria-label="Preview of example.com"' in thumbnail_link.group(2)
     assert "▤" in thumbnail_link.group(2)
+    # Completed non-HTML captures can have no page title. They are not pending.
+    assert '<span class="title-text">example.com</span>' in html
+    assert "Pending..." not in html
 
 
 def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(admin_client, snapshot, real_hash_projection):
