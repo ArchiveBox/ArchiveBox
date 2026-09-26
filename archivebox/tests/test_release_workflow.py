@@ -1,6 +1,11 @@
 from pathlib import Path
+import json
 import shlex
+import os
+import re
+import subprocess
 
+import pytest
 import yaml
 
 
@@ -8,6 +13,128 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
 PIP_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "pip.yml"
+
+
+def _git(repo, *args):
+    return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, text=True).stdout.strip()
+
+
+@pytest.mark.parametrize(
+    "dev_change",
+    [None, "no_bump", "source", "project_dependency", "locked_dependency", "package_dependency", "other_tool_version"],
+)
+def test_stable_release_reconciles_concurrent_version_only_dev_bump(tmp_path, dev_change):
+    workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
+    steps = workflow["jobs"]["docker-release"]["steps"]
+    sync_step = next(step for step in steps if step.get("name") == "Reconcile dev to the tested stable release")
+    origin = tmp_path / "origin.git"
+    work = tmp_path / "work"
+    subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True)
+    subprocess.run(["git", "clone", str(origin), str(work)], check=True, capture_output=True)
+    _git(work, "config", "user.name", "ArchiveBox Tests")
+    _git(work, "config", "user.email", "tests@archivebox.io")
+    _git(work, "switch", "-c", "dev")
+    (work / "etc").mkdir()
+    project_template = (REPO_ROOT / "pyproject.toml").read_text() + '\n[tool.other]\nversion = "1.0"\n'
+    lock_template = (REPO_ROOT / "uv.lock").read_text()
+    package_template = (REPO_ROOT / "etc/package.json").read_text()
+
+    def write_version(version):
+        project, count = re.subn(r'^version = "[^"]+"$', f'version = "{version}"', project_template, count=1, flags=re.M)
+        assert count == 1
+        project, count = re.subn(r'^current_version = "[^"]+"$', f'current_version = "v{version}"', project, count=1, flags=re.M)
+        assert count == 1
+        lock, count = re.subn(
+            r'(\[\[package\]\]\nname = "archivebox"\nversion = ")[^"]+',
+            lambda match: f"{match.group(1)}{version}",
+            lock_template,
+            count=1,
+        )
+        assert count == 1
+        package, count = re.subn(
+            r'^(  "version": ")[^"]+',
+            lambda match: f"{match.group(1)}{version}",
+            package_template,
+            count=1,
+            flags=re.M,
+        )
+        assert count == 1
+        (work / "pyproject.toml").write_text(project)
+        (work / "uv.lock").write_text(lock)
+        (work / "etc/package.json").write_text(package)
+
+    write_version("0.9.56rc41")
+    (work / "source.py").write_text("tested = True\n")
+    _git(work, "add", ".")
+    _git(work, "commit", "-m", "tested source")
+    base = _git(work, "rev-parse", "HEAD")
+    _git(work, "push", "origin", "dev")
+    _git(work, "switch", "-c", "main")
+    write_version("0.9.64")
+    _git(work, "add", ".")
+    _git(work, "commit", "-m", "Bump release version to 0.9.64")
+    stable = _git(work, "rev-parse", "HEAD")
+    _git(work, "push", "origin", "main")
+    _git(work, "switch", "dev")
+    if dev_change != "no_bump":
+        write_version("0.9.56rc42")
+    if dev_change == "source":
+        (work / "source.py").write_text("tested = False\n")
+    elif dev_change == "project_dependency":
+        project = work / "pyproject.toml"
+        project.write_text(re.sub(r'"abx-dl==[^"]+"', '"abx-dl==999.0"', project.read_text(), count=1))
+    elif dev_change == "locked_dependency":
+        lock = work / "uv.lock"
+        lock.write_text(re.sub(r'(name = "abx-dl"\nversion = ")[^"]+', r"\g<1>999.0", lock.read_text(), count=1))
+    elif dev_change == "package_dependency":
+        package = work / "etc/package.json"
+        dependencies = json.loads(package.read_text())["dependencies"]
+        name, value = next(iter(dependencies.items()))
+        package.write_text(package.read_text().replace(f'"{name}": "{value}"', f'"{name}": "999.0"'))
+    elif dev_change == "other_tool_version":
+        project = work / "pyproject.toml"
+        project.write_text(project.read_text().replace('[tool.other]\nversion = "1.0"', '[tool.other]\nversion = "2.0"'))
+    if dev_change != "no_bump":
+        _git(work, "add", ".")
+        _git(work, "commit", "-m", "Bump release version to 0.9.56rc42")
+    candidate = _git(work, "rev-parse", "HEAD")
+    _git(work, "push", "origin", "dev")
+    _git(work, "checkout", "--detach", stable)
+
+    env = {**os.environ, "RELEASE_SHA": stable}
+    result = subprocess.run(["bash", "-c", sync_step["run"]], cwd=work, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    merged = _git(work, "ls-remote", "origin", "refs/heads/dev").split()[0]
+    if dev_change == "no_bump":
+        assert merged == stable
+        return
+    if dev_change:
+        assert merged == candidate
+        assert "contains changes beyond" in result.stdout
+        return
+    assert merged not in {candidate, stable}
+    assert _git(work, "rev-list", "--parents", "-n", "1", merged).split() == [merged, stable, candidate]
+    assert _git(work, "rev-parse", f"{merged}^{{tree}}") == _git(work, "rev-parse", f"{stable}^{{tree}}")
+    assert _git(work, "merge-base", stable, candidate) == base
+
+    tag_script = next(step["run"] for step in steps if step.get("id") == "docker_meta")
+    start = tag_script.index("SYNC_DEV=false")
+    end = tag_script.index("\n{", start)
+    sync_script = tag_script[start:end] + '\nprintf "%s\\n" "$SYNC_DEV"\n'
+    sync_env = {**env, "GIT_BINARY": "git", "RELEASE_BRANCH": "main"}
+
+    def sync_dev():
+        result = subprocess.run(["bash", "-e", "-c", sync_script], cwd=work, env=sync_env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        return result.stdout.strip().splitlines()[-1]
+
+    assert sync_dev() == "true"
+    _git(work, "switch", "-c", "after-merge", merged)
+    (work / "source.py").write_text("tested = False\n")
+    _git(work, "add", "source.py")
+    _git(work, "commit", "-m", "New dev source change")
+    _git(work, "push", "origin", "HEAD:refs/heads/dev")
+    assert sync_dev() == "false"
 
 
 def test_release_uses_registered_publisher_and_authorized_tag_credentials():
@@ -47,6 +174,8 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert '[[ "$TAG_TARGET" == "$RELEASE_SHA" ]]' in tag_script
     assert '$GIT_BINARY merge-base --is-ancestor "$RELEASE_SHA" origin/main' in tag_script
     assert '[[ "$MAIN_VERSION" == "$VERSION" ]]' in tag_script
+    assert '$GIT_BINARY merge-base --is-ancestor "$MAIN_TARGET" "$DEV_TARGET"' in tag_script
+    assert '$GIT_BINARY diff --quiet "$MAIN_TARGET" "$DEV_TARGET"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:dev"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:${VERSION}"' in tag_script

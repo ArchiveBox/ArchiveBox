@@ -279,7 +279,7 @@ jobs:
           ref: ${{ env.RELEASE_SHA }}
           token: ${{ secrets.RELEASE_GH_TOKEN || github.token }}
 
-      - name: Fast-forward dev to the tested stable release
+      - name: Reconcile dev to the tested stable release
         if: env.RELEASE_BRANCH == 'main' && needs.python-release.outputs.release_ready == 'true'
         shell: bash
         run: |
@@ -287,10 +287,65 @@ jobs:
           git fetch --no-tags origin main dev
           MAIN_SHA="$(git rev-parse origin/main)"
           DEV_SHA="$(git rev-parse origin/dev)"
-          if [[ "$MAIN_SHA" == "$RELEASE_SHA" && "$DEV_SHA" != "$RELEASE_SHA" ]] &&
-             git merge-base --is-ancestor "$DEV_SHA" "$RELEASE_SHA"; then
-            git push origin "$RELEASE_SHA:refs/heads/dev"
+          if [[ "$MAIN_SHA" != "$RELEASE_SHA" || "$DEV_SHA" == "$RELEASE_SHA" ]]; then
+            exit 0
           fi
+          push_dev() {
+            if ! git push origin "$1:refs/heads/dev"; then
+              CURRENT_DEV="$(git ls-remote origin refs/heads/dev | cut -f1)"
+              if [[ "$CURRENT_DEV" == "$DEV_SHA" ]]; then
+                echo "Failed to push dev although it still points to $DEV_SHA" >&2
+                exit 1
+              fi
+              echo "Leaving dev at $CURRENT_DEV: it advanced during release reconciliation"
+            fi
+          }
+          if git merge-base --is-ancestor "$DEV_SHA" "$RELEASE_SHA"; then
+            push_dev "$RELEASE_SHA"
+            exit 0
+          else
+            STATUS=$?
+            [[ "$STATUS" -eq 1 ]] || exit "$STATUS"
+          fi
+          BASE_SHA="$(git merge-base "$MAIN_SHA" "$DEV_SHA")"
+          if git diff --quiet "$BASE_SHA" "$DEV_SHA" -- . ':!pyproject.toml' ':!uv.lock' ':!etc/package.json'; then
+            :
+          else
+            STATUS=$?
+            [[ "$STATUS" -eq 1 ]] || exit "$STATUS"
+            echo "Leaving dev at $DEV_SHA: it contains changes beyond release metadata"
+            exit 0
+          fi
+          normalized_metadata() {
+            case "$2" in
+              pyproject.toml)
+                git show "$1:$2" | awk '
+                  /^\[/ {section = $0}
+                  section == "[project]" && /^version = "[^"]+"$/ {print "version = \"__VERSION__\""; next}
+                  section == "[tool.bumpver]" && /^current_version = "[^"]+"$/ {print "current_version = \"__VERSION__\""; next}
+                  {print}
+                ' ;;
+              uv.lock)
+                git show "$1:$2" | awk 'previous == "name = \"archivebox\"" && /^version = / {print "version = \"__VERSION__\""; previous = $0; next} {print; previous = $0}' ;;
+              etc/package.json)
+                git show "$1:$2" | sed -E 's/^(  "version": )"[^"]+"(,?)$/\1"__VERSION__"\2/' ;;
+            esac
+          }
+          for path in pyproject.toml uv.lock etc/package.json; do
+            BASE_METADATA="$(normalized_metadata "$BASE_SHA" "$path")"
+            DEV_METADATA="$(normalized_metadata "$DEV_SHA" "$path")"
+            if [[ "$BASE_METADATA" != "$DEV_METADATA" ]]; then
+              echo "Leaving dev at $DEV_SHA: $path contains changes beyond release version metadata"
+              exit 0
+            fi
+          done
+          # A concurrent release bot may bump only dev's own version metadata.
+          # Keep that commit as a parent while preserving the exact tested stable tree.
+          git switch --detach "$MAIN_SHA"
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            merge -s ours --no-ff -m "Merge tested stable release into dev" "$DEV_SHA"
+          MERGE_SHA="$(git rev-parse HEAD)"
+          push_dev "$MERGE_SHA"
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
@@ -409,7 +464,8 @@ jobs:
             DEV_TARGET="$($GIT_BINARY rev-parse origin/dev)"
             # Recovery can add CI/docs fixes after the immutable release tag.
             # Both branches and every shipped application file must agree.
-            if [[ "$MAIN_TARGET" == "$DEV_TARGET" ]] &&
+            if $GIT_BINARY merge-base --is-ancestor "$MAIN_TARGET" "$DEV_TARGET" &&
+               $GIT_BINARY diff --quiet "$MAIN_TARGET" "$DEV_TARGET" &&
                $GIT_BINARY diff --quiet "$RELEASE_SHA" "$MAIN_TARGET" -- . ':!.github' ':!README.md'; then
               SYNC_DEV=true
             fi
