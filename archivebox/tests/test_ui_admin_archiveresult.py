@@ -6,6 +6,7 @@ from importlib.resources import files
 from pathlib import Path
 
 import pytest
+from django.db import connections, transaction
 from django.urls import reverse
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST, resolve_abxpkg_binary_env
@@ -143,6 +144,58 @@ class TestArchiveResultAdminListView:
         assert not output_dir.exists()
         snapshot.refresh_from_db()
         assert snapshot.output_size == 0
+
+    def test_admin_delete_schedules_archive_result_webhook_with_deferred_fields(self, client, admin_user, snapshot):
+        from archivebox.api.models import OutboundWebhook
+        from archivebox.core.models import ArchiveResult
+
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="screenshot",
+            hook_name="on_Snapshot__50_screenshot.py",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_json={"captured": "before-delete"},
+        )
+        OutboundWebhook.objects.create(
+            name="archive-result-delete-test",
+            signal="DELETE",
+            ref="archivebox.core.models.ArchiveResult",
+            endpoint="https://example.invalid/archive-result-delete-test",
+            created_by=admin_user,
+        )
+        client.force_login(admin_user)
+
+        # Inspect the real library's scheduled delivery after the admin request,
+        # then roll back the outer transaction so no HTTP webhook is sent.
+        connection = connections["default"]
+        callback_offset = len(connection.run_on_commit)
+        with transaction.atomic():
+            response = client.post(
+                reverse("admin:core_archiveresult_delete", args=[result.pk]),
+                {"post": "yes"},
+                HTTP_HOST=ADMIN_TEST_HOST,
+            )
+            deleted_inside_transaction = not ArchiveResult.objects.filter(pk=result.pk).exists()
+            callbacks = [func for _sids, func, _robust in connection.run_on_commit[callback_offset:]]
+            transaction.set_rollback(True)
+
+        assert response.status_code == 302
+        assert deleted_inside_transaction
+        webhook_callbacks = [callback for callback in callbacks if callback.__name__ == "run_webhook"]
+        assert len(webhook_callbacks) == 1
+        callback_locals = dict(
+            zip(
+                webhook_callbacks[0].__code__.co_freevars,
+                (cell.cell_contents for cell in webhook_callbacks[0].__closure__ or ()),
+            ),
+        )
+        queued_kwargs = callback_locals["kwargs"]
+        assert queued_kwargs["method"] == "DELETE"
+        data = queued_kwargs["data"]
+        assert data["model"] == "core.archiveresult"
+        assert data["pk"] == str(result.pk)
+        assert data["fields"]["snapshot"] == str(snapshot.pk)
+        assert data["fields"]["output_json"] == {"captured": "before-delete"}
 
     def test_deleting_sibling_hook_preserves_shared_plugin_output(self, snapshot):
         from archivebox.core.models import ArchiveResult
