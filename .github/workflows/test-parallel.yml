@@ -26,11 +26,25 @@ env:
 jobs:
   discover-tests:
     name: Discover every test
-    runs-on: ${{ fromJSON(vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && '["self-hosted","linux","x64","ugnas-linux"]' || '["ubuntu-24.04"]') }}
+    # Selection must run on GitHub so an offline NAS cannot block the fallback.
+    runs-on: ubuntu-24.04
     outputs:
       tests: ${{ steps.discover.outputs.tests }}
+      runner: ${{ steps.runner.outputs.use-runner || '["ubuntu-24.04"]' }}
 
     steps:
+      - name: Select available CI capacity
+        id: runner
+        if: vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        uses: mikehardy/runner-fallback-action@dc7732f9e532c451b2527b288ba8d58fd4b0a4ca # v1.1.0
+        with:
+          github-token: ${{ secrets.RUNNER_STATUS_TOKEN }}
+          organization: ArchiveBox
+          primary-runner: self-hosted,ugnas-linux
+          fallback-runner: ubuntu-24.04
+          primaries-required: 1
+          fallback-on-error: true
+
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           submodules: true
@@ -89,9 +103,9 @@ jobs:
     needs: discover-tests
     # Opt in trusted branches only; PRs always use GitHub-hosted runners.
     # UGNAS_CI_TESTS is a JSON array of matrix names, e.g. ["main/test_cli_list"].
-    # Set UGNAS_CI_ENABLED=false before taking the worker offline: GitHub does
-    # not automatically fall back from an unavailable self-hosted runner.
-    runs-on: ${{ fromJSON(vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && contains(fromJSON(vars.UGNAS_CI_TESTS || '[]'), matrix.test.name) && '["self-hosted","linux","x64","ugnas-linux"]' || '["ubuntu-24.04"]') }}
+    # The hosted discovery job falls back when workers are offline/busy or the
+    # availability API fails. UGNAS_CI_ENABLED=false disables the pool entirely.
+    runs-on: ${{ fromJSON(contains(fromJSON(vars.UGNAS_CI_TESTS || '[]'), matrix.test.name) && needs.discover-tests.outputs.runner || '["ubuntu-24.04"]') }}
     env:
       CHROME_HEADLESS: "true"
 
