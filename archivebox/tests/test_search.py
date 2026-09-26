@@ -153,13 +153,11 @@ def test_search_backend_command_env_serializes_config_without_mutating_process_e
             os.environ["SEARCH_BACKEND_SONIC_HOST_NAME"] = old_env
 
 
-def test_search_command_preserves_runtime_path_with_configured_path(tmp_path):
+@pytest.mark.parametrize("activated_runtime", [True, False])
+def test_search_command_preserves_runtime_path_with_configured_path(tmp_path, activated_runtime):
     import sqlite3
-
-    from abx_dl.execution import iter_plugin_command
-
-    from archivebox.plugins.discovery import get_plugin_catalog
-    from archivebox.search.backends import search_backend_command_env
+    import subprocess
+    import sys
 
     database = tmp_path / "search.sqlite3"
     with sqlite3.connect(database) as connection:
@@ -168,13 +166,39 @@ def test_search_command_preserves_runtime_path_with_configured_path(tmp_path):
 
     configured_bin = tmp_path / "configured-bin"
     configured_bin.mkdir()
-    env = search_backend_command_env(
-        config=AttrDict({"PATH": str(configured_bin), "DATA_DIR": str(tmp_path)}),
+    env = os.environ.copy()
+    if not activated_runtime:
+        env["PATH"] = str(configured_bin)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import os
+import sys
+from pathlib import Path
+from abx_dl.execution import iter_plugin_command
+from archivebox.plugins.discovery import get_plugin_catalog
+from archivebox.search.backends import search_backend_command_env
+
+data_dir, configured_bin = sys.argv[1:]
+env = search_backend_command_env(config={"PATH": configured_bin, "DATA_DIR": data_dir})
+assert env["PATH"].split(os.pathsep)[0] == configured_bin
+command = get_plugin_catalog().command("search_backend_sqlite", "search")
+assert command is not None
+for snapshot_id in iter_plugin_command(command, arguments={"query": "needle"}, env=env, cwd=Path(data_dir)):
+    print(snapshot_id)
+""",
+            str(tmp_path),
+            str(configured_bin),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
     )
-    command = get_plugin_catalog().command("search_backend_sqlite", "search")
-    assert command is not None
-    assert list(iter_plugin_command(command, arguments={"query": "needle"}, env=env, cwd=tmp_path)) == ["snapshot-runtime-path"]
-    assert env["PATH"].split(os.pathsep)[0] == str(configured_bin)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["snapshot-runtime-path"]
 
 
 def test_search_mode_options_use_canonical_backend_names():
