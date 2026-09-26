@@ -74,8 +74,13 @@ from importlib.metadata import version
 sha = os.environ['ACCEPTANCE_SHA']
 tag = f'release-acceptance-{sha}'
 urls = ['https://docs.sweeting.me/s/cookie-dilemma', 'https://sweeting.me/']
-capture_plugins = [plugin for plugin in get_plugin_catalog().values() if any(hook.event == 'Snapshot' for hook in plugin.hooks)]
-capture_config = {'PERMISSIONS': 'public', **{plugin.enabled_key: True for plugin in capture_plugins}}
+catalog = get_plugin_catalog()
+capture_plugins = [plugin for plugin in catalog.values() if any(hook.event == 'Snapshot' for hook in plugin.hooks)]
+# PLUGINS is the persisted crawl selector; *_ENABLED flags are derived execution
+# config and are stripped when freezing a crawl. Select the entire catalog so
+# opt-in extractors run too. Every candidate must recapture these URLs even when
+# an earlier acceptance crawl already saved them (the CLI's --update behavior).
+capture_config = {'PERMISSIONS': 'public', 'ONLY_NEW': False, 'PLUGINS': ','.join(sorted(catalog))}
 crawls = list(Crawl.objects.filter(tags_str=tag).order_by('created_at'))
 if not crawls:
     # Normal add/runner flow with every snapshot extractor enabled, including
@@ -93,13 +98,19 @@ report = {
     'enabled_capture_plugins': sorted(plugin.name for plugin in capture_plugins),
 }
 complete = crawl.status == 'sealed' and len(snapshots) == len(urls) and all(s.status == 'sealed' for s in snapshots)
+if crawl.status == 'sealed' and not complete:
+    report['errors'].append('Crawl sealed without completing every requested snapshot')
+    report['status'] = 'failed'
+if crawl.status == 'sealed' and sorted(snapshot.url for snapshot in snapshots) != sorted(urls):
+    report['errors'].append('Captured URLs differ from the requested acceptance URLs')
+    report['status'] = 'failed'
 for snapshot in snapshots:
     results = list(snapshot.archiveresult_set.all())
     statuses = {}
     for result in results:
         statuses.setdefault(result.plugin, []).append(str(result.status))
     report['snapshots'].append({'id': str(snapshot.pk), 'url': snapshot.url, 'replay_url': build_snapshot_detail_url(snapshot.archive_path_from_db), 'status': snapshot.status, 'plugins': statuses})
-    if not complete:
+    if crawl.status != 'sealed':
         continue
     # Real stored outputs, not status labels alone. Missing core capture formats
     # and failed extractors remain visible failures for investigation.
