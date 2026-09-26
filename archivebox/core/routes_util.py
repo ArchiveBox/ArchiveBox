@@ -11,7 +11,7 @@ from archivebox.config.common import get_config, get_request_config
 _SNAPSHOT_ID_RE = re.compile(r"^[0-9a-fA-F-]{8,36}$")
 _SNAPSHOT_SUBDOMAIN_RE = re.compile(r"^snap-(?P<suffix>[0-9a-fA-F]{12})$")
 _ROLE_SUBDOMAIN_LABELS = ("admin", "web", "api")
-_URL_PATH_SAFE = "/@-._~!$&'()*+,;=%"
+_URL_PATH_SAFE = "/@-._~!$&'()*+,;="
 _URL_FRAGMENT_SAFE = "/@-._~!$&'()*+,;="
 
 
@@ -379,7 +379,11 @@ def build_web_url(path: str = "", request=None, config: dict[str, Any] | None = 
 
 
 def build_snapshot_url(snapshot_id: str, path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
-    return _build_url(get_snapshot_base_url(snapshot_id, request=request, config=config, **config_kwargs), path)
+    # `path` is a filesystem-relative output path, not an already-encoded URL.
+    # In particular, wget can save literal `%3A` in filenames; emitting that
+    # unchanged makes the browser request `:`, which cannot match the file.
+    output_path = quote(str(path).lstrip("/"), safe=_URL_PATH_SAFE)
+    return _build_url(get_snapshot_base_url(snapshot_id, request=request, config=config, **config_kwargs), output_path)
 
 
 def build_snapshot_detail_path(archive_path: str, output_path: str = "", prefix: str = "/") -> str:
@@ -455,8 +459,7 @@ def build_snapshot_files_url(
     **config_kwargs: Any,
 ) -> str:
     """Build a request-aware directory-browser URL on the isolated replay origin."""
-    directory_path = quote(str(path or "").lstrip("/"), safe=_URL_PATH_SAFE)
-    directory_url = build_snapshot_url(snapshot_id, directory_path, request=request, config=config, **config_kwargs)
+    directory_url = build_snapshot_url(snapshot_id, path, request=request, config=config, **config_kwargs)
     parts = urlsplit(directory_url)
     normalized_directory_path = f"{parts.path.rstrip('/')}/"
     directory_url = urlunsplit((parts.scheme, parts.netloc, normalized_directory_path, parts.query, parts.fragment))

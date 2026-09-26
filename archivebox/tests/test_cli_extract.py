@@ -3,11 +3,14 @@
 
 import shutil
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 from abx_plugins import get_plugins_dir
+from django.test import Client
 
 from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.core.routes_util import build_snapshot_url
 from archivebox.tests.conftest import cli_env, find_snapshot_dir, parse_jsonl_output, run_archivebox_cmd
 
 from archivebox.tests.test_orm_helpers import use_archivebox_db
@@ -76,6 +79,44 @@ def test_extract_runs_on_existing_snapshots(archive_with_extractors):
     assert archiveresults["wget"].status == ArchiveResult.StatusChoices.SUCCEEDED
     assert archiveresults["wget"].output_str == "wget/example.com/index.html"
     assert archiveresults["wget"].output_files["example.com/index.html"]["size"] == wget_path.stat().st_size
+
+
+def test_wget_literal_percent_output_url_serves_captured_file(initialized_archive):
+    """Replay the real HedgeDoc link-interstitial file saved by wget."""
+    source_url = "https://docs.sweeting.me/_link?url=http%3A%2F%2Farchive.org%2F"
+    env = cli_env(PLUGINS="wget", SAVE_WGET="True")
+
+    created = run_archivebox_cmd(["snapshot", "create", source_url], cwd=initialized_archive, env=env, check=True)
+    snapshot_id = next(record["id"] for record in parse_jsonl_output(created.stdout) if record.get("type") == "Snapshot")
+    extracted = run_archivebox_cmd(
+        ["extract", "--plugins=wget", snapshot_id],
+        cwd=initialized_archive,
+        env=env,
+        timeout=90,
+    )
+    assert extracted.returncode == 0, extracted.stderr or extracted.stdout
+
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(id=snapshot_id)
+        wget = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget")
+        assert wget.status == ArchiveResult.StatusChoices.SUCCEEDED
+        output_path = wget.embed_path()
+        assert output_path and "%3A" in output_path, output_path
+        captured = Path(snapshot.output_dir) / output_path
+        assert captured.is_file()
+        captured_bytes = captured.read_bytes()
+        assert captured_bytes and b"html" in captured_bytes.lower()
+
+        target = urlsplit(build_snapshot_url(snapshot_id, output_path))
+        assert "%253A" in target.path and "%252F" in target.path
+        response = Client().get(target.path, HTTP_HOST=target.netloc)
+        assert response.status_code == 200, (target, response.status_code)
+        assert b"".join(response.streaming_content) == captured_bytes
+        preview = Client().get(f"{target.path}?preview=1", HTTP_HOST=target.netloc)
+        assert preview.status_code == 200
+        card = Client().get(f"/_card/{wget.id}", HTTP_HOST=target.netloc)
+        assert card.status_code == 200
+        assert target.path in card.content.decode()
 
 
 def test_extract_runs_custom_plugin_discovered_from_data_dir(initialized_archive):

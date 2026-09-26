@@ -318,12 +318,14 @@ def _snapshot_base_url_for_context(context, snapshot) -> str:
 
 def _snapshot_url_for_context(context, snapshot, path: str = "") -> str:
     if not context.get("STATIC_EXPORT"):
-        return build_snapshot_url(
+        path_part, separator, query = str(path or "").partition("?")
+        url = build_snapshot_url(
             str(_snapshot_id(snapshot)),
-            path,
+            path_part,
             request=context.get("request"),
             config=context.get("CONFIG"),
         )
+        return f"{url}?{query}" if separator else url
 
     base_url = _static_snapshot_base_url(context, snapshot)
     raw_path = str(path or "")
@@ -357,7 +359,10 @@ def _build_snapshot_preview_url(
         if separator:
             url = f"{url}?{query}"
     else:
-        url = build_snapshot_url(str(snapshot_id), path, request=request, config=config)
+        path_part, separator, query = str(path).partition("?")
+        url = build_snapshot_url(str(snapshot_id), path_part, request=request, config=config)
+        if separator:
+            url = f"{url}?{query}"
     path_parts = Path(path).parts
     plugin = get_plugin_name(plugin) if plugin else (path_parts[0] if len(path_parts) > 1 else "")
     has_plugin_preview = bool(plugin and get_plugin_template(plugin, "full", fallback=False))
