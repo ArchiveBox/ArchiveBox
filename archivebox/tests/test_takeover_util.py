@@ -829,14 +829,16 @@ def test_live_repeated_server_startups_take_over_cleanly(tmp_path, initialized_a
 
         assert pid_is_alive(servers[-1].pid)
         assert all(pid_is_alive(server.pid) for server in servers)
-        listener = subprocess.run(
-            ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        assert listener.returncode == 0, listener.stderr or listener.stdout
-        assert listener.stdout.count(f":{port} (LISTEN)") == 1
+        # Inspect the actual server worker rather than requiring a host lsof
+        # installation. Previous workers must be gone, and the newest worker
+        # must own exactly one listening socket on our assigned port.
+        assert all(not pid_is_alive(pid) for pid in daphne_pids[:-1])
+        listeners = [
+            connection
+            for connection in psutil.Process(daphne_pids[-1]).net_connections(kind="tcp")
+            if connection.status == psutil.CONN_LISTEN and connection.laddr.port == port
+        ]
+        assert len(listeners) == 1, listeners
 
         previous_log_path = tmp_path / "server-chaos-3.log"
         previous_takeovers = previous_log_path.read_text(encoding="utf-8", errors="replace").count(

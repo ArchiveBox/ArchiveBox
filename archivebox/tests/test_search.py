@@ -153,6 +153,30 @@ def test_search_backend_command_env_serializes_config_without_mutating_process_e
             os.environ["SEARCH_BACKEND_SONIC_HOST_NAME"] = old_env
 
 
+def test_search_command_preserves_runtime_path_with_configured_path(tmp_path):
+    import sqlite3
+
+    from abx_dl.execution import iter_plugin_command
+
+    from archivebox.plugins.discovery import get_plugin_catalog
+    from archivebox.search.backends import search_backend_command_env
+
+    database = tmp_path / "search.sqlite3"
+    with sqlite3.connect(database) as connection:
+        connection.execute("CREATE VIRTUAL TABLE search_index USING fts5(snapshot_id UNINDEXED, text)")
+        connection.execute("INSERT INTO search_index VALUES (?, ?)", ("snapshot-runtime-path", "needle"))
+
+    configured_bin = tmp_path / "configured-bin"
+    configured_bin.mkdir()
+    env = search_backend_command_env(
+        config=AttrDict({"PATH": str(configured_bin), "DATA_DIR": str(tmp_path)}),
+    )
+    command = get_plugin_catalog().command("search_backend_sqlite", "search")
+    assert command is not None
+    assert list(iter_plugin_command(command, arguments={"query": "needle"}, env=env, cwd=tmp_path)) == ["snapshot-runtime-path"]
+    assert env["PATH"].split(os.pathsep)[0] == str(configured_bin)
+
+
 def test_search_mode_options_use_canonical_backend_names():
     from archivebox.search.config import get_search_mode_options
 

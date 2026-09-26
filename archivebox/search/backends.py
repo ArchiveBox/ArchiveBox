@@ -12,8 +12,10 @@ _search_backends_cache: dict | None = None
 
 def search_backend_command_env(config: dict[str, Any] | None = None, **config_kwargs: Any) -> dict[str, str]:
     """Serialize resolved application config for a standalone plugin command."""
+    from abxpkg import BinProvider
+
     config = config or get_config(**config_kwargs)
-    env = os.environ.copy()
+    env: dict[str, str] = {}
     for key, value in config.items():
         key = str(key)
         if value is None:
@@ -24,7 +26,9 @@ def search_backend_command_env(config: dict[str, Any] | None = None, **config_kw
             env[key] = json.dumps(value)
         elif isinstance(value, (str, int, float, os.PathLike)):
             env[key] = str(value)
-    return env
+    # Configured tool paths augment the runtime environment, including the
+    # active installation's abxpkg entrypoint used by plugin shebangs.
+    return BinProvider.build_exec_env(base_env=os.environ, extra_env=env)
 
 
 def normalize_search_backend_name(backend_name: str | None) -> str:
