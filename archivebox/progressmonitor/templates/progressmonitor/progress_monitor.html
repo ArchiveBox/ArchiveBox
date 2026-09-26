@@ -1904,12 +1904,22 @@
     const progressEndpoint = monitor.dataset.progressEndpoint || '/progress.json';
 
     function fetchProgress() {
+        // Opening a replay replaces the queued snapshot's progress panel.
+        // Its interval and already-running fetch must stop using that old DOM.
+        if (!monitor.isConnected) {
+            stopPolling();
+            return;
+        }
         fetch(progressEndpoint, { credentials: 'same-origin' })
             .then(response => {
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return response.json();
             })
             .then(data => {
+                if (!monitor.isConnected) {
+                    stopPolling();
+                    return;
+                }
                 if (data.error) {
                     console.error('Progress API error:', data.error, data.traceback);
                     setOrchestratorState('error', 'Backend not responding');
@@ -1921,6 +1931,10 @@
                 updateProgress(data);
             })
             .catch(error => {
+                if (!monitor.isConnected) {
+                    stopPolling();
+                    return;
+                }
                 console.error('Progress fetch error:', error);
                 setOrchestratorState('error', 'Backend not responding');
                 idleMessage.textContent = 'Fetch Error: ' + error.message;
@@ -1929,7 +1943,7 @@
     }
 
     function startPolling() {
-        if (pollInterval) return;
+        if (pollInterval || !monitor.isConnected) return;
         fetchProgress();
         pollInterval = setInterval(fetchProgress, pollDelayMs);
     }
@@ -2033,7 +2047,13 @@
 
     // Start polling when page loads
     startPolling();
-    setInterval(updateDurationBadges, 1000);
+    const durationInterval = setInterval(() => {
+        if (!monitor.isConnected) {
+            clearInterval(durationInterval);
+            return;
+        }
+        updateDurationBadges();
+    }, 1000);
 
     // Pause polling when tab is hidden
     document.addEventListener('visibilitychange', function() {

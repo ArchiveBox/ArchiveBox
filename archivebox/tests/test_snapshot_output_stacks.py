@@ -312,6 +312,43 @@ def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_opening_files_from_queued_snapshot_stops_detached_progress_monitor(snapshot, live_server):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import sync_playwright
+
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.status = "queued"
+    snapshot.save(update_fields=["permissions", "status"])
+    Path(snapshot.output_dir).mkdir(parents=True, exist_ok=True)
+    errors = []
+    progress_requests = []
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        page = browser.new_page()
+        page.on("pageerror", lambda error: errors.append(str(error)))
+        page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
+        page.on("request", lambda request: progress_requests.append(request.url) if "progress.json" in request.url else None)
+        page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html#all")
+        page.locator("#main-frame").wait_for()
+        assert page.locator("#progress-monitor").count() == 0
+        # Let the real one-second polling interval and any in-flight response
+        # complete: a detached panel must neither throw nor keep making requests.
+        page.wait_for_timeout(2200)
+        count = len(progress_requests)
+        page.wait_for_timeout(2200)
+        assert len(progress_requests) == count
+        assert errors == []
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server):
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
