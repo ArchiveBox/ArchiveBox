@@ -2,11 +2,9 @@ __package__ = "archivebox.core"
 
 import html
 import json
-import os
 import shlex
 from functools import reduce
 from operator import and_
-from pathlib import Path
 from urllib.parse import quote
 
 from django.contrib import admin
@@ -29,6 +27,7 @@ from archivebox.core.routes_util import (
     build_snapshot_files_url,
     build_snapshot_url,
     build_snapshot_zip_url,
+    get_snapshot_output_anchor,
 )
 from archivebox.core.widgets import InlineTagEditorWidget
 from archivebox.machine.env_util import env_to_shell_exports
@@ -670,10 +669,13 @@ class ArchiveResultAdmin(BaseModelAdmin):
     def get_output_view_url(self, result: ArchiveResult) -> str:
         request = self.request
         config = request.archivebox_config
-        output_path = result.embed_path()
-        if not output_path:
-            output_path = result.plugin or ""
-        return build_snapshot_url(str(result.snapshot_id), output_path, request=request, config=config)
+        output_path = get_snapshot_output_anchor(result.plugin, result.embed_path() or "")
+        return build_snapshot_detail_url(
+            result.snapshot.archive_path_from_db,
+            output_path=output_path,
+            request=request,
+            config=config,
+        )
 
     def get_output_files_url(self, result: ArchiveResult) -> str:
         request = self.request
@@ -885,50 +887,16 @@ class ArchiveResultAdmin(BaseModelAdmin):
         )
 
     def output_summary(self, result):
-        snapshot_dir = Path(result.snapshot.output_dir)
-        output_html = format_html(
-            '<pre style="display: inline-block">{}</pre><br/>',
-            result.output_str_for_display(),
-        )
-        request = self.request
-        output_html += format_html(
-            '<a href="{}">See result files ...</a><br/><pre><code>',
-            build_snapshot_detail_url(
-                result.snapshot.archive_path_from_db,
-                output_path="all",
-                request=request,
-                config=request.archivebox_config,
-            ),
-        )
-        embed_path = result.embed_path() or ""
-        path_from_embed = snapshot_dir / (embed_path or "")
-        output_html += format_html(
-            '<i style="padding: 1px">{}</i><b style="padding-right: 20px">/</b><i>{}</i><br/><hr/>',
-            str(snapshot_dir),
-            str(embed_path),
-        )
-        if os.access(path_from_embed, os.R_OK):
-            root_dir = str(path_from_embed)
-        else:
-            root_dir = str(snapshot_dir)
-
-        for root, dirs, files in os.walk(root_dir):
-            depth = root.replace(root_dir, "").count(os.sep) + 1
-            if depth > 2:
-                continue
-            indent = " " * 4 * (depth)
-            output_html += format_html('<b style="padding: 1px">{}{}/</b><br/>', indent, os.path.basename(root))
-            indentation_str = " " * 4 * (depth + 1)
-            for filename in sorted(files):
-                is_hidden = filename.startswith(".")
-                output_html += format_html(
-                    '<span style="opacity: {}.2">{}{}</span><br/>',
-                    int(not is_hidden),
-                    indentation_str,
-                    filename.strip(),
-                )
-
-        return output_html + mark_safe("</code></pre>")
+        output_html = format_html('<pre style="display: inline-block">{}</pre>', result.output_str_for_display())
+        file_map = result.output_file_map()
+        paths = sorted({path for key in file_map if (path := result.output_file_path(key, output_file_map=file_map))})
+        if paths:
+            output_html += format_html(
+                '<br/><a href="{}">See result files ...</a><pre><code>{}</code></pre>',
+                self.get_output_files_url(result),
+                "\n".join(paths),
+            )
+        return output_html
 
 
 def register_admin(admin_site):

@@ -398,6 +398,55 @@ def test_archiveresult_admin_zip_links():
     assert html.escape(zip_url, quote=True) in str(admin.admin_actions(result))
 
 
+def test_archiveresult_admin_summary_and_view_link_are_result_scoped(real_hook_result):
+    from archivebox.core.admin_archiveresults import ArchiveResultAdmin
+    from archivebox.core.models import ArchiveResult
+    from archivebox.core.routes_util import build_snapshot_detail_url
+
+    snapshot, _process, result = real_hook_result
+    sibling_dir = Path(snapshot.output_dir) / "wget"
+    sibling_dir.mkdir(parents=True, exist_ok=True)
+    (sibling_dir / "sibling-only.html").write_text("other result", encoding="utf-8")
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        hook_name="on_Snapshot__06_wget.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_files={"sibling-only.html": {"size": 12}},
+    )
+
+    admin = ArchiveResultAdmin(ArchiveResult, AdminSite())
+    admin.request = _admin_get_request()
+    summary = str(admin.output_summary(result))
+    assert "hashes.json" in summary
+    assert "sibling-only.html" not in summary
+    assert "source.txt" not in summary
+
+    no_file_result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="title",
+        hook_name="on_Snapshot__01_title.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="A page title",
+    )
+    no_file_summary = str(admin.output_summary(no_file_result))
+    assert "A page title" in no_file_summary
+    assert "hashes.json" not in no_file_summary
+    assert "sibling-only.html" not in no_file_summary
+    assert "source.txt" not in no_file_summary
+
+    expected_view_url = build_snapshot_detail_url(
+        snapshot.archive_path_from_db,
+        output_path=result.embed_path(),
+        request=admin.request,
+        config=admin.request.archivebox_config,
+    )
+    assert admin.get_output_view_url(result) == expected_view_url
+    assert admin.get_output_view_url(no_file_result).endswith("#title")
+    assert html.escape(expected_view_url, quote=True) in str(admin.admin_actions(result))
+    assert html.escape(admin.get_output_files_url(result), quote=True) in str(admin.admin_actions(result))
+
+
 def test_archiveresult_admin_copy_command_redacts_sensitive_env_keys(real_hook_result):
     from archivebox.core.admin_archiveresults import ArchiveResultAdmin
     from archivebox.core.models import ArchiveResult
