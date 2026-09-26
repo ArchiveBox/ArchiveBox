@@ -1,6 +1,13 @@
 name: Parallel Tests
 
 on:
+  workflow_dispatch:
+    inputs:
+      test_file:
+        description: Run one discovered test file
+        required: true
+        default: archivebox/tests/test_cli_list.py
+        type: string
   workflow_call:
     inputs:
       test_file:
@@ -80,11 +87,11 @@ jobs:
   tests:
     name: ${{ matrix.test.name }}
     needs: discover-tests
-    # Opt in trusted branch pushes only; PRs always use GitHub-hosted runners.
+    # Opt in trusted branches only; PRs always use GitHub-hosted runners.
     # UGNAS_CI_TESTS is a JSON array of matrix names, e.g. ["main/test_cli_list"].
     # Set UGNAS_CI_ENABLED=false before taking the worker offline: GitHub does
     # not automatically fall back from an unavailable self-hosted runner.
-    runs-on: ${{ fromJSON(vars.UGNAS_CI_ENABLED == 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && contains(fromJSON(vars.UGNAS_CI_TESTS || '[]'), matrix.test.name) && '["self-hosted","linux","x64","ugnas-linux"]' || '["ubuntu-24.04"]') }}
+    runs-on: ${{ fromJSON(vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && contains(fromJSON(vars.UGNAS_CI_TESTS || '[]'), matrix.test.name) && '["self-hosted","linux","x64","ugnas-linux"]' || '["ubuntu-24.04"]') }}
     env:
       CHROME_HEADLESS: "true"
 
