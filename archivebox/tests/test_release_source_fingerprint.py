@@ -124,7 +124,10 @@ def test_fingerprint_detects_non_release_version_changes(tmp_path, change):
         (repo / "source.py").write_text("release behavior = changed\n")
     elif change == "project_dependency":
         path = repo / "pyproject.toml"
-        path.write_text(path.read_text().replace('"abx-dl==1.13.51"', '"abx-dl==999.0"', 1))
+        project = path.read_text()
+        project, count = re.subn(r'("abx-dl==)[^"]+(")', r"\g<1>999.0\2", project, count=1)
+        assert count == 1
+        path.write_text(project)
     elif change == "lock_dependency":
         path = repo / "uv.lock"
         path.write_text(re.sub(r'(?m)(^name = "abx-dl"\nversion = ")[^"]+', r"\g<1>999.0", path.read_text(), count=1))
