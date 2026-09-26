@@ -66,7 +66,7 @@ jobs:
       - codeql
       - python-artifacts
       - docker-digests
-    runs-on: ubuntu-24.04
+    runs-on: ${{ fromJSON(vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && '["self-hosted","linux","x64","ugnas-linux"]' || '["ubuntu-24.04"]') }}
     steps:
       - name: Verify every required lane succeeded
         env:
