@@ -33,7 +33,9 @@ def main():
     # Use reviewed, user-facing copy only when this release introduces it.
     # Unchanged notes belong to an earlier release and must not be repeated.
     notes_path = "docs/Release-Notes.md"
-    if git("diff", "--name-only", f"{previous}..{args.ref}", "--", notes_path):
+    notes_changed = git("diff", "--name-only", f"{previous}..{args.ref}", "--", notes_path)
+    notes_at_ref = git("ls-tree", "--name-only", args.ref, "--", notes_path)
+    if notes_changed and notes_at_ref == notes_path:
         print(git("show", f"{args.ref}:{notes_path}"))
         print(f"\n[Full changelog]({root}/compare/{previous}...{args.tag}) · [0.9 announcement]({root}/releases/tag/v0.9.36)")
         return
