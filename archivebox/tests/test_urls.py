@@ -1759,8 +1759,9 @@ class TestUrlRouting:
             assert "doc.body.style.alignItems = 'center'" in live_html
             assert "img.style.margin = '0 auto'" in live_html
             assert "window.location.hash = getPreviewHashValueFromHref(rawTarget)" in live_html
-            assert "let selectedPreviewHash = window.location.hash.slice(1)" in live_html
-            assert "selectedPreviewHash = decodeURIComponent(selectedPreviewHash)" in live_html
+            assert "const selectedPreviewHash = window.location.hash.slice(1)" in live_html
+            assert "selectedPreviewHash = decodeURIComponent(selectedPreviewHash)" not in live_html
+            assert "value = decodeURIComponent(value)" not in live_html
             assert "pointer-events: none;" in live_html
             assert "pointer-events: auto;" in live_html
             assert 'class="thumbnail-click-overlay"' in live_html
@@ -1793,11 +1794,14 @@ class TestUrlRouting:
             assert "doc.body.style.alignItems = 'center'" in static_html
             assert "img.style.margin = '0 auto'" in static_html
             assert "window.location.hash = getPreviewHashValueFromHref(rawTarget)" in static_html
-            assert "let selectedPreviewHash = window.location.hash.slice(1)" in static_html
-            assert "selectedPreviewHash = decodeURIComponent(selectedPreviewHash)" in static_html
+            assert "const selectedPreviewHash = window.location.hash.slice(1)" in static_html
+            assert "selectedPreviewHash = decodeURIComponent(selectedPreviewHash)" not in static_html
+            assert "value = decodeURIComponent(value)" not in static_html
             assert "pointer-events: none;" in static_html
             assert "pointer-events: auto;" in static_html
-            assert 'class="thumbnail-click-overlay"' not in static_html
+            # Static exports keep the preview overlay so card clicks select a
+            # local file in the main iframe instead of the inert card iframe.
+            assert 'class="thumbnail-click-overlay" href="./' in static_html
             assert "window.location.hash = getPreviewTypeFromPath(link)" not in static_html
             assert ">WARC<" not in static_html
             assert ">Media<" not in static_html

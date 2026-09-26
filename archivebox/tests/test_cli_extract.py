@@ -81,9 +81,14 @@ def test_extract_runs_on_existing_snapshots(archive_with_extractors):
     assert archiveresults["wget"].output_files["example.com/index.html"]["size"] == wget_path.stat().st_size
 
 
-def test_wget_literal_percent_output_url_serves_captured_file(initialized_archive):
+def test_wget_literal_percent_output_url_serves_captured_file(initialized_archive, snapshot, live_server):
     """Replay the real HedgeDoc link-interstitial file saved by wget."""
+    import shutil
+    from urllib.parse import quote
+    from playwright.sync_api import sync_playwright
+
     source_url = "https://docs.sweeting.me/_link?url=http%3A%2F%2Farchive.org%2F"
+    ui_snapshot = snapshot
     env = cli_env(PLUGINS="wget", SAVE_WGET="True")
 
     created = run_archivebox_cmd(["snapshot", "create", source_url], cwd=initialized_archive, env=env, check=True)
@@ -117,6 +122,65 @@ def test_wget_literal_percent_output_url_serves_captured_file(initialized_archiv
         card = Client().get(f"/_card/{wget.id}", HTTP_HOST=target.netloc)
         assert card.status_code == 200
         assert target.path in card.content.decode()
+
+        captured_wget_dir = Path(ui_snapshot.output_dir) / "wget"
+        shutil.copytree(Path(snapshot.output_dir) / "wget", captured_wget_dir, dirs_exist_ok=True)
+        captured_result = {
+            "hook_name": wget.hook_name,
+            "output_str": wget.output_str,
+            "output_files": wget.output_files,
+            "output_size": wget.output_size,
+        }
+
+    # Exercise the actual captured file through the snapshot detail UI and its
+    # iframe preview. The second hash-driven selection must retain literal `%`
+    # sequences in wget's filesystem filename.
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    port = urlsplit(live_server.url).port
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    ui_snapshot.permissions = "public"
+    ui_snapshot.save(update_fields=["permissions"])
+    ArchiveResult.objects.create(
+        snapshot=ui_snapshot,
+        plugin="wget",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        **captured_result,
+    )
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        page = browser.new_page()
+        page.goto(f"http://web.archivebox.localhost:{port}{ui_snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
+        expected_path = quote(str(output_path), safe="/@=")
+        page.evaluate("""() => {
+            window.__previewHashChanges = 0;
+            window.addEventListener('hashchange', () => window.__previewHashChanges++);
+        }""")
+        page.locator(".output-stack-html").click()
+        page.wait_for_function("window.__previewHashChanges > 0")
+
+        link = page.locator('.stack-tray .thumb-card[data-plugin-name="wget"] a[target="preview"]').first
+        assert expected_path in link.get_attribute("href")
+        frame = page.locator("#main-frame")
+        assert expected_path in frame.get_attribute("src")
+        preview = page.frame_locator("#main-frame")
+        assert "External link" in preview.locator("body").inner_text()
+        assert "Continue to external page" in preview.locator("body").inner_text()
+
+        page.reload(wait_until="domcontentloaded")
+        frame = page.locator("#main-frame")
+        assert expected_path in frame.get_attribute("src")
+        preview = page.frame_locator("#main-frame")
+        assert "External link" in preview.locator("body").inner_text()
+        assert "Continue to external page" in preview.locator("body").inner_text()
+        browser.close()
 
 
 def test_extract_runs_custom_plugin_discovered_from_data_dir(initialized_archive):

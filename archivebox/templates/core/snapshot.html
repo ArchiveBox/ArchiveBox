@@ -1159,14 +1159,12 @@
                 const snapshotBaseUrlEarly = "{% snapshot_base_url snapshot %}"
                 const snapshotFilesUrlEarly = "{% snapshot_files_url snapshot %}"
                 const defaultSrc = frame.dataset.defaultSrc || snapshotFilesUrlEarly
+                // Hash fragments hold an encoded output path; decoding changes literal percent bytes in filenames.
                 const rawHash = window.location.hash ? window.location.hash.slice(1) : ''
 
                 function resolveEarlyPreviewUrl(raw) {
                     if (!raw) return defaultSrc
                     let value = raw
-                    try {
-                        value = decodeURIComponent(value)
-                    } catch (err) {}
                     if (value === 'all') return snapshotFilesUrlEarly
                     if (value.startsWith('http://') || value.startsWith('https://')) return value
                     if (value.startsWith('//')) return window.location.protocol + value
@@ -1656,8 +1654,8 @@
             }
 
             function selectInitialPreview(revealStack=true) {
-                let selectedPreviewHash = window.location.hash.slice(1)
-                try { selectedPreviewHash = decodeURIComponent(selectedPreviewHash) } catch (err) {}
+                // Match the encoded href/path as stored so `%3A` in a filename stays `%253A` in its URL.
+                const selectedPreviewHash = window.location.hash.slice(1)
                 const matchingLink = findPreviewLinkForHash(selectedPreviewHash)
                 if (selectedPreviewHash) {
                     // An explicit file hash must never fall back to the default card.
