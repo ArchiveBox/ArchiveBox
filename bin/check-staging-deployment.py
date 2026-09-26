@@ -4,6 +4,7 @@
 import json
 import hashlib
 import os
+import re
 import subprocess
 import sys
 import time
@@ -63,6 +64,8 @@ def main():
         current = json.loads(check.stdout)
         if current["helper_sha256"] != hashlib.sha256(Path("bin/staging-acceptance-host.sh").read_bytes()).hexdigest():
             raise RuntimeError("Staging host acceptance helper differs from the reviewed candidate")
+        if not isinstance(current.get("abx_dl_image"), str) or not re.search(r"@sha256:[0-9a-f]{64}$", current["abx_dl_image"]):
+            raise RuntimeError("Staging host did not report a digest-pinned abx-dl base image")
         if inspection is not None and current != inspection:
             raise RuntimeError("The deployed container changed during acceptance")
         inspection = current

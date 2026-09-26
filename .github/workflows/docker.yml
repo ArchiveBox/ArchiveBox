@@ -552,6 +552,9 @@ jobs:
 
       - name: Export digest
         if: inputs.push_digests
+        env:
+          ABX_DL_IMAGE_REF: ${{ steps.abx_dl_image.outputs.image }}
+          ARTIFACT_NAME: ${{ matrix.artifact_name }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -559,6 +562,7 @@ jobs:
           digest="${{ steps.docker_build.outputs.digest }}"
           touch "/tmp/digests/${digest#sha256:}"
           printf '%s\n' '${{ inputs.source_ref || github.sha }}' > /tmp/digests/source-ref
+          printf '%s\n' "$ABX_DL_IMAGE_REF" > "/tmp/digests/abx-dl-image-$ARTIFACT_NAME"
 
       - name: Upload digest
         if: inputs.push_digests

@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import importlib.util
 import shlex
 import os
 import re
@@ -13,6 +14,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
 RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
 PIP_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "pip.yml"
+DOCKER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "docker.yml"
+VERIFY_STAGING_SCRIPT = REPO_ROOT / "bin" / "verify-staging-release.py"
+_VERIFY_SPEC = importlib.util.spec_from_file_location("verify_staging_release", VERIFY_STAGING_SCRIPT)
+assert _VERIFY_SPEC is not None and _VERIFY_SPEC.loader is not None
+_VERIFY_STAGING = importlib.util.module_from_spec(_VERIFY_SPEC)
+_VERIFY_SPEC.loader.exec_module(_VERIFY_STAGING)
 
 
 def _git(repo, *args):
@@ -260,3 +267,38 @@ def test_stable_publication_requires_live_acceptance_before_upload():
     assert "verify-staging-release.py" in steps[gate]["run"]
     assert not steps[gate].get("continue-on-error")
     assert publisher["permissions"]["deployments"] == "read"
+
+
+def test_staging_gate_matches_the_exact_tested_docker_base_digest(tmp_path):
+    workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
+    publisher = workflow["jobs"]["python-release"]
+    steps = publisher["steps"]
+    metadata = next(step for step in steps if step.get("name") == "Download tested Docker base-image metadata")
+    gate = next(step for step in steps if step.get("name") == "Require matching acceptance on Cabbage and DigestBox")
+    assert metadata["with"]["run-id"] == "${{ env.DOCKER_DIGEST_RUN_ID }}"
+    assert publisher["env"]["DOCKER_DIGEST_RUN_ID"] == "${{ needs.candidate.outputs.digest_run_id }}"
+    assert metadata["with"]["pattern"] == "digest-*"
+    assert metadata["with"]["merge-multiple"] is True
+    assert metadata["with"]["path"] == "${{ runner.temp }}/tested-docker-artifacts"
+    assert steps.index(metadata) < steps.index(gate)
+    assert gate["env"]["STAGING_DOCKER_ARTIFACT_DIR"] == "${{ runner.temp }}/tested-docker-artifacts"
+
+    docker_workflow = yaml.safe_load(DOCKER_WORKFLOW.read_text())
+    export = next(step for step in docker_workflow["jobs"]["build"]["steps"] if step.get("name") == "Export digest")
+    assert export["env"]["ABX_DL_IMAGE_REF"] == "${{ steps.abx_dl_image.outputs.image }}"
+    assert '"/tmp/digests/abx-dl-image-$ARTIFACT_NAME"' in export["run"]
+    helper = (REPO_ROOT / "bin" / "staging-acceptance-host.sh").read_text()
+    assert "abx_dl_image" in helper
+
+    source_sha = "a" * 40
+    base_digest = "sha256:" + "b" * 64
+    (tmp_path / "source-ref").write_text(source_sha + "\n")
+    for platform in ("linux-amd64", "linux-arm64"):
+        (tmp_path / f"abx-dl-image-digest-{platform}").write_text(f"archivebox/abx-dl:1.13.51@{base_digest}\n")
+    assert _VERIFY_STAGING.tested_abx_dl_digest(tmp_path, source_sha) == base_digest
+
+    (tmp_path / "abx-dl-image-digest-linux-arm64").write_text(f"archivebox/abx-dl:1.13.52@{'sha256:' + 'c' * 64}\n")
+    with pytest.raises(SystemExit, match="different abx-dl images"):
+        _VERIFY_STAGING.tested_abx_dl_digest(tmp_path, source_sha)
+    with pytest.raises(SystemExit, match="different source commit"):
+        _VERIFY_STAGING.tested_abx_dl_digest(tmp_path, "d" * 40)

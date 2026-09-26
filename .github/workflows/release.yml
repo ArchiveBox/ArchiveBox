@@ -144,6 +144,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       CI_RUN_ID: ${{ needs.candidate.outputs.artifact_run_id }}
+      DOCKER_DIGEST_RUN_ID: ${{ needs.candidate.outputs.digest_run_id }}
     environment: pypi
     permissions:
       actions: read
@@ -174,10 +175,22 @@ jobs:
 
       # This precedes every stable upload, including workflow_dispatch. A green
       # build is not evidence that our automatically updated test servers ran it.
+      - name: Download tested Docker base-image metadata
+        if: env.RELEASE_BRANCH == 'main'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: ${{ runner.temp }}/tested-docker-artifacts
+          pattern: digest-*
+          merge-multiple: true
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ env.DOCKER_DIGEST_RUN_ID }}
+
       - name: Require matching acceptance on Cabbage and DigestBox
         if: env.RELEASE_BRANCH == 'main'
         env:
           GH_TOKEN: ${{ github.token }}
+          STAGING_DOCKER_ARTIFACT_DIR: ${{ runner.temp }}/tested-docker-artifacts
         run: uv run --no-project python bin/verify-staging-release.py
 
       - name: Resolve release binaries through abxpkg

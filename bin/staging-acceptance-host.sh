@@ -29,7 +29,7 @@ done < <(docker inspect "$container" --format '{{range .Mounts}}{{println .Desti
 
 if [[ "$operation" == inspect ]]; then
     helper_hash="$(sha256sum "$0" | cut -d ' ' -f 1)"
-    docker inspect "$container" --format "{\"helper_sha256\":\"$helper_hash\",\"container_id\":{{json .Id}},\"image_id\":{{json .Image}},\"revision\":{{json (index .Config.Labels \"org.opencontainers.image.revision\")}},\"version\":{{json (index .Config.Labels \"org.opencontainers.image.version\")}},\"health\":{{json .State.Health.Status}}}"
+    docker inspect "$container" --format "{\"helper_sha256\":\"$helper_hash\",\"container_id\":{{json .Id}},\"image_id\":{{json .Image}},\"revision\":{{json (index .Config.Labels \"org.opencontainers.image.revision\")}},\"version\":{{json (index .Config.Labels \"org.opencontainers.image.version\")}},\"abx_dl_image\":{{json (index .Config.Labels \"io.archivebox.abx-dl.image\")}},\"health\":{{json .State.Health.Status}}}"
     exit 0
 fi
 
