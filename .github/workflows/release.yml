@@ -148,6 +148,7 @@ jobs:
     permissions:
       actions: read
       contents: write
+      deployments: read
       id-token: write
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -170,6 +171,14 @@ jobs:
         with:
           version: "0.11.3"
           enable-cache: false
+
+      # This precedes every stable upload, including workflow_dispatch. A green
+      # build is not evidence that our automatically updated test servers ran it.
+      - name: Require matching acceptance on Cabbage and DigestBox
+        if: env.RELEASE_BRANCH == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: uv run --no-project python bin/verify-staging-release.py
 
       - name: Resolve release binaries through abxpkg
         env:

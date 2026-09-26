@@ -168,6 +168,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert python_release["environment"] == "pypi"
     checkout = python_release["steps"][0]
     assert checkout["with"]["token"] == "${{ secrets.RELEASE_GH_TOKEN || github.token }}"
+
     assert docker_release["needs"] == ["candidate", "python-release"]
     assert docker_release["env"]["DOCKER_DIGEST_RUN_ID"] == "${{ needs.candidate.outputs.digest_run_id }}"
     assert "release_ready" not in docker_release["if"]
@@ -245,3 +246,17 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     create_release_line = logical_lines.index(next(line for line in logical_lines if line.startswith("$GH_BINARY release create ")))
     upload_release_line = logical_lines.index(next(line for line in logical_lines if line.startswith("$GH_BINARY release upload ")))
     assert publish_line < rc_skip_line < create_release_line < upload_release_line
+
+
+def test_stable_publication_requires_live_acceptance_before_upload():
+    workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
+    publisher = workflow["jobs"]["python-release"]
+    steps = publisher["steps"]
+    gate = next(i for i, step in enumerate(steps) if step.get("name") == "Require matching acceptance on Cabbage and DigestBox")
+    upload = next(i for i, step in enumerate(steps) if step.get("name") == "Publish the exact tested distributions")
+    assert gate < upload
+    # The same guard applies to automatic and manually requested stable releases.
+    assert steps[gate]["if"] == "env.RELEASE_BRANCH == 'main'"
+    assert "verify-staging-release.py" in steps[gate]["run"]
+    assert not steps[gate].get("continue-on-error")
+    assert publisher["permissions"]["deployments"] == "read"

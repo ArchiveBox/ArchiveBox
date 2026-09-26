@@ -1,0 +1,81 @@
+name: Staging acceptance
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+    branches: [dev]
+
+permissions: {}
+
+concurrency:
+  group: staging-acceptance
+  cancel-in-progress: false
+
+jobs:
+  published:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    outputs:
+      ready: ${{ steps.image.outputs.ready }}
+    steps:
+      - id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -Eeuo pipefail
+          ready=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID/jobs?per_page=100" --jq 'any(.jobs[]; .name == "Publish tested multiarch image" and .conclusion == "success")')
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+  acceptance:
+    # The privileged key is never exposed to PRs or arbitrary dispatch refs.
+    needs: published
+    if: needs.published.outputs.ready == 'true'
+    runs-on: [self-hosted, Linux, X64, ugnas-linux]
+    environment: staging
+    timeout-minutes: 110
+    permissions:
+      contents: read
+      deployments: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [cabbage, digestbox]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
+        with:
+          version: '0.11.3'
+      - name: Prepare browser and restricted staging identity
+        env:
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          printf '%s\n' "$STAGING_SSH_KEY" > "$RUNNER_TEMP/staging-key"
+          printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$RUNNER_TEMP/staging-known-hosts"
+          uv run --no-project --with playwright==1.63.0 playwright install chromium
+      - name: Verify actual deployment, full captures and rendered snapshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAGING_TARGET: ${{ matrix.target }}
+          STAGING_SHA: ${{ github.event.workflow_run.head_sha }}
+          STAGING_KEY_FILE: ${{ runner.temp }}/staging-key
+          STAGING_KNOWN_HOSTS_FILE: ${{ runner.temp }}/staging-known-hosts
+        run: uv run --no-project --with playwright==1.63.0 python bin/check-staging-deployment.py
+      - name: Remove staging identity
+        if: always()
+        run: rm -f "$RUNNER_TEMP/staging-key" "$RUNNER_TEMP/staging-known-hosts"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: staging-${{ matrix.target }}-${{ github.event.workflow_run.head_sha }}
+          path: staging-evidence/
+          if-no-files-found: error
