@@ -12,11 +12,17 @@ Migration tests from 0.8.x to 0.9.x.
 
 import sqlite3
 import json
+import signal
+import subprocess
+import time
 import uuid
 from datetime import datetime
 from urllib.parse import urlparse
 
+import psutil
 import pytest
+
+from archivebox.tests.conftest import cli_env, run_archivebox_cmd, stop_archivebox_process
 
 from .migrations_helpers import (
     SCHEMA_0_7,
@@ -223,6 +229,118 @@ def test_migration_preserves_crawls(migration_08_data):
 
     ok, msg = verify_crawl_count(db_path, expected_count)
     assert ok, msg
+
+
+def test_legacy_default_crawl_is_sealed_without_a_due_retry(tmp_path):
+    """Upgrading a legacy collection must not leave its sealed crawl runnable."""
+    work_dir = tmp_path
+    db_path = work_dir / "index.sqlite3"
+    create_data_dir_structure(work_dir)
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(SCHEMA_0_7)
+    seed_0_7_data(db_path)
+
+    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert result.returncode == 0, result.stderr or result.stdout
+
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute("SELECT status, retry_at FROM crawls_crawl").fetchall()
+        snapshot_statuses = conn.execute("SELECT DISTINCT status FROM core_snapshot").fetchall()
+        result_statuses = conn.execute("SELECT DISTINCT status FROM core_archiveresult").fetchall()
+    assert rows == [("sealed", None)]
+    assert snapshot_statuses == [("sealed",)]
+    assert set(result_statuses) == {("succeeded",), ("failed",), ("skipped",)}
+
+
+def test_old_migrated_crawl_stays_idle_and_forward_migration_repairs_it(tmp_path):
+    """A dated raw ISO retry from an already-upgraded collection must not spin."""
+    work_dir = tmp_path
+    db_path = work_dir / "index.sqlite3"
+    create_data_dir_structure(work_dir)
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript(SCHEMA_0_7)
+    seed_0_7_data(db_path)
+
+    before_repair = run_archivebox_migration_cmd(work_dir, ["manage", "migrate", "core", "0054", "--noinput"], timeout=90)
+    assert before_repair.returncode == 0, before_repair.stderr or before_repair.stdout
+    with sqlite3.connect(db_path) as conn:
+        # 0024 used datetime.now().isoformat() for this sealed Crawl. Represent
+        # a collection upgraded before today so SQLite's lexical due query sees it.
+        conn.execute("UPDATE crawls_crawl SET retry_at = '2024-01-01T00:00:00.123456'")
+        assert conn.execute("SELECT status, retry_at FROM crawls_crawl").fetchall() == [
+            ("sealed", "2024-01-01T00:00:00.123456"),
+        ]
+        assert conn.execute("SELECT DISTINCT status FROM core_snapshot").fetchall() == [("sealed",)]
+
+    env = cli_env(disable_extractors=True)
+    log_path = work_dir / "idle-daemon.log"
+    with log_path.open("w") as log:
+        daemon = run_archivebox_cmd(
+            ["run", "--daemon"],
+            cwd=work_dir,
+            env=env,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            capture_output=False,
+            wait=False,
+            start_new_session=True,
+        )
+    try:
+        ready_deadline = time.monotonic() + 20
+        while True:
+            with sqlite3.connect(db_path) as conn:
+                ready = conn.execute(
+                    "SELECT 1 FROM machine_process WHERE process_type = 'orchestrator' AND status = 'running' AND pid = ?",
+                    (daemon.pid,),
+                ).fetchone()
+            if ready:
+                break
+            assert daemon.poll() is None, log_path.read_text()
+            assert time.monotonic() < ready_deadline, log_path.read_text()
+            time.sleep(0.1)
+        cpu_percent = psutil.Process(daemon.pid).cpu_percent(interval=5)
+        assert cpu_percent < 30, f"idle daemon used {cpu_percent}% CPU: {log_path.read_text()}"
+    finally:
+        stop_archivebox_process(daemon, signal.SIGTERM)
+
+    repaired = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert repaired.returncode == 0, repaired.stderr or repaired.stdout
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute("SELECT status, retry_at FROM crawls_crawl").fetchall() == [("sealed", None)]
+
+
+def test_forward_migration_normalizes_active_legacy_retry_timestamps(migration_08_data):
+    """Preserve instants for active rows while leaving canonical timestamps intact."""
+    work_dir, db_path, _original_data = migration_08_data
+    before_repair = run_archivebox_migration_cmd(work_dir, ["manage", "migrate", "core", "0054", "--noinput"], timeout=90)
+    assert before_repair.returncode == 0, before_repair.stderr or before_repair.stdout
+
+    old_offset_timestamp = "2024-01-01T03:04:05.123456+03:00"
+    expected_utc_timestamp = "2024-01-01 00:04:05.123456"
+    canonical_timestamp = "2025-04-05 06:07:08.123456"
+    with sqlite3.connect(db_path) as conn:
+        crawl_ids = [row[0] for row in conn.execute("SELECT id FROM crawls_crawl WHERE status = 'queued' ORDER BY id")]
+        snapshot_ids = [row[0] for row in conn.execute("SELECT id FROM core_snapshot ORDER BY id")]
+        binary_id = conn.execute("SELECT id FROM machine_binary ORDER BY id LIMIT 1").fetchone()[0]
+        process_id = conn.execute("SELECT id FROM machine_process ORDER BY id LIMIT 1").fetchone()[0]
+        assert len(crawl_ids) == 2
+        assert len(snapshot_ids) >= 2
+        conn.execute("UPDATE crawls_crawl SET retry_at = ? WHERE id = ?", (old_offset_timestamp, crawl_ids[0]))
+        conn.execute("UPDATE crawls_crawl SET retry_at = ? WHERE id = ?", (canonical_timestamp, crawl_ids[1]))
+        conn.execute("UPDATE core_snapshot SET retry_at = ? WHERE id = ?", (old_offset_timestamp, snapshot_ids[0]))
+        conn.execute("UPDATE core_snapshot SET retry_at = ? WHERE id = ?", (canonical_timestamp, snapshot_ids[1]))
+        conn.execute("UPDATE machine_binary SET retry_at = ? WHERE id = ?", (old_offset_timestamp, binary_id))
+        conn.execute("UPDATE machine_process SET retry_at = ? WHERE id = ?", (old_offset_timestamp, process_id))
+
+    repaired = run_archivebox_migration_cmd(work_dir, ["init"], timeout=90)
+    assert repaired.returncode == 0, repaired.stderr or repaired.stdout
+    with sqlite3.connect(db_path) as conn:
+        assert conn.execute("SELECT retry_at FROM crawls_crawl WHERE id = ?", (crawl_ids[0],)).fetchone() == (expected_utc_timestamp,)
+        assert conn.execute("SELECT retry_at FROM crawls_crawl WHERE id = ?", (crawl_ids[1],)).fetchone() == (canonical_timestamp,)
+        assert conn.execute("SELECT retry_at FROM core_snapshot WHERE id = ?", (snapshot_ids[0],)).fetchone() == (expected_utc_timestamp,)
+        assert conn.execute("SELECT retry_at FROM core_snapshot WHERE id = ?", (snapshot_ids[1],)).fetchone() == (canonical_timestamp,)
+        assert conn.execute("SELECT retry_at FROM machine_binary WHERE id = ?", (binary_id,)).fetchone() == (expected_utc_timestamp,)
+        assert conn.execute("SELECT retry_at FROM machine_process WHERE id = ?", (process_id,)).fetchone() == (expected_utc_timestamp,)
 
 
 def test_migration_preserves_snapshot_crawl_links(migration_08_data):

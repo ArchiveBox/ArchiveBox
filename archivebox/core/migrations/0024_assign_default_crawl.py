@@ -100,11 +100,12 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
     if schema_editor.connection.vendor != "sqlite":
         return
 
-    from django.db import connection
+    from django.utils import timezone
     import uuid as uuid_lib
-    from datetime import datetime
 
+    connection = schema_editor.connection
     cursor = connection.cursor()
+    now = connection.ops.adapt_datetimefield_value(timezone.now())
 
     # Check if there are any snapshots without a crawl
     cursor.execute("SELECT COUNT(*) FROM core_snapshot WHERE crawl_id IS NULL")
@@ -125,14 +126,13 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
             INSERT INTO auth_user (id, password, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined)
             VALUES (1, '!', 1, 'system', '', '', '', 1, 1, %s)
         """,
-            [datetime.now().isoformat()],
+            [now],
         )
 
     # Create a default crawl for migrated snapshots.
     # Depending on migration graph order, later crawls migrations may already
     # have removed output_dir by the time this data migration runs.
     crawl_id = uuid_lib.uuid4().hex
-    now = datetime.now().isoformat()
     cursor.execute("PRAGMA table_info(crawls_crawl)")
     crawl_columns = {row[1] for row in cursor.fetchall()}
     default_columns: list[str] = []
@@ -155,9 +155,9 @@ def create_default_crawl_and_assign_snapshots(apps, schema_editor):
             status, retry_at, created_by_id, schedule_id, config, persona_id
         ) VALUES (%s, %s, %s, 0, 0, %s, 0, '', 'Migrated from v0.7.2/v0.8.6',
                   'Auto-created crawl for migrated snapshots', {default_values_sql}
-                  'sealed', %s, 1, NULL, '{{}}', NULL)
+                  'sealed', NULL, 1, NULL, '{{}}', NULL)
     """,
-        [crawl_id, now, now, crawl_urls, now],
+        [crawl_id, now, now, crawl_urls],
     )
 
     # Assign all snapshots without a crawl to the default crawl

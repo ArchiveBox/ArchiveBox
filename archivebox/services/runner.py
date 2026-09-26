@@ -1520,7 +1520,9 @@ def _run_due_crawl_locked(crawl, *, lock_seconds: int, interactive_interrupts: b
             # avoids hot-looping on the parent while child work is ready without
             # resurrecting a user cancellation that sealed the crawl after
             # selection.
-            crawl.safe_update(
+            if crawl.status != crawl.StatusChoices.STARTED:
+                return False
+            return crawl.safe_update(
                 {
                     "status": crawl.StatusChoices.STARTED,
                     "retry_at": now + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS),
@@ -1529,7 +1531,6 @@ def _run_due_crawl_locked(crawl, *, lock_seconds: int, interactive_interrupts: b
                 refresh=False,
                 extra_filter={"status": crawl.StatusChoices.STARTED},
             )
-            return True
         if snapshot_count and not due_active_snapshots:
             if crawl.is_finished():
                 if not crawl.claim_processing_lock(lock_seconds=lock_seconds):
@@ -1887,12 +1888,11 @@ def _run_due_crawl_status(
     due_crawl = Crawl.objects.filter(id=due_crawl_id).first()
     if due_crawl is None:
         return True
-    run_due_crawl(
+    return run_due_crawl(
         due_crawl,
         lock_seconds=lock_seconds,
         interactive_interrupts=interactive_interrupts,
     )
-    return True
 
 
 def _run_due_snapshot_query(
@@ -1946,8 +1946,7 @@ def _run_due_binary() -> bool:
     due_binary = Binary.objects.filter(id=due_binary_id).first()
     if due_binary is None:
         return True
-    run_due_binary(due_binary, lock_seconds=60)
-    return True
+    return run_due_binary(due_binary, lock_seconds=60)
 
 
 def run_pending_crawls(
