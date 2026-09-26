@@ -41,7 +41,10 @@ flock -x 9
 start_file="/var/lib/archivebox-staging/$source_sha.started"
 if [[ ! -e "$start_file" ]]; then date -u +%FT%TZ > "$start_file"; fi
 since="$(cat "$start_file")"
-if journalctl -k --since "$since" --no-pager | grep 'Out of memory: Killed process' >/dev/null; then
+# Read separately so a journal failure cannot masquerade as "no OOM found"
+# through the conditional pipeline's nonzero exit status.
+kernel_log="$(journalctl -k --since "$since" --no-pager)"
+if grep 'Out of memory: Killed process' <<< "$kernel_log" >/dev/null; then
     echo 'Staging acceptance failed: the host had an OOM kill during this candidate test.' >&2
     exit 1
 fi
