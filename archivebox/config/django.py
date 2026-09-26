@@ -63,7 +63,14 @@ def setup_django(check_db=False) -> None:
             os.chown(CONSTANTS.DATA_DIR, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, follow_symlinks=False)
             if CONSTANTS.DATA_DIR.exists():
                 for child in CONSTANTS.DATA_DIR.iterdir():
-                    os.chown(child, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, follow_symlinks=False)
+                    try:
+                        os.chown(child, ARCHIVEBOX_USER, ARCHIVEBOX_GROUP, follow_symlinks=False)
+                    except FileNotFoundError:
+                        # A concurrent SQLite transaction can remove its journal
+                        # between directory enumeration and chown. There is no
+                        # ownership left to fix; other permission errors must
+                        # still fail startup rather than being hidden.
+                        continue
 
     # Suppress the "database access during app initialization" warning
     # This warning can be triggered during django.setup() but is safe to ignore
