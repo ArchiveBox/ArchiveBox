@@ -329,6 +329,50 @@ def test_runner_worker_uses_active_archivebox_module():
     assert 'ARCHIVEBOX_RUNNER_DAEMON="1"' in worker["environment"]
 
 
+def test_runner_worker_hook_uses_its_own_python_environment(tmp_path):
+    """A supervisor started in another venv must launch hooks from the runner's venv."""
+    import abx_plugins.plugins.base.utils as current_utils
+
+    from archivebox.workers.supervisord_util import RUNNER_WORKER, _worker_environment_value
+
+    stale_venv = tmp_path / "stale-venv"
+    subprocess.run(["uv", "venv", "--python", sys.executable, str(stale_venv)], check=True, capture_output=True, text=True)
+
+    worker = RUNNER_WORKER()
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join((str(stale_venv / "bin"), "/usr/bin", "/bin"))
+    env["VIRTUAL_ENV"] = str(stale_venv)
+    env.pop("PYTHONPATH", None)
+    for key in ("PATH", "VIRTUAL_ENV"):
+        value = _worker_environment_value(worker, key)
+        if value is not None:
+            env[key] = value
+
+    result = subprocess.run(
+        [
+            "/usr/bin/env",
+            "python3",
+            "-c",
+            "import abx_plugins.plugins.base.utils as utils; print(utils.__file__)",
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert Path(result.stdout.strip()).resolve() == Path(current_utils.__file__).resolve()
+
+
+def test_archivebox_worker_environment_clears_stale_venv_for_global_executable():
+    from archivebox.workers.supervisord_util import _archivebox_worker_environment, _worker_environment_value
+
+    executable = Path("/usr/bin/env")
+    worker = {"environment": _archivebox_worker_environment([str(executable)])}
+    assert _worker_environment_value(worker, "VIRTUAL_ENV") == ""
+    assert _worker_environment_value(worker, "PATH").split(os.pathsep)[0] == str(executable.parent)
+
+
 def test_runtime_binary_wins_over_ambient_system_path(tmp_path):
     env = os.environ.copy()
     env["ABXPKG_LIB_DIR"] = str(tmp_path / "lib")
