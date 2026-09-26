@@ -758,6 +758,14 @@ class TestUrlRouting:
                 ),
                 encoding="utf-8",
             )
+            # This manifest intentionally omits the real responses capture.
+            # The portable detail page must still link its existing output.
+            responses_result = ArchiveResult.objects.filter(snapshot=snapshot, plugin="responses", status="succeeded").first()
+            assert responses_result is not None and responses_result.output_size > 0
+            snapshot.write_html_details()
+            static_html = Path(snapshot.output_dir, "index.html").read_text(encoding="utf-8")
+            assert 'data-plugin-name="responses"' in static_html
+            assert 'class="thumbnail-click-overlay" href="./responses/' in static_html
             snapshot_host = get_snapshot_host(str(snapshot.id))
 
             def cache_tokens(response):
@@ -1710,6 +1718,8 @@ class TestUrlRouting:
     def test_template_and_admin_links(self) -> None:
         self._run(
             """
+            import re
+
             ensure_admin_user()
             snapshot = get_snapshot()
             snapshot.write_html_details()
@@ -1801,7 +1811,22 @@ class TestUrlRouting:
             assert "pointer-events: auto;" in static_html
             # Static exports keep the preview overlay so card clicks select a
             # local file in the main iframe instead of the inert card iframe.
-            assert 'class="thumbnail-click-overlay" href="./' in static_html
+            assert 'class="thumbnail-click-overlay" href="./' in static_html, {
+                "snapshot_id": snapshot_id,
+                "results": [
+                    {
+                        "plugin": row.plugin,
+                        "status": row.status,
+                        "output_size": row.output_size,
+                        "output_file_count": len(row.output_file_map()),
+                        "end_ts": row.end_ts.isoformat() if row.end_ts else None,
+                    }
+                    for row in ArchiveResult.objects.filter(snapshot=snapshot).order_by("start_ts")
+                ],
+                "static_overlays": re.findall(r'class="thumbnail-click-overlay" href="([^"]*)"', static_html)[:12],
+                "live_overlays": re.findall(r'class="thumbnail-click-overlay" href="([^"]*)"', live_html)[:12],
+                "index_mtime": Path(snapshot.output_dir, "index.html").stat().st_mtime,
+            }
             assert "window.location.hash = getPreviewTypeFromPath(link)" not in static_html
             assert ">WARC<" not in static_html
             assert ">Media<" not in static_html

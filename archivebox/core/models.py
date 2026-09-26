@@ -477,7 +477,9 @@ class SnapshotQuerySet(models.QuerySet):
         for snapshot in snapshot_list:
             # Unarchived snapshots still need an export destination before discovery.
             snapshot.output_dir.mkdir(parents=True, exist_ok=True)
-            outputs = snapshot.discover_outputs(include_filesystem_fallback=True)
+            # The list icon is part of the portable export too; an incomplete
+            # hash manifest must not hide a file that is still on disk.
+            outputs = snapshot.discover_outputs(include_filesystem_fallback=True, filesystem_index={})
             snapshot._public_list_icon_paths = [
                 str(output.get("path") or "") for output in outputs if output.get("name") in list_icon_plugins
             ]
@@ -3707,7 +3709,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
         self.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
 
-        filesystem_index = {} if discover_files else None
+        # Static exports must reflect files that still exist even when the
+        # saved hash manifest is incomplete or stale.
+        filesystem_index = {} if discover_files or static_export_dir is not None else None
         outputs = [
             output
             for output in self.discover_outputs(
