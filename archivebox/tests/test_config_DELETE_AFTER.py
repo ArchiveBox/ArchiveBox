@@ -94,8 +94,10 @@ runner = next(
 if runner is None:
     raise RuntimeError("expected persisted worker_runner process")
 archivebox_projection = Path(os.environ["ABXPKG_LIB_DIR"]) / "env" / "bin" / "archivebox"
-if not archivebox_projection.is_symlink() or str(archivebox_projection) not in runner.cmd or "-m" in runner.cmd:
-    raise RuntimeError(f"worker did not execute projected archivebox: {{runner.cmd}}")
+# Workers pin the projection's target so another install cannot switch the
+# interpreter underneath a still-running supervisor.
+if not archivebox_projection.is_symlink() or str(archivebox_projection.resolve()) not in runner.cmd or "-m" in runner.cmd:
+    raise RuntimeError(f"worker did not execute the pinned archivebox target: {{runner.cmd}}")
 
 due_at = timezone.now() - timedelta(hours=1)
 ArchiveResult.objects.filter(pk=result.pk).update(delete_at=due_at)
