@@ -5,6 +5,8 @@ import os
 import time
 from pathlib import Path
 
+import psutil
+
 
 RESOURCE_RECHECK_SECONDS = 2.0
 # Scheduling policy, not a minimum-RAM claim: stop increasing extraction
@@ -44,9 +46,72 @@ class ResourceAdmission:
                     cpus = min(cpus, max(1, math.ceil(int(quota) / int(period))))
             except (OSError, ValueError, ZeroDivisionError):
                 continue
-        # CPU quota limits parallel admission, not forward progress. A host
-        # with a fractional CPU must still be able to run one snapshot.
+        # CPU quota bounds parallel work; measured memory admission is done
+        # only after the first complete snapshot establishes its actual cost.
         return max(1, min(configured, cpus))
+
+    def additional_snapshot_slots(self, configured: int, active: int, observed_cost: int | None) -> int:
+        if not observed_cost:
+            # Stage one complete real capture before spending memory on parallel
+            # hook trees. A zero-cost/failed probe cannot justify fanout.
+            return 1 if active == 0 and configured > 0 else 0
+        headroom = self.memory_headroom()
+        return self.slots_for_headroom(configured, active, observed_cost, headroom[1] if headroom else 0)
+
+    @staticmethod
+    def slots_for_headroom(configured: int, active: int, observed_cost: int, available: int) -> int:
+        slots = max(0, configured - active)
+        if observed_cost > 0:
+            # Active captures can still grow to the measured peak. Reserve for
+            # that growth before promising the remaining headroom to new work.
+            unpromised = max(0, available - active * observed_cost)
+            slots = min(slots, unpromised // observed_cost)
+        return max(1, slots) if active == 0 and configured else slots
+
+    def memory_headroom(self) -> tuple[int, int, int] | None:
+        """Return workload RAM+swap usage, effective headroom, and host headroom."""
+        try:
+            meminfo = {
+                name: int(value.split()[0]) * 1024
+                for name, value in (line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines() if ":" in line)
+            }
+            host_swap_free = meminfo.get("SwapFree", 0)
+            host_available = meminfo["MemAvailable"] + host_swap_free
+        except (OSError, ValueError, KeyError):
+            host_swap_free = psutil.swap_memory().free
+            host_available = psutil.virtual_memory().available + host_swap_free
+
+        available = host_available
+        used_bytes = None
+        for path in self.cgroup_paths():
+            try:
+                memory_max = (path / "memory.max").read_text().strip()
+                if memory_max == "max":
+                    continue
+                current = int((path / "memory.current").read_text())
+                swap_max = (path / "memory.swap.max").read_text().strip()
+                swap_current = int((path / "memory.swap.current").read_text())
+                swap_room = host_swap_free if swap_max == "max" else min(host_swap_free, max(0, int(swap_max) - swap_current))
+                available = min(available, max(0, int(memory_max) - current) + swap_room)
+                if used_bytes is None:
+                    used_bytes = current + swap_current
+            except (OSError, ValueError, KeyError):
+                continue
+        if used_bytes is None:
+            # Bare-metal and non-Linux installs have no finite cgroup. Count
+            # the real runner process tree rather than the entire host.
+            try:
+                process = psutil.Process()
+                processes = [process, *process.children(recursive=True)]
+            except (psutil.Error, OSError):
+                return None
+            used_bytes = 0
+            for child in processes:
+                try:
+                    used_bytes += child.memory_info().rss
+                except (psutil.Error, OSError):
+                    continue
+        return used_bytes, available, host_available
 
     def observe_memory_stalls(self, source: str, total: int, avg10: float, sampled_at: float) -> bool:
         previous = self._memory_stalls.get(source)

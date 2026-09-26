@@ -232,6 +232,10 @@ class CrawlRunner:
         self.snapshot_tasks: dict[str, asyncio.Task[None]] = {}
         self.snapshot_semaphore = asyncio.Semaphore(1)
         self.max_concurrent_snapshots = 1
+        self._warmup_snapshot_id: str | None = None
+        self._memory_baseline: tuple[int, int] | None = None
+        self._memory_peak_cost = 0
+        self._observed_snapshot_cost: int | None = None
         self._resource_deferred = False
         self._initial_snapshot_admitted = False
         self.persona = None
@@ -498,10 +502,15 @@ class CrawlRunner:
         if task is not None and not task.done():
             return
         current_event = crawl_start_event or get_current_event()
+        if not isinstance(current_event, CrawlStartEvent) and in_handler_context():
+            return
+        if self._observed_snapshot_cost is None and self._warmup_snapshot_id is None:
+            observation = resource_admission.memory_headroom()
+            self._memory_baseline = (observation[0], observation[2]) if observation is not None else None
+            self._memory_peak_cost = 0
+            self._warmup_snapshot_id = snapshot_id
         if isinstance(current_event, CrawlStartEvent):
             task = asyncio.create_task(self.run_snapshot(snapshot_id, current_event), context=_runner_task_context())
-        elif in_handler_context():
-            return
         else:
             task = asyncio.create_task(self.run_snapshot(snapshot_id), context=_runner_task_context())
         self._initial_snapshot_admitted = False
@@ -530,6 +539,7 @@ class CrawlRunner:
                 if task.done():
                     if self.snapshot_tasks.get(snapshot_id) is task:
                         self.snapshot_tasks.pop(snapshot_id, None)
+                    self._finish_warmup_snapshot(snapshot_id)
                     try:
                         task.result()
                     except asyncio.CancelledError as err:
@@ -554,13 +564,16 @@ class CrawlRunner:
                     return
                 continue
             await self.heartbeat_active_leases()
-            done, _pending = await asyncio.wait(pending_tasks, timeout=10.0, return_when=asyncio.FIRST_COMPLETED)
+            self._observe_snapshot_memory()
+            done, _pending = await asyncio.wait(pending_tasks, timeout=RESOURCE_RECHECK_SECONDS, return_when=asyncio.FIRST_COMPLETED)
+            self._observe_snapshot_memory()
             if not done:
                 continue
             for task in done:
                 for snapshot_id, tracked_task in list(self.snapshot_tasks.items()):
                     if tracked_task is task:
                         self.snapshot_tasks.pop(snapshot_id, None)
+                        self._finish_warmup_snapshot(snapshot_id)
                         break
                 try:
                     task.result()
@@ -577,6 +590,36 @@ class CrawlRunner:
                 stop_scheduling = True
             if not stop_scheduling and enqueue_projected:
                 await self.enqueue_pending_snapshots_from_projection()
+
+    def _observe_snapshot_memory(self) -> None:
+        if self._memory_baseline is None:
+            return
+        observation = resource_admission.memory_headroom()
+        if observation is not None:
+            used, _available, host_available = observation
+            baseline_used, baseline_host_available = self._memory_baseline
+            # Host headroom sees helpers outside ArchiveBox's cgroup. Keep a
+            # high-water cost as later URLs may use more than the first one.
+            # Never divide concurrent growth by task count: their pages vary.
+            self._memory_peak_cost = max(
+                self._memory_peak_cost,
+                used - baseline_used,
+                baseline_host_available - host_available,
+            )
+            if self._observed_snapshot_cost is not None:
+                self._observed_snapshot_cost = max(self._observed_snapshot_cost, self._memory_peak_cost)
+
+    def _finish_warmup_snapshot(self, snapshot_id: str) -> None:
+        if snapshot_id != self._warmup_snapshot_id or self._observed_snapshot_cost is not None:
+            return
+        self._observe_snapshot_memory()
+        if self._memory_peak_cost > 0:
+            self._observed_snapshot_cost = self._memory_peak_cost
+        else:
+            # No observed cost cannot justify parallel admission. Probe the
+            # next real snapshot while the queue keeps moving one at a time.
+            self._memory_baseline = None
+        self._warmup_snapshot_id = None
 
     async def heartbeat_active_leases(self) -> None:
         # These are resumable work-item leases, not orchestrator-election
@@ -645,7 +688,11 @@ class CrawlRunner:
         self.max_concurrent_snapshots = resource_admission.snapshot_limit(int(config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"]))
 
         active_snapshot_ids = [snapshot_id for snapshot_id, task in self.snapshot_tasks.items() if not task.done()]
-        available_slots = max(0, self.max_concurrent_snapshots - len(active_snapshot_ids))
+        available_slots = resource_admission.additional_snapshot_slots(
+            self.max_concurrent_snapshots,
+            len(active_snapshot_ids),
+            self._observed_snapshot_cost,
+        )
         if available_slots <= 0:
             return
         pending_snapshot_ids = await sync_to_async(
@@ -997,7 +1044,8 @@ class CrawlRunner:
             if self.initial_snapshot_ids is not None:
                 remaining_snapshot_ids = iter(snapshot_ids)
                 while True:
-                    batch = list(zip(range(self.max_concurrent_snapshots), remaining_snapshot_ids, strict=False))
+                    slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
+                    batch = list(zip(range(slots), remaining_snapshot_ids, strict=False))
                     if not batch:
                         return
                     for _slot, snapshot_id in batch:
@@ -1008,7 +1056,8 @@ class CrawlRunner:
                         await self.enqueue_snapshot(snapshot_id)
                     await self.wait_for_snapshot_tasks(enqueue_projected=False)
             else:
-                for snapshot_id in snapshot_ids[: self.max_concurrent_snapshots]:
+                slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
+                for snapshot_id in snapshot_ids[:slots]:
                     if await self.crawl_is_cancelled():
                         break
                     if await self.crawl_is_paused():
