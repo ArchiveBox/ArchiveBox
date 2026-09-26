@@ -401,6 +401,28 @@ def test_daphne_worker_uses_default_application_close_timeout():
     assert "--application-close-timeout=0" not in command
 
 
+def test_daphne_worker_uses_callers_python_runtime(tmp_path):
+    from archivebox.workers.supervisord_util import SERVER_WORKER, _worker_environment_value
+
+    worker = SERVER_WORKER("127.0.0.1", "5797")
+    command = shlex.split(worker["command"])
+    assert command[:3] == [sys.executable, "-m", "daphne"]
+
+    stale_venv = tmp_path / "stale-venv"
+    subprocess.run(["uv", "venv", "--python", sys.executable, str(stale_venv)], check=True, capture_output=True, text=True)
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join((str(stale_venv / "bin"), "/usr/bin", "/bin"))
+    env["VIRTUAL_ENV"] = str(stale_venv)
+    for key in ("PATH", "VIRTUAL_ENV"):
+        value = _worker_environment_value(worker, key)
+        if value is not None:
+            env[key] = value
+
+    result = subprocess.run([*command, "--help"], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    assert "usage:" in result.stdout
+
+
 @pytest.mark.parametrize("in_docker,port", [(False, "5797"), (False, "8000"), (True, "5797"), (True, "9579")])
 @pytest.mark.parametrize("debug", [False, True])
 def test_port_compatibility_does_not_add_listeners_outside_docker_defaults(tmp_path, in_docker, port, debug):

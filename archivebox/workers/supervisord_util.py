@@ -359,24 +359,30 @@ def SUPERVISORD_PARENT_WATCHDOG_WORKER(
     }
 
 
-SERVER_WORKER = lambda host, port: {
-    "name": "worker_daphne",
-    "command": _shell_join(
-        [
-            str(resolve_env_binary("daphne")),
-            f"--bind={host}",
-            f"--port={port}",
-            "archivebox.core.asgi:application",
-        ],
-    ),
-    "autostart": "false",
-    "autorestart": "true",
-    "stopasgroup": "true",
-    "killasgroup": "true",
-    "stopwaitsecs": "1",
-    "stdout_logfile": "logs/worker_daphne.log",
-    "redirect_stderr": "true",
-}
+def SERVER_WORKER(host: str, port: str) -> dict[str, str]:
+    # The shared binary projection may belong to another ArchiveBox install.
+    # Its Daphne shebang would load that install's plugins/templates even when
+    # the CLI and crawl workers use this runtime, so retain the caller's Python.
+    command = [
+        sys.executable,
+        "-m",
+        "daphne",
+        f"--bind={host}",
+        f"--port={port}",
+        "archivebox.core.asgi:application",
+    ]
+    return {
+        "name": "worker_daphne",
+        "command": _shell_join(command),
+        "environment": _archivebox_worker_environment(command),
+        "autostart": "false",
+        "autorestart": "true",
+        "stopasgroup": "true",
+        "killasgroup": "true",
+        "stopwaitsecs": "1",
+        "stdout_logfile": "logs/worker_daphne.log",
+        "redirect_stderr": "true",
+    }
 
 
 def RUNSERVER_WORKER(host: str, port: str, *, reload: bool, nothreading: bool = False):
