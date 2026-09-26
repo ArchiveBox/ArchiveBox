@@ -1010,11 +1010,15 @@ def kill_processes_for_data_dir(data_dir: Path) -> None:
             continue
         if pid != os.getpid():
             try:
-                os.kill(pid, signal.SIGTERM)
-            except ProcessLookupError:
+                # Retain the process identity before signalling: a fast, clean
+                # exit can remove the PID before a subsequent Process lookup.
+                # terminate() also checks that the PID has not been reused.
+                process = psutil.Process(pid)
+                process.terminate()
+            except psutil.NoSuchProcess:
                 pass
             else:
-                processes.append(psutil.Process(pid))
+                processes.append(process)
     _gone, alive = psutil.wait_procs(processes, timeout=10)
     assert not alive, f"processes did not stop after SIGTERM: {[proc.pid for proc in alive]}"
 
