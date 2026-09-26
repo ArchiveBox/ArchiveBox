@@ -61,6 +61,55 @@ function addLaunchArg(args, arg) {
   if (!args.includes(arg)) args.push(arg);
 }
 
+async function waitForVisibleCardPreviews(page) {
+  // The page load event does not wait for nested lazy card images. Capture their
+  // decoded pixels, without forcing hidden alternatives or offscreen cards to load.
+  const cardHandles = await page.$$('iframe[title$=" card"]');
+  const visibleFrames = [];
+  for (const cardHandle of cardHandles) {
+    const visible = await cardHandle.evaluate((iframe) => {
+      const rect = iframe.getBoundingClientRect();
+      const style = getComputedStyle(iframe);
+      return rect.width > 0
+        && rect.height > 0
+        && rect.bottom > 0
+        && rect.right > 0
+        && rect.top < innerHeight
+        && rect.left < innerWidth
+        && style.visibility !== 'hidden'
+        && Number(style.opacity) > 0;
+    });
+    if (!visible) continue;
+
+    const expectedUrl = await cardHandle.evaluate((iframe) => iframe.src);
+    const frame = await cardHandle.contentFrame();
+    if (!frame) throw new Error('Visible snapshot card iframe has no loaded document');
+    visibleFrames.push({frame, expectedUrl});
+  }
+
+  await Promise.all(visibleFrames.map(async ({frame, expectedUrl}) => {
+    await frame.waitForFunction(async (url) => {
+      if (location.href !== url || document.readyState !== 'complete') return false;
+      const images = [...document.images].filter((img) => {
+        const rect = img.getBoundingClientRect();
+        const style = getComputedStyle(img);
+        return rect.width > 0
+          && rect.height > 0
+          && rect.bottom > 0
+          && rect.right > 0
+          && rect.top < innerHeight
+          && rect.left < innerWidth
+          && style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && Number(style.opacity) > 0;
+      });
+      if (!images.every((img) => img.complete && img.naturalWidth > 0)) return false;
+      await Promise.all(images.map((img) => img.decode()));
+      return true;
+    }, {timeout: 45000}, expectedUrl);
+  }));
+}
+
 async function main() {
   if (process.argv.includes('--help') || process.argv.includes('-h')) {
     usage();
@@ -258,10 +307,12 @@ async function main() {
         fs.mkdirSync(path.dirname(variantPath), { recursive: true });
         await page.setViewport({width: variant.width, height: variant.height, deviceScaleFactor: 1});
         await new Promise((resolve) => setTimeout(resolve, 300));
+        await waitForVisibleCardPreviews(page);
         await page.screenshot({ path: variantPath, fullPage });
         screenshotPaths.push(variantPath);
       }
     } else {
+      await waitForVisibleCardPreviews(page);
       await page.screenshot({ path: output, fullPage });
       screenshotPaths.push(output);
     }
