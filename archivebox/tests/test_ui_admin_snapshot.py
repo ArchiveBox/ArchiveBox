@@ -986,7 +986,8 @@ class TestSnapshotProgressStats:
     def test_write_html_details_succeeds_with_index_only_fallback_output(self, snapshot):
         output_dir = Path(snapshot.output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(REPO_ROOT / "README.md", output_dir / "index.jsonl")
+        snapshot.write_index_jsonl()
+        assert {json.loads(line)["type"] for line in (output_dir / "index.jsonl").read_text().splitlines()} >= {"Snapshot", "Crawl"}
 
         snapshot.write_html_details()
 

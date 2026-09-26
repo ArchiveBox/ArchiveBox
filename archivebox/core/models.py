@@ -3585,8 +3585,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             entry = Path(path)
             if len(entry.parts) != 1 or entry.name in ("index.html", "index.json", "favicon.ico"):
                 continue
-            if filesystem_index is not None and entry.name == "index.jsonl":
-                continue
             if entry.suffix.lstrip(".").lower() not in embeddable_exts or entry.stem in seen:
                 continue
             outputs.append(
@@ -3742,7 +3740,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             # A snapshot's index.jsonl is a manifest, not another captured
             # output card. Preserve it as the preview fallback only when the
             # manifest is the snapshot's sole available output.
-            if any(output.get("result") is not None for output in outputs):
+            if any(output.get("path") != "index.jsonl" for output in outputs):
                 outputs = [output for output in outputs if output.get("path") != "index.jsonl"]
         outputs_by_name: dict[str, dict[str, Any]] = {}
         result_ids_by_name: dict[str, list[str]] = {}
