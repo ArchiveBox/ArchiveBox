@@ -105,8 +105,22 @@ def test_stable_release_reconciles_concurrent_version_only_dev_bump(tmp_path, de
     result = subprocess.run(["bash", "-c", sync_step["run"]], cwd=work, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     merged = _git(work, "ls-remote", "origin", "refs/heads/dev").split()[0]
+
+    channel_step = next(
+        step for step in yaml.safe_load(RELEASE_CANDIDATE_WORKFLOW.read_text())["jobs"]["prepare"]["steps"] if step.get("id") == "channel"
+    )
+
+    def stable_channel(sha, branch="dev"):
+        output = tmp_path / "channel-output"
+        output.write_text("")
+        channel_env = {**env, "GITHUB_SHA": sha, "GITHUB_REF_NAME": branch, "GITHUB_OUTPUT": str(output)}
+        result = subprocess.run(["bash", "-c", channel_step["run"]], cwd=work, env=channel_env, capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr
+        return output.read_text().strip()
+
     if dev_change == "no_bump":
         assert merged == stable
+        assert stable_channel(merged) == "stable=true"
         return
     if dev_change:
         assert merged == candidate
@@ -116,6 +130,10 @@ def test_stable_release_reconciles_concurrent_version_only_dev_bump(tmp_path, de
     assert _git(work, "rev-list", "--parents", "-n", "1", merged).split() == [merged, stable, candidate]
     assert _git(work, "rev-parse", f"{merged}^{{tree}}") == _git(work, "rev-parse", f"{stable}^{{tree}}")
     assert _git(work, "merge-base", stable, candidate) == base
+    # Reconciliation creates a new merge commit with the tested main tree. Its
+    # candidate workflow must not immediately bump dev and undo synchronization.
+    assert stable_channel(merged) == "stable=true"
+    assert stable_channel(merged, branch="main") == "stable=false"
 
     tag_script = next(step["run"] for step in steps if step.get("id") == "docker_meta")
     start = tag_script.index("SYNC_DEV=false")
@@ -135,6 +153,7 @@ def test_stable_release_reconciles_concurrent_version_only_dev_bump(tmp_path, de
     _git(work, "commit", "-m", "New dev source change")
     _git(work, "push", "origin", "HEAD:refs/heads/dev")
     assert sync_dev() == "false"
+    assert stable_channel(_git(work, "rev-parse", "HEAD")) == "stable=false"
 
 
 def test_release_uses_registered_publisher_and_authorized_tag_credentials():

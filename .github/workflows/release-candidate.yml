@@ -31,8 +31,14 @@ jobs:
         run: |
           set -Eeuo pipefail
           VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
-          MAIN_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if [[ "$GITHUB_REF_NAME" == dev && "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ && "$MAIN_SHA" == "$GITHUB_SHA" ]]; then
+          git fetch --no-tags origin main
+          MAIN_SHA="$(git rev-parse origin/main)"
+          # Stable reconciliation may preserve dev history with a merge commit.
+          # Its tree still matches main; bumping it would undo synchronization
+          # before the stable publisher can advance the Docker :dev tag.
+          if [[ "$GITHUB_REF_NAME" == dev && "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
+             git merge-base --is-ancestor "$MAIN_SHA" "$GITHUB_SHA" &&
+             git diff --quiet "$MAIN_SHA" "$GITHUB_SHA"; then
             echo 'stable=true' >> "$GITHUB_OUTPUT"
           else
             echo 'stable=false' >> "$GITHUB_OUTPUT"
