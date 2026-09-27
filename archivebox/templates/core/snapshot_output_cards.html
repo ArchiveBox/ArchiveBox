@@ -6,7 +6,7 @@
                         <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}" data-output-size="{{result.size|default:0}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
                                 <div class="thumb-body">
                                     <div class="thumb-actions">
-                                        {% if not STATIC_EXPORT %}<a href="{% snapshot_files_url snapshot result.folder_path|default:result.name %}" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
+                                        {% if not STATIC_EXPORT %}<a href="{% snapshot_files_url snapshot result.folder_path %}" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
                                         {% if display_path %}
                                             <a href="{{display_url}}" data-no-preview="1" title="Download output file" download>⬇️</a>
                                         {% endif %}

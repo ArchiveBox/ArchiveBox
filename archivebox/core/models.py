@@ -3755,6 +3755,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         output_sizes = plugin_output_sizes(archive_results)
         for name, output in outputs_by_name.items():
             output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
+            output["folder_path"] = (
+                output["result"].output_folder_path() if output.get("result") is not None else str(Path(str(output["path"])).parent)
+            )
+            if output["folder_path"] == ".":
+                output["folder_path"] = ""
             if name in output_sizes:
                 output["size"] = output_sizes[name]
 
@@ -4719,6 +4724,14 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         fast and predictable without filesystem probes.
         """
         return self.embed_path_db()
+
+    def output_folder_path(self) -> str:
+        """Return the physical folder for this result's files, using saved metadata."""
+        output_path = self.embed_path_db()
+        if output_path and not output_path.startswith(f"{self.plugin}/"):
+            parent = Path(output_path).parent.as_posix()
+            return "" if parent == "." else parent
+        return self.plugin
 
     @property
     def output_dir_name(self) -> str:

@@ -281,12 +281,14 @@ def test_snapshot_admin_zip_links(real_hook_result):
 
 def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins():
     from archivebox.core.admin_snapshots import SnapshotAdmin
+    from archivebox.core.admin_archiveresults import ArchiveResultAdmin
     from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.core.routes_util import build_snapshot_files_url
 
     snapshot = _create_snapshot()
     output_path = Path(snapshot.output_dir) / "singlefile.html"
     output_path.write_text("<html>migrated singlefile</html>", encoding="utf-8")
-    ArchiveResult.objects.create(
+    root_result = ArchiveResult.objects.create(
         snapshot=snapshot,
         plugin="singlefile",
         hook_name="on_Snapshot__50_singlefile.py",
@@ -297,7 +299,14 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     )
     admin = SnapshotAdmin(Snapshot, AdminSite())
     admin.request = _admin_get_request()
-
+    result_admin = ArchiveResultAdmin(ArchiveResult, AdminSite())
+    result_admin.request = admin.request
+    assert result_admin.get_output_files_url(root_result) == build_snapshot_files_url(
+        str(snapshot.id),
+        request=admin.request,
+        config=admin.request.archivebox_config,
+    )
+    assert result_admin.get_output_zip_url(root_result).endswith("/?files=1&download=zip")
     file_icons = str(admin.files(snapshot))
     expected_path = f"/{snapshot.archive_path_from_db}#singlefile"
     assert expected_path in html.unescape(file_icons)
@@ -314,7 +323,7 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     assert 'data-tooltip="singlefile"' in file_icons
     assert 'title="singlefile"' not in file_icons
 
-    ArchiveResult.objects.create(
+    plugin_result = ArchiveResult.objects.create(
         snapshot=snapshot,
         plugin="screenshot",
         hook_name="on_Snapshot__50_screenshot.py",
@@ -322,6 +331,12 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
         output_str="screenshot/screenshot.png",
         output_files={"screenshot/screenshot.png": {"size": 1}},
         output_size=1,
+    )
+    assert result_admin.get_output_files_url(plugin_result) == build_snapshot_files_url(
+        str(snapshot.id),
+        "screenshot",
+        request=admin.request,
+        config=admin.request.archivebox_config,
     )
     ArchiveResult.objects.create(
         snapshot=snapshot,
@@ -362,6 +377,11 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     all_file_icons = str(admin.files(snapshot))
     assert all_file_icons.count('class="exists-True') == 22
     assert "+" not in all_file_icons
+
+    from django.template.loader import render_to_string
+
+    cards_html = render_to_string("core/snapshot_output_cards.html", snapshot.get_html_details_context(request=admin.request))
+    assert f'href="{result_admin.get_output_files_url(root_result)}" data-no-preview="1" title="Open output folder"' in cards_html
 
 
 def test_admin_navigation_hides_agent_link_when_opencode_is_disabled(client, admin_user):

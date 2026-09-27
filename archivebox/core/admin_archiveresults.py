@@ -681,7 +681,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
         request = self.request
         return build_snapshot_files_url(
             str(result.snapshot_id),
-            result.plugin,
+            result.output_folder_path(),
             request=request,
             config=request.archivebox_config,
         )
@@ -690,7 +690,7 @@ class ArchiveResultAdmin(BaseModelAdmin):
         request = self.request
         return build_snapshot_zip_url(
             str(result.snapshot_id),
-            result.plugin,
+            result.output_folder_path(),
             request=request,
             config=request.archivebox_config,
         )
