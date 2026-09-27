@@ -53,4 +53,3 @@ jobs:
           branch: ${{ github.ref_name }}
           tag-prefix: v
           version-scheme: ${{ github.ref_name == 'main' && 'patch' || 'rc' }}
-
