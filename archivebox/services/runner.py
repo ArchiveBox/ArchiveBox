@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextvars
 import json
+import logging
 import os
 import signal
 import shutil
@@ -233,7 +234,7 @@ class CrawlRunner:
         self.snapshot_semaphore = asyncio.Semaphore(1)
         self.max_concurrent_snapshots = 1
         self._warmup_snapshot_id: str | None = None
-        self._memory_baseline: tuple[int, int] | None = None
+        self._memory_baseline: int | None = None
         self._memory_peak_cost = 0
         self._observed_snapshot_cost: int | None = None
         self._resource_deferred = False
@@ -506,7 +507,7 @@ class CrawlRunner:
             return
         if self._observed_snapshot_cost is None and self._warmup_snapshot_id is None:
             observation = resource_admission.memory_headroom()
-            self._memory_baseline = (observation[0], observation[2]) if observation is not None else None
+            self._memory_baseline = observation[0] if observation is not None else None
             self._memory_peak_cost = 0
             self._warmup_snapshot_id = snapshot_id
         if isinstance(current_event, CrawlStartEvent):
@@ -596,15 +597,13 @@ class CrawlRunner:
             return
         observation = resource_admission.memory_headroom()
         if observation is not None:
-            used, _available, host_available = observation
-            baseline_used, baseline_host_available = self._memory_baseline
-            # Host headroom sees helpers outside ArchiveBox's cgroup. Keep a
-            # high-water cost as later URLs may use more than the first one.
-            # Never divide concurrent growth by task count: their pages vary.
+            used, _available = observation
+            # Only attribute this workload's growth to a capture. Other jobs on
+            # the host reduce available headroom, but are not a per-capture cost
+            # to multiply again for every snapshot we want to admit.
             self._memory_peak_cost = max(
                 self._memory_peak_cost,
-                used - baseline_used,
-                baseline_host_available - host_available,
+                used - self._memory_baseline,
             )
             if self._observed_snapshot_cost is not None:
                 self._observed_snapshot_cost = max(self._observed_snapshot_cost, self._memory_peak_cost)
@@ -615,6 +614,13 @@ class CrawlRunner:
         self._observe_snapshot_memory()
         if self._memory_peak_cost > 0:
             self._observed_snapshot_cost = self._memory_peak_cost
+            headroom = resource_admission.memory_headroom()
+            logging.getLogger(__name__).info(
+                "Snapshot admission: concurrency limit=%s, observed memory growth=%s bytes, available=%s bytes",
+                self.max_concurrent_snapshots,
+                self._observed_snapshot_cost,
+                headroom[1] if headroom else None,
+            )
         else:
             # No observed cost cannot justify parallel admission. Probe the
             # next real snapshot while the queue keeps moving one at a time.

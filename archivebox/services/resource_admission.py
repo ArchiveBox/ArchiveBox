@@ -130,8 +130,8 @@ class ResourceAdmission:
             slots = min(slots, unpromised // observed_cost)
         return max(1, slots) if active == 0 and configured else slots
 
-    def memory_headroom(self) -> tuple[int, int, int] | None:
-        """Return workload RAM+swap usage, effective headroom, and host headroom."""
+    def memory_headroom(self) -> tuple[int, int] | None:
+        """Return workload RAM+swap usage and effective available headroom."""
         try:
             meminfo = {
                 name: int(value.split()[0]) * 1024
@@ -173,7 +173,7 @@ class ResourceAdmission:
                     used_bytes += child.memory_info().rss
                 except (psutil.Error, OSError):
                     continue
-        return used_bytes, available, host_available
+        return used_bytes, available
 
     def observe_memory_stalls(self, source: str, total: int, avg10: float, sampled_at: float) -> bool:
         previous = self._memory_stalls.get(source)
