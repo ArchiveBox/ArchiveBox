@@ -115,7 +115,9 @@ def test_stable_release_reconciles_concurrent_version_only_dev_bump(tmp_path, de
     assert result.returncode == 0, result.stderr
     merged = _git(work, "ls-remote", "origin", "refs/heads/dev").split()[0]
 
-    channel_step = next(step for step in yaml.safe_load(CI_WORKFLOW.read_text())["jobs"]["prepare"]["steps"] if step.get("id") == "channel")
+    prepare_path = yaml.safe_load(CI_WORKFLOW.read_text())["jobs"]["prepare"]["uses"]
+    prepare = yaml.safe_load((REPO_ROOT / prepare_path).read_text())
+    channel_step = next(step for step in prepare["jobs"]["prepare"]["steps"] if step.get("id") == "channel")
 
     def stable_channel(sha, branch="dev"):
         output = tmp_path / "channel-output"
