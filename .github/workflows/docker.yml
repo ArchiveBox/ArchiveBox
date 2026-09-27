@@ -295,7 +295,7 @@ jobs:
             '
 
       - name: Validate exact built image version and commit
-        if: ${{ !inputs.push_digests }}
+        if: inputs.full_tests
         shell: bash
         run: |
           set -Eeuo pipefail

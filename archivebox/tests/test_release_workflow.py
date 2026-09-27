@@ -191,6 +191,11 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert 'DIGEST_RUN_ID="$CI_RUN_ID"' in gate
     assert 'ARTIFACT_RUN_ID="$CANDIDATE_RUN_ID"' not in gate
     assert 'DIGEST_RUN_ID="$CANDIDATE_RUN_ID"' not in gate
+    docker_workflow = yaml.safe_load(DOCKER_WORKFLOW.read_text())
+    version_check = next(
+        step for step in docker_workflow["jobs"]["build"]["steps"] if step.get("name") == "Validate exact built image version and commit"
+    )
+    assert version_check["if"] == "inputs.full_tests"
     pip_workflow = yaml.safe_load(PIP_WORKFLOW.read_text())
     install_script = next(
         step["run"] for step in pip_workflow["jobs"]["build"]["steps"] if step.get("name") == "Release wheel import and CLI smoke"
