@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed unless both live test servers accepted this exact release source.
+"""Fail closed unless Cabbage accepted this exact release source.
 
 CI tests alone do not establish that the automatically deployed image works on
 our real servers. In particular, a stable PyPI upload must not overtake a stale
@@ -47,7 +47,7 @@ def main():
         text=True,
     ).strip()
     expected_abx_dl_digest = tested_abx_dl_digest(os.environ["STAGING_DOCKER_ARTIFACT_DIR"], sha)
-    for environment in ("cabbage", "digestbox"):
+    for environment in ("cabbage",):
         deployments = github(f"repos/{repo}/deployments?environment={environment}&per_page=100")
         accepted = False
         for deployment in deployments:

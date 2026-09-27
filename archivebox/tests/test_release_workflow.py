@@ -259,7 +259,7 @@ def test_stable_publication_requires_live_acceptance_before_upload():
     workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
     publisher = workflow["jobs"]["python-release"]
     steps = publisher["steps"]
-    gate = next(i for i, step in enumerate(steps) if step.get("name") == "Require matching acceptance on Cabbage and DigestBox")
+    gate = next(i for i, step in enumerate(steps) if step.get("name") == "Require matching acceptance on Cabbage")
     upload = next(i for i, step in enumerate(steps) if step.get("name") == "Publish the exact tested distributions")
     assert gate < upload
     # The same guard applies to automatic and manually requested stable releases.
@@ -267,6 +267,14 @@ def test_stable_publication_requires_live_acceptance_before_upload():
     assert "verify-staging-release.py" in steps[gate]["run"]
     assert not steps[gate].get("continue-on-error")
     assert publisher["permissions"]["deployments"] == "read"
+    staging = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "staging-acceptance.yml").read_text())
+    assert staging["jobs"]["acceptance"]["strategy"]["matrix"]["target"] == ["cabbage"]
+    verifier = VERIFY_STAGING_SCRIPT.read_text()
+    assert 'for environment in ("cabbage",):' in verifier
+    assert "source_fingerprint" in verifier
+    assert 'inspection.get("health") != "healthy"' in verifier
+    assert "expected_abx_dl_digest" in verifier
+    assert 'run["conclusion"] != "success"' in verifier
 
 
 def test_staging_gate_matches_the_exact_tested_docker_base_digest(tmp_path):
@@ -274,7 +282,7 @@ def test_staging_gate_matches_the_exact_tested_docker_base_digest(tmp_path):
     publisher = workflow["jobs"]["python-release"]
     steps = publisher["steps"]
     metadata = next(step for step in steps if step.get("name") == "Download tested Docker base-image metadata")
-    gate = next(step for step in steps if step.get("name") == "Require matching acceptance on Cabbage and DigestBox")
+    gate = next(step for step in steps if step.get("name") == "Require matching acceptance on Cabbage")
     assert metadata["with"]["run-id"] == "${{ env.DOCKER_DIGEST_RUN_ID }}"
     assert publisher["env"]["DOCKER_DIGEST_RUN_ID"] == "${{ needs.candidate.outputs.digest_run_id }}"
     assert metadata["with"]["pattern"] == "digest-*"

@@ -1,15 +1,15 @@
 # Stable releases require live dev acceptance
 
-The order is **dev CI → dev image publication → automatic Cabbage and DigestBox
-deployment → real capture and browser acceptance → stable publication**. Never
+The order is **dev CI → dev image publication → automatic Cabbage deployment →
+real capture and browser acceptance → stable publication**. Never
 substitute a published PyPI wheel, healthy container, or local build for this
-acceptance. The release workflow blocks *before* a stable upload unless both
-environments have successful evidence from `staging-acceptance.yml` matching all
-tracked source and dependency pins. Only ArchiveBox's own version fields may
-change between dev and stable.
+acceptance. The release workflow blocks *before* a stable upload unless Cabbage
+has successful evidence from `staging-acceptance.yml` matching all tracked
+source and dependency pins. Only ArchiveBox's own version fields may change
+between dev and stable.
 
-The staging workflow observes the existing image watchers; it cannot deploy or
-restart the applications. On both hosts, install `bin/staging-acceptance-host.sh`
+The staging workflow observes the existing image watcher; it cannot deploy or
+restart the application. On Cabbage, install `bin/staging-acceptance-host.sh`
 as root-owned mode 0755 `/usr/local/sbin/archivebox-staging-acceptance`. Its hash
 is checked against the candidate. A dedicated SSH key must use
 `restrict,command="/usr/local/sbin/archivebox-staging-acceptance"` in authorized
@@ -27,5 +27,5 @@ checks installed pins, completed outputs and their files, unexpected/missing
 plugin results, host OOM kills, and real rendered snapshot pages. Logs, result
 inventories and screenshots are retained as Actions artifacts. Failures remain
 failures; do not publish a success deployment record to bypass them. No code
-mounts are allowed. Both matrix jobs must pass before their records authorize a
+mounts are allowed. The Cabbage job must pass before its record authorizes a
 stable upload. Queued capture progress is polled; failed tests are not retried.

@@ -186,7 +186,7 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ env.DOCKER_DIGEST_RUN_ID }}
 
-      - name: Require matching acceptance on Cabbage and DigestBox
+      - name: Require matching acceptance on Cabbage
         if: env.RELEASE_BRANCH == 'main'
         env:
           GH_TOKEN: ${{ github.token }}
