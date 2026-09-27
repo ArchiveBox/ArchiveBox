@@ -312,6 +312,38 @@ def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("status", ["queued", "started", "paused"])
+def test_empty_snapshot_keeps_live_progress_until_files_are_opened(snapshot, live_server, status):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import sync_playwright
+
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.status = status
+    snapshot.save(update_fields=["permissions", "status"])
+    Path(snapshot.output_dir).mkdir(parents=True, exist_ok=True)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        page = browser.new_page()
+        page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}")
+        assert page.locator("#progress-monitor").is_visible()
+        assert page.locator("#progress-monitor .progress-content").is_visible()
+        assert page.locator("#snapshot-empty-state").is_visible()
+        assert page.locator("#main-frame").count() == 0
+
+        page.get_by_role("button", name=re.compile("^Other files,")).click()
+        page.locator("#main-frame").wait_for()
+        assert page.locator("#progress-monitor").count() == 0
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 def test_opening_files_from_queued_snapshot_stops_detached_progress_monitor(snapshot, live_server):
     from urllib.parse import urlsplit
 

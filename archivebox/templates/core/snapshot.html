@@ -1671,6 +1671,13 @@
                     return false
                 }
 
+                // A new snapshot has only the synthetic "Browse all files" card.
+                // Selecting it would replace the live monitor with an empty index.
+                // Keep progress/empty state until the user explicitly opens a file.
+                if (document.getElementById('main-frame-wrapper')?.dataset.hasOutputs !== '1') {
+                    return false
+                }
+
                 const selectedCard = document.querySelector('.thumb-card.selected-card') || document.querySelector('.thumb-card')
                 const selectedLink = selectedCard && (selectedCard.querySelector('a[target=preview]') || selectedCard.querySelector('a'))
                 if (selectedCard && selectedLink) {

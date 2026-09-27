@@ -1,6 +1,9 @@
 """Live progress UI tests."""
 
+import json
+import os
 import subprocess
+import time
 import uuid
 from datetime import datetime, timezone as dt_timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,10 +18,46 @@ from django.urls import reverse
 from django.utils import timezone
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST
-from archivebox.tests.conftest import cli_env, resolve_abxpkg_binary_env, run_archivebox_cmd
+from archivebox.tests.conftest import REPO_ROOT, cli_env, resolve_abxpkg_binary_env, resolve_abxpkg_chrome_env, run_archivebox_cmd
 from archivebox.tests.test_archive_result_service import _run_shipped_snapshot_hook
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+@pytest.fixture
+def live_screenshot_command(snapshot, live_server, cached_abxpkg_lib_dir, tmp_path):
+    from urllib.parse import urlsplit
+
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.url = "https://sweeting.me"
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["url", "permissions"])
+    Path(snapshot.output_dir).mkdir(parents=True, exist_ok=True)
+    binary_env = resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
+    variants = [
+        {"path": str(tmp_path / f"{name}.png"), "width": width, "height": height}
+        for name, width, height in [("desktop", 1600, 1000), ("tablet", 1024, 1366), ("mobile", 390, 844)]
+    ]
+    env = {
+        **os.environ,
+        **binary_env,
+        "NODE_PATH": str(cached_abxpkg_lib_dir / "pnpm/packages/chrome/node_modules"),
+        "SCREENSHOT_HOST_RESOLVER_RULES": "MAP *.archivebox.localhost 127.0.0.1",
+        "SCREENSHOT_REQUIRE_LIVE_PROGRESS": "1",
+        "SCREENSHOT_VARIANTS_JSON": json.dumps(variants),
+    }
+    command = [
+        binary_env["NODE_BINARY"],
+        str(REPO_ROOT / "bin/take_screenshot.js"),
+        f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}",
+        variants[0]["path"],
+    ]
+    return command, env, variants
 
 
 @pytest.fixture
@@ -141,6 +180,79 @@ def real_crawl_setup_process(snapshot, hermetic_lib_dir):
 
 
 class TestLiveProgressView:
+    def test_gallery_capture_fails_without_live_screencast(self, live_screenshot_command):
+        command, env, variants = live_screenshot_command
+        started = time.monotonic()
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=75)
+        elapsed = time.monotonic() - started
+        assert result.returncode != 0, result.stdout
+        assert "Live progress with a decoded screencast frame was not visible within 60 seconds" in result.stderr
+        assert 60 <= elapsed < 75, (elapsed, result.stderr)
+        assert not any(Path(variant["path"]).exists() for variant in variants)
+
+    def test_gallery_captures_real_sweeting_screencast(self, crawl, snapshot, live_screenshot_command):
+        from struct import unpack
+
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import run_due_snapshot
+
+        config = {
+            "PLUGINS": "chrome,chrome_screencast,title,wget,screenshot,dom,pdf",
+            "PERMISSIONS": "public",
+            "CHROME_HEADLESS": True,
+            "CHROME_SANDBOX": False,
+            "CHROME_ISOLATION": "snapshot",
+            "CHROME_TIMEOUT": 90,
+            "CHROME_PAGELOAD_TIMEOUT": 90,
+            "CHROME_DELAY_AFTER_LOAD": 30,
+            "TIMEOUT": 90,
+        }
+        Crawl.objects.filter(pk=crawl.pk).update(
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=timezone.now(),
+            urls=snapshot.url,
+            config=config,
+        )
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now(), config=config)
+        snapshot = Snapshot.objects.get(pk=snapshot.pk)
+        errors = []
+
+        def run_snapshot():
+            try:
+                assert run_due_snapshot(snapshot, lock_seconds=120) is True
+            except BaseException as err:
+                errors.append(err)
+
+        runner = Thread(target=run_snapshot, name="archivebox-test-marketing-capture")
+        command, env, variants = live_screenshot_command
+        capture = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        runner.start()
+        try:
+            stdout, stderr = capture.communicate(timeout=75)
+            assert capture.returncode == 0, stderr
+            report = json.loads(stdout)
+            assert report["checks"]["screencastImageLoaded"] is True
+            captures = report["checks"]["liveProgressCaptures"]
+            assert len(captures) == len(variants)
+            for saved, variant in zip(captures, variants, strict=True):
+                assert saved["ready"] is True, saved
+                assert saved["screencastImageHasContent"] is True, saved
+                assert saved["snapshotId"] == str(snapshot.pk).replace("-", "")
+                assert saved["runningExtractors"] > 0
+                assert saved["screencastImageUrl"].split("?")[0].endswith(f"/crawl/{crawl.pk}/files/chrome_screencast/latest.jpg")
+                png = Path(variant["path"]).read_bytes()
+                assert png[:8] == b"\x89PNG\r\n\x1a\n"
+                assert unpack(">II", png[16:24]) == (variant["width"], variant["height"])
+            Path(variants[0]["path"]).with_suffix(".json").write_text(stdout)
+        finally:
+            if capture.poll() is None:
+                capture.terminate()
+                capture.communicate(timeout=10)
+            runner.join(timeout=120)
+        assert not runner.is_alive()
+        assert errors == []
+
     def test_collection_summary_reports_stored_sizes(self, client, admin_user, snapshot):
         import time
         from django.core.cache import cache

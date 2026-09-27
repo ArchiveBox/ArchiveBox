@@ -26,6 +26,7 @@ Environment:
   SCREENSHOT_FULL_PAGE       Set to 1 to capture the full page, defaults to viewport only
   SCREENSHOT_SCROLL_SELECTOR Scroll this selector into view before capture
   SCREENSHOT_WAIT_SELECTOR   Wait for this selector before capture
+  SCREENSHOT_REQUIRE_LIVE_PROGRESS  Require active snapshot progress and a nonblank decoded screencast within 60s
   SCREENSHOT_CLICK_SELECTOR  Click this selector before capture
   SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR  Wait for this selector after clicking
   SCREENSHOT_HOST_RESOLVER_RULES  Chrome host resolver rules
@@ -61,7 +62,7 @@ function addLaunchArg(args, arg) {
   if (!args.includes(arg)) args.push(arg);
 }
 
-async function waitForVisibleCardPreviews(page) {
+async function waitForVisibleCardPreviews(page, timeout = 45000) {
   // The page load event does not wait for nested lazy card images. Capture their
   // decoded pixels, without forcing hidden alternatives or offscreen cards to load.
   const cardHandles = await page.$$('iframe[title$=" card"]');
@@ -106,8 +107,112 @@ async function waitForVisibleCardPreviews(page) {
       if (!images.every((img) => img.complete && img.naturalWidth > 0)) return false;
       await Promise.all(images.map((img) => img.decode()));
       return true;
-    }, {timeout: 45000}, expectedUrl);
+    }, {timeout}, expectedUrl);
   }));
+}
+
+async function liveProgressState(readyOnly = false, rejectedFrameUrl = '') {
+  const visible = (element, inViewport = true) => {
+    if (!element || !element.checkVisibility({checkOpacity: true, checkVisibilityCSS: true})) return false;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    if (!inViewport) return true;
+    const left = Math.max(0, rect.left);
+    const right = Math.min(innerWidth, rect.right);
+    const top = Math.max(0, rect.top);
+    const bottom = Math.min(innerHeight, rect.bottom);
+    return right > left && bottom > top
+      && element.contains(document.elementFromPoint((left + right) / 2, (top + bottom) / 2));
+  };
+  const monitor = document.querySelector('#progress-monitor[data-progress-scope="snapshot"]');
+  const panel = monitor?.querySelector('.screencast-panel.visible[data-mode="frame"]');
+  const img = panel?.querySelector('.screencast-frame img');
+  const src = img?.currentSrc || '';
+  const snapshotId = monitor
+    ? new URL(monitor.dataset.progressEndpoint, location.href).searchParams.get('snapshot_id')
+    : '';
+  const snapshot = [...(monitor?.querySelectorAll('.snapshot-item') || [])]
+    .find((item) => item.dataset.snapshotId?.replaceAll('-', '') === snapshotId?.replaceAll('-', ''));
+  const state = {
+    url: location.href,
+    title: document.title,
+    progressMonitorVisible: visible(monitor),
+    progressDetailsVisible: visible(monitor?.querySelector('.progress-content')),
+    snapshotId,
+    snapshotStarted: Boolean(snapshot?.querySelector('.status-badge.started')),
+    runningExtractors: [...(snapshot?.querySelectorAll('.extractor-badge.started') || [])]
+      .filter((element) => visible(element, false)).length,
+    screencastVisible: visible(panel) && visible(img),
+    screencastPlaceholderVisible: visible(monitor?.querySelector('.screencast-placeholder')),
+    screencastImageLoaded: Boolean(img?.complete && img.naturalWidth > 0 && img.naturalHeight > 0),
+    screencastImageSize: img ? `${img.naturalWidth}x${img.naturalHeight}` : '',
+    screencastImageUrl: src,
+  };
+  state.ready = state.progressMonitorVisible && state.progressDetailsVisible
+    && state.snapshotStarted && state.runningExtractors > 0
+    && state.screencastVisible && !state.screencastPlaceholderVisible && state.screencastImageLoaded
+    && /\/api\/v1\/crawls\/crawl\/[^/]+\/files\/chrome_screencast\/latest\.jpg$/.test(new URL(src || 'about:blank').pathname);
+  if (!readyOnly) return state;
+  if (!state.ready || src === rejectedFrameUrl) return false;
+  try {
+    await img.decode();
+  } catch {
+    return false;
+  }
+  return img.isConnected && img.currentSrc === src && visible(img) ? state : false;
+}
+
+async function waitForLiveProgress(page, deadline, screencastResponses) {
+  let rejectedFrameUrl = '';
+  try {
+    while (Date.now() < deadline) {
+      const handle = await page.waitForFunction(liveProgressState, {timeout: Math.max(1, deadline - Date.now()), polling: 100}, true, rejectedFrameUrl);
+      const state = await handle.jsonValue();
+      await handle.dispose();
+      // Chrome's initial frame can be a fully decoded, solid black/white image.
+      // Inspect the exact response displayed by the UI, without requesting a
+      // newer latest.jpg or bypassing its normal authentication/CORS behavior.
+      const response = screencastResponses.get(state.screencastImageUrl);
+      if (!response) throw new Error('Displayed screencast has no observed image response');
+      const imageData = `data:image/jpeg;base64,${(await response.buffer()).toString('base64')}`;
+      const hasContent = await page.evaluate(async (data) => {
+        const img = new Image();
+        img.src = data;
+        await img.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 64;
+        const context = canvas.getContext('2d');
+        // Ignore the outer edges: a site header alone can appear while the
+        // actual page is still blank. Marketing captures need page content.
+        context.drawImage(img, img.naturalWidth * 0.1, img.naturalHeight * 0.1,
+          img.naturalWidth * 0.8, img.naturalHeight * 0.8, 0, 0, 64, 64);
+        const pixels = context.getImageData(0, 0, 64, 64).data;
+        // Check each channel separately: a solid colored frame is also blank.
+        return [0, 1, 2].some((channel) => {
+          let min = 255;
+          let max = 0;
+          for (let i = channel; i < pixels.length; i += 4) {
+            min = Math.min(min, pixels[i]);
+            max = Math.max(max, pixels[i]);
+          }
+          return max - min > 16;
+        });
+      }, imageData);
+      if (hasContent) {
+        const current = await page.evaluate(liveProgressState);
+        if (current.ready && current.screencastImageUrl === state.screencastImageUrl) {
+          return {...current, screencastImageHasContent: true};
+        }
+      } else {
+        rejectedFrameUrl = state.screencastImageUrl;
+      }
+    }
+    throw new Error('Live progress deadline expired');
+  } catch (error) {
+    const state = await page.evaluate(liveProgressState).catch(() => ({url: page.url()}));
+    if (rejectedFrameUrl) state.rejectedBlankFrameUrl = rejectedFrameUrl;
+    throw new Error(`Live progress with a decoded screencast frame was not visible within 60 seconds: ${JSON.stringify(state)}`, {cause: error});
+  }
 }
 
 async function main() {
@@ -121,6 +226,7 @@ async function main() {
   const width = Number(process.env.SCREENSHOT_WIDTH || 1600);
   const height = Number(process.env.SCREENSHOT_HEIGHT || 1400);
   const fullPage = process.env.SCREENSHOT_FULL_PAGE === '1';
+  const requireLiveProgress = process.env.SCREENSHOT_REQUIRE_LIVE_PROGRESS === '1';
   const variants = process.env.SCREENSHOT_VARIANTS_JSON
     ? JSON.parse(process.env.SCREENSHOT_VARIANTS_JSON)
     : [];
@@ -162,6 +268,14 @@ async function main() {
     await page.setCacheEnabled(false);
     await Promise.all(restoredPages.map((restoredPage) => restoredPage.close()));
     page.setDefaultTimeout(45000);
+    const screencastResponses = new Map();
+    if (requireLiveProgress) {
+      page.on('response', (response) => {
+        if (/\/files\/chrome_screencast\/latest\.jpg$/.test(new URL(response.url()).pathname) && response.ok()) {
+          screencastResponses.set(response.url(), response);
+        }
+      });
+    }
 
     const client = await page.createCDPSession();
     const documentRequests = new Map();
@@ -209,6 +323,7 @@ async function main() {
       await page.setCookie(cookie);
     }
 
+    const liveProgressDeadline = Date.now() + 60000;
     let navigationResponse = await page.goto(url, { waitUntil: 'load', timeout: 60000 });
 
     if (process.env.SCREENSHOT_LOGIN_USERNAME || process.env.SCREENSHOT_LOGIN_PASSWORD) {
@@ -249,7 +364,11 @@ async function main() {
       }, process.env.SCREENSHOT_SCROLL_SELECTOR);
     }
 
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    if (requireLiveProgress) {
+      await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
+    } else {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
 
     const checks = await page.evaluate(() => ({
       url: location.href,
@@ -301,20 +420,26 @@ async function main() {
     }
 
     const screenshotPaths = [];
+    if (requireLiveProgress) checks.liveProgressCaptures = [];
+    const capture = async (screenshotPath) => {
+      await waitForVisibleCardPreviews(page, requireLiveProgress ? Math.max(1, liveProgressDeadline - Date.now()) : 45000);
+      if (requireLiveProgress) {
+        const liveProgress = await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
+        checks.liveProgressCaptures.push({path: screenshotPath, viewport: page.viewport(), ...liveProgress});
+      }
+      await page.screenshot({path: screenshotPath, fullPage});
+      screenshotPaths.push(screenshotPath);
+    };
     if (variants.length) {
       for (const variant of variants) {
         const variantPath = path.resolve(variant.path);
         fs.mkdirSync(path.dirname(variantPath), { recursive: true });
         await page.setViewport({width: variant.width, height: variant.height, deviceScaleFactor: 1});
         await new Promise((resolve) => setTimeout(resolve, 300));
-        await waitForVisibleCardPreviews(page);
-        await page.screenshot({ path: variantPath, fullPage });
-        screenshotPaths.push(variantPath);
+        await capture(variantPath);
       }
     } else {
-      await waitForVisibleCardPreviews(page);
-      await page.screenshot({ path: output, fullPage });
-      screenshotPaths.push(output);
+      await capture(output);
     }
     console.log(JSON.stringify({ screenshotPath: screenshotPaths[0], screenshotPaths, checks }, null, 2));
   } finally {

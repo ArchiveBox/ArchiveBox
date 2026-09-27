@@ -145,7 +145,7 @@ if [[ "$HAS_USEFUL_SNAPSHOT" == "0" ]]; then
             --overwrite \
             --tag=documentation,reference \
             --plugins=title,headers,wget,screenshot,pdf,dom,readability,htmltotext,hashes,dns \
-            https://example.com https://archivebox.io
+            https://docs.sweeting.me/s/cookie-dilemma https://archivebox.io
     )
 fi
 
@@ -521,6 +521,7 @@ PY
                     SCREENSHOT_WIDTH=1600 \
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$live_variants" \
+                    SCREENSHOT_REQUIRE_LIVE_PROGRESS=1 \
                     SCREENSHOT_SNAPSHOT_HEADER=expanded \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
@@ -649,19 +650,21 @@ PY
         ) >"$CAPTURE_ROOT/sweeting-live-capture.log" 2>&1 &
         ARCHIVE_PID=$!
 
+        # Open the detail page once archiving starts, so its initial state and
+        # the live monitor both show the capture in progress.
         LIVE_SNAPSHOT_VIEW_URL=""
         for _attempt in $(seq 1 120); do
             LIVE_SNAPSHOT_RECORD="$( (
                 cd "$DATA_DIR"
                 UI_SCREENSHOT_CAPTURE_STARTED_AT="$SWEETING_CAPTURE_STARTED_AT" uv run --no-cache --project "$REPO_DIR" archivebox manage shell --no-imports -c \
-                    'import os; from urllib.parse import urlsplit; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url__startswith="https://sweeting.me",bookmarked_at__gte=started_at).order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{url}\t{urlsplit(url).path}" if snapshot else "")'
+                    'import os; from urllib.parse import urlsplit; from django.utils.dateparse import parse_datetime; from archivebox.core.models import Snapshot; from archivebox.core.routes_util import build_snapshot_detail_url; started_at=parse_datetime(os.environ["UI_SCREENSHOT_CAPTURE_STARTED_AT"]); snapshot=Snapshot.objects.filter(url__startswith="https://sweeting.me",bookmarked_at__gte=started_at,status="started").order_by("-bookmarked_at").first(); url=build_snapshot_detail_url(snapshot.archive_path_from_db) if snapshot else ""; print(f"{url}\t{urlsplit(url).path}" if snapshot else "")'
             ) | tail -1)"
             if [[ -n "$LIVE_SNAPSHOT_RECORD" ]]; then
                 IFS=$'\t' read -r LIVE_SNAPSHOT_VIEW_URL LIVE_SNAPSHOT_VIEW_PATH <<<"$LIVE_SNAPSHOT_RECORD"
                 break
             fi
             if ! kill -0 "$ARCHIVE_PID" 2>/dev/null; then
-                echo "[!] Sweeting.me capture exited before creating a snapshot" >&2
+                echo "[!] Sweeting.me capture exited before an active snapshot could be opened" >&2
                 tail -100 "$CAPTURE_ROOT/sweeting-live-capture.log" >&2
                 exit 1
             fi
