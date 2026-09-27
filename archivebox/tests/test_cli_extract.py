@@ -85,7 +85,7 @@ def test_wget_literal_percent_output_url_serves_captured_file(initialized_archiv
     """Replay the real HedgeDoc link-interstitial file saved by wget."""
     import shutil
     from urllib.parse import quote
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 
     source_url = "https://docs.sweeting.me/_link?url=http%3A%2F%2Farchive.org%2F"
     ui_snapshot = snapshot
@@ -171,15 +171,16 @@ def test_wget_literal_percent_output_url_serves_captured_file(initialized_archiv
         frame = page.locator("#main-frame")
         assert expected_path in frame.get_attribute("src")
         preview = page.frame_locator("#main-frame")
-        assert "External link" in preview.locator("body").inner_text()
-        assert "Continue to external page" in preview.locator("body").inner_text()
+        # Setting the iframe src does not mean its document has finished loading.
+        expect(preview.locator("body")).to_contain_text("External link")
+        expect(preview.locator("body")).to_contain_text("Continue to external page")
 
         page.reload(wait_until="domcontentloaded")
         frame = page.locator("#main-frame")
         assert expected_path in frame.get_attribute("src")
         preview = page.frame_locator("#main-frame")
-        assert "External link" in preview.locator("body").inner_text()
-        assert "Continue to external page" in preview.locator("body").inner_text()
+        expect(preview.locator("body")).to_contain_text("External link")
+        expect(preview.locator("body")).to_contain_text("Continue to external page")
         browser.close()
 
 
