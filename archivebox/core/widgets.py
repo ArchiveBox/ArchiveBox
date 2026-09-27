@@ -717,7 +717,7 @@ class InlineTagEditorWidget(TagEditorWidget):
                 )
             pills_html += f'''
                 <span class="tag-pill" data-tag="{self._escape(td["name"])}" data-tag-id="{td["id"]}" style="{self._tag_style(td["name"])}">
-                    <a href="/admin/core/snapshot/?tags__id__exact={td["id"]}" class="tag-link">{self._escape(td["name"])}</a>
+                    <a href="/admin/core/snapshot/?tags__id__exact={td["id"]}" class="tag-link" title="{self._escape(td["name"])}">{self._escape(td["name"])}</a>
                     {remove_button}
                 </span>
             '''

@@ -1155,7 +1155,19 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
     opacity: 0.75;
 }
 
+#result_list tbody td.field-preview_icon {
+    position: relative;
+}
+
+#result_list tbody td.field-preview_icon > a {
+    position: absolute;
+    inset: 4px 2px;
+    display: block;
+}
+
 #result_list tbody td.field-preview_icon .snapshot-thumbnail {
+    width: 100% !important;
+    height: 100% !important;
     transition: box-shadow 140ms ease, transform 140ms ease;
 }
 
@@ -2226,7 +2238,7 @@ tbody .output-link:hover {opacity: 1;}
     .model-snapshot.change-list #result_list tbody th.field-created_at_display > a,
     .model-snapshot.change-list #result_list tbody td.field-created_at_display > a {
         display: inline-flex;
-        max-width: none;
+        max-width: 100%;
         white-space: nowrap !important;
     }
 
@@ -2234,8 +2246,10 @@ tbody .output-link:hover {opacity: 1;}
     .model-snapshot.change-list #result_list tbody td.field-created_at_display .snapshot-created-at {
         display: inline-flex;
         flex-direction: row !important;
+        flex-wrap: wrap;
         justify-content: center;
         gap: 5px;
+        row-gap: 0;
         white-space: nowrap !important;
     }
 
@@ -2250,13 +2264,10 @@ tbody .output-link:hover {opacity: 1;}
         grid-area: preview;
         align-self: stretch;
         place-items: center;
-        min-height: 110px;
         overflow: hidden;
     }
 
     .model-snapshot.change-list #result_list tbody td.field-preview_icon .snapshot-thumbnail {
-        width: 80px !important;
-        height: 110px !important;
         max-width: 100%;
         box-sizing: border-box;
     }
@@ -2278,7 +2289,7 @@ tbody .output-link:hover {opacity: 1;}
         padding-left: 0;
     }
 
-    .model-snapshot.change-list #result_list tbody td.field-title_str a {
+    .model-snapshot.change-list #result_list tbody td.field-title_str > a {
         display: block;
         max-width: 100%;
         overflow-wrap: anywhere;
@@ -2514,25 +2525,11 @@ tbody .output-link:hover {opacity: 1;}
     }
 
     .model-snapshot.change-list #result_list tbody tr {
-        grid-template-columns: 24px 84px minmax(0, 1fr);
         gap: 2px 4px;
-        grid-template-areas:
-            "check preview date"
-            "check preview title"
-            "check preview tags"
-            "check preview status"
-            "check preview files"
-            "check preview size";
     }
 
     .model-snapshot.change-list #result_list tbody td.field-files .files-icons {
         gap: 0;
-    }
-
-    .model-snapshot.change-list #result_list tbody td.field-status_with_progress,
-    .model-snapshot.change-list #result_list tbody td.field-size_with_stats {
-        justify-self: start;
-        text-align: left;
     }
 }
 

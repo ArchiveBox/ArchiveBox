@@ -85,6 +85,7 @@
             link.href = '/admin/core/snapshot/?tags__id__exact=' + td.id;
             link.className = 'tag-link';
             link.textContent = td.name;
+            link.title = td.name;
             pill.appendChild(link);
 
             var removeBtn = document.createElement('button');

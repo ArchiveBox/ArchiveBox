@@ -79,6 +79,13 @@
   }
   .cards .card .card-tags span {
       display: inline-block;
+      max-width: min(160px, 100%);
+      box-sizing: border-box;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+      pointer-events: auto;
       padding: 2px 5px;
       border-radius: 5px;
       opacity: 0.95;
@@ -283,16 +290,16 @@
           <div class="card-media">
             <a href="{% snapshot_detail_url obj %}" class="card-thumbnail">
               {% snapshot_thumbnail obj admin=True width="100%" height="245px" %}
-            </a>
               {% if obj.tags_str %}
                 <div class="card-tags">
                   {% for tag in obj.tags_str|split:',' %}
-                    <span>
+                    <span title="{{tag}}">
                       {{tag}}
                     </span>
                   {% endfor %}
                 </div>
               {% endif %}
+            </a>
           </div>
           <div class="card-outputs">
             {% if obj.status == 'started' %}

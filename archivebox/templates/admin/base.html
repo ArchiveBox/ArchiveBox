@@ -1527,6 +1527,9 @@
                 display: inline-flex;
                 flex-wrap: wrap;
                 align-items: center;
+                min-width: 0;
+                max-width: 100%;
+                box-sizing: border-box;
                 gap: 4px;
                 padding: 2px 4px;
                 background: transparent;
@@ -1540,15 +1543,27 @@
                 flex-wrap: wrap;
                 gap: 4px;
                 align-items: center;
+                min-width: 0;
+                max-width: 100%;
             }
 
             .tag-editor-inline .tag-pill {
+                min-width: 0;
+                max-width: min(160px, 100%);
+                box-sizing: border-box;
                 padding: 2px 6px 2px 8px;
                 font-size: 11px;
                 border-radius: 12px;
             }
 
+            .tag-editor-inline .tag-link {
+                min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
             .tag-editor-inline .tag-remove-btn {
+                flex-shrink: 0;
                 width: 14px;
                 height: 14px;
                 font-size: 12px;

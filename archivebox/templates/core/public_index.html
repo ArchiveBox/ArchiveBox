@@ -198,19 +198,27 @@
     }
 
     .snapshot-preview-cell {
+        position: relative;
         width: 110px;
         min-width: 116px;
         vertical-align: middle;
     }
 
     .snapshot-preview-cell a {
+        position: absolute;
+        top: 10px;
+        bottom: 10px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         width: 102px;
-        height: 102px;
         line-height: 0;
         vertical-align: middle;
+    }
+
+    .snapshot-preview-cell .snapshot-thumbnail {
+        width: 100% !important;
+        height: 100% !important;
     }
 
     #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview,
@@ -330,9 +338,10 @@
     }
 
     .snapshot-tag {
-        display: inline-flex;
-        align-items: center;
-        max-width: 160px;
+        display: block;
+        min-width: 0;
+        max-width: min(160px, 100%);
+        box-sizing: border-box;
         padding: 2px 7px;
         border: 1px solid #bfdbfe;
         border-radius: 999px;
@@ -585,7 +594,8 @@
 
         .snapshot-preview-cell a {
             width: 82px;
-            height: 82px;
+            top: 7px;
+            bottom: 7px;
         }
 
         #content .public-snapshot-list .snapshot-preview-cell .snapshot-preview,

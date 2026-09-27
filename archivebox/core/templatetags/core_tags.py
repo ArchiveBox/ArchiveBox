@@ -775,7 +775,9 @@ def snapshot_index_row(context, link) -> str:
     title = unescape(getattr(link, "title", "") or "")
     title_text = title or url
     tags_str = link.tags_str() if callable(getattr(link, "tags_str", None)) else getattr(link, "tags_str", "")
-    tag_html = "".join(f'<span class="snapshot-tag">{escape(tag)}</span>' for tag in (tags_str or "").split(",") if tag)
+    tag_html = "".join(
+        f'<span class="snapshot-tag" title="{escape(tag)}">{escape(tag)}</span>' for tag in (tags_str or "").split(",") if tag
+    )
     if tag_html:
         tag_cell = f'<span class="snapshot-tags">{tag_html}</span>'
     else:
