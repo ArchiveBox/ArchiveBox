@@ -5,6 +5,7 @@ import importlib.util
 import shlex
 import os
 import re
+import shutil
 import subprocess
 
 import pytest
@@ -276,6 +277,84 @@ def test_stable_publication_requires_live_acceptance_before_upload():
     assert 'inspection.get("health") != "healthy"' in verifier
     assert "expected_abx_dl_digest" in verifier
     assert 'run["conclusion"] != "success"' in verifier
+
+
+def test_staging_acceptance_uses_published_image_source_not_workflow_run_head():
+    release = yaml.safe_load(RELEASE_WORKFLOW.read_text())
+    docker_steps = release["jobs"]["docker-release"]["steps"]
+    verified = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Verify published Docker images run")
+    source = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Record published image source")
+    uploaded = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Upload published image source")
+    assert verified < source < uploaded
+    assert docker_steps[uploaded]["with"]["name"] == "published-image-source"
+
+    staging_text = (REPO_ROOT / ".github" / "workflows" / "staging-acceptance.yml").read_text()
+    assert "branches: [dev]" not in staging_text
+    assert "workflow_run.head_branch" not in staging_text
+    assert "workflow_run.head_sha" not in staging_text
+    staging = yaml.safe_load(staging_text)
+    published = staging["jobs"]["published"]
+    download = next(step for step in published["steps"] if step.get("name") == "Download published image source")
+    assert download["with"]["name"] == docker_steps[uploaded]["with"]["name"]
+    assert download["with"]["run-id"] == "${{ github.event.workflow_run.id }}"
+    assert "head_branch" not in published["if"]
+    assert published["outputs"]["sha"] == "${{ steps.source.outputs.sha }}"
+    assert published["outputs"]["ready"] == "${{ steps.source.outputs.ready }}"
+    assert '"$RELEASE_BRANCH"' in docker_steps[source]["run"]
+    assert '"$RELEASE_SHA"' in docker_steps[source]["run"]
+    assert '"$branch" == dev' in next(step for step in published["steps"] if step.get("id") == "source")["run"]
+
+    acceptance = staging["jobs"]["acceptance"]
+    assert acceptance["steps"][0]["with"]["ref"] == "${{ needs.published.outputs.sha }}"
+    verify = next(
+        step for step in acceptance["steps"] if step.get("name") == "Verify actual deployment, full captures and rendered snapshots"
+    )
+    assert verify["env"]["STAGING_SHA"] == "${{ needs.published.outputs.sha }}"
+
+
+@pytest.mark.parametrize(("branch", "ready"), [("dev", "true"), ("main", "false")])
+def test_staging_selects_actual_published_branch(tmp_path, branch, ready):
+    release = yaml.safe_load(RELEASE_WORKFLOW.read_text())
+    record = next(step for step in release["jobs"]["docker-release"]["steps"] if step.get("name") == "Record published image source")
+    staging = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "staging-acceptance.yml").read_text())
+    select = next(step for step in staging["jobs"]["published"]["steps"] if step.get("id") == "source")
+    jq = shutil.which("jq")
+    assert jq is not None
+    sha = "a" * 40
+    output = tmp_path / "github-output"
+    output.touch()
+    env = {
+        **os.environ,
+        "RUNNER_TEMP": str(tmp_path),
+        "GITHUB_OUTPUT": str(output),
+        "JQ_BINARY": jq,
+        "RELEASE_BRANCH": branch,
+        "RELEASE_SHA": sha,
+    }
+
+    recorded = subprocess.run(["bash", "-c", record["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert recorded.returncode == 0, recorded.stderr
+    source = tmp_path / "published-image-source" / "source.json"
+    assert json.loads(source.read_text()) == {"branch": branch, "sha": sha}
+
+    selected = subprocess.run(["bash", "-c", select["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert selected.returncode == 0, selected.stderr
+    assert output.read_text().splitlines() == [f"sha={sha}", f"ready={ready}"]
+
+
+def test_staging_rejects_published_source_with_malformed_sha(tmp_path):
+    staging = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "staging-acceptance.yml").read_text())
+    select = next(step for step in staging["jobs"]["published"]["steps"] if step.get("id") == "source")
+    source = tmp_path / "published-image-source" / "source.json"
+    source.parent.mkdir()
+    source.write_text(json.dumps({"branch": "dev", "sha": "not-a-sha"}))
+    output = tmp_path / "github-output"
+    output.touch()
+    env = {**os.environ, "RUNNER_TEMP": str(tmp_path), "GITHUB_OUTPUT": str(output)}
+
+    selected = subprocess.run(["bash", "-c", select["run"]], cwd=tmp_path, env=env, capture_output=True, text=True)
+    assert selected.returncode != 0
+    assert output.read_text() == ""
 
 
 def test_staging_gate_matches_the_exact_tested_docker_base_digest(tmp_path):

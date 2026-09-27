@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: [Release]
     types: [completed]
-    branches: [dev]
 
 permissions: {}
 
@@ -14,12 +13,13 @@ concurrency:
 
 jobs:
   published:
-    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'dev'
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     permissions:
       actions: read
     outputs:
-      ready: ${{ steps.image.outputs.ready }}
+      ready: ${{ steps.source.outputs.ready }}
+      sha: ${{ steps.source.outputs.sha }}
     steps:
       - id: image
         env:
@@ -27,8 +27,36 @@ jobs:
           RELEASE_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
           set -Eeuo pipefail
-          ready=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID/jobs?per_page=100" --jq 'any(.jobs[]; .name == "Publish tested multiarch image" and .conclusion == "success")')
-          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+          published=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RELEASE_RUN_ID/jobs?per_page=100" --jq 'any(.jobs[]; .name == "Publish tested multiarch image" and .conclusion == "success")')
+          echo "published=$published" >> "$GITHUB_OUTPUT"
+      - name: Download published image source
+        if: steps.image.outputs.published == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: published-image-source
+          path: ${{ runner.temp }}/published-image-source
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Select published dev image
+        id: source
+        if: steps.image.outputs.published == 'true'
+        run: |
+          set -Eeuo pipefail
+          # The triggering run may report the default branch as its head;
+          # this artifact names the image source verified by the publisher.
+          source="$RUNNER_TEMP/published-image-source/source.json"
+          jq -e 'type == "object" and (keys | sort) == ["branch", "sha"]' "$source" >/dev/null
+          branch=$(jq -er '.branch | select(type == "string")' "$source")
+          sha=$(jq -er '.sha | select(type == "string")' "$source")
+          [[ "$branch" == dev || "$branch" == main ]]
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          if [[ "$branch" == dev ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+          fi
   acceptance:
     # The privileged key is never exposed to PRs or arbitrary dispatch refs.
     needs: published
@@ -46,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ needs.published.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
@@ -66,7 +94,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           STAGING_TARGET: ${{ matrix.target }}
-          STAGING_SHA: ${{ github.event.workflow_run.head_sha }}
+          STAGING_SHA: ${{ needs.published.outputs.sha }}
           STAGING_KEY_FILE: ${{ runner.temp }}/staging-key
           STAGING_KNOWN_HOSTS_FILE: ${{ runner.temp }}/staging-known-hosts
         run: uv run --no-project --with playwright==1.63.0 python bin/check-staging-deployment.py
@@ -76,6 +104,6 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: staging-${{ matrix.target }}-${{ github.event.workflow_run.head_sha }}
+          name: staging-${{ matrix.target }}-${{ needs.published.outputs.sha }}
           path: staging-evidence/
           if-no-files-found: error

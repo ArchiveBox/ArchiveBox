@@ -549,6 +549,26 @@ jobs:
             test "$INSTALLED_VERSION" = "$VERSION"
           done
 
+      - name: Record published image source
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # workflow_run can report the default branch's head even when this
+          # run published a different branch/SHA. Preserve the verified target.
+          [[ "$RELEASE_BRANCH" == dev || "$RELEASE_BRANCH" == main ]]
+          [[ "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          mkdir -p "$RUNNER_TEMP/published-image-source"
+          # shellcheck disable=SC2016
+          "$JQ_BINARY" -n --arg branch "$RELEASE_BRANCH" --arg sha "$RELEASE_SHA" \
+            '{branch: $branch, sha: $sha}' > "$RUNNER_TEMP/published-image-source/source.json"
+
+      - name: Upload published image source
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: published-image-source
+          path: ${{ runner.temp }}/published-image-source/source.json
+          if-no-files-found: error
+
       - name: Update Docker Hub README
         uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4
         with:
