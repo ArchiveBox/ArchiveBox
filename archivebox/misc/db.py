@@ -445,7 +445,10 @@ def migration_lock(stdout: TextIO | None = None):
 
 
 # Migration names that previously existed in ArchiveBox's source tree but have
-# since been deleted (squashed away, renamed, moved between apps, etc.). DBs
+# since been deleted (squashed away, renamed, moved between apps, etc.), plus
+# exact older migrations generated in collection directories by v0.6.2's
+# startup makemigrations. Those runtime-generated names were never in Git, so
+# the deleted-file history alone cannot cover them. DBs
 # upgraded incrementally through 0.8.x → 0.9.x dev rcs accumulate rows for
 # these in ``django_migrations``; the newer-DB guard added in 65dc2521 would
 # otherwise refuse to start with "applied migrations missing from this build"
@@ -454,13 +457,18 @@ def migration_lock(stdout: TextIO | None = None):
 # splits the migration graph when only a *subset* of the replaces list is
 # applied (which is exactly what happens for users at different intermediate
 # dev branch states). This set is the authoritative compat list — extend it
-# when squashing more migrations away. Generated from
-# ``git log --diff-filter=D --name-only`` over each app's migrations/ tree.
+# when squashing more migrations away. The source-tracked names were generated
+# from ``git log --diff-filter=D --name-only`` over each app's migrations/ tree.
 HISTORICAL_GHOST_MIGRATIONS: frozenset[tuple[str, str]] = frozenset(
     {
         # core: 0023→0075 sequence plus every transient dev rename
         ("core", "0002_auto_20190417_0739"),
         ("core", "0006_auto_20200915_2006"),
+        # Reported v0.6.2 runtime-generated 0021 migrations; the checked-in
+        # replacement only changes ArchiveResult.extractor choices.
+        ("core", "0021_auto_20220510_0644"),
+        ("core", "0021_auto_20220724_1254"),
+        ("core", "0021_auto_20221128_1116"),
         ("core", "0023_alter_archiveresult_options_archiveresult_abid_and_more"),
         ("core", "0023_new_schema"),
         ("core", "0024_auto_20240513_1143"),

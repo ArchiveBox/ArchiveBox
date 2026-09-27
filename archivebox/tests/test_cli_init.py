@@ -254,19 +254,20 @@ def test_init_refuses_database_migrated_by_newer_code(tmp_path):
 
 
 def test_init_recovers_from_pre_squash_dev_history(tmp_path):
-    """Pre-squash dev DBs (rows for migrations now absorbed by ``replaces=``)
-    must NOT trip the newer-DB guard — every historical squash would otherwise
-    brick beta-tester collections that pre-date the squash commit."""
+    """Known historical migration rows must not trip the newer-DB guard."""
     result = run_archivebox_cmd(["init"])
     assert result.returncode == 0
 
-    # Sampling — one name per affected app, all listed in the ``replaces=``
-    # declarations of the current squash anchors. If any of these get treated
-    # as missing-from-code, dev DBs that ran the historical chain pre-squash
-    # would refuse to start.
+    # Sampling across affected apps, including v0.6.2 runtime-generated names
+    # absent from Git. These older collections must still pass init.
     historical_pre_squash_rows = [
         ("api", "0002_alter_apitoken_options"),
         ("api", "0009_rename_created_apitoken_created_at_and_more"),
+        # v0.6.2 ran makemigrations at init, so these reported 0021 names were
+        # created in collection data directories and never appeared in Git.
+        ("core", "0021_auto_20220510_0644"),
+        ("core", "0021_auto_20220724_1254"),
+        ("core", "0021_auto_20221128_1116"),
         ("core", "0023_alter_archiveresult_options_archiveresult_abid_and_more"),
         ("core", "0074_alter_snapshot_downloaded_at"),
         ("core", "0075_crawl"),
