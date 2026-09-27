@@ -111,6 +111,11 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
         else:
             os.environ["ARCHIVEBOX_WANTS_INIT"] = previous_wants_init
 
+    from archivebox.machine.models import Machine
+
+    # Registration requires the final schema and reconciles legacy file config.
+    Machine.current()
+
     from archivebox.misc.db import database_display_location, is_postgres
 
     assert database_exists()

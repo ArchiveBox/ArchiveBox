@@ -174,8 +174,12 @@ def cli(ctx, help=False):
                 archivebox_init(quick=True)
                 os.environ.pop("ARCHIVEBOX_WANTS_INIT", None)
             check_data_folder()
-            if subcommand != "update":
-                check_migrations(auto_apply=True)
+            if subcommand != "update" and not check_migrations(auto_apply=True):
+                from archivebox.machine.models import Machine
+
+                # Host registration and config reconciliation belong to CLI
+                # startup; get_config() is also used by read-only HTTP views.
+                Machine.current()
         except Exception as e:
             STDERR.print(f"[red][X] Error setting up Django or checking data folder: {e}[/red]")
             if subcommand not in ("manage", "shell"):  # not all management commands need django to be setup beforehand
