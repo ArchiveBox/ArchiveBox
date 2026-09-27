@@ -1113,7 +1113,7 @@ def get_config(
             if apps.ready:
                 from archivebox.machine.models import Machine
 
-                machine = Machine.current()
+                machine = Machine.current_readonly()
         except (DatabaseError, ImportError, RuntimeError, TypeError, ValueError):
             machine = None
 

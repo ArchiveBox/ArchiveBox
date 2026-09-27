@@ -1787,7 +1787,7 @@ def install_real_binary(
     from archivebox.machine.models import Binary, Machine
 
     binary = Binary.objects.create(
-        machine=machine or Machine.current(refresh=True),
+        machine=machine or Machine.current(),
         name=name,
         binproviders=binproviders,
         overrides=overrides or {},

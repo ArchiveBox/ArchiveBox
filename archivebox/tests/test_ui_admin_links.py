@@ -154,7 +154,7 @@ def running_process_record(initialized_archive):
     try:
         os_process = psutil.Process(popen.pid)
         process = Process.objects.create(
-            machine=Machine.current(refresh=True),
+            machine=Machine.current(),
             process_type=Process.TypeChoices.ORCHESTRATOR,
             pwd=str(initialized_archive),
             cmd=cmd,

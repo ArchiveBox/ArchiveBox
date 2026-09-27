@@ -1343,7 +1343,10 @@ class PublicIndexView(ListView):
                     "output_size",
                 )
             )
-            for result in results.iterator(chunk_size=1000):
+            # This is already bounded by the displayed snapshot page. Finish
+            # the SELECT before parsing output manifests: a streaming cursor
+            # otherwise keeps SQLite's read lock throughout rendering.
+            for result in list(results):
                 snapshot_key = str(result.snapshot_id)
                 all_results_by_snapshot[snapshot_key].append(result)
                 progress = progress_by_snapshot[snapshot_key]

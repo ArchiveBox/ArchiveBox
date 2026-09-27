@@ -853,7 +853,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
             retry_at=None,
         )
         snapshot = Snapshot.objects.create(url="https://example.com", crawl=crawl, status=Snapshot.StatusChoices.SEALED, retry_at=None)
-        machine = Machine.current(refresh=True)
+        machine = Machine.current()
         iface = NetworkInterface.current(refresh=True)
         hook_name = "on_Snapshot__01_title.daemon.bg"
         older_start = timezone.now() - timedelta(minutes=2)
@@ -935,7 +935,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         historical_plugin_dir.mkdir(parents=True)
         (historical_plugin_dir / "title.txt").write_text("preserved historical output")
         Process.objects.create(
-            machine=Machine.current(refresh=True),
+            machine=Machine.current(),
             iface=NetworkInterface.current(refresh=True),
             process_type=Process.TypeChoices.HOOK,
             worker_type="archiveresult",
@@ -1091,7 +1091,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         )
         snapshot = Snapshot.objects.create(url="https://revealjs.com/", crawl=crawl, status=Snapshot.StatusChoices.STARTED, retry_at=None)
         process = Process.objects.create(
-            machine=Machine.current(refresh=True),
+            machine=Machine.current(),
             iface=NetworkInterface.current(refresh=True),
             process_type=Process.TypeChoices.HOOK,
             worker_type="archiveresult",
@@ -1139,7 +1139,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
             retry_at=None,
         )
         process = Process.objects.create(
-            machine=Machine.current(refresh=True),
+            machine=Machine.current(),
             iface=NetworkInterface.current(refresh=True),
             process_type=Process.TypeChoices.HOOK,
             worker_type="archiveresult",
@@ -1487,7 +1487,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         )
         Crawl.objects.filter(id=crawl.id).update(modified_at=old, retry_at=old)
         Process.objects.create(
-            machine=Machine.current(refresh=True),
+            machine=Machine.current(),
             iface=NetworkInterface.current(refresh=True),
             process_type=Process.TypeChoices.HOOK,
             worker_type="archiveresult",
@@ -1518,7 +1518,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         runtime_dir.mkdir(parents=True)
         (runtime_dir / "stdout.log").write_bytes(b"\\xff\\xfe\\xfa")
         process = Process.objects.create(
-            machine=Machine.current(refresh=True),
+            machine=Machine.current(),
             iface=NetworkInterface.current(refresh=True),
             process_type=Process.TypeChoices.HOOK,
             worker_type="archiveresult",

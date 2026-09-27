@@ -520,7 +520,7 @@ class TestRecoverOrchestratorState:
                 retry_at=future,
             )
             process = Process.objects.create(
-                machine=Machine.current(refresh=True),
+                machine=Machine.current(),
                 iface=NetworkInterface.current(refresh=True),
                 process_type=Process.TypeChoices.HOOK,
                 worker_type="archiveresult",

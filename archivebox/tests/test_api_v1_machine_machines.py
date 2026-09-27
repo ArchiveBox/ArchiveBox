@@ -7,7 +7,7 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def test_basic_success_case_request(client, tmp_path, api_headers):
-    Machine.current(refresh=True)
+    Machine.current()
 
     response = client.get("/api/v1/machine/machines", **api_headers)
 

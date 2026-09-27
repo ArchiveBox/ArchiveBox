@@ -221,35 +221,21 @@ class Machine(ModelWithHealthStats):
         app_label = "machine"
 
     @classmethod
-    def current(cls, refresh: bool = False) -> Machine:
-        global _CURRENT_MACHINE
-        if refresh:
-            _CURRENT_MACHINE = None
-        if _CURRENT_MACHINE:
-            if timezone.now() < _CURRENT_MACHINE.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
-                # Reconciliation can save() and clear the shared cache; keep
-                # this call's instance so we never return None after that save.
-                machine = _CURRENT_MACHINE
-                # One-time-per-process reconciliation between ArchiveBox.conf
-                # and Machine.config. Fast-path: bool check + early-return when
-                # the sync has already run, so the cached-machine return path
-                # stays sub-microsecond.
-                try:
-                    from archivebox.config.collection import sync_machine_and_file
+    def current_readonly(cls) -> Machine | None:
+        """Read the current machine without registration, refresh, or config writes."""
+        if _CURRENT_MACHINE is not None:
+            return _CURRENT_MACHINE
+        return cls.objects.filter(guid=get_host_guid()).first()
 
-                    sync_machine_and_file(machine)
-                except Exception:
-                    pass
-                return machine
-            else:
-                _CURRENT_MACHINE = None
+    @classmethod
+    def current(cls) -> Machine:
+        global _CURRENT_MACHINE
+        if _CURRENT_MACHINE is not None:
+            return _CURRENT_MACHINE
 
         host_guid = get_host_guid()
-        # save() intentionally invalidates _CURRENT_MACHINE so config edits
-        # made through other instances become visible in this process. Host
-        # refresh (after seven days), sanitation, and reconciliation can all
-        # save here, so the working instance must not live only in that cache.
-        # Otherwise a routine refresh leaves startup dereferencing None.
+        # Host detection, sanitation, and config reconciliation run only on
+        # initial registration, never on cached reads.
         try:
             machine = cls.objects.get(guid=host_guid)
         except cls.DoesNotExist:
@@ -296,17 +282,14 @@ class Machine(ModelWithHealthStats):
                     ],
                 )
         machine = cls._sanitize_config(machine)
-        # Same one-time sync as the cached-return path. Triggers here on the
-        # very first ``Machine.current()`` call in a process before any
-        # cached return can occur.
+        # Reconcile once, on the first Machine.current() call in this process.
         try:
             from archivebox.config.collection import sync_machine_and_file
 
             sync_machine_and_file(machine)
         except Exception:
             pass
-        # Publish only after all save-capable steps; publishing earlier would
-        # let those steps invalidate the cache we are in the middle of filling.
+        # Publish only after initialization is complete.
         _CURRENT_MACHINE = machine
         return machine
 
@@ -377,18 +360,15 @@ class Machine(ModelWithHealthStats):
             if update_fields is not None:
                 kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
 
-        # Drop the ``Machine.current()`` module-level cache on every save so
-        # config edits (admin form, from_json, etc.) become live in the same
-        # process without waiting out the 7-day ``MACHINE_RECHECK_INTERVAL``.
-        # The cache reads ``_CURRENT_MACHINE.modified_at`` and that value
-        # never moves forward on the cached object even when the row is
-        # updated in the DB, so without this we'd keep serving stale
-        # ``machine.config`` (incl. ``BASE_URL``) until the worker restarts.
+        # Apply explicit edits to the cached instance without making the next
+        # read repeat host detection, sanitation, or config reconciliation.
         update_fields = kwargs.get("update_fields")
         super().save(*args, **kwargs)
         global _CURRENT_MACHINE
         if _CURRENT_MACHINE is not None and _CURRENT_MACHINE.pk == self.pk:
-            _CURRENT_MACHINE = None
+            for field in self._meta.concrete_fields:
+                if field.attname in self.__dict__ and (update_fields is None or field.name in update_fields):
+                    setattr(_CURRENT_MACHINE, field.attname, self.__dict__[field.attname])
 
         # Mirror Machine.config into ArchiveBox.conf so the two stores stay
         # 1:1. Skipped when ``update_fields`` is set and doesn't touch
@@ -443,7 +423,7 @@ class NetworkInterface(ModelWithHealthStats):
     @classmethod
     def current(cls, refresh: bool = False) -> NetworkInterface:
         global _CURRENT_INTERFACE
-        machine = Machine.current(refresh=refresh)
+        machine = Machine.current()
         if _CURRENT_INTERFACE and _CURRENT_INTERFACE.machine_id == machine.id:
             if not refresh:
                 # Callers that pass refresh=False are asking for attribution to
@@ -1778,7 +1758,8 @@ class Process(ModelWithDeleteAfter, models.Model):
             return None
 
         # Can't validate processes on other machines
-        if self.machine_id != Machine.current().id:
+        machine = Machine.current_readonly()
+        if machine is None or self.machine_id != machine.id:
             return None
 
         try:

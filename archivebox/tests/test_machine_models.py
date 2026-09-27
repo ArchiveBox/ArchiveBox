@@ -174,21 +174,32 @@ class TestMachineModel:
 
         assert machine1.id == machine2.id
 
-    def test_machine_current_refreshes_after_interval(self):
-        """Machine.current() should refresh after recheck interval."""
-        import archivebox.machine.models as models
+    def test_machine_current_does_not_refresh_after_interval(self):
+        """A long-lived process must not turn a cached machine read into writes."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
 
         machine1 = Machine.current()
-
-        # Manually expire the cache by modifying modified_at
         machine1.modified_at = timezone.now() - timedelta(seconds=MACHINE_RECHECK_INTERVAL + 1)
-        machine1.save()
-        models._CURRENT_MACHINE = machine1
+        with CaptureQueriesContext(connection) as queries:
+            machine2 = Machine.current()
+            assert Machine.current() is machine1
+        assert machine2 is machine1
+        assert list(queries) == []
 
-        machine2 = Machine.current()
+    def test_machine_config_save_updates_cache_without_reinitializing(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
 
-        # Should have fetched/updated the machine (same GUID)
-        assert machine1.guid == machine2.guid
+        cached = Machine.current()
+        edited = Machine.objects.get(pk=cached.pk)
+        edited.config = {**edited.config, "USER_AGENT": "read-only-machine-test"}
+        edited.save(update_fields=["config"])
+        with CaptureQueriesContext(connection) as queries:
+            current = Machine.current()
+        assert current is cached
+        assert current.config["USER_AGENT"] == "read-only-machine-test"
+        assert list(queries) == []
 
     def test_machine_current_recreates_stale_cached_row(self):
         """Machine.current() should recreate the cached machine if the row was deleted."""
@@ -284,9 +295,9 @@ class TestMachineModel:
             "WGET_BINARY": "/tmp/archivebox-test-missing-wget",
         }
         machine.save(update_fields=["config"])
-        models._CURRENT_MACHINE = machine
+        models._CURRENT_MACHINE = None
 
-        refreshed = Machine.current(refresh=True)
+        refreshed = Machine.current()
 
         # Valid binary paths inside ABXPKG_LIB_DIR survive.
         assert refreshed.config.get("CHROME_BINARY") == str(chrome_path)

@@ -588,7 +588,7 @@ def test_live_server_machine_search_engine_update_reaches_subsequent_snapshot_ru
                 "from archivebox.crawls.models import Crawl;"
                 "from archivebox.core.models import Snapshot;"
                 "from archivebox.machine.models import Machine;"
-                "machine = Machine.current(refresh=True);"
+                "machine = Machine.current();"
                 "machine.config = {**dict(machine.config or {}), 'SEARCH_BACKEND_ENGINE': 'sqlite'};"
                 "machine.save(update_fields=['config', 'modified_at']);"
                 "crawl = Crawl.objects.create("

@@ -180,6 +180,91 @@ def real_crawl_setup_process(snapshot, hermetic_lib_dir):
 
 
 class TestLiveProgressView:
+    def test_live_progress_uses_covering_indexes_for_totals(self, client, admin_user, crawl, snapshot):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.crawls.models import Crawl
+
+        Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED)
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.SEALED, downloaded_at=None, output_size=1234)
+        ArchiveResult.objects.create(snapshot=snapshot, plugin="search_backend_sonic", status=ArchiveResult.StatusChoices.QUEUED)
+        client.force_login(admin_user)
+        with CaptureQueriesContext(connection) as queries:
+            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200, response.content
+        payload = response.json()
+        active_crawl = next(item for item in payload["active_crawls"] if item["id"] == str(crawl.pk))
+        assert active_crawl["total_snapshots"] == 1
+        assert active_crawl["cancelled_snapshots"] == 1
+        assert active_crawl["crawl_output_size"] == 1234
+        assert payload["indexing_queued"] == 1
+        if connection.vendor == "sqlite":
+            aggregates = [query["sql"] for query in queries if "GROUP BY" in query["sql"]]
+            assert aggregates
+            with connection.cursor() as cursor:
+                for sql in aggregates:
+                    cursor.execute("EXPLAIN QUERY PLAN " + sql)
+                    plan = " ".join(str(row) for row in cursor.fetchall())
+                    assert "COVERING INDEX" in plan, plan
+                    assert "SCAN " not in plan, plan
+
+    def test_live_progress_does_not_inspect_archive_files(self, client, admin_user, crawl, snapshot):
+        import sys
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.config.constants import CONSTANTS
+
+        Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED)
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.STARTED)
+        client.force_login(admin_user)
+        # Warm imports/settings, then observe real calls without replacing any
+        # filesystem API or the endpoint under test.
+        assert client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
+        filesystem_calls = []
+        storage_roots = (CONSTANTS.ARCHIVE_DIR, CONSTANTS.PERSONAS_DIR)
+
+        def observe(frame, event, arg):
+            if event == "call" and frame.f_code.co_name in {"stat", "lstat", "open", "iterdir", "glob", "rglob"}:
+                path = frame.f_locals.get("self")
+                if isinstance(path, Path) and any(path.is_relative_to(root) for root in storage_roots):
+                    filesystem_calls.append(str(path))
+            if event == "c_call" and arg in (os.scandir, os.listdir):
+                filesystem_calls.append(arg.__name__)
+
+        previous_profile = sys.getprofile()
+        sys.setprofile(observe)
+        try:
+            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        finally:
+            sys.setprofile(previous_profile)
+        assert response.status_code == 200, response.content
+        assert filesystem_calls == []
+
+    def test_live_progress_is_read_only_with_expired_machine(self, client, admin_user, crawl, snapshot):
+        from datetime import timedelta
+
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        import archivebox.machine.models as machine_models
+        from archivebox.machine.models import Machine
+
+        machine = Machine.current()
+        old_modified_at = timezone.now() - timedelta(days=8)
+        Machine.objects.filter(pk=machine.pk).update(modified_at=old_modified_at)
+        machine_models._CURRENT_MACHINE = None
+        client.force_login(admin_user)
+
+        with CaptureQueriesContext(connection) as queries:
+            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert response.status_code == 200, response.content
+        writes = [query["sql"] for query in queries if query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE", "REPLACE"))]
+        assert writes == []
+        machine.refresh_from_db()
+        assert machine.modified_at == old_modified_at
+
     def test_gallery_capture_fails_without_live_screencast(self, live_screenshot_command):
         command, env, variants = live_screenshot_command
         started = time.monotonic()
@@ -670,7 +755,7 @@ class TestLiveProgressView:
         try:
             os_process = psutil.Process(popen.pid)
             Process.objects.create(
-                machine=Machine.current(refresh=True),
+                machine=Machine.current(),
                 process_type=Process.TypeChoices.ORCHESTRATOR,
                 status=Process.StatusChoices.RUNNING,
                 pid=popen.pid,

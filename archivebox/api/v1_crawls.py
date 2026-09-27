@@ -182,6 +182,14 @@ def crawl_file(request: HttpRequest, crawl_id: str, path: str):
     if not file_path.is_file() or crawl_root not in file_path.parents:
         raise HttpError(404, "Crawl file not found")
 
+    if path == "chrome_screencast/latest.jpg" and request.GET.get("after"):
+        try:
+            started_at = float(request.GET["after"])
+        except ValueError:
+            raise HttpError(400, "Invalid screencast start time")
+        if file_path.stat().st_mtime < started_at:
+            raise HttpError(404, "No frame for this capture yet")
+
     response = FileResponse(file_path.open("rb"))
     response["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
     response["Pragma"] = "no-cache"

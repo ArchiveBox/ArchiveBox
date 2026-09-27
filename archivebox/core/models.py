@@ -650,6 +650,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
             models.Index(fields=["crawl", "status", "modified_at"], name="snapshot_progress_idx"),
+            models.Index(fields=["crawl", "status", "downloaded_at", "output_size"], name="snapshot_progress_totals_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [
             # Allow same URL in different crawls, but not duplicates within same crawl
@@ -4162,6 +4163,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["snapshot", "status"], name="archiveresult_snap_status_idx"),
             models.Index(fields=["status", "snapshot"], name="archiveresult_status_snap_idx"),
+            models.Index(fields=["status", "plugin", "snapshot"], name="archiveresult_progress_idx"),
             models.Index(fields=["-start_ts", "-id"], name="archiveresult_start_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [

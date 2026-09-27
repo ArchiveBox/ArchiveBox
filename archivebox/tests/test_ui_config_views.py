@@ -35,7 +35,7 @@ def admin_request(admin_user):
 
 @pytest.fixture
 def machine():
-    return Machine.current(refresh=True)
+    return Machine.current()
 
 
 @pytest.mark.django_db(transaction=True)

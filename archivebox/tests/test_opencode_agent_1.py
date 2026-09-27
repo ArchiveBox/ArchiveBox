@@ -29,7 +29,7 @@ def _reset_runtime_config() -> None:
         cache_clear = getattr(value, "cache_clear", None)
         if cache_clear is not None:
             cache_clear()
-    Machine.current(refresh=True)
+    Machine.current()
 
 
 def _set_archivebox_config(data_dir: Path, *values: str, env: dict[str, str] | None = None) -> None:
