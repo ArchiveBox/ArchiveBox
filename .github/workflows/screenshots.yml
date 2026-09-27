@@ -13,6 +13,7 @@ on:
       - pyproject.toml
       - uv.lock
       - .github/workflows/screenshots.yml
+      - .github/workflows/prepare-release.yml
   workflow_dispatch:
 
 permissions:
@@ -23,7 +24,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/prepare-release.yml
+    secrets: inherit
+
   deploy:
+    needs: prepare
+    if: needs.prepare.outputs.run_jobs == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout

@@ -19,93 +19,56 @@ concurrency:
 
 jobs:
   prepare:
-    name: Prepare the version before starting expensive jobs
     permissions:
       contents: write
-    runs-on: ubuntu-24.04
-    outputs:
-      run_tests: ${{ github.event_name != 'push' || steps.channel.outputs.stable == 'true' || steps.version.outputs.action == 'ready' || steps.version.outputs.action == 'reserved' }}
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          fetch-depth: 0
-          submodules: true
-          token: ${{ github.event_name == 'push' && secrets.RELEASE_GH_TOKEN || github.token }}
-
-      - name: Keep synchronized stable branches on the released version
-        id: channel
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
-          git fetch --no-tags origin main
-          MAIN_SHA="$(git rev-parse origin/main)"
-          # Stable reconciliation may preserve dev history with a merge commit.
-          # Its tree still matches main; bumping it would undo synchronization
-          # before the stable publisher can advance the Docker :dev tag.
-          if [[ "$GITHUB_REF_NAME" == dev && "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
-             git merge-base --is-ancestor "$MAIN_SHA" "$GITHUB_SHA" &&
-             git diff --quiet "$MAIN_SHA" "$GITHUB_SHA"; then
-            echo 'stable=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'stable=false' >> "$GITHUB_OUTPUT"
-          fi
-
-      - id: version
-        if: github.event_name == 'push' && steps.channel.outputs.stable != 'true'
-        uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@main
-        with:
-          package: archivebox
-          branch: ${{ github.ref_name }}
-          tag-prefix: v
-          version-scheme: ${{ github.ref_name == 'main' && 'patch' || 'rc' }}
+    uses: ./.github/workflows/prepare-release.yml
+    secrets: inherit
 
   lint:
     needs: prepare
-    if: needs.prepare.outputs.run_tests == 'true'
+    if: needs.prepare.outputs.run_jobs == 'true'
     name: Linters
     uses: ./.github/workflows/lint.yml
     secrets: inherit
 
   install-cli-platform:
     needs: prepare
-    if: needs.prepare.outputs.run_tests == 'true'
+    if: needs.prepare.outputs.run_jobs == 'true'
     name: Install and CLI platform compatibility
     uses: ./.github/workflows/test.yml
     secrets: inherit
 
   tests:
     needs: prepare
-    if: needs.prepare.outputs.run_tests == 'true'
+    if: needs.prepare.outputs.run_jobs == 'true'
     name: Discovered test matrix
     uses: ./.github/workflows/test-parallel.yml
     secrets: inherit
 
   documentation:
     needs: prepare
-    if: needs.prepare.outputs.run_tests == 'true'
+    if: needs.prepare.outputs.run_jobs == 'true'
     name: Documentation and root tests
     uses: ./.github/workflows/docs.yml
     secrets: inherit
 
   codeql:
     needs: prepare
-    if: needs.prepare.outputs.run_tests == 'true'
+    if: needs.prepare.outputs.run_jobs == 'true'
     name: CodeQL
     uses: ./.github/workflows/codeql.yml
     secrets: inherit
 
   python-artifacts:
     needs: prepare
-    if: needs.prepare.outputs.run_tests == 'true'
+    if: needs.prepare.outputs.run_jobs == 'true'
     name: Tested Python artifacts
     uses: ./.github/workflows/pip.yml
     secrets: inherit
 
   docker-digests:
     needs: prepare
-    if: needs.prepare.outputs.run_tests == 'true'
+    if: needs.prepare.outputs.run_jobs == 'true'
     name: Tested Docker images
     uses: ./.github/workflows/docker.yml
     with:
@@ -114,7 +77,7 @@ jobs:
 
   required:
     name: All required CI lanes
-    if: ${{ always() && needs.prepare.outputs.run_tests == 'true' }}
+    if: ${{ always() && needs.prepare.outputs.run_jobs == 'true' }}
     needs:
       - prepare
       - lint

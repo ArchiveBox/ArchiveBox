@@ -1,0 +1,56 @@
+name: Prepare release version
+
+on:
+  workflow_call:
+    outputs:
+      run_jobs:
+        description: Whether this revision owns its release version and should run expensive jobs
+        value: ${{ jobs.prepare.outputs.run_jobs }}
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    name: Prepare the version before starting expensive jobs
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    outputs:
+      run_jobs: ${{ github.event_name != 'push' || steps.channel.outputs.stable == 'true' || steps.version.outputs.action == 'ready' || steps.version.outputs.action == 'reserved' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          submodules: true
+          token: ${{ github.event_name == 'push' && secrets.RELEASE_GH_TOKEN || github.token }}
+
+      - name: Keep synchronized stable branches on the released version
+        id: channel
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          VERSION="$(sed -nE 's/^version = "([^"]+)".*/\1/p' pyproject.toml | head -n 1)"
+          git fetch --no-tags origin main
+          MAIN_SHA="$(git rev-parse origin/main)"
+          # Stable reconciliation may preserve dev history with a merge commit.
+          # Its tree still matches main; bumping it would undo synchronization
+          # before the stable publisher can advance the Docker :dev tag.
+          if [[ "$GITHUB_REF_NAME" == dev && "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] &&
+             git merge-base --is-ancestor "$MAIN_SHA" "$GITHUB_SHA" &&
+             git diff --quiet "$MAIN_SHA" "$GITHUB_SHA"; then
+            echo 'stable=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'stable=false' >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: version
+        if: github.event_name == 'push' && steps.channel.outputs.stable != 'true'
+        uses: ArchiveBox/monorepo/.github/actions/prepare-release-version@main
+        with:
+          package: archivebox
+          branch: ${{ github.ref_name }}
+          tag-prefix: v
+          version-scheme: ${{ github.ref_name == 'main' && 'patch' || 'rc' }}
+

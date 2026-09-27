@@ -183,11 +183,17 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
 
     assert all(step.get("name") != "Verify published PyPI package installs and runs" for step in python_release["steps"])
     ci = yaml.safe_load(CI_WORKFLOW.read_text())
-    assert ci["jobs"]["prepare"]["steps"][-1]["uses"] == "ArchiveBox/monorepo/.github/actions/prepare-release-version@main"
+    screenshots = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "screenshots.yml").read_text())
+    prepare_path = ci["jobs"]["prepare"]["uses"]
+    assert screenshots["jobs"]["prepare"]["uses"] == prepare_path
+    prepare = yaml.safe_load((REPO_ROOT / prepare_path).read_text())
+    assert prepare["jobs"]["prepare"]["steps"][-1]["uses"] == "ArchiveBox/monorepo/.github/actions/prepare-release-version@main"
+    assert screenshots["jobs"]["deploy"]["needs"] == "prepare"
+    assert screenshots["jobs"]["deploy"]["if"] == "needs.prepare.outputs.run_jobs == 'true'"
     for name, job in ci["jobs"].items():
         if name not in {"prepare", "required"}:
             assert job["needs"] == "prepare"
-            assert job["if"] == "needs.prepare.outputs.run_tests == 'true'"
+            assert job["if"] == "needs.prepare.outputs.run_jobs == 'true'"
     gate = next(step["run"] for step in jobs["candidate"]["steps"] if step.get("id") == "verified")
     assert 'ARTIFACT_RUN_ID="$CI_RUN_ID"' in gate
     assert 'DIGEST_RUN_ID="$CI_RUN_ID"' in gate
