@@ -1353,6 +1353,22 @@ def test_add_index_only_creates_direct_url_snapshot(initialized_archive):
     assert snapshot.depth == 0
 
 
+def test_add_preserves_apostrophe_in_snapshot_url(initialized_archive):
+    url = "https://aaib.gov.in/What's%20New%20Assets/Preliminary%20Report%20VT-EXO.pdf"
+    env = cli_env(disable_extractors=True)
+    result = run_archivebox_cmd(
+        ["add", "--index-only", "--depth=0", url],
+        cwd=initialized_archive,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    run_queued_crawls(initialized_archive, env)
+
+    with use_archivebox_db(initialized_archive):
+        assert Crawl.objects.get().urls == url
+        assert Snapshot.objects.get().url == url
+
+
 def test_snapshot_create_sets_snapshot_timestamp(initialized_archive):
     """Test the user-facing snapshot creation path sets a timestamp."""
     env = cli_env(disable_extractors=True)

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from archivebox.misc.util import download_url, find_all_urls, fix_url_from_markdown, parse_date
+from archivebox.misc.util import download_url, find_all_urls, fix_url_from_markdown, parse_date, sanitize_extracted_url
 
 
 @pytest.mark.parametrize(
@@ -169,3 +169,70 @@ URL_REGEX_COUNT_CASES = {
 @pytest.mark.parametrize("url_str,num_urls", list(URL_REGEX_COUNT_CASES.items()))
 def test_find_all_urls_count(url_str, num_urls):
     assert len(list(find_all_urls(url_str))) == num_urls
+
+
+APOSTROPHE_URL = "https://aaib.gov.in/What's%20New%20Assets/Preliminary%20Report%20VT-EXO.pdf"
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        (APOSTROPHE_URL, APOSTROPHE_URL),
+        (f'"{APOSTROPHE_URL}"', APOSTROPHE_URL),
+        (f"[Report]({APOSTROPHE_URL})", APOSTROPHE_URL),
+        (f'<a href="{APOSTROPHE_URL}">Report</a>', APOSTROPHE_URL),
+        ("https://example.com/?q='quoted'", "https://example.com/?q='quoted'"),
+        ("https://example.com/rock'n'roll", "https://example.com/rock'n'roll"),
+        ("https://example.com/What's_(new)).text", "https://example.com/What's_(new)"),
+        ("'https://example.com/path'after", "https://example.com/path"),
+        ("<a href='https://example.com/path'>Link</a>", "https://example.com/path"),
+        ("https://example.com/path'", "https://example.com/path"),
+        ("https://example.com/path'.", "https://example.com/path"),
+        ("https://example.com/path'><img", "https://example.com/path"),
+        ("&apos;https://example.com/path&apos;after", "https://example.com/path"),
+        ("https://example.com/What&#39;s", "https://example.com/What's"),
+        ("https://example.com/What's%27next", "https://example.com/What's%27next"),
+        ("'what about a case like this https://example.com'?", "https://example.com"),
+        ("'what about a case like this [link](https://example.com)'?", "https://example.com"),
+        ("'what about https://example.com/What's'?", "https://example.com/What's"),
+        ("\"https://example.com/O'Reilly's\"", "https://example.com/O'Reilly's"),
+        ("'https://example.com/O'Reilly's'", "https://example.com/O'Reilly's"),
+        ("'https://example.com/What's'", "https://example.com/What's"),
+        ("See 'https://example.com/O'Reilly's'", "https://example.com/O'Reilly's"),
+        ("See ‘https://example.com/l’été’", "https://example.com/l’été"),
+        ("'https://example.com/O''Reilly''s',title", "https://example.com/O'Reilly's"),
+        ("'https://example.com/dogs''',title", "https://example.com/dogs'"),
+        ("<a href='https://example.com/dogs&#39;'>Link</a>", "https://example.com/dogs'"),
+        ('<a href="https://example.com/dogs\'">Link</a>', "https://example.com/dogs'"),
+        ("https://example.com/'one'/'two'", "https://example.com/'one'/'two'"),
+        ("https://example.com/O'Reilly's?query=that's#what's-new", "https://example.com/O'Reilly's?query=that's#what's-new"),
+        ("[Report](https://example.com/What's_(new) 'A title')", "https://example.com/What's_(new)"),
+        ("<https://example.com/What's>", "https://example.com/What's"),
+        ("https://example.com/l’été", "https://example.com/l’été"),
+        ("‘https://example.com/page’", "https://example.com/page"),
+        ("‘see https://example.com/l’été’!", "https://example.com/l’été"),
+        ("https://example.com/?q=‘word’", "https://example.com/?q=‘word’"),
+        ("https://o'reilly:secret@example.com/path", "https://o'reilly:secret@example.com/path"),
+    ],
+)
+def test_find_all_urls_distinguishes_apostrophes_from_quotes(text, expected):
+    assert list(find_all_urls(text)) == [expected]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        APOSTROPHE_URL,
+        "https://example.com/?q='quoted'",
+        "https://example.com/rock'n'roll",
+        "https://example.com/dogs'",
+        "https://example.com/two''",
+    ],
+)
+def test_sanitize_extracted_url_preserves_apostrophes(url):
+    assert sanitize_extracted_url(url) == url
+
+
+def test_quoted_sentence_with_markdown_link():
+    text = "'what about a case like this [https://example.com](https://example.com)'?"
+    assert set(find_all_urls(text)) == {"https://example.com"}

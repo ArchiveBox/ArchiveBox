@@ -3,7 +3,7 @@ __package__ = "archivebox.misc"
 # Bootable utility functions (URL parsing, date parsing, JSON encoding, decorators).
 # MUST NOT import archivebox.config, archivebox.core, or Django — this module is
 # loaded by hooks.py and other early code paths. Only depends on stdlib and the
-# bootable .logging module.
+# bootable .logging module and standalone abx_plugins URL helpers.
 
 import re
 import json as pyjson
@@ -18,6 +18,9 @@ from functools import wraps
 from urllib.parse import urlparse, quote, unquote
 from html import escape, unescape
 from datetime import datetime, timezone
+
+from abx_plugins.plugins.base.url_cleaning import URL_REGEX, fix_url_from_markdown
+from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url as sanitize_plugin_url
 
 from .logging import COLOR_DICT
 
@@ -90,47 +93,12 @@ def ts_to_date_str(ts: Any) -> str | None:
 COLOR_REGEX = re.compile(r"\[(?P<arg_1>\d+)(;(?P<arg_2>\d+)(;(?P<arg_3>\d+))?)?m")
 
 
-# https://mathiasbynens.be/demo/url-regex
-URL_REGEX = re.compile(
-    r"(?=("
-    r"http[s]?://"  # start matching from allowed schemes
-    r"(?:[a-zA-Z]|[0-9]"  # followed by allowed alphanum characters
-    r"|[-_$@.&+!*\(\),]"  #   or allowed symbols (keep hyphen first to match literal hyphen)
-    r"|[^\u0000-\u007F])+"  #   or allowed unicode bytes
-    r'[^\]\[<>"\'\s]+'  # stop parsing at these symbols
-    r"))",
-    re.IGNORECASE | re.UNICODE,
-)
-
 # Maximum supported URL length. Very long URLs are rare but must be supported correctly
 # (e.g. data: URLs, deeply nested query strings). The Snapshot.url column is stored as a
 # variable-length TextField (so short URLs don't reserve space and very long URLs still
 # fit) while keeping a normal index on the field so exact, prefix, and substring lookups
 # all keep working.
 MAX_URL_LENGTH = 65535
-
-QUOTE_DELIMITERS = (
-    '"',
-    "'",
-    "`",
-    "“",
-    "”",
-    "‘",
-    "’",
-)
-QUOTE_ENTITY_DELIMITERS = (
-    "&quot;",
-    "&#34;",
-    "&#x22;",
-    "&apos;",
-    "&#39;",
-    "&#x27;",
-)
-URL_ENTITY_REPLACEMENTS = (
-    ("&amp;", "&"),
-    ("&#38;", "&"),
-    ("&#x26;", "&"),
-)
 
 FILESIZE_UNITS: dict[str, int] = {
     "": 1,
@@ -153,36 +121,9 @@ FILESIZE_UNITS: dict[str, int] = {
 
 
 def sanitize_extracted_url(url: str) -> str:
-    """Trim quote garbage and dangling prose punctuation from an extracted URL candidate."""
-    cleaned = (url or "").strip()
-    if not cleaned:
-        return cleaned
-
-    lower_cleaned = cleaned.lower()
-    cut_index = len(cleaned)
-
-    for delimiter in QUOTE_DELIMITERS:
-        found_index = cleaned.find(delimiter)
-        if found_index != -1:
-            cut_index = min(cut_index, found_index)
-
-    for delimiter in QUOTE_ENTITY_DELIMITERS:
-        found_index = lower_cleaned.find(delimiter)
-        if found_index != -1:
-            cut_index = min(cut_index, found_index)
-
-    cleaned = cleaned[:cut_index].strip()
-    lower_cleaned = cleaned.lower()
-    for entity, replacement in URL_ENTITY_REPLACEMENTS:
-        while entity in lower_cleaned:
-            entity_index = lower_cleaned.find(entity)
-            cleaned = cleaned[:entity_index] + replacement + cleaned[entity_index + len(entity) :]
-            lower_cleaned = cleaned.lower()
-
-    cleaned = cleaned.rstrip(".,;:!?\\'\"")
-    cleaned = cleaned.rstrip('"')
-
-    return cleaned
+    """Use the standalone parser's quote rules, then trim dangling prose punctuation."""
+    cleaned = sanitize_plugin_url(url)
+    return cleaned.rstrip('.,;:!?\\"')
 
 
 def validate_url_length(url: str) -> str:
@@ -215,39 +156,6 @@ def parens_are_matched(string: str, open_char="(", close_char=")"):
     return count == 0
 
 
-def fix_url_from_markdown(url_str: str) -> str:
-    """
-    cleanup a regex-parsed url that may contain dangling trailing parens from markdown link syntax
-    helpful to fix URLs parsed from markdown e.g.
-      input:  https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def).somemoretext
-      result: https://wikipedia.org/en/some_article_(Disambiguation).html?abc=def
-
-    IMPORTANT ASSUMPTION: valid urls wont have unbalanced or incorrectly nested parentheses
-    e.g. this will fail the user actually wants to ingest a url like 'https://example.com/some_wei)(rd_url'
-         in that case it will return https://example.com/some_wei (truncated up to the first unbalanced paren)
-    This assumption is true 99.9999% of the time, and for the rare edge case the user can use url_list parser.
-    """
-    trimmed_url = url_str
-    if len(trimmed_url) > 2048:
-        return trimmed_url
-
-    # cut off one trailing character at a time
-    # until parens are balanced e.g. /a(b)c).x(y)z -> /a(b)c
-    trim_attempts = 0
-    while trimmed_url and not parens_are_matched(trimmed_url) and trim_attempts < 256:
-        trimmed_url = trimmed_url[:-1]
-        trim_attempts += 1
-
-    if not trimmed_url or not parens_are_matched(trimmed_url):
-        return url_str
-
-    # make sure trimmed url is still valid
-    if any(match == trimmed_url for match in re.findall(URL_REGEX, trimmed_url)):
-        return trimmed_url
-
-    return url_str
-
-
 def split_comma_separated_urls(url: str):
     offset = 0
     while True:
@@ -274,7 +182,8 @@ def find_all_urls(urls_str: str):
         if match.start() in skipped_starts:
             continue
 
-        cleaned_match = sanitize_extracted_url(fix_url_from_markdown(match.group(1)))
+        cleaned_match = fix_url_from_markdown(match.group(1), preceding_text=urls_str[max(0, match.start(1) - 6) : match.start(1)])
+        cleaned_match = sanitize_extracted_url(cleaned_match)
         for offset, url in split_comma_separated_urls(cleaned_match):
             if offset:
                 skipped_starts.add(match.start() + offset)
