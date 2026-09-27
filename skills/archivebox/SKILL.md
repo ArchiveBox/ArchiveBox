@@ -68,9 +68,7 @@ archivebox run
 
 ## Verification
 
-```bash
-uv run pytest archivebox/tests/test_cli_add.py::test_add_help_shows_depth_and_tag_options -q
-uv run prek run --all-files
-```
+Run the test suite with `uv run pytest archivebox/tests -x` and repository checks
+with `uv run prek run --all-files`. For focused work, select the relevant tests.
 
 Releases are published only by `.github/workflows/release.yml` after the complete `dev` CI workflow succeeds. Local development and deployment commands must not publish packages, images, tags, or GitHub releases.

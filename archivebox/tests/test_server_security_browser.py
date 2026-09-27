@@ -954,6 +954,17 @@ def test_server_security_modes_in_chrome(
 def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archive: Path, browser_runtime, tmp_path: Path) -> None:
     from archivebox.core.routes_util import get_snapshot_subdomain
 
+    node_binary = Path(browser_runtime["node_binary"])
+    node_target = node_binary.resolve(strict=True)
+    node_version = subprocess.check_output([str(node_binary), "--version"], text=True).strip()
+
+    def assert_browser_runtime_unchanged(stage):
+        actual_target = node_binary.resolve(strict=True)
+        actual_version = subprocess.check_output([str(node_binary), "--version"], text=True).strip()
+        assert (actual_target, actual_version) == (node_target, node_version), (
+            f"{stage} changed the browser runtime: {node_target} ({node_version}) -> {actual_target} ({actual_version})"
+        )
+
     url = "https://example.com"
     port = get_free_port()
     env = cli_env(
@@ -992,6 +1003,7 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
         assert install_result.returncode == 0, (
             f"archivebox install archivewebpage failed:\nSTDOUT:\n{install_result.stdout}\nSTDERR:\n{install_result.stderr}"
         )
+        assert_browser_runtime_unchanged("archivebox install archivewebpage")
 
         process = start_daemon_server(
             initialized_archive,
@@ -1001,6 +1013,7 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
             log_name="archivewebpage_server.log",
         )
         get_http_response(port, host=f"archivebox.localhost:{port}", path="/")
+        assert_browser_runtime_unchanged("archivebox server startup")
         command_result = run_archivebox_cmd(
             ["add", "--depth=0", "--max-urls=1", "--plugins=archivewebpage", url],
             cwd=initialized_archive,
@@ -1008,6 +1021,7 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
             timeout=120,
         )
         assert command_result.returncode == 0, f"archivebox add failed:\nSTDOUT:\n{command_result.stdout}\nSTDERR:\n{command_result.stderr}"
+        assert_browser_runtime_unchanged("archivebox add --plugins=archivewebpage")
 
         capture = _get_archivewebpage_capture(initialized_archive, url)
         snapshot_host = f"{get_snapshot_subdomain(capture['snapshot_id'])}.archivebox.localhost:{port}"

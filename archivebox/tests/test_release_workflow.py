@@ -14,7 +14,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release.yml"
-RELEASE_CANDIDATE_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "release-candidate.yml"
+CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
 PIP_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "pip.yml"
 DOCKER_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "docker.yml"
 VERIFY_STAGING_SCRIPT = REPO_ROOT / "bin" / "verify-staging-release.py"
@@ -115,9 +115,7 @@ def test_stable_release_reconciles_concurrent_version_only_dev_bump(tmp_path, de
     assert result.returncode == 0, result.stderr
     merged = _git(work, "ls-remote", "origin", "refs/heads/dev").split()[0]
 
-    channel_step = next(
-        step for step in yaml.safe_load(RELEASE_CANDIDATE_WORKFLOW.read_text())["jobs"]["prepare"]["steps"] if step.get("id") == "channel"
-    )
+    channel_step = next(step for step in yaml.safe_load(CI_WORKFLOW.read_text())["jobs"]["prepare"]["steps"] if step.get("id") == "channel")
 
     def stable_channel(sha, branch="dev"):
         output = tmp_path / "channel-output"
@@ -140,7 +138,7 @@ def test_stable_release_reconciles_concurrent_version_only_dev_bump(tmp_path, de
     assert _git(work, "rev-parse", f"{merged}^{{tree}}") == _git(work, "rev-parse", f"{stable}^{{tree}}")
     assert _git(work, "merge-base", stable, candidate) == base
     # Reconciliation creates a new merge commit with the tested main tree. Its
-    # candidate workflow must not immediately bump dev and undo synchronization.
+    # version preparation must not immediately bump dev and undo synchronization.
     assert stable_channel(merged) == "stable=true"
     assert stable_channel(merged, branch="main") == "stable=false"
 
@@ -184,8 +182,12 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert jobs["cascade"]["if"] == "needs.python-release.outputs.release_ready == 'true'"
 
     assert all(step.get("name") != "Verify published PyPI package installs and runs" for step in python_release["steps"])
-    candidate = yaml.safe_load(RELEASE_CANDIDATE_WORKFLOW.read_text())
-    assert set(candidate["jobs"]) == {"prepare"}
+    ci = yaml.safe_load(CI_WORKFLOW.read_text())
+    assert ci["jobs"]["prepare"]["steps"][-1]["uses"] == "ArchiveBox/monorepo/.github/actions/prepare-release-version@main"
+    for name, job in ci["jobs"].items():
+        if name not in {"prepare", "required"}:
+            assert job["needs"] == "prepare"
+            assert job["if"] == "needs.prepare.outputs.run_tests == 'true'"
     gate = next(step["run"] for step in jobs["candidate"]["steps"] if step.get("id") == "verified")
     assert 'ARTIFACT_RUN_ID="$CI_RUN_ID"' in gate
     assert 'DIGEST_RUN_ID="$CI_RUN_ID"' in gate

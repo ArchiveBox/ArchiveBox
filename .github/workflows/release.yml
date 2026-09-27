@@ -2,7 +2,7 @@ name: Release
 
 on:
   workflow_run:
-    workflows: [CI, Release candidate]
+    workflows: [CI]
     types: [completed]
     branches: [dev, main]
   workflow_dispatch:
@@ -111,15 +111,11 @@ jobs:
               --jq '[.status, .conclusion, .headSha, .event, .name] | @tsv')"
             [[ "$CI_STATUS" == "$(printf 'completed\tsuccess\t%s\tpush\tCI' "$RELEASE_SHA")" ]]
           else
-            CANDIDATE_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release-candidate.yml \
-              --commit "$RELEASE_SHA" --branch "$RELEASE_BRANCH" --event push --limit 1 \
-              --json databaseId,status,conclusion \
-              --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
             CI_RUN_ID="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
               --commit "$RELEASE_SHA" --branch "$RELEASE_BRANCH" --event push --limit 1 \
               --json databaseId,status,conclusion \
               --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
-            [[ -n "$CANDIDATE_RUN_ID" && -n "$CI_RUN_ID" ]] || exit 0
+            [[ -n "$CI_RUN_ID" ]] || exit 0
             DIGEST_RUN_ID="$CI_RUN_ID"
           fi
           ARTIFACT_RUN_ID="$CI_RUN_ID"

@@ -77,11 +77,7 @@ archivebox run
 
 ## Verification
 
-Use targeted tests for focused work:
-
-```bash
-uv run pytest archivebox/tests/test_cli_add.py::test_add_help_shows_depth_and_tag_options -q
-uv run prek run --all-files
-```
+Run the test suite with `uv run pytest archivebox/tests -x` and repository checks
+with `uv run prek run --all-files`. For focused work, select the relevant tests.
 
 Releases are published only by `.github/workflows/release.yml` after complete CI succeeds for the exact commit. Pushes to `main` prepare stable patch releases automatically; `dev` prepares release candidates. Version selection and dependency repinning are owned by CI and the monorepo coordinator. Local development and deployment commands must not publish packages, images, tags, or GitHub releases.
