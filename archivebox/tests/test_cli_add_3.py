@@ -113,7 +113,7 @@ def test_add_interrupts_background_only_capture(initialized_archive, choice):
         os.close(master)
 
 
-def test_background_completions_render_above_interrupt_prompt(initialized_archive):
+def test_background_completions_render_above_interrupt_prompt(initialized_archive, recursive_test_site):
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (40, 200))
     output = bytearray()
@@ -126,6 +126,8 @@ def test_background_completions_render_above_interrupt_prompt(initialized_archiv
                 output.extend(os.read(master, 65536))
             if predicate():
                 return
+        for log in sorted(initialized_archive.rglob("on_Snapshot__*.*.log")):
+            print(f"\n{log.relative_to(initialized_archive)}:\n{log.read_text(errors='replace')}")
         raise AssertionError(output.decode(errors="replace"))
 
     def result_for(plugin):
@@ -134,9 +136,11 @@ def test_background_completions_render_above_interrupt_prompt(initialized_archiv
 
     try:
         result = run_archivebox_cmd(
-            ["add", "--depth=1", "--plugins=wget,infiniscroll,parse_html_urls", "https://example.com"],
+            ["add", "--depth=1", "--plugins=wget,infiniscroll,parse_html_urls", recursive_test_site["root_url"]],
             cwd=initialized_archive,
-            env=cli_env(WGET_ARGS_EXTRA='["--limit-rate=100"]', INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True"),
+            # The small test-owned page still transfers slowly enough for wget
+            # to finish while the real foreground hook's prompt is open.
+            env=cli_env(WGET_ARGS_EXTRA='["--limit-rate=20"]', INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True"),
             stdin=slave,
             stdout=slave,
             stderr=slave,
