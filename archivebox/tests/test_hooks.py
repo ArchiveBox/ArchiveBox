@@ -194,6 +194,16 @@ class TestRequiredBinaryConfigHandling:
 
         assert Path(resolved["WGET_BINARY"]).is_absolute()
         assert Path(resolved["WGET_BINARY"]).is_file()
+        runtime_env = {**os.environ, **resolved}
+        assert set(os.environ["PATH"].split(os.pathsep)).issubset(runtime_env["PATH"].split(os.pathsep))
+        result = subprocess.run(
+            ["/usr/bin/env", "abxpkg", "--version"],
+            env=runtime_env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
 
     @pytest.mark.django_db(transaction=True)
     def test_binary_env_var_name_only_handling(self, hermetic_lib_dir):

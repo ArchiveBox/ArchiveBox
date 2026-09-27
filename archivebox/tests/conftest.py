@@ -1663,6 +1663,8 @@ def resolve_abxpkg_binary_env(
     deps_from: Path | list[Path] | tuple[Path, ...] | None = None,
 ) -> dict[str, str]:
     """Resolve required test dependencies through abxpkg's normal install path."""
+    from abxpkg.config import apply_exec_env
+
     command_env = dict(env) if env is not None else os.environ.copy()
     command_env["ABXPKG_LIB_DIR"] = str(lib_dir)
     command = [
@@ -1683,7 +1685,11 @@ def resolve_abxpkg_binary_env(
     )
     assert result.returncode == 0, result.stderr or result.stdout
     payload = json.loads(result.stdout)
-    return {str(key): str(value) for key, value in payload.items()}
+    # abxpkg env emits prepend/append deltas, not a replacement environment.
+    # Applying a PATH ending in ':' verbatim hides the caller's abxpkg CLI.
+    delta = {str(key): str(value) for key, value in payload.items()}
+    apply_exec_env(delta, command_env)
+    return {key: command_env[key] for key in delta}
 
 
 def run_test_hook(
