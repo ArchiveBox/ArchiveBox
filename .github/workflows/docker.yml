@@ -65,7 +65,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         shell: bash
         env:
-          SOURCE_REF: ${{ inputs.source_ref }}
+          SOURCE_REF: ${{ inputs.source_ref || github.sha }}
         run: |
           set -Eeuo pipefail
           [[ "$SOURCE_REF" =~ ^[0-9a-f]{40}$ ]]

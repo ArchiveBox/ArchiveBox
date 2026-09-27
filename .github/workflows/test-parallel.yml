@@ -87,6 +87,7 @@ jobs:
         id: discover
         env:
           TEST_FILE: ${{ inputs.test_file }}
+          UGNAS_CI_TESTS: ${{ vars.UGNAS_CI_TESTS || '[]' }}
         run: |
           set -Eeuo pipefail
           mapfile -t output < <("$PYTHON_BINARY" .github/scripts/discover_test_matrix.py)
@@ -186,13 +187,27 @@ jobs:
           for test_path in "${test_paths[@]}"; do
             test -f "$test_path"
           done
+          test_status=0
           for test_path in "${test_paths[@]}"; do
             test_name="$(basename "$test_path" .py)"
             test_slug="${test_name//[^A-Za-z0-9_.-]/_}"
             export DATA_DIR="$RUNNER_TEMP/archivebox-test-data/$test_slug"
             export PERSONAS_DIR="$RUNNER_TEMP/abx-personas/$test_slug"
             export CHROME_USER_DATA_DIR="$PERSONAS_DIR/Default/chrome_profile"
+            if (( ${#test_paths[@]} > 1 )); then
+              export ABXPKG_LIB_DIR="$RUNNER_TEMP/archivebox-lib/$test_slug"
+            fi
             mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest/$test_slug"
-            uv run --no-cache --no-sync --no-sources pytest -vs "$test_path" \
-              --basetemp="$RUNNER_TEMP/pytest/$test_slug"
+            uv run --no-cache --no-sync --no-sources pytest -vs "$test_path" --durations=20 \
+              --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
+              --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || test_status=1
           done
+          exit "$test_status"
+      - name: Save test results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/test-results/*.xml
+          if-no-files-found: error
+          retention-days: 14

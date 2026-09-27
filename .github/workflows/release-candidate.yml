@@ -69,17 +69,3 @@ jobs:
       push_digests: true
       full_tests: false
     secrets: inherit
-
-  opencode:
-    needs: prepare
-    if: github.ref_name == 'dev' && (needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved')
-    strategy:
-      fail-fast: false
-      matrix:
-        test_file:
-          - archivebox/tests/test_opencode_agent.py
-          - archivebox/tests/test_opencode_browser.py
-    uses: ./.github/workflows/test-parallel.yml
-    with:
-      test_file: ${{ matrix.test_file }}
-    secrets: inherit

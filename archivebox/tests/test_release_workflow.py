@@ -185,6 +185,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
 
     assert all(step.get("name") != "Verify published PyPI package installs and runs" for step in python_release["steps"])
     candidate = yaml.safe_load(RELEASE_CANDIDATE_WORKFLOW.read_text())
+    assert "opencode" not in candidate["jobs"]
     assert candidate["jobs"]["python-artifacts"]["with"]["full_tests"] is False
     pip_workflow = yaml.safe_load(PIP_WORKFLOW.read_text())
     install_script = next(
@@ -415,3 +416,64 @@ def test_staging_acceptance_limits_only_exact_known_auth_and_tls_failures():
     assert "missing or truncated" in embedded.group(1)
     assert "output.stat().st_size != metadata.get('size')" in embedded.group(1)
     assert "tlsnotary reported unexpected status" in embedded.group(1)
+
+
+@pytest.mark.parametrize("requested", ["", "archivebox/tests/test_urls.py", "archivebox/tests/test_release_workflow.py"])
+def test_ci_batches_preserve_inventory_runner_ownership_and_single_file_runs(tmp_path, requested):
+    nas_names = ["main/test_urls", "main/test_cli_machine", "main/test_cli_run", "main/test_takeover_util"]
+    result = subprocess.run(
+        ["uv", "run", "--no-cache", "--no-project", "python", str(REPO_ROOT / ".github/scripts/discover_test_matrix.py")],
+        cwd=tmp_path,
+        env={**os.environ, "TEST_FILE": requested, "UGNAS_CI_TESTS": json.dumps(nas_names)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    matrix = json.loads(result.stdout.splitlines()[1])
+    paths = [path for item in matrix for path in item["paths"]]
+    expected = sorted(path.relative_to(REPO_ROOT).as_posix() for path in (REPO_ROOT / "archivebox/tests").glob("test_*.py"))
+    assert sorted(paths) == expected
+    assert len(paths) == len(set(paths))
+    assert len(matrix) < len(paths)
+    assert all(1 <= len(item["paths"]) <= 8 for item in matrix)
+    for name in nas_names:
+        item = next(item for item in matrix if item["name"] == name)
+        assert item["paths"] == [f"archivebox/tests/{name.split('/')[-1]}.py"]
+    ldap = next(item for item in matrix if item["extra"] == "ldap")
+    assert ldap["paths"] == ["archivebox/tests/test_auth_ldap.py"]
+    if requested:
+        assert len([item for item in matrix if item["paths"] == [requested]]) == 1
+
+
+def test_ci_discovery_handles_added_renamed_and_deleted_files_without_timing_edits(tmp_path):
+    script = tmp_path / ".github/scripts/discover_test_matrix.py"
+    script.parent.mkdir(parents=True)
+    shutil.copy2(REPO_ROOT / ".github/scripts/discover_test_matrix.py", script)
+    shutil.copy2(REPO_ROOT / ".github/test-durations.json", tmp_path / ".github/test-durations.json")
+    tests = tmp_path / "archivebox/tests"
+    tests.mkdir(parents=True)
+    for name in ("test_core_config.py", "test_util.py"):
+        shutil.copy2(REPO_ROOT / "archivebox/tests" / name, tests / name)
+
+    def discover():
+        result = subprocess.run(
+            ["uv", "run", "--no-cache", "--no-project", "python", str(script)],
+            cwd=tmp_path,
+            env={**os.environ, "TEST_FILE": "", "UGNAS_CI_TESTS": "[]"},
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        matrix = json.loads(result.stdout.splitlines()[1])
+        paths = [path for item in matrix for path in item["paths"]]
+        assert sorted(paths) == sorted(path.relative_to(tmp_path).as_posix() for path in tests.glob("test_*.py"))
+        assert len(paths) == len(set(paths))
+        return matrix
+
+    assert len(discover()) == 1
+    (tests / "test_util.py").rename(tests / "test_renamed.py")
+    assert len(discover()) == 2
+    shutil.copy2(REPO_ROOT / "archivebox/tests/test_util.py", tests / "test_added.py")
+    assert len(discover()) == 3
+    (tests / "test_core_config.py").unlink()
+    assert len(discover()) == 2

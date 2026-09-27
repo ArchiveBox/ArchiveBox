@@ -189,36 +189,28 @@ def test_migration_preserves_supported_extended_08_metadata(migration_08_data, u
     assert migrated_counts == expected_counts
 
 
-def test_migration_preserves_snapshot_count(migration_08_data):
-    """Migration should preserve all snapshots from 0.8.x."""
+def test_migration_preserves_08_collection(migration_08_data):
+    """One real upgrade preserves every field and relationship in the same collection."""
     work_dir, db_path, original_data = migration_08_data
-    expected_count = len(original_data["snapshots"])
+    with sqlite3.connect(db_path) as conn:
+        original_tag_count = conn.execute("SELECT COUNT(*) FROM core_snapshot_tags").fetchone()[0]
 
     result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
+
+    # migration_preserves_snapshot_count
+    expected_count = len(original_data["snapshots"])
 
     ok, msg = verify_snapshot_count(db_path, expected_count)
     assert ok, msg
 
-
-def test_migration_preserves_snapshot_urls(migration_08_data):
-    """Migration should preserve all snapshot URLs from 0.8.x."""
-    work_dir, db_path, original_data = migration_08_data
+    # migration_preserves_snapshot_urls
     expected_urls = [s["url"] for s in original_data["snapshots"]]
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
 
     ok, msg = verify_snapshot_urls(db_path, expected_urls)
     assert ok, msg
 
-
-def test_migration_preserves_crawls(migration_08_data):
-    """Migration should preserve all Crawl records and create default crawl if needed."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
+    # migration_preserves_crawls
     # Count snapshots with NULL crawl_id in original data
     snapshots_without_crawl = sum(1 for s in original_data["snapshots"] if s["crawl_id"] is None)
 
@@ -229,6 +221,191 @@ def test_migration_preserves_crawls(migration_08_data):
 
     ok, msg = verify_crawl_count(db_path, expected_count)
     assert ok, msg
+
+    # migration_preserves_snapshot_crawl_links
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Check EVERY snapshot has a crawl_id after migration
+    for snapshot in original_data["snapshots"]:
+        cursor.execute("SELECT crawl_id FROM core_snapshot WHERE url = ?", (snapshot["url"],))
+        row = cursor.fetchone()
+        assert row is not None, f"Snapshot {snapshot['url']} not found after migration"
+
+        if snapshot["crawl_id"] is not None:
+            # Snapshots that had a crawl should keep it
+            assert row[0] == snapshot["crawl_id"], f"Crawl ID changed for {snapshot['url']}: expected {snapshot['crawl_id']}, got {row[0]}"
+        else:
+            # Snapshots without a crawl should now have one (the default crawl)
+            assert row[0] is not None, f"Snapshot {snapshot['url']} should have been assigned to default crawl but has NULL"
+
+    conn.close()
+
+    # migration_preserves_tags
+    ok, msg = verify_tag_count(db_path, len(original_data["tags"]))
+    assert ok, msg
+
+    # migration_preserves_archiveresults
+    expected_count = len(original_data["archiveresults"])
+    expected_counts = {}
+    for result in original_data["archiveresults"]:
+        status = "succeeded" if result["status"] == "success" else result["status"]
+        key = (result["extractor"], status)
+        expected_counts[key] = expected_counts.get(key, 0) + 1
+
+    ok, msg = verify_archiveresult_count(db_path, expected_count)
+    assert ok, msg
+
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+    cursor.execute("SELECT plugin, status, COUNT(*) FROM core_archiveresult GROUP BY plugin, status")
+    migrated_counts = {(plugin, status): count for plugin, status, count in cursor.fetchall()}
+    cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE process_id IS NULL")
+    missing_process_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM machine_process")
+    process_count = cursor.fetchone()[0]
+    conn.close()
+
+    assert migrated_counts == expected_counts
+    assert missing_process_count == 0
+    assert process_count == expected_count
+
+    # migration_preserves_archiveresult_status
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Get status counts
+    cursor.execute("SELECT status, COUNT(*) FROM core_archiveresult GROUP BY status")
+    status_counts = dict(cursor.fetchall())
+    conn.close()
+
+    # Original data has known status distribution: succeeded, failed, skipped
+    assert "succeeded" in status_counts, "Should have succeeded results"
+    assert "failed" in status_counts, "Should have failed results"
+    assert "skipped" in status_counts, "Should have skipped results"
+
+    # migration_preserves_snapshot_titles
+    expected_titles = {s["url"]: s["title"] for s in original_data["snapshots"]}
+
+    ok, msg = verify_snapshot_titles(db_path, expected_titles)
+    assert ok, msg
+
+    # migration_preserves_foreign_keys
+    ok, msg = verify_foreign_keys(db_path)
+    assert ok, msg
+
+    # migration_creates_process_records
+    # Verify Process records created
+    expected_count = len(original_data["archiveresults"])
+    ok, msg = verify_process_migration(db_path, expected_count)
+    assert ok, msg
+
+    # migration_creates_binary_records
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Check Binary records exist
+    cursor.execute("SELECT COUNT(*) FROM machine_binary")
+    binary_count = cursor.fetchone()[0]
+
+    # Should have at least one binary per unique extractor
+    extractors = {ar["extractor"] for ar in original_data["archiveresults"]}
+    assert binary_count >= len(extractors), f"Expected at least {len(extractors)} Binaries, got {binary_count}"
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM machine_process
+        WHERE cmd != '[]' AND binary_id IS NULL
+    """)
+    missing_binary_count = cursor.fetchone()[0]
+    assert missing_binary_count == 0
+
+    cursor.execute("""
+        SELECT p.cmd, b.name, b.abspath
+        FROM machine_process p
+        JOIN machine_binary b ON p.binary_id = b.id
+        WHERE p.cmd != '[]'
+    """)
+    rows = cursor.fetchall()
+    assert rows
+    for cmd_raw, binary_name, binary_abspath in rows:
+        cmd = json.loads(cmd_raw)
+        assert binary_name == cmd[0]
+        assert binary_abspath == cmd[0]
+
+    cursor.execute("SELECT COUNT(*) FROM machine_process WHERE iface_id IS NULL")
+    missing_iface_count = cursor.fetchone()[0]
+    assert missing_iface_count == 0
+
+    conn.close()
+
+    # migration_preserves_cmd_data
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Check that Process records have cmd arrays
+    cursor.execute("SELECT cmd FROM machine_process WHERE cmd != '[]'")
+    cmd_records = cursor.fetchall()
+
+    # All Processes should have non-empty cmd (test data has json.dumps([extractor, '--version']))
+    expected_count = len(original_data["archiveresults"])
+    assert len(cmd_records) == expected_count, f"Expected {expected_count} Processes with cmd, got {len(cmd_records)}"
+
+    conn.close()
+
+    # no_duplicate_snapshots_after_migration
+    # Check for duplicate URLs
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT url, COUNT(*) as cnt FROM core_snapshot
+        GROUP BY url HAVING cnt > 1
+    """)
+    duplicates = cursor.fetchall()
+    conn.close()
+
+    assert len(duplicates) == 0, f"Found duplicate URLs: {duplicates}"
+
+    # no_orphaned_archiveresults_after_migration
+    ok, msg = verify_foreign_keys(db_path)
+    assert ok, msg
+
+    # timestamps_preserved_after_migration
+    original_timestamps = {s["url"]: s["timestamp"] for s in original_data["snapshots"]}
+
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+    cursor.execute("SELECT url, timestamp FROM core_snapshot")
+    migrated_timestamps = {row[0]: row[1] for row in cursor.fetchall()}
+    conn.close()
+
+    for url, original_ts in original_timestamps.items():
+        assert migrated_timestamps.get(url) == original_ts, f"Timestamp changed for {url}: {original_ts} -> {migrated_timestamps.get(url)}"
+
+    # crawl_data_preserved_after_migration
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    # Check each crawl's data is preserved
+    for crawl in original_data["crawls"]:
+        cursor.execute("SELECT urls, label, status FROM crawls_crawl WHERE id = ?", (crawl["id"],))
+        row = cursor.fetchone()
+        assert row is not None, f"Crawl {crawl['id']} not found after migration"
+        assert row[0] == crawl["urls"], f"URLs mismatch for crawl {crawl['id']}"
+        assert row[1] == crawl["label"], f"Label mismatch for crawl {crawl['id']}"
+        assert row[2] == crawl["status"], f"Status mismatch for crawl {crawl['id']}"
+
+    conn.close()
+
+    # tag_associations_preserved_after_migration
+    # Count tag associations after migration
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM core_snapshot_tags")
+    migrated_count = cursor.fetchone()[0]
+    conn.close()
+
+    assert migrated_count == original_tag_count, f"Tag associations changed: {original_tag_count} -> {migrated_count}"
 
 
 def test_legacy_default_crawl_is_sealed_without_a_due_retry(tmp_path):
@@ -343,72 +520,6 @@ def test_forward_migration_normalizes_active_legacy_retry_timestamps(migration_0
         assert conn.execute("SELECT retry_at FROM machine_process WHERE id = ?", (process_id,)).fetchone() == (expected_utc_timestamp,)
 
 
-def test_migration_preserves_snapshot_crawl_links(migration_08_data):
-    """Migration should preserve snapshot-to-crawl relationships and assign default crawl to orphans."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-
-    # Check EVERY snapshot has a crawl_id after migration
-    for snapshot in original_data["snapshots"]:
-        cursor.execute("SELECT crawl_id FROM core_snapshot WHERE url = ?", (snapshot["url"],))
-        row = cursor.fetchone()
-        assert row is not None, f"Snapshot {snapshot['url']} not found after migration"
-
-        if snapshot["crawl_id"] is not None:
-            # Snapshots that had a crawl should keep it
-            assert row[0] == snapshot["crawl_id"], f"Crawl ID changed for {snapshot['url']}: expected {snapshot['crawl_id']}, got {row[0]}"
-        else:
-            # Snapshots without a crawl should now have one (the default crawl)
-            assert row[0] is not None, f"Snapshot {snapshot['url']} should have been assigned to default crawl but has NULL"
-
-    conn.close()
-
-
-def test_migration_preserves_tags(migration_08_data):
-    """Migration should preserve all tags."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_tag_count(db_path, len(original_data["tags"]))
-    assert ok, msg
-
-
-def test_migration_preserves_archiveresults(migration_08_data):
-    """Migration should preserve ArchiveResult rows and link each one to a Process."""
-    work_dir, db_path, original_data = migration_08_data
-    expected_count = len(original_data["archiveresults"])
-    expected_counts = {}
-    for result in original_data["archiveresults"]:
-        status = "succeeded" if result["status"] == "success" else result["status"]
-        key = (result["extractor"], status)
-        expected_counts[key] = expected_counts.get(key, 0) + 1
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_archiveresult_count(db_path, expected_count)
-    assert ok, msg
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT plugin, status, COUNT(*) FROM core_archiveresult GROUP BY plugin, status")
-    migrated_counts = {(plugin, status): count for plugin, status, count in cursor.fetchall()}
-    cursor.execute("SELECT COUNT(*) FROM core_archiveresult WHERE process_id IS NULL")
-    missing_process_count = cursor.fetchone()[0]
-    cursor.execute("SELECT COUNT(*) FROM machine_process")
-    process_count = cursor.fetchone()[0]
-    conn.close()
-
-    assert migrated_counts == expected_counts
-    assert missing_process_count == 0
-    assert process_count == expected_count
-
-
 def test_migration_preserves_users_groups_permissions_api_secrets_and_repeated_init(migration_08_data):
     work_dir, db_path, original_data = migration_08_data
 
@@ -444,26 +555,6 @@ def test_process_metadata_migration_rolls_back_completely_on_malformed_row(migra
         assert current_rows == source_rows
         assert conn.execute("SELECT COUNT(*) FROM machine_process").fetchone()[0] == 0
         assert conn.execute("SELECT COUNT(*) FROM machine_binary").fetchone()[0] == 0
-
-
-def test_migration_preserves_archiveresult_status(migration_08_data):
-    """Migration should preserve archive result status values."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-
-    # Get status counts
-    cursor.execute("SELECT status, COUNT(*) FROM core_archiveresult GROUP BY status")
-    status_counts = dict(cursor.fetchall())
-    conn.close()
-
-    # Original data has known status distribution: succeeded, failed, skipped
-    assert "succeeded" in status_counts, "Should have succeeded results"
-    assert "failed" in status_counts, "Should have failed results"
-    assert "skipped" in status_counts, "Should have skipped results"
 
 
 def test_status_works_after_migration(migration_08_data):
@@ -503,28 +594,6 @@ def test_search_works_after_migration(migration_08_data):
     # Verify ALL snapshots appear in output
     output = result.stdout + result.stderr
     ok, msg = verify_all_snapshots_in_output(output, original_data["snapshots"])
-    assert ok, msg
-
-
-def test_migration_preserves_snapshot_titles(migration_08_data):
-    """Migration should preserve all snapshot titles."""
-    work_dir, db_path, original_data = migration_08_data
-    expected_titles = {s["url"]: s["title"] for s in original_data["snapshots"]}
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_snapshot_titles(db_path, expected_titles)
-    assert ok, msg
-
-
-def test_migration_preserves_foreign_keys(migration_08_data):
-    """Migration should maintain foreign key relationships."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_foreign_keys(db_path)
     assert ok, msg
 
 
@@ -650,174 +719,6 @@ def test_version_works_after_migration(migration_08_data):
     # Should show version info
     output = result.stdout + result.stderr
     assert "ArchiveBox" in output or "version" in output.lower(), f"Version output missing expected content: {output[:500]}"
-
-
-def test_migration_creates_process_records(migration_08_data):
-    """Migration should create Process records for all ArchiveResults."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    # Verify Process records created
-    expected_count = len(original_data["archiveresults"])
-    ok, msg = verify_process_migration(db_path, expected_count)
-    assert ok, msg
-
-
-def test_migration_creates_binary_records(migration_08_data):
-    """Migration should create and link Binary/NetworkInterface records from migrated Process data."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-
-    # Check Binary records exist
-    cursor.execute("SELECT COUNT(*) FROM machine_binary")
-    binary_count = cursor.fetchone()[0]
-
-    # Should have at least one binary per unique extractor
-    extractors = {ar["extractor"] for ar in original_data["archiveresults"]}
-    assert binary_count >= len(extractors), f"Expected at least {len(extractors)} Binaries, got {binary_count}"
-
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM machine_process
-        WHERE cmd != '[]' AND binary_id IS NULL
-    """)
-    missing_binary_count = cursor.fetchone()[0]
-    assert missing_binary_count == 0
-
-    cursor.execute("""
-        SELECT p.cmd, b.name, b.abspath
-        FROM machine_process p
-        JOIN machine_binary b ON p.binary_id = b.id
-        WHERE p.cmd != '[]'
-    """)
-    rows = cursor.fetchall()
-    assert rows
-    for cmd_raw, binary_name, binary_abspath in rows:
-        cmd = json.loads(cmd_raw)
-        assert binary_name == cmd[0]
-        assert binary_abspath == cmd[0]
-
-    cursor.execute("SELECT COUNT(*) FROM machine_process WHERE iface_id IS NULL")
-    missing_iface_count = cursor.fetchone()[0]
-    assert missing_iface_count == 0
-
-    conn.close()
-
-
-def test_migration_preserves_cmd_data(migration_08_data):
-    """Migration should preserve cmd data in Process.cmd field."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-
-    # Check that Process records have cmd arrays
-    cursor.execute("SELECT cmd FROM machine_process WHERE cmd != '[]'")
-    cmd_records = cursor.fetchall()
-
-    # All Processes should have non-empty cmd (test data has json.dumps([extractor, '--version']))
-    expected_count = len(original_data["archiveresults"])
-    assert len(cmd_records) == expected_count, f"Expected {expected_count} Processes with cmd, got {len(cmd_records)}"
-
-    conn.close()
-
-
-def test_no_duplicate_snapshots_after_migration(migration_08_data):
-    """Migration should not create duplicate snapshots."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    # Check for duplicate URLs
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT url, COUNT(*) as cnt FROM core_snapshot
-        GROUP BY url HAVING cnt > 1
-    """)
-    duplicates = cursor.fetchall()
-    conn.close()
-
-    assert len(duplicates) == 0, f"Found duplicate URLs: {duplicates}"
-
-
-def test_no_orphaned_archiveresults_after_migration(migration_08_data):
-    """Migration should not leave orphaned ArchiveResults."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    ok, msg = verify_foreign_keys(db_path)
-    assert ok, msg
-
-
-def test_timestamps_preserved_after_migration(migration_08_data):
-    """Migration should preserve original timestamps."""
-    work_dir, db_path, original_data = migration_08_data
-    original_timestamps = {s["url"]: s["timestamp"] for s in original_data["snapshots"]}
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT url, timestamp FROM core_snapshot")
-    migrated_timestamps = {row[0]: row[1] for row in cursor.fetchall()}
-    conn.close()
-
-    for url, original_ts in original_timestamps.items():
-        assert migrated_timestamps.get(url) == original_ts, f"Timestamp changed for {url}: {original_ts} -> {migrated_timestamps.get(url)}"
-
-
-def test_crawl_data_preserved_after_migration(migration_08_data):
-    """Migration should preserve crawl metadata (urls, label, status)."""
-    work_dir, db_path, original_data = migration_08_data
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-
-    # Check each crawl's data is preserved
-    for crawl in original_data["crawls"]:
-        cursor.execute("SELECT urls, label, status FROM crawls_crawl WHERE id = ?", (crawl["id"],))
-        row = cursor.fetchone()
-        assert row is not None, f"Crawl {crawl['id']} not found after migration"
-        assert row[0] == crawl["urls"], f"URLs mismatch for crawl {crawl['id']}"
-        assert row[1] == crawl["label"], f"Label mismatch for crawl {crawl['id']}"
-        assert row[2] == crawl["status"], f"Status mismatch for crawl {crawl['id']}"
-
-    conn.close()
-
-
-def test_tag_associations_preserved_after_migration(migration_08_data):
-    """Migration should preserve snapshot-tag associations."""
-    work_dir, db_path, original_data = migration_08_data
-    # Count tag associations before migration
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM core_snapshot_tags")
-    original_count = cursor.fetchone()[0]
-    conn.close()
-
-    result = run_archivebox_migration_cmd(work_dir, ["init"], timeout=45)
-    assert result.returncode == 0, f"Init failed: {result.stderr}"
-
-    # Count tag associations after migration
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM core_snapshot_tags")
-    migrated_count = cursor.fetchone()[0]
-    conn.close()
-
-    assert migrated_count == original_count, f"Tag associations changed: {original_count} -> {migrated_count}"
 
 
 def test_update_migrates_db_snapshot_when_legacy_index_missing(tmp_path):
