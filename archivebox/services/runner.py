@@ -722,6 +722,9 @@ class CrawlRunner:
         from archivebox.machine.models import Machine, NetworkInterface, Process
 
         self.primary_url = self.crawl.get_urls_list()[0] if self.crawl.get_urls_list() else ""
+        # Validate saved binary paths at the execution boundary, including
+        # config edited since this process first registered its Machine.
+        machine = Machine._sanitize_config(Machine.current())
         current_iface = NetworkInterface.current(refresh=not self.allow_maintenance_on_inactive_crawl)
         current_process = Process.current()
         if current_process.iface_id != current_iface.id or current_process.machine_id != current_iface.machine_id:
@@ -730,7 +733,7 @@ class CrawlRunner:
             current_process.save(update_fields=["iface", "machine", "modified_at"])
         self.persona = self.crawl.resolve_persona()
         self.base_config = get_config(crawl=self.crawl, overrides=self.config_overrides)
-        self.derived_config = dict(Machine.current().config or {})
+        self.derived_config = dict(machine.config or {})
         self.crawl_output_dir = str(self.crawl.output_dir)
         if self.persona:
             self.base_config.update(
