@@ -264,7 +264,7 @@ def test_init_recovers_from_pre_squash_dev_history(tmp_path):
         ("api", "0002_alter_apitoken_options"),
         ("api", "0009_rename_created_apitoken_created_at_and_more"),
         # v0.6.2 ran makemigrations at init, so these reported 0021 names were
-        # created in collection data directories and never appeared in Git.
+        # created in the installed package and never appeared in Git.
         ("core", "0021_auto_20220510_0644"),
         ("core", "0021_auto_20220724_1254"),
         ("core", "0021_auto_20221128_1116"),

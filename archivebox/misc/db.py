@@ -446,7 +446,7 @@ def migration_lock(stdout: TextIO | None = None):
 
 # Migration names that previously existed in ArchiveBox's source tree but have
 # since been deleted (squashed away, renamed, moved between apps, etc.), plus
-# exact older migrations generated in collection directories by v0.6.2's
+# exact older migrations generated in the installed package by v0.6.2's
 # startup makemigrations. Those runtime-generated names were never in Git, so
 # the deleted-file history alone cannot cover them. DBs
 # upgraded incrementally through 0.8.x → 0.9.x dev rcs accumulate rows for
