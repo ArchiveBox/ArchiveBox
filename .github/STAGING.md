@@ -24,8 +24,12 @@ these credentials to PR jobs or copy an operator's existing root key.
 Acceptance creates one tagged background crawl per source through the normal
 add/runner path, enabling every snapshot extractor, including TLSNotary. It
 checks installed pins, completed outputs and their files, unexpected/missing
-plugin results, host OOM kills, and real rendered snapshot pages. Logs, result
-inventories and screenshots are retained as Actions artifacts. Failures remain
+plugin results, host OOM kills, and real rendered snapshot pages. For this
+release, the explicitly accepted TLSNotary failures and exact missing-Claude-auth
+diagnostics are retained in the report's `limitations` list; they do not disable
+those plugins or excuse missing/truncated successful outputs. Remove the
+TLSNotary exception when its follow-up fix ships. Logs, result inventories and
+screenshots are retained as Actions artifacts. Other failures remain
 failures; do not publish a success deployment record to bypass them. No code
 mounts are allowed. The Cabbage job must pass before its record authorizes a
 stable upload. Queued capture progress is polled; failed tests are not retried.

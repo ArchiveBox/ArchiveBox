@@ -1,4 +1,5 @@
 from pathlib import Path
+import ast
 import json
 import importlib.util
 import shlex
@@ -310,3 +311,28 @@ def test_staging_gate_matches_the_exact_tested_docker_base_digest(tmp_path):
         _VERIFY_STAGING.tested_abx_dl_digest(tmp_path, source_sha)
     with pytest.raises(SystemExit, match="different source commit"):
         _VERIFY_STAGING.tested_abx_dl_digest(tmp_path, "d" * 40)
+
+
+def test_staging_acceptance_limits_only_exact_known_auth_and_tls_failures():
+    helper = (REPO_ROOT / "bin" / "staging-acceptance-host.sh").read_text()
+    embedded = re.search(r"script=\"\$\(cat <<'PY'\n(.*?)\nPY\n\)\"", helper, re.S)
+    assert embedded, "staging acceptance Python body not found"
+    tree = ast.parse(embedded.group(1))
+    classifier = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "accepted_limitation")
+    namespace = {}
+    exec(compile(ast.Module(body=[classifier], type_ignores=[]), "staging-acceptance", "exec"), namespace)
+    accepts = namespace["accepted_limitation"]
+
+    assert accepts("tlsnotary", "failed", "Not enough memory for TLSNotary")
+    assert accepts("claudechrome", "failed", "ANTHROPIC_API_KEY not set")
+    assert accepts("claudecodeextract", "failed", "Claude Code auth not set")
+    assert accepts("claudecodecleanup", "failed", "Claude Code auth not set")
+    assert not accepts("claudechrome", "failed", "ANTHROPIC_API_KEY not set; other failure")
+    assert not accepts("other-plugin", "failed", "Claude Code auth not set")
+    assert not accepts("claudechrome", "succeeded", "ANTHROPIC_API_KEY not set")
+    assert "'limitations': []" in embedded.group(1)
+    assert "'PLUGINS': ','.join(sorted(catalog))" in embedded.group(1)
+    assert "for plugin in capture_plugins:" in embedded.group(1)
+    assert "missing or truncated" in embedded.group(1)
+    assert "output.stat().st_size != metadata.get('size')" in embedded.group(1)
+    assert "tlsnotary reported unexpected status" in embedded.group(1)
