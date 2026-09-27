@@ -120,17 +120,9 @@ jobs:
               --json databaseId,status,conclusion \
               --jq '.[0] | select(.status == "completed" and .conclusion == "success") | .databaseId // empty')"
             [[ -n "$CANDIDATE_RUN_ID" && -n "$CI_RUN_ID" ]] || exit 0
-            if [[ "$RELEASE_BRANCH" == dev ]]; then
-              DIGEST_RUN_ID="$CANDIDATE_RUN_ID"
-            else
-              DIGEST_RUN_ID="$CI_RUN_ID"
-            fi
+            DIGEST_RUN_ID="$CI_RUN_ID"
           fi
-          if [[ "$RELEASE_BRANCH" == dev && "$GITHUB_EVENT_NAME" != workflow_dispatch ]]; then
-            ARTIFACT_RUN_ID="$CANDIDATE_RUN_ID"
-          else
-            ARTIFACT_RUN_ID="$CI_RUN_ID"
-          fi
+          ARTIFACT_RUN_ID="$CI_RUN_ID"
           {
             echo 'ready=true'
             echo "artifact_run_id=$ARTIFACT_RUN_ID"

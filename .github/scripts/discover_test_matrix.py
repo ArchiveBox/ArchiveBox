@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Discover every test once, batching measured short files on hosted runners."""
+"""Discover every test once, batching measured short files."""
 
 import json
 import os
@@ -14,9 +14,9 @@ def main() -> None:
         raise SystemExit("No ArchiveBox tests discovered")
 
     # These are observed whole-job seconds, including setup. Unknown/long files,
-    # optional dependencies and existing NAS assignments keep independent jobs.
+    # optional dependencies and hosted-only requirements keep independent jobs.
     durations = json.loads((root / ".github/test-durations.json").read_text())["seconds"]
-    nas_tests = set(json.loads(os.environ.get("UGNAS_CI_TESTS", "[]")))
+    hosted = {path for path in archivebox_tests if "# ci-runner: hosted" in path.read_text().splitlines()[:5]}
     requested = os.environ.get("TEST_FILE", "")
     batches: list[list[str]] = []
     batch: list[str] = []
@@ -24,7 +24,7 @@ def main() -> None:
     for path in archivebox_tests:
         test_path = path.relative_to(root).as_posix()
         duration = durations.get(test_path, 60)
-        if duration >= 60 or f"main/{path.stem}" in nas_tests or path.stem == "test_auth_ldap" or test_path == requested:
+        if duration >= 60 or path in hosted or path.stem == "test_auth_ldap" or test_path == requested:
             batches.append([test_path])
             continue
         if batch and (len(batch) == 8 or batch_seconds + duration > 180):
@@ -45,8 +45,17 @@ def main() -> None:
                 "paths_arg": " ".join(paths),
                 "extra": "ldap" if paths == ["archivebox/tests/test_auth_ldap.py"] else "",
                 "count": len(paths),
+                "ugnas": False,
             },
         )
+
+    # Ordinary Linux tests can use either pool. Only genuine hosted-only
+    # requirements need a file header; filenames never enter runner policy.
+    # Keep a bounded NAS share so hosted capacity continues working in parallel.
+    capacity = int(os.environ.get("UGNAS_CI_MAX_JOBS", "3"))
+    eligible = [item for item in matrix if not any(root / path in hosted for path in item["paths"])]
+    for item in sorted(eligible, key=lambda item: sum(durations.get(path, 60) for path in item["paths"]), reverse=True)[:capacity]:
+        item["ugnas"] = True
 
     discovered_paths = [path for entry in matrix for path in entry["paths"]]
     if len(discovered_paths) != len(set(discovered_paths)):

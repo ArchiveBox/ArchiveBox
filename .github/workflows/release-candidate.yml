@@ -52,20 +52,3 @@ jobs:
           branch: ${{ github.ref_name }}
           tag-prefix: v
           version-scheme: ${{ github.ref_name == 'main' && 'patch' || 'rc' }}
-
-  python-artifacts:
-    needs: prepare
-    if: github.ref_name == 'dev' && (needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved')
-    uses: ./.github/workflows/pip.yml
-    with:
-      full_tests: false
-    secrets: inherit
-
-  docker-digests:
-    needs: prepare
-    if: github.ref_name == 'dev' && (needs.prepare.outputs.action == 'ready' || needs.prepare.outputs.action == 'reserved')
-    uses: ./.github/workflows/docker.yml
-    with:
-      push_digests: true
-      full_tests: false
-    secrets: inherit

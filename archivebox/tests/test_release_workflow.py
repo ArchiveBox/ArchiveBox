@@ -185,8 +185,12 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
 
     assert all(step.get("name") != "Verify published PyPI package installs and runs" for step in python_release["steps"])
     candidate = yaml.safe_load(RELEASE_CANDIDATE_WORKFLOW.read_text())
-    assert "opencode" not in candidate["jobs"]
-    assert candidate["jobs"]["python-artifacts"]["with"]["full_tests"] is False
+    assert set(candidate["jobs"]) == {"prepare"}
+    gate = next(step["run"] for step in jobs["candidate"]["steps"] if step.get("id") == "verified")
+    assert 'ARTIFACT_RUN_ID="$CI_RUN_ID"' in gate
+    assert 'DIGEST_RUN_ID="$CI_RUN_ID"' in gate
+    assert 'ARTIFACT_RUN_ID="$CANDIDATE_RUN_ID"' not in gate
+    assert 'DIGEST_RUN_ID="$CANDIDATE_RUN_ID"' not in gate
     pip_workflow = yaml.safe_load(PIP_WORKFLOW.read_text())
     install_script = next(
         step["run"] for step in pip_workflow["jobs"]["build"]["steps"] if step.get("name") == "Release wheel import and CLI smoke"
@@ -420,11 +424,15 @@ def test_staging_acceptance_limits_only_exact_known_auth_and_tls_failures():
 
 @pytest.mark.parametrize("requested", ["", "archivebox/tests/test_urls.py", "archivebox/tests/test_release_workflow.py"])
 def test_ci_batches_preserve_inventory_runner_ownership_and_single_file_runs(tmp_path, requested):
-    nas_names = ["main/test_urls", "main/test_cli_machine", "main/test_cli_run", "main/test_takeover_util"]
+    hosted_paths = {
+        path.relative_to(REPO_ROOT).as_posix()
+        for path in (REPO_ROOT / "archivebox/tests").glob("test_*.py")
+        if "# ci-runner: hosted" in path.read_text().splitlines()[:5]
+    }
     result = subprocess.run(
         ["uv", "run", "--no-cache", "--no-project", "python", str(REPO_ROOT / ".github/scripts/discover_test_matrix.py")],
         cwd=tmp_path,
-        env={**os.environ, "TEST_FILE": requested, "UGNAS_CI_TESTS": json.dumps(nas_names)},
+        env={**os.environ, "TEST_FILE": requested, "UGNAS_CI_MAX_JOBS": "3"},
         capture_output=True,
         text=True,
         check=True,
@@ -436,9 +444,8 @@ def test_ci_batches_preserve_inventory_runner_ownership_and_single_file_runs(tmp
     assert len(paths) == len(set(paths))
     assert len(matrix) < len(paths)
     assert all(1 <= len(item["paths"]) <= 8 for item in matrix)
-    for name in nas_names:
-        item = next(item for item in matrix if item["name"] == name)
-        assert item["paths"] == [f"archivebox/tests/{name.split('/')[-1]}.py"]
+    assert sum(item["ugnas"] for item in matrix) == 3
+    assert not any(path in hosted_paths for item in matrix if item["ugnas"] for path in item["paths"])
     ldap = next(item for item in matrix if item["extra"] == "ldap")
     assert ldap["paths"] == ["archivebox/tests/test_auth_ldap.py"]
     if requested:
@@ -459,7 +466,7 @@ def test_ci_discovery_handles_added_renamed_and_deleted_files_without_timing_edi
         result = subprocess.run(
             ["uv", "run", "--no-cache", "--no-project", "python", str(script)],
             cwd=tmp_path,
-            env={**os.environ, "TEST_FILE": "", "UGNAS_CI_TESTS": "[]"},
+            env={**os.environ, "TEST_FILE": "", "UGNAS_CI_MAX_JOBS": "3"},
             capture_output=True,
             text=True,
             check=True,
@@ -477,3 +484,11 @@ def test_ci_discovery_handles_added_renamed_and_deleted_files_without_timing_edi
     assert len(discover()) == 3
     (tests / "test_core_config.py").unlink()
     assert len(discover()) == 2
+
+    source = REPO_ROOT / "archivebox/tests/test_util.py"
+    (tests / "test_runner.py").write_text("# ci-runner: hosted\n" + source.read_text())
+    assert next(item for item in discover() if "archivebox/tests/test_runner.py" in item["paths"])["ugnas"] is False
+    (tests / "test_runner.py").rename(tests / "test_runner_renamed.py")
+    assert next(item for item in discover() if "archivebox/tests/test_runner_renamed.py" in item["paths"])["ugnas"] is False
+    (tests / "test_runner_renamed.py").unlink()
+    assert all(item["ugnas"] for item in discover())
