@@ -346,7 +346,6 @@ async function main() {
     }
 
     await page.waitForSelector('body');
-    await page.waitForSelector('#progress-monitor, #add-form', { timeout: 5000 }).catch(() => {});
     if (process.env.SCREENSHOT_WAIT_SELECTOR) {
       await page.waitForSelector(process.env.SCREENSHOT_WAIT_SELECTOR, { timeout: 45000 });
     }
