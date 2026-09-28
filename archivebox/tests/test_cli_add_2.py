@@ -36,15 +36,26 @@ from .test_cli_add_1 import (
 )
 
 
+@pytest.fixture
+def progress_page(httpserver):
+    # Exercise the real HTTP fetch and parser with fixed content. example.com's
+    # outgoing IANA link has changed independently of ArchiveBox releases.
+    httpserver.expect_request("/").respond_with_data(
+        '<html><body><a href="https://iana.org/domains/example">Example domains</a></body></html>',
+        content_type="text/html",
+    )
+    return httpserver.url_for("/")
+
+
 @pytest.mark.parametrize("terminal_stream", ["stdout", "stderr"])
-def test_add_renders_live_progress_in_foreground_terminal(initialized_archive, terminal_stream):
+def test_add_renders_live_progress_in_foreground_terminal(initialized_archive, terminal_stream, progress_page):
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (40, 160))
     output = bytearray()
     result = None
     try:
         result = run_archivebox_cmd(
-            ["add", "--plugins=parse_txt_urls", "https://example.com"],
+            ["add", "--plugins=parse_txt_urls", progress_page],
             cwd=initialized_archive,
             env=cli_env(USE_COLOR="True", SHOW_PROGRESS="True"),
             **{terminal_stream: slave},
@@ -65,7 +76,7 @@ def test_add_renders_live_progress_in_foreground_terminal(initialized_archive, t
         with use_archivebox_db(initialized_archive):
             assert Crawl.objects.get().status == Crawl.StatusChoices.SEALED
             snapshot = Snapshot.objects.get()
-            assert snapshot.url == "https://example.com"
+            assert snapshot.url == progress_page
             parsed_urls = Path(snapshot.output_dir) / "parse_txt_urls" / "urls.jsonl"
             assert json.loads(parsed_urls.read_text())["url"] == "https://iana.org/domains/example"
     finally:
@@ -76,9 +87,9 @@ def test_add_renders_live_progress_in_foreground_terminal(initialized_archive, t
         os.close(master)
 
 
-def test_add_redirected_progress_remains_plain_text(initialized_archive):
+def test_add_redirected_progress_remains_plain_text(initialized_archive, progress_page):
     result = run_archivebox_cmd(
-        ["add", "--plugins=parse_txt_urls", "https://example.com"],
+        ["add", "--plugins=parse_txt_urls", progress_page],
         cwd=initialized_archive,
         env=cli_env(),
     )
