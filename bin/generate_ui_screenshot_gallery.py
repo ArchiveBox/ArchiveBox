@@ -32,7 +32,6 @@ REQUIRED_VIEW_NAMES = {
     "Snapshot admin detail",
     "Snapshot View (capture in progress)",
     "Snapshot View (header collapsed)",
-    "Snapshot View (opentimestamps)",
     "Snapshot files",
     "Archive results",
     "Archive result detail",
@@ -59,6 +58,37 @@ REQUIRED_VIEW_NAMES = {
     "Logs",
     "Log detail",
 }
+
+
+def plugin_screenshot_plan() -> dict:
+    """Discover default coverage and plugin-owned examples from the installed package."""
+    from abx_plugins import get_plugins_dir
+
+    required = []
+    examples = {}
+    overrides = {}
+    enabled_plugins = []
+    for plugin_dir in sorted(get_plugins_dir().iterdir()):
+        config_path = plugin_dir / "config.json"
+        if not config_path.is_file():
+            continue
+        config = json.loads(config_path.read_text())
+        recipe = json.loads((plugin_dir / config["screenshot"]).read_text()) if config.get("screenshot") else {}
+        plugin = plugin_dir.name
+        enabled = config.get("properties", {}).get(f"{plugin.upper()}_ENABLED", {}).get("default", False)
+        if recipe.get("enabled") or recipe.get("url"):
+            enabled_plugins.append(plugin)
+            enabled = True
+        if recipe.get("view"):
+            required.append(recipe["view"])
+        elif (plugin_dir / "templates/full.html").is_file() and enabled:
+            required.append(f"Snapshot View ({plugin})")
+        if recipe.get("url"):
+            overrides[plugin] = recipe
+            key = (recipe["url"], tuple(recipe.get("prepare_plugins", [])))
+            example = examples.setdefault(key, {"url": key[0], "prepare_plugins": list(key[1]), "plugins": []})
+            example["plugins"].append(plugin)
+    return {"required": required, "examples": list(examples.values()), "overrides": overrides, "enabled": enabled_plugins}
 
 
 def build_provenance() -> dict[str, str]:
@@ -213,19 +243,9 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
 
     if not allow_partial:
         captured_names = set(captures_by_name)
-        missing = sorted(REQUIRED_VIEW_NAMES - captured_names)
+        missing = sorted((REQUIRED_VIEW_NAMES | set(plugin_screenshot_plan()["required"])) - captured_names)
         if missing:
             raise SystemExit(f"required UI screenshot coverage is missing: {', '.join(missing)}")
-        snapshot_output_views = [
-            name
-            for name in captured_names
-            if name.startswith("Snapshot View (")
-            and name not in {"Snapshot View (capture in progress)", "Snapshot View (header collapsed)"}
-        ]
-        if len(snapshot_output_views) < 20:
-            raise SystemExit(
-                f"expected at least 20 rendered Sweeting.me snapshot outputs, got {len(snapshot_output_views)}",
-            )
     markdown_sections = []
     html_sections = []
     for capture in grouped_captures:
@@ -276,7 +296,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
             ),
         )
         html_sections.append(
-            f"<article><h2>{html.escape(capture['name'])}</h2>"
+            f'<article id="{re.sub(r"[^a-z0-9]+", "-", capture["name"].lower()).strip("-")}"><h2>{html.escape(capture["name"])}</h2>'
             f'<p><a href="{html.escape(capture["url"])}"><code>{html.escape(route)}</code></a> · '
             f'<a href="{html.escape(source_url)}">View code</a>{html.escape(ttfb_text)}</p>'
             f'<div class="shots">{"".join(html_figures)}</div></article>',
@@ -345,6 +365,12 @@ def refresh_gallery(html_path: Path) -> None:
     if not header or not sections:
         raise SystemExit("Published screenshot gallery is missing its capture header or content")
     content = sections[1]
+    content = re.sub(
+        r"<article><h2>(.*?)</h2>",
+        lambda match: f'<article id="{re.sub(r"[^a-z0-9]+", "-", html.unescape(match[1]).lower()).strip("-")}"><h2>{match[1]}</h2>',
+        content,
+        flags=re.DOTALL,
+    )
     for profile in CAPTURE_PROFILES:
         # Galleries published before the switcher used classes alone.
         content = content.replace(
@@ -355,6 +381,9 @@ def refresh_gallery(html_path: Path) -> None:
 
 
 def main() -> None:
+    if sys.argv[1:] == ["plugin-plan"]:
+        print(json.dumps(plugin_screenshot_plan()))
+        return
     if len(sys.argv) == 3 and sys.argv[1] == "refresh":
         refresh_gallery(Path(sys.argv[2]))
         return

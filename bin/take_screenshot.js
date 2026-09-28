@@ -27,6 +27,7 @@ Environment:
   SCREENSHOT_SCROLL_SELECTOR Scroll this selector into view before capture
   SCREENSHOT_WAIT_SELECTOR   Wait for this selector before capture
   SCREENSHOT_WAIT_FOR_TEXT   Wait for this visible page text before capture
+  SCREENSHOT_PREVIEW_WAIT_FOR_TEXT Wait for this text in the selected snapshot preview iframe
   SCREENSHOT_REQUIRE_LIVE_PROGRESS  Require active snapshot progress and a nonblank decoded screencast within 60s
   SCREENSHOT_CLICK_SELECTOR  Click this selector before capture
   SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR  Wait for this selector after clicking
@@ -353,6 +354,16 @@ async function main() {
     if (process.env.SCREENSHOT_WAIT_SELECTOR) {
       await page.waitForSelector(process.env.SCREENSHOT_WAIT_SELECTOR, { timeout: 45000 });
     }
+    if (process.env.SCREENSHOT_PREVIEW_WAIT_FOR_TEXT) {
+      const previewHandle = await page.waitForSelector('#main-frame', {timeout: 45000});
+      const preview = await previewHandle.contentFrame();
+      if (!preview) throw new Error('Snapshot preview iframe has no document');
+      await preview.waitForFunction(
+        (text) => document.body?.innerText.includes(text),
+        {timeout: 45000},
+        process.env.SCREENSHOT_PREVIEW_WAIT_FOR_TEXT,
+      );
+    }
     if (process.env.SCREENSHOT_CLICK_SELECTOR) {
       await page.waitForSelector(process.env.SCREENSHOT_CLICK_SELECTOR, { timeout: 45000 });
       await page.click(process.env.SCREENSHOT_CLICK_SELECTOR);
@@ -371,6 +382,13 @@ async function main() {
       await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
     } else {
       await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+
+    // Selecting a hash opens its output stack after the saved header preference
+    // is read. Apply the requested collapse through the real toggle afterwards.
+    if (process.env.SCREENSHOT_SNAPSHOT_HEADER === 'collapsed') {
+      const toggle = await page.$('.header-toggle[aria-expanded="true"]');
+      if (toggle) await toggle.click();
     }
 
     const checks = await page.evaluate(() => ({
