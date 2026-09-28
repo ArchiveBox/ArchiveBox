@@ -1329,7 +1329,7 @@ class TestSearchBackendsE2E:
                         surface_name,
                         search_mode,
                         first_positive_elapsed,
-                        counts[:10],
+                        count_events[:10],
                     )
                     assert total_elapsed < 2.0, (surface_name, search_mode, total_elapsed, counts[-10:])
 
