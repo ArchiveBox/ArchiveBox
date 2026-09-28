@@ -1237,6 +1237,8 @@ class PublicIndexView(ListView):
             "status",
             "output_size",
             "permissions",
+            # Modern replay URLs need the filesystem version and owner's name.
+            # Deferring these caused four extra SELECTs per displayed snapshot.
             "fs_version",
             "crawl__created_by__username",
         )
@@ -1352,7 +1354,12 @@ class PublicIndexView(ListView):
             # otherwise keeps SQLite's read lock throughout rendering.
             for result in list(results):
                 snapshot_key = str(result.snapshot_id)
+                # Thumbnail URLs traverse result.snapshot too; share the page's
+                # already-loaded parent rather than fetching it once per result.
                 result.snapshot = snapshots_by_id[snapshot_key]
+                # These read-only page objects are shared by icons, sizes, and
+                # thumbnails. Normalize each manifest once for this render.
+                result._render_output_file_map = result.output_file_map()
                 all_results_by_snapshot[snapshot_key].append(result)
                 progress = progress_by_snapshot[snapshot_key]
                 progress["total"] += 1

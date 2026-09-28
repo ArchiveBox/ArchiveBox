@@ -4436,6 +4436,10 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             return 0
 
     def output_file_map(self) -> dict[str, dict[str, Any]]:
+        # List views opt into this cache on their read-only, request-local rows.
+        # Runner-owned results must still reflect metadata changed during a hook.
+        if "_render_output_file_map" in self.__dict__:
+            return self._render_output_file_map
         return self._normalize_output_files(self.output_files)
 
     def output_file_paths(self) -> list[str]:
@@ -4590,11 +4594,20 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         output_file_map: dict[str, dict[str, Any]] | None = None,
     ) -> str | None:
         ignored = {"stdout.log", "stderr.log", "hook.pid", "listener.pid"}
-        candidates = [
-            path
-            for path in output_file_paths
-            if Path(path).name not in ignored and Path(path).suffix.lower() not in (".pid", ".log", ".sh")
-        ]
+        # Responses/wget manifests can contain thousands of paths. Parse each
+        # once instead of rebuilding Path objects for every preferred filename
+        # and extension group, each time a list row selects a preview.
+        candidates = []
+        names = {}
+        extensions = {}
+        for path in output_file_paths:
+            parsed_path = Path(path)
+            name, extension = parsed_path.name, parsed_path.suffix.lower()
+            if name in ignored or extension in (".pid", ".log", ".sh"):
+                continue
+            candidates.append(path)
+            names.setdefault(name.lower(), path)
+            extensions[path] = extension
         if not candidates:
             return None
 
@@ -4617,9 +4630,8 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             "article.json",
         ]
         for preferred_name in preferred_names:
-            for candidate in candidates:
-                if Path(candidate).name.lower() == preferred_name:
-                    return candidate
+            if preferred_name in names:
+                return names[preferred_name]
 
         from archivebox.plugins.discovery import get_plugin_output_extension_preference
 
@@ -4630,7 +4642,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             (".mp4", ".webm", ".mp3", ".opus", ".ogg", ".wav"),
         )
         for ext_group in ext_groups:
-            group_candidates = [candidate for candidate in candidates if Path(candidate).suffix.lower() in ext_group]
+            group_candidates = [candidate for candidate in candidates if extensions[candidate] in ext_group]
             if group_candidates:
                 return max(
                     group_candidates,
