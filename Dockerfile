@@ -258,7 +258,13 @@ RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=
         setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install $ABX_DOCKER_PLUGINS \
     # pnpm includes musl variants that Debian's glibc runtime cannot use.
     && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules" -type l -name 'opencode-linux-*-musl' -delete \
-    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.pnpm" -maxdepth 1 -type d -name 'opencode-linux-*-musl@*' -exec rm -rf {} +
+    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.pnpm" -maxdepth 1 -type d -name 'opencode-linux-*-musl@*' -exec rm -rf {} + \
+    # pnpm's explicit store lives under ABXPKG_LIB_DIR, regardless of XDG_CACHE_HOME.
+    # Retaining its download copies made image size depend on whether the build
+    # preserved hardlinks to installed files. Remove the store in this layer;
+    # installed files retain their contents, and the offline check below proves
+    # the complete catalog still works without the disposable package payloads.
+    && rm -rf "$ABXPKG_LIB_DIR/cache/pnpm"
 RUN --network=none export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
     bash -c '"$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version && abx-dl install $ABX_DOCKER_PLUGINS'
