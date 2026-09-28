@@ -44,6 +44,19 @@ from .test_cli_add_1 import (
 
 
 def test_abort_stops_long_running_background_hook(initialized_archive):
+    env = cli_env(INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True")
+    # Keep first-use dependency installation outside the timed hook-start
+    # observation. This test is about interrupting a running hook; a cold
+    # browser or forumdl install must not consume its readiness window.
+    installed = run_archivebox_cmd(
+        ["install", "forumdl", "chrome"],
+        cwd=initialized_archive,
+        env=env,
+        timeout=600,
+    )
+    assert installed.returncode == 0, installed.stderr or installed.stdout
+    env.update(resolve_abxpkg_chrome_env(Path(env["ABXPKG_LIB_DIR"]), env))
+
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (40, 200))
     output = bytearray()
@@ -66,14 +79,22 @@ def test_abort_stops_long_running_background_hook(initialized_archive):
         result = run_archivebox_cmd(
             ["add", "--depth=1", "--plugins=forumdl,infiniscroll", "https://news.ycombinator.com"],
             cwd=initialized_archive,
-            env=cli_env(INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True"),
+            env=env,
             stdin=slave,
             stdout=slave,
             stderr=slave,
             wait=False,
             start_new_session=True,
         )
-        read_until(lambda: (scroll := result_for("infiniscroll")) is not None and scroll.status == "started")
+        try:
+            read_until(lambda: (scroll := result_for("infiniscroll")) is not None and scroll.status == "started")
+        except AssertionError:
+            # Capture state before teardown terminates the runner: otherwise a
+            # missed readiness deadline loses the install/hook failure itself.
+            with use_archivebox_db(initialized_archive):
+                print("Hook readiness:", list(ArchiveResult.objects.values("plugin", "status", "output_str")))
+                print("Process readiness:", list(Process.objects.values("process_type", "status", "exit_code", "stderr")))
+            raise
         read_until(lambda: "running pid=" in re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output.decode(errors="replace")))
         result.send_signal(signal.SIGINT)
         read_until(lambda: b"Choice [skip]:" in output)

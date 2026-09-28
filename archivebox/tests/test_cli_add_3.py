@@ -26,6 +26,7 @@ from archivebox.tests.conftest import (
     cli_env,
     run_archivebox_cmd,
     run_queued_crawls,
+    resolve_abxpkg_chrome_env,
 )
 
 from archivebox.tests.test_orm_helpers import use_archivebox_db
@@ -114,6 +115,18 @@ def test_add_interrupts_background_only_capture(initialized_archive, choice):
 
 
 def test_background_completions_render_above_interrupt_prompt(initialized_archive, recursive_test_site):
+    env = cli_env(WGET_ARGS_EXTRA='["--limit-rate=20"]', INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True")
+    # The timed observation is for a running infinite-scroll hook. Resolve its
+    # real browser and wget dependencies before the readiness window begins.
+    installed = run_archivebox_cmd(
+        ["install", "wget", "chrome"],
+        cwd=initialized_archive,
+        env=env,
+        timeout=600,
+    )
+    assert installed.returncode == 0, installed.stderr or installed.stdout
+    env.update(resolve_abxpkg_chrome_env(Path(env["ABXPKG_LIB_DIR"]), env))
+
     master, slave = pty.openpty()
     termios.tcsetwinsize(slave, (40, 200))
     output = bytearray()
@@ -140,7 +153,7 @@ def test_background_completions_render_above_interrupt_prompt(initialized_archiv
             cwd=initialized_archive,
             # The small test-owned page still transfers slowly enough for wget
             # to finish while the real foreground hook's prompt is open.
-            env=cli_env(WGET_ARGS_EXTRA='["--limit-rate=20"]', INFINISCROLL_SCROLL_DELAY="10000", CHROME_HEADLESS="True"),
+            env=env,
             stdin=slave,
             stdout=slave,
             stderr=slave,

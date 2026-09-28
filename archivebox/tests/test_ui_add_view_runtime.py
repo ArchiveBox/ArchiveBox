@@ -209,10 +209,13 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
         _stop_worker(tmp_path, "worker_runner")
         assert _worker_state(tmp_path, "worker_runner") != "RUNNING"
 
-        session, csrf_token = _login_to_add_view(port)
+        session, _add_page, csrf_token = _login_to_add_view(port)
         response = session.post(
-            f"http://admin.archivebox.localhost:{port}/add/",
-            headers={"Referer": f"http://admin.archivebox.localhost:{port}/add/"},
+            f"http://127.0.0.1:{port}/add/",
+            headers={
+                "Host": f"admin.archivebox.localhost:{port}",
+                "Referer": f"http://admin.archivebox.localhost:{port}/add/",
+            },
             data={
                 "url": recursive_test_site["root_url"],
                 "depth": "0",
@@ -246,19 +249,26 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
         stop_server(tmp_path)
 
 
-def _login_to_add_view(port: int) -> tuple[requests.Session, str]:
+def _login_to_add_view(port: int) -> tuple[requests.Session, requests.Response, str]:
+    # Browsers resolve *.localhost themselves; system DNS in stock containers
+    # need not. Loopback transport with the real Host/Referer preserves virtual
+    # host routing, session cookies and CSRF checks without depending on DNS.
     session = requests.Session()
     get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
     login_page = session.get(
-        f"http://admin.archivebox.localhost:{port}/admin/login/",
+        f"http://127.0.0.1:{port}/admin/login/",
+        headers={"Host": f"admin.archivebox.localhost:{port}"},
         timeout=10,
     )
     assert login_page.status_code == 200
     csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', login_page.text)
     assert csrf_match, login_page.text[:500]
     login_response = session.post(
-        f"http://admin.archivebox.localhost:{port}/admin/login/",
-        headers={"Referer": f"http://admin.archivebox.localhost:{port}/admin/login/"},
+        f"http://127.0.0.1:{port}/admin/login/",
+        headers={
+            "Host": f"admin.archivebox.localhost:{port}",
+            "Referer": f"http://admin.archivebox.localhost:{port}/admin/login/",
+        },
         data={
             "username": "apitestadmin",
             "password": "testpass123",
@@ -270,12 +280,13 @@ def _login_to_add_view(port: int) -> tuple[requests.Session, str]:
     )
     assert login_response.status_code in (302, 303), login_response.text
     add_page, csrf_token = _get_add_view(session, port, host=f"admin.archivebox.localhost:{port}")
-    return session, csrf_token
+    return session, add_page, csrf_token
 
 
 def _get_add_view(session: requests.Session, port: int, *, host: str) -> tuple[requests.Response, str]:
     add_page = session.get(
-        f"http://{host}/add/",
+        f"http://127.0.0.1:{port}/add/",
+        headers={"Host": host},
         timeout=10,
     )
     assert add_page.status_code == 200
@@ -612,33 +623,14 @@ def test_add_view_post_creates_schedule_over_server(tmp_path, recursive_test_sit
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        session = requests.Session()
-        get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
-        login_page = session.get(
-            f"http://admin.archivebox.localhost:{port}/admin/login/",
-            timeout=10,
-        )
-        assert login_page.status_code == 200
-        csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', login_page.text)
-        assert csrf_match, login_page.text[:500]
-        login_response = session.post(
-            f"http://admin.archivebox.localhost:{port}/admin/login/",
-            headers={"Referer": f"http://admin.archivebox.localhost:{port}/admin/login/"},
-            data={
-                "username": "apitestadmin",
-                "password": "testpass123",
-                "csrfmiddlewaretoken": csrf_match.group(1),
-                "next": "/add/",
-            },
-            timeout=10,
-            allow_redirects=False,
-        )
-        assert login_response.status_code in (302, 303), login_response.text
-        _add_page, add_csrf_token = _get_add_view(session, port, host=f"admin.archivebox.localhost:{port}")
+        session, _add_page, add_csrf_token = _login_to_add_view(port)
 
         response = session.post(
-            f"http://admin.archivebox.localhost:{port}/add/",
-            headers={"Referer": f"http://admin.archivebox.localhost:{port}/add/"},
+            f"http://127.0.0.1:{port}/add/",
+            headers={
+                "Host": f"admin.archivebox.localhost:{port}",
+                "Referer": f"http://admin.archivebox.localhost:{port}/add/",
+            },
             data={
                 "url": recursive_test_site["root_url"],
                 "depth": "0",
@@ -686,37 +678,18 @@ def test_add_view_depth_two_crawl_renders_outputs_over_server(tmp_path, recursiv
 
     try:
         start_archivebox_server(tmp_path, env=env, port=port)
-        session = requests.Session()
-        get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
-        login_page = session.get(
-            f"http://admin.archivebox.localhost:{port}/admin/login/",
-            timeout=10,
-        )
-        assert login_page.status_code == 200
-        csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', login_page.text)
-        assert csrf_match, login_page.text[:500]
-        login_response = session.post(
-            f"http://admin.archivebox.localhost:{port}/admin/login/",
-            headers={"Referer": f"http://admin.archivebox.localhost:{port}/admin/login/"},
-            data={
-                "username": "apitestadmin",
-                "password": "testpass123",
-                "csrfmiddlewaretoken": csrf_match.group(1),
-                "next": "/add/",
-            },
-            timeout=10,
-            allow_redirects=False,
-        )
-        assert login_response.status_code in (302, 303), login_response.text
-        add_page, add_csrf_token = _get_add_view(session, port, host=f"admin.archivebox.localhost:{port}")
+        session, add_page, add_csrf_token = _login_to_add_view(port)
         assert add_page.status_code == 200
         assert 'name="depth"' in add_page.text
         assert 'name="url"' in add_page.text
         _stop_worker(tmp_path, "worker_runner")
 
         response = session.post(
-            f"http://admin.archivebox.localhost:{port}/add/",
-            headers={"Referer": f"http://admin.archivebox.localhost:{port}/add/"},
+            f"http://127.0.0.1:{port}/add/",
+            headers={
+                "Host": f"admin.archivebox.localhost:{port}",
+                "Referer": f"http://admin.archivebox.localhost:{port}/add/",
+            },
             data={
                 "url": recursive_test_site["root_url"],
                 "depth": "2",
@@ -781,14 +754,16 @@ def test_add_view_depth_two_crawl_renders_outputs_over_server(tmp_path, recursiv
         assert "active_crawls" in progress.json()
 
         index_page = requests.get(
-            f"http://web.archivebox.localhost:{port}/public/",
+            f"http://127.0.0.1:{port}/public/",
+            headers={"Host": f"web.archivebox.localhost:{port}"},
             timeout=10,
         )
         assert index_page.status_code == 200
         assert recursive_test_site["root_url"] in index_page.text
 
         snapshot_admin = session.get(
-            f"http://admin.archivebox.localhost:{port}/admin/core/snapshot/",
+            f"http://127.0.0.1:{port}/admin/core/snapshot/",
+            headers={"Host": f"admin.archivebox.localhost:{port}"},
             timeout=10,
         )
         assert snapshot_admin.status_code == 200
