@@ -81,7 +81,11 @@ def plugin_screenshot_plan() -> dict:
             enabled = True
         if recipe.get("view"):
             required.append(recipe["view"])
-        elif (plugin_dir / "templates/full.html").is_file() and enabled:
+        elif enabled and (
+            recipe.get("url")
+            or (plugin_dir / "templates/full.html").is_file()
+            or ((plugin_dir / "templates/card.html").is_file() and not config.get("card_hidden"))
+        ):
             required.append(f"Snapshot View ({plugin})")
         if recipe.get("url"):
             overrides[plugin] = recipe
