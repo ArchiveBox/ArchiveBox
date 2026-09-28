@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from pathlib import Path
 
 from asgiref.sync import sync_to_async
@@ -73,10 +74,11 @@ def finalize_completed_snapshot(
             modified_at=timezone.now(),
         )
 
-    # SnapshotCompletedEvent is abx-dl's authoritative signal that the complete
-    # snapshot hook sequence (including cleanup) finished. ArchiveResult rows
-    # are projections of that work, never prerequisites used to decide whether
-    # the Snapshot may seal.
+    # SnapshotCompletedEvent finishes an attempt, including abort cleanup. An
+    # explicit user abort deliberately seals that point-in-time capture; the
+    # runner's interrupted-owner guard below keeps takeover work resumable.
+    # ArchiveResult rows are projections of that work, never prerequisites used
+    # to decide whether the Snapshot may seal.
     if not was_sealed and snapshot.status == Snapshot.StatusChoices.STARTED and snapshot.retry_at == owned_retry_at:
         snapshot.seal()
         snapshot.refresh_from_db()
@@ -120,8 +122,9 @@ class SnapshotService(BaseService):
     LISTENS_TO = [SnapshotEvent, SnapshotCompletedEvent]
     EMITS = []
 
-    def __init__(self, bus, *, crawl_id: str):
+    def __init__(self, bus, *, crawl_id: str, interrupted: Callable[[], bool] | None = None):
         self.crawl_id = crawl_id
+        self.interrupted = interrupted
         self._run_ownership: dict[str, tuple[str, object, bool, list[str]]] = {}
         self._ownership_lock = asyncio.Lock()
         super().__init__(bus)
@@ -175,6 +178,15 @@ class SnapshotService(BaseService):
             if ownership is None or ownership[0] != str(event.event_parent_id):
                 return
             self._run_ownership.pop(snapshot_id, None)
+        # abx-dl also emits completion after abort cleanup, even before the
+        # first hook. Explicit user aborts seal a point-in-time capture so later
+        # work cannot silently mix observations taken days apart; reopening it
+        # is a separate user action. Takeover only replaces its execution owner.
+        # Consult the runner's synchronous signal state: an exiting owner cannot
+        # rely on another bus event arriving before this completion projector runs.
+        # Leave its durable lease for the next elected runner's startup recovery.
+        if self.interrupted is not None and self.interrupted():
+            return
         _, owned_retry_at, was_sealed, retry_plugins = ownership
         await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
             event.snapshot_id,

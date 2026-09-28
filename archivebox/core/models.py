@@ -895,7 +895,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return False
         if self.status == self.StatusChoices.QUEUED:
             return bool(self.url) and self.start_processing()
-        # abx-dl emits SnapshotCompletedEvent after the complete hook sequence;
+        # SnapshotCompletedEvent seals completed or explicitly aborted attempts;
+        # runner takeover preserves the active capture for its replacement.
         # ArchiveResult projection state never drives Snapshot completion.
         return False
 

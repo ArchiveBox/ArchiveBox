@@ -224,6 +224,7 @@ class CrawlRunner:
         self.snapshot_service = SnapshotService(
             self.bus,
             crawl_id=str(crawl.id),
+            interrupted=lambda: self._signal_abort_requested and not self._user_aborted,
         )
         HookArchiveResultService(self.bus, emit_jsonl=False)
         ArchiveResultService(self.bus)
@@ -1131,18 +1132,17 @@ class CrawlRunner:
             finally:
                 cancel_watcher.cancel()
                 await asyncio.gather(cancel_watcher, return_exceptions=True)
-            completed_event = event.emit(
-                CrawlCompletedEvent(
-                    url=snapshot["url"],
-                    snapshot_id=snapshot["id"],
-                    output_dir=str(output_dir),
-                ),
-            )
-            # Same signal lifecycle as CrawlCleanupEvent above: completion is a
-            # normal bus event unless the interpreter is already unwinding from
-            # SIGINT/SIGTERM/SIGHUP, where synchronous bus delivery is no
-            # longer a dependable shutdown primitive.
+            # emit() schedules handlers immediately; guarding only the await
+            # still lets completion projectors run during takeover. An aborted
+            # execution owner must leave durable work for its replacement.
             if not self._signal_abort_requested:
+                completed_event = event.emit(
+                    CrawlCompletedEvent(
+                        url=snapshot["url"],
+                        snapshot_id=snapshot["id"],
+                        output_dir=str(output_dir),
+                    ),
+                )
                 await _run_event_now(completed_event, CrawlCompletedEvent.model_fields["event_timeout"].default)
 
         on_archivebox_CrawlStartEvent.__name__ = "on_archivebox_CrawlStartEvent__run_snapshots"
@@ -1279,6 +1279,8 @@ class CrawlRunner:
                     raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await completed_snapshot.wait(timeout=snapshot_phase_timeout)
                 await completed_snapshot.event_results_list()
+                if self._signal_abort_requested:
+                    return
                 if snapshot["status"] == "sealed":
                     await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
                     return
