@@ -296,9 +296,11 @@ def test_archiveresult_event_create_uses_one_result_lookup():
     assert len(result_lookups) == 1
 
 
-def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_path, hermetic_lib_dir):
+def test_failed_shipped_title_hook_projects_failure_without_overwriting_title(tmp_path, hermetic_lib_dir):
     from archivebox.core.models import ArchiveResult
 
+    # Result linkage and the unchanged title are consequences of the same failed
+    # hook. Check them together so this isolated runtime is installed only once.
     snapshot = _create_snapshot()
     process, result = _run_shipped_snapshot_hook(
         snapshot,
@@ -309,22 +311,6 @@ def test_process_completed_projects_failed_archiveresult_from_shipped_hook(tmp_p
     )
     assert result.status == ArchiveResult.StatusChoices.FAILED
     assert result.process_id == process.id
-    assert "Chrome session" in result.output_str
-    _cleanup_machine_process_rows()
-
-
-def test_failed_title_archiveresult_does_not_overwrite_snapshot_title(tmp_path, hermetic_lib_dir):
-    from archivebox.core.models import ArchiveResult
-
-    snapshot = _create_snapshot()
-    _, result = _run_shipped_snapshot_hook(
-        snapshot,
-        plugin="title",
-        hook_name="on_Snapshot__54_title.js",
-        lib_dir=hermetic_lib_dir,
-        expected_exit_codes=(1,),
-    )
-    assert result.status == ArchiveResult.StatusChoices.FAILED
     assert "Chrome session" in result.output_str
     snapshot.refresh_from_db()
     assert snapshot.title in (None, "")
