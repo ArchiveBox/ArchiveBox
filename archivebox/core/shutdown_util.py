@@ -62,6 +62,14 @@ def wait_popen_and_kill_children(
         except psutil.NoSuchProcess:
             state = {"pid": proc.pid, "status": "exited"}
         err.add_note(f"Process state after SIGKILL: {state}")
+        # A locked Popen wait can time out even after the OS process exits.
+        # Inspect CPython's lock only for diagnostics; never release it here.
+        waitpid_lock = getattr(proc, "_waitpid_lock", None)
+        err.add_note(
+            f"Popen state: returncode={proc.returncode}, "
+            f"waitpid_lock_locked={waitpid_lock.locked() if waitpid_lock is not None else None}, "
+            f"threads={[thread.name for thread in threading.enumerate()]}",
+        )
         raise
     finally:
         # A parent that cannot be reaped must not leave its descendants running.
