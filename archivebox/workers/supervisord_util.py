@@ -1489,10 +1489,8 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
             if not had_output:
                 time.sleep(0.05)
 
-    except (KeyboardInterrupt, BrokenPipeError, OSError):
+    except (KeyboardInterrupt, SystemExit, OSError):
         return "interrupted"  # Let the caller handle the cleanup message
-    except SystemExit:
-        return "interrupted"
     finally:
         # Close all file handles
         for _, f in file_handles:
@@ -1719,17 +1717,12 @@ def start_server_workers(
                     proc=_supervisord_proc,  # Stop tailing when supervisord exits
                     keep_running=keep_running,
                 )
-        except (KeyboardInterrupt, BrokenPipeError, OSError):
-            if daemonize:
-                raise
+        except (KeyboardInterrupt, OSError):
             if not shutdown_state or not shutdown_state.signal_name:
                 print("\n[🛑] Got CTRL+C, stopping gracefully...")
         except SystemExit:
-            if daemonize:
-                raise
+            pass
         except BaseException as e:
-            if daemonize:
-                raise
             STDERR.print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping gracefully...")
     finally:
         signal_shutdown_requested = bool(shutdown_state and shutdown_state.signal_name)

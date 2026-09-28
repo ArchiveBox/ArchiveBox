@@ -23,7 +23,7 @@ _active_shutdown_state: ShutdownSignalState | None = None
 
 
 def raise_if_shutdown_requested() -> None:
-    """Let long foreground loops honor a signal even if Python ignored it once."""
+    """Honor sticky shutdown intent at a caller-owned interruption boundary."""
 
     if _active_shutdown_state and _active_shutdown_state.signal_name:
         raise KeyboardInterrupt
@@ -122,11 +122,14 @@ def foreground_shutdown_signals(
     interrupt_handlers: dict[signal.Signals, Callable[[], None]] | None = None,
     raise_on_first_signal: bool = True,
 ) -> Iterator[ShutdownSignalState]:
-    """Install foreground signal handlers that print an immediate exit notice.
+    """Keep shutdown intent visible until the owning foreground command unwinds.
 
-    Some log-tail loops intentionally swallow KeyboardInterrupt so that callers
-    can centralize cleanup in finally blocks. The handler writes the signal name
-    immediately, then raises KeyboardInterrupt to break out of the blocking read.
+    Signal state was added because inner loops can swallow KeyboardInterrupt
+    while their caller still needs to stop its children. Cooperative callers use
+    raise_on_first_signal=False and check raise_if_shutdown_requested() between
+    operations, or cancel their owned async task through on_signal. Raising from
+    the handler can otherwise interrupt library locks or partially sent I/O.
+    Blocking callers without a cooperative boundary retain immediate exceptions.
     """
 
     global _active_shutdown_state
