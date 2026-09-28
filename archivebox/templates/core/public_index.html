@@ -658,8 +658,8 @@
                 {% if public_search_stream_pending %}
                     <span class="archivebox-search-stream-status" role="status" aria-live="polite">Searching...</span>
                 {% else %}
-                    {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
-                    <span>(page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }})</span>
+                    {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }}{% endif %}
+                    <span>(page {{ page_obj.number }}{% if public_page_count != None %} of {{ public_page_count }}{% endif %})</span>
                 {% endif %}
             </div>
         </div>
@@ -669,7 +669,7 @@
                     <tr>
                         <th class="snapshot-time">Saved</th>
                         <th class="snapshot-preview-cell">Preview</th>
-                        <th>Snapshot ({{ page_obj.paginator.count }})</th>
+                        <th>Snapshot{% if public_snapshot_count != None %} ({{ public_snapshot_count }}){% endif %}</th>
                         <th class="snapshot-tags-cell">Tags</th>
                         <th class="snapshot-status-cell">Status</th>
                         <th class="snapshot-files-cell">Files</th>
@@ -697,7 +697,7 @@
             </table>
         </div>
         <div class="public-pagination">
-            Showing {{ page_obj.start_index }}-{{ page_obj.end_index }} of {{ page_obj.paginator.count }} total
+            Showing {{ page_obj.start_index }}-{{ page_obj.end_index }}{% if public_snapshot_count != None %} of {{ public_snapshot_count }} total{% endif %}
             <br>
             <span class="step-links">
                 {% if page_obj.has_previous %}
@@ -706,14 +706,14 @@
                 {% endif %}
 
                 <span class="current">
-                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                    Page {{ page_obj.number }}{% if public_page_count != None %} of {{ public_page_count }}{% endif %}
                 </span>
 
                 {% if page_obj.has_next %}
                     <a href="?{% url_replace page=page_obj.next_page_number %}">next</a>
                 {% endif %}
-                {% if page_obj.has_next %}
-                    <a href="?{% url_replace page=page_obj.paginator.num_pages %}">last &raquo;</a>
+                {% if page_obj.has_next and public_page_count != None %}
+                    <a href="?{% url_replace page=public_page_count %}">last &raquo;</a>
                 {% endif %}
             </span>
         </div>

@@ -442,8 +442,13 @@ class TestPublicIndex:
         assert b'title="singlefile"' not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
+    @pytest.mark.django_db(transaction=True)
     def test_public_count_uses_permission_index_for_uniform_visibility(self, client, admin_user):
+        import time
+
+        from django.core.cache import cache
         from django.db import connection
+        from django.db.backends.signals import connection_created
         from django.test.utils import CaptureQueriesContext
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
@@ -465,18 +470,72 @@ class TestPublicIndex:
             with connection.cursor() as cursor:
                 cursor.execute("ANALYZE core_snapshot")
 
-        with CaptureQueriesContext(connection) as queries:
-            response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+        key = "progress-collection:public"
+        cache.delete_many([key, f"{key}:refresh"])
+        background_queries = []
 
-        assert response.status_code == 200
-        assert response.context["paginator"].count == 125
-        count_queries = [q["sql"] for q in queries if "COUNT(" in q["sql"] and '"core_snapshot"' in q["sql"]]
-        assert len(count_queries) == 1
-        if connection.vendor == "sqlite":
-            with connection.cursor() as cursor:
-                cursor.execute("EXPLAIN QUERY PLAN " + count_queries[0])
-                plan = " ".join(str(row[-1]) for row in cursor.fetchall())
-            assert "SEARCH core_snapshot USING INDEX" in plan and "permissions>" in plan, plan
+        def observe(execute, sql, params, many, context):
+            background_queries.append((sql, params))
+            return execute(sql, params, many, context)
+
+        def observe_background_connection(sender, connection, **kwargs):
+            connection.execute_wrappers.append(observe)
+
+        connection_created.connect(observe_background_connection)
+        try:
+            with CaptureQueriesContext(connection) as queries:
+                response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+
+            assert response.status_code == 200
+            assert not any("COUNT(" in q["sql"] for q in queries), "Public page loads must not wait for a count"
+            assert response.context["public_snapshot_count"] is None
+            assert len(response.context["object_list"]) == 50
+            assert response.context["page_obj"].has_next()
+            assert b"of 125" not in response.content
+
+            deadline = time.monotonic() + 5
+            while cache.get(key) is None and time.monotonic() < deadline:
+                time.sleep(0.01)
+            assert cache.get(key)["snapshots"] == 125
+
+            reloaded = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+            assert reloaded.context["public_snapshot_count"] == 125
+            assert b"of 125" in reloaded.content
+            last_page = client.get("/public/?page=3", HTTP_HOST=WEB_TEST_HOST)
+            assert len(last_page.context["object_list"]) == 25
+            assert not last_page.context["page_obj"].has_next()
+            assert client.get("/public/?page=4", HTTP_HOST=WEB_TEST_HOST).status_code == 404
+
+            # The runner can add a page before the cached total refreshes.
+            # Navigation follows actual rows, never the old cached page count.
+            Snapshot.objects.bulk_create(
+                [
+                    Snapshot(
+                        url=f"https://public-count.example/{index}",
+                        timestamp=str(1800000000 + index),
+                        crawl=crawl,
+                        config={"PERMISSIONS": "public"},
+                        status="sealed",
+                    )
+                    for index in range(125, 160)
+                ],
+            )
+            added_page = client.get("/public/?page=4", HTTP_HOST=WEB_TEST_HOST)
+            assert added_page.status_code == 200
+            assert len(added_page.context["object_list"]) == 10
+            assert not added_page.context["page_obj"].has_next()
+            assert added_page.context["public_snapshot_count"] == 160
+            assert cache.get(key)["snapshots"] == 125
+
+            count_queries = [(sql, params) for sql, params in background_queries if "COUNT(" in sql and '"core_snapshot"' in sql]
+            assert len(count_queries) == 1, "Reloads must reuse the cached total"
+            if connection.vendor == "sqlite":
+                with connection.cursor() as cursor:
+                    cursor.execute("EXPLAIN QUERY PLAN " + count_queries[0][0], count_queries[0][1])
+                    plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+                assert "SEARCH core_snapshot USING INDEX" in plan and "permissions>" in plan, plan
+        finally:
+            connection_created.disconnect(observe_background_connection)
 
     @override_settings(PUBLIC_INDEX=True)
     def test_upgraded_07_snapshot_icon_target_renders_at_extensionless_live_url(self, client, admin_user):

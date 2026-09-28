@@ -65,9 +65,9 @@ def crawl_summary(crawl_id, *, snapshot_id=None):
     return summary
 
 
-def collection_summary(user):
+def collection_summary(user, *, public=False):
     user_id = None if user.is_superuser else user.pk
-    key = f"progress-collection:{'all' if user_id is None else user_id}"
+    key = "progress-collection:public" if public else f"progress-collection:{'all' if user_id is None else user_id}"
     summary = cache.get(key)
     # Even an indexed SUM scans the index. Never make an HTTP request wait for
     # that scan on a large collection. Serve stale totals while one worker refreshes;
@@ -85,12 +85,23 @@ def collection_summary(user):
                 from archivebox.core.models import Snapshot
 
                 snapshots = Snapshot.objects.all()
-                if user_id is not None:
-                    snapshots = snapshots.filter(crawl__created_by_id=user_id)
-                # COUNT(*) + SUM(output_size) can use Snapshot's covering size index.
-                # Snapshot.output_size is maintained when ArchiveResult sizes change.
-                totals = snapshots.aggregate(snapshots=Count("*"), bytes=Sum("output_size"))
-                totals["bytes"] = totals["bytes"] or 0
+                if public:
+                    from archivebox.core.permissions import PERMISSIONS_PUBLIC
+
+                    # SQLite can choose a table scan for equality after ANALYZE
+                    # on an all-public archive. Equal range bounds keep the count
+                    # on the existing permissions index. It is still O(n), so
+                    # public pages share this background cache, never await it.
+                    totals = snapshots.filter(permissions__gte=PERMISSIONS_PUBLIC, permissions__lte=PERMISSIONS_PUBLIC).aggregate(
+                        snapshots=Count("permissions"),
+                    )
+                else:
+                    if user_id is not None:
+                        snapshots = snapshots.filter(crawl__created_by_id=user_id)
+                    # COUNT(*) + SUM(output_size) can use Snapshot's covering size index.
+                    # Snapshot.output_size is maintained when ArchiveResult sizes change.
+                    totals = snapshots.aggregate(snapshots=Count("*"), bytes=Sum("output_size"))
+                totals["bytes"] = totals.get("bytes") or 0
                 totals["sampled_at"] = time()
                 cache.set(key, totals, timeout=3600)
             except Exception:

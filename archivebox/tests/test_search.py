@@ -594,7 +594,11 @@ class TestPublicIndexSearch:
         assert b"Public Example Website" in response.content
         assert b"No snapshots found." not in response.content
 
-    def test_public_index_shows_exact_total_count_and_page_count_for_100_plus_snapshots(self, client, crawl, public_snapshot):
+    @pytest.mark.django_db(transaction=True)
+    def test_public_index_shows_cached_total_count_and_page_count_for_100_plus_snapshots(self, client, crawl, public_snapshot):
+        import time
+
+        from django.core.cache import cache
         from archivebox.core.models import Snapshot
 
         base_time = public_snapshot.bookmarked_at + timedelta(seconds=1)
@@ -628,11 +632,21 @@ class TestPublicIndexSearch:
             ],
         )
 
+        key = "progress-collection:public"
+        cache.delete_many([key, f"{key}:refresh"])
+        initial_response = client.get("/public/", HTTP_HOST=WEB_HOST)
+        assert initial_response.status_code == 200
+        assert initial_response.context["public_snapshot_count"] is None
+        assert b"last &raquo;" not in initial_response.content
+        deadline = time.monotonic() + 5
+        while cache.get(key) is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert cache.get(key)["snapshots"] == 125
         response = client.get("/public/", HTTP_HOST=WEB_HOST)
 
         assert response.status_code == 200
-        assert response.context["paginator"].count == 125
-        assert response.context["paginator"].num_pages == 3
+        assert response.context["public_snapshot_count"] == 125
+        assert response.context["public_page_count"] == 3
         assert response.context["page_obj"].has_next() is True
         assert len(response.context["object_list"]) == 50
         content = response.content.decode()

@@ -17,8 +17,7 @@ from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY, get_user_model
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.sessions.models import Session
 from django.core import signing
-from django.core.paginator import InvalidPage
-from django.db.models import Case, Count, IntegerField, Q, Value, When
+from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
@@ -91,6 +90,7 @@ from archivebox.plugins.discovery import (
 from archivebox.plugins.forms import get_plugin_config_binary_urls
 from archivebox.plugins.views import get_config_definition_link
 from archivebox.progressmonitor.views import live_progress_view
+from archivebox.progressmonitor.collection import collection_summary
 from archivebox.search.config import (
     get_search_mode,
     get_search_mode_backend,
@@ -1243,11 +1243,14 @@ class PublicIndexView(ListView):
             "crawl__created_by__username",
         )
 
-    def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot] | None:
-        target_count = page_number * page_size
+    def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot]:
+        # One extra row determines Next without a full collection count. Cached
+        # totals can be stale while the runner adds/removes snapshots, so they
+        # must never decide whether the requested page exists.
+        target_count = page_number * page_size + 1
         public_snapshots: list[Snapshot] = []
         scanned = 0
-        chunk_size = max(self.public_page_scan_chunk_size, page_size)
+        chunk_size = max(self.public_page_scan_chunk_size, page_size + 1)
         ordered_snapshots = (
             Snapshot.objects.select_related("crawl__created_by").order_by(*self.ordering).only(*self._base_public_snapshot_fields())
         )
@@ -1266,20 +1269,31 @@ class PublicIndexView(ListView):
         if self.request.GET.get("q", default="").strip():
             return super().paginate_queryset(queryset, page_size)
 
-        public_count = self.get_exact_public_snapshot_count()
-        paginator = self.get_paginator(range(public_count), page_size)
         page_kwarg = self.kwargs.get(self.page_kwarg)
         page_query = self.request.GET.get(self.page_kwarg)
         page_number = page_kwarg or page_query or 1
 
         try:
-            page = paginator.page(page_number)
-        except InvalidPage as err:
+            page_number = int(page_number)
+            if page_number < 1:
+                raise ValueError("Page must be positive")
+        except (ValueError, TypeError) as err:
             raise Http404(f"Invalid page ({page_number}): {err}") from err
 
-        object_list = self._ordered_public_page_from_order_index(page_number=page.number, page_size=page_size)
-        page.object_list = object_list
-        return paginator, page, object_list, page.has_other_pages()
+        snapshots = self._ordered_public_page_from_order_index(page_number=page_number, page_size=page_size)
+        if not snapshots and page_number > 1:
+            raise Http404(f"Invalid page ({page_number}): No snapshots")
+        observed_count = (page_number - 1) * page_size + len(snapshots)
+        self.public_snapshot_count = observed_count
+        if len(snapshots) > page_size:
+            summary = collection_summary(self.request.user, public=True)
+            cached_count = summary["snapshots"] if summary is not None else None
+            self.public_snapshot_count = cached_count if cached_count is not None and cached_count >= observed_count else None
+
+        paginator = self.get_paginator(range(observed_count), page_size)
+        page = paginator.page(page_number)
+        page.object_list = snapshots[:page_size]
+        return paginator, page, page.object_list, page.has_other_pages()
 
     def get_context_data(self, **kwargs):
         runtime_config = self.__dict__.get("runtime_config")
@@ -1307,6 +1321,11 @@ class PublicIndexView(ListView):
             and get_search_mode_base(search_mode, config=runtime_config) == "deep"
             and search_mode_backend
             and context["paginator"].count == 0,
+        )
+        context["public_snapshot_count"] = context["paginator"].count if query else self.public_snapshot_count
+        count = context["public_snapshot_count"]
+        context["public_page_count"] = (
+            max(1, (count + context["paginator"].per_page - 1) // context["paginator"].per_page) if count is not None else None
         )
         snapshots = list(context.get("object_list") or ())
         from archivebox.plugins.output_groups import plugin_output_sizes
@@ -1390,14 +1409,6 @@ class PublicIndexView(ListView):
             snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         context["object_list"] = snapshots
         return context
-
-    def get_exact_public_snapshot_count(self) -> int:
-        # SQLite can choose a table scan for equality on a low-cardinality
-        # generated column after ANALYZE. Equal inclusive bounds keep this exact
-        # count on the existing permissions index even for all-public archives.
-        return Snapshot.objects.filter(permissions__gte=PERMISSIONS_PUBLIC, permissions__lte=PERMISSIONS_PUBLIC).aggregate(
-            count=Count("permissions"),
-        )["count"]
 
     def get_queryset(self, **kwargs):
         qs = (
