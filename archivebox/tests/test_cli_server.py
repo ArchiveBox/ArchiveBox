@@ -30,6 +30,7 @@ from archivebox.tests.conftest import (
     run_archivebox_cmd,
     start_archivebox_server,
     stop_archivebox_process,
+    wait_for_log,
     wait_for_log_count,
     wait_for_pid_to_disappear,
 )
@@ -813,24 +814,30 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
     try:
         server = start_archivebox_server(initialized_archive, port=port, log_name=f"server-{stop_signal.name}.log", env=env)
         server_log = server.log_path
+        # HTTP readiness can precede the foreground tail scope. Exercise its
+        # actual signal policy, where interrupting Popen.poll stranded reaping.
+        wait_for_log(server_log, "Tailing worker logs (Ctrl+C to stop)...")
 
         os.kill(server.pid, stop_signal)
         server.wait(timeout=20)
 
         if expected_notice:
             log_text = server_log.read_text(encoding="utf-8", errors="replace")
+            assert server.returncode == 0, log_text
             assert expected_notice in log_text, log_text
             assert "ArchiveBox server shut down gracefully" in log_text, log_text
             assert_no_processes_for_data_dir(initialized_archive, timeout=12)
 
         resumed = start_archivebox_server(initialized_archive, port=port, log_name=f"server-{stop_signal.name}-resumed.log", env=env)
         resumed_log = resumed.log_path
+        wait_for_log(resumed_log, "Tailing worker logs (Ctrl+C to stop)...")
         result = run_archivebox_cmd(["status"], cwd=initialized_archive, env=env, timeout=60)
         assert result.returncode == 0, result.stderr or result.stdout
 
         os.kill(resumed.pid, signal.SIGTERM)
         resumed.wait(timeout=20)
         resumed_text = resumed_log.read_text(encoding="utf-8", errors="replace")
+        assert resumed.returncode == 0, resumed_text
         assert "Got SIGTERM" in resumed_text, resumed_text
         assert "ArchiveBox server shut down gracefully" in resumed_text, resumed_text
         assert_no_processes_for_data_dir(initialized_archive, timeout=12)

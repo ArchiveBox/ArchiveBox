@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import time
+from contextlib import ExitStack
 from functools import cache
 from pathlib import Path
 from typing import cast
@@ -1460,6 +1461,7 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
     next_ownership_check = 0.0
     try:
         while follow:
+            raise_if_shutdown_requested()
             now = time.monotonic()
             if keep_running is not None and now >= next_ownership_check:
                 if not keep_running():
@@ -1476,6 +1478,9 @@ def tail_multiple_worker_logs(log_files: list[str], follow=True, proc=None, keep
             # Read ALL available lines from all files (not just one per iteration)
             for log_path, f in file_handles:
                 while True:
+                    # A noisy worker may never reach EOF; shutdown must not
+                    # depend on returning to the outer poll loop.
+                    raise_if_shutdown_requested()
                     line = f.readline()
                     if not line:
                         break  # No more lines available in this file
@@ -1676,38 +1681,46 @@ def start_server_workers(
     config = get_config()
     shutdown_state = None
     tail_result = "stopped"
-    try:
-        supervisor = get_or_create_supervisord_process(daemonize=daemonize)
-        workers, log_files, components = build_server_worker_plan(
-            config=config,
-            host=host,
-            port=port,
-            debug=debug,
-            reload=reload,
-            nothreading=nothreading,
-            supervisor=supervisor,
-        )
-        component_list = format_runtime_components(components)
-        if resumed_from_pid:
-            print(
-                "[yellow][*] Other newer archivebox process "
-                f"(pid={resumed_from_pid}) exited, taking over {component_list} in this process again...[/yellow]",
-            )
-        else:
-            print(f"[*] Starting {component_list} in this process (pid={os.getpid()})...")
-
-        print()
-        sync_supervisord_workers(supervisor, workers, prune=True)
-        print()
-
-        if daemonize:
-            return None
-
-        from django.db import connections
-
-        connections.close_all()
+    # Enter cooperative handling only once startup finishes, but retain it
+    # through our cleanup finally: Popen.wait() has the same interruption risk
+    # as poll(). ExitStack preserves the existing startup and daemon policies.
+    with ExitStack() as shutdown_context:
         try:
-            with foreground_shutdown_signals() as shutdown_state:
+            supervisor = get_or_create_supervisord_process(daemonize=daemonize)
+            workers, log_files, components = build_server_worker_plan(
+                config=config,
+                host=host,
+                port=port,
+                debug=debug,
+                reload=reload,
+                nothreading=nothreading,
+                supervisor=supervisor,
+            )
+            component_list = format_runtime_components(components)
+            if resumed_from_pid:
+                print(
+                    "[yellow][*] Other newer archivebox process "
+                    f"(pid={resumed_from_pid}) exited, taking over {component_list} in this process again...[/yellow]",
+                )
+            else:
+                print(f"[*] Starting {component_list} in this process (pid={os.getpid()})...")
+
+            print()
+            sync_supervisord_workers(supervisor, workers, prune=True)
+            print()
+
+            if daemonize:
+                return None
+
+            from django.db import connections
+
+            connections.close_all()
+            # Immediate exceptions can strand Popen's wait lock inside poll().
+            # Use the shared cooperative contract in core.shutdown_util; the
+            # tail checks intent between operations, including while draining
+            # busy logs. No interruption checks run inside child cleanup.
+            shutdown_state = shutdown_context.enter_context(foreground_shutdown_signals(raise_on_first_signal=False))
+            try:
                 # Tail worker logs while supervisord runs.
                 sys.stdout.write("Tailing worker logs (Ctrl+C to stop)...\n\n")
                 sys.stdout.flush()
@@ -1717,21 +1730,24 @@ def start_server_workers(
                     proc=_supervisord_proc,  # Stop tailing when supervisord exits
                     keep_running=keep_running,
                 )
-        except (KeyboardInterrupt, OSError):
-            if not shutdown_state or not shutdown_state.signal_name:
-                print("\n[🛑] Got CTRL+C, stopping gracefully...")
-        except SystemExit:
-            pass
-        except BaseException as e:
-            STDERR.print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping gracefully...")
-    finally:
-        signal_shutdown_requested = bool(shutdown_state and shutdown_state.signal_name)
-        if not daemonize and (signal_shutdown_requested or should_stop_supervisord is None or should_stop_supervisord()):
-            # Ensure supervisord and all children are stopped only while this
-            # foreground parent is still the active server parent. Standby
-            # parents must not tear down a newer leader's services. If this
-            # foreground parent itself received an OS shutdown signal, always
-            # stop the supervisord child it owns; stop_own_supervisord_process()
-            # does not target supervisord processes owned by other parents.
-            stop_own_supervisord_process(record_exit=not signal_shutdown_requested)
-    return tail_result
+            except (KeyboardInterrupt, OSError):
+                if not shutdown_state.signal_name:
+                    print("\n[🛑] Got CTRL+C, stopping gracefully...")
+            except SystemExit:
+                pass
+            except BaseException as e:
+                STDERR.print(f"\n[🛑] Got {e.__class__.__name__} exception, stopping gracefully...")
+        finally:
+            if not daemonize:
+                signal_shutdown_requested = bool(shutdown_state and shutdown_state.signal_name)
+                stop_owned = signal_shutdown_requested or should_stop_supervisord is None or should_stop_supervisord()
+                # The ownership callback can itself receive the first signal.
+                signal_shutdown_requested = bool(shutdown_state and shutdown_state.signal_name)
+                if stop_owned or signal_shutdown_requested:
+                    # A standby parent must never tear down the replacement
+                    # leader's services. Signals stop only our own Popen child,
+                    # even if leadership changed; they avoid DB exit writes.
+                    stop_own_supervisord_process(record_exit=not signal_shutdown_requested)
+    # A signal can arrive during the final ownership/process-exit check. Do not
+    # send the outer server loop back into standby or restart after shutdown.
+    return "interrupted" if shutdown_state and shutdown_state.signal_name else tail_result

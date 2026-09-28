@@ -83,12 +83,12 @@ def test_foreground_shutdown_can_request_cooperative_shutdown_without_raising():
     assert process.returncode == 130, (stdout, stderr)
 
 
-def test_shutdown_signal_during_child_poll_keeps_child_reapable():
+def test_cooperative_shutdown_during_child_poll_keeps_child_reapable():
     """Interrupt real child polling at different points without stranding reaping.
 
-    The foreground server polls supervisord while its shutdown handler can
-    raise KeyboardInterrupt. Exercise that boundary with actual OS signals and
-    children; a killed child must remain waitable after every interruption.
+    Immediate KeyboardInterrupt stranded Popen's wait lock in real CI, leaving
+    a zombie child that wait() could not reap. Exercise the cooperative policy
+    used by the server with the same external signals and child cleanup.
     """
     process = _start_signal_process(
         r"""
@@ -99,7 +99,11 @@ def test_shutdown_signal_during_child_poll_keeps_child_reapable():
         import traceback
         from collections import Counter
 
-        from archivebox.core.shutdown_util import foreground_shutdown_signals, wait_popen_and_kill_children
+        from archivebox.core.shutdown_util import (
+            foreground_shutdown_signals,
+            raise_if_shutdown_requested,
+            wait_popen_and_kill_children,
+        )
 
         print("READY", flush=True)
         interruption_sites = Counter()
@@ -112,15 +116,16 @@ def test_shutdown_signal_during_child_poll_keeps_child_reapable():
             )
             interruption_site = None
             try:
-                with foreground_shutdown_signals(first_signal_message=None) as state:
+                with foreground_shutdown_signals(first_signal_message=None, raise_on_first_signal=False) as state:
                     try:
                         os.write(sys.stdout.fileno(), b"POLLING\n")
-                        while child.poll() is None:
-                            pass
+                        while True:
+                            raise_if_shutdown_requested()
+                            assert child.poll() is None
                     except KeyboardInterrupt as interruption:
                         assert state.signal_name == "SIGINT"
-                        # Exclude the signal handler itself from the location.
-                        frame = traceback.extract_tb(interruption.__traceback__)[-2]
+                        frame = traceback.extract_tb(interruption.__traceback__)[-1]
+                        assert frame.name == "raise_if_shutdown_requested", frame
                         interruption_site = f"{frame.name}:{frame.lineno}"
                         interruption_sites[interruption_site] += 1
                 # The child deliberately remains alive until this unchanged

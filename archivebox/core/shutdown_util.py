@@ -1,3 +1,28 @@
+"""Shared foreground signal and child-process cleanup contracts.
+
+Shutdown intent and process exit are separate: takeover must preserve the
+replacement owner's work, while a user abort must not later resume the crawl.
+Callers own that policy; this module preserves the received signal and stops
+only the process objects they explicitly supply.
+
+Cooperative boundaries are essential, not just quieter exception handling.
+A real Linux CI regression interrupted Popen.poll() with SIGINT and stranded
+its wait lock. SIGKILL stopped the child (it became a zombie), but Popen.wait()
+still timed out. Raising a different exception or waiting longer cannot repair
+that interrupted critical section. Polling loops must record the signal first
+and honor it between operations; async owners may cancel their own task while
+their loop is running. Once exiting, the last-resort process cleanup must stay
+synchronous: the original loop may be closed, and creating a replacement loop
+cannot recover tasks or resources owned by it.
+
+Keep immediate signal notices and repeated-signal force exit independent of
+the event bus: it may already be draining or closed during shutdown. Resumable
+pause/retry/skip belongs to the existing crawl controller and must not set
+sticky command-shutdown state. See foreground_shutdown_signals below for both
+cooperative and legacy blocking callers; do not change all callers' policy at
+once without supplying their interruption boundaries.
+"""
+
 from __future__ import annotations
 
 import os
@@ -48,7 +73,12 @@ def wait_popen_and_kill_children(
     timeout: float,
     kill_timeout: float = 2.0,
 ) -> None:
-    """Wait for a Popen parent and then hard-kill any surviving descendants."""
+    """Reap our own Popen child and stop its explicitly captured descendants.
+
+    A dead child still needs its parent to reap it. Keep wait failures visible;
+    bypassing Popen's lock would hide the interrupted-owner bug described above.
+    Descendants must still be cleaned up when that wait fails.
+    """
 
     try:
         try:
