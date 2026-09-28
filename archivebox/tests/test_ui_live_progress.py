@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import time
 import uuid
@@ -224,7 +225,10 @@ class TestLiveProgressView:
                     if 'FROM "core_snapshot"' in sql:
                         assert "COVERING INDEX" in plan, plan
                     else:
-                        assert "USING INDEX core_archiveresult_status_" in plan, plan
+                        # Both existing status indexes can satisfy this lookup.
+                        # Require a status-keyed search, not one planner choice's
+                        # index name; a full scan must still fail below.
+                        assert re.search(r"SEARCH core_archiveresult USING (?:COVERING )?INDEX \S+ \(status=\?", plan), plan
                     assert "SCAN " not in plan, plan
 
         # Size/cancellation samples are shared by tabs while status counts stay
