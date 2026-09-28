@@ -52,13 +52,15 @@ def main() -> None:
     # Ordinary Linux tests can use either pool. Only genuine hosted-only
     # requirements need a file header; filenames never enter runner policy.
     # Keep a bounded NAS share so hosted capacity continues working in parallel.
-    capacity = int(os.environ.get("UGNAS_CI_MAX_JOBS", "3"))
+    # This is queued work, not a worker count: several waves keep the capped
+    # runners occupied while hosted jobs run in parallel.
+    nas_job_limit = int(os.environ.get("UGNAS_CI_MAX_JOBS", "3"))
     # Keep long jobs early in the hosted queue. Giving the longest jobs to the
     # CPU-capped NAS instead created a tail after hosted work had finished; use
     # its extra slots for a bounded share of shorter work without filename rules.
     matrix.sort(key=lambda item: sum(durations.get(path, 60) for path in item["paths"]), reverse=True)
     eligible = [item for item in reversed(matrix) if not any(root / path in hosted for path in item["paths"])]
-    for item in eligible[:capacity]:
+    for item in eligible[:nas_job_limit]:
         item["ugnas"] = True
 
     discovered_paths = [path for entry in matrix for path in entry["paths"]]
@@ -67,7 +69,10 @@ def main() -> None:
     if sorted(discovered_paths) != [path.relative_to(root).as_posix() for path in archivebox_tests]:
         raise SystemExit("Discovered test shard coverage does not match test files")
 
-    print(f"Discovered {len(discovered_paths)} test files exactly once across {len(matrix)} jobs")
+    print(
+        f"Discovered {len(discovered_paths)} test files exactly once across {len(matrix)} jobs; "
+        f"{sum(item['ugnas'] for item in matrix)} selected for ugNAS, subject to the availability check",
+    )
     print(json.dumps(matrix, separators=(",", ":")))
 
 
