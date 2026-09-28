@@ -105,7 +105,8 @@ def main():
                 expect(page.locator(".header-title-text")).to_contain_text(re.compile(r"\S"))
                 preview = page.locator("#main-frame")
                 expect(preview).to_have_attribute("src", re.compile(r"/archivewebpage/archivewebpage\.wacz\?preview=1"))
-                expect(preview.content_frame.locator("#replay-root")).to_have_attribute("data-url", snapshot["url"])
+                replay_root = preview.content_frame.locator("#replay-root")
+                expect(replay_root).to_have_attribute("data-url", snapshot["url"])
                 preview_frame = preview.element_handle().content_frame()
                 assert preview_frame is not None
                 preview_frame.wait_for_function(
@@ -119,7 +120,9 @@ def main():
                 # the archived document by its replay origin/path and original URL,
                 # as the ArchiveWebpage browser tests do. Wrapper frames and other
                 # output thumbnails cannot satisfy this check.
-                replay_prefix = urljoin(preview_frame.url, "/replay/w/")
+                replay_base = replay_root.get_attribute("data-replaybase")
+                assert replay_base
+                replay_prefix = urljoin(preview_frame.url, f"{replay_base}w/")
                 frames = list(preview_frame.child_frames)
                 frame_titles = {}
                 while frames:
