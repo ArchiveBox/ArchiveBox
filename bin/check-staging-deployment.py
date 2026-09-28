@@ -11,7 +11,7 @@ import time
 import tomllib
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 
 def main():
@@ -96,8 +96,41 @@ def main():
             response = page.goto(snapshot["replay_url"], wait_until="domcontentloaded")
             assert response and response.ok, snapshot["replay_url"]
             page.locator('.thumb-card[data-plugin-name="screenshot"]').wait_for(state="attached")
-            page.locator("#main-frame").wait_for(state="attached")
-            page.screenshot(path=str(evidence / f"{snapshot['id']}.png"), full_page=True)
+            try:
+                # The shell creates an about:blank iframe before replay starts.
+                # Its presence previously accepted blank screenshots as proof of
+                # replay. Exercise the default viewer and its real captured page,
+                # using the same readiness contract as the WACZ browser tests.
+                expected_title = page.locator(".header-title-text").inner_text().strip()
+                assert expected_title, f"Captured page has no title: {snapshot['url']}"
+                preview = page.locator("#main-frame")
+                expect(preview).to_have_attribute("src", re.compile(r"/archivewebpage/archivewebpage\.wacz\?preview=1"))
+                expect(preview.content_frame.locator("#replay-root")).to_have_attribute("data-url", snapshot["url"])
+                preview_frame = preview.element_handle().content_frame()
+                assert preview_frame is not None
+                preview_frame.wait_for_function(
+                    """() => {
+                        if (window.archiveboxReplayError) throw new Error(window.archiveboxReplayError);
+                        return Boolean(window.archiveboxReplayReady);
+                    }""",
+                )
+                # A document title can contain suffixes absent from its body.
+                # ReplayWeb.page can nest its captured document beneath wrapper
+                # frames; a viewer shell or a separate thumbnail is not replay.
+                frames = list(preview_frame.child_frames)
+                frame_titles = {}
+                while frames:
+                    replay = frames.pop()
+                    frame_titles[replay.url] = replay.title().strip()
+                    if frame_titles[replay.url] == expected_title:
+                        expect(replay.locator("body")).to_be_visible()
+                        expect(replay.locator("body")).to_contain_text(re.compile(r"\S"), use_inner_text=True)
+                        break
+                    frames.extend(replay.child_frames)
+                else:
+                    raise AssertionError(f"Captured title {expected_title!r} not found in replay frames: {frame_titles}")
+            finally:
+                page.screenshot(path=str(evidence / f"{snapshot['id']}.png"), full_page=True)
         browser.close()
     # Recheck identity and host OOM history after the browser flow too.
     final = remote("capture")
