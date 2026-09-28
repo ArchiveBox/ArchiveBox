@@ -18,7 +18,7 @@ from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.sessions.models import Session
 from django.core import signing
 from django.core.paginator import InvalidPage
-from django.db.models import Case, IntegerField, Q, Value, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
 from django.utils.decorators import method_decorator
@@ -48,7 +48,6 @@ from archivebox.config.configset import BaseConfigSet
 from archivebox.core.forms import AddLinkForm
 from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag
 from archivebox.core.permissions import (
-    PERMISSIONS_PRIVATE,
     PERMISSIONS_PUBLIC,
     PERMISSIONS_UNLISTED,
     can_view_snapshot,
@@ -1238,6 +1237,8 @@ class PublicIndexView(ListView):
             "status",
             "output_size",
             "permissions",
+            "fs_version",
+            "crawl__created_by__username",
         )
 
     def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot] | None:
@@ -1245,7 +1246,9 @@ class PublicIndexView(ListView):
         public_snapshots: list[Snapshot] = []
         scanned = 0
         chunk_size = max(self.public_page_scan_chunk_size, page_size)
-        ordered_snapshots = Snapshot.objects.order_by(*self.ordering).only(*self._base_public_snapshot_fields())
+        ordered_snapshots = (
+            Snapshot.objects.select_related("crawl__created_by").order_by(*self.ordering).only(*self._base_public_snapshot_fields())
+        )
 
         while len(public_snapshots) < target_count:
             chunk = list(ordered_snapshots[scanned : scanned + chunk_size])
@@ -1307,6 +1310,7 @@ class PublicIndexView(ListView):
         from archivebox.plugins.output_groups import plugin_output_sizes
 
         all_results_by_snapshot = {str(snapshot.id): [] for snapshot in snapshots}
+        snapshots_by_id = {str(snapshot.id): snapshot for snapshot in snapshots}
         icons_by_snapshot: dict[str, dict[str, ArchiveResult]] = {str(snapshot.id): {} for snapshot in snapshots}
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
         list_icon_paths_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
@@ -1348,6 +1352,7 @@ class PublicIndexView(ListView):
             # otherwise keeps SQLite's read lock throughout rendering.
             for result in list(results):
                 snapshot_key = str(result.snapshot_id)
+                result.snapshot = snapshots_by_id[snapshot_key]
                 all_results_by_snapshot[snapshot_key].append(result)
                 progress = progress_by_snapshot[snapshot_key]
                 progress["total"] += 1
@@ -1380,12 +1385,19 @@ class PublicIndexView(ListView):
         return context
 
     def get_exact_public_snapshot_count(self) -> int:
-        hidden_count = Snapshot.objects.filter(permissions=PERMISSIONS_PRIVATE).count()
-        hidden_count += Snapshot.objects.filter(permissions=PERMISSIONS_UNLISTED).count()
-        return Snapshot.objects.count() - hidden_count
+        # SQLite can choose a table scan for equality on a low-cardinality
+        # generated column after ANALYZE. Equal inclusive bounds keep this exact
+        # count on the existing permissions index even for all-public archives.
+        return Snapshot.objects.filter(permissions__gte=PERMISSIONS_PUBLIC, permissions__lte=PERMISSIONS_PUBLIC).aggregate(
+            count=Count("permissions"),
+        )["count"]
 
     def get_queryset(self, **kwargs):
-        qs = public_snapshots_queryset(super().get_queryset(**kwargs)).only(*self._base_public_snapshot_fields())
+        qs = (
+            public_snapshots_queryset(super().get_queryset(**kwargs))
+            .select_related("crawl__created_by")
+            .only(*self._base_public_snapshot_fields())
+        )
         query = self.request.GET.get("q", default="").strip()
 
         if not query:

@@ -421,6 +421,12 @@ class TestPublicIndex:
             response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
 
         result_queries = [query["sql"].lower() for query in captured_queries if "core_archiveresult" in query["sql"].lower()]
+        row_lookups = [
+            query["sql"]
+            for query in captured_queries
+            if re.search(r'WHERE "(?:core_snapshot|crawls_crawl|auth_user)"\."id" =', query["sql"])
+        ]
+        assert row_lookups == [], "Public rows must reuse the page's snapshot, crawl, and owner metadata"
         assert len(result_queries) == 1
         assert "output_files" in result_queries[0]
         assert "output_str" in result_queries[0]
@@ -434,6 +440,43 @@ class TestPublicIndex:
         assert b"files-icon-pile--raster" in response.content
         assert b'data-tooltip="singlefile"' in response.content
         assert b'title="singlefile"' not in response.content
+
+    @override_settings(PUBLIC_INDEX=True)
+    def test_public_count_uses_permission_index_for_uniform_visibility(self, client, admin_user):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        crawl = Crawl.objects.create(urls="https://public-count.example", created_by=admin_user, config={"PERMISSIONS": "public"})
+        Snapshot.objects.bulk_create(
+            [
+                Snapshot(
+                    url=f"https://public-count.example/{index}",
+                    timestamp=str(1800000000 + index),
+                    crawl=crawl,
+                    config={"PERMISSIONS": "public"},
+                    status="sealed",
+                )
+                for index in range(125)
+            ],
+        )
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("ANALYZE core_snapshot")
+
+        with CaptureQueriesContext(connection) as queries:
+            response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+
+        assert response.status_code == 200
+        assert response.context["paginator"].count == 125
+        count_queries = [q["sql"] for q in queries if "COUNT(" in q["sql"] and '"core_snapshot"' in q["sql"]]
+        assert len(count_queries) == 1
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("EXPLAIN QUERY PLAN " + count_queries[0])
+                plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+            assert "SEARCH core_snapshot USING INDEX" in plan and "permissions>" in plan, plan
 
     @override_settings(PUBLIC_INDEX=True)
     def test_upgraded_07_snapshot_icon_target_renders_at_extensionless_live_url(self, client, admin_user):
