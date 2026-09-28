@@ -51,11 +51,21 @@ def wait_popen_and_kill_children(
     """Wait for a Popen parent and then hard-kill any surviving descendants."""
 
     try:
-        proc.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait(timeout=kill_timeout)
-    kill_remaining_processes(children, timeout=kill_timeout)
+        try:
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=kill_timeout)
+    except subprocess.TimeoutExpired as err:
+        try:
+            state = psutil.Process(proc.pid).as_dict(attrs=["pid", "ppid", "status", "num_threads", "cpu_times"])
+        except psutil.NoSuchProcess:
+            state = {"pid": proc.pid, "status": "exited"}
+        err.add_note(f"Process state after SIGKILL: {state}")
+        raise
+    finally:
+        # A parent that cannot be reaped must not leave its descendants running.
+        kill_remaining_processes(children, timeout=kill_timeout)
 
 
 def wait_psutil_and_kill_children(

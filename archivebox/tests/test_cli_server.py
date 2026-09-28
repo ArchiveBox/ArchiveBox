@@ -819,8 +819,8 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
 
         if expected_notice:
             log_text = server_log.read_text(encoding="utf-8", errors="replace")
-            assert expected_notice in log_text
-            assert "ArchiveBox server shut down gracefully" in log_text
+            assert expected_notice in log_text, log_text
+            assert "ArchiveBox server shut down gracefully" in log_text, log_text
             assert_no_processes_for_data_dir(initialized_archive, timeout=12)
 
         resumed = start_archivebox_server(initialized_archive, port=port, log_name=f"server-{stop_signal.name}-resumed.log", env=env)
@@ -831,8 +831,8 @@ def test_live_server_signal_exit_and_resume_uses_existing_supervisor_state(initi
         os.kill(resumed.pid, signal.SIGTERM)
         resumed.wait(timeout=20)
         resumed_text = resumed_log.read_text(encoding="utf-8", errors="replace")
-        assert "Got SIGTERM" in resumed_text
-        assert "ArchiveBox server shut down gracefully" in resumed_text
+        assert "Got SIGTERM" in resumed_text, resumed_text
+        assert "ArchiveBox server shut down gracefully" in resumed_text, resumed_text
         assert_no_processes_for_data_dir(initialized_archive, timeout=12)
     finally:
         for proc in (server, resumed):
