@@ -1677,15 +1677,19 @@ def start_server_workers(
 ):
     from archivebox.config.common import get_config
 
-    require_server_worker_memory()
-    config = get_config()
     shutdown_state = None
     tail_result = "stopped"
-    # Enter cooperative handling only once startup finishes, but retain it
-    # through our cleanup finally: Popen.wait() has the same interruption risk
-    # as poll(). ExitStack preserves the existing startup and daemon policies.
+    # A real takeover regression sent SIGTERM after a standby server resumed,
+    # while it was still syncing workers. Immediate exceptions can interrupt
+    # subprocess polling or waits during startup and cleanup, so keep the
+    # existing cooperative policy active for the whole foreground lifecycle.
+    # Daemon startup retains its existing signal policy.
     with ExitStack() as shutdown_context:
+        if not daemonize:
+            shutdown_state = shutdown_context.enter_context(foreground_shutdown_signals(raise_on_first_signal=False))
         try:
+            require_server_worker_memory()
+            config = get_config()
             supervisor = get_or_create_supervisord_process(daemonize=daemonize)
             workers, log_files, components = build_server_worker_plan(
                 config=config,
@@ -1714,13 +1718,13 @@ def start_server_workers(
 
             from django.db import connections
 
-            connections.close_all()
-            # Immediate exceptions can strand Popen's wait lock inside poll().
-            # Use the shared cooperative contract in core.shutdown_util; the
-            # tail checks intent between operations, including while draining
-            # busy logs. No interruption checks run inside child cleanup.
-            shutdown_state = shutdown_context.enter_context(foreground_shutdown_signals(raise_on_first_signal=False))
             try:
+                # Finish the current startup operation before honoring a
+                # shutdown received during supervisor/worker synchronization.
+                # The tail also checks intent between operations, including
+                # while draining busy logs. Cleanup remains synchronous.
+                raise_if_shutdown_requested()
+                connections.close_all()
                 # Tail worker logs while supervisord runs.
                 sys.stdout.write("Tailing worker logs (Ctrl+C to stop)...\n\n")
                 sys.stdout.flush()

@@ -1,0 +1,25 @@
+name: Provision downloader runner access
+
+# One-time repair: abx-dl has the fallback workflow but lacks its dedicated
+# status credential. Copy it inside trusted CI without exposing its value to
+# an operator, a log, or a file. Remove this workflow after provisioning.
+on:
+  push:
+    branches: [dev]
+    paths: [.github/workflows/provision-downloader-runner-access.yml]
+
+permissions: {}
+
+jobs:
+  provision:
+    if: github.repository == 'ArchiveBox/ArchiveBox' && github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Install the existing dedicated status credential in abx-dl
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_GH_TOKEN }}
+          RUNNER_STATUS_TOKEN: ${{ secrets.RUNNER_STATUS_TOKEN }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$RUNNER_STATUS_TOKEN"
+          printf '%s' "$RUNNER_STATUS_TOKEN" | gh secret set RUNNER_STATUS_TOKEN --repo ArchiveBox/abx-dl
