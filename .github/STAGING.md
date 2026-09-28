@@ -33,3 +33,10 @@ screenshots are retained as Actions artifacts. Other failures remain
 failures; do not publish a success deployment record to bypass them. No code
 mounts are allowed. The Cabbage job must pass before its record authorizes a
 stable upload. Queued capture progress is polled; failed tests are not retried.
+
+Browser acceptance follows the default WACZ viewer into the captured document,
+matching its replay base and original URL and checking that its body is visible
+and contains substantial text. An attached viewer iframe can still be
+`about:blank`, so its presence alone cannot prove replay works. Extracted display
+titles and the captured document's `<title>` may legitimately differ; neither
+title equality nor output thumbnails substitute for checking the actual page.
