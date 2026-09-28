@@ -53,10 +53,11 @@ def main() -> None:
     # requirements need a file header; filenames never enter runner policy.
     # Keep a bounded NAS share so hosted capacity continues working in parallel.
     capacity = int(os.environ.get("UGNAS_CI_MAX_JOBS", "3"))
-    # Start long jobs first in both pools instead of leaving several minutes of
-    # work behind every short job in an alphabetically ordered hosted queue.
+    # Keep long jobs early in the hosted queue. Giving the longest jobs to the
+    # CPU-capped NAS instead created a tail after hosted work had finished; use
+    # its extra slots for a bounded share of shorter work without filename rules.
     matrix.sort(key=lambda item: sum(durations.get(path, 60) for path in item["paths"]), reverse=True)
-    eligible = [item for item in matrix if not any(root / path in hosted for path in item["paths"])]
+    eligible = [item for item in reversed(matrix) if not any(root / path in hosted for path in item["paths"])]
     for item in eligible[:capacity]:
         item["ugnas"] = True
 
