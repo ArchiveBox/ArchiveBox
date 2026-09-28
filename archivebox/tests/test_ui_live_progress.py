@@ -180,7 +180,7 @@ def real_crawl_setup_process(snapshot, hermetic_lib_dir):
 
 
 class TestLiveProgressView:
-    def test_live_progress_uses_covering_indexes_for_totals(self, client, admin_user, crawl, snapshot):
+    def test_live_progress_uses_existing_indexes_and_cached_totals(self, client, admin_user, crawl, snapshot):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext
         from archivebox.core.models import ArchiveResult, Snapshot
@@ -192,22 +192,104 @@ class TestLiveProgressView:
         client.force_login(admin_user)
         with CaptureQueriesContext(connection) as queries:
             response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        query_sql = [query["sql"] for query in queries]
         assert response.status_code == 200, response.content
         payload = response.json()
         active_crawl = next(item for item in payload["active_crawls"] if item["id"] == str(crawl.pk))
         assert active_crawl["total_snapshots"] == 1
+        assert active_crawl["crawl_output_size"] is None
+        assert active_crawl["crawl_output_size_display"] == "…"
+        deadline = time.monotonic() + 5
+        while active_crawl["crawl_output_size"] is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200, response.content
+            active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
         assert active_crawl["cancelled_snapshots"] == 1
         assert active_crawl["crawl_output_size"] == 1234
         assert payload["indexing_queued"] == 1
+        assert not any("SUM(" in sql or 'COUNT("core_snapshot"."downloaded_at")' in sql for sql in query_sql)
         if connection.vendor == "sqlite":
-            aggregates = [query["sql"] for query in queries if "GROUP BY" in query["sql"]]
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='index'")
+                indexes = {row[0] for row in cursor.fetchall()}
+            assert "archiveresult_progress_idx" not in indexes
+            assert "snapshot_progress_totals_idx" not in indexes
+            aggregates = [sql for sql in query_sql if "GROUP BY" in sql]
             assert aggregates
             with connection.cursor() as cursor:
                 for sql in aggregates:
                     cursor.execute("EXPLAIN QUERY PLAN " + sql)
                     plan = " ".join(str(row) for row in cursor.fetchall())
-                    assert "COVERING INDEX" in plan, plan
+                    if 'FROM "core_snapshot"' in sql:
+                        assert "COVERING INDEX" in plan, plan
+                    else:
+                        assert "USING INDEX core_archiveresult_status_" in plan, plan
                     assert "SCAN " not in plan, plan
+
+        # Size/cancellation samples are shared by tabs while status counts stay
+        # current on every request.
+        Snapshot.objects.filter(pk=snapshot.pk).update(output_size=4321)
+        with CaptureQueriesContext(connection) as cached_queries:
+            for _ in range(5):
+                response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+                assert response.status_code == 200, response.content
+                cached_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
+                assert cached_crawl["crawl_output_size"] == 1234
+        assert not any("SUM(" in query["sql"] for query in cached_queries)
+
+    def test_live_progress_samples_batches_without_leaking_other_snapshots(self, client, admin_user, crawl, snapshot):
+        from datetime import timedelta
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED)
+        now = timezone.now()
+        Snapshot.objects.bulk_create(
+            [
+                Snapshot(
+                    crawl=crawl,
+                    url=f"https://example.com/batch/{i}",
+                    timestamp=str(now.timestamp() + i + 1),
+                    status=Snapshot.StatusChoices.SEALED,
+                    downloaded_at=now if i % 2 else None,
+                    output_size=i + 1,
+                )
+                for i in range(305)
+            ],
+        )
+        # Exercise both a timestamp tie crossing batch boundaries and advancing
+        # to a new timestamp. A started snapshot must not enter sealed totals.
+        Snapshot.objects.filter(crawl=crawl, status=Snapshot.StatusChoices.SEALED).update(modified_at=now)
+        Snapshot.objects.filter(crawl=crawl, output_size__gt=250).update(modified_at=now + timedelta(seconds=1))
+        Snapshot.objects.filter(pk=snapshot.pk).update(output_size=9999)
+        client.force_login(admin_user)
+        deadline = time.monotonic() + 5
+        while True:
+            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200, response.content
+            totals = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
+            if totals["crawl_output_size"] is not None or time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        assert totals["crawl_output_size"] == sum(range(1, 306))
+        assert totals["cancelled_snapshots"] == 153
+        assert totals["total_snapshots"] == 306
+        assert totals["completed_snapshots"] == 305
+
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.SEALED, config={"PERMISSIONS": "public"})
+        client.logout()
+        deadline = time.monotonic() + 5
+        while True:
+            response = client.get(reverse("live_progress"), {"snapshot_id": str(snapshot.pk)}, HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200, response.content
+            scoped = response.json()["active_crawls"][0]
+            if scoped["crawl_output_size"] is not None or time.monotonic() >= deadline:
+                break
+            time.sleep(0.05)
+        assert scoped["total_snapshots"] == 1
+        assert scoped["crawl_output_size"] == 9999
+        assert scoped["cancelled_snapshots"] == 1
 
     def test_live_progress_does_not_inspect_archive_files(self, client, admin_user, crawl, snapshot):
         import sys

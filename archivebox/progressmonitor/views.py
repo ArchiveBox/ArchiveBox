@@ -7,7 +7,7 @@ from typing import Literal
 from abx_dl.events import PROCESS_EXIT_SKIPPED
 from django.conf import settings
 from django.db import DatabaseError
-from django.db.models import CharField, Count, Q, Sum
+from django.db.models import CharField, Count, Q
 from django.db.models.functions import Cast
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
@@ -235,8 +235,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
             ArchiveResult.StatusChoices.QUEUED,
             ArchiveResult.StatusChoices.STARTED,
         )
-        # Start from the small set of open results and count from the covering
-        # status/plugin index. Filtering by plugin first scans historical runs.
+        # Start from open results using the existing status index. Filtering by
+        # plugin first scans historical runs, including all completed results.
         result_counts = list(
             archiveresult_scope.filter(status__in=result_statuses).order_by().values("status", "plugin").annotate(count=Count("*")),
         )
@@ -336,21 +336,15 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 persona_details_by_name[persona.name] = persona_details
         active_crawl_ids = [crawl["id"] for crawl in active_crawls_list]
         snapshot_counts_by_crawl: dict[str, dict[str, int]] = {str(crawl_id): {} for crawl_id in active_crawl_ids}
-        cancelled_snapshot_counts_by_crawl: dict[str, int] = {str(crawl_id): 0 for crawl_id in active_crawl_ids}
-        crawl_output_sizes_by_crawl: dict[str, int] = {str(crawl_id): 0 for crawl_id in active_crawl_ids}
         queued_snapshot_overflow_by_crawl: dict[str, int] = {str(crawl_id): 0 for crawl_id in active_crawl_ids}
         active_snapshot_scope = snapshot_scope.filter(crawl_id__in=active_crawl_ids)
         if active_crawl_ids:
-            for row in (
-                active_snapshot_scope.order_by()
-                .values("crawl_id", "status")
-                .annotate(count=Count("*"), downloaded=Count("downloaded_at"), size=Sum("output_size"))
-            ):
+            # The existing (crawl, status, modified_at) index covers these counts.
+            # Byte totals and cancellation details require table reads, so sample
+            # those separately and share cached values between viewer tabs.
+            for row in active_snapshot_scope.order_by().values("crawl_id", "status").annotate(count=Count("*")):
                 crawl_id = str(row["crawl_id"])
                 snapshot_counts_by_crawl[crawl_id][row["status"]] = row["count"]
-                if row["status"] == Snapshot.StatusChoices.SEALED:
-                    cancelled_snapshot_counts_by_crawl[crawl_id] = row["count"] - row["downloaded"]
-                    crawl_output_sizes_by_crawl[crawl_id] = int(row["size"] or 0)
 
         crawl_process_pids: dict[str, int] = {}
         snapshot_process_pids: dict[str, int] = {}
@@ -569,7 +563,14 @@ def live_progress_view(request, *, authorized_snapshot=None):
             completed_snapshots = crawl_snapshot_counts.get(Snapshot.StatusChoices.SEALED, 0)
             started_snapshots = crawl_snapshot_counts.get(Snapshot.StatusChoices.STARTED, 0)
             pending_snapshots = crawl_snapshot_counts.get(Snapshot.StatusChoices.QUEUED, 0)
-            cancelled_snapshots = cancelled_snapshot_counts_by_crawl.get(crawl_id, 0)
+            from archivebox.progressmonitor.collection import crawl_summary
+
+            totals = (
+                crawl_summary(crawl_id, snapshot_id=scoped_snapshot.pk if scoped_snapshot is not None else None)
+                if completed_snapshots
+                else {"snapshots": 0, "cancelled": 0, "bytes": 0}
+            )
+            cancelled_snapshots = totals["cancelled"] if totals is not None else None
 
             # Count URLs in the crawl (for when snapshots haven't been created yet)
             urls_count = 0
@@ -790,8 +791,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
             persona_details = persona_details_by_id.get(str(crawl["persona_id"])) if crawl["persona_id"] else None
             persona_name = persona_details["name"] if persona_details else "Default"
             persona_details = persona_details or persona_details_by_name.get(persona_name)
-            crawl_output_size = crawl_output_sizes_by_crawl.get(crawl_id, 0)
-            avg_snapshot_size = int(crawl_output_size / completed_snapshots) if completed_snapshots else 0
+            crawl_output_size = totals["bytes"] if totals is not None else None
+            avg_snapshot_size = int(totals["bytes"] / max(totals["snapshots"], 1)) if totals is not None else None
             # These crawl-scope limits are frozen in Crawl.config. Rendering
             # them must not resolve personas, probe binaries, or reread config.
             max_urls = int(crawl["config"].get("CRAWL_MAX_URLS", request_config.CRAWL_MAX_URLS) or 0)
@@ -841,8 +842,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
                     "max_snapshot_size_display": printable_filesize(snapshot_max_size) if snapshot_max_size else "unlimited",
                     "crawl_output_size": crawl_output_size,
                     "avg_snapshot_size": avg_snapshot_size,
-                    "crawl_output_size_display": printable_filesize(crawl_output_size) if crawl_output_size else "0 B",
-                    "avg_snapshot_size_display": printable_filesize(avg_snapshot_size) if avg_snapshot_size else "0 B",
+                    "crawl_output_size_display": printable_filesize(crawl_output_size or 0) if totals is not None else "…",
+                    "avg_snapshot_size_display": printable_filesize(avg_snapshot_size or 0) if totals is not None else "…",
                     "tags": crawl_tags,
                     "urls_count": urls_count,
                     "total_snapshots": total_snapshots,
