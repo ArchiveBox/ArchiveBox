@@ -10,6 +10,7 @@ import sys
 import time
 import tomllib
 from pathlib import Path
+from urllib.parse import urljoin
 
 from playwright.sync_api import expect, sync_playwright
 
@@ -101,8 +102,7 @@ def main():
                 # Its presence previously accepted blank screenshots as proof of
                 # replay. Exercise the default viewer and its real captured page,
                 # using the same readiness contract as the WACZ browser tests.
-                expected_title = page.locator(".header-title-text").inner_text().strip()
-                assert expected_title, f"Captured page has no title: {snapshot['url']}"
+                expect(page.locator(".header-title-text")).to_contain_text(re.compile(r"\S"))
                 preview = page.locator("#main-frame")
                 expect(preview).to_have_attribute("src", re.compile(r"/archivewebpage/archivewebpage\.wacz\?preview=1"))
                 expect(preview.content_frame.locator("#replay-root")).to_have_attribute("data-url", snapshot["url"])
@@ -114,21 +114,27 @@ def main():
                         return Boolean(window.archiveboxReplayReady);
                     }""",
                 )
-                # A document title can contain suffixes absent from its body.
-                # ReplayWeb.page can nest its captured document beneath wrapper
-                # frames; a viewer shell or a separate thumbnail is not replay.
+                # Extracted display titles need not match the captured document's
+                # <title>: HedgeDoc's note heading and HTML title differ. Identify
+                # the archived document by its replay origin/path and original URL,
+                # as the ArchiveWebpage browser tests do. Wrapper frames and other
+                # output thumbnails cannot satisfy this check.
+                replay_prefix = urljoin(preview_frame.url, "/replay/w/")
                 frames = list(preview_frame.child_frames)
                 frame_titles = {}
                 while frames:
                     replay = frames.pop()
                     frame_titles[replay.url] = replay.title().strip()
-                    if frame_titles[replay.url] == expected_title:
-                        expect(replay.locator("body")).to_be_visible()
-                        expect(replay.locator("body")).to_contain_text(re.compile(r"\S"), use_inner_text=True)
+                    if replay.url.startswith(replay_prefix) and replay.url.endswith(f"/{snapshot['url']}"):
+                        body = replay.locator("body")
+                        expect(body).to_be_visible()
+                        # Both acceptance URLs contain substantial article/profile
+                        # text. Reject a blank frame or a short viewer error message.
+                        assert len(" ".join(body.inner_text().split())) > 1000, f"Missing captured page content: {replay.url}"
                         break
                     frames.extend(replay.child_frames)
                 else:
-                    raise AssertionError(f"Captured title {expected_title!r} not found in replay frames: {frame_titles}")
+                    raise AssertionError(f"Captured URL {snapshot['url']!r} not found in replay frames: {frame_titles}")
             finally:
                 page.screenshot(path=str(evidence / f"{snapshot['id']}.png"), full_page=True)
         browser.close()
