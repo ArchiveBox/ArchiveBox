@@ -526,6 +526,8 @@ HISTORICAL_GHOST_MIGRATIONS: frozenset[tuple[str, str]] = frozenset(
         ("core", "0053_remove_snapshottag_snapshot_old"),
         ("core", "0054_alter_snapshot_timestamp"),
         ("core", "0055_alter_tag_slug"),
+        # Dev-only progress indexes removed in favor of existing-index queries.
+        ("core", "0056_progress_covering_indexes"),
         ("core", "0056_remove_tag_uuid"),
         ("core", "0057_rename_id_tag_old_id"),
         ("core", "0058_alter_tag_old_id"),

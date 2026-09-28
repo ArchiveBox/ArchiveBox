@@ -269,6 +269,7 @@ def test_init_recovers_from_pre_squash_dev_history(tmp_path):
         ("core", "0021_auto_20220724_1254"),
         ("core", "0021_auto_20221128_1116"),
         ("core", "0023_alter_archiveresult_options_archiveresult_abid_and_more"),
+        ("core", "0056_progress_covering_indexes"),
         ("core", "0074_alter_snapshot_downloaded_at"),
         ("core", "0075_crawl"),
         ("core", "0075_archiveresult_retry_at"),
