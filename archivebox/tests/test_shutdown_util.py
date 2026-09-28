@@ -83,6 +83,77 @@ def test_foreground_shutdown_can_request_cooperative_shutdown_without_raising():
     assert process.returncode == 130, (stdout, stderr)
 
 
+def test_shutdown_signal_during_child_poll_keeps_child_reapable():
+    """Interrupt real child polling at different points without stranding reaping.
+
+    The foreground server polls supervisord while its shutdown handler can
+    raise KeyboardInterrupt. Exercise that boundary with actual OS signals and
+    children; a killed child must remain waitable after every interruption.
+    """
+    process = _start_signal_process(
+        """
+        import os
+        import signal
+        import subprocess
+        import sys
+        import threading
+
+        from archivebox.core.shutdown_util import foreground_shutdown_signals, wait_popen_and_kill_children
+
+        print("READY", flush=True)
+        for attempt in range(512):
+            child = subprocess.Popen(
+                [sys.executable, "-c", "import time; time.sleep(60)"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            sender = threading.Timer(0.001, os.kill, args=(os.getpid(), signal.SIGINT))
+            try:
+                with foreground_shutdown_signals(first_signal_message=None) as state:
+                    sender.start()
+                    try:
+                        while child.poll() is None:
+                            pass
+                    except KeyboardInterrupt:
+                        assert state.signal_name == "SIGINT"
+                sender.join()
+                # The child deliberately remains alive until this unchanged
+                # kill-and-reap path asks it to stop.
+                wait_popen_and_kill_children(child, [], timeout=0.001, kill_timeout=1.0)
+                assert child.returncode == -signal.SIGKILL, (attempt, child.returncode)
+            except BaseException as error:
+                error.add_note(f"Interrupted child polling iteration: {attempt}")
+                raise
+            finally:
+                sender.cancel()
+                sender.join()
+                # Cleanup must also work if the assertion exposes a broken
+                # Popen wait; preserve that failure while reaping the real PID.
+                if child.returncode is None:
+                    try:
+                        os.kill(child.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                    try:
+                        os.waitpid(child.pid, 0)
+                    except ChildProcessError:
+                        pass
+        print("REAPED:512", flush=True)
+        """,
+    )
+
+    try:
+        stdout, stderr = process.communicate(timeout=30)
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=5)
+
+    assert process.returncode == 0, (stdout, stderr)
+    assert stdout == "REAPED:512\n", (stdout, stderr)
+
+
 def test_daemon_runner_signal_exit_is_unexpected_for_supervisor():
     process = _start_signal_process(
         """
