@@ -7,7 +7,7 @@ import pytest
 
 @pytest.mark.django_db(transaction=True)
 def test_abort_before_first_snapshot_hook_preserves_pending_capture(recursive_test_site):
-    from abx_dl.events import CrawlAbortEvent, ProcessStartedEvent, SnapshotCompletedEvent, SnapshotEvent
+    from abx_dl.events import CrawlAbortEvent, CrawlCompletedEvent, ProcessStartedEvent, SnapshotCompletedEvent, SnapshotEvent
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
@@ -21,6 +21,7 @@ def test_abort_before_first_snapshot_hook_preserves_pending_capture(recursive_te
     runner = CrawlRunner(crawl)
     completed = []
     started = []
+    completed_crawls = []
 
     async def abort_on_snapshot(event: SnapshotEvent) -> None:
         # Observe the real snapshot command after its DB owner is recorded but
@@ -29,8 +30,9 @@ def test_abort_before_first_snapshot_hook_preserves_pending_capture(recursive_te
         await event.emit(CrawlAbortEvent(user_initiated=False)).now()
 
     runner.bus.on(SnapshotEvent, abort_on_snapshot)
-    runner.bus.on(SnapshotCompletedEvent, completed.append)
-    runner.bus.on(ProcessStartedEvent, started.append)
+    runner.bus.on(SnapshotCompletedEvent, lambda event: completed.append(event))
+    runner.bus.on(ProcessStartedEvent, lambda event: started.append(event))
+    runner.bus.on(CrawlCompletedEvent, lambda event: completed_crawls.append(event))
     asyncio.run(runner.run())
 
     assert len(completed) == 1, "Aborting must still finish the real snapshot cleanup phase"
@@ -38,6 +40,8 @@ def test_abort_before_first_snapshot_hook_preserves_pending_capture(recursive_te
     snapshot = Snapshot.objects.get(crawl=crawl)
     crawl.refresh_from_db()
     assert snapshot.status in Snapshot.RUNNABLE_STATES, "An interrupted hook sequence must remain resumable"
+    assert completed[0].cancelled
+    assert completed_crawls == []
     assert snapshot.retry_at is not None
     assert snapshot.downloaded_at is None
     assert snapshot.archiveresult_set.count() == 0
