@@ -224,7 +224,7 @@ class CrawlRunner:
         self.snapshot_service = SnapshotService(
             self.bus,
             crawl_id=str(crawl.id),
-            interrupted=lambda: self._signal_abort_requested and not self._user_aborted,
+            interrupted=self.execution_interrupted,
         )
         HookArchiveResultService(self.bus, emit_jsonl=False)
         ArchiveResultService(self.bus)
@@ -258,6 +258,10 @@ class CrawlRunner:
         # for timely delivery of a final "stop now" event.
         self._signal_abort_requested = False
         self._last_lease_heartbeat_at = 0.0
+
+    def execution_interrupted(self) -> bool:
+        """Owner loss preserves work; explicit user abort keeps its sealing policy."""
+        return self._signal_abort_requested and not self._user_aborted
 
     async def on_CrawlAbortEvent(self, event: CrawlAbortEvent) -> None:
         self._signal_abort_requested = True
@@ -1135,7 +1139,7 @@ class CrawlRunner:
             # emit() schedules handlers immediately; guarding only the await
             # still lets completion projectors run during takeover. An aborted
             # execution owner must leave durable work for its replacement.
-            if not self._signal_abort_requested:
+            if not self.execution_interrupted():
                 completed_event = event.emit(
                     CrawlCompletedEvent(
                         url=snapshot["url"],
@@ -1279,7 +1283,7 @@ class CrawlRunner:
                     raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await completed_snapshot.wait(timeout=snapshot_phase_timeout)
                 await completed_snapshot.event_results_list()
-                if self._signal_abort_requested:
+                if self.execution_interrupted():
                     return
                 if snapshot["status"] == "sealed":
                     await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)

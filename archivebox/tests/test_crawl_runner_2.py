@@ -44,7 +44,7 @@ def test_abort_before_first_snapshot_hook_preserves_capture_intent(recursive_tes
     assert not [event for event in started if event.hook_name.startswith("on_Snapshot")]
     snapshot = Snapshot.objects.get(crawl=crawl)
     crawl.refresh_from_db()
-    assert completed_crawls == []
+    assert len(completed_crawls) == int(user_initiated)
     assert snapshot.archiveresult_set.count() == 0
     if user_initiated:
         # Preserve the historical point-in-time boundary for an explicit abort.
