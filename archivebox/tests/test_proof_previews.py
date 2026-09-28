@@ -91,7 +91,12 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
         assert "Signed response byte range" in topology.inner_text()
         assert topology.locator('a[href*="response.http"]').count() > 0
         assert topology.locator('a[href*="receipt.json"]').count() > 0
-        assert page.locator("a", has_text="Verify independently").get_attribute("href") == "https://tlsnotary.archivebox.io/"
+        # The installed plugin owns its verifier domain. Compare its template
+        # with its declared default so a plugin release does not require a
+        # simultaneous core test edit, while stale template links still fail.
+        schema = json.loads((Path(get_plugins_dir()) / "tlsnotary" / "config.json").read_text())
+        verifier_url = schema["properties"]["TLSNOTARY_VERIFIER_URL"]["default"]
+        assert page.locator("a", has_text="Verify independently").get_attribute("href") == f"{verifier_url.rstrip('/')}/"
         assert all(urlsplit(request).hostname == hostname for request in requests)
         page.screenshot(path=str(tmp_path / "tlsnotary-desktop.png"), full_page=True)
         page.set_viewport_size({"width": 390, "height": 844})

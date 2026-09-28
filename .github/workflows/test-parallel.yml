@@ -44,7 +44,7 @@ jobs:
           fallback-runner: ubuntu-24.04
           # Jobs queued for this pool must not be mistaken for idle runner slots:
           # requiring MAX_JOBS idle runners prevents assigning a second wave.
-          primaries-required: ${{ vars.UGNAS_CI_MIN_IDLE || 4 }}
+          primaries-required: ${{ vars.UGNAS_CI_MIN_IDLE || 1 }}
           fallback-on-error: true
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
