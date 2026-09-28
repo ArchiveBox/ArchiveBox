@@ -74,8 +74,9 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         **snapshot_filter,
     ).update(retry_at=now, modified_at=now)
 
+    # Find rare uploads through hook_name's index before checking their parents;
+    # a correlated upload probe otherwise visits every sealed snapshot.
     extension_upload_results = ArchiveResult.objects.filter(
-        snapshot_id=OuterRef("pk"),
         hook_name=Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME,
     )
     server_results = ArchiveResult.objects.filter(snapshot_id=OuterRef("pk")).exclude(
@@ -83,15 +84,15 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
     )
     extension_only_snapshots = (
         Snapshot.objects.filter(
+            id__in=extension_upload_results.values("snapshot_id"),
             status=Snapshot.StatusChoices.SEALED,
             crawl__status__in=[Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED, Crawl.StatusChoices.SEALED],
             **snapshot_filter,
         )
         .annotate(
-            has_extension_upload=Exists(extension_upload_results),
             has_server_result=Exists(server_results),
         )
-        .filter(has_extension_upload=True, has_server_result=False)
+        .filter(has_server_result=False)
     )
     # Older browser-extension uploads could win a race with runner startup:
     # their successful external rows made the fresh Snapshot look finished

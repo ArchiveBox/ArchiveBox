@@ -27,6 +27,38 @@ from .test_cli_run_1 import (
 
 @pytest.mark.django_db
 class TestRecoverOrchestratorState:
+    def test_extension_upload_recovery_uses_hook_index_before_snapshots(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.core.recovery_util import recover_orchestrator_state
+        from archivebox.crawls.models import Crawl
+
+        crawl = Crawl.objects.create(
+            urls="https://example.com",
+            created_by_id=get_or_create_system_user_pk(),
+            status="sealed",
+            retry_at=None,
+        )
+        snapshot = Snapshot.objects.create(url="https://example.com", crawl=crawl, status="sealed", retry_at=None)
+        ArchiveResult.objects.create(snapshot=snapshot, plugin="title", hook_name="on_Snapshot__title", status="succeeded")
+        with CaptureQueriesContext(connection) as queries:
+            recovered = recover_orchestrator_state()
+        assert recovered["snapshots_sealed_with_extension_uploads_only"] == 0
+        snapshot.refresh_from_db()
+        assert snapshot.status == "sealed" and snapshot.retry_at is None
+        recovery_updates = [
+            q["sql"] for q in queries if q["sql"].startswith("UPDATE") and Snapshot.BROWSER_EXTENSION_UPLOAD_HOOK_NAME in q["sql"]
+        ]
+        assert len(recovery_updates) == 2
+        if connection.vendor == "sqlite":
+            for sql in recovery_updates:
+                with connection.cursor() as cursor:
+                    cursor.execute("EXPLAIN QUERY PLAN " + sql)
+                    plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+                assert "hook_name=?" in plan, plan
+
     def test_recover_orchestrator_state_unlocks_started_crawl_with_pending_snapshot(self):
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import Snapshot
