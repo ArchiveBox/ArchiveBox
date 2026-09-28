@@ -125,6 +125,7 @@ FROM archivebox-runtime-base AS archivebox-builder
 WORKDIR "$CODE_DIR"
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked,id=apt-$TARGETARCH$TARGETVARIANT \
     --mount=type=bind,source=pyproject.toml,target=/app/pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=/app/uv.lock \
     <<'EOF'
 echo "[+] UV Installing ArchiveBox dependencies from pyproject.toml..."
 export UV_NO_CACHE=true
@@ -137,48 +138,14 @@ apt-get install -qq -y --no-install-recommends x11-utils
 # Do not rewrite inherited native libraries merely to strip them again.
 /usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print > /tmp/archivebox-inherited-libraries
 
-mkdir -p /tmp/archivebox-uv-project
-/venv/bin/python - <<'PY'
-from pathlib import Path
-import json
-import re
-import urllib.request
-
-source = Path("/app/pyproject.toml")
-target = Path("/tmp/archivebox-uv-project/pyproject.toml")
-text = source.read_text()
-text = text.replace(
-    'environments = ["sys_platform == \'darwin\'", "sys_platform == \'linux\'"]',
-    'environments = ["sys_platform == \'linux\'"]',
-)
-
-# Docker builds need the just-published internal abx wheels immediately, but
-# PyPI simple can lag the version JSON endpoints by tens of minutes. Generate a
-# Docker-only dependency view from the version JSON so the published package
-# metadata stays normal while image builds remain resumable after a release.
-for package in ("abxbus", "abxpkg", "abx-plugins", "abx-dl"):
-    match = re.search(
-        rf'"{re.escape(package)}(?P<operator>==|>=)(?P<version>[^"]+)"',
-        text,
-    )
-    if not match:
-        continue
-    version = match.group("version")
-    with urllib.request.urlopen(f"https://pypi.org/pypi/{package}/{version}/json", timeout=20) as response:
-        data = json.load(response)
-    wheel_url = next(url["url"] for url in data["urls"] if url["filename"].endswith(".whl"))
-    text = re.sub(
-        rf'"{re.escape(package)}(?:==|>=)[^"]+"',
-        f'"{package} @ {wheel_url}"',
-        text,
-        count=1,
-    )
-
-target.write_text(text)
-PY
-
+# The old Docker-only dependency rewrite predated this checkout's lockfile:
+# it fetched version JSON to avoid stale PyPI Simple listings. That extra API
+# can itself lag or return 503s. The verified lock already records exact public
+# artifact URLs and hashes, including extras and platform markers. Consume it
+# directly, retaining the freshness check instead of resolving a second graph.
 /usr/bin/uv sync \
-    --project /tmp/archivebox-uv-project \
+    --project /app \
+    --locked \
     --no-cache \
     --no-dev \
     --inexact \
@@ -209,7 +176,7 @@ rm -rf "$builder_abxpkg_lib_dir"
 rm -rf /venv/lib/python3.*/site-packages/pip* \
     /venv/lib/python3.*/site-packages/wheel* \
     /venv/bin/pip /venv/bin/pip3 /venv/bin/pip3.* /venv/bin/wheel
-rm -rf /var/lib/apt/lists/* /tmp/archivebox-uv-project
+rm -rf /var/lib/apt/lists/*
 EOF
 
 COPY --chown=root:root --chmod=755 "." "$CODE_DIR/"
