@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
     atomic = False
 
     dependencies = [
-        ("core", "0056_progress_covering_indexes"),
+        ("core", "0055_repair_legacy_retry_timestamps"),
         ("machine", "0022_networkinterface_identity_without_mac"),
     ]
 
