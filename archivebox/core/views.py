@@ -1212,6 +1212,18 @@ class OriginalDomainReplayView(View):
 
 
 class PublicIndexView(ListView):
+    """Keep browsing responsive while the same small server is archiving.
+
+    Performance takes priority over perfect initial totals: on a 1 vCPU / 1 GB
+    host with hundreds of thousands of snapshots, even an indexed count can
+    consume the entire roughly 0.5-0.7 second page-load budget. Benchmark with
+    the runner active, since it shares the CPU, memory, and SQLite database.
+
+    The unfiltered list therefore renders rows first and accepts missing/stale
+    display totals. A later ordinary reload can show the background-cached
+    count; do not restore a synchronous COUNT or add polling just to fill it in.
+    """
+
     template_name = "public_index.html"
     model = Snapshot
     ordering: ClassVar[list[str]] = ["-bookmarked_at", "-created_at"]
@@ -1251,6 +1263,11 @@ class PublicIndexView(ListView):
         public_snapshots: list[Snapshot] = []
         scanned = 0
         chunk_size = max(self.public_page_scan_chunk_size, page_size + 1)
+        # Read in snapshot_public_order_idx order and filter visibility in small
+        # batches. Combining the permissions predicate with ORDER BY can make
+        # SQLite select the permissions index and sort the whole public archive
+        # before LIMIT. This favors the common early pages without a new index;
+        # deep pages or mostly private collections can still require more reads.
         ordered_snapshots = (
             Snapshot.objects.select_related("crawl__created_by").order_by(*self.ordering).only(*self._base_public_snapshot_fields())
         )
@@ -1283,6 +1300,10 @@ class PublicIndexView(ListView):
         snapshots = self._ordered_public_page_from_order_index(page_number=page_number, page_size=page_size)
         if not snapshots and page_number > 1:
             raise Http404(f"Invalid page ({page_number}): No snapshots")
+        # Exhausting the rows gives an exact total for this read at no extra
+        # cost. Otherwise the lookahead is only a lower bound: an absent count
+        # is preferable to an on-request scan or a cached total smaller than
+        # the rows we just observed. Cached overestimates are acceptable here.
         observed_count = (page_number - 1) * page_size + len(snapshots)
         self.public_snapshot_count = observed_count
         if len(snapshots) > page_size:
@@ -1290,6 +1311,10 @@ class PublicIndexView(ListView):
             cached_count = summary["snapshots"] if summary is not None else None
             self.public_snapshot_count = cached_count if cached_count is not None and cached_count >= observed_count else None
 
+        # Give Django an in-memory lower bound, never the collection QuerySet
+        # whose Paginator.count would issue COUNT(*). Navigation uses this read's
+        # lookahead even when a stale total would hide a newly added page.
+        # The template must use the separate display totals, not num_pages here.
         paginator = self.get_paginator(range(observed_count), page_size)
         page = paginator.page(page_number)
         page.object_list = snapshots[:page_size]

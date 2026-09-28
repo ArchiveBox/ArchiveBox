@@ -654,6 +654,13 @@
                 </span>
                 <input type="submit" value="Search">
             </form>
+            {% comment %}
+                Missing/stale totals are intentional on large collections: show rows
+                immediately and let a later normal reload pick up the cached count.
+                Do not fill this in with an extra count request or paginator.count:
+                the unfiltered paginator only knows the rows needed for navigation.
+                Use the optional public_* totals here and in the footer below.
+            {% endcomment %}
             <div class="public-snapshot-count">
                 {% if public_search_stream_pending %}
                     <span class="archivebox-search-stream-status" role="status" aria-live="polite">Searching...</span>
