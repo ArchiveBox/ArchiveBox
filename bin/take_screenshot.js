@@ -26,6 +26,7 @@ Environment:
   SCREENSHOT_FULL_PAGE       Set to 1 to capture the full page, defaults to viewport only
   SCREENSHOT_SCROLL_SELECTOR Scroll this selector into view before capture
   SCREENSHOT_WAIT_SELECTOR   Wait for this selector before capture
+  SCREENSHOT_WAIT_FOR_TEXT   Wait for this visible page text before capture
   SCREENSHOT_REQUIRE_LIVE_PROGRESS  Require active snapshot progress and a nonblank decoded screencast within 60s
   SCREENSHOT_CLICK_SELECTOR  Click this selector before capture
   SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR  Wait for this selector after clicking
@@ -346,6 +347,9 @@ async function main() {
     }
 
     await page.waitForSelector('body');
+    if (process.env.SCREENSHOT_WAIT_FOR_TEXT) {
+      await page.waitForFunction((text) => document.body.innerText.includes(text), {}, process.env.SCREENSHOT_WAIT_FOR_TEXT);
+    }
     if (process.env.SCREENSHOT_WAIT_SELECTOR) {
       await page.waitForSelector(process.env.SCREENSHOT_WAIT_SELECTOR, { timeout: 45000 });
     }

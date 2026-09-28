@@ -385,49 +385,16 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     IFS='|' read -r name url expected_path source capture_mode <<<"$view"
     capture_index=$((capture_index + 1))
     slug="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr -cs '[:alnum:]' '-' | sed 's/^-//; s/-$//')"
-    expected_plugin=""
-    if [[ "$name" == "Snapshot View ("*")" && "$capture_mode" != "live-progress" && "$capture_mode" != "snapshot-collapsed" ]]; then
-        expected_plugin="${name#Snapshot View (}"
-        expected_plugin="${expected_plugin%)}"
-    fi
-
     echo "[*] $name: $url"
-    if [[ "$capture_mode" == "snapshot-collapsed" ]]; then
-        NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
-            CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
-            SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
-            SCREENSHOT_SNAPSHOT_HEADER=collapsed \
-            SCREENSHOT_WIDTH=1600 \
-            SCREENSHOT_HEIGHT=1000 \
-            node "$REPO_DIR/bin/take_screenshot.js" "$url" "$CAPTURE_ROOT/snapshot-header-state.png" >/dev/null
-    fi
+    snapshot_header=expanded
+    [[ "$capture_mode" != "snapshot-collapsed" ]] || snapshot_header=collapsed
+    wait_for_text=""
+    [[ "$capture_mode" != wait-text:* ]] || wait_for_text="${capture_mode#wait-text:}"
     view_timing_report=""
-    while IFS='|' read -r profile viewport_width viewport_height; do
+    while IFS='|' read -r profile _viewport_width _viewport_height; do
         filename="$slug-$profile.png"
         capture_dir="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/$profile"
         timing_report_path="$view_timing_report"
-        capture_env=(
-            "RESOLUTION=$viewport_width,$viewport_height"
-            "CHROME_RESOLUTION=$viewport_width,$viewport_height"
-            "PERSONAS_DIR=$PERSONAS_DIR"
-            "ACTIVE_PERSONA=$ACTIVE_PERSONA"
-            "SCREENSHOT_RESOLUTION=$viewport_width,$viewport_height"
-            "SCREENSHOT_TIMEOUT=120"
-            "CHROME_WAIT_FOR=load"
-            "SCREENSHOT_COLLAPSE_FILTERS=1"
-        )
-        if [[ "$capture_mode" == wait-replay:* ]]; then
-            capture_env+=(
-                "SCREENSHOT_WAIT_FOR_TEXT=${capture_mode#wait-replay:}"
-                "SCREENSHOT_WAIT_FOR_FRAME_URL=/replay/w/"
-            )
-        elif [[ "$capture_mode" == wait-text:* ]]; then
-            capture_env+=(
-                "CHROME_WAIT_FOR=domcontentloaded"
-                "SCREENSHOT_WAIT_FOR_TEXT=${capture_mode#wait-text:}"
-            )
-        fi
-
         screenshot_path=""
         if [[ "$capture_mode" == "setup-wizard" ]]; then
             screenshot_path="$capture_dir/screenshot.png"
@@ -527,7 +494,7 @@ PY
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
             fi
-        elif [[ -n "$expected_plugin" ]]; then
+        else
             screenshot_path="$capture_dir/screenshot.png"
             if [[ "$profile" == "desktop" ]]; then
                 mkdir -p \
@@ -539,58 +506,15 @@ PY
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/desktop/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/tablet/screenshot.png" \
                     "$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile/screenshot.png")"
-                env "${capture_env[@]}" \
-                    NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
+                NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
                     CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
                     SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
                     SCREENSHOT_WIDTH=1600 \
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
-                    SCREENSHOT_SNAPSHOT_HEADER=expanded \
-                    node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
-                view_timing_report="$capture_dir/report.json"
-                timing_report_path="$view_timing_report"
-                uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
-                    "$capture_dir/report.json" "$expected_path"
-            fi
-        elif [[ "$profile" == "desktop" || "$capture_mode" == wait-replay:* || -z "${ABXPKG_LIB_DIR:-}" ]]; then
-            capture_log="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")-$profile-abx-dl.log"
-            if ! env "${capture_env[@]}" uv run --no-cache --project "$REPO_DIR" abx-dl dl \
-                --plugins=screenshot \
-                --timeout=120 \
-                --dir "$capture_dir" \
-                "$url" >"$capture_log" 2>&1; then
-                echo "[!] abx-dl failed while capturing $profile $url" >&2
-                tail -100 "$capture_log" >&2
-                exit 1
-            fi
-
-            screenshot_path="$(find "$capture_dir" -type f -path '*/screenshot/screenshot.png' -print -quit)"
-            screenshot_metadata_path="$(find "$capture_dir" -type f -path '*/screenshot/screenshot.json' -print -quit)"
-            if [[ -z "$screenshot_metadata_path" || ! -s "$screenshot_metadata_path" ]]; then
-                echo "[!] Screenshot navigation metadata is missing for $profile $url" >&2
-                tail -100 "$capture_log" >&2
-                exit 1
-            fi
-            uv run --no-cache --project "$REPO_DIR" "$REPO_DIR/bin/generate_ui_screenshot_gallery.py" validate \
-                "$screenshot_metadata_path" "$expected_path"
-        else
-            screenshot_path="$capture_dir/screenshot.png"
-            if [[ "$profile" == "tablet" ]]; then
-                mobile_capture_dir="$CAPTURE_ROOT/$(printf '%02d' "$capture_index")/mobile"
-                mkdir -p "$capture_dir" "$mobile_capture_dir"
-                responsive_variants="$(printf \
-                    '[{"path":"%s","width":1024,"height":1366},{"path":"%s","width":390,"height":844}]' \
-                    "$capture_dir/screenshot.png" \
-                    "$mobile_capture_dir/screenshot.png")"
-                NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
-                    CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
-                    SCREENSHOT_USER_DATA_DIR="$PERSONAS_DIR/$ACTIVE_PERSONA/chrome_profile" \
-                    SCREENSHOT_WIDTH=1024 \
-                    SCREENSHOT_HEIGHT=1366 \
-                    SCREENSHOT_VARIANTS_JSON="$responsive_variants" \
-                    SCREENSHOT_COLLAPSE_FILTERS=1 \
+                    SCREENSHOT_SNAPSHOT_HEADER="$snapshot_header" \
+                    SCREENSHOT_WAIT_FOR_TEXT="$wait_for_text" \
                     node "$REPO_DIR/bin/take_screenshot.js" "$url" "$screenshot_path" >"$capture_dir/report.json"
                 view_timing_report="$capture_dir/report.json"
                 timing_report_path="$view_timing_report"
@@ -599,8 +523,7 @@ PY
             fi
         fi
         if [[ -z "$screenshot_path" || ! -s "$screenshot_path" ]]; then
-            echo "[!] Screenshot plugin did not produce a $profile PNG for $url" >&2
-            [[ -n "${capture_log:-}" && -f "$capture_log" ]] && tail -100 "$capture_log" >&2
+            echo "[!] Screenshot capture did not produce a $profile PNG for $url" >&2
             exit 1
         fi
         cp "$screenshot_path" "$OUTPUT_DIR/$filename"
