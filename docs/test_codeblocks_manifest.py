@@ -373,6 +373,16 @@ def run_snippets(snippet_ids: tuple[str, ...]) -> None:
                 "PATH": f"{Path(sys.executable).parent}:{env['PATH']}",
             },
         )
+        # A runnable Python alias can still select an interpreter without the
+        # project's packages. Keep its first hop visible when a real hook fails;
+        # resolving every symlink here would hide the venv path we need to check.
+        if env.get("PYTHON_BINARY"):
+            python_override = Path(env["PYTHON_BINARY"])
+            print(
+                f"Documentation Python: harness={sys.executable}, override={python_override}, "
+                f"target={python_override.readlink() if python_override.is_symlink() else python_override}",
+                flush=True,
+            )
         Path(env["HOME"]).mkdir()
         scenarios = {records[snippet_id]["scenario"] for snippet_id in snippet_ids}
         workdirs = {
