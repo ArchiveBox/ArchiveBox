@@ -1060,8 +1060,6 @@ Because ArchiveBox is designed to ingest a large volume of URLs with multiple co
 <li><strong>Keep the <code>data/index.sqlite3</code> file on a reliable local drive (not a network mount)</strong> or SSD when using SQLite; the <code>data/archive/</code> folder can be on a network mount or slower HDD.</li>
 <li>If using Docker or NFS/SMB/FUSE for the <code>data/archive/</code> folder, configure the server-side UID/GID mapping or ACL so ArchiveBox's non-root user can create and remove files. <code>root_squash</code> is compatible when the selected non-root identity has write access; do not rely on container root to override server-side permissions.
 </li>
-<li>For rclone mounts, configure <code>RCLONE_ARCHIVE_REMOTE</code> to the remote backing <code>data/archive/</code>, plus <code>RCLONE_RC_URL</code>, <code>RCLONE_RC_USER</code>, and <code>RCLONE_RC_PASSWORD</code> for an authenticated, private <code>rclone rcd</code> endpoint. Snapshot deletion then removes and verifies backing objects and <code>.rclonelink</code> projections before deleting database rows. Backend failures keep the snapshot visible as Deleting. Without this configuration, verification uses the filesystem mount, whose cache can hide leftover remote objects.
-</li>
 </ul>
 
 <h4>Learn More</h4>

@@ -297,13 +297,6 @@ class StorageConfig(BaseConfigSet):
     ENFORCE_ATOMIC_WRITES: bool = Field(default=True)
     ALLOW_NO_UNIX_SOCKETS: bool = Field(default=False, alias="ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS")
 
-    # For rclone-mounted archives, verify deletion against the backing remote,
-    # since cancelled uploads can leave objects hidden by the mount cache.
-    RCLONE_ARCHIVE_REMOTE: str = Field(default="")
-    RCLONE_RC_URL: str = Field(default="")
-    RCLONE_RC_USER: str = Field(default="archivebox")
-    RCLONE_RC_PASSWORD: str = Field(default="")
-
 
 class GeneralConfig(BaseConfigSet):
     toml_section_header: str = "GENERAL_CONFIG"
