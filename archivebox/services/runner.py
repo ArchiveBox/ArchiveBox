@@ -1997,7 +1997,13 @@ def run_pending_crawls(
         raise_if_shutdown_requested()
         now_monotonic = time.monotonic()
         if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
-            Snapshot.delete_requested(batch_size=100)
+            if not daemon:
+                from archivebox.workers.supervisord_util import get_existing_supervisord_process, get_worker
+
+                supervisor = get_existing_supervisord_process(quiet=True)
+                deletion_worker = get_worker(supervisor, "worker_snapshot_delete") if supervisor else None
+                if not deletion_worker or deletion_worker.get("statename") not in ("STARTING", "RUNNING"):
+                    Snapshot.delete_requested(batch_size=100)
             for model in (ArchiveResult, Snapshot, Crawl, Process):
                 # Keep the tight scheduler loop anchored on indexed delete_at
                 # columns only. Backfilling missing delete_at values has to read

@@ -294,6 +294,9 @@ def run_runner(
     )
     if daemon:
         os.environ[RUNNER_DAEMON_ENV] = "1"
+        from archivebox.workers.supervisord_util import SNAPSHOT_DELETE_WORKER, get_or_create_supervisord_process, start_worker
+
+        start_worker(get_or_create_supervisord_process(), SNAPSHOT_DELETE_WORKER())
 
     shutdown_state = None
     try:
