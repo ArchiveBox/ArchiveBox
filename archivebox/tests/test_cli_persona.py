@@ -50,12 +50,14 @@ def test_persona_import_real_browser_session(initialized_archive, tmp_path, http
     """Import an actual Chromium-created session and archive its private page."""
     import hashlib
     import json
+    import shlex
     import subprocess
 
     from werkzeug.wrappers import Response
     from archivebox.tests.conftest import resolve_abxpkg_chrome_env
 
     browser_env = resolve_abxpkg_chrome_env(tmp_path / "lib")
+    browser_env["ABXPKG_LIB_DIR"] = str(tmp_path / "lib")
     source = tmp_path / "browser"
     httpserver.expect_request("/login").respond_with_data(
         '<html><title>Signed in</title><script>localStorage.setItem("persona-preference", "forest-green")</script>Signed in</html>',
@@ -90,6 +92,7 @@ const puppeteer = require(process.argv[1]);
         const page = await browser.newPage();
         await page.goto(process.argv[4]);
         console.log(await page.title());
+        console.log(await page.evaluate(() => localStorage.getItem('persona-preference')));
     } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });
 """,
@@ -104,6 +107,7 @@ const puppeteer = require(process.argv[1]);
     )
     assert seeded.returncode == 0, seeded.stderr
     assert "Signed in" in seeded.stdout
+    assert "forest-green" in seeded.stdout
     preferences = source / "Profile 2" / "Preferences"
     original_preferences = preferences.read_bytes()
 
@@ -161,6 +165,9 @@ const puppeteer = require(process.argv[1]);
         env={**browser_env, "CHROME_SANDBOX": "false"},
     )
     assert archived.returncode == 0, archived.stderr
+    launch_commands = list((initialized_archive / "archive" / "users").glob("*/crawls/**/chrome/cmd.sh"))
+    assert len(launch_commands) == 1
+    assert shlex.split(launch_commands[0].read_text().splitlines()[1])[0] == browser_env["CHROME_BINARY"]
     outputs = list((initialized_archive / "archive" / "users").glob("*/snapshots/**/dom/output.html"))
     assert len(outputs) == 1
     html = outputs[0].read_text()

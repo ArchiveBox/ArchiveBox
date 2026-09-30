@@ -34,6 +34,25 @@ ConfigPayload = dict[str, object]
 PluginSchemaDocuments = dict[str, dict[str, Any]]
 LIVE_CONFIG_BASE_URL = "/admin/environment/config/"
 
+
+def _is_cookie_file_config_key(key: str) -> bool:
+    return key in {"COOKIES_FILE", "AUTH_STORAGE_FILE"} or key.endswith("_COOKIES_FILE")
+
+
+def _resolve_cookie_file_paths(config: dict[str, Any]) -> dict[str, Any]:
+    """Keep collection-relative auth paths valid after hooks change cwd."""
+    for key, value in config.items():
+        if _is_cookie_file_config_key(key):
+            if value is None or (isinstance(value, str) and not value.strip()):
+                config[key] = ""
+                continue
+            file_path = Path(value).expanduser()
+            if not file_path.is_absolute():
+                file_path = CONSTANTS.DATA_DIR / file_path
+            config[key] = str(file_path.resolve())
+    return config
+
+
 ###################### Config ##########################
 
 _STDOUT_CONSOLE = Console()
@@ -468,6 +487,11 @@ class ArchivingConfig(BaseConfigSet):
     COOKIES_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
     AUTH_STORAGE_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
 
+    @field_validator("COOKIES_FILE", "AUTH_STORAGE_FILE", mode="before")
+    @classmethod
+    def empty_cookie_file_is_unset(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
     URL_DENYLIST: str = Field(
         default=(
             r"\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$"
@@ -825,6 +849,8 @@ class ArchiveBoxBaseConfig(
         if runtime_overrides:
             config.update(normalize_runtime_config(runtime_overrides, json_safe=False))
 
+        _resolve_cookie_file_paths(config)
+
         # Hooks should only see concrete plugin-local flags, never the
         # ArchiveBox selectors used to derive them.
         config.pop("PLUGINS", None)
@@ -848,6 +874,13 @@ class ArchiveBoxBaseConfig(
         if not lib_dir.is_absolute():
             lib_dir = CONSTANTS.DATA_DIR / lib_dir
         self.ABXPKG_LIB_DIR = lib_dir.resolve()
+
+        cookie_paths = {key: getattr(self, key) for key in type(self).model_fields if _is_cookie_file_config_key(key)}
+        for key, value in _resolve_cookie_file_paths(cookie_paths).items():
+            if key in {"COOKIES_FILE", "AUTH_STORAGE_FILE"}:
+                setattr(self, key, Path(value) if value else None)
+            else:
+                setattr(self, key, value)
 
         return self
 

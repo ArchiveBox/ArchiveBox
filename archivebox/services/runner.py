@@ -65,6 +65,7 @@ from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS, res
 from archivebox.config.common import (
     ArchiveBoxBaseConfig,
     normalize_runtime_config,
+    _is_cookie_file_config_key,
     _plugin_enabled_config_keys,
 )
 from archivebox.misc.db import run_db_analyze_batch
@@ -738,7 +739,14 @@ class CrawlRunner:
             current_process.save(update_fields=["iface", "machine", "modified_at"])
         self.persona = self.crawl.resolve_persona()
         self.base_config = get_config(crawl=self.crawl, overrides=self.config_overrides)
-        self.derived_config = dict(machine.config or {})
+        # The merged user payload owns auth paths and binary selections. The
+        # install phase publishes resolved binaries; stale machine paths must
+        # not override explicit runtime settings before that phase runs.
+        self.derived_config = {
+            key: value
+            for key, value in (machine.config or {}).items()
+            if not _is_cookie_file_config_key(key) and (not key.endswith("_BINARY") or value == self.base_config.get(key))
+        }
         self.crawl_output_dir = str(self.crawl.output_dir)
         if self.persona:
             self.base_config.update(

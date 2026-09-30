@@ -95,3 +95,26 @@ def test_resolving_scoped_config_does_not_mutate_process_environment(tmp_path):
             os.environ.pop("ABXPKG_LIB_DIR", None)
         else:
             os.environ["ABXPKG_LIB_DIR"] = previous_lib_dir
+
+
+@pytest.mark.parametrize("key", ["COOKIES_FILE", "AUTH_STORAGE_FILE", "WGET_COOKIES_FILE", "YTDLP_COOKIES_FILE", "GALLERYDL_COOKIES_FILE"])
+def test_cookie_paths_remain_collection_relative_after_runtime_overlays(key, tmp_path):
+    from archivebox.config.common import ArchiveBoxConfig
+
+    config = ArchiveBoxConfig(**{key: "auth/cookies.txt"})
+    assert str(config[key]) == str(CONSTANTS.DATA_DIR / "auth/cookies.txt")
+    runtime = config.for_crawl_runtime(runtime_overrides={key: "other/cookies.txt"})
+    assert runtime[key] == str(CONSTANTS.DATA_DIR / "other/cookies.txt")
+    absolute = tmp_path / "absolute-cookies.txt"
+    config = ArchiveBoxConfig(**{key: str(absolute)})
+    assert str(config[key]) == str(absolute)
+
+
+@pytest.mark.parametrize("key", ["COOKIES_FILE", "AUTH_STORAGE_FILE"])
+@pytest.mark.parametrize("value", ["", "  ", None])
+def test_empty_cookie_path_disables_import(key, value):
+    from archivebox.config.common import ArchiveBoxConfig
+
+    config = ArchiveBoxConfig(**{key: value})
+    assert config[key] is None
+    assert key not in config.for_crawl_runtime()

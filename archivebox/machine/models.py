@@ -255,40 +255,40 @@ class Machine(ModelWithHealthStats):
                 **get_vm_info(),
                 stats=get_host_stats(),
             )
-        else:
-            if timezone.now() >= machine.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
-                for key, value in {
-                    "hostname": socket.gethostname(),
-                    **get_os_info(),
-                    **get_vm_info(),
-                    "stats": get_host_stats(),
-                }.items():
-                    setattr(machine, key, value)
-                machine.save(
-                    update_fields=[
-                        "hostname",
-                        "hw_in_docker",
-                        "hw_in_vm",
-                        "hw_manufacturer",
-                        "hw_product",
-                        "hw_uuid",
-                        "os_arch",
-                        "os_family",
-                        "os_platform",
-                        "os_release",
-                        "os_kernel",
-                        "stats",
-                        "modified_at",
-                    ],
-                )
-        machine = cls._sanitize_config(machine)
-        # Reconcile once, on the first Machine.current() call in this process.
+        needs_recheck = timezone.now() >= machine.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL)
+        # Reconcile before any save can mirror stale DB config over file edits.
         try:
             from archivebox.config.collection import sync_machine_and_file
 
             sync_machine_and_file(machine)
         except Exception:
             pass
+        if needs_recheck:
+            for key, value in {
+                "hostname": socket.gethostname(),
+                **get_os_info(),
+                **get_vm_info(),
+                "stats": get_host_stats(),
+            }.items():
+                setattr(machine, key, value)
+            machine.save(
+                update_fields=[
+                    "hostname",
+                    "hw_in_docker",
+                    "hw_in_vm",
+                    "hw_manufacturer",
+                    "hw_product",
+                    "hw_uuid",
+                    "os_arch",
+                    "os_family",
+                    "os_platform",
+                    "os_release",
+                    "os_kernel",
+                    "stats",
+                    "modified_at",
+                ],
+            )
+        machine = cls._sanitize_config(machine)
         # Publish only after initialization is complete.
         _CURRENT_MACHINE = machine
         return machine
