@@ -49,7 +49,7 @@ def _resolve_cookie_file_paths(config: dict[str, Any]) -> dict[str, Any]:
             file_path = Path(value).expanduser()
             if not file_path.is_absolute():
                 file_path = CONSTANTS.DATA_DIR / file_path
-            config[key] = str(file_path.resolve())
+            config[key] = str(file_path.absolute())
     return config
 
 

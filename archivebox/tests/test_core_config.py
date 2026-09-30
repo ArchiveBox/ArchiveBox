@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -118,3 +119,17 @@ def test_empty_cookie_path_disables_import(key, value):
     config = ArchiveBoxConfig(**{key: value})
     assert config[key] is None
     assert key not in config.for_crawl_runtime()
+
+
+def test_cookie_runtime_path_preserves_configured_symlink(tmp_path):
+    from archivebox.config.common import ArchiveBoxConfig
+
+    export = tmp_path / "export.txt"
+    export.write_text("# Netscape HTTP Cookie File\n")
+    configured = tmp_path / "cookies.txt"
+    configured.symlink_to(export)
+    config = ArchiveBoxConfig(COOKIES_FILE=configured)
+    assert str(config.COOKIES_FILE) == str(configured)
+    runtime = config.for_crawl_runtime()
+    assert runtime["COOKIES_FILE"] == str(configured)
+    assert Path(runtime["COOKIES_FILE"]).read_bytes() == export.read_bytes()
