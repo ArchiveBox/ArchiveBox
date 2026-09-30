@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import requests
+from abxpkg import Binary, apt, brew, env as env_provider
 
 from archivebox.tests.conftest import find_snapshot_dir, run_archivebox_cmd, run_queued_crawls, cli_env, get_free_port
 
@@ -29,8 +30,10 @@ def test_remove_verifies_remote_storage_before_deleting_row(initialized_archive,
     alias.write_text(str(snapshot_dir))
     port = get_free_port()
     endpoint = f"http://127.0.0.1:{port}"
+    rclone = Binary(name="rclone", binproviders=[env_provider, apt, brew]).install()
+    assert rclone.abspath is not None
     server = subprocess.Popen(
-        ["rclone", "rcd", "--rc-addr", f"127.0.0.1:{port}", "--rc-user", "archivebox", "--rc-pass", "test-storage-password"],
+        [str(rclone.abspath), "rcd", "--rc-addr", f"127.0.0.1:{port}", "--rc-user", "archivebox", "--rc-pass", "test-storage-password"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
