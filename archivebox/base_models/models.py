@@ -278,7 +278,8 @@ class ModelWithOutputDir(ModelWithUUID):
 
     @classmethod
     def delete_output_paths(cls, paths) -> None:
-        for path in cls.validate_output_paths_for_delete(paths):
+        paths = cls.validate_output_paths_for_delete(paths)
+        for path in paths:
             if path.is_symlink() or path.is_file():
                 path.unlink(missing_ok=True)
             elif path.is_dir():
@@ -290,6 +291,42 @@ class ModelWithOutputDir(ModelWithUUID):
             except FileNotFoundError:
                 continue
             raise OSError(f"Output path still exists after deletion: {path}")
+
+        from archivebox.config.common import get_config
+
+        config = get_config(include_machine=False, resolve_plugins=False)
+        if not config.RCLONE_ARCHIVE_REMOTE:
+            return
+        if not config.RCLONE_RC_URL:
+            raise OSError("RCLONE_RC_URL is required to verify remote archive deletion")
+        import requests
+
+        def remote_call(operation, remote):
+            try:
+                response = requests.post(
+                    config.RCLONE_RC_URL.rstrip("/") + "/operations/" + operation,
+                    json={"fs": config.RCLONE_ARCHIVE_REMOTE, "remote": remote},
+                    auth=(config.RCLONE_RC_USER, config.RCLONE_RC_PASSWORD),
+                    timeout=(10, 120),
+                )
+                response.raise_for_status()
+                return response.json()
+            except (requests.RequestException, ValueError) as error:
+                raise OSError(f"Remote archive {operation} failed for {remote}") from error
+
+        for path in paths:
+            try:
+                relative = path.absolute().relative_to(CONSTANTS.ARCHIVE_DIR.absolute()).as_posix()
+            except ValueError:
+                continue
+            if relative == ".":
+                raise OSError("Refusing to delete the entire remote archive")
+            for remote in (relative, relative + ".rclonelink"):
+                item = remote_call("stat", remote)["item"]
+                if item is not None:
+                    remote_call("purge" if item["IsDir"] else "deletefile", remote)
+                if remote_call("stat", remote)["item"] is not None:
+                    raise OSError(f"Remote archive path still exists after deletion: {remote}")
 
     def schedule_delete_cleanup(self, *, using: str | None = None) -> None:
         """Capture output paths before DB deletion and remove them after commit."""
