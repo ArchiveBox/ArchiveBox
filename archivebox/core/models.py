@@ -1,6 +1,7 @@
 __package__ = "archivebox.core"
 
 import json
+import logging
 import os
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
@@ -174,6 +175,19 @@ class SnapshotTag(models.Model):
 
 class SnapshotQuerySet(models.QuerySet):
     """Custom QuerySet for Snapshot model with export methods that persist through .filter() etc."""
+
+    def delete(self):
+        # Finish the SELECT before filesystem work, so no read cursor or SQLite
+        # transaction is held while deleting remote archive payloads.
+        snapshots = list(self.select_related("crawl__created_by"))
+        total = 0
+        counts = {}
+        for snapshot in snapshots:
+            deleted, details = snapshot.delete(using=self.db)
+            total += deleted
+            for label, count in details.items():
+                counts[label] = counts.get(label, 0) + count
+        return total, counts
 
     def bulk_create(self, objs, *args, **kwargs):
         objs = list(objs)
@@ -541,6 +555,7 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):  # ty: ig
 
 class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithQueue):
     BROWSER_EXTENSION_UPLOAD_HOOK_NAME = "on_Snapshot__archivebox_browser_extension_upload"
+    DELETING_STATE = "deleting"
 
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -574,7 +589,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     )
     retry_at = ModelWithQueue.RetryAtField(default=timezone.now)
     status = ModelWithQueue.StatusField(
-        choices=ModelWithQueue.StatusChoices,
+        choices=[*ModelWithQueue.StatusChoices.choices, (DELETING_STATE, "Deleting")],
         default=ModelWithQueue.StatusChoices.QUEUED,
     )
     config = models.JSONField(default=dict, null=False, blank=False, editable=True)
@@ -660,6 +675,47 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def __str__(self):
         return f"[{self.id}] {self.url[:64]}"
+
+    def output_paths_for_delete(self) -> tuple[Path, ...]:
+        current = self.get_storage_path_for_version(self.fs_version)
+        paths = [Path(self.output_dir), current, CONSTANTS.ARCHIVE_DIR / self.timestamp]
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+            paths.append(current.with_name(str(uuid.UUID(hex=self.id.hex))))
+        if self.crawl_id:
+            domain_dir = self.crawl.output_dir / CONSTANTS.SNAPSHOTS_DIR_NAME / self.extract_domain_from_url(self.url)
+            paths.extend((domain_dir / str(self.id), domain_dir / str(uuid.UUID(hex=self.id.hex))))
+        return tuple(dict.fromkeys(paths))
+
+    def delete(self, using=None, keep_parents=False):
+        from django.db import connections
+
+        using = using or self._state.db or "default"
+        if connections[using].in_atomic_block:
+            raise RuntimeError("Snapshot filesystem deletion must run outside a database transaction")
+        type(self).objects.using(using).filter(pk=self.pk).update(status=self.DELETING_STATE, retry_at=RETRY_AT_MAX)
+        self.status = self.DELETING_STATE
+        from archivebox.machine.models import Process
+
+        process_ids = self.archiveresult_set.filter(process__status=Process.StatusChoices.RUNNING).values_list("process_id", flat=True)
+        for process in list(Process.objects.using(using).filter(pk__in=process_ids)):
+            process.kill_tree()
+            if process.is_running:
+                raise OSError(f"Snapshot output writer is still running: {process.pk}")
+        paths = self.output_paths_for_delete()
+        self.delete_output_paths(paths)
+        # Cascaded ArchiveResults share this directory. Their normal post-commit
+        # cleanup would repeat filesystem work and update an already-deleted row.
+        self._output_files_deleted = True
+        return super().delete(using=using, keep_parents=keep_parents)
+
+    @classmethod
+    def delete_requested(cls, *, batch_size=100):
+        pending = list(cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by")[:batch_size])
+        for snapshot in pending:
+            try:
+                snapshot.delete()
+            except OSError:
+                logging.getLogger(__name__).exception("Snapshot %s file deletion failed; keeping its database row", snapshot.pk)
 
     @classmethod
     def crawl_count_subquery(cls, *, status: str | None = None, outer_ref: str = "pk") -> QuerySet:

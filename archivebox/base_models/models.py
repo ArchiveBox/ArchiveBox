@@ -282,7 +282,14 @@ class ModelWithOutputDir(ModelWithUUID):
             if path.is_symlink() or path.is_file():
                 path.unlink(missing_ok=True)
             elif path.is_dir():
-                shutil.rmtree(path, ignore_errors=True)
+                shutil.rmtree(path)
+            # lstat also catches dangling symlinks and propagates mount and
+            # permission errors rather than mistaking them for absence.
+            try:
+                path.lstat()
+            except FileNotFoundError:
+                continue
+            raise OSError(f"Output path still exists after deletion: {path}")
 
     def schedule_delete_cleanup(self, *, using: str | None = None) -> None:
         """Capture output paths before DB deletion and remove them after commit."""
@@ -294,7 +301,9 @@ class ModelWithOutputDir(ModelWithUUID):
         if cls._delete_signal_registered:
             return
 
-        def schedule_output_dir_cleanup(sender, instance, using, **kwargs):
+        def schedule_output_dir_cleanup(sender, instance, using, origin=None, **kwargs):
+            if getattr(origin, "_output_files_deleted", False):
+                return
             if not isinstance(instance, ModelWithOutputDir):
                 return
             instance.schedule_delete_cleanup(using=using)
