@@ -74,8 +74,12 @@ def derive_persona_config(*, name: str, config: Mapping[str, Any] | None, person
         derived["COOKIES_FILE"] = str(cookies_path)
 
     auth_path = persona_dir / "auth.json"
-    if "AUTH_STORAGE_FILE" not in derived and auth_path.exists():
-        derived["AUTH_STORAGE_FILE"] = str(auth_path)
+    if "AUTH_STORAGE_FILE" not in derived:
+        try:
+            if auth_path.stat().st_size > 0:
+                derived["AUTH_STORAGE_FILE"] = str(auth_path)
+        except FileNotFoundError:
+            pass
 
     derived["ACTIVE_PERSONA"] = name
     return derived
@@ -156,9 +160,12 @@ class Persona(ModelWithConfig):
 
     @property
     def AUTH_STORAGE_FILE(self) -> str:
-        """Derived path to auth.json for this persona (if it exists)."""
+        """Derived path to a nonempty auth.json export for this persona."""
         auth_path = self.path / "auth.json"
-        return str(auth_path) if auth_path.exists() else ""
+        try:
+            return str(auth_path) if auth_path.stat().st_size > 0 else ""
+        except FileNotFoundError:
+            return ""
 
     def get_derived_config(self) -> dict:
         """
@@ -315,20 +322,9 @@ class Persona(ModelWithConfig):
             if chrome_binary:
                 (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
 
-        return {
-            # Hooks derive CHROME_USER_DATA_DIR/CHROME_DOWNLOADS_DIR from
-            # PERSONAS_DIR + ACTIVE_PERSONA. Point PERSONAS_DIR at the
-            # per-crawl runtime root here so CHROME_ISOLATION=crawl never
-            # leaks or reuses the template profile while keeping Chrome path
-            # derivation centralized in the Chrome plugin helpers.
-            "PERSONAS_DIR": str(runtime_root.parent),
-            "ACTIVE_PERSONA": self.name,
-            **{
-                key: str(runtime_root / filename)
-                for key, filename in (("COOKIES_FILE", "cookies.txt"), ("AUTH_STORAGE_FILE", "auth.json"))
-                if (runtime_root / filename).is_file()
-            },
-        }
+        # Hooks derive Chrome profile paths from the runtime persona root.
+        # Use the same optional auth discovery as the template persona.
+        return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
     def prepare_runtime_for_snapshot(self, snapshot, chrome_binary: str = "") -> dict[str, str]:
         crawl_runtime_profile_dir = self.runtime_profile_dir_for_crawl(snapshot.crawl)
@@ -358,18 +354,7 @@ class Persona(ModelWithConfig):
         if chrome_binary:
             (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
 
-        return {
-            # See prepare_runtime_for_crawl(): snapshot isolation changes the
-            # persona root, not individual CHROME_* config keys, so standalone
-            # Chrome hooks and ArchiveBox-driven hooks resolve paths the same way.
-            "PERSONAS_DIR": str(runtime_root.parent),
-            "ACTIVE_PERSONA": self.name,
-            **{
-                key: str(runtime_root / filename)
-                for key, filename in (("COOKIES_FILE", "cookies.txt"), ("AUTH_STORAGE_FILE", "auth.json"))
-                if (runtime_root / filename).is_file()
-            },
-        }
+        return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
     def cleanup_runtime_for_crawl(self, crawl) -> None:
         shutil.rmtree(Path(crawl.output_dir) / ".persona", ignore_errors=True)

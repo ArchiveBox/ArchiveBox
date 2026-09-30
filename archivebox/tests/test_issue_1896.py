@@ -4,11 +4,81 @@ import json
 import sqlite3
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
 from archivebox.config.configset import read_ini_config
 from archivebox.tests.conftest import run_archivebox_cmd
+
+
+@pytest.mark.parametrize("contents,explicit", [("", True), ("not JSON", True), ("not JSON", False)])
+def test_add_rejects_invalid_persona_auth_with_file_path(initialized_archive, httpserver, contents, explicit):
+    persona_dir = initialized_archive / "personas" / "Default"
+    persona_dir.mkdir(parents=True, exist_ok=True)
+    auth_file = persona_dir / "auth.json"
+    auth_file.write_text(contents)
+    if explicit:
+        run_archivebox_cmd(
+            ["config", "--set", "AUTH_STORAGE_FILE=personas/Default/auth.json"],
+            cwd=initialized_archive,
+            check=True,
+        )
+    result = run_archivebox_cmd(
+        ["add", "--plugins=dom", httpserver.url_for("/")],
+        cwd=initialized_archive,
+        timeout=180,
+        env={"CHROME_SANDBOX": "false"},
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    logs = list((initialized_archive / "archive" / "users").glob("*/crawls/**/chrome/*.stderr.log"))
+    assert logs
+    assert f"Invalid JSON cookie export: {auth_file}" in "\n".join(log.read_text() for log in logs)
+    assert not list((initialized_archive / "archive" / "users").glob("*/snapshots/**/dom/output.html"))
+    assert auth_file.read_text() == contents
+
+
+@pytest.mark.parametrize("cookie_file_exists", [True, False])
+@pytest.mark.parametrize("isolation", ["crawl", "snapshot"])
+def test_add_with_empty_autodiscovered_persona_auth(initialized_archive, httpserver, cookie_file_exists, isolation):
+    """An empty auth placeholder must not block a crawl or hide Netscape cookies."""
+    persona_dir = initialized_archive / "personas" / "Default"
+    persona_dir.mkdir(parents=True, exist_ok=True)
+    auth_file = persona_dir / "auth.json"
+    auth_file.touch()
+    cookies_file = persona_dir / "cookies.txt"
+    cookies_file.write_text(
+        "# Netscape HTTP Cookie File\n127.0.0.1\tFALSE\t/\tFALSE\t2147483647\tissue1896\timported\n" if cookie_file_exists else "",
+    )
+    httpserver.expect_request("/").respond_with_data(
+        '<html><title>Empty persona auth</title><body><output id="cookies"></output>'
+        '<script>document.getElementById("cookies").textContent = document.cookie;</script></body></html>',
+        content_type="text/html",
+    )
+    result = run_archivebox_cmd(
+        ["add", "--plugins=dom", httpserver.url_for("/").replace("localhost", "127.0.0.1")],
+        cwd=initialized_archive,
+        timeout=180,
+        env={"CHROME_SANDBOX": "false", "CHROME_ISOLATION": isolation},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    outputs = list((initialized_archive / "archive" / "users").glob("*/snapshots/**/dom/output.html"))
+    assert len(outputs) == 1, result.stdout + result.stderr
+    assert ("issue1896=imported" in outputs[0].read_text()) == cookie_file_exists
+    assert auth_file.read_bytes() == b""
+    with closing(sqlite3.connect(initialized_archive / "index.sqlite3")) as db:
+        assert db.execute("SELECT status FROM core_snapshot").fetchall() == [("sealed",)]
+        assert db.execute("SELECT status FROM core_archiveresult WHERE plugin='dom'").fetchall() == [("succeeded",)]
+        hook_rows = db.execute("SELECT cmd, env, exit_code FROM machine_process WHERE process_type='hook'").fetchall()
+        assert hook_rows
+        for cmd, env, exit_code in hook_rows:
+            hook_env = json.loads(env)
+            assert not hook_env.get("AUTH_STORAGE_FILE")
+            expected_cookies = cookies_file if isolation == "crawl" else Path(hook_env["PERSONAS_DIR"]) / "Default" / "cookies.txt"
+            assert hook_env["COOKIES_FILE"] == str(expected_cookies)
+            hook_name = Path(json.loads(cmd)[0]).name
+            # The crawl wait hook explicitly skips when each snapshot owns Chrome.
+            assert exit_code == (10 if isolation == "snapshot" and hook_name == "on_CrawlSetup__91_chrome_wait.js" else 0)
 
 
 @pytest.mark.parametrize("cookie_file_exists", [True, False])

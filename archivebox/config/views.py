@@ -150,9 +150,9 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     rows = {
         "Binary Name": [],
-        "Found Version": [],
+        "Recorded Version": [],
         "Provided By": [],
-        "Found Abspath": [],
+        "Recorded Abspath": [],
     }
 
     db_binaries = get_db_binaries_by_name()
@@ -160,18 +160,10 @@ def binaries_list_view(request: HttpRequest, **kwargs) -> TableContext:
 
     for name in all_binary_names:
         binary = db_binaries.get(name)
-        binary_is_valid = bool(binary and binary.is_valid)
-
         rows["Binary Name"].append(ItemLink(name, key=name))
-
-        if binary_is_valid:
-            rows["Found Version"].append(f"✅ {binary.version}" if binary.version else "✅ found")
-            rows["Provided By"].append(binary.binprovider or "-")
-            rows["Found Abspath"].append(binary.abspath or "-")
-        else:
-            rows["Found Version"].append("❌ missing")
-            rows["Provided By"].append("-")
-            rows["Found Abspath"].append("-")
+        rows["Recorded Version"].append(binary.version or "-")
+        rows["Provided By"].append(binary.binprovider or "-")
+        rows["Recorded Abspath"].append(binary.abspath or "-")
 
     return TableContext(
         title="Binaries",
