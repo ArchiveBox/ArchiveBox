@@ -343,6 +343,7 @@ def test_discovered_snapshots_inherit_current_crawl_tags(crawl):
     assert set(created[0].tags.values_list("name", flat=True)) == {"midcrawl", "discovered"}
 
 
+@pytest.mark.django_db(transaction=True)
 def test_crawl_admin_delete_snapshot_action_removes_snapshot_and_url(client, admin_user):
     crawl = Crawl.objects.create(
         urls="https://example.com/remove-me",
@@ -352,6 +353,9 @@ def test_crawl_admin_delete_snapshot_action_removes_snapshot_and_url(client, adm
         crawl=crawl,
         url="https://example.com/remove-me",
     )
+    output_dir = snapshot.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "captured.txt").write_text("remove this capture")
 
     client.force_login(admin_user)
     response = client.post(
@@ -362,11 +366,13 @@ def test_crawl_admin_delete_snapshot_action_removes_snapshot_and_url(client, adm
     assert response.status_code == 200
     assert response.json()["ok"] is True
     assert not Snapshot.objects.filter(pk=snapshot.pk).exists()
+    assert not output_dir.exists()
 
     crawl.refresh_from_db()
     assert "https://example.com/remove-me" not in crawl.urls
 
 
+@pytest.mark.django_db(transaction=True)
 def test_crawl_admin_exclude_domain_action_prunes_urls_and_pending_snapshots(client, admin_user):
     crawl = Crawl.objects.create(
         urls=("https://cdn.example.com/asset.js\nhttps://cdn.example.com/second.js\nhttps://example.com/root"),
@@ -382,6 +388,12 @@ def test_crawl_admin_exclude_domain_action_prunes_urls_and_pending_snapshots(cli
         url="https://example.com/root",
         status=Snapshot.StatusChoices.SEALED,
     )
+    removed_dir = queued_snapshot.output_dir
+    removed_dir.mkdir(parents=True, exist_ok=True)
+    (removed_dir / "captured.txt").write_text("excluded capture")
+    preserved_file = preserved_snapshot.output_dir / "captured.txt"
+    preserved_file.parent.mkdir(parents=True, exist_ok=True)
+    preserved_file.write_text("preserved capture")
 
     client.force_login(admin_user)
     response = client.post(
@@ -401,6 +413,8 @@ def test_crawl_admin_exclude_domain_action_prunes_urls_and_pending_snapshots(cli
     assert "https://example.com/root" in crawl.urls
     assert not Snapshot.objects.filter(pk=queued_snapshot.pk).exists()
     assert Snapshot.objects.filter(pk=preserved_snapshot.pk).exists()
+    assert not removed_dir.exists()
+    assert preserved_file.read_text() == "preserved capture"
 
 
 def test_snapshot_from_json_trims_markdown_suffixes_on_discovered_urls(crawl):
