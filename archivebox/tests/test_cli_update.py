@@ -19,6 +19,50 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_rescan_recovers_already_migrated_idless_result(initialized_archive, tmp_path):
+    """Repair collections already migrated by versions affected by #1899."""
+    env = cli_env(disable_extractors=True)
+    run_archivebox_cmd(["add", "--index-only", "https://example.com/legacy-result"], env=env, check=True)
+    run_queued_crawls(initialized_archive, env)
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(url="https://example.com/legacy-result")
+        snapshot.write_index_jsonl()
+        output_dir = snapshot.output_dir
+        snapshot_id = snapshot.pk
+    payload = b"<html>Recovered after a previous migration</html>"
+    (output_dir / "singlefile.html").write_bytes(payload)
+    with (output_dir / "index.jsonl").open("a") as index:
+        index.write(
+            json.dumps(
+                {
+                    "type": "ArchiveResult",
+                    "snapshot_id": str(snapshot_id),
+                    "plugin": "singlefile",
+                    "hook_name": "",
+                    "status": "succeeded",
+                    "output_str": "singlefile.html",
+                    "start_ts": "2021-03-07T23:56:16-08:00",
+                },
+            )
+            + "\n",
+        )
+    result_id = None
+    for expected in ("Repaired: 1", "Unchanged: 1"):
+        result = run_archivebox_cmd(["update", "--rescan", "--migrate-only"], env=env, timeout=60)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert expected in result.stdout
+        with use_archivebox_db(initialized_archive):
+            archived = ArchiveResult.objects.get(snapshot_id=snapshot_id, plugin="singlefile")
+            assert archived.status == "succeeded"
+            assert archived.output_size == len(payload)
+            assert archived.output_files
+            assert archived.snapshot.output_size == len(payload)
+            if result_id is not None:
+                assert archived.pk == result_id
+            result_id = archived.pk
+        assert (output_dir / "singlefile.html").read_bytes() == payload
+
+
 def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tmp_path):
     env = cli_env(disable_extractors=True)
     run_archivebox_cmd(["add", "--index-only", "https://example.com/rescan"], cwd=initialized_archive, env=env, check=True)

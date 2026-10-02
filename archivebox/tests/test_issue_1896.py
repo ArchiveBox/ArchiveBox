@@ -12,6 +12,37 @@ from archivebox.config.configset import read_ini_config
 from archivebox.tests.conftest import run_archivebox_cmd
 
 
+@pytest.mark.parametrize("persona_name", ["Default", "default"])
+def test_add_preserves_case_distinct_personas(initialized_archive, httpserver, persona_name):
+    """Both names from the follow-up report remain usable without deleting either."""
+    run_archivebox_cmd(["persona", "create", "Default", "default"], cwd=initialized_archive, check=True)
+    persona_dir = initialized_archive / "personas" / persona_name
+    (persona_dir / "auth.json").touch()
+    (persona_dir / "cookies.txt").touch()
+    httpserver.expect_request("/").respond_with_data(
+        "<html><head><title>Existing persona capture</title></head><body>"
+        "Both personas retained. This saved page verifies that choosing either existing "
+        "persona still captures the full document without deleting browser state.</body></html>",
+        content_type="text/html",
+    )
+    result = run_archivebox_cmd(
+        ["add", "--persona", persona_name, "--plugins=dom", httpserver.url_for("/")],
+        cwd=initialized_archive,
+        timeout=180,
+        env={"CHROME_SANDBOX": "false"},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    outputs = list((initialized_archive / "archive" / "users").glob("*/snapshots/**/dom/output.html"))
+    assert len(outputs) == 1, result.stdout + result.stderr
+    assert "Both personas retained" in outputs[0].read_text()
+    with closing(sqlite3.connect(initialized_archive / "index.sqlite3")) as db:
+        assert db.execute("SELECT name FROM personas_persona ORDER BY name").fetchall() == [("Default",), ("default",)]
+        assert db.execute("SELECT status FROM core_archiveresult WHERE plugin='dom'").fetchall() == [("succeeded",)]
+        hook_envs = db.execute("SELECT env FROM machine_process WHERE process_type='hook'").fetchall()
+        assert hook_envs
+        assert all(json.loads(row[0])["ACTIVE_PERSONA"] == persona_name for row in hook_envs)
+
+
 @pytest.mark.parametrize("contents,explicit", [("", True), ("not JSON", True), ("not JSON", False)])
 def test_add_rejects_invalid_persona_auth_with_file_path(initialized_archive, httpserver, contents, explicit):
     persona_dir = initialized_archive / "personas" / "Default"

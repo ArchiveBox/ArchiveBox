@@ -1256,6 +1256,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         target_dir = self.get_storage_path_for_version(target)
         if target_dir.exists():
+            self.reconcile_with_index(output_dir=target_dir, update_existing_archive_results=False)
             self.hydrate_archiveresult_output_metadata(snapshot_dir=target_dir)
         if cleanup:
             old_dir, new_dir = cleanup

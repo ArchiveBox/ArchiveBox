@@ -15,6 +15,49 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+@pytest.mark.parametrize("index_format", ["history", "archive_results"])
+def test_rescan_imports_legacy_result_rows_and_saved_content(tmp_path, initialized_archive, index_format):
+    """Issue #1899: orphan metadata must become visible results on the first import."""
+    env = cli_env(disable_extractors=True)
+    legacy_dir = tmp_path / "archive" / "1615190176"
+    legacy_dir.mkdir(parents=True)
+    payload = b"<html><title>Recovered capture</title><body>saved content</body></html>"
+    (legacy_dir / "singlefile.html").write_bytes(payload)
+    entry = {
+        "plugin": "singlefile",
+        "status": "succeeded",
+        "output": "singlefile.html",
+        "start_ts": "2021-03-07T23:56:16-08:00",
+        "end_ts": "2021-03-07T23:56:16-08:00",
+    }
+    metadata = {
+        "url": "https://example.com/recovered",
+        "timestamp": legacy_dir.name,
+        "title": "Recovered capture",
+        index_format: {"singlefile": [entry]} if index_format == "history" else [entry],
+    }
+    original_json = json.dumps(metadata)
+    (legacy_dir / "index.json").write_text(original_json)
+    result_id = None
+    for _ in range(2):
+        command = run_archivebox_cmd(["update", "--rescan", "--migrate-only"], env=env, timeout=60)
+        assert command.returncode == 0, command.stdout + command.stderr
+        with use_archivebox_db(tmp_path):
+            snapshot = Snapshot.objects.get(url=metadata["url"])
+            result = snapshot.archiveresult_set.get(plugin="singlefile")
+            assert result.status == "succeeded"
+            assert result.output_size == len(payload)
+            assert result.output_files
+            assert snapshot.status == "sealed"
+            assert snapshot.archiveresult_set.count() == 1
+            assert snapshot.output_size == len(payload)
+            assert (snapshot.output_dir / "singlefile.html").read_bytes() == payload
+            assert (snapshot.output_dir / "index.json").read_text() == original_json
+            if result_id is not None:
+                assert result.pk == result_id
+            result_id = result.pk
+
+
 def test_update_imports_orphaned_snapshots(tmp_path, initialized_archive):
     """Test that archivebox update imports real legacy archive directories."""
     env = cli_env(disable_extractors=True)

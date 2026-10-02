@@ -102,9 +102,19 @@ def _reconcile_directory(directory: Path) -> str:
     results = {(item.get("plugin"), item.get("hook_name", "")): item for item in records if item.get("type") == "ArchiveResult"}.values()
     pending = []
     for result in results:
-        result_id = uuid.UUID(result["id"])
         if uuid.UUID(result["snapshot_id"]) != snapshot_id:
             raise ValueError("ArchiveResult belongs to another snapshot")
+        # Legacy JSON conversion produced records without IDs. Recover these
+        # by hook identity while preserving strict collision checks for IDs.
+        if not result.get("id"):
+            if not ArchiveResult.objects.filter(
+                snapshot_id=snapshot_id,
+                plugin=result["plugin"],
+                hook_name=result.get("hook_name", ""),
+            ).exists():
+                pending.append(result)
+            continue
+        result_id = uuid.UUID(result["id"])
         existing = ArchiveResult.objects.filter(pk=result_id).first()
         identity = (snapshot_id, result["plugin"], result.get("hook_name", ""))
         if existing:
@@ -154,7 +164,10 @@ def _reconcile_directory(directory: Path) -> str:
     # Each insert is durable. An interruption after the Snapshot insert is not
     # completion: the next pass still imports missing result IDs and tags.
     for result in pending:
-        snapshot._create_archive_result_if_missing(result, {}, preserve_identity=True)
+        snapshot._create_archive_result_if_missing(result, {}, preserve_identity=bool(result.get("id")))
+    if any(not result.get("id") for result in pending):
+        snapshot.hydrate_archiveresult_output_metadata(snapshot_dir=directory)
+        snapshot.write_index_jsonl(output_dir=directory)
     tags_before = set(snapshot.tags.values_list("name", flat=True))
     snapshot._merge_tags_from_index(record)
     tags_changed = tags_before != set(snapshot.tags.values_list("name", flat=True))
