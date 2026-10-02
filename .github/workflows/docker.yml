@@ -350,6 +350,7 @@ jobs:
           (( COMPRESSED_SIZE < LIMIT ))
 
       - name: Resolve real Docker CLI test dependencies through abxpkg
+        id: mount_dependencies
         if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         run: |
@@ -370,6 +371,15 @@ jobs:
             test -L "$binary"
             test -x "$binary"
           done
+
+      - name: Diagnose failed mount dependency installation
+        if: failure() && steps.mount_dependencies.conclusion == 'failure'
+        shell: bash
+        run: |
+          sudo tail -n 120 /var/log/apt/term.log /var/log/dpkg.log
+          sudo journalctl --since '-10 minutes' --no-pager \
+            -u smbd -u nmbd -u samba-ad-dc -u nfs-server
+          ps -eo pid,ppid,stat,etimes,wchan:32,comm
 
       - name: Validate Docker UID and GID behavior on real NFS and SMB mounts
         if: inputs.full_tests && matrix.platform == 'linux/amd64'
