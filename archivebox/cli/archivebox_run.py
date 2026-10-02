@@ -297,10 +297,6 @@ def run_runner(
 
     shutdown_state = None
     try:
-        if daemon:
-            from archivebox.workers.supervisord_util import SNAPSHOT_DELETE_WORKER, get_or_create_supervisord_process, start_worker
-
-            start_worker(get_or_create_supervisord_process(), SNAPSHOT_DELETE_WORKER())
         with (
             foreground_shutdown_signals(
                 on_signal=_exit_daemon_runner_on_signal if daemon else None,
@@ -332,11 +328,6 @@ def run_runner(
         rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
         return 1
     finally:
-        if daemon:
-            from archivebox.workers.supervisord_util import stop_own_supervisord_process
-
-            if stop_own_supervisord_process():
-                Process.cleanup_stale_running(machine=current.machine)
         current.refresh_from_db()
         if current.status != Process.StatusChoices.EXITED:
             current.mark_exited()

@@ -301,22 +301,6 @@ def RUNNER_WORKER():
     }
 
 
-def SNAPSHOT_DELETE_WORKER():
-    command = archivebox_cmd("manage", "snapshot_delete")
-    return {
-        "name": "worker_snapshot_delete",
-        "command": _shell_join(command),
-        "autostart": "false",
-        "autorestart": "true",
-        "environment": _archivebox_worker_environment(command, PYTHONUNBUFFERED="1"),
-        "stopasgroup": "true",
-        "killasgroup": "true",
-        "stopwaitsecs": "30",
-        "stdout_logfile": "logs/worker_snapshot_delete.log",
-        "redirect_stderr": "true",
-    }
-
-
 def RUNNER_ONCE_WORKER(args, name="worker_runner_once"):
     command = archivebox_cmd("run", "--no-stdin", *args)
     return {
@@ -1351,9 +1335,6 @@ def build_server_worker_plan(*, config, host: str, port: str, debug: bool, reloa
         server_worker = SERVER_WORKER(host=host, port=port)
         bg_workers = [(RUNNER_WORKER(), False)]
         log_files = ["logs/worker_daphne.log", "logs/worker_runner.log"]
-
-    bg_workers.append((SNAPSHOT_DELETE_WORKER(), False))
-    log_files.append("logs/worker_snapshot_delete.log")
 
     sonic_worker = get_sonic_supervisord_worker_from_plugin(config)
     if sonic_worker is not None:

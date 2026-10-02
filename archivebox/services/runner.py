@@ -1989,21 +1989,35 @@ def run_pending_crawls(
     last_recovery_at = 0.0
     last_retention_at = 0.0
     last_retention_repair_at = 0.0
+    deletion_thread: threading.Thread | None = None
     last_analyze_at = 0.0
     analyze_queue: list[str] | None = None
     analyze_sweep_started_at = 0.0
     orchestrator_started_at = time.monotonic()
+
+    def delete_in_background() -> None:
+        from django.db import connections
+
+        try:
+            Snapshot.delete_requested(batch_size=100)
+        finally:
+            connections.close_all()
+
     while True:
         raise_if_shutdown_requested()
         now_monotonic = time.monotonic()
         if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
-            if not daemon:
-                from archivebox.workers.supervisord_util import get_existing_supervisord_process, get_worker
-
-                supervisor = get_existing_supervisord_process(quiet=True)
-                deletion_worker = get_worker(supervisor, "worker_snapshot_delete") if supervisor else None
-                if not deletion_worker or deletion_worker.get("statename") not in ("STARTING", "RUNNING"):
-                    Snapshot.delete_requested(batch_size=100)
+            if daemon:
+                # At most one batch can be doing filesystem I/O. A stuck mount
+                # must not block capture scheduling or runner shutdown; rows
+                # remain pending until cleanup succeeds, including on restart.
+                if (deletion_thread is None or not deletion_thread.is_alive()) and Snapshot.objects.filter(
+                    status=Snapshot.DELETING_STATE,
+                ).exists():
+                    deletion_thread = threading.Thread(target=delete_in_background, name="snapshot-delete", daemon=True)
+                    deletion_thread.start()
+            else:
+                Snapshot.delete_requested(batch_size=100)
             for model in (ArchiveResult, Snapshot, Crawl, Process):
                 # Keep the tight scheduler loop anchored on indexed delete_at
                 # columns only. Backfilling missing delete_at values has to read

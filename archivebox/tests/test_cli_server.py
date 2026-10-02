@@ -451,7 +451,6 @@ def test_port_compatibility_does_not_add_listeners_outside_docker_defaults(tmp_p
     assert [worker["name"] for worker in workers] == [
         "worker_runserver" if debug else "worker_daphne",
         "worker_runner",
-        "worker_snapshot_delete",
     ]
     command = shlex.split(workers[0]["command"])
     assert "--endpoint" not in command

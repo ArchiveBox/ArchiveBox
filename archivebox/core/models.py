@@ -710,6 +710,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     @classmethod
     def delete_requested(cls, *, batch_size=100):
+        # Finish the bounded read before touching files: even an open SELECT
+        # cursor can hold a SQLite read lock for the duration of slow cleanup.
         pending = list(cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by")[:batch_size])
         for snapshot in pending:
             try:

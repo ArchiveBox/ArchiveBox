@@ -1543,7 +1543,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         permissions=["delete"],
     )
     def delete_snapshots(self, request, queryset):
-        """Keep the rows until the deletion worker removes and verifies their files."""
+        """Keep the rows until the runner removes and verifies their files."""
         total = queryset.update(status=Snapshot.DELETING_STATE, retry_at=RETRY_AT_MAX, modified_at=timezone.now())
         messages.success(
             request,
