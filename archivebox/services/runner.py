@@ -1253,6 +1253,7 @@ class CrawlRunner:
             user_config_event = MachineEvent(config=config, config_type="user")
             user_config_event.event_parent_id = crawl_start_event.event_id
             await self.bus.emit(user_config_event).now()
+            derived_config_event = None
             if derived_config:
                 derived_config_event = MachineEvent(config=derived_config, config_type="derived")
                 derived_config_event.event_parent_id = crawl_start_event.event_id
@@ -1268,6 +1269,7 @@ class CrawlRunner:
                 snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
                 abort_requested=self.crawl_is_cancelled,
             )
+            projected = False
             try:
                 snapshot_event = SnapshotEvent(
                     url=snapshot["url"],
@@ -1291,6 +1293,7 @@ class CrawlRunner:
                     raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await completed_snapshot.wait(timeout=snapshot_phase_timeout)
                 await completed_snapshot.event_results_list()
+                projected = True
                 if self.execution_interrupted():
                     return
                 if snapshot["status"] == "sealed":
@@ -1314,6 +1317,16 @@ class CrawlRunner:
                 await sync_to_async(_seal_when_last_snapshot_finished, thread_sensitive=True)()
             finally:
                 snapshot_service.close()
+                # Projection and snapshot cleanup have finished. Historical
+                # capture results now live in the database; only active work
+                # needs its event ancestry available to the downloader.
+                expired = [snapshot_event, user_config_event] if projected else []
+                if projected and derived_config_event is not None:
+                    expired.append(derived_config_event)
+                if projected:
+                    expired.extend(await self.bus.filter("*", child_of=snapshot_event, past=True, future=False))
+                for event in expired:
+                    event.event_ttl = 0
 
     def seal_snapshot_due_to_limit(self, snapshot_id: str) -> None:
         from archivebox.core.models import Snapshot
