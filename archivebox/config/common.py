@@ -1189,11 +1189,15 @@ def get_config(
     scope_overrides: ConfigPayload = {}
 
     if include_machine and machine is not None and machine.config:
-        from archivebox.machine.models import _sanitize_machine_config
+        machine_config = machine.config
+        if resolve_plugins:
+            from archivebox.machine.models import _sanitize_machine_config
+
+            machine_config = _sanitize_machine_config(machine_config, lib_dir=config_data.get("ABXPKG_LIB_DIR"))
 
         scope_overrides.update(
             normalize_runtime_config(
-                _sanitize_machine_config(machine.config, lib_dir=config_data.get("ABXPKG_LIB_DIR")),
+                machine_config,
                 only_crawl_execution=crawl_config_base,
                 exclude_runtime_derived=True,
                 json_safe=False,
