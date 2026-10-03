@@ -113,10 +113,15 @@ def test_add_with_empty_autodiscovered_persona_auth(initialized_archive, httpser
 
 
 @pytest.mark.parametrize("cookie_file_exists", [True, False])
-def test_add_with_collection_relative_cookies(initialized_archive, httpserver, cookie_file_exists):
-    """Real crawl hooks must read cookies from the collection, not their cwd."""
+@pytest.mark.parametrize("absolute_path", [False, True], ids=["collection-relative", "absolute"])
+def test_add_with_collection_relative_cookies(initialized_archive, httpserver, cookie_file_exists, absolute_path):
+    """Real hooks resolve relative paths against DATA_DIR and preserve absolute paths."""
+    cookies_file = (
+        initialized_archive.parent / f"{initialized_archive.name}-cookies.txt" if absolute_path else initialized_archive / "cookies.txt"
+    )
+    configured_path = str(cookies_file) if absolute_path else "cookies.txt"
     if cookie_file_exists:
-        (initialized_archive / "cookies.txt").write_text(
+        cookies_file.write_text(
             "# Netscape HTTP Cookie File\n127.0.0.1\tFALSE\t/\tFALSE\t2147483647\tissue1896\timported\n",
         )
     httpserver.expect_request("/").respond_with_data(
@@ -126,7 +131,7 @@ def test_add_with_collection_relative_cookies(initialized_archive, httpserver, c
         content_type="text/html",
     )
     run_archivebox_cmd(
-        ["config", "--set", "COOKIES_FILE=cookies.txt"],
+        ["config", "--set", f"COOKIES_FILE={configured_path}"],
         cwd=initialized_archive,
         check=True,
     )
@@ -144,7 +149,7 @@ def test_add_with_collection_relative_cookies(initialized_archive, httpserver, c
     launch_logs = list((initialized_archive / "archive" / "users").glob("*/crawls/**/chrome/*.stderr.log"))
     logs = "\n".join(log.read_text() for log in launch_logs)
     if cookie_file_exists:
-        assert f"from {initialized_archive / 'cookies.txt'}" in logs
+        assert f"from {cookies_file}" in logs
     else:
         assert "Cookies file not found" in logs
         assert "continuing without cookie import" in logs
@@ -154,7 +159,7 @@ def test_add_with_collection_relative_cookies(initialized_archive, httpserver, c
         hook_rows = db.execute("SELECT env, status, exit_code FROM machine_process WHERE process_type='hook'").fetchall()
         assert hook_rows
         for env, status, exit_code in hook_rows:
-            assert json.loads(env)["COOKIES_FILE"] == str(initialized_archive / "cookies.txt")
+            assert json.loads(env)["COOKIES_FILE"] == str(cookies_file)
             assert (status, exit_code) == ("exited", 0)
 
 
