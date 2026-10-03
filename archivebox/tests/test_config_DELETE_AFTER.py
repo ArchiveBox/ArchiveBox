@@ -160,6 +160,10 @@ print(json.dumps({{
 
 
 def test_delete_after_real_add_page_and_rest_create_paths(client):
+    from archivebox.personas.models import Persona
+
+    # Match init/server startup; visiting /add/ must not create persona records.
+    Persona.get_or_create_default()
     User = get_user_model()
     admin_user = User.objects.create_superuser(
         username="retentionadmin",
