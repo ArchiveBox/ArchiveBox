@@ -37,6 +37,12 @@ ADD_FORM_DEFAULTS = {
 }
 
 
+@pytest.fixture(autouse=True)
+def initialized_persona(db):
+    # Match init/server startup; rendering /add/ must no longer create DB rows.
+    return Persona.get_or_create_default()
+
+
 @pytest.fixture
 def admin_user(db):
     return User.objects.create_superuser(

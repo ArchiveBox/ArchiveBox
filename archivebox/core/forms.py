@@ -304,13 +304,13 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             self.can_override_crawl_config = bool(user.is_authenticated and user.is_active and user.is_superuser)
         super().__init__(*args, **kwargs)
 
-        default_persona = Persona.get_or_create_default()
+        # Persona creation belongs to init/server startup, never a GET of /add/.
         persona_queryset = Persona.objects.order_by("name")
         if not self.can_override_crawl_config:
             persona_queryset = filter_personas_by_permissions(persona_queryset, {PERMISSIONS_PUBLIC})
         self.fields["persona"].queryset = persona_queryset
 
-        selected_persona = persona_queryset.filter(id=default_persona.id).first() or persona_queryset.first()
+        selected_persona = persona_queryset.filter(name__iexact="Default").first() or persona_queryset.first()
         default_config = get_config(persona=selected_persona) if selected_persona else get_config()
         if selected_persona:
             self.fields["persona"].initial = selected_persona.name
@@ -337,6 +337,12 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
             for category, field_name, _title in PLUGIN_GROUPS:
                 get_choice_field(self, field_name).choices = [(plugin.name, plugin.name) for plugin in grouped_plugins.get(category, [])]
             self.plugin_groups = []
+
+    def clean_persona(self):
+        persona = self.cleaned_data.get("persona")
+        if persona:
+            persona.validate_name(persona.name)
+        return persona
 
     def clean(self):
         cleaned_data = super().clean() or {}

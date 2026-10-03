@@ -5,9 +5,11 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import HttpRequest
 from ninja import Router, Schema
+from ninja.errors import HttpError
 from ninja.pagination import paginate
 from pydantic import Field
 
@@ -108,10 +110,9 @@ def browser_settings_to_config(extension_persona_id: str, settings: PersonaBrows
 
 
 def find_persona(extension_persona_id: str, name: str) -> Persona | None:
+    named = Persona.find_named(name)
     return (
-        Persona.objects.filter(
-            Q(config__BROWSER_EXTENSION_PERSONA_ID=extension_persona_id) | Q(name=name),
-        )
+        Persona.objects.filter(Q(config__BROWSER_EXTENSION_PERSONA_ID=extension_persona_id) | Q(pk=named.pk if named else None))
         .order_by("created_at")
         .first()
     )
@@ -138,7 +139,11 @@ def sync_persona(request: HttpRequest, payload: PersonaSyncSchema):
     if not is_valid:
         raise ValueError(error_message)
 
-    persona = find_persona(payload.extension_persona_id, name)
+    try:
+        persona = find_persona(payload.extension_persona_id, name)
+        (persona or Persona(name=name)).validate_name(persona.name if persona else name)
+    except ValidationError as err:
+        raise HttpError(409, "; ".join(err.messages)) from err
     created = persona is None
     if persona is None:
         persona = Persona(name=name)

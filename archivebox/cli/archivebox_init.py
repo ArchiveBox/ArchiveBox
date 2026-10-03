@@ -116,6 +116,11 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     # Registration requires the final schema and reconciles legacy file config.
     Machine.current()
 
+    from archivebox.personas.models import Persona
+
+    # Initialize here, not when /add/ is rendered: a GET must not create profiles.
+    Persona.get_or_create_default().ensure_dirs()
+
     from archivebox.misc.db import database_display_location, is_postgres
 
     assert database_exists()

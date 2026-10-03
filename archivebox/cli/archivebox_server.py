@@ -260,6 +260,12 @@ def server(
     bind_spec = next((arg for arg in runserver_args if arg), "")
     host, port = _parse_and_validate_bind_spec(bind_spec)
 
+    from archivebox.personas.models import Persona
+
+    # Older collections deferred this until /add/. Reconcile before serving any
+    # requests, and report ambiguous profile names before Chrome can use them.
+    Persona.get_or_create_default().ensure_dirs()
+
     if not User.objects.filter(is_superuser=True).exclude(username="system").exists():
         from archivebox.core.routes_util import build_admin_url
 

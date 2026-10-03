@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any
 from collections.abc import Mapping
 
 from django.db import IntegrityError, models
+from django.core.exceptions import ValidationError
 from django.db.models.fields.json import KT
 from django.conf import settings
 from django.utils import timezone
@@ -121,6 +122,13 @@ class Persona(ModelWithConfig):
         app_label = "personas"
 
     def save(self, *args, **kwargs):
+        # Adopt the spelling on disk, never rename a Chrome profile just to fix case.
+        self.__dict__.pop("_persona_path", None)
+        canonical_name = self.validate_name(self.name)
+        if canonical_name != self.name:
+            self.name = canonical_name
+            if kwargs.get("update_fields") is not None:
+                kwargs["update_fields"] = tuple(dict.fromkeys([*kwargs["update_fields"], "name"]))
         config = dict(self.config or {})
         if str(config.get("PERMISSIONS") or "").strip().lower() not in PERMISSIONS_VALUES:
             from archivebox.config.common import get_config
@@ -137,10 +145,59 @@ class Persona(ModelWithConfig):
 
     @property
     def path(self) -> Path:
-        """Path to persona directory under PERSONAS_DIR."""
+        """Reuse the directory's spelling without renaming a Chrome profile."""
         from archivebox.config.constants import CONSTANTS
 
-        return CONSTANTS.PERSONAS_DIR / self.name
+        cached = self.__dict__.get("_persona_path")
+        if cached is None or cached[0] != self.name:
+            directory_name = self.directory_name(self.name)
+            cached = (self.name, CONSTANTS.PERSONAS_DIR / directory_name)
+            self.__dict__["_persona_path"] = cached
+        return cached[1]
+
+    @staticmethod
+    def directory_name(name: str) -> str:
+        from archivebox.config.constants import CONSTANTS
+        from archivebox.personas.importers import validate_persona_name
+
+        valid, error = validate_persona_name(name)
+        if not valid:
+            raise ValidationError(error)
+        # Linux can hold both Default/default; macOS usually aliases them. Reuse a
+        # single match on either filesystem, but never guess which conflicting
+        # profile contains the user's login state. Only list names, not profile trees.
+        try:
+            with os.scandir(CONSTANTS.PERSONAS_DIR) as entries:
+                matches = sorted(entry.name for entry in entries if entry.name.casefold() == name.casefold())
+        except FileNotFoundError:
+            matches = []
+        if len(matches) > 1:
+            raise ValidationError(
+                f"Conflicting persona directories: {'; '.join(str(CONSTANTS.PERSONAS_DIR / match) for match in matches)}. "
+                "Stop Chrome and rename the conflicting directories manually to distinct names; no profile directories were renamed.",
+            )
+        return matches[0] if matches else name
+
+    @classmethod
+    def find_named(cls, name: str) -> "Persona | None":
+        # SQLite's iexact is ASCII-only; Python casefold gives every entry point
+        # the same Unicode matching rules as the filesystem-name lookup above.
+        matches = [(pk, existing) for pk, existing in cls.objects.values_list("pk", "name") if existing.casefold() == name.casefold()]
+        if len(matches) > 1:
+            raise ValidationError(
+                f"Conflicting persona records: {'; '.join(f'{existing!r} (ID {pk})' for pk, existing in matches)}. "
+                "Rename the conflicting personas manually to distinct names; profile files have not been changed.",
+            )
+        return cls.objects.get(pk=matches[0][0]) if matches else None
+
+    def validate_name(self, name: str) -> str:
+        existing = self.find_named(name)
+        if existing is not None and existing.pk != self.pk:
+            raise ValidationError(
+                f"Name conflicts with persona {existing.name!r} (ID {existing.pk}, directory {existing.path}). "
+                "Choose a distinct name or rename that persona record manually.",
+            )
+        return self.directory_name(name)
 
     @property
     def CHROME_USER_DATA_DIR(self) -> str:
@@ -178,10 +235,13 @@ class Persona(ModelWithConfig):
         - AUTH_STORAGE_FILE (derived from persona path, if file exists)
         - ACTIVE_PERSONA (set to this persona's name)
         """
-        return derive_persona_config(name=self.name, config=self.config, persona_dir=self.path)
+        return derive_persona_config(name=self.path.name, config=self.config, persona_dir=self.path)
 
     def ensure_dirs(self) -> None:
         """Create persona directories if they don't exist."""
+        # Recheck at profile preparation, including changes made outside this process.
+        self.__dict__.pop("_persona_path", None)
+        self.validate_name(self.name)
         self.path.mkdir(parents=True, exist_ok=True)
         (self.path / "chrome_profile").mkdir(parents=True, exist_ok=True)
         (self.path / "chrome_downloads").mkdir(parents=True, exist_ok=True)
@@ -253,16 +313,26 @@ class Persona(ModelWithConfig):
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     @classmethod
-    def get_or_create_named(cls, name: str) -> "Persona":
+    def get_or_create_named(cls, name: str, *, defaults: dict | None = None) -> "Persona":
+        # Init/startup must reuse a user-created 'default', not create a second
+        # DB row pointing at a different (or shared) profile (issue #1896).
         persona_name = (name or "Default").strip() or "Default"
-        persona = cls.objects.filter(name=persona_name).first()
+        persona = cls.find_named(persona_name)
         if persona is not None:
+            canonical_name = persona.validate_name(persona.name)
+            if canonical_name != persona.name:
+                persona.name = canonical_name
+                persona.save(update_fields=["name"])
             return persona
 
         try:
-            return cls.objects.create(name=persona_name)
-        except IntegrityError:
-            return cls.objects.get(name=persona_name)
+            return cls.objects.create(name=persona_name, **(defaults or {}))
+        except (IntegrityError, ValidationError):
+            persona = cls.find_named(persona_name)
+            if persona is None:
+                raise
+            persona.validate_name(persona.name)
+            return persona
 
     def runtime_root_for_crawl(self, crawl) -> Path:
         return Path(crawl.output_dir) / ".persona" / self.name
