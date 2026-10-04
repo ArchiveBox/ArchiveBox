@@ -79,9 +79,13 @@ def test_directory_filter_and_row_downloads(snapshot, live_server):
     host = get_snapshot_host(str(snapshot.id)).split(":")[0]
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
-        page = browser.new_page(accept_downloads=True)
+        page = browser.new_page(accept_downloads=True, locale="tr-TR")
         page.goto(f"http://{host}:{port}/dropbox/files/?files=1")
         expect(page.locator(".entry-download")).to_have_count(5)
+        assert page.evaluate("navigator.language") == "tr-TR"
+        page.get_by_role("searchbox", name="Filter files").fill("PICTURE")
+        expect(page.locator(".directory-entry:not(.parent):visible .entry-name")).to_have_text(["picture.svg"])
+        page.get_by_role("searchbox", name="Filter files").fill("")
         expect(page.locator('pre[data-url="note.txt?raw=1"]')).to_have_text("raw file download")
         expect(page.locator('pre[data-url="small.html?raw=1"]')).to_contain_text('<script>document.title="unsafe"</script>')
         assert page.title() != "unsafe"
@@ -106,7 +110,7 @@ def test_directory_filter_and_row_downloads(snapshot, live_server):
         expect(names).to_have_text(["nested/", "small.html", "picture.svg", "note.txt", "large.txt"])
         page.get_by_role("searchbox", name="Filter files").fill("NOTE")
         expect(page.locator(".directory-entry:not(.parent):visible")).to_have_count(1)
-        expect(page.locator("#file-count")).to_have_text("1 item")
+        expect(page.locator("#file-count")).to_have_text("Items: 1")
         with page.expect_download() as downloaded:
             page.get_by_role("link", name="Download note.txt", exact=True).click()
         assert downloaded.value.failure() is None

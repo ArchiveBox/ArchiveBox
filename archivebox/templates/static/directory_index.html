@@ -1,9 +1,10 @@
 {% load i18n %}
+{% get_current_language as language_code %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ language_code }}">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta http-equiv="Content-Language" content="en-us">
+    <meta http-equiv="Content-Language" content="{{ language_code }}">
     <meta name="robots" content="NONE,NOARCHIVE">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% blocktranslate %}Index of {{ directory }}{% endblocktranslate %}</title>
@@ -56,19 +57,19 @@
   </head>
   <body>
     <main>
-      <nav class="directory-toolbar" aria-label="Directory navigation">
+      <nav class="directory-toolbar" aria-label="{% translate "Directory navigation" %}">
         {% if directory != "/" %}
-          <a class="toolbar-link" href="../{{ directory_query }}">↩ Up One Level</a>
+          <a class="toolbar-link" href="../{{ directory_query }}">↩ {% translate "Up One Level" %}</a>
         {% endif %}
-        <a class="toolbar-link primary" href="{{ snapshot_page_url }}">⌂ Snapshot Page</a>
+        <a class="toolbar-link" href="{{ snapshot_page_url }}">⌂ {% translate "Snapshot Page" %}</a>
         <a
           class="toolbar-link archivebox-zip-button"
           href="{{ zip_url }}"
-          data-loading-label="Preparing..."
+          data-loading-label="{% translate "Preparing..." %}"
           onclick="return window.archiveboxHandleZipClick(this, event);"
         >
           <span class="archivebox-zip-spinner" aria-hidden="true"></span>
-          <span class="archivebox-zip-label">⬇ Download Zip</span>
+          <span class="archivebox-zip-label">⬇ {% translate "Download Zip" %}</span>
         </a>
       </nav>
 
@@ -76,19 +77,19 @@
         <header class="directory-header">
           <h1 class="directory-title">{{ directory }}</h1>
           <div class="directory-meta" id="file-count" aria-live="polite">
-            {{ file_list|length }} item{{ file_list|length|pluralize }}
+            {% translate "Items" %}: <span id="visible-file-count">{{ file_list|length }}</span>
           </div>
-          <input id="filter-files" type="search" aria-label="Filter files" placeholder="Filter files">
+          <input id="filter-files" type="search" aria-label="{% translate "Filter files" %}" placeholder="{% translate "Filter files" %}">
         </header>
 
         {% if file_list or directory != "/" %}
           <table class="directory-list">
             <colgroup><col><col class="size-column"><col class="type-column"><col class="download-column"></colgroup>
             <thead><tr>
-              <th scope="col" aria-sort="ascending"><button type="button" data-sort="name" aria-label="Name">Name</button></th>
-              <th scope="col" aria-sort="none"><button type="button" data-sort="size" aria-label="Size">Size</button></th>
-              <th scope="col" aria-sort="none"><button type="button" data-sort="type" aria-label="Type">Type</button></th>
-              <th scope="col" aria-label="Download"></th>
+              <th scope="col" aria-sort="ascending"><button type="button" data-sort="name" aria-label="{% translate "Name" %}">{% translate "Name" %}</button></th>
+              <th scope="col" aria-sort="none"><button type="button" data-sort="size" aria-label="{% translate "Size" %}">{% translate "Size" %}</button></th>
+              <th scope="col" aria-sort="none"><button type="button" data-sort="type" aria-label="{% translate "Type" %}">{% translate "Type" %}</button></th>
+              <th scope="col" aria-label="{% translate "Download" %}"></th>
             </tr></thead>
             <tbody>
             {% if directory != "/" %}
@@ -99,7 +100,7 @@
                     <span class="entry-name">../</span>
                   </span>
                 </a>
-              </td><td class="entry-size">—</td><td class="entry-type">Directory</td><td></td></tr>
+              </td><td class="entry-size">—</td><td class="entry-type">{% translate "Directory" %}</td><td></td></tr>
             {% endif %}
 
             {% for entry in entries %}
@@ -118,26 +119,26 @@
                   </span>
                 </a>
                 </td><td class="entry-size">{{ entry.size }}</td><td class="entry-type" title="{{ entry.mimetype }}">{{ entry.mimetype }}</td><td>
-                <a class="entry-download" aria-label="Download {{ f }}" title="Download {{ f }}" href="{{ f|urlencode }}{% if entry.is_dir %}?files=1&amp;download=zip{% else %}?raw=1{% endif %}" download>⬇</a>
+                <a class="entry-download" aria-label="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" title="{% blocktranslate %}Download {{ f }}{% endblocktranslate %}" href="{{ f|urlencode }}{% if entry.is_dir %}?files=1&amp;download=zip{% else %}?raw=1{% endif %}" download>⬇</a>
               </td></tr>
               {% endwith %}
             {% endfor %}
             </tbody>
           </table>
         {% else %}
-          <div class="empty-state">This directory is empty.</div>
+          <div class="empty-state">{% translate "This directory is empty." %}</div>
         {% endif %}
       </section>
     </main>
     <script>
       document.getElementById("filter-files").addEventListener("input", (event) => {
-        const query = event.target.value.toLocaleLowerCase();
+        const query = event.target.value.toLowerCase();
         let count = 0;
         document.querySelectorAll(".directory-entry:not(.parent)").forEach((row) => {
-          row.hidden = !row.querySelector(".entry-name").textContent.toLocaleLowerCase().includes(query);
+          row.hidden = !row.querySelector(".entry-name").textContent.toLowerCase().includes(query);
           if (!row.hidden) count++;
         });
-        document.getElementById("file-count").textContent = `${count} item${count === 1 ? "" : "s"}`;
+        document.getElementById("visible-file-count").textContent = count;
       });
       let sortKey = null, sortDirection = 1;
       document.querySelectorAll("[data-sort]").forEach((button) => {
@@ -184,7 +185,7 @@
         const spinner = link.querySelector(".archivebox-zip-spinner");
         if (label) {
           link.dataset.originalLabel = label.textContent || "";
-          label.textContent = link.dataset.loadingLabel || "Preparing...";
+          label.textContent = link.dataset.loadingLabel;
           label.style.opacity = "0.92";
         }
         if (spinner) {
