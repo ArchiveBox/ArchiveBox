@@ -11,6 +11,8 @@ from urllib.parse import urlsplit
 import pytest
 from playwright.sync_api import sync_playwright
 
+from .conftest import localhost_session
+
 
 @pytest.mark.django_db(transaction=True)
 def test_archived_srcset_recovers_only_missing_image_candidates(snapshot, live_server, browser_runtime):
@@ -87,7 +89,9 @@ def test_archived_srcset_recovers_only_missing_image_candidates(snapshot, live_s
                 if density == 1:
                     assert "1x_web_48dp.png" in rendered.url
             assert all(url.startswith((origin, "data:", "blob:")) for url in requests), requests
-            raw = context.request.get(f"{origin}/archivewebpage/google-drive.{archive_format}?raw=1")
-            assert raw.body() == recorded
+            with localhost_session() as session:
+                raw = session.get(f"{origin}/archivewebpage/google-drive.{archive_format}?raw=1")
+                assert raw.status_code == 200
+                assert raw.content == recorded
             context.close()
         browser.close()
