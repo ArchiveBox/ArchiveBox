@@ -331,6 +331,10 @@ def test_casefold_paths_remain_inside_archive_root(tmp_path: Path):
 
 
 def test_directory_previews_only_small_supported_files(tmp_path: Path):
+    import sqlite3
+
+    with sqlite3.connect(tmp_path / "database.sqlite3") as database:
+        database.execute("CREATE TABLE example (value TEXT)")
     (tmp_path / "small.txt").write_text("small preview")
     (tmp_path / "exact-limit.txt").write_bytes(b"x" * (100 * 1024))
     (tmp_path / "unknown.bin").write_bytes(b"\x00\x01")
@@ -347,3 +351,4 @@ def test_directory_previews_only_small_supported_files(tmp_path: Path):
     assert 'src="picture.svg?raw=1"' in html
     assert 'data-url="exact-limit.txt?raw=1"' not in html
     assert 'data-url="unknown.bin?raw=1"' not in html
+    assert 'data-url="database.sqlite3?raw=1"' not in html

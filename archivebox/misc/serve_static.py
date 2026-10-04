@@ -311,13 +311,13 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
 
         stat_result = entry.stat()
         preview_kind = ""
+        mime = mimetypes.guess_type(entry.name)[0] or "application/octet-stream"
         if entry.is_file() and stat_result.st_size < DIRECTORY_PREVIEW_MAX_BYTES:
-            mime = mimetypes.guess_type(entry.name)[0] or ""
             if mime.startswith("image/"):
                 preview_kind = "image"
             elif (
                 mime.startswith("text/")
-                or re.search(r"(?:json|xml|javascript|ecmascript|yaml|toml|graphql|sql)", mime)
+                or re.search(r"(?:^|[.+/-])(?:json|xml|javascript|ecmascript|yaml|toml|graphql|sql)(?:[.+/-]|$)", mime)
                 or entry.suffix.lower() in {".log", ".jsonl", ".toml"}
             ):
                 preview_kind = "text"
@@ -326,6 +326,8 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
                 "name": url,
                 "url": url,
                 "preview_kind": preview_kind,
+                "mimetype": "Directory" if entry.is_dir() else mime,
+                "size_bytes": 0 if entry.is_dir() else stat_result.st_size,
                 "is_dir": entry.is_dir(),
                 "size": "—" if entry.is_dir() else printable_filesize(stat_result.st_size),
                 "timestamp": _format_direntry_timestamp(stat_result),
