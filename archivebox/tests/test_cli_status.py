@@ -107,22 +107,22 @@ def test_status_detects_orphaned_directories(initialized_archive):
     assert "archivebox update" in result.stdout
 
 
-def test_status_counts_new_snapshot_output_dirs_as_archived(initialized_archive):
+def test_status_counts_new_snapshot_output_dirs_as_archived(initialized_archive, recursive_test_site):
     """Test status reads archived/present counts from the current snapshot output layout."""
     env = cli_env(disable_extractors=True)
     env = env.copy()
     env["ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS"] = "true"
 
-    _create_snapshot_rows(initialized_archive, env, "https://example.com")
+    url = recursive_test_site["root_url"]
+    captured = run_archivebox_cmd(["add", "--plugins=wget", url], cwd=initialized_archive, env=env, timeout=120)
+    assert captured.returncode == 0, captured.stdout + captured.stderr
 
     with use_archivebox_db(initialized_archive):
-        snapshot_id = Snapshot.objects.values_list("id", flat=True).get(url="https://example.com")
+        snapshot_id = Snapshot.objects.values_list("id", flat=True).get(url=url)
 
     snapshot_dir = find_snapshot_dir(initialized_archive, str(snapshot_id))
     assert snapshot_dir is not None, f"Snapshot output directory not found for {snapshot_id}"
-    title_dir = snapshot_dir / "title"
-    title_dir.mkdir(parents=True, exist_ok=True)
-    (title_dir / "title.txt").write_text("Example Domain")
+    assert any("Root" in path.read_text(errors="ignore") for path in (snapshot_dir / "wget").rglob("*.html"))
 
     result = run_archivebox_cmd(["status"], cwd=initialized_archive, env=env)
 
