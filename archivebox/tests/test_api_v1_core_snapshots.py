@@ -155,6 +155,7 @@ def test_new_snapshot_creation_does_not_wait_for_active_crawl(client, api_admin_
 def test_snapshot_metadata_requests_do_not_touch_archive_storage(client, api_admin_user, api_headers):
     """Metadata writes and serialization must work without replay storage access."""
     import sys
+    import threading
     from pathlib import Path
     from archivebox.config import CONSTANTS
 
@@ -166,6 +167,10 @@ def test_snapshot_metadata_requests_do_not_touch_archive_storage(client, api_adm
         if event == "call" and frame.f_code.co_name in {
             "stat",
             "lstat",
+            "exists",
+            "is_dir",
+            "is_file",
+            "is_symlink",
             "open",
             "mkdir",
             "iterdir",
@@ -180,7 +185,8 @@ def test_snapshot_metadata_requests_do_not_touch_archive_storage(client, api_adm
                 storage_calls.append((frame.f_code.co_name, str(path)))
 
     previous = sys.getprofile()
-    sys.setprofile(observe)
+    thread_profile = threading.getprofile()
+    threading.setprofile_all_threads(observe)
     try:
         response = client.post(
             "/api/v1/core/snapshots",
@@ -197,9 +203,21 @@ def test_snapshot_metadata_requests_do_not_touch_archive_storage(client, api_adm
             **api_headers,
         )
         assert updated.status_code == 200, updated.content
-        fetched = client.get(f"/api/v1/core/snapshot/{snapshot_id}?with_archiveresults=false", **api_headers)
+        result = client.post(
+            "/api/v1/core/archiveresults",
+            data={"snapshot_id": snapshot_id, "plugin": "chrome_extension_viewport", "status": "started"},
+            **api_headers,
+        )
+        assert result.status_code == 200, result.content
+        result_id = result.json()["id"]
+        result_get = client.get(f"/api/v1/core/archiveresult/{result_id}", **api_headers)
+        assert result_get.status_code == 200, result_get.content
+        assert result_get.json()["output_files"] == {}
+        fetched = client.get(f"/api/v1/core/snapshot/{snapshot_id}", **api_headers)
         assert fetched.status_code == 200, fetched.content
+        assert fetched.json()["archiveresults"][0]["id"] == result_id
     finally:
+        threading.setprofile_all_threads(thread_profile)
         sys.setprofile(previous)
     snapshot = Snapshot.objects.get(pk=snapshot_id)
     assert snapshot.title == "Updated title"

@@ -4737,9 +4737,13 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     @property
     def pwd(self) -> str:
-        """Working directory, derived from the snapshot/plugin path if the Process row is gone."""
+        """Working directory metadata without probing archive storage."""
         process = self.process_record
-        return process.pwd if process and process.pwd else str(self.output_dir)
+        return (
+            process.pwd
+            if process and process.pwd
+            else str(self.snapshot.get_storage_path_for_version(self.snapshot.fs_version) / self.plugin)
+        )
 
     @property
     def cmd(self) -> list:

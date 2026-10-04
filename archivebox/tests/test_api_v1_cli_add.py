@@ -492,7 +492,7 @@ def test_api_add_only_queues_work_without_storage_or_worker_control(client, api_
         name = frame.f_code.co_name
         if name == "ensure_background_runner":
             calls.append(name)
-        if name in {"stat", "lstat", "mkdir", "iterdir", "symlink_to"}:
+        if name in {"stat", "lstat", "exists", "is_dir", "is_file", "is_symlink", "mkdir", "iterdir", "symlink_to"}:
             path = frame.f_locals.get("self")
             if isinstance(path, Path) and path.is_relative_to(CONSTANTS.ARCHIVE_DIR):
                 calls.append((name, str(path)))

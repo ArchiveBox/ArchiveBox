@@ -392,13 +392,13 @@ def _write_archiveresult_files(
     mime_types = _get_archiveresult_upload_form_values(request, "mime_types", "mime_type")
     chunk_output_path = _get_archiveresult_upload_form_value(request, "chunk_output_path")
 
+    output_files = dict(existing_output_files or {})
+    if not files:
+        return output_files
+
     snapshot_dir = snapshot.output_dir
     plugin_dir = snapshot_dir / plugin_name
     storage = FileSystemStorage(location=str(plugin_dir))
-    output_files = dict(existing_output_files or {})
-
-    if not files:
-        return output_files
 
     if chunk_output_path:
         if len(files) != 1:
