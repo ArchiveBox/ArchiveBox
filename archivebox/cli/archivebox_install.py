@@ -58,7 +58,6 @@ def _install_raw_binary_names(binary_names: list[str], binproviders: str) -> Non
     from django.utils import timezone
 
     from archivebox.machine.models import Binary, Machine, _canonical_binary_name
-    from archivebox.services.runner import run_due_binary
 
     machine = Machine.current()
     for requested_name in binary_names:
@@ -80,7 +79,13 @@ def _install_raw_binary_names(binary_names: list[str], binproviders: str) -> Non
             binary.status = Binary.StatusChoices.QUEUED
             binary.retry_at = timezone.now()
             binary.save(update_fields=["binproviders", "overrides", "status", "retry_at", "modified_at"])
-        run_due_binary(binary, lock_seconds=60)
+        if binary.status == Binary.StatusChoices.INSTALLED:
+            continue
+        # The synchronous CLI needs the lifecycle's verified installation result,
+        # not the scheduler's "claimed work" result. Reuse its failure/requeue and
+        # health-stat handling so a failed install cannot exit successfully.
+        if not binary.install_claimed(lock_seconds=60):
+            raise click.ClickException(f"Binary {binary_name} is already being installed")
 
 
 def ensure_data_dir_lib_symlink(data_dir: Path, abxpkg_lib_dir: Path) -> Path | None:

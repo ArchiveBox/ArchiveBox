@@ -198,21 +198,26 @@ def test_binary_request_installs_env_binary_and_recovers_stale_cache(initialized
     assert Path(relibbed.abspath).resolve() == Path(host_binary).resolve()
 
 
-def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_resolve(initialized_archive, tmp_path):
-    name = "http"
+def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_resolve(initialized_archive):
+    name = "httpie"
     provider_bin_dir = initialized_archive / "lib" / "pip" / "venv" / "bin"
     runtime_env = _runtime_env(initialized_archive)
 
-    _cmd_result = _run_real_binary_lifecycle(initialized_archive, name=name, binproviders="env", env=runtime_env)
-    stdout, stderr, returncode = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-
-    assert returncode != 0, stdout + stderr
-    assert "Binary http installation failed" in stderr
+    failed = run_archivebox_cmd(
+        ["install", "--binproviders=env", name],
+        cwd=initialized_archive,
+        timeout=120,
+        env=runtime_env,
+        default_cli_env=True,
+        disable_extractors=True,
+    )
+    assert failed.returncode != 0, failed.stdout + failed.stderr
+    assert f"Binary {name} installation failed" in failed.stderr
 
     with use_archivebox_db(initialized_archive):
         queued = Binary.objects.get(name=name)
         queued_id = str(queued.id)
-        failed_process = Process.objects.filter(process_type=Process.TypeChoices.BINARY).latest("created_at")
+        failed_process = Process.objects.filter(binary_id=queued_id).latest("created_at")
         machine_config = Machine.objects.get(pk=queued.machine_id).config or {}
 
     assert queued.status == Binary.StatusChoices.QUEUED
@@ -223,28 +228,31 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     assert f"{name.upper().replace('-', '_')}_BINARY" not in machine_config
     assert not (provider_bin_dir / name).exists()
 
-    with use_archivebox_db(initialized_archive):
-        queued = Binary.objects.get(pk=queued_id)
-        queued.binproviders = "pip"
-        queued.overrides = {"pip": {"install_args": ["httpie>=3.2.4"]}}
-        queued.save(update_fields=["binproviders", "overrides", "modified_at"])
-    recovered_runtime_env = _runtime_env(initialized_archive)
-
-    _cmd_result = run_archivebox_cmd(
-        ["run", f"--binary-id={queued_id}"],
+    recovered_install = run_archivebox_cmd(
+        ["install", "--binproviders=pip", name],
         cwd=initialized_archive,
         timeout=120,
-        env=recovered_runtime_env,
+        env=runtime_env,
         default_cli_env=True,
         disable_extractors=True,
     )
-    recover_stdout, recover_stderr, recover_code = _cmd_result.stdout, _cmd_result.stderr, _cmd_result.returncode
-
-    assert recover_code == 0, recover_stdout + recover_stderr
+    assert recovered_install.returncode == 0, recovered_install.stdout + recovered_install.stderr
+    repeated_install = run_archivebox_cmd(
+        ["install", "--binproviders=pip", name],
+        cwd=initialized_archive,
+        timeout=120,
+        env=runtime_env,
+        default_cli_env=True,
+        disable_extractors=True,
+    )
+    assert repeated_install.returncode == 0, repeated_install.stdout + repeated_install.stderr
     with use_archivebox_db(initialized_archive):
         recovered = Binary.objects.get(pk=queued_id)
+        # Providers may resolve their own dependencies during installation. Those
+        # Process rows are not attempts to install this binary; track its exact
+        # identity instead of assuming the last two global rows belong to it.
         process_exit_codes = list(
-            Process.objects.filter(process_type=Process.TypeChoices.BINARY).order_by("created_at").values_list("exit_code", flat=True),
+            Process.objects.filter(binary_id=queued_id).order_by("created_at").values_list("exit_code", flat=True),
         )
 
     assert recovered.status == Binary.StatusChoices.INSTALLED
@@ -253,4 +261,4 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     assert Path(recovered.abspath) == provider_bin_dir / name
     assert recovered.binprovider == "pip"
     assert Path(recovered.abspath).is_file()
-    assert process_exit_codes[-2:] == [1, 0]
+    assert process_exit_codes == [1, 0]
