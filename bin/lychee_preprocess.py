@@ -8,7 +8,7 @@ p = pathlib.Path(sys.argv[1])
 text = p.read_text()
 if p.suffix not in (".md", ".html", ".rst"):
     # Preserve source line numbers, but feed only literal documentation URLs to Lychee.
-    pattern = r'https?://(?:github\.com/(?:ArchiveBox|pirate)/ArchiveBox(?:/wiki|/?#)|docs\.archivebox\.io)[^\s<>\)\]"\x27`\\\[]*'
+    pattern = r'https?://(?:github\.com/(?:ArchiveBox|pirate)/ArchiveBox(?:/wiki|/blob/|/?#)|raw\.githubusercontent\.com/wiki/ArchiveBox/ArchiveBox/|docs\.archivebox\.io)[^\s<>\)\]"\x27`\\\[]*'
     text = "\n".join(" ".join(u for u in re.findall(pattern, line) if not re.search(r"[{}]", u)) for line in text.splitlines())
 if p.suffix == ".md" and p.parent.name == "docs":
     pages = {page.stem.lower(): page.stem for page in p.parent.glob("*.md")}
