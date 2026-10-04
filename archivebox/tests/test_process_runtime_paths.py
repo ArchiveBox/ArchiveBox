@@ -51,6 +51,8 @@ class TestProcessRuntimePaths:
             )
 
         expected_dir = Path(process.pwd)
+        assert process.status == Process.StatusChoices.EXITED
+        assert process.exit_code == 0
         assert process.runtime_dir == expected_dir
         assert process.stdout_file == expected_dir / "stdout.log"
         assert process.stderr_file == expected_dir / "stderr.log"

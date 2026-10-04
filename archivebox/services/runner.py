@@ -1693,7 +1693,9 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         # every URL, even though crawl isolation owns one browser for the whole
         # crawl. The crawl lifecycle lock already serializes all of its child
         # work, so let one runner drain the due siblings and discoveries.
-        if any(process.is_running for process in snapshot.process_set.filter(status="running").iterator()):
+        if any(
+            process.is_running for process in snapshot.process_set.filter(status="running").order_by("pk").paged_iterator(chunk_size=100)
+        ):
             snapshot.update_and_requeue(retry_at=timezone.now() + timedelta(seconds=lock_seconds))
             return True
         if snapshot.fs_migration_needed:
@@ -1727,7 +1729,7 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
     if not snapshot.claim_processing_lock(lock_seconds=lock_seconds):
         return False
     snapshot.refresh_from_db()
-    if any(process.is_running for process in snapshot.process_set.filter(status="running").iterator()):
+    if any(process.is_running for process in snapshot.process_set.filter(status="running").order_by("pk").paged_iterator(chunk_size=100)):
         # The Snapshot lease may have expired while an abx-dl hook process is
         # still alive. Preserve the snapshot-level ownership boundary and do
         # not launch a second sequence; ArchiveResult status is irrelevant.
@@ -2217,12 +2219,10 @@ def run_pending_crawls(
             # snapshot detail page out to ~500ms. Refresh stats at most once per
             # 24hr while the queue is idle, and only after the orchestrator has
             # been alive for at least an hour so short server boots / one-off work
-            # never pay the cost. The sweep is batched one table per idle tick;
-            # individual table ANALYZE statements abort after 2min (progress
-            # handler) and the whole sweep is hard-capped at 5min so a
-            # pathological table cannot wedge maintenance forever. Any failure
-            # inside the maintenance hook is swallowed — orchestrator must never
-            # be taken down by stats refresh.
+            # never pay the cost. Each idle tick samples a bounded number of
+            # index entries for one table; never scan the full history while
+            # holding ANALYZE's write transaction. Optional stats refresh must
+            # not prevent queued captures.
             try:
                 if (
                     analyze_queue is None

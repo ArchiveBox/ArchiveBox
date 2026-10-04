@@ -427,8 +427,19 @@ def main(**kwargs):
 
         # CLI commands own their process record and logs. Queue model saves
         # must not register a process implicitly: HTTP add() shares that path.
-        Process.current()
-        add(urls=urls, **kwargs)
+        process = Process.current()
+        exit_code = 0
+        try:
+            add(urls=urls, **kwargs)
+        except BaseException:
+            exit_code = 1
+            raise
+        finally:
+            # --bg/--index-only return without the foreground runner's cleanup.
+            # Leaving them RUNNING makes the active-process index accumulate
+            # historical CLI commands forever, defeating bounded recovery.
+            if process.status == Process.StatusChoices.RUNNING:
+                process.mark_exited(exit_code=exit_code)
 
 
 if __name__ == "__main__":
