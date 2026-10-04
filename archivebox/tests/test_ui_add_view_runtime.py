@@ -190,7 +190,7 @@ def assert_no_file_or_shell_payload_snapshots(cwd: Path, *, canary: Path) -> Non
 
 
 @pytest.mark.timeout(180)
-def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_site):
+def test_add_view_queues_work_without_restarting_stopped_runner(tmp_path, recursive_test_site):
     init_archive(tmp_path)
 
     port = get_free_port()
@@ -239,14 +239,24 @@ def test_add_view_restarts_stopped_supervisord_runner(tmp_path, recursive_test_s
         )
         assert response.status_code in (302, 303), response.text
 
-        assert _worker_state(tmp_path, "worker_runner") == "RUNNING"
+        assert _worker_state(tmp_path, "worker_runner") != "RUNNING"
         with use_archivebox_db(tmp_path):
             crawl = Crawl.objects.order_by("-created_at").first()
             assert crawl is not None
             assert crawl.tags_str == "restart-supervised-runner"
             assert crawl.urls == recursive_test_site["root_url"]
+            assert crawl.status == Crawl.StatusChoices.QUEUED
+            assert not crawl.output_dir.exists()
     finally:
         stop_server(tmp_path)
+
+    result = run_archivebox_cmd(["run", f"--crawl-id={crawl.id}"], cwd=tmp_path, env=env)
+    assert result.returncode == 0, result.stderr
+    with use_archivebox_db(tmp_path):
+        snapshot = Snapshot.objects.get(crawl_id=crawl.id, url=recursive_test_site["root_url"])
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.archiveresult_set.filter(plugin="wget", status=ArchiveResult.StatusChoices.SUCCEEDED).exists()
+        assert any("Root" in path.read_text(errors="ignore") for path in (snapshot.output_dir / "wget").rglob("*.html"))
 
 
 def _login_to_add_view(port: int) -> tuple[requests.Session, requests.Response, str]:

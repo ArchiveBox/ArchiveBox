@@ -20,6 +20,7 @@ from archivebox.tests.conftest import (
     create_test_url,
     parse_jsonl_output,
     run_archivebox_cmd,
+    run_queued_crawls,
 )
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -384,15 +385,20 @@ def test_snapshot_creates_snapshot_with_correct_url(tmp_path, initialized_archiv
     """Test that snapshot stores the exact URL in the database."""
     env = cli_env(disable_extractors=True)
 
-    run_archivebox_cmd(
+    result = run_archivebox_cmd(
         ["snapshot", "create", "https://example.com"],
         cwd=tmp_path,
         env=env,
     )
+    assert result.returncode == 0, result.stderr
 
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.select_related("crawl__created_by").get(url="https://example.com")
         username = snapshot.crawl.created_by.username
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert not snapshot.output_dir.exists()
+
+    run_queued_crawls(tmp_path, env=env)
 
     # Verify the crawl tree contains a relative symlink to the user-scoped snapshot output.
     snapshots_root = tmp_path / "archive" / "users" / username / "snapshots"

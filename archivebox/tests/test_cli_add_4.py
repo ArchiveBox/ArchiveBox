@@ -325,8 +325,8 @@ def test_add_duplicate_url_creates_separate_crawls(initialized_archive):
     assert snapshots == [("https://example.com", 0), ("https://example.com", 0)]
 
 
-def test_snapshot_create_creates_current_output_directory(initialized_archive):
-    """Test the user-facing snapshot creation path creates an output directory."""
+def test_snapshot_create_runner_creates_current_output_directory(initialized_archive):
+    """Queued metadata gets its output directory through the public runner CLI."""
     env = cli_env(disable_extractors=True)
     run_archivebox_cmd(
         ["snapshot", "create", "https://example.com"],
@@ -338,6 +338,8 @@ def test_snapshot_create_creates_current_output_directory(initialized_archive):
     with use_archivebox_db(initialized_archive):
         snapshot_id = str(Snapshot.objects.values_list("id", flat=True).get())
 
+    assert find_snapshot_dir(initialized_archive, snapshot_id) is None
+    run_queued_crawls(initialized_archive, env=env)
     snapshot_dir = find_snapshot_dir(initialized_archive, snapshot_id)
     assert snapshot_dir is not None, f"Snapshot output directory not found for {snapshot_id}"
     assert snapshot_dir.is_dir()

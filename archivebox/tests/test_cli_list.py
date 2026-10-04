@@ -26,9 +26,7 @@ def test_static_export_creates_detail_page_for_unarchived_snapshot(snapshot):
     from archivebox.config import CONSTANTS
 
     snapshot_dir = Path(snapshot.output_dir)
-    assert snapshot_dir.is_dir()
-    assert not any(snapshot_dir.iterdir())
-    snapshot_dir.rmdir()
+    # Queued metadata has no output directory until an explicit writer runs.
     assert not snapshot_dir.exists()
 
     html = Snapshot.objects.filter(pk=snapshot.pk).to_html(with_headers=True)

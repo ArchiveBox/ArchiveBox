@@ -287,6 +287,7 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
 
     snapshot = _create_snapshot()
     output_path = Path(snapshot.output_dir) / "singlefile.html"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("<html>migrated singlefile</html>", encoding="utf-8")
     root_result = ArchiveResult.objects.create(
         snapshot=snapshot,
