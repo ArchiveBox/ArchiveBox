@@ -211,11 +211,22 @@ class ArchiveResultFilterSchema(FilterSchema):
     created_at__lt: Annotated[datetime | None, FilterLookup("created_at__lt")] = None
 
 
+def _with_archiveresult_processes(queryset):
+    # cmd/pwd/version delegate to Process and Binary. Without this join a full
+    # capture's metadata response performs two extra indexed lookups per hook
+    # (roughly 100 queries), despite the initial Snapshot UUID lookup being fast.
+    # Logs and the hydrated hook environment are not response fields; loading
+    # those potentially large values would replace round trips with excess I/O.
+    return queryset.select_related("process__binary").defer("process__stdout", "process__stderr", "process__env")
+
+
 @router.get("/archiveresults", response=list[ArchiveResultSchema], url_name="get_archiveresult")
 @paginate(CustomPagination)
 def get_archiveresults(request: HttpRequest, filters: Query[ArchiveResultFilterSchema]):
     """List all ArchiveResult entries matching these filters."""
-    queryset = filters.filter(ArchiveResult.objects.all())
+    queryset = filters.filter(
+        _with_archiveresult_processes(ArchiveResult.objects.all()).prefetch_related("snapshot__crawl__created_by", "snapshot__tags"),
+    )
     if filters.search or filters.snapshot_tag:
         return queryset.distinct()
     return queryset
@@ -242,7 +253,12 @@ def _uuid_ref_query(field_name: str, ref: str) -> Q:
 @router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="get_archiveresult")
 def get_archiveresult(request: HttpRequest, archiveresult_id: str):
     """Get a specific ArchiveResult by id."""
-    return ArchiveResult.objects.get(_uuid_ref_query("id", archiveresult_id))
+    return (
+        _with_archiveresult_processes(ArchiveResult.objects.all())
+        .select_related("snapshot__crawl__created_by")
+        .prefetch_related("snapshot__tags")
+        .get(_uuid_ref_query("id", archiveresult_id))
+    )
 
 
 def _normalize_uploaded_archiveresult_plugin(plugin: str) -> str:
@@ -689,12 +705,14 @@ class SnapshotSchema(Schema):
 
     @staticmethod
     def resolve_num_archiveresults(obj, context):
-        return obj.archiveresult_set.all().distinct().count()
+        # This reverse FK contains each result once. DISTINCT would materialize
+        # wide JSON output columns just to count rows through snapshot_id's index.
+        return obj.archiveresult_set.count()
 
     @staticmethod
     def resolve_archiveresults(obj, context):
         if bool(context["request"].__dict__.get("with_archiveresults", False)):
-            return obj.archiveresult_set.all().distinct()
+            return _with_archiveresult_processes(obj.archiveresult_set.all())
         return ArchiveResult.objects.none()
 
 
