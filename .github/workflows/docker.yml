@@ -381,100 +381,131 @@ jobs:
             -u smbd -u nmbd -u samba-ad-dc -u nfs-server
           ps -eo pid,ppid,stat,etimes,wchan:32,comm
 
-      - name: Validate Docker UID and GID behavior on real NFS and SMB mounts
-        if: inputs.full_tests && matrix.platform == 'linux/amd64'
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          NFS_SOURCE="/srv/archivebox-ci-nfs"
-          SMB_SOURCE="/srv/archivebox-ci-smb"
-          NFS_MOUNT="$RUNNER_TEMP/archivebox-nfs-mount"
-          SMB_MOUNT="$RUNNER_TEMP/archivebox-smb-mount"
-          mounted_nfs=0
-          mounted_smb=0
-
-          cleanup() {
-            local original_status=$? cleanup_status=0
-            trap - EXIT
-            if [[ "$mounted_smb" == "1" ]] && ! "$SUDO_BINARY" "$UMOUNT_BINARY" "$SMB_MOUNT"; then
-              cleanup_status=1
-            fi
-            if [[ "$mounted_nfs" == "1" ]] && ! "$SUDO_BINARY" "$UMOUNT_BINARY" "$NFS_MOUNT"; then
-              cleanup_status=1
-            fi
-            if ! "$SUDO_BINARY" "$SYSTEMCTL_BINARY" stop smbd.service nfs-kernel-server.service; then
-              cleanup_status=1
-            fi
-            if [[ "$original_status" != "0" ]]; then
-              exit "$original_status"
-            fi
-            exit "$cleanup_status"
-          }
-          trap cleanup EXIT
-
-          "$SUDO_BINARY" "$MKDIR_BINARY" -p "$NFS_SOURCE" "$SMB_SOURCE" "$NFS_MOUNT" "$SMB_MOUNT"
-          "$SUDO_BINARY" "$MKDIR_BINARY" -p /etc/exports.d
-          "$SUDO_BINARY" "$CHMOD_BINARY" 0777 "$NFS_SOURCE" "$SMB_SOURCE" "$NFS_MOUNT" "$SMB_MOUNT"
-          "$SUDO_BINARY" "$BASH_BINARY" -c \
-            "printf '%s *(rw,sync,no_subtree_check,root_squash,insecure)\\n' '$NFS_SOURCE' > /etc/exports.d/archivebox-ci.exports"
-          "$SUDO_BINARY" "$BASH_BINARY" -c \
-            "printf '\\n[archivebox-ci]\\npath = %s\\nbrowseable = yes\\nread only = no\\nguest ok = yes\\nguest only = yes\\nforce user = nobody\\ncreate mask = 0777\\ndirectory mask = 0777\\n' '$SMB_SOURCE' >> /etc/samba/smb.conf"
-
-          "$SUDO_BINARY" "$SYSTEMCTL_BINARY" restart nfs-kernel-server.service
-          "$SUDO_BINARY" "$EXPORTFS_BINARY" -ra
-          "$SYSTEMCTL_BINARY" is-active --quiet nfs-kernel-server.service
-          "$SUDO_BINARY" "$SYSTEMCTL_BINARY" restart smbd.service
-          "$SYSTEMCTL_BINARY" is-active --quiet smbd.service
-
-          "$SUDO_BINARY" "$MOUNT_NFS_BINARY" -o vers=3,nolock "127.0.0.1:$NFS_SOURCE" "$NFS_MOUNT"
-          mounted_nfs=1
-          "$SUDO_BINARY" "$MOUNT_CIFS_BINARY" //127.0.0.1/archivebox-ci "$SMB_MOUNT" \
-            -o "guest,vers=3.0,uid=0,gid=0,forceuid,forcegid,file_mode=0777,dir_mode=0777,nounix"
-          mounted_smb=1
-
-          NFS_TEST_DIR="$NFS_MOUNT" \
-          SMB_TEST_DIR="$SMB_MOUNT" \
-          IMAGE="${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}" \
-            "$BASH_BINARY" bin/validate_docker_uid_gid.sh --local-only
-
-      - name: Validate Docker port compatibility
-        shell: bash
-        env:
-          IMAGE: ${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}
-        run: '"$BASH_BINARY" bin/validate_docker_ports.sh'
-
-      - name: Validate Docker CLI add/list and compose behavior
+      - name: Validate Docker mounts, ports, CLI and compose concurrently
         if: inputs.full_tests && matrix.platform == 'linux/amd64'
         shell: bash
         env:
           ARCHIVEBOX_IMAGE: ${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}
         run: |
           set -Eeuo pipefail
-          "$MKDIR_BINARY" "${{ github.workspace }}/data"
-          "$DOCKER_BINARY" run -v "${{ github.workspace }}/data":/data "$ARCHIVEBOX_IMAGE" init
+          # These checks own separate collections, Compose projects and ports.
+          # Subshells keep mount cleanup traps and environment changes isolated.
+          validate_mounts() (
+            set -Eeuo pipefail
+            NFS_SOURCE="/srv/archivebox-ci-nfs"
+            SMB_SOURCE="/srv/archivebox-ci-smb"
+            NFS_MOUNT="$RUNNER_TEMP/archivebox-nfs-mount"
+            SMB_MOUNT="$RUNNER_TEMP/archivebox-smb-mount"
+            mounted_nfs=0
+            mounted_smb=0
 
-          "$SUDO_BINARY" "$BASH_BINARY" -c 'echo "127.0.0.1  www.test-nginx-1.local www.test-nginx-2.local" >> /etc/hosts'
-          "$DOCKER_BINARY" run --name www-nginx -p 80:80 -d nginx:1.29.5@sha256:0236ee02dcbce00b9bd83e0f5fbc51069e7e1161bd59d99885b3ae1734f3392e
+            # Invoked by the subshell EXIT trap.
+            # shellcheck disable=SC2329
+            cleanup() {
+              local original_status=$? cleanup_status=0
+              trap - EXIT
+              if [[ "$mounted_smb" == "1" ]] && ! "$SUDO_BINARY" "$UMOUNT_BINARY" "$SMB_MOUNT"; then
+                cleanup_status=1
+              fi
+              if [[ "$mounted_nfs" == "1" ]] && ! "$SUDO_BINARY" "$UMOUNT_BINARY" "$NFS_MOUNT"; then
+                cleanup_status=1
+              fi
+              if ! "$SUDO_BINARY" "$SYSTEMCTL_BINARY" stop smbd.service nfs-kernel-server.service; then
+                cleanup_status=1
+              fi
+              if [[ "$original_status" != "0" ]]; then
+                exit "$original_status"
+              fi
+              exit "$cleanup_status"
+            }
+            trap cleanup EXIT
 
-          "$DOCKER_BINARY" run -v "$PWD"/data:/data --network host "$ARCHIVEBOX_IMAGE" add http://www.test-nginx-1.local
-          echo "http://www.test-nginx-2.local" | "$DOCKER_BINARY" run -i --network host -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" add
+            "$SUDO_BINARY" "$MKDIR_BINARY" -p "$NFS_SOURCE" "$SMB_SOURCE" "$NFS_MOUNT" "$SMB_MOUNT"
+            "$SUDO_BINARY" "$MKDIR_BINARY" -p /etc/exports.d
+            "$SUDO_BINARY" "$CHMOD_BINARY" 0777 "$NFS_SOURCE" "$SMB_SOURCE" "$NFS_MOUNT" "$SMB_MOUNT"
+            "$SUDO_BINARY" "$BASH_BINARY" -c \
+              "printf '%s *(rw,sync,no_subtree_check,root_squash,insecure)\\n' '$NFS_SOURCE' > /etc/exports.d/archivebox-ci.exports"
+            "$SUDO_BINARY" "$BASH_BINARY" -c \
+              "printf '\\n[archivebox-ci]\\npath = %s\\nbrowseable = yes\\nread only = no\\nguest ok = yes\\nguest only = yes\\nforce user = nobody\\ncreate mask = 0777\\ndirectory mask = 0777\\n' '$SMB_SOURCE' >> /etc/samba/smb.conf"
 
-          archive_list="$("$DOCKER_BINARY" run -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" list)"
-          [[ "$archive_list" == *"www.test-nginx-1.local"* ]] || { echo "The site 1 isn't in the list"; exit 1; }
-          [[ "$archive_list" == *"www.test-nginx-2.local"* ]] || { echo "The site 2 isn't in the list"; exit 1; }
+            "$SUDO_BINARY" "$SYSTEMCTL_BINARY" restart nfs-kernel-server.service
+            "$SUDO_BINARY" "$EXPORTFS_BINARY" -ra
+            "$SYSTEMCTL_BINARY" is-active --quiet nfs-kernel-server.service
+            "$SUDO_BINARY" "$SYSTEMCTL_BINARY" restart smbd.service
+            "$SYSTEMCTL_BINARY" is-active --quiet smbd.service
 
-          "$DOCKER_BINARY" compose run --rm archivebox init
-          "$DOCKER_BINARY" compose up -d --wait
-          "$DOCKER_BINARY" network connect archivebox_default www-nginx
-          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:5797/public/')"
-          admin_js="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:5797/static/admin/js/jquery.init.js')"
-          [[ "$index_html" == *ArchiveBox* ]]
-          [[ "$admin_js" == *window.django* ]]
+            "$SUDO_BINARY" "$MOUNT_NFS_BINARY" -o vers=3,nolock "127.0.0.1:$NFS_SOURCE" "$NFS_MOUNT"
+            mounted_nfs=1
+            "$SUDO_BINARY" "$MOUNT_CIFS_BINARY" //127.0.0.1/archivebox-ci "$SMB_MOUNT" \
+              -o "guest,vers=3.0,uid=0,gid=0,forceuid,forcegid,file_mode=0777,dir_mode=0777,nounix"
+            mounted_smb=1
 
-          "$DOCKER_BINARY" compose run --rm archivebox add --plugins=parse_txt_urls 'http://www-nginx/#test_docker'
-          index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:5797/public/')"
-          [[ "$index_html" == *'http://www-nginx/#test_docker'* ]]
-          "$DOCKER_BINARY" compose down
+            NFS_TEST_DIR="$NFS_MOUNT" \
+            SMB_TEST_DIR="$SMB_MOUNT" \
+            IMAGE="${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}" \
+              "$BASH_BINARY" bin/validate_docker_uid_gid.sh --local-only
+          )
+          validate_cli() (
+            set -Eeuo pipefail
+            "$MKDIR_BINARY" "${{ github.workspace }}/data"
+            "$DOCKER_BINARY" run -v "${{ github.workspace }}/data":/data "$ARCHIVEBOX_IMAGE" init
+
+            "$SUDO_BINARY" "$BASH_BINARY" -c 'echo "127.0.0.1  www.test-nginx-1.local www.test-nginx-2.local" >> /etc/hosts'
+            "$DOCKER_BINARY" run --name www-nginx -p 80:80 -d nginx:1.29.5@sha256:0236ee02dcbce00b9bd83e0f5fbc51069e7e1161bd59d99885b3ae1734f3392e
+
+            "$DOCKER_BINARY" run -v "$PWD"/data:/data --network host "$ARCHIVEBOX_IMAGE" add http://www.test-nginx-1.local
+            echo "http://www.test-nginx-2.local" | "$DOCKER_BINARY" run -i --network host -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" add
+
+            archive_list="$("$DOCKER_BINARY" run -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" list)"
+            [[ "$archive_list" == *"www.test-nginx-1.local"* ]] || { echo "The site 1 isn't in the list"; exit 1; }
+            [[ "$archive_list" == *"www.test-nginx-2.local"* ]] || { echo "The site 2 isn't in the list"; exit 1; }
+
+            "$DOCKER_BINARY" compose run --rm archivebox init
+            "$DOCKER_BINARY" compose up -d --wait
+            "$DOCKER_BINARY" network connect archivebox_default www-nginx
+            index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:5797/public/')"
+            admin_js="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:5797/static/admin/js/jquery.init.js')"
+            [[ "$index_html" == *ArchiveBox* ]]
+            [[ "$admin_js" == *window.django* ]]
+
+            "$DOCKER_BINARY" compose run --rm archivebox add --plugins=parse_txt_urls 'http://www-nginx/#test_docker'
+            index_html="$("$CURL_BINARY" --silent --location 'http://127.0.0.1:5797/public/')"
+            [[ "$index_html" == *'http://www-nginx/#test_docker'* ]]
+            "$DOCKER_BINARY" compose down
+          )
+          validate_ports() (
+            IMAGE="$ARCHIVEBOX_IMAGE" "$BASH_BINARY" bin/validate_docker_ports.sh
+          )
+
+          checks=(mounts ports cli)
+          pids=()
+          validate_mounts > "$RUNNER_TEMP/docker-mounts.log" 2>&1 &
+          pids+=("$!")
+          validate_ports > "$RUNNER_TEMP/docker-ports.log" 2>&1 &
+          pids+=("$!")
+          validate_cli > "$RUNNER_TEMP/docker-cli.log" 2>&1 &
+          pids+=("$!")
+          status=0
+          for index in "${!checks[@]}"; do
+            check="${checks[$index]}"
+            echo "::group::Docker $check validation"
+            if wait "${pids[$index]}"; then
+              echo "PASS: Docker $check validation"
+            else
+              echo "::error::Docker $check validation failed"
+              status=1
+            fi
+            cat "$RUNNER_TEMP/docker-$check.log"
+            echo "::endgroup::"
+          done
+          exit "$status"
+
+      - name: Validate Docker port compatibility
+        if: ${{ !(inputs.full_tests && matrix.platform == 'linux/amd64') }}
+        shell: bash
+        env:
+          IMAGE: ${{ inputs.push_digests && format('{0}@{1}', env.DOCKERHUB_IMAGE, steps.docker_build.outputs.digest) || matrix.local_tag }}
+        run: '"$BASH_BINARY" bin/validate_docker_ports.sh'
 
       - name: Validate compressed image size
         if: inputs.full_tests && !inputs.push_digests
