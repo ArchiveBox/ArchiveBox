@@ -34,6 +34,11 @@ def test_runner_retries_failed_deletion_without_blocking_captures(initialized_ar
         SAVE_TITLE="True",
         SEARCH_BACKEND_ENGINE="ripgrep",
     )
+    # Measure captures while deletion retries, not a cold browser installation.
+    # Without setup, only the first case spends its capture deadline installing
+    # Chrome; later cases silently benefit from the shared binary cache.
+    installed = run_archivebox_cmd(["install", "chrome", "title"], cwd=initialized_archive, env=env)
+    assert installed.returncode == 0, installed.stdout + installed.stderr
     prepared = run_archivebox_cmd(
         [
             "manage",
