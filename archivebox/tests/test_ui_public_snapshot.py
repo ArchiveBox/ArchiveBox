@@ -18,6 +18,8 @@ from archivebox.tests.conftest import (
     start_archivebox_server,
     stop_server,
     get_http_response,
+    localhost_session,
+    wait_for_snapshot_capture,
 )
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -25,7 +27,7 @@ pytestmark = pytest.mark.django_db
 
 
 def _login_admin_over_full_server(port: int) -> tuple[requests.Session, str]:
-    session = requests.Session()
+    session = localhost_session()
     get_http_response(port, host=f"admin.archivebox.localhost:{port}", path="/admin/login/")
     login_page = session.get(
         f"http://admin.archivebox.localhost:{port}/admin/login/",
@@ -58,27 +60,13 @@ def _login_admin_over_full_server(port: int) -> tuple[requests.Session, str]:
     return session, add_csrf_match.group(1)
 
 
-def _stop_runner_worker(data_dir) -> None:
-    script = """
-from archivebox.workers.supervisord_util import get_existing_supervisord_process, stop_worker
-supervisor = get_existing_supervisord_process()
-assert supervisor is not None
-stop_worker(supervisor, "worker_runner")
-print("stopped")
-"""
-    result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=data_dir, timeout=60)
-    assert result.returncode == 0, result.stderr or result.stdout
-
-
 def _create_private_snapshot_over_full_server(
     data_dir,
     session: requests.Session,
     port: int,
     csrf_token: str,
     url: str,
-    env: dict[str, str],
 ) -> dict[str, str]:
-    _stop_runner_worker(data_dir)
     response = session.post(
         f"http://admin.archivebox.localhost:{port}/add/",
         headers={"Referer": f"http://admin.archivebox.localhost:{port}/add/"},
@@ -107,15 +95,9 @@ def _create_private_snapshot_over_full_server(
     )
     assert response.status_code in (302, 303), response.text
 
-    with use_archivebox_db(data_dir):
-        from archivebox.crawls.models import Crawl
-
-        crawl = Crawl.objects.order_by("-created_at").get()
-
-    stop_server(data_dir)
-    run_result = run_archivebox_cmd(["run", f"--crawl-id={crawl.id}"], cwd=data_dir, timeout=120, env=env)
-    assert run_result.returncode == 0, run_result.stderr or run_result.stdout
-    start_archivebox_server(data_dir, env=env, port=port)
+    # Let the running server consume its own /add/ submission, as it does for
+    # users. Manually driving a stopped runner would hide queue/lifecycle bugs.
+    wait_for_snapshot_capture(data_dir, url, timeout=120)
 
     with use_archivebox_db(data_dir):
         from archivebox.core.models import Snapshot
@@ -327,8 +309,7 @@ class TestPublicIndex:
 
         try:
             start_archivebox_server(tmp_path, env=env, port=port)
-            session = requests.Session()
-            session.trust_env = False
+            session = localhost_session()
             response = session.get(
                 f"http://archivebox.localhost:{port}/",
                 timeout=10,
@@ -729,7 +710,6 @@ class TestPublicIndex:
                 port,
                 csrf_token,
                 recursive_test_site["root_url"],
-                env,
             )
             snap_url = f"http://{snapshot['host']}/index.html"
 
@@ -775,7 +755,6 @@ class TestPublicIndex:
                 port,
                 csrf_token,
                 recursive_test_site["root_url"],
-                env,
             )
             snap_url = f"http://{snapshot['host']}/index.html"
 

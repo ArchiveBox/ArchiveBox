@@ -14,6 +14,7 @@ import textwrap
 import time
 import shutil
 import ctypes
+from urllib.parse import urlsplit
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -1311,6 +1312,43 @@ def api_auth_headers(api_token: str, *, django_client: bool = False, port: int |
         "Host": host,
         "X-ArchiveBox-API-Key": api_token,
     }
+
+
+class LocalhostHTTPAdapter(requests.adapters.HTTPAdapter):
+    """Connect real HTTP requests to loopback while preserving URL authorities."""
+
+    def get_connection_with_tls_context(self, request, verify, proxies=None, cert=None):
+        url = urlsplit(request.url)
+        if url.scheme != "http" or not (url.hostname == "localhost" or (url.hostname or "").endswith(".localhost")):
+            raise ValueError(f"Expected an HTTP localhost test URL, got {request.url}")
+        return self.poolmanager.connection_from_host("127.0.0.1", port=url.port, scheme="http")
+
+    def send(self, request, **kwargs):
+        # Send Host only on the wire. Requests copies prepared headers on
+        # redirects and uses Host for cookie matching; leaving it attached
+        # would select the previous origin's cookies after a cross-host redirect.
+        original_host = request.headers.get("Host")
+        request.headers["Host"] = urlsplit(request.url).netloc
+        try:
+            return super().send(request, **kwargs)
+        finally:
+            if original_host is None:
+                request.headers.pop("Host", None)
+            else:
+                request.headers["Host"] = original_host
+
+
+def localhost_session() -> requests.Session:
+    # Browsers resolve *.localhost themselves; Linux libc in stock containers
+    # often does not. This is curl --connect-to for real server tests: only the
+    # socket destination changes. Keep the original URL so Requests exercises
+    # real redirect and cookie-domain rules, including dynamic snap-* hosts.
+    # Never replace URLs with 127.0.0.1 or stub responses: that hides isolation
+    # bugs. This also avoids global /etc/hosts edits and runner-specific DNS.
+    session = requests.Session()
+    session.trust_env = False
+    session.mount("http://", LocalhostHTTPAdapter())
+    return session
 
 
 def wait_for_live_api(port: int, *, path: str = "/api/v1/docs"):
