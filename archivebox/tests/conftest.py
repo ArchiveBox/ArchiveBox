@@ -22,6 +22,13 @@ from types import SimpleNamespace
 from typing import Any
 from collections.abc import Callable
 
+from abx_plugins.plugins.opencode.archivebox.conftest import (
+    opencode_archive_config as opencode_archive_config,
+    installed_opencode as installed_opencode,
+    live_opencode as live_opencode,
+    agent_server as agent_server,
+)
+
 import psutil
 import pytest
 import requests
@@ -1956,3 +1963,59 @@ def create_test_snapshot_json(url: str | None = None, **kwargs) -> dict[str, Any
         "status": kwargs.get("status", "queued"),
         **{k: v for k, v in kwargs.items() if k not in ("tags_str", "status")},
     }
+
+
+@pytest.fixture
+def browser_runtime(cached_abxpkg_lib_dir):
+    from abx_plugins import get_plugins_dir
+    from abx_plugins.plugins.base.utils import get_config
+
+    # Security modes need isolated collections, but the browser installation is
+    # shared. Rebuilding it for every mode adds unrelated registry dependencies
+    # and discards the real binary cache already provided by the test helpers.
+    shared_lib = cached_abxpkg_lib_dir
+    env = cli_env(
+        ABXPKG_LIB_DIR=str(shared_lib),
+        CHROME_HEADLESS="True",
+        CHROME_SANDBOX="False",
+        CHROME_ISOLATION="snapshot",
+    )
+    env.pop("CHROME_BINARY", None)
+    resolved_env = resolve_abxpkg_chrome_env(shared_lib, env)
+    chrome_config = get_config(
+        Path(get_plugins_dir()) / "chrome" / "config.json",
+        environ={**env, **resolved_env},
+        hydrate_binaries=False,
+    )
+
+    return {
+        "lib_dir": shared_lib,
+        "node_modules_dir": Path(resolved_env["NODE_MODULES_DIR"]),
+        "node_path": resolved_env["NODE_PATH"],
+        "node_binary": Path(resolved_env["NODE_BINARY"]),
+        "chrome_binary": Path(resolved_env["CHROME_BINARY"]),
+        "chrome_args": [*chrome_config.CHROME_ARGS, *chrome_config.CHROME_ARGS_EXTRA],
+    }
+
+
+def _reset_runtime_config() -> None:
+    from archivebox.config import common
+    from archivebox.machine.models import Machine
+
+    for value in vars(common).values():
+        cache_clear = getattr(value, "cache_clear", None)
+        if cache_clear is not None:
+            cache_clear()
+    Machine.current()
+
+
+def _set_archivebox_config(data_dir: Path, *values: str, env: dict[str, str] | None = None) -> None:
+    os.chdir(data_dir)
+    result = run_archivebox_cmd(
+        ["config", "--set", *values],
+        cwd=data_dir,
+        env=env,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    _reset_runtime_config()

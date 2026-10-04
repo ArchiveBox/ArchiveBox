@@ -1,4 +1,8 @@
 import json
+from abx_plugins.plugins.opencode.archivebox.host_cases import (
+    test_add_view_hides_agent_link_when_opencode_is_disabled as test_add_view_hides_agent_link_when_opencode_is_disabled,
+)
+
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -128,19 +132,6 @@ def test_add_view_admin_renders_plugin_config_grid(client, admin_user):
     )
     assert b"plugin_config__chrome__CHROME_BINARY" not in response.content
     assert b"plugin_config__wget__WGET_ENABLED" not in response.content
-
-
-def test_add_view_hides_agent_link_when_opencode_is_disabled(client, admin_user):
-    from archivebox.machine.models import Machine
-
-    Machine.from_json({"config": {"OPENCODE_ENABLED": False}})
-    client.force_login(admin_user)
-
-    response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
-
-    assert response.status_code == 200
-    assert b"/admin/agent" not in response.content
-    assert b"Crawl with AI" not in response.content
 
 
 def test_add_view_staff_user_cannot_override_raw_or_plugin_config(client):

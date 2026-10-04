@@ -26,15 +26,14 @@ from archivebox.core.views import (
 )
 from archivebox.progressmonitor.views import live_progress_view
 from archivebox.search.views import public_snapshot_search_stream_view
-from archivebox.opencode.views import opencode_proxy_view
+from abx_plugins.plugins.opencode.archivebox.urls import urlpatterns as agent_urlpatterns
 
 urlpatterns = [
     re_path(r"^static/(?P<path>.*)$", serve_static),
     path("robots.txt", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "robots.txt"}),
     path("favicon.ico", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "favicon.ico"}),
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
-    re_path(r"^admin/agent/?(?=$|opencode)", include("archivebox.opencode.urls")),
-    re_path(r"^(?P<path>assets/.*)$", opencode_proxy_view, name="opencode-assets"),
+    *agent_urlpatterns,
     path("public/search-stream/", public_snapshot_search_stream_view, name="public-search-stream"),
     path("public/", PublicIndexView.as_view(), name="public-index"),
     path("public.html", RedirectView.as_view(url="/public/"), name="public-index-html"),

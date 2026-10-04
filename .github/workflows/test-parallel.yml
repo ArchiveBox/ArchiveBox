@@ -135,6 +135,14 @@ jobs:
           submodules: true
           fetch-depth: 1
 
+      - name: Configure local test domains
+        run: |
+          for host in archivebox.localhost admin.archivebox.localhost api.archivebox.localhost web.archivebox.localhost; do
+            if ! getent ahostsv4 "$host" >/dev/null; then
+              printf '127.0.0.1 %s\n' "$host" | sudo tee -a /etc/hosts >/dev/null
+            fi
+          done
+
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.CI_PYTHON_VERSION }}
