@@ -229,6 +229,10 @@ async function main() {
   const height = Number(process.env.SCREENSHOT_HEIGHT || 1400);
   const fullPage = process.env.SCREENSHOT_FULL_PAGE === '1';
   const requireLiveProgress = process.env.SCREENSHOT_REQUIRE_LIVE_PROGRESS === '1';
+  // Include Chrome startup in the capture deadline. Starting a new 60s budget
+  // after launch lets cold/contended browser startup exceed the caller's total
+  // timeout before a missing screencast can produce its intended error.
+  const liveProgressDeadline = Date.now() + 60000;
   const variants = process.env.SCREENSHOT_VARIANTS_JSON
     ? JSON.parse(process.env.SCREENSHOT_VARIANTS_JSON)
     : [];
@@ -325,7 +329,6 @@ async function main() {
       await page.setCookie(cookie);
     }
 
-    const liveProgressDeadline = Date.now() + 60000;
     let navigationResponse = await page.goto(url, { waitUntil: 'load', timeout: 60000 });
 
     if (process.env.SCREENSHOT_LOGIN_USERNAME || process.env.SCREENSHOT_LOGIN_PASSWORD) {
