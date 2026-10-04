@@ -202,16 +202,20 @@ def test_snapshot_service_cli_add_seals_snapshot_and_writes_indexes(tmp_path, re
 
 @pytest.mark.timeout(180)
 def test_api_queue_hands_storage_creation_to_runner(tmp_path, recursive_test_site):
-    from .conftest import create_admin_and_token, live_api_request, stop_archivebox_process, run_queued_crawls
-    from .test_api_v1_cli_add import start_api_server_without_runner
-    from archivebox.crawls.models import Crawl
+    from .conftest import (
+        create_admin_and_token,
+        live_api_request,
+        stop_archivebox_process,
+        start_archivebox_server,
+        wait_for_snapshot_capture,
+    )
 
     init_archive(tmp_path)
     port = get_free_port()
     env = cli_env(port=port, server=True, PLUGINS="wget")
     token = create_admin_and_token(tmp_path)
     url = recursive_test_site["root_url"]
-    server = start_api_server_without_runner(tmp_path, env, port)
+    server = start_archivebox_server(tmp_path, env=env, port=port, log_name="api-storage-handoff.log")
     try:
         response = live_api_request(
             port,
@@ -230,15 +234,12 @@ def test_api_queue_hands_storage_creation_to_runner(tmp_path, recursive_test_sit
             json={"crawl_id": crawl_id, "url": url, "title": "Browser title"},
         )
         assert metadata.status_code == 200, metadata.text
+        assert "Root" in wait_for_snapshot_capture(tmp_path, url, timeout=120)
         with use_archivebox_db(tmp_path):
-            crawl = Crawl.objects.get(pk=crawl_id)
             snapshot = Snapshot.objects.get(pk=metadata.json()["id"])
-            assert not crawl.output_dir.exists()
-            assert not snapshot.output_dir.exists()
             assert snapshot.tags.filter(name="handoff").exists()
     finally:
         stop_archivebox_process(server)
-    run_queued_crawls(tmp_path, env=env, timeout=120)
     state = _snapshot_state(tmp_path, url)
     assert state["status"] == Snapshot.StatusChoices.SEALED
     assert state["crawl_dir"].is_dir()

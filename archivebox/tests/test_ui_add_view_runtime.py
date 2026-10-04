@@ -250,8 +250,13 @@ def test_add_view_queues_work_without_restarting_stopped_runner(tmp_path, recurs
     finally:
         stop_server(tmp_path)
 
-    result = run_archivebox_cmd(["run", f"--crawl-id={crawl.id}"], cwd=tmp_path, env=env)
-    assert result.returncode == 0, result.stderr
+    from .conftest import stop_archivebox_process, wait_for_snapshot_capture
+
+    server = start_archivebox_server(tmp_path, env=env, port=port, log_name="resumed-add-server.log")
+    try:
+        assert "Root" in wait_for_snapshot_capture(tmp_path, recursive_test_site["root_url"], timeout=120)
+    finally:
+        stop_archivebox_process(server)
     with use_archivebox_db(tmp_path):
         snapshot = Snapshot.objects.get(crawl_id=crawl.id, url=recursive_test_site["root_url"])
         assert snapshot.status == Snapshot.StatusChoices.SEALED
