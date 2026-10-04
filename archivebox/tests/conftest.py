@@ -330,6 +330,18 @@ def pytest_configure():
     if not apps.ready:
         django.setup()
 
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        from django.conf import settings
+        from archivebox.config import django as django_config
+        from archivebox.config.common import get_config
+
+        # pytest-django may import startup config before this conftest isolates
+        # the worker's paths. Refresh that real startup config once so HTTP
+        # requests resolve the same installed binaries as worker subprocesses;
+        # otherwise a service restart searches the coordinator's empty lib dir.
+        django_config.CONFIG = get_config(include_machine=False)
+        settings.CONFIG = django_config.CONFIG
+
 
 @pytest.fixture(scope="session")
 def django_db_modify_db_settings(

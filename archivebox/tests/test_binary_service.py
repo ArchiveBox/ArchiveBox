@@ -246,6 +246,17 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
         disable_extractors=True,
     )
     assert repeated_install.returncode == 0, repeated_install.stdout + repeated_install.stderr
+    # Changing the provider policy runs a real installation request against the
+    # now-warm cache. Its fast result must still finalize the DB projection.
+    cached_install = run_archivebox_cmd(
+        ["install", "--binproviders=pip,env", name],
+        cwd=initialized_archive,
+        timeout=120,
+        env=runtime_env,
+        default_cli_env=True,
+        disable_extractors=True,
+    )
+    assert cached_install.returncode == 0, cached_install.stdout + cached_install.stderr
     with use_archivebox_db(initialized_archive):
         recovered = Binary.objects.get(pk=queued_id)
         # Providers may resolve their own dependencies during installation. Those
@@ -261,4 +272,4 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     assert Path(recovered.abspath) == provider_bin_dir / name
     assert recovered.binprovider == "pip"
     assert Path(recovered.abspath).is_file()
-    assert process_exit_codes == [1, 0]
+    assert process_exit_codes == [1, 0, 0]

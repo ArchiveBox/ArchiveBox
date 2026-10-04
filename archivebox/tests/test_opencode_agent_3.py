@@ -99,7 +99,12 @@ def test_opencode_proxy_restarts_server_for_an_existing_agent_page(admin_client,
         HTTP_SEC_FETCH_SITE="same-origin",
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, {
+        "installed_lib": live_opencode.settings["config"].get("ABXPKG_LIB_DIR"),
+        "request_lib": response.wsgi_request.archivebox_config.ABXPKG_LIB_DIR,
+        "installed_binary": live_opencode.settings["binary"],
+        "request_binary": getattr(response.wsgi_request.archivebox_config, "OPENCODE_BINARY", None),
+    }
     assert runtime._PROCESS is not None
     assert runtime._PROCESS is not old_process
     assert runtime._PROCESS.poll() is None
