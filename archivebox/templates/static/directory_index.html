@@ -8,278 +8,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% blocktranslate %}Index of {{ directory }}{% endblocktranslate %}</title>
     <style>
-      :root {
-        color-scheme: light;
-        --bg: #f3f5f8;
-        --panel: #ffffff;
-        --panel-border: #d9e0e8;
-        --text: #16202a;
-        --muted: #5e6b78;
-        --accent: #0f5cc0;
-        --accent-soft: #e7f0ff;
-        --folder-bg: #f6f9ff;
-        --folder-border: #d6e5ff;
-        --shadow: 0 10px 30px rgba(20, 32, 52, 0.08);
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        background: linear-gradient(180deg, #eef3f9 0%, var(--bg) 100%);
-        color: var(--text);
-        font-family:
-          ui-sans-serif,
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          "Segoe UI",
-          sans-serif;
-      }
-
-      body {
-        min-height: 100vh;
-        padding: 12px;
-      }
-
-      .directory-shell {
-        width: min(980px, 100%);
-        margin: 0 auto;
-      }
-
-      .directory-toolbar {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 14px;
-        padding: 12px;
-        border: 1px solid var(--panel-border);
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.9);
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(10px);
-      }
-
-      .toolbar-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 40px;
-        padding: 0 14px;
-        border: 1px solid var(--panel-border);
-        border-radius: 999px;
-        background: #fff;
-        color: var(--text);
-        font-size: 14px;
-        font-weight: 600;
-        text-decoration: none;
-        transition:
-          background-color 0.15s ease,
-          border-color 0.15s ease,
-          transform 0.15s ease;
-      }
-
-      .toolbar-link:hover {
-        background: #f8fbff;
-        border-color: #c5d2e0;
-        transform: translateY(-1px);
-      }
-
-      .toolbar-link.primary {
-        background: var(--accent-soft);
-        border-color: var(--folder-border);
-        color: var(--accent);
-      }
-
-      .archivebox-zip-spinner {
-        display: none;
-        width: 14px;
-        height: 14px;
-        border: 2px solid #2563eb;
-        border-right-color: transparent;
-        border-radius: 999px;
-        animation: archivebox-zip-spin 0.75s linear infinite;
-        flex: 0 0 auto;
-        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
-      }
-
-      .archivebox-zip-button.is-loading {
-        pointer-events: none;
-        opacity: 0.96;
-      }
-
-      .archivebox-zip-button.is-loading .archivebox-zip-spinner {
-        display: inline-block;
-      }
-
-      .archivebox-zip-button.is-loading .archivebox-zip-label {
-        opacity: 0.72;
-      }
-
-      @keyframes archivebox-zip-spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      .directory-card {
-        background: var(--panel);
-        border: 1px solid var(--panel-border);
-        border-radius: 18px;
-        box-shadow: var(--shadow);
-        overflow: hidden;
-      }
-
-      .directory-header {
-        padding: 12px 16px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-        border-bottom: 1px solid var(--panel-border);
-        background:
-          radial-gradient(circle at top right, rgba(15, 92, 192, 0.08), transparent 28%),
-          linear-gradient(180deg, #ffffff, #f8fbff);
-      }
-
-      .directory-title {
-        margin: 0;
-        font-size: 14px;
-        line-height: 1.1;
-        word-break: break-word;
-      }
-
-      .directory-meta {
-        margin-left: auto;
-        color: var(--muted);
-        font-size: 14px;
-      }
-
-      .directory-list {
-        list-style: none;
-        margin: 0;
-        padding: 12px;
-      }
-
-      .directory-entry { display: flex; align-items: center; gap: 8px; }
+      :root { color-scheme: light; --line: #dfe4eb; --text: #253247; --muted: #667085; --accent: #245dc1; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; min-height: 100%; background: white; color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
+      main { width: 100%; }
+      a { color: inherit; text-decoration: none; }
+      .directory-toolbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+      .toolbar-link, .entry-download { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 30px; padding: 4px 9px; border: 1px solid var(--line); border-radius: 4px; background: white; }
+      .toolbar-link:hover, .entry-download:hover { background: #f0f5ff; }
+      .directory-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: #f8fafc; }
+      .directory-title { margin: 0; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+      .directory-meta { margin-left: auto; color: var(--muted); white-space: nowrap; }
+      #filter-files { min-width: 0; width: 180px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+      .directory-list { list-style: none; margin: 0; padding: 0; }
+      .directory-entry { display: flex; align-items: center; gap: 8px; height: 50px; padding-right: 12px; border-bottom: 1px solid var(--line); }
       .directory-entry[hidden] { display: none; }
-      .directory-link { min-width: 0; flex: 1; }
-      .entry-download { flex-shrink: 0; padding: 6px 10px; color: var(--accent); text-decoration: none; border: 1px solid var(--panel-border); border-radius: 6px; }
-      #filter-files { padding: 7px 10px; border: 1px solid var(--panel-border); border-radius: 6px; font: inherit; min-width: 0; width: 180px; }
-      .directory-entry + .directory-entry {
-        margin-top: 6px;
-      }
-
-      .directory-link {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        width: 100%;
-        padding: 12px 14px;
-        border: 1px solid transparent;
-        border-radius: 12px;
-        color: inherit;
-        text-decoration: none;
-        transition:
-          background-color 0.15s ease,
-          border-color 0.15s ease,
-          transform 0.15s ease,
-          box-shadow 0.15s ease;
-      }
-
-      .directory-link:hover {
-        background: #f8fbff;
-        border-color: var(--panel-border);
-        transform: translateY(-1px);
-      }
-
-      .directory-link:focus-visible {
-        outline: 3px solid rgba(15, 92, 192, 0.2);
-        outline-offset: 1px;
-      }
-
-      .directory-entry.folder .directory-link {
-        background: var(--folder-bg);
-        border-color: var(--folder-border);
-      }
-
-      .entry-icon {
-        flex: 0 0 auto;
-        width: 34px;
-        height: 34px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 10px;
-        background: #edf2f8;
-        font-size: 18px;
-      }
-
-      .entry-preview { flex: 0 0 80px; width: 80px; height: 64px; margin: 0; overflow: hidden; border: 1px solid var(--panel-border); border-radius: 6px; background: white; }
+      .directory-entry:hover { background: #f8fafc; }
+      .directory-link { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 12px; min-width: 0; flex: 1; height: 100%; padding: 6px 12px; }
+      a:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+      .entry-icon, .entry-preview { width: 48px; height: 36px; margin: 0; overflow: hidden; border-radius: 3px; }
+      .entry-icon { display: grid; place-items: center; font-size: 20px; }
+      .entry-preview { border: 1px solid var(--line); background: white; }
       img.entry-preview { object-fit: contain; }
-      pre.entry-preview { padding: 4px; white-space: pre-wrap; overflow-wrap: anywhere; font: 8px/1.25 ui-monospace, monospace; color: var(--muted); }
-      .directory-entry.folder .entry-icon {
-        background: var(--accent-soft);
-      }
-
-      .entry-label {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-      }
-
-      .entry-name {
-        font-size: 15px;
-        font-weight: 600;
-        line-height: 1.35;
-        word-break: break-word;
-      }
-
-      .entry-kind {
-        color: var(--muted);
-        font-size: 12px;
-        line-height: 1.2;
-      }
-
-      .directory-entry.parent .entry-kind {
-        color: var(--accent);
-      }
-
-      .empty-state {
-        padding: 28px 24px 32px;
-        text-align: center;
-        color: var(--muted);
-      }
-
-      @media (max-width: 640px) {
-        body {
-          padding: 14px;
-        }
-
-        .directory-header {
-          padding: 18px 18px 16px;
-        }
-
-        .directory-list {
-          padding: 10px;
-        }
-
-        .directory-link {
-          padding: 11px 12px;
-        }
-      }
+      pre.entry-preview { padding: 3px; white-space: pre-wrap; overflow-wrap: anywhere; font: 7px/1.2 ui-monospace, monospace; color: var(--muted); }
+      .entry-label { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+      .entry-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+      .entry-kind { color: var(--muted); font-size: 11px; }
+      .entry-download { flex-shrink: 0; color: var(--accent); }
+      .empty-state { padding: 24px; text-align: center; color: var(--muted); }
+      .archivebox-zip-spinner { display: none; width: 12px; height: 12px; border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; animation: archivebox-zip-spin .75s linear infinite; }
+      .archivebox-zip-button.is-loading { pointer-events: none; opacity: .7; }
+      .archivebox-zip-button.is-loading .archivebox-zip-spinner { display: inline-block; }
+      @keyframes archivebox-zip-spin { to { transform: rotate(360deg); } }
+      @media (max-width: 480px) { #filter-files { width: 130px; } }
     </style>
   </head>
   <body>
-    <main class="directory-shell">
+    <main>
       <nav class="directory-toolbar" aria-label="Directory navigation">
         {% if directory != "/" %}
           <a class="toolbar-link" href="../{{ directory_query }}">↩ Up One Level</a>
@@ -296,7 +61,7 @@
         </a>
       </nav>
 
-      <section class="directory-card">
+      <section>
         <header class="directory-header">
           <h1 class="directory-title">{{ directory }}</h1>
           <div class="directory-meta" id="file-count" aria-live="polite">
@@ -331,7 +96,7 @@
                     <span class="entry-icon" aria-hidden="true">{% if entry.is_dir %}📁{% else %}📄{% endif %}</span>
                   {% endif %}
                   <span class="entry-label">
-                    <span class="entry-name">{{ f }}</span>
+                    <span class="entry-name" title="{{ f }}">{{ f }}</span>
                     <span class="entry-kind">{% if entry.is_dir %}Directory{% else %}{{ entry.size }}{% endif %}</span>
                   </span>
                 </a>

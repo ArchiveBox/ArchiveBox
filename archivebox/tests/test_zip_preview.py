@@ -85,6 +85,11 @@ def test_directory_filter_and_row_downloads(snapshot, live_server):
         expect(page.locator('pre[data-url="note.txt?raw=1"]')).to_have_text("raw file download")
         expect(page.locator('pre[data-url="small.html?raw=1"]')).to_contain_text('<script>document.title="unsafe"</script>')
         assert page.title() != "unsafe"
+        assert set(page.locator(".directory-entry").evaluate_all("rows => rows.map(row => row.getBoundingClientRect().height)")) == {50}
+        assert len(set(page.locator(".entry-name").evaluate_all("names => names.map(name => name.getBoundingClientRect().left)"))) == 1
+        assert page.locator("main").evaluate(
+            "node => node.getBoundingClientRect().width === innerWidth && node.getBoundingClientRect().left === 0",
+        )
         assert page.locator('pre[data-url="large.txt?raw=1"]').count() == 0
         page.wait_for_function('document.querySelector("img.entry-preview").naturalWidth === 32')
         page.get_by_role("searchbox", name="Filter files").fill("NOTE")
