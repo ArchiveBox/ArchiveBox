@@ -423,6 +423,11 @@ def main(**kwargs):
             existing = [token.strip() for token in (kwargs.get("plugins") or "").split(",") if token.strip()]
             kwargs["plugins"] = ",".join(dict.fromkeys([*existing, *selected]))
 
+        from archivebox.machine.models import Process
+
+        # CLI commands own their process record and logs. Queue model saves
+        # must not register a process implicitly: HTTP add() shares that path.
+        Process.current()
         add(urls=urls, **kwargs)
 
 

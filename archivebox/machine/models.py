@@ -48,7 +48,6 @@ _CURRENT_PROCESS: Process | None = None
 MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60
 NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60
 BINARY_RECHECK_INTERVAL = 1 * 30 * 60
-PROCESS_RECHECK_INTERVAL = 60  # Re-validate every 60 seconds
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
@@ -1180,6 +1179,10 @@ class Process(ModelWithDeleteAfter, models.Model):
             models.Index(fields=["process_type", "worker_type", "pwd", "started_at"]),
             models.Index(fields=["machine", "process_type", "-modified_at"], name="mach_proc_recent_idx"),
             models.Index(fields=["machine", "status", "process_type"], name="mach_proc_running_idx"),
+            # Recovery visits active processes across machines. Without this
+            # index SQLite scans historical hook rows before returning even an
+            # empty page, holding a read lock that blocks unrelated submissions.
+            models.Index(fields=["status", "id"], name="mach_proc_status_id_idx"),
         ]
         constraints = [
             # This is deliberately machine-scoped. It prevents two locally
@@ -1434,39 +1437,18 @@ class Process(ModelWithDeleteAfter, models.Model):
 
         current_pid = os.getpid()
 
-        # Fast path used by model save diagnostics and hot runner loops. A
-        # cached Process object is valid when the immutable identity we wrote
-        # at creation time still describes this Python process. PID reuse cannot
-        # happen while this process is alive, so pid + present started_at/cmd is
-        # enough here; the slower psutil validation below remains the fallback
-        # for missing/stale cache.
-        if (
-            _CURRENT_PROCESS
-            and _CURRENT_PROCESS.pid == current_pid
-            and _CURRENT_PROCESS.status == cls.StatusChoices.RUNNING
-            and timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)
-            and _CURRENT_PROCESS.started_at is not None
-            and bool(_CURRENT_PROCESS.cmd)
-        ):
-            return _CURRENT_PROCESS
+        # This is process identity, not a health check. A live Python process
+        # cannot reuse its own PID, and a fork fails current_readonly's PID
+        # check. Expiring this cache by modified_at made every call after 60s
+        # query the database and touch logs until something else saved the row.
+        # Explicit lifecycle/recovery code owns liveness and interface refresh.
+        cached = cls.current_readonly()
+        if cached is not None:
+            return cached
+        _CURRENT_PROCESS = None
 
         machine = Machine.current()
         iface = NetworkInterface.current()
-
-        # Check cache validity
-        if _CURRENT_PROCESS:
-            # Verify: same PID, same machine, cache not expired
-            if (
-                _CURRENT_PROCESS.pid == current_pid
-                and _CURRENT_PROCESS.machine_id == machine.id
-                and timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)
-            ):
-                if _CURRENT_PROCESS.iface_id != iface.id:
-                    _CURRENT_PROCESS.iface = iface
-                    _CURRENT_PROCESS.save(update_fields=["iface", "modified_at"])
-                _CURRENT_PROCESS.ensure_log_files()
-                return _CURRENT_PROCESS
-            _CURRENT_PROCESS = None
 
         # Get actual process start time from OS for validation
         os_start_time = None

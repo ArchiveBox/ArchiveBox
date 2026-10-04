@@ -122,7 +122,7 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
     if len(lookup) == 12 and "-" not in lookup:
         # Resolve suffixes using the covering primary-key index before fetching
         # wide snapshot rows and joining their crawl/user data.
-        matches = list(Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True))
+        matches = Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True)
         return snapshots.filter(pk__in=matches).order_by("-created_at", "-downloaded_at").first()
 
     try:
