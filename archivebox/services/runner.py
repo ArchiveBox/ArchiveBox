@@ -12,6 +12,7 @@ import threading
 import time
 from contextlib import nullcontext
 from datetime import timedelta
+from itertools import batched
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Literal
@@ -1903,7 +1904,24 @@ def run_install(*, plugin_names: list[str] | None = None) -> None:
 
 def _first_due_id(queryset, *, newest_first: bool = False):
     ordering = ("-retry_at", "-created_at") if newest_first else ("retry_at", "created_at")
-    return queryset.order_by(*ordering).values_list("id", flat=True).first()
+    # Queue membership comes from retry_at, not status: almost the entire
+    # archive can be sealed while only a handful of rows need maintenance.
+    # Combining both predicates lets SQLite choose the broad status index and
+    # scan/sort archival history on every idle pass (567ms on Cabbage vs 3ms
+    # through retry_at). First materialize bounded due IDs using the existing
+    # queue index, then apply status/parent filters to those IDs. This also
+    # bounds PostgreSQL reads and keeps every cursor closed before a CAS claim.
+    due_ids = (
+        queryset.model.objects.filter(retry_at__lte=timezone.now())
+        .order_by(*ordering)
+        .values_list("id", flat=True)
+        .paged_iterator(chunk_size=100)
+    )
+    for candidate_ids in batched(due_ids, 100):
+        match = queryset.filter(id__in=candidate_ids).order_by(*ordering).values_list("id", flat=True).first()
+        if match is not None:
+            return match
+    return None
 
 
 def _run_due_crawl_status(
@@ -1974,12 +1992,8 @@ def _run_due_snapshot_id(snapshot_id, *, lock_seconds: int, interactive_interrup
 def _run_due_binary() -> bool:
     from archivebox.machine.models import Binary
 
-    due_binary_id = (
-        Binary.objects.filter(retry_at__lte=timezone.now())
-        .exclude(status=Binary.StatusChoices.INSTALLED)
-        .order_by("retry_at", "created_at")
-        .values_list("id", flat=True)
-        .first()
+    due_binary_id = _first_due_id(
+        Binary.objects.filter(retry_at__lte=timezone.now()).exclude(status=Binary.StatusChoices.INSTALLED),
     )
     if due_binary_id is None:
         return False

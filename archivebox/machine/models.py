@@ -472,7 +472,7 @@ class NetworkInterface(ModelWithHealthStats):
         return _CURRENT_INTERFACE
 
 
-class BinaryManager(models.Manager):
+class BinaryManager(models.Manager.from_queryset(PagedQuerySet)):
     def get_from_db_or_cache(self, name: str, abspath: str = "", version: str = "", sha256: str = "", binprovider: str = "env") -> Binary:
         """Get or create an Binary record from the database or cache."""
         cached = _CURRENT_BINARIES.get(name)
