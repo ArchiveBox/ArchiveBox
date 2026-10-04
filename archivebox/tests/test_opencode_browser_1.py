@@ -88,19 +88,32 @@ const puppeteer = require('puppeteer');
 const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
 (async () => {
   const browser = await puppeteer.launch({executablePath: config.chrome, headless: true,
-    args: ['--no-sandbox', '--disable-frame-rate-limit']});
+    args: [...config.chromeArgs, '--no-sandbox']});
+  const requestTimings = new Map();
+  const browserErrors = [];
+  let page;
   try {
-    const page = await browser.newPage();
+    page = await browser.newPage();
     const escapedRequests = [];
     const agentRequests = [];
     page.on('request', request => {
       const url = new URL(request.url());
+      requestTimings.set(request, {url: url.pathname, started: performance.now()});
       if (url.pathname.startsWith('/admin/agent/opencode/')) agentRequests.push(url.pathname);
       if (request.frame()?.parentFrame() && url.origin === config.url &&
           !url.pathname.startsWith('/admin/agent/opencode/')) {
         escapedRequests.push(request.method() + ' ' + url.pathname);
       }
     });
+    page.on('requestfinished', request => {
+      const timing = requestTimings.get(request);
+      if (timing) Object.assign(timing, {status: request.response()?.status(), elapsed: performance.now() - timing.started});
+    });
+    page.on('requestfailed', request => {
+      const timing = requestTimings.get(request);
+      if (timing) Object.assign(timing, {error: request.failure(), elapsed: performance.now() - timing.started});
+    });
+    page.on('pageerror', error => browserErrors.push(String(error)));
     await page.setViewport({width: 1440, height: 900});
     await page.goto(config.url + '/admin/login/', {waitUntil: 'domcontentloaded'});
     await page.locator('#login-form input[name="username"]').fill('agent-browser-test');
@@ -276,12 +289,25 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
     const returningFrame = await (await page.waitForSelector('iframe[title="OpenCode Agent"]')).contentFrame();
     await returningFrame.waitForSelector('::-p-aria(New session[role="button"])');
     console.log('AGENT_NAVIGATION_OK');
+  } catch (error) {
+    const frames = await Promise.all((page?.frames() || []).map(async frame => ({
+      url: frame.url(), body: await frame.$eval('body', node => node.innerText.slice(0, 4000)).catch(String),
+    })));
+    console.error(JSON.stringify({browserErrors, frames, requests: [...requestTimings.values()]}));
+    throw error;
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });
 """
     result = subprocess.run(
         [str(browser_runtime["node_binary"]), "-e", script],
-        input=json.dumps({"chrome": str(browser_runtime["chrome_binary"]), "url": server_url, "filename": filename}),
+        input=json.dumps(
+            {
+                "chrome": str(browser_runtime["chrome_binary"]),
+                "chromeArgs": browser_runtime["chrome_args"],
+                "url": server_url,
+                "filename": filename,
+            },
+        ),
         env={**os.environ, "NODE_PATH": browser_runtime["node_path"]},
         text=True,
         capture_output=True,

@@ -62,8 +62,7 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
     const browser = await puppeteer.launch({
       executablePath: config.chrome,
       headless: true,
-      // Headless interaction must not depend on the desktop display clock.
-      args: ['--no-sandbox', '--disable-frame-rate-limit', ...(disabled ? ['--disable-local-storage'] : [])],
+      args: [...config.chromeArgs, '--no-sandbox', ...(disabled ? ['--disable-local-storage'] : [])],
     });
     try {
       const page = await browser.newPage();
@@ -149,6 +148,7 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
         input=json.dumps(
             {
                 "chrome": str(browser_runtime["chrome_binary"]),
+                "chromeArgs": browser_runtime["chrome_args"],
                 "url": f"{server_url}/admin/agent",
                 "workdir": str(data_dir.resolve()),
             },

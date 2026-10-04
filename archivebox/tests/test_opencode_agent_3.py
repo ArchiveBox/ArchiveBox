@@ -44,7 +44,7 @@ def test_opencode_cold_agent_wrapper_returns_before_server_starts(admin_client, 
     assert time.monotonic() - started < 3
     assert not runtime._owned_process_running()
     assert b'id="opencode-agent-welcome"' in response.content
-    assert f'<iframe data-src="{runtime._project_route(installed_opencode.config.data_dir)}"'.encode() in response.content
+    assert f'<iframe data-src="{response.context["proxy_url"]}"'.encode() in response.content
 
 
 def test_opencode_proxy_serves_real_project_and_session(admin_client, live_opencode):
@@ -53,9 +53,7 @@ def test_opencode_proxy_serves_real_project_and_session(admin_client, live_openc
 
     agent = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     assert agent.status_code == 200
-    from abx_plugins.plugins.opencode import runtime
-
-    frame_path = runtime._project_route(live_opencode.config.data_dir)
+    frame_path = agent.context["proxy_url"]
     frame = admin_client.get(frame_path, HTTP_HOST=ADMIN_TEST_HOST)
     assert frame.status_code == 302
     session_id = frame.headers["Location"].rsplit("/", 1)[-1]

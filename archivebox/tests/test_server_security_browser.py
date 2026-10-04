@@ -387,6 +387,9 @@ main().catch(async (error) => {
 
 @pytest.fixture
 def browser_runtime(cached_abxpkg_lib_dir):
+    from abx_plugins import get_plugins_dir
+    from abx_plugins.plugins.base.utils import get_config
+
     # Security modes need isolated collections, but the browser installation is
     # shared. Rebuilding it for every mode adds unrelated registry dependencies
     # and discards the real binary cache already provided by the test helpers.
@@ -399,6 +402,11 @@ def browser_runtime(cached_abxpkg_lib_dir):
     )
     env.pop("CHROME_BINARY", None)
     resolved_env = resolve_abxpkg_chrome_env(shared_lib, env)
+    chrome_config = get_config(
+        Path(get_plugins_dir()) / "chrome" / "config.json",
+        environ={**env, **resolved_env},
+        hydrate_binaries=False,
+    )
 
     return {
         "lib_dir": shared_lib,
@@ -406,6 +414,7 @@ def browser_runtime(cached_abxpkg_lib_dir):
         "node_path": resolved_env["NODE_PATH"],
         "node_binary": Path(resolved_env["NODE_BINARY"]),
         "chrome_binary": Path(resolved_env["CHROME_BINARY"]),
+        "chrome_args": [*chrome_config.CHROME_ARGS, *chrome_config.CHROME_ARGS_EXTRA],
     }
 
 

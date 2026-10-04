@@ -185,10 +185,9 @@ def test_opencode_starts_with_isolated_state(admin_client, live_opencode):
     assert not (Path(workdir) / ".git").exists()
     agent = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     assert agent.status_code == 200
-    from abx_plugins.plugins.opencode import runtime
 
     frame = admin_client.get(
-        runtime._project_route(live_opencode.config.data_dir),
+        agent.context["proxy_url"],
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert frame.status_code == 302

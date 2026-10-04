@@ -60,7 +60,7 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     from abx_plugins.plugins.opencode import runtime
 
     response = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
-    frame_path = runtime._project_route(live_opencode.config.data_dir)
+    frame_path = response.context["proxy_url"]
 
     assert response.status_code == 200
     assert f'<iframe data-src="{frame_path}"'.encode() in response.content
@@ -230,7 +230,7 @@ def test_opencode_invalid_state_does_not_break_archivebox(admin_client, live_ope
     wrapper = admin_client.get("/admin/agent", HTTP_HOST=ADMIN_TEST_HOST)
     assert wrapper.status_code == 200
     for url in (
-        runtime._project_route(live_opencode.config.data_dir),
+        wrapper.context["proxy_url"],
         "/admin/agent/opencode/global/health",
     ):
         response = admin_client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
