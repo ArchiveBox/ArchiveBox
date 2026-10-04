@@ -2008,9 +2008,10 @@ def browser_runtime(cached_abxpkg_lib_dir):
     from abx_plugins import get_plugins_dir
     from abx_plugins.plugins.base.utils import get_config
 
-    # Security modes need isolated collections, but the browser installation is
-    # shared. Rebuilding it for every mode adds unrelated registry dependencies
-    # and discards the real binary cache already provided by the test helpers.
+    # UI tests need isolated collections, but share the browser installation.
+    # Resolve it through the same abxpkg schema/cache as capture hooks rather
+    # than downloading Playwright's separate Chromium in CI. This keeps local
+    # and CI runs on the supported install path without per-test cold installs.
     shared_lib = cached_abxpkg_lib_dir
     env = cli_env(
         ABXPKG_LIB_DIR=str(shared_lib),

@@ -119,6 +119,7 @@ def test_isolated_snapshot_delete_button_hands_off_to_admin_without_sharing_admi
     admin_user,
     real_hash_projection,
     live_server,
+    browser_runtime,
 ):
     from playwright.sync_api import sync_playwright
 
@@ -146,6 +147,7 @@ def test_isolated_snapshot_delete_button_hands_off_to_admin_without_sharing_admi
     snap_origin = f"http://{get_snapshot_host(str(snapshot.id))}"
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
             args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1, MAP archivebox.localhost 127.0.0.1"],
         )
         context = browser.new_context()

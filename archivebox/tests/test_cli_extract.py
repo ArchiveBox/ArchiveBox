@@ -81,7 +81,7 @@ def test_extract_runs_on_existing_snapshots(archive_with_extractors):
     assert archiveresults["wget"].output_files["example.com/index.html"]["size"] == wget_path.stat().st_size
 
 
-def test_wget_literal_percent_output_url_serves_captured_file(initialized_archive, snapshot, live_server):
+def test_wget_literal_percent_output_url_serves_captured_file(initialized_archive, snapshot, live_server, browser_runtime):
     """Replay the real HedgeDoc link-interstitial file saved by wget."""
     import shutil
     from urllib.parse import quote
@@ -155,7 +155,10 @@ def test_wget_literal_percent_output_url_serves_captured_file(initialized_archiv
     )
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
         page = browser.new_page()
         page.goto(f"http://web.archivebox.localhost:{port}{ui_snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
         expected_path = quote(str(output_path), safe="/@=")
