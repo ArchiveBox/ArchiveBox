@@ -13,7 +13,7 @@ from playwright.sync_api import sync_playwright
 
 
 @pytest.mark.django_db(transaction=True)
-def test_archived_srcset_recovers_only_missing_image_candidates(snapshot, live_server):
+def test_archived_srcset_recovers_only_missing_image_candidates(snapshot, live_server, browser_runtime):
     from abx_plugins import get_plugins_dir
     from abx_plugins.plugins.base.testing import install_required_binary_from_config
     from archivebox.core.routes_util import get_snapshot_host
@@ -38,7 +38,10 @@ def test_archived_srcset_recovers_only_missing_image_candidates(snapshot, live_s
     host = get_snapshot_host(str(snapshot.id)).split(":")[0]
     origin = f"http://{host}:{port}"
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
         for density, archive_format, include_logo in (
             (1, "warc", True),
             (2, "warc", True),
