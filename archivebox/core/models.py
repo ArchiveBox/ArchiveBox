@@ -1203,7 +1203,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def hydrate_archiveresult_output_metadata(self, snapshot_dir: Path | None = None) -> int:
         """Populate missing ArchiveResult file metadata from existing outputs."""
         hydrated = 0
-        for result in self.archiveresult_set.filter(output_files={}).iterator():
+        # Files may live on slow remote storage: finish the bounded read before
+        # inspecting outputs or writing their metadata back to the database.
+        for result in self.archiveresult_set.filter(output_files={}).order_by("pk").paged_iterator():
             hydrated += int(result.update_output_metadata_from_filesystem(snapshot_dir=snapshot_dir))
         return hydrated
 
@@ -3948,6 +3950,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
 
 class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
+    objects = PagedQuerySet.as_manager()
+
     class StatusChoices(models.TextChoices):
         QUEUED = "queued", "Queued"
         STARTED = "started", "Started"
