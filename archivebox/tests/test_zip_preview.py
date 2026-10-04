@@ -70,13 +70,23 @@ def test_directory_filter_and_row_downloads(snapshot, live_server):
     root = snapshot.output_dir / "dropbox" / "files"
     (root / "nested").mkdir(parents=True)
     (root / "note.txt").write_text("raw file download")
+    (root / "small.html").write_text('<script>document.title="unsafe"</script><p>Inert preview</p>')
+    (root / "picture.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="blue"/></svg>',
+    )
+    (root / "large.txt").write_bytes(b"x" * (100 * 1024))
     (root / "nested" / "child.txt").write_text("folder member")
     host = get_snapshot_host(str(snapshot.id)).split(":")[0]
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
         page = browser.new_page(accept_downloads=True)
         page.goto(f"http://{host}:{port}/dropbox/files/?files=1")
-        expect(page.locator(".entry-download")).to_have_count(2)
+        expect(page.locator(".entry-download")).to_have_count(5)
+        expect(page.locator('pre[data-url="note.txt?raw=1"]')).to_have_text("raw file download")
+        expect(page.locator('pre[data-url="small.html?raw=1"]')).to_contain_text('<script>document.title="unsafe"</script>')
+        assert page.title() != "unsafe"
+        assert page.locator('pre[data-url="large.txt?raw=1"]').count() == 0
+        page.wait_for_function('document.querySelector("img.entry-preview").naturalWidth === 32')
         page.get_by_role("searchbox", name="Filter files").fill("NOTE")
         expect(page.locator(".directory-entry:not(.parent):visible")).to_have_count(1)
         expect(page.locator("#file-count")).to_have_text("1 item")

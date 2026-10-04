@@ -222,6 +222,9 @@
         font-size: 18px;
       }
 
+      .entry-preview { flex: 0 0 80px; width: 80px; height: 64px; margin: 0; overflow: hidden; border: 1px solid var(--panel-border); border-radius: 6px; background: white; }
+      img.entry-preview { object-fit: contain; }
+      pre.entry-preview { padding: 4px; white-space: pre-wrap; overflow-wrap: anywhere; font: 8px/1.25 ui-monospace, monospace; color: var(--muted); }
       .directory-entry.folder .entry-icon {
         background: var(--accent-soft);
       }
@@ -320,7 +323,13 @@
               {% with f=entry.name %}
               <li class="directory-entry{% if f|slice:'-1:' == '/' %} folder{% endif %}">
                 <a class="directory-link" href="{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% elif f|lower|slice:'-4:' == '.zip' %}?preview=1{% endif %}">
-                  <span class="entry-icon" aria-hidden="true">{% if f|slice:'-1:' == '/' %}📁{% else %}📄{% endif %}</span>
+                  {% if entry.preview_kind == "image" %}
+                    <img class="entry-preview" src="{{ f|urlencode }}?raw=1" alt="" loading="lazy" decoding="async">
+                  {% elif entry.preview_kind == "text" %}
+                    <pre class="entry-preview" data-url="{{ f|urlencode }}?raw=1" aria-hidden="true">…</pre>
+                  {% else %}
+                    <span class="entry-icon" aria-hidden="true">{% if entry.is_dir %}📁{% else %}📄{% endif %}</span>
+                  {% endif %}
                   <span class="entry-label">
                     <span class="entry-name">{{ f }}</span>
                     <span class="entry-kind">{% if entry.is_dir %}Directory{% else %}{{ entry.size }}{% endif %}</span>
@@ -346,6 +355,18 @@
         });
         document.getElementById("file-count").textContent = `${count} item${count === 1 ? "" : "s"}`;
       });
+      const previews = new IntersectionObserver((items) => {
+        for (const item of items) {
+          if (!item.isIntersecting) continue;
+          const preview = item.target;
+          previews.unobserve(preview);
+          fetch(preview.dataset.url)
+            .then((response) => { if (!response.ok) throw new Error("Unavailable"); return response.text(); })
+            .then((text) => { preview.textContent = text.slice(0, 12000); })
+            .catch(() => { preview.textContent = "📄"; });
+        }
+      }, {rootMargin: "100px"});
+      document.querySelectorAll("pre.entry-preview").forEach((preview) => previews.observe(preview));
       window.archiveboxHandleZipClick = function(link, event) {
         if (!link || link.dataset.loading === "1") {
           if (event) event.preventDefault();

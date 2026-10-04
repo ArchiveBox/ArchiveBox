@@ -328,3 +328,22 @@ def test_casefold_paths_remain_inside_archive_root(tmp_path: Path):
     assert relative.casefold() == "documents/note.txt"
     with pytest.raises(SuspiciousFileOperation):
         _resolve_archive_path(tmp_path, "../DOCUMENTS/note.TXT")
+
+
+def test_directory_previews_only_small_supported_files(tmp_path: Path):
+    (tmp_path / "small.txt").write_text("small preview")
+    (tmp_path / "exact-limit.txt").write_bytes(b"x" * (100 * 1024))
+    (tmp_path / "unknown.bin").write_bytes(b"\x00\x01")
+    (tmp_path / "picture.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+    response = serve_static_with_byterange_support(
+        RequestFactory().get("/snapshot/demo/?files=1"),
+        "",
+        document_root=tmp_path,
+        show_indexes=True,
+        is_archive_replay=True,
+    )
+    html = response.content.decode()
+    assert 'data-url="small.txt?raw=1"' in html
+    assert 'src="picture.svg?raw=1"' in html
+    assert 'data-url="exact-limit.txt?raw=1"' not in html
+    assert 'data-url="unknown.bin?raw=1"' not in html

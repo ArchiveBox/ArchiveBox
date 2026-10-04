@@ -32,6 +32,7 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.plugins.discovery import render_plugin_full_response
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
+DIRECTORY_PREVIEW_MAX_BYTES = 100 * 1024
 FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
 IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
@@ -309,10 +310,22 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
         file_list.append(url)
 
         stat_result = entry.stat()
+        preview_kind = ""
+        if entry.is_file() and stat_result.st_size < DIRECTORY_PREVIEW_MAX_BYTES:
+            mime = mimetypes.guess_type(entry.name)[0] or ""
+            if mime.startswith("image/"):
+                preview_kind = "image"
+            elif (
+                mime.startswith("text/")
+                or re.search(r"(?:json|xml|javascript|ecmascript|yaml|toml|graphql|sql)", mime)
+                or entry.suffix.lower() in {".log", ".jsonl", ".toml"}
+            ):
+                preview_kind = "text"
         entries.append(
             {
                 "name": url,
                 "url": url,
+                "preview_kind": preview_kind,
                 "is_dir": entry.is_dir(),
                 "size": "—" if entry.is_dir() else printable_filesize(stat_result.st_size),
                 "timestamp": _format_direntry_timestamp(stat_result),
