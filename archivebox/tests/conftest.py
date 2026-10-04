@@ -444,7 +444,7 @@ def hermetic_lib_dir(tmp_path):
 @pytest.fixture
 def cached_abxpkg_lib_dir():
     """Reuse one real abxpkg installation cache for the current pytest session."""
-    lib_dir = SESSION_DATA_DIR / "lib"
+    lib_dir = Path(os.environ["ABXPKG_LIB_DIR"]) if os.environ.get("ABXPKG_LIB_DIR") else SESSION_DATA_DIR / "lib"
     lib_dir.mkdir(parents=True, exist_ok=True)
     original_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
     os.environ["ABXPKG_LIB_DIR"] = str(lib_dir)

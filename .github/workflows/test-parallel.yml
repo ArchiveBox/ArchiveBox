@@ -136,6 +136,30 @@ jobs:
           enable-cache: false
           cache-dependency-glob: uv.lock
 
+      # Restored binaries still pass normal abxpkg resolution/version checks.
+      # Installation and isolation tests explicitly choose fresh temporary libs.
+      - name: Identify runtime dependency cache
+        shell: bash
+        run: |
+          uv run --no-project python - <<'PYTHON' >> "$GITHUB_ENV"
+          import hashlib
+          import json
+          import tomllib
+          from pathlib import Path
+
+          packages = tomllib.loads(Path("uv.lock").read_text())["package"]
+          versions = {p["name"]: p["version"] for p in packages if p["name"] in {"abxpkg", "abx-plugins"} and "editable" not in p["source"]}
+          print("ABXPKG_CACHE_DEPS=" + hashlib.sha256(json.dumps(versions, sort_keys=True).encode()).hexdigest())
+          PYTHON
+
+      - name: Reuse validated runtime dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/archivebox-lib
+          key: abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ env.CI_PYTHON_VERSION }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}
+          restore-keys: |
+            abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ env.CI_PYTHON_VERSION }}-${{ matrix.test.name }}-
+
       - name: Resolve optional build dependencies through abxpkg
         if: matrix.test.extra != '' || contains(matrix.test.paths_arg, 'test_postgres_backend')
         env:
@@ -189,9 +213,6 @@ jobs:
             export DATA_DIR="$RUNNER_TEMP/archivebox-test-data/$test_slug"
             export PERSONAS_DIR="$RUNNER_TEMP/abx-personas/$test_slug"
             export CHROME_USER_DATA_DIR="$PERSONAS_DIR/Default/chrome_profile"
-            if (( ${#test_paths[@]} > 1 )); then
-              export ABXPKG_LIB_DIR="$RUNNER_TEMP/archivebox-lib/$test_slug"
-            fi
             mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest/$test_slug"
             uv run --no-cache --no-sync --no-sources pytest -vs -n 2 "$GITHUB_WORKSPACE/$test_path" --durations=20 \
               --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
