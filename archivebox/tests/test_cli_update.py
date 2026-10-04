@@ -328,3 +328,39 @@ def test_update_seals_migrated_snapshots(initialized_archive):
         status = Snapshot.objects.values_list("status", flat=True).get()
 
     assert status == "sealed"
+
+
+@pytest.mark.parametrize("captured", [False, True])
+def test_index_only_distinguishes_uncaptured_metadata_from_missing_archive(initialized_archive, recursive_test_site, captured):
+    url = recursive_test_site["root_url"]
+    env = cli_env(disable_extractors=True)
+    if captured:
+        result = run_archivebox_cmd(["add", "--plugins=wget", url], cwd=initialized_archive, env=env, timeout=120)
+        assert result.returncode == 0, result.stdout + result.stderr
+    else:
+        created = run_archivebox_cmd(["snapshot", "create", url], cwd=initialized_archive, env=env, check=True)
+        sealed = run_archivebox_cmd(
+            ["snapshot", "update", "--status=sealed"],
+            cwd=initialized_archive,
+            env=env,
+            input=created.stdout,
+        )
+        assert sealed.returncode == 0, sealed.stdout + sealed.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(url=url)
+        directory = snapshot.output_dir
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        if captured:
+            assert snapshot.downloaded_at is not None
+            assert snapshot.archiveresult_set.filter(plugin="wget", status="succeeded").exists()
+            directory.rename(directory.with_name(directory.name + ".removed"))
+        else:
+            assert snapshot.downloaded_at is None
+            assert not snapshot.archiveresult_set.exists()
+        assert not directory.exists()
+    result = run_archivebox_cmd(["update", "--index-only"], cwd=initialized_archive, env=env, timeout=120)
+    if captured:
+        assert result.returncode != 0
+        assert "Missing snapshot directory" in result.stdout + result.stderr
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr

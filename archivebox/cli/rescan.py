@@ -195,6 +195,10 @@ def reconcile_known_snapshots(snapshots, wait_for_turn=None):
             snapshot.migrate_filesystem_to_current_version()
         directory = Path(snapshot.output_dir)
         if not directory.is_dir():
+            # Canceling queued metadata can seal a row before the runner ever
+            # creates storage. There is nothing on disk to reconcile for it.
+            if snapshot.downloaded_at is None and not snapshot.archiveresult_set.exists():
+                continue
             raise ValueError(f"Missing snapshot directory: {directory}")
         _reconcile_directory(directory)
         for result in snapshot.archiveresult_set.all():
