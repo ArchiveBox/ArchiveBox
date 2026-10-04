@@ -156,6 +156,22 @@ apt-get install -qq -y --no-install-recommends x11-utils
     --no-install-package abx-plugins \
     --no-install-package abx-dl \
     --no-sources
+# Sync may replace inherited dependencies (e.g. pydantic/rich-click), removing
+# their bytecode. Runtime writes are disabled, so missing caches would make
+# every hook compile them again. Compile only missing entries: compileall's
+# timestamp fast path rewrites even valid checked-hash caches, copying the
+# entire inherited venv into this OCI layer for no runtime benefit.
+/usr/bin/uv run --no-project --no-sync python - <<'PY'
+import importlib.util
+from pathlib import Path
+import py_compile
+import sysconfig
+
+for source in Path(sysconfig.get_path("purelib")).rglob("*.py"):
+    cache = Path(importlib.util.cache_from_source(str(source)))
+    if not cache.is_file():
+        py_compile.compile(str(source), doraise=True, invalidation_mode=py_compile.PycInvalidationMode.CHECKED_HASH)
+PY
 builder_abxpkg_lib_dir=/tmp/archivebox-builder-abxpkg
 ABXPKG_NO_CACHE=True abxpkg env --install --binproviders=env,apt --lib="$builder_abxpkg_lib_dir" --overrides='{"apt":{"install_args":["binutils"]}}' strip >/dev/null
 /usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print0 > /tmp/archivebox-native-libraries
@@ -287,6 +303,9 @@ RUN chmod +x "$CODE_DIR"/bin/*.sh \
     && chmod g+w "$TMP_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH"
 
 RUN for forbidden_bin in gcc g++ make; do ! abxpkg load --binproviders=env "$forbidden_bin" >/dev/null 2>&1 || (echo "Unexpected build tool in runtime: $forbidden_bin" >&2 && exit 1); done \
+    && test -f "$(/venv/bin/python -c 'import pydantic; print(pydantic.__cached__)')" \
+    && test -f "$(/venv/bin/python -c 'import rich_click; print(rich_click.__cached__)')" \
+    && test -f "$(/venv/bin/python -c 'import platformdirs; print(platformdirs.__cached__)')" \
     && stat -c "%U:%G %a %n" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$CONFIG_DIR" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$ABXPKG_LIB_DIR" \
