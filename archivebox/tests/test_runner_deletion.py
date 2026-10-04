@@ -11,6 +11,7 @@ from archivebox.tests.conftest import (
     cli_env,
     get_free_port,
     kill_processes_for_data_dir,
+    resolve_abxpkg_chrome_env,
     run_archivebox_cmd,
     start_archivebox_server,
     stop_archivebox_process,
@@ -37,8 +38,7 @@ def test_runner_retries_failed_deletion_without_blocking_captures(initialized_ar
     # Measure captures while deletion retries, not a cold browser installation.
     # Without setup, only the first case spends its capture deadline installing
     # Chrome; later cases silently benefit from the shared binary cache.
-    installed = run_archivebox_cmd(["install", "chrome", "title"], cwd=initialized_archive, env=env)
-    assert installed.returncode == 0, installed.stdout + installed.stderr
+    env.update(resolve_abxpkg_chrome_env(Path(env["ABXPKG_LIB_DIR"]), env))
     prepared = run_archivebox_cmd(
         [
             "manage",
