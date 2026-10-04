@@ -9,6 +9,31 @@ env:
   SHOW_PROGRESS: "False"
 
 jobs:
+  links:
+    name: Documentation links and anchors
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+      - name: List tracked documentation and source inputs
+        run: |
+          git ls-files -- '*.md' '*.html' '*.py' '*.rst' '*.yml' '*.yaml' '*.sh' '*.toml' > "$RUNNER_TEMP/link-inputs.txt"
+      - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          lycheeVersion: v0.24.2
+          args: >-
+            --config .github/lychee.toml
+            --root-dir "${{ github.workspace }}"
+            --files-from "${{ runner.temp }}/link-inputs.txt"
+          fail: true
+          failIfEmpty: true
+
   discover:
     name: Discover documentation examples
     runs-on: ubuntu-24.04
