@@ -37,8 +37,10 @@ def test_foreground_shutdown_second_signal_exits_immediately():
         from archivebox.core.shutdown_util import foreground_shutdown_signals
 
         with foreground_shutdown_signals(first_signal_message=None) as state:
-            print("READY", flush=True)
             try:
+                # The sender may signal as soon as READY is flushed, before
+                # signal.pause(); the handler must already be inside this try.
+                print("READY", flush=True)
                 signal.pause()
             except KeyboardInterrupt:
                 print(f"FIRST:{state.signal_name}", flush=True)
