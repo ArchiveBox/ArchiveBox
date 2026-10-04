@@ -148,7 +148,7 @@ This is intentionally limited to advisory threads where the maintainer explicitl
 
 - [ArchiveBox documentation](https://docs.archivebox.io/)
 - [ArchiveBox browser extension](https://github.com/ArchiveBox/archivebox-browser-extension)
-- [ArchiveBox REST API documentation](https://docs.archivebox.io/dev/#rest-api)
+- [ArchiveBox REST API documentation](https://docs.archivebox.io/dev/apidocs/archivebox/archivebox.api.html)
 - [ArchiveBox releases](https://github.com/ArchiveBox/ArchiveBox/releases)
 - [Full source comparison from v0.7.4 to the current v0.9 release candidate](https://github.com/ArchiveBox/ArchiveBox/compare/v0.7.4...v0.9.35rc410)
 

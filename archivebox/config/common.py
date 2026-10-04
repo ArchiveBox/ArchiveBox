@@ -522,7 +522,7 @@ class ArchivingConfig(BaseConfigSet):
             rprint("    (Setting it to somewhere between 30 and 3000 seconds is recommended)", file=sys.stderr)
             rprint(file=sys.stderr)
             rprint("    If you want to make ArchiveBox run faster, disable specific archive methods instead:", file=sys.stderr)
-            rprint("        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles", file=sys.stderr)
+            rprint("        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#plugins", file=sys.stderr)
             rprint(file=sys.stderr)
 
     @field_validator("CHECK_SSL_VALIDITY", mode="after")

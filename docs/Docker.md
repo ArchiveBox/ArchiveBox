@@ -8,16 +8,16 @@ Running ArchiveBox with Docker allows you to manage it in a container without ex
 
 <img src="https://imgur.zervice.io/qFAPRwC.png" width="20%" align="right"/>
 
-- [Overview](#Overview)
+- [Overview](#overview)
 - [Docker Compose](#docker-compose) ⭐️ (recommended)
   - [Setup](#setup)
-  - [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#upgrading-with-docker-compose-%EF%B8%8F)
+  - [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading#upgrading-with-docker-compose-%EF%B8%8F)
   - [Usage](#usage)
   - [Accessing the data](#accessing-the-data)
   - [Configuration](#configuration)
 - [Plain Docker](#docker)
   - [Setup](#setup-1)
-  - [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#upgrading-with-plain-docker)
+  - [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading#upgrading-with-plain-docker)
   - [Usage](#usage-1)
   - [Accessing the data](#accessing-the-data-1)
   - [Configuration](#configuration-1)
@@ -82,7 +82,7 @@ docker compose exec archivebox archivebox config --set SEARCH_BACKEND_ENGINE=rip
 
 ### Upgrading
 
-See the wiki page on [Upgrading or Merging Archives: Upgrading with Docker Compose](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#upgrading-with-docker-compose-%EF%B8%8F) for instructions. ➡️
+See the wiki page on [Upgrading or Merging Archives: Upgrading with Docker Compose](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading#upgrading-with-docker-compose-%EF%B8%8F) for instructions. ➡️
 
 <br/>
 
@@ -220,13 +220,13 @@ Then open `/admin/` on the hostname or IP used to reach ArchiveBox (local exampl
 
 *(You can create a collection in any directory you want, `~/archivebox/data` is just used as an example here)*
 
-If you encounter permissions issues, make sure the mounted data directory is writable by its intended owner. Docker startup uses explicit [`PUID`/`PGID`](#puid--pgid) values when supplied, otherwise the first non-root owner detected from the existing collection or the default `archivebox` user when the data directory is root-owned.
+If you encounter permissions issues, make sure the mounted data directory is writable by its intended owner. Docker startup uses explicit [`PUID`/`PGID`](#docker-puid--pgid) values when supplied, otherwise the first non-root owner detected from the existing collection or the default `archivebox` user when the data directory is root-owned.
 
 <br/>
 
 ### Upgrading
 
-See the wiki page on [Upgrading or Merging Archives: Upgrading with plain Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#upgrading-with-plain-docker) for instructions. ➡️
+See the wiki page on [Upgrading or Merging Archives: Upgrading with plain Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading#upgrading-with-plain-docker) for instructions. ➡️
 
 <br/>
 

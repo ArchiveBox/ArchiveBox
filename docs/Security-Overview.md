@@ -46,7 +46,7 @@ archivebox persona create --import=chrome personal
 archivebox add --persona=personal 'https://members.example.com/'
 ```
 
-To get started, import a dedicated browser profile into a [persona](https://github.com/ArchiveBox/ArchiveBox/wiki/Personas). A persona keeps its Chrome profile and `cookies.txt` together and applies the same identity consistently across extractors.
+To get started, import a dedicated browser profile into a [persona](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile). A persona keeps its Chrome profile and `cookies.txt` together and applies the same identity consistently across extractors.
 
 ➡️ For full instructions on setting up a Chromium user profile see here: https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
 
@@ -134,9 +134,9 @@ The ArchiveBox database is an unencrypted, uncompressed SQLite3 `index.sqlite3` 
 
 More info:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#disk-layout
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#database-troubleshooting
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#modify-the-archivebox-sqlite3-db-directly
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#example-adding-a-new-user-with-a-hashed-password
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#database
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication#username--password-the-default
 
 ### Filesystem
 
@@ -150,11 +150,11 @@ How much are you planning to archive? Only a few bookmarked articles, or thousan
 
 Consider what permissioning to apply to your archive folder carefully. Limit access to the fewest possible users by checking folder ownership and setting [`OUTPUT_PERMISSIONS`](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#output_permissions) accordingly. Generally the `index.sqlite3` file, `archive/` folder, and `ArchiveBox.conf` file must all be owned and writable by the `archivebox` user or a dedicated non-root user.
 
-When running with Docker, the entrypoint uses explicit [`PUID`/`PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#puid--pgid) values when supplied, otherwise the existing non-root owner of the mounted data directory or the image's `archivebox` user.
+When running with Docker, the entrypoint uses explicit [`PUID`/`PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#docker-permissions-issues) values when supplied, otherwise the existing non-root owner of the mounted data directory or the image's `archivebox` user.
 
 More info:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#disk-layout
 - https://github.com/ArchiveBox/ArchiveBox#output-formats
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#database-troubleshooting
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#filesystem-doesnt-support-fsync-eg-network-mounts
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#database
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts
 - https://github.com/ArchiveBox/ArchiveBox#storage-requirements

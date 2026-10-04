@@ -4,11 +4,11 @@
 
 What are you having an issue with?:
 
-- [Installing ArchiveBox](#Installing)
+- [Installing ArchiveBox](#installing)
 - [Upgrading ArchiveBox](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives)
 - [Configuring ArchiveBox](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)
-- [Archiving content with ArchiveBox](#Archiving)
-- [Hosting your collection publicly](#Hosting-the-Archive)
+- [Archiving content with ArchiveBox](#archiving)
+- [Hosting your collection publicly](#hosting-the-archive)
 - [Database and filesystem issues](#database)
 
 ---
@@ -296,5 +296,5 @@ See here for more info:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Merging-Collections
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#run-archivebox-as-an-unprivileged-user
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder

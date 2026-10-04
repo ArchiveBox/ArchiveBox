@@ -12,7 +12,7 @@
 - https://github.com/ArchiveBox/ArchiveBox/issues
 - https://github.com/ArchiveBox/ArchiveBox/pulls
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Roadmap
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Install#manual-setup
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup
 
 ### Development Setup
 

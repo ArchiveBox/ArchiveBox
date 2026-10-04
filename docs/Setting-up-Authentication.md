@@ -91,7 +91,7 @@ LDAP_LASTNAME_ATTR="sn"
 LDAP_EMAIL_ATTR="mail"
 ```
 
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#ldap
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#ldap-settings
 - https://github.com/ArchiveBox/ArchiveBox/pull/1214
 - https://github.com/django-auth-ldap/django-auth-ldap#example-configuration
 - https://jumpcloud.com/blog/what-is-ldap-authentication

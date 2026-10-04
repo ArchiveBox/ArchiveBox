@@ -18,7 +18,7 @@ services:
 <h4>Related Docs</h4>
 <ul>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox#archive-layout">README: Archive Layout</a></li>
-<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Disk-Layout">Wiki: Usage (Disk Layout)</a></li>
+<li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#disk-layout">Wiki: Usage (Disk Layout)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#large-archives">Wiki: Usage (Large Archives)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder">Wiki: Security Overview (Output Folder)</a></li>
 <li><a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive">Wiki: Publishing Your Archive</a></li>

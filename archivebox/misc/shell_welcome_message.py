@@ -48,10 +48,10 @@ if __name__ == "__main__":
 
     prnt("[i] :heavy_dollar_sign: Welcome to the ArchiveBox Shell!")
     prnt(
-        "    [deep_sky_blue4]Docs:[/deep_sky_blue4] [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage]https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#Shell-Usage[/link]",
+        "    [deep_sky_blue4]Docs:[/deep_sky_blue4] [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage]https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#python-shell-usage[/link]",
     )
     prnt(
-        "          [link=https://docs.archivebox.io/en/dev/apidocs/archivebox/archivebox.html]https://docs.archivebox.io/en/dev/apidocs/archivebox/archivebox.html[/link]",
+        "          [link=https://docs.archivebox.io/dev/apidocs/archivebox/archivebox.html]https://docs.archivebox.io/dev/apidocs/archivebox/archivebox.html[/link]",
     )
     prnt()
     prnt(" :grey_question: [violet]Hint[/] [i]Here are some examples to get started:[/]")
