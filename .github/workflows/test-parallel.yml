@@ -112,8 +112,18 @@ jobs:
 
     steps:
       - name: Set job-local runtime paths
+        env:
+          CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: |
+          workers=2
+          cache_suffix=''
+          if [[ "$CI_RUNNER_ENVIRONMENT" == github-hosted ]]; then
+            workers="$(nproc)"
+            cache_suffix="-workers-$workers"
+          fi
           {
+            echo "CI_TEST_WORKERS=$workers"
+            echo "ABXPKG_CACHE_WORKERS_SUFFIX=$cache_suffix"
             echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/archivebox-lib"
             echo "DATA_DIR=$RUNNER_TEMP/archivebox-test-data"
             echo "PERSONAS_DIR=$RUNNER_TEMP/abx-personas"
@@ -157,7 +167,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/archivebox-lib
-          key: abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}
+          key: abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}${{ env.ABXPKG_CACHE_WORKERS_SUFFIX }}
           restore-keys: |
             abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-
 
@@ -201,8 +211,10 @@ jobs:
       - name: Run ${{ matrix.test.name }}
         env:
           TEST_PATHS: ${{ matrix.test.paths_arg }}
+          CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: |
           set -Eeuo pipefail
+          echo "Running pytest with $CI_TEST_WORKERS workers on $CI_RUNNER_ENVIRONMENT"
           read -r -a test_paths <<< "$TEST_PATHS"
           for test_path in "${test_paths[@]}"; do
             test -f "$test_path"
@@ -215,7 +227,7 @@ jobs:
             export PERSONAS_DIR="$RUNNER_TEMP/abx-personas/$test_slug"
             export CHROME_USER_DATA_DIR="$PERSONAS_DIR/Default/chrome_profile"
             mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest/$test_slug"
-            uv run --no-cache --no-sync --no-sources pytest -vs -n 2 "$GITHUB_WORKSPACE/$test_path" --durations=20 \
+            uv run --no-cache --no-sync --no-sources pytest -vs -n "$CI_TEST_WORKERS" "$GITHUB_WORKSPACE/$test_path" --durations=20 \
               --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
               --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || test_status=1
           done
