@@ -13,6 +13,55 @@ from archivebox.crawls.models import Crawl
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_browser_metadata_respects_only_new_and_reports_capture_owner(client, api_headers):
+    url = "https://example.com/browser-deduplication"
+
+    def submit(only_new):
+        queued = client.post(
+            "/api/v1/cli/add",
+            data={"urls": [url], "only_new": only_new},
+            content_type="application/json",
+            **api_headers,
+        )
+        assert queued.status_code == 200, queued.content
+        crawl_id = queued.json()["result"]["crawl_id"]
+        metadata = client.post(
+            "/api/v1/core/snapshots",
+            data={"url": url, "crawl_id": crawl_id},
+            content_type="application/json",
+            **api_headers,
+        )
+        assert metadata.status_code == 200, metadata.content
+        return crawl_id, metadata.json()
+
+    first_crawl, first = submit(True)
+    second_crawl, reused = submit(True)
+    assert second_crawl != first_crawl
+    assert reused["id"] == first["id"]
+    assert reused["crawl_id"] == first_crawl
+    assert Snapshot.objects.filter(url=url).count() == 1
+    forced_crawl, forced = submit(False)
+    assert forced["id"] != first["id"]
+    assert forced["crawl_id"] == forced_crawl
+    assert Snapshot.objects.filter(url=url).count() == 2
+
+
+def test_snapshot_delete_only_queues_cleanup(client, api_headers):
+    created = client.post(
+        "/api/v1/core/snapshots",
+        data={"url": "https://example.com/queued-delete"},
+        content_type="application/json",
+        **api_headers,
+    )
+    assert created.status_code == 200, created.content
+    snapshot_id = created.json()["id"]
+    response = client.delete(f"/api/v1/core/snapshot/{snapshot_id}", **api_headers)
+    assert response.status_code == 200, response.content
+    assert response.json()["queued_count"] == 1
+    assert response.json()["deleted_count"] == 0
+    assert Snapshot.objects.get(pk=snapshot_id).status == Snapshot.DELETING_STATE
+
+
 def test_snapshots_api_filters_status_column(client, api_admin_user, api_headers):
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -216,11 +265,15 @@ def test_snapshot_metadata_requests_do_not_touch_archive_storage(client, api_adm
         fetched = client.get(f"/api/v1/core/snapshot/{snapshot_id}", **api_headers)
         assert fetched.status_code == 200, fetched.content
         assert fetched.json()["archiveresults"][0]["id"] == result_id
+        deleted = client.delete(f"/api/v1/core/snapshot/{snapshot_id}", **api_headers)
+        assert deleted.status_code == 200, deleted.content
+        assert deleted.json()["queued_count"] == 1
     finally:
         threading.setprofile_all_threads(thread_profile)
         sys.setprofile(previous)
     snapshot = Snapshot.objects.get(pk=snapshot_id)
     assert snapshot.title == "Updated title"
+    assert snapshot.status == Snapshot.DELETING_STATE
     assert list(snapshot.tags.values_list("name", flat=True)) == ["browser"]
     assert fetched.json()["title"] == "Updated title"
     assert storage_calls == []

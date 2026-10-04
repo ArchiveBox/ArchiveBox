@@ -55,6 +55,7 @@ from archivebox.api.v1_crawls import CrawlSchema, get_crawl_by_ref
 from archivebox.search.config import get_search_mode, get_search_mode_backend
 from archivebox.search.query import apply_snapshot_search
 from archivebox.core.snapshot_status import filter_snapshots_by_status, normalize_snapshot_status
+from archivebox.workers.models import RETRY_AT_MAX
 
 
 router = Router(tags=["Core Models"])
@@ -630,6 +631,7 @@ def patch_archiveresult(
 class SnapshotSchema(Schema):
     TYPE: str = "core.models.Snapshot"
     id: UUID
+    crawl_id: UUID
     created_by_id: str
     created_by_username: str
     created_at: datetime
@@ -704,6 +706,7 @@ class SnapshotDeleteResponseSchema(Schema):
     snapshot_id: str
     crawl_id: str
     deleted_count: int
+    queued_count: int
 
 
 def normalize_tag_list(tags: list[str] | None = None) -> list[str]:
@@ -942,6 +945,15 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     # lock. The unique insert recovery and CAS update below are the request-side
     # coordination boundary for this idempotent metadata sync.
     snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
+    if snapshot is None and bool(crawl.get_current_config().get("ONLY_NEW", True)):
+        # Uploading browser metadata is part of the same submission as /add.
+        # It must honor the runner's deduplication policy, even if it arrives
+        # before the runner has processed that crawl. Report the actual owner
+        # so clients never mistake a reused capture for one they just created.
+        snapshot = Snapshot.objects.filter(url=data.url).exclude(status=Snapshot.DELETING_STATE).order_by("-created_at").first()
+        if snapshot is not None:
+            setattr(request, "with_archiveresults", False)
+            return snapshot
     if snapshot is None:
         try:
             snapshot = Snapshot.objects.create(
@@ -1036,22 +1048,27 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
 
 @router.delete("/snapshot/{snapshot_id}", response=SnapshotDeleteResponseSchema, url_name="delete_snapshot")
 def delete_snapshot(request: HttpRequest, snapshot_id: str):
+    """Queue deletion; the normal server runner stops writers and removes files.
+
+    The snapshot remains readable with status=deleting until cleanup succeeds.
+    queued_count reports acceptance; deleted_count is zero in this response.
+    """
     snapshot = get_snapshot(request, snapshot_id, with_archiveresults=False)
     snapshot_id_str = str(snapshot.id)
-    crawl_id_str = str(snapshot.crawl.pk)
-    snapshot.cancel()
-
-    from archivebox.services.runner import run_pending_crawls
-
-    with crawl_lifecycle_lock(crawl_id_str):
-        run_pending_crawls(crawl_id=crawl_id_str, daemon=False)
-        snapshot = get_snapshot(request, snapshot_id_str, with_archiveresults=False)
-        deleted_count, _ = snapshot.delete()
+    crawl_id_str = str(snapshot.crawl_id)
+    # Use the same durable queue as the admin delete action. Stopping writers
+    # and removing archive files belongs to the runner, never the HTTP request.
+    queued_count = Snapshot.objects.filter(pk=snapshot.pk).update(
+        status=Snapshot.DELETING_STATE,
+        retry_at=RETRY_AT_MAX,
+        modified_at=timezone.now(),
+    )
     return {
         "success": True,
         "snapshot_id": snapshot_id_str,
         "crawl_id": crawl_id_str,
-        "deleted_count": deleted_count,
+        "deleted_count": 0,
+        "queued_count": queued_count,
     }
 
 
