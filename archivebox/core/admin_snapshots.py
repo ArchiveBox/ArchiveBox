@@ -52,7 +52,6 @@ from archivebox.core.models import Tag, Snapshot, ArchiveResult
 from archivebox.crawls.models import Crawl
 from archivebox.core.admin_archiveresults import render_archiveresults_list
 from archivebox.progressmonitor.views import progress_endpoint
-from archivebox.workers.models import RETRY_AT_MAX
 from archivebox.core.permissions import (
     PERMISSIONS_CHOICES,
     PERMISSIONS_META,
@@ -1544,7 +1543,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     )
     def delete_snapshots(self, request, queryset):
         """Keep the rows until the runner removes and verifies their files."""
-        total = queryset.update(status=Snapshot.DELETING_STATE, retry_at=RETRY_AT_MAX, modified_at=timezone.now())
+        total = queryset.request_delete()
         messages.success(
             request,
             f"Queued {total} snapshots for deletion. They remain visible as Deleting until ArchiveBox verifies their files are removed.",

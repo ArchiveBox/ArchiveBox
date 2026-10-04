@@ -177,6 +177,12 @@ class SnapshotTag(models.Model):
 class SnapshotQuerySet(PagedQuerySet):
     """Custom QuerySet for Snapshot model with export methods that persist through .filter() etc."""
 
+    def request_delete(self) -> int:
+        # Admin and API deletion share this durable command. Keep the row until
+        # the runner stops its writers and verifies removal from remote storage;
+        # RETRY_AT_MAX prevents capture scheduling while cleanup is pending.
+        return self.update(status=self.model.DELETING_STATE, retry_at=RETRY_AT_MAX, modified_at=timezone.now())
+
     def delete(self):
         # Finish the SELECT before filesystem work, so no read cursor or SQLite
         # transaction is held while deleting remote archive payloads.
@@ -598,7 +604,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         using = using or self._state.db or "default"
         if connections[using].in_atomic_block:
             raise RuntimeError("Snapshot filesystem deletion must run outside a database transaction")
-        type(self).objects.using(using).filter(pk=self.pk).update(status=self.DELETING_STATE, retry_at=RETRY_AT_MAX)
+        type(self).objects.using(using).filter(pk=self.pk).request_delete()
         self.status = self.DELETING_STATE
         from archivebox.machine.models import Process
 

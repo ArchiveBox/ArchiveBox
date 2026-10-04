@@ -55,7 +55,6 @@ from archivebox.api.v1_crawls import CrawlSchema, get_crawl_by_ref
 from archivebox.search.config import get_search_mode, get_search_mode_backend
 from archivebox.search.query import apply_snapshot_search
 from archivebox.core.snapshot_status import filter_snapshots_by_status, normalize_snapshot_status
-from archivebox.workers.models import RETRY_AT_MAX
 
 
 router = Router(tags=["Core Models"])
@@ -632,6 +631,7 @@ class SnapshotSchema(Schema):
     TYPE: str = "core.models.Snapshot"
     id: UUID
     crawl_id: UUID
+    persona: str | None
     created_by_id: str
     created_by_username: str
     created_at: datetime
@@ -653,6 +653,13 @@ class SnapshotSchema(Schema):
     @staticmethod
     def resolve_archive_path(obj):
         return obj.archive_path_from_db
+
+    @staticmethod
+    def resolve_persona(obj):
+        # A deduplicated submission can reuse a capture from a different
+        # persona. Report its actual DB-backed owner, not the new request's choice.
+        persona = obj.crawl.resolve_persona()
+        return persona.name if persona else None
 
     @staticmethod
     def resolve_created_by_id(obj):
@@ -1058,11 +1065,7 @@ def delete_snapshot(request: HttpRequest, snapshot_id: str):
     crawl_id_str = str(snapshot.crawl_id)
     # Use the same durable queue as the admin delete action. Stopping writers
     # and removing archive files belongs to the runner, never the HTTP request.
-    queued_count = Snapshot.objects.filter(pk=snapshot.pk).update(
-        status=Snapshot.DELETING_STATE,
-        retry_at=RETRY_AT_MAX,
-        modified_at=timezone.now(),
-    )
+    queued_count = Snapshot.objects.filter(pk=snapshot.pk).request_delete()
     return {
         "success": True,
         "snapshot_id": snapshot_id_str,

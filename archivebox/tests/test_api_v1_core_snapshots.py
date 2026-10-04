@@ -15,11 +15,19 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 def test_browser_metadata_respects_only_new_and_reports_capture_owner(client, api_headers):
     url = "https://example.com/browser-deduplication"
+    for name in ("Original", "Replacement"):
+        persona = client.post(
+            "/api/v1/personas/sync",
+            data={"extension_persona_id": f"dedupe-{name}", "name": name},
+            content_type="application/json",
+            **api_headers,
+        )
+        assert persona.status_code == 200, persona.content
 
-    def submit(only_new):
+    def submit(only_new, persona):
         queued = client.post(
             "/api/v1/cli/add",
-            data={"urls": [url], "only_new": only_new},
+            data={"urls": [url], "only_new": only_new, "persona": persona},
             content_type="application/json",
             **api_headers,
         )
@@ -34,15 +42,17 @@ def test_browser_metadata_respects_only_new_and_reports_capture_owner(client, ap
         assert metadata.status_code == 200, metadata.content
         return crawl_id, metadata.json()
 
-    first_crawl, first = submit(True)
-    second_crawl, reused = submit(True)
+    first_crawl, first = submit(True, "Original")
+    second_crawl, reused = submit(True, "Replacement")
     assert second_crawl != first_crawl
     assert reused["id"] == first["id"]
     assert reused["crawl_id"] == first_crawl
+    assert reused["persona"] == "Original"
     assert Snapshot.objects.filter(url=url).count() == 1
-    forced_crawl, forced = submit(False)
+    forced_crawl, forced = submit(False, "Replacement")
     assert forced["id"] != first["id"]
     assert forced["crawl_id"] == forced_crawl
+    assert forced["persona"] == "Replacement"
     assert Snapshot.objects.filter(url=url).count() == 2
 
 
