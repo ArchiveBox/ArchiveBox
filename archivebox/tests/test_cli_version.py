@@ -20,6 +20,46 @@ from archivebox.cli.archivebox_version import _binary_row_dedupe_key
 from archivebox.tests.conftest import cli_env, run_archivebox_cmd
 
 
+@pytest.mark.parametrize("no_cache", [False, True])
+def test_version_reuses_validated_provider_cache(tmp_path, no_cache):
+    """A warm diagnostic must validate the install without hashing it again."""
+    env = cli_env(ABXPKG_LIB_DIR=str(tmp_path / "lib"), COLUMNS="500")
+    first = run_archivebox_cmd(["version", "--binaries=git"], cwd=tmp_path, env=env)
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert "✅" in first.stdout
+
+    # Observe the real CLI and its resolver threads; no replacement providers or
+    # timing thresholds. This distinguishes validated cache reads from a full
+    # rehash even on a fast machine with a small git executable.
+    script = """
+import runpy, sys, threading
+calls = []
+def observe(frame, event, arg):
+    if event == 'call' and frame.f_code.co_name == 'get_sha256':
+        calls.append(frame.f_code.co_filename)
+sys.setprofile(observe)
+threading.setprofile(observe)
+sys.argv = ['archivebox', 'version', '--binaries=git', *sys.argv[1:]]
+try:
+    runpy.run_module('archivebox', run_name='__main__')
+finally:
+    sys.setprofile(None)
+    threading.setprofile(None)
+    print('BINARY_HASH_CALLS=' + str(len(calls)))
+"""
+    second = subprocess.run(
+        ["uv", "run", "--active", "python", "-c", script, *(["--no-cache"] if no_cache else [])],
+        cwd=tmp_path,
+        env={**os.environ, **env},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert second.returncode == 0, second.stdout + second.stderr
+    assert "✅" in second.stdout
+    assert f"BINARY_HASH_CALLS={int(no_cache)}" in second.stdout
+
+
 @pytest.mark.parametrize("width", [80, 160])
 def test_version_terminal_keeps_plugin_paths_visible_without_probe_errors(tmp_path, width):
     env = cli_env(COLUMNS=str(width))
