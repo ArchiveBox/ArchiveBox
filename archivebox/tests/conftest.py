@@ -1994,3 +1994,37 @@ def create_test_snapshot_json(url: str | None = None, **kwargs) -> dict[str, Any
         "status": kwargs.get("status", "queued"),
         **{k: v for k, v in kwargs.items() if k not in ("tags_str", "status")},
     }
+
+
+@pytest.fixture
+def browser_runtime(cached_abxpkg_lib_dir):
+    from abx_plugins import get_plugins_dir
+    from abx_plugins.plugins.base.utils import get_config
+
+    # UI tests need isolated collections, but share the browser installation.
+    # Resolve it through the same abxpkg schema/cache as capture hooks rather
+    # than downloading Playwright's separate Chromium in CI. This keeps local
+    # and CI runs on the supported install path without per-test cold installs.
+    shared_lib = cached_abxpkg_lib_dir
+    env = cli_env(
+        ABXPKG_LIB_DIR=str(shared_lib),
+        CHROME_HEADLESS="True",
+        CHROME_SANDBOX="False",
+        CHROME_ISOLATION="snapshot",
+    )
+    env.pop("CHROME_BINARY", None)
+    resolved_env = resolve_abxpkg_chrome_env(shared_lib, env)
+    chrome_config = get_config(
+        Path(get_plugins_dir()) / "chrome" / "config.json",
+        environ={**env, **resolved_env},
+        hydrate_binaries=False,
+    )
+
+    return {
+        "lib_dir": shared_lib,
+        "node_modules_dir": Path(resolved_env["NODE_MODULES_DIR"]),
+        "node_path": resolved_env["NODE_PATH"],
+        "node_binary": Path(resolved_env["NODE_BINARY"]),
+        "chrome_binary": Path(resolved_env["CHROME_BINARY"]),
+        "chrome_args": [*chrome_config.CHROME_ARGS, *chrome_config.CHROME_ARGS_EXTRA],
+    }

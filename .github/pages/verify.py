@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import re
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -75,7 +76,7 @@ def verify(output, evidence):
     origin = f"http://127.0.0.1:{server.server_port}"
     try:
         with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(ignore_default_args=["--hide-scrollbars"])
+            browser = playwright.chromium.launch(executable_path=os.environ.get("CHROME_BINARY"), ignore_default_args=["--hide-scrollbars"])
             for name in config["pages"]:
                 route = name.removesuffix("index.html")
                 page = browser.new_page(reduced_motion="reduce")

@@ -313,7 +313,7 @@ def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("status", ["queued", "started", "paused"])
-def test_empty_snapshot_keeps_live_progress_until_files_are_opened(snapshot, live_server, status):
+def test_empty_snapshot_keeps_live_progress_until_files_are_opened(snapshot, live_server, status, browser_runtime):
     from urllib.parse import urlsplit
 
     from playwright.sync_api import sync_playwright
@@ -329,7 +329,10 @@ def test_empty_snapshot_keeps_live_progress_until_files_are_opened(snapshot, liv
     snapshot.save(update_fields=["permissions", "status"])
     Path(snapshot.output_dir).mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
         page = browser.new_page()
         page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}")
         assert page.locator("#progress-monitor").is_visible()
@@ -344,7 +347,7 @@ def test_empty_snapshot_keeps_live_progress_until_files_are_opened(snapshot, liv
 
 
 @pytest.mark.django_db(transaction=True)
-def test_opening_files_from_queued_snapshot_stops_detached_progress_monitor(snapshot, live_server):
+def test_opening_files_from_queued_snapshot_stops_detached_progress_monitor(snapshot, live_server, browser_runtime):
     from urllib.parse import urlsplit
 
     from playwright.sync_api import sync_playwright
@@ -362,7 +365,10 @@ def test_opening_files_from_queued_snapshot_stops_detached_progress_monitor(snap
     errors = []
     progress_requests = []
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
         page = browser.new_page()
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.on("console", lambda message: errors.append(message.text) if message.type == "error" else None)
@@ -381,7 +387,7 @@ def test_opening_files_from_queued_snapshot_stops_detached_progress_monitor(snap
 
 
 @pytest.mark.django_db(transaction=True)
-def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server):
+def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server, browser_runtime):
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
     from archivebox.machine.models import Machine
@@ -394,7 +400,10 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server)
     snapshot.save(update_fields=["permissions"])
     save_output(snapshot, "defuddle")
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
         page = browser.new_page(viewport={"width": 390, "height": 844})
         page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html")
         assert "{#" not in page.locator("body").inner_text()
@@ -422,7 +431,7 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server)
 
 
 @pytest.mark.django_db(transaction=True)
-def test_forumdl_card_and_full_view_render_saved_thread(snapshot, live_server):
+def test_forumdl_card_and_full_view_render_saved_thread(snapshot, live_server, browser_runtime):
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
     from archivebox.core.routes_util import get_snapshot_host
@@ -451,7 +460,10 @@ def test_forumdl_card_and_full_view_render_saved_thread(snapshot, live_server):
     viewer_url = f"http://{host}:{port}/forumdl/forum.jsonl?preview=1"
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
         page = browser.new_page()
         page.goto(viewer_url)
         page.locator(".thread-title").wait_for()
@@ -481,7 +493,7 @@ def test_forumdl_card_and_full_view_render_saved_thread(snapshot, live_server):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_server):
+def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_server, browser_runtime):
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
     from archivebox.core.routes_util import get_snapshot_host
@@ -508,7 +520,10 @@ def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_se
     host = get_snapshot_host(str(snapshot.id)).split(":")[0]
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
         page = browser.new_page(viewport={"width": 250, "height": 170})
         page.set_content("<h1>Archived page</h1>")
         output.write_bytes(page.pdf())
@@ -522,7 +537,7 @@ def test_pdf_card_shows_pdf_fallback_without_any_preview_image(snapshot, live_se
 
 
 @pytest.mark.django_db(transaction=True)
-def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapshot, live_server, tmp_path):
+def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapshot, live_server, tmp_path, browser_runtime):
     import zipfile
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
@@ -545,7 +560,10 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
     expected_size = snapshot.get_html_details_context()["size"]
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
         page = browser.new_page()
         page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
         actions = page.locator(".header-url-actions")
@@ -675,13 +693,16 @@ def test_responsive_header_and_expanded_stack_keep_full_view_in_page_flow(snapsh
         browser.close()
 
 
-def test_ios_phone_header_keeps_actions_and_capture_date_on_one_row(snapshot, live_server):
+def test_ios_phone_header_keeps_actions_and_capture_date_on_one_row(snapshot, live_server, browser_runtime):
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
 
     port = urlsplit(live_server.url).port
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
         page = browser.new_page(viewport={"width": 390, "height": 844})
         page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
         for native_app in (False, True):
@@ -703,7 +724,7 @@ def test_ios_phone_header_keeps_actions_and_capture_date_on_one_row(snapshot, li
 
 
 @pytest.mark.django_db(transaction=True)
-def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, tmp_path):
+def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, tmp_path, browser_runtime):
     from datetime import datetime, timezone
     from urllib.parse import urlsplit
     from playwright.sync_api import sync_playwright
@@ -726,7 +747,10 @@ def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, 
         save_output(copy, "defuddle")
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
         page = browser.new_page()
         for selected, expected_year, expected_date in ((snapshot, "2026", "2026-09-23"), (copies[1], "2025", "2025-03-02")):
             page.goto(f"http://web.archivebox.localhost:{port}{selected.get_absolute_url()}/index.html", wait_until="domcontentloaded")

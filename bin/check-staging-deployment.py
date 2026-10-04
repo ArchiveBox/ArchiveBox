@@ -91,7 +91,7 @@ def main():
         raise RuntimeError("Automatic deployment/capture did not complete within the acceptance window")
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch()
+        browser = playwright.chromium.launch(executable_path=os.environ["CHROME_BINARY"])
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
         for snapshot in report["snapshots"]:
             response = page.goto(snapshot["replay_url"], wait_until="domcontentloaded")
