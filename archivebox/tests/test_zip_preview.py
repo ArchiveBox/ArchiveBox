@@ -121,4 +121,10 @@ def test_directory_filter_and_row_downloads(snapshot, live_server):
             assert archive.namelist() == ["nested/child.txt"]
             assert archive.read("nested/child.txt") == b"folder member"
         assert not list(root.rglob("*.zip"))
+        (root / "nested" / "file10.txt").write_text("ten")
+        (root / "nested" / "file2.txt").write_text("two")
+        page.goto(f"http://{host}:{port}/dropbox/files/nested/?files=1")
+        expect(names).to_have_text(["child.txt", "file2.txt", "file10.txt"])
+        page.get_by_role("button", name="Name", exact=True).click()
+        expect(names).to_have_text(["file10.txt", "file2.txt", "child.txt"])
         browser.close()

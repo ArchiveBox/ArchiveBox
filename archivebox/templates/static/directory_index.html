@@ -139,7 +139,7 @@
         });
         document.getElementById("file-count").textContent = `${count} item${count === 1 ? "" : "s"}`;
       });
-      let sortKey = "name", sortDirection = 1;
+      let sortKey = null, sortDirection = 1;
       document.querySelectorAll("[data-sort]").forEach((button) => {
         button.addEventListener("click", () => {
           sortDirection = sortKey === button.dataset.sort ? -sortDirection : 1;
@@ -158,6 +158,7 @@
           button.parentElement.setAttribute("aria-sort", sortDirection === 1 ? "ascending" : "descending");
         });
       });
+      document.querySelector('[data-sort="name"]')?.click();
       const previews = new IntersectionObserver((items) => {
         for (const item of items) {
           if (!item.isIntersecting) continue;
