@@ -22,52 +22,14 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_install_runs_successfully(initialized_archive):
-    """Test that install command runs without error."""
-    result = run_archivebox_cmd(
-        ["install", "--dry-run"],
-        timeout=60,
-    )
-
-    assert result.returncode == 0, result.stderr or result.stdout
-    assert "Dry run - would detect ArchiveBox dependencies" in result.stdout
-
-
-def test_install_creates_binary_records_in_db(initialized_archive):
-    """Test that install --dry-run does not create Binary records in database."""
-
-    result = run_archivebox_cmd(
-        ["install", "--dry-run"],
-        timeout=60,
-    )
-    assert result.returncode == 0, result.stderr or result.stdout
-
-    with use_archivebox_db(initialized_archive):
-        assert Binary.objects.count() == 0
-
-
-def test_install_dry_run_does_not_install(initialized_archive):
-    """Test that --dry-run doesn't actually install anything."""
-
-    result = run_archivebox_cmd(
-        ["install", "--dry-run"],
-        timeout=60,
-    )
-
+def test_install_dry_run_reports_plan_without_creating_binary_records(initialized_archive):
+    """Inspect one dry run; real installs and empty-dir bootstrap stay separate."""
+    result = run_archivebox_cmd(["install", "--dry-run"], timeout=60)
     assert result.returncode == 0, result.stderr or result.stdout
     assert result.stdout.strip() == "Dry run - would detect ArchiveBox dependencies and run the abx-dl install flow"
-
-
-def test_install_detects_system_binaries(initialized_archive):
-    """Test that install detects existing system binaries."""
-
-    result = run_archivebox_cmd(
-        ["install", "--dry-run"],
-        timeout=60,
-    )
-
-    assert result.returncode == 0, result.stderr or result.stdout
-    assert "ArchiveBox dependencies" in result.stdout
+    assert "dry run" in result.stdout.lower()
+    with use_archivebox_db(initialized_archive):
+        assert Binary.objects.count() == 0
 
 
 def test_install_target_resolver_uses_declared_binary_aliases():
@@ -93,29 +55,6 @@ def test_default_dependency_install_memory_preflight_fails_before_installers(cap
     output = capsys.readouterr().err
     assert "Not enough available memory to install ArchiveBox dependencies" in output
     assert "No plugin dependency installers were started" in output
-
-
-def test_install_shows_binary_status(initialized_archive):
-    """Test that install shows status of binaries."""
-
-    result = run_archivebox_cmd(
-        ["install", "--dry-run"],
-        timeout=60,
-    )
-
-    assert result.returncode == 0, result.stderr or result.stdout
-    assert result.stdout.strip() == "Dry run - would detect ArchiveBox dependencies and run the abx-dl install flow"
-
-
-def test_install_dry_run_prints_dry_run_message(initialized_archive):
-    """Test that install --dry-run clearly reports that no changes will be made."""
-    result = run_archivebox_cmd(
-        ["install", "--dry-run"],
-        timeout=60,
-    )
-
-    assert result.returncode == 0
-    assert "dry run" in result.stdout.lower()
 
 
 def test_install_help_lists_dry_run_flag(tmp_path):
