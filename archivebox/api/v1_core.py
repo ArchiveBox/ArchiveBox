@@ -223,20 +223,20 @@ def get_archiveresults(request: HttpRequest, filters: Query[ArchiveResultFilterS
 
 def _uuid_ref_query(field_name: str, ref: str) -> Q:
     raw_ref = str(ref or "").strip()
-    query = Q(**{f"{field_name}__startswith": raw_ref})
-    if raw_ref:
-        query |= Q(**{f"{field_name}__icontains": raw_ref})
     try:
         parsed_uuid = UUID(raw_ref)
     except (TypeError, ValueError):
+        query = Q(**{f"{field_name}__startswith": raw_ref})
+        if raw_ref:
+            query |= Q(**{f"{field_name}__icontains": raw_ref})
         normalized_ref = raw_ref.replace("-", "")
         if normalized_ref and normalized_ref != raw_ref:
             query |= Q(**{f"{field_name}__startswith": normalized_ref})
             query |= Q(**{f"{field_name}__icontains": normalized_ref})
-    else:
-        query |= Q(**{field_name: parsed_uuid})
-        query |= Q(**{f"{field_name}__startswith": parsed_uuid.hex})
-    return query
+        return query
+    # An exact UUID cannot need a substring fallback. OR-ing it with LIKE
+    # prevents an indexed lookup and made Cabbage metadata reads take seconds.
+    return Q(**{field_name: parsed_uuid})
 
 
 @router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="get_archiveresult")
@@ -350,6 +350,12 @@ def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]
 
 def _get_snapshot_by_ref(snapshot_id: str):
     queryset = Snapshot.objects.select_related("crawl__created_by")
+    try:
+        full_id = UUID(snapshot_id)
+    except (TypeError, ValueError):
+        pass
+    else:
+        return queryset.get(pk=full_id)
     try:
         return queryset.get(_uuid_ref_query("id", snapshot_id) | Q(timestamp__startswith=snapshot_id))
     except Snapshot.DoesNotExist:

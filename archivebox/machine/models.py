@@ -1411,6 +1411,13 @@ class Process(ModelWithDeleteAfter, models.Model):
     # =========================================================================
 
     @classmethod
+    def current_readonly(cls) -> Process | None:
+        """Return this process's registered identity without registration or probes."""
+        if _CURRENT_PROCESS is not None and _CURRENT_PROCESS.pid == os.getpid():
+            return _CURRENT_PROCESS
+        return None
+
+    @classmethod
     def current(cls) -> Process:
         """
         Get or create the Process record for the current OS process.
