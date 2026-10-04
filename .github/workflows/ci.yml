@@ -45,13 +45,6 @@ jobs:
     uses: ./.github/workflows/test-parallel.yml
     secrets: inherit
 
-  documentation:
-    needs: prepare
-    if: needs.prepare.outputs.run_jobs == 'true'
-    name: Documentation and root tests
-    uses: ./.github/workflows/docs.yml
-    secrets: inherit
-
   codeql:
     needs: prepare
     if: needs.prepare.outputs.run_jobs == 'true'
@@ -83,7 +76,6 @@ jobs:
       - lint
       - install-cli-platform
       - tests
-      - documentation
       - codeql
       - python-artifacts
       - docker-digests
@@ -94,7 +86,6 @@ jobs:
           LINT_RESULT: ${{ needs.lint.result }}
           INSTALL_CLI_PLATFORM_RESULT: ${{ needs.install-cli-platform.result }}
           TESTS_RESULT: ${{ needs.tests.result }}
-          DOCUMENTATION_RESULT: ${{ needs.documentation.result }}
           CODEQL_RESULT: ${{ needs.codeql.result }}
           PYTHON_ARTIFACTS_RESULT: ${{ needs.python-artifacts.result }}
           DOCKER_DIGESTS_RESULT: ${{ needs.docker-digests.result }}
@@ -103,7 +94,6 @@ jobs:
             "$LINT_RESULT" \
             "$INSTALL_CLI_PLATFORM_RESULT" \
             "$TESTS_RESULT" \
-            "$DOCUMENTATION_RESULT" \
             "$CODEQL_RESULT" \
             "$PYTHON_ARTIFACTS_RESULT" \
             "$DOCKER_DIGESTS_RESULT"

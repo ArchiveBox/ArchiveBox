@@ -14,7 +14,7 @@ def trusted(run, repo, workflow, branch, successful=True):
     return (
         (run.get("head_repository") or {}).get("full_name", "").lower() == repo.lower()
         and run["head_branch"] == branch
-        and run["event"] in ("push", "workflow_dispatch")
+        and run["event"] in ("push", "workflow_dispatch", "schedule")
         and run["path"] == f".github/workflows/{workflow}"
         and (not successful or run["conclusion"] == "success")
     )
