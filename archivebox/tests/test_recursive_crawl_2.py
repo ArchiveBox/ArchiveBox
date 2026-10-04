@@ -18,7 +18,11 @@ from .test_recursive_crawl_1 import (
 
 
 @pytest.mark.timeout(600)
-def test_direct_url_crawl_measures_first_snapshot_before_parallel_admission(initialized_archive, recursive_test_site):
+def test_direct_url_crawl_measures_first_snapshot_before_parallel_admission(
+    initialized_archive,
+    recursive_test_site,
+    cached_abxpkg_lib_dir,
+):
     """A real three-URL capture must not launch all Chrome hook trees at once."""
     urls = [recursive_test_site["root_url"], *recursive_test_site["child_urls"][:2]]
     env = os.environ.copy()
@@ -27,7 +31,7 @@ def test_direct_url_crawl_measures_first_snapshot_before_parallel_admission(init
             "USE_COLOR": "false",
             "SHOW_PROGRESS": "false",
             "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*",
-            "ABXPKG_LIB_DIR": str(initialized_archive / "lib"),
+            "ABXPKG_LIB_DIR": str(cached_abxpkg_lib_dir),
             "CHROME_HEADLESS": "true",
             "CHROME_SANDBOX": "false",
             "CHROME_ISOLATION": "crawl",
