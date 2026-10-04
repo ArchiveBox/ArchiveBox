@@ -36,16 +36,9 @@ jobs:
       - name: Select available CI capacity
         id: runner
         if: vars.UGNAS_CI_ENABLED == 'true' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
-        uses: mikehardy/runner-fallback-action@dc7732f9e532c451b2527b288ba8d58fd4b0a4ca # v1.1.0
+        uses: ArchiveBox/monorepo/.github/actions/select-ci-runner@main
         with:
           github-token: ${{ secrets.RUNNER_STATUS_TOKEN }}
-          organization: ArchiveBox
-          primary-runner: self-hosted,ugnas-linux
-          fallback-runner: ubuntu-24.04
-          # Jobs queued for this pool must not be mistaken for idle runner slots:
-          # requiring MAX_JOBS idle runners prevents assigning a second wave.
-          primaries-required: ${{ vars.UGNAS_CI_MIN_IDLE || 1 }}
-          fallback-on-error: true
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -106,7 +99,7 @@ jobs:
     needs: discover-tests
     # Opt in trusted branches only; PRs always use GitHub-hosted runners.
     # Ordinary Linux tests are eligible; # ci-runner: hosted declares exceptions.
-    # The hosted discovery job falls back when workers are offline/busy or the
+    # The hosted discovery job falls back when workers are offline or the
     # availability API fails. UGNAS_CI_ENABLED=false disables the pool entirely.
     runs-on: ${{ fromJSON(matrix.test.ugnas && needs.discover-tests.outputs.runner || '["ubuntu-24.04"]') }}
     env:
