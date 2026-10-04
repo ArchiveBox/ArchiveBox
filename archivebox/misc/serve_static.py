@@ -32,6 +32,7 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.plugins.discovery import render_plugin_full_response
 
 _HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
+DIRECTORY_PREVIEW_MAX_BYTES = 100 * 1024
 FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
 IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
@@ -126,7 +127,8 @@ def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Pat
         current = match
         resolved_parts.append(match.name)
 
-    return current, posixpath.join(*resolved_parts) if resolved_parts else ""
+    resolved_path = posixpath.join(*resolved_parts) if resolved_parts else ""
+    return Path(safe_join(document_root, resolved_path)), resolved_path
 
 
 def _cache_policy(config=None, **config_kwargs) -> str:
@@ -308,10 +310,24 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
         file_list.append(url)
 
         stat_result = entry.stat()
+        preview_kind = ""
+        mime = mimetypes.guess_type(entry.name)[0] or "application/octet-stream"
+        if entry.is_file() and stat_result.st_size < DIRECTORY_PREVIEW_MAX_BYTES:
+            if mime.startswith("image/"):
+                preview_kind = "image"
+            elif (
+                mime.startswith("text/")
+                or re.search(r"(?:^|[.+/-])(?:json|xml|javascript|ecmascript|yaml|toml|graphql|sql)(?:[.+/-]|$)", mime)
+                or entry.suffix.lower() in {".log", ".jsonl", ".toml"}
+            ):
+                preview_kind = "text"
         entries.append(
             {
                 "name": url,
                 "url": url,
+                "preview_kind": preview_kind,
+                "mimetype": "Directory" if entry.is_dir() else mime,
+                "size_bytes": 0 if entry.is_dir() else stat_result.st_size,
                 "is_dir": entry.is_dir(),
                 "size": "—" if entry.is_dir() else printable_filesize(stat_result.st_size),
                 "timestamp": _format_direntry_timestamp(stat_result),
