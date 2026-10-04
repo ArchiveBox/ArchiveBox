@@ -43,7 +43,7 @@
 
       body {
         min-height: 100vh;
-        padding: 24px;
+        padding: 12px;
       }
 
       .directory-shell {
@@ -138,50 +138,28 @@
       }
 
       .directory-header {
-        padding: 22px 24px 18px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
         border-bottom: 1px solid var(--panel-border);
         background:
           radial-gradient(circle at top right, rgba(15, 92, 192, 0.08), transparent 28%),
           linear-gradient(180deg, #ffffff, #f8fbff);
       }
 
-      .directory-kicker {
-        margin: 0 0 8px;
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-      }
-
       .directory-title {
         margin: 0;
-        font-size: clamp(22px, 4vw, 34px);
+        font-size: 14px;
         line-height: 1.1;
         word-break: break-word;
       }
 
       .directory-meta {
-        margin-top: 12px;
+        margin-left: auto;
         color: var(--muted);
         font-size: 14px;
-      }
-
-      .directory-path {
-        display: inline-block;
-        margin-top: 12px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: #f4f7fb;
-        border: 1px solid var(--panel-border);
-        color: #304152;
-        font-family:
-          ui-monospace,
-          "SFMono-Regular",
-          Menlo,
-          Consolas,
-          monospace;
-        font-size: 13px;
       }
 
       .directory-list {
@@ -190,6 +168,11 @@
         padding: 12px;
       }
 
+      .directory-entry { display: flex; align-items: center; gap: 8px; }
+      .directory-entry[hidden] { display: none; }
+      .directory-link { min-width: 0; flex: 1; }
+      .entry-download { flex-shrink: 0; padding: 6px 10px; color: var(--accent); text-decoration: none; border: 1px solid var(--panel-border); border-radius: 6px; }
+      #filter-files { padding: 7px 10px; border: 1px solid var(--panel-border); border-radius: 6px; font: inherit; min-width: 0; width: 180px; }
       .directory-entry + .directory-entry {
         margin-top: 6px;
       }
@@ -312,12 +295,11 @@
 
       <section class="directory-card">
         <header class="directory-header">
-          <p class="directory-kicker">ArchiveBox File Index</p>
-          <h1 class="directory-title">{% blocktranslate %}Index of {{ directory }}{% endblocktranslate %}</h1>
-          <div class="directory-meta">
+          <h1 class="directory-title">{{ directory }}</h1>
+          <div class="directory-meta" id="file-count" aria-live="polite">
             {{ file_list|length }} item{{ file_list|length|pluralize }}
           </div>
-          <div class="directory-path">{{ directory }}</div>
+          <input id="filter-files" type="search" aria-label="Filter files" placeholder="Filter files">
         </header>
 
         {% if file_list or directory != "/" %}
@@ -334,16 +316,19 @@
               </li>
             {% endif %}
 
-            {% for f in file_list %}
+            {% for entry in entries %}
+              {% with f=entry.name %}
               <li class="directory-entry{% if f|slice:'-1:' == '/' %} folder{% endif %}">
                 <a class="directory-link" href="{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% elif f|lower|slice:'-4:' == '.zip' %}?preview=1{% endif %}">
                   <span class="entry-icon" aria-hidden="true">{% if f|slice:'-1:' == '/' %}📁{% else %}📄{% endif %}</span>
                   <span class="entry-label">
                     <span class="entry-name">{{ f }}</span>
-                    <span class="entry-kind">{% if f|slice:'-1:' == '/' %}Directory{% else %}File{% endif %}</span>
+                    <span class="entry-kind">{% if entry.is_dir %}Directory{% else %}{{ entry.size }}{% endif %}</span>
                   </span>
                 </a>
+                <a class="entry-download" aria-label="Download {{ f }}" title="Download {{ f }}" href="{{ f|urlencode }}{% if entry.is_dir %}?files=1&amp;download=zip{% else %}?raw=1{% endif %}" download>⬇</a>
               </li>
+              {% endwith %}
             {% endfor %}
           </ul>
         {% else %}
@@ -352,6 +337,15 @@
       </section>
     </main>
     <script>
+      document.getElementById("filter-files").addEventListener("input", (event) => {
+        const query = event.target.value.toLocaleLowerCase();
+        let count = 0;
+        document.querySelectorAll(".directory-entry:not(.parent)").forEach((row) => {
+          row.hidden = !row.querySelector(".entry-name").textContent.toLocaleLowerCase().includes(query);
+          if (!row.hidden) count++;
+        });
+        document.getElementById("file-count").textContent = `${count} item${count === 1 ? "" : "s"}`;
+      });
       window.archiveboxHandleZipClick = function(link, event) {
         if (!link || link.dataset.loading === "1") {
           if (event) event.preventDefault();
