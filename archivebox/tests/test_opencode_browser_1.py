@@ -30,6 +30,10 @@ def agent_server(installed_opencode, browser_runtime, request):
         config.data_dir,
         f"BASE_URL={base_url}",
         f"SERVER_SECURITY_MODE={mode}",
+        # Each parallel fixture starts a complete server, including Sonic. A
+        # shared default port caused its supervisor to respawn a failing worker
+        # throughout browser startup. Isolate it like the HTTP/OpenCode ports.
+        f"SEARCH_BACKEND_SONIC_PORT={get_free_port()}",
     )
     user = run_archivebox_cmd(
         [
@@ -88,6 +92,9 @@ const puppeteer = require('puppeteer');
 const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
 (async () => {
   const browser = await puppeteer.launch({executablePath: config.chrome, headless: true,
+    // Preserve Chrome's own startup error when no DevTools endpoint appears;
+    // Puppeteer's timeout alone cannot distinguish contention from a crash.
+    dumpio: true,
     args: [...config.chromeArgs, '--no-sandbox']});
   const requestTimings = new Map();
   const browserErrors = [];
