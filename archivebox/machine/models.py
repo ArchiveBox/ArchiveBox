@@ -1179,10 +1179,6 @@ class Process(ModelWithDeleteAfter, models.Model):
             models.Index(fields=["process_type", "worker_type", "pwd", "started_at"]),
             models.Index(fields=["machine", "process_type", "-modified_at"], name="mach_proc_recent_idx"),
             models.Index(fields=["machine", "status", "process_type"], name="mach_proc_running_idx"),
-            # Recovery visits active processes across machines. Without this
-            # index SQLite scans historical hook rows before returning even an
-            # empty page, holding a read lock that blocks unrelated submissions.
-            models.Index(fields=["status", "id"], name="mach_proc_status_id_idx"),
         ]
         constraints = [
             # This is deliberately machine-scoped. It prevents two locally
@@ -1212,8 +1208,11 @@ class Process(ModelWithDeleteAfter, models.Model):
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        return cls.objects.filter(delete_at__isnull=True).filter(
-            Q(env__has_key="DELETE_AFTER") | Q(machine__config__has_key="DELETE_AFTER"),
+        return (
+            cls.objects.filter(delete_at__isnull=True)
+            .filter(Q(env__has_key="DELETE_AFTER") | Q(machine__config__has_key="DELETE_AFTER"))
+            .select_related("machine")
+            .only("id", "created_at", "delete_at", "env", "machine__config")
         )
 
     # Properties that delegate to related objects
@@ -2570,9 +2569,13 @@ class Process(ModelWithDeleteAfter, models.Model):
         """
         cleaned = 0
 
+        # Select active IDs through the existing status index first. Combining
+        # type/status directly let SQLite prefer the historical type index and
+        # scan 350k processes to return zero workers (blocking writes for 12s).
+        active_ids = cls.objects.filter(status=cls.StatusChoices.RUNNING).order_by().values("pk")
         running_children = cls.objects.filter(
+            pk__in=active_ids,
             process_type__in=[cls.TypeChoices.WORKER, cls.TypeChoices.HOOK],
-            status=cls.StatusChoices.RUNNING,
         )
 
         # Close each bounded read before inspecting processes or writing their state.

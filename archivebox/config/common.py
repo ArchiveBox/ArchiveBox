@@ -414,6 +414,36 @@ class ServerConfig(BaseConfigSet):
         )
 
 
+@lru_cache(maxsize=16)
+def _default_sqlite_journal_mode(database_name: str) -> str:
+    if not IN_DOCKER:
+        return "WAL"
+
+    # Native Linux bind mounts share the kernel's locks and mmap; Docker alone
+    # does not make WAL unsafe. DELETE there lets any slow reader block tiny
+    # writes. Desktop VM shares (virtiofs/9p/FUSE), network filesystems and
+    # unknown mounts keep rollback journaling: their host-side readers may not
+    # share SQLite's -shm locking domain. Inspect the DB mount, not archive/.
+    database_path = Path(database_name).expanduser().resolve()
+    try:
+        mounts = Path("/proc/self/mountinfo").read_text().splitlines()
+    except OSError:
+        return "DELETE"
+    filesystem = ""
+    mount_depth = -1
+    for line in mounts:
+        fields, separator, details = line.partition(" - ")
+        if not separator:
+            continue
+        mount_path = fields.split()[4]
+        mount_path = re.sub(r"\\([0-7]{3})", lambda match: chr(int(match[1], 8)), mount_path)
+        mount = Path(mount_path)
+        if database_path.is_relative_to(mount) and len(mount.parts) > mount_depth:
+            filesystem = details.split()[0]
+            mount_depth = len(mount.parts)
+    return "WAL" if filesystem in {"ext2", "ext3", "ext4", "xfs", "btrfs", "zfs", "overlay", "tmpfs", "f2fs"} else "DELETE"
+
+
 class DatabaseConfig(BaseConfigSet):
     toml_section_header: str = "DATABASE_CONFIG"
     _scope: str = PrivateAttr(default=_SCOPE_SERVER)
@@ -429,11 +459,7 @@ class DatabaseConfig(BaseConfigSet):
     DATABASE_USER: str = Field(default="archivebox", alias="ARCHIVEBOX_DATABASE_USER")
     DATABASE_PASSWORD: str = Field(default="", alias="ARCHIVEBOX_DATABASE_PASSWORD")
     SQLITE_JOURNAL_MODE: str = Field(
-        # Docker collections commonly live on a host bind mount. WAL's -shm
-        # locking is only safe when every SQLite process is on the same host;
-        # Docker Desktop/OrbStack place the container and host in different
-        # locking domains and a host-side reader can corrupt the live DB.
-        default="DELETE" if IN_DOCKER else "WAL",
+        default_factory=lambda data: _default_sqlite_journal_mode(str(data["DATABASE_NAME"])),
         alias="ARCHIVEBOX_SQLITE_JOURNAL_MODE",
         pattern=r"(?i)^(DELETE|TRUNCATE|PERSIST|MEMORY|WAL|OFF)$",
     )
@@ -447,11 +473,16 @@ class DatabaseConfig(BaseConfigSet):
     SQLITE_LOCK_RETRY_INTERVAL: float = Field(default=5.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_INTERVAL", gt=0)
 
     @model_validator(mode="after")
-    def reject_docker_sqlite_wal(self):
-        if IN_DOCKER and self.DATABASE_ENGINE.lower() == "sqlite" and self.SQLITE_JOURNAL_MODE.upper() == "WAL":
+    def reject_shared_filesystem_sqlite_wal(self):
+        if (
+            IN_DOCKER
+            and self.DATABASE_ENGINE.lower() == "sqlite"
+            and self.SQLITE_JOURNAL_MODE.upper() == "WAL"
+            and _default_sqlite_journal_mode(self.DATABASE_NAME) != "WAL"
+        ):
             raise ValueError(
-                "SQLITE_JOURNAL_MODE=WAL is unsafe for Docker collections because host bind mounts cross SQLite "
-                "locking domains; use DELETE (the Docker default) or PostgreSQL",
+                "SQLITE_JOURNAL_MODE=WAL requires a local filesystem with shared SQLite locking; "
+                "keep the database on a local Docker volume, use DELETE for host/VM shared mounts, or use PostgreSQL",
             )
         return self
 

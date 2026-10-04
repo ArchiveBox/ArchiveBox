@@ -301,7 +301,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        return cls.objects.filter(delete_at__isnull=True, config__has_key="DELETE_AFTER")
+        return cls.objects.filter(delete_at__isnull=True, config__has_key="DELETE_AFTER").only("id", "created_at", "delete_at", "config")
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")

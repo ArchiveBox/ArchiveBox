@@ -881,8 +881,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        return cls.objects.filter(delete_at__isnull=True).filter(
-            Q(config__has_key="DELETE_AFTER") | Q(crawl__config__has_key="DELETE_AFTER"),
+        return (
+            cls.objects.filter(delete_at__isnull=True)
+            .filter(Q(config__has_key="DELETE_AFTER") | Q(crawl__config__has_key="DELETE_AFTER"))
+            .select_related("crawl")
+            .only("id", "created_at", "delete_at", "config", "crawl__config")
         )
 
     @classmethod
@@ -4166,8 +4169,11 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        return cls.objects.filter(delete_at__isnull=True).filter(
-            Q(snapshot__config__has_key="DELETE_AFTER") | Q(snapshot__crawl__config__has_key="DELETE_AFTER"),
+        return (
+            cls.objects.filter(delete_at__isnull=True)
+            .filter(Q(snapshot__config__has_key="DELETE_AFTER") | Q(snapshot__crawl__config__has_key="DELETE_AFTER"))
+            .select_related("snapshot__crawl")
+            .only("id", "created_at", "delete_at", "snapshot__config", "snapshot__crawl__config")
         )
 
     @property

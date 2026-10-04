@@ -2004,6 +2004,7 @@ def run_pending_crawls(
     last_recovery_at = 0.0
     last_retention_at = 0.0
     last_retention_repair_at = 0.0
+    retention_backfill_cursors: dict = {}
     deletion_thread: threading.Thread | None = None
     last_analyze_at = 0.0
     analyze_queue: list[str] | None = None
@@ -2200,7 +2201,7 @@ def run_pending_crawls(
                 # delete_at in the plugin-result hot path. Running it here keeps
                 # DELETE_AFTER resolution fresh without making every hook event
                 # load parent Snapshot/Crawl config.
-                model.delete_expired(batch_size=100, backfill_missing=True)
+                model.delete_expired(batch_size=100, backfill_missing=True, backfill_cursors=retention_backfill_cursors)
             last_retention_repair_at = now_monotonic
 
         if daemon:

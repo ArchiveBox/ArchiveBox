@@ -102,7 +102,14 @@ class PagedQuerySet(models.QuerySet):
                     prefix = {ordered_field_names[i]: last_values[i] for i in range(idx)}
                     comparison = "lt" if descending else "gt"
                     page_filter |= models.Q(**prefix, **{f"{field_name}__{comparison}": last_values[idx]})
-                batch_qs = batch_qs.filter(page_filter)
+                # Anchor the OR tie-breaks with an explicit leading range so
+                # SQLite/PG can seek the existing order index instead of
+                # rescanning its prefix for every keyset page.
+                first_comparison = "lte" if ordering[0].startswith("-") else "gte"
+                batch_qs = batch_qs.filter(
+                    page_filter,
+                    **{f"{ordered_field_names[0]}__{first_comparison}": last_values[0]},
+                )
 
             batch_rows = list(batch_qs.values_list(*value_field_names)[:chunk_size])
             if not batch_rows:
@@ -289,9 +296,21 @@ class ModelWithDeleteAfter(models.Model):
         return cls.objects.none()
 
     @classmethod
-    def delete_expired(cls, *, batch_size: int = 100, backfill_missing: bool = True) -> int:
+    def delete_expired(cls, *, batch_size: int = 100, backfill_missing: bool = True, backfill_cursors: dict | None = None) -> int:
         if backfill_missing:
-            missing_delete_at = list(cls.missing_delete_at_candidates().order_by("created_at", "pk")[:batch_size])
+            # Bound the scanned rows BEFORE evaluating JSON policy/parent
+            # joins. LIMIT on the policy query only bounded its output: finding
+            # no matches could scan the entire history with a SQLite read lock.
+            # The runner keeps a keyset cursor between idle passes, so disabled
+            # policies cannot starve older rows. Restarting safely repeats work.
+            page = cls.objects.order_by("-pk")
+            before = backfill_cursors.get(cls) if backfill_cursors is not None else None
+            if before is not None:
+                page = page.filter(pk__lt=before)
+            page_ids = list(page.values_list("pk", flat=True)[:batch_size])
+            if backfill_cursors is not None:
+                backfill_cursors[cls] = page_ids[-1] if len(page_ids) == batch_size else None
+            missing_delete_at = list(cls.missing_delete_at_candidates().filter(pk__in=page_ids).order_by())
             for obj in missing_delete_at:
                 if obj.set_delete_at_from_config():
                     cls.objects.filter(pk=obj.pk, delete_at__isnull=True).update(

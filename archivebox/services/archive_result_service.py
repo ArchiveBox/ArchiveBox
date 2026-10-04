@@ -210,6 +210,12 @@ def _save_archiveresult_event_to_db(
 
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.diff_fields"):
         update_fields = []
+        # This runner already loaded the Snapshot/Crawl for the event. Resolve
+        # retention here without extra parent reads so new results do not wait
+        # for the bounded legacy-repair sweep to traverse historical rows.
+        result.snapshot = snapshot
+        if result.set_delete_at_from_config():
+            update_fields.append("delete_at")
         for field, value in defaults.items():
             if result.__dict__[field] != value:
                 setattr(result, field, value)
