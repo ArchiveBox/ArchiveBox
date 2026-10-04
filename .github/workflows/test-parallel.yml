@@ -227,22 +227,17 @@ jobs:
           set -Eeuo pipefail
           echo "Running pytest with $CI_TEST_WORKERS workers on $CI_RUNNER_ENVIRONMENT"
           read -r -a test_paths <<< "$TEST_PATHS"
+          test_args=()
           for test_path in "${test_paths[@]}"; do
             test -f "$test_path"
+            test_args+=("$GITHUB_WORKSPACE/$test_path")
           done
-          test_status=0
-          for test_path in "${test_paths[@]}"; do
-            test_name="$(basename "$test_path" .py)"
-            test_slug="${test_name//[^A-Za-z0-9_.-]/_}"
-            export DATA_DIR="$RUNNER_TEMP/archivebox-test-data/$test_slug"
-            export PERSONAS_DIR="$RUNNER_TEMP/abx-personas/$test_slug"
-            export CHROME_USER_DATA_DIR="$PERSONAS_DIR/Default/chrome_profile"
-            mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest/$test_slug"
-            uv run --no-cache --no-sync --no-sources pytest -vs -n "$CI_TEST_WORKERS" "$GITHUB_WORKSPACE/$test_path" --durations=20 \
-              --basetemp="$RUNNER_TEMP/pytest/$test_slug" \
-              --junitxml="$RUNNER_TEMP/test-results/$test_slug.xml" || test_status=1
-          done
-          exit "$test_status"
+          # Each test still gets isolated DB/filesystem state from conftest.
+          # Keep one worker pool per batch instead of starting it for every file.
+          mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest"
+          uv run --no-cache --no-sync --no-sources pytest -vs -n "$CI_TEST_WORKERS" "${test_args[@]}" --durations=20 \
+            --basetemp="$RUNNER_TEMP/pytest" \
+            --junitxml="$RUNNER_TEMP/test-results/results.xml"
       - name: Save test results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
