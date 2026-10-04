@@ -198,3 +198,53 @@ def test_snapshot_service_cli_add_seals_snapshot_and_writes_indexes(tmp_path, re
     assert wget_files
     assert any("Root" in path.read_text(encoding="utf-8", errors="ignore") for path in wget_files if path.suffix in (".html", ".txt"))
     assert any(result["plugin"] == "wget" and result["status"] == ArchiveResult.StatusChoices.SUCCEEDED for result in state["results"])
+
+
+@pytest.mark.timeout(180)
+def test_api_queue_hands_storage_creation_to_runner(tmp_path, recursive_test_site):
+    from .conftest import create_admin_and_token, live_api_request, stop_archivebox_process, run_queued_crawls
+    from .test_api_v1_cli_add import start_api_server_without_runner
+    from archivebox.crawls.models import Crawl
+
+    init_archive(tmp_path)
+    port = get_free_port()
+    env = cli_env(port=port, server=True, PLUGINS="wget")
+    token = create_admin_and_token(tmp_path)
+    url = recursive_test_site["root_url"]
+    server = start_api_server_without_runner(tmp_path, env, port)
+    try:
+        response = live_api_request(
+            port,
+            "post",
+            "/api/v1/cli/add",
+            api_token=token,
+            json={"urls": [url], "plugins": "wget", "tag": "handoff"},
+        )
+        assert response.status_code == 200, response.text
+        crawl_id = response.json()["result"]["crawl_id"]
+        metadata = live_api_request(
+            port,
+            "post",
+            "/api/v1/core/snapshots",
+            api_token=token,
+            json={"crawl_id": crawl_id, "url": url, "title": "Browser title"},
+        )
+        assert metadata.status_code == 200, metadata.text
+        with use_archivebox_db(tmp_path):
+            crawl = Crawl.objects.get(pk=crawl_id)
+            snapshot = Snapshot.objects.get(pk=metadata.json()["id"])
+            assert not crawl.output_dir.exists()
+            assert not snapshot.output_dir.exists()
+            assert snapshot.tags.filter(name="handoff").exists()
+    finally:
+        stop_archivebox_process(server)
+    run_queued_crawls(tmp_path, env=env, timeout=120)
+    state = _snapshot_state(tmp_path, url)
+    assert state["status"] == Snapshot.StatusChoices.SEALED
+    assert state["crawl_dir"].is_dir()
+    assert state["snapshot_dir"].is_dir()
+    assert state["crawl_link"].is_symlink()
+    assert state["crawl_link"].resolve() == state["snapshot_dir"].resolve()
+    assert (state["snapshot_dir"] / "index.jsonl").is_file()
+    assert any(row["plugin"] == "wget" and row["status"] == "succeeded" for row in state["results"])
+    assert any("Root" in path.read_text(errors="ignore") for path in (state["snapshot_dir"] / "wget").rglob("*.html"))

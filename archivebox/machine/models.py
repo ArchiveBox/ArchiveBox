@@ -20,7 +20,7 @@ from django.utils.functional import cached_property
 
 from archivebox.config import CONSTANTS
 from archivebox.config.common import rprint
-from archivebox.base_models.models import ModelWithDeleteAfter, ModelWithHealthStats, normalize_config_json_values
+from archivebox.base_models.models import PagedQuerySet, ModelWithDeleteAfter, ModelWithHealthStats, normalize_config_json_values
 from archivebox.workers.models import ModelWithQueue
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
@@ -890,7 +890,7 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
 # =============================================================================
 
 
-class ProcessManager(models.Manager):
+class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):
     """Manager for Process model."""
 
     def current(self) -> Process:
@@ -1640,9 +1640,8 @@ class Process(ModelWithDeleteAfter, models.Model):
         if machine is not None:
             stale = stale.filter(machine=machine)
 
-        # Recovery can run against damaged DB state; stream rows so a large
-        # stale Process backlog cannot be materialized in memory at once.
-        for proc in stale.iterator(chunk_size=100):
+        # Close each bounded read before inspecting processes or writing their state.
+        for proc in stale.order_by("pk").paged_iterator(chunk_size=100):
             shares_pid_namespace = proc.shares_pid_namespace
             if shares_pid_namespace and proc.poll() is not None:
                 cleaned += 1
@@ -2587,9 +2586,8 @@ class Process(ModelWithDeleteAfter, models.Model):
             status=cls.StatusChoices.RUNNING,
         )
 
-        # Recovery can run against damaged DB state; stream rows so a large
-        # orphaned Process backlog cannot be materialized in memory at once.
-        for proc in running_children.iterator(chunk_size=100):
+        # Close each bounded read before inspecting processes or writing their state.
+        for proc in running_children.order_by("pk").paged_iterator(chunk_size=100):
             if not proc.is_running:
                 proc.mark_exited(
                     exit_code=proc.exit_code if proc.exit_code is not None else _default_exit_code_for_unowned_process(proc.process_type),

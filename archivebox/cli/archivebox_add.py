@@ -144,7 +144,6 @@ def add(
     persona_name = (persona or "Default").strip() or "Default"
     plugins = plugins or ""
     persona_obj = Persona.get_or_create_named(persona_name)
-    persona_obj.ensure_dirs()
     effective_persona_config = get_config(persona=persona_obj)
 
     crawl_config = {
@@ -217,9 +216,6 @@ def add(
         print(
             "[yellow]\\[*] URLs queued. The background runner will process them (run `archivebox server` or `archivebox run --daemon` if not already running).[/yellow]",
         )
-        from archivebox.services.runner import ensure_background_runner
-
-        ensure_background_runner()
     else:
         # Foreground mode: run full crawl runner until all work is done
         print("[green]\\[*] Starting crawl runner to process crawl...[/green]")

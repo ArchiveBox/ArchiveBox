@@ -150,3 +150,59 @@ def test_new_snapshot_creation_does_not_wait_for_active_crawl(client, api_admin_
     assert response.status_code == 200, response.content
     assert Snapshot.objects.filter(url=url, crawl=crawl).count() == 1
     assert elapsed < 1
+
+
+def test_snapshot_metadata_requests_do_not_touch_archive_storage(client, api_admin_user, api_headers):
+    """Metadata writes and serialization must work without replay storage access."""
+    import sys
+    from pathlib import Path
+    from archivebox.config import CONSTANTS
+
+    url = "https://example.com/metadata-without-storage"
+    crawl = Crawl.objects.create(urls=url, created_by=api_admin_user)
+    storage_calls = []
+
+    def observe(frame, event, arg):
+        if event == "call" and frame.f_code.co_name in {
+            "stat",
+            "lstat",
+            "open",
+            "mkdir",
+            "iterdir",
+            "glob",
+            "rglob",
+            "readlink",
+            "symlink_to",
+            "unlink",
+        }:
+            path = frame.f_locals.get("self", frame.f_locals.get("path"))
+            if isinstance(path, (str, Path)) and Path(path).is_relative_to(CONSTANTS.ARCHIVE_DIR):
+                storage_calls.append((frame.f_code.co_name, str(path)))
+
+    previous = sys.getprofile()
+    sys.setprofile(observe)
+    try:
+        response = client.post(
+            "/api/v1/core/snapshots",
+            data={"url": url, "crawl_id": str(crawl.id), "title": "Browser title", "tags": ["browser"]},
+            content_type="application/json",
+            **api_headers,
+        )
+        assert response.status_code == 200, response.content
+        snapshot_id = response.json()["id"]
+        updated = client.post(
+            "/api/v1/core/snapshots",
+            data={"url": url, "crawl_id": str(crawl.id), "title": "Updated title", "tags": ["browser"]},
+            content_type="application/json",
+            **api_headers,
+        )
+        assert updated.status_code == 200, updated.content
+        fetched = client.get(f"/api/v1/core/snapshot/{snapshot_id}?with_archiveresults=false", **api_headers)
+        assert fetched.status_code == 200, fetched.content
+    finally:
+        sys.setprofile(previous)
+    snapshot = Snapshot.objects.get(pk=snapshot_id)
+    assert snapshot.title == "Updated title"
+    assert list(snapshot.tags.values_list("name", flat=True)) == ["browser"]
+    assert fetched.json()["title"] == "Updated title"
+    assert storage_calls == []

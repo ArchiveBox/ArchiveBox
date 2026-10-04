@@ -478,3 +478,40 @@ def test_api_cli_add_rejects_file_path_and_shell_injection_payloads(tmp_path):
     with use_archivebox_db(tmp_path):
         tag_names = set(SnapshotTag.objects.filter(snapshot=snapshot).values_list("tag__name", flat=True))
     assert "api-security" in tag_names
+
+
+def test_api_add_only_queues_work_without_storage_or_worker_control(client, api_headers):
+    import sys
+    from archivebox.config import CONSTANTS
+
+    calls = []
+
+    def observe(frame, event, arg):
+        if event != "call":
+            return
+        name = frame.f_code.co_name
+        if name == "ensure_background_runner":
+            calls.append(name)
+        if name in {"stat", "lstat", "mkdir", "iterdir", "symlink_to"}:
+            path = frame.f_locals.get("self")
+            if isinstance(path, Path) and path.is_relative_to(CONSTANTS.ARCHIVE_DIR):
+                calls.append((name, str(path)))
+
+    previous = sys.getprofile()
+    sys.setprofile(observe)
+    try:
+        response = client.post(
+            "/api/v1/cli/add",
+            data={"urls": ["https://example.com/queue-only"], "tag": "queue-only"},
+            content_type="application/json",
+            **api_headers,
+        )
+    finally:
+        sys.setprofile(previous)
+    assert response.status_code == 200, response.content
+    crawl = Crawl.objects.get(pk=response.json()["result"]["crawl_id"])
+    assert crawl.urls == "https://example.com/queue-only"
+    assert crawl.status == Crawl.StatusChoices.QUEUED
+    assert crawl.retry_at is not None
+    assert not crawl.snapshot_set.exists()
+    assert calls == []

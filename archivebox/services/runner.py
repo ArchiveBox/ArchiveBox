@@ -748,6 +748,7 @@ class CrawlRunner:
             if not _is_cookie_file_config_key(key) and (not key.endswith("_BINARY") or value == self.base_config.get(key))
         }
         self.crawl_output_dir = str(self.crawl.output_dir)
+        Path(self.crawl_output_dir).mkdir(parents=True, exist_ok=True)
         if self.persona:
             self.base_config.update(
                 self.persona.prepare_runtime_for_crawl(
@@ -956,6 +957,7 @@ class CrawlRunner:
                     },
                 )
         snapshot_output_dir = str(snapshot.output_dir)
+        Path(snapshot_output_dir).mkdir(parents=True, exist_ok=True)
         tags = snapshot.tags_str()
         config = self.base_config.for_crawl_runtime(
             crawl=snapshot.crawl,

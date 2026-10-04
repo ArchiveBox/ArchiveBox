@@ -9,6 +9,7 @@ from typing import Any
 from archivebox.uuid_compat import CompactUUIDField, uuid7
 from pathlib import Path
 
+from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.db.models import F
 from django.db import transaction
@@ -21,6 +22,103 @@ from django.conf import settings
 from django_stubs_ext.db.models import TypedModelMeta
 
 from archivebox.config import CONSTANTS
+
+
+class PagedQuerySet(models.QuerySet):
+    def paged_iterator(self, chunk_size: int = 500):
+        """
+        Iterate rows using bounded keyset pages instead of one streaming cursor.
+
+        Django's iterator(chunk_size=...) still keeps a single SQLite SELECT
+        cursor open until the full queryset is exhausted. That is fine for
+        read-only exports, but update/migration code does filesystem work and
+        writes while iterating; a long-lived read cursor there can stretch lock
+        waits across thousands of rows. This respects the queryset's existing
+        filters, order_by(), select_related(), and prefetch_related() state; if
+        no ordering is defined, it falls back to primary-key order.
+        """
+        pk_field = self.model._meta.pk.name
+        raw_ordering = tuple(self.query.order_by or self.model._meta.ordering or (pk_field,))
+
+        if any(not isinstance(term, str) or term == "?" for term in raw_ordering):
+            offset = 0
+            while True:
+                batch = list(self[offset : offset + chunk_size])
+                if not batch:
+                    break
+                yield from batch
+                offset += chunk_size
+            return
+
+        ordering = []
+        for term in raw_ordering:
+            descending = term.startswith("-")
+            field_name = term[1:] if descending else term
+            if field_name == "pk":
+                field_name = pk_field
+            ordering.append(f"-{field_name}" if descending else field_name)
+
+        ordered_field_names = [term.removeprefix("-") for term in ordering]
+        try:
+            if any(self.model._meta.get_field(field_name).null for field_name in ordered_field_names):
+                offset = 0
+                while True:
+                    batch = list(self[offset : offset + chunk_size])
+                    if not batch:
+                        break
+                    yield from batch
+                    offset += chunk_size
+                return
+        except (AttributeError, FieldDoesNotExist):
+            offset = 0
+            while True:
+                batch = list(self[offset : offset + chunk_size])
+                if not batch:
+                    break
+                yield from batch
+                offset += chunk_size
+            return
+
+        unique_field_names = {pk_field, *(field.name for field in self.model._meta.fields if field.unique)}
+        if not any(field_name in unique_field_names for field_name in ordered_field_names):
+            offset = 0
+            while True:
+                batch = list(self[offset : offset + chunk_size])
+                if not batch:
+                    break
+                yield from batch
+                offset += chunk_size
+            return
+
+        last_values = None
+        value_field_names = tuple(dict.fromkeys([*ordered_field_names, pk_field]))
+        while True:
+            batch_qs = self.order_by(*ordering)
+            if last_values is not None:
+                page_filter = models.Q()
+                for idx, term in enumerate(ordering):
+                    descending = term.startswith("-")
+                    field_name = term[1:] if descending else term
+                    prefix = {ordered_field_names[i]: last_values[i] for i in range(idx)}
+                    comparison = "lt" if descending else "gt"
+                    page_filter |= models.Q(**prefix, **{f"{field_name}__{comparison}": last_values[idx]})
+                batch_qs = batch_qs.filter(page_filter)
+
+            batch_rows = list(batch_qs.values_list(*value_field_names)[:chunk_size])
+            if not batch_rows:
+                break
+
+            pk_idx = value_field_names.index(pk_field)
+            row_ids = [row[pk_idx] for row in batch_rows]
+            rows_by_id = {obj.pk: obj for obj in self.filter(pk__in=row_ids).order_by()}
+
+            for row in batch_rows:
+                row_id = row[pk_idx]
+                obj = rows_by_id.get(row_id)
+                if obj is not None:
+                    yield obj
+
+            last_values = batch_rows[-1][: len(ordered_field_names)]
 
 
 def normalize_config_json_values(config: Any) -> Any:
@@ -231,12 +329,9 @@ class ModelWithOutputDir(ModelWithUUID):
 
     _delete_signal_registered = False
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        output_dir = Path(self.output_dir)
-        # Avoid holding SQLite write transactions open across slow filesystem work.
-        transaction.on_commit(lambda: output_dir.mkdir(parents=True, exist_ok=True))
-        # Note: index.json is deprecated, models should use write_index_jsonl() for full data
+    # Saving metadata must not resolve or create output paths. The runner and
+    # explicit artifact writers create their own directories when writing files;
+    # on_commit would still make HTTP requests wait on remote archive storage.
 
     @property
     def output_dir_parent(self) -> str:

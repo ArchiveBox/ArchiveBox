@@ -649,6 +649,10 @@ class SnapshotSchema(Schema):
     archiveresults: list[MinimalArchiveResultSchema]
 
     @staticmethod
+    def resolve_archive_path(obj):
+        return obj.archive_path_from_db
+
+    @staticmethod
     def resolve_created_by_id(obj):
         return str(obj.created_by.pk)
 
@@ -970,11 +974,6 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
             tags,
             created_by=request.user if isinstance(request.user, User) else None,
         )
-
-    try:
-        snapshot.ensure_crawl_symlink()
-    except Exception:
-        pass
 
     setattr(request, "with_archiveresults", False)
     return snapshot

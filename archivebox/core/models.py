@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib import admin
-from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
 from django.db.models import F, Q, QuerySet, Sum, Value
 from django.db.models.fields.json import KT
@@ -24,6 +24,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 
 from archivebox.base_models.models import (
+    PagedQuerySet,
     ModelWithConfig,
     ModelWithDeleteAfter,
     ModelWithHealthStats,
@@ -173,7 +174,7 @@ class SnapshotTag(models.Model):
         unique_together: ClassVar[list[tuple[str, str]]] = [("snapshot", "tag")]
 
 
-class SnapshotQuerySet(models.QuerySet):
+class SnapshotQuerySet(PagedQuerySet):
     """Custom QuerySet for Snapshot model with export methods that persist through .filter() etc."""
 
     def delete(self):
@@ -219,101 +220,6 @@ class SnapshotQuerySet(models.QuerySet):
                 # (e.g. page titles) to stay within postgres VARCHAR limits.
                 truncate_overlong_charfields(obj)
         return super().bulk_create(objs, *args, **kwargs)
-
-    def paged_iterator(self, chunk_size: int = 500):
-        """
-        Iterate snapshots using bounded keyset pages instead of one streaming cursor.
-
-        Django's iterator(chunk_size=...) still keeps a single SQLite SELECT
-        cursor open until the full queryset is exhausted. That is fine for
-        read-only exports, but update/migration code does filesystem work and
-        writes while iterating; a long-lived read cursor there can stretch lock
-        waits across thousands of rows. This respects the queryset's existing
-        filters, order_by(), select_related(), and prefetch_related() state; if
-        no ordering is defined, it falls back to primary-key order.
-        """
-        pk_field = self.model._meta.pk.name
-        raw_ordering = tuple(self.query.order_by or self.model._meta.ordering or (pk_field,))
-
-        if any(not isinstance(term, str) or term == "?" for term in raw_ordering):
-            offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
-                yield from batch
-                offset += chunk_size
-            return
-
-        ordering = []
-        for term in raw_ordering:
-            descending = term.startswith("-")
-            field_name = term[1:] if descending else term
-            if field_name == "pk":
-                field_name = pk_field
-            ordering.append(f"-{field_name}" if descending else field_name)
-
-        ordered_field_names = [term.removeprefix("-") for term in ordering]
-        try:
-            if any(self.model._meta.get_field(field_name).null for field_name in ordered_field_names):
-                offset = 0
-                while True:
-                    batch = list(self[offset : offset + chunk_size])
-                    if not batch:
-                        break
-                    yield from batch
-                    offset += chunk_size
-                return
-        except (AttributeError, FieldDoesNotExist):
-            offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
-                yield from batch
-                offset += chunk_size
-            return
-
-        unique_field_names = {pk_field, *(field.name for field in self.model._meta.fields if field.unique)}
-        if not any(field_name in unique_field_names for field_name in ordered_field_names):
-            offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
-                yield from batch
-                offset += chunk_size
-            return
-
-        last_values = None
-        value_field_names = tuple(dict.fromkeys([*ordered_field_names, pk_field]))
-        while True:
-            batch_qs = self.order_by(*ordering)
-            if last_values is not None:
-                page_filter = models.Q()
-                for idx, term in enumerate(ordering):
-                    descending = term.startswith("-")
-                    field_name = term[1:] if descending else term
-                    prefix = {ordered_field_names[i]: last_values[i] for i in range(idx)}
-                    comparison = "lt" if descending else "gt"
-                    page_filter |= models.Q(**prefix, **{f"{field_name}__{comparison}": last_values[idx]})
-                batch_qs = batch_qs.filter(page_filter)
-
-            batch_rows = list(batch_qs.values_list(*value_field_names)[:chunk_size])
-            if not batch_rows:
-                break
-
-            pk_idx = value_field_names.index(pk_field)
-            snapshot_ids = [row[pk_idx] for row in batch_rows]
-            snapshots_by_id = {snapshot.pk: snapshot for snapshot in self.filter(pk__in=snapshot_ids).order_by()}
-
-            for row in batch_rows:
-                snapshot_id = row[pk_idx]
-                snapshot = snapshots_by_id.get(snapshot_id)
-                if snapshot is not None:
-                    yield snapshot
-
-            last_values = batch_rows[-1][: len(ordered_field_names)]
 
     # =========================================================================
     # Filtering Methods
@@ -1131,7 +1037,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from django.db import transaction
 
         def finish_snapshot_save():
-            self.reconcile_filesystem_links()
             crawl = Crawl.objects.filter(pk=self.crawl_id).first()
             if crawl is None:
                 return
@@ -1151,8 +1056,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             # Crawl.urls remains the original submitted source. Snapshot rows
             # are the normalized work queue and discovery projection.
 
-        # get_or_create/update_or_create wrap save() in atomic(); defer filesystem
-        # work and crawl maintenance so SQLite commits before touching the disk.
+        # get_or_create/update_or_create wrap save() in atomic(); attach inherited
+        # tags after that write commits. Filesystem projections belong to the runner.
         transaction.on_commit(finish_snapshot_save)
 
     # =========================================================================
