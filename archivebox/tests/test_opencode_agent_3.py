@@ -44,7 +44,7 @@ def test_opencode_cold_agent_wrapper_returns_before_server_starts(admin_client, 
     assert time.monotonic() - started < 3
     assert not runtime._owned_process_running()
     assert b'id="opencode-agent-welcome"' in response.content
-    assert f'<iframe src="{runtime._project_route(installed_opencode.config.data_dir)}"'.encode() in response.content
+    assert f'<iframe data-src="{runtime._project_route(installed_opencode.config.data_dir)}"'.encode() in response.content
 
 
 def test_opencode_proxy_serves_real_project_and_session(admin_client, live_opencode):

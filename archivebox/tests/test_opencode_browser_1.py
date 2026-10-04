@@ -92,8 +92,10 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
   try {
     const page = await browser.newPage();
     const escapedRequests = [];
+    const agentRequests = [];
     page.on('request', request => {
       const url = new URL(request.url());
+      if (url.pathname.startsWith('/admin/agent/opencode/')) agentRequests.push(url.pathname);
       if (request.frame()?.parentFrame() && url.origin === config.url &&
           !url.pathname.startsWith('/admin/agent/opencode/')) {
         escapedRequests.push(request.method() + ' ' + url.pathname);
@@ -105,8 +107,11 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
     await page.locator('#login-form input[name="password"]').fill('test-password');
     await Promise.all([page.waitForNavigation({waitUntil: 'domcontentloaded'}),
       page.locator('#login-form input[type="submit"]').click()]);
-    assert.equal((await page.goto(config.url + '/admin/agent', {waitUntil: 'domcontentloaded'})).status(), 200);
-    await page.locator('#opencode-agent-welcome-dismiss').click();
+    assert.equal((await page.goto(config.url + '/admin/agent', {waitUntil: 'load'})).status(), 200);
+    // The welcome dialog must not start a hidden OpenCode app: its cold startup
+    // and asset load compete with rendering the very dialog the user must read.
+    assert.deepEqual(agentRequests, [], 'OpenCode started before the user dismissed its welcome dialog');
+    await page.locator('::-p-aria(Start using Agent[role="button"])').click();
     const frame = await (await page.waitForSelector('iframe')).contentFrame();
     await frame.waitForSelector('a[href*="/session"]');
     const links = await frame.$$eval('a[href*="/session"]', nodes => nodes.map(node => node.getAttribute('href')));
@@ -264,6 +269,12 @@ const config = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
     assert.ok(terminal.includes('ABX_TERMINAL_OK'), terminal);
     assert.deepEqual(escapedRequests, [], 'OpenCode requests must stay inside its proxy mount');
     assert.equal((await page.goto(config.url + '/add/', {waitUntil: 'domcontentloaded'})).status(), 200);
+    // A real click persists the dismissal: returning users load the Agent
+    // directly, without another click or seeded browser preferences.
+    assert.equal((await page.goto(config.url + '/admin/agent', {waitUntil: 'load'})).status(), 200);
+    await page.waitForSelector('::-p-aria(Start using Agent[role="button"])', {hidden: true});
+    const returningFrame = await (await page.waitForSelector('iframe[title="OpenCode Agent"]')).contentFrame();
+    await returningFrame.waitForSelector('::-p-aria(New session[role="button"])');
     console.log('AGENT_NAVIGATION_OK');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

@@ -63,7 +63,7 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     frame_path = runtime._project_route(live_opencode.config.data_dir)
 
     assert response.status_code == 200
-    assert f'<iframe src="{frame_path}"'.encode() in response.content
+    assert f'<iframe data-src="{frame_path}"'.encode() in response.content
     assert b'id="opencode-agent-welcome"' in response.content
     assert b'id="header"' in response.content
     assert b'id="progress-monitor"' in response.content
