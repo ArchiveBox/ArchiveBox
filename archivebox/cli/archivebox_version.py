@@ -276,6 +276,7 @@ def version(
             prnt("", f"[yellow]Warning: Could not query collection machine config; resolving through abxpkg: {e}[/yellow]")
 
     declared_binary_specs: dict[str, dict[str, object]] = {}
+    binary_records_by_plugin: dict[str, list[dict[str, object]]] = {}
     for plugin_name, plugin in plugins.items():
         if not plugin_may_have_requested_binary(plugin):
             continue
@@ -287,6 +288,10 @@ def version(
             derived_overrides=derived_config,
             run_output_dir=CONSTANTS.DATA_DIR,
         )
+        # Render the exact requests resolved below. Rehydrating all schemas for
+        # display doubled config work, and could describe different requests if
+        # a config file changed while dependency resolution was running.
+        binary_records_by_plugin[plugin_name] = binary_records
         for binary_record in binary_records:
             actual_name = str(binary_record["name"])
             logical_name = (
@@ -335,13 +340,7 @@ def version(
             for dependency in plugins.select([plugin_name]).values()
             if not config.get(dependency.enabled_key, True)
         )
-        binary_records = get_required_binary_requests(
-            plugin,
-            plugin.config.required_binaries,
-            overrides=runtime_config,
-            derived_overrides=derived_config,
-            run_output_dir=CONSTANTS.DATA_DIR,
-        )
+        binary_records = binary_records_by_plugin[plugin_name]
         for binary_record in binary_records:
             binary_record["no_cache"] = no_cache
             actual_name = str(binary_record["name"])
