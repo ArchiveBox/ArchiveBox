@@ -70,6 +70,11 @@ def test_cancelled_hook_discards_result_without_deleting_partial_files(snapshot,
 
 @pytest.mark.parametrize("stop_mode", ["crash", "cancel"])
 def test_stopped_hook_reconciles_its_earlier_success(initialized_archive, stop_mode):
+    env = cli_env(CHROME_DELAY_AFTER_LOAD="60", CHROME_TIMEOUT="120", CHROME_HEADLESS="True")
+    # The deadline below measures a running hook's lifecycle, not a cold Chrome
+    # download/install. Install through the public CLI before starting that clock.
+    installed = run_archivebox_cmd(["install", "chrome"], cwd=initialized_archive, env=env, timeout=600)
+    assert installed.returncode == 0, installed.stdout + installed.stderr
     output = initialized_archive / "crash-check.log"
     cli = None
     with output.open("w") as log:
@@ -77,7 +82,7 @@ def test_stopped_hook_reconciles_its_earlier_success(initialized_archive, stop_m
             cli = run_archivebox_cmd(
                 ["add", "--plugins=chrome", "https://example.com"],
                 cwd=initialized_archive,
-                env=cli_env(CHROME_DELAY_AFTER_LOAD="60", CHROME_TIMEOUT="120", CHROME_HEADLESS="True"),
+                env=env,
                 stdin=subprocess.DEVNULL,
                 stdout=log,
                 stderr=log,
