@@ -2,9 +2,10 @@
   "source_runs": [
     "https://github.com/ArchiveBox/ArchiveBox/actions/runs/36302511923",
     "https://github.com/ArchiveBox/ArchiveBox/actions/runs/36353196552",
-    "https://github.com/ArchiveBox/ArchiveBox/actions/runs/36454992009"
+    "https://github.com/ArchiveBox/ArchiveBox/actions/runs/36454992009",
+    "https://github.com/ArchiveBox/ArchiveBox/actions/runs/37186118498"
   ],
-  "measurement": "Whole job seconds, including setup and excluding queue time. Hosted unbatched files use the latest complete successful run; other files retain their individual baseline measurement. Unknown files stay independent.",
+  "measurement": "Whole job seconds, including setup and excluding queue time. Hosted unbatched files use the latest complete successful run; other files retain their individual baseline measurement. test_issue_1896 uses its successful ugNAS job measurement from run 37186118498. Unknown files stay independent.",
   "seconds": {
     "archivebox/tests/test_api_v1_auth_browser_session.py": 29,
     "archivebox/tests/test_api_v1_auth_check_api_token.py": 27,
@@ -99,6 +100,7 @@
     "archivebox/tests/test_frozen_crawl_config.py": 47,
     "archivebox/tests/test_hook_result_lifecycle.py": 78,
     "archivebox/tests/test_hooks.py": 90,
+    "archivebox/tests/test_issue_1896.py": 485,
     "archivebox/tests/test_machine_models.py": 52,
     "archivebox/tests/test_machine_service.py": 89,
     "archivebox/tests/test_migrations_04_to_09.py": 36,
