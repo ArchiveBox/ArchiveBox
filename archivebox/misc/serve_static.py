@@ -126,7 +126,8 @@ def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Pat
         current = match
         resolved_parts.append(match.name)
 
-    return current, posixpath.join(*resolved_parts) if resolved_parts else ""
+    resolved_path = posixpath.join(*resolved_parts) if resolved_parts else ""
+    return Path(safe_join(document_root, resolved_path)), resolved_path
 
 
 def _cache_policy(config=None, **config_kwargs) -> str:
