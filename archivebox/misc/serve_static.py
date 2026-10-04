@@ -851,7 +851,8 @@ def _is_risky_replay_document(fullpath: Path, content_type: str) -> bool:
     # Unknown archived response paths often have no extension. Sniff a small prefix
     # so one-domain no-JS mode still catches HTML/SVG documents.
     try:
-        head = fullpath.read_bytes()[:4096].decode("utf-8", errors="ignore").lower()
+        with fullpath.open("rb") as source:
+            head = source.read(4096).decode("utf-8", errors="ignore").lower()
     except (OSError, UnicodeDecodeError):
         return False
 
@@ -1016,6 +1017,29 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             not_modified,
             fullpath=fullpath,
             content_type=content_type,
+            is_archive_replay=is_archive_replay,
+            config=config,
+        )
+
+    # A shared archive explorer for ZIP outputs from any plugin. Raw/range
+    # requests retain the original bytes for downloads and seekable reads.
+    if fullpath.suffix.lower() == ".zip" and request.GET.get("preview") and not request.META.get("HTTP_RANGE"):
+        raw_query = request.GET.copy()
+        raw_query.pop("preview", None)
+        raw_query["raw"] = "1"
+        wrapped = loader.get_template("static/zip_index.html").render(
+            {
+                "title": fullpath.name,
+                "output_path": f"{request.path}?{raw_query.urlencode()}",
+                "archive_size": statobj.st_size,
+            },
+        )
+        response = HttpResponse(wrapped, content_type="text/html; charset=utf-8")
+        _set_transformed_response_headers(response, fullpath, statobj, None, cache_policy)
+        return _apply_archive_replay_headers(
+            response,
+            fullpath=fullpath,
+            content_type="text/html; charset=utf-8",
             is_archive_replay=is_archive_replay,
             config=config,
         )

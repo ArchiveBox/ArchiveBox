@@ -269,3 +269,31 @@ def test_image_rewrite_uses_optional_saved_artifacts(tmp_path: Path):
     (responses / "index.jsonl").unlink()
     (responses / "index.jsonl").mkdir()
     assert rewrite() == (source, 0)
+
+
+def test_zip_preview_is_generic_and_raw_range_stays_seekable(tmp_path):
+    import zipfile
+
+    output = tmp_path / "arbitrary-plugin" / "nested" / "bundle.ZIP"
+    output.parent.mkdir(parents=True)
+    with zipfile.ZipFile(output, "w") as archive:
+        archive.writestr("inside/note.txt", "generic archive browsing")
+    path = output.relative_to(tmp_path).as_posix()
+    factory = RequestFactory()
+    preview = serve_static_with_byterange_support(factory.get(f"/{path}?preview=1"), path, document_root=tmp_path)
+    assert preview.status_code == 200
+    assert preview["Content-Type"].startswith("text/html")
+    assert b"indexZip" in preview.content
+    assert b"bundle.ZIP" in preview.content
+    assert b"raw=1" in preview.content
+    assert b"downloads.json" not in preview.content
+    raw = serve_static_with_byterange_support(factory.get(f"/{path}?raw=1", HTTP_RANGE="bytes=0-3"), path, document_root=tmp_path)
+    assert raw.status_code == 206
+    assert b"".join(raw.streaming_content) == b"PK\x03\x04"
+    listing = serve_static_with_byterange_support(
+        factory.get("/arbitrary-plugin/nested/?files=1"),
+        "arbitrary-plugin/nested/",
+        document_root=tmp_path,
+        show_indexes=True,
+    )
+    assert b"bundle.ZIP?preview=1" in listing.content
