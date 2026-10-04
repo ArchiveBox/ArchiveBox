@@ -201,7 +201,8 @@ def test_snapshot_service_cli_add_seals_snapshot_and_writes_indexes(tmp_path, re
 
 
 @pytest.mark.timeout(180)
-def test_api_queue_hands_storage_creation_to_runner(tmp_path, recursive_test_site):
+@pytest.mark.parametrize("depth", [0, 1])
+def test_api_queue_hands_storage_creation_to_runner(tmp_path, recursive_test_site, depth):
     from .conftest import (
         create_admin_and_token,
         live_api_request,
@@ -212,7 +213,7 @@ def test_api_queue_hands_storage_creation_to_runner(tmp_path, recursive_test_sit
 
     init_archive(tmp_path)
     port = get_free_port()
-    env = cli_env(port=port, server=True, PLUGINS="wget")
+    env = cli_env(port=port, server=True, PLUGINS="wget,parse_html_urls")
     token = create_admin_and_token(tmp_path)
     url = recursive_test_site["root_url"]
     server = start_archivebox_server(tmp_path, env=env, port=port, log_name="api-storage-handoff.log")
@@ -222,7 +223,7 @@ def test_api_queue_hands_storage_creation_to_runner(tmp_path, recursive_test_sit
             "post",
             "/api/v1/cli/add",
             api_token=token,
-            json={"urls": [url], "plugins": "wget", "tag": "handoff"},
+            json={"urls": [url], "plugins": "wget,parse_html_urls", "tag": "handoff", "depth": depth},
         )
         assert response.status_code == 200, response.text
         crawl_id = response.json()["result"]["crawl_id"]
@@ -235,6 +236,13 @@ def test_api_queue_hands_storage_creation_to_runner(tmp_path, recursive_test_sit
         )
         assert metadata.status_code == 200, metadata.text
         assert "Root" in wait_for_snapshot_capture(tmp_path, url, timeout=120)
+        if depth:
+            assert "About" in wait_for_snapshot_capture(tmp_path, url + "about", timeout=120)
+            child_state = _snapshot_state(tmp_path, url + "about")
+            assert child_state["status"] == Snapshot.StatusChoices.SEALED
+            assert child_state["crawl_link"].is_symlink()
+            assert child_state["crawl_link"].resolve() == child_state["snapshot_dir"].resolve()
+            assert (child_state["snapshot_dir"] / "index.jsonl").is_file()
         with use_archivebox_db(tmp_path):
             snapshot = Snapshot.objects.get(pk=metadata.json()["id"])
             assert snapshot.tags.filter(name="handoff").exists()
