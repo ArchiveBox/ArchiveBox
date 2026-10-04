@@ -129,6 +129,7 @@ jobs:
         with:
           python-version: ${{ env.CI_PYTHON_VERSION }}
           architecture: x64
+        id: python
 
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
         with:
@@ -156,9 +157,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/archivebox-lib
-          key: abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ env.CI_PYTHON_VERSION }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}
+          key: abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}
           restore-keys: |
-            abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ env.CI_PYTHON_VERSION }}-${{ matrix.test.name }}-
+            abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-
 
       - name: Resolve optional build dependencies through abxpkg
         if: matrix.test.extra != '' || contains(matrix.test.paths_arg, 'test_postgres_backend')
