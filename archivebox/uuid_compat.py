@@ -23,12 +23,16 @@ def compact_uuid(value: uuid.UUID | str | None) -> CompactUUID | None:
     if isinstance(value, CompactUUID):
         return value
     if isinstance(value, uuid.UUID):
-        return CompactUUID(hex=value.hex)
+        # ORM reads already decoded the UUID. Reuse its integer instead of
+        # formatting and parsing hex again for every primary/foreign key.
+        return CompactUUID(int=value.int)
     return CompactUUID(str(value))
 
 
 class CompactUUIDField(models.UUIDField):
     def to_python(self, value):
+        if value is None or isinstance(value, CompactUUID):
+            return value
         return compact_uuid(super().to_python(value))
 
     def from_db_value(self, value, expression, connection):

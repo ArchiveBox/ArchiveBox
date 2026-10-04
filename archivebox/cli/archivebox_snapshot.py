@@ -298,7 +298,7 @@ def list_snapshots(
     Exit codes:
         0: Success (even if no results)
     """
-    from archivebox.misc.jsonl import write_record
+    from archivebox.misc.jsonl import write_records
 
     output_formats = sum(bool(output_format) for output_format in (csv, as_json, as_html))
     if output_formats > 1:
@@ -351,9 +351,7 @@ def list_snapshots(
         return 0
 
     if not is_tty:
-        for snapshot_json in iter_snapshot_json(queryset):
-            write_record(snapshot_json)
-            count += 1
+        count = write_records(iter_snapshot_json(queryset))
         rprint(f"[dim]Listed {count} snapshots[/dim]", file=sys.stderr)
         return 0
 
