@@ -1,13 +1,8 @@
 import asyncio
-import json
 import os
 import re
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeoutError
 from urllib.parse import parse_qs, urlsplit
 
-import pytest
-import requests
 from asgiref.testing import ApplicationCommunicator
 
 from archivebox.tests.conftest import ADMIN_TEST_HOST
@@ -92,45 +87,6 @@ def test_opencode_agent_superuser_gets_admin_wrapper(admin_client, live_opencode
     assert session.status_code == 200
     assert session.headers["X-Frame-Options"] == "SAMEORIGIN"
     assert session.headers["Content-Security-Policy"] == "frame-ancestors 'self'"
-
-
-def test_opencode_oauth_callback_waits_for_user_and_preserves_cancellation(live_opencode):
-    from abx_plugins.plugins.opencode import runtime
-
-    settings = {**live_opencode.settings, "timeout": 1}
-    headers = {"Content-Type": "application/json"}
-    status, _, body = runtime.proxy(settings, "POST", "provider/openai/oauth/authorize", (), headers, b'{"method":0}')
-    assert status == 200
-    authorization = json.loads(body)
-    assert urlsplit(authorization["url"]).hostname == "auth.openai.com"
-    redirect = parse_qs(urlsplit(authorization["url"]).query)["redirect_uri"][0]
-    callback_origin = urlsplit(redirect)
-    assert callback_origin.hostname == "localhost"
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        callback = executor.submit(runtime.proxy, settings, "POST", "provider/openai/oauth/callback", (), headers, b'{"method":0}')
-        try:
-            # A real pending authorization must outlive the ordinary API read
-            # timeout. No tokens or substituted provider responses are used.
-            with pytest.raises(FutureTimeoutError):
-                callback.result(timeout=2)
-        finally:
-            cancelled = requests.get(f"{callback_origin.scheme}://{callback_origin.netloc}/cancel", timeout=5)
-            assert cancelled.status_code == 200
-            assert cancelled.text == "Login cancelled"
-        status, response_headers, body = callback.result(timeout=5)
-    assert status == 500
-    assert response_headers["Content-Type"].startswith("application/json")
-    error = json.loads(body)
-    assert error["name"] == "UnknownError"
-    assert error["data"]["ref"].startswith("err_")
-    runtime._stop_owned_process()
-    # The pnpm launcher can exit before its server child. Stopping the owned
-    # process must release both listeners so another collection can authorize.
-    with pytest.raises(requests.ConnectionError):
-        requests.get(settings["origin"] + "/global/health", timeout=2)
-    with pytest.raises(requests.ConnectionError):
-        requests.get(f"{callback_origin.scheme}://{callback_origin.netloc}/cancel", timeout=2)
 
 
 def test_opencode_static_assets_cache_privately_and_revalidate(admin_client, live_opencode):

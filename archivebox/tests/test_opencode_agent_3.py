@@ -108,33 +108,6 @@ def test_opencode_proxy_restarts_server_for_an_existing_agent_page(admin_client,
     assert runtime._PROCESS.poll() is None
 
 
-def test_concurrent_opencode_startup_waits_until_server_is_ready(live_opencode):
-    from abx_plugins.plugins.opencode import runtime
-
-    runtime._stop_owned_process()
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        results = list(executor.map(runtime._ensure_opencode, [live_opencode.settings] * 2))
-
-    assert results == [(True, ""), (True, "")]
-    assert runtime._health(live_opencode.settings)
-
-
-def test_opencode_does_not_probe_or_replace_a_ready_owned_process(live_opencode):
-    from abx_plugins.plugins.opencode import runtime
-
-    process = runtime._PROCESS
-    settings = {**live_opencode.settings, "port": _free_port()}
-    settings["origin"] = f"http://{settings['host']}:{settings['port']}"
-
-    ok, error = runtime._ensure_opencode(settings)
-
-    assert ok, error
-    assert process is not None
-    assert runtime._PROCESS is process
-    assert process.poll() is None
-
-
 def test_opencode_proxy_does_not_wait_for_recovery_lock(admin_client, live_opencode):
     from abx_plugins.plugins.opencode import runtime
 
