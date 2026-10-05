@@ -211,17 +211,10 @@ echo "[*] Creating a temporary screenshot admin"
 CREATED_TEMP_USER=1
 
 # Configure the optional UI before the server snapshots its startup config.
-OPENCODE_PORT="$(uv run --no-cache --project "$REPO_DIR" python - <<'PYPORT'
-import socket
-
-with socket.socket() as sock:
-    sock.bind(("127.0.0.1", 0))
-    print(sock.getsockname()[1])
-PYPORT
-)"
 (
     cd "$DATA_DIR"
-    uv run --no-cache --project "$REPO_DIR" archivebox config --set "OPENCODE_PORT=$OPENCODE_PORT"
+    uv run --no-cache --project "$REPO_DIR" python -c \
+        'from abx_plugins.plugins.opencode.archivebox.screenshots import configure; configure()'
 )
 
 echo "[*] Starting ArchiveBox on port $PORT"
@@ -589,7 +582,7 @@ PY
         VIEWS+=(
             "Add URLs|$ADMIN_BASE_URL/add/|/add/|archivebox/core/views.py"
             "Admin dashboard|$ADMIN_BASE_URL/admin/|/admin/|archivebox/core/admin_site.py"
-            "AI agent|$ADMIN_BASE_URL/admin/agent/|/admin/agent/|archivebox/opencode/views.py|wait-text:ArchiveBox AI Agent"
+            "$(uv run --no-cache --project "$REPO_DIR" python -c 'import sys; from abx_plugins.plugins.opencode.archivebox.screenshots import gallery_entry; print(gallery_entry(sys.argv[1]))' "$ADMIN_BASE_URL")"
             "Snapshots table|$ADMIN_BASE_URL/admin/core/snapshot/|/admin/core/snapshot/|archivebox/core/admin_snapshots.py"
             "Snapshots grid|$ADMIN_BASE_URL/admin/core/snapshot/grid/|/admin/core/snapshot/grid/|archivebox/templates/admin/snapshots_grid.html"
             "Snapshot admin detail|$ADMIN_BASE_URL/admin/core/snapshot/$SNAPSHOT_ID/change/|/admin/core/snapshot/$SNAPSHOT_ID/change/|archivebox/core/admin_snapshots.py"

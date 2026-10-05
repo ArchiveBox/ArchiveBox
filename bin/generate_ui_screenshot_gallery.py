@@ -259,7 +259,8 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
         route = parsed_url.path or "/"
         if parsed_url.fragment:
             route = f"{route}#{parsed_url.fragment}"
-        source_url = f"{source_base_url}{capture['source']}"
+        source = capture["source"]
+        source_url = source if source.startswith("https://") else f"{source_base_url}{source}"
         ttfb_values = [variant["ttfb_ms"] for variant in variants.values() if isinstance(variant.get("ttfb_ms"), int | float)]
         ttfb_text = f" · ~{round(sum(ttfb_values) / len(ttfb_values))}ms TTFB" if ttfb_values else ""
         markdown_cells = []

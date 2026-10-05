@@ -3,14 +3,14 @@
 # Multistage ArchiveBox Dockerfile that consumes the abx-dl runtime image.
 # WHY: abx-dl owns Python, Node, Chromium, and extraction dependencies so the
 # standalone downloader stays independent of ArchiveBox's server features.
-# ArchiveBox-only dependencies (Sonic, OpenCode, supervisor, Django) belong in
+# ArchiveBox-only dependencies (server plugins, supervisor, Django) belong in
 # the layers added by this Dockerfile, never in the shared abx-dl base image.
 # REQUIRED INSTALLATION CONTRACT — do not work around failures:
 # 1. IMAGE CONSTRUCTION: preinstall ALL plugins supported by runtime="archivebox"
 #    and ALL their required_binaries, regardless of default enabled state.
 #    Inherit the complete downloader dependencies from the tested abx-dl image;
 #    install every remaining ArchiveBox-only dependency in this image's layers,
-#    including OpenCode and Sonic. Never put server dependencies in abx-dl.
+#    including optional server plugins. Never put server dependencies in abx-dl.
 #    Use the normal plugin dependency pipeline: install command -> config.json
 #    required_binaries -> abxpkg. Never add manual apt/pip/npm installs to hide
 #    failures in that pipeline. OS/interpreter bootstrap is a separate concern,
@@ -266,15 +266,13 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
 
 # Install the complete ArchiveBox catalog, including disabled server plugins.
 # Explicit plugin names make installation independent of enabled defaults.
-RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-opencode-$TARGETARCH \
+RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-server-plugins-$TARGETARCH \
     chown -R "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" /var/tmp/abxpkg-cache \
     && chmod 1777 /var/tmp/abxpkg-cache \
     && export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
         setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install $ABX_DOCKER_PLUGINS \
-    # pnpm includes musl variants that Debian's glibc runtime cannot use.
-    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules" -type l -name 'opencode-linux-*-musl' -delete \
-    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.pnpm" -maxdepth 1 -type d -name 'opencode-linux-*-musl@*' -exec rm -rf {} + \
+    && UV_NO_CACHE=true /usr/bin/uv run --no-project python -c 'from abx_plugins.plugins.opencode.image import prune_incompatible_image_files; prune_incompatible_image_files()' \
     # pnpm's explicit store lives under ABXPKG_LIB_DIR, regardless of XDG_CACHE_HOME.
     # Retaining its download copies made image size depend on whether the build
     # preserved hardlinks to installed files. Remove the store in this layer;
@@ -283,7 +281,7 @@ RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=
     && rm -rf "$ABXPKG_LIB_DIR/cache/pnpm"
 RUN --network=none export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
-    bash -c '"$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version && abx-dl install $ABX_DOCKER_PLUGINS'
+    bash -c 'uv run --no-project python -c "from abx_plugins.plugins.opencode.image import verify_installed; verify_installed()" && abx-dl install $ABX_DOCKER_PLUGINS'
 
 WORKDIR "$DATA_DIR"
 RUN echo "[+] Initializing image collection..." \
