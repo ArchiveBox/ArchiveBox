@@ -451,7 +451,9 @@ jobs:
             "$DOCKER_BINARY" run --name www-nginx -p 80:80 -d nginx:1.29.5@sha256:0236ee02dcbce00b9bd83e0f5fbc51069e7e1161bd59d99885b3ae1734f3392e
 
             "$DOCKER_BINARY" run -v "$PWD"/data:/data --network host "$ARCHIVEBOX_IMAGE" add http://www.test-nginx-1.local
-            echo "http://www.test-nginx-2.local" | "$DOCKER_BINARY" run -i --network host -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" add
+            # The argument form above exercises the complete default pipeline.
+            # Keep a real capture for stdin parsing without repeating every plugin.
+            echo "http://www.test-nginx-2.local" | "$DOCKER_BINARY" run -i --network host -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" add --plugins=wget,hashes
 
             archive_list="$("$DOCKER_BINARY" run -v "$PWD"/data:/data "$ARCHIVEBOX_IMAGE" list)"
             [[ "$archive_list" == *"www.test-nginx-1.local"* ]] || { echo "The site 1 isn't in the list"; exit 1; }
