@@ -40,6 +40,7 @@ PYTEST_BASETEMP_ROOT = (REPO_ROOT / "tests" / "out").resolve()
 SESSION_DATA_DIR = Path(
     os.environ.get("ARCHIVEBOX_PYTEST_SESSION_DATA_DIR") or tempfile.mkdtemp(prefix="archivebox-pytest-session-"),
 ).resolve()
+PORT_ALLOCATION_DIR = Path(os.environ.setdefault("ARCHIVEBOX_PYTEST_PORTS_DIR", str(SESSION_DATA_DIR / "ports")))
 if worker_id := os.environ.get("PYTEST_XDIST_WORKER"):
     # Workers inherit the coordinator's environment. Give each one its own
     # collection and cleanup root so a finishing worker cannot delete another's.
@@ -1103,6 +1104,8 @@ def start_archivebox_server(
     else:
         output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
         raise AssertionError(f"ArchiveBox server did not open port {port} within 30 seconds:\n{output}")
+    response = get_http_response(port, host=f"127.0.0.1:{port}", path="/health/", timeout=5)
+    assert response.status_code == 200 and response.headers.get("X-ArchiveBox-Health") == "OK", response.text
     return proc
 
 
@@ -1403,9 +1406,20 @@ def init_archive(cwd: Path) -> None:
 
 
 def get_free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
+    # Binding port zero only proves availability now. Another pytest worker can
+    # receive that same port before either service starts. Claim it atomically
+    # for this session while the socket is still bound, across all workers and
+    # helper subprocesses; the session cleanup removes these small markers.
+    PORT_ALLOCATION_DIR.mkdir(parents=True, exist_ok=True)
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+            try:
+                (PORT_ALLOCATION_DIR / str(port)).touch(exist_ok=False)
+            except FileExistsError:
+                continue
+            return port
 
 
 def stop_server(cwd: Path) -> None:

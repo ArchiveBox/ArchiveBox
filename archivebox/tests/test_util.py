@@ -1,10 +1,29 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
+import json
 
 import pytest
 
 from archivebox.misc.util import download_url, find_all_urls, fix_url_from_markdown, parse_date, sanitize_extracted_url
+from archivebox.tests.conftest import get_free_port, run_python_cwd
+
+
+def test_port_allocations_do_not_repeat_across_processes(tmp_path):
+    script = """
+import json
+from archivebox.tests.conftest import get_free_port
+print(json.dumps([get_free_port() for _ in range(256)]))
+"""
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        results = list(pool.map(lambda _: run_python_cwd(script, tmp_path), range(4)))
+    ports = [get_free_port() for _ in range(256)]
+    for stdout, stderr, returncode in results:
+        assert returncode == 0, stderr
+        ports.extend(json.loads(stdout))
+    assert len(ports) == 1280
+    assert len(set(ports)) == len(ports), "Parallel services must not receive the same port"
 
 
 @pytest.mark.parametrize(
