@@ -52,6 +52,7 @@ def test_persona_import_real_browser_session(initialized_archive, tmp_path, http
     import json
     import shlex
     import subprocess
+    from pathlib import Path
 
     from werkzeug.wrappers import Response
     from archivebox.tests.conftest import resolve_abxpkg_chrome_env
@@ -167,7 +168,9 @@ const puppeteer = require(process.argv[1]);
     assert archived.returncode == 0, archived.stderr
     launch_commands = list((initialized_archive / "archive" / "users").glob("*/crawls/**/chrome/cmd.sh"))
     assert len(launch_commands) == 1
-    assert shlex.split(launch_commands[0].read_text().splitlines()[1])[0] == browser_env["CHROME_BINARY"]
+    launched_browser = Path(shlex.split(launch_commands[0].read_text().splitlines()[1])[0])
+    # abxpkg's environment and provider projections can name the same binary.
+    assert launched_browser.samefile(browser_env["CHROME_BINARY"])
     outputs = list((initialized_archive / "archive" / "users").glob("*/snapshots/**/dom/output.html"))
     assert len(outputs) == 1
     html = outputs[0].read_text()
