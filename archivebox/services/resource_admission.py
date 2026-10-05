@@ -170,6 +170,18 @@ class ResourceAdmission:
             used_bytes = 0
             for child in processes:
                 try:
+                    if sys.platform.startswith("linux"):
+                        try:
+                            memory = child.memory_full_info()
+                            # Chrome's processes share substantial resident
+                            # memory. RSS charges those pages once per process
+                            # and can falsely serialize captures on an idle host.
+                            used_bytes += memory.pss + memory.swap
+                            continue
+                        except psutil.AccessDenied:
+                            # Restricted /proc access still gets conservative
+                            # accounting through the available RSS measurement.
+                            pass
                     used_bytes += child.memory_info().rss
                 except (psutil.Error, OSError):
                     continue

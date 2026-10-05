@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 
 from archivebox.services.resource_admission import ResourceAdmission, disk_backed_swap_free_bytes
 
@@ -49,6 +50,59 @@ def test_memory_observation_tracks_a_real_child_process():
         during = admission.memory_headroom()
         assert during is not None
         assert during[0] > before[0] + 32 * 1024 * 1024
+    finally:
+        assert child.stdin is not None
+        child.stdin.close()
+        assert child.wait(timeout=10) == 0
+
+
+def test_memory_observation_counts_shared_pages_once_on_linux():
+    admission = ResourceAdmission()
+    before = admission.memory_headroom()
+    assert before is not None
+    size = 128 * 1024 * 1024
+    child = subprocess.Popen(
+        [
+            "uv",
+            "run",
+            "python",
+            "-c",
+            """
+import os
+import sys
+allocation = bytearray(128 * 1024 * 1024)
+children = []
+for _ in range(2):
+    pid = os.fork()
+    if pid == 0:
+        sys.stdin.read()
+        os._exit(0)
+    children.append(pid)
+print(len(allocation), flush=True)
+sys.stdin.read()
+for pid in children:
+    os.waitpid(pid, 0)
+""",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert child.stdout is not None
+        assert child.stdout.readline().strip() == str(size)
+        during = admission.memory_headroom()
+        assert during is not None
+        growth = during[0] - before[0]
+        assert growth > size // 2
+        finite_cgroup = any(
+            (path / "memory.max").is_file() and (path / "memory.max").read_text().strip() != "max" for path in admission.cgroup_paths()
+        )
+        if sys.platform.startswith("linux") and not finite_cgroup:
+            # These three real processes share one allocation. Linux PSS and
+            # summing RSS differ by two copies. A finite cgroup instead measures
+            # the entire container, including unrelated concurrent test workers.
+            assert growth < size * 2, f"Shared allocation counted repeatedly: {growth}"
     finally:
         assert child.stdin is not None
         child.stdin.close()
