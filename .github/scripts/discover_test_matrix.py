@@ -25,7 +25,7 @@ def main() -> None:
     for path in archivebox_tests:
         test_path = path.relative_to(root).as_posix()
         duration = durations.get(test_path, 60)
-        if duration >= 60 or path in hosted or path.stem == "test_auth_ldap" or test_path == requested:
+        if test_path not in durations or duration >= 90 or path in hosted or path.stem == "test_auth_ldap" or test_path == requested:
             batches.append([test_path])
             continue
         if batch and (len(batch) == 8 or batch_seconds + duration > 180):
