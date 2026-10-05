@@ -104,6 +104,7 @@ jobs:
     runs-on: ${{ fromJSON(matrix.test.ugnas && needs.discover-tests.outputs.runner || '["ubuntu-24.04"]') }}
     env:
       CHROME_HEADLESS: "true"
+      CHROME_ARGS_EXTRA: '["--trace-startup", "--trace-startup-format=json", "--trace-startup-duration=20"]'
 
     strategy:
       fail-fast: false
@@ -242,8 +243,8 @@ jobs:
           path: ${{ runner.temp }}/test-results/*.xml
           if-no-files-found: error
           retention-days: 14
-      - name: Save failed runtime diagnostics
-        if: failure()
+      - name: Save runtime diagnostics
+        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: runtime-logs-${{ strategy.job-index }}
