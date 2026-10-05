@@ -215,6 +215,8 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
         step for step in docker_workflow["jobs"]["build"]["steps"] if step.get("name") == "Validate exact built image version and commit"
     )
     assert version_check["if"] == "inputs.full_tests"
+    assert "archivebox version" in version_check["run"]
+    assert "Missing exact commit marker" in version_check["run"]
     pip_workflow = yaml.safe_load(PIP_WORKFLOW.read_text())
     install_script = next(
         step["run"] for step in pip_workflow["jobs"]["build"]["steps"] if step.get("name") == "Release wheel import and CLI smoke"
@@ -238,11 +240,20 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert 'echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:${VERSION}"' in tag_script
 
-    docker_verify = next(step for step in docker_release["steps"] if step.get("name") == "Verify published Docker images run")
+    docker_verify = next(
+        step for step in docker_release["steps"] if step.get("name") == "Verify published tags contain the exact tested images"
+    )
     verify_script = docker_verify["run"]
-    assert '"${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in verify_script
-    assert '"${GHCR_IMAGE}:sha-${SHORT_SHA}"' in verify_script
-    assert '"${DOCKERHUB_IMAGE}:${VERSION}"' not in verify_script
+    assert docker_verify["env"] == {
+        "DOCKERHUB_TAGS": "${{ steps.docker_meta.outputs.dockerhub_tags }}",
+        "GHCR_TAGS": "${{ steps.docker_meta.outputs.ghcr_tags }}",
+    }
+    assert '"${DOCKERHUB_IMAGE}@sha256:${digest}"' in verify_script
+    assert 'imagetools create --dry-run "${REFS[@]}"' in verify_script
+    assert 'imagetools inspect --raw "$image"' in verify_script
+    assert 'sort == ["amd64", "arm64"]' in verify_script
+    assert '[[ "$ACTUAL" == "$EXPECTED" ]]' in verify_script
+    assert '"$DOCKERHUB_TAGS" "$GHCR_TAGS"' in verify_script
 
     release_script = (REPO_ROOT / "bin" / "release.sh").read_text()
     assert "Never create GitHub Releases for automated rc builds" in release_script
@@ -311,7 +322,7 @@ def test_stable_publication_requires_live_acceptance_before_upload():
 def test_staging_acceptance_uses_published_image_source_not_workflow_run_head():
     release = yaml.safe_load(RELEASE_WORKFLOW.read_text())
     docker_steps = release["jobs"]["docker-release"]["steps"]
-    verified = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Verify published Docker images run")
+    verified = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Verify published tags contain the exact tested images")
     source = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Record published image source")
     uploaded = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Upload published image source")
     assert verified < source < uploaded

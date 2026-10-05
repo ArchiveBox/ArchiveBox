@@ -56,7 +56,7 @@ View: [`/admin/`](http://admin.archivebox.localhost:5797/admin/) · [View code](
 
 ## AI agent
 
-View: [`/admin/agent/`](http://admin.archivebox.localhost:5797/admin/agent/) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/abx_plugins/plugins/opencode/views.py)
+View: [`/admin/agent/`](http://admin.archivebox.localhost:5797/admin/agent/) · [View code](https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/opencode/archivebox/views.py)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
