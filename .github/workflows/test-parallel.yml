@@ -120,6 +120,9 @@ jobs:
           if [[ "$CI_RUNNER_ENVIRONMENT" == github-hosted ]]; then
             workers="$(nproc)"
             cache_suffix="-workers-$workers"
+            # Avoid the hosted image's cold Chromium executable page faults.
+            # abxpkg owns installation and reuse in the existing runtime cache.
+            echo "CHROME_BINPROVIDERS=playwright,puppeteer" >> "$GITHUB_ENV"
           fi
           {
             echo "CI_TEST_WORKERS=$workers"
