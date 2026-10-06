@@ -374,12 +374,7 @@ async function main() {
     if (process.env.SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR) {
       await page.waitForSelector(process.env.SCREENSHOT_AFTER_CLICK_WAIT_SELECTOR, { timeout: 45000 });
     }
-    if (process.env.SCREENSHOT_SCROLL_SELECTOR) {
-      await page.waitForSelector(process.env.SCREENSHOT_SCROLL_SELECTOR, { timeout: 45000 }).catch(() => {});
-      await page.evaluate((selector) => {
-        document.querySelector(selector)?.scrollIntoView({ block: 'start', inline: 'nearest' });
-      }, process.env.SCREENSHOT_SCROLL_SELECTOR);
-    }
+
 
     if (requireLiveProgress) {
       await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
@@ -446,6 +441,14 @@ async function main() {
     const screenshotPaths = [];
     if (requireLiveProgress) checks.liveProgressCaptures = [];
     const capture = async (screenshotPath) => {
+      // Resizing can move the target to a different row/column. Re-anchor each
+      // gallery variant so it photographs the requested controls at every width.
+      if (process.env.SCREENSHOT_SCROLL_SELECTOR) {
+        await page.waitForSelector(process.env.SCREENSHOT_SCROLL_SELECTOR, { timeout: 45000 }).catch(() => {});
+        await page.evaluate((selector) => {
+          document.querySelector(selector)?.scrollIntoView({ block: 'start', inline: 'nearest' });
+        }, process.env.SCREENSHOT_SCROLL_SELECTOR);
+      }
       await waitForVisibleCardPreviews(page, requireLiveProgress ? Math.max(1, liveProgressDeadline - Date.now()) : 45000);
       if (requireLiveProgress) {
         const liveProgress = await waitForLiveProgress(page, liveProgressDeadline, screencastResponses);
