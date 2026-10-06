@@ -103,7 +103,6 @@ def test_snapshot_pause_wins_over_concurrent_runner_lease(api_admin_user):
 
 
 def test_snapshot_pause_resume_api_leaves_archiveresult_facts_unchanged(
-    request,
     tmp_path,
     client,
     blocking_http_server,
@@ -182,100 +181,102 @@ def test_snapshot_pause_resume_api_leaves_archiveresult_facts_unchanged(
         runner = Thread(target=run_snapshot, name="archivebox-test-api-snapshot-wget-runner")
         runner.start()
 
-        def finish_runner():
-            with use_archivebox_db(tmp_path):
-                blocking_http_server.release_response.set()
-                runner.join()
-                assert errors == []
+        try:
+            blocking_http_server.request_started.wait()
+            assert errors == []
+            started_result = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget")
+            assert started_result.status == ArchiveResult.StatusChoices.STARTED
+            queued_result = ArchiveResult.objects.create(
+                snapshot=snapshot,
+                plugin="parse_txt_urls",
+                hook_name="on_Snapshot__71_parse_txt_urls",
+                status=ArchiveResult.StatusChoices.QUEUED,
+            )
 
-        request.addfinalizer(finish_runner)
-        blocking_http_server.request_started.wait()
-        assert errors == []
-        started_result = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget")
-        assert started_result.status == ArchiveResult.StatusChoices.STARTED
-        queued_result = ArchiveResult.objects.create(
-            snapshot=snapshot,
-            plugin="parse_txt_urls",
-            hook_name="on_Snapshot__71_parse_txt_urls",
-            status=ArchiveResult.StatusChoices.QUEUED,
-        )
+            invalid_response = api_client_request(
+                client,
+                "patch",
+                f"/api/v1/core/snapshot/{snapshot_id}",
+                api_token=api_token,
+                payload={"action": "hold"},
+            )
+            assert invalid_response.status_code == 400
+            snapshot = Snapshot.objects.get(id=snapshot_id)
+            assert snapshot.status == Snapshot.StatusChoices.STARTED
 
-        invalid_response = api_client_request(
-            client,
-            "patch",
-            f"/api/v1/core/snapshot/{snapshot_id}",
-            api_token=api_token,
-            payload={"action": "hold"},
-        )
-        assert invalid_response.status_code == 400
-        snapshot = Snapshot.objects.get(id=snapshot_id)
-        assert snapshot.status == Snapshot.StatusChoices.STARTED
+            pause_response = api_client_request(
+                client,
+                "patch",
+                f"/api/v1/core/snapshot/{snapshot_id}",
+                api_token=api_token,
+                payload={"action": "pause"},
+            )
+            assert pause_response.status_code == 200, pause_response.content.decode()
+            assert json.loads(pause_response.content.decode())["status"] == Snapshot.StatusChoices.PAUSED
 
-        pause_response = api_client_request(
-            client,
-            "patch",
-            f"/api/v1/core/snapshot/{snapshot_id}",
-            api_token=api_token,
-            payload={"action": "pause"},
-        )
-        assert pause_response.status_code == 200, pause_response.content.decode()
-        assert json.loads(pause_response.content.decode())["status"] == Snapshot.StatusChoices.PAUSED
+            snapshot.refresh_from_db()
+            crawl = Crawl.objects.get(id=snapshot.crawl_id)
+            assert snapshot.status == Snapshot.StatusChoices.PAUSED
+            assert snapshot.retry_at == RETRY_AT_MAX
+            assert crawl.status == Crawl.StatusChoices.STARTED
 
-        snapshot.refresh_from_db()
-        crawl = Crawl.objects.get(id=snapshot.crawl_id)
-        assert snapshot.status == Snapshot.StatusChoices.PAUSED
-        assert snapshot.retry_at == RETRY_AT_MAX
-        assert crawl.status == Crawl.StatusChoices.STARTED
+            active_rows = {
+                row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[queued_result.id, started_result.id])
+            }
+            assert active_rows == {
+                "parse_txt_urls": (ArchiveResult.StatusChoices.QUEUED, None),
+                "wget": (ArchiveResult.StatusChoices.STARTED, None),
+            }
 
-        active_rows = {
-            row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[queued_result.id, started_result.id])
-        }
-        assert active_rows == {
-            "parse_txt_urls": (ArchiveResult.StatusChoices.QUEUED, None),
-            "wget": (ArchiveResult.StatusChoices.STARTED, None),
-        }
+            finished_rows = {
+                row.plugin: (row.status, row.retry_at, row.output_size)
+                for row in ArchiveResult.objects.filter(id__in=[succeeded_result.id, failed_result.id])
+            }
+            assert finished_rows["hashes"][0] == ArchiveResult.StatusChoices.SUCCEEDED
+            assert finished_rows["hashes"][1] is None
+            assert finished_rows["hashes"][2] > 0
+            assert finished_rows["git"][0] == ArchiveResult.StatusChoices.FAILED
+            assert finished_rows["git"][1] is None
 
-        finished_rows = {
-            row.plugin: (row.status, row.retry_at, row.output_size)
-            for row in ArchiveResult.objects.filter(id__in=[succeeded_result.id, failed_result.id])
-        }
-        assert finished_rows["hashes"][0] == ArchiveResult.StatusChoices.SUCCEEDED
-        assert finished_rows["hashes"][1] is None
-        assert finished_rows["hashes"][2] > 0
-        assert finished_rows["git"][0] == ArchiveResult.StatusChoices.FAILED
-        assert finished_rows["git"][1] is None
+            succeeded_row = ArchiveResult.objects.get(id=succeeded_result.id)
+            output_path = Path(snapshot.output_dir) / succeeded_row.plugin / next(iter(succeeded_row.output_files))
+            assert output_path.is_file()
 
-        succeeded_row = ArchiveResult.objects.get(id=succeeded_result.id)
-        output_path = Path(snapshot.output_dir) / succeeded_row.plugin / next(iter(succeeded_row.output_files))
-        assert output_path.is_file()
+            resume_response = api_client_request(
+                client,
+                "patch",
+                f"/api/v1/core/snapshot/{snapshot_id}",
+                api_token=api_token,
+                payload={"action": "resume"},
+            )
+            assert resume_response.status_code == 200, resume_response.content.decode()
+            assert json.loads(resume_response.content.decode())["status"] == Snapshot.StatusChoices.QUEUED
 
-        resume_response = api_client_request(
-            client,
-            "patch",
-            f"/api/v1/core/snapshot/{snapshot_id}",
-            api_token=api_token,
-            payload={"action": "resume"},
-        )
-        assert resume_response.status_code == 200, resume_response.content.decode()
-        assert json.loads(resume_response.content.decode())["status"] == Snapshot.StatusChoices.QUEUED
+            snapshot.refresh_from_db()
+            crawl.refresh_from_db()
+            assert snapshot.status == Snapshot.StatusChoices.QUEUED
+            assert snapshot.retry_at is not None
+            assert snapshot.retry_at != RETRY_AT_MAX
+            assert crawl.status == Crawl.StatusChoices.STARTED
+            assert crawl.retry_at is not None
+            assert crawl.retry_at != RETRY_AT_MAX
 
-        snapshot.refresh_from_db()
-        crawl.refresh_from_db()
-        assert snapshot.status == Snapshot.StatusChoices.QUEUED
-        assert snapshot.retry_at is not None
-        assert snapshot.retry_at != RETRY_AT_MAX
-        assert crawl.status == Crawl.StatusChoices.STARTED
-        assert crawl.retry_at is not None
-        assert crawl.retry_at != RETRY_AT_MAX
+            resumed_rows = {
+                row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[queued_result.id, started_result.id])
+            }
+            assert resumed_rows == active_rows
 
-        resumed_rows = {
-            row.plugin: (row.status, row.retry_at) for row in ArchiveResult.objects.filter(id__in=[queued_result.id, started_result.id])
-        }
-        assert resumed_rows == active_rows
-
-        assert ArchiveResult.objects.get(id=succeeded_result.id).status == ArchiveResult.StatusChoices.SUCCEEDED
-        assert ArchiveResult.objects.get(id=failed_result.id).status == ArchiveResult.StatusChoices.FAILED
-        assert output_path.is_file()
+            assert ArchiveResult.objects.get(id=succeeded_result.id).status == ArchiveResult.StatusChoices.SUCCEEDED
+            assert ArchiveResult.objects.get(id=failed_result.id).status == ArchiveResult.StatusChoices.FAILED
+            assert output_path.is_file()
+        finally:
+            # The runner uses the collection DB from this context. Join it
+            # before use_archivebox_db restores Django's shared DB settings;
+            # a pytest finalizer runs too late and can race writes against the
+            # restored/tearing-down test database (FOREIGN KEY failures).
+            blocking_http_server.release_response.set()
+            runner.join()
+            assert errors == []
 
 
 def test_targeted_extract_retries_one_failed_archiveresult_through_normal_snapshot_lifecycle(
