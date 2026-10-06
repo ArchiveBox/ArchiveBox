@@ -67,6 +67,7 @@ def plugin_screenshot_plan() -> dict:
     required = []
     examples = {}
     overrides = {}
+    config_views = []
     enabled_plugins = []
     for plugin_dir in sorted(get_plugins_dir().iterdir()):
         config_path = plugin_dir / "config.json"
@@ -81,6 +82,8 @@ def plugin_screenshot_plan() -> dict:
             enabled = True
         if recipe.get("view"):
             required.append(recipe["view"])
+            if recipe.get("config"):
+                config_views.append({"name": recipe["view"], "plugin": plugin})
         elif enabled and (
             recipe.get("url")
             or (plugin_dir / "templates/full.html").is_file()
@@ -89,10 +92,16 @@ def plugin_screenshot_plan() -> dict:
             required.append(f"Snapshot View ({plugin})")
         if recipe.get("url"):
             overrides[plugin] = recipe
-            key = (recipe["url"], tuple(recipe.get("prepare_plugins", [])))
-            example = examples.setdefault(key, {"url": key[0], "prepare_plugins": list(key[1]), "plugins": []})
+            key = recipe["url"]
+            example = examples.setdefault(key, {"url": key, "plugins": []})
             example["plugins"].append(plugin)
-    return {"required": required, "examples": list(examples.values()), "overrides": overrides, "enabled": enabled_plugins}
+    return {
+        "required": required,
+        "examples": list(examples.values()),
+        "overrides": overrides,
+        "enabled": enabled_plugins,
+        "config_views": config_views,
+    }
 
 
 def build_provenance() -> dict[str, str]:

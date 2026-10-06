@@ -659,6 +659,14 @@ def test_plugin_grid_includes_all_visible_plugins_and_timestamps_last(admin_clie
     assert len(names) == len(expected)
     for name in expected:
         assert f'data-plugin-name="{name}"'.encode() in response.content
+    # The same schema drives both editors, including newly installed plugins.
+    # Check every plugin's category and rendered controls, not a fixed allowlist.
+    catalog = get_plugin_catalog()
+    for group in form.plugin_groups:
+        for card in group["plugins"]:
+            assert group["field_name"] == f"{catalog[card['name']].config.category}_plugins"
+            for field in card["config_fields"]:
+                assert f'name="{field["input_name"]}"'.encode() in response.content
     postprocessing = next(group for group in form.plugin_groups if group["field_name"] == "postprocessing_plugins")
     assert postprocessing["plugins"][-1]["name"] == "opentimestamps"
     assert b'name="plugin_config__opentimestamps__OPENTIMESTAMPS_TIMEOUT"' in response.content
