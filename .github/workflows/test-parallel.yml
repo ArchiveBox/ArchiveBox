@@ -234,7 +234,7 @@ jobs:
           # Each test still gets isolated DB/filesystem state from conftest.
           # Keep one worker pool per batch instead of starting it for every file.
           mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest"
-          uv run --no-cache --no-sync --no-sources pytest -vs -n "$CI_TEST_WORKERS" "${test_args[@]}" --durations=20 \
+          uv run --no-cache --no-sync --no-sources pytest -vs -n "$CI_TEST_WORKERS" "${test_args[@]}" --durations=20 -o faulthandler_timeout=60 \
             --basetemp="$RUNNER_TEMP/pytest" \
             --junitxml="$RUNNER_TEMP/test-results/results.xml"
       - name: Save test results
