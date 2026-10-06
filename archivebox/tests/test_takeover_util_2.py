@@ -175,6 +175,10 @@ def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive
     worker_text = worker_config.read_text(encoding="utf-8")
     command = next(line.partition("=")[2] for line in worker_text.splitlines() if line.startswith("command="))
     assert shlex.split(command)[0] == str(sonic_binary), worker_text
+    supervisor_pids = re.findall(r"Supervisord connected \(pid=(\d+)\)", result.stderr)
+    assert supervisor_pids, result.stderr
+    assert all(not pid_is_alive(int(pid)) for pid in supervisor_pids), "Search CLI returned while its owned supervisord was still alive"
+    assert result.stdout == "", result.stdout
     from archivebox.workers.supervisord_util import _sonic_worker_bind_target
 
     assert _sonic_worker_bind_target({"name": "worker_sonic", "command": command}) == ("127.0.0.1", sonic_port)
@@ -198,6 +202,7 @@ def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive
         timeout=60,
     )
     assert relative_result.returncode == 0, relative_result.stderr or relative_result.stdout
+    assert relative_result.stdout == "", relative_result.stdout
     relative_worker_text = worker_config.read_text(encoding="utf-8")
     relative_command = next(line.partition("=")[2] for line in relative_worker_text.splitlines() if line.startswith("command="))
     assert Path(shlex.split(relative_command)[0]).name == relative_binary.name, relative_worker_text

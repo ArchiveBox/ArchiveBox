@@ -192,7 +192,9 @@ def serve_plugin_replay_asset(path: str, config, response_class):
     for module in get_plugin_presentation_modules():
         hook = getattr(module, "serve_replay_asset_response", None)
         if hook is not None and (response := hook(path, config, response_class)) is not None:
-            return response
+            from archivebox.misc.serve_static import add_replay_image_fallback
+
+            return add_replay_image_fallback(response)
     return None
 
 

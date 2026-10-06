@@ -33,7 +33,7 @@ def run_plugin(name: str, snap: Path, **config: str):
     )
 
 
-def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snapshot, client, live_server, tmp_path):
+def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snapshot, client, live_server, tmp_path, browser_runtime):
     from archivebox.core.models import ArchiveResult
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
@@ -74,7 +74,10 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
     hostname = host.split(":")[0]
     url = f"http://{hostname}:{port}{path}"
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {hostname} 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[f"--host-resolver-rules=MAP {hostname} 127.0.0.1"],
+        )
         page = browser.new_page()
         requests = []
         page.on("request", lambda request: requests.append(request.url))
@@ -121,7 +124,7 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
         browser.close()
 
 
-def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, live_server, tmp_path):
+def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, live_server, tmp_path, browser_runtime):
     import hashlib
 
     from abx_plugins.plugins.base.testing import install_required_binary_from_config
@@ -168,7 +171,10 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
     assert b"".join(raw.streaming_content) == (evidence / "hashes.json.ots").read_bytes()
     hostname = host.split(":")[0]
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {hostname} 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[f"--host-resolver-rules=MAP {hostname} 127.0.0.1"],
+        )
         page = browser.new_page()
         page.goto(f"http://{hostname}:{port}{path}")
         page.wait_for_function("document.querySelector('#manifest-sha256')?.textContent.length === 64")
@@ -205,7 +211,7 @@ def test_opentimestamps_preview_reads_raw_proof_generation(snapshot, client, liv
 
 
 @pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
-def test_legacy_proof_cards_and_viewers_on_canonical_snapshot_origin(snapshot, live_server, client, mode):
+def test_legacy_proof_cards_and_viewers_on_canonical_snapshot_origin(snapshot, live_server, client, mode, browser_runtime):
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
@@ -256,6 +262,7 @@ def test_legacy_proof_cards_and_viewers_on_canonical_snapshot_origin(snapshot, l
     )
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
             args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1, MAP archivebox.localhost 127.0.0.1"],
         )
         page = browser.new_page()

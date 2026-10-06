@@ -15,7 +15,7 @@ import pytest
 import requests
 import yaml
 
-from .conftest import resolve_abxpkg_chrome_env, run_python_cwd
+from .conftest import run_python_cwd
 from .conftest import (
     cli_env,
     get_free_port,
@@ -383,35 +383,6 @@ main().catch(async (error) => {
   process.exit(1);
 });
 """
-
-
-@pytest.fixture
-def browser_runtime(initialized_archive: Path):
-    shared_lib = initialized_archive / "lib"
-    env = cli_env(
-        ABXPKG_LIB_DIR=str(shared_lib),
-        CHROME_HEADLESS="True",
-        CHROME_SANDBOX="False",
-        CHROME_ISOLATION="snapshot",
-    )
-    env.pop("CHROME_BINARY", None)
-    install_result = run_archivebox_cmd(
-        ["install", "chrome"],
-        cwd=initialized_archive,
-        env=env,
-        timeout=900,
-    )
-    assert install_result.returncode == 0, install_result.stderr or install_result.stdout
-
-    resolved_env = resolve_abxpkg_chrome_env(shared_lib, env)
-
-    return {
-        "lib_dir": shared_lib,
-        "node_modules_dir": Path(resolved_env["NODE_MODULES_DIR"]),
-        "node_path": resolved_env["NODE_PATH"],
-        "node_binary": Path(resolved_env["NODE_BINARY"]),
-        "chrome_binary": Path(resolved_env["CHROME_BINARY"]),
-    }
 
 
 def _seed_archive(data_dir: Path) -> dict[str, object]:

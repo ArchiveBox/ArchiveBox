@@ -23,6 +23,7 @@ from archivebox.config.common import rprint as print
 from archivebox.core.permissions import PERMISSIONS_VALUES, normalize_permissions
 
 from archivebox.base_models.models import (
+    PagedQuerySet,
     ModelWithUUID,
     ModelWithDeleteAfter,
     ModelWithOutputDir,
@@ -148,6 +149,8 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
 
 
 class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithHealthStats, ModelWithQueue):
+    objects = PagedQuerySet.as_manager()
+
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, default=get_or_create_system_user_pk, null=False)
@@ -229,7 +232,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if paused and save and self.pk:
             from archivebox.core.models import Snapshot
 
-            for snapshot in self.snapshot_set.exclude(status__in=Snapshot.FINAL_STATES).iterator():
+            for snapshot in self.snapshot_set.exclude(status__in=Snapshot.FINAL_STATES).order_by("pk").paged_iterator():
                 snapshot.pause()
         return paused
 
@@ -301,7 +304,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        return cls.objects.filter(delete_at__isnull=True, config__has_key="DELETE_AFTER")
+        return cls.objects.filter(delete_at__isnull=True, config__has_key="DELETE_AFTER").only("id", "created_at", "delete_at", "config")
 
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
@@ -368,7 +371,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         batch = []
         updated = 0
         queryset = self.snapshot_set.filter(Q(permissions=old_permissions) | Q(permissions__isnull=True)).only("id", "config")
-        for snapshot in queryset.iterator(chunk_size=500):
+        for snapshot in queryset.order_by("pk").paged_iterator(chunk_size=500):
             config = dict(snapshot.config or {})
             config["PERMISSIONS"] = normalized_new_permissions
             snapshot.config = config
@@ -427,7 +430,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=added_names)}
 
             tag_ids = [tag.pk for tag_name in added_names if (tag := tags_by_name.get(tag_name))]
-            snapshot_ids = Snapshot.objects.filter(crawl=self).values_list("id", flat=True).iterator(chunk_size=5000)
+            # Fetch each page before writing M2M rows. iterator(chunk_size=...)
+            # would keep one read cursor open across every bulk write.
+            snapshot_ids = (
+                snapshot.pk for snapshot in Snapshot.objects.filter(crawl=self).only("id").order_by("pk").paged_iterator(chunk_size=500)
+            )
             while True:
                 batch_snapshot_ids = list(islice(snapshot_ids, 5000))
                 if not batch_snapshot_ids:

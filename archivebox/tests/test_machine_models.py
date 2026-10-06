@@ -1005,3 +1005,58 @@ class TestProcessClassMethods:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+@pytest.mark.parametrize("cleanup", ["cleanup_stale_running", "cleanup_orphaned_workers"])
+def test_process_cleanup_releases_reads_before_process_checks(cleanup, tmp_path):
+    """Another real connection can write while recovery inspects live processes."""
+    import sqlite3
+    from django.db import connection
+
+    from archivebox.tests.conftest import init_archive
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    init_archive(tmp_path)
+    with use_archivebox_db(tmp_path):
+        machine = Machine.current()
+        processes = [
+            Process(
+                machine=machine,
+                process_type=Process.TypeChoices.HOOK,
+                status=Process.StatusChoices.RUNNING,
+                pid=os.getpid(),
+                started_at=_current_process_started_at(),
+            )
+            for _ in range(105)
+        ]
+        Process.objects.bulk_create(processes)
+        with connection.cursor() as cursor:
+            cursor.execute("PRAGMA journal_mode=DELETE")
+        blocked = []
+        checks = []
+        writer = sqlite3.connect(connection.settings_dict["NAME"], timeout=0.01, uri=True)
+
+        def observe(frame, event, arg):
+            if (
+                event == "call"
+                and frame.f_code.co_name == ("poll" if cleanup == "cleanup_stale_running" else "is_running")
+                and isinstance(frame.f_locals.get("self"), Process)
+            ):
+                checks.append(1)
+                try:
+                    writer.execute("UPDATE machine_machine SET hostname=hostname WHERE id=?", [machine.pk.hex])
+                    writer.commit()
+                except sqlite3.OperationalError as error:
+                    writer.rollback()
+                    blocked.append(str(error))
+
+        previous = sys.getprofile()
+        sys.setprofile(observe)
+        try:
+            getattr(Process, cleanup)()
+        finally:
+            sys.setprofile(previous)
+            writer.close()
+        assert len(checks) >= len(processes)
+        assert blocked == []
+        assert Process.objects.filter(pk__in=[p.pk for p in processes], status=Process.StatusChoices.RUNNING).count() == len(processes)

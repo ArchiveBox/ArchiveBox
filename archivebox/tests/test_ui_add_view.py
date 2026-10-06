@@ -1,4 +1,8 @@
 import json
+from abx_plugins.plugins.opencode.archivebox.host_cases import (
+    test_add_view_hides_agent_link_when_opencode_is_disabled as test_add_view_hides_agent_link_when_opencode_is_disabled,
+)
+
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -35,6 +39,12 @@ ADD_FORM_DEFAULTS = {
     "start_paused": "",
     "config": "{}",
 }
+
+
+@pytest.fixture(autouse=True)
+def initialized_persona(db):
+    # Match init/server startup; rendering /add/ must no longer create DB rows.
+    return Persona.get_or_create_default()
 
 
 @pytest.fixture
@@ -122,19 +132,6 @@ def test_add_view_admin_renders_plugin_config_grid(client, admin_user):
     )
     assert b"plugin_config__chrome__CHROME_BINARY" not in response.content
     assert b"plugin_config__wget__WGET_ENABLED" not in response.content
-
-
-def test_add_view_hides_agent_link_when_opencode_is_disabled(client, admin_user):
-    from archivebox.machine.models import Machine
-
-    Machine.from_json({"config": {"OPENCODE_ENABLED": False}})
-    client.force_login(admin_user)
-
-    response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
-
-    assert response.status_code == 200
-    assert b"/admin/agent" not in response.content
-    assert b"Crawl with AI" not in response.content
 
 
 def test_add_view_staff_user_cannot_override_raw_or_plugin_config(client):
@@ -662,6 +659,14 @@ def test_plugin_grid_includes_all_visible_plugins_and_timestamps_last(admin_clie
     assert len(names) == len(expected)
     for name in expected:
         assert f'data-plugin-name="{name}"'.encode() in response.content
+    # The same schema drives both editors, including newly installed plugins.
+    # Check every plugin's category and rendered controls, not a fixed allowlist.
+    catalog = get_plugin_catalog()
+    for group in form.plugin_groups:
+        for card in group["plugins"]:
+            assert group["field_name"] == f"{catalog[card['name']].config.category}_plugins"
+            for field in card["config_fields"]:
+                assert f'name="{field["input_name"]}"'.encode() in response.content
     postprocessing = next(group for group in form.plugin_groups if group["field_name"] == "postprocessing_plugins")
     assert postprocessing["plugins"][-1]["name"] == "opentimestamps"
     assert b'name="plugin_config__opentimestamps__OPENTIMESTAMPS_TIMEOUT"' in response.content

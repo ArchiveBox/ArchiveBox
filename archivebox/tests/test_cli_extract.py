@@ -8,10 +8,12 @@ from urllib.parse import urlsplit
 import pytest
 from abx_plugins import get_plugins_dir
 from django.test import Client
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.core.routes_util import build_snapshot_url
-from archivebox.tests.conftest import cli_env, find_snapshot_dir, parse_jsonl_output, run_archivebox_cmd
+from archivebox.tests.conftest import cli_env, create_admin_and_token, find_snapshot_dir, parse_jsonl_output, run_archivebox_cmd
 
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -80,8 +82,29 @@ def test_extract_runs_on_existing_snapshots(archive_with_extractors):
     assert archiveresults["wget"].output_str == "wget/example.com/index.html"
     assert archiveresults["wget"].output_files["example.com/index.html"]["size"] == wget_path.stat().st_size
 
+    token = create_admin_and_token(initialized_archive)
+    with use_archivebox_db(initialized_archive):
+        with CaptureQueriesContext(connection) as queries:
+            response = Client().get(
+                f"/api/v1/core/snapshot/{snapshot_id}",
+                HTTP_HOST="api.archivebox.localhost",
+                HTTP_X_ARCHIVEBOX_API_KEY=token,
+            )
+        assert response.status_code == 200, response.content
+        returned = {row["plugin"]: row for row in response.json()["archiveresults"]}
+        for plugin, result in archiveresults.items():
+            assert returned[plugin]["cmd"] == result.cmd
+            assert returned[plugin]["cmd_version"] == result.cmd_version
+            assert returned[plugin]["pwd"] == result.pwd
+        # Each real hook owns a Process and Binary. Metadata reads must fetch
+        # them with the result rows, not run two extra queries per plugin.
+        related_lookups = [
+            query["sql"] for query in queries if 'FROM "machine_process"' in query["sql"] or 'FROM "machine_binary"' in query["sql"]
+        ]
+        assert related_lookups == []
 
-def test_wget_literal_percent_output_url_serves_captured_file(initialized_archive, snapshot, live_server):
+
+def test_wget_literal_percent_output_url_serves_captured_file(initialized_archive, snapshot, live_server, browser_runtime):
     """Replay the real HedgeDoc link-interstitial file saved by wget."""
     import shutil
     from urllib.parse import quote
@@ -155,7 +178,10 @@ def test_wget_literal_percent_output_url_serves_captured_file(initialized_archiv
     )
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
         page = browser.new_page()
         page.goto(f"http://web.archivebox.localhost:{port}{ui_snapshot.get_absolute_url()}/index.html", wait_until="domcontentloaded")
         expected_path = quote(str(output_path), safe="/@=")

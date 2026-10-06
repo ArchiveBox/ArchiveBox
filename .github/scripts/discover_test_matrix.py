@@ -13,8 +13,9 @@ def main() -> None:
     if not archivebox_tests:
         raise SystemExit("No ArchiveBox tests discovered")
 
-    # These are observed whole-job seconds, including setup. Unknown/long files,
-    # optional dependencies and hosted-only requirements keep independent jobs.
+    # These are observed per-file pytest seconds, including fixture/startup
+    # time. Shared job setup is paid once per batch. Unknown/long files, optional
+    # dependencies and hosted-only requirements keep independent jobs.
     durations = json.loads((root / ".github/test-durations.json").read_text())["seconds"]
     hosted = {path for path in archivebox_tests if "# ci-runner: hosted" in path.read_text().splitlines()[:5]}
     requested = os.environ.get("TEST_FILE", "")

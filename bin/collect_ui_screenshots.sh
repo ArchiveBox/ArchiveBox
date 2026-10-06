@@ -156,7 +156,6 @@ if [[ "$HAS_USEFUL_SNAPSHOT" == "0" ]]; then
             --depth=0 \
             --overwrite \
             --tag=documentation,reference \
-            --plugins=title,headers,wget,screenshot,pdf,dom,readability,htmltotext,hashes,dns \
             https://docs.sweeting.me/s/cookie-dilemma https://archivebox.io
     )
 fi
@@ -211,17 +210,10 @@ echo "[*] Creating a temporary screenshot admin"
 CREATED_TEMP_USER=1
 
 # Configure the optional UI before the server snapshots its startup config.
-OPENCODE_PORT="$(uv run --no-cache --project "$REPO_DIR" python - <<'PYPORT'
-import socket
-
-with socket.socket() as sock:
-    sock.bind(("127.0.0.1", 0))
-    print(sock.getsockname()[1])
-PYPORT
-)"
 (
     cd "$DATA_DIR"
-    uv run --no-cache --project "$REPO_DIR" archivebox config --set "OPENCODE_PORT=$OPENCODE_PORT"
+    uv run --no-cache --project "$REPO_DIR" python -c \
+        'from abx_plugins.plugins.opencode.archivebox.screenshots import configure; configure()'
 )
 
 echo "[*] Starting ArchiveBox on port $PORT"
@@ -274,11 +266,11 @@ VIEWS=(
 add_supplementary_template_capture() {
     local plugin_names="$1"
     local source_url="$2"
-    local prepare_plugins="$3"
-    local capture_plugins="${prepare_plugins:-$plugin_names}"
     local capture_log="$CAPTURE_ROOT/${plugin_names}-supplementary-capture.log"
     local supplementary_plugins=()
     IFS=',' read -r -a supplementary_plugins <<<"$plugin_names"
+    # These are real all-plugin captures. The recipe only selects which output
+    # to photograph, never which extractors run or which dependencies get saved.
     echo "[*] Capturing real $plugin_names source for template coverage"
     if ! (
         cd "$DATA_DIR"
@@ -286,7 +278,6 @@ add_supplementary_template_capture() {
             --depth=0 \
             --overwrite \
             --tag=screenshot-gallery \
-            --plugins="$capture_plugins" \
             "$source_url"
     ) >"$capture_log" 2>&1; then
         echo "[!] Supplementary $plugin_names capture failed" >&2
@@ -309,20 +300,6 @@ add_supplementary_template_capture() {
 
     local snapshot_id snapshot_view_url snapshot_view_path
     IFS=$'\t' read -r snapshot_id snapshot_view_url snapshot_view_path <<<"$snapshot_record"
-    if [[ -n "$prepare_plugins" ]]; then
-        if ! (
-            cd "$DATA_DIR"
-            uv run --no-cache --project "$REPO_DIR" archivebox extract \
-                --plugins="$plugin_names" \
-                "$snapshot_id"
-        ) >>"$capture_log" 2>&1; then
-            echo "[!] $plugin_names extraction failed for the prepared snapshot" >&2
-            tail -100 "$capture_log" >&2
-            exit 1
-        fi
-        stop_background_runner
-    fi
-
     local discovery_report="$CAPTURE_ROOT/${plugin_names}-output-discovery.json"
     NODE_PATH="$ABXPKG_LIB_DIR/pnpm/packages/chrome/node_modules" \
         CHROME_BINARY="$SCREENSHOT_CHROME_BINARY" \
@@ -367,6 +344,12 @@ while [[ "$capture_index" -lt "${#VIEWS[@]}" ]]; do
     [[ "$capture_mode" != wait-text:* ]] || wait_for_text="${capture_mode#wait-text:}"
     preview_wait_for_text=""
     [[ "$capture_mode" != wait-preview-text:* ]] || preview_wait_for_text="${capture_mode#wait-preview-text:}"
+    config_selector=""
+    config_click_selector=""
+    if [[ "$capture_mode" == plugin-config:* ]]; then
+        config_selector="[data-plugin-name='${capture_mode#plugin-config:}']"
+        config_click_selector="$config_selector .plugin-config-marker"
+    fi
     view_timing_report=""
     while IFS='|' read -r profile _viewport_width _viewport_height; do
         filename="$slug-$profile.png"
@@ -490,6 +473,8 @@ PY
                     SCREENSHOT_HEIGHT=1000 \
                     SCREENSHOT_VARIANTS_JSON="$output_variants" \
                     SCREENSHOT_COLLAPSE_FILTERS=1 \
+                    SCREENSHOT_CLICK_SELECTOR="$config_click_selector" \
+                    SCREENSHOT_SCROLL_SELECTOR="$config_selector" \
                     SCREENSHOT_SNAPSHOT_HEADER="$snapshot_header" \
                     SCREENSHOT_WAIT_FOR_TEXT="$wait_for_text" \
                     SCREENSHOT_PREVIEW_WAIT_FOR_TEXT="$preview_wait_for_text" \
@@ -589,7 +574,7 @@ PY
         VIEWS+=(
             "Add URLs|$ADMIN_BASE_URL/add/|/add/|archivebox/core/views.py"
             "Admin dashboard|$ADMIN_BASE_URL/admin/|/admin/|archivebox/core/admin_site.py"
-            "AI agent|$ADMIN_BASE_URL/admin/agent/|/admin/agent/|archivebox/opencode/views.py|wait-text:ArchiveBox AI Agent"
+            "$(uv run --no-cache --project "$REPO_DIR" python -c 'import sys; from abx_plugins.plugins.opencode.archivebox.screenshots import gallery_entry; print(gallery_entry(sys.argv[1]))' "$ADMIN_BASE_URL")"
             "Snapshots table|$ADMIN_BASE_URL/admin/core/snapshot/|/admin/core/snapshot/|archivebox/core/admin_snapshots.py"
             "Snapshots grid|$ADMIN_BASE_URL/admin/core/snapshot/grid/|/admin/core/snapshot/grid/|archivebox/templates/admin/snapshots_grid.html"
             "Snapshot admin detail|$ADMIN_BASE_URL/admin/core/snapshot/$SNAPSHOT_ID/change/|/admin/core/snapshot/$SNAPSHOT_ID/change/|archivebox/core/admin_snapshots.py"
@@ -662,11 +647,18 @@ PY
             [[ -z "$plugin_name" ]] && continue
             VIEWS+=("Snapshot View ($plugin_name)|$LIVE_SNAPSHOT_VIEW_URL#$output_path|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|$output_capture_mode")
         done <<<"$SNAPSHOT_OUTPUT_PLUGINS"
-        while IFS='|' read -r example_plugins example_url example_prepare; do
+        while IFS='|' read -r example_plugins example_url; do
             [[ -z "$example_plugins" ]] && continue
-            add_supplementary_template_capture "$example_plugins" "$example_url" "$example_prepare"
+            add_supplementary_template_capture "$example_plugins" "$example_url"
         done < <(uv run --no-cache --project "$REPO_DIR" python -c \
-            'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"], ",".join(example["prepare_plugins"]))) for example in plan["examples"]))' \
+            'import json,sys; plan=json.load(open(sys.argv[1])); print("\n".join("|".join((",".join(example["plugins"]), example["url"])) for example in plan["examples"]))' \
+            "$PLUGIN_SCREENSHOT_PLAN")
+
+        while IFS='|' read -r config_name config_plugin; do
+            [[ -z "$config_plugin" ]] && continue
+            VIEWS+=("$config_name|$ADMIN_BASE_URL/add/|/add/|archivebox/templates/plugins/plugin_config_grid.html|plugin-config:$config_plugin")
+        done < <(uv run --no-cache --project "$REPO_DIR" python -c \
+            'import json,sys; print("\n".join(view["name"] + "|" + view["plugin"] for view in json.load(open(sys.argv[1]))["config_views"]))' \
             "$PLUGIN_SCREENSHOT_PLAN")
 
         VIEWS+=("Snapshot View (header collapsed)|$LIVE_SNAPSHOT_VIEW_URL|$LIVE_SNAPSHOT_VIEW_PATH|archivebox/templates/core/snapshot.html|snapshot-collapsed")

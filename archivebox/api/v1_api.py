@@ -2,6 +2,8 @@ __package__ = "archivebox.api"
 
 
 from io import StringIO
+from functools import lru_cache
+from typing import Any
 from traceback import format_exception
 from contextlib import redirect_stdout, redirect_stderr
 
@@ -10,6 +12,7 @@ from django.core.exceptions import ObjectDoesNotExist, EmptyResultSet, Permissio
 from django.contrib.auth.models import User
 
 from ninja import NinjaAPI, Swagger
+from ninja.openapi.schema import OpenAPISchema
 
 # TODO: explore adding https://eadwincode.github.io/django-ninja-extra/
 
@@ -49,6 +52,16 @@ def register_urls(api: NinjaAPI) -> NinjaAPI:
 
 
 class NinjaAPIWithIOCapture(NinjaAPI):
+    def get_openapi_schema(self, *, path_prefix: str | None = None, path_params: dict[str, Any] | None = None) -> OpenAPISchema:
+        prefix = path_prefix if path_prefix is not None else self.get_root_path(path_params or {})
+        return self._schema_for_prefix(prefix)
+
+    @lru_cache(maxsize=8)
+    def _schema_for_prefix(self, path_prefix: str) -> OpenAPISchema:
+        # Routes are registered at startup. Server discovery can reuse their
+        # schema while preserving distinct URL prefixes for mounted instances.
+        return super().get_openapi_schema(path_prefix=path_prefix)
+
     def create_temporal_response(self, request: HttpRequest) -> HttpResponse:
         stdout, stderr = StringIO(), StringIO()
 

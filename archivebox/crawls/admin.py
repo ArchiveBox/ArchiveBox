@@ -947,7 +947,7 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
         updated = 0
         batch = []
         crawls_to_update = []
-        for crawl in queryset.only("id", "config", "permissions").iterator(chunk_size=500):
+        for crawl in queryset.only("id", "config", "permissions").order_by("pk").paged_iterator(chunk_size=500):
             old_permissions = crawl.permissions
             config = dict(crawl.config or {})
             config["PERMISSIONS"] = permissions

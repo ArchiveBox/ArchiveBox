@@ -131,11 +131,11 @@ class SnapshotStatusListFilter(admin.SimpleListFilter):
     parameter_name = "snapshot_status"
 
     def lookups(self, request, model_admin):
-        return Snapshot.StatusChoices.choices
+        return Snapshot._meta.get_field("status").choices
 
     def queryset(self, request, queryset):
         value = self.value()
-        if value in Snapshot.StatusChoices.values:
+        if value in dict(Snapshot._meta.get_field("status").choices):
             return queryset.filter(status=value)
         return queryset
 
@@ -992,10 +992,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return format_html(
             '<a class="snapshot-title-detail-hitbox" href="{}" aria-label="Open snapshot details"></a>'
             "{}"
+            "{}"
             '<div class="snapshot-title-url">'
             '<a class="snapshot-original-url" href="{}">{}<code style="user-select: all;">{}</code></a>'
             "</div>",
             detail_url,
+            format_html('<strong class="snapshot-delete-status">{}</strong>', "Deleting — verifying file removal")
+            if obj.status == Snapshot.DELETING_STATE
+            else "",
             title_html,
             url_raw or obj.url,
             favicon_html,
@@ -1535,25 +1539,14 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
     @admin.action(
         description="🗑️ Delete",
+        permissions=["delete"],
     )
     def delete_snapshots(self, request, queryset):
-        """Delete snapshots in a single transaction to avoid SQLite concurrency issues."""
-        from django.db import transaction
-
-        total = queryset.count()
-
-        # Get list of IDs to delete first (outside transaction)
-        ids_to_delete = list(queryset.values_list("pk", flat=True))
-
-        # Delete everything in a single atomic transaction
-        with transaction.atomic():
-            deleted_count, _ = Snapshot.objects.filter(pk__in=ids_to_delete).delete()
-
+        """Keep the rows until the runner removes and verifies their files."""
+        total = queryset.request_delete()
         messages.success(
             request,
-            mark_safe(
-                f"Successfully deleted {total} Snapshots ({deleted_count} total objects including related records). Don't forget to scrub URLs from import logs (data/sources) and error logs (data/logs) if needed.",
-            ),
+            f"Queued {total} snapshots for deletion. They remain visible as Deleting until ArchiveBox verifies their files are removed.",
         )
 
     @admin.action(

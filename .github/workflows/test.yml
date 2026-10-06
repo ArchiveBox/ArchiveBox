@@ -2,6 +2,12 @@ name: Install and CLI Compatibility
 
 on:
   workflow_call:
+    inputs:
+      platform:
+        description: Platform for install and CLI compatibility
+        required: false
+        default: linux
+        type: string
 
 env:
   DOCKER_IMAGE: archivebox-ci
@@ -19,16 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-24.04
-            os_name: linux
-            python: "3.14"
-          - os: macos-15
-            os_name: macOS
-            python: "3.13"
-          - os: macos-15
-            os_name: macOS
-            python: "3.14"
+        include: ${{ fromJSON(inputs.platform == 'macos' && '[{"os":"macos-15","os_name":"macOS","python":"3.13"},{"os":"macos-15","os_name":"macOS","python":"3.14"}]' || '[{"os":"ubuntu-24.04","os_name":"linux","python":"3.14"}]') }}
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

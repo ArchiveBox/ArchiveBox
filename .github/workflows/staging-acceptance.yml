@@ -84,12 +84,20 @@ jobs:
         env:
           STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
           STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+          ABXPKG_LIB_DIR: ${{ runner.tool_cache }}/abxpkg/staging-browser
         run: |
           set -Eeuo pipefail
           umask 077
           printf '%s\n' "$STAGING_SSH_KEY" > "$RUNNER_TEMP/staging-key"
           printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$RUNNER_TEMP/staging-known-hosts"
-          uv run --no-project --with playwright==1.63.0 playwright install chromium
+          # Use the candidate's normal provider/cache path, not a second
+          # Playwright-managed browser that bypasses abxpkg validation.
+          ABX_DL_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "abx-dl"))')"
+          CHROME_SCHEMA="$(uv run --no-project --with "abx-dl==$ABX_DL_VERSION" python -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir() / "chrome" / "config.json")')"
+          uv run --no-project --with "abx-dl==$ABX_DL_VERSION" abxpkg env --install --json --deps-from="$CHROME_SCHEMA:required_binaries" > "$RUNNER_TEMP/browser-env.json"
+          CHROME_BINARY="$(uv run --no-project python -c 'import json, sys; print(json.load(open(sys.argv[1]))["CHROME_BINARY"])' "$RUNNER_TEMP/browser-env.json")"
+          test -x "$CHROME_BINARY"
+          echo "CHROME_BINARY=$CHROME_BINARY" >> "$GITHUB_ENV"
       - name: Verify actual deployment, full captures and rendered snapshots
         env:
           GH_TOKEN: ${{ github.token }}

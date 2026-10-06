@@ -29,8 +29,8 @@ print(json.dumps([
     return json.loads(result.stdout.strip().splitlines()[-1])
 
 
-def test_remove_deletes_snapshot_from_db(initialized_archive):
-    """Test that remove command deletes snapshot from database."""
+def test_remove_yes_deletes_database_row_and_directory_without_confirmation(initialized_archive):
+    """Verify the DB, filesystem, exit code and summary of one confirmed removal."""
     env = cli_env(disable_extractors=True)
 
     # Add a snapshot
@@ -46,62 +46,17 @@ def test_remove_deletes_snapshot_from_db(initialized_archive):
     snapshot_dir = find_snapshot_dir(initialized_archive, snapshot_id)
     assert snapshot_dir is not None, f"Snapshot output directory not found for {snapshot_id}"
 
-    # Remove it
-    run_archivebox_cmd(
-        ["remove", "https://example.com", "--yes"],
-        env=env,
-    )
-
-    assert len(_snapshot_rows(initialized_archive, env)) == 0
-    assert not snapshot_dir.exists()
-
-
-def test_remove_deletes_archive_directory(initialized_archive):
-    """Test that remove --yes removes the current snapshot output directory."""
-    env = cli_env(disable_extractors=True)
-
-    # Add a snapshot
-    run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
-        env=env,
-    )
-    run_queued_crawls(initialized_archive, env)
-
-    rows = _snapshot_rows(initialized_archive, env)
-    assert len(rows) == 1
-    snapshot_id = rows[0]["id"]
-
-    snapshot_dir = find_snapshot_dir(initialized_archive, snapshot_id)
-    assert snapshot_dir is not None, f"Snapshot output directory not found for {snapshot_id}"
-
-    run_archivebox_cmd(
-        ["remove", "https://example.com", "--yes"],
-        env=env,
-    )
-
-    assert not snapshot_dir.exists()
-
-
-def test_remove_yes_flag_skips_confirmation(initialized_archive):
-    """Test that --yes flag skips confirmation prompt."""
-    env = cli_env(disable_extractors=True)
-
-    run_archivebox_cmd(
-        ["add", "--index-only", "--depth=0", "https://example.com"],
-        env=env,
-    )
-    run_queued_crawls(initialized_archive, env)
-
-    # Remove with --yes should complete without interaction
+    # Remove with --yes must finish without interaction.
     result = run_archivebox_cmd(
         ["remove", "https://example.com", "--yes"],
         env=env,
         timeout=30,
     )
-
     assert result.returncode == 0
-    output = result.stdout + result.stderr
-    assert "Index now contains 0 links." in output
+    assert "Index now contains 0 links." in result.stdout + result.stderr
+
+    assert len(_snapshot_rows(initialized_archive, env)) == 0
+    assert not snapshot_dir.exists()
 
 
 def test_remove_without_yes_prompts_and_keeps_snapshot(initialized_archive):

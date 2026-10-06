@@ -138,7 +138,7 @@ archivebox add --persona=personal https://members.example.com/feed
 **Possible Values:** [`Default`]/`personal`/`work`/...
 The persona profile used when no explicit persona is selected for a new crawl. The selected persona is stored on the Crawl row; `DEFAULT_PERSONA` is not duplicated into `Crawl.config`. Personas bundle a Chrome user-data-dir, a `cookies.txt`, auth state, a user-agent, and any other per-identity config into a single named profile, letting you swap between archiving contexts (logged-out vs. signed-into-work-account vs. signed-into-personal-account) without manually juggling files.
 
-ArchiveBox auto-creates the named persona on disk if it doesn't already exist. See the [Personas wiki page](https://github.com/ArchiveBox/ArchiveBox/wiki/Personas) for the full directory layout.
+ArchiveBox auto-creates the named persona on disk if it doesn't already exist. See the [Chromium profile setup guide](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile) for profile setup instructions.
 
 *Related options:*
 [`COOKIES_FILE`](#cookies_file)
@@ -588,7 +588,7 @@ When `True`, every LDAP user who successfully authenticates is auto-promoted to 
 *Options for the on-disk layout, file permissions, and temp/lib directories that ArchiveBox reads and writes during archiving.*
 
 > [!NOTE]
-> Docker-only [`PUID` and `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#puid--pgid) are entrypoint environment variables, not ArchiveBox configuration keys.
+> Docker-only [`PUID` and `PGID`](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#docker-permissions-issues) are entrypoint environment variables, not ArchiveBox configuration keys.
 
 ---
 <a id="dir_output_permissions"></a>
@@ -664,7 +664,7 @@ ArchiveBox stores all of its index metadata in a single SQLite database file (`i
 > These are advanced operator tuning options. If you are not actively diagnosing `database is locked` errors or planning a non-default storage layout, you can safely leave everything in this section at its default.
 
 *Learn more:*
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#sqlite-database-is-locked
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#database-and-filesystem-contention-issues-when-running-multiple-archivebox-processes
 - https://www.sqlite.org/wal.html
 - https://www.sqlite.org/pragma.html
 

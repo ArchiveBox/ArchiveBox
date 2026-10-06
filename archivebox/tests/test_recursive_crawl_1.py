@@ -33,6 +33,7 @@ def run_add_until(args, env, condition, timeout=120):
 @pytest.mark.timeout(1200)
 def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
     initialized_archive,
+    cached_abxpkg_lib_dir,
     free_tcp_port_factory,
     recursive_test_site,
 ):
@@ -59,8 +60,8 @@ def test_recursive_crawl_depth_two_all_plugins_runs_snapshots_in_parallel(
             "USE_COLOR": "false",
             "SHOW_PROGRESS": "false",
             "URL_ALLOWLIST": r"127\.0\.0\.1[:/].*",
-            "ABXPKG_LIB_DIR": str(initialized_archive / "lib"),
-            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(initialized_archive / "lib/chromewebstore/extensions"),
+            "ABXPKG_LIB_DIR": str(cached_abxpkg_lib_dir),
+            "CHROMEWEBSTORE_EXTENSIONS_DIR": str(cached_abxpkg_lib_dir / "chromewebstore/extensions"),
             "TIMEOUT": "90",
             "CRAWL_MAX_CONCURRENT_SNAPSHOTS": "3",
             "SEARCH_BACKEND_SONIC_HOST_NAME": "127.0.0.1",

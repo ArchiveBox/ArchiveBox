@@ -146,7 +146,7 @@ class SnapshotService(BaseService):
             elif snapshot.status not in (Snapshot.StatusChoices.STARTED, Snapshot.StatusChoices.SEALED):
                 return
             if snapshot.status == Snapshot.StatusChoices.STARTED:
-                await sync_to_async(snapshot.ensure_crawl_symlink, thread_sensitive=True)()
+                await sync_to_async(snapshot.reconcile_filesystem_links, thread_sensitive=True)()
             retry_plugins = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS", []) if str(name).strip()]
             async with self._ownership_lock:
                 self._run_ownership[str(event.snapshot_id)] = (str(event.event_id), snapshot.retry_at, was_sealed, retry_plugins)

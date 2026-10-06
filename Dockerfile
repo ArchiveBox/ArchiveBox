@@ -3,14 +3,14 @@
 # Multistage ArchiveBox Dockerfile that consumes the abx-dl runtime image.
 # WHY: abx-dl owns Python, Node, Chromium, and extraction dependencies so the
 # standalone downloader stays independent of ArchiveBox's server features.
-# ArchiveBox-only dependencies (Sonic, OpenCode, supervisor, Django) belong in
+# ArchiveBox-only dependencies (server plugins, supervisor, Django) belong in
 # the layers added by this Dockerfile, never in the shared abx-dl base image.
 # REQUIRED INSTALLATION CONTRACT — do not work around failures:
 # 1. IMAGE CONSTRUCTION: preinstall ALL plugins supported by runtime="archivebox"
 #    and ALL their required_binaries, regardless of default enabled state.
 #    Inherit the complete downloader dependencies from the tested abx-dl image;
 #    install every remaining ArchiveBox-only dependency in this image's layers,
-#    including OpenCode and Sonic. Never put server dependencies in abx-dl.
+#    including optional server plugins. Never put server dependencies in abx-dl.
 #    Use the normal plugin dependency pipeline: install command -> config.json
 #    required_binaries -> abxpkg. Never add manual apt/pip/npm installs to hide
 #    failures in that pipeline. OS/interpreter bootstrap is a separate concern,
@@ -156,6 +156,22 @@ apt-get install -qq -y --no-install-recommends x11-utils
     --no-install-package abx-plugins \
     --no-install-package abx-dl \
     --no-sources
+# Sync may replace inherited dependencies (e.g. pydantic/rich-click), removing
+# their bytecode. Runtime writes are disabled, so missing caches would make
+# every hook compile them again. Compile only missing entries: compileall's
+# timestamp fast path rewrites even valid checked-hash caches, copying the
+# entire inherited venv into this OCI layer for no runtime benefit.
+/usr/bin/uv run --no-project --no-sync python - <<'PY'
+import importlib.util
+from pathlib import Path
+import py_compile
+import sysconfig
+
+for source in Path(sysconfig.get_path("purelib")).rglob("*.py"):
+    cache = Path(importlib.util.cache_from_source(str(source)))
+    if not cache.is_file():
+        py_compile.compile(str(source), doraise=True, invalidation_mode=py_compile.PycInvalidationMode.CHECKED_HASH)
+PY
 builder_abxpkg_lib_dir=/tmp/archivebox-builder-abxpkg
 ABXPKG_NO_CACHE=True abxpkg env --install --binproviders=env,apt --lib="$builder_abxpkg_lib_dir" --overrides='{"apt":{"install_args":["binutils"]}}' strip >/dev/null
 /usr/bin/find /venv/lib/python3.*/site-packages -type f -name '*.so' -print0 > /tmp/archivebox-native-libraries
@@ -250,15 +266,13 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
 
 # Install the complete ArchiveBox catalog, including disabled server plugins.
 # Explicit plugin names make installation independent of enabled defaults.
-RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-opencode-$TARGETARCH \
+RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-server-plugins-$TARGETARCH \
     chown -R "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" /var/tmp/abxpkg-cache \
     && chmod 1777 /var/tmp/abxpkg-cache \
     && export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
         setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install $ABX_DOCKER_PLUGINS \
-    # pnpm includes musl variants that Debian's glibc runtime cannot use.
-    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules" -type l -name 'opencode-linux-*-musl' -delete \
-    && find "$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.pnpm" -maxdepth 1 -type d -name 'opencode-linux-*-musl@*' -exec rm -rf {} + \
+    && UV_NO_CACHE=true /usr/bin/uv run --no-project python -c 'from abx_plugins.plugins.opencode.image import prune_incompatible_image_files; prune_incompatible_image_files()' \
     # pnpm's explicit store lives under ABXPKG_LIB_DIR, regardless of XDG_CACHE_HOME.
     # Retaining its download copies made image size depend on whether the build
     # preserved hardlinks to installed files. Remove the store in this layer;
@@ -267,7 +281,7 @@ RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=
     && rm -rf "$ABXPKG_LIB_DIR/cache/pnpm"
 RUN --network=none export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
-    bash -c '"$ABXPKG_LIB_DIR/pnpm/packages/opencode/node_modules/.bin/opencode" --version && abx-dl install $ABX_DOCKER_PLUGINS'
+    bash -c 'uv run --no-project python -c "from abx_plugins.plugins.opencode.image import verify_installed; verify_installed()" && abx-dl install $ABX_DOCKER_PLUGINS'
 
 WORKDIR "$DATA_DIR"
 RUN echo "[+] Initializing image collection..." \
@@ -287,6 +301,9 @@ RUN chmod +x "$CODE_DIR"/bin/*.sh \
     && chmod g+w "$TMP_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH"
 
 RUN for forbidden_bin in gcc g++ make; do ! abxpkg load --binproviders=env "$forbidden_bin" >/dev/null 2>&1 || (echo "Unexpected build tool in runtime: $forbidden_bin" >&2 && exit 1); done \
+    && test -f "$(/venv/bin/python -c 'import pydantic; print(pydantic.__cached__)')" \
+    && test -f "$(/venv/bin/python -c 'import rich_click; print(rich_click.__cached__)')" \
+    && test -f "$(/venv/bin/python -c 'import platformdirs; print(platformdirs.__cached__)')" \
     && stat -c "%U:%G %a %n" "$CONFIG_DIR" "$ABXPKG_LIB_DIR" "$PLAYWRIGHT_BROWSERS_PATH" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$CONFIG_DIR" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups test -w "$ABXPKG_LIB_DIR" \

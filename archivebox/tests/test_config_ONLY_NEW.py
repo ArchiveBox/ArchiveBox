@@ -93,4 +93,6 @@ def test_create_discovered_snapshots_respects_only_new_exact_url_matches(admin_u
         crawl_link = (
             Path(crawl.output_dir) / CONSTANTS.SNAPSHOTS_DIR_NAME / snapshot.extract_domain_from_url(snapshot.url) / str(snapshot.id)
         )
-        assert crawl_link.is_symlink()
+        # Queued metadata stays in the DB; the normal runner creates links.
+        assert not crawl_link.is_symlink()
+        assert not snapshot.output_dir.exists()

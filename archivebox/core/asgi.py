@@ -31,7 +31,7 @@ django_application = ArchiveBoxASGIHandler()
 
 async def application(scope, receive, send):
     if scope["type"] == "websocket":
-        from archivebox.opencode.views import websocket_view
+        from abx_plugins.plugins.opencode.archivebox.views import websocket_view
 
         return await websocket_view(scope, receive, send)
     return await django_application(scope, receive, send)

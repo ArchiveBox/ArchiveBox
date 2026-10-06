@@ -1,7 +1,17 @@
 name: Documentation tests
 
 on:
-  workflow_call:
+  schedule:
+    - cron: '7 5,17 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   PYTHONIOENCODING: utf-8
@@ -9,7 +19,18 @@ env:
   SHOW_PROGRESS: "False"
 
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      key: ${{ steps.check.outputs.key }}
+    steps:
+      - id: check
+        uses: ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main
+
   discover:
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     name: Discover documentation examples
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -158,3 +179,17 @@ jobs:
           "$SUDO_BINARY" \
             --preserve-env=PATH,ABXPKG_LIB_DIR,BASH_BINARY,PYTHON_BINARY,SUDO_BINARY,UV_BINARY \
             "$UV_BINARY" run --no-cache --no-sync python docs/test_codeblocks_manifest.py run-group '${{ matrix.snippet_ids }}'
+      - name: Diagnose failed Linux package installation
+        if: failure() && runner.os == 'Linux'
+        run: |
+          sudo tail -n 120 /var/log/apt/term.log /var/log/dpkg.log
+          apt-config dump Acquire::Retries Acquire::http::Timeout Acquire::https::Timeout
+          ps -eo pid,ppid,stat,etimes,wchan:32,comm
+
+  complete:
+    name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'
+    needs: [changes, discover, examples]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Scheduled work completed successfully.'

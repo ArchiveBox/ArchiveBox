@@ -14,6 +14,7 @@ import textwrap
 import time
 import shutil
 import ctypes
+from urllib.parse import urlsplit
 from datetime import timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -21,6 +22,13 @@ from threading import Event, Thread
 from types import SimpleNamespace
 from typing import Any
 from collections.abc import Callable
+
+from abx_plugins.plugins.opencode.archivebox.conftest import (
+    opencode_archive_config as opencode_archive_config,
+    installed_opencode as installed_opencode,
+    live_opencode as live_opencode,
+    agent_server as agent_server,
+)
 
 import psutil
 import pytest
@@ -32,6 +40,14 @@ PYTEST_BASETEMP_ROOT = (REPO_ROOT / "tests" / "out").resolve()
 SESSION_DATA_DIR = Path(
     os.environ.get("ARCHIVEBOX_PYTEST_SESSION_DATA_DIR") or tempfile.mkdtemp(prefix="archivebox-pytest-session-"),
 ).resolve()
+PORT_ALLOCATION_DIR = Path(os.environ.setdefault("ARCHIVEBOX_PYTEST_PORTS_DIR", str(SESSION_DATA_DIR / "ports")))
+if worker_id := os.environ.get("PYTEST_XDIST_WORKER"):
+    # Workers inherit the coordinator's environment. Give each one its own
+    # collection and cleanup root so a finishing worker cannot delete another's.
+    SESSION_DATA_DIR /= worker_id
+    for runtime_key in ("ABXPKG_LIB_DIR", "PERSONAS_DIR", "CHROME_USER_DATA_DIR"):
+        if runtime_path := os.environ.get(runtime_key):
+            os.environ[runtime_key] = str(Path(runtime_path) / worker_id)
 
 os.environ["ARCHIVEBOX_PYTEST_SESSION_DATA_DIR"] = str(SESSION_DATA_DIR)
 os.environ["DATA_DIR"] = str(SESSION_DATA_DIR)
@@ -323,6 +339,18 @@ def pytest_configure():
     if not apps.ready:
         django.setup()
 
+    if os.environ.get("PYTEST_XDIST_WORKER"):
+        from django.conf import settings
+        from archivebox.config import django as django_config
+        from archivebox.config.common import get_config
+
+        # pytest-django may import startup config before this conftest isolates
+        # the worker's paths. Refresh that real startup config once so HTTP
+        # requests resolve the same installed binaries as worker subprocesses;
+        # otherwise a service restart searches the coordinator's empty lib dir.
+        django_config.CONFIG = get_config(include_machine=False)
+        settings.CONFIG = django_config.CONFIG
+
 
 @pytest.fixture(scope="session")
 def django_db_modify_db_settings(
@@ -437,7 +465,7 @@ def hermetic_lib_dir(tmp_path):
 @pytest.fixture
 def cached_abxpkg_lib_dir():
     """Reuse one real abxpkg installation cache for the current pytest session."""
-    lib_dir = SESSION_DATA_DIR / "lib"
+    lib_dir = Path(os.environ["ABXPKG_LIB_DIR"]) if os.environ.get("ABXPKG_LIB_DIR") else SESSION_DATA_DIR / "lib"
     lib_dir.mkdir(parents=True, exist_ok=True)
     original_lib_dir = os.environ.get("ABXPKG_LIB_DIR")
     os.environ["ABXPKG_LIB_DIR"] = str(lib_dir)
@@ -1076,6 +1104,8 @@ def start_archivebox_server(
     else:
         output = log_path.read_text(encoding="utf-8", errors="replace") if log_path else ""
         raise AssertionError(f"ArchiveBox server did not open port {port} within 30 seconds:\n{output}")
+    response = get_http_response(port, host=f"127.0.0.1:{port}", path="/health/", timeout=5)
+    assert response.status_code == 200 and response.headers.get("X-ArchiveBox-Health") == "OK", response.text
     return proc
 
 
@@ -1294,6 +1324,43 @@ def api_auth_headers(api_token: str, *, django_client: bool = False, port: int |
     }
 
 
+class LocalhostHTTPAdapter(requests.adapters.HTTPAdapter):
+    """Connect real HTTP requests to loopback while preserving URL authorities."""
+
+    def get_connection_with_tls_context(self, request, verify, proxies=None, cert=None):
+        url = urlsplit(request.url)
+        if url.scheme != "http" or not (url.hostname == "localhost" or (url.hostname or "").endswith(".localhost")):
+            raise ValueError(f"Expected an HTTP localhost test URL, got {request.url}")
+        return self.poolmanager.connection_from_host("127.0.0.1", port=url.port, scheme="http")
+
+    def send(self, request, **kwargs):
+        # Send Host only on the wire. Requests copies prepared headers on
+        # redirects and uses Host for cookie matching; leaving it attached
+        # would select the previous origin's cookies after a cross-host redirect.
+        original_host = request.headers.get("Host")
+        request.headers["Host"] = urlsplit(request.url).netloc
+        try:
+            return super().send(request, **kwargs)
+        finally:
+            if original_host is None:
+                request.headers.pop("Host", None)
+            else:
+                request.headers["Host"] = original_host
+
+
+def localhost_session() -> requests.Session:
+    # Browsers resolve *.localhost themselves; Linux libc in stock containers
+    # often does not. This is curl --connect-to for real server tests: only the
+    # socket destination changes. Keep the original URL so Requests exercises
+    # real redirect and cookie-domain rules, including dynamic snap-* hosts.
+    # Never replace URLs with 127.0.0.1 or stub responses: that hides isolation
+    # bugs. This also avoids global /etc/hosts edits and runner-specific DNS.
+    session = requests.Session()
+    session.trust_env = False
+    session.mount("http://", LocalhostHTTPAdapter())
+    return session
+
+
 def wait_for_live_api(port: int, *, path: str = "/api/v1/docs"):
     return get_http_response(port, host=f"api.archivebox.localhost:{port}", path=path)
 
@@ -1339,9 +1406,20 @@ def init_archive(cwd: Path) -> None:
 
 
 def get_free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return sock.getsockname()[1]
+    # Binding port zero only proves availability now. Another pytest worker can
+    # receive that same port before either service starts. Claim it atomically
+    # for this session while the socket is still bound, across all workers and
+    # helper subprocesses; the session cleanup removes these small markers.
+    PORT_ALLOCATION_DIR.mkdir(parents=True, exist_ok=True)
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+            try:
+                (PORT_ALLOCATION_DIR / str(port)).touch(exist_ok=False)
+            except FileExistsError:
+                continue
+            return port
 
 
 def stop_server(cwd: Path) -> None:
@@ -1937,3 +2015,60 @@ def create_test_snapshot_json(url: str | None = None, **kwargs) -> dict[str, Any
         "status": kwargs.get("status", "queued"),
         **{k: v for k, v in kwargs.items() if k not in ("tags_str", "status")},
     }
+
+
+@pytest.fixture
+def browser_runtime(cached_abxpkg_lib_dir):
+    from abx_plugins import get_plugins_dir
+    from abx_plugins.plugins.base.utils import get_config
+
+    # UI tests need isolated collections, but share the browser installation.
+    # Resolve it through the same abxpkg schema/cache as capture hooks rather
+    # than downloading Playwright's separate Chromium in CI. This keeps local
+    # and CI runs on the supported install path without per-test cold installs.
+    shared_lib = cached_abxpkg_lib_dir
+    env = cli_env(
+        ABXPKG_LIB_DIR=str(shared_lib),
+        CHROME_HEADLESS="True",
+        CHROME_SANDBOX="False",
+        CHROME_ISOLATION="snapshot",
+    )
+    env.pop("CHROME_BINARY", None)
+    resolved_env = resolve_abxpkg_chrome_env(shared_lib, env)
+    chrome_config = get_config(
+        Path(get_plugins_dir()) / "chrome" / "config.json",
+        environ={**env, **resolved_env},
+        hydrate_binaries=False,
+    )
+
+    return {
+        "lib_dir": shared_lib,
+        "node_modules_dir": Path(resolved_env["NODE_MODULES_DIR"]),
+        "node_path": resolved_env["NODE_PATH"],
+        "node_binary": Path(resolved_env["NODE_BINARY"]),
+        "chrome_binary": Path(resolved_env["CHROME_BINARY"]),
+        "chrome_args": [*chrome_config.CHROME_ARGS, *chrome_config.CHROME_ARGS_EXTRA],
+    }
+
+
+def _reset_runtime_config() -> None:
+    from archivebox.config import common
+    from archivebox.machine.models import Machine
+
+    for value in vars(common).values():
+        cache_clear = getattr(value, "cache_clear", None)
+        if cache_clear is not None:
+            cache_clear()
+    Machine.current()
+
+
+def _set_archivebox_config(data_dir: Path, *values: str, env: dict[str, str] | None = None) -> None:
+    os.chdir(data_dir)
+    result = run_archivebox_cmd(
+        ["config", "--set", *values],
+        cwd=data_dir,
+        env=env,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr or result.stdout
+    _reset_runtime_config()

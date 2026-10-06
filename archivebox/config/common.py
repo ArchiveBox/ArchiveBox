@@ -34,6 +34,25 @@ ConfigPayload = dict[str, object]
 PluginSchemaDocuments = dict[str, dict[str, Any]]
 LIVE_CONFIG_BASE_URL = "/admin/environment/config/"
 
+
+def _is_cookie_file_config_key(key: str) -> bool:
+    return key in {"COOKIES_FILE", "AUTH_STORAGE_FILE"} or key.endswith("_COOKIES_FILE")
+
+
+def _resolve_cookie_file_paths(config: dict[str, Any]) -> dict[str, Any]:
+    """Keep collection-relative auth paths valid after hooks change cwd."""
+    for key, value in config.items():
+        if _is_cookie_file_config_key(key):
+            if value is None or (isinstance(value, str) and not value.strip()):
+                config[key] = ""
+                continue
+            file_path = Path(value).expanduser()
+            if not file_path.is_absolute():
+                file_path = CONSTANTS.DATA_DIR / file_path
+            config[key] = str(file_path.absolute())
+    return config
+
+
 ###################### Config ##########################
 
 _STDOUT_CONSOLE = Console()
@@ -395,6 +414,36 @@ class ServerConfig(BaseConfigSet):
         )
 
 
+@lru_cache(maxsize=16)
+def _default_sqlite_journal_mode(database_name: str) -> str:
+    if not IN_DOCKER:
+        return "WAL"
+
+    # Native Linux bind mounts share the kernel's locks and mmap; Docker alone
+    # does not make WAL unsafe. DELETE there lets any slow reader block tiny
+    # writes. Desktop VM shares (virtiofs/9p/FUSE), network filesystems and
+    # unknown mounts keep rollback journaling: their host-side readers may not
+    # share SQLite's -shm locking domain. Inspect the DB mount, not archive/.
+    database_path = Path(database_name).expanduser().resolve()
+    try:
+        mounts = Path("/proc/self/mountinfo").read_text().splitlines()
+    except OSError:
+        return "DELETE"
+    filesystem = ""
+    mount_depth = -1
+    for line in mounts:
+        fields, separator, details = line.partition(" - ")
+        if not separator:
+            continue
+        mount_path = fields.split()[4]
+        mount_path = re.sub(r"\\([0-7]{3})", lambda match: chr(int(match[1], 8)), mount_path)
+        mount = Path(mount_path)
+        if database_path.is_relative_to(mount) and len(mount.parts) > mount_depth:
+            filesystem = details.split()[0]
+            mount_depth = len(mount.parts)
+    return "WAL" if filesystem in {"ext2", "ext3", "ext4", "xfs", "btrfs", "zfs", "overlay", "tmpfs", "f2fs"} else "DELETE"
+
+
 class DatabaseConfig(BaseConfigSet):
     toml_section_header: str = "DATABASE_CONFIG"
     _scope: str = PrivateAttr(default=_SCOPE_SERVER)
@@ -410,11 +459,7 @@ class DatabaseConfig(BaseConfigSet):
     DATABASE_USER: str = Field(default="archivebox", alias="ARCHIVEBOX_DATABASE_USER")
     DATABASE_PASSWORD: str = Field(default="", alias="ARCHIVEBOX_DATABASE_PASSWORD")
     SQLITE_JOURNAL_MODE: str = Field(
-        # Docker collections commonly live on a host bind mount. WAL's -shm
-        # locking is only safe when every SQLite process is on the same host;
-        # Docker Desktop/OrbStack place the container and host in different
-        # locking domains and a host-side reader can corrupt the live DB.
-        default="DELETE" if IN_DOCKER else "WAL",
+        default_factory=lambda data: _default_sqlite_journal_mode(str(data["DATABASE_NAME"])),
         alias="ARCHIVEBOX_SQLITE_JOURNAL_MODE",
         pattern=r"(?i)^(DELETE|TRUNCATE|PERSIST|MEMORY|WAL|OFF)$",
     )
@@ -428,11 +473,16 @@ class DatabaseConfig(BaseConfigSet):
     SQLITE_LOCK_RETRY_INTERVAL: float = Field(default=5.0, alias="ARCHIVEBOX_SQLITE_LOCK_RETRY_INTERVAL", gt=0)
 
     @model_validator(mode="after")
-    def reject_docker_sqlite_wal(self):
-        if IN_DOCKER and self.DATABASE_ENGINE.lower() == "sqlite" and self.SQLITE_JOURNAL_MODE.upper() == "WAL":
+    def reject_shared_filesystem_sqlite_wal(self):
+        if (
+            IN_DOCKER
+            and self.DATABASE_ENGINE.lower() == "sqlite"
+            and self.SQLITE_JOURNAL_MODE.upper() == "WAL"
+            and _default_sqlite_journal_mode(self.DATABASE_NAME) != "WAL"
+        ):
             raise ValueError(
-                "SQLITE_JOURNAL_MODE=WAL is unsafe for Docker collections because host bind mounts cross SQLite "
-                "locking domains; use DELETE (the Docker default) or PostgreSQL",
+                "SQLITE_JOURNAL_MODE=WAL requires a local filesystem with shared SQLite locking; "
+                "keep the database on a local Docker volume, use DELETE for host/VM shared mounts, or use PostgreSQL",
             )
         return self
 
@@ -468,6 +518,11 @@ class ArchivingConfig(BaseConfigSet):
     COOKIES_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
     AUTH_STORAGE_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
 
+    @field_validator("COOKIES_FILE", "AUTH_STORAGE_FILE", mode="before")
+    @classmethod
+    def empty_cookie_file_is_unset(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
     URL_DENYLIST: str = Field(
         default=(
             r"\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$"
@@ -498,7 +553,7 @@ class ArchivingConfig(BaseConfigSet):
             rprint("    (Setting it to somewhere between 30 and 3000 seconds is recommended)", file=sys.stderr)
             rprint(file=sys.stderr)
             rprint("    If you want to make ArchiveBox run faster, disable specific archive methods instead:", file=sys.stderr)
-            rprint("        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#archive-method-toggles", file=sys.stderr)
+            rprint("        https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#plugins", file=sys.stderr)
             rprint(file=sys.stderr)
 
     @field_validator("CHECK_SSL_VALIDITY", mode="after")
@@ -825,6 +880,8 @@ class ArchiveBoxBaseConfig(
         if runtime_overrides:
             config.update(normalize_runtime_config(runtime_overrides, json_safe=False))
 
+        _resolve_cookie_file_paths(config)
+
         # Hooks should only see concrete plugin-local flags, never the
         # ArchiveBox selectors used to derive them.
         config.pop("PLUGINS", None)
@@ -848,6 +905,13 @@ class ArchiveBoxBaseConfig(
         if not lib_dir.is_absolute():
             lib_dir = CONSTANTS.DATA_DIR / lib_dir
         self.ABXPKG_LIB_DIR = lib_dir.resolve()
+
+        cookie_paths = {key: getattr(self, key) for key in type(self).model_fields if _is_cookie_file_config_key(key)}
+        for key, value in _resolve_cookie_file_paths(cookie_paths).items():
+            if key in {"COOKIES_FILE", "AUTH_STORAGE_FILE"}:
+                setattr(self, key, Path(value) if value else None)
+            else:
+                setattr(self, key, value)
 
         return self
 
@@ -1156,11 +1220,15 @@ def get_config(
     scope_overrides: ConfigPayload = {}
 
     if include_machine and machine is not None and machine.config:
-        from archivebox.machine.models import _sanitize_machine_config
+        machine_config = machine.config
+        if resolve_plugins:
+            from archivebox.machine.models import _sanitize_machine_config
+
+            machine_config = _sanitize_machine_config(machine_config, lib_dir=config_data.get("ABXPKG_LIB_DIR"))
 
         scope_overrides.update(
             normalize_runtime_config(
-                _sanitize_machine_config(machine.config, lib_dir=config_data.get("ABXPKG_LIB_DIR")),
+                machine_config,
                 only_crawl_execution=crawl_config_base,
                 exclude_runtime_derived=True,
                 json_safe=False,

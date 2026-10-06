@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Saved files</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --line: #dfe4eb;
+        --muted: #667085;
+        --blue: #245dc1;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font: 13px/1.5 system-ui, sans-serif;
+        color: #253247;
+        background: white;
+        display: flex;
+        flex-direction: column;
+      }
+      a {
+        color: var(--blue);
+        text-decoration: none;
+      }
+      button,
+      input {
+        font: inherit;
+      }
+      button,
+      a.action {
+        cursor: pointer;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: white;
+        padding: 5px 10px;
+        color: #344054;
+      }
+      button:hover,
+      a.action:hover {
+        background: #f0f5ff;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+      h1 {
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      nav {
+        display: flex;
+        gap: 6px;
+        margin-left: auto;
+        flex-shrink: 0;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 16px;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--line);
+      }
+      #breadcrumbs {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        flex-wrap: wrap;
+        min-width: 0;
+      }
+      #breadcrumbs button {
+        border: 0;
+        background: none;
+        padding: 0;
+        color: var(--blue);
+      }
+      #count {
+        color: var(--muted);
+        white-space: nowrap;
+        margin-left: auto;
+      }
+      #search {
+        width: 160px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 4px 8px;
+      }
+      main {
+        display: flex;
+        min-height: 0;
+        flex: 1;
+      }
+      .listing {
+        overflow: auto;
+        flex: 1;
+        min-width: 260px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+      }
+      th {
+        position: sticky;
+        top: 0;
+        background: #fff;
+        color: var(--muted);
+        font-weight: 500;
+        border-bottom: 1px solid var(--line);
+        padding: 8px 16px;
+      }
+      td {
+        border-bottom: 1px solid #eef1f5;
+        padding: 8px 16px;
+      }
+      td.name {
+        width: 100%;
+      }
+      .entry {
+        border: 0;
+        background: none;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #253247;
+        text-align: left;
+        overflow-wrap: anywhere;
+      }
+      .entry:hover {
+        background: none;
+        color: var(--blue);
+      }
+      .size,
+      .date {
+        color: var(--muted);
+        white-space: nowrap;
+        font-size: 12px;
+      }
+      tr.selected {
+        background: #eaf2ff;
+      }
+      tr:hover {
+        background: #f6f9fc;
+      }
+      #preview {
+        width: 55%;
+        min-width: 280px;
+        border-left: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      #preview[hidden] {
+        display: none;
+      }
+      .preview-head {
+        padding: 9px 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--line);
+        background: #f8fafc;
+      }
+      #filename {
+        overflow-wrap: anywhere;
+        font-weight: 600;
+        margin-right: auto;
+      }
+      #content {
+        overflow: auto;
+        padding: 16px;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+      }
+      #content img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+      #content pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        align-self: stretch;
+        margin: 0;
+        width: 100%;
+        font: 12px/1.6 ui-monospace, monospace;
+      }
+      #content iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+      }
+      #content audio,
+      #content video {
+        max-width: 100%;
+      }
+      .empty {
+        padding: 22px;
+        color: var(--muted);
+      }
+      #error {
+        color: #b42318;
+        padding: 8px 16px;
+        margin: 0;
+      }
+      #error:empty {
+        display: none;
+      }
+      @media (max-width: 640px) {
+        header {
+          flex-wrap: wrap;
+          padding: 9px 12px;
+        }
+        nav {
+          margin-left: 0;
+        }
+        .toolbar {
+          padding: 8px 12px;
+        }
+        #search {
+          width: 100px;
+        }
+        .date {
+          display: none;
+        }
+        main {
+          flex-direction: column;
+        }
+        .listing {
+          min-height: 140px;
+        }
+        #preview {
+          width: 100%;
+          border-left: 0;
+          border-top: 1px solid var(--line);
+          min-height: 300px;
+          flex: 1;
+        }
+        td,
+        th {
+          padding: 8px 12px;
+        }
+      }
+    </style>
+  </head>
+  <body data-output="{{ output_path }}" data-size="{{ archive_size }}">
+    <header>
+      <h1 id="title">{{ title }}</h1>
+      <nav id="actions" aria-label="Output actions">
+        <a class="action" id="files">View all files</a>
+      </nav>
+    </header>
+    <div class="toolbar">
+      <div id="breadcrumbs"></div>
+      <span id="count"></span
+      ><input
+        id="search"
+        aria-label="Filter files"
+        placeholder="Filter files"
+      />
+    </div>
+    <p id="error" role="alert"></p>
+    <main>
+      <section class="listing" aria-label="Files">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Size</th>
+              <th class="date">Modified</th>
+            </tr>
+          </thead>
+          <tbody id="entries"></tbody>
+        </table>
+      </section>
+      <section id="preview" aria-label="File preview" hidden>
+        <div class="preview-head">
+          <span id="filename"></span><button id="download">Download</button
+          ><button id="close" aria-label="Close preview">×</button>
+        </div>
+        <div id="content"></div>
+      </section>
+    </main>
+    <script>
+      (() => {
+        const byId = (id) => document.getElementById(id),
+          el = (tag, text, cls) => {
+            const n = document.createElement(tag);
+            if (text != null) n.textContent = text;
+            if (cls) n.className = cls;
+            return n;
+          };
+        const output = new URL(document.body.dataset.output, document.baseURI);
+        output.search = "";
+        output.hash = "";
+        const folder = new URL("./", output),
+          raw = new URL(output);
+        raw.searchParams.set("raw", "1");
+        byId("files").href = folder.href + "?files=1";
+        const MAX_PREVIEW = 16 * 1024 * 1024,
+          CHUNK = 256 * 1024,
+          decoder = new TextDecoder();
+        const bytes = (n) =>
+          n < 1024
+            ? n + " B"
+            : n < 1048576
+            ? (n / 1024).toFixed(1) + " KB"
+            : n < 1073741824
+            ? (n / 1048576).toFixed(1) + " MB"
+            : (n / 1073741824).toFixed(2) + " GB";
+        const safePath = (name) => {
+          const p = name.replace(/\\/g, "/").replace(/\/$/, "");
+          return p &&
+            !p.startsWith("/") &&
+            !p.split("/").some((x) => !x || x === "." || x === "..")
+            ? p
+            : null;
+        };
+        const view = (b) => new DataView(b.buffer, b.byteOffset, b.byteLength);
+        const u64 = (v, p) => {
+          const n = v.getBigUint64(p, true);
+          if (n > BigInt(Number.MAX_SAFE_INTEGER))
+            throw Error("ZIP offsets exceed browser precision");
+          return Number(n);
+        };
+        async function rangeResponse(archive, start, length, signal) {
+          if (
+            !Number.isSafeInteger(start) ||
+            !Number.isSafeInteger(length) ||
+            start < 0 ||
+            length <= 0 ||
+            start + length > archive.size
+          )
+            throw Error("Invalid ZIP byte range");
+          const response = await fetch(archive.url, {
+            headers: { Range: `bytes=${start}-${start + length - 1}` },
+            signal,
+          });
+          const expected = `bytes ${start}-${start + length - 1}/${
+            archive.size
+          }`;
+          if (
+            response.status !== 206 ||
+            response.headers.get("Content-Range") !== expected
+          ) {
+            await response.body?.cancel();
+            throw Error("ZIP browsing requires HTTP byte-range support");
+          }
+          return response;
+        }
+        async function range(archive, start, length, signal) {
+          const response = await rangeResponse(archive, start, length, signal),
+            reader = response.body.getReader(),
+            result = new Uint8Array(length);
+          let offset = 0;
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              if (offset + value.length > length)
+                throw Error("ZIP range exceeds requested size");
+              result.set(value, offset);
+              offset += value.length;
+            }
+            if (offset !== length) throw Error("Incomplete ZIP byte range");
+            return result;
+          } finally {
+            await reader.cancel();
+          }
+        }
+        async function indexZip(archive) {
+          const tail = await range(
+            archive,
+            Math.max(0, archive.size - 65557),
+            Math.min(archive.size, 65557)
+          );
+          const v = view(tail);
+          let end = -1;
+          for (let i = tail.length - 22; i >= 0; i--)
+            if (
+              v.getUint32(i, true) === 0x06054b50 &&
+              i + 22 + v.getUint16(i + 20, true) === tail.length
+            ) {
+              end = i;
+              break;
+            }
+          if (end < 0) throw Error("Missing ZIP directory");
+          if (v.getUint16(end + 4, true) || v.getUint16(end + 6, true))
+            throw Error("Multi-volume ZIPs are not supported");
+          let count = v.getUint16(end + 10, true),
+            size = v.getUint32(end + 12, true),
+            offset = v.getUint32(end + 16, true);
+          if (count === 65535 || size === 0xffffffff || offset === 0xffffffff) {
+            const locatorOffset = archive.size - tail.length + end - 20,
+              locator = view(await range(archive, locatorOffset, 20));
+            if (
+              locator.getUint32(0, true) !== 0x07064b50 ||
+              locator.getUint32(4, true) !== 0 ||
+              locator.getUint32(16, true) !== 1
+            )
+              throw Error("Invalid ZIP64 locator");
+            const z = view(await range(archive, u64(locator, 8), 56));
+            if (
+              z.getUint32(0, true) !== 0x06064b50 ||
+              z.getUint32(16, true) ||
+              z.getUint32(20, true)
+            )
+              throw Error("Invalid ZIP64 directory");
+            count = u64(z, 32);
+            size = u64(z, 40);
+            offset = u64(z, 48);
+          }
+          if (count > 100000)
+            throw Error(
+              "ZIP has more than 100,000 entries; use the ZIP download"
+            );
+          if (offset + size > archive.size || offset < 0)
+            throw Error("Invalid ZIP directory bounds");
+          let buffer = new Uint8Array(),
+            base = -1;
+          const read = async (position, length) => {
+            if (position < offset || position + length > offset + size)
+              throw Error("Invalid ZIP entry bounds");
+            if (position < base || position + length > base + buffer.length) {
+              base = position;
+              buffer = await range(
+                archive,
+                position,
+                Math.min(Math.max(CHUNK, length), offset + size - position)
+              );
+            }
+            return buffer.subarray(position - base, position - base + length);
+          };
+          const entries = [];
+          let cursor = offset;
+          for (let i = 0; i < count; i++) {
+            const h = view(await read(cursor, 46));
+            if (h.getUint32(0, true) !== 0x02014b50)
+              throw Error("Invalid ZIP directory entry");
+            const nameLength = h.getUint16(28, true),
+              extraLength = h.getUint16(30, true),
+              commentLength = h.getUint16(32, true),
+              flags = h.getUint16(8, true),
+              method = h.getUint16(10, true),
+              crc = h.getUint32(16, true),
+              date = h.getUint16(14, true),
+              time = h.getUint16(12, true);
+            let compressed = h.getUint32(20, true),
+              size = h.getUint32(24, true),
+              local = h.getUint32(42, true);
+            const fields = await read(
+                cursor + 46,
+                nameLength + extraLength + commentLength
+              ),
+              name = decoder.decode(fields.subarray(0, nameLength)),
+              extra = view(
+                fields.subarray(nameLength, nameLength + extraLength)
+              );
+            for (let p = 0; p + 4 <= extra.byteLength; ) {
+              const id = extra.getUint16(p, true),
+                length = extra.getUint16(p + 2, true);
+              if (p + 4 + length > extra.byteLength)
+                throw Error("Invalid ZIP extra field");
+              if (id === 1) {
+                let q = p + 4;
+                const next = () => {
+                  if (q + 8 > p + 4 + length)
+                    throw Error("Invalid ZIP64 entry");
+                  const n = u64(extra, q);
+                  q += 8;
+                  return n;
+                };
+                if (size === 0xffffffff) size = next();
+                if (compressed === 0xffffffff) compressed = next();
+                if (local === 0xffffffff) local = next();
+              }
+              p += 4 + length;
+            }
+            const path = safePath(name);
+            if (path)
+              entries.push({
+                path,
+                directory: name.endsWith("/"),
+                size,
+                compressed,
+                local,
+                flags,
+                method,
+                crc,
+                archive,
+                date: date
+                  ? new Date(
+                      1980 + (date >> 9),
+                      ((date >> 5) & 15) - 1,
+                      date & 31,
+                      time >> 11,
+                      (time >> 5) & 63,
+                      (time & 31) * 2
+                    )
+                  : null,
+              });
+            cursor += 46 + nameLength + extraLength + commentLength;
+          }
+          return entries;
+        }
+        const crcTable = Uint32Array.from({ length: 256 }, (_, n) => {
+          for (let i = 0; i < 8; i++)
+            n = n & 1 ? 0xedb88320 ^ (n >>> 1) : n >>> 1;
+          return n >>> 0;
+        });
+        async function entryStream(file, signal) {
+          if (file.flags & 1)
+            throw Error("Encrypted ZIP entries cannot be previewed");
+          if (![0, 8].includes(file.method))
+            throw Error("This ZIP compression method cannot be previewed");
+          const h = view(await range(file.archive, file.local, 30, signal));
+          if (h.getUint32(0, true) !== 0x04034b50)
+            throw Error("Invalid ZIP file header");
+          const start =
+            file.local + 30 + h.getUint16(26, true) + h.getUint16(28, true);
+          let stream = file.compressed
+            ? (
+                await rangeResponse(
+                  file.archive,
+                  start,
+                  file.compressed,
+                  signal
+                )
+              ).body
+            : new Blob([]).stream();
+          if (file.method === 8)
+            stream = stream.pipeThrough(new DecompressionStream("deflate-raw"));
+          let size = 0,
+            crc = 0xffffffff;
+          return stream.pipeThrough(
+            new TransformStream({
+              transform(chunk, controller) {
+                size += chunk.length;
+                if (size > file.size)
+                  throw Error("ZIP entry exceeds its declared size");
+                for (const byte of chunk)
+                  crc = crcTable[(crc ^ byte) & 255] ^ (crc >>> 8);
+                controller.enqueue(chunk);
+              },
+              flush() {
+                if (size !== file.size || (crc ^ 0xffffffff) >>> 0 !== file.crc)
+                  throw Error("ZIP file size or checksum mismatch");
+              },
+            })
+          );
+        }
+        let files = [],
+          prefix = "",
+          selected = null,
+          controller = null,
+          blobURL = null;
+        const clearPreview = () => {
+          controller?.abort();
+          if (blobURL) URL.revokeObjectURL(blobURL);
+          blobURL = null;
+          byId("content").replaceChildren();
+        };
+        const report = (error) => {
+          if (error.name !== "AbortError")
+            byId("error").textContent = error.message;
+        };
+        function browse(next) {
+          prefix = next;
+          const filter = byId("search").value.toLowerCase(),
+            crumbs = byId("breadcrumbs");
+          crumbs.replaceChildren();
+          const crumb = (label, path) => {
+            const b = el("button", label);
+            b.onclick = () => {
+              byId("search").value = "";
+              browse(path);
+            };
+            crumbs.append(b);
+          };
+          crumb("Files", "");
+          let part = "";
+          for (const segment of prefix.split("/").filter(Boolean)) {
+            part += segment + "/";
+            crumbs.append(el("span", "/"));
+            crumb(segment, part);
+          }
+          const items = new Map();
+          for (const f of files) {
+            if (!f.path.startsWith(prefix)) continue;
+            const tail = f.path.slice(prefix.length),
+              name = tail.split("/")[0];
+            if (!name || !name.toLowerCase().includes(filter)) continue;
+            const directory = f.directory || tail.includes("/");
+            if (!items.has(name) || directory)
+              items.set(
+                name,
+                directory ? { path: prefix + name, directory: true } : f
+              );
+          }
+          const table = byId("entries");
+          table.replaceChildren();
+          for (const file of [...items.values()].sort(
+            (a, b) =>
+              Number(b.directory) - Number(a.directory) ||
+              a.path.localeCompare(b.path)
+          )) {
+            const row = el("tr");
+            if (file === selected) row.className = "selected";
+            const name = el("td", null, "name"),
+              button = el("button", null, "entry");
+            button.append(
+              el("span", file.directory ? "📁" : "📄"),
+              el("span", file.path.slice(prefix.length))
+            );
+            button.onclick = () =>
+              file.directory ? browse(file.path + "/") : openFile(file);
+            name.append(button);
+            row.append(
+              name,
+              el("td", file.directory ? "—" : bytes(file.size), "size"),
+              el("td", file.date?.toLocaleDateString() || "", "date")
+            );
+            table.append(row);
+          }
+          byId("count").textContent = items.size + " items";
+          if (!items.size) {
+            const row = el("tr"),
+              cell = el("td", "No files", "empty");
+            cell.colSpan = 3;
+            row.append(cell);
+            table.append(row);
+          }
+        }
+        const mime = (path) =>
+          ({
+            png: "image/png",
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            gif: "image/gif",
+            webp: "image/webp",
+            avif: "image/avif",
+            pdf: "application/pdf",
+            mp3: "audio/mpeg",
+            ogg: "audio/ogg",
+            wav: "audio/wav",
+            mp4: "video/mp4",
+            webm: "video/webm",
+          }[path.split(".").pop().toLowerCase()] || "application/octet-stream");
+        async function openFile(file) {
+          clearPreview();
+          selected = file;
+          controller = new AbortController();
+          const signal = controller.signal;
+          byId("error").textContent = "";
+          byId("preview").hidden = false;
+          byId("filename").textContent = file.path.split("/").pop();
+          browse(prefix);
+          const content = byId("content");
+          content.append(el("span", "Loading…", "empty"));
+          if (file.size > MAX_PREVIEW) {
+            content.replaceChildren(
+              el("span", "File is too large to preview. Use Download.", "empty")
+            );
+            return;
+          }
+          try {
+            const stream = file.archive
+              ? await entryStream(file, signal)
+              : (await fetch(file.url, { signal })).body;
+            const blob = await new Response(stream).blob();
+            if (signal.aborted) return;
+            const type = mime(file.path);
+            content.replaceChildren();
+            if (type !== "application/octet-stream") {
+              blobURL = URL.createObjectURL(new Blob([blob], { type }));
+              let node;
+              if (type.startsWith("image/")) {
+                node = el("img");
+                node.alt = file.path;
+              } else if (type === "application/pdf") {
+                node = el("iframe");
+                node.title = file.path;
+                node.setAttribute("sandbox", "");
+              } else {
+                node = el(type.startsWith("audio/") ? "audio" : "video");
+                node.controls = true;
+              }
+              node.src = blobURL;
+              content.append(node);
+            } else if (
+              /\.(txt|md|csv|tsv|json|xml|html?|css|js|py|log|ya?ml|svg|rtf)$/i.test(
+                file.path
+              )
+            )
+              content.append(el("pre", await blob.text()));
+            else
+              content.append(
+                el(
+                  "span",
+                  "Preview unavailable for this file type. Use Download.",
+                  "empty"
+                )
+              );
+          } catch (error) {
+            if (!signal.aborted) {
+              content.replaceChildren();
+              report(error);
+            }
+          }
+        }
+        byId("search").oninput = () => browse(prefix);
+        byId("close").onclick = () => {
+          clearPreview();
+          selected = null;
+          byId("preview").hidden = true;
+          browse(prefix);
+        };
+        byId("download").onclick = async () => {
+          if (!selected) return;
+          const file = selected;
+          byId("error").textContent = "";
+          if (!file.archive) {
+            const a = el("a");
+            a.href = file.url;
+            a.download = file.path;
+            a.click();
+            return;
+          }
+          try {
+            // Stream large entries to disk where supported; never buffer an entire ZIP.
+            if ("showSaveFilePicker" in window) {
+              const handle = await window.showSaveFilePicker({
+                suggestedName: file.path.split("/").pop(),
+              });
+              const writable = await handle.createWritable();
+              try {
+                await (await entryStream(file)).pipeTo(writable);
+              } catch (e) {
+                await writable.abort().catch(() => {});
+                throw e;
+              }
+            } else {
+              if (file.size > MAX_PREVIEW)
+                throw Error(
+                  "Large individual downloads require a browser with streaming file saves. Use ZIP to download the archive."
+                );
+              const blob = await new Response(await entryStream(file)).blob(),
+                url = URL.createObjectURL(blob),
+                a = el("a");
+              a.href = url;
+              a.download = file.path.split("/").pop();
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(url), 60000);
+            }
+          } catch (error) {
+            report(error);
+          }
+        };
+        const download = el("a", "Download ZIP", "action");
+        download.href = raw.href;
+        download.download = "";
+        byId("actions").insertBefore(download, byId("files"));
+        document.title = byId("title").textContent;
+        indexZip({ url: raw.href, size: Number(document.body.dataset.size) })
+          .then((entries) => {
+            files = entries;
+            browse("");
+          })
+          .catch(report);
+      })();
+    </script>
+  </body>
+</html>

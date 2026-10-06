@@ -254,7 +254,7 @@ find /tmp "$TMP_DIR" -maxdepth 1 -type d -name "archivebox-chrome-profile.*" -mm
 
 ensure_dir "/home/$ARCHIVEBOX_USER"
 # A nested read-only browser-profile mount can create this parent as root.
-# OpenCode's installer needs to create a sibling config directory as archivebox.
+# Plugin installers need to create sibling config directories as archivebox.
 ensure_dir "${XDG_CONFIG_HOME:-/home/$ARCHIVEBOX_USER/.config}"
 ensure_small_runtime_tree "$ABXBUS_CACHE_DIR"
 ensure_small_runtime_tree "$ABXBUS_CACHE_DIR/semaphores"

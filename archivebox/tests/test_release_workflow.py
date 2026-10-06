@@ -185,13 +185,22 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
 
     assert all(step.get("name") != "Verify published PyPI package installs and runs" for step in python_release["steps"])
     ci = yaml.safe_load(CI_WORKFLOW.read_text())
-    screenshots = yaml.safe_load((REPO_ROOT / ".github" / "workflows" / "screenshots.yml").read_text())
+    screenshots = yaml.load((REPO_ROOT / ".github" / "workflows" / "screenshots.yml").read_text(), Loader=yaml.BaseLoader)
     prepare_path = ci["jobs"]["prepare"]["uses"]
-    assert screenshots["jobs"]["prepare"]["uses"] == prepare_path
     prepare = yaml.safe_load((REPO_ROOT / prepare_path).read_text())
     assert prepare["jobs"]["prepare"]["steps"][-1]["uses"] == "ArchiveBox/monorepo/.github/actions/prepare-release-version@main"
-    assert screenshots["jobs"]["deploy"]["needs"] == "prepare"
-    assert screenshots["jobs"]["deploy"]["if"] == "needs.prepare.outputs.run_jobs == 'true'"
+    assert set(screenshots["on"]) == {"schedule", "workflow_dispatch"}
+    _, hours, *days = screenshots["on"]["schedule"][0]["cron"].split()
+    assert days == ["*", "*", "*"]
+    assert len(hours.split(",")) == 2
+    first, second = map(int, hours.split(","))
+    assert second - first == 12
+    assert "prepare" not in screenshots["jobs"]
+    assert screenshots["jobs"]["changes"]["steps"][0]["uses"] == "ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main"
+    assert screenshots["jobs"]["deploy"]["needs"] == "changes"
+    assert screenshots["jobs"]["deploy"]["if"] == "needs.changes.outputs.changed == 'true'"
+    assert screenshots["jobs"]["complete"]["needs"] == ["changes", "deploy"]
+    assert screenshots["jobs"]["complete"]["name"] == "Scheduled inputs: ${{ needs.changes.outputs.key }}"
     for name, job in ci["jobs"].items():
         if name not in {"prepare", "required"}:
             assert job["needs"] == "prepare"
@@ -206,6 +215,8 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
         step for step in docker_workflow["jobs"]["build"]["steps"] if step.get("name") == "Validate exact built image version and commit"
     )
     assert version_check["if"] == "inputs.full_tests"
+    assert "archivebox version" in version_check["run"]
+    assert "Missing exact commit marker" in version_check["run"]
     pip_workflow = yaml.safe_load(PIP_WORKFLOW.read_text())
     install_script = next(
         step["run"] for step in pip_workflow["jobs"]["build"]["steps"] if step.get("name") == "Release wheel import and CLI smoke"
@@ -229,11 +240,20 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert 'echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:${VERSION}"' in tag_script
 
-    docker_verify = next(step for step in docker_release["steps"] if step.get("name") == "Verify published Docker images run")
+    docker_verify = next(
+        step for step in docker_release["steps"] if step.get("name") == "Verify published tags contain the exact tested images"
+    )
     verify_script = docker_verify["run"]
-    assert '"${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in verify_script
-    assert '"${GHCR_IMAGE}:sha-${SHORT_SHA}"' in verify_script
-    assert '"${DOCKERHUB_IMAGE}:${VERSION}"' not in verify_script
+    assert docker_verify["env"] == {
+        "DOCKERHUB_TAGS": "${{ steps.docker_meta.outputs.dockerhub_tags }}",
+        "GHCR_TAGS": "${{ steps.docker_meta.outputs.ghcr_tags }}",
+    }
+    assert '"${DOCKERHUB_IMAGE}@sha256:${digest}"' in verify_script
+    assert 'imagetools create --dry-run "${REFS[@]}"' in verify_script
+    assert 'imagetools inspect --raw "$image"' in verify_script
+    assert 'sort == ["amd64", "arm64"]' in verify_script
+    assert '[[ "$ACTUAL" == "$EXPECTED" ]]' in verify_script
+    assert '"$DOCKERHUB_TAGS" "$GHCR_TAGS"' in verify_script
 
     release_script = (REPO_ROOT / "bin" / "release.sh").read_text()
     assert "Never create GitHub Releases for automated rc builds" in release_script
@@ -302,7 +322,7 @@ def test_stable_publication_requires_live_acceptance_before_upload():
 def test_staging_acceptance_uses_published_image_source_not_workflow_run_head():
     release = yaml.safe_load(RELEASE_WORKFLOW.read_text())
     docker_steps = release["jobs"]["docker-release"]["steps"]
-    verified = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Verify published Docker images run")
+    verified = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Verify published tags contain the exact tested images")
     source = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Record published image source")
     uploaded = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Upload published image source")
     assert verified < source < uploaded

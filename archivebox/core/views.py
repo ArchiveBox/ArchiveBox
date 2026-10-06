@@ -122,7 +122,7 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
     if len(lookup) == 12 and "-" not in lookup:
         # Resolve suffixes using the covering primary-key index before fetching
         # wide snapshot rows and joining their crawl/user data.
-        matches = list(Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True))
+        matches = Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True)
         return snapshots.filter(pk__in=matches).order_by("-created_at", "-downloaded_at").first()
 
     try:
@@ -506,7 +506,7 @@ class SnapshotView(View):
         def _resolve_snapshots_for_slug(slug: str):
             # full URLs go straight to the url-only path (fast, indexed)
             if "://" in slug:
-                return SnapshotView.find_snapshots_for_url(slug)
+                return SnapshotView.find_snapshots_for_url(slug, allow_fallback=False)
             # short uuid-shaped slugs (>=8 hex chars after stripping non-hex) try id matching first
             id_qs = SnapshotView.find_snapshots_for_id(slug)
             if id_qs.exists():
@@ -517,6 +517,12 @@ class SnapshotView(View):
         try:
             if "://" in path:
                 snapshot = snapshots.order_by("-bookmarked_at").first()
+                if snapshot is None:
+                    # Fetch the exact match once before trying legacy URL
+                    # fallbacks; an exists() probe followed by the same lookup
+                    # needlessly doubled reads on every normal redirect.
+                    snapshots = direct_snapshots_queryset(request, self.find_snapshots_for_url(path)).select_related("crawl__created_by")
+                    snapshot = snapshots.order_by("-bookmarked_at").first()
                 if snapshot is None:
                     raise Snapshot.DoesNotExist
             else:
@@ -1228,7 +1234,6 @@ class PublicIndexView(ListView):
     model = Snapshot
     ordering: ClassVar[list[str]] = ["-bookmarked_at", "-created_at"]
     paginator_class = AcceleratedPaginator
-    public_page_scan_chunk_size = 50
 
     def get_paginate_by(self, queryset):
         runtime_config = self.__dict__.get("runtime_config")
@@ -1256,31 +1261,31 @@ class PublicIndexView(ListView):
         )
 
     def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot]:
-        # One extra row determines Next without a full collection count. Cached
-        # totals can be stale while the runner adds/removes snapshots, so they
-        # must never decide whether the requested page exists.
-        target_count = page_number * page_size + 1
-        public_snapshots: list[Snapshot] = []
-        scanned = 0
-        chunk_size = max(self.public_page_scan_chunk_size, page_size + 1)
-        # Read in snapshot_public_order_idx order and filter visibility in small
-        # batches. Combining the permissions predicate with ORDER BY can make
-        # SQLite select the permissions index and sort the whole public archive
-        # before LIMIT. This favors the common early pages without a new index;
-        # deep pages or mostly private collections can still require more reads.
-        ordered_snapshots = (
-            Snapshot.objects.select_related("crawl__created_by").order_by(*self.ordering).only(*self._base_public_snapshot_fields())
-        )
-
-        while len(public_snapshots) < target_count:
-            chunk = list(ordered_snapshots[scanned : scanned + chunk_size])
-            if not chunk:
-                break
-            scanned += len(chunk)
-            public_snapshots.extend(snapshot for snapshot in chunk if snapshot.permissions == PERMISSIONS_PUBLIC)
-
+        # Walk the existing chronological index in bounded keyset pages,
+        # reading only identity/visibility until reaching the requested page.
+        # Repeated OFFSET batches used to revisit every earlier row AND join
+        # owners each time, making deep pages quadratic. Filtering visibility
+        # in SQL instead made SQLite sort the entire permissions index first.
+        # Each helper page closes its cursor before yielding; only the final
+        # displayed IDs load wide rows/owners. No new index or SQLite hint.
         start = (page_number - 1) * page_size
-        return public_snapshots[start:target_count]
+        visible_count = 0
+        page_ids = []
+        candidates = Snapshot.objects.only("id", "permissions").order_by(*self.ordering, "id")
+        for snapshot in candidates.paged_iterator(chunk_size=max(100, page_size + 1)):
+            if snapshot.permissions != PERMISSIONS_PUBLIC:
+                continue
+            if visible_count >= start:
+                page_ids.append(snapshot.pk)
+                if len(page_ids) > page_size:
+                    break
+            visible_count += 1
+        return list(
+            Snapshot.objects.filter(pk__in=page_ids, permissions=PERMISSIONS_PUBLIC)
+            .select_related("crawl__created_by")
+            .order_by(*self.ordering, "id")
+            .only(*self._base_public_snapshot_fields()),
+        )
 
     def paginate_queryset(self, queryset, page_size):
         if self.request.GET.get("q", default="").strip():

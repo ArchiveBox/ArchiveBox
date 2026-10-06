@@ -10,6 +10,10 @@ from django.test import RequestFactory
 from django.urls import reverse
 import html
 from uuid import uuid4
+from abx_plugins.plugins.opencode.archivebox.host_cases import (
+    test_admin_navigation_hides_agent_link_when_opencode_is_disabled as test_admin_navigation_hides_agent_link_when_opencode_is_disabled,
+)
+
 
 from archivebox.tests.conftest import cli_env, run_archivebox_cmd
 from archivebox.tests.conftest import install_real_binary
@@ -287,6 +291,7 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
 
     snapshot = _create_snapshot()
     output_path = Path(snapshot.output_dir) / "singlefile.html"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("<html>migrated singlefile</html>", encoding="utf-8")
     root_result = ArchiveResult.objects.create(
         snapshot=snapshot,
@@ -382,19 +387,6 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
 
     cards_html = render_to_string("core/snapshot_output_cards.html", snapshot.get_html_details_context(request=admin.request))
     assert f'href="{result_admin.get_output_files_url(root_result)}" data-no-preview="1" title="Open output folder"' in cards_html
-
-
-def test_admin_navigation_hides_agent_link_when_opencode_is_disabled(client, admin_user):
-    from archivebox.machine.models import Machine
-
-    Machine.from_json({"config": {"OPENCODE_ENABLED": False}})
-    client.force_login(admin_user)
-
-    response = client.get(reverse("admin:index"), HTTP_HOST="admin.archivebox.localhost:5797")
-
-    assert response.status_code == 200
-    assert b"/admin/agent" not in response.content
-    assert b">\xf0\x9f\x92\xac AI<" not in response.content
 
 
 def test_archiveresult_admin_zip_links():

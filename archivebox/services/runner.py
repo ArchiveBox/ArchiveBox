@@ -12,6 +12,7 @@ import threading
 import time
 from contextlib import nullcontext
 from datetime import timedelta
+from itertools import batched
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, Literal
@@ -65,6 +66,7 @@ from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS, res
 from archivebox.config.common import (
     ArchiveBoxBaseConfig,
     normalize_runtime_config,
+    _is_cookie_file_config_key,
     _plugin_enabled_config_keys,
 )
 from archivebox.misc.db import run_db_analyze_batch
@@ -738,8 +740,16 @@ class CrawlRunner:
             current_process.save(update_fields=["iface", "machine", "modified_at"])
         self.persona = self.crawl.resolve_persona()
         self.base_config = get_config(crawl=self.crawl, overrides=self.config_overrides)
-        self.derived_config = dict(machine.config or {})
+        # The merged user payload owns auth paths and binary selections. The
+        # install phase publishes resolved binaries; stale machine paths must
+        # not override explicit runtime settings before that phase runs.
+        self.derived_config = {
+            key: value
+            for key, value in (machine.config or {}).items()
+            if not _is_cookie_file_config_key(key) and (not key.endswith("_BINARY") or value == self.base_config.get(key))
+        }
         self.crawl_output_dir = str(self.crawl.output_dir)
+        Path(self.crawl_output_dir).mkdir(parents=True, exist_ok=True)
         if self.persona:
             self.base_config.update(
                 self.persona.prepare_runtime_for_crawl(
@@ -948,6 +958,7 @@ class CrawlRunner:
                     },
                 )
         snapshot_output_dir = str(snapshot.output_dir)
+        Path(snapshot_output_dir).mkdir(parents=True, exist_ok=True)
         tags = snapshot.tags_str()
         config = self.base_config.for_crawl_runtime(
             crawl=snapshot.crawl,
@@ -1245,6 +1256,7 @@ class CrawlRunner:
             user_config_event = MachineEvent(config=config, config_type="user")
             user_config_event.event_parent_id = crawl_start_event.event_id
             await self.bus.emit(user_config_event).now()
+            derived_config_event = None
             if derived_config:
                 derived_config_event = MachineEvent(config=derived_config, config_type="derived")
                 derived_config_event.event_parent_id = crawl_start_event.event_id
@@ -1260,6 +1272,7 @@ class CrawlRunner:
                 snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
                 abort_requested=self.crawl_is_cancelled,
             )
+            projected = False
             try:
                 snapshot_event = SnapshotEvent(
                     url=snapshot["url"],
@@ -1283,6 +1296,7 @@ class CrawlRunner:
                     raise RuntimeError(f"Snapshot {snapshot_id} did not complete")
                 await completed_snapshot.wait(timeout=snapshot_phase_timeout)
                 await completed_snapshot.event_results_list()
+                projected = True
                 if self.execution_interrupted():
                     return
                 if snapshot["status"] == "sealed":
@@ -1306,6 +1320,16 @@ class CrawlRunner:
                 await sync_to_async(_seal_when_last_snapshot_finished, thread_sensitive=True)()
             finally:
                 snapshot_service.close()
+                # Projection and snapshot cleanup have finished. Historical
+                # capture results now live in the database; only active work
+                # needs its event ancestry available to the downloader.
+                expired = [snapshot_event, user_config_event] if projected else []
+                if projected and derived_config_event is not None:
+                    expired.append(derived_config_event)
+                if projected:
+                    expired.extend(await self.bus.filter("*", child_of=snapshot_event, past=True, future=False))
+                for event in expired:
+                    event.event_ttl = 0
 
     def seal_snapshot_due_to_limit(self, snapshot_id: str) -> None:
         from archivebox.core.models import Snapshot
@@ -1670,7 +1694,9 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
         # every URL, even though crawl isolation owns one browser for the whole
         # crawl. The crawl lifecycle lock already serializes all of its child
         # work, so let one runner drain the due siblings and discoveries.
-        if any(process.is_running for process in snapshot.process_set.filter(status="running").iterator()):
+        if any(
+            process.is_running for process in snapshot.process_set.filter(status="running").order_by("pk").paged_iterator(chunk_size=100)
+        ):
             snapshot.update_and_requeue(retry_at=timezone.now() + timedelta(seconds=lock_seconds))
             return True
         if snapshot.fs_migration_needed:
@@ -1704,7 +1730,7 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
     if not snapshot.claim_processing_lock(lock_seconds=lock_seconds):
         return False
     snapshot.refresh_from_db()
-    if any(process.is_running for process in snapshot.process_set.filter(status="running").iterator()):
+    if any(process.is_running for process in snapshot.process_set.filter(status="running").order_by("pk").paged_iterator(chunk_size=100)):
         # The Snapshot lease may have expired while an abx-dl hook process is
         # still alive. Preserve the snapshot-level ownership boundary and do
         # not launch a second sequence; ArchiveResult status is irrelevant.
@@ -1878,7 +1904,24 @@ def run_install(*, plugin_names: list[str] | None = None) -> None:
 
 def _first_due_id(queryset, *, newest_first: bool = False):
     ordering = ("-retry_at", "-created_at") if newest_first else ("retry_at", "created_at")
-    return queryset.order_by(*ordering).values_list("id", flat=True).first()
+    # Queue membership comes from retry_at, not status: almost the entire
+    # archive can be sealed while only a handful of rows need maintenance.
+    # Combining both predicates lets SQLite choose the broad status index and
+    # scan/sort archival history on every idle pass (567ms on Cabbage vs 3ms
+    # through retry_at). First materialize bounded due IDs using the existing
+    # queue index, then apply status/parent filters to those IDs. This also
+    # bounds PostgreSQL reads and keeps every cursor closed before a CAS claim.
+    due_ids = (
+        queryset.model.objects.filter(retry_at__lte=timezone.now())
+        .order_by(*ordering)
+        .values_list("id", flat=True)
+        .paged_iterator(chunk_size=100)
+    )
+    for candidate_ids in batched(due_ids, 100):
+        match = queryset.filter(id__in=candidate_ids).order_by(*ordering).values_list("id", flat=True).first()
+        if match is not None:
+            return match
+    return None
 
 
 def _run_due_crawl_status(
@@ -1949,12 +1992,8 @@ def _run_due_snapshot_id(snapshot_id, *, lock_seconds: int, interactive_interrup
 def _run_due_binary() -> bool:
     from archivebox.machine.models import Binary
 
-    due_binary_id = (
-        Binary.objects.filter(retry_at__lte=timezone.now())
-        .exclude(status=Binary.StatusChoices.INSTALLED)
-        .order_by("retry_at", "created_at")
-        .values_list("id", flat=True)
-        .first()
+    due_binary_id = _first_due_id(
+        Binary.objects.filter(retry_at__lte=timezone.now()).exclude(status=Binary.StatusChoices.INSTALLED),
     )
     if due_binary_id is None:
         return False
@@ -1981,14 +2020,36 @@ def run_pending_crawls(
     last_recovery_at = 0.0
     last_retention_at = 0.0
     last_retention_repair_at = 0.0
+    retention_backfill_cursors: dict = {}
+    deletion_thread: threading.Thread | None = None
     last_analyze_at = 0.0
     analyze_queue: list[str] | None = None
     analyze_sweep_started_at = 0.0
     orchestrator_started_at = time.monotonic()
+
+    def delete_in_background() -> None:
+        from django.db import connections
+
+        try:
+            Snapshot.delete_requested(batch_size=100)
+        finally:
+            connections.close_all()
+
     while True:
         raise_if_shutdown_requested()
         now_monotonic = time.monotonic()
         if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
+            if daemon:
+                # At most one batch can be doing filesystem I/O. A stuck mount
+                # must not block capture scheduling or runner shutdown; rows
+                # remain pending until cleanup succeeds, including on restart.
+                if (deletion_thread is None or not deletion_thread.is_alive()) and Snapshot.objects.filter(
+                    status=Snapshot.DELETING_STATE,
+                ).exists():
+                    deletion_thread = threading.Thread(target=delete_in_background, name="snapshot-delete", daemon=True)
+                    deletion_thread.start()
+            else:
+                Snapshot.delete_requested(batch_size=100)
             for model in (ArchiveResult, Snapshot, Crawl, Process):
                 # Keep the tight scheduler loop anchored on indexed delete_at
                 # columns only. Backfilling missing delete_at values has to read
@@ -2156,7 +2217,7 @@ def run_pending_crawls(
                 # delete_at in the plugin-result hot path. Running it here keeps
                 # DELETE_AFTER resolution fresh without making every hook event
                 # load parent Snapshot/Crawl config.
-                model.delete_expired(batch_size=100, backfill_missing=True)
+                model.delete_expired(batch_size=100, backfill_missing=True, backfill_cursors=retention_backfill_cursors)
             last_retention_repair_at = now_monotonic
 
         if daemon:
@@ -2172,12 +2233,10 @@ def run_pending_crawls(
             # snapshot detail page out to ~500ms. Refresh stats at most once per
             # 24hr while the queue is idle, and only after the orchestrator has
             # been alive for at least an hour so short server boots / one-off work
-            # never pay the cost. The sweep is batched one table per idle tick;
-            # individual table ANALYZE statements abort after 2min (progress
-            # handler) and the whole sweep is hard-capped at 5min so a
-            # pathological table cannot wedge maintenance forever. Any failure
-            # inside the maintenance hook is swallowed — orchestrator must never
-            # be taken down by stats refresh.
+            # never pay the cost. Each idle tick samples a bounded number of
+            # index entries for one table; never scan the full history while
+            # holding ANALYZE's write transaction. Optional stats refresh must
+            # not prevent queued captures.
             try:
                 if (
                     analyze_queue is None

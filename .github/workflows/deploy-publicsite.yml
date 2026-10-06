@@ -52,8 +52,17 @@ jobs:
       # END REPOSITORY-SPECIFIC BUILD
 
       - name: Verify website in Chromium
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.tool_cache }}/abxpkg/site-browser
         run: |
-          uv run --no-config --no-project --with playwright==1.63.0 playwright install --with-deps chromium
+          # Resolve the same supported browser as captures; Playwright is the
+          # driver only and must not provision a separate browser/runtime.
+          ABX_DL_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "abx-dl"))')"
+          CHROME_SCHEMA="$(uv run --no-project --with "abx-dl==$ABX_DL_VERSION" python -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir() / "chrome" / "config.json")')"
+          uv run --no-project --with "abx-dl==$ABX_DL_VERSION" abxpkg env --install --json --deps-from="$CHROME_SCHEMA:required_binaries" > "$RUNNER_TEMP/browser-env.json"
+          CHROME_BINARY="$(uv run --no-project python -c 'import json, sys; print(json.load(open(sys.argv[1]))["CHROME_BINARY"])' "$RUNNER_TEMP/browser-env.json")"
+          export CHROME_BINARY
+          test -x "$CHROME_BINARY"
           uv run --no-config --no-project --with playwright==1.63.0 python .github/pages/verify.py "$SITE_OUTPUT" --evidence "$RUNNER_TEMP/site-evidence"
       - name: Save website verification evidence
         if: always()

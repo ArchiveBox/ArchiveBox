@@ -16,10 +16,10 @@ Whether you want to learn which organizations are the big players in the web arc
 
 <img src="https://imgur.zervice.io/duS8Lm7.png" width="200px" align="right" style="float: right; margin: 5px"/>
 
-- [The Master Lists](#The-Master-Lists)  
+- [The Master Lists](#the-master-lists)  
   *Community-maintained indexes of web archiving tools and groups by IIPC, COPTR, ArchiveTeam, Wikipedia, & the ASA.* 
 
-- [Web Archiving Software](#Web-Archiving-Projects)  
+- [Web Archiving Software](#web-archiving-projects)  
   *Open source tools and projects in the internet archiving space.*
   - [Bookmarking Services](#bookmarking-services)
   - [Well-Known Open Source Projects](#from-the-archiveorg--archive-it-teams)
@@ -27,14 +27,14 @@ Whether you want to learn which organizations are the big players in the web arc
   - [ArchiveBox Alternatives](#other-archivebox-alternatives)
   - [Smaller Utilities](#smaller-utilities)
 
-- [Reading List](#Reading-List)  
+- [Reading List](#reading-list)  
   *Articles, posts, and blogs relevant to ArchiveBox and web archiving in general.*
-  - [Blogs](#Blogs)
-  - [Articles](#Articles)
+  - [Blogs](#blogs-friends-of-archivebox)
+  - [Articles](#articles-we-like-about-internet-archiving)
   - [ArchiveBox-Specific Posts, Tutorials, and Guides](#archivebox-specific-posts-tutorials-and-guides)
   - [ArchiveBox Discussions in News & Social Media](#archivebox-discussions-in-news--social-media)
 
-- [Communities](#Communities)  
+- [Communities](#communities)  
   *A collection of the most active internet archiving communities and initiatives.*
   - [Most Active Web-Archiving Communities](#most-active-communities)
   - [Other Web Archiving Communities](#web-archiving-communities)
@@ -504,5 +504,5 @@ You can find more organizations and initiatives on these other lists:
 [![](https://img.shields.io/badge/Donate-Archive.org-%23115D76.svg)](https://archive.org/donate/)
 
 <br/><br/>
-<small><a href="#contents">^ &nbsp; Back to Top &nbsp; ^</a></small>
+<small><a href="#web-archiving-community">^ &nbsp; Back to Top &nbsp; ^</a></small>
 </div>

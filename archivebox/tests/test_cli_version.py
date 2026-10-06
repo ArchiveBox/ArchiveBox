@@ -18,6 +18,50 @@ from pathlib import Path
 from archivebox.config.paths import tmp_dir_socket_path_is_short_enough
 from archivebox.cli.archivebox_version import _binary_row_dedupe_key
 from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+from abx_plugins.plugins.opencode.archivebox.host_cases import (
+    test_version_names_disabling_config_in_path_column as test_version_names_disabling_config_in_path_column,
+    test_version_shared_git_stays_installed_when_opencode_disabled as test_version_shared_git_stays_installed_when_opencode_disabled,
+)
+
+
+@pytest.mark.parametrize("no_cache", [False, True])
+def test_version_reuses_validated_provider_cache(tmp_path, no_cache):
+    """A warm diagnostic must validate the install without hashing it again."""
+    env = cli_env(ABXPKG_LIB_DIR=str(tmp_path / "lib"), COLUMNS="500")
+    first = run_archivebox_cmd(["version", "--binaries=git"], cwd=tmp_path, env=env)
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert "✅" in first.stdout
+
+    # Observe the real CLI and its resolver threads; no replacement providers or
+    # timing thresholds. This distinguishes validated cache reads from a full
+    # rehash even on a fast machine with a small git executable.
+    script = """
+import runpy, sys, threading
+calls = []
+def observe(frame, event, arg):
+    if event == 'call' and frame.f_code.co_name == 'get_sha256':
+        calls.append(frame.f_code.co_filename)
+sys.setprofile(observe)
+threading.setprofile(observe)
+sys.argv = ['archivebox', 'version', '--binaries=git', *sys.argv[1:]]
+try:
+    runpy.run_module('archivebox', run_name='__main__')
+finally:
+    sys.setprofile(None)
+    threading.setprofile(None)
+    print('BINARY_HASH_CALLS=' + str(len(calls)))
+"""
+    second = subprocess.run(
+        ["uv", "run", "--active", "python", "-c", script, *(["--no-cache"] if no_cache else [])],
+        cwd=tmp_path,
+        env={**os.environ, **env},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert second.returncode == 0, second.stdout + second.stderr
+    assert "✅" in second.stdout
+    assert f"BINARY_HASH_CALLS={int(no_cache)}" in second.stdout
 
 
 @pytest.mark.parametrize("width", [80, 160])
@@ -241,30 +285,6 @@ def test_version_includes_disabled_plugin_dependencies(tmp_path):
     assert "(database)" not in output
     assert "youtube-dl" not in output
     assert "Failed to detect the following binaries" not in output
-
-
-def test_version_names_disabling_config_in_path_column(tmp_path):
-    env = cli_env(OPENCODE_ENABLED="False", COLUMNS="200")
-    result = run_archivebox_cmd(["version", "--binaries=opencode"], cwd=tmp_path, env=env)
-    assert result.returncode == 0, result.stdout + result.stderr
-    rows = [re.split(r"\s{2,}", line.strip()) for line in result.stdout.splitlines()]
-    opencode_rows = [row for row in rows if len(row) == 6 and row[1] == "opencode"]
-    assert len(opencode_rows) == 4, result.stdout
-    assert all(row[2] == "disabled" and row[5] == "disabled by OPENCODE_ENABLED=False" for row in opencode_rows)
-    assert "Disabled plugins are dimmed" not in result.stdout
-
-
-def test_version_shared_git_stays_installed_when_opencode_disabled(tmp_path):
-    env = cli_env(PLUGINS="git", GIT_ENABLED="True", OPENCODE_ENABLED="False", COLUMNS="300")
-    result = run_archivebox_cmd(["version", "--binaries=git"], cwd=tmp_path, env=env)
-    assert result.returncode == 0, result.stdout + result.stderr
-    rows = [re.split(r"\s{2,}", line.strip()) for line in result.stdout.splitlines()]
-    git_rows = [row for row in rows if len(row) == 6 and row[0] == "git"]
-    assert len(git_rows) == 1, result.stdout
-    assert set(git_rows[0][1].split(", ")) == {"git", "opencode"}
-    assert git_rows[0][2] == "✅"
-    assert Path(git_rows[0][5]).is_file()
-    assert "disabled by OPENCODE_ENABLED=False" not in result.stdout
 
 
 def test_version_honors_legacy_save_aliases_when_disabling_extractors(tmp_path):

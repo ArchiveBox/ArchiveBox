@@ -194,7 +194,10 @@ def check_not_root():
     if os.geteuid() == 0 and not (is_getting_help or is_getting_version):
         print("[yellow][!] Running ArchiveBox as root is not recommended.[/yellow]", file=sys.stderr)
         print("    Root-owned DATA_DIR files may be inaccessible to non-root users later.", file=sys.stderr)
-        print("        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#do-not-run-as-root", file=sys.stderr)
+        print(
+            "        https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#run-archivebox-as-an-unprivileged-user",
+            file=sys.stderr,
+        )
 
 
 def is_archivebox_source_root(path: Path | str | None = None) -> bool:
@@ -255,7 +258,7 @@ def check_data_dir_permissions(config=None, **config_kwargs):
             "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions]https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#permissions[/link]",
         )
         STDERR.print(
-            "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#puid--pgid]https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#puid--pgid[/link]",
+            "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#docker-permissions-issues]https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#docker-permissions-issues[/link]",
         )
         STDERR.print(
             "    [link=https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts]https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#filesystem-doesnt-support-fsync-eg-network-mounts[/link]",

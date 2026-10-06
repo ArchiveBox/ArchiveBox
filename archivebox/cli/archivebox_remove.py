@@ -87,9 +87,8 @@ def remove(
     # Delete one snapshot at a time. Each ``.delete()`` is its own short
     # Django-atomic block, so the writer lock is released between rows and
     # an in-flight daemon transaction can interleave instead of deadlocking.
-    # Filesystem cleanup for each row is scheduled via ``transaction.on_commit``
-    # in ``base_models/models.py`` and runs AFTER its row's tx commits — so
-    # rmtree doesn't hold the lock either.
+    # Snapshot.delete() removes and verifies filesystem outputs first, outside
+    # the short database delete transaction. Failed cleanup retains the row.
     #
     deleted_snapshot_pks = []
     timed_out = False

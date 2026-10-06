@@ -11,8 +11,8 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
    - **[Option A. Docker / Docker Compose ⭐️](#option-a-docker--docker-compose-setup-%EF%B8%8F)**
    - [Option B. uv Install Shortcut](#option-b-uv-install-shortcut)
    - [Option C. System Package Manager Setup](#option-c-bare-metal-setup)
-     - *[Upgrading ArchiveBox to a new version](#upgrading-archivebox-to-a-new-version)*
- - *[Next Steps](#next-steps)*
+     - *[Upgrading ArchiveBox to a new version](#next-steps-upgrading-archivebox-to-a-new-version)*
+ - *[Next Steps](#next-steps-add-some-urls-to-archive-and-try-out-cli--web-ui)*
 
 
 ## Supported Systems
@@ -99,7 +99,7 @@ See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) do
 <img src="https://avatars0.githubusercontent.com/u/1503512?s=200&v=4" width="100px" align="right"/>
 
 **More info:**
- - For help installing these, see the [Manual Setup](#manual-setup), [[Troubleshooting]] and [[Chromium Install]] pages.
+ - For help installing these, see the [Manual Setup](#option-c-bare-metal-setup), [[Troubleshooting]] and [[Chromium Install]] pages.
  - For per-plugin binary and enable/disable options (CHROME_BINARY, RIPGREP_BINARY, `<plugin>_ENABLED`, etc.) see the [abx-plugins config reference](https://plugins.archivebox.io/).
 
 

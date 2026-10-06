@@ -65,10 +65,15 @@ Build: `uv run --no-project python .github/pages/site.py render _site --source p
 Check the built site with real Chromium (also run by Pages CI):
 
 ```sh
-uv run --no-config --no-project --with playwright==1.63.0 playwright install chromium
+export ABXPKG_LIB_DIR=/tmp/archivebox-site-browser
+CHROME_SCHEMA="$(uv run python -c 'from abx_plugins import get_plugins_dir; print(get_plugins_dir() / "chrome" / "config.json")')"
+uv run abxpkg env --install --deps-from="$CHROME_SCHEMA:required_binaries"
+export CHROME_BINARY="$ABXPKG_LIB_DIR/env/bin/chromium"
 uv run --no-config --no-project --with playwright==1.63.0 python .github/pages/verify.py SITE_OUTPUT --evidence /tmp/site-evidence
 ```
 
+The browser comes from the normal abxpkg provider/cache path; Playwright drives
+that resolved executable instead of installing a second Chromium build.
 Use this workflow's `SITE_OUTPUT` directory. The check covers desktop/mobile
 layout, keyboard dismissal, no-JavaScript links, local resources and visible
 images, and uploads its screenshots as `site-verification` for 14 days.

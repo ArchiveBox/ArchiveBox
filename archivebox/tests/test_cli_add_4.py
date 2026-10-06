@@ -325,11 +325,15 @@ def test_add_duplicate_url_creates_separate_crawls(initialized_archive):
     assert snapshots == [("https://example.com", 0), ("https://example.com", 0)]
 
 
-def test_snapshot_create_creates_current_output_directory(initialized_archive):
-    """Test the user-facing snapshot creation path creates an output directory."""
-    env = cli_env(disable_extractors=True)
+def test_snapshot_create_server_creates_current_output_directory(initialized_archive, recursive_test_site):
+    """Queued metadata gets its output directory from the normal server worker."""
+    from .conftest import start_archivebox_server, stop_archivebox_process, get_free_port, wait_for_snapshot_capture
+
+    port = get_free_port()
+    env = cli_env(port=port, server=True, PLUGINS="wget")
+    url = recursive_test_site["root_url"]
     run_archivebox_cmd(
-        ["snapshot", "create", "https://example.com"],
+        ["snapshot", "create", url],
         cwd=initialized_archive,
         env=env,
         check=True,
@@ -338,6 +342,12 @@ def test_snapshot_create_creates_current_output_directory(initialized_archive):
     with use_archivebox_db(initialized_archive):
         snapshot_id = str(Snapshot.objects.values_list("id", flat=True).get())
 
+    assert find_snapshot_dir(initialized_archive, snapshot_id) is None
+    server = start_archivebox_server(initialized_archive, env=env, port=port, log_name="snapshot-output-server.log")
+    try:
+        assert "Root" in wait_for_snapshot_capture(initialized_archive, url, timeout=120)
+    finally:
+        stop_archivebox_process(server)
     snapshot_dir = find_snapshot_dir(initialized_archive, snapshot_id)
     assert snapshot_dir is not None, f"Snapshot output directory not found for {snapshot_id}"
     assert snapshot_dir.is_dir()

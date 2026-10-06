@@ -7,7 +7,7 @@ from archivebox.plugins import views as plugin_views
 from archivebox.core import views as core_views
 from archivebox.config import CONSTANTS
 from archivebox.machine.models import Machine
-from archivebox.tests.conftest import install_real_binary
+from archivebox.tests.conftest import ADMIN_TEST_HOST, install_real_binary
 
 
 pytestmark = pytest.mark.django_db
@@ -75,18 +75,42 @@ def test_binaries_list_view_uses_db_version_and_hides_youtube_dl_alias(admin_req
 
     assert len(context["table"]["Binary Name"]) == 1
     assert str(context["table"]["Binary Name"][0].link_item) == "yt-dlp"
-    assert context["table"]["Found Version"][0] == f"✅ {binary.version}"
+    assert context["table"]["Recorded Version"][0] == binary.version
     assert context["table"]["Provided By"][0] == binary.binprovider
-    assert context["table"]["Found Abspath"][0] == binary.abspath
+    assert context["table"]["Recorded Abspath"][0] == binary.abspath
 
 
 def test_binaries_list_view_only_shows_persisted_records(admin_request):
     context = config_views.binaries_list_view.__wrapped__(admin_request("/admin/environment/binaries/"))
 
     assert context["table"]["Binary Name"] == []
-    assert context["table"]["Found Version"] == []
+    assert context["table"]["Recorded Version"] == []
     assert context["table"]["Provided By"] == []
-    assert context["table"]["Found Abspath"] == []
+    assert context["table"]["Recorded Abspath"] == []
+
+
+@pytest.mark.django_db(transaction=True)
+def test_binaries_page_labels_removed_installation_as_recorded_metadata(admin_client, machine, hermetic_lib_dir):
+    from pathlib import Path
+
+    binary = install_real_binary("node", machine=machine)
+    binary_path = Path(binary.abspath)
+    assert binary_path.is_relative_to(hermetic_lib_dir)
+    assert binary_path.is_symlink()
+    binary_path.unlink()
+    assert not binary_path.exists()
+
+    response = admin_client.get("/admin/environment/binaries/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert "/admin/environment/binaries/node/" in html
+    assert "Recorded Version" in html
+    assert "Recorded Abspath" in html
+    assert binary.version in html
+    assert str(binary_path) in html
+    assert f"✅ {binary.version}" not in html
+    binary.refresh_from_db()
+    assert binary.abspath == str(binary_path)
 
 
 @pytest.mark.django_db(transaction=True)

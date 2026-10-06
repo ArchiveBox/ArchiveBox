@@ -62,7 +62,7 @@ def runtime_stack_owner(*, data_dir: str | Path, exclude_id=None):
         # not keep stealing leadership from the next foreground command.
         base_qs.filter(process_type=Process.TypeChoices.ORCHESTRATOR).exclude(parent__process_type=Process.TypeChoices.SUPERVISORD),
     ):
-        for proc in qs.order_by("-created_at", "-modified_at").iterator(chunk_size=50):
+        for proc in qs.order_by("-created_at", "-modified_at").paged_iterator(chunk_size=50):
             if proc.is_running:
                 return proc
             proc.mark_exited(exit_code=proc.exit_code if proc.exit_code is not None else 0)
@@ -95,7 +95,7 @@ def foreground_runner_owner(*, data_dir: str | Path, exclude_id=None):
     )
     if exclude_id is not None:
         qs = qs.exclude(id=exclude_id)
-    for proc in qs.order_by("-created_at", "-modified_at").iterator(chunk_size=50):
+    for proc in qs.order_by("-created_at", "-modified_at").paged_iterator(chunk_size=50):
         if proc.is_running:
             return proc
         proc.mark_exited(exit_code=proc.exit_code if proc.exit_code is not None else 0)
@@ -178,7 +178,7 @@ def live_runner_processes(*, data_dir: str | Path):
     qs = qs.filter(machine=machine)
     live = []
     foreign_namespace_ids = []
-    for process in qs.order_by("started_at", "created_at").iterator(chunk_size=20):
+    for process in qs.order_by("started_at", "created_at").paged_iterator(chunk_size=20):
         if not process.shares_pid_namespace:
             foreign_namespace_ids.append(process.id)
             continue

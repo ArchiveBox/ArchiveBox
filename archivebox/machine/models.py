@@ -20,7 +20,7 @@ from django.utils.functional import cached_property
 
 from archivebox.config import CONSTANTS
 from archivebox.config.common import rprint
-from archivebox.base_models.models import ModelWithDeleteAfter, ModelWithHealthStats, normalize_config_json_values
+from archivebox.base_models.models import PagedQuerySet, ModelWithDeleteAfter, ModelWithHealthStats, normalize_config_json_values
 from archivebox.workers.models import ModelWithQueue
 from .detect import get_host_guid, get_os_info, get_vm_info, get_host_network, get_host_stats
 
@@ -48,7 +48,6 @@ _CURRENT_PROCESS: Process | None = None
 MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60
 NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60
 BINARY_RECHECK_INTERVAL = 1 * 30 * 60
-PROCESS_RECHECK_INTERVAL = 60  # Re-validate every 60 seconds
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
@@ -255,40 +254,40 @@ class Machine(ModelWithHealthStats):
                 **get_vm_info(),
                 stats=get_host_stats(),
             )
-        else:
-            if timezone.now() >= machine.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL):
-                for key, value in {
-                    "hostname": socket.gethostname(),
-                    **get_os_info(),
-                    **get_vm_info(),
-                    "stats": get_host_stats(),
-                }.items():
-                    setattr(machine, key, value)
-                machine.save(
-                    update_fields=[
-                        "hostname",
-                        "hw_in_docker",
-                        "hw_in_vm",
-                        "hw_manufacturer",
-                        "hw_product",
-                        "hw_uuid",
-                        "os_arch",
-                        "os_family",
-                        "os_platform",
-                        "os_release",
-                        "os_kernel",
-                        "stats",
-                        "modified_at",
-                    ],
-                )
-        machine = cls._sanitize_config(machine)
-        # Reconcile once, on the first Machine.current() call in this process.
+        needs_recheck = timezone.now() >= machine.modified_at + timedelta(seconds=MACHINE_RECHECK_INTERVAL)
+        # Reconcile before any save can mirror stale DB config over file edits.
         try:
             from archivebox.config.collection import sync_machine_and_file
 
             sync_machine_and_file(machine)
         except Exception:
             pass
+        if needs_recheck:
+            for key, value in {
+                "hostname": socket.gethostname(),
+                **get_os_info(),
+                **get_vm_info(),
+                "stats": get_host_stats(),
+            }.items():
+                setattr(machine, key, value)
+            machine.save(
+                update_fields=[
+                    "hostname",
+                    "hw_in_docker",
+                    "hw_in_vm",
+                    "hw_manufacturer",
+                    "hw_product",
+                    "hw_uuid",
+                    "os_arch",
+                    "os_family",
+                    "os_platform",
+                    "os_release",
+                    "os_kernel",
+                    "stats",
+                    "modified_at",
+                ],
+            )
+        machine = cls._sanitize_config(machine)
         # Publish only after initialization is complete.
         _CURRENT_MACHINE = machine
         return machine
@@ -473,7 +472,7 @@ class NetworkInterface(ModelWithHealthStats):
         return _CURRENT_INTERFACE
 
 
-class BinaryManager(models.Manager):
+class BinaryManager(models.Manager.from_queryset(PagedQuerySet)):
     def get_from_db_or_cache(self, name: str, abspath: str = "", version: str = "", sha256: str = "", binprovider: str = "env") -> Binary:
         """Get or create an Binary record from the database or cache."""
         cached = _CURRENT_BINARIES.get(name)
@@ -890,7 +889,7 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
 # =============================================================================
 
 
-class ProcessManager(models.Manager):
+class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):
     """Manager for Process model."""
 
     def current(self) -> Process:
@@ -1209,8 +1208,11 @@ class Process(ModelWithDeleteAfter, models.Model):
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        return cls.objects.filter(delete_at__isnull=True).filter(
-            Q(env__has_key="DELETE_AFTER") | Q(machine__config__has_key="DELETE_AFTER"),
+        return (
+            cls.objects.filter(delete_at__isnull=True)
+            .filter(Q(env__has_key="DELETE_AFTER") | Q(machine__config__has_key="DELETE_AFTER"))
+            .select_related("machine")
+            .only("id", "created_at", "delete_at", "env", "machine__config")
         )
 
     # Properties that delegate to related objects
@@ -1411,6 +1413,13 @@ class Process(ModelWithDeleteAfter, models.Model):
     # =========================================================================
 
     @classmethod
+    def current_readonly(cls) -> Process | None:
+        """Return this process's registered identity without registration or probes."""
+        if _CURRENT_PROCESS is not None and _CURRENT_PROCESS.pid == os.getpid():
+            return _CURRENT_PROCESS
+        return None
+
+    @classmethod
     def current(cls) -> Process:
         """
         Get or create the Process record for the current OS process.
@@ -1427,39 +1436,18 @@ class Process(ModelWithDeleteAfter, models.Model):
 
         current_pid = os.getpid()
 
-        # Fast path used by model save diagnostics and hot runner loops. A
-        # cached Process object is valid when the immutable identity we wrote
-        # at creation time still describes this Python process. PID reuse cannot
-        # happen while this process is alive, so pid + present started_at/cmd is
-        # enough here; the slower psutil validation below remains the fallback
-        # for missing/stale cache.
-        if (
-            _CURRENT_PROCESS
-            and _CURRENT_PROCESS.pid == current_pid
-            and _CURRENT_PROCESS.status == cls.StatusChoices.RUNNING
-            and timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)
-            and _CURRENT_PROCESS.started_at is not None
-            and bool(_CURRENT_PROCESS.cmd)
-        ):
-            return _CURRENT_PROCESS
+        # This is process identity, not a health check. A live Python process
+        # cannot reuse its own PID, and a fork fails current_readonly's PID
+        # check. Expiring this cache by modified_at made every call after 60s
+        # query the database and touch logs until something else saved the row.
+        # Explicit lifecycle/recovery code owns liveness and interface refresh.
+        cached = cls.current_readonly()
+        if cached is not None:
+            return cached
+        _CURRENT_PROCESS = None
 
         machine = Machine.current()
         iface = NetworkInterface.current()
-
-        # Check cache validity
-        if _CURRENT_PROCESS:
-            # Verify: same PID, same machine, cache not expired
-            if (
-                _CURRENT_PROCESS.pid == current_pid
-                and _CURRENT_PROCESS.machine_id == machine.id
-                and timezone.now() < _CURRENT_PROCESS.modified_at + timedelta(seconds=PROCESS_RECHECK_INTERVAL)
-            ):
-                if _CURRENT_PROCESS.iface_id != iface.id:
-                    _CURRENT_PROCESS.iface = iface
-                    _CURRENT_PROCESS.save(update_fields=["iface", "modified_at"])
-                _CURRENT_PROCESS.ensure_log_files()
-                return _CURRENT_PROCESS
-            _CURRENT_PROCESS = None
 
         # Get actual process start time from OS for validation
         os_start_time = None
@@ -1640,9 +1628,8 @@ class Process(ModelWithDeleteAfter, models.Model):
         if machine is not None:
             stale = stale.filter(machine=machine)
 
-        # Recovery can run against damaged DB state; stream rows so a large
-        # stale Process backlog cannot be materialized in memory at once.
-        for proc in stale.iterator(chunk_size=100):
+        # Close each bounded read before inspecting processes or writing their state.
+        for proc in stale.order_by("pk").paged_iterator(chunk_size=100):
             shares_pid_namespace = proc.shares_pid_namespace
             if shares_pid_namespace and proc.poll() is not None:
                 cleaned += 1
@@ -2582,14 +2569,17 @@ class Process(ModelWithDeleteAfter, models.Model):
         """
         cleaned = 0
 
+        # Select active IDs through the existing status index first. Combining
+        # type/status directly let SQLite prefer the historical type index and
+        # scan 350k processes to return zero workers (blocking writes for 12s).
+        active_ids = cls.objects.filter(status=cls.StatusChoices.RUNNING).order_by().values("pk")
         running_children = cls.objects.filter(
+            pk__in=active_ids,
             process_type__in=[cls.TypeChoices.WORKER, cls.TypeChoices.HOOK],
-            status=cls.StatusChoices.RUNNING,
         )
 
-        # Recovery can run against damaged DB state; stream rows so a large
-        # orphaned Process backlog cannot be materialized in memory at once.
-        for proc in running_children.iterator(chunk_size=100):
+        # Close each bounded read before inspecting processes or writing their state.
+        for proc in running_children.order_by("pk").paged_iterator(chunk_size=100):
             if not proc.is_running:
                 proc.mark_exited(
                     exit_code=proc.exit_code if proc.exit_code is not None else _default_exit_code_for_unowned_process(proc.process_type),

@@ -237,9 +237,11 @@ def _live_supervisord_processes_from_db():
             process_type=Process.TypeChoices.SUPERVISORD,
             status=Process.StatusChoices.RUNNING,
             pwd=str(CONSTANTS.DATA_DIR),
-        ).order_by("-started_at", "-created_at")
+        )
         live = []
-        for process in rows.iterator(chunk_size=20):
+        # Release each read before OS inspection or exit-state writes; supervisor
+        # cleanup must not hold a cursor while other processes enqueue work.
+        for process in rows.order_by("pk").paged_iterator(chunk_size=20):
             proc = process.proc
             if proc is not None:
                 live.append((process, proc))
@@ -581,14 +583,18 @@ def _current_foreground_supervisord_watchdog_args():
         from archivebox.machine.models import Machine, Process
 
         current = Process.current()
-        for process in Process.objects.filter(
-            machine=Machine.current(),
-            process_type=Process.TypeChoices.SUPERVISORD,
-            status=Process.StatusChoices.RUNNING,
-            pwd=str(CONSTANTS.DATA_DIR),
-            pid=_supervisord_proc.pid,
-            parent=current,
-        ).iterator(chunk_size=10):
+        for process in (
+            Process.objects.filter(
+                machine=Machine.current(),
+                process_type=Process.TypeChoices.SUPERVISORD,
+                status=Process.StatusChoices.RUNNING,
+                pwd=str(CONSTANTS.DATA_DIR),
+                pid=_supervisord_proc.pid,
+                parent=current,
+            )
+            .order_by("pk")
+            .paged_iterator(chunk_size=10)
+        ):
             if process.is_running:
                 owner = psutil.Process(current.pid)
                 supervisord = psutil.Process(process.pid)
@@ -928,13 +934,17 @@ def stop_own_supervisord_process(*, record_exit: bool = True):
             try:
                 from archivebox.machine.models import Machine, Process
 
-                for process in Process.objects.filter(
-                    machine=Machine.current(),
-                    process_type=Process.TypeChoices.SUPERVISORD,
-                    status=Process.StatusChoices.RUNNING,
-                    pwd=str(CONSTANTS.DATA_DIR),
-                    pid=stopped_pid,
-                ).iterator(chunk_size=10):
+                for process in (
+                    Process.objects.filter(
+                        machine=Machine.current(),
+                        process_type=Process.TypeChoices.SUPERVISORD,
+                        status=Process.StatusChoices.RUNNING,
+                        pwd=str(CONSTANTS.DATA_DIR),
+                        pid=stopped_pid,
+                    )
+                    .order_by("pk")
+                    .paged_iterator(chunk_size=10)
+                ):
                     process.mark_exited(exit_code=0)
             except _PROCESS_STATE_ERRORS as err:
                 _warn_background_cleanup("Could not mark supervisord process exited", err)

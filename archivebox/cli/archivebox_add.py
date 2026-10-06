@@ -144,7 +144,6 @@ def add(
     persona_name = (persona or "Default").strip() or "Default"
     plugins = plugins or ""
     persona_obj = Persona.get_or_create_named(persona_name)
-    persona_obj.ensure_dirs()
     effective_persona_config = get_config(persona=persona_obj)
 
     crawl_config = {
@@ -217,9 +216,6 @@ def add(
         print(
             "[yellow]\\[*] URLs queued. The background runner will process them (run `archivebox server` or `archivebox run --daemon` if not already running).[/yellow]",
         )
-        from archivebox.services.runner import ensure_background_runner
-
-        ensure_background_runner()
     else:
         # Foreground mode: run full crawl runner until all work is done
         print("[green]\\[*] Starting crawl runner to process crawl...[/green]")
@@ -427,7 +423,23 @@ def main(**kwargs):
             existing = [token.strip() for token in (kwargs.get("plugins") or "").split(",") if token.strip()]
             kwargs["plugins"] = ",".join(dict.fromkeys([*existing, *selected]))
 
-        add(urls=urls, **kwargs)
+        from archivebox.machine.models import Process
+
+        # CLI commands own their process record and logs. Queue model saves
+        # must not register a process implicitly: HTTP add() shares that path.
+        process = Process.current()
+        exit_code = 0
+        try:
+            add(urls=urls, **kwargs)
+        except BaseException:
+            exit_code = 1
+            raise
+        finally:
+            # --bg/--index-only return without the foreground runner's cleanup.
+            # Leaving them RUNNING makes the active-process index accumulate
+            # historical CLI commands forever, defeating bounded recovery.
+            if process.status == Process.StatusChoices.RUNNING:
+                process.mark_exited(exit_code=exit_code)
 
 
 if __name__ == "__main__":

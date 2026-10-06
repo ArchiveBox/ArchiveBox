@@ -116,9 +116,14 @@ class ModelWithQueue(models.Model):
     def save(self, *args: Any, **kwargs: Any) -> None:
         from archivebox.machine.models import Process
 
-        process = Process.current()
-        if self.warn_on_save_outside_runner and not self._state.adding and process.process_type != Process.TypeChoices.ORCHESTRATOR:
-            root_type = getattr(process.root, "process_type", None)
+        # Saving a queue row must not register a runtime process merely to
+        # produce a warning. Registration probes host/network state and writes
+        # logs, work that does not belong in a queue-only HTTP request.
+        # Actual command/runner startup still owns Process.current().
+        process = Process.current_readonly()
+        process_type = process.process_type if process else Process._detect_process_type()
+        if self.warn_on_save_outside_runner and not self._state.adding and process_type != Process.TypeChoices.ORCHESTRATOR:
+            root_type = getattr(process.root, "process_type", None) if process else None
             if root_type != Process.TypeChoices.ORCHESTRATOR:
                 caller = "<unknown>"
                 frame = inspect.currentframe()
@@ -149,7 +154,7 @@ class ModelWithQueue(models.Model):
                     self.pk,
                     self.status,
                     self.retry_at,
-                    process.process_type,
+                    process_type,
                     root_type,
                     caller,
                 )

@@ -6,10 +6,10 @@
 
 <img src="https://imgur.zervice.io/aQZZcku.png" width="20%" align="right"/>
 
-- [CLI Usage](#CLI-Usage): Docs and examples for the ArchiveBox command line interface.
-- [Admin UI Usage](#UI-Usage): Docs and screenshots for the outputted HTML archive interface.
-- [Browser Extension Usage](#Browser-Extension-Usage): Docs and screenshots for the outputted HTML archive interface.
-- [Disk Layout](#Disk-Layout): Description of the archive folder structure and contents.
+- [CLI Usage](#cli-usage): Docs and examples for the ArchiveBox command line interface.
+- [Admin UI Usage](#ui-usage): Docs and screenshots for the outputted HTML archive interface.
+- [Browser Extension Usage](#browser-extension-usage): Docs and screenshots for the outputted HTML archive interface.
+- [Disk Layout](#disk-layout): Description of the archive folder structure and contents.
 
 **Related:**
 
@@ -36,10 +36,10 @@ You can share a single archivebox data directory between Docker and non-Docker i
 
 For more examples see [README: Usage](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-cli-usage) and [[Docker]] pages.
 
-- [Run ArchiveBox with configuration options](#Run-ArchiveBox-with-configuration-options)
-- [Import a single URL](#Import-a-single-URL)
-- [Import a list of URLs from a text file](#Import-a-list-of-URLs-from-a-text-file)
-- [Import list of links from browser history](#Import-list-of-links-from-browser-history)
+- [Run ArchiveBox with configuration options](#run-archivebox-with-configuration-options)
+- [Import a single URL](#import-a-single-url)
+- [Import a list of URLs from a text file](#import-a-list-of-urls-from-a-text-file)
+- [Import list of links from browser history](#import-list-of-links-from-browser-history)
 
 ---
 
@@ -146,7 +146,7 @@ archivebox server 0.0.0.0:5797     # start the archivebox web server
 
 Open <http://admin.archivebox.localhost:5797/admin/> in a browser to create the first admin and finish web setup. To create additional accounts from the CLI, use `archivebox manage createsuperuser`.
 
-*See the [Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#permissions) and [Security Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#archiving-private-content) for more info...*
+*See the [Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration#permissions) and [Security Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#archiving-content-behind-log-ins--advanced-users-only) for more info...*
 
 Or if you prefer to generate a [static HTML index](https://github.com/ArchiveBox/ArchiveBox#static-archive-exporting) instead of using the built-in web server, you can run `archivebox list --html --with-headers > ./index.html` and then open `./index.html` in a browser.  You should see something [like this](https://demo.archivebox.io).
 
@@ -254,8 +254,8 @@ Simply back up the entire `data/` folder to back up your archive, e.g. `zip -r d
 For more info about ArchiveBox's database/filesystem layout and troubleshooting steps:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#modify-the-archivebox-sqlite3-db-directly
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#database-troubleshooting
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#database
 
 
 ### Large Archives
@@ -280,7 +280,7 @@ which are already in the index.
 
 For more info about troubleshooting filesystem permissions, performance, or issues when running on a NAS:
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Security-Overview#output-folder
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#database-troubleshooting
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#database
 
 <br/>
 
@@ -302,9 +302,9 @@ UPDATE auth_user SET email = 'someNewEmail@example.com' WHERE username = 'someUs
 ```
 
 More info:
-- https://github.com/ArchiveBox/ArchiveBox#-sqlpythonfilesystem-usage
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#modify-the-archivebox-sqlite3-db-directly
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#database-troubleshooting
+- https://github.com/ArchiveBox/ArchiveBox#usage
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#database
 - https://stackoverflow.com/questions/1074212/how-can-i-see-the-raw-sql-queries-django-is-running
 - https://adamobeng.com/wddbfs-mount-a-sqlite-database-as-a-filesystem/
 
@@ -341,7 +341,7 @@ $ archivebox shell
 ```
 
 For more info and example usage:
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#example-adding-a-new-user-with-a-hashed-password
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Authentication#username--password-the-default
 - https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/cli/
 - https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/common.py
 - https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/core/models.py

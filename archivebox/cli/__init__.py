@@ -2,6 +2,7 @@ __package__ = "archivebox.cli"
 __command__ = "archivebox"
 import os
 import sys
+from contextlib import redirect_stdout
 from importlib import import_module
 
 import rich_click as click
@@ -219,6 +220,12 @@ def main(args=None, prog_name=None):
         raise SystemExit(130) from None
     finally:
         sys.unraisablehook = previous_unraisablehook
+        supervisor_util = sys.modules.get("archivebox.workers.supervisord_util")
+        if supervisor_util is not None:
+            # Short commands can start a foreground-owned search daemon too.
+            # Finish its cleanup before another CLI can borrow a dying stack.
+            with redirect_stdout(sys.stderr):
+                supervisor_util.stop_own_supervisord_process()
 
 
 if __name__ == "__main__":

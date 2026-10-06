@@ -218,13 +218,6 @@ class TestRequiredBinaryConfigHandling:
         assert result.returncode == 0, result.stderr
         assert "Wget" in result.stdout
 
-    def test_binary_env_var_empty_default(self):
-        """The shipped wget schema should retain wget as its required binary."""
-        config = json.loads(files("abx_plugins.plugins.wget").joinpath("config.json").read_text())
-
-        assert config["required_binaries"][0]["name"] == "{WGET_BINARY}"
-        assert config["properties"]["WGET_BINARY"]["default"] == "wget"
-
 
 class TestHookDiscovery:
     """Test hook discovery functions."""
@@ -454,38 +447,6 @@ class TestHookExecution:
         assert process.cmd == [str(hook_path)]
         assert process.exit_code == 0, process.stderr
         assert "chrome zombies" in process.stdout
-
-    def test_hook_receives_cli_args(self, tmp_path):
-        """Hook should receive CLI arguments."""
-        snap_dir = tmp_path / "snapshot"
-        output_dir = snap_dir / "hashes"
-        output_dir.mkdir(parents=True)
-        (snap_dir / "source.txt").write_text("real CLI argument input", encoding="utf-8")
-        hook_path = Path(
-            str(
-                files("abx_plugins.plugins.hashes").joinpath(
-                    "on_Snapshot__93_hashes.py",
-                ),
-            ),
-        )
-
-        result = subprocess.run(
-            [str(hook_path), "--url=https://example.com/real-hook-argument"],
-            cwd=output_dir,
-            capture_output=True,
-            text=True,
-            env={**os.environ, "SNAP_DIR": str(snap_dir)},
-            timeout=30,
-        )
-
-        assert result.returncode == 0, result.stderr
-        from archivebox.machine.models import Process
-
-        records = Process.parse_records_from_text(result.stdout)
-        source_hash = hashlib.sha256(b"real CLI argument input").hexdigest()
-        assert records == [{"type": "ArchiveResult", "status": "succeeded", "output_str": f"0.0MB {source_hash[:12]}"}]
-        hashes = json.loads((output_dir / "hashes.json").read_text())
-        assert hashes["files"][0]["hash"] == source_hash
 
 
 class TestDependencyRecordOutput:

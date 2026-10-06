@@ -211,11 +211,22 @@ class ArchiveResultFilterSchema(FilterSchema):
     created_at__lt: Annotated[datetime | None, FilterLookup("created_at__lt")] = None
 
 
+def _with_archiveresult_processes(queryset):
+    # cmd/pwd/version delegate to Process and Binary. Without this join a full
+    # capture's metadata response performs two extra indexed lookups per hook
+    # (roughly 100 queries), despite the initial Snapshot UUID lookup being fast.
+    # Logs and the hydrated hook environment are not response fields; loading
+    # those potentially large values would replace round trips with excess I/O.
+    return queryset.select_related("process__binary").defer("process__stdout", "process__stderr", "process__env")
+
+
 @router.get("/archiveresults", response=list[ArchiveResultSchema], url_name="get_archiveresult")
 @paginate(CustomPagination)
 def get_archiveresults(request: HttpRequest, filters: Query[ArchiveResultFilterSchema]):
     """List all ArchiveResult entries matching these filters."""
-    queryset = filters.filter(ArchiveResult.objects.all())
+    queryset = filters.filter(
+        _with_archiveresult_processes(ArchiveResult.objects.all()).prefetch_related("snapshot__crawl__created_by", "snapshot__tags"),
+    )
     if filters.search or filters.snapshot_tag:
         return queryset.distinct()
     return queryset
@@ -223,26 +234,31 @@ def get_archiveresults(request: HttpRequest, filters: Query[ArchiveResultFilterS
 
 def _uuid_ref_query(field_name: str, ref: str) -> Q:
     raw_ref = str(ref or "").strip()
-    query = Q(**{f"{field_name}__startswith": raw_ref})
-    if raw_ref:
-        query |= Q(**{f"{field_name}__icontains": raw_ref})
     try:
         parsed_uuid = UUID(raw_ref)
     except (TypeError, ValueError):
+        query = Q(**{f"{field_name}__startswith": raw_ref})
+        if raw_ref:
+            query |= Q(**{f"{field_name}__icontains": raw_ref})
         normalized_ref = raw_ref.replace("-", "")
         if normalized_ref and normalized_ref != raw_ref:
             query |= Q(**{f"{field_name}__startswith": normalized_ref})
             query |= Q(**{f"{field_name}__icontains": normalized_ref})
-    else:
-        query |= Q(**{field_name: parsed_uuid})
-        query |= Q(**{f"{field_name}__startswith": parsed_uuid.hex})
-    return query
+        return query
+    # An exact UUID cannot need a substring fallback. OR-ing it with LIKE
+    # prevents an indexed lookup and made Cabbage metadata reads take seconds.
+    return Q(**{field_name: parsed_uuid})
 
 
 @router.get("/archiveresult/{archiveresult_id}", response=ArchiveResultSchema, url_name="get_archiveresult")
 def get_archiveresult(request: HttpRequest, archiveresult_id: str):
     """Get a specific ArchiveResult by id."""
-    return ArchiveResult.objects.get(_uuid_ref_query("id", archiveresult_id))
+    return (
+        _with_archiveresult_processes(ArchiveResult.objects.all())
+        .select_related("snapshot__crawl__created_by")
+        .prefetch_related("snapshot__tags")
+        .get(_uuid_ref_query("id", archiveresult_id))
+    )
 
 
 def _normalize_uploaded_archiveresult_plugin(plugin: str) -> str:
@@ -351,6 +367,12 @@ def _summarize_archiveresult_output_files(output_files: dict[str, dict[str, Any]
 def _get_snapshot_by_ref(snapshot_id: str):
     queryset = Snapshot.objects.select_related("crawl__created_by")
     try:
+        full_id = UUID(snapshot_id)
+    except (TypeError, ValueError):
+        pass
+    else:
+        return queryset.get(pk=full_id)
+    try:
         return queryset.get(_uuid_ref_query("id", snapshot_id) | Q(timestamp__startswith=snapshot_id))
     except Snapshot.DoesNotExist:
         return queryset.get(_uuid_ref_query("id", snapshot_id))
@@ -392,13 +414,13 @@ def _write_archiveresult_files(
     mime_types = _get_archiveresult_upload_form_values(request, "mime_types", "mime_type")
     chunk_output_path = _get_archiveresult_upload_form_value(request, "chunk_output_path")
 
+    output_files = dict(existing_output_files or {})
+    if not files:
+        return output_files
+
     snapshot_dir = snapshot.output_dir
     plugin_dir = snapshot_dir / plugin_name
     storage = FileSystemStorage(location=str(plugin_dir))
-    output_files = dict(existing_output_files or {})
-
-    if not files:
-        return output_files
 
     if chunk_output_path:
         if len(files) != 1:
@@ -630,6 +652,8 @@ def patch_archiveresult(
 class SnapshotSchema(Schema):
     TYPE: str = "core.models.Snapshot"
     id: UUID
+    crawl_id: UUID
+    persona: str | None
     created_by_id: str
     created_by_username: str
     created_at: datetime
@@ -647,6 +671,17 @@ class SnapshotSchema(Schema):
     output_size: int
     num_archiveresults: int
     archiveresults: list[MinimalArchiveResultSchema]
+
+    @staticmethod
+    def resolve_archive_path(obj):
+        return obj.archive_path_from_db
+
+    @staticmethod
+    def resolve_persona(obj):
+        # A deduplicated submission can reuse a capture from a different
+        # persona. Report its actual DB-backed owner, not the new request's choice.
+        persona = obj.crawl.resolve_persona()
+        return persona.name if persona else None
 
     @staticmethod
     def resolve_created_by_id(obj):
@@ -670,12 +705,14 @@ class SnapshotSchema(Schema):
 
     @staticmethod
     def resolve_num_archiveresults(obj, context):
-        return obj.archiveresult_set.all().distinct().count()
+        # This reverse FK contains each result once. DISTINCT would materialize
+        # wide JSON output columns just to count rows through snapshot_id's index.
+        return obj.archiveresult_set.count()
 
     @staticmethod
     def resolve_archiveresults(obj, context):
         if bool(context["request"].__dict__.get("with_archiveresults", False)):
-            return obj.archiveresult_set.all().distinct()
+            return _with_archiveresult_processes(obj.archiveresult_set.all())
         return ArchiveResult.objects.none()
 
 
@@ -700,6 +737,7 @@ class SnapshotDeleteResponseSchema(Schema):
     snapshot_id: str
     crawl_id: str
     deleted_count: int
+    queued_count: int
 
 
 def normalize_tag_list(tags: list[str] | None = None) -> list[str]:
@@ -938,6 +976,15 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     # lock. The unique insert recovery and CAS update below are the request-side
     # coordination boundary for this idempotent metadata sync.
     snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
+    if snapshot is None and bool(crawl.get_current_config().get("ONLY_NEW", True)):
+        # Uploading browser metadata is part of the same submission as /add.
+        # It must honor the runner's deduplication policy, even if it arrives
+        # before the runner has processed that crawl. Report the actual owner
+        # so clients never mistake a reused capture for one they just created.
+        snapshot = Snapshot.objects.filter(url=data.url).exclude(status=Snapshot.DELETING_STATE).order_by("-created_at").first()
+        if snapshot is not None:
+            setattr(request, "with_archiveresults", False)
+            return snapshot
     if snapshot is None:
         try:
             snapshot = Snapshot.objects.create(
@@ -970,11 +1017,6 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
             tags,
             created_by=request.user if isinstance(request.user, User) else None,
         )
-
-    try:
-        snapshot.ensure_crawl_symlink()
-    except Exception:
-        pass
 
     setattr(request, "with_archiveresults", False)
     return snapshot
@@ -1037,22 +1079,23 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
 
 @router.delete("/snapshot/{snapshot_id}", response=SnapshotDeleteResponseSchema, url_name="delete_snapshot")
 def delete_snapshot(request: HttpRequest, snapshot_id: str):
+    """Queue deletion; the normal server runner stops writers and removes files.
+
+    The snapshot remains readable with status=deleting until cleanup succeeds.
+    queued_count reports acceptance; deleted_count is zero in this response.
+    """
     snapshot = get_snapshot(request, snapshot_id, with_archiveresults=False)
     snapshot_id_str = str(snapshot.id)
-    crawl_id_str = str(snapshot.crawl.pk)
-    snapshot.cancel()
-
-    from archivebox.services.runner import run_pending_crawls
-
-    with crawl_lifecycle_lock(crawl_id_str):
-        run_pending_crawls(crawl_id=crawl_id_str, daemon=False)
-        snapshot = get_snapshot(request, snapshot_id_str, with_archiveresults=False)
-        deleted_count, _ = snapshot.delete()
+    crawl_id_str = str(snapshot.crawl_id)
+    # Use the same durable queue as the admin delete action. Stopping writers
+    # and removing archive files belongs to the runner, never the HTTP request.
+    queued_count = Snapshot.objects.filter(pk=snapshot.pk).request_delete()
     return {
         "success": True,
         "snapshot_id": snapshot_id_str,
         "crawl_id": crawl_id_str,
-        "deleted_count": deleted_count,
+        "deleted_count": 0,
+        "queued_count": queued_count,
     }
 
 

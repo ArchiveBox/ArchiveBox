@@ -392,7 +392,8 @@ jobs:
 
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
         with:
-          install: true
+          # These images were already built and tested; only publish manifests.
+          driver: docker
 
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -525,17 +526,27 @@ jobs:
           for digest in "${DIGESTS[@]}"; do REFS+=("${GHCR_IMAGE}@sha256:${digest}"); done
           $DOCKER_BINARY buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
 
-      - name: Verify published Docker images run
+      - name: Verify published tags contain the exact tested images
+        env:
+          DOCKERHUB_TAGS: ${{ steps.docker_meta.outputs.dockerhub_tags }}
+          GHCR_TAGS: ${{ steps.docker_meta.outputs.ghcr_tags }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          VERSION='${{ needs.python-release.outputs.version }}'
-          SHORT_SHA="${RELEASE_SHA::12}"
-          for image in "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}" "${GHCR_IMAGE}:sha-${SHORT_SHA}"; do
-            "$DOCKER_BINARY" buildx imagetools inspect "$image" >/dev/null
-            INSTALLED_VERSION="$("$DOCKER_BINARY" run --rm "$image" --version)"
-            test "$INSTALLED_VERSION" = "$VERSION"
-          done
+          # Both architectures already passed CLI/version/capture acceptance by
+          # digest. Verify promotion preserves those exact images and attestations
+          # instead of downloading and running the same image again on one arch.
+          mapfile -t DIGESTS < <($UV_BINARY run --no-cache --no-project python -c 'import re; from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file() and re.fullmatch(r"[0-9a-f]{64}", path.name))))')
+          REFS=()
+          for digest in "${DIGESTS[@]}"; do REFS+=("${DOCKERHUB_IMAGE}@sha256:${digest}"); done
+          EXPECTED="$("$DOCKER_BINARY" buildx imagetools create --dry-run "${REFS[@]}" | "$JQ_BINARY" -ceS '.manifests | sort_by(.digest)')"
+          "$JQ_BINARY" -e 'map(select(.platform.os == "linux") | .platform.architecture) | sort == ["amd64", "arm64"]' <<< "$EXPECTED"
+          while IFS= read -r image; do
+            [[ -n "$image" ]] || continue
+            ACTUAL="$("$DOCKER_BINARY" buildx imagetools inspect --raw "$image" | "$JQ_BINARY" -ceS 'select(.schemaVersion == 2) | .manifests | sort_by(.digest)')"
+            [[ "$ACTUAL" == "$EXPECTED" ]] || { echo "Published tag differs from tested images: $image" >&2; exit 1; }
+            echo "Verified exact tested images: $image"
+          done < <(printf '%s\n' "$DOCKERHUB_TAGS" "$GHCR_TAGS")
 
       - name: Record published image source
         shell: bash

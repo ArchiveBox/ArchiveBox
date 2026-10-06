@@ -163,8 +163,9 @@ def create_personas(
             rprint(f'[red]Invalid persona name "{name}": {error_msg}[/red]', file=sys.stderr)
             continue
 
-        persona, created = Persona.objects.get_or_create(
-            name=name,
+        created = Persona.find_named(name) is None
+        persona = Persona.get_or_create_named(
+            name,
             defaults={"config": {"PERMISSIONS": permissions}} if permissions else {},
         )
 
@@ -313,7 +314,9 @@ def update_personas(name: str | None = None) -> int:
             if persona_id:
                 persona = Persona.objects.get(id=persona_id)
             else:
-                persona = Persona.objects.get(name=old_name)
+                persona = Persona.find_named(old_name)
+                if persona is None:
+                    raise Persona.DoesNotExist
 
             # Apply updates from CLI flags
             if name:
@@ -325,7 +328,7 @@ def update_personas(name: str | None = None) -> int:
 
                 # Rename the persona directory too
                 old_path = persona.path
-                persona.name = name
+                persona.name = persona.validate_name(name)
                 new_path = persona.path
 
                 if old_path.exists() and old_path != new_path:

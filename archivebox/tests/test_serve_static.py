@@ -269,3 +269,86 @@ def test_image_rewrite_uses_optional_saved_artifacts(tmp_path: Path):
     (responses / "index.jsonl").unlink()
     (responses / "index.jsonl").mkdir()
     assert rewrite() == (source, 0)
+
+
+def test_zip_preview_is_generic_and_raw_range_stays_seekable(tmp_path):
+    import zipfile
+
+    output = tmp_path / "arbitrary-plugin" / "nested" / "bundle.ZIP"
+    output.parent.mkdir(parents=True)
+    with zipfile.ZipFile(output, "w") as archive:
+        archive.writestr("inside/note.txt", "generic archive browsing")
+    path = output.relative_to(tmp_path).as_posix()
+    factory = RequestFactory()
+    preview = serve_static_with_byterange_support(factory.get(f"/{path}?preview=1"), path, document_root=tmp_path)
+    assert preview.status_code == 200
+    assert preview["Content-Type"].startswith("text/html")
+    assert b"indexZip" in preview.content
+    assert b"bundle.ZIP" in preview.content
+    assert b"raw=1" in preview.content
+    assert b"downloads.json" not in preview.content
+    raw = serve_static_with_byterange_support(factory.get(f"/{path}?raw=1", HTTP_RANGE="bytes=0-3"), path, document_root=tmp_path)
+    assert raw.status_code == 206
+    assert b"".join(raw.streaming_content) == b"PK\x03\x04"
+    listing = serve_static_with_byterange_support(
+        factory.get("/arbitrary-plugin/nested/?files=1"),
+        "arbitrary-plugin/nested/",
+        document_root=tmp_path,
+        show_indexes=True,
+    )
+    assert b"bundle.ZIP?preview=1" in listing.content
+
+
+def test_directory_index_has_filter_and_per_entry_downloads(tmp_path: Path):
+    (tmp_path / "nested").mkdir()
+    (tmp_path / "note.txt").write_text("searchable text")
+    response = serve_static_with_byterange_support(
+        RequestFactory().get("/snapshot/demo/?files=1"),
+        "",
+        document_root=tmp_path,
+        show_indexes=True,
+        is_archive_replay=True,
+    )
+    html = response.content.decode()
+    assert 'aria-label="Filter files"' in html
+    assert 'href="nested/?files=1&amp;download=zip"' in html
+    assert 'href="note.txt?raw=1" download' in html
+
+
+def test_casefold_paths_remain_inside_archive_root(tmp_path: Path):
+    from django.core.exceptions import SuspiciousFileOperation
+    from archivebox.misc.serve_static import _resolve_archive_path
+
+    (tmp_path / "Documents").mkdir()
+    saved = tmp_path / "Documents" / "Note.txt"
+    saved.write_text("inside root")
+    resolved, relative = _resolve_archive_path(tmp_path, "documents/note.TXT")
+    assert resolved.read_text() == "inside root"
+    assert resolved.is_relative_to(tmp_path)
+    assert relative.casefold() == "documents/note.txt"
+    with pytest.raises(SuspiciousFileOperation):
+        _resolve_archive_path(tmp_path, "../DOCUMENTS/note.TXT")
+
+
+def test_directory_previews_only_small_supported_files(tmp_path: Path):
+    import sqlite3
+
+    with sqlite3.connect(tmp_path / "database.sqlite3") as database:
+        database.execute("CREATE TABLE example (value TEXT)")
+    (tmp_path / "small.txt").write_text("small preview")
+    (tmp_path / "exact-limit.txt").write_bytes(b"x" * (100 * 1024))
+    (tmp_path / "unknown.bin").write_bytes(b"\x00\x01")
+    (tmp_path / "picture.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+    response = serve_static_with_byterange_support(
+        RequestFactory().get("/snapshot/demo/?files=1"),
+        "",
+        document_root=tmp_path,
+        show_indexes=True,
+        is_archive_replay=True,
+    )
+    html = response.content.decode()
+    assert 'data-url="small.txt?raw=1"' in html
+    assert 'src="picture.svg?raw=1"' in html
+    assert 'data-url="exact-limit.txt?raw=1"' not in html
+    assert 'data-url="unknown.bin?raw=1"' not in html
+    assert 'data-url="database.sqlite3?raw=1"' not in html

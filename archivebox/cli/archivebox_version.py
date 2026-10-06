@@ -101,6 +101,7 @@ def _binary_row_dedupe_key(
 def version(
     quiet: bool = False,
     binaries: Iterable[str] = (),
+    no_cache: bool = False,
 ) -> list[str]:
     """Print the ArchiveBox version, debug metadata, and installed dependency versions"""
 
@@ -275,6 +276,7 @@ def version(
             prnt("", f"[yellow]Warning: Could not query collection machine config; resolving through abxpkg: {e}[/yellow]")
 
     declared_binary_specs: dict[str, dict[str, object]] = {}
+    binary_records_by_plugin: dict[str, list[dict[str, object]]] = {}
     for plugin_name, plugin in plugins.items():
         if not plugin_may_have_requested_binary(plugin):
             continue
@@ -286,6 +288,10 @@ def version(
             derived_overrides=derived_config,
             run_output_dir=CONSTANTS.DATA_DIR,
         )
+        # Render the exact requests resolved below. Rehydrating all schemas for
+        # display doubled config work, and could describe different requests if
+        # a config file changed while dependency resolution was running.
+        binary_records_by_plugin[plugin_name] = binary_records
         for binary_record in binary_records:
             actual_name = str(binary_record["name"])
             logical_name = (
@@ -296,9 +302,13 @@ def version(
             display_name = logical_name
             if not plugin_requested and not binary_is_requested(logical_name, actual_name, display_name):
                 continue
-            # This is a diagnostic: recheck the provider instead of trusting an
-            # installation record or a cached version, including disabled plugins.
-            binary_record["no_cache"] = True
+            # Resolve through abxpkg, never the DB's last-known installation row.
+            # Its cache validates current paths, permissions, package fingerprints
+            # and runtime options. Forcing cold resolution here rehashed every
+            # large binary and reran every version subprocess on each diagnostic,
+            # even in an image that had already validated all of them at build.
+            # Keep an explicit full recheck for diagnosing a suspect installation.
+            binary_record["no_cache"] = no_cache
             signature = json.dumps(binary_record, sort_keys=True, default=str)
             declared_binary_specs.setdefault(signature, binary_record)
 
@@ -330,15 +340,9 @@ def version(
             for dependency in plugins.select([plugin_name]).values()
             if not config.get(dependency.enabled_key, True)
         )
-        binary_records = get_required_binary_requests(
-            plugin,
-            plugin.config.required_binaries,
-            overrides=runtime_config,
-            derived_overrides=derived_config,
-            run_output_dir=CONSTANTS.DATA_DIR,
-        )
+        binary_records = binary_records_by_plugin[plugin_name]
         for binary_record in binary_records:
-            binary_record["no_cache"] = True
+            binary_record["no_cache"] = no_cache
             actual_name = str(binary_record["name"])
             logical_name = (
                 Path(actual_name).expanduser().name
@@ -484,6 +488,11 @@ def version(
     "-q",
     is_flag=True,
     help="Only print ArchiveBox version number and nothing else. (equivalent to archivebox --version)",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    help="Reprobe binary versions and hashes instead of reusing validated provider caches.",
 )
 @click.option(
     "--binaries",

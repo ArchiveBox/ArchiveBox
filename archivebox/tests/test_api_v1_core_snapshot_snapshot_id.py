@@ -477,25 +477,38 @@ def test_paused_snapshot_survives_server_restart_and_resumes_via_api(client, tmp
         stop_server(tmp_path)
 
 
-def test_rest_snapshot_delete_removes_output_dir(client, api_headers):
-    url = "https://example.com/delete-path-snapshot"
+@pytest.mark.timeout(180)
+def test_rest_snapshot_delete_removes_output_dir(tmp_path, recursive_test_site):
+    import time
+    from .test_snapshot_service import _snapshot_state
+    from .conftest import create_admin_and_token, live_api_request, start_archivebox_server, stop_archivebox_process
 
-    response = api_client_request(
-        client,
-        "post",
-        "/api/v1/core/snapshots",
-        payload={"url": url, "depth": 0, "status": Snapshot.StatusChoices.QUEUED},
-        headers=api_headers,
-    )
-    assert response.status_code == 200, response.content.decode()
-
-    snapshot = Snapshot.objects.get(url=url)
-    snapshot_dir = Path(snapshot.output_dir)
-    snapshot_dir.mkdir(parents=True, exist_ok=True)
-    (snapshot_dir / "delete-path-test.txt").write_text("snapshot output")
-    assert snapshot_dir.exists()
-
-    response = client.delete(f"/api/v1/core/snapshot/{snapshot.id}", **api_headers)
-    assert response.status_code == 200, response.content.decode()
-    assert not Snapshot.objects.filter(pk=snapshot.pk).exists()
-    assert not snapshot_dir.exists()
+    init_archive(tmp_path)
+    port = get_free_port()
+    env = cli_env(port=port, server=True, PLUGINS="wget")
+    url = recursive_test_site["root_url"]
+    captured = run_archivebox_cmd(["add", "--plugins=wget", url], cwd=tmp_path, env=env)
+    assert captured.returncode == 0, captured.stdout + captured.stderr
+    state = _snapshot_state(tmp_path, url)
+    assert any("Root" in path.read_text(errors="ignore") for path in (state["snapshot_dir"] / "wget").rglob("*.html"))
+    with use_archivebox_db(tmp_path):
+        snapshot_id = str(Snapshot.objects.get(url=url).pk)
+    token = create_admin_and_token(tmp_path)
+    server = start_archivebox_server(tmp_path, port=port, env=env, log_name="api-delete-handoff.log")
+    try:
+        response = live_api_request(port, "delete", f"/api/v1/core/snapshot/{snapshot_id}", api_token=token)
+        assert response.status_code == 200, response.text
+        assert response.json()["queued_count"] == 1
+        assert response.json()["deleted_count"] == 0
+        deadline = time.monotonic() + 75
+        with use_archivebox_db(tmp_path):
+            while Snapshot.objects.filter(pk=snapshot_id).exists() and time.monotonic() < deadline:
+                assert server.poll() is None
+                time.sleep(0.1)
+            assert not Snapshot.objects.filter(pk=snapshot_id).exists()
+        assert not state["snapshot_dir"].exists()
+        assert not state["crawl_link"].is_symlink()
+        missing = live_api_request(port, "get", f"/api/v1/core/snapshot/{snapshot_id}", api_token=token)
+        assert missing.status_code == 404
+    finally:
+        stop_archivebox_process(server)

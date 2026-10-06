@@ -203,6 +203,7 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
 
     Snapshot.objects.filter(pk=root.pk).update(output_size=32)
 
+    root_output_dir = str(root.output_dir)
     bus = create_bus(name=f"test_snapshot_limit_cancel_{str(crawl.id).replace('-', '_')}")
     SnapshotService(bus, crawl_id=str(crawl.id))
     try:
@@ -212,14 +213,14 @@ def test_seal_snapshot_cancels_queued_descendants_after_crawl_max_size():
                 SnapshotEvent(
                     url=root.url,
                     snapshot_id=str(root.id),
-                    output_dir=str(root.output_dir),
+                    output_dir=root_output_dir,
                 ),
             )
             await snapshot_event.now()
             completed_event = SnapshotCompletedEvent(
                 url=root.url,
                 snapshot_id=str(root.id),
-                output_dir=str(root.output_dir),
+                output_dir=root_output_dir,
             )
             completed_event.event_parent_id = snapshot_event.event_id
             await bus.emit(completed_event).now()

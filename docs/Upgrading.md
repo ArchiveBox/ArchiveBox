@@ -61,7 +61,7 @@ As of v0.4 and above, ArchiveBox uses the Django migrations system for determini
 
 More info:
 - https://docs.djangoproject.com/en/4.0/topics/migrations/
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading-or-Merging-Archives#database-migrations-errors-or-upgrade-issues
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#database-migrations-errors-or-upgrade-issues
 - https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting
 
 ---
@@ -146,7 +146,7 @@ archivebox status      # check that everything succeeded
 
 More info:
 - https://github.com/ArchiveBox/ArchiveBox#-package-manager-setup
-- https://github.com/ArchiveBox/ArchiveBox/wiki/Install#manual-setup
+- https://github.com/ArchiveBox/ArchiveBox/wiki/Install#option-c-bare-metal-setup
 - https://github.com/ArchiveBox/homebrew-archivebox
 - https://github.com/ArchiveBox/debian-archivebox
 - https://aur.archlinux.org/packages/archivebox

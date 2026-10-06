@@ -6,7 +6,7 @@ from django.db.models import QuerySet
 def snapshot_status_values() -> tuple[str, ...]:
     from archivebox.core.models import Snapshot
 
-    return tuple(Snapshot.StatusChoices.values)
+    return tuple(value for value, _label in Snapshot._meta.get_field("status").choices)
 
 
 def normalize_snapshot_status(status: str | None) -> str | None:

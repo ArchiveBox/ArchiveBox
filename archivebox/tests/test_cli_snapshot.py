@@ -20,6 +20,10 @@ from archivebox.tests.conftest import (
     create_test_url,
     parse_jsonl_output,
     run_archivebox_cmd,
+    start_archivebox_server,
+    stop_archivebox_process,
+    get_free_port,
+    wait_for_snapshot_capture,
 )
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -380,19 +384,30 @@ class TestSnapshotDelete:
         assert "Would delete" in stderr
 
 
-def test_snapshot_creates_snapshot_with_correct_url(tmp_path, initialized_archive):
+def test_snapshot_creates_snapshot_with_correct_url(tmp_path, initialized_archive, recursive_test_site):
     """Test that snapshot stores the exact URL in the database."""
-    env = cli_env(disable_extractors=True)
+    port = get_free_port()
+    env = cli_env(port=port, server=True, PLUGINS="wget")
+    url = recursive_test_site["root_url"]
 
-    run_archivebox_cmd(
-        ["snapshot", "create", "https://example.com"],
+    result = run_archivebox_cmd(
+        ["snapshot", "create", url],
         cwd=tmp_path,
         env=env,
     )
+    assert result.returncode == 0, result.stderr
 
     with use_archivebox_db(tmp_path):
-        snapshot = Snapshot.objects.select_related("crawl__created_by").get(url="https://example.com")
+        snapshot = Snapshot.objects.select_related("crawl__created_by").get(url=url)
         username = snapshot.crawl.created_by.username
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert not snapshot.output_dir.exists()
+
+    server = start_archivebox_server(tmp_path, env=env, port=port, log_name="snapshot-create-server.log")
+    try:
+        assert "Root" in wait_for_snapshot_capture(tmp_path, url, timeout=120)
+    finally:
+        stop_archivebox_process(server)
 
     # Verify the crawl tree contains a relative symlink to the user-scoped snapshot output.
     snapshots_root = tmp_path / "archive" / "users" / username / "snapshots"

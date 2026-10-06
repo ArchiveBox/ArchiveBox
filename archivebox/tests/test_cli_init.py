@@ -95,110 +95,33 @@ def test_cli_refuses_source_root_without_side_effects_and_allows_separate_data_d
     assert (data_dir / "logs").is_dir()
 
 
-def test_init_creates_database_file(tmp_path):
-    """Test that init creates index.sqlite3 database file."""
+def test_init_creates_collection_schema_directories_config_and_permissions(tmp_path):
+    """Inspect all outputs of one real fresh init; upgrade cases stay separate."""
     result = run_archivebox_cmd(["init"])
+    assert result.returncode == 0, result.stderr
 
-    assert result.returncode == 0
     db_path = tmp_path / "index.sqlite3"
-    assert db_path.exists()
     assert db_path.is_file()
-
-
-def test_init_creates_archive_directory(tmp_path):
-    """Test that init creates archive directory."""
-    run_archivebox_cmd(["init"])
-
-    archive_dir = tmp_path / "archive"
-    assert archive_dir.exists()
-    assert archive_dir.is_dir()
-
-
-def test_init_uses_cwd_archive_and_users_dirs(tmp_path):
-    """Test that init creates archive/users storage roots under cwd."""
-
-    result = run_archivebox_cmd(["init"])
-
-    assert result.returncode == 0
-    assert (tmp_path / "archive").is_dir()
-    assert (tmp_path / "archive" / "users").is_dir()
-
-
-def test_init_creates_sources_directory(tmp_path):
-    """Test that init creates sources directory."""
-    run_archivebox_cmd(["init"])
-
-    sources_dir = tmp_path / "sources"
-    assert sources_dir.exists()
-    assert sources_dir.is_dir()
-
-
-def test_init_creates_logs_directory(tmp_path):
-    """Test that init creates logs directory."""
-    run_archivebox_cmd(["init"])
-
-    logs_dir = tmp_path / "logs"
-    assert logs_dir.exists()
-    assert logs_dir.is_dir()
-
-
-def test_init_creates_config_file(tmp_path):
-    """Test that init creates ArchiveBox.conf config file."""
-    run_archivebox_cmd(["init"])
-
     config_file = tmp_path / "ArchiveBox.conf"
-    assert config_file.exists()
     assert config_file.is_file()
-
-
-def test_init_runs_migrations(tmp_path):
-    """Test that init runs Django migrations and creates core tables."""
-    run_archivebox_cmd(["init"])
+    for relative_path in ("archive", "archive/users", "sources", "logs"):
+        assert (tmp_path / relative_path).is_dir(), relative_path
 
     with use_archivebox_db(tmp_path):
-        migration_count = MigrationRecorder.Migration.objects.count()
-
-    assert migration_count > 0
-
-
-def test_init_creates_core_snapshot_table(tmp_path):
-    """Test that init creates core_snapshot table."""
-    run_archivebox_cmd(["init"])
-
-    assert Snapshot._meta.db_table == "core_snapshot"
-    with use_archivebox_db(tmp_path):
+        assert MigrationRecorder.Migration.objects.count() > 0
+        assert Snapshot._meta.db_table == "core_snapshot"
         assert Snapshot.objects.count() == 0
-
-
-def test_init_creates_crawls_crawl_table(tmp_path):
-    """Test that init creates crawls_crawl table."""
-    run_archivebox_cmd(["init"])
-
-    assert Crawl._meta.db_table == "crawls_crawl"
-    with use_archivebox_db(tmp_path):
+        assert Crawl._meta.db_table == "crawls_crawl"
         assert Crawl.objects.count() == 0
-
-
-def test_init_creates_core_archiveresult_table(tmp_path):
-    """Test that init creates core_archiveresult table."""
-    run_archivebox_cmd(["init"])
-
-    assert ArchiveResult._meta.db_table == "core_archiveresult"
-    with use_archivebox_db(tmp_path):
+        assert ArchiveResult._meta.db_table == "core_archiveresult"
         assert ArchiveResult.objects.count() == 0
+        assert Machine._meta.db_table == "machine_machine"
+        Machine.objects.count()
 
-
-def test_init_sets_correct_file_permissions(tmp_path):
-    """Test that init sets correct permissions on created files."""
-    run_archivebox_cmd(["init"])
-
-    # Check database permissions
-    db_path = tmp_path / "index.sqlite3"
     assert oct(db_path.stat().st_mode)[-3:] in (get_config().OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
-
-    # Check directory permissions
-    archive_dir = tmp_path / "archive"
-    assert oct(archive_dir.stat().st_mode)[-3:] in (get_config().OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
+    assert oct((tmp_path / "archive").stat().st_mode)[-3:] in (get_config().OUTPUT_PERMISSIONS, DIR_PERMISSIONS)
+    output = result.stdout
+    assert "ArchiveBox" in output or "collection" in output.lower() or "Initializing" in output
 
 
 def test_init_creates_database_with_archivebox_permissions_despite_permissive_umask(tmp_path):
@@ -323,24 +246,6 @@ def test_init_quick_flag_skips_checks(tmp_path):
     # Database should still be created
     db_path = tmp_path / "index.sqlite3"
     assert db_path.exists()
-
-
-def test_init_creates_machine_table(tmp_path):
-    """Test that init creates the machine_machine table."""
-    run_archivebox_cmd(["init"])
-
-    assert Machine._meta.db_table == "machine_machine"
-    with use_archivebox_db(tmp_path):
-        Machine.objects.count()
-
-
-def test_init_output_shows_collection_info(tmp_path):
-    """Test that init output shows helpful collection information."""
-    result = run_archivebox_cmd(["init"])
-
-    output = result.stdout
-    # Should show some helpful info about the collection
-    assert "ArchiveBox" in output or "collection" in output.lower() or "Initializing" in output
 
 
 def test_init_ignores_unrecognized_archive_directories(initialized_archive):

@@ -142,3 +142,27 @@ def write_record(record: dict[str, Any], stream: TextIO | None = None) -> None:
     active_stream: TextIO = sys.stdout if stream is None else stream
     active_stream.write(json.dumps(record) + "\n")
     active_stream.flush()
+
+
+def write_records(records: Iterable[dict[str, Any]], stream: TextIO | None = None) -> int:
+    """Stream bulk JSONL output with bounded buffering, returning its row count."""
+    active_stream: TextIO = sys.stdout if stream is None else stream
+    lines: list[str] = []
+    pending_size = 0
+    count = 0
+    for record in records:
+        line = json.dumps(record) + "\n"
+        lines.append(line)
+        pending_size += len(line)
+        count += 1
+        # CLI stdout can be unbuffered. A syscall per snapshot makes large
+        # exports IO-bound; small batches keep memory and pipe latency bounded.
+        if pending_size >= 64 * 1024:
+            active_stream.write("".join(lines))
+            active_stream.flush()
+            lines.clear()
+            pending_size = 0
+    if lines:
+        active_stream.write("".join(lines))
+        active_stream.flush()
+    return count

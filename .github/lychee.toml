@@ -1,0 +1,38 @@
+# Documentation destinations only: do not crawl archived URLs, app routes, or image assets.
+# Manual run from the repository root with Lychee 0.24.2:
+# git ls-files -- '*.md' '*.html' '*.py' '*.rst' '*.yml' '*.yaml' '*.sh' '*.toml' > /tmp/archivebox-link-inputs.txt
+# lychee --config .github/lychee.toml --root-dir "$PWD" --files-from /tmp/archivebox-link-inputs.txt
+# Explicit tracked inputs include README symlinks and let errors in one file leave others checkable.
+include_fragments = "anchor-only"
+include_verbatim = true
+max_retries = 0
+max_concurrency = 4
+timeout = 20
+no_progress = true
+hidden = true
+extensions = ["md", "html", "py", "rst", "yml", "yaml", "sh", "toml"]
+exclude_path = ['(^|/)(tests|data|apidocs|node_modules|\.git)(/|$)']
+# Includes override this exclude; this is a documentation-link allowlist.
+exclude = ['.*']
+include = [
+ '^https://github\.com/ArchiveBox/ArchiveBox/blob/[^/]+/.*\.md(?:#|$)',
+ '^https://raw\.githubusercontent\.com/wiki/ArchiveBox/ArchiveBox/',
+ '^https?://github\.com/(?:ArchiveBox|pirate)/ArchiveBox(?:/wiki(?:/|#|$)|/?#)',
+ '^https?://docs\.archivebox\.io(?:/|$)',
+ '^file:.*\.md(?:#|$)',
+ '^file:.*/docs/[^/.#]+(?:#|$)',
+]
+fallback_extensions = ["md"]
+remap = [
+ # Lychee's Markdown slugger drops variation selectors. Check these against rendered HTML.
+
+ '^file:.*/README\.md(#%EF%B8%8F-cli-usage)$ https://github.com/ArchiveBox/ArchiveBox${1}',
+ '^file:.*/docs/Install\.md(#option-a-docker--docker-compose-setup-%EF%B8%8F)$ https://github.com/ArchiveBox/ArchiveBox/wiki/Install${1}',
+ # The wiki accepts this case alias, but raw file paths are case-sensitive.
+ '^https?://github\.com/(?:ArchiveBox|pirate)/ArchiveBox/wiki/Setting-up-Storage$ https://raw.githubusercontent.com/wiki/ArchiveBox/ArchiveBox/Setting-Up-Storage.md',
+
+ # Bare missing wiki pages silently redirect to Home; raw pages return an actual 404.
+ # Keep fragment URLs on the rendered wiki to catch published heading drift.
+ '^https?://github\.com/(?:ArchiveBox|pirate)/ArchiveBox/wiki/([^#/?]+)$ https://raw.githubusercontent.com/wiki/ArchiveBox/ArchiveBox/${1}.md',
+]
+preprocess = { command = "bin/lychee_preprocess.py" }

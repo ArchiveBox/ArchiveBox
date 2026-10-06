@@ -159,7 +159,11 @@ print(json.dumps({{
     assert not Path(retained["archiveresult_dir"]).exists()
 
 
-def test_delete_after_real_add_page_and_rest_create_paths(client):
+def test_delete_after_real_add_page_and_rest_create_paths(client, recursive_test_site):
+    from archivebox.personas.models import Persona
+
+    # Match init/server startup; visiting /add/ must not create persona records.
+    Persona.get_or_create_default()
     User = get_user_model()
     admin_user = User.objects.create_superuser(
         username="retentionadmin",
@@ -168,6 +172,7 @@ def test_delete_after_real_add_page_and_rest_create_paths(client):
     )
 
     client.force_login(admin_user)
+    ui_url, rest_url = recursive_test_site["child_urls"][:2]
     response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
     assert response.status_code == 200
     assert 'name="delete_after"' in response.content.decode()
@@ -175,7 +180,7 @@ def test_delete_after_real_add_page_and_rest_create_paths(client):
     response = client.post(
         reverse("add"),
         data={
-            "url": "https://example.com/delete-after-ui",
+            "url": ui_url,
             "tag": "retention-ui",
             "depth": "0",
             "max_urls": "1",
@@ -199,13 +204,13 @@ def test_delete_after_real_add_page_and_rest_create_paths(client):
 
     from archivebox.crawls.models import Crawl
 
-    ui_crawl = Crawl.objects.get(urls__contains="https://example.com/delete-after-ui")
+    ui_crawl = Crawl.objects.get(urls=ui_url)
     assert ui_crawl.config["DELETE_AFTER"] == "2h"
     assert ui_crawl.delete_at is not None
     from archivebox.services.runner import run_due_crawl
 
     assert run_due_crawl(ui_crawl, lock_seconds=10)
-    ui_snapshot = ui_crawl.snapshot_set.get(url="https://example.com/delete-after-ui")
+    ui_snapshot = ui_crawl.snapshot_set.get(url=ui_url)
     assert ui_snapshot.delete_at is not None
     assert not ui_snapshot.output_dir.joinpath("staticfile", "stdin.txt").exists()
 
@@ -217,10 +222,12 @@ def test_delete_after_real_add_page_and_rest_create_paths(client):
         "/api/v1/crawls/crawls",
         data=json.dumps(
             {
-                "urls": ["https://example.com/delete-after-rest"],
+                "urls": [rest_url],
                 "max_depth": 0,
                 "max_urls": 1,
-                "config": {"DELETE_AFTER": "3h"},
+                # Exercise retention through a real capture. The full plugin
+                # pipeline has its own recursive-crawl integration coverage.
+                "config": {"DELETE_AFTER": "3h", "PLUGINS": "wget,hashes"},
             },
         ),
         content_type="application/json",
@@ -228,9 +235,16 @@ def test_delete_after_real_add_page_and_rest_create_paths(client):
         HTTP_X_ARCHIVEBOX_API_KEY=api_token.token,
     )
     assert response.status_code == 200
-    rest_crawl = Crawl.objects.get(urls__contains="https://example.com/delete-after-rest")
+    rest_crawl = Crawl.objects.get(urls=rest_url)
     assert rest_crawl.config["DELETE_AFTER"] == "3h"
     assert rest_crawl.delete_at is not None
     assert run_due_crawl(rest_crawl, lock_seconds=10)
-    rest_snapshot = rest_crawl.snapshot_set.get(url="https://example.com/delete-after-rest")
+    rest_snapshot = rest_crawl.snapshot_set.get(url=rest_url)
     assert rest_snapshot.delete_at is not None
+    from archivebox.core.models import ArchiveResult
+
+    for plugin in ("wget", "hashes"):
+        result = rest_snapshot.archiveresult_set.get(plugin=plugin)
+        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert result.delete_at is not None
+        assert result.output_size > 0

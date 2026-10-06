@@ -71,6 +71,7 @@ def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
         crawl=crawl,
         status=Snapshot.StatusChoices.STARTED,
     )
+    crawl_output_dir = str(crawl.output_dir)
     runner = CrawlRunner(crawl)
 
     async def run() -> CrawlAbortEvent | None:
@@ -90,7 +91,7 @@ def test_cancelled_crawl_projection_emits_abort_event_from_runner_bus():
             CrawlEvent(
                 url=snapshot.url,
                 snapshot_id=str(snapshot.id),
-                output_dir=str(crawl.output_dir),
+                output_dir=crawl_output_dir,
             ),
         ).now()
         await runner.bus.wait_until_idle()
@@ -323,6 +324,7 @@ def test_crawl_start_event_keeps_retry_at_lease():
         status=Snapshot.StatusChoices.QUEUED,
         retry_at=before,
     )
+    crawl_output_dir = str(crawl.output_dir)
     bus = create_bus(name="test_crawl_start_event_keeps_retry_at_lease")
     CrawlService(bus, crawl_id=str(crawl.id))
 
@@ -332,7 +334,7 @@ def test_crawl_start_event_keeps_retry_at_lease():
                 CrawlStartEvent(
                     url=snapshot.url,
                     snapshot_id=str(snapshot.id),
-                    output_dir=str(crawl.output_dir),
+                    output_dir=crawl_output_dir,
                 ),
             ).now()
             await bus.wait_until_idle()
@@ -979,6 +981,7 @@ def test_crawl_completed_event_requeues_active_snapshots():
         retry_at=None,
     )
 
+    crawl_output_dir = str(crawl.output_dir)
     bus = create_bus(name=f"test_crawl_completed_active_snapshots_{str(crawl.id).replace('-', '_')}")
     service = CrawlService(bus, crawl_id=str(crawl.id))
     assert service is not None
@@ -988,7 +991,7 @@ def test_crawl_completed_event_requeues_active_snapshots():
             event = CrawlCompletedEvent(
                 url="https://example.com",
                 snapshot_id="",
-                output_dir=str(crawl.output_dir),
+                output_dir=crawl_output_dir,
             )
             emitted = bus.emit(event)
             await emitted.wait()
@@ -1022,6 +1025,7 @@ def test_crawl_start_event_does_not_resurrect_cancelled_crawl():
         retry_at=now,
     )
 
+    crawl_output_dir = str(crawl.output_dir)
     bus = create_bus(name=f"test_crawl_start_cancelled_{str(crawl.id).replace('-', '_')}")
     service = CrawlService(bus, crawl_id=str(crawl.id))
     assert service is not None
@@ -1031,7 +1035,7 @@ def test_crawl_start_event_does_not_resurrect_cancelled_crawl():
             event = CrawlStartEvent(
                 url="https://example.com",
                 snapshot_id="",
-                output_dir=str(crawl.output_dir),
+                output_dir=crawl_output_dir,
             )
             emitted = bus.emit(event)
             await emitted.wait()
@@ -1069,6 +1073,7 @@ def test_crawl_cleanup_event_requeues_unfinished_crawl():
         retry_at=None,
     )
 
+    crawl_output_dir = str(crawl.output_dir)
     bus = create_bus(name=f"test_crawl_cleanup_requeues_unfinished_{str(crawl.id).replace('-', '_')}")
     service = CrawlService(bus, crawl_id=str(crawl.id))
     assert service is not None
@@ -1078,7 +1083,7 @@ def test_crawl_cleanup_event_requeues_unfinished_crawl():
             event = CrawlCleanupEvent(
                 url="https://example.com",
                 snapshot_id=str(snapshot.id),
-                output_dir=str(crawl.output_dir),
+                output_dir=crawl_output_dir,
             )
             emitted = bus.emit(event)
             await emitted.wait()
@@ -1117,6 +1122,7 @@ def test_crawl_completed_event_seals_finished_crawl():
         retry_at=None,
     )
 
+    crawl_output_dir = str(crawl.output_dir)
     bus = create_bus(name=f"test_crawl_completed_finished_crawl_{str(crawl.id).replace('-', '_')}")
     service = CrawlService(bus, crawl_id=str(crawl.id))
     assert service is not None
@@ -1126,7 +1132,7 @@ def test_crawl_completed_event_seals_finished_crawl():
             event = CrawlCompletedEvent(
                 url="https://example.com",
                 snapshot_id=str(snapshot.id),
-                output_dir=str(crawl.output_dir),
+                output_dir=crawl_output_dir,
             )
             emitted = bus.emit(event)
             await emitted.wait()
@@ -1165,6 +1171,7 @@ def test_snapshot_completed_event_bus_defers_finished_crawl_seal():
         retry_at=None,
     )
 
+    snapshot_output_dir = str(snapshot.output_dir)
     bus = create_bus(name=f"test_snapshot_completed_bus_finished_crawl_{str(crawl.id).replace('-', '_')}")
     SnapshotService(bus, crawl_id=str(crawl.id))
     try:
@@ -1174,14 +1181,14 @@ def test_snapshot_completed_event_bus_defers_finished_crawl_seal():
                 SnapshotEvent(
                     url="https://example.com",
                     snapshot_id=str(snapshot.id),
-                    output_dir=str(snapshot.output_dir),
+                    output_dir=snapshot_output_dir,
                 ),
             )
             await snapshot_event.now()
             completed_event = SnapshotCompletedEvent(
                 url="https://example.com",
                 snapshot_id=str(snapshot.id),
-                output_dir=str(snapshot.output_dir),
+                output_dir=snapshot_output_dir,
             )
             completed_event.event_parent_id = snapshot_event.event_id
             await bus.emit(completed_event).now()
@@ -1221,24 +1228,25 @@ def test_delayed_snapshot_completion_cannot_seal_new_run():
         retry_at=old_retry_at,
     )
 
+    snapshot_output_dir = str(snapshot.output_dir)
     bus = create_bus(name=f"test_delayed_snapshot_completion_{str(crawl.id).replace('-', '_')}")
     SnapshotService(bus, crawl_id=str(crawl.id))
     try:
 
         async def emit_runs() -> None:
             old_event = bus.emit(
-                SnapshotEvent(url=snapshot.url, snapshot_id=str(snapshot.id), output_dir=str(snapshot.output_dir)),
+                SnapshotEvent(url=snapshot.url, snapshot_id=str(snapshot.id), output_dir=snapshot_output_dir),
             )
             await old_event.now()
             await sync_to_async(Snapshot.objects.filter(pk=snapshot.pk).update, thread_sensitive=True)(retry_at=new_retry_at)
             new_event = bus.emit(
-                SnapshotEvent(url=snapshot.url, snapshot_id=str(snapshot.id), output_dir=str(snapshot.output_dir)),
+                SnapshotEvent(url=snapshot.url, snapshot_id=str(snapshot.id), output_dir=snapshot_output_dir),
             )
             await new_event.now()
             completed_event = SnapshotCompletedEvent(
                 url=snapshot.url,
                 snapshot_id=str(snapshot.id),
-                output_dir=str(snapshot.output_dir),
+                output_dir=snapshot_output_dir,
             )
             completed_event.event_parent_id = old_event.event_id
             await bus.emit(completed_event).now()

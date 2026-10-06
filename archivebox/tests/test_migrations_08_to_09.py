@@ -312,6 +312,15 @@ def test_migration_preserves_08_collection(migration_08_data):
     extractors = {ar["extractor"] for ar in original_data["archiveresults"]}
     assert binary_count >= len(extractors), f"Expected at least {len(extractors)} Binaries, got {binary_count}"
 
+    # Legacy convergence created Binary with raw SQL and omitted the declared
+    # queue index. A migrated archive must not scan all installed binaries on
+    # every scheduler pass, even though its migration state says db_index=True.
+    binary_indexes = cursor.execute("PRAGMA index_list(machine_binary)").fetchall()
+    indexed_columns = {
+        tuple(row[2] for row in cursor.execute("SELECT * FROM pragma_index_info(?)", (index[1],)).fetchall()) for index in binary_indexes
+    }
+    assert ("retry_at",) in indexed_columns
+
     cursor.execute("""
         SELECT COUNT(*)
         FROM machine_process

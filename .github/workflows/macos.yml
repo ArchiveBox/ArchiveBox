@@ -1,0 +1,48 @@
+name: macOS compatibility
+
+on:
+  schedule:
+    - cron: '51 2,10,18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      key: ${{ steps.check.outputs.key }}
+    steps:
+      - id: check
+        uses: ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main
+
+  install-cli:
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
+    uses: ./.github/workflows/test.yml
+    with:
+      platform: macos
+    secrets: inherit
+
+  python-artifacts:
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
+    uses: ./.github/workflows/pip.yml
+    with:
+      platforms: '["macos-15"]'
+    secrets: inherit
+
+  complete:
+    name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'
+    needs: [changes, install-cli, python-artifacts]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Scheduled macOS coverage completed successfully.'

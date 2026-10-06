@@ -26,6 +26,65 @@ pytestmark = pytest.mark.django_db(transaction=True)
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def test_bulk_snapshot_delete_keeps_rows_until_worker_verifies_files(client, admin_user, crawl):
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.services.runner import run_pending_crawls
+
+    snapshots = [Snapshot.objects.create(url=f"https://example.com/delete/{i}", crawl=crawl) for i in range(2)]
+    output_dirs = [snapshot.output_dir for snapshot in snapshots]
+    for snapshot, output_dir in zip(snapshots, output_dirs):
+        (output_dir / "wget").mkdir(parents=True, exist_ok=True)
+        (output_dir / "wget" / "index.html").write_text("real saved output")
+        ArchiveResult.objects.create(snapshot=snapshot, plugin="wget", hook_name="on_Snapshot__06_wget", status="succeeded")
+    ids = [snapshot.pk for snapshot in snapshots]
+    client.force_login(admin_user)
+    response = client.post(
+        reverse("admin:core_snapshot_changelist"),
+        {"action": "delete_snapshots", ACTION_CHECKBOX_NAME: [str(pk) for pk in ids]},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    assert Snapshot.objects.filter(pk__in=ids, status="deleting").count() == 2
+    assert ArchiveResult.objects.filter(snapshot_id__in=ids).count() == 2
+    assert all((path / "wget" / "index.html").is_file() for path in output_dirs)
+    pending = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert pending.status_code == 200
+    assert "Deleting" in pending.content.decode()
+    run_pending_crawls(maintenance_only=True)
+    assert not Snapshot.objects.filter(pk__in=ids).exists()
+    assert not ArchiveResult.objects.filter(snapshot_id__in=ids).exists()
+    assert not any(path.exists() for path in output_dirs)
+
+
+def test_snapshot_delete_preserves_rows_when_real_filesystem_cleanup_fails(snapshot):
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    output_dir = snapshot.output_dir
+    protected = output_dir / "wget"
+    protected.mkdir(parents=True, exist_ok=True)
+    saved_file = protected / "index.html"
+    saved_file.write_text("must not lose the row before this file is removed")
+    result = ArchiveResult.objects.create(snapshot=snapshot, plugin="wget", hook_name="on_Snapshot__06_wget", status="succeeded")
+    snapshot_id = snapshot.pk
+    protected.chmod(0o500)
+    try:
+        with pytest.raises(PermissionError):
+            Snapshot.objects.filter(pk=snapshot_id).delete()
+        assert Snapshot.objects.filter(pk=snapshot_id, status="deleting").exists()
+        assert ArchiveResult.objects.filter(pk=result.pk).exists()
+        assert saved_file.is_file()
+        from archivebox.services.runner import run_pending_crawls
+
+        run_pending_crawls(maintenance_only=True)
+        assert Snapshot.objects.filter(pk=snapshot_id, status="deleting").exists()
+        assert saved_file.is_file()
+    finally:
+        protected.chmod(0o700)
+    run_pending_crawls(maintenance_only=True)
+    assert not Snapshot.objects.filter(pk=snapshot_id).exists()
+    assert not output_dir.exists()
+
+
 def test_failed_hook_partial_file_does_not_become_successful_card(snapshot, cached_abxpkg_lib_dir):
     partial = Path(snapshot.output_dir) / "title" / "partial.html"
     partial.parent.mkdir(parents=True, exist_ok=True)
@@ -60,6 +119,7 @@ def test_isolated_snapshot_delete_button_hands_off_to_admin_without_sharing_admi
     admin_user,
     real_hash_projection,
     live_server,
+    browser_runtime,
 ):
     from playwright.sync_api import sync_playwright
 
@@ -87,6 +147,7 @@ def test_isolated_snapshot_delete_button_hands_off_to_admin_without_sharing_admi
     snap_origin = f"http://{get_snapshot_host(str(snapshot.id))}"
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
             args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1, MAP archivebox.localhost 127.0.0.1"],
         )
         context = browser.new_context()

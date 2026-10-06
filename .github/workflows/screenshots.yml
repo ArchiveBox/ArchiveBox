@@ -1,38 +1,31 @@
 name: Capture publicsite screenshots
 
 on:
-  push:
-    branches:
-      - dev
-    paths:
-      - archivebox/**
-      - bin/collect_ui_screenshots.*
-      - bin/generate_ui_screenshot_gallery.py
-      - bin/take_screenshot.js
-      - docs/Screenshots.md
-      - pyproject.toml
-      - uv.lock
-      - .github/workflows/screenshots.yml
-      - .github/workflows/prepare-release.yml
+  schedule:
+    - cron: '37 5,17 * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: ${{ github.event_name == 'workflow_dispatch' && format('publicsite-captures-manual-{0}', github.run_id) || 'publicsite-captures' }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  prepare:
-    permissions:
-      contents: write
-    uses: ./.github/workflows/prepare-release.yml
-    secrets: inherit
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.check.outputs.changed }}
+      key: ${{ steps.check.outputs.key }}
+    steps:
+      - id: check
+        uses: ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main
 
   deploy:
-    needs: prepare
-    if: needs.prepare.outputs.run_jobs == 'true'
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -78,3 +71,11 @@ jobs:
           path: publicsite/screenshots
           if-no-files-found: error
           retention-days: 90
+
+  complete:
+    name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'
+    needs: [changes, deploy]
+    if: needs.changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo 'Scheduled work completed successfully.'

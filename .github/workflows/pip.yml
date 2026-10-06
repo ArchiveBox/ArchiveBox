@@ -3,6 +3,11 @@ name: Build Pip package
 on:
   workflow_call:
     inputs:
+      platforms:
+        description: Runner matrix for package compatibility
+        required: false
+        default: '["ubuntu-24.04"]'
+        type: string
       full_tests:
         description: Run the full package compatibility matrix instead of one release smoke check
         required: false
@@ -95,7 +100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
+        os: ${{ fromJSON(inputs.platforms) }}
         python: ["3.13", "3.14"]
         artifact: [wheel, sdist]
 

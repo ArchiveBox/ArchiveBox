@@ -1,6 +1,7 @@
 __package__ = "archivebox.core"
 
 import json
+import logging
 import os
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
@@ -11,7 +12,7 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib import admin
-from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist, ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, models, transaction
 from django.db.models import F, Q, QuerySet, Sum, Value
 from django.db.models.fields.json import KT
@@ -23,6 +24,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import slugify
 
 from archivebox.base_models.models import (
+    PagedQuerySet,
     ModelWithConfig,
     ModelWithDeleteAfter,
     ModelWithHealthStats,
@@ -172,8 +174,27 @@ class SnapshotTag(models.Model):
         unique_together: ClassVar[list[tuple[str, str]]] = [("snapshot", "tag")]
 
 
-class SnapshotQuerySet(models.QuerySet):
+class SnapshotQuerySet(PagedQuerySet):
     """Custom QuerySet for Snapshot model with export methods that persist through .filter() etc."""
+
+    def request_delete(self) -> int:
+        # Admin and API deletion share this durable command. Keep the row until
+        # the runner stops its writers and verifies removal from remote storage;
+        # RETRY_AT_MAX prevents capture scheduling while cleanup is pending.
+        return self.update(status=self.model.DELETING_STATE, retry_at=RETRY_AT_MAX, modified_at=timezone.now())
+
+    def delete(self):
+        # Finish the SELECT before filesystem work, so no read cursor or SQLite
+        # transaction is held while deleting remote archive payloads.
+        snapshots = list(self.select_related("crawl__created_by"))
+        total = 0
+        counts = {}
+        for snapshot in snapshots:
+            deleted, details = snapshot.delete(using=self.db)
+            total += deleted
+            for label, count in details.items():
+                counts[label] = counts.get(label, 0) + count
+        return total, counts
 
     def bulk_create(self, objs, *args, **kwargs):
         objs = list(objs)
@@ -205,101 +226,6 @@ class SnapshotQuerySet(models.QuerySet):
                 # (e.g. page titles) to stay within postgres VARCHAR limits.
                 truncate_overlong_charfields(obj)
         return super().bulk_create(objs, *args, **kwargs)
-
-    def paged_iterator(self, chunk_size: int = 500):
-        """
-        Iterate snapshots using bounded keyset pages instead of one streaming cursor.
-
-        Django's iterator(chunk_size=...) still keeps a single SQLite SELECT
-        cursor open until the full queryset is exhausted. That is fine for
-        read-only exports, but update/migration code does filesystem work and
-        writes while iterating; a long-lived read cursor there can stretch lock
-        waits across thousands of rows. This respects the queryset's existing
-        filters, order_by(), select_related(), and prefetch_related() state; if
-        no ordering is defined, it falls back to primary-key order.
-        """
-        pk_field = self.model._meta.pk.name
-        raw_ordering = tuple(self.query.order_by or self.model._meta.ordering or (pk_field,))
-
-        if any(not isinstance(term, str) or term == "?" for term in raw_ordering):
-            offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
-                yield from batch
-                offset += chunk_size
-            return
-
-        ordering = []
-        for term in raw_ordering:
-            descending = term.startswith("-")
-            field_name = term[1:] if descending else term
-            if field_name == "pk":
-                field_name = pk_field
-            ordering.append(f"-{field_name}" if descending else field_name)
-
-        ordered_field_names = [term.removeprefix("-") for term in ordering]
-        try:
-            if any(self.model._meta.get_field(field_name).null for field_name in ordered_field_names):
-                offset = 0
-                while True:
-                    batch = list(self[offset : offset + chunk_size])
-                    if not batch:
-                        break
-                    yield from batch
-                    offset += chunk_size
-                return
-        except (AttributeError, FieldDoesNotExist):
-            offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
-                yield from batch
-                offset += chunk_size
-            return
-
-        unique_field_names = {pk_field, *(field.name for field in self.model._meta.fields if field.unique)}
-        if not any(field_name in unique_field_names for field_name in ordered_field_names):
-            offset = 0
-            while True:
-                batch = list(self[offset : offset + chunk_size])
-                if not batch:
-                    break
-                yield from batch
-                offset += chunk_size
-            return
-
-        last_values = None
-        value_field_names = tuple(dict.fromkeys([*ordered_field_names, pk_field]))
-        while True:
-            batch_qs = self.order_by(*ordering)
-            if last_values is not None:
-                page_filter = models.Q()
-                for idx, term in enumerate(ordering):
-                    descending = term.startswith("-")
-                    field_name = term[1:] if descending else term
-                    prefix = {ordered_field_names[i]: last_values[i] for i in range(idx)}
-                    comparison = "lt" if descending else "gt"
-                    page_filter |= models.Q(**prefix, **{f"{field_name}__{comparison}": last_values[idx]})
-                batch_qs = batch_qs.filter(page_filter)
-
-            batch_rows = list(batch_qs.values_list(*value_field_names)[:chunk_size])
-            if not batch_rows:
-                break
-
-            pk_idx = value_field_names.index(pk_field)
-            snapshot_ids = [row[pk_idx] for row in batch_rows]
-            snapshots_by_id = {snapshot.pk: snapshot for snapshot in self.filter(pk__in=snapshot_ids).order_by()}
-
-            for row in batch_rows:
-                snapshot_id = row[pk_idx]
-                snapshot = snapshots_by_id.get(snapshot_id)
-                if snapshot is not None:
-                    yield snapshot
-
-            last_values = batch_rows[-1][: len(ordered_field_names)]
 
     # =========================================================================
     # Filtering Methods
@@ -541,6 +467,7 @@ class SnapshotManager(models.Manager.from_queryset(SnapshotQuerySet)):  # ty: ig
 
 class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWithNotes, ModelWithHealthStats, ModelWithQueue):
     BROWSER_EXTENSION_UPLOAD_HOOK_NAME = "on_Snapshot__archivebox_browser_extension_upload"
+    DELETING_STATE = "deleting"
 
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False, unique=True)
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -574,7 +501,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     )
     retry_at = ModelWithQueue.RetryAtField(default=timezone.now)
     status = ModelWithQueue.StatusField(
-        choices=ModelWithQueue.StatusChoices,
+        choices=[*ModelWithQueue.StatusChoices.choices, (DELETING_STATE, "Deleting")],
         default=ModelWithQueue.StatusChoices.QUEUED,
     )
     config = models.JSONField(default=dict, null=False, blank=False, editable=True)
@@ -660,6 +587,49 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     def __str__(self):
         return f"[{self.id}] {self.url[:64]}"
+
+    def output_paths_for_delete(self) -> tuple[Path, ...]:
+        current = self.get_storage_path_for_version(self.fs_version)
+        paths = [Path(self.output_dir), current, CONSTANTS.ARCHIVE_DIR / self.timestamp]
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+            paths.append(current.with_name(str(uuid.UUID(hex=self.id.hex))))
+        if self.crawl_id:
+            domain_dir = self.crawl.output_dir / CONSTANTS.SNAPSHOTS_DIR_NAME / self.extract_domain_from_url(self.url)
+            paths.extend((domain_dir / str(self.id), domain_dir / str(uuid.UUID(hex=self.id.hex))))
+        return tuple(dict.fromkeys(paths))
+
+    def delete(self, using=None, keep_parents=False):
+        from django.db import connections
+
+        using = using or self._state.db or "default"
+        if connections[using].in_atomic_block:
+            raise RuntimeError("Snapshot filesystem deletion must run outside a database transaction")
+        type(self).objects.using(using).filter(pk=self.pk).request_delete()
+        self.status = self.DELETING_STATE
+        from archivebox.machine.models import Process
+
+        process_ids = self.archiveresult_set.filter(process__status=Process.StatusChoices.RUNNING).values_list("process_id", flat=True)
+        for process in list(Process.objects.using(using).filter(pk__in=process_ids)):
+            process.kill_tree()
+            if process.is_running:
+                raise OSError(f"Snapshot output writer is still running: {process.pk}")
+        paths = self.output_paths_for_delete()
+        self.delete_output_paths(paths)
+        # Cascaded ArchiveResults share this directory. Their normal post-commit
+        # cleanup would repeat filesystem work and update an already-deleted row.
+        self._output_files_deleted = True
+        return super().delete(using=using, keep_parents=keep_parents)
+
+    @classmethod
+    def delete_requested(cls, *, batch_size=100):
+        # Finish the bounded read before touching files: even an open SELECT
+        # cursor can hold a SQLite read lock for the duration of slow cleanup.
+        pending = list(cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by")[:batch_size])
+        for snapshot in pending:
+            try:
+                snapshot.delete()
+            except OSError:
+                logging.getLogger(__name__).exception("Snapshot %s file deletion failed; keeping its database row", snapshot.pk)
 
     @classmethod
     def crawl_count_subquery(cls, *, status: str | None = None, outer_ref: str = "pk") -> QuerySet:
@@ -911,8 +881,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        return cls.objects.filter(delete_at__isnull=True).filter(
-            Q(config__has_key="DELETE_AFTER") | Q(crawl__config__has_key="DELETE_AFTER"),
+        return (
+            cls.objects.filter(delete_at__isnull=True)
+            .filter(Q(config__has_key="DELETE_AFTER") | Q(crawl__config__has_key="DELETE_AFTER"))
+            .select_related("crawl")
+            .only("id", "created_at", "delete_at", "config", "crawl__config")
         )
 
     @classmethod
@@ -1073,7 +1046,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         from django.db import transaction
 
         def finish_snapshot_save():
-            self.reconcile_filesystem_links()
             crawl = Crawl.objects.filter(pk=self.crawl_id).first()
             if crawl is None:
                 return
@@ -1093,8 +1065,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             # Crawl.urls remains the original submitted source. Snapshot rows
             # are the normalized work queue and discovery projection.
 
-        # get_or_create/update_or_create wrap save() in atomic(); defer filesystem
-        # work and crawl maintenance so SQLite commits before touching the disk.
+        # get_or_create/update_or_create wrap save() in atomic(); attach inherited
+        # tags after that write commits. Filesystem projections belong to the runner.
         transaction.on_commit(finish_snapshot_save)
 
     # =========================================================================
@@ -1198,6 +1170,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         target_dir = self.get_storage_path_for_version(target)
         if target_dir.exists():
+            self.reconcile_with_index(output_dir=target_dir, update_existing_archive_results=False)
             self.hydrate_archiveresult_output_metadata(snapshot_dir=target_dir)
         if cleanup:
             old_dir, new_dir = cleanup
@@ -1230,7 +1203,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def hydrate_archiveresult_output_metadata(self, snapshot_dir: Path | None = None) -> int:
         """Populate missing ArchiveResult file metadata from existing outputs."""
         hydrated = 0
-        for result in self.archiveresult_set.filter(output_files={}).iterator():
+        # Files may live on slow remote storage: finish the bounded read before
+        # inspecting outputs or writing their metadata back to the database.
+        for result in self.archiveresult_set.filter(output_files={}).order_by("pk").paged_iterator():
             hydrated += int(result.update_output_metadata_from_filesystem(snapshot_dir=snapshot_dir))
         return hydrated
 
@@ -3975,6 +3950,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
 
 class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
+    objects = PagedQuerySet.as_manager()
+
     class StatusChoices(models.TextChoices):
         QUEUED = "queued", "Queued"
         STARTED = "started", "Started"
@@ -4196,8 +4173,11 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     @classmethod
     def missing_delete_at_candidates(cls):
-        return cls.objects.filter(delete_at__isnull=True).filter(
-            Q(snapshot__config__has_key="DELETE_AFTER") | Q(snapshot__crawl__config__has_key="DELETE_AFTER"),
+        return (
+            cls.objects.filter(delete_at__isnull=True)
+            .filter(Q(snapshot__config__has_key="DELETE_AFTER") | Q(snapshot__crawl__config__has_key="DELETE_AFTER"))
+            .select_related("snapshot__crawl")
+            .only("id", "created_at", "delete_at", "snapshot__config", "snapshot__crawl__config")
         )
 
     @property
@@ -4773,9 +4753,13 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
 
     @property
     def pwd(self) -> str:
-        """Working directory, derived from the snapshot/plugin path if the Process row is gone."""
+        """Working directory metadata without probing archive storage."""
         process = self.process_record
-        return process.pwd if process and process.pwd else str(self.output_dir)
+        return (
+            process.pwd
+            if process and process.pwd
+            else str(self.snapshot.get_storage_path_for_version(self.snapshot.fs_version) / self.plugin)
+        )
 
     @property
     def cmd(self) -> list:
