@@ -28,7 +28,9 @@ def test_setup_script_keeps_uv_as_the_native_fallback():
     native_flow = script.partition("install_archivebox_with_uv\n")[2]
 
     assert 'ARCHIVEBOX_PYTHON="${ARCHIVEBOX_PYTHON:-3.13}"' in script
-    assert 'ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox>=0.9.0rc0,<0.10}"' in script
+    assert 'ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox}"' in script
+    assert 'ARCHIVEBOX_BRANCH="${ARCHIVEBOX_BRANCH:-main}"' in script
+    assert 'ARCHIVEBOX_IMAGE="${ARCHIVEBOX_IMAGE:-archivebox/archivebox:latest}"' in script
     assert (
         'run_as_archivebox_user "$UV_BINARY" --no-config tool install --python "$ARCHIVEBOX_PYTHON" '
         '--prerelease explicit --upgrade "$ARCHIVEBOX_PACKAGE"'

@@ -3,7 +3,7 @@
 #   - Project Homepage: https://github.com/ArchiveBox/ArchiveBox
 #   - Install Documentation: https://github.com/ArchiveBox/ArchiveBox/wiki/Install
 # Script Usage:
-#    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | bash
+#    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/bin/setup.sh' | bash
 #           (aka https://get.archivebox.io)
 
 ### Bash Environment Setup
@@ -75,10 +75,10 @@ if [ "$RUNNING_AS_ROOT" = "true" ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" 
     FOLLOWUP_SUDO="sudo "
 fi
 
-ARCHIVEBOX_BRANCH="${ARCHIVEBOX_BRANCH:-dev}"
-ARCHIVEBOX_IMAGE="${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}"
+ARCHIVEBOX_BRANCH="${ARCHIVEBOX_BRANCH:-main}"
+ARCHIVEBOX_IMAGE="${ARCHIVEBOX_IMAGE:-archivebox/archivebox:latest}"
 ARCHIVEBOX_PYTHON="${ARCHIVEBOX_PYTHON:-3.13}"
-ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox>=0.9.0rc0,<0.10}"
+ARCHIVEBOX_PACKAGE="${ARCHIVEBOX_PACKAGE:-archivebox}"
 ARCHIVEBOX_PLATFORM="${ARCHIVEBOX_PLATFORM:-}"
 ARCHIVEBOX_COMPOSE_URL="${ARCHIVEBOX_COMPOSE_URL:-https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/${ARCHIVEBOX_BRANCH}/docker-compose.yml}"
 ABXPKG_PACKAGE="${ABXPKG_PACKAGE:-abxpkg}"
@@ -512,7 +512,7 @@ echo "    Open http://localhost:5797/admin/ to create the first admin and finish
 echo "    (When running remotely, replace localhost with this server's IP address or hostname.)"
 echo "    ps aux | grep archivebox                           # see server process pid"
 echo "    ${FOLLOWUP_SUDO}pkill -f 'archivebox server'                       # stop the server"
-echo "    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/dev/bin/setup.sh' | ${FOLLOWUP_SUDO}bash  # update versions"
+echo "    curl -fsSL 'https://raw.githubusercontent.com/ArchiveBox/ArchiveBox/main/bin/setup.sh' | ${FOLLOWUP_SUDO}bash  # update versions"
 echo "    ${FOLLOWUP_SUDO}archivebox add 'https://example.com'"              # archive a new URL
 echo "    ${FOLLOWUP_SUDO}archivebox list                                    # see URLs archived"
 echo "    ${FOLLOWUP_SUDO}archivebox help                                    # see more help & examples"
