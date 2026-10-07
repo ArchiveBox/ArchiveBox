@@ -2535,6 +2535,7 @@
                 return false
             }
             window.archiveboxInitAdminChangelist = function() {
+                if (window.archiveboxInitFilesIconPiles) window.archiveboxInitFilesIconPiles()
                 if (window.jQuery) {
                     fix_actions()
                     fixInlineAddRow()

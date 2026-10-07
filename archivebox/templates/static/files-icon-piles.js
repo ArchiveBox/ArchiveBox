@@ -1,10 +1,13 @@
 (() => {
     const HIDE_DELAY_MS = 600;
+    const initializedPiles = new WeakSet();
     let activePopup = null;
 
-    document.querySelectorAll('.files-icon-pile').forEach((pile) => {
+    function initializePile(pile) {
+        if (initializedPiles.has(pile)) return;
         const popup = pile.querySelector('.files-icon-pile-popup[popover]');
         if (!popup) return;
+        initializedPiles.add(pile);
         let hideTimer;
         let trackingPosition = false;
 
@@ -79,5 +82,11 @@
         pile.addEventListener('focusout', scheduleClose);
         popup.addEventListener('pointerenter', openPopup);
         popup.addEventListener('pointerleave', scheduleClose);
-    });
+    }
+
+    window.archiveboxInitFilesIconPiles = () => {
+        if (activePopup) activePopup.closeImmediately();
+        document.querySelectorAll('.files-icon-pile').forEach(initializePile);
+    };
+    window.archiveboxInitFilesIconPiles();
 })();

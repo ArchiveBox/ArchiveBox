@@ -480,7 +480,7 @@ def result_list(context, cl):
     return {
         "cl": cl,
         "num_sorted_fields": num_sorted_fields,
-        "results": results,
+        "results": [(obj, cl.model_admin.files(obj)) for obj in results],
         "request": request,
         "CONFIG": config,
     }

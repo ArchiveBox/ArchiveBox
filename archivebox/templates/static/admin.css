@@ -1496,7 +1496,7 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     position: relative;
     z-index: 10000;
 }
-#content td.field-files .files-icons a {
+#content .files-icons a {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1507,17 +1507,17 @@ body.model-crawl.change-list #result_list td.field-short_id a {
     height: 16px;
     min-width: 16px;
 }
-#content td.field-files .files-icons svg,
-#content td.field-files .files-icons img {
+#content .files-icons svg,
+#content .files-icons img {
     display: block;
     margin: 0;
     width: 16px;
     height: 16px;
 }
-#content td.field-files .exists-True {
+#content .files-icons .exists-True {
     opacity: 1;
 }
-#content td.field-files .exists-False {
+#content .files-icons .exists-False {
     opacity: 0.1;
     filter: grayscale(100%);
 }
@@ -2346,9 +2346,7 @@ tbody .output-link:hover {opacity: 1;}
 }
 
 @media (max-width: 720px) {
-    .files-icons--compact,
-    .model-snapshot.change-list .cards .card .card-info .files-icons,
-    .model-snapshot.change-list .cards .card .card-outputs .files-icons {
+    .files-icons--compact {
         grid-template-columns: repeat(5, 22px) !important;
         grid-template-rows: 18px !important;
         grid-auto-flow: column !important;
@@ -2433,26 +2431,6 @@ tbody .output-link:hover {opacity: 1;}
 
 .model-snapshot.change-list .cards .card .card-info > div {
     min-width: 0;
-}
-
-.model-snapshot.change-list .cards .card .card-info .files-icons,
-.model-snapshot.change-list .cards .card .card-outputs .files-icons {
-    display: inline-grid !important;
-    grid-template-columns: repeat(5, 22px) !important;
-    grid-template-rows: 18px !important;
-    grid-auto-flow: column !important;
-    grid-auto-columns: 22px !important;
-    justify-content: center !important;
-    align-items: start !important;
-    gap: 0 !important;
-    max-width: 100%;
-}
-
-.model-snapshot.change-list .cards .card .card-info .files-icons a,
-.model-snapshot.change-list .cards .card .card-info .files-icons .abx-output-icon,
-.model-snapshot.change-list .cards .card .card-outputs .files-icons a,
-.model-snapshot.change-list .cards .card .card-outputs .files-icons .abx-output-icon {
-    flex: 0 0 17px;
 }
 
 .model-snapshot.change-list .cards .card .card-info label {

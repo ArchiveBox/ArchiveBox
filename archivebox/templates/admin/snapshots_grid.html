@@ -261,7 +261,7 @@
 
 {% block content %}
   <section class="cards">
-    {% for obj in results %}
+    {% for obj, files in results %}
       <div class="card{% if obj.status == 'started' %} archiving{% endif %}">
           <div class="card-info card-meta">
             <input type="checkbox" class="action-select" name="_selected_action" value="{{obj.pk}}"/>
@@ -308,7 +308,7 @@
                 <span class="progress-text">Archiving...</span>
               </div>
             {% else %}
-              {{ obj.icons|safe }}
+              {{ files }}
             {% endif %}
           </div>
       </div>
