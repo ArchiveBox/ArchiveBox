@@ -231,33 +231,14 @@ def build_crawl_config_snapshot(
     """Build the frozen crawl config stored on Crawl.config at creation time."""
     explicit_overrides = set(overrides or {})
     plugin_owned_keys = set(_plugin_config_properties(PLUGIN_CONFIG_SCHEMAS)) - set(ArchiveBoxBaseConfig.model_fields)
-    effective = get_config(persona=persona, base_config=base_config)
-    frozen = effective.for_crawl_frozen(persona=persona)
-    for key in ("BIND_ADDR", "BASE_URL", "CSRF_TRUSTED_ORIGINS", "SERVER_SECURITY_MODE"):
-        value = getattr(effective, key, None)
-        if value is not None:
-            frozen[key] = value
+    effective = get_config(persona=persona, base_config=base_config, overrides=overrides)
+    frozen = effective.for_crawl_frozen()
+    # Persona-owned plugin values stay live unless the crawl explicitly overrides them.
     if persona is not None:
         persona_config = persona.get_derived_config()
         for key in plugin_owned_keys - explicit_overrides:
             if key in persona_config:
                 frozen.pop(key, None)
-    if overrides:
-        resolved = get_config(base_config=frozen, overrides=overrides, include_machine=False)
-        resolved_payload = normalize_runtime_config(resolved)
-        frozen = resolved.for_crawl_frozen(persona=persona)
-        for key in ("BIND_ADDR", "BASE_URL", "CSRF_TRUSTED_ORIGINS", "SERVER_SECURITY_MODE"):
-            value = getattr(resolved, key, None)
-            if value is not None:
-                frozen[key] = value
-        for key in plugin_owned_keys & explicit_overrides:
-            if ArchiveBoxConfig.scope_for_key(key) == _SCOPE_CRAWL_FROZEN and key in resolved_payload:
-                frozen[key] = resolved_payload[key]
-        if persona is not None:
-            persona_config = persona.get_derived_config()
-            for key in plugin_owned_keys - explicit_overrides:
-                if key in persona_config:
-                    frozen.pop(key, None)
     return frozen
 
 
@@ -338,7 +319,7 @@ class ServerConfig(BaseConfigSet):
 
     SECRET_KEY: str = Field(default_factory=lambda: "".join(secrets.choice("abcdefghijklmnopqrstuvwxyz0123456789_") for _ in range(50)))
     BIND_ADDR: str = Field(default="127.0.0.1:5797")
-    BASE_URL: str = Field(default="")
+    BASE_URL: str = Field(default="", json_schema_extra={"scope": _SCOPE_CRAWL_FROZEN})
     ALLOWED_HOSTS: str = Field(default="*")
     CSRF_TRUSTED_ORIGINS: str = Field(default="")
     SERVER_SECURITY_MODE: str = Field(default="auto")
@@ -699,6 +680,13 @@ def _archivebox_config_input_names() -> set[str]:
     return names
 
 
+def filter_crawl_env(env: Mapping[str, Any]) -> dict[str, Any]:
+    """Project known config inputs for hooks; preserve tool env and plugin credentials."""
+    allowed = ArchiveBoxConfig._crawl_runtime_keys() - {"PLUGINS", "SEARCH_BACKEND_ENGINE"}
+    inputs = _archivebox_config_input_names()
+    return {key: value for key, value in env.items() if key not in inputs or key in allowed}
+
+
 class ArchiveBoxBaseConfig(
     ShellConfig,
     StorageConfig,
@@ -829,16 +817,9 @@ class ArchiveBoxBaseConfig(
             config.pop(key, None)
         return config
 
-    def for_crawl_frozen(self, *, persona: Any = None) -> dict[str, Any]:
+    def for_crawl_frozen(self) -> dict[str, Any]:
         """Config safe to persist permanently on Crawl.config."""
-        frozen = self._scoped_config(include_execution=False)
-        if persona is not None:
-            persona_config = dict(persona.config or {})
-            scope_by_key = type(self)._scope_by_key()
-            for key in persona.get_derived_config():
-                if key not in persona_config and scope_by_key.get(key) == _SCOPE_CRAWL_EXECUTION:
-                    frozen.pop(key, None)
-        return frozen
+        return self._scoped_config(include_execution=False)
 
     def for_crawl_runtime(
         self,
@@ -855,37 +836,21 @@ class ArchiveBoxBaseConfig(
         config = self.for_crawl()
         config["DATA_DIR"] = str(CONSTANTS.DATA_DIR)
         scope_by_key = type(self)._scope_by_key()
-        model_fields = type(self).model_fields
-        # ArchiveBox-only selectors are consumed during model validation to
-        # derive hook-owned *_ENABLED flags. They are stripped below after
-        # crawl/snapshot overlays have had a chance to apply.
-        config.pop("SEARCH_BACKEND_ENGINE", None)
         if persona is not None:
             for key, value in persona.get_derived_config().items():
                 if scope_by_key.get(key) == _SCOPE_CRAWL_EXECUTION:
                     config[key] = value
 
         if crawl is not None:
-            for key, value in dict(crawl.config or {}).items():
-                if key in model_fields and scope_by_key.get(key) != _SCOPE_CRAWL_EXECUTION:
-                    config[key] = value
             config["CRAWL_DIR"] = str(crawl_output_dir if crawl_output_dir is not None else crawl.output_dir)
 
         if snapshot is not None:
-            for key, value in dict(snapshot.config or {}).items():
-                if key in model_fields and scope_by_key.get(key) != _SCOPE_CRAWL_EXECUTION:
-                    config[key] = value
             config["SNAP_DIR"] = str(snapshot_output_dir if snapshot_output_dir is not None else snapshot.output_dir)
 
         if runtime_overrides:
             config.update(normalize_runtime_config(runtime_overrides, json_safe=False))
 
         _resolve_cookie_file_paths(config)
-
-        # Hooks should only see concrete plugin-local flags, never the
-        # ArchiveBox selectors used to derive them.
-        config.pop("PLUGINS", None)
-        config.pop("SEARCH_BACKEND_ENGINE", None)
 
         if extra_context:
             context: dict[str, Any] = {}
@@ -897,7 +862,7 @@ class ArchiveBoxBaseConfig(
             context.update(dict(extra_context))
             config["EXTRA_CONTEXT"] = json.dumps(context, separators=(",", ":"), sort_keys=True)
 
-        return config
+        return filter_crawl_env(config)
 
     @model_validator(mode="after")
     def resolve_runtime_paths(self):

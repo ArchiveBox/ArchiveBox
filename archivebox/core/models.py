@@ -905,20 +905,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         if config is None:
             config = get_config()
-        elif isinstance(config, Mapping):
-            route_config = config
-
-            class RouteConfig:
-                BIND_ADDR = str(route_config.get("BIND_ADDR") or "")
-                BASE_URL = str(route_config.get("BASE_URL") or "")
-                CSRF_TRUSTED_ORIGINS = str(route_config.get("CSRF_TRUSTED_ORIGINS") or "")
-                SERVER_SECURITY_MODE = str(route_config.get("SERVER_SECURITY_MODE") or "")
-
-                @property
-                def USES_SUBDOMAIN_ROUTING(self) -> bool:
-                    return self.SERVER_SECURITY_MODE == "safe-subdomains-fullreplay"
-
-            config = RouteConfig()
         host = parsed.hostname.lower().strip(".")
         port = str(parsed.port) if parsed.port else None
         protected_subdomains = {"admin", "web", "api"}
@@ -1017,19 +1003,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def save(self, *args, **kwargs):
         update_fields = kwargs.get("update_fields")
         validate_url_field = self._state.adding or update_fields is None or "url" in update_fields
-        crawl_config_for_save = None
-        crawl_permissions_for_save = None
-        if self.crawl_id and validate_url_field:
-            crawl_row = Crawl.objects.filter(pk=self.crawl_id).values("config", "permissions").first()
-            if crawl_row:
-                crawl_config_for_save = crawl_row.get("config") or {}
-                crawl_permissions_for_save = crawl_row.get("permissions")
-
-        if self.ensure_permissions_config(crawl_permissions=crawl_permissions_for_save) and update_fields is not None:
+        if self.ensure_permissions_config() and update_fields is not None:
             kwargs["update_fields"] = tuple(dict.fromkeys([*update_fields, "config"]))
 
         if validate_url_field:
-            self.validate_url_for_archiving(config=crawl_config_for_save if self.crawl_id else None)
+            self.validate_url_for_archiving()
 
         if not self.bookmarked_at:
             self.bookmarked_at = self.created_at or timezone.now()

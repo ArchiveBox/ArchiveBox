@@ -125,17 +125,14 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         return self.enqueue(queued_at=queued_at)
 
     def enqueue(self, queued_at=None) -> "Crawl":
-        from archivebox.config.common import build_crawl_config_snapshot
-
         queued_at = queued_at or timezone.now()
         template = self.template
         label = template.label or self.label
-        persona = template.persona if template.persona_id else None
         crawl_config = {key: value for key, value in (self.config or {}).items() if key != "SCHEDULE_KIND"}
 
         return Crawl.objects.create(
             urls=template.urls,
-            config=build_crawl_config_snapshot(persona=persona, overrides=crawl_config),
+            config=crawl_config,
             max_depth=template.max_depth,
             tags_str=template.tags_str,
             persona_id=template.persona_id,
@@ -320,13 +317,15 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if sync_tags and old_crawl is not None:
             previous_tag_names = set(self.parse_tag_names(old_crawl.tags_str or ""))
 
+        from archivebox.config.common import ArchiveBoxConfig, build_crawl_config_snapshot
+
         config = dict(self.config or {})
         is_new = self._state.adding or old_crawl is None
         persona = self.persona if self.persona_id else None
         if is_new:
-            from archivebox.config.common import build_crawl_config_snapshot
-
             config = build_crawl_config_snapshot(persona=persona, overrides=config)
+        else:
+            config = {key: value for key, value in config.items() if ArchiveBoxConfig._scope_by_key().get(key) != "server"}
         if str(config.get("PERMISSIONS") or "").strip().lower() not in PERMISSIONS_VALUES:
             from archivebox.config.common import get_config
 
@@ -977,6 +976,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             List of newly created Snapshot objects
         """
         from archivebox.core.models import Snapshot, Tag
+        from archivebox.config.common import get_config
         from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
         if self.status == self.StatusChoices.SEALED:
@@ -984,6 +984,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         created_snapshots = []
         crawl_tag_names = self.current_tag_names()
         tags_by_name: dict[str, Tag] = {}
+        server_config = get_config()
 
         for line in self.urls.splitlines():
             if not line.strip():
@@ -1015,7 +1016,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             except ValueError as err:
                 print(f"[yellow][!] Skipping invalid snapshot URL: {url[:120]}... ({err})[/yellow]")
                 continue
-            if Snapshot.is_archivebox_internal_url(url, config=config):
+            if Snapshot.is_archivebox_internal_url(url, config=server_config):
                 print(f"[yellow][!] Skipping internal ArchiveBox snapshot URL: {url}[/yellow]")
                 continue
             if not self.url_passes_filters(url, use_effective_config=False):
@@ -1126,6 +1127,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
     ) -> list["Snapshot"]:
         """Create child snapshots from discovered URL records after filtering and deduping once."""
         from archivebox.core.models import Snapshot, SnapshotTag, Tag
+        from archivebox.config.common import get_config
         from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
         if self.status == self.StatusChoices.SEALED:
@@ -1136,6 +1138,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
 
         crawl_tag_names = self.current_tag_names()
         config = self.get_current_config(refresh=True)
+        server_config = get_config()
         if parent_snapshot is not None and parent_snapshot.config:
             config.update(parent_snapshot.config)
         allowlist = self.split_filter_patterns(config.get("URL_ALLOWLIST", ""))
@@ -1157,7 +1160,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             except ValueError as err:
                 print(f"[yellow][!] Skipping invalid discovered snapshot URL: {url[:120]}... ({err})[/yellow]")
                 continue
-            if Snapshot.is_archivebox_internal_url(url, config=config):
+            if Snapshot.is_archivebox_internal_url(url, config=server_config):
                 print(f"[yellow][!] Skipping internal ArchiveBox discovered snapshot URL: {url}[/yellow]")
                 continue
             if self.url_passes_compiled_filters(url, allowlist=allowlist, denylist=denylist):

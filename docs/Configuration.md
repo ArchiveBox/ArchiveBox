@@ -11,7 +11,17 @@ TIMEOUT=120
 env TIMEOUT=120 archivebox add ~/Downloads/bookmarks_export.html
 ```
 
-Environment variables seed process-level defaults. Persisted Machine, Persona, Crawl, and Snapshot settings can override them depending on scope, and existing Crawl config is not silently overwritten by later environment changes. Runtime-derived values like crawl/snapshot output dirs are resolved fresh for each run instead of being stored in frozen crawl config. For more examples see [Usage: Configuration](Usage#run-archivebox-with-configuration-options)...
+Configuration resolves from schema defaults → `ArchiveBox.conf` → environment → Machine → Persona → Crawl → Snapshot → explicit runtime overrides, subject to each field's scope. Personas store overrides, not copies of system defaults; the Default persona passes through unchanged values. At creation, a crawl stores the resolved `crawl_frozen` settings, including explicit crawl overrides. Persona-owned plugin settings remain inherited unless explicitly overridden on the crawl: later persona edits and credential rotation must reach subsequent snapshots in long-running crawls. Core settings already captured on the crawl remain stable (e.g. `USER_AGENT`); `crawl_execution` settings such as binaries and browser runtime paths are resolved live. Snapshot config contains only local overrides, not another full copy.
+
+Resolve sources once, then project for the consumer without mutating source mappings or the process environment. Server/worker configuration keeps server settings; crawl records and hook environments exclude them, including inherited environment aliases. `BASE_URL`, `SONIC_DIR`, and `OPENCODE_STATE_DIR` remain available for capture. Internal-URL checks use current server routing settings rather than storing them on every crawl. Hooks receive necessary plugin credentials; saved process records redact them separately. Re-read persona/crawl settings between snapshots, preserve the existing browser-profile/cookie lifecycle, and add no config history or per-result copies.
+
+```text
+new crawl: resolved capture defaults + persona + explicit crawl overrides → stored Crawl.config
+next snapshot: stored crawl + live inherited/execution settings + sparse snapshot overrides → hook env
+persona TWOCAPTCHA_API_KEY changes → next snapshot sees it; explicit crawl value wins
+```
+
+For more examples see [Usage: Configuration](Usage#run-archivebox-with-configuration-options).
 
 <br/>
 

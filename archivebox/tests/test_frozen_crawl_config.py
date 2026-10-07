@@ -127,6 +127,66 @@ def test_snapshot_config_overlays_frozen_crawl_without_re_reading_persona(archiv
     }
 
 
+def test_server_config_stays_available_without_entering_crawl_or_snapshot_runtime(archivebox_db):
+    from archivebox.config.common import get_config
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Machine
+    from archivebox.services.runner import CrawlRunner
+    import asyncio
+
+    user = _user("config-boundaries-admin")
+    server_config = {
+        "BIND_ADDR": "127.0.0.1:9292",
+        "CSRF_TRUSTED_ORIGINS": "https://admin.archive.example",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    retained = {"BASE_URL": "https://archive.example", "SONIC_DIR": "/tmp/sonic", "OPENCODE_STATE_DIR": "/tmp/opencode"}
+    machine = Machine.current()
+    machine.config = {**machine.config, **server_config, **retained}
+    machine.save(update_fields=["config"])
+    persona = _persona(user)
+    crawl = Crawl.objects.create(urls="https://example.com", persona=persona, created_by=user, config={"TIMEOUT": 11})
+    assert all(get_config()[key] == value for key, value in server_config.items())
+    assert {key: crawl.config[key] for key in retained} == retained
+    assert not server_config.keys() & crawl.config.keys()
+    assert all(get_config(crawl=crawl)[key] == value for key, value in server_config.items())
+    crawl.config.update({**server_config, "FAVICON_PROVIDER": "https://example.com/explicit.ico", "CUSTOM_PLUGIN_OPTION": "preserve"})
+    crawl.save(update_fields=["config"])
+    crawl.refresh_from_db()
+    assert not server_config.keys() & crawl.config.keys()
+    assert crawl.config["FAVICON_PROVIDER"] == "https://example.com/explicit.ico"
+    assert crawl.config["CUSTOM_PLUGIN_OPTION"] == "preserve"
+
+    # Self-archive protection follows the current server, not old crawl metadata.
+    from django.core.exceptions import ValidationError
+
+    machine.config = {**machine.config, "BIND_ADDR": "127.0.0.1:9393"}
+    machine.save(update_fields=["config"])
+    with pytest.raises(ValidationError, match="cannot archive its own"):
+        Snapshot.objects.create(url="http://127.0.0.1:9393/admin/", crawl=crawl)
+    assert crawl.create_discovered_snapshots(None, [{"url": "http://127.0.0.1:9393/admin/"}], depth=0) == []
+    machine.config.update(server_config)
+    machine.save(update_fields=["config"])
+
+    # Legacy rows and explicit overrides must pass through the same projection.
+    Crawl.objects.filter(pk=crawl.pk).update(config={**crawl.config, **server_config})
+    snapshot = Snapshot.objects.create(url="https://example.com", crawl=crawl, config={**server_config, "TIMEOUT": 22})
+    runner = CrawlRunner(crawl)
+    try:
+        runner.load_run_state()
+        runtime = runner.load_snapshot_payload(str(snapshot.id))["config"]
+        assert runtime["TIMEOUT"] == 22
+        assert {key: runtime[key] for key in retained} == retained
+        assert not server_config.keys() & runtime.keys()
+        assert (
+            not server_config.keys() & get_config(crawl=crawl, snapshot=snapshot).for_crawl_runtime(runtime_overrides=server_config).keys()
+        )
+        assert all(get_config()[key] == value for key, value in server_config.items())
+    finally:
+        asyncio.run(runner.bus.destroy(clear=False))
+
+
 def test_config_scopes_are_derived_from_section_and_field_metadata():
     from archivebox.config.common import ArchiveBoxConfig
 
@@ -255,7 +315,7 @@ def test_crawl_config_projections_stay_under_hot_path_budget():
 
     methods = {
         "for_crawl": config.for_crawl,
-        "for_crawl_frozen": lambda: config.for_crawl_frozen(persona=persona),
+        "for_crawl_frozen": config.for_crawl_frozen,
         "for_crawl_runtime": lambda: config.for_crawl_runtime(**runtime_kwargs),
     }
     iterations = 250

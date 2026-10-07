@@ -32,16 +32,11 @@ def current_network_interface_with_machine():
 
 
 def normalize_process_env(env: dict) -> dict:
-    normalized = dict(env or {})
-    raw_plugins = normalized.pop("PLUGINS", "")
-    selected_plugins = {name.strip().lower() for name in str(raw_plugins).split(",") if name.strip()}
-    from archivebox.config.common import ArchiveBoxConfig, _archivebox_config_input_names, is_sensitive_config_key
+    from archivebox.config.common import filter_crawl_env, is_sensitive_config_key
 
-    allowed_config_keys = ArchiveBoxConfig._crawl_runtime_keys()
-    config_input_names = _archivebox_config_input_names()
-    for key in list(normalized):
-        if is_sensitive_config_key(key) or (key in config_input_names and key not in allowed_config_keys):
-            normalized.pop(key, None)
+    raw_plugins = (env or {}).get("PLUGINS", "")
+    selected_plugins = {name.strip().lower() for name in str(raw_plugins).split(",") if name.strip()}
+    normalized = {key: value for key, value in filter_crawl_env(env or {}).items() if not is_sensitive_config_key(key)}
     if selected_plugins:
         from archivebox.config.common import _plugin_enabled_config_keys
         from archivebox.plugins.discovery import get_plugin_catalog

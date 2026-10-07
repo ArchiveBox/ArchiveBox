@@ -65,6 +65,7 @@ from archivebox.services.resource_admission import RESOURCE_RECHECK_SECONDS, res
 
 from archivebox.config.common import (
     ArchiveBoxBaseConfig,
+    filter_crawl_env,
     normalize_runtime_config,
     _is_cookie_file_config_key,
     _plugin_enabled_config_keys,
@@ -206,6 +207,7 @@ class CrawlRunner:
             self.bus,
             emit_jsonl=False,
             interactive_tty=interactive_interrupts,
+            env_filter=filter_crawl_env,
             interrupted_hook_prompt=self._prompt_in_foreground if interactive_interrupts else None,
         )
         register_sonic_daemon_event_handler(self.bus)
@@ -835,6 +837,7 @@ class CrawlRunner:
                 runtime="archivebox",
                 auto_install=True,
                 emit_jsonl=False,
+                env_filter=filter_crawl_env,
             ),
         )
         records = [snapshot.model_dump(mode="json") for snapshot in discovered]
@@ -937,7 +940,7 @@ class CrawlRunner:
         snapshot = Snapshot.objects.select_related("crawl", "crawl__created_by").get(id=snapshot_id)
         self.crawl = snapshot.crawl
         self.persona = snapshot.crawl.resolve_persona()
-        self.base_config = get_config(crawl=snapshot.crawl, persona=self.persona, overrides=self.config_overrides)
+        self.base_config = get_config(crawl=snapshot.crawl, snapshot=snapshot, persona=self.persona, overrides=self.config_overrides)
         self.crawl_output_dir = str(snapshot.crawl.output_dir)
         runtime_chrome_overrides = {}
         if self.persona:
@@ -1216,7 +1219,7 @@ class CrawlRunner:
                 raise RuntimeError("Snapshot events must be emitted from a CrawlStartEvent handler")
             snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_id)
             try:
-                snapshot["_snapshot"].validate_url_for_archiving(config=snapshot["config"])
+                await sync_to_async(snapshot["_snapshot"].validate_url_for_archiving, thread_sensitive=True)()
             except ValidationError as err:
                 if snapshot["status"] != "sealed":
                     await sync_to_async(snapshot["_snapshot"].seal, thread_sensitive=True)()
@@ -1439,7 +1442,7 @@ async def _run_binary(binary_id: str) -> None:
     catalog = get_plugin_catalog()
     config["ABX_RUNTIME"] = "archivebox"
     PluginBinaryEnvService(bus, catalog=catalog)
-    HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
+    HookProcessService(bus, emit_jsonl=False, interactive_tty=False, env_filter=filter_crawl_env)
     await bus.emit(MachineEvent(config=config, config_type="user")).now()
     if derived_config:
         await bus.emit(MachineEvent(config=derived_config, config_type="derived")).now()
@@ -1856,7 +1859,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                 )
             with live_ui if live_ui is not None else nullcontext():
                 try:
-                    HookProcessService(bus, emit_jsonl=False, interactive_tty=interactive_tty)
+                    HookProcessService(bus, emit_jsonl=False, interactive_tty=interactive_tty, env_filter=filter_crawl_env)
                     PluginBinaryEnvService(bus, catalog=selected_plugins)
                     install_snapshot = AbxSnapshot(url="")
                     PluginBinariesService(

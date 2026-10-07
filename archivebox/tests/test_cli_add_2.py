@@ -14,6 +14,7 @@ import termios
 from pathlib import Path
 
 import pytest
+import psutil
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
@@ -194,6 +195,13 @@ def test_add_title_hook_env_gets_canonical_runtime_config_without_archivebox_sel
             "SAVE_TITLE": "True",
             "SECRET_KEY": "hook-env-secret-must-not-leak",
             "PUBLIC_ADD_VIEW": "True",
+            "BIND_ADDR": "127.0.0.1:9292",
+            "CSRF_TRUSTED_ORIGINS": "https://admin.archive.example",
+            "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+            "BASE_URL": "https://archive.example",
+            "SONIC_DIR": str(initialized_archive / "sonic"),
+            "OPENCODE_STATE_DIR": str(initialized_archive / "opencode"),
+            "TWOCAPTCHA_API_KEY": "hook-env-plugin-secret-must-survive",
             "ADMIN_PASSWORD": "hook-env-admin-password-must-not-leak",
             "URL_BLACKLIST": "$^",
             "ARCHIVEBOX_TEST_ARBITRARY_ENV": "preserved-user-env",
@@ -212,7 +220,26 @@ def test_add_title_hook_env_gets_canonical_runtime_config_without_archivebox_sel
         cwd=initialized_archive,
         env=env,
         timeout=180,
+        wait=False,
     )
+    live_hook_envs = {}
+    try:
+        parent = psutil.Process(result.pid)
+        deadline = time.monotonic() + 170
+        while result.poll() is None and time.monotonic() < deadline:
+            for child in parent.children(recursive=True):
+                try:
+                    command = child.cmdline()
+                    if any("on_Snapshot__" in arg for arg in command):
+                        live_hook_envs[child.pid] = child.environ()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    continue
+            time.sleep(0.01)
+        result.communicate(timeout=10)
+    finally:
+        if result.poll() is None:
+            result.terminate()
+            result.wait(timeout=10)
     assert result.returncode == 0, result.stderr or result.stdout
     assert "Crawl.save() outside runner process" not in result.stdout + result.stderr
 
@@ -243,6 +270,23 @@ def test_add_title_hook_env_gets_canonical_runtime_config_without_archivebox_sel
     assert "URL_BLACKLIST" not in process_env
     assert "hook-env-secret-must-not-leak" not in json.dumps(process_env)
     assert "hook-env-admin-password-must-not-leak" not in json.dumps(process_env)
+    assert live_hook_envs, "No real hook subprocess environment was observed"
+    for hook_env in live_hook_envs.values():
+        for key in (
+            "BIND_ADDR",
+            "CSRF_TRUSTED_ORIGINS",
+            "SERVER_SECURITY_MODE",
+            "SECRET_KEY",
+            "PUBLIC_ADD_VIEW",
+            "PLUGINS",
+            "SAVE_TITLE",
+            "URL_BLACKLIST",
+            "SEARCH_BACKEND_ENGINE",
+        ):
+            assert key not in hook_env, key
+        for key in ("BASE_URL", "SONIC_DIR", "OPENCODE_STATE_DIR", "TWOCAPTCHA_API_KEY", "ARCHIVEBOX_TEST_ARBITRARY_ENV", "LD_PRELOAD"):
+            assert hook_env[key] == env[key], key
+    assert env["BIND_ADDR"] == "127.0.0.1:9292"
 
 
 def test_add_creates_crawl_record(initialized_archive):
