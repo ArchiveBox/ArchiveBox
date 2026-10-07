@@ -116,14 +116,11 @@ jobs:
           CI_RUNNER_ENVIRONMENT: ${{ runner.environment }}
         run: |
           workers=2
-          cache_suffix=''
           if [[ "$CI_RUNNER_ENVIRONMENT" == github-hosted ]]; then
             workers="$(nproc)"
-            cache_suffix="-workers-$workers"
           fi
           {
             echo "CI_TEST_WORKERS=$workers"
-            echo "ABXPKG_CACHE_WORKERS_SUFFIX=$cache_suffix"
             echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/archivebox-lib"
             echo "DATA_DIR=$RUNNER_TEMP/archivebox-test-data"
             echo "PERSONAS_DIR=$RUNNER_TEMP/abx-personas"
@@ -152,7 +149,7 @@ jobs:
       - name: Reuse persistent runner tools
         if: runner.environment == 'self-hosted'
         env:
-          PERSISTENT_ABXPKG_LIB: ${{ runner.tool_cache }}/abxpkg/${{ github.repository }}/${{ steps.python.outputs.python-version }}
+          PERSISTENT_ABXPKG_LIB: ${{ runner.tool_cache }}/abxpkg/${{ github.repository }}/${{ env.CI_PYTHON_VERSION }}
         run: |
           mkdir -p "$PERSISTENT_ABXPKG_LIB"
           echo "ABXPKG_LIB_DIR=$PERSISTENT_ABXPKG_LIB" >> "$GITHUB_ENV"
@@ -178,9 +175,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/archivebox-lib
-          key: abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}${{ env.ABXPKG_CACHE_WORKERS_SUFFIX }}
+          key: abxpkg-v2-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ env.CI_PYTHON_VERSION }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}
           restore-keys: |
-            abxpkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-
+            abxpkg-v2-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ env.CI_PYTHON_VERSION }}-${{ matrix.test.name }}-
 
       - name: Resolve optional build dependencies through abxpkg
         if: matrix.test.extra != '' || contains(matrix.test.paths_arg, 'test_postgres_backend')
@@ -229,9 +226,9 @@ jobs:
             test_args+=("$GITHUB_WORKSPACE/$test_path")
           done
           # Each test still gets isolated DB/filesystem state from conftest.
-          # Keep each file on one worker so its installed binaries are reused.
+          # Keep one worker pool per batch instead of starting it for every file.
           mkdir -p "$DATA_DIR" "$PERSONAS_DIR" "$RUNNER_TEMP/pytest"
-          uv run --no-cache --no-sync --no-sources pytest -vs -n "$CI_TEST_WORKERS" --dist loadfile "${test_args[@]}" --durations=20 -o faulthandler_timeout=60 \
+          uv run --no-cache --no-sync --no-sources pytest -vs -n "$CI_TEST_WORKERS" "${test_args[@]}" --durations=20 -o faulthandler_timeout=60 \
             --basetemp="$RUNNER_TEMP/pytest" \
             --junitxml="$RUNNER_TEMP/test-results/results.xml"
       - name: Save test results

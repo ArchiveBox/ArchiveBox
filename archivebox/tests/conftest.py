@@ -42,10 +42,10 @@ SESSION_DATA_DIR = Path(
 ).resolve()
 PORT_ALLOCATION_DIR = Path(os.environ.setdefault("ARCHIVEBOX_PYTEST_PORTS_DIR", str(SESSION_DATA_DIR / "ports")))
 if worker_id := os.environ.get("PYTEST_XDIST_WORKER"):
-    # Workers inherit the coordinator's environment. Give each one its own
-    # collection and cleanup root so a finishing worker cannot delete another's.
+    # Isolate collections and browser profiles; abxpkg serializes shared library
+    # installs outside each worker's disposable collection and cleanup root.
     SESSION_DATA_DIR /= worker_id
-    for runtime_key in ("ABXPKG_LIB_DIR", "PERSONAS_DIR", "CHROME_USER_DATA_DIR"):
+    for runtime_key in ("PERSONAS_DIR", "CHROME_USER_DATA_DIR"):
         if runtime_path := os.environ.get(runtime_key):
             os.environ[runtime_key] = str(Path(runtime_path) / worker_id)
 
