@@ -8,7 +8,7 @@ from playwright.sync_api import expect, sync_playwright
 
 
 @pytest.mark.django_db(transaction=True)
-def test_zip64_browser_seeks_saved_output_from_any_plugin(snapshot, live_server):
+def test_zip64_browser_seeks_saved_output_from_any_plugin(snapshot, live_server, browser_runtime):
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
 
@@ -28,7 +28,10 @@ def test_zip64_browser_seeks_saved_output_from_any_plugin(snapshot, live_server)
             archive.writestr(f"bulk/{i}.txt", "ZIP64 entry")
     host = get_snapshot_host(str(snapshot.id)).split(":")[0]
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
         page = browser.new_page()
         reads = []
         page.on(
@@ -57,7 +60,7 @@ def test_zip64_browser_seeks_saved_output_from_any_plugin(snapshot, live_server)
 
 
 @pytest.mark.django_db(transaction=True)
-def test_directory_filter_and_row_downloads(snapshot, live_server):
+def test_directory_filter_and_row_downloads(snapshot, live_server, browser_runtime):
     from archivebox.core.routes_util import get_snapshot_host
     from archivebox.machine.models import Machine
 
@@ -78,7 +81,10 @@ def test_directory_filter_and_row_downloads(snapshot, live_server):
     (root / "nested" / "child.txt").write_text("folder member")
     host = get_snapshot_host(str(snapshot.id)).split(":")[0]
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"])
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
         page = browser.new_page(accept_downloads=True, locale="tr-TR")
         page.goto(f"http://{host}:{port}/dropbox/files/?files=1")
         expect(page.locator(".entry-download")).to_have_count(5)

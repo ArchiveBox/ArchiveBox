@@ -40,7 +40,7 @@ classifiers = [
 dependencies = [
     ### Django libraries
     "setuptools>=74.1.0",   # for: django 5 on python >=3.12, distutils is no longer in stdlib but django 5.1 expects distutils (TODO: check if this can be removed eventually)
-    "django>=6.1",
+    "django>=6.1.1",
     "psycopg[binary]>=3.2",  # for: PostgreSQL database backend (ARCHIVEBOX_DATABASE_ENGINE=postgres)
     "daphne>=4.2.1",  # ASGI server for Django and optional plugin WebSockets (no channels needed)
     "django-ninja>=1.5.1",
@@ -139,7 +139,7 @@ dev = [
     # "snakeviz",                                      # usage: python -m cProfile -o flamegraph.prof ../.venv/bin/archivebox manage check
     ### TESTING
     "pytest-django>=4.11.1",
-    "pytest>=8.3.3",
+    "pytest>=9.0.3,<9.1",
     "pytest-cov>=6.0.0",
     "pytest-github-actions-annotate-failures>=0.4.0",
     "pytest-httpserver>=1.1.0",
