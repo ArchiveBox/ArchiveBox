@@ -181,6 +181,79 @@ def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(
     assert context["best_result"]["name"] == "archivewebpage"
 
 
+@pytest.mark.parametrize(
+    ("plugin", "server_plugin", "filename", "mimetype", "group"),
+    [
+        ("chrome_extension_viewport", "screenshot", "screenshot.png", "image/png", "raster"),
+        ("chrome_extension_screenshot", "screenshot", "screenshot.png", "image/png", "raster"),
+        ("chrome_extension_singlefile", "singlefile", "singlefile.html", "text/html", "html"),
+    ],
+)
+def test_extension_uploads_share_stacks_without_sharing_files(
+    snapshot,
+    client,
+    api_headers,
+    plugin,
+    server_plugin,
+    filename,
+    mimetype,
+    group,
+):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.template.loader import render_to_string
+    from archivebox.core.routes_util import get_snapshot_host
+
+    image = mimetype == "image/png"
+    server_bytes = (IMAGE_FIXTURE if image else FIXTURE).read_bytes()
+    extension_bytes = (IMAGE_FIXTURE.parents[1] / "icon.png" if image else IMAGE_FIXTURE.parents[1] / "index.html").read_bytes()
+    assert server_bytes != extension_bytes
+    server_path = Path(snapshot.output_dir) / server_plugin / filename
+    server_path.parent.mkdir(parents=True, exist_ok=True)
+    server_path.write_bytes(server_bytes)
+    server_result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin=server_plugin,
+        hook_name=f"on_Snapshot__50_{server_plugin}.js",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str=filename,
+        output_files={filename: {"size": len(server_bytes), "mimetype": mimetype}},
+    )
+    response = client.post(
+        "/api/v1/core/archiveresults",
+        {
+            "snapshot_id": str(snapshot.id),
+            "plugin": plugin,
+            "files": SimpleUploadedFile(filename, extension_bytes, content_type=mimetype),
+        },
+        **api_headers,
+    )
+    assert response.status_code == 200, response.content
+    uploaded = ArchiveResult.objects.get(pk=response.json()["id"])
+    assert uploaded.plugin == plugin
+    assert uploaded.id != server_result.id
+    assert server_path.read_bytes() == server_bytes
+    assert (Path(snapshot.output_dir) / plugin / filename).read_bytes() == extension_bytes
+
+    context = snapshot.get_html_details_context()
+    outputs = {output["name"]: output for output in context["archiveresults"]}
+    assert outputs[plugin]["output_group"] == group
+    assert outputs[server_plugin]["output_group"] == group
+    html = render_to_string("core/snapshot_output_cards.html", context)
+    cards = re.findall(r'<div class="thumb-card[^>]*>', html)
+    for name in (server_plugin, plugin):
+        matching = [card for card in cards if f'data-output-path="{name}/{filename}"' in card]
+        assert len(matching) == 1
+        assert f'data-output-group="{group}"' in matching[0]
+
+    client.force_login(snapshot.crawl.created_by)
+    host = get_snapshot_host(str(snapshot.id))
+    for name, expected in ((server_plugin, server_bytes), (plugin, extension_bytes)):
+        raw = client.get(f"/{name}/{filename}?raw=1", HTTP_HOST=host)
+        assert raw.status_code == 200
+        body = b"".join(raw.streaming_content) if raw.streaming else raw.content
+        assert body == expected
+
+
 @pytest.mark.parametrize("larger_plugin", ["responses", "papersdl"])
 def test_papersdl_is_above_responses_regardless_of_output_size(snapshot, larger_plugin):
     for plugin in ("responses", "papersdl"):
@@ -428,6 +501,69 @@ def test_stack_cover_and_expanded_card_load_same_document(snapshot, live_server,
         assert cover.bounding_box()["height"] > 0
         page.screenshot(path="/tmp/stack-cover-mobile.png")
         browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_extension_mhtml_uses_html_stack_and_mhtml_viewer(snapshot, live_server, browser_runtime):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    host = get_snapshot_host(str(snapshot.id)).split(":")[0]
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
+        page = browser.new_page()
+        page.goto(FIXTURE.as_uri())
+        saved_text = page.locator("h1").inner_text()
+        mhtml = page.context.new_cdp_session(page).send("Page.captureSnapshot", {"format": "mhtml"})["data"]
+        browser.close()
+
+    output = Path(snapshot.output_dir) / "chrome_extension_mhtml/snapshot.mhtml"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_bytes(mhtml.encode())
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="chrome_extension_mhtml",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="chrome_extension_mhtml/snapshot.mhtml",
+        output_files={"snapshot.mhtml": {"size": output.stat().st_size, "mimetype": "multipart/related"}},
+    )
+    outputs = snapshot.get_html_details_context()["archiveresults"]
+    assert next(item for item in outputs if item["name"] == result.plugin)["output_group"] == "html"
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
+        page = browser.new_page()
+        page.goto(f"http://{host}:{port}/_card/{result.id}")
+        viewer = page.locator(".chrome-mhtml-thumbnail > iframe")
+        assert viewer.get_attribute("src") == f"http://{host}:{port}/chrome_extension_mhtml/snapshot.mhtml?preview=1"
+        rendered = viewer.content_frame.locator("iframe").content_frame.locator("h1")
+        assert rendered.inner_text() == saved_text
+
+        page.goto(f"http://{host}:{port}/chrome_extension_mhtml/snapshot.mhtml?preview=1")
+        assert page.locator("iframe").content_frame.locator("h1").inner_text() == saved_text
+        browser.close()
+    assert output.read_bytes() == mhtml.encode()
+    result.refresh_from_db()
+    assert result.plugin == "chrome_extension_mhtml"
 
 
 @pytest.mark.django_db(transaction=True)
