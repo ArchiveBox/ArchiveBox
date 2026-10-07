@@ -13,55 +13,49 @@
 
 services:
     archivebox:
-        image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:dev}
+        image: ${ARCHIVEBOX_IMAGE:-archivebox/archivebox:latest}
         restart: unless-stopped
-        # Uncomment with the novnc service below to open the browser automatically.
-        # depends_on:
-        #     novnc:
-        #         condition: service_healthy
         ports:
             - "${ARCHIVEBOX_PORT:-5797}:5797"
         volumes:
-            # Includes personas at /data/personas; no separate profile mount is needed.
+            # Required: main data directory must be on a fast local SSD
             - ./data:/data
-            # Let one-off `docker compose run` commands reuse the server's supervisor.
+            # Optional: store the bulky archived content on a slower HDD or remote network store
+            # - /mnt/archivebox/data/archive:/data/archive
+            # Recommended: lets one-off `docker compose run` commands reuse main server's runners
             - tmp:/tmp/archivebox
-        pids_limit: 2048                       # avoids low systemd task caps with Chrome and parallel extractors
         environment:
-            - PUID                                                                   # optional numeric UID for NFS/CIFS/FUSE mounts (defaults to collection owner or 911)
-            - PGID                                                                   # optional numeric GID for NFS/CIFS/FUSE mounts (defaults to collection group or 911)
-            # - ADMIN_USERNAME=admin                             # creates an admin user on first run with the given user/pass combo
+            - PUID                                               # optional numeric UID for NFS/CIFS/FUSE mounts (defaults to collection owner or 911)
+            - PGID                                               # optional numeric GID for NFS/CIFS/FUSE mounts (defaults to collection group or 911)
+            # - ADMIN_USERNAME=admin                             # optional admin user to create on first run, skips first-time setup admin creation UI
             # - ADMIN_PASSWORD=SomeSecretPassword
-            # - ARCHIVEBOX_VNC_PERSONA=personal                    # persona to open in VNC (defaults to DEFAULT_PERSONA)
-            - BASE_URL                                                               # optional canonical URL; the first-run admin wizard fills it from the browser
-            - SERVER_SECURITY_MODE                                                   # optional override; defaults to auto and can be set by the first-run wizard
+            - BASE_URL                                           # canonical URL users will access this server at, can be set up via first-run wizard in the UI as well
+            - SERVER_SECURITY_MODE                               # defaults to "auto", can be set up via first-run wizard in the UI as well
             - PUBLIC_ADD_VIEW=False                              # set to True to allow anonymous users to submit new URLs to archive
             # For all other options, it's better to use data/ArchiveBox.conf or the new Personas config feature in the admin UI...
             # - TIMEOUT=60
             # - CHECK_SSL_VALIDITY=False
             # - USER_AGENT="..."
+            # - ARCHIVEBOX_VNC_PERSONA=personal                  # optional persona to open/configure when using novnc below (defaults to DEFAULT_PERSONA)
             # ...
             # For more info, see: https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#configuration
-        shm_size: "1gb"                         # Chrome runs more efficiently when using a reasonably sized shared memory pool
-            
-
+        shm_size: "1gb"                                          # chrome runs better when it can use a decently sized shm pool
+        pids_limit: 2048                                         # avoids low systemd task caps with Chrome and parallel extractors
 
 
 ####################################################################################################################
-    ######## Optional Addons: tweak examples below as needed for your specific use case ########
-
     ### `archivebox server` now runs the orchestrator itself, so scheduled crawls and queued UI/API jobs
     # are processed by the main container without needing a separate scheduler sidecar. To add a new job:
     #   $ docker compose run --rm archivebox schedule --add --every=day --depth=1 'https://example.com/some/rss/feed.xml'
     # the running server orchestrator will pick it up automatically at the next due time.
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving
 
-
     ### ArchiveBox now starts and uses Sonic automatically when SEARCH_BACKEND_ENGINE=sonic.
     # If Sonic is ever started after not running for a while, update its full-text index by running:
     #   $ docker compose run --rm archivebox update --index-only
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search
 
+    ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
     ### This optional container runs xvfb+noVNC so you can watch the ArchiveBox browser as it archives things,
     # or remote control it to set up a chrome profile w/ login credentials for sites you want to archive.
