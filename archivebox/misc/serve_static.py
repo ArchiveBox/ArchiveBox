@@ -522,7 +522,7 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
 
     zip_query = request.GET.copy()
     zip_query["download"] = "zip"
-    zip_url = request.path
+    zip_url = quote(request.path, safe="/")
     if zip_query:
         zip_url = f"{zip_url}?{zip_query.urlencode()}"
 

@@ -1316,6 +1316,7 @@
             const snapshotFilesUrl = "{% snapshot_files_url snapshot %}";
 
             function tryCenterImageFrame(frame) {
+                if (new URL(frame.src, window.location.href).searchParams.has('files')) return
                 try {
                     const doc = frame.contentDocument || frame.contentWindow.document
                     if (!doc || !doc.body || !doc.images || doc.images.length !== 1) {
@@ -1354,6 +1355,12 @@
             function fitPreviewFrameToContent(frame) {
                 const wrapper = document.getElementById('main-frame-wrapper')
                 if (!wrapper || !frame || frame.id !== 'main-frame' || frame.src.includes('.pdf')) return
+                // Directory lists scroll inside a stable viewport. Growing the frame
+                // as rows load makes the outer page jump when changing folders.
+                if (new URL(frame.src, window.location.href).searchParams.has('files')) {
+                    resetPreviewFrameSize(frame)
+                    return
+                }
                 try {
                     const doc = frame.contentDocument || frame.contentWindow.document
                     if (!doc || !doc.documentElement) return
@@ -1440,7 +1447,7 @@
             // un-sandbox iframes showing pdfs (required to display pdf viewer)
             document.querySelectorAll('iframe').forEach((frame) => attachPreviewFrameHandlers(frame))
 
-            function getPreviewHashValueFromHref(href, normalize=false) {
+            function getPreviewHashValueFromHref(href, normalize=false, stripPreview=true) {
                 if (href == './') {
                     return 'all'
                 }
@@ -1462,7 +1469,7 @@
                         path = path.replace(/^\/+/, '')
                     }
                     const searchParams = new URLSearchParams(url.search || '')
-                    searchParams.delete('preview')
+                    if (stripPreview) searchParams.delete('preview')
                     const search = searchParams.toString()
                     const suffix = `${search ? `?${search}` : ''}${url.hash || ''}`
                     const value = `${path}${suffix}`.replace(/^\/+/, '')
@@ -1767,7 +1774,28 @@
 
             {% include "core/snapshot_stacks.js.html" %}
             initializeOutputStacks()
-            window.addEventListener('hashchange', selectInitialPreview)
+            window.addEventListener('message', (event) => {
+                const frame = document.getElementById('main-frame')
+                if (event.source !== frame?.contentWindow || event.data?.type !== 'archivebox-directory-navigate') return
+                if (!new URL(frame.src, window.location.href).searchParams.has('files')) return
+                const base = new URL(snapshotBaseUrl, window.location.href)
+                if (event.origin !== base.origin || typeof event.data.href !== 'string') return
+                const target = new URL(event.data.href, base)
+                const basePath = base.pathname.replace(/\/+$/, '')
+                if (target.origin !== base.origin || !target.pathname.startsWith(`${basePath}/`)) return
+                if (event.data.snapshotPage) {
+                    // Leave the file browser without nesting another snapshot shell.
+                    window.location.assign(window.location.pathname + window.location.search)
+                    return
+                }
+                const destination = new URL(window.location.href)
+                destination.hash = getPreviewHashValueFromHref(target.href, false, false)
+                if (destination.href === window.location.href) return
+                window.history.pushState(null, '', destination)
+                selectInitialPreview(false)
+            })
+            window.addEventListener('popstate', () => selectInitialPreview(false))
+            window.addEventListener('hashchange', () => selectInitialPreview(false))
 
             // check URL for hash e.g. #git and load relevant preview
             loadSnapshotHeaderState()

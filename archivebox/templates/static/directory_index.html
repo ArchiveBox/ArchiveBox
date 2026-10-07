@@ -61,7 +61,7 @@
         {% if directory != "/" %}
           <a class="toolbar-link" href="../{{ directory_query }}">↩ {% translate "Up One Level" %}</a>
         {% endif %}
-        <a class="toolbar-link" href="{{ snapshot_page_url }}">⌂ {% translate "Snapshot Page" %}</a>
+        <a class="toolbar-link" data-snapshot-page href="{{ snapshot_page_url }}">⌂ {% translate "Snapshot Page" %}</a>
         <a
           class="toolbar-link archivebox-zip-button"
           href="{{ zip_url }}"
@@ -131,6 +131,21 @@
       </section>
     </main>
     <script>
+      // The snapshot shell owns navigation when this browser is its preview.
+      // Downloads and modified clicks retain their ordinary link behavior.
+      document.addEventListener("click", (event) => {
+        const link = event.target.closest("a.directory-link, a.toolbar-link");
+        if (!link || window.parent === window || window.name !== "preview"
+            || event.defaultPrevented || event.button !== 0
+            || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey
+            || link.hasAttribute("download") || link.classList.contains("archivebox-zip-button")) return;
+        event.preventDefault();
+        window.parent.postMessage({
+          type: "archivebox-directory-navigate",
+          href: link.href,
+          snapshotPage: link.hasAttribute("data-snapshot-page"),
+        }, "*");
+      });
       document.getElementById("filter-files").addEventListener("input", (event) => {
         const query = event.target.value.toLowerCase();
         let count = 0;
