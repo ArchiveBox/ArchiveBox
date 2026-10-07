@@ -194,14 +194,27 @@ def _create_public_snapshot_with_cli(data_dir, url: str) -> str:
 def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client, admin_user):
     from django.db import connection
     from django.test.utils import CaptureQueriesContext
+    from django.utils import timezone
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl
 
     url = "https://multiple-public-snapshots.example/page"
     first_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
     second_crawl = Crawl.objects.create(urls=url, created_by=admin_user, config={"PERMISSIONS": "public"})
-    first = Snapshot.objects.create(url=url, title="First copy", crawl=first_crawl, status=Snapshot.StatusChoices.SEALED)
-    second = Snapshot.objects.create(url=url, title="", crawl=second_crawl, status=Snapshot.StatusChoices.SEALED)
+    first = Snapshot.objects.create(
+        url=url,
+        title="First copy",
+        crawl=first_crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        downloaded_at=timezone.now(),
+    )
+    second = Snapshot.objects.create(
+        url=url,
+        title="",
+        crawl=second_crawl,
+        status=Snapshot.StatusChoices.SEALED,
+        downloaded_at=timezone.now(),
+    )
     for plugin, output_size in (("screenshot", 1536), ("singlefile", 2560)):
         ArchiveResult.objects.create(
             snapshot=first,
@@ -211,17 +224,23 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
             output_size=output_size,
         )
     ArchiveResult.refresh_snapshot_output_sizes({first.id})
+    title_file = second.output_dir / "title" / "title.txt"
+    title_file.parent.mkdir(parents=True, exist_ok=True)
+    title_file.write_text("Resolved second copy")
     ArchiveResult.objects.create(
         snapshot=second,
         plugin="title",
         hook_name="on_Snapshot__10_title.py",
         status=ArchiveResult.StatusChoices.SUCCEEDED,
         output_str="Resolved second copy",
+        output_size=title_file.stat().st_size,
+        output_files={"title.txt": {"size": title_file.stat().st_size}},
     )
+    ArchiveResult.refresh_snapshot_output_sizes({second.id})
 
     with CaptureQueriesContext(connection) as captured_queries:
         response = client.get(f"/archive/{url}", HTTP_HOST=WEB_TEST_HOST, follow=True)
-    assert len(captured_queries) <= 7
+    assert len(captured_queries) <= 7, [query["sql"] for query in captured_queries]
 
     assert response.redirect_chain[0][0].rstrip("/").endswith(second.get_absolute_url().rstrip("/"))
     assert response.status_code == 200

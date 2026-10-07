@@ -336,6 +336,9 @@ class Persona(ModelWithConfig):
             return persona
 
     def runtime_root_for_crawl(self, crawl) -> Path:
+        return Path(crawl.output_dir) / ".persona" / self.name
+
+    def local_runtime_root_for_crawl(self, crawl) -> Path:
         from archivebox.config.common import get_config
 
         # Browser databases, sockets, and extension directory renames require
@@ -349,7 +352,7 @@ class Persona(ModelWithConfig):
         return self.runtime_root_for_crawl(crawl) / "chrome_downloads"
 
     def runtime_root_for_snapshot(self, snapshot) -> Path:
-        return self.runtime_root_for_crawl(snapshot.crawl).parent.parent / "snapshots" / str(snapshot.id) / ".persona" / self.name
+        return Path(snapshot.output_dir) / ".persona" / self.name
 
     def runtime_profile_dir_for_snapshot(self, snapshot) -> Path:
         return self.runtime_root_for_snapshot(snapshot) / "chrome_profile"
@@ -393,6 +396,9 @@ class Persona(ModelWithConfig):
         runtime_downloads_dir = self.runtime_downloads_dir_for_crawl(crawl)
 
         with self.lock_runtime_for_crawl():
+            local_root = self.local_runtime_root_for_crawl(crawl)
+            local_root.parent.mkdir(parents=True, exist_ok=True)
+            self.link_runtime_for_output(crawl.output_dir, local_root)
             if runtime_root.exists():
                 shutil.rmtree(runtime_root, ignore_errors=True)
             if template_dir.exists() and any(template_dir.iterdir()):
@@ -411,7 +417,6 @@ class Persona(ModelWithConfig):
             (runtime_root / "template_dir.txt").write_text(str(template_dir))
             if chrome_binary:
                 (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
-            self.link_runtime_for_output(crawl.output_dir, runtime_root)
 
         # Hooks derive Chrome profile paths from the runtime persona root.
         # Use the same optional auth discovery as the template persona.
@@ -424,6 +429,11 @@ class Persona(ModelWithConfig):
         runtime_profile_dir = self.runtime_profile_dir_for_snapshot(snapshot)
         runtime_downloads_dir = self.runtime_downloads_dir_for_snapshot(snapshot)
 
+        local_root = (
+            self.local_runtime_root_for_crawl(snapshot.crawl).parent.parent / "snapshots" / str(snapshot.id) / ".persona" / self.name
+        )
+        local_root.parent.mkdir(parents=True, exist_ok=True)
+        self.link_runtime_for_output(snapshot.output_dir, local_root)
         if runtime_root.exists():
             shutil.rmtree(runtime_root, ignore_errors=True)
         if template_dir.exists() and any(template_dir.iterdir()):
@@ -444,7 +454,6 @@ class Persona(ModelWithConfig):
         (runtime_root / "template_dir.txt").write_text(str(template_dir))
         if chrome_binary:
             (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
-        self.link_runtime_for_output(snapshot.output_dir, runtime_root)
 
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
@@ -456,7 +465,7 @@ class Persona(ModelWithConfig):
             link = Path(snapshot.output_dir) / ".persona"
             if link.is_symlink():
                 link.unlink()
-        shutil.rmtree(self.runtime_root_for_crawl(crawl).parent.parent, ignore_errors=True)
+        shutil.rmtree(self.local_runtime_root_for_crawl(crawl).parent.parent, ignore_errors=True)
 
     @classmethod
     def get_or_create_default(cls) -> "Persona":

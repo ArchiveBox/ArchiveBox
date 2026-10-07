@@ -99,11 +99,14 @@ def test_persona_cleanup_runtime_for_crawl_removes_only_runtime_copy(initialized
         crawl = Crawl.objects.create(urls='https://example.com', persona_id=persona.id)
         persona.prepare_runtime_for_crawl(crawl)
         runtime_root = persona.runtime_root_for_crawl(crawl)
+        local_runtime_root = runtime_root.resolve()
 
         persona.cleanup_runtime_for_crawl(crawl)
 
         print(json.dumps({
             'runtime_removed': not runtime_root.exists(),
+            'local_runtime_removed': not local_runtime_root.exists(),
+            'runtime_link_removed': not runtime_root.parent.is_symlink(),
             'template_still_exists': (template_dir / 'Default' / 'Preferences').exists(),
         }))
         """,
@@ -114,6 +117,8 @@ def test_persona_cleanup_runtime_for_crawl_removes_only_runtime_copy(initialized
 
     payload = json.loads(stdout.strip().splitlines()[-1])
     assert payload["runtime_removed"] is True
+    assert payload["local_runtime_removed"] is True
+    assert payload["runtime_link_removed"] is True
     assert payload["template_still_exists"] is True
 
 

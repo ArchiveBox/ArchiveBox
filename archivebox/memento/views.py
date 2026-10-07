@@ -41,7 +41,10 @@ def _enclosures(request, snapshot):
     # Containers hold many resources: use enclosures, not extra URI-M entries.
     # anchor binds each download to its capture in a TimeMap (RFC 8288 section 3.2).
     anchor = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request)
-    for result in snapshot.archiveresult_set.all():
+    results = snapshot.__dict__.get("_admin_archiveresults")
+    if results is None:
+        results = snapshot.archiveresult_set.all()
+    for result in results:
         if result.status == result.StatusChoices.SUCCEEDED:
             files = result.output_file_map()
             for key in files:
