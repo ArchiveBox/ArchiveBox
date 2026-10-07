@@ -452,7 +452,7 @@ class Persona(ModelWithConfig):
         link = Path(crawl.output_dir) / ".persona"
         if link.is_symlink():
             link.unlink()
-        for snapshot in crawl.snapshot_set.select_related("crawl", "created_by").paged_iterator():
+        for snapshot in crawl.snapshot_set.select_related("crawl__created_by").paged_iterator():
             link = Path(snapshot.output_dir) / ".persona"
             if link.is_symlink():
                 link.unlink()
