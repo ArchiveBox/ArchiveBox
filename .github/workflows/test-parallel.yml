@@ -175,9 +175,11 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ runner.temp }}/archivebox-lib
-          key: abxpkg-v2-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ env.CI_PYTHON_VERSION }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}
+          # Managed venvs link to setup-python's patch-specific interpreter path.
+          # A 3.13.15 cache cannot run on a host that only has 3.13.16 installed.
+          key: abxpkg-v2-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-${{ env.ABXPKG_CACHE_DEPS }}
           restore-keys: |
-            abxpkg-v2-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ env.CI_PYTHON_VERSION }}-${{ matrix.test.name }}-
+            abxpkg-v2-${{ runner.os }}-${{ runner.arch }}-${{ runner.environment }}-${{ steps.python.outputs.python-version }}-${{ matrix.test.name }}-
 
       - name: Resolve optional build dependencies through abxpkg
         if: matrix.test.extra != '' || contains(matrix.test.paths_arg, 'test_postgres_backend')
