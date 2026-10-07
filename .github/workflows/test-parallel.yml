@@ -149,7 +149,7 @@ jobs:
       - name: Reuse persistent runner tools
         if: runner.environment == 'self-hosted'
         env:
-          PERSISTENT_ABXPKG_LIB: ${{ runner.tool_cache }}/abxpkg/${{ github.repository }}/${{ env.CI_PYTHON_VERSION }}
+          PERSISTENT_ABXPKG_LIB: ${{ runner.tool_cache }}/abxpkg/${{ github.repository }}/${{ steps.python.outputs.python-version }}
         run: |
           mkdir -p "$PERSISTENT_ABXPKG_LIB"
           echo "ABXPKG_LIB_DIR=$PERSISTENT_ABXPKG_LIB" >> "$GITHUB_ENV"
