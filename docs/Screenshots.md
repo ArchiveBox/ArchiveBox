@@ -81,7 +81,7 @@ View: [`/admin/core/snapshot/grid/`](http://admin.archivebox.localhost:5797/admi
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/snapshots-grid-desktop.png?v=6c966024bd2e" alt="Snapshots grid — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/snapshots-grid-tablet.png?v=93c7c131e176" alt="Snapshots grid — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/snapshots-grid-mobile.png?v=b38ec248b867" alt="Snapshots grid — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="https://archivebox.io/screenshots/snapshots-grid-desktop.png?v=831b47a6cb4f" alt="Snapshots grid — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/snapshots-grid-tablet.png?v=93c7c131e176" alt="Snapshots grid — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/snapshots-grid-mobile.png?v=b38ec248b867" alt="Snapshots grid — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot admin detail
