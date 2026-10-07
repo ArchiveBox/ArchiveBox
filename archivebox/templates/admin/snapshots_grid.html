@@ -117,23 +117,22 @@
   .cards .card .card-title {
       padding: 4px 5px 1px;
       background-color: #fffcfc;
-      /*height: 50px;
-      vertical-align: middle;
-      line-height: 50px;*/
   }
   .cards .card .card-title h4 {
       color: #1e293b;
-      display: block;
-      vertical-align: middle;
-      line-height: normal;
-      margin: 0px;
-      padding: 5px 0px;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-height: 20px;
+      height: 40px;
+      margin: 5px 0;
+      padding: 0;
       font-size: 15px;
       font-weight: 600;
-      word-break: break-all;
+      word-break: normal;
+      overflow-wrap: normal;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-height: 46px;
   }
   .cards .card .card-title h4 .title-text {
     user-select: all;
@@ -176,11 +175,15 @@
   .cards .card .card-meta .action-select {
       justify-self: start;
   }
-  .cards .card .card-meta .card-date {
+  #content .cards .card .card-meta .card-date {
       display: block;
       justify-self: center;
       max-width: 100%;
       text-align: center;
+      text-decoration: none;
+  }
+  #content .cards .card .card-meta .card-date:hover {
+      text-decoration: underline;
   }
   .cards .card .card-meta .card-size {
       justify-self: end;
