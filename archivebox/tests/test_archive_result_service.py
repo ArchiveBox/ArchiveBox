@@ -290,17 +290,17 @@ def test_archiveresult_event_create_uses_one_result_lookup():
     assert len(result_lookups) == 1
 
 
-def test_failed_shipped_title_hook_projects_failure_without_overwriting_title(tmp_path, hermetic_lib_dir):
+def test_failed_shipped_title_hook_projects_failure_without_overwriting_title(tmp_path, cached_abxpkg_lib_dir):
     from archivebox.core.models import ArchiveResult
 
     # Result linkage and the unchanged title are consequences of the same failed
-    # hook. Check them together so this isolated runtime is installed only once.
+    # hook. Check them together using the shared real dependency installation.
     snapshot = _create_snapshot()
     process, result = _run_shipped_snapshot_hook(
         snapshot,
         plugin="title",
         hook_name="on_Snapshot__54_title.js",
-        lib_dir=hermetic_lib_dir,
+        lib_dir=cached_abxpkg_lib_dir,
         expected_exit_codes=(1,),
     )
     assert result.status == ArchiveResult.StatusChoices.FAILED
@@ -476,8 +476,8 @@ def test_retry_failed_archiveresults_requeues_snapshot_in_queued_state():
     _cleanup_machine_process_rows()
 
 
-def test_process_completed_projects_snapshot_title_from_output_str(recursive_test_site, hermetic_lib_dir):
-    snapshot = _run_real_title_crawl(recursive_test_site["root_url"], hermetic_lib_dir)
+def test_process_completed_projects_snapshot_title_from_output_str(recursive_test_site, cached_abxpkg_lib_dir):
+    snapshot = _run_real_title_crawl(recursive_test_site["root_url"], cached_abxpkg_lib_dir)
     result = snapshot.archiveresult_set.get(plugin="title")
 
     assert result.status == result.StatusChoices.SUCCEEDED
@@ -486,8 +486,8 @@ def test_process_completed_projects_snapshot_title_from_output_str(recursive_tes
     _cleanup_machine_process_rows()
 
 
-def test_process_completed_projects_snapshot_title_from_title_file(recursive_test_site, hermetic_lib_dir):
-    snapshot = _run_real_title_crawl(recursive_test_site["root_url"], hermetic_lib_dir)
+def test_process_completed_projects_snapshot_title_from_title_file(recursive_test_site, cached_abxpkg_lib_dir):
+    snapshot = _run_real_title_crawl(recursive_test_site["root_url"], cached_abxpkg_lib_dir)
     title_file = Path(snapshot.output_dir) / "title" / "title.txt"
     result = snapshot.archiveresult_set.get(plugin="title")
 
@@ -662,14 +662,14 @@ def test_process_started_hydrates_binary_and_iface_from_existing_binary_records(
 
 
 @pytest.mark.django_db(transaction=True)
-def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp_path, hermetic_lib_dir):
+def test_process_started_uses_node_binary_for_js_hooks_without_plugin_binary(tmp_path, cached_abxpkg_lib_dir):
     from archivebox.machine.models import Binary, NetworkInterface
     from archivebox.machine.models import Process as MachineProcess
     from archivebox.services.process_service import ProcessService as ArchiveBoxProcessService
     from archivebox.services.runner import run_install
     from abx_dl.services.process_service import ProcessService as DlProcessService
 
-    lib_dir = hermetic_lib_dir
+    lib_dir = cached_abxpkg_lib_dir
     run_install(plugin_names=["chrome"])
     installed_node_ids = set(
         Binary.objects.filter(name="node", status=Binary.StatusChoices.INSTALLED).values_list("id", flat=True),

@@ -157,7 +157,7 @@ def test_snapshot_pause_resume_api_leaves_archiveresult_facts_unchanged(
             "Please make sure you have the correct access rights\n"
             "and the repository exists."
         )
-        install_result = run_archivebox_cmd(["install"], cwd=tmp_path, timeout=600)
+        install_result = run_archivebox_cmd(["install", "wget"], cwd=tmp_path, timeout=600)
         assert install_result.returncode == 0, install_result.stderr or install_result.stdout
         now = timezone.now()
         Snapshot.objects.filter(pk=snapshot.pk).update(
