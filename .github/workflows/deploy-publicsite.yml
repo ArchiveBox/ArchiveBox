@@ -42,9 +42,30 @@ jobs:
       # BEGIN REPOSITORY-SPECIFIC BUILD
       - uses: astral-sh/setup-uv@v7
       - name: Restore latest complete screenshots
-        run: uv run --no-project python bin/restore_site_screenshots.py publicsite/screenshots
+        run: |
+          mv publicsite/screenshots/snapshots-grid-desktop.png "$RUNNER_TEMP/snapshots-grid-desktop.png"
+          uv run --no-project python bin/restore_site_screenshots.py publicsite/screenshots
         env:
           GH_TOKEN: ${{ github.token }}
+      - name: Keep the manually updated grid screenshot
+        run: |
+          mv "$RUNNER_TEMP/snapshots-grid-desktop.png" publicsite/screenshots/snapshots-grid-desktop.png
+          uv run --no-project python - <<'PY'
+          import hashlib, json, re, subprocess
+          from pathlib import Path
+          image = Path("publicsite/screenshots/snapshots-grid-desktop.png")
+          digest = hashlib.sha256(image.read_bytes()).hexdigest()
+          manifest_path = image.parent / "build.json"
+          manifest = json.loads(manifest_path.read_text())
+          manifest["files"][image.name] = digest
+          manifest.setdefault("manual_captures", {})[image.name] = {
+              "revision": subprocess.check_output(["git", "log", "-1", "--format=%H", "--", str(image)], text=True).strip(),
+              "source": "Browser capture of a real local ArchiveBox collection",
+          }
+          manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+          gallery = image.parent / "index.html"
+          gallery.write_text(re.sub(r"snapshots-grid-desktop\.png(?:\?v=[a-f0-9]+)?", f"{image.name}?v={digest[:12]}", gallery.read_text()))
+          PY
       - name: Render current gallery layout without recapturing images
         run: uv run --no-project python bin/generate_ui_screenshot_gallery.py refresh publicsite/screenshots/index.html
       - name: Assemble website with the local base components
