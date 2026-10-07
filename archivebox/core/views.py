@@ -46,6 +46,7 @@ from archivebox.config.common import (
 from archivebox.config.configset import BaseConfigSet
 from archivebox.core.forms import AddLinkForm
 from archivebox.core.models import ArchiveResult, Snapshot, SnapshotTag
+from archivebox.memento.views import add_memento_headers, timegate_response, timemap_response
 from archivebox.core.permissions import (
     PERMISSIONS_PUBLIC,
     PERMISSIONS_UNLISTED,
@@ -340,6 +341,8 @@ class SnapshotView(View):
 
     @staticmethod
     def render_live_index(request, snapshot):
+        if request.GET.get("format") == "link":
+            return timemap_response(request, snapshot)
         if request.GET.get("discover_outputs") == "1":
             # Reuse the existing output discovery and card/badge classification.
             request.archivebox_cache_policy = "private"
@@ -354,13 +357,16 @@ class SnapshotView(View):
             patch_cache_control(response, private=True, no_store=True)
             return response
         request.archivebox_cache_policy = "public" if snapshot.permissions == PERMISSIONS_PUBLIC else "private"
-        return render(
+        response = render(
             template_name="core/snapshot.html",
             request=request,
             context=snapshot.get_html_details_context(request=request),
         )
+        return add_memento_headers(request, snapshot, response)
 
     def get(self, request, path):
+        if path.startswith(("http://", "https://")):
+            return timegate_response(request, path)
         snapshot = None
 
         try:
@@ -407,7 +413,7 @@ class SnapshotView(View):
                         if query:
                             target = f"{target}?{query}"
                         return redirect(target)
-                    response["Link"] = f'<{snapshot.url}>; rel="canonical"'
+                    response["Link"] = ", ".join(filter(None, [response.get("Link"), f'<{snapshot.url}>; rel="canonical"']))
                     return response
                 except Snapshot.DoesNotExist:
                     if Snapshot.objects.filter(timestamp__startswith=slug).exists():
@@ -1066,17 +1072,29 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
     rel_path, archive_result, fallback_relpaths = _resolve_archiveresult_relpath(snapshot, rel_path)
 
     plugin_preview = _plugin_full_preview_response(request, snapshot, rel_path, archive_result)
+    # Only the primary representation describes the page; logs and helper assets do not.
     if plugin_preview is not None:
-        return plugin_preview
+        return (
+            add_memento_headers(request, snapshot, plugin_preview)
+            if archive_result and rel_path == archive_result.embed_path()
+            else plugin_preview
+        )
 
     for candidate_path in (rel_path, *fallback_relpaths):
         try:
-            return serve_static_with_byterange_support(
+            response = serve_static_with_byterange_support(
                 request,
                 candidate_path,
                 document_root=snapshot.output_dir,
                 show_indexes=show_indexes,
                 is_archive_replay=True,
+            )
+            return add_memento_headers(
+                request,
+                snapshot,
+                response,
+                path=candidate_path,
+                primary=bool(archive_result and candidate_path == archive_result.embed_path()),
             )
         except Http404:
             continue
