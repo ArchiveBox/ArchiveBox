@@ -12,6 +12,7 @@ __package__ = "archivebox.personas"
 
 import shutil
 import os
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -356,6 +357,21 @@ class Persona(ModelWithConfig):
     def runtime_downloads_dir_for_snapshot(self, snapshot) -> Path:
         return self.runtime_root_for_snapshot(snapshot) / "chrome_downloads"
 
+    def link_runtime_for_output(self, output_dir: Path, runtime_root: Path) -> None:
+        """Keep the hook-facing .persona path while storing its contents locally."""
+        link = Path(output_dir) / ".persona"
+        target = runtime_root.parent
+        link.parent.mkdir(parents=True, exist_ok=True)
+        if link.is_symlink():
+            if link.resolve() == target.resolve():
+                return
+            link.unlink()
+        elif link.exists():
+            # Preserve pre-migration runtime files locally until crawl cleanup.
+            legacy_dir = Path(tempfile.mkdtemp(prefix="legacy-persona-", dir=target.parent))
+            shutil.move(str(link), str(legacy_dir / ".persona"))
+        link.symlink_to(target, target_is_directory=True)
+
     def copy_chrome_profile(self, source_dir: Path, destination_dir: Path) -> None:
         from archivebox.personas.importers import profile_copy_ignore
 
@@ -395,6 +411,7 @@ class Persona(ModelWithConfig):
             (runtime_root / "template_dir.txt").write_text(str(template_dir))
             if chrome_binary:
                 (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
+            self.link_runtime_for_output(crawl.output_dir, runtime_root)
 
         # Hooks derive Chrome profile paths from the runtime persona root.
         # Use the same optional auth discovery as the template persona.
@@ -427,10 +444,18 @@ class Persona(ModelWithConfig):
         (runtime_root / "template_dir.txt").write_text(str(template_dir))
         if chrome_binary:
             (runtime_root / "chrome_binary.txt").write_text(chrome_binary)
+        self.link_runtime_for_output(snapshot.output_dir, runtime_root)
 
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
     def cleanup_runtime_for_crawl(self, crawl) -> None:
+        link = Path(crawl.output_dir) / ".persona"
+        if link.is_symlink():
+            link.unlink()
+        for snapshot in crawl.snapshot_set.select_related("crawl", "created_by").paged_iterator():
+            link = Path(snapshot.output_dir) / ".persona"
+            if link.is_symlink():
+                link.unlink()
         shutil.rmtree(self.runtime_root_for_crawl(crawl).parent.parent, ignore_errors=True)
 
     @classmethod

@@ -288,6 +288,8 @@ def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
 
 def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Path, str]:
     rel_path = posixpath.normpath(rel_path).lstrip("/") if rel_path else ""
+    if any(part.casefold() == ".persona" for part in Path(rel_path).parts):
+        raise Http404("Browser runtime files are not archive outputs")
     fullpath = Path(safe_join(document_root, rel_path))
     if os.access(fullpath, os.R_OK):
         return fullpath, rel_path
