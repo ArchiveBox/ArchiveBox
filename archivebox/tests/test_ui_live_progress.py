@@ -664,6 +664,10 @@ class TestLiveProgressView:
         from archivebox.crawls.models import Crawl
         from archivebox.services.runner import run_due_snapshot
 
+        # Provision the real browser before timing navigation; a cold Chromium
+        # download is dependency setup, not part of the screencast assertion.
+        resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
+
         now = timezone.now()
         Crawl.objects.filter(pk=crawl.pk).update(
             status=Crawl.StatusChoices.STARTED,
