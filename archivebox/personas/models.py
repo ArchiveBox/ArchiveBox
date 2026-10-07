@@ -335,7 +335,11 @@ class Persona(ModelWithConfig):
             return persona
 
     def runtime_root_for_crawl(self, crawl) -> Path:
-        return Path(crawl.output_dir) / ".persona" / self.name
+        from archivebox.config.common import get_config
+
+        # Browser databases, sockets, and extension directory renames require
+        # local storage; archive outputs may live on an object-storage mount.
+        return Path(get_config().TMP_DIR) / "personas" / str(crawl.id) / ".persona" / self.name
 
     def runtime_profile_dir_for_crawl(self, crawl) -> Path:
         return self.runtime_root_for_crawl(crawl) / "chrome_profile"
@@ -344,7 +348,7 @@ class Persona(ModelWithConfig):
         return self.runtime_root_for_crawl(crawl) / "chrome_downloads"
 
     def runtime_root_for_snapshot(self, snapshot) -> Path:
-        return Path(snapshot.output_dir) / ".persona" / self.name
+        return self.runtime_root_for_crawl(snapshot.crawl).parent.parent / "snapshots" / str(snapshot.id) / ".persona" / self.name
 
     def runtime_profile_dir_for_snapshot(self, snapshot) -> Path:
         return self.runtime_root_for_snapshot(snapshot) / "chrome_profile"
@@ -427,7 +431,7 @@ class Persona(ModelWithConfig):
         return derive_persona_config(name=self.name, config={}, persona_dir=runtime_root)
 
     def cleanup_runtime_for_crawl(self, crawl) -> None:
-        shutil.rmtree(Path(crawl.output_dir) / ".persona", ignore_errors=True)
+        shutil.rmtree(self.runtime_root_for_crawl(crawl).parent.parent, ignore_errors=True)
 
     @classmethod
     def get_or_create_default(cls) -> "Persona":
