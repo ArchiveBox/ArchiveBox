@@ -16,6 +16,7 @@ from django.contrib import messages
 from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY, get_user_model
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.sessions.models import Session
+from django.contrib.sessions.backends.db import SessionStore
 from django.core import signing
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
@@ -24,6 +25,7 @@ from django.utils.decorators import method_decorator
 from django.utils.html import format_html, format_html_join
 from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.utils.safestring import mark_safe
+from django.utils import timezone
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.generic import FormView
@@ -143,7 +145,7 @@ def _admin_login_redirect_or_forbidden(request: HttpRequest):
     return HttpResponseForbidden("ArchiveBox is running with the control plane disabled in this security mode.")
 
 
-REPLAY_AUTH_SALT = "archivebox.private-snapshot-replay"
+REPLAY_AUTH_SALT = "archivebox.private-snapshot-replay.v2"
 REPLAY_COOKIE_PREFIX = f"archivebox_replay_{CONSTANTS.COLLECTION_ID}_"
 REPLAY_GRANT_MAX_AGE = 60
 
@@ -165,15 +167,22 @@ def _replay_payload_is_valid(payload: dict, snapshot: Snapshot) -> bool:
     """A replay cookie is not its own auth source; it must point at a live admin session.
 
     Replayed pages can execute hostile JS, so admin cookies stay host-only on admin.*.
-    The snap host gets only this host-only HttpOnly cookie, and every request checks
-    that the original Django session still exists and still belongs to an active staff user.
+    The snap host gets only an opaque reference to a server-side replay session.
+    That row contains no Django login fields, so its key cannot authenticate to
+    admin. The original admin session key and auth hash never leave the server.
+    Every request checks that both sessions are unexpired and the original admin
+    session still belongs to an active staff user.
     Logout, session expiry, user deletion/deactivation, or password auth-hash rotation all
     make the replay cookie inert without needing admin.* to delete a cookie on snap-*.
     """
     if payload.get("snapshot_id") != str(snapshot.id):
         return False
     try:
-        session = Session.objects.get(session_key=str(payload.get("session_key") or ""))
+        replay_session = Session.objects.get(session_key=str(payload.get("replay_session") or ""), expire_date__gt=timezone.now())
+        replay = replay_session.get_decoded().get("replay")
+        if not isinstance(replay, dict) or replay.get("snapshot_id") != str(snapshot.id):
+            return False
+        session = Session.objects.get(session_key=str(replay.get("session_key") or ""), expire_date__gt=timezone.now())
         session_data = session.get_decoded()
         user_id = str(session_data.get(SESSION_KEY) or "")
         auth_hash = str(session_data.get(HASH_SESSION_KEY) or "")
@@ -181,8 +190,8 @@ def _replay_payload_is_valid(payload: dict, snapshot: Snapshot) -> bool:
     except (Session.DoesNotExist, get_user_model().DoesNotExist, KeyError, TypeError, ValueError):
         return False
     return (
-        str(payload.get("user_id")) == user_id
-        and str(payload.get("auth_hash") or "") == auth_hash
+        str(replay.get("user_id")) == user_id
+        and str(replay.get("auth_hash") or "") == auth_hash
         and user.is_active
         and user.is_staff
         and auth_hash == user.get_session_auth_hash()
@@ -250,12 +259,19 @@ class SnapshotReplayAuthView(View):
         if not snapshot:
             raise Http404
 
-        payload = {
+        # Signed JSON is readable, not encrypted. Store the privileged session
+        # reference only server-side; replay credentials carry an opaque key to
+        # this separate row, which deliberately has no Django auth session keys.
+        replay_session = SessionStore()
+        replay_session["replay"] = {
             "snapshot_id": str(snapshot.id),
             "user_id": str(request.user.pk),
             "session_key": request.session.session_key,
             "auth_hash": request.user.get_session_auth_hash(),
         }
+        replay_session.set_expiry(request.session.get_expiry_date())
+        replay_session.create()
+        payload = {"snapshot_id": str(snapshot.id), "replay_session": replay_session.session_key}
         grant = signing.dumps(payload, salt=REPLAY_AUTH_SALT)
         next_path = _clean_replay_next(request.GET.get("next"))
         target = build_snapshot_url(str(snapshot.id), "_auth", request=request, config=get_request_config(request))

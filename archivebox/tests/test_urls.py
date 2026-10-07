@@ -1181,13 +1181,11 @@ class TestUrlRouting:
             """
             from datetime import timedelta
             import shutil
-            from django.contrib.auth import HASH_SESSION_KEY, SESSION_KEY
-            from django.core import signing
+            from urllib.parse import urlsplit
             from django.db import connection
             from django.test.utils import CaptureQueriesContext
             from django.utils import timezone
             from archivebox.crawls.models import Crawl
-            from archivebox.core.views import REPLAY_AUTH_SALT, _replay_cookie_name
 
             snapshot = get_snapshot()
             original_host = get_original_host(snapshot.domain)
@@ -1264,18 +1262,19 @@ class TestUrlRouting:
                 ensure_admin_user()
                 auth_client = Client()
                 assert auth_client.login(username="testadmin", password="testpassword")
-                session = auth_client.session
                 private_snapshot = fixtures[4][0]
-                replay_client = Client()
-                replay_client.cookies[_replay_cookie_name(private_snapshot)] = signing.dumps(
-                    {
-                        "snapshot_id": str(private_snapshot.id),
-                        "session_key": session.session_key,
-                        "user_id": str(session[SESSION_KEY]),
-                        "auth_hash": str(session[HASH_SESSION_KEY]),
-                    },
-                    salt=REPLAY_AUTH_SALT,
+                grant = auth_client.get(
+                    f"/admin/core/snapshot/replay-auth/?snapshot={private_snapshot.id}&next=/responses/example.com/about.html",
+                    HTTP_HOST=get_admin_host(),
                 )
+                assert grant.status_code == 302
+                grant_url = urlsplit(grant["Location"])
+                replay_client = Client()
+                auth = replay_client.get(
+                    f"{grant_url.path}?{grant_url.query}",
+                    HTTP_HOST=grant_url.netloc,
+                )
+                assert auth.status_code == 302
                 replay_resp = replay_client.get("/about.html", HTTP_HOST=original_host)
                 assert replay_resp.status_code in (301, 302)
                 assert replay_resp["Location"] == f"http://{get_snapshot_host(str(private_snapshot.id))}/responses/example.com/about.html"

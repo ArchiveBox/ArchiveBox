@@ -2,6 +2,7 @@
 
 import json
 import re
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 import requests
@@ -135,6 +136,39 @@ def _logout_admin_over_full_server(session: requests.Session, port: int) -> None
 
 def _replay_cookies(session: requests.Session):
     return [cookie for cookie in session.cookies if cookie.name.startswith("archivebox_replay_")]
+
+
+@pytest.mark.timeout(120)
+@pytest.mark.django_db(transaction=True)
+def test_replay_security_upgrade_revokes_existing_sessions_once(tmp_path):
+    init_archive(tmp_path)
+    create_admin_and_token(tmp_path)
+    port = get_free_port()
+    env = cli_env(port=port, server=True, SERVER_SECURITY_MODE="safe-subdomains-fullreplay")
+    try:
+        start_archivebox_server(tmp_path, env=env, port=port)
+        session, _ = _login_admin_over_full_server(port)
+        before = session.get(f"http://admin.archivebox.localhost:{port}/admin/", timeout=10, allow_redirects=False)
+        assert before.status_code == 200
+        stop_server(tmp_path)
+
+        # Reverse only this no-op rollback so the upgrade can be exercised with
+        # a real session minted by a real login before the revocation migration.
+        for target in ("0058_snapshot_deleting_status", "0059_revoke_exposed_replay_sessions"):
+            migrated = run_archivebox_cmd(["manage", "migrate", "core", target, "--noinput"], cwd=tmp_path, env=env)
+            assert migrated.returncode == 0, migrated.stderr
+
+        start_archivebox_server(tmp_path, env=env, port=port)
+        revoked = session.get(f"http://admin.archivebox.localhost:{port}/admin/", timeout=10, allow_redirects=False)
+        assert revoked.status_code == 302
+        assert "/admin/login/" in revoked.headers["Location"]
+        fresh_session, _ = _login_admin_over_full_server(port)
+        migrated_again = run_archivebox_cmd(["manage", "migrate", "--noinput"], cwd=tmp_path, env=env)
+        assert migrated_again.returncode == 0, migrated_again.stderr
+        retained = fresh_session.get(f"http://admin.archivebox.localhost:{port}/admin/", timeout=10, allow_redirects=False)
+        assert retained.status_code == 200
+    finally:
+        stop_server(tmp_path)
 
 
 def _create_admin_user_with_cli(data_dir) -> None:
@@ -744,15 +778,107 @@ class TestPublicIndex:
             assert replay_cookies
             assert any(cookie.domain == snapshot["host"].split(":", 1)[0] for cookie in replay_cookies)
             assert not any(cookie.domain in {"archivebox.localhost", ".archivebox.localhost"} for cookie in replay_cookies)
+
+            # Inspect exactly what crosses the replay origin, without the signing
+            # secret: signed JSON is readable by anyone who obtains the value.
+            from django.core.signing import b64_decode
+
+            admin_session_key = next(cookie.value for cookie in session.cookies if cookie.name.startswith("archivebox_sessionid_"))
+            grants = [
+                parse_qs(urlsplit(hop.headers["Location"]).query)["grant"][0]
+                for hop in response.history
+                if "grant" in parse_qs(urlsplit(hop.headers.get("Location", "")).query)
+            ]
+            assert grants
+            for credential in [*grants, *(cookie.value for cookie in replay_cookies)]:
+                payload = json.loads(b64_decode(credential.rsplit(":", 2)[0].encode()))
+                assert "session_key" not in payload, "Replay credential exposes the admin session key"
+                assert "auth_hash" not in payload, "Replay credential exposes the admin authentication hash"
+                assert admin_session_key not in json.dumps(payload)
+
+            # A stolen replay reference must not become an admin session, even
+            # if an attacker puts it under the real Django session cookie name.
+            replay_payload = json.loads(b64_decode(replay_cookies[0].value.rsplit(":", 2)[0].encode()))
+            admin_cookie = next(cookie for cookie in session.cookies if cookie.name.startswith("archivebox_sessionid_"))
+            attacker = localhost_session()
+            attacker.cookies.set(admin_cookie.name, replay_payload["replay_session"], domain=admin_cookie.domain, path="/")
+            denied_admin = attacker.get(f"http://admin.archivebox.localhost:{port}/admin/", timeout=10, allow_redirects=False)
+            assert denied_admin.status_code == 302
+            assert "/admin/login/" in denied_admin.headers["Location"]
+
+            other = _create_private_snapshot_over_full_server(
+                tmp_path,
+                session,
+                port,
+                csrf_token,
+                recursive_test_site["child_urls"][0],
+            )
+            other_url = f"http://{other['host']}/index.html"
+            attacker.cookies.clear()
+            attacker.cookies.set(ADMIN_LOGIN_HINT_COOKIE, "1", domain="archivebox.localhost", path="/")
+            denied_hint = attacker.get(other_url, timeout=10, allow_redirects=False)
+            assert denied_hint.status_code == 302
+            other_cookie_name = replay_cookies[0].name.rsplit("_", 1)[0] + "_" + other["id"][-12:]
+            attacker.cookies.set(other_cookie_name, replay_cookies[0].value, domain=other["host"].split(":", 1)[0], path="/")
+            denied_snapshot = attacker.get(other_url, timeout=10, allow_redirects=False)
+            assert denied_snapshot.status_code == 302
+            assert "/admin/core/snapshot/replay-auth/" in denied_snapshot.headers["Location"]
+            denied_grant = attacker.get(
+                f"http://{other['host']}/_auth",
+                params={"grant": grants[0], "next": "/index.html"},
+                timeout=10,
+                allow_redirects=False,
+            )
+            assert denied_grant.status_code == 302
+            assert not denied_grant.cookies
+            assert "/admin/core/snapshot/replay-auth/" in denied_grant.headers["Location"]
+
+            # Pre-fix credentials must fail closed, then transparently refresh
+            # through the still-authenticated admin session on a normal visit.
+            legacy_result = run_archivebox_cmd(
+                [
+                    "manage",
+                    "shell",
+                    "-c",
+                    (
+                        "from django.contrib.sessions.models import Session; from django.core import signing; "
+                        f"key = {admin_session_key!r}; data = Session.objects.get(session_key=key).get_decoded(); "
+                        "print(signing.dumps({"
+                        f"'snapshot_id': {snapshot['id']!r}, 'session_key': key, "
+                        "'user_id': data['_auth_user_id'], 'auth_hash': data['_auth_user_hash']}, "
+                        "salt='archivebox.private-snapshot-replay'))"
+                    ),
+                ],
+                cwd=tmp_path,
+                env=env,
+            )
+            assert legacy_result.returncode == 0, legacy_result.stderr
+            legacy = legacy_result.stdout.strip().splitlines()[-1]
+            session.cookies.set(replay_cookies[0].name, legacy, domain=replay_cookies[0].domain, path="/")
+            refreshed = session.get(snap_url, timeout=10, allow_redirects=True)
+            assert refreshed.status_code == 200
+            assert refreshed.url == snap_url
+            assert not any("/admin/login/" in hop.url for hop in refreshed.history)
+            assert all(cookie.value != legacy for cookie in _replay_cookies(session))
+
+            # Reloading a saved bookmark must work without another auth handoff.
+            reloaded = session.get(snap_url, timeout=10, allow_redirects=False)
+            assert reloaded.status_code == 200
+            assert recursive_test_site["root_url"] in reloaded.text
         finally:
             stop_server(tmp_path)
 
+    @pytest.mark.parametrize(
+        "revocation",
+        ["logout", "user_deleted", "user_inactive", "password_changed", "session_expired", "replay_expired"],
+    )
     @pytest.mark.timeout(180)
     @pytest.mark.django_db(transaction=True)
     def test_private_snapshot_replay_cookie_stops_working_after_admin_logout(
         self,
         tmp_path,
         recursive_test_site,
+        revocation,
     ):
         init_archive(tmp_path)
         create_admin_and_token(tmp_path)
@@ -782,15 +908,48 @@ class TestPublicIndex:
             assert authorized.url == snap_url
             assert _replay_cookies(session)
 
-            _logout_admin_over_full_server(session, port)
+            if revocation == "logout":
+                _logout_admin_over_full_server(session, port)
+            else:
+                with use_archivebox_db(tmp_path):
+                    from datetime import timedelta
+                    from django.contrib.auth import get_user_model
+                    from django.contrib.sessions.models import Session
+                    from django.core.signing import b64_decode
+                    from django.utils import timezone
+
+                    admin = get_user_model().objects.get(username="apitestadmin")
+                    if revocation == "user_deleted":
+                        from archivebox.crawls.models import Crawl
+
+                        owner = get_user_model().objects.create_user(username="retained-snapshot-owner")
+                        Crawl.objects.filter(created_by=admin).update(created_by=owner)
+                        admin.delete()
+                    elif revocation == "user_inactive":
+                        admin.is_active = False
+                        admin.save(update_fields=["is_active"])
+                    elif revocation == "password_changed":
+                        admin.set_password("changed-replay-test-password")
+                        admin.save(update_fields=["password"])
+                    else:
+                        key = next(cookie.value for cookie in session.cookies if cookie.name.startswith("archivebox_sessionid_"))
+                        if revocation == "replay_expired":
+                            payload = json.loads(b64_decode(_replay_cookies(session)[0].value.rsplit(":", 2)[0].encode()))
+                            key = payload["replay_session"]
+                        Session.objects.filter(session_key=key).update(expire_date=timezone.now() - timedelta(seconds=1))
 
             stale_replay = session.get(snap_url, timeout=10, allow_redirects=False)
             assert stale_replay.status_code in (302, 303)
             assert "/admin/core/snapshot/replay-auth/" in stale_replay.headers["Location"]
 
             logged_out = session.get(snap_url, timeout=10, allow_redirects=True)
-            assert "/admin/login/" in logged_out.url
-            assert logged_out.url != snap_url
+            if revocation == "replay_expired":
+                assert logged_out.status_code == 200
+                assert logged_out.url == snap_url
+                assert not any("/admin/login/" in hop.url for hop in logged_out.history)
+            else:
+                assert "/admin/login/" in logged_out.url
+                assert logged_out.url != snap_url
         finally:
             stop_server(tmp_path)
 
