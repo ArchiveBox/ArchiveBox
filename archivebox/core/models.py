@@ -857,6 +857,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.refresh_from_db()
         if updated == 1:
             self.finalize_output_metadata()
+            # The atomic state transition bypasses Model.save()/post_save.
+            # Notify integrations only after final output metadata is persisted.
+            from signal_webhooks.handlers import webhook_handler
+
+            self.refresh_from_db()
+            webhook_handler(instance=self, method="UPDATE")
         return updated == 1
 
     def advance_lifecycle(self) -> bool:

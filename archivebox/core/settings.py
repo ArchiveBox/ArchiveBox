@@ -1,6 +1,8 @@
 __package__ = "archivebox.core"
 
 import importlib
+import base64
+import hashlib
 import inspect
 import logging
 import os
@@ -466,6 +468,10 @@ LOGGING = SETTINGS_LOGGING
 # Add default webhook configuration to the User model
 SIGNAL_WEBHOOKS_CUSTOM_MODEL = "archivebox.api.models.OutboundWebhook"
 SIGNAL_WEBHOOKS: dict[str, object] = {
+    # Reuse the collection's persistent secret with a separate key derivation
+    # context so webhook tokens can be encrypted across server restarts.
+    "CIPHER_KEY": base64.b64encode(hashlib.sha256(f"archivebox.webhooks:{SECRET_KEY}".encode()).digest()).decode(),
+    "HIDE_TOKEN": True,
     "TIMEOUT": 30,
     "TASK_HANDLER": "archivebox.api.webhooks.transaction_on_commit_task_handler",
     "ERROR_HANDLER": "archivebox.api.webhooks.warning_error_handler",

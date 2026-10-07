@@ -6,7 +6,9 @@ import logging
 
 from django.db import transaction
 from django.db.models.signals import pre_delete
-from signal_webhooks.handlers import sync_task_handler
+from asgiref.sync import async_to_sync
+from signal_webhooks.handlers import build_client_kwargs_by_hook_id, default_hook_handler, fire_webhooks
+from signal_webhooks.utils import get_webhook_model
 
 
 logger = logging.getLogger(__name__)
@@ -50,7 +52,16 @@ def warning_error_handler(hook: Any, error: Exception | None) -> None:
 def transaction_on_commit_task_handler(hook: Callable[..., None], **kwargs: Any) -> None:
     def run_webhook() -> None:
         try:
-            sync_task_handler(hook, **kwargs)
+            if hook is default_hook_handler:
+                # The library's asyncio.run() cannot return to an enclosing
+                # sync_to_async worker to persist delivery results. Use the
+                # matching asgiref bridge, with the DB reads materialized first.
+                hooks = get_webhook_model().objects.get_for_model(kwargs["instance"], method=kwargs["method"])
+                if hooks:
+                    client_kwargs = build_client_kwargs_by_hook_id(hooks)
+                    async_to_sync(fire_webhooks)(hooks, kwargs["data"], client_kwargs)
+            else:
+                hook(**kwargs)
         except Exception:
             logger.warning("Outbound webhook failed after transaction commit.", exc_info=True)
 
