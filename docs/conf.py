@@ -273,6 +273,7 @@ def add_heading_aliases(app, doctree, docname):
 
 def render_wiki_links(text):
     """Render legacy wiki navigation without changing immutable release sources."""
+
     def wiki_link(match):
         label, _, target = match.group(1).partition("|")
         target = (target or label).replace(" ", "-")
