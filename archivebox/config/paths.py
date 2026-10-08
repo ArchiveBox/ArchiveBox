@@ -127,12 +127,12 @@ def dir_is_writable(dir_path: Path, uid: int | None = None, gid: int | None = No
     current_uid, current_gid = os.geteuid(), os.getegid()
     uid, gid = uid or current_uid, gid or current_gid
 
-    test_file = dir_path / ".permissions_test"
     try:
         with SudoPermission(uid=uid, fallback=fallback):
-            test_file.exists()
-            test_file.write_text(f"Checking if uid={uid} gid={gid} can write to dir")
-            test_file.unlink()
+            # Collections and CLI processes may share this directory. Each
+            # probe must own its file so another check cannot unlink it.
+            with tempfile.NamedTemporaryFile(mode="w", prefix=".permissions_test-", dir=dir_path) as test_file:
+                test_file.write(f"Checking if uid={uid} gid={gid} can write to dir")
             return True
     except (OSError, PermissionError):
         if chown:

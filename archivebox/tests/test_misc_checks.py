@@ -12,6 +12,37 @@ from archivebox.misc.checks import _migration_interrupt_message
 from archivebox.misc.checks import is_archivebox_source_root
 
 
+def test_writable_directory_probe_preserves_existing_files(tmp_path):
+    from archivebox.config.paths import dir_is_writable
+
+    existing = tmp_path / ".permissions_test"
+    existing.write_text("existing collection data")
+    assert dir_is_writable(tmp_path)
+    assert existing.read_text() == "existing collection data"
+
+
+def test_concurrent_writable_directory_probes_do_not_remove_each_others_files(tmp_path):
+    script = textwrap.dedent(
+        """
+        import sys
+        from pathlib import Path
+        from archivebox.config.paths import dir_is_writable
+
+        directory = Path(sys.argv[1])
+        for _ in range(256):
+            assert dir_is_writable(directory, chown=False), 'Concurrent writable-directory probe failed'
+        """,
+    )
+    processes = [
+        subprocess.Popen([sys.executable, "-c", script, str(tmp_path)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        for _ in range(8)
+    ]
+    results = [(process, process.communicate(timeout=30)) for process in processes]
+    for process, (stdout, stderr) in results:
+        assert process.returncode == 0, (stdout, stderr)
+    assert list(tmp_path.iterdir()) == []
+
+
 def test_migration_interrupt_message_prints_resume_command_and_atomic_safety():
     message = _migration_interrupt_message()
 
