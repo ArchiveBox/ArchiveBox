@@ -42,6 +42,7 @@ class SearchResultsChangeList(ChangeList):
         lookup_params.pop("search_mode", None)
         lookup_params.pop("_embedded", None)
         lookup_params.pop("per_page", None)
+        lookup_params.pop("_archivebox_select_all", None)
         return lookup_params
 
 
