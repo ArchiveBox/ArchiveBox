@@ -641,6 +641,9 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://ex
 - <img src="https://app.archivebox.io/App/AppIcon.icon/Assets/ArchiveBox.png" alt="ArchiveBox app icon" height="28px"/> <b>From the official <a href="https://app.archivebox.io/">ArchiveBox macOS Desktop App or iOS Mobile App</a></b><br/>
   <i>Save directly from the Share menu or Siri/Shortcuts to your server.</i>
 
+- 💬 <b>From <a href="https://github.com/ArchiveBox/archivebox-chat-bot">ArchiveBox Bot</a> in your chat apps</b><br/>
+  <i>Save links from DMs, @mentions, and groups; use ArchiveBox AI Bot for multi-step archive tasks. <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Integrating-with-Slack">Setup & screenshots →</a></i>
+
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/64078483-21d7-4eb1-aa6e-9ad55afe45b8" height="22px"/> From manual imports of URLs from RSS, JSON, CSV, TXT, SQL, HTML, Markdown, etc. files  
   <i>ArchiveBox supports injesting URLs in [any text-based format](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#import-a-list-of-urls-from-a-text-file).</i>
 

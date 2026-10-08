@@ -13,6 +13,7 @@
 
 **Related:**
 
+- [Chat Bots](https://github.com/ArchiveBox/ArchiveBox/wiki/Integrating-with-Slack): Save links from DMs, mentions, and groups; run archive tasks with ArchiveBox AI Bot.
 - [[Docker]]: Learn about ArchiveBox usage with Docker and Docker Compose
 - [[Configuration]]: Learn about the various archive method options
 - [[Scheduled Archiving]]: Learn how to set up automatic daily archiving
