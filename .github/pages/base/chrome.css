@@ -96,6 +96,7 @@ html { scroll-behavior: smooth; scroll-padding-top: clamp(96px, 25vh, 240px); }
 .abx-header .abx-icon-stack .abx-integration:nth-child(5) { --stack-angle: -10deg; --stack-y: 1px; z-index: 5; }
 .abx-header .abx-icon-stack .abx-integration:nth-child(6) { --stack-angle: 6deg; --stack-y: -2px; z-index: 6; }
 .abx-header .abx-icon-stack .abx-integration:nth-child(7) { --stack-angle: -5deg; z-index: 7; }
+.abx-header .abx-icon-stack .abx-integration:nth-child(8) { --stack-angle: 8deg; --stack-y: 1px; z-index: 8; }
 .abx-header .abx-icon-stack .abx-integration:not(:hover, :focus-visible):has(~ .abx-integration:is(:hover, :focus-visible)) { transform: translate(-6px, var(--stack-y, 0px)) rotate(var(--stack-angle, -8deg)); }
 .abx-header .abx-icon-stack .abx-integration:is(:hover, :focus-visible) ~ .abx-integration:not(:hover, :focus-visible) { transform: translate(6px, var(--stack-y, 0px)) rotate(var(--stack-angle, -8deg)); }
 .abx-header .abx-icon-stack .abx-integration:is(:hover, :focus-visible) { z-index: 20; transform: translateY(-7px) rotate(0deg) scale(1.12); border-color: #c99bb0; box-shadow: 0 8px 14px #2d15252b; }
