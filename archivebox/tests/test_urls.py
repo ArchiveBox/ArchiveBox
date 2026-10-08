@@ -1757,7 +1757,10 @@ class TestUrlRouting:
             assert "?preview=1" in live_html
             assert "function createMainFrame(previousFrame)" in live_html
             assert "function activateCardPreview(card, link, updateHash=true, explicitTarget='')" in live_html
-            assert "ensureMainFrame(currentSrc !== nextSrcAbs)" in live_html
+            assert "const reloadPreview = updateHash || currentSrc !== nextSrcAbs" in live_html
+            assert "existingFrame.hasAttribute('sandbox') !== sandboxRequired" in live_html
+            assert "ensureMainFrame(reloadPreview)" in live_html
+            assert "if (reloadPreview)" in live_html
             assert "previousFrame.parentNode.replaceChild(frame, previousFrame)" in live_html
             assert "previousFrame.src = 'about:blank'" in live_html
             assert "event.stopImmediatePropagation()" in live_html
@@ -1792,7 +1795,10 @@ class TestUrlRouting:
             assert "?preview=1" in static_html
             assert "function createMainFrame(previousFrame)" in static_html
             assert "function activateCardPreview(card, link, updateHash=true, explicitTarget='')" in static_html
-            assert "ensureMainFrame(currentSrc !== nextSrcAbs)" in static_html
+            assert "const reloadPreview = updateHash || currentSrc !== nextSrcAbs" in static_html
+            assert "existingFrame.hasAttribute('sandbox') !== sandboxRequired" in static_html
+            assert "ensureMainFrame(reloadPreview)" in static_html
+            assert "if (reloadPreview)" in static_html
             assert "previousFrame.parentNode.replaceChild(frame, previousFrame)" in static_html
             assert "previousFrame.src = 'about:blank'" in static_html
             assert "event.stopImmediatePropagation()" in static_html

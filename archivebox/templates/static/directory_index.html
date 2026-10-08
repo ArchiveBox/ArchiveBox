@@ -106,7 +106,7 @@
             {% for entry in entries %}
               {% with f=entry.name %}
               <tr class="directory-entry{% if entry.is_dir %} folder{% endif %}" data-name="{{ f }}" data-size="{{ entry.size_bytes }}" data-type="{{ entry.mimetype }}"><td>
-                <a class="directory-link" href="{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% elif f|lower|slice:'-4:' == '.zip' %}?preview=1{% endif %}">
+                <a class="directory-link" href="{{ f|urlencode }}{% if f|slice:'-1:' == '/' %}{{ directory_query }}{% elif f|lower|slice:'-4:' == '.zip' or entry.mimetype|slice:':6' == 'image/' %}?preview=1&amp;raw=1{% endif %}">
                   {% if entry.preview_kind == "image" %}
                     <img class="entry-preview" src="{{ f|urlencode }}?raw=1" alt="" loading="lazy" decoding="async">
                   {% elif entry.preview_kind == "text" %}

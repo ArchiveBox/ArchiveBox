@@ -198,7 +198,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert "prepare" not in screenshots["jobs"]
     assert screenshots["jobs"]["changes"]["steps"][0]["uses"] == "ArchiveBox/monorepo/.github/actions/changed-scheduled-inputs@main"
     assert screenshots["jobs"]["deploy"]["needs"] == "changes"
-    assert screenshots["jobs"]["deploy"]["if"] == "needs.changes.outputs.changed == 'true'"
+    assert screenshots["jobs"]["deploy"]["if"] == "needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev'"
     assert screenshots["jobs"]["complete"]["needs"] == ["changes", "deploy"]
     assert screenshots["jobs"]["complete"]["name"] == "Scheduled inputs: ${{ needs.changes.outputs.key }}"
     for name, job in ci["jobs"].items():

@@ -17,12 +17,22 @@ def main() -> None:
     # time. Shared job setup is paid once per batch. Unknown/long files, optional
     # dependencies and hosted-only requirements keep independent jobs.
     durations = json.loads((root / ".github/test-durations.json").read_text())["seconds"]
+    environments = {
+        path: line.removeprefix("# ci-environment: ").strip()
+        for path in archivebox_tests
+        for line in path.read_text().splitlines()[:5]
+        if line.startswith("# ci-environment: ")
+    }
+    if set(environments.values()) - {"provider-capture"}:
+        raise SystemExit("Unknown ci-environment requirement")
     hosted = {path for path in archivebox_tests if "# ci-runner: hosted" in path.read_text().splitlines()[:5]}
     requested = os.environ.get("TEST_FILE", "")
     batches: list[list[str]] = []
     batch: list[str] = []
     batch_seconds = 0
     for path in archivebox_tests:
+        if path in environments:
+            continue
         test_path = path.relative_to(root).as_posix()
         duration = durations.get(test_path, 60)
         if duration >= 60 or path in hosted or path.stem == "test_auth_ldap" or test_path == requested:
@@ -47,6 +57,20 @@ def main() -> None:
                 "extra": "ldap" if paths == ["archivebox/tests/test_auth_ldap.py"] else "",
                 "count": len(paths),
                 "ugnas": False,
+                "environment": "",
+            },
+        )
+    for path, environment in environments.items():
+        test_path = path.relative_to(root).as_posix()
+        matrix.append(
+            {
+                "name": f"{environment}/{path.stem}",
+                "paths": [test_path],
+                "paths_arg": test_path,
+                "extra": "",
+                "count": 1,
+                "ugnas": False,
+                "environment": environment,
             },
         )
 
@@ -60,7 +84,7 @@ def main() -> None:
     # CPU-capped NAS instead created a tail after hosted work had finished; use
     # its extra slots for a bounded share of shorter work without filename rules.
     matrix.sort(key=lambda item: sum(durations.get(path, 60) for path in item["paths"]), reverse=True)
-    eligible = [item for item in reversed(matrix) if not any(root / path in hosted for path in item["paths"])]
+    eligible = [item for item in reversed(matrix) if not item["environment"] and not any(root / path in hosted for path in item["paths"])]
     for item in eligible[:nas_job_limit]:
         item["ugnas"] = True
 

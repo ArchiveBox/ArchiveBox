@@ -252,7 +252,24 @@ fi
 stop_background_runner
 
 ABXPKG_LIB_DIR="$(uv run --no-cache --project "$REPO_DIR" abx-dl config --get ABXPKG_LIB_DIR | sed 's/^[^=]*=//; s/^"//; s/"$//')"
-SCREENSHOT_CHROME_BINARY="${CHROME_BINARY:-$ABXPKG_LIB_DIR/env/bin/chromium}"
+if [[ -n "${CHROME_BINARY:-}" ]]; then
+    SCREENSHOT_CHROME_BINARY="$CHROME_BINARY"
+else
+    SCREENSHOT_CHROME_BINARY="$(ABXPKG_LIB_DIR="$ABXPKG_LIB_DIR" uv run --no-cache --project "$REPO_DIR" python - <<'PY'
+import json
+import subprocess
+from pathlib import Path
+import abx_plugins
+
+config = Path(abx_plugins.__file__).parent / "plugins/chrome/config.json"
+resolved = json.loads(subprocess.check_output([
+    "abxpkg", "env", "--install", "--json",
+    f"--deps-from={config}:required_binaries", "browsers",
+], text=True))
+print(resolved["CHROME_BINARY"])
+PY
+    )"
+fi
 if [[ ! -x "$SCREENSHOT_CHROME_BINARY" ]]; then
     echo "[!] Screenshot Chromium was not found at $SCREENSHOT_CHROME_BINARY (set CHROME_BINARY to override)" >&2
     exit 1

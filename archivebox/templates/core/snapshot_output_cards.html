@@ -3,7 +3,7 @@
                         {% with display_path=result.path display_url='' preview_url='' %}
                         {% if display_path %}{% snapshot_url snapshot display_path as display_url %}{% endif %}
                         {% if display_path %}{% if result.direct_preview_path %}{% snapshot_url snapshot result.direct_preview_path as preview_url %}{% else %}{% snapshot_preview_url snapshot display_path result.result as preview_url %}{% endif %}{% endif %}
-                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}" data-output-size="{{result.size|default:0}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}>
+                        <div class="thumb-card{% if forloop.first %} selected-card{% endif %}" data-plugin-name="{{result.name|plugin_name}}" data-output-group="{{result.output_group}}" data-output-size="{{result.size|default:0}}"{% if preview_url %} data-preview-url="{{preview_url}}"{% endif %}{% if display_path %} data-output-path="{{display_path}}"{% endif %}{% if not STATIC_EXPORT and not result.direct_preview_path and result.result|plugin_has_full_preview %} data-full-preview="1"{% endif %}>
                                 <div class="thumb-body">
                                     <div class="thumb-actions">
                                         {% if not STATIC_EXPORT %}<a href="{% snapshot_files_url snapshot result.folder_path %}" data-no-preview="1" title="Open output folder" target="_blank" rel="noopener">📁</a>{% endif %}
