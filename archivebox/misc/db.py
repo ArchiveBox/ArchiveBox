@@ -299,7 +299,7 @@ def sqlite_lock_holders(db_path: Path = CONSTANTS.DATABASE_FILE) -> list[str]:
     for proc in psutil.process_iter(["pid", "ppid", "name", "cmdline", "status"]):
         try:
             open_files = proc.open_files()
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess):
+        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, RuntimeError):
             continue
         for open_file in open_files:
             try:

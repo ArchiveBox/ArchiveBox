@@ -366,10 +366,13 @@ class _StreamingQueueWriter:
 def _iter_visible_files(root: Path):
     """Yield non-hidden files in a stable order so ZIP output is deterministic."""
 
+    root = root.resolve()
     for current_root, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(dirname for dirname in dirnames if not dirname.startswith("."))
         for filename in sorted(name for name in filenames if not name.startswith(".")):
-            yield Path(current_root) / filename
+            entry = Path(current_root) / filename
+            if entry.resolve().is_relative_to(root):
+                yield entry
 
 
 def _build_directory_zip_response(

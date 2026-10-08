@@ -315,6 +315,32 @@ def test_directory_index_has_filter_and_per_entry_downloads(tmp_path: Path):
     assert 'href="note.txt?raw=1" download' in html
 
 
+def test_directory_zip_excludes_symlinks_outside_export_root(tmp_path: Path):
+    import io
+    import zipfile
+
+    root = tmp_path / "export"
+    root.mkdir()
+    (root / "note.txt").write_bytes(b"inside")
+    (root / "alias.txt").symlink_to(root / "note.txt")
+    outside = tmp_path / "export-other"
+    outside.mkdir()
+    (outside / "secret.txt").write_bytes(b"outside")
+    (root / "leak.txt").symlink_to(outside / "secret.txt")
+    response = serve_static_with_byterange_support(
+        RequestFactory().get("/?download=zip"),
+        "",
+        document_root=root,
+        show_indexes=True,
+        is_archive_replay=True,
+    )
+    assert response.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(b"".join(response.streaming_content))) as archive:
+        assert set(archive.namelist()) == {"export/note.txt", "export/alias.txt"}
+        assert archive.read("export/note.txt") == b"inside"
+        assert archive.read("export/alias.txt") == b"inside"
+
+
 def test_casefold_paths_remain_inside_archive_root(tmp_path: Path):
     from django.core.exceptions import SuspiciousFileOperation
     from archivebox.misc.serve_static import _resolve_archive_path
