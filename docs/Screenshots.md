@@ -446,7 +446,7 @@ View: [`/admin/environment/logs/supervisord/`](http://admin.archivebox.localhost
 
 ## Snapshot View (singlefile)
 
-View: [`/#singlefile`](http://snap-f9864c2b39b4.archivebox.localhost:5797#singlefile) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#singlefile/singlefile.html`](http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#singlefile/singlefile.html) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -456,7 +456,7 @@ View: [`/#singlefile`](http://snap-f9864c2b39b4.archivebox.localhost:5797#single
 
 ## Snapshot View (screenshot)
 
-View: [`/#screenshot`](http://snap-f9864c2b39b4.archivebox.localhost:5797#screenshot) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#screenshot/screenshot.png`](http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#screenshot/screenshot.png) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -476,7 +476,7 @@ View: [`/#wget`](http://snap-f9864c2b39b4.archivebox.localhost:5797#wget) · [Vi
 
 ## Snapshot View (dom)
 
-View: [`/#dom`](http://snap-f9864c2b39b4.archivebox.localhost:5797#dom) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#dom/output.html`](http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#dom/output.html) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -486,7 +486,7 @@ View: [`/#dom`](http://snap-f9864c2b39b4.archivebox.localhost:5797#dom) · [View
 
 ## Snapshot View (pdf)
 
-View: [`/#pdf`](http://snap-f9864c2b39b4.archivebox.localhost:5797#pdf) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#pdf/output.pdf`](http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#pdf/output.pdf) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -496,7 +496,7 @@ View: [`/#pdf`](http://snap-f9864c2b39b4.archivebox.localhost:5797#pdf) · [View
 
 ## Snapshot View (readability)
 
-View: [`/#readability`](http://snap-f9864c2b39b4.archivebox.localhost:5797#readability) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#readability/content.html`](http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#readability/content.html) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -506,7 +506,7 @@ View: [`/#readability`](http://snap-f9864c2b39b4.archivebox.localhost:5797#reada
 
 ## Snapshot View (ytdlp)
 
-View: [`/#ytdlp`](http://snap-f9864c2b39b4.archivebox.localhost:5797#ytdlp) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#ytdlp/Tiny_plankton_deploys_sophisticated_harpoon.webm`](http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#ytdlp/Tiny_plankton_deploys_sophisticated_harpoon.webm) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -536,7 +536,7 @@ View: [`/#chrome_mhtml`](http://snap-f9864c2b39b4.archivebox.localhost:5797#chro
 
 ## Snapshot View (defuddle)
 
-View: [`/#defuddle`](http://snap-f9864c2b39b4.archivebox.localhost:5797#defuddle) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#defuddle/content.html`](http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#defuddle/content.html) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
@@ -546,7 +546,7 @@ View: [`/#defuddle`](http://snap-f9864c2b39b4.archivebox.localhost:5797#defuddle
 
 ## Snapshot View (mercury)
 
-View: [`/#mercury`](http://snap-f9864c2b39b4.archivebox.localhost:5797#mercury) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
+View: [`/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#mercury/content.html`](http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#mercury/content.html) · [View code](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/templates/core/snapshot.html)
 
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>

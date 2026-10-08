@@ -54,22 +54,32 @@ jobs:
         run: |
           mv "$RUNNER_TEMP/manual-screenshots/"*.png publicsite/screenshots/
           uv run --no-project python - <<'PY'
-          import hashlib, json, re, subprocess
+          import hashlib, html, json, re, subprocess
           from pathlib import Path
           directory = Path("publicsite/screenshots")
           manifest_path = directory / "build.json"
           manifest = json.loads(manifest_path.read_text())
           gallery_path = directory / "index.html"
           gallery = gallery_path.read_text()
+          captures = json.loads(Path(".github/manual-screenshot-captures.json").read_text())
           for filename in subprocess.check_output(["git", "ls-files", "publicsite/screenshots/*.png"], text=True).splitlines():
               image = Path(filename)
               digest = hashlib.sha256(image.read_bytes()).hexdigest()
               manifest["files"][image.name] = digest
+              view = image.stem.rsplit("-", 1)[0]
+              capture = captures.get(view, {})
               manifest.setdefault("manual_captures", {})[image.name] = {
+                  **capture,
                   "revision": subprocess.check_output(["git", "log", "-1", "--format=%H", "--", filename], text=True).strip(),
                   "source": "Browser capture of a real local ArchiveBox collection",
               }
               gallery = re.sub(re.escape(image.name) + r"(?:\?v=[a-f0-9]+)?", f"{image.name}?v={digest[:12]}", gallery)
+          for view, capture in captures.items():
+              def update_caption(match):
+                  paragraph = re.sub(r'<a href="[^"]*"><code>.*?</code></a>', lambda _: f'<a href="{html.escape(capture["url"], quote=True)}"><code>{html.escape(capture["path"])}</code></a>', match[2], count=1)
+                  paragraph = re.sub(r"~[0-9]+ms TTFB", f'~{capture["ttfb_ms"]}ms TTFB', paragraph)
+                  return match[1] + paragraph + match[3]
+              gallery = re.sub(r'(<article id="' + re.escape(view) + r'"><h2>.*?</h2><p>)(.*?)(</p>)', update_caption, gallery)
           manifest["capture_count"] = len(manifest["files"])
           manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
           gallery_path.write_text(gallery)
