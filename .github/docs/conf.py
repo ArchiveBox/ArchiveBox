@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 from urllib.parse import unquote
 
+from docutils import nodes
 from markdown_it import MarkdownIt
 from myst_parser.mdit_to_docutils.base import default_slugify
 
@@ -194,6 +195,16 @@ def normalize_markdown(app, docname, source):
     source[0] = text
 
 
+def add_heading_aliases(app, doctree, docname):
+    """Keep incoming GitHub fragments valid alongside MyST's heading IDs."""
+    targets = {identifier: node for node in doctree.findall(nodes.Element) for identifier in node.get("ids", [])}
+    aliases = {slug: target for slug, (_, target, _) in app.env.metadata.get(docname, {}).get("myst_slugs", {}).items()}
+    for alias, target in aliases.items():
+        if alias not in targets and target in targets:
+            targets[target]["ids"].append(alias)
+
+
 def setup(app):
     app.connect("source-read", prepare_source)
     app.connect("source-read", normalize_markdown)
+    app.connect("doctree-resolved", add_heading_aliases)
