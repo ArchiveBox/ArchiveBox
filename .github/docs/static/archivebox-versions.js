@@ -23,10 +23,15 @@
     const parsed = published.map(v => parse(v.slug)).filter(Boolean);
     const minors = [...new Set(parsed.sort((a, b) => compare(b, a))
       .map(v => `${v.major}.${v.minor}`))];
-    const winners = minors.map((minor, index) => parsed.filter(v =>
-      `${v.major}.${v.minor}` === minor && (index < 2 ? v.rc !== null : v.rc === null))
-      .sort((a, b) => compare(b, a))[0]).filter(Boolean).map(v => v.slug);
-    return ["latest", "dev"].filter(slug => published.some(v => v.slug === slug)).concat(winners);
+    // Publish every stable release in the newest series. Older series keep one
+    // representative, preferring stable and retaining an RC only if none exists.
+    const winners = minors.flatMap((minor, index) => {
+      const releases = parsed.filter(v => `${v.major}.${v.minor}` === minor)
+        .sort((a, b) => compare(b, a));
+      const stable = releases.filter(v => v.rc === null);
+      return index === 0 ? stable : (stable.length ? stable : releases).slice(0, 1);
+    }).map(v => v.slug);
+    return ["stable", "latest", "dev"].filter(slug => published.some(v => v.slug === slug)).concat(winners);
   }
 
   // Export only the pure policy for Node verification; browser has no new globals.
