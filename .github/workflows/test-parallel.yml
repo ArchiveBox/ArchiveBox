@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       tests: ${{ steps.discover.outputs.tests }}
+      provider-tests: ${{ steps.discover.outputs.provider-tests }}
       runner: ${{ steps.runner.outputs.use-runner || '["ubuntu-24.04"]' }}
 
     steps:
@@ -90,13 +91,15 @@ jobs:
           if [[ -n "$TEST_FILE" ]]; then
             output[1]="$("$JQ_BINARY" -ce '[.[] | select(.paths == [env.TEST_FILE])] | select(length == 1)' <<< "${output[1]}")"
           fi
-          echo "tests=${output[1]}" >> "$GITHUB_OUTPUT"
           echo "${output[0]}"
           "$JQ_BINARY" -e 'length > 0 and length <= 256 and ([.[].paths[]] | length == (unique | length))' <<< "${output[1]}"
+          echo "tests=$("$JQ_BINARY" -c '[.[] | select(.environment == "")]' <<< "${output[1]}")" >> "$GITHUB_OUTPUT"
+          echo "provider-tests=$("$JQ_BINARY" -c '[.[] | select(.environment == "provider-capture")]' <<< "${output[1]}")" >> "$GITHUB_OUTPUT"
 
   tests:
     name: ${{ matrix.test.name }}
     needs: discover-tests
+    if: needs.discover-tests.outputs.tests != '[]'
     # Opt in trusted branches only; PRs always use GitHub-hosted runners.
     # Ordinary Linux tests are eligible; # ci-runner: hosted declares exceptions.
     # The hosted discovery job falls back when workers are offline or the
@@ -249,3 +252,68 @@ jobs:
           path: ${{ runner.temp }}/pytest/**/*.log
           if-no-files-found: ignore
           retention-days: 14
+
+  provider-capture:
+    name: Authenticated provider replay
+    needs: discover-tests
+    if: needs.discover-tests.outputs.provider-tests != '[]' && github.repository == 'ArchiveBox/ArchiveBox' && github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    environment: provider-capture
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        test: ${{ fromJSON(needs.discover-tests.outputs.provider-tests) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          submodules: true
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.CI_PYTHON_VERSION }}
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+      - name: Install browser display and PDF inspection tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth poppler-utils
+      - name: Install locked test dependencies
+        run: uv sync --no-cache --locked --dev --no-sources
+      - name: Prepare authorized provider persona
+        env:
+          PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
+        run: |
+          set -Eeuo pipefail
+          : "${PROVIDER_AUTH_STORAGE_JSON:?Missing provider-capture authentication secret}"
+          umask 077
+          auth_file="$(mktemp "$RUNNER_TEMP/provider-auth.XXXXXX")"
+          printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$auth_file"
+          chmod 600 "$auth_file"
+          {
+            echo "AUTH_STORAGE_FILE=$auth_file"
+            echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/provider-runtime"
+            echo "DATA_DIR=$RUNNER_TEMP/provider-test-data"
+            echo "PERSONAS_DIR=$RUNNER_TEMP/provider-personas"
+          } >> "$GITHUB_ENV"
+      - name: Run real authenticated CLI and replay acceptance
+        env:
+          TEST_PATH: ${{ matrix.test.paths_arg }}
+          CHROME_HEADLESS: "false"
+        run: |
+          set -Eeuo pipefail
+          test -f "$AUTH_STORAGE_FILE"
+          test -f "$TEST_PATH"
+          xvfb-run -a uv run --no-cache --no-sync --no-sources pytest -q "$TEST_PATH" \
+            --basetemp="$RUNNER_TEMP/provider-pytest" \
+            -o cache_dir="$RUNNER_TEMP/provider-pytest-cache"
+      - name: Remove authentication and browser profiles
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP"/provider-auth.*
+          rm -rf "$RUNNER_TEMP/provider-pytest" "$RUNNER_TEMP/provider-personas" \
+            "$RUNNER_TEMP/provider-test-data" "$RUNNER_TEMP/provider-runtime" \
+            "$RUNNER_TEMP/provider-pytest-cache"

@@ -1517,25 +1517,37 @@
                 }
             }
 
-            function isIsolatedLiteParsePreview(urlValue) {
+            function isIsolatedDocumentPreview(urlValue) {
                 if (!urlValue || !snapshotBaseUrl) return false
                 try {
                     const target = new URL(urlValue, window.location.href)
                     const base = new URL(snapshotBaseUrl, window.location.href)
                     const basePath = (base.pathname || '').replace(/\/+$/, '')
-                    // LiteParse's full viewer is an ArchiveBox-authored template, not captured
-                    // page content. It embeds the saved PDF in its own iframe; Chromium/Brave's
+                    // These full viewers are ArchiveBox-authored templates, not captured
+                    // page content. They embed saved PDFs in their own iframes; Chromium/Brave's
                     // native PDF viewer refuses to run through an ancestor sandbox, even when
                     // that sandbox allows scripts and same-origin access. Remove the outer
                     // sandbox only when this exact viewer is served from the isolated snapshot
                     // origin. On one-domain installs that origin shares the control-plane origin,
                     // so it must remain sandboxed; all ordinary replays remain sandboxed too.
+                    const relativePath = target.pathname.slice(basePath.length)
+                    const documentManifests = new Set([
+                        '/googledocs/exports.json',
+                        ...['microsoft365', 'notion', 'figma', 'tldraw', 'excalidraw',
+                            'drawio', 'miro', 'canva', 'protondocs', 'iwork']
+                            .map(plugin => `/${plugin}/downloads.json`),
+                    ])
+                    const trustedViewer = documentManifests.has(relativePath) || (
+                        relativePath.startsWith('/liteparse/')
+                        && target.pathname.toLowerCase().endsWith('.txt')
+                    )
                     return (
                         base.origin !== window.location.origin
                         && target.origin === base.origin
-                        && target.pathname.startsWith(`${basePath}/liteparse/`)
+                        && target.pathname.startsWith(`${basePath}/`)
                         && target.searchParams.get('preview') === '1'
-                        && target.pathname.toLowerCase().endsWith('.txt')
+                        && target.searchParams.get('raw') !== '1'
+                        && trustedViewer
                     )
                 } catch (err) {
                     return false
@@ -1604,14 +1616,22 @@
                 try {
                     nextSrcAbs = new URL(nextSrc, window.location.href).href
                 } catch (err) {}
-                const iframe_elem = ensureMainFrame(currentSrc !== nextSrcAbs)
+                const sandboxRequired = !(
+                    new URL(target, window.location.href).pathname.endsWith('.pdf')
+                    || isIsolatedDocumentPreview(target)
+                )
+                // A viewer's own links can navigate without changing iframe.src.
+                // An explicit card click must reopen its viewer even in that case.
+                const reloadPreview = updateHash || currentSrc !== nextSrcAbs
+                    || (existingFrame && existingFrame.hasAttribute('sandbox') !== sandboxRequired)
+                const iframe_elem = ensureMainFrame(reloadPreview)
                 // Preview wrappers retain the .pdf path but add ?preview=1.
                 // The native PDF renderer must be allowed before navigation,
                 // not after a failed sandboxed load has already completed.
                 // Native PDF embedding fails when any ancestor keeps a sandbox. A direct PDF is
-                // already handled below; LiteParse needs the same treatment for its trusted
-                // viewer frame, but only after isIsolatedLiteParsePreview proves origin isolation.
-                if (new URL(target, window.location.href).pathname.endsWith('.pdf') || isIsolatedLiteParsePreview(target)) {
+                // already handled below; document templates need the same treatment for their
+                // trusted viewer frames, only after proving snapshot origin isolation.
+                if (!sandboxRequired) {
                     iframe_elem.removeAttribute('sandbox')
                 } else {
                     iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
@@ -1620,7 +1640,7 @@
                     window.location.hash = getPreviewHashValueFromHref(rawTarget)
                 }
 
-                if (currentSrc !== nextSrcAbs) {
+                if (reloadPreview) {
                     iframe_elem.src = nextSrc
                 }
                 return false
@@ -1777,7 +1797,9 @@
             window.addEventListener('message', (event) => {
                 const frame = document.getElementById('main-frame')
                 if (event.source !== frame?.contentWindow || event.data?.type !== 'archivebox-directory-navigate') return
-                if (!new URL(frame.src, window.location.href).searchParams.has('files')) return
+                // Plugin previews can redirect their manifest to the file browser.
+                // frame.src retains the original URL after that navigation; validate
+                // the actual sender and destination below instead of that attribute.
                 const base = new URL(snapshotBaseUrl, window.location.href)
                 if (event.origin !== base.origin || typeof event.data.href !== 'string') return
                 const target = new URL(event.data.href, base)

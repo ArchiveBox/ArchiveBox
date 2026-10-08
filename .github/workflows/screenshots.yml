@@ -25,8 +25,9 @@ jobs:
 
   deploy:
     needs: changes
-    if: needs.changes.outputs.changed == 'true'
+    if: needs.changes.outputs.changed == 'true' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-24.04
+    environment: provider-capture
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -41,10 +42,24 @@ jobs:
       - name: Install ArchiveBox and screenshot dependencies
         run: uv sync --no-cache --frozen
 
+      - name: Prepare authorized provider persona and browser display
+        env:
+          PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$PROVIDER_AUTH_STORAGE_JSON"
+          umask 077
+          printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$RUNNER_TEMP/provider-auth.json"
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth poppler-utils
+
       - name: Build UI screenshot gallery
-        run: bin/collect_ui_screenshots.sh
+        run: xvfb-run -a bin/collect_ui_screenshots.sh
         env:
           BASE_URL: http://archivebox.localhost:5797
+          AUTH_STORAGE_FILE: ${{ runner.temp }}/provider-auth.json
+          CHROME_HEADLESS: "false"
+          UI_SCREENSHOT_DATA_DIR: ${{ runner.temp }}/provider-gallery-data
 
       - name: Verify gallery was generated from this exact revision
         run: |
@@ -71,6 +86,12 @@ jobs:
           path: publicsite/screenshots
           if-no-files-found: error
           retention-days: 90
+
+      - name: Remove provider persona and browser profiles
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/provider-auth.json"
+          rm -rf "$RUNNER_TEMP/provider-gallery-data"
 
   complete:
     name: 'Scheduled inputs: ${{ needs.changes.outputs.key }}'

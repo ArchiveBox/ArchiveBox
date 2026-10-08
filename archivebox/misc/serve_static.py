@@ -1207,9 +1207,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         and (bool(request.GET.get("raw")) or not content_type.startswith("text/html"))
         and not content_type.startswith("image/svg+xml")
     )
-    preview_as_image_html = (
-        bool(request.GET.get("preview")) and content_type.startswith("image/") and not content_type.startswith("image/svg+xml")
-    )
+    preview_as_image_html = bool(request.GET.get("preview")) and content_type.startswith("image/")
     # Respect the If-Modified-Since header for non-markdown responses.
     if not content_type.startswith(("text/plain", "text/html")) and not static.was_modified_since(
         request.META.get("HTTP_IF_MODIFIED_SINCE"),
