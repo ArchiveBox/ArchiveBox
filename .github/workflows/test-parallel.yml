@@ -305,6 +305,8 @@ jobs:
           )"
           sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
           echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
+          # GPU-less CI needs an explicit OpenGL ES renderer for Figma.
+          echo 'CHROME_ARGS_EXTRA=["--use-gl=angle","--use-angle=swiftshader"]' >> "$GITHUB_ENV"
       - name: Prepare authorized provider persona
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
