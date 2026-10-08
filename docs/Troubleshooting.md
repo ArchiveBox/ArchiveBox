@@ -15,7 +15,7 @@ What are you having an issue with?:
 
 ## Installing
 
-If using `archivebox` without Docker, make sure you've followed the full guide in the [[Install]] instructions first.  Then check here for help depending on what component you need help with.
+If using `archivebox` without Docker, make sure you've followed the full guide in the [Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) instructions first.  Then check here for help depending on what component you need help with.
 
 Then make sure `archivebox` is installed available in your `$PATH`.
 ```bash
@@ -57,11 +57,11 @@ uv tool list
 archivebox version
 ```
 
-If `archivebox` is missing, repeat the `uv tool install` command from the [[Install]] guide.
+If `archivebox` is missing, repeat the `uv tool install` command from the [Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Install) guide.
 
 ### Chromium/Google Chrome
 
-For more info, see the [[Chromium Install]] page.
+For more info, see the [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install) page.
 
 ArchiveBox resolves Chrome through `abxpkg`, preferring a compatible browser already installed on the host and otherwise installing a managed build:
 
@@ -250,7 +250,7 @@ sqlite3.DatabaseError: database disk image is malformed
 ```
 
 Generally all index issues should be fixable by running `archivebox init`.  
-Use `archivebox status` to inspect collection health. To deliberately discover copied orphan snapshots and repair metadata/links, run `archivebox update --rescan --migrate-only`. This scans all snapshot directories and may take a long time on remote storage; rerun the same command after interruption. See [[Merging Collections]] for identity preservation and conflict handling.
+Use `archivebox status` to inspect collection health. To deliberately discover copied orphan snapshots and repair metadata/links, run `archivebox update --rescan --migrate-only`. This scans all snapshot directories and may take a long time on remote storage; rerun the same command after interruption. See [Merging Collections](https://github.com/ArchiveBox/ArchiveBox/wiki/Merging-Collections) for identity preservation and conflict handling.
 
 **Error output:**
 

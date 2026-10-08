@@ -8,7 +8,7 @@ ArchiveBox is primarily distributed as a Python package installed with `uv`, but
 
  - *[Supported Systems](#supported-systems)*
  - Install Instructions
-   - **[Option A. Docker / Docker Compose ⭐️](#option-a-docker--docker-compose-setup-%EF%B8%8F)**
+   - **[Option A. Docker / Docker Compose ⭐️](#docker-compose-setup)**
    - [Option B. uv Install Shortcut](#option-b-uv-install-shortcut)
    - [Option C. System Package Manager Setup](#option-c-bare-metal-setup)
      - *[Upgrading ArchiveBox to a new version](#next-steps-upgrading-archivebox-to-a-new-version)*
@@ -43,6 +43,8 @@ It's also recommended to use a filesystem with compression and/or [deduplication
 
 <br/>
 
+<a id="docker-compose-setup"></a>
+
 ## Option A. Docker / Docker Compose Setup ⭐️
 
 *Docker Compose is the recommended way to get ArchiveBox, as it includes all the extras out-of-the-box and provides the best security and upgrade UX.*
@@ -50,7 +52,7 @@ It's also recommended to use a filesystem with compression and/or [deduplication
 1. If you don't already have Docker installed, follow the official instructions for Linux or macOS:
   https://docs.docker.com/install/#supported-platforms ➡️
 
-2. Then follow the [Quickstart](https://github.com/ArchiveBox/ArchiveBox#quickstart) guide and read the [[Docker]] wiki page for next steps. ➡️
+2. Then follow the [Quickstart](https://github.com/ArchiveBox/ArchiveBox#quickstart) guide and read the [Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) wiki page for next steps. ➡️
 
 > You can also run Dockerized ArchiveBox using [UNRAID/TrueNAS/Proxmox/etc.](https://github.com/ArchiveBox/ArchiveBox#-other-options) or Kubernetes.
 
@@ -99,7 +101,7 @@ See our [Dependencies](https://github.com/ArchiveBox/ArchiveBox#dependencies) do
 <img src="https://avatars0.githubusercontent.com/u/1503512?s=200&v=4" width="100px" align="right"/>
 
 **More info:**
- - For help installing these, see the [Manual Setup](#option-c-bare-metal-setup), [[Troubleshooting]] and [[Chromium Install]] pages.
+ - For help installing these, see the [Manual Setup](#option-c-bare-metal-setup), [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting) and [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install) pages.
  - For per-plugin binary and enable/disable options (CHROME_BINARY, RIPGREP_BINARY, `<plugin>_ENABLED`, etc.) see the [abx-plugins config reference](https://plugins.archivebox.io/).
 
 
@@ -227,7 +229,7 @@ archivebox help
   
 ArchiveBox can be launched as `root` by setup and package-manager flows; it creates or selects the `archivebox` service account and drops privileges before writing collection data. Run collection commands such as `init`, `install`, `add`, and `status` inside the data directory. Informational commands such as `version` and `help` can run anywhere.
 
-If you have issues getting Chromium / Google Chrome or other dependencies working with ArchiveBox, see the [[Chromium Install]] and [[Troubleshooting]] pages for more detailed instructions.
+If you have issues getting Chromium / Google Chrome or other dependencies working with ArchiveBox, see the [Chromium Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install) and [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting) pages for more detailed instructions.
 
 <br/>
 
@@ -254,7 +256,7 @@ archivebox status
 archivebox server 0.0.0.0:5797
 # Visit http://admin.archivebox.localhost:5797/admin/ in a browser to finish setup
 ```
-See our [[Usage]] Wiki documentation page for more examples.
+See our [Usage](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage) Wiki documentation page for more examples.
 
 <br/>
 
@@ -290,8 +292,8 @@ Check our more detailed [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wik
 
 ### Further Reading
 
- - Read [[Usage]] to learn how to use the ArchiveBox CLI and HTML output
- - Read [[Configuration]] to learn about the various archive method options
- - Read [[Scheduled Archiving]] to learn how to set up automatic daily archiving
- - Read [[Publishing Your Archive]] if you want to host your archive for others to access online
- - Read [[Troubleshooting]] if you encounter any problems
+ - Read [Usage](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage) to learn how to use the ArchiveBox CLI and HTML output
+ - Read [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) to learn about the various archive method options
+ - Read [Scheduled Archiving](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) to learn how to set up automatic daily archiving
+ - Read [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive) if you want to host your archive for others to access online
+ - Read [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting) if you encounter any problems

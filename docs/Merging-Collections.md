@@ -2,7 +2,7 @@
 
 Copy snapshot directories into the destination collection, then explicitly rescan them. Ordinary `archivebox init` and `archivebox update` intentionally avoid discovering current-layout orphan directories: that would make every startup/update scan the entire collection.
 
-1. Back up both collections and finish active captures before copying. Upgrade legacy collections using the normal [[Upgrading]] instructions.
+1. Back up both collections and finish active captures before copying. Upgrade legacy collections using the normal [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading) instructions.
 2. Initialize the destination collection with `archivebox init`.
 3. Copy or drag the contents of each source `archive/` into the destination `archive/`, preserving the `users/<username>/snapshots/<date>/<domain>/<uuid>/` hierarchy and every snapshot's `index.jsonl`. Inspect collisions; do not overwrite different files at the same path. Do not replace the destination SQLite database.
 4. From the destination data directory, run:

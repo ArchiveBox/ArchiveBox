@@ -14,11 +14,11 @@
 **Related:**
 
 - [Chat Bots](https://github.com/ArchiveBox/ArchiveBox/wiki/Integrating-with-Slack): Save links from DMs, mentions, and groups; run archive tasks with ArchiveBox AI Bot.
-- [[Docker]]: Learn about ArchiveBox usage with Docker and Docker Compose
-- [[Configuration]]: Learn about the various archive method options
-- [[Scheduled Archiving]]: Learn how to set up automatic daily archiving
-- [[Publishing Your Archive]]: Learn how to host your archive for others to access
-- [[Troubleshooting]]: Resources if you encounter any problems
+- [Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker): Learn about ArchiveBox usage with Docker and Docker Compose
+- [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration): Learn about the various archive method options
+- [Scheduled Archiving](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving): Learn how to set up automatic daily archiving
+- [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive): Learn how to host your archive for others to access
+- [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting): Resources if you encounter any problems
 
 ## CLI Usage
 
@@ -27,7 +27,7 @@
 All three of these ways of running ArchiveBox are equivalent and interchangeable:
 
 - `archivebox [subcommand] [...args]`  
-  *Using the Python package via the current `uv` instructions in [[Install]]*
+  *Using the Python package via the current `uv` instructions in [Install](https://github.com/ArchiveBox/ArchiveBox/wiki/Install)*
 - `docker run ... archivebox/archivebox [subcommand] [...args]`  
   *Using the official Docker image*
 - `docker compose run --rm archivebox [subcommand] [...args]`
@@ -35,7 +35,7 @@ All three of these ways of running ArchiveBox are equivalent and interchangeable
 
 You can share a single archivebox data directory between Docker and non-Docker instances as well, allowing you to run the server in a container but still execute CLI commands on the host for example.
 
-For more examples see [README: Usage](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-cli-usage) and [[Docker]] pages.
+For more examples see [README: Usage](https://github.com/ArchiveBox/ArchiveBox#%EF%B8%8F-cli-usage) and [Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) pages.
 
 - [Run ArchiveBox with configuration options](#run-archivebox-with-configuration-options)
 - [Import a single URL](#import-a-single-url)
@@ -59,8 +59,8 @@ TIMEOUT=120
 env TIMEOUT=120 archivebox add 'https://example.com'
 ```
 
-See [[Configuration]] page for core ArchiveBox config options and the [abx-plugins config reference](https://plugins.archivebox.io/) for per-plugin options (e.g. `YTDLP_MAX_SIZE`, `CHROME_USER_DATA_DIR`, `WGET_ARGS`, etc.).
-If you're using Docker, also make sure to read the Configuration section on the [[Docker]] page.
+See [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) page for core ArchiveBox config options and the [abx-plugins config reference](https://plugins.archivebox.io/) for per-plugin options (e.g. `YTDLP_MAX_SIZE`, `CHROME_USER_DATA_DIR`, `WGET_ARGS`, etc.).
+If you're using Docker, also make sure to read the Configuration section on the [Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) page.
 
 > [!TIP]  
 > You can run ArchiveBox commands from anywhere (without having to `cd` into a data directory first):  
@@ -126,7 +126,7 @@ archivebox add < safari_history.json
 
 ### Import browser cookies into a persona
 
-See [Chrome profile setup](Chromium-Install.md#import-an-existing-browser-profile) for cookies, bookmarks, and host/Docker imports. Select the imported identity with `archivebox add --persona=personal URL`.
+See [Chrome profile setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile) for cookies, bookmarks, and host/Docker imports. Select the imported identity with `archivebox add --persona=personal URL`.
 
 <br/>
 

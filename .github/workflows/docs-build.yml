@@ -1,0 +1,37 @@
+name: Documentation build
+
+on:
+  push:
+    branches: [dev, main]
+    paths: ['docs/**', 'README.md', 'archivebox/**', 'bin/generate_ui_screenshot_gallery.py', '.github/workflows/docs-build.yml']
+  pull_request:
+    paths: ['docs/**', 'README.md', 'archivebox/**', 'bin/generate_ui_screenshot_gallery.py', '.github/workflows/docs-build.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  html:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6
+        with:
+          version: "0.11.3"
+          enable-cache: false
+      - name: Build documentation
+        run: uv run --no-project --python 3.12 --with-requirements docs/requirements.txt sphinx-build -W --keep-going -b html docs "$RUNNER_TEMP/docs-html"
+      - name: Check rendered links and fragments
+        run: uv run --no-project --python 3.12 python docs/check_links.py "$RUNNER_TEMP/docs-html"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: documentation-html
+          path: ${{ runner.temp }}/docs-html
+          retention-days: 7

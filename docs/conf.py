@@ -11,9 +11,17 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
 import datetime
+import inspect
 import os
+import re
 import sys
+from functools import lru_cache
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
+
+from docutils import nodes
+from markdown_it import MarkdownIt
+from myst_parser.mdit_to_docutils.base import default_slugify
 
 sys.path.append(str(Path(__file__).parent.parent))
 sys.path.append(str(Path(__file__).parent.parent / "archivebox"))
@@ -25,7 +33,6 @@ project = "ArchiveBox"
 copyright = f"{datetime.date.today().year} ArchiveBox"
 author = "Nick Sweeting"
 github_url = "https://github.com/ArchiveBox/ArchiveBox"
-github_doc_root = "https://github.com/ArchiveBox/docs/tree/master/"  # docs repo uses master branch
 github_view_style = "blob"
 language = "en"
 
@@ -36,6 +43,10 @@ tag = release
 # 0.8.5 -> v0.8.5
 if release[0].isdigit():
     tag = f"v{release}"  # .split('rc')[0]
+
+# Branch and PR builds must link to the code they actually document.
+tag = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH") or os.environ.get("READTHEDOCS_GIT_IDENTIFIER") or os.environ.get("GITHUB_SHA") or tag
+github_doc_root = f"{github_url}/tree/{tag}/docs/"
 
 # Detect if this is a dev/pre-release build using PEP 440 parsing.
 # A version like "0.9.10" with no suffix is stable.
@@ -49,9 +60,9 @@ try:
 except Exception:
     # fallback if packaging is not installed
     is_dev = any(label in release for label in ("dev", "rc", "alpha", "beta"))
-# RTD "latest" always builds from the default branch = dev docs
+# Branch names alone do not make a stable release a prerelease.
 rtd_version = os.environ.get("READTHEDOCS_VERSION", "")
-if rtd_version in ("latest", "dev", "main", "master"):
+if rtd_version == "dev":
     is_dev = True
 
 # -- General configuration ---------------------------------------------------
@@ -60,6 +71,7 @@ if rtd_version in ("latest", "dev", "main", "master"):
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    "sphinx_rtd_theme",
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.linkcode",
@@ -106,6 +118,8 @@ autodoc2_skip_module_regexes = [
 autodoc2_hidden_regexes = [
     r".*__package__",
 ]
+# Preserve GitHub-compatible heading fragments used by the shared wiki pages.
+myst_heading_anchors = 6
 myst_enable_extensions = ["linkify"]  # pip install linkify-it-py
 myst_fence_as_directive = ["mermaid"]  # render ```mermaid blocks via sphinxcontrib-mermaid
 
@@ -143,7 +157,6 @@ exclude_patterns = [
 
 suppress_warnings = [
     "myst.header",  # non-consecutive header levels (common in wiki markdown)
-    "myst.xref_missing",  # cross-reference targets from wiki-style links
     "myst.xref_ambiguous",  # ambiguous cross-references across modules
     "autodoc2.dup_item",  # duplicate items from Django model inheritance
 ]
@@ -167,13 +180,14 @@ html_theme_options = {
 html_context = {
     "display_github": True,
     "github_user": "ArchiveBox",
-    "github_repo": "docs",
-    "github_version": "master",  # docs repo uses master branch
-    "conf_py_path": "/",
+    "github_repo": "ArchiveBox",
+    "github_version": tag,
+    "conf_py_path": "/docs/",
     # RTD injects these automatically when building on RTD:
     #   current_version, versions, downloads, READTHEDOCS, etc.
     # For local/non-RTD builds, set version info explicitly:
-    "current_version": f"{release} (dev)" if is_dev else release,
+    "current_version": rtd_version or release,
+    "is_dev": is_dev,
 }
 html_show_sphinx = False
 
@@ -210,38 +224,222 @@ man_pages = [
 
 
 def linkcode_resolve(domain, info):
-    """
-    Calculate link to source code on Github
-    Docs: https://www.sphinx-doc.org/en/master/usage/extensions/linkcode.html
-    """
-    module_name = str(info["module"] or "")
-    package_name = module_name.split(".", 1)[0]  # archivebox
-    submodule_name = module_name.split(f"{package_name}", 1)[-1].strip(".")  # core.models
-    symbol_name = str(info["fullname"] or "")  # Crawl.abid_ts_src
-    full_name = f"{package_name}.{submodule_name}.{symbol_name}".replace("..", ".")  # archivebox.core.models.Crawl.abid_ts_src
-    fallback_url = f"https://github.com/search?type=code&q=repo%3AArchiveBox%2FArchiveBox%20{full_name.replace('.', '%20')}"
+    """Link re-exported symbols to their defining file without importing Django."""
+    if domain != "py" or not info.get("module", "").startswith("archivebox"):
+        return None
+    root = Path(__file__).resolve().parent.parent
+    module_name = info["module"]
+    obj = sys.modules.get(module_name)
+    source = None
+    anchor = ""
+    try:
+        for part in info.get("fullname", "").split("."):
+            if part:
+                obj = inspect.getattr_static(obj, part)
+        if isinstance(obj, property):
+            obj = obj.fget
+        obj = inspect.unwrap(obj)
+        source = inspect.getsourcefile(obj)
+        lines, start = inspect.getsourcelines(obj)
+        anchor = f"#L{start}-L{start + len(lines) - 1}"
+    except (AttributeError, TypeError, OSError):
+        # Static autodoc builds may not have loaded the object. Link its module.
+        module_path = root.joinpath(*module_name.split("."))
+        source = next((path for path in (module_path.with_suffix(".py"), module_path / "__init__.py") if path.is_file()), None)
+    if source is None:
+        return None
+    try:
+        relative = Path(source).resolve().relative_to(root)
+    except ValueError:
+        return None
+    return f"{github_url}/{github_view_style}/{tag}/{relative.as_posix()}{anchor}"
 
-    # 'archivebox.core.models.Crawl' -> archivebox/core/models.py
-    file_path = f"{package_name}/{submodule_name.replace('.', '/')}.py"  # archivebox/core/models.py
 
-    # correct for any extra / or .py
-    file_path = file_path.strip("/").strip(".py") + ".py"
+def configure_source_links(app, pagename, templatename, context, doctree):
+    """Generated API pages have Python source links, not editable Markdown files."""
+    if pagename.startswith("apidocs/"):
+        context["display_github"] = False
+    elif pagename == "README":
+        context["conf_py_path"] = "/"
 
-    # fallback to using Github search instead if URL doesn't look like a valid file path
-    if not file_path.startswith("archivebox/"):
-        return fallback_url
-    if "//" in file_path:
-        return fallback_url
-    if file_path.count(".py") > 1:
-        return fallback_url
 
-    # correct for archivebox/cli.py -> archivebox/cli/__init__.py
-    init_path = f"{package_name}/{submodule_name.replace('.', '/')}/__init__.py"
-    if not Path(f"../{file_path}").is_file():
-        if Path(f"../{init_path}").is_file():
-            file_path = init_path
+def add_heading_aliases(app, doctree, docname):
+    """Keep incoming GitHub/wiki fragments valid alongside Sphinx's IDs."""
+    targets = {identifier: node for node in doctree.findall(nodes.Element) for identifier in node.get("ids", [])}
+    aliases = {slug: target for slug, (_, target, _) in app.env.metadata.get(docname, {}).get("myst_slugs", {}).items()}
+    aliases.update({"️-cli-usage": "cli-usage", "option-a-docker--docker-compose-setup-️": "option-a-docker-docker-compose-setup"})
+    for alias, target in aliases.items():
+        if alias not in targets and target in targets:
+            targets[target]["ids"].append(alias)
+
+
+_WIKI_ROOT = "https://github.com/ArchiveBox/ArchiveBox/wiki/"
+_DOCS_ROOT = Path(__file__).parent
+
+
+def _page_key(value):
+    return re.sub(r"[^a-z0-9]", "", unquote(value).casefold().removesuffix(".md"))
+
+
+@lru_cache(maxsize=1)
+def _doc_pages():
+    return {_page_key(path.stem): path for path in _DOCS_ROOT.glob("*.md")}
+
+
+@lru_cache(maxsize=128)
+def _heading_slugs(path):
+    slugs = {}
+    counts = {}
+    tokens = MarkdownIt().parse(path.read_text(encoding="utf-8"))
+    for index, token in enumerate(tokens):
+        if token.type != "heading_open":
+            continue
+        inline = tokens[index + 1]
+        title = "".join(child.content for child in inline.children or [] if child.type in {"text", "code_inline"})
+        slug = default_slugify(title)
+        count = counts.get(slug, 0)
+        counts[slug] = count + 1
+        slugs[slug if count == 0 else f"{slug}-{count}"] = None
+    return slugs
+
+
+def _resolve_wiki_target(target, html=False):
+    """Return a local page target only when that page and fragment exist."""
+    target = unquote(target).strip().replace("\\", "/")
+    page, separator, fragment = target.partition("#")
+    path = _doc_pages().get(_page_key(page))
+    if path is None:
+        return None
+    resolved_fragment = ""
+    if separator and fragment:
+        slugs = _heading_slugs(path)
+        if fragment in slugs:
+            resolved_fragment = fragment
         else:
-            return fallback_url
+            matches = [slug for slug in slugs if _page_key(slug) == _page_key(fragment)]
+            if len(matches) != 1:
+                return None
+            resolved_fragment = matches[0]
+    result = path.name if not html else f"{path.stem}.html"
+    return result + (f"#{resolved_fragment}" if resolved_fragment else "")
 
-    # https://github.com/ArchiveBox/ArchiveBox/blob/v0.8.5/archivebox/core/models.py#archivebox.core.models.Crawl.abid_ts_src#:~:text=abid_ts_src
-    return f"{github_url}/{github_view_style}/{tag}/{file_path}#{full_name}#:~:text={symbol_name.rsplit('.', 1)[-1]}"
+
+def _wiki_url_target(url, html=False):
+    parsed = urlsplit(url)
+    if parsed.netloc.casefold() not in {"github.com", "www.github.com"} or not parsed.path.startswith("/ArchiveBox/ArchiveBox/wiki/"):
+        return None
+    page = parsed.path.removeprefix("/ArchiveBox/ArchiveBox/wiki/")
+    target = page + (f"#{parsed.fragment}" if parsed.fragment else "")
+    return _resolve_wiki_target(target, html=html)
+
+
+def render_wiki_links(text):
+    """Localize resolvable wiki links while preserving examples and external targets."""
+    lines = text.splitlines(keepends=True)
+    output = []
+    start = 0
+    anchor_source = []
+    anchor_start = 0
+    for token in MarkdownIt().parse(text):
+        if token.type in {"fence", "code_block"}:
+            first, last = token.map
+            anchor_source.extend(lines[anchor_start:first])
+            anchor_start = last
+    anchor_source.extend(lines[anchor_start:])
+    raw_anchors = set(re.findall(r"<(?:a\b[^>]*?\b(?:id|name)|[^>]+\bid)=[\"']([^\"']+)[\"']", "".join(anchor_source), re.IGNORECASE))
+
+    def prose(value):
+        code = []
+        headings = []
+
+        def hide_heading(match):
+            headings.append(match.group(0))
+            return f"\ue100{len(headings) - 1}\ue101"
+
+        value = re.sub(
+            r"(?m)^ {0,3}#{1,6}[^\n]*(?:https?://github\.com/ArchiveBox/ArchiveBox/wiki/|\[\[)[^\n]*",
+            hide_heading,
+            value,
+        )
+
+        def hide_code(match):
+            code.append(match.group(0))
+            return f"\ue000{len(code) - 1}\ue001"
+
+        value = re.sub(r"(`+)(.*?)(?<!`)\1", hide_code, value)
+
+        def wiki_markup(match):
+            body = match.group(1)
+            label, sep, page = body.partition("|")
+            page = page if sep else label
+            target = _resolve_wiki_target(page)
+            if target is None:
+                wiki_page = page.strip().replace(" ", "-")
+                return f"[{label}]({_WIKI_ROOT}{wiki_page})"
+            return f"[{label}]({target})"
+
+        value = re.sub(r"\[\[([^\]]+)\]\]", wiki_markup, value)
+        value = re.sub(
+            r"\[([^\]]+)\]\(#([^\s)]+)\)",
+            lambda m: f'<a href="#{m.group(2)}">{m.group(1)}</a>' if m.group(2) in raw_anchors else m.group(0),
+            value,
+        )
+
+        def markdown_target(match):
+            target = match.group(2)
+            local = _wiki_url_target(target)
+            if local is None:
+                local = _resolve_wiki_target(target)
+            return match.group(1) + (local or target) + match.group(3)
+
+        value = re.sub(r"(\]\()([^\s)]+)(\))", markdown_target, value)
+
+        def html_target(match):
+            target = match.group(2)
+            local = _wiki_url_target(target, html=True)
+            return match.group(1) + (local or target) + match.group(3)
+
+        value = re.sub(r'(href=["\'])([^"\']+)(["\'])', html_target, value)
+
+        value = re.sub(
+            r"(\]\()((?:\./)?[A-Za-z0-9 _.-]+)(#[^\s)]*)(\))",
+            lambda m: m.group(1) + (_resolve_wiki_target(m.group(2) + m.group(3)) or m.group(2) + m.group(3)) + m.group(4),
+            value,
+        )
+        for index, original in enumerate(code):
+            value = value.replace(f"\ue000{index}\ue001", original)
+        for index, original in enumerate(headings):
+            value = value.replace(f"\ue100{index}\ue101", original)
+        return value
+
+    for token in MarkdownIt().parse(text):
+        if token.type not in {"fence", "code_block"}:
+            continue
+        first, last = token.map
+        output.extend((prose("".join(lines[start:first])), "".join(lines[first:last])))
+        start = last
+    output.append(prose("".join(lines[start:])))
+    return "".join(output)
+
+
+def escape_api_html(app, docname, source):
+    """Treat HTML examples and constant values in API docs as text."""
+    if docname.startswith("apidocs/") and Path(app.env.doc2path(docname)).suffix == ".md":
+        source[0] = "---\nmyst:\n  disable_syntax: [html_inline, html_block]\n---\n" + source[0]
+    elif Path(app.env.doc2path(docname)).suffix == ".md":
+        source[0] = render_wiki_links(source[0])
+        if docname == "Screenshots":
+            if "latest published screenshot gallery" not in source[0]:
+                source[0] = re.sub(
+                    r"(#[^\n]+\n)",
+                    r"\1\nThe images follow the [latest published screenshot gallery](https://archivebox.io/screenshots/).\n",
+                    source[0],
+                    count=1,
+                )
+            source[0] = source[0].replace('src="screenshots/', 'src="https://archivebox.io/screenshots/')
+
+
+def setup(app):
+    app.connect("html-page-context", configure_source_links)
+    app.connect("source-read", escape_api_html)
+    app.connect("doctree-resolved", add_heading_aliases)

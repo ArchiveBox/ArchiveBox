@@ -1,12 +1,12 @@
 {% extends "!layout.html" %}
 
-{% block body %}
-{% if READTHEDOCS and current_version != "stable" %}
+{% block document %}
+{% if is_dev %}
 <div class="admonition warning">
   <p class="admonition-title">Development Docs</p>
   <p>You are reading docs for <strong>ArchiveBox {{ version }}</strong> (pre-release).
   These docs may include unreleased features and breaking changes.
-  For the latest stable release, see the <a href="/en/stable/">stable docs</a>.</p>
+  For the latest stable release, see the <a href="/stable/">stable docs</a>.</p>
 </div>
 {% endif %}
 {{ super() }}
