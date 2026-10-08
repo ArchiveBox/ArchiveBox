@@ -636,9 +636,9 @@ docker run -it -v $PWD:/data archivebox/archivebox:dev add --depth=1 'https://ex
 
 
 - <img src="https://github.com/ArchiveBox/ArchiveBox/assets/511499/ff20d251-5347-4b85-ae9b-83037d0ac01e" height="28px"/> <b>From the official <a href="https://github.com/ArchiveBox/archivebox-extension">ArchiveBox Browser Extension</a></b>  
-  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Chromium/Firefox/Safari browsers.</i>
+  <i>Provides realtime archiving of browsing history or selected pages from Chrome/Brave/Firefox/Safari/Edge browsers.</i>
 
-- <img src="https://app.archivebox.io/App/AppIcon.icon/Assets/ArchiveBox.png" alt="ArchiveBox app icon" height="28px"/> <b>From the official <a href="https://app.archivebox.io/">ArchiveBox macOS Desktop App or iOS Mobile App</a></b><br/>
+- <img src="https://app.archivebox.io/App/AppIcon.icon/Assets/ArchiveBox.png" alt="ArchiveBox app icon" height="28px"/> <b>From the official ArchiveBox <a href="https://app.archivebox.io/">macOS Desktop App</a>, <a href="https://app.archivebox.io/">iOS App</a>, or <a href="https://android.archivebox.io">Android App</a></b><br/>
   <i>Save directly from the Share menu or Siri/Shortcuts to your server.</i>
 
 - 💬 <b>From <a href="https://github.com/ArchiveBox/archivebox-chat-bot">ArchiveBox Bot</a> in your chat apps</b><br/>
