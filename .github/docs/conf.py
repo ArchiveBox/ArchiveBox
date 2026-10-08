@@ -37,7 +37,11 @@ html_theme_options = {
 }
 html_context = {"current_version": os.environ.get("READTHEDOCS_VERSION", release)}
 html_logo = str(DOCS / "logo.png")
-html_static_path = [str(DOCS / "_static"), str(ROOT / ".github/docs/static")]
+html_static_path = [
+    str(path)
+    for path in (DOCS / "_static", ROOT / ".github/docs/static")
+    if path.is_dir()
+]
 html_title = f"ArchiveBox {release} documentation"
 myst_heading_anchors = 6
 
