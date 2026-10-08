@@ -2,6 +2,6 @@
 
 Moved to:
 
-- [[Upgrading]]
-- [[Merging Collections]]
-- [Database Troubleshooting](./Troubleshooting#database)
+- [Upgrading](https://github.com/ArchiveBox/ArchiveBox/wiki/Upgrading)
+- [Merging Collections](https://github.com/ArchiveBox/ArchiveBox/wiki/Merging-Collections)
+- [Database Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting#database)

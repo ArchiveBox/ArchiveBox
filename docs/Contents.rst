@@ -8,6 +8,7 @@ Overview
     :maxdepth: 1
 
     Home.md
+    Screenshots.md
     README.md
 
 
@@ -75,6 +76,7 @@ Meta
 
     Roadmap.md
     Changelog.md
+    Release-Notes-v0.9.md
     Donations.md
 
 

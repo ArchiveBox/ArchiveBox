@@ -8,7 +8,7 @@
 
 ArchiveBox [officially supports](https://github.com/ArchiveBox/ArchiveBox/wiki/Install#supported-systems) **macOS** and **Ubuntu** on `amd64` or `arm64`, plus **Docker** on Linux and macOS. Other operating systems are not tested for this release.
 
-For more detailed Docker and Docker Compose-specific instructions, see the [[Docker]] page.
+For more detailed Docker and Docker Compose-specific instructions, see the [Docker](https://github.com/ArchiveBox/ArchiveBox/wiki/Docker) page.
 
 ---
 
@@ -84,8 +84,8 @@ archivebox server
 archivebox help   # see info about all the available commands
 ```
 
- - Read [[Usage]] to learn about the various CLI and web UI functions
- - Read [[Configuration]] to learn about the various archive method options
- - Read [[Scheduled Archiving]] to learn how to set up automatic daily archiving
- - Read [[Publishing Your Archive]] if you want to host your archive for others to access online
- - Read [[Troubleshooting]] if you encounter any problems
+ - Read [Usage](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage) to learn about the various CLI and web UI functions
+ - Read [Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration) to learn about the various archive method options
+ - Read [Scheduled Archiving](https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving) to learn how to set up automatic daily archiving
+ - Read [Publishing Your Archive](https://github.com/ArchiveBox/ArchiveBox/wiki/Publishing-Your-Archive) if you want to host your archive for others to access online
+ - Read [Troubleshooting](https://github.com/ArchiveBox/ArchiveBox/wiki/Troubleshooting) if you encounter any problems

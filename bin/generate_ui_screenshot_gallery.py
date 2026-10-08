@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 REPO_DIR = Path(__file__).resolve().parents[1]
+PUBLIC_SCREENSHOT_BASE = "https://archivebox.io/screenshots/"
 CAPTURE_PROFILES = {
     "desktop": (1600, 1000),
     "tablet": (1024, 1366),
@@ -285,7 +286,7 @@ def build_galleries(manifest_path: Path, markdown_path: Path, html_path: Path) -
             versioned_filename = f"{html.escape(filename)}?v={cache_version}"
             markdown_cells.append(
                 f'<td align="center"><strong>{label}</strong><br>'
-                f'<img src="screenshots/{versioned_filename}" '
+                f'<img src="{PUBLIC_SCREENSHOT_BASE}{versioned_filename}" '
                 f'alt="{html.escape(str(capture["name"]))} — {profile}" width="{width}"></td>',
             )
             html_figures.append(

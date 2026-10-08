@@ -21,7 +21,7 @@ next snapshot: stored crawl + live inherited/execution settings + sparse snapsho
 persona TWOCAPTCHA_API_KEY changes → next snapshot sees it; explicit crawl value wins
 ```
 
-For more examples see [Usage: Configuration](Usage#run-archivebox-with-configuration-options).
+For more examples see [Usage: Configuration](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#run-archivebox-with-configuration-options).
 
 <br/>
 
