@@ -16,7 +16,7 @@ One companion service for **Slack · Zulip · Telegram · WhatsApp · IRC · iMe
 
 - **@mention the bot** → save URLs from your message and the latest 10 messages.
 - **DM the bot** → save the URLs you send.
-- **Post in New URLs** → archive shared links, tagged with the sender.
+- **Post in New URLs** → archive shared links with separate provider, sender, and channel/group tags.
 - **Open Saved URLs** → titles, screenshots, original links, sizes, and personas.
 - **Enable a group** → archive every link shared there.
 
