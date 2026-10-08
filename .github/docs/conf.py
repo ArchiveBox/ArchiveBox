@@ -1,4 +1,4 @@
-"""Build the pinned 0.7.4 user guide without importing ArchiveBox or Django."""
+"""Build a pinned historical user guide without importing ArchiveBox or Django."""
 
 import json
 import os
@@ -93,9 +93,15 @@ def prepare_source(app, docname, source):
             suffix = f"#{anchor}" if separator else ""
             return f"[{label}]({page}.md{suffix})"
 
-        text = rewrite_prose(
-            text, lambda prose: re.sub(r"\[\[([^\]\n]+)\]\]", wiki_link, prose)
-        )
+        def adapt_prose(prose):
+            prose = re.sub(r"\[\[([^\]\n]+)\]\]", wiki_link, prose)
+            return re.sub(
+                r"(https://github\.com/ArchiveBox/ArchiveBox/blob/)(?:master|v0\.7\.4)(/)",
+                rf"\g<1>v{release}\2",
+                prose,
+            )
+
+        text = rewrite_prose(text, adapt_prose)
     source[0] = text
 
 
@@ -105,6 +111,8 @@ def normalize_markdown(app, docname, source):
     if Path(app.env.doc2path(docname)).suffix != ".md":
         return
     text = source[0]
+    text = re.sub(r"(?m)^(`{3,})bash(?:\[\]\[\]|\|)(?=\s|$)", r"\1bash", text)
+    text = re.sub(r"(?m)^(`{3,})python3(?=\s|$)", r"\1bash", text)
     if docname in {"Home", "README", "Donations", "Upgrading-or-Merging-Archives"}:
         text = (
             "# "
@@ -149,7 +157,12 @@ def normalize_markdown(app, docname, source):
                 ]:
                     anchor = default_slugify(heading.replace("`", ""))
                     break
-            aliases = {"templates_dir": "custom_templates_dir"}
+            aliases = {}
+            if any(
+                default_slugify(heading.replace("`", "")) == "custom_templates_dir"
+                for heading in re.findall(r"^#+\s+(.+)$", other, re.MULTILINE)
+            ):
+                aliases["templates_dir"] = "custom_templates_dir"
             anchor = aliases.get(anchor, anchor)
             if anchor in {
                 "search_backend_timeout",
@@ -161,7 +174,7 @@ def normalize_markdown(app, docname, source):
                     i + 1 for i, line in enumerate(code) if anchor.upper() in line
                 )
                 return (
-                    "](https://github.com/ArchiveBox/ArchiveBox/blob/v0.7.4/archivebox/config.py#L"
+                    f"](https://github.com/ArchiveBox/ArchiveBox/blob/v{release}/archivebox/config.py#L"
                     + str(number)
                     + ")"
                 )
@@ -170,11 +183,35 @@ def normalize_markdown(app, docname, source):
             and anchor == "saves-lots-of-useful-stuff-for-each-imported-link"
         ):
             anchor = "output-formats"
+        if docname == "README" and not page and anchor == "screenshots":
+            page, anchor = "Usage.md", "ui-usage"
         if docname == "Web-Archiving-Community":
-            anchor = {
+            alias = {
                 "blogs": "blogs-friends-of-archivebox",
                 "articles": "articles-we-like-about-internet-archiving",
-            }.get(anchor, anchor)
+            }.get(anchor)
+            headings = {
+                default_slugify(heading.replace("`", ""))
+                for heading in re.findall(r"^#+\s+(.+)$", text, re.MULTILINE)
+            }
+            if alias in headings:
+                anchor = alias
+        if docname == "Usage":
+            aliases = {
+                "overview": "usage",
+                "import-a-single-url-or-list-of-urls-via-stdin": "import-a-single-url",
+                "import-list-of-links-exported-from-browser-or-another-service": "import-list-of-links-from-browser-history",
+                "import-list-of-urls-from-a-remote-rss-feed-or-file": "import-a-list-of-urls-from-a-txt-file",
+            }
+            alias = aliases.get(anchor)
+            headings = {
+                default_slugify(heading.replace("`", ""))
+                for heading in re.findall(r"^#+\s+(.+)$", text, re.MULTILINE)
+            }
+            if alias in headings:
+                anchor = alias
+        if docname == "Docker" and not page and anchor == "":
+            anchor = "overview"
         return "](" + page + ("#" + anchor if sep else "") + ")"
 
     def rewrite_links(prose):
@@ -188,6 +225,8 @@ def normalize_markdown(app, docname, source):
         }
         for old, new in html_anchors.items():
             prose = prose.replace(f'href="#{old}"', f'href="#{new}"')
+        if docname == "README":
+            prose = prose.replace('href="#screenshots"', 'href="Usage.html#ui-usage"')
         prose = prose.replace("#️-cli-usage", "#cli-usage")
         return prose
 
