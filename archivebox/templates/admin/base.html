@@ -2160,8 +2160,7 @@
                     if (selectAcross) {
                         return Number(summary.dataset.resultCount || 0)
                     }
-                    const match = counter?.textContent.match(/(\d+)\s+of\s+(\d+)\s+selected/)
-                    return match ? Number(match[1]) : document.querySelectorAll('#changelist-form input.action-select:checked').length
+                    return document.querySelectorAll('#changelist-form input.action-select:checked').length
                 }
                 const selectCurrentResultsWithDjango = function() {
                     const allToggle = document.getElementById('action-toggle')
@@ -2205,6 +2204,8 @@
                         return true
                     }
 
+                    const selectAcross = document.querySelector('div.actions input.select-across')
+                    if (selectAcross) selectAcross.value = '0'
                     document.querySelectorAll('#changelist-form input.action-select').forEach(function(checkbox) {
                         if (!checkbox.checked) {
                             checkbox.checked = true
@@ -2230,12 +2231,9 @@
                 }
                 const update = function() {
                     if (!selectedCount || !counter) return
-                    const match = counter.textContent.match(/(\d+)\s+of\s+(\d+)\s+selected/)
                     const selectAcross = document.querySelector('div.actions input.select-across')?.value === '1'
-                    const selected = selectAcross
-                        ? Number(summary.dataset.resultCount || 0)
-                        : (match ? Number(match[1]) : document.querySelectorAll('#changelist-form input.action-select:checked').length)
-                    const pageCount = match ? Number(match[2]) : Number(summary.dataset.pageCount || 0)
+                    const selected = getSelectedCount()
+                    const pageCount = Number(summary.dataset.pageCount || 0)
                     const selectedLimit = selectAcross ? Number(summary.dataset.resultCount || pageCount) : pageCount
                     if (selectedCurrent && pageSelect) {
                         selectedCurrent.textContent = formatter.format(selected)
@@ -2435,10 +2433,11 @@
                 }
 
                 $('#changelist-form .card input:checkbox').change(function() {
-                    if ($(this).is(':checked'))
-                        $(this).parents('.card').addClass('selected-card')
-                    else
-                        $(this).parents('.card').removeClass('selected-card')
+                    $(this).closest('.card').toggleClass('selected-card', this.checked)
+                    if (!this.checked) {
+                        const selectAcross = document.querySelector('div.actions input.select-across')
+                        if (selectAcross) selectAcross.value = '0'
+                    }
                 })
             };
             function selectSnapshotIfHotlinked() {

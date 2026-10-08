@@ -57,6 +57,25 @@ services:
 
     ######## Optional Addons: tweak examples below as needed for your specific use case ########
 
+    ### ArchiveBox Bot + ArchiveBox AI Bot: save links and run archiving tasks from Slack, Zulip,
+    # WhatsApp, Telegram, IRC, iMessage, Messenger, or Beeper, with a shared web setup console.
+    # https://github.com/ArchiveBox/archivebox-chat-bot
+    # Uncomment this service, then: docker compose up -d --build archivebox-chat-bot
+    # Open http://localhost:5798, choose a console password, then connect to http://archivebox:5797 with your API key.
+    # Set Public URL in the console to the ArchiveBox address people can open from their devices.
+
+    # archivebox-chat-bot:
+    #     build: https://github.com/ArchiveBox/archivebox-chat-bot.git#main
+    #     restart: unless-stopped
+    #     ports:
+    #         - "127.0.0.1:5798:5798"
+    #     volumes:
+    #         - ./archivebox-chat-bot:/data
+    #     # Optional: set ADMIN_PASSWORD to skip the first-run password setup UI.
+    #     # environment:
+    #     #     ADMIN_PASSWORD: your-console-password
+
+
     ### This optional container runs xvfb+noVNC so you can watch the ArchiveBox browser as it archives things,
     # or remote control it to set up a chrome profile w/ login credentials for sites you want to archive.
     # https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile

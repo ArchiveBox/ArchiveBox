@@ -3954,6 +3954,40 @@ body.change-list:not(.model-snapshot) #changelist #toolbar .changelist-search-su
     line-height: inherit !important;
 }
 
+@media (max-width: 1180px) {
+    /* Only the counts belong in the toolbar's max-content column. Let bulk
+       controls occupy their own full-width rows instead of widening the cards. */
+    :is(body:not(.embedded-change-list), .snapshot-changelist-widget).model-snapshot.change-list #changelist #changelist-form > .actions-top,
+    :is(body:not(.embedded-change-list), .snapshot-changelist-widget).model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-left {
+        display: contents !important;
+    }
+
+    :is(body:not(.embedded-change-list), .snapshot-changelist-widget).model-snapshot.change-list #changelist #changelist-form > .actions-top .action-summary {
+        grid-area: counts !important;
+        min-height: 40px !important;
+        padding-right: 4px !important;
+    }
+
+    :is(body:not(.embedded-change-list), .snapshot-changelist-widget).model-snapshot.change-list #changelist #changelist-form > .actions-top .actions-tags-with-buttons,
+    :is(body:not(.embedded-change-list), .snapshot-changelist-widget).model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
+        grid-column: 1 / -1;
+        width: auto !important;
+        margin: 0 6px;
+    }
+
+    :is(body:not(.embedded-change-list), .snapshot-changelist-widget).model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+
+    :is(body:not(.embedded-change-list), .snapshot-changelist-widget).model-snapshot.change-list #changelist #changelist-form > .actions-top .action-buttons .button {
+        padding: 0 7px !important;
+    }
+
+    .model-snapshot.change-list #changelist .action-rearchive-wrapper > .button > span {
+        flex: 0 0 auto;
+    }
+}
+
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .cards,
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .results,
 :is(body.change-list:not(.embedded-change-list), .snapshot-changelist-widget) #changelist #changelist-form > .changelist-footer,

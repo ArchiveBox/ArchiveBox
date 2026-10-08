@@ -1,0 +1,47 @@
+{
+  "snapshot-view-screenshot": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#screenshot/screenshot.png",
+    "path": "/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#screenshot/screenshot.png",
+    "ttfb_ms": 33
+  },
+  "snapshot-view-singlefile": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#singlefile/singlefile.html",
+    "path": "/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#singlefile/singlefile.html",
+    "ttfb_ms": 37
+  },
+  "snapshot-view-dom": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#dom/output.html",
+    "path": "/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#dom/output.html",
+    "ttfb_ms": 265
+  },
+  "snapshot-view-pdf": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#pdf/output.pdf",
+    "path": "/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#pdf/output.pdf",
+    "ttfb_ms": 39
+  },
+  "snapshot-view-readability": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#readability/content.html",
+    "path": "/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#readability/content.html",
+    "ttfb_ms": 111
+  },
+  "snapshot-view-mercury": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#mercury/content.html",
+    "path": "/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#mercury/content.html",
+    "ttfb_ms": 172
+  },
+  "snapshot-view-defuddle": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#defuddle/content.html",
+    "path": "/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#defuddle/content.html",
+    "ttfb_ms": 79
+  },
+  "snapshot-view-ytdlp": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#ytdlp/Tiny_plankton_deploys_sophisticated_harpoon.webm",
+    "path": "/web/20261008/arstechnica.com/01a118ded73675d5a988a1f1db7987dc#ytdlp/Tiny_plankton_deploys_sophisticated_harpoon.webm",
+    "ttfb_ms": 27
+  },
+  "snapshot-view-forumdl": {
+    "url": "http://web.archivebox.localhost:5797/web/20261008/arstechnica.com/01a118e17ab871cc9dd586c82b989d9b#forumdl/forum.jsonl",
+    "path": "/web/20261008/arstechnica.com/01a118e17ab871cc9dd586c82b989d9b#forumdl/forum.jsonl",
+    "ttfb_ms": 69
+  }
+}

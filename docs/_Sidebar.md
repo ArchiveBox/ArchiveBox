@@ -32,6 +32,8 @@
  - [[Setting up Authentication]] <small>(SSO/LDAP/etc)</small>
  - [[Setting up Search]] <small>(rg/sonic/etc)</small>
  - [[Scheduled Archiving]]
+ - [[Archiving URLs from Google Sheets]]
+ - 💬 [Chat Bots](Integrating-with-Slack)
  - [[Publishing Your Archive]]
  - [[Chromium Install]]
  - [Cookies & Sessions Setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile)

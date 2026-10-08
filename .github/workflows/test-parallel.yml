@@ -255,6 +255,9 @@ jobs:
 
   provider-capture:
     name: Authenticated provider replay
+    # Temporarily nonblocking by maintainer request while these dedicated
+    # accounts are unreliable; keep all real CLI/replay assertions running.
+    continue-on-error: ${{ matrix.test.paths_arg == 'archivebox/tests/test_authenticated_provider_replay.py' }}
     needs: discover-tests
     if: needs.discover-tests.outputs.provider-tests != '[]' && github.repository == 'ArchiveBox/ArchiveBox' && github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
