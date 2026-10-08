@@ -15,10 +15,13 @@ import inspect
 import os
 import re
 import sys
+from functools import lru_cache
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 from docutils import nodes
 from markdown_it import MarkdownIt
+from myst_parser.mdit_to_docutils.base import default_slugify
 
 sys.path.append(str(Path(__file__).parent.parent))
 sys.path.append(str(Path(__file__).parent.parent / "archivebox"))
@@ -42,7 +45,7 @@ if release[0].isdigit():
     tag = f"v{release}"  # .split('rc')[0]
 
 # Branch and PR builds must link to the code they actually document.
-tag = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH") or os.environ.get("READTHEDOCS_GIT_IDENTIFIER") or tag
+tag = os.environ.get("READTHEDOCS_GIT_COMMIT_HASH") or os.environ.get("READTHEDOCS_GIT_IDENTIFIER") or os.environ.get("GITHUB_SHA") or tag
 github_doc_root = f"{github_url}/tree/{tag}/docs/"
 
 # Detect if this is a dev/pre-release build using PEP 440 parsing.
@@ -154,7 +157,6 @@ exclude_patterns = [
 
 suppress_warnings = [
     "myst.header",  # non-consecutive header levels (common in wiki markdown)
-    "myst.xref_missing",  # cross-reference targets from wiki-style links
     "myst.xref_ambiguous",  # ambiguous cross-references across modules
     "autodoc2.dup_item",  # duplicate items from Django model inheritance
 ]
@@ -271,21 +273,145 @@ def add_heading_aliases(app, doctree, docname):
             targets[target]["ids"].append(alias)
 
 
+_WIKI_ROOT = "https://github.com/ArchiveBox/ArchiveBox/wiki/"
+_DOCS_ROOT = Path(__file__).parent
+
+
+def _page_key(value):
+    return re.sub(r"[^a-z0-9]", "", unquote(value).casefold().removesuffix(".md"))
+
+
+@lru_cache(maxsize=1)
+def _doc_pages():
+    return {_page_key(path.stem): path for path in _DOCS_ROOT.glob("*.md")}
+
+
+@lru_cache(maxsize=128)
+def _heading_slugs(path):
+    slugs = {}
+    counts = {}
+    tokens = MarkdownIt().parse(path.read_text(encoding="utf-8"))
+    for index, token in enumerate(tokens):
+        if token.type != "heading_open":
+            continue
+        inline = tokens[index + 1]
+        title = "".join(child.content for child in inline.children or [] if child.type in {"text", "code_inline"})
+        slug = default_slugify(title)
+        count = counts.get(slug, 0)
+        counts[slug] = count + 1
+        slugs[slug if count == 0 else f"{slug}-{count}"] = None
+    return slugs
+
+
+def _resolve_wiki_target(target, html=False):
+    """Return a local page target only when that page and fragment exist."""
+    target = unquote(target).strip().replace("\\", "/")
+    page, separator, fragment = target.partition("#")
+    path = _doc_pages().get(_page_key(page))
+    if path is None:
+        return None
+    resolved_fragment = ""
+    if separator and fragment:
+        slugs = _heading_slugs(path)
+        if fragment in slugs:
+            resolved_fragment = fragment
+        else:
+            matches = [slug for slug in slugs if _page_key(slug) == _page_key(fragment)]
+            if len(matches) != 1:
+                return None
+            resolved_fragment = matches[0]
+    result = path.name if not html else f"{path.stem}.html"
+    return result + (f"#{resolved_fragment}" if resolved_fragment else "")
+
+
+def _wiki_url_target(url, html=False):
+    parsed = urlsplit(url)
+    if parsed.netloc.casefold() not in {"github.com", "www.github.com"} or not parsed.path.startswith("/ArchiveBox/ArchiveBox/wiki/"):
+        return None
+    page = parsed.path.removeprefix("/ArchiveBox/ArchiveBox/wiki/")
+    target = page + (f"#{parsed.fragment}" if parsed.fragment else "")
+    return _resolve_wiki_target(target, html=html)
+
+
 def render_wiki_links(text):
-    """Render legacy wiki navigation without changing immutable release sources."""
-
-    def wiki_link(match):
-        label, _, target = match.group(1).partition("|")
-        target = (target or label).replace(" ", "-")
-        return f"[{label}](https://github.com/ArchiveBox/ArchiveBox/wiki/{target})"
-
-    def prose(value):
-        value = re.sub(r"\[\[([A-Za-z][A-Za-z0-9 _|#-]*)\]\]", wiki_link, value)
-        return value.replace("](Usage#", "](Usage.md#").replace("](./Troubleshooting#", "](Troubleshooting.md#")
-
+    """Localize resolvable wiki links while preserving examples and external targets."""
     lines = text.splitlines(keepends=True)
     output = []
     start = 0
+    anchor_source = []
+    anchor_start = 0
+    for token in MarkdownIt().parse(text):
+        if token.type in {"fence", "code_block"}:
+            first, last = token.map
+            anchor_source.extend(lines[anchor_start:first])
+            anchor_start = last
+    anchor_source.extend(lines[anchor_start:])
+    raw_anchors = set(re.findall(r"<(?:a\b[^>]*?\b(?:id|name)|[^>]+\bid)=[\"']([^\"']+)[\"']", "".join(anchor_source), re.IGNORECASE))
+
+    def prose(value):
+        code = []
+        headings = []
+
+        def hide_heading(match):
+            headings.append(match.group(0))
+            return f"\ue100{len(headings) - 1}\ue101"
+
+        value = re.sub(
+            r"(?m)^ {0,3}#{1,6}[^\n]*(?:https?://github\.com/ArchiveBox/ArchiveBox/wiki/|\[\[)[^\n]*",
+            hide_heading,
+            value,
+        )
+
+        def hide_code(match):
+            code.append(match.group(0))
+            return f"\ue000{len(code) - 1}\ue001"
+
+        value = re.sub(r"(`+)(.*?)(?<!`)\1", hide_code, value)
+
+        def wiki_markup(match):
+            body = match.group(1)
+            label, sep, page = body.partition("|")
+            page = page if sep else label
+            target = _resolve_wiki_target(page)
+            if target is None:
+                wiki_page = page.strip().replace(" ", "-")
+                return f"[{label}]({_WIKI_ROOT}{wiki_page})"
+            return f"[{label}]({target})"
+
+        value = re.sub(r"\[\[([^\]]+)\]\]", wiki_markup, value)
+        value = re.sub(
+            r"\[([^\]]+)\]\(#([^\s)]+)\)",
+            lambda m: f'<a href="#{m.group(2)}">{m.group(1)}</a>' if m.group(2) in raw_anchors else m.group(0),
+            value,
+        )
+
+        def markdown_target(match):
+            target = match.group(2)
+            local = _wiki_url_target(target)
+            if local is None:
+                local = _resolve_wiki_target(target)
+            return match.group(1) + (local or target) + match.group(3)
+
+        value = re.sub(r"(\]\()([^\s)]+)(\))", markdown_target, value)
+
+        def html_target(match):
+            target = match.group(2)
+            local = _wiki_url_target(target, html=True)
+            return match.group(1) + (local or target) + match.group(3)
+
+        value = re.sub(r'(href=["\'])([^"\']+)(["\'])', html_target, value)
+
+        value = re.sub(
+            r"(\]\()((?:\./)?[A-Za-z0-9 _.-]+)(#[^\s)]*)(\))",
+            lambda m: m.group(1) + (_resolve_wiki_target(m.group(2) + m.group(3)) or m.group(2) + m.group(3)) + m.group(4),
+            value,
+        )
+        for index, original in enumerate(code):
+            value = value.replace(f"\ue000{index}\ue001", original)
+        for index, original in enumerate(headings):
+            value = value.replace(f"\ue100{index}\ue101", original)
+        return value
+
     for token in MarkdownIt().parse(text):
         if token.type not in {"fence", "code_block"}:
             continue
@@ -303,6 +429,13 @@ def escape_api_html(app, docname, source):
     elif Path(app.env.doc2path(docname)).suffix == ".md":
         source[0] = render_wiki_links(source[0])
         if docname == "Screenshots":
+            if "latest published screenshot gallery" not in source[0]:
+                source[0] = re.sub(
+                    r"(#[^\n]+\n)",
+                    r"\1\nThe images follow the [latest published screenshot gallery](https://archivebox.io/screenshots/).\n",
+                    source[0],
+                    count=1,
+                )
             source[0] = source[0].replace('src="screenshots/', 'src="https://archivebox.io/screenshots/')
 
 
