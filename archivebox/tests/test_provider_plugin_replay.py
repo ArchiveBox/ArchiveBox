@@ -198,6 +198,13 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                 expect(viewer.locator("viewer-toolbar")).to_contain_text(pdf_title)
 
             if plugin in DOCUMENT_PROVIDERS:
+                # A bookmarked raw manifest must retain the replay sandbox,
+                # even though this same path also has a trusted full viewer.
+                shell = page.url.split("#", 1)[0]
+                page.goto(f"{shell}#{plugin}/downloads.json?preview=1&raw=1")
+                expect(preview.locator("pre")).to_be_visible()
+                assert json.loads(preview.locator("pre").inner_text()) == manifest
+                assert page.locator("#main-frame").get_attribute("sandbox") is not None
                 pdf = next((item for item in manifest["files"] if item["format"] == "pdf"), None)
                 if pdf:
                     with page.expect_event(

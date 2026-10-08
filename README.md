@@ -1519,24 +1519,6 @@ Copy a similar plugin as a template to modify, then open a new PR to add it in t
 
 ---
 
-## Authenticated provider CI
-
-Tests declaring `# ci-environment: provider-capture` are routed separately from
-ordinary PR tests, while discovery accounts for every test file exactly once.
-The authenticated CLI/replay job runs only from this repository's trusted `dev`
-branch in the `provider-capture` GitHub environment. Set the environment secret
-`PROVIDER_AUTH_STORAGE_JSON` to authorized storage-state JSON scoped to Figma,
-Miro and Canva; it becomes the normal Chrome `AUTH_STORAGE_FILE`.
-
-The Linux hosted job uses Xvfb for headed Chrome and Poppler for actual exported
-PDF content checks. Missing or expired authentication fails acceptance; tests
-are never skipped. Temporary auth files have mode 600, and auth files, browser
-profiles and test collections are removed after every run. The job does not
-cache sessions or upload capture/log artifacts. Local explicit acceptance uses
-`AUTH_STORAGE_FILE` with the same provider permissions.
-
----
-
 ## Further Reading
 
 <img src="https://raw.githubusercontent.com/Monadical-SAS/redux-time/HEAD/examples/static/jeremy.jpg" width="100px" align="right"/>

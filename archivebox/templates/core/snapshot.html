@@ -1517,36 +1517,26 @@
                 }
             }
 
-            function isIsolatedDocumentPreview(urlValue) {
+            function isIsolatedPluginPreview(urlValue) {
                 if (!urlValue || !snapshotBaseUrl) return false
                 try {
                     const target = new URL(urlValue, window.location.href)
                     const base = new URL(snapshotBaseUrl, window.location.href)
                     const basePath = (base.pathname || '').replace(/\/+$/, '')
-                    // These full viewers are ArchiveBox-authored templates, not captured
-                    // page content. They embed saved PDFs in their own iframes; Chromium/Brave's
-                    // native PDF viewer refuses to run through an ancestor sandbox, even when
-                    // that sandbox allows scripts and same-origin access. Remove the outer
-                    // sandbox only when this exact viewer is served from the isolated snapshot
-                    // origin. On one-domain installs that origin shares the control-plane origin,
-                    // so it must remain sandboxed; all ordinary replays remain sandboxed too.
-                    const relativePath = target.pathname.slice(basePath.length)
-                    const documentManifests = new Set([
-                        '/googledocs/exports.json',
-                        ...['microsoft365', 'notion', 'figma', 'tldraw', 'excalidraw',
-                            'drawio', 'miro', 'canva', 'protondocs', 'iwork']
-                            .map(plugin => `/${plugin}/downloads.json`),
-                    ])
-                    const trustedViewer = documentManifests.has(relativePath) || (
-                        relativePath.startsWith('/liteparse/')
-                        && target.pathname.toLowerCase().endsWith('.txt')
-                    )
+                    // Installed full templates can embed native PDFs, which cannot load
+                    // through an ancestor sandbox. Only exact server-declared previews
+                    // on this snapshot's separate origin qualify.
+                    const trustedViewer = [...document.querySelectorAll('.thumb-card[data-full-preview="1"][data-preview-url]')].some(card => {
+                        const preview = new URL(card.dataset.previewUrl, window.location.href)
+                        return preview.origin === target.origin && preview.pathname === target.pathname
+                    })
                     return (
                         base.origin !== window.location.origin
                         && target.origin === base.origin
                         && target.pathname.startsWith(`${basePath}/`)
                         && target.searchParams.get('preview') === '1'
-                        && target.searchParams.get('raw') !== '1'
+                        && !target.searchParams.has('raw')
+                        && !target.searchParams.has('files')
                         && trustedViewer
                     )
                 } catch (err) {
@@ -1618,7 +1608,7 @@
                 } catch (err) {}
                 const sandboxRequired = !(
                     new URL(target, window.location.href).pathname.endsWith('.pdf')
-                    || isIsolatedDocumentPreview(target)
+                    || isIsolatedPluginPreview(target)
                 )
                 // A viewer's own links can navigate without changing iframe.src.
                 // An explicit card click must reopen its viewer even in that case.

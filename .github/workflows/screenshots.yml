@@ -42,6 +42,27 @@ jobs:
       - name: Install ArchiveBox and screenshot dependencies
         run: uv sync --no-cache --frozen
 
+      - name: Install the matching Chrome sandbox helper
+        run: |
+          chrome_sandbox="$(uv run --no-cache --no-sync python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          import abx_plugins
+
+          config = Path(abx_plugins.__file__).parent / "plugins/chrome/config.json"
+          env = json.loads(subprocess.check_output([
+              "abxpkg", "env", "--install", "--json",
+              f"--deps-from={config}:required_binaries", "browsers",
+          ], text=True))
+          helper = Path(env["CHROME_BINARY"]).resolve(strict=True).with_name("chrome_sandbox")
+          assert helper.is_file(), helper
+          print(helper)
+          PY
+          )"
+          sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
+          echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
+
       - name: Prepare authorized provider persona and browser display
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}

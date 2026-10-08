@@ -283,6 +283,28 @@ jobs:
           sudo apt-get install -y xvfb xauth poppler-utils
       - name: Install locked test dependencies
         run: uv sync --no-cache --locked --dev --no-sources
+      - name: Install the matching Chrome sandbox helper
+        env:
+          ABXPKG_LIB_DIR: ${{ runner.temp }}/provider-runtime
+        run: |
+          chrome_sandbox="$(uv run --no-cache --no-sync --no-sources python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+          import abx_plugins
+
+          config = Path(abx_plugins.__file__).parent / "plugins/chrome/config.json"
+          env = json.loads(subprocess.check_output([
+              "abxpkg", "env", "--install", "--json",
+              f"--deps-from={config}:required_binaries", "browsers",
+          ], text=True))
+          helper = Path(env["CHROME_BINARY"]).resolve(strict=True).with_name("chrome_sandbox")
+          assert helper.is_file(), helper
+          print(helper)
+          PY
+          )"
+          sudo install -o root -g root -m 4755 "$chrome_sandbox" /usr/local/sbin/archivebox-chrome-sandbox
+          echo 'CHROME_DEVEL_SANDBOX=/usr/local/sbin/archivebox-chrome-sandbox' >> "$GITHUB_ENV"
       - name: Prepare authorized provider persona
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
@@ -290,7 +312,7 @@ jobs:
           set -Eeuo pipefail
           : "${PROVIDER_AUTH_STORAGE_JSON:?Missing provider-capture authentication secret}"
           umask 077
-          auth_file="$(mktemp "$RUNNER_TEMP/provider-auth.XXXXXX")"
+          auth_file="$(mktemp --suffix=.json "$RUNNER_TEMP/provider-auth.XXXXXX")"
           printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$auth_file"
           chmod 600 "$auth_file"
           {

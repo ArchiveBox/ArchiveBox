@@ -32,10 +32,21 @@ from archivebox.plugins.discovery import (
     get_plugin_name,
     get_plugin_template,
     plugin_card_is_interactive,
+    plugin_has_custom_full_response,
 )
 
 register = template.Library()
 register.filter("plugin_card_is_interactive", plugin_card_is_interactive)
+
+
+@register.filter
+def plugin_has_full_preview(result) -> bool:
+    """Match the generic preview route's installed full-template selection."""
+    if not result or result.status != "succeeded":
+        return False
+    plugin = get_plugin_name(result.plugin)
+    return bool(get_plugin_template(plugin, "full", fallback=False)) and not plugin_has_custom_full_response(plugin)
+
 
 # Preview cards are clipped windows onto their content, never scroll areas.
 # Apply inside the document too: parent overflow cannot constrain an iframe.
