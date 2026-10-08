@@ -6,10 +6,13 @@ One companion service for **Slack · Zulip · Telegram · WhatsApp · IRC · iMe
 
 ## ArchiveBox Bot
 
-<p>
-<a href="https://github.com/ArchiveBox/archivebox-chat-bot/blob/main/screenshots/slack-thread.jpg"><img src="https://raw.githubusercontent.com/ArchiveBox/archivebox-chat-bot/main/screenshots/slack-thread.jpg" width="49%" alt="Mention ArchiveBox Bot in a real Slack thread to save previously shared URLs"></a>
-<a href="https://github.com/ArchiveBox/archivebox-chat-bot/blob/main/screenshots/telegram-capture.jpg"><img src="https://raw.githubusercontent.com/ArchiveBox/archivebox-chat-bot/main/screenshots/telegram-capture.jpg" width="49%" alt="Real Telegram Saved URLs conversation with captured references and screenshots"></a>
-</p>
+<table>
+<tr><th width="50%">💬 Mention in a thread</th><th width="50%">✉ Send a DM</th></tr>
+<tr>
+<td width="50%" valign="top"><a href="https://github.com/ArchiveBox/archivebox-chat-bot/blob/main/screenshots/slack-thread.jpg"><img src="https://raw.githubusercontent.com/ArchiveBox/archivebox-chat-bot/main/screenshots/slack-thread.jpg" width="100%" alt="Mention ArchiveBox Bot in a real Slack thread to save previously shared URLs"></a></td>
+<td width="50%" valign="top"><a href="https://github.com/ArchiveBox/archivebox-chat-bot/blob/main/screenshots/slack-dm.jpg"><img src="https://raw.githubusercontent.com/ArchiveBox/archivebox-chat-bot/main/screenshots/slack-dm.jpg" width="100%" alt="Real Slack DM saving web archiving references with completion reactions"></a></td>
+</tr>
+</table>
 
 - **@mention the bot** → save URLs from your message and the latest 10 messages.
 - **DM the bot** → save the URLs you send.
