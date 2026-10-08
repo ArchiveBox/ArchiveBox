@@ -451,7 +451,7 @@ View: [`/#singlefile`](http://snap-f9864c2b39b4.archivebox.localhost:5797#single
 <table><thead><tr>
 <th>Desktop</th><th>Tablet</th><th>Mobile</th>
 </tr></thead><tbody><tr>
-<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/snapshot-view-singlefile-desktop.png?v=cf013c1a3fcd" alt="Snapshot View (singlefile) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/snapshot-view-singlefile-tablet.png?v=5fb4d290254d" alt="Snapshot View (singlefile) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/snapshot-view-singlefile-mobile.png?v=97d1b1680544" alt="Snapshot View (singlefile) — mobile" width="390"></td>
+<td align="center"><strong>Desktop (1600x1000)</strong><br><img src="screenshots/snapshot-view-singlefile-desktop.png?v=cf013c1a3fcd" alt="Snapshot View (singlefile) — desktop" width="1600"></td><td align="center"><strong>Tablet (1024x1366)</strong><br><img src="screenshots/snapshot-view-singlefile-tablet.png?v=fc7c55fe7f01" alt="Snapshot View (singlefile) — tablet" width="1024"></td><td align="center"><strong>Mobile (390x844)</strong><br><img src="screenshots/snapshot-view-singlefile-mobile.png?v=97d1b1680544" alt="Snapshot View (singlefile) — mobile" width="390"></td>
 </tr></tbody></table>
 
 ## Snapshot View (screenshot)
