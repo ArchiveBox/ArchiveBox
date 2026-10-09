@@ -28,6 +28,7 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 8px;
         padding: 8px 16px;
         background: rgba(0,0,0,0.2);
         border-bottom: 1px solid #30363d;
@@ -40,9 +41,12 @@
     }
     #progress-monitor .header-left {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 16px;
+        gap: 4px 8px;
         min-width: 0;
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
     }
     #progress-monitor .header-right {
         display: flex;
@@ -50,6 +54,20 @@
         gap: 12px;
         flex-shrink: 0;
     }
+    #progress-monitor .telemetry {
+        display: contents;
+    }
+    #progress-monitor .telemetry[hidden], #progress-monitor.is-guest .telemetry { display: none; }
+    #progress-monitor .metric-badge {
+        border: 1px solid #30363d;
+        border-radius: 4px;
+        padding: 2px 6px;
+        color: #c9d1d9;
+        white-space: nowrap;
+        cursor: help;
+    }
+    #progress-monitor .metric-badge.stale { color: #d29922; }
+    #progress-monitor .metric-badge:focus-visible { outline: 2px solid #58a6ff; }
 
     /* Orchestrator Status */
     #progress-monitor .orchestrator-status {
@@ -96,35 +114,6 @@
         0% { transform: scale(1.5); }
         100% { transform: scale(1); }
     }
-
-    /* Stats */
-    #progress-monitor .stats {
-        display: flex;
-        gap: 16px;
-    }
-    #progress-monitor .stat {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-    #progress-monitor .stat-label {
-        color: #8b949e;
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    #progress-monitor .stat-value {
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-    }
-    #progress-monitor .stat-value.compact {
-        font-size: 11px;
-        white-space: nowrap;
-    }
-    #progress-monitor .stat-value.success { color: #3fb950; }
-    #progress-monitor .stat-value.error { color: #f85149; }
-    #progress-monitor .stat-value.warning { color: #d29922; }
-    #progress-monitor .stat-value.info { color: #58a6ff; }
 
     /* Toggle Button */
     #progress-monitor .toggle-btn {
@@ -808,12 +797,6 @@
         #progress-monitor .header-left {
             flex: 1;
             min-width: 0;
-            flex-wrap: wrap;
-            gap: 8px 14px;
-        }
-        #progress-monitor .stats {
-            flex-wrap: wrap;
-            gap: 8px 12px;
         }
         #progress-monitor .tree-container {
             max-height: 310px;
@@ -896,13 +879,6 @@
         #progress-monitor .orchestrator-status {
             max-width: 100%;
         }
-        #progress-monitor .stats {
-            flex: 1 0 100%;
-            gap: 6px 10px;
-        }
-        #progress-monitor .stat-label {
-            font-size: 9px;
-        }
         #progress-monitor .tree-container {
             max-height: 300px;
         }
@@ -984,29 +960,18 @@
      data-auto-expand="{% if progress_auto_expand %}1{% else %}0{% endif %}">
     <div class="header-bar">
         <div class="header-left">
-            <div class="orchestrator-status">
+            <div class="orchestrator-status metric-badge" id="metric-status" tabindex="0">
                 <span class="status-dot stopped" id="orchestrator-dot"></span>
                 <span id="orchestrator-text">Runner stopped</span>
-                <span class="pid-label compact" id="orchestrator-pid" style="display:none;"></span>
             </div>
-            <div class="stats">
-                <div class="stat">
-                    <span class="stat-label">Crawls</span>
-                    <span class="stat-value compact info"><span id="crawls-active-segment"><span id="crawls-active">0</span> active · </span><span id="crawls-queued">0</span> queued</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Snapshots</span>
-                    <span class="stat-value compact info"><span id="snapshots-active-segment"><span id="snapshots-active">0</span> active · </span><span id="snapshots-queued">0</span> queued</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Downloads</span>
-                    <span class="stat-value compact warning"><span id="downloads-active-segment"><span id="downloads-active">0</span> active · </span><span id="downloads-queued">0</span> queued</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Indexing</span>
-                    <span class="stat-value compact success"><span id="indexing-active-segment"><span id="indexing-active">0</span> active · </span><span id="indexing-queued">0</span> queued</span>
-                </div>
+            <div class="telemetry" id="progress-telemetry" aria-label="Capture and server metrics" hidden>
+                <span class="metric-badge" id="metric-throughput" tabindex="0">Snapshots/hour —</span>
+                <span class="metric-badge" id="metric-resources" tabindex="0">Load — · RAM —</span>
+                <span class="metric-badge" id="metric-io" tabindex="0">I/O —</span>
+                <span class="metric-badge" id="metric-storage" tabindex="0">Disk —</span>
+                <span class="metric-badge" id="metric-web" tabindex="0">Web —</span>
             </div>
+            <span class="metric-badge" id="metric-indexing" tabindex="0">Indexing —</span>
         </div>
         <div class="header-right">
             <button class="toggle-btn" id="progress-collapse" title="Toggle details" aria-expanded="{% if progress_auto_expand %}true{% else %}false{% endif %}">
@@ -1804,17 +1769,45 @@
         return dot;
     }
 
+    function metricBadge(name, text, tooltip, stale = false) {
+        const el = document.getElementById(`metric-${name}`);
+        if (!el) return;
+        el.textContent = text;
+        el.title = tooltip;
+        el.setAttribute('aria-label', `${text}. ${tooltip}`);
+        el.classList.toggle('stale', stale);
+    }
+
+    function updateMetrics(data) {
+        const telemetry = document.getElementById('progress-telemetry');
+        telemetry.hidden = !data.is_admin;
+        if (!data.is_admin) return;
+        const metrics = data.metrics;
+        const gb = value => value == null ? '—' : value >= 1e12 ? `${(value / 1e12).toFixed(1)} TB` : `${(value / 1e9).toFixed(value < 10e9 ? 2 : 1)} GB`;
+        const age = ts => ts ? Math.max(0, Math.round(Date.now() / 1000 - ts)) : null;
+        const sampled = ts => ts ? `Sampled ${age(ts)} seconds ago; refreshes about once a minute.` : 'Waiting for a background sample.';
+        const stale = !metrics || age(metrics.sampled_at) > 180;
+        const rate = metrics?.throughput;
+        metricBadge('throughput', rate ? `${rate.last_hour} Snapshots/hour${rate.last_hour ? ` @ ~${(60 / rate.last_hour).toFixed(1)} min / snapshot` : ''}` : 'Snapshots/hour —',
+            rate ? `${rate.last_30_minutes} finished in the last 30 minutes. Rolling hour for this view; minutes/snapshot is the completion interval, not individual capture duration. Partial captures count; cancelled snapshots without a completion time do not. ${sampled(metrics.sampled_at)}` : sampled(null), stale);
+        const system = metrics?.system || {};
+        const systemStale = !system.sampled_at || age(system.sampled_at) > 180;
+        const available = system.container_memory_available_bytes == null ? system.memory_available_bytes : Math.min(system.memory_available_bytes, system.container_memory_available_bytes);
+        metricBadge('resources', `Load ${system.load_avg ? system.load_avg[0].toFixed(2) : '—'} · RAM ${gb(available)} free`,
+            `${system.load_avg ? `Host load averages (1 / 5 / 15 minutes): ${system.load_avg.map(n => n.toFixed(2)).join(' / ')} across ${system.cpu_count} CPUs. ` : ''}Available host RAM: ${gb(system.memory_available_bytes)} / ${gb(system.memory_total_bytes)}.${system.container_memory_limit_bytes != null ? ` Container headroom: ${gb(system.container_memory_available_bytes)} / ${gb(system.container_memory_limit_bytes)} limit.` : ''} Swap: ${gb(system.swap_free_bytes)} free / ${gb(system.swap_total_bytes)} total. ${sampled(system.sampled_at)}`, systemStale);
+        const io = system.io;
+        metricBadge('io', io ? `I/O ${Math.round(io.operations_per_second).toLocaleString()}/s${io.mean_io_ms == null ? '' : ` · ${io.mean_io_ms.toFixed(1)} ms`}` : 'I/O —',
+            io ? `Host read + write IOPS, ${(io.bytes_per_second / 1e6).toFixed(1)} MB/s. Mean OS-reported device I/O time per operation (not a network/B2 latency probe). CPU I/O wait: ${io.wait_percent == null ? 'unavailable' : `${io.wait_percent.toFixed(1)}%`}. Averages between samples. ${sampled(system.sampled_at)}` : `I/O rates need two OS samples; unsupported counters remain unavailable. ${sampled(system.sampled_at)}`, systemStale);
+        const storage = metrics?.storage;
+        const storageStale = storage && age(storage.sampled_at) > 300;
+        const uploads = storage ? storage.uploads_queued + storage.uploads_in_progress : null;
+        metricBadge('storage', `Disk ${gb(system.disk_free_bytes)} free${uploads ? ` · ${uploads.toLocaleString()} uploads` : ''}${storage?.errored_files ? ` · ${storage.errored_files} errors` : ''}${storage?.out_of_space ? ' · full' : ''}${storageStale ? ' · uploads stale' : ''}`,
+            `Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)} ${storage ? `Uploads: ${storage.uploads_queued} queued, ${storage.uploads_in_progress} active, ${storage.errored_files} current errored files; ${gb(storage.bytes_used)} in the VFS cache. ${storage.out_of_space ? 'Storage is out of space. ' : ''}Upload counters sampled ${age(storage.sampled_at)} seconds ago. Queue size alone does not prove uploads are keeping up.` : 'Upload telemetry unavailable. An optional rclone VFS statistics file can be configured for remote mounts.'}`, systemStale || storageStale || storage?.errored_files > 0 || storage?.out_of_space);
+    }
+
     function updateProgress(data) {
+        updateMetrics(data);
         idleMessage.style.color = '';
-        function setCount(id, value) {
-            const el = document.getElementById(id);
-            if (el) el.textContent = Number(value || 0).toLocaleString();
-        }
-        function setActiveCount(id, value) {
-            setCount(id, value);
-            const segment = document.getElementById(`${id}-segment`);
-            if (segment) segment.style.display = Number(value || 0) > 0 ? '' : 'none';
-        }
 
         // Calculate if there's activity
         const hasActivity = data.active_crawls.length > 0 ||
@@ -1834,7 +1827,6 @@
         }
 
         // Update orchestrator status - show "Running" only when there are active workers.
-        const pidEl = document.getElementById('orchestrator-pid');
         const hasWorkers = data.total_workers > 0;
         let dot = null;
 
@@ -1842,36 +1834,22 @@
             dot = setOrchestratorState('running', 'Running');
         } else if (!data.orchestrator_running) {
             dot = setOrchestratorState('stopped', 'Runner stopped');
-        } else if (hasActivity) {
-            dot = setOrchestratorState('idle', 'Idle');
         } else {
             dot = setOrchestratorState('idle', 'Idle');
         }
 
-        if (data.orchestrator_pid) {
-            pidEl.textContent = `pid ${data.orchestrator_pid}`;
-            pidEl.style.display = 'inline-flex';
-        } else {
-            pidEl.textContent = '';
-            pidEl.style.display = 'none';
-        }
+        const count = value => Number(value || 0).toLocaleString();
+        document.getElementById('orchestrator-text').textContent += ` · ${count(data.snapshots_queued)} queued`;
+        const status = document.getElementById('metric-status');
+        status.title = `Snapshots: ${count(data.snapshots_active)} active, ${count(data.snapshots_queued)} queued. Crawls: ${count(data.crawls_active)} active, ${count(data.crawls_queued)} queued. Downloads: ${count(data.downloads_active)} active, ${count(data.downloads_queued)} queued.${data.orchestrator_pid ? ` Runner PID ${data.orchestrator_pid}.` : ''}`;
+        status.setAttribute('aria-label', `${status.textContent.trim()}. ${status.title}`);
+        metricBadge('indexing', `Indexing ${count(data.indexing_active)}${data.indexing_queued ? ` · ${count(data.indexing_queued)} queued` : ''}`,
+            `Indexing: ${count(data.indexing_active)} active, ${count(data.indexing_queued)} queued.`);
 
         // Pulse the dot to show we got fresh data
         dot.classList.add('flash');
         setTimeout(() => dot.classList.remove('flash'), 300);
 
-        [
-            ['crawls-queued', data.crawls_queued],
-            ['snapshots-queued', data.snapshots_queued],
-            ['downloads-queued', data.downloads_queued],
-            ['indexing-queued', data.indexing_queued],
-        ].forEach(([id, value]) => setCount(id, value));
-        [
-            ['crawls-active', data.crawls_active],
-            ['snapshots-active', data.snapshots_active],
-            ['downloads-active', data.downloads_active],
-            ['indexing-active', data.indexing_active],
-        ].forEach(([id, value]) => setActiveCount(id, value));
         updateScreencastPanel(data);
 
         // Render crawl tree
@@ -1901,7 +1879,8 @@
         updateDurationBadges();
     }
 
-    const progressEndpoint = monitor.dataset.progressEndpoint || '/progress.json';
+    const progressEndpoint = new URL(monitor.dataset.progressEndpoint || '/progress.json', window.location.href);
+    progressEndpoint.searchParams.set('metrics', '1');
 
     function fetchProgress() {
         // Opening a replay replaces the queued snapshot's progress panel.
@@ -1910,8 +1889,11 @@
             stopPolling();
             return;
         }
+        const requestStarted = performance.now();
+        let httpStatus = null;
         fetch(progressEndpoint, { credentials: 'same-origin' })
             .then(response => {
+                httpStatus = response.status;
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return response.json();
             })
@@ -1920,6 +1902,8 @@
                     stopPolling();
                     return;
                 }
+                const responseMs = Math.round(performance.now() - requestStarted);
+                metricBadge('web', data.error ? 'Web error' : `Web ${responseMs < 1000 ? `${responseMs} ms` : `${(responseMs / 1000).toFixed(2)} s`}`, `Last progress request: HTTP ${httpStatus}, ${responseMs} ms including network and JSON transfer. Not total page-load time. Measured ${new Date().toLocaleTimeString()}.`, Boolean(data.error));
                 if (data.error) {
                     console.error('Progress API error:', data.error, data.traceback);
                     setOrchestratorState('error', 'Backend not responding');
@@ -1936,6 +1920,7 @@
                     return;
                 }
                 console.error('Progress fetch error:', error);
+                metricBadge('web', httpStatus ? `Web HTTP ${httpStatus}` : 'Web unavailable', `Last progress request failed after ${Math.round(performance.now() - requestStarted)} ms. ${new Date().toLocaleTimeString()}.`, true);
                 setOrchestratorState('error', 'Backend not responding');
                 idleMessage.textContent = 'Fetch Error: ' + error.message;
                 idleMessage.style.color = '#f85149';
@@ -2012,7 +1997,7 @@
         setCollapsedState(!isCollapsed);
     });
     monitor.querySelector('.header-bar').addEventListener('click', function(event) {
-        if (event.target.closest('button, a, input, select, textarea, [role="button"]')) return;
+        if (event.target.closest('button, a, input, select, textarea, [role="button"], .metric-badge')) return;
         if (isCollapsed) setCollapsedState(false);
     });
 

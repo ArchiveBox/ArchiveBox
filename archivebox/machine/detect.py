@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import platform
 import tempfile
+import time
 from datetime import datetime
 
 import psutil
@@ -16,6 +17,82 @@ from rich import print
 
 PACKAGE_DIR = Path(__file__).parent
 DATA_DIR = Path(os.getcwd()).resolve()
+_live_io_sample = None
+
+
+def get_live_system_stats(data_dir: Path) -> dict[str, Any]:
+    """Cheap OS counters for the background progress sampler, never a request probe.
+
+    No process walk, subprocess, archive traversal, blocking CPU sample, or writes.
+    I/O rates are deltas between samples; their first observation is unknown.
+    Host counters are labelled as such; container RAM headroom is also reported.
+    """
+    global _live_io_sample
+    sampled_at = time.time()
+    stats: dict[str, Any] = {"sampled_at": sampled_at, "io": None}
+    try:
+        stats.update(cpu_count=psutil.cpu_count(), load_avg=list(psutil.getloadavg()))
+    except (OSError, AttributeError):
+        pass
+    try:
+        memory = psutil.virtual_memory()
+        stats.update(memory_available_bytes=memory.available, memory_total_bytes=memory.total)
+        from archivebox.services.resource_admission import ResourceAdmission
+
+        for path in ResourceAdmission.cgroup_paths():
+            try:
+                limit = int((path / "memory.max").read_text())
+                used = int((path / "memory.current").read_text())
+                if limit < memory.total:
+                    stats["container_memory_limit_bytes"] = min(limit, stats.get("container_memory_limit_bytes", limit))
+                    stats["container_memory_available_bytes"] = min(
+                        max(0, limit - used),
+                        stats.get("container_memory_available_bytes", limit),
+                    )
+            except (OSError, ValueError):
+                continue
+    except (OSError, psutil.Error):
+        pass
+    try:
+        swap = psutil.swap_memory()
+        stats.update(swap_total_bytes=swap.total, swap_free_bytes=swap.free)
+    except (OSError, psutil.Error):
+        pass
+    try:
+        stats["disk_free_bytes"] = psutil.disk_usage(str(data_dir)).free
+    except (OSError, psutil.Error):
+        pass
+    try:
+        disk = psutil.disk_io_counters()
+        cpu = psutil.cpu_times()
+        if disk is not None:
+            current = {
+                "time": sampled_at,
+                "operations": disk.read_count + disk.write_count,
+                "bytes": disk.read_bytes + disk.write_bytes,
+                "io_ms": disk.read_time + disk.write_time,
+                "cpu_time": sum(value for name, value in cpu._asdict().items() if name not in {"guest", "guest_nice"}),
+                "wait": getattr(cpu, "iowait", None),
+            }
+            previous, _live_io_sample = _live_io_sample, current
+            if previous and current["time"] > previous["time"]:
+                seconds = current["time"] - previous["time"]
+                operations = current["operations"] - previous["operations"]
+                transferred = current["bytes"] - previous["bytes"]
+                io_ms = current["io_ms"] - previous["io_ms"]
+                cpu_time = current["cpu_time"] - previous["cpu_time"]
+                if min(operations, transferred, io_ms) >= 0:
+                    stats["io"] = {
+                        "operations_per_second": round(operations / seconds, 1),
+                        "bytes_per_second": round(transferred / seconds),
+                        "mean_io_ms": round(io_ms / operations, 2) if operations else None,
+                        "wait_percent": round(100 * max(0, current["wait"] - previous["wait"]) / cpu_time, 1)
+                        if cpu_time > 0 and current["wait"] is not None and previous["wait"] is not None
+                        else None,
+                    }
+    except (OSError, psutil.Error):
+        pass
+    return stats
 
 
 def _run_abxpkg_host_binary(name: str, *args: str) -> subprocess.CompletedProcess[str]:

@@ -297,6 +297,10 @@ class StorageConfig(BaseConfigSet):
     OUTPUT_PERMISSIONS: str = Field(default="644")
     ENFORCE_ATOMIC_WRITES: bool = Field(default=True)
     ALLOW_NO_UNIX_SOCKETS: bool = Field(default=False, alias="ARCHIVEBOX_ALLOW_NO_UNIX_SOCKETS")
+    PROGRESS_RCLONE_STATS_FILE: Path | None = Field(
+        default=None,
+        description="Optional local JSON file containing raw rclone rc vfs/stats output for cached upload badges. Update atomically; no credentials required.",
+    )
 
 
 class GeneralConfig(BaseConfigSet):

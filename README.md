@@ -760,6 +760,35 @@ USER_AGENT="Mozilla/5.0 ..."  # change this to get around bot blocking
 </details>
 <br/>
 
+### Live progress metrics
+
+The admin progress panel includes compact badges for snapshot throughput, host load,
+available RAM, disk space, IOPS and I/O wait, and the last progress request's response
+time. Hover or focus a badge for its scope, sample age, and units. Throughput counts
+snapshots with a completion timestamp in the last hour; partial captures count.
+The minutes per snapshot value is the interval between completions, not capture duration.
+
+System and throughput measurements refresh in the background about once per minute.
+Progress requests read cached values without waiting for sampling. Missing readings
+remain unavailable, and stale readings are marked. Disk space refers to the local
+collection database filesystem. I/O counters describe host devices, not remote
+storage latency. Guests do not receive these metrics.
+
+For an rclone-backed archive, optionally set `PROGRESS_RCLONE_STATS_FILE` to a local
+file containing raw `rclone rc vfs/stats` JSON. Have the existing mount's monitoring
+job replace that file atomically, then configure ArchiveBox to read it:
+
+<pre lang="bash"><code>
+rclone rc vfs/stats > /data/rclone-vfs.json.tmp && mv /data/rclone-vfs.json.tmp /data/rclone-vfs.json
+archivebox config --set PROGRESS_RCLONE_STATS_FILE=/data/rclone-vfs.json
+</code></pre>
+
+Use the RC client's connection/authentication settings for your existing mount;
+ArchiveBox does not need RC credentials or network access to collect these counters.
+The upload badge shows queued/active uploads, current file errors, and cache space.
+Its timestamp comes from the file's modification time; readings older than five
+minutes are marked stale. Only counters are returned to the browser.
+
 ## Dependencies
 
 To achieve high-fidelity archives in as many situations as possible, ArchiveBox depends on a variety of 3rd-party libraries and tools that specialize in extracting different types of content.
