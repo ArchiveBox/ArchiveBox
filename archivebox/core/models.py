@@ -4637,16 +4637,28 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             raise error
 
         scanned = 0
-        for parent, directories, filenames in os.walk(dir_path, onerror=scan_error, followlinks=False):
-            directories[:] = [name for name in directories if not name.startswith(".")]
-            for name in filenames:
-                scanned += 1
-                if max_scan is not None and scanned > max_scan:
-                    return file_map
-                file_path = Path(parent) / name
-                if file_path.is_symlink() or name.startswith("."):
-                    continue
-                file_map[str(file_path.relative_to(dir_path))] = {"size": file_path.stat().st_size}
+        pending = [dir_path]
+        while pending:
+            parent = pending.pop()
+            directories = []
+            try:
+                # WHY: os.walk discards DirEntry metadata, causing another
+                # lstat + stat per file on remote/FUSE archives. Reuse it here.
+                with os.scandir(parent) as entries:
+                    for entry in entries:
+                        if entry.is_dir():
+                            if not entry.name.startswith(".") and not entry.is_symlink():
+                                directories.append(Path(entry.path))
+                            continue
+                        scanned += 1
+                        if max_scan is not None and scanned > max_scan:
+                            return file_map
+                        if entry.is_symlink() or entry.name.startswith("."):
+                            continue
+                        file_map[os.path.relpath(entry.path, dir_path)] = {"size": entry.stat().st_size}
+            except OSError as error:
+                scan_error(error)
+            pending.extend(reversed(directories))
         return file_map
 
     @staticmethod
