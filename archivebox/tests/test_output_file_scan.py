@@ -58,3 +58,19 @@ def test_output_scan_preserves_hidden_symlink_and_limit_rules(tmp_path):
     files = ArchiveResult._scan_output_file_map(limited, max_scan=7)
     assert len(files) == 7
     assert all(metadata == {"size": 5} and (limited / path).read_bytes() == b"saved" for path, metadata in files.items())
+
+
+def test_output_scan_does_not_require_access_to_excluded_symlink_target(tmp_path):
+    from archivebox.core.models import ArchiveResult
+
+    root = tmp_path / "snapshot"
+    root.mkdir()
+    private = tmp_path / "private"
+    private.mkdir()
+    (private / "directory").mkdir()
+    (root / "excluded").symlink_to(private / "directory", target_is_directory=True)
+    private.chmod(0)
+    try:
+        assert ArchiveResult._scan_output_file_map(root) == {}
+    finally:
+        private.chmod(0o700)

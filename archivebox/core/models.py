@@ -4646,7 +4646,13 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 # lstat + stat per file on remote/FUSE archives. Reuse it here.
                 with os.scandir(parent) as entries:
                     for entry in entries:
-                        if entry.is_dir():
+                        try:
+                            is_directory = entry.is_dir()
+                        except OSError:
+                            # Match os.walk: inaccessible symlink targets are
+                            # files here, then excluded below without reading.
+                            is_directory = False
+                        if is_directory:
                             if not entry.name.startswith(".") and not entry.is_symlink():
                                 directories.append(Path(entry.path))
                             continue
