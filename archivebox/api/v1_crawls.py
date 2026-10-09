@@ -1,6 +1,7 @@
 __package__ = "archivebox.api"
 
 from pathlib import Path
+from hashlib import sha256
 from uuid import UUID
 from datetime import datetime
 from django.http import FileResponse, HttpRequest
@@ -179,7 +180,14 @@ def crawl_file(request: HttpRequest, crawl_id: str, path: str):
 
     crawl_root = Path(crawl.output_dir).resolve()
     file_path = (crawl_root / path).resolve()
-    if not file_path.is_file() or crawl_root not in file_path.parents:
+    file_root = crawl_root
+    if path == "chrome_screencast/latest.jpg":
+        crawl_key = sha256(str(crawl_root).encode()).hexdigest()
+        live_root = (Path(get_config(crawl=crawl).TMP_DIR) / "chrome_screencast" / crawl_key).resolve()
+        live_frame = (live_root / "latest.jpg").resolve()
+        if live_frame.is_file() and live_root in live_frame.parents:
+            file_root, file_path = live_root, live_frame
+    if not file_path.is_file() or file_root not in file_path.parents:
         raise HttpError(404, "Crawl file not found")
 
     if path == "chrome_screencast/latest.jpg" and request.GET.get("after"):

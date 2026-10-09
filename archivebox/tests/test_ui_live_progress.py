@@ -649,6 +649,7 @@ class TestLiveProgressView:
         result.refresh_from_db()
         assert result.status in (ArchiveResult.StatusChoices.SUCCEEDED, ArchiveResult.StatusChoices.NORESULTS)
 
+    @pytest.mark.parametrize("keep_frames", [0, 1])
     def test_live_progress_keeps_still_browser_frame_while_screencast_runs(
         self,
         client,
@@ -657,9 +658,14 @@ class TestLiveProgressView:
         snapshot,
         painted_http_server,
         cached_abxpkg_lib_dir,
+        keep_frames,
+        tmp_path,
     ):
+        import hashlib
         import time
 
+        from archivebox.config.common import get_config
+        from archivebox.machine.models import Machine
         from archivebox.core.models import Snapshot
         from archivebox.crawls.models import Crawl
         from archivebox.services.runner import run_due_snapshot
@@ -667,6 +673,9 @@ class TestLiveProgressView:
         # Provision the real browser before timing navigation; a cold Chromium
         # download is dependency setup, not part of the screencast assertion.
         resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
+        machine = Machine.current()
+        machine.config = {**machine.config, "TMP_DIR": str(tmp_path / "local-runtime")}
+        machine.save(update_fields=["config"])
 
         now = timezone.now()
         Crawl.objects.filter(pk=crawl.pk).update(
@@ -687,11 +696,14 @@ class TestLiveProgressView:
                 "CHROME_TIMEOUT": 90,
                 "CHROME_PAGELOAD_TIMEOUT": 90,
                 "CHROME_DELAY_AFTER_LOAD": 30,
+                "CHROME_SCREENCAST_KEEP": keep_frames,
                 "TIMEOUT": 90,
             },
         )
         snapshot.refresh_from_db()
-        frame = Path(snapshot.crawl.output_dir) / "chrome_screencast" / "latest.jpg"
+        durable_dir = Path(snapshot.crawl.output_dir) / "chrome_screencast"
+        crawl_key = hashlib.sha256(str(snapshot.crawl.output_dir.resolve()).encode()).hexdigest()
+        frame = Path(get_config(crawl=crawl).TMP_DIR) / "chrome_screencast" / crawl_key / "latest.jpg"
         errors = []
 
         def run_snapshot():
@@ -707,6 +719,7 @@ class TestLiveProgressView:
             deadline = time.monotonic() + 90
             while time.monotonic() < deadline:
                 assert errors == []
+                assert not list(durable_dir.glob("*.jpg")), "Live frames must not churn durable archive storage"
                 if frame.is_file() and time.time() - frame.stat().st_mtime > 16:
                     break
                 time.sleep(0.1)
@@ -718,11 +731,23 @@ class TestLiveProgressView:
             assert response.status_code == 200, response.content
             active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
             assert active_crawl["screencast_url"].startswith(f"/api/v1/crawls/crawl/{crawl.pk}/files/chrome_screencast/latest.jpg")
+            image_response = client.get(active_crawl["screencast_url"], HTTP_HOST=ADMIN_TEST_HOST)
+            assert image_response.status_code == 200
+            assert b"".join(image_response.streaming_content) == frame.read_bytes()
         finally:
             runner.join(timeout=120)
         assert not runner.is_alive()
         assert errors == []
         assert not frame.exists()
+        assert not list(frame.parent.glob("*.jpg"))
+        assert not (durable_dir / "latest.jpg").exists()
+        kept_frames = list(durable_dir.glob("frame-*.jpg"))
+        assert len(kept_frames) == keep_frames
+        assert all(saved.read_bytes().startswith(b"\xff\xd8\xff") for saved in kept_frames)
+        for saved in kept_frames:
+            response = client.get(f"/api/v1/crawls/crawl/{crawl.pk}/files/chrome_screencast/{saved.name}", HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200
+            assert b"".join(response.streaming_content) == saved.read_bytes()
 
     def test_live_progress_hides_finished_cancelled_crawl(self, client, admin_user, crawl, snapshot):
         from archivebox.core.models import ArchiveResult, Snapshot
