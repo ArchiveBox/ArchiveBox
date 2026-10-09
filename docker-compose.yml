@@ -1,15 +1,15 @@
-# Usage:
+# Usage
+#
 #     mkdir -p ~/archivebox/data && cd ~/archivebox
 #     curl -fsSL 'https://docker-compose.archivebox.io' > docker-compose.yml
-#     docker compose pull
-#     docker compose up -d --wait
-#     Open /admin/ on the hostname or IP used to reach ArchiveBox (local: http://admin.archivebox.localhost:5797/admin/).
-
+#     docker compose up -d
+#     Open /admin/ on the hostname or IP used to reach ArchiveBox e.g: http://admin.archivebox.localhost:5797/
+#
 #     docker compose exec archivebox archivebox add --depth=1 'https://news.ycombinator.com'
 #     docker compose exec -T archivebox archivebox add < ~/Downloads/bookmarks.txt
 #     docker compose exec archivebox archivebox help
-# Documentation:
-#     https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
+#
+# More Info: https://github.com/ArchiveBox/ArchiveBox/wiki/Docker#docker-compose
 
 services:
     archivebox:
@@ -20,7 +20,7 @@ services:
         volumes:
             # Required: main data directory must be on a fast local SSD
             - ./data:/data
-            # Optional: store the bulky archived content on a slower HDD or remote network store
+            # Optional: store the bulky data/archive content on a slower HDD or remote network store
             # - /mnt/archivebox/data/archive:/data/archive
             # Recommended: lets one-off `docker compose run` commands reuse main server's runners
             - tmp:/tmp/archivebox
@@ -44,31 +44,28 @@ services:
 
 
 ####################################################################################################################
-    ### `archivebox server` now runs the orchestrator itself, so scheduled crawls and queued UI/API jobs
-    # are processed by the main container without needing a separate scheduler sidecar. To add a new job:
-    #   $ docker compose run --rm archivebox schedule --add --every=day --depth=1 'https://example.com/some/rss/feed.xml'
-    # the running server orchestrator will pick it up automatically at the next due time.
-    # https://github.com/ArchiveBox/ArchiveBox/wiki/Scheduled-Archiving
+    ### No Separate containers are needed for sonic or scheduled archiving, these are all optional addons: ###
 
-    ### ArchiveBox now starts and uses Sonic automatically when SEARCH_BACKEND_ENGINE=sonic.
-    # If Sonic is ever started after not running for a while, update its full-text index by running:
-    #   $ docker compose run --rm archivebox update --index-only
-    # https://github.com/ArchiveBox/ArchiveBox/wiki/Setting-up-Search
+    ### Optional: HTTPS ingress using Cloudflare
+    #             https://developers.cloudflare.com/tunnel/reference/run-parameters/
+    #
+    # cloudflared:
+    #     image: cloudflare/cloudflared
+    #     command: tunnel --no-autoupdate --loglevel debug --retries 15 --protocol http2 --overwrite-dns --url http://archivebox:5797 --hostname archivebox.io --name archivebox.io
+    #     volumes:                                                                                                                 # ^ (replace archivebox.io with your own domain)
+    #         # Download a cert.pem into this folder from https://dash.cloudflare.com/argotunnel
+    #         - ./etc/cloudflared:/etc/cloudflared
+    
 
-    ######## Optional Addons: tweak examples below as needed for your specific use case ########
-
-    ### ArchiveBox Bot + ArchiveBox AI Bot: save links and run archiving tasks from Slack, Zulip,
-    # WhatsApp, Telegram, IRC, iMessage, Messenger, or Beeper, with a shared web setup console.
-    # https://github.com/ArchiveBox/archivebox-chat-bot
-    # Uncomment this service, then: docker compose up -d --build archivebox-chat-bot
-    # Open http://localhost:5798, choose a console password, then connect to http://archivebox:5797 with your API key.
-    # Set Public URL in the console to the ArchiveBox address people can open from their devices.
-
+    ### Optional: ArchiveBox Bot + ArchiveBox AI Bot: save links and run archiving tasks from Slack, WhatsApp, etc.
+    #             https://github.com/ArchiveBox/archivebox-chat-bot
+    #
     # archivebox-chat-bot:
     #     build: https://github.com/ArchiveBox/archivebox-chat-bot.git#main
     #     restart: unless-stopped
     #     ports:
     #         - "127.0.0.1:5798:5798"
+    #         # Open http://localhost:5798, choose a console password, then connect to http://archivebox:5797 with your API key.
     #     volumes:
     #         - ./archivebox-chat-bot:/data
     #     # Optional: set ADMIN_PASSWORD to skip the first-run password setup UI.
@@ -76,11 +73,12 @@ services:
     #     #     ADMIN_PASSWORD: your-console-password
 
 
-    ### This optional container runs xvfb+noVNC so you can watch the ArchiveBox browser as it archives things,
-    # or remote control it to set up a chrome profile w/ login credentials for sites you want to archive.
-    # https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
-    # https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#docker-vnc-setup
-
+    ### Optional: container to run xvfb+noVNC so you can watch the ArchiveBox browser screen as it archives things /
+    #             remote control it to set up a chrome profile w/ logins for sites you want to archive
+    # 
+    #             https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#setting-up-a-chromium-user-profile
+    #             https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#docker-vnc-setup
+    #
     # novnc:
     #     image: theasp/novnc:latest
     #     environment:
@@ -98,21 +96,21 @@ services:
     #         - 127.0.0.1:8080:8080
 
 
-    ### Example: run all your ArchiveBox traffic through a WireGuard VPN tunnel to avoid IP blocks.
-    # You can also use any other VPN that works at the docker/IP level, e.g. Tailscale, OpenVPN, etc.
-
-    # wireguard:
-    #   image: linuxserver/wireguard:latest
-    #   network_mode: 'service:archivebox'
-    #   cap_add:
-    #     - NET_ADMIN
-    #     - SYS_MODULE
-    #   sysctls:
-    #     - net.ipv4.conf.all.rp_filter=2
-    #     - net.ipv4.conf.all.src_valid_mark=1
-    #   volumes:
-    #     - /lib/modules:/lib/modules
-    #     - ./wireguard.conf:/config/wg0.conf:ro
+    ### Optional: run all your ArchiveBox server traffic your home IP to avoid rate limits and captchas
+    #             https://tailscale.com/docs/features/containers/docker/how-to/connect-docker-container
+    # tailscale:
+    # image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: tailscale-nginx
+    environment:
+      - TS_AUTHKEY=<tskey-YOUR-AUTH-KEY>
+      - TS_STATE_DIR=/var/lib/tailscale
+    volumes:
+      - ./tailscale-state:/var/lib/tailscale
+    cap_add:
+      - net_admin
+      - net_raw
+    restart: unless-stopped
 
     ### Example: Run ChangeDetection.io to watch for changes to websites, then trigger ArchiveBox to archive them
     # Documentation: https://github.com/dgtlmoon/changedetection.io
@@ -145,6 +143,7 @@ services:
 #             allow_other: 'true'
 #             vfs_cache_mode: full
 #             poll_interval: 0
+
 
 volumes:
     tmp:
