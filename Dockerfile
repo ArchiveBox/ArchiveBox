@@ -266,12 +266,15 @@ RUN --mount=type=cache,target=/opt/archivebox/lib/cache,sharing=locked,mode=1777
 
 # Install the complete ArchiveBox catalog, including disabled server plugins.
 # Explicit plugin names make installation independent of enabled defaults.
+# Build as root so declared apt dependencies can be installed, then hand all
+# new provider state back to the runtime user before the offline checks.
 RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=archivebox-server-plugins-$TARGETARCH \
     chown -R "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" /var/tmp/abxpkg-cache \
     && chmod 1777 /var/tmp/abxpkg-cache \
     && export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && env ABXPKG_TMP_CACHE_DIR=/var/tmp/abxpkg-cache XDG_CACHE_HOME=/var/tmp/abxpkg-cache \
-        setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups abx-dl install $ABX_DOCKER_PLUGINS \
+        abx-dl install $ABX_DOCKER_PLUGINS \
+    && find "$CONFIG_DIR" "$HOME" \( ! -user "$DEFAULT_ARCHIVEBOX_UID" -o ! -group "$DEFAULT_ARCHIVEBOX_GID" \) -exec chown -h "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" {} + \
     && UV_NO_CACHE=true /usr/bin/uv run --no-project python -c 'from abx_plugins.plugins.opencode.image import prune_incompatible_image_files; prune_incompatible_image_files()' \
     # pnpm's explicit store lives under ABXPKG_LIB_DIR, regardless of XDG_CACHE_HOME.
     # Retaining its download copies made image size depend on whether the build
