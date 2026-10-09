@@ -4622,6 +4622,10 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         file_map: dict[str, dict[str, Any]] = {}
 
         def scan_error(error):
+            # Queued snapshots have no output directory until capture starts.
+            # An absent preview root is empty; other storage errors must surface.
+            if isinstance(error, FileNotFoundError) and Path(error.filename) == dir_path:
+                return
             raise error
 
         scanned = 0

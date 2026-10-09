@@ -857,6 +857,33 @@ class TestSnapshotProgressStats:
             "responses/all/20260323T073504__GET__example.com__.html"
         )
 
+    def test_discover_outputs_before_capture_creates_directory(self, snapshot, admin_user):
+        from archivebox.core.views import SnapshotView
+
+        snapshot.status = "queued"
+        snapshot.save(update_fields=["status"])
+        assert not snapshot.output_dir.exists()
+        request = RequestFactory().get(f"/{snapshot.url_path}?discover_outputs=1", HTTP_HOST=ADMIN_TEST_HOST)
+        request.user = admin_user
+
+        response = SnapshotView.render_live_index(request, snapshot)
+
+        assert response.status_code == 200
+        assert snapshot.discover_outputs() == []
+        assert not snapshot.output_dir.exists()
+
+    def test_output_discovery_preserves_real_scan_errors(self, tmp_path):
+        from archivebox.core.models import ArchiveResult
+
+        directory = tmp_path / "unreadable"
+        directory.mkdir()
+        directory.chmod(0)
+        try:
+            with pytest.raises(PermissionError):
+                ArchiveResult._scan_output_file_map(directory)
+        finally:
+            directory.chmod(0o700)
+
     def test_embed_path_db_ignores_human_readable_output_messages(self, snapshot, real_failed_title_projection):
         _process, result = real_failed_title_projection
 
