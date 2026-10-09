@@ -88,6 +88,22 @@ def test_archived_srcset_recovers_only_missing_image_candidates(snapshot, live_s
                 assert "x-archivebox-image-fallback" not in rendered.headers
                 if density == 1:
                     assert "1x_web_48dp.png" in rendered.url
+            if density == 1 and archive_format == "wacz":
+                # A genuine archive with no matching X API data must retain its
+                # misses. No alias may obtain live responses or another site's
+                # records, including POSTs and paths outside GraphQL.
+                for method, url in (
+                    ("GET", "https://api.x.com/graphql/missing/TweetDetail?variables=%7B%22focalTweetId%22%3A%221%22%7D"),
+                    ("GET", "https://api.twitter.com/graphql/missing/TweetDetail"),
+                    ("GET", "https://api.x.com/1.1/guest/activate.json"),
+                    ("GET", "https://api.x.com.example.com/graphql/missing/TweetDetail"),
+                    ("POST", "https://api.x.com/graphql/missing/TweetDetail"),
+                ):
+                    missing = frame.evaluate(
+                        "async ([method, url]) => {const r = await fetch(url, {method}); return {status:r.status, alias:r.headers.get('X-ArchiveBox-API-Alias')};}",
+                        [method, url],
+                    )
+                    assert missing == {"status": 404, "alias": None}
             assert all(url.startswith((origin, "data:", "blob:")) for url in requests), requests
             with localhost_session() as session:
                 raw = session.get(f"{origin}/archivewebpage/google-drive.{archive_format}?raw=1")

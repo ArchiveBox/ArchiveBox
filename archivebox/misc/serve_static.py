@@ -70,8 +70,13 @@ a > img:not([width]):not([height]) {
 </style>"""
 
 
-def add_replay_image_fallback(response: HttpResponse) -> HttpResponse:
-    """Add a best-effort responsive-image fallback to the locally served replay worker.
+def add_replay_archive_fallbacks(response: HttpResponse) -> HttpResponse:
+    """Repair missing responsive images and equivalent recorded X API URLs.
+
+    X's client uses api.x.com/graphql without its original CSRF cookie, while
+    authenticated capture uses x.com/i/api/graphql. Repair only GETs for that
+    exact endpoint alias (also twitter.com), with an identical indexed query in
+    the same local archive. Never reuse credentials or fetch a live API.
 
     WHY: a recorder saves the image Chrome selected, not every srcset candidate.
     Replaying at another viewport/DPR can select an uncaptured URL (the motivating
@@ -80,7 +85,7 @@ def add_replay_image_fallback(response: HttpResponse) -> HttpResponse:
     404 handler cannot repair them. Append this adapter when serving that worker;
     do not change captures, request more live assets, or resize the recorded page.
 
-    Only an image GET that already returned 404 is eligible. The worker reads the
+    For images, only a GET that already returned 404 is eligible. The worker reads the
     referring HTML from the SAME archive and tries src/srcset candidates declared
     on that img or its enclosing picture. It never guesses filename substitutions
     or borrows an unrelated nearby image. The original response wins on absent
@@ -89,7 +94,7 @@ def add_replay_image_fallback(response: HttpResponse) -> HttpResponse:
     corrupt images returning 200, or pages whose archived HTML is too large.
 
     Keep this self-contained in the static-file server: it is a replay repair,
-    independent of the capturing plugin/site. Feature detection makes upstream
+    independent of capture execution. Feature detection makes upstream
     worker changes disable the repair rather than break ordinary replay. The
     archive's HTML/ZIP bytes and successful HTTP responses remain untouched.
     """
@@ -106,7 +111,7 @@ def add_replay_image_fallback(response: HttpResponse) -> HttpResponse:
     const replay = self.sw;
     if (!replay || typeof replay.handleFetch !== "function" ||
         typeof replay.getResponseFor !== "function" || !replay.collections ||
-        replay.proxyOriginMode || replay.topFramePassthrough || replay.__abxImageFallback) return;
+        replay.proxyOriginMode || replay.topFramePassthrough || replay.__abxArchiveFallbacks) return;
     const original = replay.handleFetch;
     const documents = new Map();
     const decode = value => value.replace(/&(?:amp|quot|apos|lt|gt|#\d+|#x[\da-f]+);/gi, entity => {
@@ -144,7 +149,8 @@ def add_replay_image_fallback(response: HttpResponse) -> HttpResponse:
       // Never catch/retry the original operation: preserve its normal behavior.
       const response = await original.call(this, event);
       const request = event.request;
-      if (response.status !== 404 || request.method !== "GET" || request.destination !== "image") return response;
+      if (response.status !== 404 || request.method !== "GET" ||
+          !["image", ""].includes(request.destination)) return response;
       let expired = false, timer;
       try {
         const repair = async () => {
@@ -162,6 +168,22 @@ def add_replay_image_fallback(response: HttpResponse) -> HttpResponse:
           const read = url => this.getResponseFor(new Request(archiveURL(url), {
             credentials: "same-origin", redirect: "manual", signal: request.signal,
           }), event);
+          if (request.destination !== "image") {
+            const api = missing[2].match(/^https:\/\/api\.(x|twitter)\.com(\/graphql\/[\w-]+\/\w+)(\?.*)?$/);
+            if (!api || new URL(referring[2]).origin !== `https://${api[1]}.com`) return response;
+            const url = `https://${api[1]}.com/i/api${api[2]}${api[3] || ""}`;
+            const alternative = await read(url);
+            // Reading loads the relevant WACZ index block. Require an exact
+            // indexed URL too: upstream fuzzy matching must not substitute a
+            // different GraphQL query, operation, or authenticated response.
+            const indexed = await collection.store.lookupUrl(url, 0);
+            if (expired || !indexed || indexed.url !== url || alternative.status !== 200 ||
+                !alternative.headers.get("content-type")?.includes("application/json")) return response;
+            const headers = new Headers(alternative.headers);
+            headers.set("X-ArchiveBox-API-Alias", url);
+            headers.set("Cache-Control", "no-store");
+            return new Response(alternative.body, {status:200, headers});
+          }
           const key = archiveURL(referring[2]);
           if (!documents.has(key)) {
             // Cache only candidate metadata, never whole HTML or image bodies.
@@ -236,13 +258,13 @@ def add_replay_image_fallback(response: HttpResponse) -> HttpResponse:
       } catch {return response;}
       finally {expired = true; clearTimeout(timer);}
     };
-    replay.__abxImageFallback = true;
+    replay.__abxArchiveFallbacks = true;
   } catch { /* Optional repair must never prevent the worker from starting. */ }
 })();
 """
     try:
         body = response.content
-        if b"self.sw=" not in body or b"__abxImageFallback" in body:
+        if b"self.sw=" not in body or b"__abxArchiveFallbacks" in body:
             return response
         response.content = body + script
         # Upstream headers describe the unmodified worker. Revalidate this
