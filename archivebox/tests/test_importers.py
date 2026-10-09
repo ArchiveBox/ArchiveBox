@@ -400,3 +400,30 @@ def test_import_all_drains_every_batch_and_skips_existing_items(admin_client, im
     admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST)
     assert run_next_importer()
     assert [item["url"] for item in source.runs.first().items] == [f"{url}/added.html"]
+
+
+def test_every_declared_importer_setup_renders_with_available_images(admin_client):
+    from archivebox.importers.catalog import get_importers
+
+    definitions = get_importers()
+    assert len(definitions) >= 20
+    for definition in definitions.values():
+        response = admin_client.get(f"/admin/importers/new/{definition.plugin}/{definition.feed}/", HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200, (definition.plugin, definition.feed)
+        if definition.auth == "persona":
+            assert {field.name for field in response.context["form"].basic_fields} == {"persona", "setting_IMPORTERS_BROWSER_ACCOUNT"}
+        for step, guide in enumerate(definition.setup):
+            if guide.get("image"):
+                response = admin_client.get(
+                    f"/admin/importers/guide/{definition.plugin}/{definition.feed}/{step}/",
+                    HTTP_HOST=ADMIN_TEST_HOST,
+                )
+                assert response.status_code == 200, (definition.plugin, definition.feed, step)
+                assert response["Content-Type"].startswith("image/")
+                assert b"".join(response.streaming_content)
+
+
+def test_malformed_importer_ids_are_not_server_errors(admin_client):
+    for suffix in ("", "edit/", "import/"):
+        path = f"/admin/importers/{'-' * 32}/{suffix}"
+        assert admin_client.get(path, HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
