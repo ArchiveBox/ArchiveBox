@@ -45,7 +45,7 @@
         align-items: center;
         gap: 4px 8px;
         min-width: 0;
-        font-size: 11px;
+        font-size: 12px;
         font-variant-numeric: tabular-nums;
     }
     #progress-monitor .header-right {
@@ -59,13 +59,35 @@
     }
     #progress-monitor .telemetry[hidden], #progress-monitor.is-guest .telemetry { display: none; }
     #progress-monitor .metric-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
         border: 1px solid #30363d;
         border-radius: 4px;
-        padding: 2px 6px;
-        color: #c9d1d9;
+        padding: 2px 5px;
+        line-height: 18px;
+        color: var(--metric-ink, #c9d1d9);
+        background: rgba(139, 148, 158, 0.04);
         white-space: nowrap;
         cursor: help;
     }
+    #progress-monitor .metric-badge svg {
+        width: 14px;
+        height: 14px;
+        flex-shrink: 0;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        opacity: 0.85;
+    }
+    #progress-monitor #metric-throughput { --metric-ink: #a5c8ea; }
+    #progress-monitor #metric-resources { --metric-ink: #bbc7d5; }
+    #progress-monitor #metric-io { --metric-ink: #bcaee0; }
+    #progress-monitor #metric-storage { --metric-ink: #93c9b6; }
+    #progress-monitor #metric-web { --metric-ink: #9fc7d5; }
+    #progress-monitor #metric-indexing { --metric-ink: #adbf9f; }
     #progress-monitor .metric-badge.stale { color: #d29922; }
     #progress-monitor .metric-badge:focus-visible { outline: 2px solid #58a6ff; }
 
@@ -965,13 +987,13 @@
                 <span id="orchestrator-text">Runner stopped</span>
             </div>
             <div class="telemetry" id="progress-telemetry" aria-label="Capture and server metrics" hidden>
-                <span class="metric-badge" id="metric-throughput" tabindex="0">Snapshots/hour —</span>
-                <span class="metric-badge" id="metric-resources" tabindex="0">Load — · RAM —</span>
-                <span class="metric-badge" id="metric-io" tabindex="0">I/O —</span>
-                <span class="metric-badge" id="metric-storage" tabindex="0">Disk —</span>
-                <span class="metric-badge" id="metric-web" tabindex="0">Web —</span>
+                <span class="metric-badge" id="metric-throughput" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17 6-6 4 4 8-10M15 5h6v6"/></svg><span class="metric-text">Pages/hr —</span></span>
+                <span class="metric-badge" id="metric-resources" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3"/></svg><span class="metric-text">Load — · RAM —</span></span>
+                <span class="metric-badge" id="metric-io" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V4m-4 4 4-4 4 4m6-4v16m-4-4 4 4 4-4"/></svg><span class="metric-text">I/O —</span></span>
+                <span class="metric-badge" id="metric-storage" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span class="metric-text">Disk —</span></span>
+                <span class="metric-badge" id="metric-web" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span class="metric-text">Web —</span></span>
             </div>
-            <span class="metric-badge" id="metric-indexing" tabindex="0">Indexing —</span>
+            <span class="metric-badge" id="metric-indexing" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h1m-1 6h1m-1 6h1"/></svg><span class="metric-text">Indexing —</span></span>
         </div>
         <div class="header-right">
             <button class="toggle-btn" id="progress-collapse" title="Toggle details" aria-expanded="{% if progress_auto_expand %}true{% else %}false{% endif %}">
@@ -1772,7 +1794,7 @@
     function metricBadge(name, text, tooltip, stale = false) {
         const el = document.getElementById(`metric-${name}`);
         if (!el) return;
-        el.textContent = text;
+        el.querySelector('.metric-text').textContent = text;
         el.title = tooltip;
         el.setAttribute('aria-label', `${text}. ${tooltip}`);
         el.classList.toggle('stale', stale);
@@ -1783,26 +1805,27 @@
         telemetry.hidden = !data.is_admin;
         if (!data.is_admin) return;
         const metrics = data.metrics;
-        const gb = value => value == null ? '—' : value >= 1e12 ? `${(value / 1e12).toFixed(1)} TB` : `${(value / 1e9).toFixed(value < 10e9 ? 2 : 1)} GB`;
+        const shortNumber = value => Number(value.toFixed(1)).toLocaleString();
+        const gb = (value, compact = false) => value == null ? '—' : value >= 1e12 ? `${shortNumber(value / 1e12)} TB` : `${Number((value / 1e9).toFixed(compact ? (value < 10e9 ? 1 : 0) : 2))} GB`;
         const age = ts => ts ? Math.max(0, Math.round(Date.now() / 1000 - ts)) : null;
         const sampled = ts => ts ? `Sampled ${age(ts)} seconds ago; refreshes about once a minute.` : 'Waiting for a background sample.';
         const stale = !metrics || age(metrics.sampled_at) > 180;
         const rate = metrics?.throughput;
-        metricBadge('throughput', rate ? `${rate.last_hour} Snapshots/hour${rate.last_hour ? ` @ ~${(60 / rate.last_hour).toFixed(1)} min / snapshot` : ''}` : 'Snapshots/hour —',
+        metricBadge('throughput', rate ? `${rate.last_hour} pages/hr${rate.last_hour ? ` ~${shortNumber(60 / rate.last_hour)}min/ea` : ''}` : 'Pages/hr —',
             rate ? `${rate.last_30_minutes} finished in the last 30 minutes. Rolling hour for this view; minutes/snapshot is the completion interval, not individual capture duration. Partial captures count; cancelled snapshots without a completion time do not. ${sampled(metrics.sampled_at)}` : sampled(null), stale);
         const system = metrics?.system || {};
         const systemStale = !system.sampled_at || age(system.sampled_at) > 180;
         const available = system.container_memory_available_bytes == null ? system.memory_available_bytes : Math.min(system.memory_available_bytes, system.container_memory_available_bytes);
-        metricBadge('resources', `Load ${system.load_avg ? system.load_avg[0].toFixed(2) : '—'} · RAM ${gb(available)} free`,
+        metricBadge('resources', `Load ${system.load_avg ? shortNumber(system.load_avg[0]) : '—'} · RAM ${gb(available, true)}`,
             `${system.load_avg ? `Host load averages (1 / 5 / 15 minutes): ${system.load_avg.map(n => n.toFixed(2)).join(' / ')} across ${system.cpu_count} CPUs. ` : ''}Available host RAM: ${gb(system.memory_available_bytes)} / ${gb(system.memory_total_bytes)}.${system.container_memory_limit_bytes != null ? ` Container headroom: ${gb(system.container_memory_available_bytes)} / ${gb(system.container_memory_limit_bytes)} limit.` : ''} Swap: ${gb(system.swap_free_bytes)} free / ${gb(system.swap_total_bytes)} total. ${sampled(system.sampled_at)}`, systemStale);
         const io = system.io;
-        metricBadge('io', io ? `I/O ${Math.round(io.operations_per_second).toLocaleString()}/s${io.mean_io_ms == null ? '' : ` · ${io.mean_io_ms.toFixed(1)} ms`}` : 'I/O —',
+        metricBadge('io', io ? `I/O ${Math.round(io.operations_per_second).toLocaleString()}/s${io.mean_io_ms == null ? '' : ` · ${shortNumber(io.mean_io_ms)}ms`}` : 'I/O —',
             io ? `Host read + write IOPS, ${(io.bytes_per_second / 1e6).toFixed(1)} MB/s. Mean OS-reported device I/O time per operation (not a network/B2 latency probe). CPU I/O wait: ${io.wait_percent == null ? 'unavailable' : `${io.wait_percent.toFixed(1)}%`}. Averages between samples. ${sampled(system.sampled_at)}` : `I/O rates need two OS samples; unsupported counters remain unavailable. ${sampled(system.sampled_at)}`, systemStale);
         const storage = metrics?.storage;
         const storageStale = storage && age(storage.sampled_at) > 300;
         const uploads = storage ? storage.uploads_queued + storage.uploads_in_progress : null;
-        metricBadge('storage', `Disk ${gb(system.disk_free_bytes)} free${uploads ? ` · ${uploads.toLocaleString()} uploads` : ''}${storage?.errored_files ? ` · ${storage.errored_files} errors` : ''}${storage?.out_of_space ? ' · full' : ''}${storageStale ? ' · uploads stale' : ''}`,
-            `Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)} ${storage ? `Uploads: ${storage.uploads_queued} queued, ${storage.uploads_in_progress} active, ${storage.errored_files} current errored files; ${gb(storage.bytes_used)} in the VFS cache. ${storage.out_of_space ? 'Storage is out of space. ' : ''}Upload counters sampled ${age(storage.sampled_at)} seconds ago. Queue size alone does not prove uploads are keeping up.` : 'Upload telemetry unavailable. An optional rclone VFS statistics file can be configured for remote mounts.'}`, systemStale || storageStale || storage?.errored_files > 0 || storage?.out_of_space);
+        metricBadge('storage', `Disk ${gb(system.disk_free_bytes, true)} free${uploads && !storageStale ? ` · ${uploads.toLocaleString()} uploads` : ''}${storage?.errored_files && !storageStale ? ` · ${storage.errored_files} errors` : ''}${storage?.out_of_space && !storageStale ? ' · full' : ''}`,
+            `Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)} ${storage ? `Last upload sample: ${storage.uploads_queued} queued, ${storage.uploads_in_progress} active, ${storage.errored_files} errored files; ${gb(storage.bytes_used)} in the VFS cache, recorded ${age(storage.sampled_at)} seconds ago. ${storageStale ? 'Counters have not refreshed in over 5 minutes; uploads may still be running. Check the mount monitoring job that updates PROGRESS_RCLONE_STATS_FILE from rclone rc vfs/stats.' : storage.out_of_space ? 'Storage is out of space: check free disk space on the VFS cache filesystem.' : storage.errored_files ? 'Check rclone logs for the affected files and resolve their upload errors.' : 'Queue size alone does not prove uploads are keeping up.'}` : 'Upload counters unavailable. For remote mounts, configure PROGRESS_RCLONE_STATS_FILE and have the mount monitoring job refresh it from rclone rc vfs/stats.'}`, systemStale || (!storageStale && (storage?.errored_files > 0 || storage?.out_of_space)));
     }
 
     function updateProgress(data) {
@@ -1839,7 +1862,7 @@
         }
 
         const count = value => Number(value || 0).toLocaleString();
-        document.getElementById('orchestrator-text').textContent += ` · ${count(data.snapshots_queued)} queued`;
+        if (data.snapshots_queued) document.getElementById('orchestrator-text').textContent += ` · ${count(data.snapshots_queued)} queued`;
         const status = document.getElementById('metric-status');
         status.title = `Snapshots: ${count(data.snapshots_active)} active, ${count(data.snapshots_queued)} queued. Crawls: ${count(data.crawls_active)} active, ${count(data.crawls_queued)} queued. Downloads: ${count(data.downloads_active)} active, ${count(data.downloads_queued)} queued.${data.orchestrator_pid ? ` Runner PID ${data.orchestrator_pid}.` : ''}`;
         status.setAttribute('aria-label', `${status.textContent.trim()}. ${status.title}`);
@@ -1903,7 +1926,7 @@
                     return;
                 }
                 const responseMs = Math.round(performance.now() - requestStarted);
-                metricBadge('web', data.error ? 'Web error' : `Web ${responseMs < 1000 ? `${responseMs} ms` : `${(responseMs / 1000).toFixed(2)} s`}`, `Last progress request: HTTP ${httpStatus}, ${responseMs} ms including network and JSON transfer. Not total page-load time. Measured ${new Date().toLocaleTimeString()}.`, Boolean(data.error));
+                metricBadge('web', data.error ? 'Web error' : `Web ${responseMs < 1000 ? `${responseMs}ms` : `${Number((responseMs / 1000).toFixed(1))}s`}`, `Last progress request: HTTP ${httpStatus}, ${responseMs} ms including network and JSON transfer. Not total page-load time. Measured ${new Date().toLocaleTimeString()}.`, Boolean(data.error));
                 if (data.error) {
                     console.error('Progress API error:', data.error, data.traceback);
                     setOrchestratorState('error', 'Backend not responding');
