@@ -1044,6 +1044,8 @@ class CrawlRunner:
                 output_dir=output_dir,
                 snapshot=abx_snapshot,
                 abort_requested=self.crawl_is_cancelled,
+                # A broken optional extractor must not restart the entire crawl.
+                continue_on_binary_error=True,
             )
             await _run_event_now(
                 self.bus.emit(

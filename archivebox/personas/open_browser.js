@@ -18,7 +18,7 @@ const {
 } = require(path.join(pluginsDir, 'chrome', 'chrome_utils.js'));
 
 async function main() {
-    const config = JSON.parse(fs.readFileSync(0, 'utf8'));
+    const config = {...JSON.parse(fs.readFileSync(0, 'utf8')), ABX_RUNTIME: 'archivebox'};
     const outputDir = path.join(path.dirname(config.CHROME_USER_DATA_DIR), '.browser');
     fs.mkdirSync(outputDir, {recursive: true});
     const release = await acquireSessionLock(path.join(outputDir, 'launch.lock'));
