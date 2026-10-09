@@ -77,7 +77,11 @@ def test_abort_stops_long_running_background_hook(initialized_archive):
 
     try:
         result = run_archivebox_cmd(
-            ["add", "--depth=1", "--plugins=forumdl,infiniscroll", "https://news.ycombinator.com"],
+            # A fixed discussion keeps the real finite downloader busy while
+            # the browser hook is interrupted. The HN homepage instead scans
+            # from today's newest API item, which can be a titleless tombstone
+            # that ends forum-dl before the interruption is exercised.
+            ["add", "--depth=1", "--plugins=forumdl,infiniscroll", "https://news.ycombinator.com/item?id=41860909"],
             cwd=initialized_archive,
             env=env,
             stdin=slave,
