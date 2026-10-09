@@ -9,8 +9,9 @@ Provider-specific browser behavior stays in plugins.
 
 1. Install the browser extension in a dedicated Chrome profile and sign in to the
    accounts you want to archive.
-2. Sync that profile to a server Persona. Select it and the expected account in
-   the importer. Public feeds and CSV sources only need a URL.
+2. Sync that profile to a server Persona and select it in the importer. The
+   signed-in account is detected automatically and remembered after verification.
+   Public feeds and CSV sources only need a URL.
 3. **Check access**, then **Preview**. Neither advances progress or creates captures.
 4. **Import all** continues through every batch until the plugin reports the end
    of the available history. Advanced options contain batch size, tags, schedule,

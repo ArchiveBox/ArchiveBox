@@ -154,7 +154,8 @@ def _finish(run, items, result):
     if status == "succeeded":
         if definition.auth == "persona" and not account.get("id"):
             raise ValueError("The importer did not identify the authenticated account.")
-        if source.checkpoint and source.account.get("id") != account.get("id"):
+        identity_pinned = source.checkpoint or (definition.auth == "persona" and source.account.get("id"))
+        if identity_pinned and source.account.get("id") != account.get("id"):
             raise ValueError("The connected account changed. Reset progress before importing from the new account.")
         if run.action == ImporterRun.Action.IMPORT and result.get("has_more") and result.get("checkpoint", {}) == source.checkpoint:
             raise ValueError("The importer reported more items without advancing its checkpoint. Progress was not advanced.")

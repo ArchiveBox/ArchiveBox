@@ -359,13 +359,14 @@ def test_importer_brands_and_setup_assets(admin_client):
     assert '<details class="advanced" >' in html
     basic, advanced = html.split('<details class="advanced"', 1)
     assert 'name="persona"' in basic
-    assert 'name="setting_IMPORTERS_BROWSER_ACCOUNT"' in basic
+    assert 'name="setting_IMPORTERS_BROWSER_ACCOUNT"' not in basic
     advanced = advanced.split("</details>", 1)[0]
     assert set(re.findall(r'name="([^"]+)"', advanced)) == {
         "name",
         "limit",
         "tags",
         "schedule",
+        "setting_IMPORTERS_BROWSER_ACCOUNT",
         "setting_IMPORTERS_BROWSER_URL",
     }
     images = re.findall(r'<img src="([^"]+)"', html.split('<aside class="setup-guide">', 1)[1])
@@ -393,6 +394,23 @@ def test_importer_minimal_setup_uses_defaults(admin_client, import_site):
     assert source.limit == 100
     assert source.schedule == ""
     assert source.settings == {"IMPORTER_RSS_URL": f"{url}/feed.xml"}
+
+
+def test_browser_importer_discovers_account_from_selected_persona(admin_client):
+    from archivebox.importers.models import ImporterSource
+    from archivebox.personas.models import Persona
+
+    persona = Persona.get_or_create_named("Importers browser setup")
+    path = "/admin/importers/new/importers_browser/reddit_saves/"
+    response = admin_client.get(path, HTTP_HOST=ADMIN_TEST_HOST)
+    assert [field.name for field in response.context["form"].basic_fields] == ["persona"]
+    response = admin_client.post(path, {"persona": persona.pk}, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 302
+    source = ImporterSource.objects.get()
+    assert source.persona == persona
+    assert source.settings["IMPORTERS_BROWSER_ACCOUNT"] == ""
+    assert source.account == {}
+    assert source.checkpoint == {}
 
 
 def test_custom_importer_requires_post_and_csrf(admin_client, admin_user):
@@ -444,7 +462,8 @@ def test_every_declared_importer_setup_renders_with_available_images(admin_clien
         response = admin_client.get(f"/admin/importers/new/{definition.plugin}/{definition.feed}/", HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200, (definition.plugin, definition.feed)
         if definition.auth == "persona":
-            assert {field.name for field in response.context["form"].basic_fields} == {"persona", "setting_IMPORTERS_BROWSER_ACCOUNT"}
+            assert {field.name for field in response.context["form"].basic_fields} == {"persona"}
+            assert not response.context["form"].fields["setting_IMPORTERS_BROWSER_ACCOUNT"].required
         for step, guide in enumerate(definition.setup):
             if guide.get("image"):
                 response = admin_client.get(
