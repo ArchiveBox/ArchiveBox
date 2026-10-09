@@ -1,5 +1,7 @@
 """Snapshot grouping uses real stored outputs, including portable exports."""
 
+import cProfile
+import pstats
 import shutil
 import re
 from pathlib import Path
@@ -140,6 +142,59 @@ def save_response_image(snapshot, filename="all/example.png"):
         },
         output_size=path.stat().st_size,
     )
+
+
+@pytest.mark.parametrize("discover_files", [False, True])
+def test_detail_render_normalizes_each_result_once_without_stale_reruns(snapshot, discover_files):
+    from django.template.loader import render_to_string
+
+    results = [
+        save_output(snapshot, plugin, extra_files=tuple(f"asset-{index}.html" for index in range(64)))
+        for plugin in ("singlefile", "readability", "git")
+    ]
+    request = RequestFactory().get(f"/{snapshot.url_path}/index.html", HTTP_HOST=ADMIN_TEST_HOST)
+    request.user = AnonymousUser()
+    profile = cProfile.Profile()
+    with profile:
+        context = snapshot.get_html_details_context(request=request, discover_files=discover_files)
+        html = render_to_string("core/snapshot_output_cards.html", context, request=request)
+    assert {output["name"] for output in context["archiveresults"]} == {result.plugin for result in results}
+    for result in results:
+        assert f'data-plugin-name="{result.plugin}"' in html
+        output = next(output for output in context["archiveresults"] if output["name"] == result.plugin)
+        assert output["result_ids"] == str(result.id)
+        assert output["size"] == result.output_size
+        assert output["path"] == f"{result.plugin}/content.html"
+    normalizations = sum(
+        values[1]
+        for (filename, _line, function), values in pstats.Stats(profile).stats.items()
+        if filename.endswith("core/models.py") and function == "_normalize_output_files"
+    )
+    # WHY: grouping, sizes, folder links and cards share the same read-only
+    # result rows. Revalidating every saved file for each consumer stalls replay.
+    assert normalizations == len(results), normalizations
+
+    # Rendering must not cache runner-owned rows or carry a manifest into the
+    # next render: an ordinary rerun can replace metadata and status meanwhile.
+    result = results[0]
+    assert "content.html" in result.output_file_map()
+    replacement = Path(snapshot.output_dir) / result.plugin / "replacement.html"
+    replacement.write_text("<h1>New captured output</h1>")
+    result.output_str = "replacement.html"
+    result.output_files = {"replacement.html": {"size": replacement.stat().st_size, "mimetype": "text/html"}}
+    result.output_size = replacement.stat().st_size
+    result.save()
+    assert set(result.output_file_map()) == {"replacement.html"}
+    updated = snapshot.get_html_details_context(request=request, discover_files=discover_files)
+    output = next(output for output in updated["archiveresults"] if output["name"] == result.plugin)
+    assert output["path"] == f"{result.plugin}/replacement.html"
+    assert output["size"] == replacement.stat().st_size
+    assert (replacement.parent / "content.html").exists()
+    result.status = ArchiveResult.StatusChoices.FAILED
+    result.save(update_fields=["status"])
+    final = snapshot.get_html_details_context(request=request, discover_files=discover_files)
+    assert result.plugin not in {output["name"] for output in final["archiveresults"]}
+    assert replacement.read_text() == "<h1>New captured output</h1>"
 
 
 def test_snapshot_groups_prefer_requested_plugins_and_keep_unclassified_outputs(snapshot):

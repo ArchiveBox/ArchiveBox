@@ -3664,6 +3664,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self._runtime_config = runtime_config
         snapshot_permissions = get_snapshot_permissions(self)
         archive_results = list(self.archiveresult_set.all().order_by("start_ts"))
+        # WHY: cards, sizes and folder links share these freshly loaded rows.
+        # Normalize once per render, as list views do, without caching live
+        # runner-owned results or keeping metadata across subsequent renders.
+        for result in archive_results:
+            result._render_output_file_map = result.output_file_map()
         tags = list(self.tags.all())
         self.__dict__["_admin_archiveresults"] = archive_results
         self.__dict__["_tags_str_cached"] = ",".join(sorted(tag.name for tag in tags))
@@ -4404,7 +4409,7 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
             return 0
 
     def output_file_map(self) -> dict[str, dict[str, Any]]:
-        # List views opt into this cache on their read-only, request-local rows.
+        # Views opt into this cache on their read-only, request-local rows.
         # Runner-owned results must still reflect metadata changed during a hook.
         if "_render_output_file_map" in self.__dict__:
             return self._render_output_file_map
