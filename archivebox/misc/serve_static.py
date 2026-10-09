@@ -1,6 +1,5 @@
 import asyncio
 import html
-import importlib
 import json
 import mimetypes
 import os
@@ -12,7 +11,6 @@ import sys
 import threading
 import time
 import zipfile
-from collections.abc import Callable
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
@@ -26,6 +24,7 @@ from django.utils._os import safe_join
 from django.utils.http import http_date
 from django.utils.translation import gettext as _
 from django.views import static
+from markdown import markdown
 
 from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
@@ -587,15 +586,7 @@ mimetypes.add_type("image/svg+xml", ".svg")
 mimetypes.add_type("multipart/related", ".mhtml")
 mimetypes.add_type("multipart/related", ".mht")
 
-try:
-    _markdown = importlib.import_module("markdown").markdown
-except ImportError:
-    _markdown: Callable[..., str] | None = None
-
 MARKDOWN_INLINE_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)")
-MARKDOWN_INLINE_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
-MARKDOWN_BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
-MARKDOWN_ITALIC_RE = re.compile(r"(?<!\*)\*([^*]+)\*(?!\*)")
 HTML_TAG_RE = re.compile(r"<[A-Za-z][^>]*>")
 HTML_BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", flags=re.IGNORECASE | re.DOTALL)
 RISKY_REPLAY_MIMETYPES = {
@@ -895,163 +886,10 @@ def _set_transformed_response_headers(
         response.headers["Content-Encoding"] = encoding
 
 
-def _render_markdown_fallback(text: str) -> str:
-    if _markdown is not None:
-        try:
-            return _markdown(
-                text,
-                extensions=["extra", "toc", "sane_lists"],
-                output_format="html",
-            )
-        except (ImportError, RuntimeError, ValueError):
-            pass
-
-    lines = text.splitlines()
-    headings = []
-
-    def slugify(value: str) -> str:
-        slug = re.sub(r"[^A-Za-z0-9]+", "-", value).strip("-")
-        return slug or "section"
-
-    for raw_line in lines:
-        heading_match = re.match(r"^\s{0,3}(#{1,6})\s+(.*)$", raw_line)
-        if heading_match:
-            level = len(heading_match.group(1))
-            content = heading_match.group(2).strip()
-            headings.append((level, content, slugify(content)))
-
-    html_lines = []
-    in_code = False
-    in_ul = False
-    in_ol = False
-    in_blockquote = False
-
-    def render_inline(markup: str) -> str:
-        content = MARKDOWN_INLINE_IMAGE_RE.sub(r'<img alt="\1" src="\2">', markup)
-        content = MARKDOWN_INLINE_LINK_RE.sub(r'<a href="\2">\1</a>', content)
-        content = MARKDOWN_BOLD_RE.sub(r"<strong>\1</strong>", content)
-        content = MARKDOWN_ITALIC_RE.sub(r"<em>\1</em>", content)
-        return content
-
-    def close_lists():
-        nonlocal in_ul, in_ol
-        if in_ul:
-            html_lines.append("</ul>")
-            in_ul = False
-        if in_ol:
-            html_lines.append("</ol>")
-            in_ol = False
-
-    for raw_line in lines:
-        line = raw_line.rstrip("\n")
-        stripped = line.strip()
-
-        if stripped.startswith("```"):
-            if in_code:
-                html_lines.append("</code></pre>")
-                in_code = False
-            else:
-                close_lists()
-                if in_blockquote:
-                    html_lines.append("</blockquote>")
-                    in_blockquote = False
-                html_lines.append("<pre><code>")
-                in_code = True
-            continue
-
-        if in_code:
-            html_lines.append(html.escape(line))
-            continue
-
-        if not stripped:
-            close_lists()
-            if in_blockquote:
-                html_lines.append("</blockquote>")
-                in_blockquote = False
-            html_lines.append("<br/>")
-            continue
-
-        heading_match = re.match(r"^\s*((?:<[^>]+>\s*)*)(#{1,6})\s+(.*)$", line)
-        if heading_match:
-            close_lists()
-            if in_blockquote:
-                html_lines.append("</blockquote>")
-                in_blockquote = False
-            leading_tags = heading_match.group(1).strip()
-            level = len(heading_match.group(2))
-            content = heading_match.group(3).strip()
-            if leading_tags:
-                html_lines.append(leading_tags)
-            html_lines.append(f'<h{level} id="{slugify(content)}">{render_inline(content)}</h{level}>')
-            continue
-
-        if stripped in ("---", "***"):
-            close_lists()
-            html_lines.append("<hr/>")
-            continue
-
-        if stripped.startswith("> "):
-            if not in_blockquote:
-                close_lists()
-                html_lines.append("<blockquote>")
-                in_blockquote = True
-            content = stripped[2:]
-            html_lines.append(render_inline(content))
-            continue
-        else:
-            if in_blockquote:
-                html_lines.append("</blockquote>")
-                in_blockquote = False
-
-        ul_match = re.match(r"^\s*[-*+]\s+(.*)$", line)
-        if ul_match:
-            if in_ol:
-                html_lines.append("</ol>")
-                in_ol = False
-            if not in_ul:
-                html_lines.append("<ul>")
-                in_ul = True
-            html_lines.append(f"<li>{render_inline(ul_match.group(1))}</li>")
-            continue
-
-        ol_match = re.match(r"^\s*\d+\.\s+(.*)$", line)
-        if ol_match:
-            if in_ul:
-                html_lines.append("</ul>")
-                in_ul = False
-            if not in_ol:
-                html_lines.append("<ol>")
-                in_ol = True
-            html_lines.append(f"<li>{render_inline(ol_match.group(1))}</li>")
-            continue
-
-        close_lists()
-
-        # Inline conversions (leave raw HTML intact)
-        if stripped == "[TOC]":
-            toc_items = []
-            for level, title, slug in headings:
-                toc_items.append(
-                    f'<li class="toc-level-{level}"><a href="#{slug}">{title}</a></li>',
-                )
-            html_lines.append(
-                '<nav class="toc"><ul>' + "".join(toc_items) + "</ul></nav>",
-            )
-            continue
-
-        html_lines.append(f"<p>{render_inline(line)}</p>")
-
-    close_lists()
-    if in_blockquote:
-        html_lines.append("</blockquote>")
-    if in_code:
-        html_lines.append("</code></pre>")
-
-    return "\n".join(html_lines)
-
-
 def _render_markdown_document(markdown_text: str) -> str:
-    body = _render_markdown_fallback(markdown_text)
+    # Saved repository READMEs need the same table/code rendering in every install;
+    # an optional dependency silently degraded them to a partial handwritten parser.
+    body = markdown(markdown_text, extensions=["extra", "toc", "sane_lists"], output_format="html")
     wrapped = (
         '<!doctype html><html><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'

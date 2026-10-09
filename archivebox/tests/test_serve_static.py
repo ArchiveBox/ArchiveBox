@@ -236,6 +236,23 @@ def test_markdown_file_renders_short_document_and_keeps_raw_source(tmp_path: Pat
     assert b"".join(raw.streaming_content).decode() == source
 
 
+def test_markdown_repository_tables_and_code_render(tmp_path: Path):
+    # Git captures serve real README files, including tables like ulid/spec's
+    # implementation list. A handwritten fallback silently lost that structure.
+    source = "# Implementations\n\n| Language | Binary |\n| --- | --- |\n| Python | `ulid()` |\n"
+    (tmp_path / "README.md").write_text(source)
+    response = serve_static_with_byterange_support(
+        RequestFactory().get("/README.md"),
+        "README.md",
+        document_root=tmp_path,
+    )
+    assert response.status_code == 200
+    assert b"<table>" in response.content
+    assert b"<th>Language</th>" in response.content
+    assert b"<td>Python</td>" in response.content
+    assert b"<code>ulid()</code>" in response.content
+
+
 def test_image_rewrite_uses_optional_saved_artifacts(tmp_path: Path):
     import json
     from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
