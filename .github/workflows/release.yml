@@ -570,12 +570,6 @@ jobs:
           path: ${{ runner.temp }}/published-image-source/source.json
           if-no-files-found: error
 
-      - name: Update Docker Hub README
-        uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          repository: archivebox/archivebox
 
   cascade:
     name: Cascade verified release
