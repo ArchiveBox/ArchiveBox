@@ -52,7 +52,7 @@ def run_real_txt_parser(tmp_path, text):
         output_dir,
         config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
         timeout=30,
-        url="file:///input.txt",
+        url=(staticfile_dir / "input.txt").as_uri(),
         depth=0,
     )
     process.refresh_from_db()

@@ -117,7 +117,7 @@ class TestJSONLParsing:
             output_dir,
             config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
             timeout=30,
-            url="file:///input.txt",
+            url=(staticfile_dir / "input.txt").as_uri(),
         )
         process.refresh_from_db()
         assert process.exit_code == 0, process.stderr
