@@ -40,6 +40,8 @@ Guides
     Setting-up-Search.md
     Publishing-Your-Archive.md
     Scheduled-Archiving.md
+    Change-Detection.md
+    OSINT-Preservation.md
     Archiving URLs from Google Sheets <https://github.com/ArchiveBox/ArchiveBox/wiki/Archiving-URLs-from-Google-Sheets>
     Chat Bots <Integrating-with-Slack.md>
     Chromium-Install.md

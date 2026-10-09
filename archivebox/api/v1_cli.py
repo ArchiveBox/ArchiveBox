@@ -9,7 +9,7 @@ from django.http import HttpRequest
 
 from ninja import Router, Schema
 from ninja.errors import HttpError
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from archivebox.misc.util import ansi_to_html
 from archivebox.core.models import SnapshotQuerySet
@@ -42,6 +42,27 @@ FilterTypeChoices = Enum(
 
 
 class AddCommandSchema(Schema):
+    """Add URLs directly, or put this same JSON object in an Apprise message."""
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def unwrap_notification(cls, value, handler):
+        # Apprise's json:// notifier wraps the configured notification body in
+        # `message`. Unwrap once and let the ordinary add schema validate it.
+        # Direct requests always retain their existing interpretation.
+        if isinstance(value, dict) and "urls" not in value and "message" in value:
+            message = value["message"]
+            if not isinstance(message, str):
+                raise ValueError("Notification message must contain an ArchiveBox add JSON object with urls")
+            try:
+                command = json.loads(message)
+            except ValueError as error:
+                raise ValueError("Notification message must contain an ArchiveBox add JSON object with urls") from error
+            if not isinstance(command, dict) or "urls" not in command:
+                raise ValueError("Notification message must contain an ArchiveBox add JSON object with urls")
+            return handler(command)
+        return handler(value)
+
     urls: list[str]
     snapshot_ids: list[str] | None = None
     tag: str = ""

@@ -58,6 +58,7 @@ def _resolve_cookie_file_paths(config: dict[str, Any]) -> dict[str, Any]:
 _STDOUT_CONSOLE = Console()
 _STDERR_CONSOLE = Console(stderr=True)
 _WARNED_ARCHIVING_CONFIGS: set[tuple[int, bool]] = set()
+_WARNED_CONFIG_TYPOS: set[str] = set()
 
 
 def _legacy_bool(value: object) -> bool | None:
@@ -1174,6 +1175,12 @@ def get_config(
         )
         file_config = BaseConfigSet.load_from_file(CONSTANTS.CONFIG_FILE)
         legacy_config = {**file_config, **os.environ}
+        if "SAVE_ARCHIVE_DOT_ORG" in legacy_config and "SAVE_ARCHIVE_DOT_ORG" not in _WARNED_CONFIG_TYPOS:
+            _STDERR_CONSOLE.print(
+                "[!] SAVE_ARCHIVE_DOT_ORG is ignored; use ARCHIVEDOTORG_ENABLED instead.",
+                markup=False,
+            )
+            _WARNED_CONFIG_TYPOS.add("SAVE_ARCHIVE_DOT_ORG")
         legacy_permissions = permissions_from_legacy_public_flags(legacy_config)
         if legacy_permissions:
             config_data["PERMISSIONS"] = legacy_permissions
