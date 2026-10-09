@@ -60,6 +60,11 @@ jobs:
     secrets: inherit
 
   docker-digests:
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+      id-token: write
     needs: prepare
     if: needs.prepare.outputs.run_jobs == 'true'
     name: Tested Docker images

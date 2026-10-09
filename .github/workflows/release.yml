@@ -281,6 +281,7 @@ jobs:
       actions: read
       contents: write
       packages: write
+      id-token: write
     steps:
       - name: Checkout the tested commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -395,10 +396,11 @@ jobs:
           # These images were already built and tested; only publish manifests.
           driver: docker
 
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+      - uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: archivebox
+        env:
+          DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
 
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
