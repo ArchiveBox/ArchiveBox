@@ -66,6 +66,25 @@ def verify_screenshot_references(output, canonical):
                 assert unquote(url.fragment) in pages[target].ids, f"{path}: missing screenshot anchor {reference}"
 
 
+def assert_menu_unobscured(menu):
+    """The dropdown must receive pointer hits above wrapped navigation controls."""
+    obstruction = menu.locator(".abx-app-links").evaluate(
+        """panel => {
+        const bounds = panel.getBoundingClientRect();
+        for (let y = Math.max(0, bounds.top) + 16; y < Math.min(innerHeight, bounds.bottom) - 16; y += 12) {
+            for (let x = Math.max(0, bounds.left) + 16; x < Math.min(innerWidth, bounds.right) - 16; x += 12) {
+                const target = document.elementFromPoint(x, y);
+                if (!target || !panel.contains(target)) {
+                    return {x, y, target: target?.outerHTML.slice(0, 300)};
+                }
+            }
+        }
+        return null;
+    }"""
+    )
+    assert obstruction is None, f"Apps dropdown is obscured: {obstruction}"
+
+
 def verify(output, evidence):
     config = json.loads((HERE / "site.json").read_text())
     verify_screenshot_references(output, config["url"])
@@ -89,7 +108,7 @@ def verify(output, evidence):
                         missing.append(response.url) if response.url.startswith(origin) and response.status >= 400 else None
                     ),
                 )
-                for width in [1716, 2560, 390]:
+                for width in [1716, 2560, 390, 510]:
                     page.set_viewport_size({"width": width, "height": 900})
                     page.goto(f"{origin}/{route}", wait_until="domcontentloaded")
                     header = page.locator(".abx-header")
@@ -110,6 +129,7 @@ def verify(output, evidence):
                     page.keyboard.press("Enter")
                     expect(menu).to_have_attribute("open", "")
                     expect(menu.locator("a").first).to_be_visible()
+                    assert_menu_unobscured(menu)
                     page.keyboard.press("Escape")
                     expect(menu).not_to_have_attribute("open", "")
                     menu.locator("summary").click()
