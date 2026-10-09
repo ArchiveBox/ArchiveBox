@@ -608,6 +608,10 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 if snapshot["status"] == Snapshot.StatusChoices.QUEUED:
                     snapshot_results = []
 
+                # Role previews and plugin links reuse metadata within this poll only.
+                for ar in snapshot_results:
+                    ar._render_output_file_map = ar.output_file_map()
+
                 plugin_progress_values: list[int] = []
                 all_plugins: list[dict[str, object]] = []
                 seen_plugin_keys: set[str] = set()

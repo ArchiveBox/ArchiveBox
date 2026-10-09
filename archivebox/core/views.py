@@ -771,6 +771,8 @@ def _resolve_archiveresult_relpath(
     historical_fallbacks: list[str] = []
     for result in results:
         output_files = result.output_file_map()
+        # Replay path selection and primary-output headers share this read-only row.
+        result._render_output_file_map = output_files
         for candidate in (plugin_relpath, rel_path):
             output_path = result.output_file_path(candidate, output_file_map=output_files)
             if output_path and output_path not in {path for path, _result in declared_paths}:
