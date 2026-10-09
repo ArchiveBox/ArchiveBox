@@ -80,7 +80,7 @@ def assert_menu_unobscured(menu):
             }
         }
         return null;
-    }"""
+    }""",
     )
     assert obstruction is None, f"Apps dropdown is obscured: {obstruction}"
 
