@@ -514,11 +514,18 @@ class CrawlRunner:
         current_event = crawl_start_event or get_current_event()
         if not isinstance(current_event, CrawlStartEvent) and in_handler_context():
             return
-        if self._observed_snapshot_cost is None and self._warmup_snapshot_id is None:
+        if not any(not task.done() for task in self.snapshot_tasks.values()):
             observation = resource_admission.memory_headroom()
             self._memory_baseline = observation[0] if observation is not None else None
             self._memory_peak_cost = 0
-            self._warmup_snapshot_id = snapshot_id
+            if self._observed_snapshot_cost is None:
+                self._warmup_snapshot_id = snapshot_id
+        else:
+            # Whole-workload growth cannot identify one capture's cost once
+            # captures overlap. Retain the largest isolated measurement and
+            # resume learning only when a new capture starts from idle.
+            self._observe_snapshot_memory()
+            self._memory_baseline = None
         if isinstance(current_event, CrawlStartEvent):
             task = asyncio.create_task(self.run_snapshot(snapshot_id, current_event), context=_runner_task_context())
         else:
