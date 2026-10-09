@@ -261,14 +261,19 @@ def recover_interrupted() -> None:
 
 _thread = None
 _stop = threading.Event()
-_last_tick = 0.0
 
 
 def _background_run():
     from django.db import connections
 
     try:
-        run_next_importer(_stop)
+        while not _stop.is_set():
+            recover_interrupted()
+            enqueue_due()
+            worked = run_next_importer(_stop)
+            connections.close_all()
+            if not worked:
+                _stop.wait(2)
     finally:
         connections.close_all()
 
@@ -280,21 +285,17 @@ def shutdown():
 
 
 def tick(*, daemon: bool) -> bool:
-    """One bounded scheduler integration; slow connectors never block capture dispatch."""
-    global _thread, _last_tick
+    """Keep discovery independent of the capture runner's blocking crawl dispatch."""
+    global _thread
     if not daemon:
         recover_interrupted()
         return run_next_importer()
-    if time.monotonic() - _last_tick < 2:
-        return False
-    _last_tick = time.monotonic()
-    recover_interrupted()
-    enqueue_due()
-    if (_thread is None or not _thread.is_alive()) and ImporterRun.objects.filter(status=ImporterRun.Status.QUEUED).exists():
+    if _thread is None or not _thread.is_alive():
         if _thread is None:
             import atexit
 
             atexit.register(shutdown)
+        _stop.clear()
         _thread = threading.Thread(target=_background_run, name="archivebox-importers", daemon=True)
         _thread.start()
     return False

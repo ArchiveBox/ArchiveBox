@@ -41,6 +41,39 @@ def test_import_catalog_is_rendered_from_real_plugins(admin_client):
     assert b"Spreadsheet" in response.content
 
 
+def test_daemon_discovers_work_after_capture_dispatch_stops_ticking(admin_client, import_site):
+    import time
+
+    from archivebox.importers import service
+    from archivebox.importers.models import ImporterSource
+
+    _, url = import_site
+    # The capture runner ticks once before entering a potentially long crawl.
+    service.tick(daemon=True)
+    try:
+        response = admin_client.post(
+            "/admin/importers/new/importer_rss/feed/",
+            {"name": "Concurrent feed", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50"},
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+        assert response.status_code == 302
+        source = ImporterSource.objects.get(name="Concurrent feed")
+        response = admin_client.post(f"/admin/importers/{source.pk}/preview/", HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 302
+        run = source.runs.get()
+        deadline = time.monotonic() + 20
+        while run.status in service.ACTIVE_STATUSES and time.monotonic() < deadline:
+            time.sleep(0.1)
+            run.refresh_from_db()
+        assert run.status == "succeeded", (run.status, run.message)
+        assert [item["url"] for item in run.items] == [f"{url}/article.html"]
+        source.refresh_from_db()
+        assert source.checkpoint == {}
+        assert run.crawl_id is None
+    finally:
+        service.shutdown()
+
+
 def test_import_preview_and_run_preserve_checkpoint_and_queue_real_crawl(admin_client, import_site):
     from archivebox.crawls.models import Crawl
     from archivebox.importers.models import ImporterRun, ImporterSource
