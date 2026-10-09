@@ -715,7 +715,7 @@ class CrawlRunner:
                 self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
                 .exclude(id__in=active_snapshot_ids)
                 .filter(retry_at__lte=timezone.now())
-                .order_by("depth", "created_at")
+                .order_by("depth", "created_at", "pk")
                 .values_list("id", flat=True)[:available_slots],
             ),
             thread_sensitive=True,
@@ -779,7 +779,7 @@ class CrawlRunner:
         pending_snapshots = list(
             self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
             .filter(retry_at__lte=timezone.now())
-            .order_by("depth", "created_at"),
+            .order_by("depth", "created_at", "pk"),
         )
         if pending_snapshots:
             return [str(snapshot.id) for snapshot in pending_snapshots]
