@@ -548,6 +548,68 @@ def test_server_daemon_restarts_runner_killed_by_signal(archivebox_daemon_server
     assert state["worker_daphne"]["statename"] == "RUNNING", state
 
 
+@pytest.mark.django_db(transaction=True)
+def test_server_automatically_finishes_interrupted_capture_and_next_url(archivebox_daemon_server, blocking_http_server):
+    """A restarted worker must finish queued work without an extract/resume command."""
+    import time
+
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="sqlite", PLUGINS="wget", CRAWL_MAX_CONCURRENT_SNAPSHOTS="1")
+    state = server.wait_for_workers(("worker_daphne", "worker_runner"))
+    old_runner_pid = state["worker_runner"]["pid"]
+    urls = [blocking_http_server.url + "first", blocking_http_server.url + "second"]
+    added = run_archivebox_cmd(["add", "--bg", "--plugins=wget", *urls], cwd=server.data_dir, env=server.env)
+    assert added.returncode == 0, added.stderr or added.stdout
+    try:
+        assert blocking_http_server.request_started.wait(30), "The real wget hook did not begin its request"
+        with use_archivebox_db(server.data_dir):
+            original = ArchiveResult.objects.get(snapshot__url=urls[0], plugin="wget")
+            assert original.status == ArchiveResult.StatusChoices.STARTED
+            original_id, original_process_id = original.pk, original.process_id
+
+        supervisord_log = server.data_dir / "logs" / "supervisord.log"
+        spawn_text = "spawned: 'worker_runner' with pid"
+        spawn_count = supervisord_log.read_text().count(spawn_text)
+        blocking_http_server.request_started.clear()
+        os.kill(old_runner_pid, signal.SIGKILL)
+        wait_for_log_count(supervisord_log, spawn_text, spawn_count + 1, timeout=30)
+        replacement = server.wait_for_workers(("worker_daphne", "worker_runner"))
+        assert replacement["worker_runner"]["pid"] != old_runner_pid
+        assert blocking_http_server.request_started.wait(30), "The replacement worker did not resume the interrupted request"
+        blocking_http_server.release_response.set()
+
+        deadline = time.monotonic() + 60
+        while True:
+            with use_archivebox_db(server.data_dir):
+                states = list(Snapshot.objects.filter(url__in=urls).values_list("url", "status"))
+            if len(states) == 2 and all(status == Snapshot.StatusChoices.SEALED for _, status in states):
+                break
+            assert time.monotonic() < deadline, states
+            time.sleep(0.25)
+
+        with use_archivebox_db(server.data_dir):
+            results = list(
+                ArchiveResult.objects.filter(snapshot__url__in=urls, plugin="wget").select_related(
+                    "snapshot__crawl__created_by",
+                    "process",
+                ),
+            )
+        assert len(results) == 2
+        for result in results:
+            assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+            assert result.process.exit_code == 0
+            assert (result.snapshot.output_dir / result.output_str).read_bytes() == (
+                b"<html><head><title>Barrier</title></head><body>released</body></html>"
+            )
+        resumed = next(result for result in results if result.snapshot.url == urls[0])
+        assert resumed.pk == original_id
+        assert resumed.process_id != original_process_id
+    finally:
+        blocking_http_server.release_response.set()
+
+
 def test_live_server_machine_search_engine_update_reaches_subsequent_snapshot_runtime(archivebox_daemon_server):
     server = archivebox_daemon_server(SEARCH_BACKEND_ENGINE="ripgrep")
     server.wait_for_workers(("worker_daphne", "worker_runner"))
