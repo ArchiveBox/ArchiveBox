@@ -142,20 +142,9 @@ def _save_archiveresult_event_to_db(
         return
 
     if event.status == "cancelled":
-        # Stopping a capture tells the user nothing about whether it would have
-        # succeeded. Remove this attempt instead of showing a failure card or
-        # adding it to "retry failed". The next scheduled run creates a new row.
-        results = ArchiveResult.objects.filter(snapshot=snapshot, plugin=event.plugin, hook_name=event.hook_name)
-        if process_started is not None:
-            # A late completion must not erase a newer retry of the same hook.
-            results = results.filter(start_ts=parse_event_datetime(process_started.start_ts))
-        # Ordinary deletion invokes output-directory cleanup. Cancellation is
-        # only withdrawing the DB fact: retain partial files and sibling hooks'
-        # shared output: they may be the only copy we ever capture. A rerun's
-        # hook owns replacing files without deleting the old copy first (see
-        # abx-plugins README, Rules). Retain Process/logs to explain the stop.
-        results._raw_delete(results.db)
-        ArchiveResult.refresh_snapshot_output_sizes([snapshot.id])
+        # Cancellation supplies no new capture outcome. Preserve the existing
+        # result and files; the hook's next execution overwrites its own row
+        # according to the abx-plugins README contract. Process/logs record the stop.
         return
 
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.plugin_dir"):
@@ -194,11 +183,10 @@ def _save_archiveresult_event_to_db(
             "output_mimetypes": output_mimetypes,
             "start_ts": start_ts or timezone.now(),
             "end_ts": end_ts,
+            "notes": event.error or "",
         }
         if process is not None:
             defaults["process_id"] = process.id
-        if event.error:
-            defaults["notes"] = event.error
 
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.result_get_or_create"):
         result, _created = ArchiveResult.get_or_create_by_hook(

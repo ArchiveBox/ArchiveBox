@@ -18,7 +18,7 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
-def test_cancelled_hook_discards_result_without_deleting_partial_files(snapshot, cached_abxpkg_lib_dir, httpserver):
+def test_cancelled_hook_preserves_result_and_partial_files_until_rerun(snapshot, cached_abxpkg_lib_dir, httpserver):
     receiving = threading.Event()
     release = threading.Event()
 
@@ -52,11 +52,13 @@ def test_cancelled_hook_discards_result_without_deleting_partial_files(snapshot,
     # failure. A terminated Process is "exited", not an ArchiveResult status.
     assert process.status == "exited"
     assert process.exit_code == 130
-    assert result is None
-    assert not ArchiveResult.objects.filter(snapshot=snapshot, plugin="wget").exists()
+    assert result is not None
+    assert result.status == "started"
+    assert result.process_id == process.id
+    assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="wget").count() == 1
     assert partial.read_text() == "partial capture from interrupted attempt"
-    # A later run uses the same real hook and snapshot, with no failed row to
-    # reset or delete. The completed response now produces a successful result.
+    # A later run uses the same real hook, snapshot, and result row. Only that
+    # hook's new execution replaces the cancelled attempt's persisted outcome.
     retry_process, retry_result = _run_shipped_snapshot_hook(
         snapshot,
         plugin="wget",
@@ -64,6 +66,7 @@ def test_cancelled_hook_discards_result_without_deleting_partial_files(snapshot,
         lib_dir=cached_abxpkg_lib_dir,
     )
     assert retry_process.id != process.id
+    assert retry_result.id == result.id
     assert retry_result.status == "succeeded"
     assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="wget").count() == 1
 
@@ -107,10 +110,27 @@ def test_stopped_hook_reconciles_its_earlier_success(initialized_archive, stop_m
                 time.sleep(0.1)
             assert successful is not None, output.read_text()
             if stop_mode == "cancel":
+                with use_archivebox_db(initialized_archive):
+                    previous_result = ArchiveResult.objects.filter(pk=successful.pk).values().get()
                 cli.send_signal(signal.SIGINT)
                 assert cli.wait(timeout=30) == 130
                 with use_archivebox_db(initialized_archive):
-                    assert not ArchiveResult.objects.filter(pk=successful.pk).exists()
+                    assert ArchiveResult.objects.filter(pk=successful.pk).values().get() == previous_result
+                rerun = run_archivebox_cmd(
+                    ["extract", "--plugins=chrome", str(successful.snapshot_id)],
+                    cwd=initialized_archive,
+                    env={**env, "CHROME_DELAY_AFTER_LOAD": "0"},
+                    timeout=90,
+                )
+                assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+                with use_archivebox_db(initialized_archive):
+                    result = ArchiveResult.objects.get(pk=successful.pk)
+                    assert result.status == "succeeded"
+                    assert result.process_id != successful.process_id
+                    assert (
+                        ArchiveResult.objects.filter(snapshot_id=result.snapshot_id, plugin="chrome", hook_name=result.hook_name).count()
+                        == 1
+                    )
                 return
             os.kill(successful.process.pid, signal.SIGKILL)
             deadline = time.monotonic() + 20

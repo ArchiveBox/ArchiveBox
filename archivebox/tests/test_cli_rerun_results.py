@@ -135,6 +135,7 @@ def test_extract_rerun_overwrites_failed_result_only_as_hook_executes(initialize
         assert parser.output_str == "0 URLs parsed"
         assert parser.output_files == {}
         assert parser.output_size == 0
+        assert parser.notes == ""
         assert ArchiveResult.objects.filter(snapshot_id=snapshot_id, plugin="parse_txt_urls").count() == 1
         assert ArchiveResult.objects.filter(pk=unrelated_result["id"]).values().get() == unrelated_result
     assert not urls_path.exists()
