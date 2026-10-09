@@ -3674,6 +3674,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         self.__dict__["_tags_str_cached"] = ",".join(sorted(tag.name for tag in tags))
         self.__dict__["num_outputs_cached"] = sum(result.status == ArchiveResult.StatusChoices.SUCCEEDED for result in archive_results)
         self.__dict__["num_failures_cached"] = sum(result.status == ArchiveResult.StatusChoices.FAILED for result in archive_results)
+        # WHY: the same Snapshot can render again after a hook finishes. Refresh
+        # the cached properties as well as their precomputed count inputs.
+        self.__dict__.pop("num_outputs", None)
+        self.__dict__.pop("num_failures", None)
 
         # Static exports must reflect files that still exist even when the
         # saved hash manifest is incomplete or stale.

@@ -159,6 +159,7 @@ def test_detail_render_normalizes_each_result_once_without_stale_reruns(snapshot
         context = snapshot.get_html_details_context(request=request, discover_files=discover_files)
         html = render_to_string("core/snapshot_output_cards.html", context, request=request)
     assert {output["name"] for output in context["archiveresults"]} == {result.plugin for result in results}
+    assert (context["num_outputs"], context["num_failures"]) == (3, 0)
     for result in results:
         assert f'data-plugin-name="{result.plugin}"' in html
         output = next(output for output in context["archiveresults"] if output["name"] == result.plugin)
@@ -193,6 +194,8 @@ def test_detail_render_normalizes_each_result_once_without_stale_reruns(snapshot
     result.status = ArchiveResult.StatusChoices.FAILED
     result.save(update_fields=["status"])
     final = snapshot.get_html_details_context(request=request, discover_files=discover_files)
+    assert (final["num_outputs"], final["num_failures"]) == (2, 1)
+    assert (snapshot.num_outputs, snapshot.num_failures) == (2, 1)
     assert result.plugin not in {output["name"] for output in final["archiveresults"]}
     assert replacement.read_text() == "<h1>New captured output</h1>"
 
