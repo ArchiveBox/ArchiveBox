@@ -74,3 +74,28 @@ def test_output_scan_does_not_require_access_to_excluded_symlink_target(tmp_path
         assert ArchiveResult._scan_output_file_map(root) == {}
     finally:
         private.chmod(0o700)
+
+
+def test_unbounded_output_scan_never_classifies_excluded_targets(tmp_path):
+    from archivebox.core.models import ArchiveResult
+
+    root = tmp_path / "snapshot"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "saved.txt").write_bytes(b"captured")
+    for index in range(64):
+        (root / f"alias-{index}.txt").symlink_to(outside / "saved.txt")
+        (root / f"directory-{index}").symlink_to(outside, target_is_directory=True)
+        (root / f".hidden-{index}").write_bytes(b"not a preview")
+    (root / "saved.txt").write_bytes(b"visible output")
+    profile = cProfile.Profile()
+    assert profile.runcall(ArchiveResult._scan_output_file_map, root) == {"saved.txt": {"size": 14}}
+    classifications = sum(
+        values[1]
+        for (filename, _line, function), values in pstats.Stats(profile).stats.items()
+        if filename == "~" and "'is_dir' of" in function
+    )
+    # WHY: is_dir follows alias targets even though none may become previews.
+    # On FUSE this adds remote metadata work for every excluded response alias.
+    assert classifications == 1, classifications

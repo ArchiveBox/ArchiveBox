@@ -4655,6 +4655,11 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 # lstat + stat per file on remote/FUSE archives. Reuse it here.
                 with os.scandir(parent) as entries:
                     for entry in entries:
+                        # WHY: an unlimited discovery never needs the target
+                        # type of excluded aliases/hidden entries. Keep limited
+                        # scans' historical file-count cutoff unchanged.
+                        if max_scan is None and (entry.name.startswith(".") or entry.is_symlink()):
+                            continue
                         try:
                             is_directory = entry.is_dir()
                         except OSError:
