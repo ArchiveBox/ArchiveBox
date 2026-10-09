@@ -198,6 +198,7 @@ Indexes of archiving institutions and software maintained by other people.  If t
 - **[Reminiscence](https://github.com/kanishka-linux/reminiscence/) extremely similar to ArchiveBox, uses a Django backend + UI and provides auto-tagging and summary features with NLTK**
 - **[Shaarchiver](https://github.com/nodiscc/shaarchiver) very similar project that archives Firefox, Shaarli, or Delicious bookmarks and all linked media, generating a markdown/HTML index**
 - **[Archivy](https://github.com/archivy/archivy) Python-based self-hosted knowledge base embedded into your filesystem**
+- **[Polarized](https://web.archive.org/web/20221225012011/https://getpolarized.io/) a desktop application for bookmarking, annotating, and archiving articles offline** *(Note: the live getpolarized.io domain has since been repurposed (currently a Thai gambling site), so this entry links to an archived Wayback copy of the original site.)*
 - **[LinkWarden](https://github.com/linkwarden/linkwarden) Link archival and curation web app, very similar to ArchiveBox**
 - **[Photon](https://github.com/s0md3v/Photon) a fast crawler with archiving and asset extraction support**
 - **[Scoop](https://github.com/harvard-lil/scoop)** Create high-fidelity WARC/WACZ captures using a playwright browser, with support for signing, media extraction, PDFs, etc. ([by the Perma.cc team](https://lil.law.harvard.edu/blog/2023/04/13/scoop-witnessing-the-web/))
