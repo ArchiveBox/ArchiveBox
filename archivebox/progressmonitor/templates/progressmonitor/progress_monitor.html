@@ -1906,6 +1906,7 @@
 
     const progressEndpoint = new URL(monitor.dataset.progressEndpoint || '/progress.json', window.location.href);
     progressEndpoint.searchParams.set('metrics', '1');
+    let progressRequestInFlight = false;
 
     function fetchProgress() {
         // Opening a replay replaces the queued snapshot's progress panel.
@@ -1914,6 +1915,10 @@
             stopPolling();
             return;
         }
+        // Slow responses must not let the one-second timer queue more work
+        // against the same endpoint. Release after errors too so polling recovers.
+        if (progressRequestInFlight) return;
+        progressRequestInFlight = true;
         const requestStarted = performance.now();
         let httpStatus = null;
         fetch(progressEndpoint, { credentials: 'same-origin' })
@@ -1949,6 +1954,9 @@
                 setOrchestratorState('error', 'Backend not responding');
                 idleMessage.textContent = 'Fetch Error: ' + error.message;
                 idleMessage.style.color = '#f85149';
+            })
+            .finally(() => {
+                progressRequestInFlight = false;
             });
     }
 
