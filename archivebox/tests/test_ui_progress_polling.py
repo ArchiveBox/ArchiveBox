@@ -63,6 +63,9 @@ def test_progress_poll_serializes_slow_requests_and_recovers_after_disconnect(ad
             response = response_info.value
             assert response.status == 200
             assert response.json()["snapshots_queued"] >= 1
+            # Live progress must bypass Chromium's shared HTTP-cache entry lock,
+            # even before the server's private/no-store response arrives.
+            assert response.request.header_value("cache-control") == "no-cache"
             response.finished()
         assert durations and min(durations) > 1, durations
         assert not overlaps, f"Started new progress requests while {overlaps} requests were pending"

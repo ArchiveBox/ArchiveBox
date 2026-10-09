@@ -1921,7 +1921,9 @@
         progressRequestInFlight = true;
         const requestStarted = performance.now();
         let httpStatus = null;
-        fetch(progressEndpoint, { credentials: 'same-origin' })
+        // Bypass the browser cache before transmission: identical live polls in
+        // other tabs can otherwise wait on its entry lock despite no-store responses.
+        fetch(progressEndpoint, { credentials: 'same-origin', cache: 'no-store' })
             .then(response => {
                 httpStatus = response.status;
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
