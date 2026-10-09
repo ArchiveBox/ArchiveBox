@@ -241,11 +241,20 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
 
     def active_hook():
         with use_archivebox_db(initialized_archive):
-            return Process.objects.filter(
-                process_type=Process.TypeChoices.HOOK,
-                cmd__0__endswith="on_Snapshot__30_chrome_navigate.js",
-                status="running",
-            ).first()
+            navigating = (
+                ArchiveResult.objects.select_related("process")
+                .filter(
+                    hook_name="on_Snapshot__30_chrome_navigate",
+                    status=ArchiveResult.StatusChoices.STARTED,
+                    process__status=Process.StatusChoices.RUNNING,
+                )
+                .first()
+            )
+            return navigating.process if navigating else None
+
+    def navigation_result():
+        with use_archivebox_db(initialized_archive):
+            return ArchiveResult.objects.filter(hook_name="on_Snapshot__30_chrome_navigate").values().get()
 
     try:
         result = run_archivebox_cmd(
@@ -261,14 +270,22 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
         read_until(lambda: active_hook() is not None)
         hook = active_hook()
         assert hook is not None
+        before_interrupt = navigation_result()
         result.send_signal(signal.SIGINT)
         if choice != "noninteractive":
             read_until(lambda: b"Choice [skip]:" in output)
             read_until(lambda: not termios.tcgetattr(slave)[3] & termios.ICANON)
             assert not psutil.pid_exists(hook.pid)
+            assert navigation_result() == before_interrupt
             if choice == "retry":
                 os.write(master, b"r")
                 read_until(lambda: (new_hook := active_hook()) is not None and new_hook.pid != hook.pid)
+                retry_result = navigation_result()
+                assert retry_result["id"] == before_interrupt["id"]
+                assert retry_result["process_id"] != before_interrupt["process_id"]
+                for field in ("output_str", "output_json", "output_files", "output_size", "output_mimetypes", "notes"):
+                    assert retry_result[field] == before_interrupt[field]
+                before_interrupt = retry_result
                 prompt_offset = len(output)
                 result.send_signal(signal.SIGINT)
                 read_until(lambda: b"Choice [skip]:" in output[prompt_offset:])
@@ -283,8 +300,10 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
             assert b"Choice [skip]:" not in output
         assert not psutil.pid_exists(hook.pid)
         assert b"Traceback" not in output
+        # Cancellation has no new capture outcome: preserve the entire same row,
+        # including its output metadata, instead of deleting or reconstructing it.
+        assert navigation_result() == before_interrupt
         with use_archivebox_db(initialized_archive):
-            assert not ArchiveResult.objects.filter(hook_name="on_Snapshot__30_chrome_navigate").exists()
             if plugins == "archivewebpage":
                 start = ArchiveResult.objects.get(hook_name="on_Snapshot__16_archivewebpage_start")
                 assert start.status == ArchiveResult.StatusChoices.NORESULTS
@@ -293,6 +312,24 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
                 assert not any(output["name"] == "archivewebpage" for output in start.snapshot.get_html_details_context()["archiveresults"])
         for log in (initialized_archive / "logs").glob("worker_runner_add_*.log"):
             assert "Choice [skip]:" not in log.read_text()
+
+        rerun = run_archivebox_cmd(
+            ["extract", f"--plugins={plugins}", str(before_interrupt["snapshot_id"])],
+            cwd=initialized_archive,
+            env=env,
+            timeout=90,
+        )
+        assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+        after_rerun = navigation_result()
+        assert after_rerun["id"] == before_interrupt["id"]
+        assert after_rerun["process_id"] != before_interrupt["process_id"]
+        assert after_rerun["status"] == ArchiveResult.StatusChoices.SUCCEEDED
+        assert after_rerun["notes"] == ""
+        with use_archivebox_db(initialized_archive):
+            snapshot_dir = Snapshot.objects.get(pk=before_interrupt["snapshot_id"]).output_dir
+        navigation = json.loads((snapshot_dir / "chrome" / "navigation.json").read_text())
+        assert navigation["url"] == "https://example.com"
+        assert navigation["status"] == 200
     finally:
         if result is not None and result.poll() is None:
             result.terminate()

@@ -4435,6 +4435,11 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True, full_scan: bool = False) -> bool:
         from abx_dl.output_files import OutputManifest, output_file_from_path
 
+        # Running and cancelled attempts have no new capture outcome to hydrate.
+        # Shared plugin directories may contain another hook's or an earlier
+        # attempt's files; only a new result event may replace this row's output.
+        if self.status in {self.StatusChoices.QUEUED, self.StatusChoices.STARTED}:
+            return False
         if self.plugin == "title":
             return False
 
