@@ -89,8 +89,31 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
             snapshot_link = page.locator(f'a[href*="/web/"][href*="{snapshot["id"]}"]').first
             snapshot_link.click()
             stack = page.get_by_role("button", name="Embedded media,", exact=False)
+            transitions = None
+            if plugin == "notion":
+                assert page.locator("#main-frame").get_attribute("sandbox") is not None
+                transitions = page.evaluate_handle("""() => {
+                    const frames = [];
+                    const observer = new MutationObserver(records => {
+                        for (const record of records)
+                            for (const node of record.addedNodes)
+                                if (node.id === 'main-frame') frames.push(node);
+                    });
+                    observer.observe(document.getElementById('main-frame-wrapper'), {childList: true});
+                    return {frames, observer};
+                }""")
             stack.click()
             card = page.locator(f'.thumb-card[data-plugin-name="{plugin}"]')
+            if transitions is not None:
+                # Crossing from archived HTML to a trusted plugin viewer must
+                # replace the frame once and navigate that connected frame.
+                # A reentrant history event must not replace it mid-selection.
+                selected_frames = transitions.evaluate("""({frames, observer}) => {
+                    observer.disconnect();
+                    return frames.map(frame => ({connected: frame.isConnected, src: frame.src, sandbox: frame.getAttribute('sandbox')}));
+                }""")
+                transitions.dispose()
+                assert selected_frames == [{"connected": True, "src": card.get_attribute("data-preview-url"), "sandbox": None}]
             card.locator('a[target="preview"]').first.click()
             preview = page.frame_locator("#main-frame")
             if plugin in DOCUMENT_PROVIDERS:

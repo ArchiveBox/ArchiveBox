@@ -1626,12 +1626,13 @@
                 } else {
                     iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                 }
-                if (rawTarget && updateHash) {
-                    window.location.hash = getPreviewHashValueFromHref(rawTarget)
-                }
-
                 if (reloadPreview) {
                     iframe_elem.src = nextSrc
+                }
+                // Updating the hash can synchronously dispatch popstate. Publish
+                // the selected frame URL first so that handler reuses this frame.
+                if (rawTarget && updateHash) {
+                    window.location.hash = getPreviewHashValueFromHref(rawTarget)
                 }
                 return false
             }
