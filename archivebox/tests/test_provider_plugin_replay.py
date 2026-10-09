@@ -12,7 +12,7 @@ from urllib.parse import unquote, urlsplit
 
 import pytest
 from abx_plugins import get_plugins_dir
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import Error as PlaywrightError, expect, sync_playwright
 
 from .conftest import cli_env, get_free_port, run_archivebox_cmd, start_archivebox_server, stop_archivebox_process
 
@@ -75,6 +75,15 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
             page = browser.new_page(viewport={"width": 1600, "height": 1000}, accept_downloads=True)
+            replay_events = []
+            if plugin == "notion":
+                # This public fixture intermittently reaches an empty viewer in
+                # CI. Retain browser evidence without recording network bodies
+                # or authenticated provider sessions.
+                page.on("pageerror", lambda error: replay_events.append({"error": str(error)}))
+                page.on("console", lambda message: replay_events.append({"console": message.type, "text": message.text}))
+                page.on("framenavigated", lambda frame: replay_events.append({"frame": frame.name, "url": frame.url}))
+                page.on("requestfailed", lambda request: replay_events.append({"request": request.url, "failure": request.failure}))
             page.goto(f"http://web.archivebox.localhost:{port}/public/")
             # Discover and follow the real snapshot link rendered by the index.
             snapshot_link = page.locator(f'a[href*="/web/"][href*="{snapshot["id"]}"]').first
@@ -86,7 +95,22 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
             preview = page.frame_locator("#main-frame")
             if plugin in DOCUMENT_PROVIDERS:
                 formats = preview.locator("#formats button.format")
-                expect(formats).to_have_count(len(manifest["files"]))
+                try:
+                    expect(formats).to_have_count(len(manifest["files"]))
+                except AssertionError:
+                    if plugin == "notion":
+                        replay_events.append(
+                            {"browser": browser.version, "frames": [{"name": frame.name, "url": frame.url} for frame in page.frames]},
+                        )
+                        (root / "replay-browser.log").write_text(json.dumps(replay_events, indent=2))
+                        frame = page.frame(name="preview")
+                        if frame:
+                            try:
+                                viewer_html = frame.content()
+                            except PlaywrightError as error:
+                                viewer_html = f"Unable to read preview frame: {error}"
+                            (root / "replay-viewer.log").write_text(viewer_html)
+                    raise
                 for item in manifest["files"]:
                     button = preview.get_by_role("button", name=item["format"].upper(), exact=True)
                     button.click()
