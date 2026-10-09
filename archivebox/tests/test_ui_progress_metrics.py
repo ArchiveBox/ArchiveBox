@@ -57,6 +57,9 @@ def test_metrics_scope_finished_attempts_and_cached_read_only_access(admin_user,
     assert 0 <= system["memory_available_bytes"] <= system["memory_total_bytes"]
     assert system["disk_free_bytes"] > 0
     assert summary["storage"] is None
+    from archivebox.progressmonitor.metrics import system_metrics_path
+
+    assert json.loads(system_metrics_path().read_text()) == system
     assert await_metrics(admin_user, crawl_id=str(crawl.pk))["throughput"] == {"last_hour": 2, "last_30_minutes": 1}
     assert await_metrics(admin_user, snapshot_id=str(snapshot.pk))["throughput"] == {"last_hour": 1, "last_30_minutes": 1}
     assert await_metrics(other)["throughput"] == {"last_hour": 1, "last_30_minutes": 1}
