@@ -57,7 +57,7 @@
     #progress-monitor .telemetry {
         display: contents;
     }
-    #progress-monitor .telemetry[hidden], #progress-monitor.is-guest .telemetry { display: none; }
+    #progress-monitor .telemetry[hidden], #progress-monitor .metric-badge[hidden], #progress-monitor.is-guest .telemetry { display: none; }
     #progress-monitor .metric-badge {
         display: inline-flex;
         align-items: center;
@@ -987,13 +987,13 @@
                 <span id="orchestrator-text">Runner stopped</span>
             </div>
             <div class="telemetry" id="progress-telemetry" aria-label="Capture and server metrics" hidden>
-                <span class="metric-badge" id="metric-throughput" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17 6-6 4 4 8-10M15 5h6v6"/></svg><span class="metric-text">Pages/hr —</span></span>
-                <span class="metric-badge" id="metric-resources" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3"/></svg><span class="metric-text">Load — · RAM —</span></span>
+                <span class="metric-badge" id="metric-throughput" tabindex="0" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17 6-6 4 4 8-10M15 5h6v6"/></svg><span class="metric-text">Pages/hr —</span></span>
+                <span class="metric-badge" id="metric-resources" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3"/></svg><span class="metric-text">— · RAM —</span></span>
                 <span class="metric-badge" id="metric-io" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V4m-4 4 4-4 4 4m6-4v16m-4-4 4 4 4-4"/></svg><span class="metric-text">I/O —</span></span>
-                <span class="metric-badge" id="metric-storage" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span class="metric-text">Disk —</span></span>
+                <span class="metric-badge" id="metric-storage" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span class="metric-text">—</span></span>
                 <span class="metric-badge" id="metric-web" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span class="metric-text">Web —</span></span>
             </div>
-            <span class="metric-badge" id="metric-indexing" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h1m-1 6h1m-1 6h1"/></svg><span class="metric-text">Indexing —</span></span>
+            <span class="metric-badge" id="metric-indexing" tabindex="0" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h1m-1 6h1m-1 6h1"/></svg><span class="metric-text">Indexing —</span></span>
         </div>
         <div class="header-right">
             <button class="toggle-btn" id="progress-collapse" title="Toggle details" aria-expanded="{% if progress_auto_expand %}true{% else %}false{% endif %}">
@@ -1816,15 +1816,15 @@
         const system = metrics?.system || {};
         const systemStale = !system.sampled_at || age(system.sampled_at) > 180;
         const available = system.container_memory_available_bytes == null ? system.memory_available_bytes : Math.min(system.memory_available_bytes, system.container_memory_available_bytes);
-        metricBadge('resources', `Load ${system.load_avg ? shortNumber(system.load_avg[0]) : '—'} · RAM ${gb(available, true)}`,
-            `${system.load_avg ? `Host load averages (1 / 5 / 15 minutes): ${system.load_avg.map(n => n.toFixed(2)).join(' / ')} across ${system.cpu_count} CPUs. ` : ''}Available host RAM: ${gb(system.memory_available_bytes)} / ${gb(system.memory_total_bytes)}.${system.container_memory_limit_bytes != null ? ` Container headroom: ${gb(system.container_memory_available_bytes)} / ${gb(system.container_memory_limit_bytes)} limit.` : ''} Swap: ${gb(system.swap_free_bytes)} free / ${gb(system.swap_total_bytes)} total. ${sampled(system.sampled_at)}`, systemStale);
+        metricBadge('resources', `${system.load_avg && system.cpu_count > 0 ? `${Math.round(100 * system.load_avg[0] / system.cpu_count)}%` : '—'} · RAM ${gb(available, true)}`,
+            `${system.load_avg ? `Host load averages (1 / 5 / 15 minutes): ${system.load_avg.map(n => n.toFixed(2)).join(' / ')} across ${system.cpu_count} CPUs. Percentage is 1-minute load / core count, not CPU utilization; 100% means load equals the number of cores. ` : ''}Available host RAM: ${gb(system.memory_available_bytes)} / ${gb(system.memory_total_bytes)}.${system.container_memory_limit_bytes != null ? ` Container headroom: ${gb(system.container_memory_available_bytes)} / ${gb(system.container_memory_limit_bytes)} limit.` : ''} Swap: ${gb(system.swap_free_bytes)} free / ${gb(system.swap_total_bytes)} total. ${sampled(system.sampled_at)}`, systemStale);
         const io = system.io;
         metricBadge('io', io ? `I/O ${Math.round(io.operations_per_second).toLocaleString()}/s${io.mean_io_ms == null ? '' : ` · ${shortNumber(io.mean_io_ms)}ms`}` : 'I/O —',
             io ? `Host read + write IOPS, ${(io.bytes_per_second / 1e6).toFixed(1)} MB/s. Mean OS-reported device I/O time per operation (not a network/B2 latency probe). CPU I/O wait: ${io.wait_percent == null ? 'unavailable' : `${io.wait_percent.toFixed(1)}%`}. Averages between samples. ${sampled(system.sampled_at)}` : `I/O rates need two OS samples; unsupported counters remain unavailable. ${sampled(system.sampled_at)}`, systemStale);
         const storage = metrics?.storage;
         const storageStale = storage && age(storage.sampled_at) > 300;
         const uploads = storage ? storage.uploads_queued + storage.uploads_in_progress : null;
-        metricBadge('storage', `Disk ${gb(system.disk_free_bytes, true)} free${uploads && !storageStale ? ` · ${uploads.toLocaleString()} uploads` : ''}${storage?.errored_files && !storageStale ? ` · ${storage.errored_files} errors` : ''}${storage?.out_of_space && !storageStale ? ' · full' : ''}`,
+        metricBadge('storage', `${gb(system.disk_free_bytes, true)} free${uploads && !storageStale ? ` · ${uploads.toLocaleString()} uploads` : ''}${storage?.errored_files && !storageStale ? ` · ${storage.errored_files} errors` : ''}${storage?.out_of_space && !storageStale ? ' · full' : ''}`,
             `Free space on the collection database filesystem, not remote bucket capacity. ${sampled(system.sampled_at)} ${storage ? `Last upload sample: ${storage.uploads_queued} queued, ${storage.uploads_in_progress} active, ${storage.errored_files} errored files; ${gb(storage.bytes_used)} in the VFS cache, recorded ${age(storage.sampled_at)} seconds ago. ${storageStale ? 'Counters have not refreshed in over 5 minutes; uploads may still be running. Check the mount monitoring job that updates PROGRESS_RCLONE_STATS_FILE from rclone rc vfs/stats.' : storage.out_of_space ? 'Storage is out of space: check free disk space on the VFS cache filesystem.' : storage.errored_files ? 'Check rclone logs for the affected files and resolve their upload errors.' : 'Queue size alone does not prove uploads are keeping up.'}` : 'Upload counters unavailable. For remote mounts, configure PROGRESS_RCLONE_STATS_FILE and have the mount monitoring job refresh it from rclone rc vfs/stats.'}`, systemStale || (!storageStale && (storage?.errored_files > 0 || storage?.out_of_space)));
     }
 
@@ -1851,6 +1851,7 @@
 
         // Update orchestrator status - show "Running" only when there are active workers.
         const hasWorkers = data.total_workers > 0;
+        document.getElementById('metric-throughput').hidden = !hasWorkers;
         let dot = null;
 
         if (hasWorkers) {
@@ -1868,6 +1869,7 @@
         status.setAttribute('aria-label', `${status.textContent.trim()}. ${status.title}`);
         metricBadge('indexing', `Indexing ${count(data.indexing_active)}${data.indexing_queued ? ` · ${count(data.indexing_queued)} queued` : ''}`,
             `Indexing: ${count(data.indexing_active)} active, ${count(data.indexing_queued)} queued.`);
+        document.getElementById('metric-indexing').hidden = !(data.indexing_active || data.indexing_queued);
 
         // Pulse the dot to show we got fresh data
         dot.classList.add('flash');
