@@ -276,6 +276,15 @@ jobs:
         if: inputs.push_digests
         run: echo ${{ steps.docker_build.outputs.digest }}
 
+      # Refresh the short-lived build login before the separate acceptance phase.
+      - name: Refresh Docker Hub OIDC for acceptance
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
+        if: inputs.push_digests
+        with:
+          username: archivebox
+        env:
+          DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
+
       - name: Verify optional agent install with a read-only browser profile
         shell: bash
         env:
@@ -328,6 +337,14 @@ jobs:
 
           "$DOCKER_BINARY" run --rm --user 911:911 --platform '${{ matrix.platform }}' --entrypoint /venv/bin/python3 "$IMAGE" -c \
             'import json, pathlib, stat; cache_file = "/opt/archivebox/lib/env/derived.env"; raw = open(cache_file).read().strip(); records = json.loads(raw[len("ABXPKG_DERIVED_CACHE=\x27"):-1]); projections = [projection for record in records.values() for projection in record.get("request_exec_projections", {}).values()]; plans = [projection["validation"] for projection in projections]; fingerprints = [fingerprint for plan in plans for fingerprint in plan["fingerprint"]]; actual = lambda fingerprint: (lambda path, value: {"path": str(path.resolve(strict=False)), "size": value.st_size, "mtime_ns": value.st_mtime_ns, "mode": stat.S_IMODE(value.st_mode), "euid": value.st_uid})(pathlib.Path(fingerprint["path"]), pathlib.Path(fingerprint["path"]).stat()); mismatches = [(fingerprint, actual(fingerprint)) for fingerprint in fingerprints if fingerprint != actual(fingerprint)]; assert projections and {plan.get("euid") for plan in plans} == {911}; assert all(not record.get("script_exec_plans") for record in records.values()); assert "ABXPKG_TMP_CACHE_DIR" not in json.dumps(projections); assert not mismatches, mismatches[:3]'
+
+      - name: Refresh Docker Hub OIDC after acceptance
+        uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
+        if: inputs.push_digests
+        with:
+          username: archivebox
+        env:
+          DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
 
       - name: Validate compressed candidate size
         if: inputs.push_digests
