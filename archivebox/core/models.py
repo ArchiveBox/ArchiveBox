@@ -577,6 +577,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         indexes: ClassVar[list[models.Index]] = [
             models.Index(fields=["-bookmarked_at", "-created_at"], name="snapshot_public_order_idx"),
             models.Index(fields=["crawl", "status", "modified_at"], name="snapshot_progress_idx"),
+            # Cross-crawl incremental API polls must seek into their time window,
+            # not read every historical row with the requested status.
+            models.Index(fields=["status", "modified_at"], name="snapshot_status_modified_idx"),
         ]
         constraints: ClassVar[list[models.BaseConstraint]] = [
             # Allow same URL in different crawls, but not duplicates within same crawl

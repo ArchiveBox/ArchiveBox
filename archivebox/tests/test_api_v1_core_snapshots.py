@@ -1,9 +1,11 @@
 import threading
 import time
+from datetime import timedelta
 
 import pytest
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 
 from archivebox.core.models import Snapshot
 from archivebox.crawls.locks import crawl_lifecycle_lock
@@ -101,6 +103,58 @@ def test_snapshots_api_filters_status_column(client, api_admin_user, api_headers
     items = payload["items"] if isinstance(payload, dict) and "items" in payload else payload
     assert [item["id"] for item in items] == [str(sealed_snapshot.id)]
     assert [item["status"] for item in items] == ["sealed"]
+
+
+def test_snapshots_api_polls_status_and_modified_range_without_scanning_history(client, api_admin_user, api_headers):
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=api_admin_user)
+    lower = timezone.now() - timedelta(minutes=2)
+    upper = lower + timedelta(minutes=1)
+    snapshots = Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                url=f"https://example.com/modified-poll/{index}",
+                timestamp=str(1700000000 + index),
+                crawl=crawl,
+                status=Snapshot.StatusChoices.SEALED,
+            )
+            for index in range(250)
+        ],
+    )
+    Snapshot.objects.filter(crawl=crawl).update(modified_at=lower - timedelta(days=30))
+    Snapshot.objects.filter(pk=snapshots[0].pk).update(modified_at=lower)
+    Snapshot.objects.filter(pk=snapshots[1].pk).update(modified_at=upper)
+    Snapshot.objects.filter(pk=snapshots[2].pk).update(modified_at=lower, status=Snapshot.StatusChoices.STARTED)
+
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get(
+            "/api/v1/core/snapshots",
+            {
+                "status": "sealed",
+                "modified_at__gte": lower.isoformat(),
+                "modified_at__lt": upper.isoformat(),
+                "with_archiveresults": "true",
+                "limit": 100,
+                "offset": 0,
+            },
+            **api_headers,
+        )
+    assert response.status_code == 200, response.content
+    payload = response.json()
+    assert payload["count"] == 1
+    assert [item["id"] for item in payload["items"]] == [str(snapshots[0].id)]
+    assert payload["items"][0]["archiveresults"] == []
+
+    # Polling an empty/recent window must not read every historical sealed row.
+    # Inspect the real API's count and page queries, not a separate ideal query.
+    poll_queries = [
+        query["sql"] for query in queries if 'FROM "core_snapshot"' in query["sql"] and '"core_snapshot"."modified_at" >=' in query["sql"]
+    ]
+    assert len(poll_queries) == 2, poll_queries
+    with connection.cursor() as cursor:
+        for sql in poll_queries:
+            cursor.execute("EXPLAIN QUERY PLAN " + sql)
+            plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+            assert "status=? AND modified_at>? AND modified_at<?" in plan, plan
 
 
 def test_existing_snapshot_metadata_sync_does_not_wait_for_active_crawl(client, api_admin_user, api_headers):
