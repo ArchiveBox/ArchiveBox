@@ -88,13 +88,15 @@ def test_abort_stops_long_running_background_hook(initialized_archive):
         )
         try:
             read_until(lambda: (scroll := result_for("infiniscroll")) is not None and scroll.status == "started")
-        except AssertionError:
+        except AssertionError as error:
             # Capture state before teardown terminates the runner: otherwise a
             # missed readiness deadline loses the install/hook failure itself.
+            # xdist does not forward print output with -s, so attach these facts
+            # to the assertion that is transported back to the CI controller.
             with use_archivebox_db(initialized_archive):
-                print("Hook readiness:", list(ArchiveResult.objects.values("plugin", "status", "output_str")))
-                print("Process readiness:", list(Process.objects.values("process_type", "status", "exit_code", "stderr")))
-            raise
+                hooks = list(ArchiveResult.objects.values("plugin", "status", "output_str"))
+                processes = list(Process.objects.values("process_type", "status", "exit_code", "stderr"))
+            raise AssertionError(f"{error}\nHook readiness: {hooks!r}\nProcess readiness: {processes!r}") from error
         read_until(lambda: "running pid=" in re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output.decode(errors="replace")))
         result.send_signal(signal.SIGINT)
         read_until(lambda: b"Choice [skip]:" in output)
