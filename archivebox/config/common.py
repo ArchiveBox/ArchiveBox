@@ -507,7 +507,7 @@ class ArchivingConfig(BaseConfigSet):
 
     URL_DENYLIST: str = Field(
         default=(
-            r"\.(css|js|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$"
+            r"\.(css|otf|ttf|woff|woff2|gstatic\.com|googleapis\.com/css)(\?.*)?$"
             r"|^https?://news\.ycombinator\.com/(?:vote|hide)/?(?:[?#]|$)"
         ),
         alias="URL_BLACKLIST",

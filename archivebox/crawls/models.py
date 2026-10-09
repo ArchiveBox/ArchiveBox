@@ -34,7 +34,7 @@ from archivebox.base_models.models import (
 )
 from archivebox.workers.models import ModelWithQueue
 from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
-from archivebox.misc.util import parse_date, sanitize_html_text, validate_url, validate_url_length
+from archivebox.misc.util import parse_date, sanitize_html_text, validate_url
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot
@@ -728,13 +728,12 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         max_urls is a crawl-wide cap on snapshots, so direct URL entries and
         recursively discovered snapshots both have to consume the same budget.
         """
-        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
-
         urls = set(self.snapshot_set.values_list("url", flat=True))
         for _raw_line, raw_url in self._iter_url_lines():
-            url = sanitize_extracted_url(fix_url_from_markdown(str(raw_url or "").strip()))
-            if url:
-                urls.add(url)
+            try:
+                urls.add(validate_url(str(raw_url or "").strip()))
+            except ValueError:
+                continue
         return len(urls)
 
     def remaining_url_capacity(self) -> int | None:
@@ -930,13 +929,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         Returns:
             True if URL was added, False if skipped (duplicate or depth exceeded)
         """
-        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
-
-        url = sanitize_extracted_url(fix_url_from_markdown(str(entry.get("url", "") or "").strip()))
+        url = str(entry.get("url", "") or "").strip()
         if not url:
             return False
         try:
-            validate_url_length(url)
+            url = validate_url(url)
         except ValueError:
             return False
         if not self.url_passes_filters(url):
@@ -977,7 +974,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         """
         from archivebox.core.models import Snapshot, Tag
         from archivebox.config.common import get_config
-        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
         if self.status == self.StatusChoices.SEALED:
             return []
@@ -996,14 +992,14 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             try:
                 entry = json.loads(line)
                 snapshot_id = entry.get("id") or entry.get("snapshot_id")
-                url = sanitize_extracted_url(fix_url_from_markdown(str(entry.get("url", "") or "").strip()))
+                url = str(entry.get("url", "") or "").strip()
                 depth = entry.get("depth", 0)
                 title = entry.get("title")
                 timestamp = entry.get("timestamp")
                 tag_names = [*crawl_tag_names, *self.parse_tag_names(entry.get("tags", ""))]
             except json.JSONDecodeError:
                 snapshot_id = None
-                url = sanitize_extracted_url(fix_url_from_markdown(line.strip()))
+                url = line.strip()
                 depth = 0
                 title = None
                 timestamp = None
@@ -1012,7 +1008,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             if not url:
                 continue
             try:
-                validate_url(url)
+                url = validate_url(url)
             except ValueError as err:
                 print(f"[yellow][!] Skipping invalid snapshot URL: {url[:120]}... ({err})[/yellow]")
                 continue
@@ -1128,7 +1124,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         """Create child snapshots from discovered URL records after filtering and deduping once."""
         from archivebox.core.models import Snapshot, SnapshotTag, Tag
         from archivebox.config.common import get_config
-        from archivebox.misc.util import fix_url_from_markdown, sanitize_extracted_url
 
         if self.status == self.StatusChoices.SEALED:
             return []
@@ -1150,13 +1145,15 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             # text/HTML extraction does not erase RSS/Netscape/JSON fields.
             return sum(bool(record.get(field)) for field in ("title", "bookmarked_at", "timestamp", "tags"))
 
+        # Parser records and explicit seeds already have URL boundaries. Prose
+        # cleanup here corrupts literal fragments, queries and trailing dots.
         deduped_records: dict[str, Mapping[str, Any]] = {}
         for record in records:
-            url = sanitize_extracted_url(fix_url_from_markdown(str(record.get("url") or "").strip()))
+            url = str(record.get("url") or "").strip()
             if not url:
                 continue
             try:
-                validate_url(url)
+                url = validate_url(url)
             except ValueError as err:
                 print(f"[yellow][!] Skipping invalid discovered snapshot URL: {url[:120]}... ({err})[/yellow]")
                 continue
