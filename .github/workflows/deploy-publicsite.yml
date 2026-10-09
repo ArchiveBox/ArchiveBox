@@ -41,6 +41,9 @@ jobs:
 
       # BEGIN REPOSITORY-SPECIFIC BUILD
       - uses: astral-sh/setup-uv@v7
+        with:
+          # Match core CI: the locked native dependencies support Python 3.13.
+          python-version: "3.13"
       - name: Restore latest complete screenshots
         run: |
           mkdir "$RUNNER_TEMP/manual-screenshots"
