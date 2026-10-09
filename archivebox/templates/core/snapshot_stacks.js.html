@@ -10,12 +10,11 @@ function initializeOutputStacks() {
     const name = card => card.dataset.pluginName || 'Files';
     const formatStackSize = bytes => {
         if (!bytes || bytes <= 0) return '';
-        const kb = 1024;
-        const mb = kb * 1024;
-        const gb = mb * 1024;
-        if (bytes < mb) return `${Math.max(1, Math.ceil(bytes / kb))} KB`;
-        if (bytes < gb) return `${Math.ceil(bytes / mb)} MB`;
-        return `${(Math.ceil(bytes / gb * 10) / 10).toFixed(1)} GB`;
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let unit = 0;
+        while (bytes >= 1000 && unit < units.length - 1) { bytes /= 1000; unit++; }
+        const precision = unit < 2 ? 1 : 10;
+        return `${Math.round(bytes * precision) / precision} ${units[unit]}`;
     };
     const groupSize = group => group.cards.reduce((sum, card) => {
         const cardSize = Number.parseInt(card.dataset.outputSize, 10) || 0;

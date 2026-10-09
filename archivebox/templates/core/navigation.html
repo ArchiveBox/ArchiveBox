@@ -4,6 +4,10 @@
     <a href="{% url 'add' %}" class="navbar-item navbar-add-link">Add ➕</a>
     <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
     <a href="/admin/crawls/crawl/" class="navbar-item navbar-crawls">Crawls</a>
+    {% if user.is_superuser %}
+    <span class="navbar-separator" aria-hidden="true">|</span>
+    <a href="{% url 'importers:index' %}" class="navbar-item navbar-importers">Importers</a>
+    {% endif %}
     <span class="navbar-separator" aria-hidden="true">|</span>
     <a href="{% url 'Home' %}" class="navbar-item navbar-snapshots">Snapshots</a>
     <span class="navbar-separator" aria-hidden="true">|</span>

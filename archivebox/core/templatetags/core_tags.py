@@ -1,6 +1,5 @@
 import hashlib
 import logging
-import math
 import os
 import re
 from html import unescape
@@ -15,6 +14,7 @@ from django.utils.safestring import mark_safe
 from django.utils.text import Truncator
 
 from archivebox.config import CONSTANTS
+from archivebox.misc.logging_util import printable_filesize
 from archivebox.core.routes_util import (
     build_snapshot_detail_url,
     build_snapshot_files_url,
@@ -444,28 +444,14 @@ def index(value, position):
 
 @register.filter
 def file_size(num_bytes: float, decimal_places: int = 1) -> str:
-    for count in ["Bytes", "KB", "MB", "GB"]:
-        if num_bytes > -1024.0 and num_bytes < 1024.0:
-            if num_bytes >= 0:
-                precision = 10 ** max(0, int(decimal_places))
-                num_bytes = math.ceil(num_bytes * precision) / precision
-            return f"{num_bytes:.{decimal_places}f} {count}"
-        num_bytes /= 1024.0
-    if num_bytes >= 0:
-        precision = 10 ** max(0, int(decimal_places))
-        num_bytes = math.ceil(num_bytes * precision) / precision
-    return f"{num_bytes:.{decimal_places}f} TB"
+    return printable_filesize(num_bytes, decimal_places)
 
 
 @register.filter
 def grid_file_size(num_bytes: float | None) -> str:
     if not num_bytes or num_bytes <= 0:
         return ""
-    if num_bytes < 1024**2:
-        return f"{max(1, num_bytes / 1024):.0f}kb"
-    if num_bytes < 1024**3:
-        return f"{num_bytes / 1024**2:.0f}mb"
-    return f"{num_bytes / 1024**3:.1f}gb"
+    return printable_filesize(num_bytes)
 
 
 @register.filter

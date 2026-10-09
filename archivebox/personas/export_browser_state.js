@@ -61,35 +61,18 @@ function writeCookiesFile(cookies, outputPath) {
 }
 
 async function collectStorage(browser) {
-    const localStorage = {};
-    const sessionStorage = {};
-    const pages = await browser.pages();
-
-    for (const page of pages) {
-        try {
-            const url = page.url();
-            if (!url || url === 'about:blank') continue;
-            if (url.startsWith('chrome:') || url.startsWith('edge:') || url.startsWith('devtools:')) continue;
-
-            const payload = await page.evaluate(() => ({
-                origin: window.location.origin,
-                localStorage: Object.fromEntries(Object.entries(window.localStorage)),
-                sessionStorage: Object.fromEntries(Object.entries(window.sessionStorage)),
-            }));
-
-            if (!payload.origin || payload.origin === 'null') continue;
-            if (Object.keys(payload.localStorage || {}).length > 0) {
-                localStorage[payload.origin] = payload.localStorage;
-            }
-            if (Object.keys(payload.sessionStorage || {}).length > 0) {
-                sessionStorage[payload.origin] = payload.sessionStorage;
-            }
-        } catch (error) {
-            // Ignore pages that cannot be inspected via evaluate().
-        }
+    const { captureOriginStorage } = require(path.join(pluginsDir, 'chrome', 'persona_storage.js'));
+    const origins = new Map();
+    const tabs = [];
+    for (const page of await browser.pages()) {
+        if (!/^https?:\/\//.test(page.url())) continue;
+        const state = await captureOriginStorage(page);
+        origins.set(state.origin, {
+            origin: state.origin, localStorage: state.localStorage, indexedDB: state.indexedDB,
+        });
+        tabs.push({url: state.url, sessionStorage: state.sessionStorage});
     }
-
-    return { localStorage, sessionStorage };
+    return {origins: [...origins.values()], tabs};
 }
 
 async function openBrowser() {
@@ -156,7 +139,7 @@ async function main() {
         const browserVersion = await session.send('Browser.getVersion');
         const cookieResult = await session.send('Storage.getCookies');
         const cookies = cookieResult?.cookies || [];
-        const { localStorage, sessionStorage } = await collectStorage(browser);
+        const { origins, tabs } = await collectStorage(browser);
         const userAgent = browserVersion?.userAgent || '';
 
         if (cookiesOutput) {
@@ -174,8 +157,8 @@ async function main() {
                         captured_at: new Date().toISOString(),
                         user_agent: userAgent,
                         cookies,
-                        localStorage,
-                        sessionStorage,
+                        origins,
+                        tabs,
                     },
                     null,
                     2,
@@ -185,7 +168,7 @@ async function main() {
 
         console.error(
             `[+] Exported ${cookies.length} cookies` +
-            `${authOutput ? ` and ${Object.keys(localStorage).length + Object.keys(sessionStorage).length} storage origins` : ''}` +
+            `${authOutput ? ` and ${origins.length} storage origins` : ''}` +
             `${userAgent ? ' with browser USER_AGENT' : ''}` +
             ` from ${sourceDescription}`,
         );

@@ -1,0 +1,6 @@
+{% extends "admin/base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block extrastyle %}{{ block.super }}{% include "importers/style.html" %}{% endblock %}
+{% block extrahead %}{{ block.super }}{% if active %}<meta http-equiv="refresh" content="3">{% endif %}{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a> &rsaquo; <a href="{% url 'importers:index' %}">Importers</a>{% if source %} &rsaquo; {{ source.name }}{% endif %}</div>{% endblock %}
+{% block content %}<main class="importers">{% block importer_content %}{% endblock %}</main>{% endblock %}

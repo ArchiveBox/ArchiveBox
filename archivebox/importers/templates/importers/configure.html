@@ -1,0 +1,11 @@
+{% extends "importers/base.html" %}
+{% block importer_content %}
+<div class="toolbar"><div><p class="eyebrow">{{ definition.provider }}</p><h1>{{ definition.title }}</h1><p class="muted">{{ definition.description }}</p></div></div>
+<div class="setup-layout"><form method="post" class="card form-card">{% csrf_token %}{{ form.non_field_errors }}
+<h2>Connect your source</h2>
+{% for field in form.basic_fields %}{% include "importers/field.html" %}{% endfor %}
+<details class="advanced" {% if form.advanced_errors %}open{% endif %}><summary>Advanced options</summary><p class="help">Optional name, scheduling, and capture settings.</p>
+{% for field in form.advanced_fields %}{% include "importers/field.html" %}{% endfor %}</details>
+<div class="actions"><button class="primary" type="submit">Save importer</button><a class="button" href="{% url 'importers:index' %}">Cancel</a></div></form>
+{% if definition.setup %}<aside class="setup-guide"><h2>How to connect</h2><ol>{% for step in definition.setup %}<li><h3>{{ step.title }}</h3><p>{{ step.description }}</p>{% if step.image %}<a href="{% url 'importers:guide-image' definition.plugin definition.feed forloop.counter0 %}" target="_blank" rel="noopener"><img src="{% url 'importers:guide-image' definition.plugin definition.feed forloop.counter0 %}" alt="{{ step.title }}" loading="lazy"></a>{% endif %}</li>{% endfor %}</ol></aside>{% endif %}</div>
+{% endblock %}

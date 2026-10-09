@@ -2,7 +2,7 @@
 <div class="snapshot-variants-list">
     {% for capture in captures %}
         <a href="{% snapshot_detail_url capture %}" title="{{ capture.url }}"{% if capture.pk == snapshot.pk %} aria-current="page"{% endif %}>
-            {{ capture.bookmarked_at|default:capture.created_at|default:capture.downloaded_at|date:"Y-m-d H:i:s" }} &nbsp; 💾 {{ capture.output_size|filesizeformat }}
+            {{ capture.bookmarked_at|default:capture.created_at|default:capture.downloaded_at|date:"Y-m-d H:i:s" }} &nbsp; 💾 {{ capture.output_size|file_size }}
         </a>
     {% endfor %}
 </div>

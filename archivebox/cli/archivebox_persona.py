@@ -497,11 +497,12 @@ def list_cmd(name: str | None, name__icontains: str | None, limit: int | None):
 
 @main.command("open")
 @click.argument("name", default="Default")
-def open_cmd(name: str):
+@click.option("--headless", is_flag=True, help="Open without a display for background browser tasks.")
+def open_cmd(name: str, headless: bool = False):
     """Open a persona's browser, including its imported logins."""
     import json
     import os
-    import subprocess
+    import tempfile
 
     import psutil
 
@@ -515,7 +516,7 @@ def open_cmd(name: str):
     persona = Persona.get_or_create_named(name)
     persona.ensure_dirs()
     config = get_config(persona=persona)
-    if os.environ.get("DISPLAY"):
+    if os.environ.get("DISPLAY") and not headless:
         from archivebox.config import CONSTANTS
 
         for process in psutil.process_iter():
@@ -535,22 +536,6 @@ def open_cmd(name: str):
                 continue
     plugins_dir = Path(get_plugins_dir()).resolve()
     env = os.environ.copy()
-    dependencies = subprocess.run(
-        [
-            str(Path(sys.executable).with_name("abxpkg")),
-            "env",
-            "--install",
-            "--json",
-            f"--lib={config.ABXPKG_LIB_DIR}",
-            f"--deps-from={plugins_dir / 'chrome' / 'config.json'}:required_binaries",
-        ],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    if dependencies.returncode:
-        raise click.ClickException(dependencies.stderr.strip())
-    env.update({key: str(value) for key, value in json.loads(dependencies.stdout).items()})
     env["ARCHIVEBOX_ABX_PLUGINS_DIR"] = str(plugins_dir)
     env["ACTIVE_PERSONA"] = persona.name
     env["PERSONAS_DIR"] = str(persona.path.parent)
@@ -558,19 +543,29 @@ def open_cmd(name: str):
     payload = config.model_dump(mode="json")
     payload.update(
         ACTIVE_PERSONA=persona.name,
-        CHROME_HEADLESS=False,
+        CHROME_HEADLESS=headless,
         CHROME_USER_DATA_DIR=str(persona.CHROME_USER_DATA_DIR),
         AUTH_STORAGE_FILE=str(persona.AUTH_STORAGE_FILE or ""),
         COOKIES_FILE=str(persona.COOKIES_FILE or ""),
     )
     script = Path(__file__).parent.parent / "personas" / "open_browser.js"
-    result = subprocess.run(
-        [env.get("NODE_BINARY") or "node", str(script)],
-        input=json.dumps(payload),
-        text=True,
-        env=env,
-    )
-    sys.exit(result.returncode)
+    command = [
+        str(Path(sys.executable).with_name("abxpkg")),
+        "run",
+        "--script",
+        "--install",
+        f"--lib={config.ABXPKG_LIB_DIR}",
+        f"--deps-from={plugins_dir / 'chrome' / 'config.json'}:required_binaries",
+        str(config.NODE_BINARY),
+        str(script),
+    ]
+    # Keep one browser-owner process: signals reach Node's existing shutdown
+    # handler, and abxpkg applies its environment instead of treating deltas as values.
+    with tempfile.TemporaryFile(mode="w+") as payload_file:
+        json.dump(payload, payload_file)
+        payload_file.seek(0)
+        os.dup2(payload_file.fileno(), 0)
+        os.execvpe(command[0], command, env)
 
 
 @main.command("update")

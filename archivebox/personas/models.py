@@ -49,8 +49,6 @@ VOLATILE_PROFILE_DIR_NAMES = {
     "ShaderCache",
     "Crashpad",
     "BrowserMetrics",
-    "Sessions",
-    "Sessions_Encrypted",
 }
 
 VOLATILE_PROFILE_FILE_NAMES = {
@@ -60,10 +58,6 @@ VOLATILE_PROFILE_FILE_NAMES = {
     "SingletonCookie",
     "SingletonLock",
     "SingletonSocket",
-    "Current Session",
-    "Current Tabs",
-    "Last Session",
-    "Last Tabs",
 }
 
 

@@ -23,11 +23,12 @@ router = Router(tags=["Personas"])
 
 class PersonaBrowserSettingsSchema(Schema):
     user_agent: str = ""
-    viewport_size: str = ""
-    viewport_device_scale_factor: float | None = None
+    viewport_size: str = Field(default="", pattern=r"^(?:[1-9]\d*,[1-9]\d*)?$")
+    viewport_device_scale_factor: float | None = Field(default=None, gt=0)
     color_scheme: Literal["", "light", "dark"] = ""
     language: str = ""
     timezone: str = ""
+    platform: str = ""
     geolocation: dict[str, Any] | None = None
 
 
@@ -79,7 +80,7 @@ def browser_settings_to_config(extension_persona_id: str, settings: PersonaBrows
         "BROWSER_EXTENSION_SYNCED_AT": datetime.utcnow().isoformat() + "Z",
     }
 
-    if settings.user_agent:
+    if "user_agent" in settings.model_fields_set:
         config.update(
             {
                 "USER_AGENT": settings.user_agent,
@@ -88,23 +89,25 @@ def browser_settings_to_config(extension_persona_id: str, settings: PersonaBrows
                 "CURL_USER_AGENT": settings.user_agent,
             },
         )
-    if settings.viewport_size:
+    if "viewport_size" in settings.model_fields_set:
         config.update(
             {
-                "RESOLUTION": settings.viewport_size,
-                "CHROME_RESOLUTION": settings.viewport_size,
+                "RESOLUTION": settings.viewport_size or "1440,2000",
+                "CHROME_RESOLUTION": settings.viewport_size or "1440,2000",
             },
         )
-    if settings.viewport_device_scale_factor is not None:
-        config["BROWSER_DEVICE_SCALE_FACTOR"] = settings.viewport_device_scale_factor
+    if "viewport_device_scale_factor" in settings.model_fields_set:
+        config["BROWSER_DEVICE_SCALE_FACTOR"] = settings.viewport_device_scale_factor or 1
     if "color_scheme" in settings.model_fields_set:
         config["BROWSER_COLOR_SCHEME"] = settings.color_scheme
-    if settings.language:
+    if "language" in settings.model_fields_set:
         config["BROWSER_LANGUAGE"] = settings.language
-    if settings.timezone:
+    if "timezone" in settings.model_fields_set:
         config["BROWSER_TIMEZONE"] = settings.timezone
-    if settings.geolocation:
-        config["BROWSER_GEOLOCATION"] = settings.geolocation
+    if "platform" in settings.model_fields_set:
+        config["BROWSER_PLATFORM"] = settings.platform
+    if "geolocation" in settings.model_fields_set:
+        config["BROWSER_GEOLOCATION"] = settings.geolocation or {}
 
     return config
 

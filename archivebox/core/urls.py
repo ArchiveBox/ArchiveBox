@@ -34,6 +34,7 @@ urlpatterns = [
     path("favicon.ico", static.serve, {"document_root": CONSTANTS.STATIC_DIR, "path": "favicon.ico"}),
     path("docs/", RedirectView.as_view(url="https://github.com/ArchiveBox/ArchiveBox/wiki"), name="Docs"),
     *agent_urlpatterns,
+    path("admin/importers/", include("archivebox.importers.urls")),
     path("public/search-stream/", public_snapshot_search_stream_view, name="public-search-stream"),
     path("public/", PublicIndexView.as_view(), name="public-index"),
     path("public.html", RedirectView.as_view(url="/public/"), name="public-index-html"),

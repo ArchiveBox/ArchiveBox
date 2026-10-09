@@ -62,12 +62,6 @@ VOLATILE_PROFILE_COPY_PATTERNS = (
     "SingletonLock",
     "SingletonSocket",
     "SingletonCookie",
-    "Sessions",
-    "Sessions_Encrypted",
-    "Current Session",
-    "Current Tabs",
-    "Last Session",
-    "Last Tabs",
 )
 
 PERSONA_PROFILE_DIR_CANDIDATES = (
@@ -1028,6 +1022,12 @@ def _merge_auth_storage(existing_file: Path, new_file: Path) -> None:
     for origin, payload in (new_payload.get("sessionStorage") or {}).items():
         existing_session[origin] = payload
 
+    origins = {entry["origin"]: entry for entry in existing_payload.get("origins", [])}
+    origins.update({entry["origin"]: entry for entry in new_payload.get("origins", [])})
+    new_tabs = new_payload.get("tabs", [])
+    new_urls = {tab["url"] for tab in new_tabs}
+    tabs = [tab for tab in existing_payload.get("tabs", []) if tab["url"] not in new_urls] + new_tabs
+
     cookies = _merge_cookie_dicts(existing_payload.get("cookies") or [], new_payload.get("cookies") or [])
 
     merged = {
@@ -1036,6 +1036,8 @@ def _merge_auth_storage(existing_file: Path, new_file: Path) -> None:
         "cookies": cookies,
         "localStorage": existing_local,
         "sessionStorage": existing_session,
+        "origins": list(origins.values()),
+        "tabs": tabs,
         "user_agent": new_payload.get("user_agent") or existing_payload.get("user_agent") or "",
     }
     existing_file.write_text(json.dumps(merged, indent=2, sort_keys=True) + "\n")

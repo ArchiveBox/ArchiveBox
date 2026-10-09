@@ -1,0 +1,17 @@
+{% extends "importers/base.html" %}
+{% block importer_content %}
+<div class="toolbar"><div><p class="eyebrow">Collect from your sources</p><h1>Importers</h1><p class="muted">Discover links, preview what is new, and keep your archive up to date.</p></div><a class="button" href="/admin/personas/persona/">Manage personas</a></div>
+{% if sources %}
+<h2>Your importers</h2><div class="grid">
+{% for source in sources %}<article class="card"><h3><a href="{{ source.get_absolute_url }}">{{ source.name }}</a></h3><p class="muted">{% if source.definition %}{{ source.definition.provider }} · {{ source.definition.title }}{% else %}Plugin unavailable{% endif %}</p><dl><dt>Persona</dt><dd>{{ source.persona.name|default:"Server defaults" }}</dd><dt>Schedule</dt><dd>{% if not source.enabled %}Paused{% else %}{{ source.schedule|default:"Manual" }}{% endif %}</dd><dt>Latest run</dt><dd>{% if source.latest_run %}<span class="badge {{ source.latest_run.status }}">{{ source.latest_run.get_status_display }}</span> · {{ source.latest_run.items|length }} item{{ source.latest_run.items|length|pluralize }}{% else %}Not run yet{% endif %}</dd></dl></article>{% endfor %}
+</div>
+{% else %}<div class="card empty"><h2>Connect your first source</h2><p class="muted">Choose an importer below. Previewing links will not create captures or advance progress.</p></div>{% endif %}
+<section class="section"><h2>Add a source</h2><p class="muted">Pick a service, then choose what you want to keep.</p><div class="provider-grid">
+{% for provider in providers %}<article class="provider-card"><header>{% if provider.definition.icon %}<img class="brand-icon" src="{% url 'importers:icon' provider.definition.plugin provider.definition.feed %}" alt="" width="36" height="36">{% else %}<span class="brand-placeholder" aria-hidden="true">↗</span>{% endif %}<h3>{{ provider.name }}</h3></header><ul class="feed-list">
+{% for definition in provider.feeds %}<li><a href="{% url 'importers:new' definition.plugin definition.feed %}"><span>{{ definition.title }}</span><span aria-hidden="true">→</span></a></li>{% endfor %}
+</ul></article>{% empty %}<p>No installed plugins currently provide importers.</p>{% endfor %}
+</div>
+<form method="post" action="{% url 'importers:custom' %}" class="custom-importer">{% csrf_token %}<button type="submit"><span class="custom-plus" aria-hidden="true">+</span><span><strong>Create a custom importer</strong><small>Tell the AI what you want to collect.</small></span><span class="custom-arrow" aria-hidden="true">↗</span></button></form>
+</section>
+<details class="card"><summary>Set up a browser persona for authenticated sources</summary><ol><li>Create a dedicated browser profile and install the ArchiveBox extension.</li><li>Log into the accounts whose activity you want to import.</li><li>Sync the selected cookies and browser settings to a server persona.</li><li>Select that persona here, then use <strong>Check access</strong> to verify the server can read the source.</li></ol><p class="muted">A new account has its own activity. To import an existing account's private saves or bookmarks, use that account. Available importers are supplied by installed plugins.</p><a href="/admin/personas/persona/">Open personas →</a></details>
+{% endblock %}

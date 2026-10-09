@@ -1,7 +1,6 @@
 __package__ = "archivebox.core"
 
 import json
-from math import ceil
 from typing import Any
 
 from django.contrib import admin, messages
@@ -64,14 +63,6 @@ from archivebox.core.widgets import TagEditorWidget, InlineTagEditorWidget
 GLOBAL_CONTEXT = {}
 
 SNAPSHOT_PERMISSION_META = PERMISSIONS_META
-
-
-def _format_size_column(num_bytes: int) -> str:
-    size = num_bytes
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if size < 1024 or unit == "TB":
-            return f"{size:.1f} {unit}" if unit == "GB" else f"{ceil(size)} {unit}"
-        size /= 1024
 
 
 class SnapshotActionForm(ActionForm):
@@ -1243,7 +1234,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def size(self, obj):
         archive_size = self._get_progress_stats(obj)["output_size"] or 0
         if archive_size:
-            size_txt = _format_size_column(archive_size)
+            size_txt = printable_filesize(archive_size)
             if archive_size > 52428800:
                 size_txt = mark_safe(f"<b>{size_txt}</b>")
         else:
@@ -1329,7 +1320,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         size_bytes = output_size or 0
 
         if size_bytes:
-            size_txt = _format_size_column(size_bytes)
+            size_txt = printable_filesize(size_bytes)
             if size_bytes > 52428800:  # 50MB
                 size_txt = mark_safe(f"<b>{size_txt}</b>")
         else:

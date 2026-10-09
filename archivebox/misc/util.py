@@ -136,10 +136,14 @@ def validate_url(url: str) -> str:
     url = (url or "").strip()
     if "\n" in url or "\r" in url:
         raise ValueError("URL must be a single line.")
+    if url.lower().startswith(("webcal://", "webcals://")):
+        url = sanitize_plugin_url(url)
     url = validate_url_length(url)
     parsed = urlparse(url)
     if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
         raise ValueError("URL must start with http:// or https:// and include a hostname.")
+    # urllib validates numeric/range constraints only when the port is accessed.
+    _ = parsed.port
     return url
 
 

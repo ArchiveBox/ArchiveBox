@@ -30,6 +30,9 @@ def test_persona_prepare_runtime_for_crawl_clones_and_cleans_profile(initialized
         (template_dir / 'Default' / 'GPUCache').mkdir(parents=True, exist_ok=True)
         (template_dir / 'Default' / 'GPUCache' / 'blob').write_text('cached')
         (template_dir / 'Default' / 'Preferences').write_text('{"ok": true}')
+        (template_dir / 'Default' / 'Sessions').mkdir()
+        (template_dir / 'Default' / 'Sessions' / 'Session_1').write_bytes(b'session-state')
+        (template_dir / 'Default' / 'Current Session').write_bytes(b'legacy-session-state')
 
         crawl = Crawl.objects.create(urls='https://example.com', persona_id=persona.id)
         overrides = persona.prepare_runtime_for_crawl(
@@ -48,6 +51,8 @@ def test_persona_prepare_runtime_for_crawl_clones_and_cleans_profile(initialized
             'runtime_personas_dir': overrides['PERSONAS_DIR'],
             'active_persona': overrides['ACTIVE_PERSONA'],
             'preferences_copied': (runtime_profile / 'Default' / 'Preferences').exists(),
+            'sessions_preserved': (runtime_profile / 'Default' / 'Sessions' / 'Session_1').read_bytes() == b'session-state',
+            'legacy_session_preserved': (runtime_profile / 'Default' / 'Current Session').read_bytes() == b'legacy-session-state',
             'singleton_removed': not (runtime_profile / 'SingletonLock').exists(),
             'cache_removed': not (runtime_profile / 'Default' / 'GPUCache').exists(),
             'log_removed': not (runtime_profile / 'chrome.log').exists(),
@@ -68,6 +73,8 @@ def test_persona_prepare_runtime_for_crawl_clones_and_cleans_profile(initialized
     assert payload["runtime_personas_dir"].endswith("/.persona")
     assert payload["active_persona"] == "Default"
     assert payload["preferences_copied"] is True
+    assert payload["sessions_preserved"] is True
+    assert payload["legacy_session_preserved"] is True
     assert payload["singleton_removed"] is True
     assert payload["cache_removed"] is True
     assert payload["log_removed"] is True

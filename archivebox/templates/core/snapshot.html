@@ -1248,7 +1248,7 @@
                                 {% endif %}
                                     </span>
                                 {% if not STATIC_EXPORT %}
-                                    <span class="header-download-size"><span class="desktop-size">{{size}}</span><span class="mobile-size">{% with parts=size.split %}{% if parts.1 == "MB" or parts.1 == "KB" or parts.1 == "Bytes" %}{{parts.0|floatformat:"0"}} {% if parts.1 == "Bytes" %}B{% else %}{{parts.1}}{% endif %}{% else %}{{size}}{% endif %}{% endwith %}</span></span>
+                                    <span class="header-download-size"><span class="desktop-size">{{size}}</span><span class="mobile-size">{{size}}</span></span>
                                     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v11m-4-4 4 4 4-4M3 13v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4"/></svg>
                                 </a>
                                 {% endif %}

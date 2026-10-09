@@ -82,7 +82,7 @@ def parse_line(line: str) -> dict[str, Any] | None:
             pass
 
     # Treat as plain URL if it looks like one
-    if line.startswith("http://") or line.startswith("https://"):
+    if line.lower().startswith(("http://", "https://", "webcal://", "webcals://")):
         return {"type": TYPE_SNAPSHOT, "url": line}
 
     # Could be a snapshot ID (UUID with dashes or compact 32-char hex)

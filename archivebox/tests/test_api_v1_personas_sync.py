@@ -8,6 +8,57 @@ from archivebox.tests.conftest import api_client_request
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def test_sync_persona_settings_reach_runtime_and_explicit_clearing(client, api_headers):
+    from archivebox.config.common import get_config
+    from archivebox.personas.models import Persona
+
+    payload = {
+        "extension_persona_id": "runtime-settings",
+        "name": "runtime-settings",
+        "settings": {
+            "user_agent": "PersonaBrowser/1.0",
+            "viewport_size": "1100,750",
+            "viewport_device_scale_factor": 2,
+            "language": "fr-FR",
+            "timezone": "Europe/Paris",
+            "platform": "MacIntel",
+            "color_scheme": "dark",
+            "geolocation": {"latitude": 48.85, "longitude": 2.35, "accuracy": 10},
+        },
+    }
+    response = api_client_request(client, "post", "/api/v1/personas/sync", payload=payload, headers=api_headers)
+    assert response.status_code == 200, response.content
+    persona = Persona.objects.get(pk=response.json()["persona"]["id"])
+    expected = {
+        "CHROME_USER_AGENT": "PersonaBrowser/1.0",
+        "CHROME_RESOLUTION": "1100,750",
+        "BROWSER_DEVICE_SCALE_FACTOR": 2,
+        "BROWSER_LANGUAGE": "fr-FR",
+        "BROWSER_TIMEZONE": "Europe/Paris",
+        "BROWSER_PLATFORM": "MacIntel",
+        "BROWSER_COLOR_SCHEME": "dark",
+        "BROWSER_GEOLOCATION": payload["settings"]["geolocation"],
+    }
+    config = get_config(persona=persona).model_dump(mode="json")
+    assert {key: config.get(key) for key in expected} == expected
+    payload["settings"] = {}
+    response = api_client_request(client, "post", "/api/v1/personas/sync", payload=payload, headers=api_headers)
+    assert response.status_code == 200, response.content
+    persona.refresh_from_db()
+    assert {key: persona.config.get(key) for key in expected} == expected
+    payload["settings"] = {"language": "", "timezone": "", "platform": "", "geolocation": None, "viewport_device_scale_factor": None}
+    response = api_client_request(client, "post", "/api/v1/personas/sync", payload=payload, headers=api_headers)
+    assert response.status_code == 200, response.content
+    persona.refresh_from_db()
+    config = get_config(persona=persona).model_dump(mode="json")
+    assert config["BROWSER_LANGUAGE"] == ""
+    assert config["BROWSER_TIMEZONE"] == ""
+    assert config["BROWSER_PLATFORM"] == ""
+    assert config["BROWSER_GEOLOCATION"] == {}
+    assert config["BROWSER_DEVICE_SCALE_FACTOR"] == 1
+    assert config["CHROME_USER_AGENT"] == "PersonaBrowser/1.0"
+
+
 def test_basic_success_case_request(client, api_headers):
     response = api_client_request(
         client,

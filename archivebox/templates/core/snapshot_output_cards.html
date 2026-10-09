@@ -16,10 +16,10 @@
                                     </div>
                                     {% if display_path %}
                                         <a href="{{preview_url}}" target="preview" title="./{{display_path}} (downloaded {{result.ts}})">
-                                            <h4><span class="card-title-icon">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size:0}}</small>{% endif %}</h4>
+                                            <h4><span class="card-title-icon">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size}}</small>{% endif %}</h4>
                                         </a>
                                     {% else %}
-                                        <h4><span class="card-title-icon">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size:0}}</small>{% endif %}</h4>
+                                        <h4><span class="card-title-icon">{% plugin_icon result.name %}</span> {{result.name|plugin_name|truncatechars:20}}{% if result.size %} <small class="card-title-size">{{result.size|file_size}}</small>{% endif %}</h4>
                                     {% endif %}
                                 </div>
                                 {% if result.result and display_path %}

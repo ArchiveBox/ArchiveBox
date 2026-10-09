@@ -2041,6 +2041,11 @@ def run_pending_crawls(
     while True:
         raise_if_shutdown_requested()
         now_monotonic = time.monotonic()
+        if crawl_id is None and (daemon or not maintenance_only):
+            from archivebox.importers.service import tick as tick_importers
+
+            if tick_importers(daemon=daemon):
+                continue
         if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
             if daemon:
                 # At most one batch can be doing filesystem I/O. A stuck mount

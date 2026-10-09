@@ -446,6 +446,23 @@ def test_create_snapshots_from_urls_skips_invalid_and_archivebox_internal_urls(a
     ]
 
 
+@pytest.mark.parametrize("port", ["%22application", "65536", "-1"])
+def test_discovered_snapshot_invalid_port_does_not_abort_batch(crawl, port):
+    crawl.max_depth = 1
+    crawl.save(update_fields=["max_depth", "modified_at"])
+    parent = crawl.create_snapshots_from_urls()[0]
+    valid_url = "https://example.com:8443/linked"
+
+    created = crawl.create_discovered_snapshots(
+        parent,
+        [{"url": f"https://example.com:{port}/document"}, {"url": valid_url}],
+        depth=1,
+    )
+
+    assert [snapshot.url for snapshot in created] == [valid_url]
+    assert list(crawl.snapshot_set.filter(depth=1).values_list("url", flat=True)) == [valid_url]
+
+
 def test_crawl_stop_reason_reports_no_viable_urls_for_sealed_empty_crawl(admin_user):
     crawl = Crawl.objects.create(
         urls="https://example.com/already-known",

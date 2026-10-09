@@ -319,14 +319,17 @@
         const MAX_PREVIEW = 16 * 1024 * 1024,
           CHUNK = 256 * 1024,
           decoder = new TextDecoder();
-        const bytes = (n) =>
-          n < 1024
-            ? n + " B"
-            : n < 1048576
-            ? (n / 1024).toFixed(1) + " KB"
-            : n < 1073741824
-            ? (n / 1048576).toFixed(1) + " MB"
-            : (n / 1073741824).toFixed(2) + " GB";
+        const bytes = (value) => {
+          let size = Number(value) || 0;
+          const units = ["B", "KB", "MB", "GB", "TB"];
+          let unit = 0;
+          while (Math.abs(size) >= 1000 && unit < units.length - 1) {
+            size /= 1000;
+            unit++;
+          }
+          const precision = unit < 2 ? 1 : 10;
+          return `${Math.round(size * precision) / precision} ${units[unit]}`;
+        };
         const safePath = (name) => {
           const p = name.replace(/\\/g, "/").replace(/\/$/, "");
           return p &&

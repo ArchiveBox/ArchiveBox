@@ -1313,8 +1313,8 @@ class TestSnapshotOutputDeletion:
         assert "data-output-size-sort" in html
         assert 'data-output-size="11"' in html
         assert 'data-output-size="2048"' in html
-        assert "11.0 Bytes" in html
-        assert "2.0 KB" in html
+        assert "11 B" in html
+        assert "2 KB" in html
         assert f'data-archive-result-ids="{first.id}"' in html
         assert f'data-archive-result-ids="{second.id}"' in html
         assert html.count('title="Delete this output"') == 2

@@ -1,0 +1,9 @@
+- Help me create a custom ArchiveBox importer plugin.
+- First response: ask which site, which items, and which Persona. Do not use tools or read files until I answer.
+- Then inspect installed `abx_plugins.plugins.importers_browser` and `base/importers.py`; reuse their manifest, JSONL, and browser helpers.
+- Keep the plugin in this collection's custom_plugins directory. Do not edit ArchiveBox core or other plugins.
+- Declare feeds, brand icon, essential fields, and illustrated setup steps in config.json. Hide optional fields under Advanced.
+- Use Browser Harness and Stagehand through the existing OpenCode persona handoff. Learn a reusable script and repair it on failure; keep site logic in the plugin.
+- Verify the account, stable IDs, pagination, deduplication, cancellation, and checkpoint recovery against the real source. Never report empty success after an error.
+- Use a clean demo persona for screenshots; never embed personal accounts, cookies, or credentials.
+- Keep prompts and explanations short, with bullets. Finish with a working preview and its Importers setup link.
