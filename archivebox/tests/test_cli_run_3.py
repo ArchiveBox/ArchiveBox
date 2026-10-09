@@ -834,7 +834,7 @@ class TestRunDueCrawlState:
 
 @pytest.mark.django_db
 class TestRecoverOrchestratorStateRedFailureModes:
-    def test_recovery_uses_newest_orphaned_process_for_exact_hook(self):
+    def test_recovery_does_not_reconstruct_results_from_orphaned_processes(self):
         import json
         from datetime import timedelta
 
@@ -897,15 +897,9 @@ class TestRecoverOrchestratorStateRedFailureModes:
 
         recovered = recover_orchestrator_state(crawl_id=str(crawl.id))
 
-        assert recovered["archiveresults_missing_for_orphaned_hook_processes"] == 1
-        assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="title", hook_name=hook_name).count() == 1
-        result = ArchiveResult.objects.get(snapshot=snapshot, plugin="title", hook_name=hook_name)
-        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
-        assert result.output_str == "newer title"
-        assert result.output_json == {"title": "newer title"}
-        assert result.start_ts == newer_start
-        assert result.end_ts == newer_start + timedelta(seconds=1)
-        assert result.process.started_at == newer_start
+        assert "archiveresults_missing_for_orphaned_hook_processes" not in recovered
+        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
+        assert Process.objects.filter(pwd=str(snapshot.output_dir / "title")).count() == 2
 
     def test_global_recovery_skips_historical_hook_output_scan(self, tmp_path):
         from datetime import timedelta
@@ -951,7 +945,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         recovered = recover_orchestrator_state()
 
         assert recovered["snapshots_started_without_running_results"] == 1
-        assert recovered["archiveresults_missing_for_orphaned_hook_processes"] == 0
+        assert "archiveresults_missing_for_orphaned_hook_processes" not in recovered
         assert Snapshot.objects.filter(crawl=crawl, retry_at__lte=timezone.now()).count() == 1
         assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
 
@@ -1041,7 +1035,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert crawl.status == Crawl.StatusChoices.STARTED
         assert crawl.retry_at == future
 
-    def test_recovery_closes_interrupted_result_and_requeues_parent_snapshot(self):
+    def test_recovery_preserves_interrupted_result_and_requeues_parent_snapshot(self):
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.core.recovery_util import recover_orchestrator_state
@@ -1064,17 +1058,26 @@ class TestRecoverOrchestratorStateRedFailureModes:
             plugin="title",
             hook_name="on_Snapshot__01_title",
             status=ArchiveResult.StatusChoices.STARTED,
+            output_str="title.txt",
+            output_files={"title.txt": {"size": 14, "mimetype": "text/plain"}},
+            output_size=14,
         )
+        output_path = snapshot.output_dir / "title" / "title.txt"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text("previous title")
+        previous_result = ArchiveResult.objects.filter(pk=result.pk).values().get()
 
         recover_orchestrator_state()
 
         result.refresh_from_db()
         snapshot.refresh_from_db()
-        assert result.status == ArchiveResult.StatusChoices.FAILED
+        assert ArchiveResult.objects.filter(pk=result.pk).values().get() == previous_result
+        assert output_path.read_text() == "previous title"
+        assert result.status == ArchiveResult.StatusChoices.STARTED
         assert snapshot.status == Snapshot.StatusChoices.STARTED
         assert snapshot.retry_at is not None
 
-    def test_recovery_closes_started_archiveresult_with_exited_process(self):
+    def test_recovery_preserves_started_archiveresult_with_exited_process(self):
         from django.utils import timezone
 
         from archivebox.base_models.models import get_or_create_system_user_pk
@@ -1114,7 +1117,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
 
         result.refresh_from_db()
         snapshot.refresh_from_db()
-        assert result.status == ArchiveResult.StatusChoices.FAILED
+        assert result.status == ArchiveResult.StatusChoices.STARTED
         assert snapshot.retry_at is not None
 
     def test_recovery_does_not_reopen_sealed_snapshot_for_interrupted_result_projection(self):
@@ -1164,9 +1167,9 @@ class TestRecoverOrchestratorStateRedFailureModes:
         result.refresh_from_db()
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.retry_at is None
-        assert result.status == ArchiveResult.StatusChoices.FAILED
+        assert result.status == ArchiveResult.StatusChoices.STARTED
 
-    def test_recovery_closes_result_projection_before_unlocking_snapshot(self):
+    def test_recovery_preserves_result_projection_when_unlocking_snapshot(self):
         from archivebox.base_models.models import get_or_create_system_user_pk
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.core.recovery_util import recover_orchestrator_state
@@ -1195,7 +1198,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
 
         snapshot.refresh_from_db()
         result.refresh_from_db()
-        assert result.status == ArchiveResult.StatusChoices.FAILED
+        assert result.status == ArchiveResult.StatusChoices.STARTED
         assert snapshot.retry_at is not None
 
     def test_crawl_runner_load_run_state_does_not_return_future_retry_snapshots(self):
