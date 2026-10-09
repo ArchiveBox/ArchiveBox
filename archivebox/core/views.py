@@ -949,8 +949,11 @@ def _visible_response_snapshots_for_domain(request: HttpRequest, domain: str) ->
             else:
                 domain_query |= Q(url__gte=prefix, url__lt=f"{prefix}\U0010ffff")
 
+    # Resolve domain IDs before joining crawl/owner data. Otherwise SQLite can
+    # choose a crawl-driven scan of the whole collection for every replay asset.
+    domain_ids = Snapshot.objects.filter(domain_query).values("pk")
     candidates = (
-        Snapshot.objects.filter(domain_query)
+        Snapshot.objects.filter(pk__in=domain_ids)
         .select_related("crawl", "crawl__created_by")
         .order_by("-bookmarked_at", "-created_at", "-timestamp")
     )

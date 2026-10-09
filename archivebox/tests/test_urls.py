@@ -1278,6 +1278,21 @@ class TestUrlRouting:
                 replay_resp = replay_client.get("/about.html", HTTP_HOST=original_host)
                 assert replay_resp.status_code in (301, 302)
                 assert replay_resp["Location"] == f"http://{get_snapshot_host(str(private_snapshot.id))}/responses/example.com/about.html"
+
+                # The candidate subquery must keep root URLs whose first
+                # delimiter is a query or fragment, as well as ordinary paths.
+                for number, url in enumerate((
+                    "http://example.com?query=1", "http://example.com#fragment",
+                    "https://example.com?query=1", "https://example.com#fragment",
+                )):
+                    boundary_snapshot = make_snapshot(url)
+                    asset = f"boundary-{number}.html"
+                    response_path = Path(boundary_snapshot.output_dir) / "responses" / "example.com" / asset
+                    response_path.parent.mkdir(parents=True, exist_ok=True)
+                    response_path.write_bytes(real_output_bodies[number])
+                    boundary_response = client.get(f"/{asset}", HTTP_HOST=original_host)
+                    assert boundary_response.status_code == 302
+                    assert boundary_response["Location"] == f"http://{get_snapshot_host(str(boundary_snapshot.id))}/responses/example.com/{asset}"
             finally:
                 for snap in created_snapshots:
                     shutil.rmtree(snap.output_dir, ignore_errors=True)
