@@ -224,7 +224,10 @@ def run_next_importer(stop_event=None) -> bool:
         return False
     try:
         get_importer(run.source.plugin, run.source.feed)
-        command = get_plugin_catalog().command(run.source.plugin, "import")
+        catalog = get_plugin_catalog()
+        # Optional host commands own persona/framework setup so standalone
+        # importers only consume their declared stdin and browser environment.
+        command = catalog.command(run.source.plugin, "import_archivebox") or catalog.command(run.source.plugin, "import")
         output_dir = CONSTANTS.DATA_DIR / "importers" / str(run.source_id) / str(run.pk)
         output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         config = get_config(persona=run.source.persona)
