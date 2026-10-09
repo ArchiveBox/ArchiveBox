@@ -6,6 +6,91 @@ Tests for archivebox persona command.
 from archivebox.tests.conftest import run_archivebox_cmd
 
 
+def test_persona_open_background_returns_ready_and_reuses_browser(initialized_archive, tmp_path, httpserver):
+    import json
+    import subprocess
+    from pathlib import Path
+
+    import psutil
+
+    from archivebox.tests.conftest import resolve_abxpkg_chrome_env
+
+    browser_env = resolve_abxpkg_chrome_env(tmp_path / "lib")
+    browser_env.update(ABXPKG_LIB_DIR=str(tmp_path / "lib"), CHROME_SANDBOX="false")
+    httpserver.expect_request("/").respond_with_data("<title>Background persona ready</title>", content_type="text/html")
+    launched = run_archivebox_cmd(
+        ["persona", "open", "Background test", "--headless", "--background"],
+        cwd=initialized_archive,
+        env=browser_env,
+        timeout=90,
+    )
+    assert launched.returncode == 0, launched.stderr + launched.stdout
+    result = json.loads(launched.stdout.strip().splitlines()[-1])
+    browser = psutil.Process(result["browser_pid"])
+    browser_dir = initialized_archive / "personas" / "Background test" / ".browser"
+    endpoint = (browser_dir / "cdp_url.txt").read_text().strip()
+    browser_pid = (browser_dir / "chrome.pid").read_text().strip()
+    try:
+        assert browser.is_running()
+        assert "Browser ready for persona Background test" in Path(result["log"]).read_text()
+        probe = subprocess.run(
+            [
+                browser_env["NODE_BINARY"],
+                "-e",
+                """const puppeteer = require(process.argv[1]);
+(async () => {
+  const browser = await puppeteer.connect({browserWSEndpoint: process.argv[2]});
+  try {
+    const page = (await browser.pages())[0];
+    await page.goto(process.argv[3]);
+    console.log(await page.title());
+  } finally { await browser.disconnect(); }
+})().catch(error => { console.error(error); process.exit(1); });""",
+                str(tmp_path / "lib/pnpm/packages/chrome/node_modules/puppeteer"),
+                endpoint,
+                httpserver.url_for("/"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert probe.returncode == 0, probe.stderr
+        assert "Background persona ready" in probe.stdout
+        reused = run_archivebox_cmd(
+            ["persona", "open", "Background test", "--headless", "--background"],
+            cwd=initialized_archive,
+            env=browser_env,
+            timeout=90,
+        )
+        assert reused.returncode == 0, reused.stderr + reused.stdout
+        assert (browser_dir / "cdp_url.txt").read_text().strip() == endpoint
+        assert (browser_dir / "chrome.pid").read_text().strip() == browser_pid
+        assert browser.is_running()
+    finally:
+        browser.terminate()
+        browser.wait(timeout=15)
+
+
+def test_persona_open_background_reports_launch_failure(initialized_archive, tmp_path):
+    from archivebox.tests.conftest import resolve_abxpkg_chrome_env
+
+    browser_env = resolve_abxpkg_chrome_env(tmp_path / "lib")
+    browser_env.update(ABXPKG_LIB_DIR=str(tmp_path / "lib"), CHROME_SANDBOX="false")
+    # A real filesystem conflict prevents the browser owner acquiring its lock.
+    browser_dir = initialized_archive / "personas" / "Blocked" / ".browser"
+    (browser_dir / "launch.lock").mkdir(parents=True)
+    result = run_archivebox_cmd(
+        ["persona", "open", "Blocked", "--headless", "--background"],
+        cwd=initialized_archive,
+        env=browser_env,
+        timeout=90,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Timeout acquiring lock: launch.lock" in result.stderr
+    assert ".log" in result.stderr
+    assert not (browser_dir / "cdp_url.txt").exists()
+
+
 def test_persona_help_runs_successfully(tmp_path):
     """The persona command should be registered and expose help."""
 

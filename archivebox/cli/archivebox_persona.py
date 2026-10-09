@@ -7,6 +7,7 @@ Manage Persona records (browser profiles for archiving).
 
 Actions:
     create  - Create Personas
+    open    - Open or reuse a persona's browser
     list    - List Personas as JSONL (with optional filters)
     update  - Update Personas from stdin JSONL
     delete  - Delete Personas from stdin JSONL
@@ -16,6 +17,9 @@ Examples:
     archivebox persona create work
     archivebox persona create --import=chrome personal
     archivebox persona create --import=edge work
+
+    # Start a browser for agent tasks; return after it is ready
+    archivebox persona open work --headless --background
 
     # List all personas
     archivebox persona list
@@ -498,11 +502,18 @@ def list_cmd(name: str | None, name__icontains: str | None, limit: int | None):
 @main.command("open")
 @click.argument("name", default="Default")
 @click.option("--headless", is_flag=True, help="Open without a display for background browser tasks.")
-def open_cmd(name: str, headless: bool = False):
+@click.option(
+    "--background",
+    is_flag=True,
+    help="Detach the browser owner and return once Chrome is ready; save startup output in the persona's .browser directory.",
+)
+def open_cmd(name: str, headless: bool = False, background: bool = False):
     """Open a persona's browser, including its imported logins."""
     import json
     import os
+    import subprocess
     import tempfile
+    import time
 
     import psutil
 
@@ -564,6 +575,45 @@ def open_cmd(name: str, headless: bool = False):
     with tempfile.TemporaryFile(mode="w+") as payload_file:
         json.dump(payload, payload_file)
         payload_file.seek(0)
+        if background:
+            from archivebox.misc.jsonl import write_record
+
+            browser_dir = persona.path / ".browser"
+            browser_dir.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(prefix="launch-", suffix=".log", dir=browser_dir, delete=False) as log_file:
+                log_path = Path(log_file.name)
+                owner = subprocess.Popen(
+                    command,
+                    env=env,
+                    stdin=payload_file,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+            ready = f"Browser ready for persona {persona.name}"
+            deadline = time.monotonic() + config.CHROME_TIMEOUT
+            try:
+                while True:
+                    output = log_path.read_text(errors="replace")
+                    code = owner.poll()
+                    if ready in output.splitlines() and code in (None, 0):
+                        write_record(
+                            {"name": persona.name, "browser_pid": int((browser_dir / "chrome.pid").read_text()), "log": str(log_path)},
+                        )
+                        return
+                    if code is not None:
+                        raise click.ClickException(
+                            f"Persona browser exited before becoming ready (exit {code}). Log: {log_path}\n{output[-4000:]}",
+                        )
+                    if time.monotonic() >= deadline:
+                        raise click.ClickException(
+                            f"Persona browser did not become ready within {config.CHROME_TIMEOUT}s. Log: {log_path}\n{output[-4000:]}",
+                        )
+                    time.sleep(0.1)
+            except BaseException:
+                if owner.poll() is None:
+                    owner.terminate()
+                raise
         os.dup2(payload_file.fileno(), 0)
         os.execvpe(command[0], command, env)
 
