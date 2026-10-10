@@ -6,6 +6,7 @@ __command__ = "archivebox add"
 
 import sys
 import os
+import json
 import signal
 from pathlib import Path
 
@@ -121,6 +122,25 @@ def add(
         from archivebox.misc.util import validate_url
 
         source_text = "\n".join(validate_url(str(url)) for url in urls)
+
+    # When explicit snapshot ids accompany the URL list (e.g. the admin
+    # "Archive Now" re-archive action), carry them as JSONL entries so the
+    # runner re-runs those exact rows in place. create_discovered_snapshots
+    # matches entries with an "id" to existing rows before dedupe, so a
+    # URL that already has a snapshot is re-queued instead of producing a
+    # duplicate row (or, with ONLY_NEW, being skipped entirely).
+    if snapshot_ids:
+        from archivebox.core.models import Snapshot
+
+        selected_urls = [line.strip() for line in source_text.splitlines() if line.strip()]
+        id_by_url: dict[str, str] = {}
+        for snapshot_id in snapshot_ids:
+            snapshot_id = str(snapshot_id)
+            snapshot_url = Snapshot.objects.filter(id=snapshot_id).values_list("url", flat=True).first()
+            if snapshot_url in selected_urls:
+                id_by_url.setdefault(snapshot_url, snapshot_id)
+        if id_by_url:
+            source_text = "\n".join(json.dumps({"id": snapshot_id, "url": url, "depth": 0}) for url, snapshot_id in id_by_url.items())
 
     # 2. Create a new Crawl with inline URLs
     # Foreground add must claim runner ownership before publishing runnable

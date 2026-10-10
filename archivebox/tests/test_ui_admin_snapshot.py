@@ -1689,7 +1689,10 @@ class TestAdminSnapshotListView:
         new_crawl = Crawl.objects.exclude(id__in=existing_crawl_ids).get()
         assert new_crawl.status == Crawl.StatusChoices.QUEUED
         assert new_crawl.retry_at is not None
-        assert new_crawl.urls.strip() == "https://example.com/path#section-1"
+        # The re-archive must carry the selected snapshot id so the runner
+        # re-runs the existing row in place (JSONL entry), not create a new one.
+        assert new_crawl.get_urls_list() == ["https://example.com/path#section-1"]
+        assert '"id": "' + str(snapshot.id) in new_crawl.urls
 
     def test_archive_now_action_groups_multiple_snapshots_into_one_crawl(self, client, admin_user, snapshot):
         from archivebox.crawls.models import Crawl
@@ -1717,7 +1720,48 @@ class TestAdminSnapshotListView:
         assert response.status_code == 302
         new_crawl = Crawl.objects.exclude(id__in=existing_crawl_ids).get()
         assert new_crawl.status == Crawl.StatusChoices.QUEUED
-        assert set(new_crawl.urls.splitlines()) == {"https://example.com", "https://example.com/other#frag"}
+        assert set(new_crawl.get_urls_list()) == {"https://example.com", "https://example.com/other#frag"}
+        # Both selected snapshot ids must ride along so the runner re-runs
+        # the existing rows in place rather than creating new ones.
+        assert f'"id": "{snapshot.id}"' in new_crawl.urls
+        assert f'"id": "{other_snapshot.id}"' in new_crawl.urls
+
+    def test_archive_now_action_requeues_existing_rows_without_duplicates(self, client, admin_user, snapshot):
+        """Bug #1622: re-snapshotting a URL that already has a snapshot row must
+        re-queue that exact row in place, not create a duplicate row (which
+        leaves the original stale and, on 0.7.x, breaks the JSONL index write
+        with Snapshot.DoesNotExist)."""
+        from archivebox.crawls.models import Crawl
+        from archivebox.core.models import Snapshot
+
+        existing_crawl_ids = set(Crawl.objects.values_list("id", flat=True))
+        snapshot.url = "https://example.com/path#section-1"
+        snapshot.status = Snapshot.StatusChoices.SEALED
+        snapshot.save(update_fields=["url", "status"])
+
+        client.force_login(admin_user)
+        response = client.post(
+            reverse("admin:core_snapshot_changelist"),
+            {
+                "action": "resnapshot_snapshot",
+                "_selected_action": [str(snapshot.pk)],
+                "index": "0",
+            },
+            HTTP_HOST=ADMIN_TEST_HOST,
+        )
+
+        assert response.status_code == 302
+        new_crawl = Crawl.objects.exclude(id__in=existing_crawl_ids).get()
+        assert new_crawl.status == Crawl.StatusChoices.QUEUED
+        # The selected row is re-queued in place (status back to QUEUED).
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        # No duplicate snapshot row was created for the same URL.
+        assert Snapshot.objects.filter(url=snapshot.url).count() == 1
+        # The new crawl's URL list carries the selected snapshot id so the
+        # runner re-runs the existing row rather than creating a new one.
+        assert new_crawl.get_urls_list() == [snapshot.url]
+        assert f'"id": "{snapshot.id}"' in new_crawl.urls
 
     def test_change_view_archiveresults_inline_shows_process_and_machine_links(
         self,

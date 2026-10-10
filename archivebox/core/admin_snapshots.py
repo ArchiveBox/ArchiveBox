@@ -1500,22 +1500,37 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
 
         from archivebox.cli.archivebox_add import add
 
-        # "Archive Now" is an explicit user re-archive — force ONLY_NEW=False
-        # on the resulting crawl so existing snapshots don't cause the crawl to
-        # seal immediately with zero new snapshots (the default ONLY_NEW=True
-        # would skip any URLs that have ever been archived before).
-        crawl, _ = add(urls=urls, bg=True, config={"ONLY_NEW": False})
+        # "Archive Now" is an explicit user re-archive. Passing the selected
+        # snapshot ids makes add() store them as JSONL entries in the new
+        # crawl's URL list; the runner then matches those entries to the
+        # existing rows and re-queues them in place instead of creating fresh
+        # duplicate rows for URLs that already have snapshots. Force
+        # ONLY_NEW=False so the in-crawl dedupe pass does not skip URLs that
+        # have snapshots in other crawls (the default ONLY_NEW=True scope is
+        # all Snapshots, which would skip every re-archive of an existing URL
+        # and seal the crawl with zero snapshots).
+        selected_ids = [str(snapshot.id) for snapshot in snapshots if snapshot.url]
+        crawl, _ = add(urls=urls, bg=True, snapshot_ids=selected_ids, config={"ONLY_NEW": False})
+
+        # Re-queue the selected rows in place right now so the runner picks
+        # them up on its next pass. Without this, a SEALED snapshot (e.g. one
+        # that was fully archived before) would stay sealed forever — the
+        # runner only processes rows whose status is in RUNNABLE_STATES. The
+        # snapshot_ids in the crawl's URL list tell the runner to match these
+        # same rows (rather than create new ones) when it re-runs the crawl.
+        for snapshot in snapshots:
+            if snapshot.url:
+                snapshot.update_and_requeue(status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now())
 
         messages.success(
             request,
-            f"Created 1 queued crawl with {len(snapshots)} URL(s). The background runner will create snapshots and process them.",
+            f"Queued {len(snapshots)} snapshot(s) for re-archive. The background runner will re-run them in place.",
         )
 
-        # Redirect to the new crawl's admin page so the user lands on the
-        # work-in-progress crawl, not the old snapshot they re-archived from.
-        # A snapshot-view redirect would race the runner — the new snapshot
-        # may sit queued for a while before the runner creates the DB row.
-        return redirect(f"/admin/crawls/crawl/{crawl.id}/change/#snapshots")
+        # Redirect to the snapshot list filtered to the new crawl so the user
+        # lands on the work-in-progress re-archive, not the old snapshot they
+        # re-archived from.
+        return redirect(f"/admin/snapshots/?crawl__id__exact={crawl.id}")
 
     @admin.action(
         description="🔄 Redo",
