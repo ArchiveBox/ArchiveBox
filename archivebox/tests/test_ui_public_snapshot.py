@@ -288,9 +288,14 @@ def test_archive_url_with_multiple_snapshots_redirects_to_latest_snapshot(client
         re.DOTALL,
     )
     assert chooser
-    assert first.get_absolute_url().encode() in chooser.group()
-    assert second.get_absolute_url().encode() in chooser.group()
-    assert b"4.0\xc2\xa0KB" in chooser.group()
+    for capture, expected_size in ((first, b"4 KB"), (second, b"20 B")):
+        capture_link = re.search(
+            rb'<a href="[^"]*' + re.escape(capture.get_absolute_url().encode()) + rb'"[^>]*>(.*?)</a>',
+            chooser.group(),
+            re.DOTALL,
+        )
+        assert capture_link
+        assert capture_link.group(1).strip().endswith(b"\xf0\x9f\x92\xbe " + expected_size)
     assert b'aria-current="page"' in chooser.group()
     assert b"\xf0\x9f\x93\x81 2" not in chooser.group()
     assert b"\xf0\x9f\x93\x81 2" not in response.content
