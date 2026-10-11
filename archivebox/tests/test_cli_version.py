@@ -275,6 +275,11 @@ def test_version_includes_disabled_plugin_dependencies(tmp_path):
     from archivebox.plugins.discovery import get_plugin_catalog
 
     rows = [re.split(r"\s{2,}", line.strip()) for line in version_result.stdout.splitlines()]
+    # A locally installed importer dependency must not hide accidental enablement
+    # of command-only plugins when every capture plugin is disabled.
+    feedparser_rows = [row for row in rows if len(row) == 6 and row[0] == "feedparser"]
+    assert len(feedparser_rows) == 1, output
+    assert feedparser_rows[0][2] == "disabled", output
     for plugin_name, plugin in get_plugin_catalog().items():
         if plugin.config.required_binaries:
             assert sum(len(row) >= 6 and plugin_name in row[1].split(", ") for row in rows) == len(plugin.config.required_binaries), (
