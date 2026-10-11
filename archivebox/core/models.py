@@ -1780,13 +1780,26 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             self.title = None
 
     def _merge_tags_from_index(self, index_data: dict):
-        """Merge tags - union of both sources."""
+        """Merge tags - union of both sources.
+
+        Only add tags that are genuinely new to the DB row. A tag that is
+        already present in the index when reconciliation started is not "new"
+        even if the DB row no longer has it (e.g. the user deleted it in the
+        meantime, or a legacy index.json is being replayed). Treating the
+        index as an add-only source of truth otherwise resurrects deleted
+        tags on every scheduled update (see #1626).
+        """
         index_tags = set(index_data.get("tags", "").split(",")) if index_data.get("tags") else set()
-        index_tags = {t.strip() for t in index_tags if t.strip()}
+        index_tags = {sanitize_html_text(t).strip() for t in index_tags if t.strip()}
 
-        db_tags = set(self.tags.values_list("name", flat=True))
+        db_tags = {t.casefold() for t in self.tags.values_list("name", flat=True)}
 
-        new_tags = index_tags - db_tags
+        # A tag already present in the index when reconciliation started is
+        # not "new" even if the DB row no longer has it (the user deleted it
+        # in the meantime, or a legacy index.json is being replayed). Case-
+        # insensitive matching keeps the merge converging on renames/imports
+        # without resurrecting deleted tags (see #1626).
+        new_tags = {tag_name for tag_name in index_tags if tag_name.casefold() not in db_tags}
         if new_tags:
             for tag_name in new_tags:
                 tag, _ = Tag.get_or_create_by_name(tag_name)
@@ -2108,7 +2121,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "url": data.get("url", self.url),
             "timestamp": data.get("timestamp", self.timestamp),
             "title": data.get("title", self.title or ""),
-            "tags": data.get("tags", ""),
+            # Normalize the legacy tags the same way the DB stores them
+            # (sanitize + strip + case-insensitive dedupe) so the converted
+            # index.jsonl never diverges from the DB tag set textually. A
+            # textual mismatch is what makes _merge_tags_from_index look like
+            # a tag was (re)added when it was not (see #1626).
+            "tags": ",".join(sorted(Crawl.parse_tag_names(str(data.get("tags") or "")), key=str.casefold)),
             "fs_version": fs_version,
             "bookmarked_at": data.get("bookmarked_at"),
             "created_at": data.get("created_at"),
@@ -2950,8 +2968,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         tag_ids = {get_or_create_tag(tag, created_by=created_by)[0].pk for tag in tags if tag.strip()}
         existing_tag_ids = set(SnapshotTag.objects.filter(snapshot_id=self.pk).values_list("tag_id", flat=True))
+        if not (existing_tag_ids - tag_ids or tag_ids - existing_tag_ids):
+            return
         self.remove_tag_ids(existing_tag_ids - tag_ids)
         self.add_tag_ids(tag_ids - existing_tag_ids)
+        # Keep the on-disk index in sync with the DB so reconcile_with_index
+        # (update / scheduled maintenance) does not re-add tags the user just
+        # removed from a stale index (see #1626).
+        self.write_index_jsonl()
 
     def finalize_output_metadata(self) -> None:
         """
