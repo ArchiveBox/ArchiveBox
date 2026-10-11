@@ -1,0 +1,19 @@
+archivebox/tests/migrations_helpers.py
+  s_6b24a346776494::t_94b8eaa0ba447a 1369-1373,1375
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73cdc29cc6052fc50d73f63dd66725162d6045ed",
+  "prompts": {},
+  "sessions": {
+    "s_6b24a346776494": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12d36-b475-7512-8802-f1286cbf9c58",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
