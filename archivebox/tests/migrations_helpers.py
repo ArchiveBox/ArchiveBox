@@ -1366,21 +1366,13 @@ def verify_snapshot_titles(db_path: Path, expected_titles: dict[str, str]) -> tu
 
 def verify_foreign_keys(db_path: Path) -> tuple[bool, str]:
     """Verify foreign key relationships are intact."""
-    conn = sqlite3.connect(str(db_path))
-    cursor = conn.cursor()
-
-    # Check ArchiveResult -> Snapshot FK
-    cursor.execute("""
-        SELECT COUNT(*) FROM core_archiveresult ar
-        WHERE NOT EXISTS (SELECT 1 FROM core_snapshot s WHERE s.id = ar.snapshot_id)
-    """)
-    orphaned_results = cursor.fetchone()[0]
-
-    conn.close()
-
-    if orphaned_results == 0:
+    # Checking only ArchiveResult.snapshot missed broken Process.binary links
+    # such as #1915. Validate every declared FK in the migrated database.
+    with sqlite3.connect(str(db_path)) as conn:
+        violations = conn.execute("PRAGMA foreign_key_check").fetchall()
+    if not violations:
         return True, "Foreign keys intact"
-    return False, f"Found {orphaned_results} orphaned ArchiveResults"
+    return False, f"Foreign key violations (table, rowid, parent, constraint): {violations}"
 
 
 def verify_all_snapshots_in_output(output: str, snapshots: list[dict]) -> tuple[bool, str]:
