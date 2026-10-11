@@ -139,7 +139,7 @@ def test_snapshot_pause_resume_api_leaves_archiveresult_facts_unchanged(
             hook_name="on_Snapshot__93_hashes.py",
             lib_dir=lib_dir,
         )
-        Snapshot.objects.filter(pk=snapshot.pk).update(url="file:///nonexistent/archivebox-test-repository.git")
+        Snapshot.objects.filter(pk=snapshot.pk).update(url="https://example.com/archivebox-test-repository.git")
         snapshot.refresh_from_db()
         _failed_process, failed_result = _run_shipped_snapshot_hook(
             snapshot,
@@ -147,16 +147,17 @@ def test_snapshot_pause_resume_api_leaves_archiveresult_facts_unchanged(
             hook_name=_snapshot_hook_name("git"),
             event_hook_name=_snapshot_hook_name("git"),
             lib_dir=lib_dir,
+            # file:// is intentionally noresults. Exercise a real Git fetch
+            # failure using its transport policy, without depending on a server.
+            env={
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": "protocol.https.allow",
+                "GIT_CONFIG_VALUE_0": "never",
+            },
             expected_exit_codes=(1,),
         )
         assert failed_result.status == ArchiveResult.StatusChoices.FAILED
-        assert failed_result.output_str == (
-            "git fetch failed (exit=128): fatal: '/nonexistent/archivebox-test-repository.git' "
-            "does not appear to be a git repository\n"
-            "fatal: Could not read from remote repository.\n\n"
-            "Please make sure you have the correct access rights\n"
-            "and the repository exists."
-        )
+        assert failed_result.output_str == "git fetch failed (exit=128): fatal: transport 'https' not allowed"
         install_result = run_archivebox_cmd(["install", "wget"], cwd=tmp_path, timeout=600)
         assert install_result.returncode == 0, install_result.stderr or install_result.stdout
         now = timezone.now()
