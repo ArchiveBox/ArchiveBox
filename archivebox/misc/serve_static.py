@@ -410,20 +410,29 @@ def _build_directory_zip_response(
     initial_chunk_target = 64 * 1024
     initial_chunk_wait = 0.05
 
+    def close_stream() -> None:
+        # Wake both a producer blocked on a full queue and an async adapter
+        # waiting for its next chunk. Disconnected downloads own no more work.
+        output_queue.shutdown(immediate=True)
+
     def build_zip() -> None:
         # zipfile wants a write-only file object. Feed those bytes straight into
         # a queue so the response can stream them out as soon as they are ready.
         writer = _StreamingQueueWriter(output_queue)
         try:
-            with zipfile.ZipFile(writer, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zip_file:
-                for entry in _iter_visible_files(fullpath):
-                    rel_parts = entry.relative_to(fullpath).parts
-                    arcname = Path(root_name, *rel_parts).as_posix()
-                    zip_file.write(entry, arcname)
-        except (OSError, RuntimeError, TypeError, ValueError, zipfile.BadZipFile) as err:
-            output_queue.put(err)
-        finally:
-            output_queue.put(sentinel)
+            try:
+                with zipfile.ZipFile(writer, mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zip_file:
+                    for entry in _iter_visible_files(fullpath):
+                        rel_parts = entry.relative_to(fullpath).parts
+                        arcname = Path(root_name, *rel_parts).as_posix()
+                        zip_file.write(entry, arcname)
+            except (OSError, RuntimeError, TypeError, ValueError, zipfile.BadZipFile) as err:
+                output_queue.put(err)
+            finally:
+                output_queue.put(sentinel)
+        except queue.ShutDown:
+            # Closing the response also interrupts ZIP writes/error delivery.
+            pass
 
     threading.Thread(target=build_zip, name=f"zip-stream-{root_name}", daemon=True).start()
 
@@ -433,46 +442,56 @@ def _build_directory_zip_response(
         first_chunk = bytearray()
         initial_deadline = time.monotonic() + initial_chunk_wait
 
-        while True:
-            timeout = max(initial_deadline - time.monotonic(), 0) if len(first_chunk) < initial_chunk_target else None
-            try:
-                chunk = output_queue.get(timeout=timeout) if timeout is not None else output_queue.get()
-            except queue.Empty:
-                if first_chunk:
-                    yield bytes(first_chunk)
-                    first_chunk.clear()
-                    continue
-                chunk = output_queue.get()
+        try:
+            while True:
+                timeout = max(initial_deadline - time.monotonic(), 0) if len(first_chunk) < initial_chunk_target else None
+                try:
+                    chunk = output_queue.get(timeout=timeout) if timeout is not None else output_queue.get()
+                except queue.Empty:
+                    if first_chunk:
+                        yield bytes(first_chunk)
+                        first_chunk.clear()
+                        continue
+                    chunk = output_queue.get()
 
-            if chunk is sentinel:
-                if first_chunk:
-                    yield bytes(first_chunk)
-                break
-            if isinstance(chunk, BaseException):
-                raise chunk
-            if len(first_chunk) < initial_chunk_target:
-                first_chunk.extend(chunk)
-                if len(first_chunk) >= initial_chunk_target or time.monotonic() >= initial_deadline:
-                    yield bytes(first_chunk)
-                    first_chunk.clear()
-                continue
-            yield chunk
+                if chunk is sentinel:
+                    if first_chunk:
+                        yield bytes(first_chunk)
+                    break
+                if isinstance(chunk, BaseException):
+                    raise chunk
+                if len(first_chunk) < initial_chunk_target:
+                    first_chunk.extend(chunk)
+                    if len(first_chunk) >= initial_chunk_target or time.monotonic() >= initial_deadline:
+                        yield bytes(first_chunk)
+                        first_chunk.clear()
+                    continue
+                yield chunk
+        except queue.ShutDown:
+            return
+        finally:
+            close_stream()
 
     async def stream_zip_async():
         # Django ASGI buffers sync StreamingHttpResponse iterators by consuming
         # them into a list. Drive the same sync iterator from a worker thread so
         # Daphne can send each chunk as it arrives instead of buffering the ZIP.
         iterator = iter(iter_zip_chunks())
-        while True:
-            chunk = await asyncio.to_thread(next, iterator, None)
-            if chunk is None:
-                break
-            yield chunk
+        try:
+            while True:
+                chunk = await asyncio.to_thread(next, iterator, None)
+                if chunk is None:
+                    break
+                yield chunk
+        finally:
+            close_stream()
 
     response = StreamingHttpResponse(
         stream_zip_async() if use_async_stream else iter_zip_chunks(),
         content_type="application/zip",
     )
+    # Django closes responses even when the body iterator was never started.
+    response._resource_closers.append(close_stream)
     response.headers["Content-Disposition"] = f'attachment; filename="{root_name}.zip"'
     response.headers["Cache-Control"] = f"{_cache_policy(config=config)}, max-age=60, stale-while-revalidate=300"
     response.headers["Last-Modified"] = http_date(fullpath.stat().st_mtime)
