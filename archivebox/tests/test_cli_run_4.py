@@ -195,8 +195,113 @@ def test_newest_crawl_runs_before_older_queued_and_started_crawls(initialized_ar
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("targeted", [False, True], ids=["collection", "explicit-crawl"])
+def test_bulk_crawl_reconsiders_pending_work_between_captures(initialized_archive, targeted):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    env = cli_env(live=True, PLUGINS="hashes", CRAWL_MAX_CONCURRENT_SNAPSHOTS="1")
+    old_url = create_test_url()
+    bulk_urls = [create_test_url() for _ in range(3)]
+    old = run_archivebox_cmd(["snapshot", "create", old_url], cwd=initialized_archive, env=env)
+    assert old.returncode == 0, old.stdout + old.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(url=old_url)
+        Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED)
+        Snapshot.objects.filter(pk=snapshot.pk).update(retry_at=timezone.now() - timedelta(days=1))
+    bulk = run_archivebox_cmd(["crawl", "create", *bulk_urls], cwd=initialized_archive, env=env)
+    assert bulk.returncode == 0, bulk.stdout + bulk.stderr
+    bulk_id = next(record["id"] for record in parse_jsonl_output(bulk.stdout) if record.get("type") == "Crawl")
+
+    args = ["run", "--no-stdin"]
+    if targeted:
+        args.append(f"--crawl-id={bulk_id}")
+    result = run_archivebox_cmd(args, cwd=initialized_archive, env=env, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    with use_archivebox_db(initialized_archive):
+        results = list(ArchiveResult.objects.filter(plugin="hashes").select_related("snapshot").order_by("start_ts"))
+        expected = bulk_urls if targeted else [bulk_urls[0], old_url, *bulk_urls[1:]]
+        assert [row.snapshot.url for row in results] == expected
+        for row in results:
+            assert row.status == ArchiveResult.StatusChoices.SUCCEEDED
+            assert row.snapshot.status == Snapshot.StatusChoices.SEALED
+            assert row.output_size > 0
+            assert (row.snapshot.output_dir / "hashes").is_dir()
+        if targeted:
+            assert Snapshot.objects.get(url=old_url).status == Snapshot.StatusChoices.QUEUED
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.timeout(180)
+def test_scheduler_yield_finishes_overlapping_chrome_captures(initialized_archive, recursive_test_site):
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    env = cli_env(
+        live=True,
+        PLUGINS="chrome,hashes",
+        CHROME_ISOLATION="crawl",
+        CHROME_HEADLESS="true",
+        CHROME_SANDBOX="false",
+        CHROME_DELAY_AFTER_LOAD="3",
+        CRAWL_MAX_CONCURRENT_SNAPSHOTS="2",
+    )
+    _install_real_chrome_for_test(initialized_archive, env, isolation="crawl")
+    bulk_urls = [*recursive_test_site["child_urls"], *recursive_test_site["deep_urls"]]
+    created = run_archivebox_cmd(["crawl", "create", *bulk_urls], cwd=initialized_archive, env=env)
+    assert created.returncode == 0, created.stdout + created.stderr
+    log_path = initialized_archive / "yield-runner.log"
+    with log_path.open("w+") as log:
+        worker = run_archivebox_cmd(
+            ["run", "--no-stdin"],
+            cwd=initialized_archive,
+            env=env,
+            wait=False,
+            stdout=log,
+            stderr=log,
+            start_new_session=True,
+        )
+        try:
+            active_ids = []
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline and worker.poll() is None:
+                with use_archivebox_db(initialized_archive):
+                    active_ids = list(Snapshot.objects.filter(url__in=bulk_urls, status="started").values_list("id", flat=True))
+                if len(active_ids) == 2:
+                    break
+                time.sleep(0.1)
+            assert len(active_ids) == 2, log_path.read_text()
+            new_url = recursive_test_site["root_url"]
+            submitted = run_archivebox_cmd(["snapshot", "create", new_url], cwd=initialized_archive, env=env)
+            assert submitted.returncode == 0, submitted.stdout + submitted.stderr
+            assert worker.wait(timeout=90) == 0, log_path.read_text()
+        finally:
+            cleanup_process_group(worker.pid)
+    with use_archivebox_db(initialized_archive):
+        captures = list(Snapshot.objects.filter(url__in=[*bulk_urls, new_url]))
+        assert len(captures) == 7
+        assert all(snapshot.status == Snapshot.StatusChoices.SEALED for snapshot in captures)
+        new_result = ArchiveResult.objects.get(snapshot__url=new_url, hook_name="on_Snapshot__30_chrome_navigate")
+        for snapshot in captures:
+            chrome = snapshot.archiveresult_set.get(hook_name="on_Snapshot__30_chrome_navigate")
+            assert chrome.status == ArchiveResult.StatusChoices.SUCCEEDED
+            assert chrome.process.exit_code == 0
+            assert (snapshot.output_dir / "chrome" / "navigation.json").is_file()
+            assert snapshot.archiveresult_set.get(plugin="hashes").status == ArchiveResult.StatusChoices.SUCCEEDED
+            if snapshot.id in active_ids:
+                assert snapshot.downloaded_at < new_result.start_ts
+        assert any(snapshot.downloaded_at > new_result.end_ts for snapshot in captures if snapshot.url in bulk_urls)
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.timeout(660)
-def test_due_snapshots_share_one_crawl_scoped_chrome(initialized_archive, recursive_test_site):
+@pytest.mark.parametrize("targeted", [False, True], ids=["collection", "explicit-crawl"])
+def test_due_snapshots_share_one_crawl_scoped_chrome(initialized_archive, recursive_test_site, targeted):
     from django.utils import timezone
 
     from archivebox.base_models.models import get_or_create_system_user_pk
@@ -220,7 +325,10 @@ def test_due_snapshots_share_one_crawl_scoped_chrome(initialized_archive, recurs
             Snapshot.objects.create(url=url, crawl=crawl, status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now())
         crawl_id = str(crawl.id)
 
-    result = run_archivebox_cmd(["run", "--no-stdin", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=600)
+    args = ["run", "--no-stdin"]
+    if targeted:
+        args.append(f"--crawl-id={crawl_id}")
+    result = run_archivebox_cmd(args, cwd=initialized_archive, env=env, timeout=600)
     assert result.returncode == 0, result.stdout + result.stderr
     with use_archivebox_db(initialized_archive):
         snapshots = Snapshot.objects.filter(crawl_id=crawl_id, url__in=urls, status=Snapshot.StatusChoices.SEALED)

@@ -199,6 +199,7 @@ class CrawlRunner:
         show_progress: bool = True,
         interactive_interrupts: bool = False,
         config_overrides: dict[str, Any] | None = None,
+        schedule_all_crawls: bool = False,
     ):
         self.crawl = crawl
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
@@ -218,6 +219,8 @@ class CrawlRunner:
         CrawlService(self.bus, crawl_id=str(crawl.id))
         MachineService(self.bus)
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
+        self.schedule_all_crawls = schedule_all_crawls
+        self._scheduler_yielded = False
         self.show_progress = show_progress
         self.interactive_interrupts = interactive_interrupts
         self._interrupt_choice: asyncio.Future[Literal["abort", "retry", "skip"]] | None = None
@@ -496,7 +499,7 @@ class CrawlRunner:
                 raise KeyboardInterrupt
 
     async def enqueue_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
-        if self._resource_deferred:
+        if self._resource_deferred or self._scheduler_yielded:
             return
         if not self._initial_snapshot_admitted and await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
             self.crawl,
@@ -696,7 +699,7 @@ class CrawlRunner:
         from archivebox.core.models import Snapshot
         from archivebox.config.common import get_config
 
-        if self._resource_deferred:
+        if self._resource_deferred or self._scheduler_yielded:
             return
         if not isinstance(get_current_event(), CrawlStartEvent):
             return
@@ -716,6 +719,16 @@ class CrawlRunner:
             self._observed_snapshot_cost,
         )
         if available_slots <= 0:
+            return
+        if self.schedule_all_crawls and await sync_to_async(_higher_priority_crawl_waiting, thread_sensitive=True)(
+            str(self.crawl.id),
+            active_snapshot_ids,
+        ):
+            # Finish every admitted capture before normal crawl cleanup. The
+            # outer scheduler can then apply its existing ordering instead of
+            # waiting for this crawl's entire backlog to drain. Keep the same
+            # browser/session when this crawl still owns the next admission.
+            self._scheduler_yielded = True
             return
         pending_snapshot_ids = await sync_to_async(
             lambda: list(
@@ -1369,6 +1382,7 @@ def run_crawl(
     show_progress: bool = True,
     interactive_interrupts: bool = False,
     config_overrides: dict[str, Any] | None = None,
+    schedule_all_crawls: bool = False,
 ) -> None:
     with crawl_lifecycle_lock(crawl_id):
         _run_crawl_locked(
@@ -1379,6 +1393,7 @@ def run_crawl(
             show_progress=show_progress,
             interactive_interrupts=interactive_interrupts,
             config_overrides=config_overrides,
+            schedule_all_crawls=schedule_all_crawls,
         )
 
 
@@ -1391,6 +1406,7 @@ def _run_crawl_locked(
     show_progress: bool = True,
     interactive_interrupts: bool = False,
     config_overrides: dict[str, Any] | None = None,
+    schedule_all_crawls: bool = False,
 ) -> None:
     from archivebox.crawls.models import Crawl
     from django.db import close_old_connections
@@ -1408,6 +1424,7 @@ def _run_crawl_locked(
                     show_progress=show_progress,
                     interactive_interrupts=interactive_interrupts,
                     config_overrides=config_overrides,
+                    schedule_all_crawls=schedule_all_crawls,
                 ).run(),
             )
         finally:
@@ -1538,16 +1555,17 @@ def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=()) -> bool:
     return True
 
 
-def run_due_crawl(crawl, *, lock_seconds: int, interactive_interrupts: bool = False) -> bool:
+def run_due_crawl(crawl, *, lock_seconds: int, interactive_interrupts: bool = False, schedule_all_crawls: bool = False) -> bool:
     with crawl_lifecycle_lock(str(crawl.id)):
         return _run_due_crawl_locked(
             crawl,
             lock_seconds=lock_seconds,
             interactive_interrupts=interactive_interrupts,
+            schedule_all_crawls=schedule_all_crawls,
         )
 
 
-def _run_due_crawl_locked(crawl, *, lock_seconds: int, interactive_interrupts: bool = False) -> bool:
+def _run_due_crawl_locked(crawl, *, lock_seconds: int, interactive_interrupts: bool = False, schedule_all_crawls: bool = False) -> bool:
     try:
         crawl.refresh_from_db(fields=["status", "retry_at", "modified_at"])
     except type(crawl).DoesNotExist:
@@ -1625,7 +1643,12 @@ def _run_due_crawl_locked(crawl, *, lock_seconds: int, interactive_interrupts: b
             crawl.advance_lifecycle()
             return True
         _runner_console_line(crawl=crawl)
-        run_crawl(str(crawl.id), process_discovered_snapshots_inline=True, interactive_interrupts=interactive_interrupts)
+        run_crawl(
+            str(crawl.id),
+            process_discovered_snapshots_inline=True,
+            interactive_interrupts=interactive_interrupts,
+            schedule_all_crawls=schedule_all_crawls,
+        )
         return True
 
     if crawl.status == crawl.StatusChoices.SEALED:
@@ -1640,17 +1663,32 @@ def _run_due_crawl_locked(crawl, *, lock_seconds: int, interactive_interrupts: b
     return True
 
 
-def run_due_snapshot(snapshot, *, lock_seconds: int, interactive_interrupts: bool = False, runtime_config=None) -> bool:
+def run_due_snapshot(
+    snapshot,
+    *,
+    lock_seconds: int,
+    interactive_interrupts: bool = False,
+    runtime_config=None,
+    schedule_all_crawls: bool = False,
+) -> bool:
     with crawl_lifecycle_lock(str(snapshot.crawl_id)):
         return _run_due_snapshot_locked(
             snapshot,
             lock_seconds=lock_seconds,
             interactive_interrupts=interactive_interrupts,
             runtime_config=runtime_config,
+            schedule_all_crawls=schedule_all_crawls,
         )
 
 
-def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interrupts: bool = False, runtime_config=None) -> bool:
+def _run_due_snapshot_locked(
+    snapshot,
+    *,
+    lock_seconds: int,
+    interactive_interrupts: bool = False,
+    runtime_config=None,
+    schedule_all_crawls: bool = False,
+) -> bool:
     from archivebox.core.models import Snapshot
 
     try:
@@ -1736,6 +1774,7 @@ def _run_due_snapshot_locked(snapshot, *, lock_seconds: int, interactive_interru
             str(snapshot.crawl_id),
             process_discovered_snapshots_inline=True,
             interactive_interrupts=interactive_interrupts,
+            schedule_all_crawls=schedule_all_crawls,
         )
         return True
 
@@ -1936,6 +1975,32 @@ def _first_due_id(queryset, *, newest_first: bool = False):
     return None
 
 
+def _higher_priority_crawl_waiting(crawl_id: str, active_snapshot_ids: list[str]) -> bool:
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    # Match run_pending_crawls' admission order, including newer queued
+    # submissions ahead of resumed work. Owned captures finish in this runner;
+    # an expired lease must not make one of them look like a new admission.
+    active_snapshots = Snapshot.objects.filter(
+        retry_at__lte=timezone.now(),
+        crawl__status__in=Crawl.RUNNABLE_STATES,
+        status__in=Snapshot.RUNNABLE_STATES,
+    ).exclude(id__in=active_snapshot_ids)
+    for queryset, newest_first in (
+        (active_snapshots.filter(crawl__status=Crawl.StatusChoices.QUEUED), True),
+        (Crawl.objects.filter(retry_at__lte=timezone.now(), status=Crawl.StatusChoices.QUEUED), True),
+        (active_snapshots, False),
+    ):
+        candidate_id = _first_due_id(queryset, newest_first=newest_first)
+        if candidate_id is not None:
+            if queryset.model is Crawl:
+                return str(candidate_id) != crawl_id
+            next_crawl_id = Snapshot.objects.filter(id=candidate_id).values_list("crawl_id", flat=True).first()
+            return next_crawl_id is not None and str(next_crawl_id) != crawl_id
+    return False
+
+
 def _run_due_crawl_status(
     status: str,
     *,
@@ -1962,6 +2027,7 @@ def _run_due_crawl_status(
         due_crawl,
         lock_seconds=lock_seconds,
         interactive_interrupts=interactive_interrupts,
+        schedule_all_crawls=crawl_id is None,
     )
 
 
@@ -1972,6 +2038,7 @@ def _run_due_snapshot_query(
     interactive_interrupts: bool,
     runtime_config,
     newest_first: bool = False,
+    schedule_all_crawls: bool = False,
 ) -> bool:
     due_snapshot_id = _first_due_id(queryset, newest_first=newest_first)
     return _run_due_snapshot_id(
@@ -1979,10 +2046,18 @@ def _run_due_snapshot_query(
         lock_seconds=lock_seconds,
         interactive_interrupts=interactive_interrupts,
         runtime_config=runtime_config,
+        schedule_all_crawls=schedule_all_crawls,
     )
 
 
-def _run_due_snapshot_id(snapshot_id, *, lock_seconds: int, interactive_interrupts: bool, runtime_config) -> bool:
+def _run_due_snapshot_id(
+    snapshot_id,
+    *,
+    lock_seconds: int,
+    interactive_interrupts: bool,
+    runtime_config,
+    schedule_all_crawls: bool = False,
+) -> bool:
     from archivebox.core.models import Snapshot
 
     due_snapshot_id = snapshot_id
@@ -1998,6 +2073,7 @@ def _run_due_snapshot_id(snapshot_id, *, lock_seconds: int, interactive_interrup
         lock_seconds=lock_seconds,
         interactive_interrupts=interactive_interrupts,
         runtime_config=runtime_config,
+        schedule_all_crawls=schedule_all_crawls,
     )
 
 
@@ -2112,6 +2188,7 @@ def run_pending_crawls(
                 interactive_interrupts=interactive_interrupts,
                 runtime_config=runtime_config,
                 newest_first=True,
+                schedule_all_crawls=crawl_id is None,
             ):
                 continue
 
@@ -2129,6 +2206,7 @@ def run_pending_crawls(
                 lock_seconds=60,
                 interactive_interrupts=interactive_interrupts,
                 runtime_config=runtime_config,
+                schedule_all_crawls=crawl_id is None,
             ):
                 continue
 
