@@ -201,6 +201,58 @@ def test_config_scopes_are_derived_from_section_and_field_metadata():
     assert ArchiveBoxConfig.scope_for_key("DATABASE_NAME") == "server"
 
 
+def test_curl_user_agent_alias_reaches_hook_env_without_rewriting_user_agent():
+    from archivebox.config.common import ArchiveBoxConfig, get_config
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+
+    assert ArchiveBoxConfig.scope_for_key("CURL_USER_AGENT") == "crawl_execution"
+    assert ArchiveBoxConfig.scope_for_key("USER_AGENT") == "crawl_frozen"
+
+    user = _user("curl-ua-alias-admin")
+    persona = _persona(user, name="Curl UA Persona", user_agent="Frozen UA")
+    crawl = Crawl.objects.create(urls="https://example.com/curl-ua", persona=persona, created_by=user, config={})
+    snapshot = Snapshot.objects.create(url="https://example.com/curl-ua", crawl=crawl, config={})
+
+    assert crawl.config["USER_AGENT"] == "Frozen UA"
+    assert "CURL_USER_AGENT" not in crawl.config
+
+    # The reporter's documented path: CURL_USER_AGENT is an ambient (env) setting,
+    # so it reaches hook execution via the base config, not the frozen crawl config.
+    base_config = ArchiveBoxConfig(USER_AGENT="Frozen UA", CURL_USER_AGENT="curl/8.13.0")
+    runtime_config = get_config(
+        crawl=crawl,
+        snapshot=snapshot,
+        persona=crawl.resolve_persona(),
+        base_config=base_config,
+    )
+    assert runtime_config.USER_AGENT == "Frozen UA"
+    assert str(runtime_config.CURL_USER_AGENT or "") == "curl/8.13.0"
+
+    hook_env = runtime_config.for_crawl_runtime(
+        crawl=crawl,
+        snapshot=snapshot,
+        persona=crawl.resolve_persona(),
+        crawl_output_dir="/tmp/archivebox/crawls/curl-ua",
+        snapshot_output_dir="/tmp/archivebox/crawls/curl-ua/snapshots/curl-ua",
+        extra_context={"snapshot_id": "curl-ua"},
+    )
+    assert hook_env["USER_AGENT"] == "curl/8.13.0"
+    assert hook_env["CURL_USER_AGENT"] == "curl/8.13.0"
+
+    # Without the alias the frozen persona value flows through unchanged.
+    plain_runtime_config = get_config(crawl=crawl, snapshot=snapshot, persona=crawl.resolve_persona())
+    plain_hook_env = plain_runtime_config.for_crawl_runtime(
+        crawl=crawl,
+        snapshot=snapshot,
+        persona=crawl.resolve_persona(),
+        crawl_output_dir="/tmp/archivebox/crawls/curl-ua",
+        snapshot_output_dir="/tmp/archivebox/crawls/curl-ua/snapshots/plain-ua",
+        extra_context={"snapshot_id": "plain-ua"},
+    )
+    assert plain_hook_env["USER_AGENT"] == "Frozen UA"
+
+
 def test_search_backend_engine_derives_default_backend_enabled_without_entering_hook_env():
     from archivebox.config.common import ArchiveBoxConfig
 

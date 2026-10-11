@@ -501,6 +501,10 @@ class ArchivingConfig(BaseConfigSet):
     USER_AGENT: str = Field(
         default=f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)",
     )
+    # Legacy alias: the pre-plugin title extractor fetched pages with curl and
+    # documented CURL_USER_AGENT as the knob for that fetch (ArchiveBox#1670).
+    # abx-dl now reads USER_AGENT, so mirror the alias into the hook env.
+    CURL_USER_AGENT: str = Field(default="", json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
     COOKIES_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
     AUTH_STORAGE_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
 
@@ -685,6 +689,12 @@ def _archivebox_config_input_names() -> set[str]:
     return names
 
 
+def _apply_curl_user_agent_alias(config: dict[str, Any]) -> None:
+    """Mirror legacy CURL_USER_AGENT into the hook env's USER_AGENT (ArchiveBox#1670)."""
+    if str(config.get("CURL_USER_AGENT") or "").strip():
+        config["USER_AGENT"] = str(config["CURL_USER_AGENT"]).strip()
+
+
 def filter_crawl_env(env: Mapping[str, Any]) -> dict[str, Any]:
     """Project known config inputs for hooks; preserve tool env and plugin credentials."""
     allowed = ArchiveBoxConfig._crawl_runtime_keys() - {"PLUGINS", "SEARCH_BACKEND_ENGINE"}
@@ -777,6 +787,8 @@ class ArchiveBoxBaseConfig(
                 return _SCOPE_CRAWL_EXECUTION
         if key.endswith("_BINARY"):
             return _SCOPE_CRAWL_EXECUTION
+        if key == "CURL_USER_AGENT":
+            return _SCOPE_CRAWL_EXECUTION
         return cls._core_field_scope(key) or cls._plugin_field_scope(key) or _SCOPE_SERVER
 
     @classmethod
@@ -840,6 +852,9 @@ class ArchiveBoxBaseConfig(
         """Config payload safe to pass to crawl/snapshot hook execution."""
         config = self.for_crawl()
         config["DATA_DIR"] = str(CONSTANTS.DATA_DIR)
+        # The pre-plugin title extractor documented CURL_USER_AGENT (ArchiveBox#1670);
+        # abx-dl reads USER_AGENT, so mirror the alias into the hook env when set.
+        _apply_curl_user_agent_alias(config)
         scope_by_key = type(self)._scope_by_key()
         if persona is not None:
             for key, value in persona.get_derived_config().items():
