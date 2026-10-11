@@ -741,8 +741,10 @@ env CHROME_BINARY=chromium archivebox version   # run with a one-off config
 
 The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded from: [`archivebox/config/`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/).
 
-Title extraction reads the rendered browser page, including JavaScript title
-changes. Set <code>USER_AGENT</code> for the default request identity, or
+Title extraction prefers Open Graph or Twitter title metadata, then falls back
+to the rendered page title, including JavaScript changes. This preserves post
+captions on sites such as Instagram that use a generic document title.
+Set <code>USER_AGENT</code> for the default request identity, or
 <code>CHROME_USER_AGENT</code> for an explicit browser override, before creating a
 new crawl. The historical curl-only <code>CURL_USER_AGENT</code> option does not
 configure browser title extraction. Existing crawls retain their frozen config.
