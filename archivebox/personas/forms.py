@@ -7,7 +7,7 @@ from django.utils.safestring import mark_safe
 
 from archivebox.config.common import get_config
 from archivebox.core.permissions import PERMISSIONS_CHOICES
-from archivebox.plugins.forms import PluginConfigFormMixin
+from archivebox.plugins.forms import PLUGIN_GROUPS, PluginConfigFormMixin
 from archivebox.personas.importers import (
     PersonaImportResult,
     PersonaImportSource,
@@ -26,6 +26,10 @@ def _mode_label(title: str, description: str) -> str:
 
 
 class PersonaAdminForm(PluginConfigFormMixin, forms.ModelForm):
+    # Importers are source commands, not extraction hooks on /add/. Their
+    # persistent settings can be edited here without adding PLUGINS checkboxes.
+    plugin_group_specs = (*PLUGIN_GROUPS, ("importers", "importers_plugins", "Importers"))
+
     permissions = forms.ChoiceField(
         label="Permissions",
         choices=PERMISSIONS_CHOICES,

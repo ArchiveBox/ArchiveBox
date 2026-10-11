@@ -72,6 +72,9 @@ def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tm
         original = Snapshot.objects.get(url="https://example.com/rescan")
         original.title = "Imported snapshot"
         original.save()
+        original.crawl.tags_str = "removed-on-source"
+        original.crawl.save(update_fields=["tags_str"])
+        original.save_tags(["portable", "review"])
         output = original.output_dir / "singlefile" / "singlefile.html"
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text("<html><title>Portable archive fixture</title></html>")
@@ -89,7 +92,11 @@ def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tm
         original.write_index_jsonl()
         index = original.output_dir / "index.jsonl"
         historical = {**result.to_json(), "id": uuid.uuid4().hex}
-        index.write_text(json.dumps(historical) + "\n" + index.read_text())
+        # #1915: portable captures may come from a collection with a dangling
+        # Process.binary_id. Historical execution evidence must remain readable
+        # without recreating that broken runtime foreign key in the destination.
+        orphaned_process = {"type": "Process", "id": uuid.uuid4().hex, "binary_id": uuid.uuid4().hex}
+        index.write_text(json.dumps(orphaned_process) + "\n" + json.dumps(historical) + "\n" + index.read_text())
         snapshot_id = original.pk
         original_fields = (original.crawl_id, original.created_at, original.modified_at, original.bookmarked_at, original.timestamp)
         original.crawl.refresh_from_db()
@@ -112,6 +119,7 @@ def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tm
         with use_archivebox_db(destination):
             imported = Snapshot.objects.get(pk=snapshot_id)
             assert imported.title == "Imported snapshot"
+            assert set(imported.tags.values_list("name", flat=True)) == {"portable", "review"}
             assert imported.status == "sealed"
             assert imported.output_dir.relative_to(CONSTANTS.DATA_DIR) == relative_path
             assert (destination / relative_path / "index.jsonl").is_file()
@@ -125,6 +133,10 @@ def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tm
             assert (imported.crawl.created_at, imported.crawl.modified_at) == crawl_dates
             assert Snapshot.objects.count() == 1
             imported_result = imported.archiveresult_set.get()
+            assert imported_result.process_id is None
+            from django.db import connection
+
+            connection.check_constraints()
             assert (
                 imported_result.pk,
                 imported_result.created_at,
@@ -133,6 +145,15 @@ def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tm
                 imported_result.output_size,
             ) == expected_result
             assert (destination / relative_path / "singlefile" / "singlefile.html").read_text() == output.read_text()
+
+    # A later rescan repairs files/results, but must not replay an imported
+    # tag after a destination user has deliberately removed it (#1626).
+    with use_archivebox_db(destination):
+        Snapshot.objects.get(pk=snapshot_id).save_tags(["portable"])
+    result = run_archivebox_cmd(["update", "--rescan", "--migrate-only"], cwd=destination, env=env)
+    assert result.returncode == 0, result.stdout + result.stderr
+    with use_archivebox_db(destination):
+        assert set(Snapshot.objects.get(pk=snapshot_id).tags.values_list("name", flat=True)) == {"portable"}
 
     copied_index = destination / relative_path / "index.jsonl"
     records = [json.loads(line) for line in copied_index.read_text().splitlines()]

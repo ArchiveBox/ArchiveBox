@@ -741,6 +741,12 @@ env CHROME_BINARY=chromium archivebox version   # run with a one-off config
 
 The configuration is documented here: **[Configuration Wiki](https://github.com/ArchiveBox/ArchiveBox/wiki/Configuration)**, and loaded from: [`archivebox/config/`](https://github.com/ArchiveBox/ArchiveBox/blob/dev/archivebox/config/).
 
+Title extraction reads the rendered browser page, including JavaScript title
+changes. Set <code>USER_AGENT</code> for the default request identity, or
+<code>CHROME_USER_AGENT</code> for an explicit browser override, before creating a
+new crawl. The historical curl-only <code>CURL_USER_AGENT</code> option does not
+configure browser title extraction. Existing crawls retain their frozen config.
+
 <a name="most-common-options-to-tweak"></a>
 <details>
 <summary><i>Expand to see the most common options to tweak...</i></summary>
@@ -867,6 +873,22 @@ The on-disk layout is optimized to be easy to browse by hand and durable long-te
 </code></pre>
 
 Each snapshot subfolder includes static metadata and plain extractor output files. Current releases do not create top-level <code>data/archive/TIMESTAMP</code> projections; legacy timestamp directories are migrated into the user-scoped tree by <code>archivebox update --migrate-only</code>.
+
+To import saved captures into another collection, initialize the destination with
+<code>archivebox init</code>, then copy completed snapshot directories into its
+<code>archive/</code> tree, preserving their relative paths and
+<code>index.jsonl</code> (or legacy <code>index.json</code>) files. From the
+destination collection, run <code>archivebox update --rescan --migrate-only</code>.
+The explicit rescan discovers directories absent from the database, restores
+snapshot/crawl identities and saved results, and can be restarted. Normal
+<code>init</code> and <code>update</code> do not scan the entire archive tree.
+Conflicting identities are reported rather than overwritten. Copying captures
+does not require importing the old database or its machine/process records.
+
+Tags are restored on the first import. Later rescans preserve tag removals and
+renames made in the destination database and update the on-disk metadata.
+Crawl tags are copied to new snapshots at creation time. Changing crawl tags
+does not change earlier snapshots; use the admin bulk tag actions to edit those.
 
 <h4>Learn More</h4>
 <ul>
@@ -1037,6 +1059,9 @@ archivebox add --no-only-new 'https://example.com'
 </code></pre>
 
 The <img src="https://user-images.githubusercontent.com/511499/115942091-73c02300-a476-11eb-958e-5c1fc04da488.png" alt="Re-Snapshot Button" height="24px"/> button in the Admin UI performs the same explicit re-archive.
+
+<code>Archive Now</code> creates a new capture and preserves the selected historical
+snapshot. <code>Redo</code> reruns extraction on the selected snapshot in place.
 
 <h4>Learn More</h4>
 

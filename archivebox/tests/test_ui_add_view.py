@@ -364,6 +364,36 @@ def test_add_view_unchecked_only_new_sets_crawl_override(client, admin_user):
     assert crawl.config["ONLY_NEW"] is False
 
 
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("authenticated", [False, True])
+def test_add_view_local_path_tokens_never_import_file_contents(client, admin_user, public_add_enabled, tmp_path, authenticated):
+    # #1918 mixed a genuine URL with local paths. A URL-only assertion misses
+    # disclosure in saved source text, so inspect both parser outputs and files.
+    secret = tmp_path / "private-source.txt"
+    secret_content = "local-file-canary-1918\nhttps://example.com/private-canary\n"
+    secret.write_text(secret_content)
+    submitted = f"https://example.com/safe\n{secret}\n{secret.as_uri()}\n{secret.name}\nC:\\private.txt\n\\\\server\\share\\private.txt"
+    if authenticated:
+        client.force_login(admin_user)
+    response = client.post(
+        reverse("add"),
+        data={**ADD_FORM_DEFAULTS, "url": submitted},
+        HTTP_HOST=ADMIN_HOST if authenticated else WEB_HOST,
+    )
+    assert response.status_code == 302, response.content
+    crawl = Crawl.objects.latest("created_at")
+    assert crawl.urls == submitted
+    runner = CrawlRunner(crawl, selected_plugins=["parse_txt_urls"], show_progress=False)
+    runner.load_run_state()
+    assert set(crawl.snapshot_set.values_list("url", flat=True)) == {"https://example.com/safe"}
+    source = crawl.output_dir / "input" / "staticfile" / "stdin.txt"
+    assert source.read_text() == submitted
+    for saved in crawl.output_dir.rglob("*"):
+        if saved.is_file():
+            assert b"local-file-canary-1918" not in saved.read_bytes(), saved
+    assert secret.read_text() == secret_content
+
+
 def test_add_view_selected_persona_wins_over_stale_config_override(client, admin_user):
     client.force_login(admin_user)
     private_persona = Persona.objects.create(name="Private", created_by=admin_user)
@@ -642,7 +672,7 @@ def test_tags_autocomplete_allows_authenticated_user_when_public_index_disabled(
 
 
 @pytest.mark.parametrize("page", ["add", "persona_change"])
-def test_plugin_grid_includes_all_visible_plugins_and_timestamps_last(admin_client, admin_user, page):
+def test_plugin_grid_includes_settings_for_its_page_and_timestamps_last(admin_client, admin_user, page):
     from archivebox.plugins.discovery import get_plugin_catalog
 
     if page == "add":
@@ -655,11 +685,18 @@ def test_plugin_grid_includes_all_visible_plugins_and_timestamps_last(admin_clie
     form = response.context["form"] if page == "add" else response.context["adminform"].form
     names = [plugin["name"] for group in form.plugin_groups for plugin in group["plugins"]]
     expected = {plugin.name for plugin in get_plugin_catalog().values() if not plugin.config.hidden}
+    importer_names = {plugin.name for plugin in get_plugin_catalog().values() if plugin.config.category == "importers"}
+    if page == "add":
+        expected -= importer_names
+        assert not set(names) & importer_names
+        assert b'data-plugin-name="importer_rss"' not in response.content
+    else:
+        assert importer_names <= set(names)
     assert set(names) == expected
     assert len(names) == len(expected)
     for name in expected:
         assert f'data-plugin-name="{name}"'.encode() in response.content
-    # The same schema drives both editors, including newly installed plugins.
+    # The same schema drives each visible card, including newly installed plugins.
     # Check every plugin's category and rendered controls, not a fixed allowlist.
     catalog = get_plugin_catalog()
     for group in form.plugin_groups:

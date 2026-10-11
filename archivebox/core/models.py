@@ -538,6 +538,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     crawl_id: uuid.UUID
     parent_snapshot_id: uuid.UUID | None
     _prefetched_objects_cache: dict[str, Any]
+    _imported_tag_names: list[str]
 
     objects = SnapshotManager()
     archiveresult_set: models.Manager["ArchiveResult"]
@@ -1010,6 +1011,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             raise ValidationError({"url": "ArchiveBox cannot archive its own admin, web, api, or snapshot URLs."})
 
     def save(self, *args, **kwargs):
+        creating = self._state.adding
         update_fields = kwargs.get("update_fields")
         validate_url_field = self._state.adding or update_fields is None or "url" in update_fields
         if self.ensure_permissions_config() and update_fields is not None:
@@ -1028,33 +1030,28 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if self._state.adding or update_fields is None or "notes" in update_fields:
             self.notes = sanitize_html_text(self.notes)
 
-        super().save(*args, **kwargs)
+        if not creating:
+            super().save(*args, **kwargs)
+            return
 
-        from django.db import transaction
-
-        def finish_snapshot_save():
-            crawl = Crawl.objects.filter(pk=self.crawl_id).first()
-            if crawl is None:
-                return
-            crawl_tag_names = crawl.current_tag_names()
-            if crawl_tag_names:
-                # Snapshots can be created by parser hook side-effect records,
-                # direct ORM creates, or legacy crawl URL expansion. Crawl tags
-                # are user-facing metadata on the whole import, so attach them
-                # at the Snapshot.save() boundary instead of relying on every
-                # caller to remember to duplicate this fanout logic.
-                tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=crawl_tag_names)}
-                missing_tags = [Tag(name=name) for name in crawl_tag_names if name not in tags_by_name]
-                if missing_tags:
-                    Tag.objects.bulk_create(missing_tags, ignore_conflicts=True)
-                    tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=crawl_tag_names)}
-                self.add_tag_ids([tag.pk for name in crawl_tag_names if (tag := tags_by_name.get(name))])
-            # Crawl.urls remains the original submitted source. Snapshot rows
-            # are the normalized work queue and discovery projection.
-
-        # get_or_create/update_or_create wrap save() in atomic(); attach inherited
-        # tags after that write commits. Filesystem projections belong to the runner.
-        transaction.on_commit(finish_snapshot_save)
+        # Copy defaults once, before callers can edit tags. A deferred callback
+        # would resurrect tags cleared later in the same creation transaction.
+        # Imported captures use their saved tags (even an empty set), not the
+        # source crawl's defaults, which may have changed since capture time.
+        tag_names = getattr(self, "_imported_tag_names", None)
+        if tag_names is None:
+            # Ordinary queue inserts stay in autocommit. Only filesystem
+            # recovery needs the atomic row/tag boundary below for resumability.
+            super().save(*args, **kwargs)
+            self.save_tags(self.crawl.current_tag_names())
+            return
+        # Commit the row and tags together so a resumed import never needs to
+        # union stale disk tags over user edits. All archive I/O happens outside
+        # this short transaction; ordinary status/title saves bypass it entirely.
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            self.save_tags(tag_names)
+        self.__dict__.pop("_imported_tag_names", None)
 
     # =========================================================================
     # Filesystem Migration Methods
@@ -1628,9 +1625,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if created_at:
             snapshot_kwargs["created_at"] = created_at
 
-        return cls(
-            **snapshot_kwargs,
-        )
+        snapshot = cls(**snapshot_kwargs)
+        snapshot._imported_tag_names = Crawl.parse_tag_names(data.get("tags") or "")
+        return snapshot
 
     @staticmethod
     def _select_best_timestamp(index_timestamp: object | None, folder_name: str) -> str | None:
@@ -1702,7 +1699,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         Merge index.json/index.jsonl with DB. DB is source of truth.
 
         - Title: longest non-URL
-        - Tags: union
+        - Tags: preserve DB edits (imported atomically when the row is created)
         - ArchiveResults: keep both (by plugin+start_ts)
 
         Converts index.json to index.jsonl if needed, then writes back in JSONL format.
@@ -1739,8 +1736,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Merge title
         self._merge_title_from_index(index_data)
 
-        # Merge tags
-        self._merge_tags_from_index(index_data)
+        # Index files are projections, not subsequent tag-edit commands. In
+        # particular, an empty DB tag set may mean the user deliberately cleared
+        # it. Only initial directory import is allowed to restore tags from disk.
 
         # Merge ArchiveResults
         self._merge_archive_results_from_index(index_data, update_existing=update_existing_archive_results)
@@ -1778,19 +1776,6 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 self.title = best_title
         elif self.title:
             self.title = None
-
-    def _merge_tags_from_index(self, index_data: dict):
-        """Merge tags - union of both sources."""
-        index_tags = set(index_data.get("tags", "").split(",")) if index_data.get("tags") else set()
-        index_tags = {t.strip() for t in index_tags if t.strip()}
-
-        db_tags = set(self.tags.values_list("name", flat=True))
-
-        new_tags = index_tags - db_tags
-        if new_tags:
-            for tag_name in new_tags:
-                tag, _ = Tag.get_or_create_by_name(tag_name)
-                self.add_tag_ids([tag.pk])
 
     def _merge_archive_results_from_index(self, index_data: dict, update_existing: bool = True):
         """Merge ArchiveResults one row per hook; retries update the existing row."""
@@ -3119,13 +3104,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 )
                 rprint(f"[red]⚠️  Snapshot.from_json auto-created new crawl {crawl.id} for url={url}[/red]", file=sys.stderr)
 
-        # Parser hooks emit child Snapshot records through this generic
-        # dispatcher after crawling an internal import root. Those child rows
-        # must inherit crawl-level tags just like direct Crawl.urls snapshots;
-        # otherwise `archivebox add --tag ... < bookmarks.html` loses the tag
-        # unless the parser format also happened to provide its own tags.
+        # Snapshot.save copies crawl defaults only on creation. Rediscovery
+        # can supply explicit metadata, but must not restore removed defaults.
         tags_raw = record.get("tags", "")
-        tag_list = list(crawl.current_tag_names()) if crawl else []
+        tag_list = []
         if isinstance(tags_raw, list):
             tag_list.extend(tag.strip() for tag in tags_raw if tag.strip())
         elif tags_raw:

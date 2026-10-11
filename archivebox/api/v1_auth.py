@@ -60,9 +60,10 @@ def check_api_token(request: HttpRequest, token_data: TokenAuthSchema):
         request=request,
     )
     if user:
-        return {"success": True, "user_id": str(user.pk)}
+        # username lets clients mirror the server's users/{username}/snapshots/ layout.
+        return {"success": True, "user_id": str(user.pk), "username": user.username}
 
-    return {"success": False, "user_id": None}
+    return {"success": False, "user_id": None, "username": None}
 
 
 @router.post(

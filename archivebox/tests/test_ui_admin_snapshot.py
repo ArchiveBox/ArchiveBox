@@ -1691,6 +1691,52 @@ class TestAdminSnapshotListView:
         assert new_crawl.retry_at is not None
         assert new_crawl.urls.strip() == "https://example.com/path#section-1"
 
+    def test_archive_now_completes_new_captures_without_mutating_original(self, client, admin_user, snapshot, recursive_test_site):
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import run_crawl
+
+        snapshot.url = recursive_test_site["root_url"] + "#original-fragment"
+        snapshot.status = "sealed"
+        snapshot.retry_at = None
+        snapshot.save()
+        snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+        original_file = snapshot.output_dir / "original.txt"
+        original_file.write_text("Keep this historical capture")
+        snapshot.write_index_jsonl()
+        original_row = Snapshot.objects.values().get(pk=snapshot.pk)
+        original_index = (snapshot.output_dir / "index.jsonl").read_bytes()
+        client.force_login(admin_user)
+
+        # Each explicit action creates one new historical capture; restarting
+        # that crawl must not duplicate it, mutate the original, or lose #frags.
+        for expected_count in (2, 3):
+            before = set(Crawl.objects.values_list("pk", flat=True))
+            response = client.post(
+                reverse("admin:core_snapshot_changelist"),
+                {"action": "resnapshot_snapshot", "_selected_action": [str(snapshot.pk)], "index": "0"},
+                HTTP_HOST=ADMIN_TEST_HOST,
+            )
+            assert response.status_code == 302
+            new_crawl = Crawl.objects.exclude(pk__in=before).get()
+            assert response.url == f"/admin/crawls/crawl/{new_crawl.pk}/change/#snapshots"
+            for _ in range(2):
+                run_crawl(str(new_crawl.pk), selected_plugins=["wget"], show_progress=False)
+                assert Snapshot.objects.filter(url=snapshot.url).count() == expected_count
+            captured = new_crawl.snapshot_set.get()
+            assert captured.pk != snapshot.pk
+            assert captured.status == "sealed"
+            assert captured.timestamp != snapshot.timestamp
+            result = captured.archiveresult_set.get(plugin="wget")
+            assert result.status == "succeeded"
+            assert result.output_size > 0
+            saved_record = json.loads((captured.output_dir / "index.jsonl").read_text().splitlines()[0])
+            assert saved_record["id"].replace("-", "") == str(captured.pk).replace("-", "")
+            assert saved_record["url"] == snapshot.url
+            assert Snapshot.objects.values().get(pk=snapshot.pk) == original_row
+            assert original_file.read_text() == "Keep this historical capture"
+            assert (snapshot.output_dir / "index.jsonl").read_bytes() == original_index
+
     def test_archive_now_action_groups_multiple_snapshots_into_one_crawl(self, client, admin_user, snapshot):
         from archivebox.crawls.models import Crawl
         from archivebox.core.models import Snapshot

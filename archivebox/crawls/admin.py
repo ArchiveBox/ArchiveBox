@@ -413,7 +413,7 @@ class CrawlAdminForm(forms.ModelForm):
         label="Tags",
         required=False,
         widget=TagEditorWidget(),
-        help_text="Type tag names and press Enter or Space to add. Click × to remove.",
+        help_text="Defaults for new snapshots. Type tag names and press Enter or Space to add. Click × to remove.",
     )
     url_filters = URLFiltersField(
         label="URL Filters",

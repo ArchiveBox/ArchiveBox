@@ -157,6 +157,30 @@ def test_config_file_preserves_literal_percent_templates(tmp_path):
     assert read_ini_config(config_file)["YTDLP_OUTPUT_TEMPLATE"] == "%(title)s.%(ext)s"
 
 
+def test_ytdlp_args_env_var_aliases(initialized_archive, tmp_path):
+    """Legacy YOUTUBEDL_ARGS / YTDLP_EXTRA_ARGS env vars resolve to canonical YTDLP_ARGS_EXTRA.
+
+    Regression test for https://github.com/ArchiveBox/ArchiveBox/issues/1613.
+    The alias lives in the ytdlp plugin config schema (abx-plugins x-aliases);
+    if the pinned package ships a schema without the alias, the env var is silently ignored.
+    """
+    env = {"YOUTUBEDL_ARGS": '["--restrict-filenames"]'}
+
+    result = run_archivebox_cmd(["config", "--get", "YOUTUBEDL_ARGS"], cwd=initialized_archive, env=env)
+    assert result.returncode == 0, result.stderr
+    assert "YTDLP_ARGS_EXTRA =" in result.stdout, result.stdout
+    assert "--restrict-filenames" in result.stdout, result.stdout
+
+    result = run_archivebox_cmd(
+        ["config", "--get", "YTDLP_EXTRA_ARGS"],
+        cwd=initialized_archive,
+        env={"YTDLP_EXTRA_ARGS": '["--limit-rate=10M"]'},
+    )
+    assert result.returncode == 0, result.stderr
+    assert "YTDLP_ARGS_EXTRA =" in result.stdout, result.stdout
+    assert "--limit-rate=10M" in result.stdout, result.stdout
+
+
 class TestConfigCLI:
     """Test the CLI interface for config command."""
 

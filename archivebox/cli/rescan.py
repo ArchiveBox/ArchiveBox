@@ -161,16 +161,19 @@ def _reconcile_directory(directory: Path) -> str:
         snapshot.save(force_insert=True)
         _restore_dates(snapshot, record)
 
-    # Each insert is durable. An interruption after the Snapshot insert is not
-    # completion: the next pass still imports missing result IDs and tags.
+    # Each insert is durable. Snapshot.save imports tags with the new row in
+    # one DB transaction; subsequent passes only restore missing result IDs.
+    # Re-merging source tags here would undo destination removals and renames.
     for result in pending:
         snapshot._create_archive_result_if_missing(result, {}, preserve_identity=bool(result.get("id")))
     if any(not result.get("id") for result in pending):
         snapshot.hydrate_archiveresult_output_metadata(snapshot_dir=directory)
         snapshot.write_index_jsonl(output_dir=directory)
-    tags_before = set(snapshot.tags.values_list("name", flat=True))
-    snapshot._merge_tags_from_index(record)
-    tags_changed = tags_before != set(snapshot.tags.values_list("name", flat=True))
+    tags_changed = set(snapshot.tags.values_list("name", flat=True)) != set(Crawl.parse_tag_names(record.get("tags") or ""))
+    if tags_changed:
+        # Maintenance projects DB edits back to disk. Do not make web tag edits
+        # wait for remote storage, or treat the stale export as an edit itself.
+        snapshot.write_index_jsonl(output_dir=directory)
     link = Path(snapshot.crawl.output_dir) / "snapshots" / snapshot.extract_domain_from_url(snapshot.url) / str(snapshot.id)
     links_ok = link.is_symlink() and link.resolve() == directory.resolve()
     if not links_ok:
@@ -181,8 +184,8 @@ def _reconcile_directory(directory: Path) -> str:
         _restore_dates(snapshot, record)
     if imported_crawl:
         _restore_dates(crawl, crawl_record)
-    # Leave source metadata untouched, including process/binary records that
-    # are historical evidence rather than runnable destination process state.
+    # Unchanged imports retain source metadata, including process/binary records
+    # that are historical evidence rather than runnable destination process state.
     return "Imported" if imported else "Repaired" if pending or tags_changed or not links_ok else "Unchanged"
 
 

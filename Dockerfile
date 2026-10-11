@@ -276,12 +276,15 @@ RUN --mount=type=cache,target=/var/tmp/abxpkg-cache,sharing=locked,mode=1777,id=
         abx-dl install $ABX_DOCKER_PLUGINS \
     && find "$CONFIG_DIR" "$HOME" \( ! -user "$DEFAULT_ARCHIVEBOX_UID" -o ! -group "$DEFAULT_ARCHIVEBOX_GID" \) -exec chown -h "$DEFAULT_ARCHIVEBOX_UID:$DEFAULT_ARCHIVEBOX_GID" {} + \
     && UV_NO_CACHE=true /usr/bin/uv run --no-project python -c 'from abx_plugins.plugins.opencode.image import prune_incompatible_image_files; prune_incompatible_image_files()' \
-    # pnpm's explicit store lives under ABXPKG_LIB_DIR, regardless of XDG_CACHE_HOME.
+    # Provider stores live under ABXPKG_LIB_DIR, regardless of XDG_CACHE_HOME.
     # Retaining its download copies made image size depend on whether the build
     # preserved hardlinks to installed files. Remove the store in this layer;
     # installed files retain their contents, and the offline check below proves
     # the complete catalog still works without the disposable package payloads.
-    && rm -rf "$ABXPKG_LIB_DIR/cache/pnpm"
+    # Remove all disposable downloads in the layer that created them. Cleaning
+    # these in a later RUN leaves their bytes in the published image history.
+    && rm -rf "$ABXPKG_LIB_DIR/cache/pnpm" "$ABXPKG_LIB_DIR/cache/uv" \
+        /var/cache/apt/* /var/lib/apt/lists/*
 RUN --network=none export ABX_DOCKER_PLUGINS="$(/venv/bin/python3 -c 'from abx_dl.catalog import PluginCatalog; print(" ".join(PluginCatalog.discover(runtime="archivebox")))')" \
     && setpriv --reuid="$ARCHIVEBOX_USER" --regid="$ARCHIVEBOX_USER" --init-groups \
     bash -c 'uv run --no-project python -c "from abx_plugins.plugins.opencode.image import verify_installed; verify_installed()" && abx-dl install $ABX_DOCKER_PLUGINS'

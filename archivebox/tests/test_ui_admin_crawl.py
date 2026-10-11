@@ -300,15 +300,47 @@ def test_crawl_admin_pause_action_updates_only_crawl_scheduler_row(client, admin
 
 
 @pytest.mark.django_db(transaction=True)
-def test_crawl_tag_changes_sync_existing_snapshot_tags(crawl):
+def test_crawl_tag_changes_only_apply_to_future_snapshots(crawl, client, api_headers):
+    from archivebox.tests.conftest import api_client_request
+
     snapshots = crawl.create_snapshots_from_urls()
     snapshots[0].save_tags(["alpha", "beta", "keep"])
 
-    crawl.tags_str = "beta,gamma"
-    crawl.save(update_fields=["tags_str", "modified_at"])
+    response = api_client_request(
+        client,
+        "patch",
+        f"/api/v1/crawls/crawl/{crawl.pk}",
+        payload={"tags": ["beta", "gamma"]},
+        headers=api_headers,
+    )
+    assert response.status_code == 200, response.content
 
-    assert set(snapshots[0].tags.values_list("name", flat=True)) == {"beta", "gamma", "keep"}
-    assert set(snapshots[1].tags.values_list("name", flat=True)) == {"beta", "gamma"}
+    assert set(snapshots[0].tags.values_list("name", flat=True)) == {"alpha", "beta", "keep"}
+    assert set(snapshots[1].tags.values_list("name", flat=True)) == {"alpha", "beta"}
+    # A long-running worker can still hold the pre-edit Crawl instance.
+    created = Snapshot.objects.create(url="https://example.net/future", crawl=crawl)
+    assert set(created.tags.values_list("name", flat=True)) == {"beta", "gamma"}
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("source", ["urls", "discovered", "json"])
+def test_rediscovery_does_not_reapply_crawl_tag_defaults(crawl, source):
+    crawl.max_depth = 1
+    crawl.config["ONLY_NEW"] = False
+    crawl.save(update_fields=["max_depth", "config"])
+    snapshots = crawl.create_snapshots_from_urls()
+    original = snapshots[0]
+    original.save_tags(["keep"])
+
+    if source == "urls":
+        assert crawl.create_snapshots_from_urls() == []
+    elif source == "discovered":
+        assert crawl.create_discovered_snapshots(None, [{"url": original.url}], depth=0) == []
+    else:
+        assert Snapshot.from_json({"url": original.url}, overrides={"crawl": crawl}).pk == original.pk
+
+    assert set(original.tags.values_list("name", flat=True)) == {"keep"}
+    assert crawl.snapshot_set.count() == len(snapshots)
 
 
 @pytest.mark.django_db(transaction=True)

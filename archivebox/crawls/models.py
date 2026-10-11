@@ -5,7 +5,6 @@ from collections.abc import Iterable, Mapping
 import uuid
 import json
 import re
-from itertools import islice
 from datetime import timedelta
 from archivebox.uuid_compat import CompactUUIDField, uuid7
 from pathlib import Path
@@ -310,12 +309,10 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if update_fields is None or "notes" in update_fields:
             self.notes = sanitize_html_text(self.notes)
         if update_fields is None or "tags_str" in update_fields:
+            # These are defaults for future snapshots. Existing captures keep
+            # their own tags; bulk admin actions handle explicit retroactive edits.
             self.tags_str = ",".join(self.parse_tag_names(self.tags_str or ""))
-        sync_tags = update_fields is None or "tags_str" in update_fields
         old_crawl = type(self).objects.filter(pk=self.pk).first() if self.pk else None
-        previous_tag_names = set()
-        if sync_tags and old_crawl is not None:
-            previous_tag_names = set(self.parse_tag_names(old_crawl.tags_str or ""))
 
         from archivebox.config.common import ArchiveBoxConfig, build_crawl_config_snapshot
 
@@ -347,20 +344,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         old_permissions = getattr(old_crawl, "permissions", None)
         if old_crawl is not None and old_permissions != self.permissions:
             transaction.on_commit(lambda: self.update_child_snapshot_permissions(old_permissions, self.permissions))
-        if sync_tags:
-            next_tag_names = set(self.parse_tag_names(self.tags_str or ""))
-            added_tag_names = next_tag_names - previous_tag_names
-            removed_tag_names = previous_tag_names - next_tag_names
-            if added_tag_names or removed_tag_names:
-                # Keep the SQLite write phase short: the Crawl row is already
-                # saved, and the potentially large snapshot tag fanout runs in
-                # chunked ORM writes after any caller atomic() exits.
-                transaction.on_commit(
-                    lambda: self.apply_snapshot_tag_diff(
-                        added_tag_names=added_tag_names,
-                        removed_tag_names=removed_tag_names,
-                    ),
-                )
 
     def update_child_snapshot_permissions(self, old_permissions: str | None, new_permissions: str | None) -> int:
         from archivebox.core.models import Snapshot
@@ -410,50 +393,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if current_tags_str is not None:
             self.tags_str = current_tags_str
         return self.parse_tag_names(self.tags_str or "")
-
-    def apply_snapshot_tag_diff(self, *, added_tag_names: Iterable[str], removed_tag_names: Iterable[str]) -> None:
-        from archivebox.core.models import Snapshot, SnapshotTag, Tag
-
-        added_names = self.parse_tag_names(added_tag_names)
-        removed_names = self.parse_tag_names(removed_tag_names)
-        if not added_names and not removed_names:
-            return
-
-        if added_names:
-            tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=added_names)}
-            missing_tags = [Tag(name=name) for name in added_names if name not in tags_by_name]
-            if missing_tags:
-                # One small write for missing tag rows, followed by chunked
-                # M2M fanout below; avoid per-snapshot get_or_create loops.
-                Tag.objects.bulk_create(missing_tags, ignore_conflicts=True)
-                tags_by_name = {tag.name: tag for tag in Tag.objects.filter(name__in=added_names)}
-
-            tag_ids = [tag.pk for tag_name in added_names if (tag := tags_by_name.get(tag_name))]
-            # Fetch each page before writing M2M rows. iterator(chunk_size=...)
-            # would keep one read cursor open across every bulk write.
-            snapshot_ids = (
-                snapshot.pk for snapshot in Snapshot.objects.filter(crawl=self).only("id").order_by("pk").paged_iterator(chunk_size=500)
-            )
-            while True:
-                batch_snapshot_ids = list(islice(snapshot_ids, 5000))
-                if not batch_snapshot_ids:
-                    break
-                for tag_id in tag_ids:
-                    # Chunked bulk_create keeps memory bounded and uses the
-                    # SnapshotTag uniqueness constraint instead of row-by-row
-                    # existence checks.
-                    SnapshotTag.objects.bulk_create(
-                        [SnapshotTag(snapshot_id=snapshot_id, tag_id=tag_id) for snapshot_id in batch_snapshot_ids],
-                        ignore_conflicts=True,
-                        batch_size=5000,
-                    )
-
-        if removed_names:
-            removed_tag_ids = list(Tag.objects.filter(name__in=removed_names).values_list("pk", flat=True))
-            if removed_tag_ids:
-                # One DELETE with a subquery keeps the tag removal transaction
-                # bounded to the M2M rows touched by this crawl only.
-                SnapshotTag.objects.filter(snapshot__crawl=self, tag_id__in=removed_tag_ids).delete()
 
     def to_json(self) -> dict:
         """
@@ -978,7 +917,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if self.status == self.StatusChoices.SEALED:
             return []
         created_snapshots = []
-        crawl_tag_names = self.current_tag_names()
         tags_by_name: dict[str, Tag] = {}
         server_config = get_config()
 
@@ -996,14 +934,14 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 depth = entry.get("depth", 0)
                 title = entry.get("title")
                 timestamp = entry.get("timestamp")
-                tag_names = [*crawl_tag_names, *self.parse_tag_names(entry.get("tags", ""))]
+                tag_names = self.parse_tag_names(entry.get("tags", ""))
             except json.JSONDecodeError:
                 snapshot_id = None
                 url = line.strip()
                 depth = 0
                 title = None
                 timestamp = None
-                tag_names = crawl_tag_names
+                tag_names = []
 
             if not url:
                 continue
@@ -1131,7 +1069,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if depth > self.max_depth:
             return []
 
-        crawl_tag_names = self.current_tag_names()
         config = self.get_current_config(refresh=True)
         server_config = get_config()
         if parent_snapshot is not None and parent_snapshot.config:
@@ -1189,7 +1126,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             if update_fields:
                 snapshot.save(update_fields=[*update_fields, "modified_at"])
             tag_names = {
-                *crawl_tag_names,
                 *self.parse_tag_names(
                     str(record.get("tags") or ""),
                     pattern=self._config_value(config, "TAG_SEPARATOR_PATTERN", r"[,]"),
@@ -1241,8 +1177,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         created_snapshots = []
         for snapshot in snapshots:
             try:
-                # Snapshot.save() owns URL validation and filesystem/index side
-                # effects. Do not use bulk_create() here; it bypasses save().
+                # Snapshot.save() owns URL validation and initial tag inheritance. Do not use bulk_create() here; it bypasses save().
                 snapshot.save()
             except IntegrityError:
                 continue
@@ -1256,7 +1191,6 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         tag_names_by_url: dict[str, set[str]] = {}
         for snapshot in created_snapshots:
             tag_names = {
-                *crawl_tag_names,
                 *self.parse_tag_names(
                     str(deduped_records[snapshot.url].get("tags") or ""),
                     pattern=self._config_value(config, "TAG_SEPARATOR_PATTERN", r"[,]"),

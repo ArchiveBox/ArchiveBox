@@ -138,6 +138,7 @@ def _coerce_plugin_config_value(raw_value: Any, schema: Mapping[str, Any]) -> An
 
 class PluginConfigFormMixin:
     plugin_groups: list[dict[str, Any]]
+    plugin_group_specs = PLUGIN_GROUPS
     allow_crawl_execution_config_fields = True
 
     def build_plugin_groups(self, runtime_config: Mapping[str, Any] | None = None) -> None:
@@ -149,7 +150,7 @@ class PluginConfigFormMixin:
         grouped_plugins = catalog.groups()
 
         group_specs = []
-        for category, field_name, title in PLUGIN_GROUPS:
+        for category, field_name, title in self.plugin_group_specs:
             plugin_names = tuple(plugin.name for plugin in grouped_plugins.get(category, []))
             group_specs.append((field_name, title, "", "", "", plugin_names))
             if field_name in self.fields:

@@ -34,6 +34,7 @@ def test_rescan_imports_legacy_result_rows_and_saved_content(tmp_path, initializ
         "url": "https://example.com/recovered",
         "timestamp": legacy_dir.name,
         "title": "Recovered capture",
+        "tags": " portable , review, portable ",
         index_format: {"singlefile": [entry]} if index_format == "history" else [entry],
     }
     original_json = json.dumps(metadata)
@@ -49,6 +50,7 @@ def test_rescan_imports_legacy_result_rows_and_saved_content(tmp_path, initializ
             assert result.output_size == len(payload)
             assert result.output_files
             assert snapshot.status == "sealed"
+            assert set(snapshot.tags.values_list("name", flat=True)) == {"portable", "review"}
             assert snapshot.archiveresult_set.count() == 1
             assert snapshot.output_size == len(payload)
             assert (snapshot.output_dir / "singlefile.html").read_bytes() == payload

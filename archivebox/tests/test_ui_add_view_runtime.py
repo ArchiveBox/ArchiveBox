@@ -16,6 +16,7 @@ from .conftest import (
     init_archive,
     run_archivebox_cmd,
     start_archivebox_server,
+    stop_archivebox_process,
     stop_server,
     get_http_response,
 )
@@ -308,6 +309,34 @@ def _get_add_view(session: requests.Session, port: int, *, host: str) -> tuple[r
     add_csrf_match = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', add_page.text)
     assert add_csrf_match, add_page.text[:500]
     return add_page, add_csrf_match.group(1)
+
+
+def test_importer_settings_are_persona_only_over_real_server(tmp_path):
+    from archivebox.personas.models import Persona
+
+    init_archive(tmp_path)
+    create_admin_and_token(tmp_path)
+    with use_archivebox_db(tmp_path):
+        persona_id = Persona.objects.get(name="Default").pk
+    port = get_free_port()
+    server = start_archivebox_server(tmp_path, env=cli_env(port=port, server=True), port=port, log_name="plugin-grid-server.log")
+    try:
+        session, add_page, _ = _login_to_add_view(port)
+        persona_page = session.get(
+            f"http://127.0.0.1:{port}/admin/personas/persona/{persona_id}/change/",
+            headers={"Host": f"admin.archivebox.localhost:{port}"},
+            timeout=10,
+        )
+        assert persona_page.status_code == 200
+        for name in ("importer_rss", "importer_sheets", "importers_browser"):
+            card = f'data-plugin-name="{name}"'
+            assert card not in add_page.text
+            assert card in persona_page.text
+        field = 'name="plugin_config__importer_rss__IMPORTER_RSS_URL"'
+        assert field not in add_page.text
+        assert field in persona_page.text
+    finally:
+        stop_archivebox_process(server)
 
 
 def _worker_state(cwd, worker_name: str) -> str | None:

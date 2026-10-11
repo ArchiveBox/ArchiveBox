@@ -1069,7 +1069,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             icon_head = icon_file.read(4096)
         if re.search(rb"<svg(?:\s|>)", icon_head):
             content_type = "image/svg+xml"
-    preserve_plain_text = fullpath.suffix.lower() in {".log", ".sh", ".jsonl"}
+    # yt-dlp description sidecars have no standard mimetypes mapping; serving
+    # them as octet-stream makes browsers download instead of displaying text.
+    preserve_plain_text = fullpath.suffix.lower() in {".log", ".sh", ".jsonl", ".description"}
     if preserve_plain_text:
         content_type = "text/plain"
     content_type = content_type or "application/octet-stream"
