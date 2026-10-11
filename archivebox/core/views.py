@@ -831,7 +831,11 @@ def _plugin_full_preview_response(
 
     catalog = get_plugin_catalog()
     rendered = (
-        template.Engine(debug=False, dirs=[catalog[plugin].path] if plugin in catalog else [])
+        template.Engine(
+            debug=False,
+            dirs=[catalog[plugin].path] if plugin in catalog else [],
+            libraries=template.Engine.get_default().libraries,
+        )
         .from_string(template_str)
         .render(
             template.Context(
