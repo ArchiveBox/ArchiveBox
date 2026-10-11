@@ -136,6 +136,20 @@ def test_logs_shell_scripts_and_jsonl_are_served_as_plain_text(tmp_path: Path, f
     assert b"".join(response.streaming_content) == (content[2:6] if byte_range else content)
 
 
+@pytest.mark.parametrize("filename", ["output.description", "output.DESCRIPTION"])
+@pytest.mark.parametrize("byte_range", [None, "bytes=2-5"])
+def test_description_file_is_served_as_plain_text(tmp_path: Path, filename: str, byte_range: str | None):
+    content = b"Title: Test Page\nAuthor: ArchiveBox\n"
+    (tmp_path / filename).write_bytes(content)
+    request = RequestFactory().get(f"/{filename}", **({"HTTP_RANGE": byte_range} if byte_range else {}))
+
+    response = serve_static_with_byterange_support(request, filename, document_root=tmp_path)
+
+    assert response.status_code == (206 if byte_range else 200)
+    assert response["Content-Type"] == "text/plain; charset=utf-8"
+    assert b"".join(response.streaming_content) == (content[2:6] if byte_range else content)
+
+
 def test_archive_file_response_uses_async_iterator_under_asgi(tmp_path: Path):
     output = tmp_path / "screenshot" / "output.png"
     output.parent.mkdir()
