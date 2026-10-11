@@ -84,7 +84,6 @@ def _reset_machine_model_caches():
     models._CURRENT_MACHINE = None
     models._CURRENT_INTERFACE = None
     models._CURRENT_PROCESS = None
-    models._CURRENT_BINARIES = {}
 
 
 @pytest.fixture(autouse=True)

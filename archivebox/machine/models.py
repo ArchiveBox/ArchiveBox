@@ -42,12 +42,10 @@ else:
 
 _CURRENT_MACHINE: Machine | None = None
 _CURRENT_INTERFACE: NetworkInterface | None = None
-_CURRENT_BINARIES: dict[str, Binary] = {}
 _CURRENT_PROCESS: Process | None = None
 
 MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60
 NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60
-BINARY_RECHECK_INTERVAL = 1 * 30 * 60
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
@@ -473,21 +471,6 @@ class NetworkInterface(ModelWithHealthStats):
 
 
 class BinaryManager(models.Manager.from_queryset(PagedQuerySet)):
-    def get_from_db_or_cache(self, name: str, abspath: str = "", version: str = "", sha256: str = "", binprovider: str = "env") -> Binary:
-        """Get or create an Binary record from the database or cache."""
-        cached = _CURRENT_BINARIES.get(name)
-        if cached and timezone.now() < cached.modified_at + timedelta(seconds=BINARY_RECHECK_INTERVAL):
-            return cached
-        _CURRENT_BINARIES[name], _ = self.update_or_create(
-            machine=Machine.current(),
-            name=name,
-            binprovider=binprovider,
-            version=version,
-            abspath=abspath,
-            sha256=sha256,
-        )
-        return _CURRENT_BINARIES[name]
-
     def get_valid_binary(self, name: str, machine: Machine | None = None) -> Binary | None:
         """Get a valid Binary for the given name on the current machine, or None if not found."""
         machine = machine or Machine.current()

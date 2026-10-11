@@ -402,7 +402,6 @@ def isolate_test_runtime(tmp_path):
         machine_models._CURRENT_MACHINE = None
         machine_models._CURRENT_INTERFACE = None
         machine_models._CURRENT_PROCESS = None
-        machine_models._CURRENT_BINARIES.clear()
 
     reset_machine_model_caches()
     _RUNTIME_GUARD_ACTIVE = True
