@@ -1,0 +1,19 @@
+archivebox/templates/core/add.html
+  s_351ea49cef3eeb::t_0b437a30fff942 1315,1321,1342,1359
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f9e078fc3288f9212736d4b8115e7973cf1fe14c",
+  "prompts": {},
+  "sessions": {
+    "s_351ea49cef3eeb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12ef3-085c-79b2-9e6c-277382f1ab46",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
