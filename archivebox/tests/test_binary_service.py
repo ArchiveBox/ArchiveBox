@@ -278,7 +278,7 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
 def test_hook_resolution_preserves_registered_binary_installations(
     initialized_archive,
     recursive_test_site,
-    cached_abxpkg_lib_dir,
+    hermetic_lib_dir,
     tmp_path,
 ):
     from archivebox.core.models import Snapshot
@@ -287,6 +287,8 @@ def test_hook_resolution_preserves_registered_binary_installations(
     # A migrated collection can already contain several installations of one
     # tool. A real hook's derived.env must add its exact installation without
     # looking up only the name or rewriting previous Process provenance.
+    # wget's executable shebang resolves python3. Use a clean resolver cache so
+    # an unrelated cached "python" entry cannot make this assertion pass.
     # Keep both registered paths distinct from the hook's interpreter. On
     # Linux the hook can legitimately resolve sys.executable itself; registering
     # it here would reuse that exact installation instead of creating a third.
@@ -296,7 +298,7 @@ def test_hook_resolution_preserves_registered_binary_installations(
     original = {}
     for abspath in registered_paths:
         result = run_archivebox_cmd(
-            ["binary", "create", "--name=python", f"--abspath={abspath}", f"--version={sys.version.split()[0]}"],
+            ["binary", "create", "--name=python3", f"--abspath={abspath}", f"--version={sys.version.split()[0]}"],
             cwd=initialized_archive,
         )
         assert result.returncode == 0, result.stdout + result.stderr
@@ -307,7 +309,7 @@ def test_hook_resolution_preserves_registered_binary_installations(
     result = run_archivebox_cmd(
         ["add", "--plugins=wget", url],
         cwd=initialized_archive,
-        env=cli_env(disable_extractors=True, ABXPKG_LIB_DIR=str(cached_abxpkg_lib_dir)),
+        env=cli_env(disable_extractors=True, ABXPKG_LIB_DIR=str(hermetic_lib_dir)),
         timeout=120,
     )
     assert result.returncode == 0, result.stdout + result.stderr
@@ -319,6 +321,6 @@ def test_hook_resolution_preserves_registered_binary_installations(
         for binary_id, identity in original.items():
             binary = Binary.objects.get(pk=binary_id)
             assert (binary.abspath, binary.version, binary.sha256) == identity
-        resolved = Binary.objects.filter(name="python").exclude(pk__in=original)
+        resolved = Binary.objects.filter(name="python3").exclude(pk__in=original)
         assert resolved.exists()
         assert Process.objects.filter(binary__in=resolved, process_type=Process.TypeChoices.BINARY, exit_code=0).exists()
