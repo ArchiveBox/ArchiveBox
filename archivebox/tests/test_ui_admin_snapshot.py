@@ -1402,6 +1402,8 @@ class TestAdminSnapshotListView:
 
         client.force_login(admin_user)
         url = reverse("admin:core_snapshot_changelist")
+        # The first admin request provisions per-process rows (machine, API token).
+        assert client.get(url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
         with CaptureQueriesContext(connection) as single_snapshot_queries:
             response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
@@ -1421,6 +1423,15 @@ class TestAdminSnapshotListView:
         }
         assert "_admin_archiveresults" not in rendered_snapshot.__dict__
         assert [result.plugin for result in rendered_snapshot.__dict__["_admin_output_results"]] == ["screenshot"]
+        assert f"_card/{rendered_snapshot.__dict__['_admin_output_results'][0].id}".encode() in response.content
+        # Rows the list never renders must not ship their output manifest:
+        # responses/wget manifests can hold thousands of entries per row.
+        unrendered_results = [
+            result for result in rendered_snapshot.__dict__["_snapshot_card_results"] if result.plugin in {"title", "wget", "hashes"}
+        ]
+        assert len(unrendered_results) == 3
+        assert all(result._render_output_file_map == {} for result in unrendered_results)
+        assert all("output_files" in result.get_deferred_fields() for result in unrendered_results)
 
         additional_snapshots = [
             Snapshot.objects.create(
@@ -1435,21 +1446,30 @@ class TestAdminSnapshotListView:
             [
                 ArchiveResult(
                     snapshot=additional_snapshot,
-                    plugin="wget",
-                    hook_name="on_Snapshot__50_wget.py",
-                    status=ArchiveResult.StatusChoices.STARTED,
+                    plugin=plugin,
+                    hook_name=f"on_Snapshot__50_{plugin}.py",
+                    status=status,
+                    output_size=output_size,
+                    output_files={"screenshot.png": {"size": output_size}} if output_size else {},
                 )
                 for additional_snapshot in additional_snapshots
+                for plugin, status, output_size in (
+                    ("wget", ArchiveResult.StatusChoices.STARTED, 0),
+                    ("screenshot", ArchiveResult.StatusChoices.SUCCEEDED, 2048),
+                )
             ],
         )
         with CaptureQueriesContext(connection) as many_snapshot_queries:
             many_response = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
 
         assert many_response.status_code == 200
+        assert many_response.content.count(b"_card/") == 6
         single_result_queries = [query for query in single_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
         many_result_queries = [query for query in many_snapshot_queries.captured_queries if 'FROM "core_archiveresult"' in query["sql"]]
-        # Status totals, successful outputs, and preview candidates each load in bulk.
-        assert len(single_result_queries) == len(many_result_queries) == 3
+        # Status totals, file icons, and preview candidates share one bulk query.
+        assert len(single_result_queries) == len(many_result_queries) == 1
+        # Thumbnails and icons render from the page rows; extra rows add no per-row queries.
+        assert len(single_snapshot_queries.captured_queries) == len(many_snapshot_queries.captured_queries)
 
     def test_list_view_uses_prefetched_tags_without_row_queries(self, client, admin_user, crawl, db):
         """Changelist tag rendering should reuse the prefetched tag cache."""

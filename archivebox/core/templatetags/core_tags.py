@@ -914,8 +914,10 @@ def plugin_card(context, result) -> str:
         # The cover and expanded stack both embed this one card document. Run
         # plugin code on the snapshot origin so it can read saved files without
         # exposing raw archives or the admin session to the collection page.
+        # snapshot_id is on the row already; result.snapshot would load the
+        # whole parent Snapshot once per list row just to read its id.
         card_url = build_snapshot_url(
-            str(_snapshot_id(result.snapshot)),
+            str(result.snapshot_id),
             f"_card/{result.id}",
             request=context.get("request"),
             config=context.get("CONFIG"),

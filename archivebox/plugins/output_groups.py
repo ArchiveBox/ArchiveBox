@@ -98,18 +98,20 @@ def order_output_plugins(plugins, sizes: dict[str, int]) -> list[str]:
 def snapshot_thumbnail_result(results):
     """Select the first available card using plugin-owned thumbnail priority."""
     card_order = get_snapshot_thumbnail_card_order()
-    candidates = []
-    for result in results:
-        if result.plugin not in card_order:
-            continue
+    # Resolve paths in priority order and stop at the first hit: embed_path()
+    # can scan a whole output manifest, and lower-priority cards never show.
+    candidates = sorted(
+        (result for result in results if result.plugin in card_order),
+        key=lambda result: (card_order[result.plugin], str(result.id)),
+    )
+    for result in candidates:
         try:
             path = result.embed_path()
         except (TypeError, ValueError, OverflowError):
             continue
-        if not path:
-            continue
-        candidates.append((card_order[result.plugin], str(result.id), result))
-    return min(candidates, default=(None, None, None))[2]
+        if path:
+            return result
+    return None
 
 
 def order_snapshot_outputs(outputs: list[dict[str, Any]]) -> list[dict[str, Any]]:
