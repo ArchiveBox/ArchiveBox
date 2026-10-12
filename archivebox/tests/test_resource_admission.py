@@ -175,3 +175,21 @@ def test_auto_admission_grows_gradually_and_backs_off_without_canceling_work():
     assert admission.concurrency_limit(4, pressure=False, now=15) == 1
     assert admission.concurrency_limit(4, pressure=False, now=21) == 2
     assert admission.concurrency_limit(1, pressure=False, now=40) == 1
+
+
+def test_memory_observation_ignores_reclaimable_page_cache_of_written_files(tmp_path):
+    # Captures write hundreds of MB of output files. Their page cache is
+    # reclaimable, so it must not be charged as per-snapshot memory cost.
+    admission = ResourceAdmission()
+    before = admission.memory_headroom()
+    assert before is not None
+    output = tmp_path / "capture-output.bin"
+    with output.open("wb") as file:
+        for _ in range(256):
+            file.write(os.urandom(1024 * 1024))
+        file.flush()
+        os.fsync(file.fileno())
+    during = admission.memory_headroom()
+    assert during is not None
+    assert output.stat().st_size == 256 * 1024 * 1024
+    assert during[0] - before[0] < 128 * 1024 * 1024, f"Page cache counted as capture memory: {during[0] - before[0]}"

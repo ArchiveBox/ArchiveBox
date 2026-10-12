@@ -169,6 +169,12 @@ class ResourceAdmission:
                 if memory_max == "max":
                     continue
                 current = int((path / "memory.current").read_text())
+                # memory.current includes the page cache of every file a
+                # capture writes (screenshots, WACZ, responses). The kernel
+                # reclaims it under pressure, so counting it made each capture
+                # look like ~2.8 GB and serialized a 16 GB host to one snapshot.
+                stat = dict(line.split() for line in (path / "memory.stat").read_text().splitlines())
+                current = max(0, current - int(stat.get("active_file", 0)) - int(stat.get("inactive_file", 0)))
                 swap_max = (path / "memory.swap.max").read_text().strip()
                 swap_current = int((path / "memory.swap.current").read_text())
                 swap_room = host_swap_free if swap_max == "max" else min(host_swap_free, max(0, int(swap_max) - swap_current))
