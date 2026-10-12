@@ -10,7 +10,7 @@ import socket
 from pathlib import Path
 from archivebox.uuid_compat import CompactUUIDField, uuid7
 from datetime import timedelta, datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.db import IntegrityError, transaction
 from django.core.exceptions import ObjectDoesNotExist
@@ -569,7 +569,7 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
     active_state: str = StatusChoices.QUEUED
     warn_on_save_outside_runner = False
 
-    objects = BinaryManager()  # pyright: ignore[reportIncompatibleVariableOverride]
+    objects: ClassVar[BinaryManager] = BinaryManager()  # pyright: ignore[reportIncompatibleVariableOverride]
 
     class Meta(ModelWithHealthStats.Meta, ModelWithQueue.Meta):
         app_label = "machine"
