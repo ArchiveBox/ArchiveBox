@@ -10,6 +10,7 @@ Actions:
     list    - List Tags as JSONL (with optional filters)
     update  - Update Tags from stdin JSONL
     delete  - Delete Tags from stdin JSONL
+    repair  - Remove one-character tags split out of other tag names
 
 Examples:
     # Create
@@ -25,6 +26,10 @@ Examples:
 
     # Delete
     archivebox tag list --name=unused | archivebox tag delete --yes
+
+    # Repair tags split into single characters (preview first)
+    archivebox tag repair --dry-run
+    archivebox tag repair --yes
 """
 
 __package__ = "archivebox.cli"
@@ -254,6 +259,102 @@ def delete_tags(yes: bool = False, dry_run: bool = False) -> int:
 
 
 # =============================================================================
+# REPAIR
+# =============================================================================
+
+
+def exploded_tag_ids(tags: dict[int, str]) -> set[int]:
+    """Return the IDs of one-character tags that are a split-up copy of the other tags.
+
+    WHY: a tag string iterated character by character ("abc5,test" -> "a", "b",
+    "c", "5", ",", "t", ...) leaves every character of the snapshot's real tags,
+    including the "," separator, as its own tag next to the real ones. A tag is
+    only treated as such a fragment when every one-character tag on the snapshot
+    is a character of its comma-joined longer tags AND those characters spell out
+    all of at least one longer tag. A deliberate short tag ("x", or "5" next to
+    "abc5") never satisfies both, so it is kept.
+    """
+    chars = {tag_id: name.lower() for tag_id, name in tags.items() if len(name) == 1}
+    longer = [name.lower() for name in tags.values() if len(name) > 1]
+    if not chars or not longer:
+        return set()
+    if not set(chars.values()) <= set(",".join(longer)):
+        return set()
+    if not any(set(name) <= set(chars.values()) for name in longer):
+        return set()
+    return set(chars)
+
+
+def repair_tags(yes: bool = False, dry_run: bool = False) -> int:
+    """
+    Remove one-character tags that were created by splitting a tag string into characters.
+
+    Exit codes:
+        0: Success (including nothing to repair)
+        1: Missing --yes flag
+    """
+    from collections import defaultdict
+
+    from django.db.models.functions import Length
+    from rich.markup import escape
+
+    from archivebox.core.models import Snapshot, SnapshotTag, Tag
+
+    char_tag_ids = list(Tag.objects.annotate(name_length=Length("name")).filter(name_length=1).values_list("id", flat=True))
+    candidate_ids = list(SnapshotTag.objects.filter(tag_id__in=char_tag_ids).values_list("snapshot_id", flat=True).distinct())
+
+    repairs: dict[object, set[int]] = {}
+    # Chunk the reads so collections with many affected snapshots stay bounded.
+    for start in range(0, len(candidate_ids), 500):
+        tags_by_snapshot: dict[object, dict[int, str]] = defaultdict(dict)
+        rows = SnapshotTag.objects.filter(snapshot_id__in=candidate_ids[start : start + 500]).values_list(
+            "snapshot_id",
+            "tag_id",
+            "tag__name",
+        )
+        for snapshot_id, tag_id, tag_name in rows:
+            tags_by_snapshot[snapshot_id][tag_id] = tag_name
+        for snapshot_id, tags in tags_by_snapshot.items():
+            if bogus := exploded_tag_ids(tags):
+                repairs[snapshot_id] = bogus
+
+    if not repairs:
+        rprint("[green]No split-up tags found[/green]", file=sys.stderr)
+        return 0
+
+    tag_names = dict(Tag.objects.filter(id__in={tag_id for ids in repairs.values() for tag_id in ids}).values_list("id", "name"))
+    for snapshot in Snapshot.objects.filter(id__in=repairs).only("id", "url").order_by("url"):
+        removed = " ".join(repr(tag_names[tag_id]) for tag_id in sorted(repairs[snapshot.id], key=lambda tag_id: tag_names[tag_id]))
+        # WHY escape: tag names and URLs may contain "[...]", which rich would parse as markup.
+        rprint(escape(f"  {snapshot.url}: {removed}"), file=sys.stderr)
+
+    if dry_run:
+        rprint(f"[yellow]Would remove split-up tags from {len(repairs)} snapshots (dry run)[/yellow]", file=sys.stderr)
+        return 0
+
+    if not yes:
+        rprint("[red]Use --yes to confirm the repair (or --dry-run to preview it)[/red]", file=sys.stderr)
+        return 1
+
+    removed_count = 0
+    for snapshot in Snapshot.objects.filter(id__in=repairs).only("id"):
+        removed_count += snapshot.remove_tag_ids(repairs[snapshot.id])
+
+    # Delete only the fragment tags that no snapshot uses anymore; a one-character
+    # tag that is still attached somewhere was deliberately chosen there.
+    orphaned = Tag.objects.filter(id__in=tag_names, snapshot_set__isnull=True)
+    deleted_tags = sorted(orphaned.values_list("name", flat=True))
+    orphaned.delete()
+
+    rprint(
+        f"[green]Removed {removed_count} split-up tag associations from {len(repairs)} snapshots "
+        f"and deleted {len(deleted_tags)} orphaned tags: {escape(' '.join(map(repr, deleted_tags)))}[/green]",
+        file=sys.stderr,
+    )
+    return 0
+
+
+# =============================================================================
 # CLI Commands
 # =============================================================================
 
@@ -293,6 +394,14 @@ def update_cmd(name: str | None):
 def delete_cmd(yes: bool, dry_run: bool):
     """Delete Tags from stdin JSONL."""
     sys.exit(delete_tags(yes=yes, dry_run=dry_run))
+
+
+@main.command("repair")
+@click.option("--yes", "-y", is_flag=True, help="Confirm the repair")
+@click.option("--dry-run", is_flag=True, help="Show what would be removed")
+def repair_cmd(yes: bool, dry_run: bool):
+    """Remove one-character tags created by splitting a tag string into characters."""
+    sys.exit(repair_tags(yes=yes, dry_run=dry_run))
 
 
 if __name__ == "__main__":
