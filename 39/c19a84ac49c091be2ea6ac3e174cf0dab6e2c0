@@ -1,0 +1,35 @@
+archivebox/api/v1_personas.py
+  s_4c6c21040e0541::t_0b5e22d680361e 32,110-111
+archivebox/cli/archivebox_update.py
+  s_4c6c21040e0541::t_95c3da72bed763 467,547,550-556,572-573,576
+archivebox/cli/rescan.py
+  s_4c6c21040e0541::t_57806d97ff5dcd 15,43-48,163,225-231
+archivebox/core/models.py
+  s_4c6c21040e0541::t_e31b9de1cde072 1491-1492,1586-1589,1616-1617,1620-1621,1637,1859,1894-1898,1931-1939,2125,2152,3010
+archivebox/services/binary_service.py
+  s_4c6c21040e0541::t_cb17df6921f9d2 256-258,262-264
+archivebox/tests/test_api_v1_personas_sync.py
+  s_4c6c21040e0541::t_748b1bcb48d498 25,40,51-58,66
+archivebox/tests/test_binary_service.py
+  s_4c6c21040e0541::t_29ace0ac55ab10 276-320
+archivebox/tests/test_cli_update.py
+  s_4c6c21040e0541::t_0493b19b7c6d8a 11,23-83
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_4c6c21040e0541::t_9936d99f348dac 3,19-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "39c19a84ac49c091be2ea6ac3e174cf0dab6e2c0",
+  "prompts": {},
+  "sessions": {
+    "s_4c6c21040e0541": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a122bc-d29d-7ef1-b59a-3fcb2442d9ba",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
