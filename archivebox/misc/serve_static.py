@@ -1193,7 +1193,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 if fullpath.suffix.lower() == ".wacz" and "text/html" in replay_content_type:
                     # The outer snapshot shell is cross-origin. Signal actual archived
                     # content paint, not the viewer's early/timeout loading events.
-                    body = body.replace("</body>", """<script>
+                    body = body.replace(
+                        "</body>",
+                        """<script>
 (() => {
     function painted(root) {
         for (const element of root.querySelectorAll('*')) {
@@ -1220,7 +1222,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     }, 50);
     window.addEventListener('pagehide', () => clearInterval(poll), {once: true});
 })();
-</script></body>""")
+</script></body>""",
+                    )
                 response = HttpResponse(body, content_type=replay_content_type)
                 for key, value in headers.items():
                     response.headers[key] = value
