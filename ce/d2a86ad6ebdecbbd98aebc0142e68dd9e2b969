@@ -1,0 +1,22 @@
+archivebox/tests/test_tag_reconciliation.py
+  s_4c6c21040e0541::t_c1ae595a58ca30 24-37
+archivebox/tests/test_api_v1_core_tags_search.py
+  s_4c6c21040e0541::t_c1ae595a58ca30 35,37-38
+  s_4c6c21040e0541::t_a62c2c2dcf827d 36,39-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ced2a86ad6ebdecbbd98aebc0142e68dd9e2b969",
+  "prompts": {},
+  "sessions": {
+    "s_4c6c21040e0541": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a122bc-d29d-7ef1-b59a-3fcb2442d9ba",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
