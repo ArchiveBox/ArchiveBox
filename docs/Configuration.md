@@ -358,8 +358,6 @@ archivebox config --set PUBLIC_ADD_VIEW=False    # require login to submit new U
 
 Django's secret key, used for signing sessions, password reset links, and other signed payloads. ArchiveBox generates it automatically and stores it in the collection database's `Machine.config`. No manual configuration is required.
 
-On upgrade, startup automatically moves an existing file-based key into the database without changing it, preserving existing logins. The legacy file entry is removed only after the database save commits. If migration fails, ArchiveBox warns and retains the existing file key.
-
 > [!WARNING]
 > Treat this value like a password and protect database backups. Anyone with the `SECRET_KEY` can forge signed payloads for your instance. Changing the key invalidates existing sessions and other signed data.
 
