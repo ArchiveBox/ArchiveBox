@@ -1,6 +1,7 @@
 """A failed optional dependency must not stop unrelated real captures."""
 
 import pytest
+from pathlib import Path
 
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.machine.models import Process
@@ -32,7 +33,10 @@ def test_add_preserves_failed_dependency_and_captures_healthy_plugin(initialized
         assert failed_hook.process.exit_code == 1
         assert failed_hook.process.status == Process.StatusChoices.EXITED
         assert failed_hook.process.ended_at is not None
-        assert str(missing_binary) in failed_hook.process.stderr
+        # Dependency diagnostics abbreviate the home directory, including the
+        # CI workspace. Expand that display prefix before checking the path.
+        stderr = failed_hook.process.stderr.replace("~/", f"{Path.home()}/")
+        assert str(missing_binary) in stderr
         wget = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget")
         assert wget.status == ArchiveResult.StatusChoices.SUCCEEDED
         assert wget.process.exit_code == 0
