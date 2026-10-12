@@ -668,9 +668,8 @@ class TestLiveProgressView:
         keep_frames,
         tmp_path,
     ):
-        import cProfile
         import hashlib
-        import pstats
+        import sys
         import time
 
         from archivebox.config.common import get_config
@@ -736,13 +735,23 @@ class TestLiveProgressView:
             assert frame.read_bytes().startswith(b"\xff\xd8\xff")
             assert time.time() - frame.stat().st_mtime > 16
             client.force_login(admin_user)
-            profile = cProfile.Profile()
-            with profile:
+            process_probes = []
+
+            def observe(frame, event, arg):
+                if event == "call" and "/psutil/" in frame.f_code.co_filename:
+                    process_probes.append((frame.f_code.co_filename, frame.f_code.co_name))
+
+            # cProfile observes other threads on Python 3.13, including the
+            # runner's legitimate memory admission checks. Observe this request
+            # thread only, without replacing any process API.
+            previous_profile = sys.getprofile()
+            sys.setprofile(observe)
+            try:
                 response = client.get("/progress.json", HTTP_HOST=ADMIN_TEST_HOST)
+            finally:
+                sys.setprofile(previous_profile)
             assert response.status_code == 200, response.content
-            profile_stats = pstats.Stats(profile).stats
-            process_probes = [(source, function) for (source, _line, function) in profile_stats if "/psutil/" in source]
-            assert process_probes == [], {key: value[4] for key, value in profile_stats.items() if "/psutil/" in key[0]}
+            assert process_probes == []
             active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
             assert active_crawl["screencast_url"].startswith(f"/api/v1/crawls/crawl/{crawl.pk}/files/chrome_screencast/latest.jpg")
             image_response = client.get(active_crawl["screencast_url"], HTTP_HOST=ADMIN_TEST_HOST)
