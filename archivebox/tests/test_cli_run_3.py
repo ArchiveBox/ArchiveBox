@@ -1282,7 +1282,7 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert snapshot.status == Snapshot.StatusChoices.STARTED
         assert snapshot.retry_at == now
 
-    def test_interrupted_started_snapshot_preempts_older_queued_children(self):
+    def test_interrupted_started_snapshot_resumes_first_without_preempting_running_crawl(self):
         from datetime import timedelta
 
         from django.utils import timezone
@@ -1321,8 +1321,14 @@ class TestRecoverOrchestratorStateRedFailureModes:
             retry_at=now,
         )
 
-        assert _higher_priority_crawl_waiting(str(running.id), []) is True
+        # A running crawl keeps its browser; the interrupted capture resumes
+        # first once the outer scheduler picks work (oldest STARTED first).
+        assert _higher_priority_crawl_waiting(str(running.id), []) is False
         assert _higher_priority_crawl_waiting(str(interrupted.id), []) is False
+        from archivebox.services.runner import _first_due_id
+
+        due_started = Snapshot.objects.filter(retry_at__lte=timezone.now(), status=Snapshot.StatusChoices.STARTED)
+        assert _first_due_id(due_started) == Snapshot.objects.get(crawl=interrupted).id
 
     def test_newest_queued_crawl_preempts_older_without_reversing_its_urls(self):
         from datetime import timedelta
