@@ -1,7 +1,7 @@
 __package__ = "archivebox.crawls"
 
 from typing import TYPE_CHECKING, Any
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 import uuid
 import json
 import re
@@ -468,7 +468,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         from archivebox.core.models import Snapshot
 
         date_str = self.created_at.strftime("%Y%m%d")
-        first_url = next((url for url in self.get_urls_list() if url), "")
+        first_url = next((url for _raw_line, url in self._iter_url_lines() if url), "")
         domain = Snapshot.extract_domain_from_url(first_url) if first_url else "unknown"
 
         output_dir = CONSTANTS.USERS_DIR / self.created_by.username / CONSTANTS.CRAWLS_DIR_NAME / date_str / domain / str(self.id)
@@ -642,14 +642,16 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             "deleted_snapshots": deleted_snapshots,
         }
 
-    def _iter_url_lines(self) -> list[tuple[str, str]]:
-        entries: list[tuple[str, str]] = []
+    def _iter_url_lines(self) -> Iterator[tuple[str, str]]:
+        # Lazy: callers such as output_dir only need the first URL, and
+        # parsing every JSONL line of a multi-thousand-URL crawl dominated
+        # each screencast frame request.
         for raw_line in (self.urls or "").splitlines():
             stripped = raw_line.strip()
             if not stripped:
                 continue
             if stripped.startswith("#"):
-                entries.append((raw_line.rstrip(), ""))
+                yield (raw_line.rstrip(), "")
                 continue
             try:
                 entry = json.loads(stripped)
@@ -658,12 +660,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 # are not records and must stay inert text instead of raising
                 # during later Snapshot.save() bookkeeping.
                 if isinstance(entry, dict):
-                    entries.append((raw_line.rstrip(), str(entry.get("url", "") or "").strip()))
+                    yield (raw_line.rstrip(), str(entry.get("url", "") or "").strip())
                 else:
-                    entries.append((raw_line.rstrip(), stripped))
+                    yield (raw_line.rstrip(), stripped)
             except json.JSONDecodeError:
-                entries.append((raw_line.rstrip(), stripped))
-        return entries
+                yield (raw_line.rstrip(), stripped)
 
     def count_urls_for_limit(self) -> int:
         """
