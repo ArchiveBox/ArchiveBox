@@ -846,6 +846,13 @@ def live_progress_view(request, *, authorized_snapshot=None):
             persona_details = persona_details_by_id.get(str(crawl["persona_id"])) if crawl["persona_id"] else None
             persona_name = persona_details["name"] if persona_details else "Default"
             persona_details = persona_details or persona_details_by_name.get(persona_name)
+            crawl_label = (next((line.strip() for line in (crawl["urls"] or "").splitlines() if line.strip()), "") or crawl_id)[:60]
+            if not is_admin:
+                # WHY: non-admins only reach this through one public/unlisted
+                # snapshot (or its replay cookie on hostile snap-* JS). Its crawl
+                # may be private: seed URLs, tags, and persona identity stay admin-only.
+                crawl_label = str(scoped_snapshot.url)[:60] if scoped_snapshot is not None else ""
+                urls_preview, crawl_tags, persona_name, persona_details = None, [], None, None
             crawl_output_size = totals["bytes"] if totals is not None else None
             avg_snapshot_size = int(totals["bytes"] / max(totals["snapshots"], 1)) if totals is not None else None
             # These crawl-scope limits are frozen in Crawl.config. Rendering
@@ -879,7 +886,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
             active_crawls.append(
                 {
                     "id": crawl_id,
-                    "label": (next((line.strip() for line in (crawl["urls"] or "").splitlines() if line.strip()), "") or crawl_id)[:60],
+                    "label": crawl_label,
                     "status": crawl["status"],
                     "is_paused": is_paused,
                     "started": crawl["created_at"].isoformat() if crawl["created_at"] else None,

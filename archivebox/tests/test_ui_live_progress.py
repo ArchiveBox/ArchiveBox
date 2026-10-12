@@ -824,6 +824,53 @@ class TestLiveProgressView:
             assert payload["scope"]["snapshot_id"] == compact_id
             assert payload["active_crawls"]
 
+    def test_public_snapshot_progress_does_not_leak_private_crawl_details(self, client, admin_user):
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.personas.models import Persona
+
+        persona = Persona.objects.create(name="private-work-login")
+        crawl = Crawl.objects.create(
+            urls="https://private-seed.example/inbox?token=seed-secret\nhttps://public-page.example/",
+            tags_str="private-crawl-tag",
+            created_by=admin_user,
+            persona=persona,
+            status=Crawl.StatusChoices.STARTED,
+            config={"PERMISSIONS": "private"},
+        )
+        snapshot = Snapshot.objects.create(
+            url="https://public-page.example/",
+            crawl=crawl,
+            status=Snapshot.StatusChoices.STARTED,
+        )
+        Snapshot.objects.filter(pk=snapshot.pk).update(config={"PERMISSIONS": "public"})
+
+        response = client.get(reverse("live_progress"), {"snapshot_id": str(snapshot.pk)}, HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert response.status_code == 200, response.content
+        payload = response.json()
+        assert payload["is_admin"] is False
+        scoped = payload["active_crawls"][0]
+        assert [item["id"] for item in scoped["active_snapshots"]] == [str(snapshot.pk).replace("-", "")]
+        assert scoped["label"] == "https://public-page.example/"
+        body = response.content.decode()
+        for private_value in (
+            "private-seed.example",
+            "seed-secret",
+            "private-crawl-tag",
+            "private-work-login",
+            f"/admin/personas/persona/{persona.pk}",
+        ):
+            assert private_value not in body, private_value
+
+        client.force_login(admin_user)
+        admin_scoped = client.get(reverse("live_progress"), {"snapshot_id": str(snapshot.pk)}, HTTP_HOST=ADMIN_TEST_HOST).json()[
+            "active_crawls"
+        ][0]
+        assert admin_scoped["urls_preview"].startswith("https://private-seed.example/")
+        assert admin_scoped["tags"] == ["private-crawl-tag"]
+        assert admin_scoped["persona"] == "private-work-login"
+
     def test_live_progress_scope_accepts_compact_and_dashed_crawl_ids(self, client, admin_user, crawl):
         compact_id = str(crawl.id).replace("-", "")
         dashed_id = str(uuid.UUID(hex=compact_id))

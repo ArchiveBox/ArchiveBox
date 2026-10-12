@@ -1784,7 +1784,8 @@
         const crawlTimeoutText = (crawl.crawl_timeout || 0) > 0 ? `${crawl.crawl_timeout}s` : 'unlimited';
         const snapshotSizeLimitText = `${crawl.avg_snapshot_size_display || '0 B'} / ${crawl.max_snapshot_size_display || 'unlimited'}`;
         const crawlBadges = [
-            crawlBadge('persona', 'Persona Config', crawl.persona || 'Default', crawl.persona_admin_url, 'Edit persona config'),
+            // Public snapshot viewers get no persona: it names a private login.
+            crawl.persona ? crawlBadge('persona', 'Persona Config', crawl.persona, crawl.persona_admin_url, 'Edit persona config') : '',
             crawlBadge('limit', 'depth', crawl.max_depth || 0, adminFieldUrl('max_depth'), 'Edit crawl depth'),
             crawlBadge('limit', 'urls', urlLimitText, adminFieldUrl('max_urls'), 'Edit max URLs'),
             crawlBadge('size', 'crawl size', crawlSizeLimitText, adminFieldUrl('crawl_max_size'), 'Edit max crawl size'),
