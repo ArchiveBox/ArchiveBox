@@ -1210,9 +1210,11 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 const child = element.contentWindow;
                 const doc = element.contentDocument;
                 if (!doc) continue;
+                // Not paint timing: the parent covers this frame with the
+                // screenshot until we signal, and Chrome records no
+                // first-contentful-paint for a fully covered frame (deadlock).
                 if (child.location.pathname.includes('/replay/w/') &&
-                    doc.body && child.performance.getEntriesByType('paint').some(
-                        entry => entry.name === 'first-contentful-paint')) return true;
+                    doc.readyState !== 'loading' && doc.body && doc.body.childElementCount) return true;
                 if (painted(doc)) return true;
             } catch (error) {}
         }
