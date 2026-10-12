@@ -1,0 +1,23 @@
+.github/ISSUE_TEMPLATE/1-bug_report.yml
+  s_e37750da3e6d76::t_8cef71e83d8553 169
+archivebox/core/settings.py
+  s_e37750da3e6d76::t_f90ce9115fdeb7 325-330
+docs/Configuration.md
+  s_e37750da3e6d76::t_69661857455536 359-361,364
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "65aadb0acb20ab524b3af5eeb428ca0382023566",
+  "prompts": {},
+  "sessions": {
+    "s_e37750da3e6d76": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12df6-d0b4-7223-aa0c-cb6453586270",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
