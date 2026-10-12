@@ -504,7 +504,30 @@ def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(sn
         output_str="responses/index.jsonl",
         output_files=output_files,
     )
-    largest = sorted((name for name in output_files if name.startswith("all/")), key=lambda name: -output_files[name]["size"])[:9]
+    by_size = sorted((name for name in output_files if name.startswith("all/")), key=lambda name: -output_files[name]["size"])
+    # LiteParse parsed only the two smallest images, as it does on real pages
+    # where it OCRs a few of many captures. Its sources lead the grid and the
+    # largest remaining captures fill the other seven tiles.
+    parsed = by_size[-2:]
+    liteparse_dir = Path(snapshot.output_dir) / "liteparse"
+    liteparse_dir.mkdir()
+    liteparse_files = {}
+    for name in parsed:
+        # LiteParse names outputs after the sanitized source basename capped
+        # at 96 chars, and records the full source name in a header comment.
+        output_name = re.sub(r"[^A-Za-z0-9._-]+", "-", Path(name).name).strip("-")[:96] + ".txt"
+        text = f"<!-- source: {Path(name).name} -->\nOCR text from {Path(name).name}\n"
+        (liteparse_dir / output_name).write_text(text)
+        liteparse_files[output_name] = {"size": len(text.encode()), "mimetype": "text/plain", "extension": "txt"}
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="liteparse",
+        hook_name="on_Snapshot__68_liteparse.py",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str=f"liteparse/{next(iter(liteparse_files))}",
+        output_files=liteparse_files,
+    )
+    expected = [*parsed, *by_size[:7]]
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(
@@ -538,10 +561,10 @@ def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(sn
             first_layout = page.evaluate("window.firstLayout")
             assert len(first_layout) == 9
             assert min(first_layout) > 36
-            assert [tile["name"] for tile in tiles] == largest
+            assert [tile["name"] for tile in tiles] == expected
             # Hidden captures are never fetched: on large snapshots they would
             # queue ahead of every other card on the snapshot origin.
-            assert sorted({urlsplit(url).path.removeprefix("/responses/") for url in image_requests}) == sorted(largest)
+            assert {urlsplit(url).path.removeprefix("/responses/") for url in image_requests} <= {*by_size[:9], *parsed}
         context.close()
         browser.close()
 
