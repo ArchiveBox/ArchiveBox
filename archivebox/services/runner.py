@@ -23,7 +23,7 @@ from django.utils import timezone
 from rich.console import Console
 from rich.text import Text
 
-from abxpkg.binary_service import BinaryRequestEvent, BinaryService
+from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent, BinaryService
 from abx_dl.events import (
     CrawlAbortEvent,
     CrawlCleanupEvent,
@@ -1480,25 +1480,31 @@ async def _run_binary(binary_id: str) -> None:
     if derived_config:
         await bus.emit(MachineEvent(config=derived_config, config_type="derived")).now()
 
+    request = bus.emit(
+        BinaryRequestEvent(
+            name=binary.name,
+            binproviders=binary.binproviders,
+            overrides=binary.overrides or None,
+            extra_context={
+                "plugin_name": "archivebox",
+                "hook_name": "archivebox_binary_run",
+                "output_dir": str(binary.output_dir),
+                "binary_id": str(binary.id),
+                "machine_id": str(binary.machine_id),
+            },
+        ),
+    )
     try:
-        await bus.emit(
-            BinaryRequestEvent(
-                name=binary.name,
-                binproviders=binary.binproviders,
-                overrides=binary.overrides or None,
-                extra_context={
-                    "plugin_name": "archivebox",
-                    "hook_name": "archivebox_binary_run",
-                    "output_dir": str(binary.output_dir),
-                    "binary_id": str(binary.id),
-                    "machine_id": str(binary.machine_id),
-                },
-            ),
-        ).now(first_result=True)
+        await request.now(first_result=True)
     finally:
         await bus.wait_until_idle()
         await binary_process_service.flush_missing_finalizers()
         await process_service.flush_completed()
+    resolved = await bus.find(BinaryEvent, child_of=request, past=True, future=False, name=binary.name)
+    if isinstance(resolved, BinaryEvent):
+        # Resolution can succeed while a DB projection handler fails. Surface
+        # that failure instead of returning success with a queued Binary.
+        await resolved.event_results_list()
 
 
 def run_binary(binary_id: str) -> None:

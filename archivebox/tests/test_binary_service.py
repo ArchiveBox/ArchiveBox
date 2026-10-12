@@ -275,6 +275,43 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     assert process_exit_codes == [1, 0, 0]
 
 
+def test_queued_binary_resolution_coalesces_identical_installation(initialized_archive):
+    runtime_env = _runtime_env(initialized_archive)
+    # The cold resolver may return its provider symlink; the warm resolver
+    # returns the underlying executable. Seed both real resolution paths.
+    for _ in range(2):
+        first = _run_real_binary_lifecycle(initialized_archive, name="archivebox", binproviders="env", env=runtime_env)
+        assert first.returncode == 0, first.stdout + first.stderr
+    with use_archivebox_db(initialized_archive):
+        original = Binary.objects.filter(name="archivebox").latest("created_at")
+        identity = (original.abspath, original.version, original.sha256)
+        successes = original.num_uses_succeeded
+        other_identities = {
+            str(row.id): (row.abspath, row.version, row.sha256) for row in Binary.objects.filter(name="archivebox").exclude(pk=original.pk)
+        }
+        original_process_ids = list(original.process_set.values_list("id", flat=True))
+        assert original_process_ids
+
+    # A queued request can resolve to an installation already projected from
+    # another request or a hook's cache. Exercise the real warm-cache path.
+    second = _run_real_binary_lifecycle(initialized_archive, name="archivebox", binproviders="env", env=runtime_env)
+    assert second.returncode == 0, second.stdout + second.stderr
+    with use_archivebox_db(initialized_archive):
+        resolved = Binary.objects.get(name="archivebox", abspath=identity[0], version=identity[1], sha256=identity[2])
+        assert (resolved.abspath, resolved.version, resolved.sha256) == identity
+        assert resolved.status == Binary.StatusChoices.INSTALLED
+        assert resolved.retry_at is None
+        assert resolved.num_uses_succeeded == successes + 1
+        assert Process.objects.filter(id__in=original_process_ids, binary=resolved, exit_code=0).count() == len(original_process_ids)
+        processes = list(resolved.process_set.order_by("created_at"))
+        assert len(processes) == len(original_process_ids) + 1
+        assert all(process.status == Process.StatusChoices.EXITED and process.exit_code == 0 and process.ended_at for process in processes)
+        for binary_id, other_identity in other_identities.items():
+            other = Binary.objects.get(pk=binary_id)
+            assert (other.abspath, other.version, other.sha256) == other_identity
+        assert Binary.objects.filter(name="archivebox").count() == len(other_identities) + 1
+
+
 def test_hook_resolution_preserves_registered_binary_installations(
     initialized_archive,
     recursive_test_site,

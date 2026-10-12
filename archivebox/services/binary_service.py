@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from abxpkg.binary_service import BinaryEvent, BinaryRequestEvent
@@ -72,7 +74,7 @@ class ArchiveBoxBinaryService(BaseService):
             where=lambda candidate: self.bus.event_is_child_of(event, candidate),
         )
         request = request if isinstance(request, BinaryRequestEvent) else None
-        process_id = self.process_ids_by_request_id.pop(request.event_id, "") if request is not None else ""
+        process_id = self.process_ids_by_request_id.get(request.event_id, "") if request is not None else ""
         if not process_id:
             return
         process = await Process.objects.filter(id=process_id).select_related("binary").afirst()
@@ -90,17 +92,51 @@ class ArchiveBoxBinaryService(BaseService):
             binary.binprovider = event.binprovider or binary.binprovider
             binary.status = Binary.StatusChoices.INSTALLED
             binary.retry_at = None
-            await binary.asave(
-                update_fields=["abspath", "version", "sha256", "binproviders", "binprovider", "status", "retry_at", "modified_at"],
-            )
+            try:
+                await sync_to_async(self._save_resolved_binary, thread_sensitive=True)(binary)
+            except Exception as error:
+                await self._finalize_missing_process(request, error=f"{type(error).__name__}: {error}")
+                raise
         process.ended_at = timezone.now()
         process.stdout = json.dumps(self._binary_event_json(event, binary)) + "\n"
         process.stderr = ""
         process.exit_code = 0
         process.status = Process.StatusChoices.EXITED
         await process.asave(update_fields=["ended_at", "stdout", "stderr", "exit_code", "status", "modified_at"])
+        self.process_ids_by_request_id.pop(request.event_id, None)
         if binary is not None:
             await sync_to_async(self._write_binary_index, thread_sensitive=True)(binary, process, Path(process.pwd))
+
+    @staticmethod
+    def _save_resolved_binary(binary) -> None:
+        from archivebox.machine.models import Binary, Process
+
+        # A subprocess cache projection or an earlier request may already have
+        # recorded this exact installation while this queue row was unresolved.
+        # Coalesce that identity atomically, retaining the claimed queue ID and
+        # every Process and health counter. Different paths/versions/hashes are
+        # different installations and must retain their historical provenance.
+        with transaction.atomic():
+            duplicate = (
+                Binary.objects.select_for_update()
+                .filter(
+                    machine_id=binary.machine_id,
+                    name=binary.name,
+                    abspath=binary.abspath,
+                    version=binary.version,
+                    sha256=binary.sha256,
+                )
+                .exclude(pk=binary.pk)
+                .first()
+            )
+            if duplicate is not None:
+                Process.objects.filter(binary=duplicate).update(binary=binary)
+                Binary.objects.filter(pk=binary.pk).update(
+                    num_uses_succeeded=F("num_uses_succeeded") + duplicate.num_uses_succeeded,
+                    num_uses_failed=F("num_uses_failed") + duplicate.num_uses_failed,
+                )
+                duplicate.delete()
+            binary.save(update_fields=["abspath", "version", "sha256", "binproviders", "binprovider", "status", "retry_at", "modified_at"])
 
     async def _get_or_create_binary(self, machine, binary_name: str, request: BinaryRequestEvent):
         from archivebox.machine.models import Binary
@@ -151,7 +187,7 @@ class ArchiveBoxBinaryService(BaseService):
         )
         return data
 
-    async def _finalize_missing_process(self, request: BinaryRequestEvent) -> None:
+    async def _finalize_missing_process(self, request: BinaryRequestEvent, *, error: str = "") -> None:
         from archivebox.machine.models import Process
 
         process_id = self.process_ids_by_request_id.pop(request.event_id, "")
@@ -161,7 +197,7 @@ class ArchiveBoxBinaryService(BaseService):
         if process is None or process.status == Process.StatusChoices.EXITED:
             return
         process.ended_at = timezone.now()
-        process.stderr = f"Binary request did not resolve: {request.name}"
+        process.stderr = error or f"Binary request did not resolve: {request.name}"
         process.exit_code = 1
         process.status = Process.StatusChoices.EXITED
         await process.asave(update_fields=["ended_at", "stderr", "exit_code", "status", "modified_at"])
