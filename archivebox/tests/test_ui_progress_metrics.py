@@ -158,7 +158,9 @@ def test_large_crawl_cached_progress_workload(client, admin_user, crawl):
                 payload = response.json()
                 assert ("metrics" in payload) is enabled
                 assert payload["snapshots_queued"] == 4976
-                assert payload["snapshots_active"] == 1
+                # "Active" counts captures with a live hook process; this
+                # STARTED row has none (e.g. interrupted), so it is not active.
+                assert payload["snapshots_active"] == 0
                 assert payload["active_crawls"][0]["completed_snapshots"] == 23
     assert not any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for query in queries)
     assert len(queries) <= 22 * 200
