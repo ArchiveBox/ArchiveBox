@@ -1224,9 +1224,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     const poll = setInterval(() => {
         if (!painted(document) && !window.archiveboxReplayError) return;
         clearInterval(poll);
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-            parent.postMessage({type: 'archivebox-replay-painted'}, '*');
-        }));
+        // No requestAnimationFrame here: Chrome stops animation frames in a
+        // frame the screenshot cover fully hides, so the signal never fired.
+        parent.postMessage({type: 'archivebox-replay-painted'}, '*');
     }, 50);
     window.addEventListener('pagehide', () => clearInterval(poll), {once: true});
 })();
