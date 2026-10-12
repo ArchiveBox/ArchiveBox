@@ -468,6 +468,7 @@ def test_machine_service_persists_only_derived_config_events(tmp_path, hermetic_
     machine = Machine.current()
     machine.config = {}
     machine.save(update_fields=["config"])
+    secret_config = dict(machine.config)
     install_real_binary("wget", machine=machine, binproviders="env,apt,brew")
     resolve_abxpkg_binary_env(hermetic_lib_dir, "wget")
     wget_binary = hermetic_lib_dir / "env" / "bin" / "wget"
@@ -525,6 +526,7 @@ def test_machine_service_persists_only_derived_config_events(tmp_path, hermetic_
     # from the derived payload is dropped; WGET_BINARY made it in (inside
     # ABXPKG_LIB_DIR) then the unset removed it; ABX_INSTALL_CACHE survives.
     assert machine.config == {
+        **secret_config,
         "ABX_INSTALL_CACHE": {"wget": "2026-03-24T00:00:00+00:00"},
         "ABX_PNPM_CACHE": "/tmp/pnpm-cache",
         "ABX_UV_CACHE": "/tmp/uv-cache",

@@ -258,8 +258,10 @@ class Machine(ModelWithHealthStats):
             from archivebox.config.collection import sync_machine_and_file
 
             sync_machine_and_file(machine)
-        except Exception:
-            pass
+        except Exception as err:
+            import logging
+
+            logging.getLogger(__name__).warning("Unable to reconcile collection config; keeping file (%s)", type(err).__name__)
         if needs_recheck:
             for key, value in {
                 "hostname": socket.gethostname(),
@@ -350,6 +352,10 @@ class Machine(ModelWithHealthStats):
         return None
 
     def save(self, *args, **kwargs):
+        if kwargs.get("update_fields") is None or "config" in kwargs["update_fields"]:
+            from archivebox.config.collection import preserve_db_secret
+
+            preserve_db_secret(self)
         normalized_config = normalize_config_json_values(self.config)
         if normalized_config != self.config:
             self.config = normalized_config

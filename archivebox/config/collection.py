@@ -3,6 +3,7 @@ __package__ = "archivebox.config"
 import io
 import json
 import os
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -17,7 +18,7 @@ CONFIG_FILE_HEADER = (
     "# You can add options here manually in INI format, or automatically by running:\n"
     "#    archivebox config --set KEY=VALUE\n"
     "#\n"
-    "# This file is kept in sync 1:1 with the current Machine.config in the DB —\n"
+    "# This file mirrors Machine.config, except for the DB-only signing secret.\n"
     "# editing either side propagates to the other. ``archivebox init`` reads\n"
     "# this file on startup; the admin Machine.config editor writes both.\n"
     "#\n"
@@ -37,6 +38,16 @@ _MIRROR_IN_PROGRESS: bool = False
 # One-time-per-process startup sync, gated so subsequent ``Machine.current()``
 # calls collapse to a single boolean check.
 _INITIAL_SYNC_DONE: bool = False
+
+
+def preserve_db_secret(machine) -> None:
+    """Ordinary Machine.config replacement must not erase or rotate an adopted key."""
+    try:
+        previous = type(machine).objects.filter(pk=machine.pk).values_list("config", flat=True).first() or {}
+        if previous.get("_SECRET_KEY_DB"):
+            machine.config = {**(machine.config or {}), "SECRET_KEY": previous["SECRET_KEY"], "_SECRET_KEY_DB": True}
+    except Exception as err:
+        logging.getLogger(__name__).warning("Unable to preserve DB secret (%s)", type(err).__name__)
 
 
 def _coerce_to_str_dict(config: Any) -> dict[str, str]:
@@ -106,6 +117,8 @@ def _render_config_file_content(config: dict[str, str]) -> str:
 
     parser = CaseConfigParser()
     for key, val in sorted(config.items()):
+        if key == "_SECRET_KEY_DB" or (key == "SECRET_KEY" and config.get("_SECRET_KEY_DB")):
+            continue
         section = _resolve_section_for_key(key, config_sections, plugin_configs)
         if section not in parser:
             parser[section] = {}
@@ -132,7 +145,11 @@ def _write_file_if_changed(content: str) -> bool:
         existing = None
     if existing == content:
         return False
-    atomic_write(config_path, content)
+    try:
+        atomic_write(config_path, content)
+    except (Exception, SystemExit) as err:
+        logging.getLogger(__name__).warning("Unable to update ArchiveBox.conf; keeping existing file (%s)", type(err).__name__)
+        return False
     return True
 
 
@@ -148,7 +165,9 @@ def mirror_machine_config_to_file(config: Any) -> None:
     _MIRROR_IN_PROGRESS = True
     try:
         flat = _coerce_to_str_dict(config)
-        _write_file_if_changed(_render_config_file_content(flat))
+        from django.db import transaction
+
+        transaction.on_commit(lambda: _write_file_if_changed(_render_config_file_content(flat)), robust=True)
     finally:
         _MIRROR_IN_PROGRESS = False
 
@@ -230,9 +249,6 @@ def sync_machine_and_file(machine: Any = None) -> None:
 
         file_config, file_mtime = _load_file_config_dict()
         machine_config = _coerce_to_str_dict(machine.config)
-        if machine_config == file_config:
-            return
-
         db_mtime = machine.modified_at.timestamp() if machine.modified_at else 0.0
         file_is_newer = file_mtime is not None and file_mtime > db_mtime
 
@@ -251,11 +267,15 @@ def sync_machine_and_file(machine: Any = None) -> None:
             else:
                 merged[key] = machine_config[key]
 
-        if merged != file_config:
-            _write_file_if_changed(_render_config_file_content(merged))
+        from django.conf import settings
+        from django.db import transaction
+
+        merged.update(SECRET_KEY=settings.SECRET_KEY, _SECRET_KEY_DB="True")
         if merged != machine_config:
             machine.config = _coerce_from_str_dict(merged)
             machine.save(update_fields=["config", "modified_at"])
+        flat = _coerce_to_str_dict(machine.config)
+        transaction.on_commit(lambda: _write_file_if_changed(_render_config_file_content(flat)), robust=True)
     finally:
         _MIRROR_IN_PROGRESS = False
 
@@ -323,8 +343,8 @@ def write_config_file(config: dict[str, str]) -> AttrDict:
         try:
             flat, _mtime = _load_file_config_dict()
             _mirror_file_to_machine_config(flat)
-        except Exception:
-            pass
+        except Exception as err:
+            logging.getLogger(__name__).warning("Unable to mirror file config to DB; keeping file (%s)", type(err).__name__)
         finally:
             _MIRROR_IN_PROGRESS = False
 

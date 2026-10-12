@@ -769,7 +769,9 @@ class CrawlRunner:
         self.derived_config = {
             key: value
             for key, value in (machine.config or {}).items()
-            if not _is_cookie_file_config_key(key) and (not key.endswith("_BINARY") or value == self.base_config.get(key))
+            if key not in {"SECRET_KEY", "_SECRET_KEY_DB"}
+            and not _is_cookie_file_config_key(key)
+            and (not key.endswith("_BINARY") or value == self.base_config.get(key))
         }
         self.crawl_output_dir = str(self.crawl.output_dir)
         Path(self.crawl_output_dir).mkdir(parents=True, exist_ok=True)
@@ -1463,7 +1465,9 @@ async def _run_binary(binary_id: str) -> None:
     binary = await Binary.objects.aget(id=binary_id)
     config = get_config(include_machine=False)
     machine = await sync_to_async(Machine.current, thread_sensitive=True)()
-    derived_config = normalize_runtime_config(machine.config)
+    derived_config = normalize_runtime_config(
+        {key: value for key, value in (machine.config or {}).items() if key not in {"SECRET_KEY", "_SECRET_KEY_DB"}},
+    )
     config = config.for_crawl()
     config = normalize_runtime_config(config)
     bus = create_bus(name=_bus_name("ArchiveBox_binary", str(binary.id)), total_timeout=1800.0)
@@ -1842,7 +1846,9 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     catalog = get_plugin_catalog()
     config = get_config(include_machine=False)
     machine = await sync_to_async(Machine.current, thread_sensitive=True)()
-    derived_config = normalize_runtime_config(machine.config)
+    derived_config = normalize_runtime_config(
+        {key: value for key, value in (machine.config or {}).items() if key not in {"SECRET_KEY", "_SECRET_KEY_DB"}},
+    )
     config = config.for_crawl()
     config = normalize_runtime_config(config)
     bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)

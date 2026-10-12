@@ -32,7 +32,7 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     from archivebox.config import CONSTANTS, VERSION
     from archivebox.config.common import get_config
     from archivebox.config.collection import write_config_file
-    from archivebox.misc.db import apply_migrations, database_exists, ensure_database_ready
+    from archivebox.misc.db import apply_migrations, database_exists, ensure_database_ready, load_db_secret
     from archivebox.misc.checks import check_migrations
 
     config = get_config()
@@ -84,7 +84,7 @@ def init(force: bool = False, quick: bool = False, install: bool = False) -> Non
     _get_collection_id(CONSTANTS.DATA_DIR, force_create=True)
 
     # create the ArchiveBox.conf file
-    write_config_file({"SECRET_KEY": config.SECRET_KEY})
+    write_config_file({} if load_db_secret(config) else {"SECRET_KEY": config.SECRET_KEY})
 
     if existing_index:
         print("\n[green][*] Verifying main SQL index and running any migrations needed...[/green]")

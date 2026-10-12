@@ -4,8 +4,105 @@ Comprehensive tests for archivebox config command.
 Verify config reads/writes ArchiveBox.conf file correctly.
 """
 
-from archivebox.tests.conftest import run_archivebox_cmd
+import json
+import sqlite3
+from archivebox.tests.conftest import run_archivebox_cmd, run_python_cwd
 from archivebox.config.configset import read_ini_config
+import pytest
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_secret_key_moves_to_db_without_invalidating_login(initialized_archive, legacy):
+    config_file = initialized_archive / "ArchiveBox.conf"
+    with sqlite3.connect(initialized_archive / "index.sqlite3") as db:
+        stored = [json.loads(row[0]) for row in db.execute("SELECT config FROM machine_machine")]
+    legacy_key = next(config["SECRET_KEY"] for config in stored if config.get("_SECRET_KEY_DB"))
+    assert legacy_key and "SECRET_KEY" not in config_file.read_text()
+    setup = """
+import django
+django.setup()
+from django.conf import settings
+from django.test import Client
+from django.contrib.auth import get_user_model
+from archivebox.machine.models import Machine
+client = Client(HTTP_HOST="admin.archivebox.localhost:5797")
+"""
+    stdout, stderr, code = run_python_cwd(
+        setup
+        + """
+get_user_model().objects.create_superuser(username="secret-test", password="secret-test-password")
+response = client.post("/admin/login/", {"username": "secret-test", "password": "secret-test-password", "next": "/admin/"})
+assert response.status_code == 302, response.content
+assert client.get("/admin/").wsgi_request.user.is_authenticated
+print(client.cookies[settings.SESSION_COOKIE_NAME].value)
+""",
+        cwd=initialized_archive,
+    )
+    assert code == 0, stderr
+    cookie = stdout.strip().splitlines()[-1]
+    # Leave the real authenticated session in place but restore the legacy storage layout.
+    if legacy:
+        with sqlite3.connect(initialized_archive / "index.sqlite3") as db:
+            db.execute("UPDATE machine_machine SET config = '{}'")
+        config_file.write_text(f"[SERVER_CONFIG]\nSECRET_KEY={legacy_key}\n")
+    for args in (["config", "--set", "TIMEOUT=123"], ["init", "--quick"]):
+        result = run_archivebox_cmd(args, cwd=initialized_archive)
+        assert result.returncode == 0, result.stderr
+        assert "SECRET_KEY" not in config_file.read_text()
+        with sqlite3.connect(initialized_archive / "index.sqlite3") as db:
+            stored = [json.loads(row[0]) for row in db.execute("SELECT config FROM machine_machine")]
+        adopted = [config for config in stored if config.get("_SECRET_KEY_DB")]
+        assert adopted and all(config["SECRET_KEY"] == legacy_key for config in adopted)
+        stdout, stderr, code = run_python_cwd(
+            setup
+            + f"""
+assert settings.SECRET_KEY == {legacy_key!r}
+client.cookies[settings.SESSION_COOKIE_NAME] = {cookie!r}
+assert client.get("/admin/").wsgi_request.user.is_authenticated
+machine = Machine.current()
+machine.config = {{"TIMEOUT": 124}}
+machine.save(update_fields=["config"])
+assert machine.config["SECRET_KEY"] == settings.SECRET_KEY
+""",
+            cwd=initialized_archive,
+        )
+        assert code == 0, stderr
+        with sqlite3.connect(initialized_archive / "index.sqlite3") as db:
+            db.execute("UPDATE machine_machine SET guid = 'previous-' || guid")
+
+
+def test_secret_conversion_keeps_file_when_db_is_readonly_or_transaction_rolls_back(initialized_archive):
+    config_file = initialized_archive / "ArchiveBox.conf"
+    original = "[SERVER_CONFIG]\nSECRET_KEY=preserve-this-legacy-secret\n"
+    for readonly in (True, False):
+        with sqlite3.connect(initialized_archive / "index.sqlite3") as db:
+            db.execute("UPDATE machine_machine SET config = '{}'")
+        config_file.write_text(original)
+        stdout, stderr, code = run_python_cwd(
+            f"""
+import django
+django.setup()
+from django.db import connection, transaction
+from archivebox.machine.models import Machine
+from archivebox.config.constants import CONSTANTS
+if {readonly!r}:
+    connection.close()
+    connection.settings_dict["NAME"] = CONSTANTS.DATABASE_FILE.as_uri() + "?mode=ro"
+    Machine.current()
+else:
+    with transaction.atomic():
+        Machine.current()
+        assert CONSTANTS.CONFIG_FILE.read_text() == {original!r}
+        transaction.set_rollback(True)
+assert CONSTANTS.CONFIG_FILE.read_text() == {original!r}
+assert not any((value or {{}}).get("_SECRET_KEY_DB") for value in Machine.objects.values_list("config", flat=True))
+""",
+            cwd=initialized_archive,
+        )
+        assert code == 0, stderr
+        if readonly:
+            assert "keeping file (OperationalError)" in " ".join(stderr.split())
+        assert config_file.read_text() == original
 
 
 def test_config_read_get_and_search_cover_core_plugin_alias_and_path_options(initialized_archive):

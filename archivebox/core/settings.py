@@ -322,6 +322,7 @@ CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
 ### Security Settings
 ################################################################################
 
+# Prefer the adopted DB secret; retain the file fallback until DB commit.
 # Persist SECRET_KEY on first use. Data dirs created before init wrote a
 # SECRET_KEY line — or those whose ArchiveBox.conf was hand-edited to remove
 # it — would otherwise sign session cookies with a fresh random key on every
@@ -333,6 +334,14 @@ CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
 # default_factory already filled it with a fresh random value. We have to
 # inspect the conf file directly to know whether the value will survive.
 SECRET_KEY = CONFIG.SECRET_KEY
+_secret_in_db = None
+try:
+    from archivebox.misc.db import load_db_secret
+
+    _secret_in_db = load_db_secret(CONFIG)
+    SECRET_KEY = CONFIG.SECRET_KEY = _secret_in_db or SECRET_KEY
+except Exception as err:
+    logger.warning("Unable to load DB secret; retaining file/env key (%s)", type(err).__name__)
 try:
     from archivebox.config.configset import BaseConfigSet as _BaseConfigSet
 
@@ -340,16 +349,16 @@ try:
     _secret_persisted = bool((_persisted_keys.get("SECRET_KEY") or "").strip())
 except (OSError, RuntimeError, ValueError):
     _secret_persisted = True  # err on the side of NOT touching disk
-if not _secret_persisted:
+if not _secret_persisted and not _secret_in_db:
     try:
         from archivebox.config.collection import write_config_file
 
         write_config_file({"SECRET_KEY": SECRET_KEY})
-    except (OSError, RuntimeError, ValueError):
+    except (Exception, SystemExit) as err:
         # Read-only mount, missing data dir, mid-init race — fall back to the
         # in-memory random key. The user will get logged out on the next boot
         # but the server still comes up.
-        logger.debug("Unable to persist generated SECRET_KEY", exc_info=True)
+        logger.warning("Unable to persist SECRET_KEY; retaining in-memory key (%s)", type(err).__name__)
 
 ALLOWED_HOSTS = [host.strip() for host in CONFIG.ALLOWED_HOSTS.split(",") if host.strip()]
 if (CONFIG.SERVER_SECURITY_MODE == "auto" or CONFIG.USES_SUBDOMAIN_ROUTING) and "*" not in ALLOWED_HOSTS:

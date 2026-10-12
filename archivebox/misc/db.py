@@ -99,6 +99,41 @@ def database_exists() -> bool:
         return False
 
 
+def load_db_secret(config) -> str | None:
+    """Read an adopted collection secret before Django's app registry exists."""
+    import json
+    import logging
+    import sqlite3
+    from contextlib import closing
+
+    try:
+        if os.environ.get("SECRET_KEY"):
+            return None  # Preserve explicit process overrides.
+        if not is_postgres(config) and not Path(config.DATABASE_NAME).exists():
+            return None
+        with closing(
+            _psycopg_connect()
+            if is_postgres(config)
+            else sqlite3.connect(f"{Path(config.DATABASE_NAME).absolute().as_uri()}?mode=ro", uri=True),
+        ) as db:
+            if not is_postgres(config) and not db.execute("SELECT 1 FROM sqlite_master WHERE name='machine_machine'").fetchone():
+                return None
+            configs = [
+                json.loads(row[0]) if isinstance(row[0], str) else row[0] for row in db.execute("SELECT config FROM machine_machine")
+            ]
+            keys = {
+                value["SECRET_KEY"]
+                for value in configs
+                if isinstance(value, dict) and value.get("_SECRET_KEY_DB") and value.get("SECRET_KEY")
+            }
+            if len(keys) > 1:
+                raise ValueError("Conflicting collection secrets in Machine.config")
+            return next(iter(keys), None)
+    except Exception as err:
+        logging.getLogger(__name__).warning("Unable to read collection secret from DB; retaining file/env key (%s)", type(err).__name__)
+        return None
+
+
 def database_display_location() -> str:
     """Human-readable location of the database (file path or postgres DSN)."""
     if not is_postgres():
