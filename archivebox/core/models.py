@@ -1117,11 +1117,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             current_dir = self.get_storage_path_for_version(target)
             legacy_dir = Path(source_dir) if source_dir else CONSTANTS.ARCHIVE_DIR / self.timestamp
             cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=legacy_dir, target_dir=current_dir)
-            crawl_dir = self.crawl.output_dir
-            old_crawl_dir = crawl_dir.with_name(str(uuid.UUID(hex=self.crawl.id.hex)))
-            if old_crawl_dir.exists() and not crawl_dir.exists() and not old_crawl_dir.is_symlink():
-                crawl_dir.parent.mkdir(parents=True, exist_ok=True)
-                old_crawl_dir.rename(crawl_dir)
+            self.crawl.migrate_legacy_output_dir()
             if current_dir.exists():
                 self.hydrate_archiveresult_output_metadata(snapshot_dir=current_dir)
             if cleanup:
@@ -1177,11 +1173,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         runtime_config = config or get_config()
         target_dir = self.get_storage_path_for_version("0.9.4")
         cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir or self.output_dir, target_dir=target_dir, config=runtime_config)
-        crawl_dir = self.crawl.output_dir
-        old_crawl_dir = crawl_dir.with_name(str(uuid.UUID(hex=self.crawl.id.hex)))
-        if old_crawl_dir.exists() and not crawl_dir.exists() and not old_crawl_dir.is_symlink():
-            crawl_dir.parent.mkdir(parents=True, exist_ok=True)
-            old_crawl_dir.rename(crawl_dir)
+        self.crawl.migrate_legacy_output_dir()
         return cleanup
 
     def hydrate_archiveresult_output_metadata(self, snapshot_dir: Path | None = None) -> int:
@@ -2757,6 +2749,14 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         current_path = self.get_storage_path_for_version(self.fs_version)
 
+        # WHY: once a row is at the latest layout, `archivebox update --rescan
+        # --migrate-only` (or the orchestrator's lazy migration) has already
+        # moved its files here, so trust the DB. The probes below are remote
+        # round trips on FUSE-mounted archive storage and are only a last-resort
+        # fallback for rows still awaiting migration.
+        if self.fs_version == self._fs_current_version():
+            return current_path
+
         if current_path.exists():
             return current_path
 
@@ -3326,20 +3326,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if self.downloaded_at or self.status == self.StatusChoices.SEALED:
             return True
 
-        output_paths = (
-            self.domain,
-            "output.html",
-            "output.pdf",
-            "screenshot.png",
-            "singlefile.html",
-            "readability/content.html",
-            "mercury/content.html",
-            "htmltotext.txt",
-            "media",
-            "git",
-        )
-        output_dir = Path(self.output_dir)
-        return any((output_dir / path).exists() for path in output_paths)
+        # WHY: DB-only. This is rendered per row in list views (snapshot grid);
+        # the old fallback stat'd ~10 legacy output paths per unfinished row,
+        # each a remote round trip on FUSE-mounted archive storage. A succeeded
+        # ArchiveResult is the indexed record of the same fact.
+        succeeded = self.archiveresult_set.model.StatusChoices.SUCCEEDED
+        prefetched = getattr(self, "_prefetched_objects_cache", {}).get("archiveresult_set")
+        if prefetched is not None:
+            return any(result.status == succeeded for result in prefetched)
+        return self.archiveresult_set.filter(status=succeeded).exists()
 
     # =========================================================================
     # Date/Time Properties (migrated from Link schema)
@@ -4535,49 +4530,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 return False
         return False
 
-    def _existing_output_path(self, raw_output: str | None) -> str | None:
-        value = str(raw_output or "").strip()
-        if not value:
-            return None
-
-        output_path = Path(value)
-        snapshot_dir = Path(self.snapshot_dir).resolve(strict=False)
-        candidates: list[str] = []
-
-        if output_path.is_absolute():
-            try:
-                candidates.append(str(output_path.resolve(strict=False).relative_to(snapshot_dir)))
-            except (OSError, ValueError):
-                return None
-        elif value.startswith(f"{self.plugin}/"):
-            candidates.append(value)
-        elif len(output_path.parts) == 1:
-            candidates.append(f"{self.plugin}/{value}")
-        else:
-            candidates.append(value)
-
-        output_file_map = self.output_file_map()
-        hashes_index = self.snapshot.hashes_index
-        for relative_path in candidates:
-            if relative_path in hashes_index:
-                return relative_path
-
-            if relative_path in output_file_map:
-                return relative_path
-
-            plugin_relative = relative_path.removeprefix(f"{self.plugin}/")
-            if plugin_relative in output_file_map:
-                return relative_path
-
-            candidate = snapshot_dir / relative_path
-            try:
-                if candidate.is_file():
-                    return relative_path
-            except OSError:
-                continue
-
-        return None
-
     @staticmethod
     def _fallback_output_file_path(
         output_file_paths: Sequence[str],
@@ -4689,16 +4641,6 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                 scan_error(error)
             pending.extend(reversed(directories))
         return file_map
-
-    @staticmethod
-    def _find_best_output_file(dir_path: Path, plugin_name: str | None = None) -> Path | None:
-        if not dir_path.exists() or not dir_path.is_dir():
-            return None
-        file_map = ArchiveResult._scan_output_file_map(dir_path, max_scan=500)
-        fallback_path = ArchiveResult._fallback_output_file_path(list(file_map.keys()), plugin_name, file_map)
-        if not fallback_path:
-            return None
-        return dir_path / fallback_path
 
     def embed_path_db(self, output_file_map: dict[str, dict[str, Any]] | None = None) -> str | None:
         output_file_map = output_file_map if output_file_map is not None else self.output_file_map()

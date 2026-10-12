@@ -106,3 +106,57 @@ def test_resume_refuses_to_overwrite_changed_legacy_output(snapshot, monkeypatch
 
     assert legacy_dir.exists()
     assert (current_dir / "unknown" / "payload.bin").read_bytes() == b"filesystem migration payload\x00\xff"
+
+
+def _hyphenated(path: Path) -> Path:
+    import uuid
+
+    return path.with_name(str(uuid.UUID(hex=path.name)))
+
+
+def test_filesystem_migration_renames_hyphenated_crawl_dir(snapshot):
+    """Crawl.output_dir trusts the DB, so migration must move pre-0.9.4 crawl dirs."""
+    crawl_dir = Path(snapshot.crawl.output_dir)
+    legacy_crawl_dir = _hyphenated(crawl_dir)
+    legacy_crawl_dir.mkdir(parents=True)
+    (legacy_crawl_dir / "sources.txt").write_text("https://example.com\n", encoding="utf-8")
+    Snapshot.objects.filter(pk=snapshot.pk).update(fs_version="0.9.0")
+    snapshot.refresh_from_db()
+
+    snapshot.migrate_filesystem_to_current_version()
+    snapshot.refresh_from_db()
+
+    assert snapshot.fs_version == snapshot._fs_current_version()
+    assert not legacy_crawl_dir.exists()
+    assert (crawl_dir / "sources.txt").read_text(encoding="utf-8") == "https://example.com\n"
+
+
+def test_rescan_moves_hyphenated_dirs_of_current_rows_into_db_paths(snapshot):
+    """`update --rescan` makes disk match what request handlers read from the DB."""
+    from archivebox.cli.rescan import rescan_snapshots
+
+    Snapshot.objects.filter(pk=snapshot.pk).update(
+        status=Snapshot.StatusChoices.SEALED,
+        retry_at=None,
+        fs_version=Snapshot._fs_current_version(),
+    )
+    snapshot.refresh_from_db()
+    assert not snapshot.fs_migration_needed
+    current_dir = Path(snapshot.output_dir)
+    crawl_dir = Path(snapshot.crawl.output_dir)
+    legacy_dir, legacy_crawl_dir = _hyphenated(current_dir), _hyphenated(crawl_dir)
+    (legacy_dir / "wget").mkdir(parents=True)
+    (legacy_dir / "wget" / "index.html").write_text("<html>saved</html>", encoding="utf-8")
+    legacy_crawl_dir.mkdir(parents=True)
+    (legacy_crawl_dir / "sources.txt").write_text("https://example.com\n", encoding="utf-8")
+    assert not current_dir.exists() and not crawl_dir.exists()
+
+    stats = rescan_snapshots()
+
+    assert stats["Errors"] == 0
+    assert not legacy_dir.exists() and not legacy_crawl_dir.exists()
+    assert (current_dir / "wget" / "index.html").read_text(encoding="utf-8") == "<html>saved</html>"
+    assert (current_dir / CONSTANTS.JSONL_INDEX_FILENAME).is_file()
+    assert (crawl_dir / "sources.txt").read_text(encoding="utf-8") == "https://example.com\n"
+    crawl_link = crawl_dir / "snapshots" / Snapshot.extract_domain_from_url(snapshot.url) / str(snapshot.id)
+    assert crawl_link.resolve() == current_dir.resolve()

@@ -824,6 +824,9 @@ class CrawlRunner:
             and not _is_cookie_file_config_key(key)
             and (not key.endswith("_BINARY") or value == self.base_config.get(key))
         }
+        # Crawl.output_dir no longer probes for pre-0.9.4 hyphenated dirs (it
+        # is read by request handlers). Rename one into place before writing.
+        self.crawl.migrate_legacy_output_dir()
         self.crawl_output_dir = str(self.crawl.output_dir)
         Path(self.crawl_output_dir).mkdir(parents=True, exist_ok=True)
         if self.selected_plugins is None:
@@ -1023,6 +1026,7 @@ class CrawlRunner:
         self.crawl = snapshot.crawl
         self.persona = snapshot.crawl.resolve_persona()
         self.base_config = get_config(crawl=snapshot.crawl, snapshot=snapshot, persona=self.persona, overrides=self.config_overrides)
+        snapshot.crawl.migrate_legacy_output_dir()
         self.crawl_output_dir = str(snapshot.crawl.output_dir)
         runtime_chrome_overrides = {}
         if self.persona:
