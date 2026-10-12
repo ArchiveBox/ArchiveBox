@@ -1,0 +1,28 @@
+.github/workflows/staging-acceptance.yml
+  s_10bc94d001be49::t_ce655df99724eb 4-11,19,24,71,85,95,102,115-116,126
+bin/check-staging-deployment.py
+  s_10bc94d001be49::t_ce655df99724eb 44-45,75-77
+.github/STAGING.md
+  s_10bc94d001be49::t_ce655df99724eb 3-9
+.github/workflows/ci.yml
+  s_10bc94d001be49::t_2ff0ef1ebc64ab 76-135,137-144,156-157,168-169,181-183
+  s_10bc94d001be49::t_ce655df99724eb 136
+README.md
+  s_10bc94d001be49::t_b77bf5e848478a 190-191
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db5a570270f046a5b92724b5dbbec863a1e44f78",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
