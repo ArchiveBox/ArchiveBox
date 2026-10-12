@@ -43,8 +43,13 @@ def test_daphne_zip_disconnect_releases_source_file(archivebox_daemon_server):
         with requests.get(url, headers={"Host": host}, stream=True, timeout=15) as response:
             assert response.status_code == 200
             assert response.headers["Content-Type"] == "application/zip"
-            assert next(response.iter_content(64 * 1024)).startswith(b"PK")
+            # Keep the generator alive: discarding it closes urllib3's socket
+            # immediately, before we can observe the server's open source file.
+            chunks = response.iter_content(64 * 1024)
+            assert next(chunks).startswith(b"PK")
+            assert not response.raw.closed, "ZIP connection closed before the deliberate disconnect"
             assert str(payload) in {entry.path for entry in daphne.open_files()}
+        chunks.close()
         deadline = time.monotonic() + 5
         while str(payload) in {entry.path for entry in daphne.open_files()}:
             assert time.monotonic() < deadline, "Disconnected ZIP download kept its source file open"
