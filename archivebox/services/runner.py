@@ -2049,8 +2049,13 @@ def run_install(*, plugin_names: list[str] | None = None) -> None:
 
 # Scheduling policy (run_pending_crawls and _higher_priority_crawl_waiting
 # must agree on it, and CrawlRunner applies the within-crawl part):
+# Two forces are balanced: adding a URL is a human-guided UI action that must
+# respond instantly, while old backlog must still be captured before its
+# content goes down or expires.
 # - New submissions are admitted newest-first, so something a user just added
 #   shows progress immediately instead of waiting behind a huge older import.
+# - Everything else drains oldest-first, so the longest-waiting URLs are
+#   captured before they disappear.
 # - Work that already started resumes oldest-first and ahead of untouched
 #   backlog: a half-finished capture holds browser/session state and partial
 #   outputs, and recovery resets its retry_at to now, which would otherwise
