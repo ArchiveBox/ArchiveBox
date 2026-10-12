@@ -1,0 +1,25 @@
+archivebox/progressmonitor/views.py
+  s_2b44ee96cc775e::t_090510982ec04e 44-84,165,167,281-288,323-332,334-346,367,403-405,407-422,424-433,450-460,462-467,474-485,534-539,541-542,740,921,953-955
+archivebox/crawls/models.py
+  s_2b44ee96cc775e::t_090510982ec04e 465-466,475-479
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_2b44ee96cc775e::t_090510982ec04e 176-178,1311-1312,1403,1458-1490,1492-1500,1571,1661,1678,1785-1792,1847,1884-1886,1892,1932-1935,1971-1972,1976-1992,2024-2025
+archivebox/api/v1_crawls.py
+  s_2b44ee96cc775e::t_090510982ec04e 3,182,189-216
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bf91ed2aed00927b9a2bcc71338d31bce5c680a0",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
