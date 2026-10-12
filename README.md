@@ -187,6 +187,8 @@ docker compose exec archivebox archivebox help
 </li>
 </ol>
 
+Docker image channels: `archivebox/archivebox:dev` advances only after full CI passes. Development servers can opt into `:dev-head`, which follows the newest clean `dev` image after both architectures finish the Docker build and checks, without waiting for the rest of CI. The existing universal `:sha-<12-character-commit>` tag is published at the same time. Both channels include amd64 and arm64, and are also available at `ghcr.io/archivebox/archivebox`. The early `dev-head` and SHA images can contain changes that fail later checks; ordinary installations should keep using the fully tested release channels.
+
 See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or <a href="https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#sql-shell-usage">filesystem/SQL/Python</a> to manage your archive.
 <br/><br/>
 </details>

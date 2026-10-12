@@ -41,7 +41,8 @@ def main():
         port,
         f"root@{host}",
     ]
-    deadline = time.monotonic() + 90 * 60
+    health_only = os.environ.get("STAGING_HEALTH_ONLY") == "true"
+    deadline = time.monotonic() + (10 if health_only else 90) * 60
     inspection = None
     expected_pins = {
         p["name"]: p["version"]
@@ -71,6 +72,9 @@ def main():
         if inspection is not None and current != inspection:
             raise RuntimeError("The deployed container changed during acceptance")
         inspection = current
+        if health_only:
+            print(f"{target}: exact candidate {sha} deployed and healthy", flush=True)
+            return
         result = remote("capture")
         (evidence / "capture.log").write_text(result.stdout + result.stderr)
         if result.returncode:

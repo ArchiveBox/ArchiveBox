@@ -73,6 +73,75 @@ jobs:
       push_digests: ${{ github.event_name == 'push' && (github.ref_name == 'dev' || github.ref_name == 'main') }}
     secrets: inherit
 
+  dev-image:
+    name: Publish early dev image
+    needs: docker-digests
+    if: github.event_name == 'push' && github.ref_name == 'dev'
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+      id-token: write
+    outputs:
+      ready: ${{ steps.publish.outputs.ready }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+        with:
+          driver: docker
+      - uses: docker/login-action@06fb636fac595d6fb4b28a5dfcb21a6f5091859c # v4.5.0
+        with:
+          username: archivebox
+        env:
+          DOCKERHUB_OIDC_CONNECTIONID: ${{ vars.DOCKERHUB_OIDC_CONNECTIONID }}
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+      - name: Publish the existing universal SHA tag and opt-in dev-head channel
+        id: publish
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "$(< /tmp/digests/source-ref)" == "$GITHUB_SHA" ]]
+          mapfile -t digests < <(find /tmp/digests -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort | grep -E '^[0-9a-f]{64}$')
+          [[ "${#digests[@]}" -eq 2 ]]
+          for image in archivebox/archivebox ghcr.io/archivebox/archivebox; do
+            refs=()
+            for digest in "${digests[@]}"; do refs+=("$image@sha256:$digest"); done
+            docker buildx imagetools create --tag "$image:sha-${GITHUB_SHA::12}" "${refs[@]}"
+            # A superseded build keeps its exact SHA tag but cannot roll back
+            # the moving channel. :dev stays owned by the green release job.
+            head="$(git ls-remote origin refs/heads/dev | cut -f1)"
+            if [[ "$head" != "$GITHUB_SHA" ]]; then
+              echo "Source $GITHUB_SHA superseded by $head; not promoting dev-head."
+              exit 0
+            fi
+            docker buildx imagetools create --tag "$image:dev-head" "$image:sha-${GITHUB_SHA::12}"
+          done
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+  staging-health:
+    name: Cabbage deployment health
+    needs: dev-image
+    if: needs.dev-image.outputs.ready == 'true'
+    permissions:
+      actions: read
+      contents: read
+      deployments: write
+    uses: ./.github/workflows/staging-acceptance.yml
+    with:
+      sha: ${{ github.sha }}
+      health_only: true
+    secrets: inherit
+
   required:
     name: All required CI lanes
     if: ${{ always() && needs.prepare.outputs.run_jobs == 'true' }}
@@ -84,6 +153,8 @@ jobs:
       - codeql
       - python-artifacts
       - docker-digests
+      - dev-image
+      - staging-health
     runs-on: ubuntu-24.04
     steps:
       - name: Verify every required lane succeeded
@@ -94,6 +165,8 @@ jobs:
           CODEQL_RESULT: ${{ needs.codeql.result }}
           PYTHON_ARTIFACTS_RESULT: ${{ needs.python-artifacts.result }}
           DOCKER_DIGESTS_RESULT: ${{ needs.docker-digests.result }}
+          DEV_IMAGE_RESULT: ${{ needs.dev-image.result }}
+          STAGING_HEALTH_RESULT: ${{ needs.staging-health.result }}
         run: |
           for result in \
             "$LINT_RESULT" \
@@ -104,5 +177,8 @@ jobs:
             "$DOCKER_DIGESTS_RESULT"
           do
             [[ "$result" == success ]]
+          done
+          for result in "$DEV_IMAGE_RESULT" "$STAGING_HEALTH_RESULT"; do
+            [[ "$result" == success || "$result" == skipped ]]
           done
           echo 'All required CI lanes and tested release artifacts succeeded.'

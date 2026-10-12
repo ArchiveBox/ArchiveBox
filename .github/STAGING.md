@@ -1,7 +1,12 @@
 # Stable releases require live dev acceptance
 
-The order is **dev CI → dev image publication → automatic Cabbage deployment →
-real capture and browser acceptance → stable publication**. Never
+The order is **dev Docker checks → early universal SHA/dev-head image → automatic
+Cabbage deployment and health → full dev CI → approved dev image publication →
+real capture and browser acceptance → stable publication**. The existing
+Watchtower deployment follows `:dev-head`; ordinary `:dev` users receive only
+fully green builds. Cabbage must deploy the exact candidate and become healthy
+within ten minutes for the CI deployment-health lane to pass. This health-only
+check does not create a capture or authorize stable publication. Never
 substitute a published PyPI wheel, healthy container, or local build for this
 acceptance. The release workflow blocks *before* a stable upload unless Cabbage
 has successful evidence from `staging-acceptance.yml` matching all tracked

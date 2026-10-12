@@ -1,6 +1,14 @@
 name: Staging acceptance
 
 on:
+  workflow_call:
+    inputs:
+      sha:
+        required: true
+        type: string
+      health_only:
+        default: false
+        type: boolean
   workflow_run:
     workflows: [Release]
     types: [completed]
@@ -8,12 +16,12 @@ on:
 permissions: {}
 
 concurrency:
-  group: staging-acceptance
+  group: staging-${{ inputs.health_only && 'health' || 'acceptance' }}
   cancel-in-progress: false
 
 jobs:
   published:
-    if: github.event.workflow_run.conclusion == 'success'
+    if: '!inputs.sha && github.event.workflow_run.conclusion == ''success'''
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -60,7 +68,7 @@ jobs:
   acceptance:
     # The privileged key is never exposed to PRs or arbitrary dispatch refs.
     needs: published
-    if: needs.published.outputs.ready == 'true'
+    if: always() && (inputs.sha || needs.published.outputs.ready == 'true')
     runs-on: [self-hosted, Linux, X64, ugnas-linux]
     environment: staging
     timeout-minutes: 110
@@ -74,7 +82,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ needs.published.outputs.sha }}
+          ref: ${{ inputs.sha || needs.published.outputs.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
@@ -84,12 +92,14 @@ jobs:
         env:
           STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
           STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+          STAGING_HEALTH_ONLY: ${{ inputs.health_only }}
           ABXPKG_LIB_DIR: ${{ runner.tool_cache }}/abxpkg/staging-browser
         run: |
           set -Eeuo pipefail
           umask 077
           printf '%s\n' "$STAGING_SSH_KEY" > "$RUNNER_TEMP/staging-key"
           printf '%s\n' "$STAGING_KNOWN_HOSTS" > "$RUNNER_TEMP/staging-known-hosts"
+          if [[ "$STAGING_HEALTH_ONLY" == true ]]; then exit 0; fi
           # Use the candidate's normal provider/cache path, not a second
           # Playwright-managed browser that bypasses abxpkg validation.
           ABX_DL_VERSION="$(uv run --no-project python -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "abx-dl"))')"
@@ -102,7 +112,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           STAGING_TARGET: ${{ matrix.target }}
-          STAGING_SHA: ${{ needs.published.outputs.sha }}
+          STAGING_SHA: ${{ inputs.sha || needs.published.outputs.sha }}
+          STAGING_HEALTH_ONLY: ${{ inputs.health_only }}
           STAGING_KEY_FILE: ${{ runner.temp }}/staging-key
           STAGING_KNOWN_HOSTS_FILE: ${{ runner.temp }}/staging-known-hosts
         run: uv run --no-project --with playwright==1.63.0 python bin/check-staging-deployment.py
@@ -112,6 +123,6 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: staging-${{ matrix.target }}-${{ needs.published.outputs.sha }}
+          name: staging-${{ inputs.health_only && 'health' || 'capture' }}-${{ matrix.target }}-${{ inputs.sha || needs.published.outputs.sha }}
           path: staging-evidence/
           if-no-files-found: error
