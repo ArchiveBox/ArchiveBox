@@ -774,6 +774,7 @@ def _index_responses_paths_for_html_images(
     # The index retains complete URLs even when response filenames are shortened.
     index = responses_root / "index.jsonl"
     if index.is_file():
+        resolved_root = responses_root.resolve()
         with index.open(errors="replace") as records:
             for line in records:
                 try:
@@ -782,12 +783,16 @@ def _index_responses_paths_for_html_images(
                     if encoded not in encoded_urls or record.get("method") != "GET" or record.get("status") != 200:
                         continue
                     candidate = (responses_root / record.get("path", "")).resolve()
-                    if not candidate.is_relative_to(responses_root.resolve()) or not candidate.is_file():
+                    if not candidate.is_relative_to(resolved_root) or not candidate.is_file():
                         continue
                     best_matches[encoded] = posixpath.relpath(candidate, start=snapshot_root / posixpath.dirname(html_rel_path))
                     image_matches.add(encoded)
                 except (ValueError, TypeError, AttributeError):
                     continue
+        # The index lists every saved response, so walking responses/ (thousands
+        # of files on possibly-remote archive storage, on every HTML page view)
+        # is only for legacy captures that predate it.
+        return best_matches
     image_suffixes = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"}
     for candidate in responses_root.rglob("*"):
         if not candidate.is_file():
