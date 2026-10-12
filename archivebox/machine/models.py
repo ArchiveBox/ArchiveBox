@@ -604,9 +604,8 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
         """
         from archivebox.config import VERSION
 
-        is_installed = bool(self.abspath and self.version)
         return {
-            "type": "Binary" if is_installed else "BinaryRequest",
+            "type": "Binary" if self.is_valid else "BinaryRequest",
             "schema_version": VERSION,
             "id": str(self.id),
             "machine_id": str(self.machine_id),
@@ -642,71 +641,38 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
         if not name:
             return None
 
-        machine = Machine.current()
-        overrides = overrides or {}
-        binary_overrides = record.get("overrides", {})
-        normalized_overrides = binary_overrides if isinstance(binary_overrides, dict) else {}
+        abspath = record.get("abspath") or ""
+        if not abspath and "binproviders" not in record and "overrides" not in record:
+            return None
 
-        # Case 1: Already installed (from on_Crawl hooks) - has abspath AND binproviders
-        # This happens when on_Crawl hooks detect already-installed binaries
-        abspath = record.get("abspath")
-        version = record.get("version")
-        binproviders = record.get("binproviders")
+        defaults = {
+            "binprovider": record.get("binprovider", "env"),
+            "status": Binary.StatusChoices.INSTALLED if abspath else Binary.StatusChoices.QUEUED,
+            "retry_at": None if abspath else timezone.now(),
+        }
+        if "binproviders" in record:
+            defaults["binproviders"] = record["binproviders"]
+        if "overrides" in record:
+            defaults["overrides"] = record["overrides"] if isinstance(record["overrides"], dict) else {}
 
-        if abspath and version and binproviders:
-            # Binary is already installed, create INSTALLED record with binproviders filter
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "abspath": abspath,
-                    "version": version,
-                    "sha256": record.get("sha256", ""),
-                    "binprovider": record.get("binprovider", "env"),
-                    "binproviders": binproviders,  # Preserve the filter
-                    "status": Binary.StatusChoices.INSTALLED,
-                    "retry_at": None,
-                },
-            )
+        # A name is not an installation identity: migrations and multiple
+        # providers legitimately keep several paths/versions of the same tool.
+        # Match the model's unique key so registration cannot overwrite binary
+        # metadata referenced by historical Processes or raise MultipleObjectsReturned.
+        # A resolved path is sufficient; the CLI deliberately permits no version.
+        binary, _ = Binary.objects.update_or_create(
+            machine=Machine.current(),
+            name=name,
+            abspath=abspath,
+            version=record.get("version") or "",
+            sha256=record.get("sha256") or "",
+            defaults=defaults,
+        )
+        if abspath:
             from archivebox.config.common import get_config
 
             binary.symlink_to_lib_bin_after_commit(get_config().ABXPKG_LIB_DIR / "bin")
-            return binary
-
-        # Case 2: From binaries.json - create queued binary (needs installation)
-        if "binproviders" in record or ("overrides" in record and not abspath):
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "binproviders": record.get("binproviders", "env"),
-                    "overrides": normalized_overrides,
-                    "status": Binary.StatusChoices.QUEUED,
-                    "retry_at": timezone.now(),
-                },
-            )
-            return binary
-
-        # Case 3: From Binary output - update with installation results
-        if abspath and version:
-            binary, _ = Binary.objects.update_or_create(
-                machine=machine,
-                name=name,
-                defaults={
-                    "abspath": abspath,
-                    "version": version,
-                    "sha256": record.get("sha256", ""),
-                    "binprovider": record.get("binprovider", "env"),
-                    "status": Binary.StatusChoices.INSTALLED,
-                    "retry_at": None,
-                },
-            )
-            from archivebox.config.common import get_config
-
-            binary.symlink_to_lib_bin_after_commit(get_config().ABXPKG_LIB_DIR / "bin")
-            return binary
-
-        return None
+        return binary
 
     def _allowed_binproviders(self) -> set[str] | None:
         """Return the allowed binproviders for this binary, or None for wildcard."""
