@@ -1550,7 +1550,7 @@ def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=()) -> bool:
 
     if crawl.status not in (crawl.StatusChoices.QUEUED, crawl.StatusChoices.STARTED):
         return False
-    reason = resource_admission.memory_pressure()
+    reason = resource_admission.resource_pressure()
     if reason is None:
         return False
     pending = crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES).exclude(id__in=excluded_snapshot_ids)

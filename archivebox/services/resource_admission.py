@@ -1,4 +1,4 @@
-"""Admission signals, not estimates of how much RAM an extractor will need."""
+"""Measured resource pressure and memory headroom for capture admission."""
 
 import math
 import os
@@ -17,6 +17,11 @@ RESOURCE_RECHECK_SECONDS = 2.0
 # stalls. Require both recent and rolling pressure so transient reclaim does
 # not indefinitely starve otherwise viable work on small hosts.
 MEMORY_FULL_STALL_PERCENT = 10.0
+IO_FULL_STALL_PERCENT = 10.0
+# CPU has no system-wide "full" signal: use runnable work waiting for CPU.
+# Ordinary runnable competition is expected; defer new work when it occupies
+# at least half of both the recent interval and the rolling ten-second window.
+CPU_SOME_STALL_PERCENT = 50.0
 ZRAM_DEVICE_NAME = re.compile(r"zram\d+")
 
 
@@ -80,7 +85,7 @@ def host_swap_free_bytes(meminfo_swap_free: int) -> int:
 
 class ResourceAdmission:
     def __init__(self):
-        self._memory_stalls: dict[str, tuple[int, float]] = {}
+        self._stalls: dict[str, tuple[int, float]] = {}
         self._checked_at = float("-inf")
         self._reason: str | None = None
 
@@ -187,19 +192,19 @@ class ResourceAdmission:
                     continue
         return used_bytes, available
 
-    def observe_memory_stalls(self, source: str, total: int, avg10: float, sampled_at: float) -> bool:
-        previous = self._memory_stalls.get(source)
-        self._memory_stalls[source] = (total, sampled_at)
+    def observe_stalls(self, source: str, total: int, avg10: float, sampled_at: float, threshold: float) -> bool:
+        previous = self._stalls.get(source)
+        self._stalls[source] = (total, sampled_at)
         if previous is None:
-            return avg10 >= MEMORY_FULL_STALL_PERCENT
+            return avg10 >= threshold
         previous_total, previous_time = previous
         elapsed = sampled_at - previous_time
         if elapsed <= 0 or total < previous_total:
             return False
         stalled_percent = (total - previous_total) / (elapsed * 1_000_000) * 100
-        return avg10 >= MEMORY_FULL_STALL_PERCENT and stalled_percent >= MEMORY_FULL_STALL_PERCENT
+        return avg10 >= threshold and stalled_percent >= threshold
 
-    def memory_pressure(self) -> str | None:
+    def resource_pressure(self) -> str | None:
         now = time.monotonic()
         if now - self._checked_at < RESOURCE_RECHECK_SECONDS:
             return self._reason
@@ -215,14 +220,19 @@ class ResourceAdmission:
                         reasons.append(f"{name} reached")
             except (OSError, ValueError):
                 continue
-        for path in [Path("/proc/pressure/memory"), *[p / "memory.pressure" for p in cgroups]]:
-            try:
-                full = next(line for line in path.read_text().splitlines() if line.startswith("full "))
-                fields = dict(field.split("=", 1) for field in full.split()[1:])
-                if self.observe_memory_stalls(str(path), int(fields["total"]), float(fields["avg10"]), now):
-                    reasons.append("memory stalls")
-            except (OSError, ValueError, KeyError, StopIteration):
-                continue
+        for resource, signal, threshold in (
+            ("memory", "full", MEMORY_FULL_STALL_PERCENT),
+            ("cpu", "some", CPU_SOME_STALL_PERCENT),
+            ("io", "full", IO_FULL_STALL_PERCENT),
+        ):
+            for path in [Path(f"/proc/pressure/{resource}"), *[p / f"{resource}.pressure" for p in cgroups]]:
+                try:
+                    line = next(line for line in path.read_text().splitlines() if line.startswith(f"{signal} "))
+                    fields = dict(field.split("=", 1) for field in line.split()[1:])
+                    if self.observe_stalls(str(path), int(fields["total"]), float(fields["avg10"]), now, threshold):
+                        reasons.append(f"{resource} stalls")
+                except (OSError, ValueError, KeyError, StopIteration):
+                    continue
         self._reason = ", ".join(dict.fromkeys(reasons)) or None
         return self._reason
 

@@ -132,17 +132,34 @@ def test_memory_stall_counter_recovers_without_resetting_monitor():
     # Real kernel PSI units: cumulative microseconds and ten-second average.
     # Decision samples exercise the policy, not simulated hooks/processes.
     admission = ResourceAdmission()
-    assert admission.observe_memory_stalls("host", 100, 0.0, 0.0) is False
-    assert admission.observe_memory_stalls("host", 400100, 20.0, 2.0) is True
-    assert admission.observe_memory_stalls("host", 400100, 20.0, 4.0) is False
-    assert admission.observe_memory_stalls("new-cgroup", 900, 20.0, 0.0) is True
-    assert admission.observe_memory_stalls("new-cgroup", 900, 20.0, 2.0) is False
+    assert admission.observe_stalls("host", 100, 0.0, 0.0, 10.0) is False
+    assert admission.observe_stalls("host", 400100, 20.0, 2.0, 10.0) is True
+    assert admission.observe_stalls("host", 400100, 20.0, 4.0, 10.0) is False
+    assert admission.observe_stalls("new-cgroup", 900, 20.0, 0.0, 10.0) is True
+    assert admission.observe_stalls("new-cgroup", 900, 20.0, 2.0, 10.0) is False
 
 
 def test_transient_and_low_memory_stalls_do_not_starve_admission():
     admission = ResourceAdmission()
     for sample in range(20):
-        assert admission.observe_memory_stalls("host", sample * 2600, 0.13, sample * 2.0) is False
+        assert admission.observe_stalls("host", sample * 2600, 0.13, sample * 2.0, 10.0) is False
     # One large interval alone is not sustained pressure; the rolling average
     # must agree before deferring work.
-    assert admission.observe_memory_stalls("host", 1_000_000, 0.13, 40.0) is False
+    assert admission.observe_stalls("host", 1_000_000, 0.13, 40.0, 10.0) is False
+
+
+def test_cpu_and_io_pressure_counters_recover_independently():
+    admission = ResourceAdmission()
+    # Actual Cabbage CPU samples (Oct 12 02:26 UTC). Memory PSI was zero;
+    # the old admission check missed this sustained runnable CPU contention.
+    assert admission.observe_stalls("cpu", 71414359784, 61.46, 0.0, 50.0)
+    assert admission.observe_stalls("cpu", 71415840067, 63.19, 2.02, 50.0)
+    assert admission.observe_stalls("cpu", 71417391396, 65.69, 4.03, 50.0)
+    assert not admission.observe_stalls("memory", 8062503, 0.0, 4.03, 10.0)
+    assert admission.observe_stalls("io", 11813206354, 11.49, 4.03, 10.0)
+    # A stale rolling average must not hold admission after current stalls stop.
+    assert not admission.observe_stalls("cpu", 71417391396, 65.69, 6.03, 50.0)
+    assert not admission.observe_stalls("io", 11813206354, 11.49, 6.03, 10.0)
+    # Distinct cgroups have independent counters; reset counters are not load.
+    assert not admission.observe_stalls("cpu", 1, 65.69, 8.03, 50.0)
+    assert not admission.observe_stalls("other-cpu", 42, 49.0, 8.03, 50.0)
