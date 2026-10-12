@@ -773,13 +773,6 @@ class CrawlRunner:
         }
         self.crawl_output_dir = str(self.crawl.output_dir)
         Path(self.crawl_output_dir).mkdir(parents=True, exist_ok=True)
-        if self.persona:
-            self.base_config.update(
-                self.persona.prepare_runtime_for_crawl(
-                    self.crawl,
-                    chrome_binary=self.base_config["CHROME_BINARY"],
-                ),
-            )
         if self.selected_plugins is None:
             raw_plugins = str(self.base_config.get("PLUGINS") or "").strip()
             if raw_plugins:
@@ -796,19 +789,32 @@ class CrawlRunner:
         if self.initial_snapshot_ids:
             # Explicit ids select normal runnable work, except for the one
             # targeted maintenance admitted by allow_maintenance_on_inactive_crawl.
-            return [str(snapshot_id) for snapshot_id in self.initial_snapshot_ids]
-        pending_snapshots = list(
-            self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
-            .filter(retry_at__lte=timezone.now())
-            .order_by("depth", "created_at", "pk"),
-        )
-        if pending_snapshots:
-            return [str(snapshot.id) for snapshot in pending_snapshots]
-        if self.crawl.snapshot_set.exclude(status__in=[Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED]).exists():
-            return []
-        created = self.create_initial_snapshots()
-        snapshots = created or list(self.crawl.snapshot_set.filter(depth__in=[0, 1]).order_by("depth", "created_at"))
-        return [str(snapshot.id) for snapshot in snapshots]
+            snapshot_ids = [str(snapshot_id) for snapshot_id in self.initial_snapshot_ids]
+        else:
+            pending_snapshots = list(
+                self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
+                .filter(retry_at__lte=timezone.now())
+                .order_by("depth", "created_at", "pk"),
+            )
+            if pending_snapshots:
+                snapshot_ids = [str(snapshot.id) for snapshot in pending_snapshots]
+            else:
+                if self.crawl.snapshot_set.exclude(status__in=[Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED]).exists():
+                    return []
+                created = self.create_initial_snapshots()
+                snapshots = created or list(self.crawl.snapshot_set.filter(depth__in=[0, 1]).order_by("depth", "created_at"))
+                snapshot_ids = [str(snapshot.id) for snapshot in snapshots]
+        # Parse and deduplicate before copying browser state. An empty import
+        # has no capture runtime to prepare; a large persona otherwise blocks
+        # the collection scheduler just to be deleted during finalization.
+        if snapshot_ids and self.persona:
+            self.base_config.update(
+                self.persona.prepare_runtime_for_crawl(
+                    self.crawl,
+                    chrome_binary=self.base_config["CHROME_BINARY"],
+                ),
+            )
+        return snapshot_ids
 
     def create_initial_snapshots(self) -> list:
         from archivebox.misc.util import validate_url

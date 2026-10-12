@@ -4,7 +4,70 @@
 import json
 import textwrap
 
+import pytest
+
 from .conftest import run_python_cwd
+
+
+@pytest.mark.parametrize("parser", ["url_list", "jsonl"])
+def test_empty_duplicate_crawl_does_not_prepare_persona_runtime(initialized_archive, parser):
+    script = textwrap.dedent(
+        """
+        import asyncio
+        import json
+        import os
+        from pathlib import Path
+
+        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'archivebox.core.settings')
+        import django
+        django.setup()
+
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.personas.models import Persona
+        from archivebox.services.runner import CrawlRunner
+
+        parser = PARSER_VALUE
+        url = 'https://example.com/already-archived'
+        existing_crawl = Crawl.objects.create(urls=url, status='sealed', retry_at=None)
+        existing = Snapshot.objects.create(url=url, crawl=existing_crawl, status='sealed', retry_at=None)
+        persona = Persona.objects.create(name='EmptyCrawlPersona')
+        persona.ensure_dirs()
+        preferences = Path(persona.CHROME_USER_DATA_DIR) / 'Default' / 'Preferences'
+        preferences.parent.mkdir(parents=True, exist_ok=True)
+        preferences.write_text('{"profile": {"name": "preserve-original"}}')
+        crawl = Crawl.objects.create(
+            urls=json.dumps({'url': url}) if parser == 'jsonl' else url,
+            persona=persona,
+            config={'ONLY_NEW': True, 'PARSER': parser, 'PLUGINS': 'hashes'},
+        )
+        runner = CrawlRunner(crawl)
+        try:
+            snapshot_ids = runner.load_run_state()
+            print(json.dumps({
+                'snapshot_ids': snapshot_ids,
+                'new_snapshots': crawl.snapshot_set.count(),
+                'existing_snapshot_id': str(Snapshot.objects.get(url=url).id),
+                'expected_existing_id': str(existing.id),
+                'runtime_created': persona.runtime_root_for_crawl(crawl).exists(),
+                'runtime_link_created': persona.runtime_root_for_crawl(crawl).parent.is_symlink(),
+                'local_runtime_created': persona.local_runtime_root_for_crawl(crawl).exists(),
+                'preferences': json.loads(preferences.read_text()),
+            }))
+        finally:
+            asyncio.run(runner.bus.destroy(clear=False))
+        """,
+    ).replace("PARSER_VALUE", repr(parser))
+    stdout, stderr, code = run_python_cwd(script, cwd=initialized_archive, timeout=60)
+    assert code == 0, stderr
+    payload = json.loads(stdout.strip().splitlines()[-1])
+    assert payload["snapshot_ids"] == []
+    assert payload["new_snapshots"] == 0
+    assert payload["existing_snapshot_id"] == payload["expected_existing_id"]
+    assert payload["preferences"] == {"profile": {"name": "preserve-original"}}
+    assert payload["runtime_created"] is False
+    assert payload["runtime_link_created"] is False
+    assert payload["local_runtime_created"] is False
 
 
 def test_persona_prepare_runtime_for_crawl_clones_and_cleans_profile(initialized_archive):
