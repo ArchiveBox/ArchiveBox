@@ -1180,6 +1180,11 @@
                     }
                     frame.src = target
                     frame.dataset.initialSrc = target
+                    // A warm replay can paint before the card script below
+                    // registers its listener; remember it so no cover sticks.
+                    window.addEventListener('message', (event) => {
+                        if (event.source === frame.contentWindow && event.data?.type === 'archivebox-replay-painted') frame.dataset.replayPainted = '1'
+                    })
                 }
             })()
         </script>
@@ -1655,7 +1660,12 @@
                 if (reloadPreview) {
                     showReplayScreenshot(nextSrc)
                     iframe_elem.src = nextSrc
+                } else if (iframe_elem.dataset.initialSrc && !iframe_elem.dataset.replayPainted) {
+                    // The early inline loader starts the default WACZ before any
+                    // cards exist, so first load never takes the reload branch.
+                    showReplayScreenshot(nextSrc)
                 }
+                delete iframe_elem.dataset.initialSrc
                 // Updating the hash can synchronously dispatch popstate. Publish
                 // the selected frame URL first so that handler reuses this frame.
                 if (rawTarget && updateHash) {
