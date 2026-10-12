@@ -485,6 +485,7 @@
                 border-top: 3px solid #aa1e55;
             }
             #main-frame-wrapper {
+                position: relative;
                 width: 100%;
                 height: 100svh;
                 border-top: 3px solid #aa1e55;
@@ -1556,6 +1557,31 @@
                 return frame
             }
 
+            function showReplayScreenshot(target) {
+                document.getElementById('replay-screenshot-cover')?.remove()
+                if (!new URL(target, window.location.href).pathname.toLowerCase().endsWith('.wacz')) return
+                const card = document.querySelector('.thumb-card[data-plugin-name="screenshot"] iframe, .thumb-card[data-plugin-name="chrome_extension_screenshot"] iframe')
+                if (!card) return
+                // Reuse the screenshot card itself: it owns file selection and fallbacks.
+                const cover = document.createElement('div')
+                cover.id = 'replay-screenshot-cover'
+                cover.style.cssText = 'position:absolute;inset:0;z-index:2;background:white;overflow:hidden;pointer-events:none'
+                const screenshot = card.cloneNode(true)
+                screenshot.loading = 'eager'
+                screenshot.setAttribute('fetchpriority', 'high')
+                screenshot.setAttribute('aria-hidden', 'true')
+                screenshot.tabIndex = -1
+                cover.appendChild(screenshot)
+                document.getElementById('main-frame-wrapper').appendChild(cover)
+            }
+
+            window.addEventListener('message', (event) => {
+                const frame = document.getElementById('main-frame')
+                if (event.source !== frame?.contentWindow || event.data?.type !== 'archivebox-replay-painted') return
+                if (event.origin !== new URL(frame.src, window.location.href).origin) return
+                document.getElementById('replay-screenshot-cover')?.remove()
+            })
+
             function ensureMainFrame(forceReplace=false) {
                 let frame = document.getElementById('main-frame')
                 const wrapper = document.getElementById('main-frame-wrapper')
@@ -1627,6 +1653,7 @@
                     iframe_elem.sandbox = "allow-same-origin allow-top-navigation-by-user-activation allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
                 }
                 if (reloadPreview) {
+                    showReplayScreenshot(nextSrc)
                     iframe_elem.src = nextSrc
                 }
                 // Updating the hash can synchronously dispatch popstate. Publish
