@@ -1,0 +1,19 @@
+archivebox/misc/serve_static.py
+  s_2b44ee96cc775e::t_aa732f214d2027 777,786,792-795
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c3b322cb9afe360b1753005adee93c0eb4851ae4",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
