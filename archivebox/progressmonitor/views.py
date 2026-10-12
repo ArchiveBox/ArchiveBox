@@ -61,6 +61,8 @@ def _hook_details(hook_name: str, plugin: str = "setup") -> tuple[str, str, str,
     if "__" in normalized_hook_name:
         label = normalized_hook_name.split("__", 1)[1]
     label = label.rsplit(".", 1)[0]
+    # .finite/.daemon/.bg say how a hook runs, not what it is; keep them out of badges.
+    label = ".".join(part for part in label.split(".") if part not in ("finite", "daemon", "bg"))
     if len(label) > 3 and label[:2].isdigit() and label[2] == "_":
         label = label[3:]
     label = label.replace("_", " ").strip() or plugin

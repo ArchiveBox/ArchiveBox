@@ -1251,6 +1251,26 @@ class TestLiveProgressView:
         assert running["started_at"] == running_started_at.isoformat()
         assert "elapsed" not in running
 
+    def test_live_progress_hook_labels_omit_run_mode_markers(self):
+        import abx_plugins.plugins
+
+        from archivebox.progressmonitor.views import _hook_details
+
+        # Badge labels name the hook; .finite/.daemon/.bg only say how it runs.
+        plugins_dir = files(abx_plugins.plugins)
+        hook_names = sorted(
+            hook.name
+            for plugin_dir in plugins_dir.iterdir()
+            if plugin_dir.is_dir()
+            for hook in plugin_dir.iterdir()
+            if hook.name.startswith("on_") and any(marker in hook.name for marker in (".finite.", ".daemon.", ".bg."))
+        )
+        assert "on_Snapshot__01_chrome_tab.daemon.bg.js" in hook_names
+        labels = {name: _hook_details(name, plugin="hook")[1] for name in hook_names}
+        assert labels["on_Snapshot__01_chrome_tab.daemon.bg.js"] == "chrome tab"
+        assert labels["on_Snapshot__00_archivedotorg.finite.bg.py"] == "archivedotorg"
+        assert [label for label in labels.values() if any(marker in label for marker in ("finite", "daemon", ".bg"))] == []
+
     def test_live_progress_hook_badges_keep_their_cells_and_only_grow(
         self,
         snapshot,
