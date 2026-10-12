@@ -497,7 +497,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         max_length=10,
         default="0.9.0",
         db_index=True,
-        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.4").',
+        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.5").',
     )
     retry_at = ModelWithQueue.RetryAtField(default=timezone.now)
     status = ModelWithQueue.StatusField(
@@ -595,7 +595,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def output_paths_for_delete(self) -> tuple[Path, ...]:
         current = self.get_storage_path_for_version(self.fs_version)
         paths = [Path(self.output_dir), current, CONSTANTS.ARCHIVE_DIR / self.timestamp]
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             paths.append(current.with_name(str(uuid.UUID(str(self.id)))))
         if self.crawl_id:
             domain_dir = self.crawl.output_dir / CONSTANTS.SNAPSHOTS_DIR_NAME / self.extract_domain_from_url(self.url)
@@ -1060,7 +1060,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     @staticmethod
     def _fs_current_version() -> str:
         """Get current ArchiveBox filesystem layout version."""
-        return "0.9.4"
+        return "0.9.5"
 
     _FS_VERSION_MIGRATION_PATHS: ClassVar[dict[str, str]] = {
         "0.7.0": "0.9.0",
@@ -1070,6 +1070,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         "0.9.1": "0.9.4",
         "0.9.2": "0.9.4",
         "0.9.3": "0.9.4",
+        # 0.9.5: 0.9.4-era imports could store a row under its hyphenated id.
+        # Bumping the layout lets lazy maintenance move those folders, so
+        # request handlers can trust the DB path for every 0.9.5 row.
+        "0.9.4": "0.9.5",
     }
 
     @property
@@ -1111,6 +1115,28 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         current = self.fs_version
         target = self._fs_current_version()
         cleanup: tuple[Path, Path] | None = None
+
+        if current == "0.9.4" and target == "0.9.5" and source_dir is None:
+            # WHY: every row created before 0.9.5 takes this step lazily, usually
+            # against remote archive storage. A canonical folder costs one
+            # existence check (plus one for its crawl); only a real hyphenated
+            # folder is renamed, verified, and relinked. No index rescans, and
+            # result files are read only for rows whose DB metadata is missing.
+            cleanup = self._fs_migrate_from_0_9_4_to_0_9_5()
+            if cleanup:
+                old_dir, new_dir = cleanup
+                if not self._cleanup_old_migration_dir(old_dir, new_dir):
+                    raise SnapshotMigrationError(f"Could not clean up verified migration directory: {old_dir}")
+            self.hydrate_archiveresult_output_metadata(snapshot_dir=self.get_storage_path_for_version(target))
+            self.fs_version = target
+            if self.pk:
+                now = timezone.now()
+                type(self).objects.filter(pk=self.pk).update(fs_version=target, modified_at=now)
+                self.modified_at = now
+            if cleanup:
+                self.reconcile_filesystem_links()
+            return
+
         runtime_config = config or get_config()
 
         if current == target:
@@ -1137,6 +1163,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 ("0.9.1", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
                 ("0.9.2", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
                 ("0.9.3", "0.9.4"): self._fs_migrate_from_0_9_0_to_0_9_4,
+                ("0.9.4", "0.9.5"): self._fs_migrate_from_0_9_4_to_0_9_5,
             }
 
             migration = migrations.get((current, next_ver))
@@ -1173,6 +1200,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         runtime_config = config or get_config()
         target_dir = self.get_storage_path_for_version("0.9.4")
         cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=source_dir or self.output_dir, target_dir=target_dir, config=runtime_config)
+        self.crawl.migrate_legacy_output_dir()
+        return cleanup
+
+    def _fs_migrate_from_0_9_4_to_0_9_5(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None):
+        """Move a hyphenated-id snapshot folder (and its crawl's) to the compact-id path."""
+        target_dir = self.get_storage_path_for_version("0.9.5")
+        legacy_dir = Path(source_dir) if source_dir else target_dir.with_name(str(uuid.UUID(str(self.id))))
+        cleanup = None
+        # The single per-snapshot existence check; canonical rows stop here.
+        if source_dir is not None or legacy_dir.is_dir():
+            cleanup = self._fs_migrate_legacy_to_0_9_0(source_dir=legacy_dir, target_dir=target_dir, config=config)
         self.crawl.migrate_legacy_output_dir()
         return cleanup
 
@@ -1384,7 +1422,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if version in ("0.7.0", "0.8.0", "0.8.5"):
             return CONSTANTS.ARCHIVE_DIR / self.timestamp
 
-        elif version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        elif version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             username = self.created_by.username
 
             date_base = self.bookmarked_at or self.created_at
@@ -2762,7 +2800,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if current_path.exists():
             return current_path
 
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             hyphen_path = current_path.with_name(str(uuid.UUID(str(self.id))))
             if hyphen_path.exists():
                 return hyphen_path
@@ -2793,6 +2831,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 crawl = Crawl.objects.filter(id=self.crawl_id).select_related("created_by").first()
             if not crawl:
                 return
+            # Creating the canonical crawl dir below would strand a legacy
+            # hyphenated one (migrate_legacy_output_dir never merges), so move it first.
+            crawl.migrate_legacy_output_dir()
             crawl_dir = Path(crawl.output_dir)
 
         domain = self.extract_domain_from_url(self.url)
@@ -2854,7 +2895,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     ) -> str:
         """Build the public detail path without consulting the filesystem."""
         legacy_path = f"{CONSTANTS.ARCHIVE_DIR_NAME}/{timestamp}"
-        if fs_version not in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        if fs_version not in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             return legacy_path
 
         date_base = bookmarked_at or created_at
@@ -2870,7 +2911,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     def archive_path_from_db(self) -> str:
         """Best-effort public URL path derived from DB fields only."""
         username = "web"
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             crawl = self.crawl if self.crawl_id else None
             if crawl and crawl.created_by_id:
                 username = crawl.created_by.username
@@ -2887,7 +2928,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
     @cached_property
     def url_path(self) -> str:
         """URL path matching the current snapshot output_dir layout."""
-        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
+        if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "0.9.5", "1.0.0"):
             return self.archive_path_from_db
 
         output_dir = Path(self.output_dir).resolve()

@@ -61,24 +61,6 @@ def _restore_dates(obj, record):
             setattr(obj, name, value)
 
 
-def _current_snapshot_directory(directory: Path) -> Path:
-    """Move a pre-0.9.4 hyphenated dir of a row already marked current into its DB path.
-
-    WHY: request handlers trust Snapshot.output_dir for current-layout rows
-    without probing storage, so this explicit scan must make disk match the DB.
-    """
-    if "-" not in directory.name:
-        return directory
-    snapshot = Snapshot.objects.select_related("crawl__created_by").filter(pk=uuid.UUID(directory.name)).first()
-    if snapshot is None or snapshot.fs_migration_needed:
-        return directory
-    current_dir = Path(snapshot.output_dir)
-    if current_dir == directory or current_dir.parent != directory.parent:
-        return directory
-    snapshot.migrate_filesystem_to_current_version(source_dir=directory)
-    return current_dir
-
-
 def _reconcile_directory(directory: Path) -> str:
     snapshot_id = uuid.UUID(directory.name)
     snapshot = Snapshot.objects.select_related("crawl__created_by").filter(pk=snapshot_id).first()
@@ -256,7 +238,6 @@ def rescan_snapshots(wait_for_turn=None, reverse=False, scan_legacy=None):
             if wait_for_turn:
                 wait_for_turn()
             try:
-                directory = _current_snapshot_directory(directory)
                 outcome = _reconcile_directory(directory)
                 if directory.name.replace("-", "") in known:
                     for result in ArchiveResult.objects.filter(snapshot_id=uuid.UUID(directory.name)):

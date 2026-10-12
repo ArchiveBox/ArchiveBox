@@ -98,8 +98,8 @@ def _archive_path(arg: object, roots: tuple[str, ...]) -> str | None:
 
 
 @contextmanager
-def forbid_archive_access(archive_dir: Path) -> Iterator[list[str]]:
-    """Make ``archive_dir`` unreadable and record every Python-level syscall into it."""
+def observe_archive_access(archive_dir: Path) -> Iterator[list[str]]:
+    """Record every Python-level filesystem syscall into ``archive_dir``."""
     roots = tuple(dict.fromkeys((os.path.normpath(str(archive_dir)), os.path.normpath(str(archive_dir.resolve())))))
     touches: list[str] = []
     monitoring = sys.monitoring
@@ -122,8 +122,6 @@ def forbid_archive_access(archive_dir: Path) -> Iterator[list[str]]:
 
     monitoring.use_tool_id(tool_id, "archive-storage-isolation-guard")
     monitoring.register_callback(tool_id, monitoring.events.CALL, on_call)
-    original_mode = archive_dir.stat().st_mode & 0o7777
-    archive_dir.chmod(0)
     monitoring.set_events(tool_id, monitoring.events.CALL)
     try:
         yield touches
@@ -131,6 +129,17 @@ def forbid_archive_access(archive_dir: Path) -> Iterator[list[str]]:
         monitoring.set_events(tool_id, 0)
         monitoring.register_callback(tool_id, monitoring.events.CALL, None)
         monitoring.free_tool_id(tool_id)
+
+
+@contextmanager
+def forbid_archive_access(archive_dir: Path) -> Iterator[list[str]]:
+    """Make ``archive_dir`` unreadable and record every Python-level syscall into it."""
+    original_mode = archive_dir.stat().st_mode & 0o7777
+    archive_dir.chmod(0)
+    try:
+        with observe_archive_access(archive_dir) as touches:
+            yield touches
+    finally:
         archive_dir.chmod(original_mode)
 
 

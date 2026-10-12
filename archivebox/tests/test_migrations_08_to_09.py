@@ -1101,4 +1101,4 @@ def test_each_declared_filesystem_hop_preserves_outputs(migration_08_data, fs_ve
         assert not source_dir.exists()
         assert not source_dir.is_symlink()
     with sqlite3.connect(db_path) as connection:
-        assert connection.execute("SELECT fs_version FROM core_snapshot WHERE id = ?", (snapshot["id"],)).fetchone() == ("0.9.4",)
+        assert connection.execute("SELECT fs_version FROM core_snapshot WHERE id = ?", (snapshot["id"],)).fetchone() == ("0.9.5",)

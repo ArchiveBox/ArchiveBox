@@ -487,12 +487,13 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         return self.output_dir_candidates[0]
 
     def migrate_legacy_output_dir(self) -> bool:
-        """Rename a pre-0.9.4 hyphenated crawl dir to the current compact-UUID name.
+        """Rename a pre-0.9.5 hyphenated crawl dir to the current compact-UUID name.
 
         Orchestrator/migration-only: touches archive storage.
         """
         output_dir, hyphen_dir = self.output_dir_candidates
-        if hyphen_dir.is_symlink() or not hyphen_dir.is_dir() or output_dir.exists():
+        # is_dir() first: it is the only check made for an already-canonical crawl.
+        if not hyphen_dir.is_dir() or hyphen_dir.is_symlink() or output_dir.exists():
             return False
         hyphen_dir.rename(output_dir)
         return True
