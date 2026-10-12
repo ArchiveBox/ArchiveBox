@@ -238,10 +238,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
         paused_crawl_cutoff = now - timedelta(hours=12)
         crawls_recent = crawl_scope.filter(created_at__gte=one_day_ago).count()
 
-        snapshot_status_counts = Snapshot.status_counts(
-            snapshot_scope,
-            Snapshot.RUNNABLE_STATES,
-        )
+        # Active captures are counted from live hook processes below.
+        snapshot_status_counts = Snapshot.status_counts(snapshot_scope, (Snapshot.StatusChoices.QUEUED,))
         snapshots_queued = snapshot_status_counts.get(Snapshot.StatusChoices.QUEUED, 0)
         snapshots_active = snapshot_status_counts.get(Snapshot.StatusChoices.STARTED, 0)
 
@@ -453,10 +451,9 @@ def live_progress_view(request, *, authorized_snapshot=None):
             for snapshot_id, crawl_id in snapshot_scope.filter(status=Snapshot.StatusChoices.STARTED).values_list("id", "crawl_id")
         }
         worker_snapshot_crawls.update({snapshot_id: snapshot["crawl_id"] for snapshot_id, snapshot in snapshots_by_id.items()})
-        worker_crawl_ids = {
-            str(crawl_id).replace("-", "")
-            for crawl_id in crawl_scope.filter(status=Crawl.StatusChoices.STARTED).values_list("id", flat=True)
-        } | set(crawls_by_id)
+        # The running crawl heartbeats modified_at, so it is always among the
+        # displayed started crawls; no separate started-crawl query needed.
+        worker_crawl_ids = set(worker_snapshot_crawls.values()) | set(crawls_by_id)
         process_value_fields = ("id", "process_type", "status", "pwd", "cmd", "pid", "exit_code", "started_at", "ended_at", "modified_at")
 
         def process_scope(ids):
@@ -684,12 +681,6 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 ]
                 if snapshot["status"] == Snapshot.StatusChoices.QUEUED:
                     snapshot_results = []
-
-                # Capture/import already persist the canonical output_files map.
-                # Read it directly; rebuilding Pydantic manifests here repeatedly
-                # validates, copies, sorts, and totals every captured asset.
-                # Resolve each link once for both role previews and plugin rows.
-                output_paths = {ar.id: ar.embed_path_db(output_file_map=ar.output_files) for ar in snapshot_results}
                 attempt_started_at = attempt_started_at_by_snapshot.get(str(snapshot["id"]))
                 if attempt_started_at is not None:
                     # Every capture reruns all hooks from scratch. An unfinished
@@ -701,6 +692,12 @@ def live_progress_view(request, *, authorized_snapshot=None):
                         for ar in snapshot_results
                         if ar.status in ArchiveResult.FINAL_STATES or ar.start_ts is None or ar.start_ts >= attempt_started_at
                     ]
+
+                # Capture/import already persist the canonical output_files map.
+                # Read it directly; rebuilding Pydantic manifests here repeatedly
+                # validates, copies, sorts, and totals every captured asset.
+                # Resolve each link once for both role previews and plugin rows.
+                output_paths = {ar.id: ar.embed_path_db(output_file_map=ar.output_files) for ar in snapshot_results}
 
                 plugin_progress_values: list[int] = []
                 all_plugins: list[dict[str, object]] = []
