@@ -1149,3 +1149,274 @@ class TestLiveProgressView:
         process_entry = next(item for item in active_snapshot["all_plugins"] if item["source"] == "process")
         assert process_entry["status"] == "succeeded"
         assert "pid" not in process_entry
+
+
+def _progress_snapshot_id(item) -> str:
+    # Queued rows are compact [id, url, title?] lists; detailed rows are dicts.
+    return item[0] if isinstance(item, list) else item["id"]
+
+
+class TestLiveProgressDisplayWindow:
+    def test_live_progress_shows_three_crawls_started_then_paused_then_queued(self, client, admin_user):
+        from datetime import timedelta
+        from django.contrib.auth import get_user_model
+        from archivebox.crawls.models import Crawl
+
+        now = timezone.now()
+        other_user = get_user_model().objects.create_user(username="other-window-owner")
+
+        def make_crawl(name, status, age_minutes, owner=admin_user, created_at=None):
+            crawl = Crawl.objects.create(urls=f"https://example.com/{name}", created_by=owner)
+            Crawl.objects.filter(pk=crawl.pk).update(
+                status=status,
+                modified_at=now - timedelta(minutes=age_minutes),
+                created_at=created_at or now - timedelta(minutes=age_minutes),
+                retry_at=None,
+            )
+            return str(crawl.pk)
+
+        started = [make_crawl(f"started-{i}", Crawl.StatusChoices.STARTED, i + 1) for i in range(2)]
+        paused = [make_crawl(f"paused-{i}", Crawl.StatusChoices.PAUSED, 10 + i) for i in range(3)]
+        # Paused more than 12h ago with no runnable work: not part of the window.
+        stale_paused = make_crawl("paused-stale", Crawl.StatusChoices.PAUSED, 3 * 24 * 60)
+        queued = [make_crawl(f"queued-{i}", Crawl.StatusChoices.QUEUED, 20 + i) for i in range(4)]
+        other_started = make_crawl("other-started", Crawl.StatusChoices.STARTED, 0, owner=other_user)
+
+        client.force_login(admin_user)
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200, response.content
+        payload = response.json()
+        # Superuser: newest started crawl overall is the other user's crawl.
+        assert [crawl["id"] for crawl in payload["active_crawls"]] == [other_started, *started]
+        assert [crawl["status"] for crawl in payload["active_crawls"]] == [Crawl.StatusChoices.STARTED] * 3
+        assert payload["crawls_active"] == 3
+        assert payload["crawls_queued"] == 4
+        assert payload["hidden_crawls"] == [
+            {"status": "paused", "count": 3, "url": "/admin/crawls/crawl/?status__exact=paused"},
+            {"status": "queued", "count": 4, "url": "/admin/crawls/crawl/?status__exact=queued"},
+        ]
+        # The "more" links are real admin filters returning the same status rows.
+        expected_admin_rows = {
+            "paused": {*paused, stale_paused},
+            "queued": set(queued),
+        }
+        for hidden in payload["hidden_crawls"]:
+            admin_response = client.get(hidden["url"], HTTP_HOST=ADMIN_TEST_HOST)
+            assert admin_response.status_code == 200
+            changelist = admin_response.context["cl"]
+            assert {str(row.pk) for row in changelist.result_list} == expected_admin_rows[hidden["status"]]
+            assert changelist.result_count == len(expected_admin_rows[hidden["status"]])
+
+        # Free two started slots: paused (newest first) fill before queued.
+        Crawl.objects.filter(pk__in=[other_started, started[1]]).update(status=Crawl.StatusChoices.SEALED)
+        payload = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST).json()
+        assert [crawl["id"] for crawl in payload["active_crawls"]] == [started[0], paused[0], paused[1]]
+        assert [crawl["status"] for crawl in payload["active_crawls"]] == ["started", "paused", "paused"]
+        assert payload["hidden_crawls"] == [
+            {"status": "paused", "count": 1, "url": "/admin/crawls/crawl/?status__exact=paused"},
+            {"status": "queued", "count": 4, "url": "/admin/crawls/crawl/?status__exact=queued"},
+        ]
+
+        # No started/paused work: queued crawls fill the window, oldest-modified hidden.
+        Crawl.objects.filter(pk__in=[started[0], *paused, stale_paused]).update(status=Crawl.StatusChoices.SEALED)
+        payload = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST).json()
+        assert [crawl["id"] for crawl in payload["active_crawls"]] == queued[:3]
+        assert payload["hidden_crawls"] == [
+            {"status": "queued", "count": 1, "url": "/admin/crawls/crawl/?status__exact=queued"},
+        ]
+
+        # Nothing truncated: no "more" links at all.
+        Crawl.objects.filter(pk=queued[3]).update(status=Crawl.StatusChoices.SEALED)
+        payload = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST).json()
+        assert [crawl["id"] for crawl in payload["active_crawls"]] == queued[:3]
+        assert payload["hidden_crawls"] == []
+
+    def test_live_progress_hidden_crawl_links_are_scoped_to_staff_owner(self, client, admin_user):
+        from django.contrib.auth import get_user_model
+        from archivebox.crawls.models import Crawl
+
+        admin_user.is_superuser = False
+        admin_user.save(update_fields=["is_superuser"])
+        other_user = get_user_model().objects.create_user(username="other-hidden-owner")
+        own = []
+        for i in range(5):
+            crawl = Crawl.objects.create(urls=f"https://example.com/own-{i}", created_by=admin_user)
+            own.append(str(crawl.pk))
+        Crawl.objects.filter(pk__in=own).update(status=Crawl.StatusChoices.STARTED)
+        for i in range(4):
+            crawl = Crawl.objects.create(urls=f"https://example.com/other-{i}", created_by=other_user)
+            Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED)
+
+        client.force_login(admin_user)
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200, response.content
+        payload = response.json()
+        assert payload["crawls_active"] == 5
+        assert len(payload["active_crawls"]) == 3
+        assert {crawl["id"] for crawl in payload["active_crawls"]} <= set(own)
+        assert payload["hidden_crawls"] == [
+            {
+                "status": "started",
+                "count": 2,
+                "url": f"/admin/crawls/crawl/?status__exact=started&created_by__id__exact={admin_user.pk}",
+            },
+        ]
+
+    def test_live_progress_shares_twenty_snapshot_budget_started_first(self, client, admin_user):
+        from datetime import timedelta
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        now = timezone.now()
+        newer = Crawl.objects.create(urls="https://example.com/newer", created_by=admin_user)
+        older = Crawl.objects.create(urls="https://example.com/older", created_by=admin_user)
+        Crawl.objects.filter(pk=newer.pk).update(status=Crawl.StatusChoices.STARTED, modified_at=now)
+        Crawl.objects.filter(pk=older.pk).update(status=Crawl.StatusChoices.STARTED, modified_at=now - timedelta(minutes=5))
+
+        layout = {
+            newer: {Snapshot.StatusChoices.STARTED: 15, Snapshot.StatusChoices.QUEUED: 5, Snapshot.StatusChoices.SEALED: 2},
+            older: {Snapshot.StatusChoices.STARTED: 8, Snapshot.StatusChoices.QUEUED: 4},
+        }
+        index = 0
+        for crawl, counts in layout.items():
+            rows = []
+            for status, count in counts.items():
+                for _ in range(count):
+                    index += 1
+                    rows.append(
+                        Snapshot(
+                            crawl=crawl,
+                            url=f"https://example.com/{crawl.pk}/{status}/{index}",
+                            timestamp=str(now.timestamp() + index),
+                            status=status,
+                        ),
+                    )
+            Snapshot.objects.bulk_create(rows)
+            # Distinct modified_at per row so the started/queued orders are stable.
+            for offset, snapshot_id in enumerate(Snapshot.objects.filter(crawl=crawl).order_by("timestamp").values_list("id", flat=True)):
+                Snapshot.objects.filter(pk=snapshot_id).update(modified_at=now - timedelta(seconds=offset))
+
+        client.force_login(admin_user)
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200, response.content
+        payload = response.json()
+        crawls = {crawl["id"]: crawl for crawl in payload["active_crawls"]}
+        assert list(crawls) == [str(newer.pk), str(older.pk)]
+
+        def displayed(crawl, status):
+            return [
+                _progress_snapshot_id(item)
+                for item in crawls[str(crawl.pk)]["active_snapshots"]
+                if _progress_snapshot_id(item)
+                in {str(pk).replace("-", "") for pk in Snapshot.objects.filter(crawl=crawl, status=status).values_list("id", flat=True)}
+            ]
+
+        total_displayed = sum(len(crawl["active_snapshots"]) for crawl in crawls.values())
+        assert total_displayed == 20
+        # Started rows from both crawls are allocated before any queued row.
+        assert len(displayed(newer, Snapshot.StatusChoices.STARTED)) == 15
+        assert len(displayed(older, Snapshot.StatusChoices.STARTED)) == 5
+        assert displayed(newer, Snapshot.StatusChoices.QUEUED) == []
+        assert displayed(older, Snapshot.StatusChoices.QUEUED) == []
+        newest_older_started = [
+            str(pk).replace("-", "")
+            for pk in Snapshot.objects.filter(crawl=older, status=Snapshot.StatusChoices.STARTED)
+            .order_by("-modified_at")
+            .values_list("id", flat=True)[:5]
+        ]
+        assert sorted(displayed(older, Snapshot.StatusChoices.STARTED)) == sorted(newest_older_started)
+
+        def hidden_url(crawl, status):
+            return f"/admin/core/snapshot/?crawl_id__exact={str(crawl.pk).replace('-', '')}&snapshot_status={status}"
+
+        assert crawls[str(newer.pk)]["hidden_snapshots"] == [
+            {"status": "queued", "count": 5, "url": hidden_url(newer, "queued")},
+        ]
+        assert crawls[str(older.pk)]["hidden_snapshots"] == [
+            {"status": "started", "count": 3, "url": hidden_url(older, "started")},
+            {"status": "queued", "count": 4, "url": hidden_url(older, "queued")},
+        ]
+        for crawl, counts in layout.items():
+            for hidden in crawls[str(crawl.pk)]["hidden_snapshots"]:
+                shown = len(displayed(crawl, hidden["status"]))
+                assert shown + hidden["count"] == counts[hidden["status"]]
+                admin_response = client.get(hidden["url"], HTTP_HOST=ADMIN_TEST_HOST)
+                assert admin_response.status_code == 200
+                changelist = admin_response.context["cl"]
+                assert changelist.result_count == counts[hidden["status"]]
+                assert {row.pk for row in changelist.result_list} == set(
+                    Snapshot.objects.filter(crawl=crawl, status=hidden["status"]).values_list("id", flat=True),
+                )
+
+        # Once started rows fit, the remaining budget flows to queued rows.
+        Snapshot.objects.filter(crawl=newer, status=Snapshot.StatusChoices.STARTED).update(status=Snapshot.StatusChoices.SEALED)
+        payload = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST).json()
+        crawls = {crawl["id"]: crawl for crawl in payload["active_crawls"]}
+        assert len(displayed(older, Snapshot.StatusChoices.STARTED)) == 8
+        assert len(displayed(newer, Snapshot.StatusChoices.QUEUED)) == 5
+        assert len(displayed(older, Snapshot.StatusChoices.QUEUED)) == 4
+        assert sum(len(crawl["active_snapshots"]) for crawl in crawls.values()) == 17
+        assert crawls[str(newer.pk)]["hidden_snapshots"] == []
+        assert crawls[str(older.pk)]["hidden_snapshots"] == []
+
+    def test_live_progress_header_only_poll_counts_workers_outside_window(
+        self,
+        client,
+        admin_user,
+        snapshot,
+        real_snapshot_hook_projection,
+    ):
+        from datetime import timedelta
+
+        import archivebox.machine.models as machine_models
+        from archivebox.crawls.models import Crawl
+        from archivebox.machine.models import Process
+
+        process, result = real_snapshot_hook_projection
+        machine_models._CURRENT_MACHINE = process.machine
+        result.delete()
+        process.status = Process.StatusChoices.RUNNING
+        process.pid = os.getpid()
+        process.ended_at = None
+        process.save(update_fields=["status", "pid", "ended_at", "modified_at"])
+
+        now = timezone.now()
+        Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED, modified_at=now - timedelta(hours=1))
+        newer_crawls = []
+        for i in range(3):
+            crawl = Crawl.objects.create(urls=f"https://example.com/newer-{i}", created_by=admin_user)
+            Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED, modified_at=now - timedelta(minutes=i))
+            newer_crawls.append(str(crawl.pk))
+        Crawl.objects.create(urls="https://example.com/queued", created_by=admin_user)
+
+        client.force_login(admin_user)
+        full_response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert full_response.status_code == 200, full_response.content
+        full = full_response.json()
+        assert [crawl["id"] for crawl in full["active_crawls"]] == newer_crawls
+        assert str(snapshot.crawl_id) not in {crawl["id"] for crawl in full["active_crawls"]}
+        assert full["hidden_crawls"] == [
+            {"status": "started", "count": 1, "url": "/admin/crawls/crawl/?status__exact=started"},
+            {"status": "queued", "count": 1, "url": "/admin/crawls/crawl/?status__exact=queued"},
+        ]
+        assert full["crawls_active"] == 4
+        assert full["crawls_queued"] == 1
+        assert full["snapshots_active"] == 1
+        # The running hook belongs to a started snapshot outside the window.
+        assert full["total_workers"] == 1
+
+        header_response = client.get(reverse("live_progress"), {"tree": "0"}, HTTP_HOST=ADMIN_TEST_HOST)
+        assert header_response.status_code == 200, header_response.content
+        header = header_response.json()
+        assert "active_crawls" not in header
+        assert "hidden_crawls" not in header
+        assert header["total_workers"] == 1
+        tree_keys = {"active_crawls", "hidden_crawls", "server_time"}
+        assert {key: value for key, value in header.items() if key != "server_time"} == {
+            key: value for key, value in full.items() if key not in tree_keys
+        }
+
+        # Once the hook exits, both poll shapes drop the worker.
+        Process.objects.filter(pk=process.pk).update(status=Process.StatusChoices.EXITED, ended_at=timezone.now())
+        assert client.get(reverse("live_progress"), {"tree": "0"}, HTTP_HOST=ADMIN_TEST_HOST).json()["total_workers"] == 0
+        assert client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST).json()["total_workers"] == 0
