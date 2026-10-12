@@ -1324,6 +1324,56 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert _higher_priority_crawl_waiting(str(running.id), []) is True
         assert _higher_priority_crawl_waiting(str(interrupted.id), []) is False
 
+    def test_newest_queued_crawl_preempts_older_without_reversing_its_urls(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import _higher_priority_crawl_waiting, _next_queued_crawl_snapshot_id
+
+        # Newest-first picks which submission goes next; it must not also
+        # reverse an imported URL list so its last line is captured first.
+        now = timezone.now()
+        older = Crawl.objects.create(
+            urls="https://blog.sweeting.me",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.QUEUED,
+            retry_at=now - timedelta(minutes=10),
+        )
+        Snapshot.objects.create(
+            url="https://blog.sweeting.me",
+            crawl=older,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=now - timedelta(minutes=10),
+        )
+        imported = Crawl.objects.create(
+            urls="https://docs.sweeting.me/1\nhttps://docs.sweeting.me/2\nhttps://docs.sweeting.me/3",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.QUEUED,
+            retry_at=now - timedelta(minutes=3),
+        )
+        first, _second, _third = (
+            Snapshot.objects.create(
+                url=f"https://docs.sweeting.me/{index}",
+                crawl=imported,
+                status=Snapshot.StatusChoices.QUEUED,
+                retry_at=now - timedelta(minutes=4 - index),
+            )
+            for index in (1, 2, 3)
+        )
+
+        active_snapshots = Snapshot.objects.filter(
+            retry_at__lte=timezone.now(),
+            crawl__status__in=Crawl.RUNNABLE_STATES,
+            status__in=Snapshot.RUNNABLE_STATES,
+        )
+        assert _next_queued_crawl_snapshot_id(active_snapshots) == first.id
+        assert _higher_priority_crawl_waiting(str(older.id), []) is True
+        assert _higher_priority_crawl_waiting(str(imported.id), []) is False
+
     def test_crawl_cancel_schedules_children_for_per_snapshot_sealing(self):
         from datetime import timedelta
 

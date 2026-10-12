@@ -762,6 +762,7 @@ class CrawlRunner:
             # browser/session when this crawl still owns the next admission.
             self._scheduler_yielded = True
             return
+        # Within-crawl FIFO breadth-first; policy above _first_due_id.
         pending_snapshot_ids = await sync_to_async(
             lambda: list(
                 self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
@@ -824,6 +825,7 @@ class CrawlRunner:
             # targeted maintenance admitted by allow_maintenance_on_inactive_crawl.
             snapshot_ids = [str(snapshot_id) for snapshot_id in self.initial_snapshot_ids]
         else:
+            # Within-crawl FIFO breadth-first; policy above _first_due_id.
             pending_snapshots = list(
                 self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
                 .filter(retry_at__lte=timezone.now())
@@ -835,7 +837,7 @@ class CrawlRunner:
                 if self.crawl.snapshot_set.exclude(status__in=[Snapshot.StatusChoices.SEALED, Snapshot.StatusChoices.PAUSED]).exists():
                     return []
                 created = self.create_initial_snapshots()
-                snapshots = created or list(self.crawl.snapshot_set.filter(depth__in=[0, 1]).order_by("depth", "created_at"))
+                snapshots = created or list(self.crawl.snapshot_set.filter(depth__in=[0, 1]).order_by("depth", "created_at", "pk"))
                 snapshot_ids = [str(snapshot.id) for snapshot in snapshots]
         # Parse and deduplicate before copying browser state. An empty import
         # has no capture runtime to prepare; a large persona otherwise blocks
@@ -2045,6 +2047,18 @@ def run_install(*, plugin_names: list[str] | None = None) -> None:
     asyncio.run(_run_install(plugin_names=plugin_names))
 
 
+# Scheduling policy (run_pending_crawls and _higher_priority_crawl_waiting
+# must agree on it, and CrawlRunner applies the within-crawl part):
+# - New submissions are admitted newest-first, so something a user just added
+#   shows progress immediately instead of waiting behind a huge older import.
+# - Work that already started resumes oldest-first and ahead of untouched
+#   backlog: a half-finished capture holds browser/session state and partial
+#   outputs, and recovery resets its retry_at to now, which would otherwise
+#   sort it behind hours of older queued children.
+# - Within one crawl, snapshots run FIFO breadth-first by (depth, created_at,
+#   pk) so seeds finish before discovered links and ties stay deterministic.
+# Accepted tradeoff: a continuous stream of new submissions can delay older
+# queued crawls indefinitely.
 def _first_due_id(queryset, *, newest_first: bool = False):
     ordering = ("-retry_at", "-created_at") if newest_first else ("retry_at", "created_at")
     # Queue membership comes from retry_at, not status: almost the entire
@@ -2067,13 +2081,28 @@ def _first_due_id(queryset, *, newest_first: bool = False):
     return None
 
 
+def _next_queued_crawl_snapshot_id(active_snapshots):
+    from archivebox.crawls.models import Crawl
+
+    # Newest-first chooses which submission goes next, not its URL order:
+    # without crawl isolation the admitted snapshot runs alone, so taking it
+    # newest-first would capture an imported list's last line first.
+    newest_id = _first_due_id(active_snapshots.filter(crawl__status=Crawl.StatusChoices.QUEUED), newest_first=True)
+    if newest_id is None:
+        return None
+    newest_crawl_id = active_snapshots.filter(id=newest_id).values_list("crawl_id", flat=True).first()
+    # Same within-crawl order as CrawlRunner; see _first_due_id.
+    return active_snapshots.filter(crawl_id=newest_crawl_id).order_by("depth", "created_at", "pk").values_list("id", flat=True).first()
+
+
 def _higher_priority_crawl_waiting(crawl_id: str, active_snapshot_ids: list[str]) -> bool:
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
 
-    # Match run_pending_crawls' admission order, including newer queued
-    # submissions ahead of resumed work. Owned captures finish in this runner;
-    # an expired lease must not make one of them look like a new admission.
+    # Mirrors run_pending_crawls' pass order (policy above _first_due_id).
+    # Only the winning crawl matters here, so pass 1 can skip the within-crawl
+    # pick _next_queued_crawl_snapshot_id makes. Owned captures finish in this
+    # runner; an expired lease must not make one look like a new admission.
     active_snapshots = Snapshot.objects.filter(
         retry_at__lte=timezone.now(),
         crawl__status__in=Crawl.RUNNABLE_STATES,
@@ -2132,11 +2161,10 @@ def _run_due_snapshot_query(
     lock_seconds: int,
     interactive_interrupts: bool,
     runtime_config,
-    newest_first: bool = False,
     schedule_all_crawls: bool = False,
     wait_for_resources: bool = True,
 ) -> bool:
-    due_snapshot_id = _first_due_id(queryset, newest_first=newest_first)
+    due_snapshot_id = _first_due_id(queryset)
     return _run_due_snapshot_id(
         due_snapshot_id,
         lock_seconds=lock_seconds,
@@ -2279,19 +2307,21 @@ def run_pending_crawls(
             )
             if crawl_id:
                 active_snapshots = active_snapshots.filter(crawl_id=crawl_id)
-            # Admit new submissions between captures instead of making them
-            # wait behind every overdue child of an old, resumed crawl.
-            if _run_due_snapshot_query(
-                active_snapshots.filter(crawl__status=Crawl.StatusChoices.QUEUED),
+            # New submissions newest-first so they show progress before old
+            # backlog (policy above _first_due_id). Keep this pass order in
+            # sync with _higher_priority_crawl_waiting.
+            if _run_due_snapshot_id(
+                _next_queued_crawl_snapshot_id(active_snapshots),
                 lock_seconds=60,
                 interactive_interrupts=interactive_interrupts,
                 wait_for_resources=not daemon,
                 runtime_config=runtime_config,
-                newest_first=True,
                 schedule_all_crawls=crawl_id is None,
             ):
                 continue
 
+            # Same newest-first admission for queued crawls that have no due
+            # snapshot yet (policy above _first_due_id).
             if _run_due_crawl_status(
                 Crawl.StatusChoices.QUEUED,
                 crawl_id=crawl_id,
@@ -2302,10 +2332,8 @@ def run_pending_crawls(
             ):
                 continue
 
-            # Resume interrupted captures before admitting more backlog.
-            # Recovery unlocks them with retry_at=now, which would otherwise
-            # sort them behind every older queued child (hours on big crawls).
-            # Keep this order in sync with _higher_priority_crawl_waiting.
+            # Started work resumes oldest-first before untouched backlog
+            # (policy above _first_due_id).
             if any(
                 _run_due_snapshot_query(
                     due_snapshots,
