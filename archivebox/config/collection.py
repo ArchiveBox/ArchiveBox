@@ -275,7 +275,11 @@ def sync_machine_and_file(machine: Any = None) -> None:
             machine.config = _coerce_from_str_dict(merged)
             machine.save(update_fields=["config", "modified_at"])
         flat = _coerce_to_str_dict(machine.config)
-        transaction.on_commit(lambda: _write_file_if_changed(_render_config_file_content(flat)), robust=True)
+        # DB-only signing fields must not make every read-only startup rewrite
+        # an otherwise unchanged file (including its comments and sections).
+        public_config = {key: value for key, value in flat.items() if key not in {"SECRET_KEY", "_SECRET_KEY_DB"}}
+        if public_config != file_config:
+            transaction.on_commit(lambda: _write_file_if_changed(_render_config_file_content(flat)), robust=True)
     finally:
         _MIRROR_IN_PROGRESS = False
 
