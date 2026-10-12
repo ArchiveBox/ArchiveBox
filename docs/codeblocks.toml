@@ -34,7 +34,7 @@ version = 2
 "996d629b43a0c4c8-1" = "illustration"
 "d6cb543b1403f8ef-1" = "run"
 "e4a4f50f45b47ec8-1" = "run"
-"5604a7d87f7492cf-1" = "output"
+"88722cd6b2c0a35d-1" = "output"
 "564e4e9ba0c2f0f4-1" = "run"
 "0ddf9613e881e636-1" = "illustration"
 "9c1a37930f53b89d-1" = "run"
@@ -76,6 +76,15 @@ version = 2
 "66018350af060c17-1" = "illustration"
 "7d1d068e1e754a75-1" = "illustration"
 
+# docs/Change-Detection.md
+"f14386b3e247f617-1" = "illustration"
+"32055432c5a2c42b-1" = "illustration"
+"2b0a185cae36f67d-1" = "illustration"
+"b4aa714a64b02eb4-1" = "illustration"
+"5068344e69172f6d-1" = "illustration"
+"a222c932695f5b82-1" = "illustration"
+"c5ff0c9deaa9ca8c-1" = "illustration"
+
 # docs/Changelog.md
 "6fdf9ece2f8a3f7f-1" = "illustration"
 
@@ -94,6 +103,7 @@ version = 2
 
 # docs/Configuration.md
 "129eb9ca56f17500-1" = "illustration"
+"8a8e5b69d75185c3-1" = "illustration"
 "798793d9d6b2e12e-1" = "run"
 "3fecc495abdc20ef-1" = "illustration"
 "ce0de8ed0d7cd552-1" = "run"
@@ -118,6 +128,14 @@ version = 2
 "150ae2c7f6d012ab-1" = "illustration"
 "df686af2c6e3de91-1" = "run"
 "6bcb6c2e8770907a-1" = "illustration"
+"12817f2cfd0f6415-1" = "illustration"
+"f022b94b3d44d835-1" = "run"
+"384bc1c4b9910ddb-1" = "illustration"
+"86031b5d2698d539-1" = "illustration"
+"f6270d341bb9edfe-1" = "illustration"
+"3023d21568deae68-1" = "illustration"
+"fdc602d90bb10e32-1" = "illustration"
+"36aebcb969cd4c42-1" = "illustration"
 "e88213765e516d2b-1" = "illustration"
 "6353a7cf3014612e-1" = "illustration"
 "d66324df4c7f97c7-1" = "illustration"
@@ -154,6 +172,13 @@ version = 2
 "25f5a83ce92e6b8d-2" = "transcript"
 "3ecf97d15d7e8ae9-1" = "illustration"
 
+# docs/OSINT-Preservation.md
+"afadd63b45da60fc-1" = "run"
+"5c60b983299e4248-1" = "run"
+"c06564787f870e91-1" = "illustration"
+"4ded95eaf40077c2-1" = "illustration"
+"3fc52955cef3344b-1" = "illustration"
+
 # docs/Publishing-Your-Archive.md
 "265fb56b42fec62d-1" = "illustration"
 "9cf635e7d35fd992-1" = "illustration"
@@ -171,7 +196,6 @@ version = 2
 "693b5aec2007eea7-1" = "illustration"
 "c28c2cb9ba1f19ae-1" = "illustration"
 
-# docs/Release-Notes.md
 # docs/Scheduled-Archiving.md
 "e6102e50b4491a0d-1" = "illustration"
 "086f495260058ca2-1" = "illustration"
@@ -261,6 +285,10 @@ version = 2
 "85f531841ec3e169-1" = "run"
 
 [scenarios]
+"f022b94b3d44d835-1" = "project"
+"afadd63b45da60fc-1" = "collection"
+"5c60b983299e4248-1" = "collection"
+
 "dbbcf99c3829e104-1" = "docker"
 "39bc0d99ed165be2-1" = "system"
 "d5ae3240405670bb-1" = "collection"
@@ -340,6 +368,10 @@ version = 2
 "85f531841ec3e169-1" = "collection"
 
 [environments]
+"f022b94b3d44d835-1" = "ubuntu"
+"afadd63b45da60fc-1" = "ubuntu"
+"5c60b983299e4248-1" = "ubuntu"
+
 "dbbcf99c3829e104-1" = "docker"
 "39bc0d99ed165be2-1" = "ubuntu"
 "d5ae3240405670bb-1" = "ubuntu"
