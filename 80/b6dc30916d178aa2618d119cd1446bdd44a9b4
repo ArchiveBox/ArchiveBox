@@ -1,0 +1,19 @@
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_6e5f9698a9278d::t_aeeee40fff40b9 991,1815
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "80b6dc30916d178aa2618d119cd1446bdd44a9b4",
+  "prompts": {},
+  "sessions": {
+    "s_6e5f9698a9278d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12eff-7add-7c91-bee8-e43e4ab16a9c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
