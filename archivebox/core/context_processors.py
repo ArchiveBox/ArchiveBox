@@ -26,7 +26,7 @@ def archivebox_globals(request):
         from archivebox.config import CONSTANTS
         from archivebox.core.models import Snapshot
 
-        cache_key = f"navbar_archive_size:{CONSTANTS.DATA_DIR}"
+        cache_key = f"progress_archive_size:{CONSTANTS.DATA_DIR}"
         size = cache.get(cache_key)
         if size is None:
             size = Snapshot.objects.aggregate(total=Sum("output_size"))["total"] or 0

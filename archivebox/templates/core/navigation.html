@@ -23,9 +23,6 @@
     <a href="/admin/" class="navbar-item navbar-admin">Admin</a>
     <span class="navbar-separator navbar-separator-wide" aria-hidden="true"></span>
     {% if user.is_authenticated %}
-        {% if user.is_staff %}
-            <small class="navbar-item navbar-archive-size" title="Estimated total archive size (updated hourly)">{{ ARCHIVE_SIZE_ESTIMATE }}</small>
-        {% endif %}
         {% block welcome-msg %}
             <span class="navbar-item navbar-user">
                 <span class="navbar-user-label">{% trans 'User' %}</span>

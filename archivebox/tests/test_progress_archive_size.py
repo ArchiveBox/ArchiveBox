@@ -9,7 +9,7 @@ from .conftest import ADMIN_TEST_HOST
     ("size", "expected"),
     [(0, "0 GB"), (1, "1 GB"), (54 * 1024**3 + 1, "55 GB"), (1024**4, "1.0 TB"), (11 * 1024**4 // 10 + 1, "1.2 TB")],
 )
-def test_navbar_archive_size(client, admin_user, snapshot, size, expected):
+def test_progress_archive_size(client, admin_user, snapshot, size, expected):
     from archivebox.core.models import Snapshot
 
     cache.clear()
@@ -17,7 +17,7 @@ def test_navbar_archive_size(client, admin_user, snapshot, size, expected):
     assert client.login(username=admin_user.username, password="testpassword")
     response = client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 200
-    assert f'title="Estimated total archive size (updated hourly)">{expected}</small>' in response.content.decode()
+    assert f"const archiveSize = '{expected}';" in response.content.decode()
     Snapshot.objects.filter(pk=snapshot.pk).update(output_size=2 * 1024**4)
     response = client.get("/admin/core/snapshot/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.context["ARCHIVE_SIZE_ESTIMATE"] == expected
@@ -36,7 +36,7 @@ def test_navbar_archive_size(client, admin_user, snapshot, size, expected):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_navbar_archive_size_browser(live_server, admin_user, snapshot, browser_runtime):
+def test_progress_archive_size_browser(live_server, admin_user, snapshot, browser_runtime):
     from playwright.sync_api import expect, sync_playwright
     from archivebox.core.models import Snapshot
 
@@ -49,10 +49,11 @@ def test_navbar_archive_size_browser(live_server, admin_user, snapshot, browser_
         page.locator('[name="username"]').fill(admin_user.username)
         page.locator('[name="password"]').fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
-        estimate = page.locator("#user-tools .navbar-archive-size")
+        expect(page.locator("#user-tools .navbar-archive-size")).to_have_count(0)
+        estimate = page.locator("#metric-storage")
         expect(estimate).to_be_visible()
-        expect(estimate).to_have_text("55 GB")
-        assert estimate.evaluate("el => getComputedStyle(el).fontSize") == "10px"
+        expect(estimate).to_contain_text("55 GB archived · ")
+        expect(estimate).to_contain_text(" free")
         page.set_viewport_size({"width": 390, "height": 844})
         expect(estimate).to_be_visible()
         browser.close()
