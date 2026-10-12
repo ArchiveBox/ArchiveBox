@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import atexit
+import os
 import sqlite3
+import threading
 import time
 from collections.abc import Mapping
 from itertools import tee
@@ -146,7 +149,86 @@ class SQLiteCursorWrapper(DjangoSQLiteCursorWrapper):
         )
 
 
+# WHY: Django's ASGI handler runs each request's sync code in a brand-new
+# thread (asgiref ThreadSensitiveContext), so thread-local connections never
+# outlive one request. Opening one costs sqlite3.connect, ~40 function
+# registrations and ~10 PRAGMAs: ~15-19% of the CPU of a snap-host file GET on
+# the demo host. A cleanly closed autocommit connection is instead parked here
+# for the next thread. Idle connections hold no locks, and they are checked out
+# exclusively (Django already opens SQLite with check_same_thread=False).
+_IDLE_CONNECTIONS: dict[tuple, list[tuple[tuple[int, int], sqlite3.Connection]]] = {}
+_IDLE_CONNECTIONS_LOCK = threading.Lock()
+_MAX_IDLE_CONNECTIONS = 16
+
+
+def _database_file_identity(path: str) -> tuple[int, int] | None:
+    # A pooled connection keeps its file open, so its inode cannot be reused:
+    # a changed (dev, inode) reliably means the database file was replaced.
+    try:
+        stat = os.stat(path)
+    except (OSError, TypeError, ValueError):
+        return None
+    return (stat.st_dev, stat.st_ino)
+
+
+def close_idle_connections() -> None:
+    with _IDLE_CONNECTIONS_LOCK:
+        idle = [conn for pool in _IDLE_CONNECTIONS.values() for _identity, conn in pool]
+        _IDLE_CONNECTIONS.clear()
+    for conn in idle:
+        try:
+            conn.close()
+        except sqlite3.Error:
+            pass
+
+
+# Callers that close connections before forking expect none to stay open.
+os.register_at_fork(before=close_idle_connections)
+atexit.register(close_idle_connections)
+
+
 class DatabaseWrapper(DjangoSQLiteDatabaseWrapper):
+    _idle_pool_key: tuple | None = None
+
+    def get_new_connection(self, conn_params):
+        self._idle_pool_key = None
+        if not self.is_in_memory_db():
+            key = (os.getpid(), self.alias, tuple(sorted(conn_params.items())), tuple(self.init_commands))
+            identity = _database_file_identity(conn_params["database"])
+            stale: list[sqlite3.Connection] = []
+            conn = None
+            with _IDLE_CONNECTIONS_LOCK:
+                pool = _IDLE_CONNECTIONS.get(key) or []
+                while pool:
+                    pooled_identity, pooled_conn = pool.pop()
+                    if identity is not None and pooled_identity == identity:
+                        conn = pooled_conn
+                        break
+                    stale.append(pooled_conn)
+            for stale_conn in stale:
+                stale_conn.close()
+            self._idle_pool_key = key
+            if conn is not None:
+                return conn
+        return super().get_new_connection(conn_params)
+
+    def _close(self):
+        conn = self.connection
+        key = self._idle_pool_key
+        if conn is not None and key is not None and key[0] == os.getpid() and not self.in_atomic_block:
+            identity = _database_file_identity(self.settings_dict["NAME"])
+            try:
+                reusable = identity is not None and not conn.in_transaction
+            except sqlite3.Error:
+                reusable = False
+            if reusable:
+                with _IDLE_CONNECTIONS_LOCK:
+                    pool = _IDLE_CONNECTIONS.setdefault(key, [])
+                    if len(pool) < _MAX_IDLE_CONNECTIONS:
+                        pool.append((identity, conn))
+                        return None
+        return super()._close()
+
     def create_cursor(self, name=None):
         cursor = self.connection.cursor(factory=SQLiteCursorWrapper)
         cursor.db_wrapper = self

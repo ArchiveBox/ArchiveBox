@@ -5,6 +5,7 @@ __package__ = "archivebox.machine"
 import os
 import signal
 import sys
+import time
 import uuid
 import socket
 from pathlib import Path
@@ -42,10 +43,15 @@ else:
     psutil = cast(Any, _psutil)
 
 _CURRENT_MACHINE: Machine | None = None
+# (ArchiveBox.conf stat, monotonic fetch time, row) for current_readonly().
+_READONLY_MACHINE: tuple[tuple[int, int, int] | None, float, Machine] | None = None
 _CURRENT_INTERFACE: NetworkInterface | None = None
 _CURRENT_PROCESS: Process | None = None
 
 MACHINE_RECHECK_INTERVAL = 7 * 24 * 60 * 60
+# Backstop for Machine.config writes that never reach ArchiveBox.conf (e.g. a
+# failed mirror write); normal edits invalidate immediately via the file stat.
+READONLY_MACHINE_MAX_AGE = 5.0
 NETWORK_INTERFACE_RECHECK_INTERVAL = 1 * 60 * 60
 PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match valid
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
@@ -220,10 +226,32 @@ class Machine(ModelWithHealthStats):
 
     @classmethod
     def current_readonly(cls) -> Machine | None:
-        """Read the current machine without registration, refresh, or config writes."""
+        """Read the current machine without registration, refresh, or config writes.
+
+        WHY cached: the web server never registers (_CURRENT_MACHINE stays unset),
+        and every request's config resolution lands here, so this was one SQLite
+        query per request (~25% of a snap-host file GET on the demo host). Config
+        edits from any process are committed and then mirrored to ArchiveBox.conf,
+        so its stat changing means "re-read"; in-process saves also drop the cache,
+        and READONLY_MACHINE_MAX_AGE bounds staleness for DB-only writes.
+        Callers must treat the shared instance as read-only.
+        """
+        global _READONLY_MACHINE
         if _CURRENT_MACHINE is not None:
             return _CURRENT_MACHINE
-        return cls.objects.filter(guid=get_host_guid()).first()
+        try:
+            stat = CONSTANTS.CONFIG_FILE.stat()
+            file_key = (stat.st_ino, stat.st_size, stat.st_mtime_ns)
+        except OSError:
+            file_key = None
+        cached = _READONLY_MACHINE
+        now = time.monotonic()
+        if cached is not None and cached[0] == file_key and now - cached[1] < READONLY_MACHINE_MAX_AGE:
+            return cached[2]
+        machine = cls.objects.filter(guid=get_host_guid()).first()
+        # Never cache a miss: the row appears as soon as any process registers.
+        _READONLY_MACHINE = (file_key, now, machine) if machine is not None else None
+        return machine
 
     @classmethod
     def current(cls) -> Machine:
@@ -368,7 +396,8 @@ class Machine(ModelWithHealthStats):
         # read repeat host detection, sanitation, or config reconciliation.
         update_fields = kwargs.get("update_fields")
         super().save(*args, **kwargs)
-        global _CURRENT_MACHINE
+        global _CURRENT_MACHINE, _READONLY_MACHINE
+        _READONLY_MACHINE = None
         if _CURRENT_MACHINE is not None and _CURRENT_MACHINE.pk == self.pk:
             for field in self._meta.concrete_fields:
                 if field.attname in self.__dict__ and (update_fields is None or field.name in update_fields):

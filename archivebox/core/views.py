@@ -118,6 +118,15 @@ def _files_index_target(snapshot: Snapshot, archivefile: str | None) -> str:
     return target
 
 
+# WHY: every snap-<suffix>.* request (hundreds per WACZ replay) resolves its
+# 12-hex host suffix, and `id LIKE '%suffix'` scans the whole primary-key index.
+# Snapshot ids never change, so a resolved unique suffix stays valid; only the
+# pk is cached and the row (permissions included) is still read per request.
+# Misses and ambiguous suffixes are never cached, and a deleted row evicts.
+_SNAPSHOT_SUFFIX_PKS: dict[str, object] = {}
+_SNAPSHOT_SUFFIX_PKS_MAX = 4096
+
+
 def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
     lookup = get_snapshot_lookup_key(snapshot_ref)
     if not lookup:
@@ -126,9 +135,19 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
     snapshots = Snapshot.objects.select_related("crawl", "crawl__created_by")
 
     if len(lookup) == 12 and "-" not in lookup:
+        cached_pk = _SNAPSHOT_SUFFIX_PKS.get(lookup)
+        if cached_pk is not None:
+            snapshot = snapshots.filter(pk=cached_pk).first()
+            if snapshot is not None:
+                return snapshot
+            _SNAPSHOT_SUFFIX_PKS.pop(lookup, None)
         # Resolve suffixes using the covering primary-key index before fetching
         # wide snapshot rows and joining their crawl/user data.
-        matches = Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True)
+        matches = list(Snapshot.objects.filter(id__endswith=lookup).order_by().values_list("id", flat=True))
+        if len(matches) == 1:
+            if len(_SNAPSHOT_SUFFIX_PKS) >= _SNAPSHOT_SUFFIX_PKS_MAX:
+                _SNAPSHOT_SUFFIX_PKS.clear()
+            _SNAPSHOT_SUFFIX_PKS[lookup] = matches[0]
         return snapshots.filter(pk__in=matches).order_by("-created_at", "-downloaded_at").first()
 
     try:

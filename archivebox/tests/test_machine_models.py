@@ -82,6 +82,7 @@ def _reset_machine_model_caches():
     import archivebox.machine.models as models
 
     models._CURRENT_MACHINE = None
+    models._READONLY_MACHINE = None
     models._CURRENT_INTERFACE = None
     models._CURRENT_PROCESS = None
 
@@ -199,6 +200,38 @@ class TestMachineModel:
         assert current is cached
         assert current.config["USER_AGENT"] == "read-only-machine-test"
         assert list(queries) == []
+
+    def test_machine_current_readonly_reuses_row_until_config_edit(self):
+        """The web server never registers, so its per-request config reads must not query.
+
+        Config edits must still apply promptly: another process commits
+        Machine.config and mirrors it to ArchiveBox.conf, and an in-process
+        save drops the cached row directly.
+        """
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        import archivebox.machine.models as models
+        from archivebox.config import CONSTANTS
+
+        registered = Machine.current()
+        models._CURRENT_MACHINE = None  # like daphne, which only reads
+
+        first = Machine.current_readonly()
+        assert first is not None and first.pk == registered.pk
+        with CaptureQueriesContext(connection) as queries:
+            assert Machine.current_readonly() is first
+        assert list(queries) == []
+
+        # Another process commits the edit, then rewrites ArchiveBox.conf.
+        Machine.objects.filter(pk=registered.pk).update(config={**(registered.config or {}), "USER_AGENT": "edited-elsewhere"})
+        CONSTANTS.CONFIG_FILE.write_text("[GENERAL_CONFIG]\nUSER_AGENT = edited-elsewhere\n", encoding="utf-8")
+        assert Machine.current_readonly().config["USER_AGENT"] == "edited-elsewhere"
+
+        edited = Machine.objects.get(pk=registered.pk)
+        edited.config = {**edited.config, "USER_AGENT": "edited-here"}
+        edited.save(update_fields=["config"])
+        assert Machine.current_readonly().config["USER_AGENT"] == "edited-here"
 
     def test_machine_current_recreates_stale_cached_row(self):
         """Machine.current() should recreate the cached machine if the row was deleted."""

@@ -279,8 +279,6 @@ def add_replay_archive_fallbacks(response: HttpResponse) -> HttpResponse:
 
 def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
     hashes_path = snapshot_dir / "hashes" / "hashes.json"
-    if not hashes_path.exists():
-        return None
     try:
         mtime = hashes_path.stat().st_mtime
     except OSError:
@@ -966,9 +964,13 @@ def _apply_archive_replay_headers(
     config = config or get_config(resolve_plugins=False, **config_kwargs)
     response.headers.setdefault("X-ArchiveBox-Security-Mode", config.SERVER_SECURITY_MODE)
 
-    is_risky_replay = _is_risky_replay_document(fullpath, content_type)
-
-    if config.SHOULD_NEUTER_RISKY_REPLAY and is_risky_replay and "Content-Security-Policy" not in response.headers:
+    # Sniffing opens the file (a remote round trip on FUSE archive storage), so
+    # only do it when the answer can change the response.
+    if (
+        config.SHOULD_NEUTER_RISKY_REPLAY
+        and "Content-Security-Policy" not in response.headers
+        and _is_risky_replay_document(fullpath, content_type)
+    ):
         response.headers["Content-Security-Policy"] = (
             "sandbox; "
             "default-src 'self' data: blob:; "
@@ -1005,7 +1007,10 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         config = get_config(resolve_plugins=False)
     cache_policy = getattr(request, "archivebox_cache_policy", None) or _cache_policy(config=config)
     fullpath, path = _resolve_archive_path(document_root, path)
-    if os.access(fullpath, os.R_OK) and fullpath.is_dir():
+    # One access + one stat per request: each is a round trip on FUSE storage.
+    readable = os.access(fullpath, os.R_OK)
+    statobj = fullpath.stat() if readable else None
+    if statobj is not None and stat.S_ISDIR(statobj.st_mode):
         if request.GET.get("download") == "zip" and show_indexes:
             response = _build_directory_zip_response(
                 fullpath,
@@ -1019,7 +1024,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         if show_indexes:
             response = _render_directory_index(request, path, fullpath)
             response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
-            response.headers["Last-Modified"] = http_date(fullpath.stat().st_mtime)
+            response.headers["Last-Modified"] = http_date(statobj.st_mtime)
             return _apply_archive_replay_headers(
                 response,
                 fullpath=fullpath,
@@ -1028,10 +1033,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 config=config,
             )
         raise Http404(_("Directory indexes are not allowed here."))
-    if not os.access(fullpath, os.R_OK):
+    if statobj is None:
         raise Http404(_("“%(path)s” does not exist") % {"path": fullpath})
 
-    statobj = fullpath.stat()
     # Captured site icons are intentionally shareable even for private snapshots.
     # Only raw icon responses qualify, not generated previews or directory pages.
     favicon_cache_control = (
