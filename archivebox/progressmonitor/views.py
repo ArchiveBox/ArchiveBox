@@ -525,6 +525,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
             return None
 
         running_worker_ids: set[str] = set()
+        running_snapshot_ids: set[str] = set()
         for proc in running_processes:
             if not proc["pwd"]:
                 continue
@@ -538,6 +539,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
             if not crawl_id:
                 continue
             running_worker_ids.add(str(proc["id"]))
+            if snapshot_id:
+                running_snapshot_ids.add(snapshot_id)
             _plugin, _label, phase, _hook_name = _process_label(proc["cmd"])
             if _plugin == "chrome_screencast" and proc["started_at"]:
                 # CDP sends frames only when the page changes. Keep a still
@@ -605,6 +608,10 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
         active_crawls = []
         total_workers = len(running_worker_ids)
+        # The header's "active" means captures in progress. STARTED rows also
+        # include captures interrupted by a restart that wait for their crawl's
+        # next turn; counting those showed e.g. 5 active while 2 were running.
+        snapshots_active = len(running_snapshot_ids)
         for crawl in active_crawls_list:
             crawl_id = str(crawl["id"])
             crawl_snapshot_counts = snapshot_counts_by_crawl.get(crawl_id, {})
