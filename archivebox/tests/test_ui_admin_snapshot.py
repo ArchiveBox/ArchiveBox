@@ -1910,4 +1910,6 @@ def test_archivewebpage_recording_metadata_is_text_not_replay(client, snapshot):
     )
     assert response.status_code == 200
     assert b"navigator.serviceWorker.register" in response.content
-    assert b'data-source="/archivewebpage/archivewebpage.wacz"' in response.content
+    source = re.search(rb'data-source="([^"]+)"', response.content)
+    assert source is not None
+    assert urlsplit(source[1].decode()).path == "/archivewebpage/archivewebpage.wacz"
