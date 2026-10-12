@@ -6,13 +6,11 @@ pytestmark = pytest.mark.django_db
 
 @pytest.mark.django_db(transaction=True)
 def test_process_completed_persists_with_uncached_network_interface(tmp_path, recursive_test_site):
-    import asyncio
-
     import archivebox.machine.models as machine_models
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.machine.models import Machine, NetworkInterface, Process
-    from archivebox.services.runner import CrawlRunner
+    from archivebox.services.runner import run_crawl
 
     machine = Machine.current()
     iface = NetworkInterface.current()
@@ -23,8 +21,9 @@ def test_process_completed_persists_with_uncached_network_interface(tmp_path, re
     )
 
     machine_models._CURRENT_INTERFACE = None
-    runner = CrawlRunner(crawl, selected_plugins=["headers"], show_progress=False)
-    asyncio.run(runner.run())
+    # Use the foreground boundary: one-shot admission can defer under real
+    # host pressure before any hook (and therefore its Process row) exists.
+    run_crawl(str(crawl.id), selected_plugins=["headers"], show_progress=False)
 
     process = next(
         process
