@@ -1,0 +1,25 @@
+archivebox/core/views.py
+  s_2b44ee96cc775e::t_ade760ad44f9f3 149-152,229,279
+archivebox/tests/test_urls.py
+  s_2b44ee96cc775e::t_cf2a77f5f93254 500-572,577-616,645-650,917-918,920
+  s_2b44ee96cc775e::t_e4391c3a440d5e 874-914
+  s_2b44ee96cc775e::t_aabceee8b8a0c7 617-644
+  s_2b44ee96cc775e::t_777b16834d6b7a 573-576
+  s_2b44ee96cc775e::t_a0cff25512e049 915-916,919,921
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0bde6bc52c0af4cde0a6a7a98fde54f4344eca65",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
