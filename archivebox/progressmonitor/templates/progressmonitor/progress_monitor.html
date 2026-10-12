@@ -632,6 +632,38 @@
     #progress-monitor .snapshot-progress {
         padding: 0 12px 8px;
     }
+    #progress-monitor .snapshot-item.queued-compact {
+        margin-bottom: 4px;
+    }
+    #progress-monitor .snapshot-item.queued-compact .snapshot-header {
+        align-items: center;
+        gap: 8px;
+        padding: 3px 12px;
+    }
+    #progress-monitor .snapshot-item.queued-compact .snapshot-header-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    #progress-monitor .snapshot-queued-icon {
+        flex: 0 0 14px;
+        width: 14px;
+        height: 14px;
+        border: 1px solid #30363d;
+        border-radius: 3px;
+        background: #161b22;
+    }
+    #progress-monitor .snapshot-queued-label {
+        flex: 1;
+        min-width: 0;
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 11px;
+        line-height: 18px;
+        color: #6e7681;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
     /* Extractor List - Compact Badge Layout */
     #progress-monitor .extractor-list {
@@ -1546,6 +1578,27 @@
         const cancelBtn = canCancel
             ? `<button class="cancel-item-btn" data-cancel-type="snapshot" data-snapshot-id="${snapshot.id}" data-label="✕" title="Cancel snapshot">✕</button>`
             : '';
+        // Queued snapshots with nothing to report yet render as one compact
+        // line; the status badge and cancel button already convey the state.
+        const isIdleQueued = snapshot.status === 'queued'
+            && !((snapshot.total_plugins || 0) > 0)
+            && !['crashed', 'stalled', 'cancelled'].includes(snapshot.worker_state);
+        if (isIdleQueued) {
+            const queuedUrl = snapshot.full_url || snapshot.url || '(no URL)';
+            const queuedTooltip = snapshot.title && snapshot.title !== queuedUrl ? `${snapshot.title}\n${queuedUrl}` : queuedUrl;
+            return `
+            <div class="snapshot-item queued-compact" data-snapshot-id="${escapeAttr(snapshot.id || '')}">
+                <div class="snapshot-header">
+                    <a class="snapshot-header-link" href="${adminUrl}" title="${escapeAttr(queuedTooltip)}">
+                        <span class="snapshot-queued-icon"></span>
+                        <span class="snapshot-queued-label">${escapeHtml(queuedUrl)}</span>
+                        <span class="status-badge queued">queued</span>
+                    </a>
+                    ${cancelBtn}
+                </div>
+            </div>
+        `;
+        }
         const snapshotPidHtml = snapshot.worker_pid ? `<span class="pid-label compact">pid ${snapshot.worker_pid}</span>` : '';
         const snapshotDurationHtml = renderDurationBadge(snapshot.started);
         const titleText = snapshot.title || formatUrl(snapshot.full_url || snapshot.url);

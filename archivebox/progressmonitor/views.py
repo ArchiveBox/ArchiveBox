@@ -41,10 +41,10 @@ def _live_progress_plugin_names() -> tuple[frozenset[str], frozenset[str]]:
     return download_plugin_names, indexing_plugin_names
 
 
-# Polls label the same few dozen hook paths every second; parse each once.
-@lru_cache(maxsize=4096)
+# Hundreds of hook paths are labeled on every one-second poll: plain string
+# splits, because building pathlib objects for each one cost ~45ms per request.
 def _hook_details(hook_name: str, plugin: str = "setup") -> tuple[str, str, str, str]:
-    normalized_hook_name = Path(hook_name).name if hook_name else ""
+    normalized_hook_name = hook_name.rstrip("/").rpartition("/")[2] if hook_name else ""
     if not normalized_hook_name:
         return (plugin, plugin, "unknown", "")
 
@@ -67,10 +67,11 @@ def _hook_details(hook_name: str, plugin: str = "setup") -> tuple[str, str, str,
     return (plugin, label, phase, normalized_hook_name)
 
 
-@lru_cache(maxsize=4096)
-def _process_label(cmd: tuple[object, ...]) -> tuple[str, str, str, str]:
+def _process_label(cmd: list | None) -> tuple[str, str, str, str]:
+    if not isinstance(cmd, list):
+        return ("", "setup", "unknown", "")
     hook_path = next(
-        (arg for arg in cmd if isinstance(arg, str) and Path(arg).name.startswith("on_") and "__" in Path(arg).name),
+        (arg for arg in cmd if isinstance(arg, str) and (name := arg.rpartition("/")[2]).startswith("on_") and "__" in name),
         "",
     )
     if not hook_path and cmd and isinstance(cmd[0], str):
@@ -79,7 +80,8 @@ def _process_label(cmd: tuple[object, ...]) -> tuple[str, str, str, str]:
     if not hook_path:
         return ("", "setup", "unknown", "")
 
-    return _hook_details(Path(hook_path).name, plugin=Path(hook_path).parent.name or "setup")
+    parent, _, name = hook_path.rstrip("/").rpartition("/")
+    return _hook_details(name, plugin=parent.rpartition("/")[2] or "setup")
 
 
 def live_progress_view(request, *, authorized_snapshot=None):
@@ -160,11 +162,6 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 return True
             event_ts = ar.end_ts or ar.start_ts or ar.modified_at or ar.created_at
             return is_current_run_timestamp(event_ts, run_started_at)
-
-        def process_label(cmd: list[str] | None) -> tuple[str, str, str, str]:
-            if not isinstance(cmd, list):
-                return ("", "setup", "unknown", "")
-            return _process_label(tuple(arg if isinstance(arg, str) else None for arg in cmd))
 
         def snapshot_output_url(snapshot, output_path: str) -> str:
             return build_snapshot_url(str(snapshot["id"]), output_path, request=request, config=request_config)
@@ -541,7 +538,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
             if not crawl_id:
                 continue
             running_worker_ids.add(str(proc["id"]))
-            _plugin, _label, phase, _hook_name = process_label(proc["cmd"])
+            _plugin, _label, phase, _hook_name = _process_label(proc["cmd"])
             if _plugin == "chrome_screencast" and proc["started_at"]:
                 # CDP sends frames only when the page changes. Keep a still
                 # frame visible for its live capture, never for a previous run.
@@ -566,7 +563,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
             crawl_id = str(matched_snapshot["crawl_id"] if matched_snapshot is not None else matched_crawl["id"])
             snapshot_id = str(matched_snapshot["id"]) if matched_snapshot is not None else ""
 
-            plugin, label, phase, hook_name = process_label(proc["cmd"])
+            plugin, label, phase, hook_name = _process_label(proc["cmd"])
 
             record_scope = str(snapshot_id) if phase == "snapshot" and snapshot_id else str(crawl_id)
             proc_key = f"{record_scope}:{plugin}:{label}:{proc['status']}:{proc['exit_code']}"
