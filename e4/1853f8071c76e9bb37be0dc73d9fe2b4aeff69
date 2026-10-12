@@ -1,0 +1,21 @@
+archivebox/progressmonitor/views.py
+  s_2b44ee96cc775e::t_dce72db797e688 399-404
+archivebox/tests/test_ui_live_progress.py
+  s_2b44ee96cc775e::t_68acb370dbf3c6 1084-1118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e41853f8071c76e9bb37be0dc73d9fe2b4aeff69",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
