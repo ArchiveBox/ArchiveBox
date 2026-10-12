@@ -15,18 +15,24 @@ from django.utils.http import http_date, parse_http_date_safe
 from archivebox.core.models import Snapshot
 from archivebox.core.permissions import is_admin_user, public_snapshots_queryset
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_url, build_web_url
+from archivebox.misc.util import equivalent_urls, iri_to_uri
 
 ARCHIVE_TYPES = {".wacz": "application/wacz", ".warc.gz": "application/gzip", ".warc": "application/warc"}
 
 
 def _captures(request, url):
     # Exact identity matters; public discovery must not reveal unlisted captures.
-    snapshots = Snapshot.objects.filter(url=url, downloaded_at__isnull=False, output_size__gt=0).select_related("crawl__created_by")
+    # The IRI and URI spellings (/über, /%C3%BCber) are one identity: the
+    # lookup URL is a decoded path plus a raw query, rarely the stored form.
+    snapshots = Snapshot.objects.filter(url__in=equivalent_urls(url), downloaded_at__isnull=False, output_size__gt=0).select_related(
+        "crawl__created_by",
+    )
     return (snapshots if is_admin_user(request) else public_snapshots_queryset(snapshots)).order_by("downloaded_at", "id")
 
 
 def _links(request, snapshot, relation="timemap"):
-    original = quote(snapshot.url, safe=":/?#[]@!$&'()*+,;=%")
+    # Link headers are ASCII: send the original as a URI (IDNA host, UTF-8 escapes).
+    original = iri_to_uri(snapshot.url)
     # Encode nested query/fragment delimiters so the lookup keeps the original URL.
     gate = build_web_url("/archive/" + quote(snapshot.url, safe=":/"), request=request)
     timemap = build_snapshot_detail_url(snapshot.archive_path_from_db, request=request) + "?format=link"

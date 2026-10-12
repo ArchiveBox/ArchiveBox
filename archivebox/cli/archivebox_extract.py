@@ -21,6 +21,7 @@ def _resolve_requests(records: list[dict], plugins: str) -> tuple[dict[str, set[
     from archivebox.api.v1_core import _uuid_ref_query
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.misc.jsonl import TYPE_ARCHIVERESULT
+    from archivebox.misc.util import equivalent_urls
 
     explicit_plugins = {name.strip() for name in plugins.split(",") if name.strip()}
     requested: dict[str, set[str]] = defaultdict(set)
@@ -44,7 +45,8 @@ def _resolve_requests(records: list[dict], plugins: str) -> tuple[dict[str, set[
         snapshot_id = str(record.get("snapshot_id") or record_id or "")
         snapshot = Snapshot.objects.filter(id=snapshot_id).only("id").first() if snapshot_id else None
         if snapshot is None and record.get("url"):
-            snapshot = Snapshot.objects.filter(url=record["url"]).order_by("-created_at").only("id").first()
+            # The URL may be given as IRI (/über) or URI (/%C3%BCber) either way round.
+            snapshot = Snapshot.objects.filter(url__in=equivalent_urls(record["url"])).order_by("-created_at").only("id").first()
         # Bare UUID CLI arguments are parsed as Snapshot records because the
         # input layer cannot know which model owns them. Preserve the public
         # convenience of passing an ArchiveResult ID by trying that reference

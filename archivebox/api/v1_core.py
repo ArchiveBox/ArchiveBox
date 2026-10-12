@@ -33,7 +33,7 @@ from archivebox.core.permissions import public_snapshots_queryset
 from archivebox.api.auth import authenticated_user_from_request
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
-from archivebox.misc.util import filter_queryset_by_uuid_substring, validate_url_length
+from archivebox.misc.util import equivalent_urls, filter_queryset_by_uuid_substring, validate_url_length
 from archivebox.core.tag_util import (
     add_snapshot_counts,
     build_tag_cards,
@@ -975,13 +975,19 @@ def create_snapshot(request: HttpRequest, data: SnapshotCreateSchema):
     # Browser uploads must not wait behind the runner's crawl-wide lifecycle
     # lock. The unique insert recovery and CAS update below are the request-side
     # coordination boundary for this idempotent metadata sync.
-    snapshot = Snapshot.objects.filter(url=data.url, crawl=crawl).first()
+    # /über and /%C3%BCber are one URL; match a snapshot stored in either.
+    snapshot = Snapshot.objects.filter(url__in=equivalent_urls(data.url), crawl=crawl).first()
     if snapshot is None and bool(crawl.get_current_config().get("ONLY_NEW", True)):
         # Uploading browser metadata is part of the same submission as /add.
         # It must honor the runner's deduplication policy, even if it arrives
         # before the runner has processed that crawl. Report the actual owner
         # so clients never mistake a reused capture for one they just created.
-        snapshot = Snapshot.objects.filter(url=data.url).exclude(status=Snapshot.DELETING_STATE).order_by("-created_at").first()
+        snapshot = (
+            Snapshot.objects.filter(url__in=equivalent_urls(data.url))
+            .exclude(status=Snapshot.DELETING_STATE)
+            .order_by("-created_at")
+            .first()
+        )
         if snapshot is not None:
             setattr(request, "with_archiveresults", False)
             return snapshot

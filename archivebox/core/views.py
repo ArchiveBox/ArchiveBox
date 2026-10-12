@@ -1,8 +1,10 @@
 __package__ = "archivebox.core"
 
 import json
+import operator
 import os
 import posixpath
+from functools import reduce
 from pathlib import Path
 from typing import ClassVar, cast
 from urllib.parse import quote, urlparse
@@ -75,9 +77,10 @@ from archivebox.misc.paginators import AcceleratedPaginator
 from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, serve_static_with_byterange_support
 from archivebox.misc.util import (
     base_url,
+    equivalent_urls,
     filter_queryset_by_uuid_substring,
     sanitize_html_text,
-    urldecode,
+    uri_to_iri,
     validate_url,
     without_fragment,
 )
@@ -321,17 +324,23 @@ class SnapshotView(View):
             # correct under any collation and uses the url pattern-ops index.
             return Q(url=canonical) | Q(url__startswith=f"{canonical}#")
 
+        def _equivalent_url_query(url: str) -> Q:
+            # Django hands us the decoded path (/über) while the snapshot may
+            # be stored encoded (/%C3%BCber) or with an IDNA host; match all.
+            variants = [_fragmentless_url_query(variant) for variant in equivalent_urls(url)]
+            return reduce(operator.or_, variants)
+
         normalized = without_fragment(path)
         if path.startswith(("http://", "https://")):
             # exact url match (indexed) — fastest path
-            qs = Snapshot.objects.filter(_fragmentless_url_query(path))
+            qs = Snapshot.objects.filter(_equivalent_url_query(path))
             if not allow_fallback or qs.exists():
                 return qs
             normalized = normalized.split("://", 1)[1]
 
         # try exact match on full url (without scheme)
         qs = Snapshot.objects.filter(
-            _fragmentless_url_query("http://" + normalized) | _fragmentless_url_query("https://" + normalized),
+            _equivalent_url_query("http://" + normalized) | _equivalent_url_query("https://" + normalized),
         )
         if qs.exists():
             return qs
@@ -1765,8 +1774,21 @@ class WebAddView(AddView):
             return requested_url
         return f"https://{requested_url}"
 
+    def _requested_url(self, request, kwargs, args) -> str:
+        """The target URL of /web/<url>, including its own query string.
+
+        Django has already percent-decoded the path once (/%C3%BCber -> /über);
+        decoding again would turn a literal %20 in the target into a space. The
+        query string arrives raw, so only its non-ASCII escapes are decoded,
+        matching how the path is shown; %26 and friends must stay encoded.
+        """
+        url = str(kwargs.get("url") or (args[0] if args else ""))
+        if url and (query := request.META.get("QUERY_STRING")):
+            url = f"{url}?{uri_to_iri(query)}"
+        return url
+
     def dispatch(self, request, *args, **kwargs):
-        requested_url = urldecode(kwargs.get("url", "") or "")
+        requested_url = self._requested_url(request, kwargs, args)
         if requested_url:
             snapshot = self._latest_snapshot_for_url(requested_url)
             if snapshot:
@@ -1804,7 +1826,7 @@ class WebAddView(AddView):
         return super().dispatch(request, *args, **kwargs)
 
     def get(self, request: HttpRequest, *args: object, **kwargs: object):
-        requested_url = urldecode(str(kwargs.get("url") or (args[0] if args else "")))
+        requested_url = self._requested_url(request, kwargs, args)
         if not requested_url:
             raise Http404
 

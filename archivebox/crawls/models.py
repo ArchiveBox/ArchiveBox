@@ -33,7 +33,7 @@ from archivebox.base_models.models import (
 )
 from archivebox.workers.models import ModelWithQueue
 from archivebox.crawls.schedule_util import next_run_for_schedule, validate_schedule
-from archivebox.misc.util import parse_date, sanitize_html_text, validate_url
+from archivebox.misc.util import equivalent_urls, iri_to_uri, parse_date, sanitize_html_text, validate_url
 
 if TYPE_CHECKING:
     from archivebox.core.models import Snapshot
@@ -512,7 +512,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if "://" not in candidate and "/" not in candidate:
             candidate = f"https://{candidate.lstrip('.')}"
         try:
-            parsed = urlparse(candidate)
+            # münchen.de and xn--mnchen-3ya.de are one domain; compare as IDNA.
+            parsed = urlparse(iri_to_uri(candidate))
             hostname = parsed.hostname or ""
             if not hostname:
                 return ""
@@ -692,10 +693,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         max_urls is a crawl-wide cap on snapshots, so direct URL entries and
         recursively discovered snapshots both have to consume the same budget.
         """
-        urls = set(self.snapshot_set.values_list("url", flat=True))
+        # Count IRI/URI spellings of one URL once, as dedupe treats them.
+        urls = {iri_to_uri(url) for url in self.snapshot_set.values_list("url", flat=True)}
         for _raw_line, raw_url in self._iter_url_lines():
             try:
-                urls.add(validate_url(str(raw_url or "").strip()))
+                urls.add(iri_to_uri(validate_url(str(raw_url or "").strip())))
             except ValueError:
                 continue
         return len(urls)
@@ -909,14 +911,14 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if depth > self.max_depth:
             return False
 
-        # Skip if already a Snapshot for this crawl
-        if self.snapshot_set.filter(url=url).exists():
+        # Skip if already a Snapshot for this crawl (in any IRI/URI spelling)
+        if self.snapshot_set.filter(url__in=equivalent_urls(url)).exists():
             return False
 
         # Check if already in urls (parse existing JSONL entries)
-        existing_urls = {url for _raw_line, url in self._iter_url_lines() if url}
+        existing_urls = {iri_to_uri(url) for _raw_line, url in self._iter_url_lines() if url}
 
-        if url in existing_urls:
+        if iri_to_uri(url) in existing_urls:
             return False
 
         if not self.has_remaining_url_capacity():
@@ -980,7 +982,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 continue
             if not self.url_passes_filters(url, use_effective_config=False):
                 continue
-            if only_new_urls and Snapshot.objects.filter(url=url).exists():
+            # /über and /%C3%BCber are one URL: dedupe across both spellings.
+            if only_new_urls and Snapshot.objects.filter(url__in=equivalent_urls(url)).exists():
                 continue
 
             # Skip if depth exceeds max_depth
@@ -1021,7 +1024,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                         snapshot.save()
                         created = True
                 else:
-                    snapshot = Snapshot.objects.filter(url=url, crawl=self).first()
+                    snapshot = Snapshot.objects.filter(url__in=equivalent_urls(url), crawl=self).first()
                     if snapshot:
                         created = False
                     else:
@@ -1110,6 +1113,9 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         # Parser records and explicit seeds already have URL boundaries. Prose
         # cleanup here corrupts literal fragments, queries and trailing dots.
         deduped_records: dict[str, Mapping[str, Any]] = {}
+        # HTML parsers emit hrefs as written (/über) while Chrome reports them
+        # encoded (/%C3%BCber); key by URI so both dedupe to the first spelling.
+        url_for_uri: dict[str, str] = {}
         for record in records:
             url = str(record.get("url") or "").strip()
             if not url:
@@ -1123,6 +1129,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 print(f"[yellow][!] Skipping internal ArchiveBox discovered snapshot URL: {url}[/yellow]")
                 continue
             if self.url_passes_compiled_filters(url, allowlist=allowlist, denylist=denylist):
+                url = url_for_uri.setdefault(iri_to_uri(url), url)
                 existing_record = deduped_records.get(url)
                 if existing_record is None or metadata_score(record) > metadata_score(existing_record):
                     deduped_records[url] = record
@@ -1130,8 +1137,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         if not deduped_records:
             return []
 
+        lookup_urls = [variant for url in deduped_records for variant in equivalent_urls(url)]
         existing_in_crawl = {
-            snapshot.url: snapshot for snapshot in self.snapshot_set.prefetch_related("tags").filter(url__in=deduped_records.keys())
+            url_for_uri[iri_to_uri(snapshot.url)]: snapshot
+            for snapshot in self.snapshot_set.prefetch_related("tags").filter(url__in=lookup_urls)
+            if iri_to_uri(snapshot.url) in url_for_uri
         }
         for url, snapshot in existing_in_crawl.items():
             record = deduped_records[url]
@@ -1161,8 +1171,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 snapshot.add_tag_ids(tag_ids)
 
         existing_scope = Snapshot.objects if bool(self._config_value(config, "ONLY_NEW", True)) else self.snapshot_set
-        existing_urls = set(existing_scope.filter(url__in=deduped_records.keys()).values_list("url", flat=True))
-        urls = [url for url in deduped_records.keys() if url not in existing_urls]
+        existing_uris = {iri_to_uri(url) for url in existing_scope.filter(url__in=lookup_urls).values_list("url", flat=True)}
+        urls = [url for url in deduped_records.keys() if iri_to_uri(url) not in existing_uris]
         remaining = self.remaining_snapshot_capacity()
         if remaining is not None:
             urls = urls[:remaining]

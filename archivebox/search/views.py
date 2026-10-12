@@ -16,7 +16,8 @@ from django.db.models import Q
 from django.http import HttpResponseForbidden, QueryDict, StreamingHttpResponse
 
 from archivebox.search.config import get_search_mode, get_search_mode_base
-from archivebox.search.query import crawl_config_values_search_wave, iter_query_search_ids
+from archivebox.misc.util import equivalent_urls
+from archivebox.search.query import crawl_config_values_search_wave, iter_query_search_ids, url_search_q
 
 
 SEARCH_RESULT_CACHE_TTL = 60
@@ -174,16 +175,19 @@ def iter_meta_search_ids(query, queryset):
             seen.add(pk)
             yield pk
 
-    for prefix in iter_url_search_prefixes(query):
-        for pk in iter_url_prefix_search_ids(prefix, queryset):
-            if pk in seen:
-                continue
-            seen.add(pk)
-            yield pk
+    # A URL query may be spelled as IRI (/über) or URI (/%C3%BCber), and the
+    # snapshot stored in the other spelling; prefix-scan each of them.
+    for url_query in equivalent_urls(query):
+        for prefix in iter_url_search_prefixes(url_query):
+            for pk in iter_url_prefix_search_ids(prefix, queryset):
+                if pk in seen:
+                    continue
+                seen.add(pk)
+                yield pk
 
     waves = [
         Q(timestamp__startswith=query) | Q(title__istartswith=query),
-        Q(url__icontains=query),
+        url_search_q(query),
         Q(title__icontains=query),
         Q(tags__name__icontains=query),
         Q(notes__icontains=query),

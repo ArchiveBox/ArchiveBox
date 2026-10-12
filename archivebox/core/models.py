@@ -42,7 +42,9 @@ from archivebox.misc.util import (
     domain as url_domain,
 )
 from archivebox.misc.util import (
+    equivalent_urls,
     htmldecode,
+    iri_to_uri,
     parse_date,
     sanitize_html_text,
     to_json,
@@ -900,7 +902,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
     @classmethod
     def is_archivebox_internal_url(cls, url: str, *, config: Mapping[str, Any] | Any | None = None) -> bool:
-        parsed = urlparse((url or "").strip())
+        # Compare the host browsers and hooks actually connect to: IDNA folds
+        # fullwidth/Unicode spellings (ａｄｍｉｎ.…, １２７.０.０.１) to ASCII.
+        parsed = urlparse(iri_to_uri((url or "").strip()))
         if parsed.scheme not in ("http", "https") or not parsed.hostname:
             return False
 
@@ -3180,8 +3184,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         tag_list = list(dict.fromkeys(tag_list))
 
         # Check for existing snapshot with same URL in same crawl
-        # (URLs can exist in multiple crawls, but should be unique within a crawl)
-        snapshot = Snapshot.objects.filter(url=url, crawl=crawl).order_by("-created_at").first()
+        # (URLs can exist in multiple crawls, but should be unique within a crawl).
+        # Its IRI/URI spellings (/über vs /%C3%BCber) are the same URL.
+        snapshot = Snapshot.objects.filter(url__in=equivalent_urls(url), crawl=crawl).order_by("-created_at").first()
 
         title = record.get("title")
         timestamp = record.get("timestamp")

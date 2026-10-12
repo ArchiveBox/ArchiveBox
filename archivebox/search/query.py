@@ -8,7 +8,7 @@ from django.db.models import Case, IntegerField, Q, QuerySet, Value, When
 
 from archivebox.config.common import get_config
 from archivebox.misc.logging import stderr
-from archivebox.misc.util import enforce_types
+from archivebox.misc.util import enforce_types, equivalent_urls
 from archivebox.search.backends import get_available_backends, get_backend, normalize_search_backend_name, search_backend_command_env
 from archivebox.search.config import get_search_mode, get_search_mode_backend, get_search_mode_base
 
@@ -62,6 +62,18 @@ def crawl_config_values_search_wave(query: str) -> Q | None:
     return Q(crawl_id__in=matching_crawls.values("pk"))
 
 
+def url_search_q(query: str) -> Q:
+    """Match URLs containing the query in any of its IRI/URI spellings.
+
+    Snapshots keep URLs as submitted, so /über may be stored as /%C3%BCber
+    (or the reverse); searching either spelling must find both.
+    """
+    url_q = Q()
+    for variant in equivalent_urls(query):
+        url_q |= Q(url__icontains=variant)
+    return url_q
+
+
 def snapshot_metadata_search_waves(query: str, *, include_id_matches: bool = False) -> list[Q]:
     """Build ordered metadata predicates for Snapshot search."""
     waves = []
@@ -70,7 +82,7 @@ def snapshot_metadata_search_waves(query: str, *, include_id_matches: bool = Fal
 
     waves.extend(
         [
-            Q(title__icontains=query) | Q(url__icontains=query) | Q(timestamp__icontains=query),
+            Q(title__icontains=query) | url_search_q(query) | Q(timestamp__icontains=query),
             Q(tags__name__icontains=query),
             Q(notes__icontains=query) | Q(crawl__notes__icontains=query) | Q(crawl__label__icontains=query),
             Q(crawl__created_by__username=query),

@@ -8,6 +8,7 @@ __package__ = "archivebox.misc"
 import re
 import json as pyjson
 import http.cookiejar
+import unicodedata
 from decimal import Decimal, InvalidOperation
 
 from typing import Any
@@ -15,7 +16,7 @@ from collections.abc import Callable
 from pathlib import Path
 from inspect import signature
 from functools import wraps
-from urllib.parse import urlparse, quote, unquote
+from urllib.parse import urlparse, urlsplit, quote, unquote
 from html import escape, unescape
 from datetime import datetime, timezone
 
@@ -145,6 +146,104 @@ def validate_url(url: str) -> str:
     # urllib validates numeric/range constraints only when the port is accessed.
     _ = parsed.port
     return url
+
+
+# Snapshot URLs are stored and shown as submitted, so the same resource can
+# exist as an IRI (https://münchen.de/über) or as its URI (https://xn--mnchen-
+# 3ya.de/%C3%BCber): browsers send the URI, Django decodes request paths back to
+# Unicode, Chrome reports outlinks encoded, and users paste either. These are
+# ArchiveBox's one place for converting between the two; compare, dedupe and
+# look up URLs through them instead of comparing raw strings. The conversion
+# mirrors abx_plugins.plugins.base.utils.iri_to_uri, which hooks use on the wire.
+
+# RFC 3986 reserved delimiters plus "%" so existing escapes are not re-encoded.
+_URI_SAFE_CHARS = "!#$%&'()*+,/:;=?@[]~"
+# Inside a userinfo component ":" and "@" are data, not delimiters.
+_USERINFO_SAFE_CHARS = "!$%&'()*+,;=~"
+# Label separators UTS #46 accepts: ASCII, ideographic, fullwidth, halfwidth.
+_IDNA_DOTS = re.compile("[.\u3002\uff0e\uff61]")
+# A run of escaped bytes that may spell non-ASCII UTF-8 text.
+_ESCAPED_NON_ASCII = re.compile(r"(?:%[89a-fA-F][0-9a-fA-F])+")
+
+
+def _split_netloc(netloc: str) -> tuple[str, str, str, str]:
+    """Split a netloc into (userinfo + "@", host, ":" + port) the way browsers do."""
+    userinfo, at, hostport = netloc.rpartition("@")
+    host, port = hostport, ""
+    # IPv6 literals are ASCII, and their colons are not a port separator.
+    if not hostport.startswith("[") and ":" in hostport:
+        host, colon, port = hostport.rpartition(":")
+        port = colon + port
+    return userinfo, at, host, port
+
+
+def iri_to_uri(url: str) -> str:
+    """Return the ASCII URI a browser would request for a (possibly Unicode) URL.
+
+    Hostnames get UTS #46 nontransitional IDNA like Chrome (not Python's IDNA
+    2003 codec, which maps straße.de to the different strasse.de; NFKC plus
+    lowercase also folds fullwidth letters and dots). Userinfo is escaped per
+    component; everything else outside the URI grammar is UTF-8 percent-encoded.
+    Delimiters and existing %XX escapes are kept, so ASCII URLs are unchanged.
+    """
+    netloc = urlsplit(url).netloc
+    userinfo, at, host, port = _split_netloc(netloc)
+    if at:
+        username, colon, password = userinfo.partition(":")
+        userinfo = quote(username, safe=_USERINFO_SAFE_CHARS) + colon + quote(password, safe=_USERINFO_SAFE_CHARS)
+    if not host.isascii():
+        labels = _IDNA_DOTS.split(unicodedata.normalize("NFKC", host).lower())
+        host = ".".join(label if label.isascii() else "xn--" + label.encode("punycode").decode() for label in labels)
+    ascii_netloc = f"{userinfo}{at}{host}{port}"
+    if ascii_netloc != netloc:
+        url = url.replace(netloc, ascii_netloc, 1)
+    return quote(url, safe=_URI_SAFE_CHARS)
+
+
+def uri_to_iri(url: str) -> str:
+    """Return the readable IRI for a URI (RFC 3987 section 3.2).
+
+    Decodes only what a browser address bar shows decoded: escapes that spell
+    non-ASCII UTF-8 text and xn-- host labels. ASCII escapes such as %20,
+    %2F or %26 stay encoded because decoding them changes the URL.
+    """
+    netloc = urlsplit(url).netloc
+    userinfo, at, host, port = _split_netloc(netloc)
+    if "xn--" in host.lower():
+        labels = []
+        for label in host.split("."):
+            if label.lower().startswith("xn--"):
+                try:
+                    label = label[4:].encode("ascii").decode("punycode")
+                except UnicodeError:
+                    pass
+            labels.append(label)
+        unicode_netloc = f"{userinfo}{at}{'.'.join(labels)}{port}"
+        url = url.replace(netloc, unicode_netloc, 1)
+
+    def decode(match: re.Match[str]) -> str:
+        try:
+            return unquote(match[0], errors="strict")
+        except UnicodeDecodeError:
+            return match[0]
+
+    return _ESCAPED_NON_ASCII.sub(decode, url)
+
+
+def equivalent_urls(url: str) -> list[str]:
+    """Spellings of one URL that may be stored: as given, as URI, and as IRI.
+
+    Use for exact lookups (``url__in=equivalent_urls(url)``) so a snapshot
+    saved in one form is found, deduped and replayed when requested in another.
+    """
+    uri = iri_to_uri(url)
+    iri = uri_to_iri(uri)
+    # Some spellings need ASCII escapes decoded too (a raw space typed in a
+    # password is %20 in the URI). Decoding everything can also change the
+    # URL (%26 -> &), so keep that spelling only if it still encodes back.
+    decoded = unquote(iri)
+    forms = (url, uri, iri, decoded) if iri_to_uri(decoded) == uri else (url, uri, iri)
+    return list(dict.fromkeys(forms))
 
 
 def parens_are_matched(string: str, open_char="(", close_char=")"):
