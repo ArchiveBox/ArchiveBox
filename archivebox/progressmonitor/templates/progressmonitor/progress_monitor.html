@@ -1574,7 +1574,9 @@
         }
         const statusIcon = snapshot.status === 'started' ? '▤' : '▢';
         const adminUrl = snapshot.admin_url || `/admin/core/snapshot/${snapshot.id || 'unknown'}/change/`;
-        const canCancel = snapshot.status === 'queued';
+        // Started captures can be cancelled too: sealing them makes the
+        // runner's next lease renewal fail and stop that capture.
+        const canCancel = snapshot.status === 'queued' || snapshot.status === 'started';
         const cancelBtn = canCancel
             ? `<button class="cancel-item-btn" data-cancel-type="snapshot" data-snapshot-id="${snapshot.id}" data-label="✕" title="Cancel snapshot">✕</button>`
             : '';

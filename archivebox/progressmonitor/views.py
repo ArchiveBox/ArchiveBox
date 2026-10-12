@@ -569,7 +569,10 @@ def live_progress_view(request, *, authorized_snapshot=None):
             plugin, label, phase, hook_name = _process_label(proc["cmd"])
 
             record_scope = str(snapshot_id) if phase == "snapshot" and snapshot_id else str(crawl_id)
-            proc_key = f"{record_scope}:{plugin}:{label}:{proc['status']}:{proc['exit_code']}"
+            # Newest attempt per hook only (rows arrive newest-first): a run
+            # killed by a restart exits non-zero, and listing it beside its
+            # successful rerun showed setup steps as failed that had passed.
+            proc_key = f"{record_scope}:{plugin}:{label}"
             if proc_key in seen_process_records:
                 continue
             seen_process_records.add(proc_key)
