@@ -8,7 +8,8 @@ from pathlib import Path
 
 from archivebox.config.constants import CONSTANTS
 
-LOG_NAME = r"(?:learning-\d+\.jsonl|replay-\d+\.log|harness\.log|failure\.log|command-error\.log)"
+LOG_NAME = r"(?:learning-\d+\.jsonl|replay-\d+\.log|harness\.log|failure\.log|command-error\.log|evidence\.log)"
+SCREENSHOT_NAME = r"failure-[0-2]\.png"
 WINDOW = 32 * 1024
 
 
@@ -16,13 +17,13 @@ def run_directory(run):
     return CONSTANTS.DATA_DIR / "importers" / str(run.source_id) / str(run.pk)
 
 
-def log_path(run, name):
-    if not re.fullmatch(LOG_NAME, name):
-        raise ValueError("Unknown run log")
+def artifact_path(run, name, pattern):
+    if not re.fullmatch(pattern, name):
+        raise ValueError("Unknown run artifact")
     directory = run_directory(run).resolve()
     path = directory / name
     if path.is_symlink() or path.resolve().parent != directory or not path.is_file():
-        raise ValueError("Invalid run log")
+        raise ValueError("Invalid run artifact")
     return path
 
 
@@ -85,4 +86,14 @@ def diagnostics(run):
                     break
     except OSError:
         pass
-    return _read(str(directory), tuple(files))
+    screenshots = []
+    # Three bounded metadata checks; image bytes are fetched lazily through an
+    # authenticated route, never read into page rendering or the log cache.
+    for attempt in range(3):
+        name = f"failure-{attempt}.png"
+        try:
+            artifact_path(run, name, SCREENSHOT_NAME)
+        except (ValueError, OSError):
+            continue
+        screenshots.append({"name": name, "attempt": attempt})
+    return {**_read(str(directory), tuple(files)), "screenshots": screenshots}

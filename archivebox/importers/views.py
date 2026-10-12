@@ -21,7 +21,7 @@ from archivebox.crawls.schedule_util import next_run_for_schedule
 from archivebox.plugins.discovery import get_plugin_catalog
 
 from .catalog import get_importer, get_importers
-from .diagnostics import diagnostics, log_path
+from .diagnostics import LOG_NAME, SCREENSHOT_NAME, artifact_path, diagnostics
 from .forms import ImporterSourceForm
 from .models import ImporterRun, ImporterSource
 from .service import ACTIVE_STATUSES, enqueue, pause
@@ -213,13 +213,13 @@ def run_activity(request, run_id):
 
 @importer_admin
 @require_GET
-def run_log(request, run_id, name):
+def run_artifact(request, run_id, name, screenshot=False):
     run = get_object_or_404(ImporterRun.objects.only("source_id"), pk=run_id)
     try:
-        stream = log_path(run, name).open("rb")
+        stream = artifact_path(run, name, SCREENSHOT_NAME if screenshot else LOG_NAME).open("rb")
     except (ValueError, OSError) as error:
         raise Http404 from error
-    response = FileResponse(stream, content_type="text/plain; charset=utf-8")
+    response = FileResponse(stream, content_type="image/png" if screenshot else "text/plain; charset=utf-8")
     response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response

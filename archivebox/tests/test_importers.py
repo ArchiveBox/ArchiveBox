@@ -580,13 +580,26 @@ def test_run_activity_links_recorded_sessions_and_protects_logs(admin_client, im
     events = json.loads((Path(__file__).parent / "fixtures/importers/opencode_sessions.json").read_text())
     for name, event in events.items():
         (directory / name).write_text(json.dumps(event) + "\n")
+    # Real PNG bytes exercise private artifact serving independently of the
+    # browser plugin's live capture test.
+    screenshot = (Path(__file__).parents[1] / "templates/static/chrome_extension_icon.png").read_bytes()
+    (directory / "failure-1.png").write_bytes(screenshot)
+    screenshot_url = f"/admin/importers/runs/{run.pk}/screenshots/failure-1.png"
     for endpoint in (reverse("importers:source-activity", args=[source.pk]), reverse("importers:run-activity", args=[run.pk])):
         response = admin_client.get(endpoint, HTTP_HOST=ADMIN_TEST_HOST)
         assert response.status_code == 200
         assert response.json()["active"] is True
         for event in events.values():
             assert f"/admin/agent/?session={event['sessionID']}" in response.json()["html"]
+        assert f'src="{screenshot_url}"' in response.json()["html"]
+        assert "Failure screen" in response.json()["html"]
         assert Client().get(endpoint, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    response = admin_client.get(screenshot_url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert response["Content-Type"] == "image/png"
+    assert "no-store" in response["Cache-Control"]
+    assert b"".join(response.streaming_content) == screenshot
+    assert Client().get(screenshot_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
     name = "learning-1.jsonl"
     endpoint = reverse("importers:run-log", args=[run.pk, name])
     response = admin_client.get(endpoint, HTTP_HOST=ADMIN_TEST_HOST)
@@ -596,6 +609,9 @@ def test_run_activity_links_recorded_sessions_and_protects_logs(admin_client, im
     private = tmp_path / "not-a-run-log"
     private.write_text("Not served")
     (directory / "failure.log").symlink_to(private)
+    (directory / "failure-2.png").symlink_to(private)
+    for name in ("failure-2.png", "request.json", "failure-99.png", "../request.json"):
+        assert admin_client.get(f"/admin/importers/runs/{run.pk}/screenshots/{name}", HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
     for name in ("failure.log", "request.json"):
         assert admin_client.get(reverse("importers:run-log", args=[run.pk, name]), HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
 

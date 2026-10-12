@@ -3,7 +3,7 @@
 <div class="table-wrap"><table><thead><tr><th>Run / timing</th><th>Discovery</th><th>Items</th><th>AI sessions</th><th>Crawl / snapshots</th></tr></thead><tbody>
 {% for run in runs %}<tr>
 <td><a href="{% url 'importers:run' run.pk %}"><strong>{{ run.get_action_display }}</strong> · {{ run.pk|stringformat:"s"|slice:":8" }}</a><br>{{ run.created_at|date:"M j, H:i:s" }}<br><span class="muted">{% if run.started_at %}{% if run.finished_at %}{{ run.started_at|timesince:run.finished_at }} elapsed{% else %}{{ run.started_at|timesince }} elapsed{% endif %}{% else %}Waiting for worker{% endif %}</span></td>
-<td><span class="badge {{ run.status }}">{{ run.get_status_display }}</span><p>{{ run.message|default:"Waiting for worker." }}</p>{% if run.diagnostics.latest %}<p class="muted"><strong>Last recorded activity:</strong> {{ run.diagnostics.latest|truncatechars:240 }}</p>{% endif %}{% if run.diagnostics.error %}<details><summary>Failure details</summary><pre>{{ run.diagnostics.error }}</pre></details>{% endif %}</td>
+<td><span class="badge {{ run.status }}">{{ run.get_status_display }}</span><p>{{ run.message|default:"Waiting for worker." }}</p>{% include "importers/screenshots.html" %}{% if run.diagnostics.latest %}<p class="muted"><strong>Last recorded activity:</strong> {{ run.diagnostics.latest|truncatechars:240 }}</p>{% endif %}{% if run.diagnostics.error %}<details><summary>Failure details</summary><pre>{{ run.diagnostics.error }}</pre></details>{% endif %}</td>
 <td>{{ run.items|length }}<br><a href="{% url 'importers:run' run.pk %}">View items</a></td>
 <td>{% include "importers/sessions.html" %}</td>
 <td>{% include "importers/run_links.html" %}</td>
