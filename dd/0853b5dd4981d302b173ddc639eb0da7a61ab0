@@ -1,0 +1,21 @@
+archivebox/services/resource_admission.py
+  s_2b44ee96cc775e::t_09c2bfdb4a4be0 172-177
+archivebox/tests/test_resource_admission.py
+  s_2b44ee96cc775e::t_8570a5cb65700f 178-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd0853b5dd4981d302b173ddc639eb0da7a61ab0",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
