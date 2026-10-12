@@ -1,0 +1,22 @@
+.github/workflows/release.yml
+  s_2b44ee96cc775e::t_3c83db99d59f78 509,516,521-542
+archivebox/tests/test_release_workflow.py
+  s_2b44ee96cc775e::t_3c83db99d59f78 205,208-220,264-265,269-272,341,364,368
+  s_2b44ee96cc775e::t_c4861f8162aff2 256,268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "611f0ebdc1173133096eb65ea4a9b5dcd131201d",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
