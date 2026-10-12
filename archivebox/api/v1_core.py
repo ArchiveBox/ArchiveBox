@@ -1052,16 +1052,9 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
         snapshot = _get_snapshot_by_ref(snapshot_id)
         if "status" in payload:
             try:
-                snapshot.status = normalize_snapshot_status(payload["status"])
+                payload["status"] = normalize_snapshot_status(payload["status"])
             except ValueError as err:
                 raise HttpError(400, str(err)) from err
-            if snapshot.status == Snapshot.StatusChoices.SEALED and "retry_at" not in payload:
-                snapshot.retry_at = None
-            update_fields.append("status")
-
-        if "retry_at" in payload:
-            snapshot.retry_at = payload["retry_at"]
-            update_fields.append("retry_at")
 
         if tags is not None:
             snapshot.save_tags(
@@ -1070,8 +1063,16 @@ def patch_snapshot(request: HttpRequest, snapshot_id: str, data: SnapshotUpdateS
             )
 
         if payload.get("status") == Snapshot.StatusChoices.SEALED:
+            # Cancellation needs the persisted status and lease: assigning the
+            # requested values first skips sealing or loses its ownership CAS.
             snapshot.cancel()
         else:
+            if "status" in payload:
+                snapshot.status = payload["status"]
+                update_fields.append("status")
+            if "retry_at" in payload:
+                snapshot.retry_at = payload["retry_at"]
+                update_fields.append("retry_at")
             snapshot.save(update_fields=update_fields)
     setattr(request, "with_archiveresults", False)
     return snapshot

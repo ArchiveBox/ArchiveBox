@@ -89,6 +89,66 @@ def test_basic_success_case_request(client, tmp_path, api_admin_user, api_header
     assert response.status_code == 200, response.content
 
 
+@pytest.mark.parametrize("initial_status", ["queued", "started", "paused"])
+@pytest.mark.parametrize("explicit_retry", [False, True])
+def test_snapshot_status_patch_seals_persisted_state(client, api_headers, initial_status, explicit_retry):
+    created = client.post(
+        "/api/v1/core/snapshots",
+        data=json.dumps({"url": "https://example.com/patch-seal", "status": initial_status, "tags": ["before"]}),
+        content_type="application/json",
+        **api_headers,
+    )
+    assert created.status_code == 200, created.content
+    snapshot_id = created.json()["id"]
+    path = f"/api/v1/core/snapshot/{snapshot_id}"
+    original = client.get(path, **api_headers).json()
+    assert original["status"] == initial_status
+    assert original["retry_at"] is not None
+    payload = {"status": "sealed", "tags": ["after"]}
+    if explicit_retry:
+        payload["retry_at"] = (timezone.now() + timedelta(hours=1)).isoformat()
+
+    patched = client.patch(path, data=json.dumps(payload), content_type="application/json", **api_headers)
+    assert patched.status_code == 200, patched.content
+    assert patched.json()["status"] == "sealed"
+    persisted = client.get(path, **api_headers)
+    assert persisted.status_code == 200, persisted.content
+    assert persisted.json()["status"] == "sealed"
+    assert persisted.json()["retry_at"] is None
+    assert persisted.json()["tags"] == ["after"]
+    snapshot = Snapshot.objects.get(id=snapshot_id)
+    assert snapshot.status == Snapshot.StatusChoices.SEALED
+    assert snapshot.retry_at is None
+
+
+@pytest.mark.parametrize("status", ["queued", "started", "paused"])
+def test_snapshot_status_patch_preserves_nonfinal_updates(client, api_headers, status):
+    created = client.post(
+        "/api/v1/core/snapshots",
+        data=json.dumps({"url": "https://example.com/patch-nonfinal", "status": "queued", "tags": ["before"]}),
+        content_type="application/json",
+        **api_headers,
+    )
+    assert created.status_code == 200, created.content
+    snapshot_id = created.json()["id"]
+    path = f"/api/v1/core/snapshot/{snapshot_id}"
+    retry_at = timezone.now() + timedelta(hours=1)
+    patched = client.patch(
+        path,
+        data=json.dumps({"status": status, "retry_at": retry_at.isoformat(), "tags": ["after"]}),
+        content_type="application/json",
+        **api_headers,
+    )
+    assert patched.status_code == 200, patched.content
+    persisted = client.get(path, **api_headers)
+    assert persisted.status_code == 200, persisted.content
+    assert persisted.json()["status"] == status
+    assert persisted.json()["tags"] == ["after"]
+    snapshot = Snapshot.objects.get(id=snapshot_id)
+    assert snapshot.status == status
+    assert snapshot.retry_at == retry_at
+
+
 def test_snapshot_pause_wins_over_concurrent_runner_lease(api_admin_user):
     crawl = Crawl.objects.create(urls="https://example.com/snapshot-pause-race", created_by=api_admin_user)
     snapshot = Snapshot.objects.create(url="https://example.com/snapshot-pause-race", crawl=crawl)

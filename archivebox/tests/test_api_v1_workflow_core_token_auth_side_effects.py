@@ -121,6 +121,17 @@ def test_core_api_workflow_uses_token_auth_and_persists_side_effects_over_server
         assert patch_snapshot.status_code == 200, patch_snapshot.text
         assert patch_snapshot.json()["status"] == "sealed"
         assert set(patch_snapshot.json()["tags"]) == {"api-child", "api-patched"}
+        persisted_snapshot = live_api_request(
+            port,
+            "get",
+            f"/api/v1/core/snapshot/{snapshot_id}",
+            api_token=api_token,
+            timeout=10,
+        )
+        assert persisted_snapshot.status_code == 200, persisted_snapshot.text
+        assert persisted_snapshot.json()["status"] == "sealed"
+        assert persisted_snapshot.json()["retry_at"] is None
+        assert set(persisted_snapshot.json()["tags"]) == {"api-child", "api-patched"}
 
         tag_create = live_api_request(
             port,
