@@ -32,12 +32,16 @@ def test_tag_search_api_returns_card_payload(client, api_token, tagged_data):
     assert payload["created_by"] == ""
     assert payload["year"] == ""
     assert payload["has_snapshots"] == "all"
-    assert payload["tags"][0]["id"] == tag.id
-    assert payload["tags"][0]["name"] == "Alpha Research"
-    assert payload["tags"][0]["num_snapshots"] == 2
-    assert payload["tags"][0]["snapshots"] == []
-    assert payload["tags"][0]["export_jsonl_url"].endswith(f"/api/v1/core/tag/{tag.id}/snapshots.jsonl")
-    assert payload["tags"][0]["filter_url"].endswith(f"/admin/core/snapshot/?tags__id__exact={tag.id}")
+    # Snapshot creation also copies the crawl's newer "alpha" tag, which
+    # matches this case-insensitive query and sorts ahead of Alpha Research.
+    copied_tag = Tag.objects.get(name="alpha")
+    assert [card["id"] for card in payload["tags"]] == [copied_tag.id, tag.id]
+    assert [card["name"] for card in payload["tags"]] == ["alpha", "Alpha Research"]
+    for card in payload["tags"]:
+        assert card["num_snapshots"] == 2
+        assert card["snapshots"] == []
+        assert card["export_jsonl_url"].endswith(f"/api/v1/core/tag/{card['id']}/snapshots.jsonl")
+        assert card["filter_url"].endswith(f"/admin/core/snapshot/?tags__id__exact={card['id']}")
     assert {snap.url for snap in snapshots} == {"https://example.com/one", "https://example.com/two"}
 
 

@@ -21,6 +21,20 @@ def test_creation_tags_are_visible_before_commit_and_do_not_override_edits(api_a
     assert set(snapshot.tags.values_list("name", flat=True)) == {"explicit"}
 
 
+def test_crawl_tag_edits_only_affect_new_snapshots(api_admin_user):
+    crawl = Crawl.objects.create(urls="https://example.com/tags", created_by=api_admin_user, tags_str="original")
+    existing = Snapshot.objects.create(url=crawl.urls, crawl=crawl)
+    assert set(existing.tags.values_list("name", flat=True)) == {"original"}
+
+    crawl.tags_str = "changed"
+    crawl.save(update_fields=["tags_str"])
+    existing.refresh_from_db()
+    existing.save()
+    assert set(existing.tags.values_list("name", flat=True)) == {"original"}
+    new = Snapshot.objects.create(url="https://example.com/new-tags", crawl=crawl)
+    assert set(new.tags.values_list("name", flat=True)) == {"changed"}
+
+
 @pytest.mark.parametrize("edit", ["replace", "remove", "bulk_remove", "rename", "delete"])
 @pytest.mark.parametrize("maintenance", ["save", "reconcile", "rescan"])
 def test_tag_edits_survive_maintenance(client, api_admin_user, api_headers, edit, maintenance):
