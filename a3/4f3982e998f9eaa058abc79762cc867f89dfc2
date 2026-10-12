@@ -1,0 +1,85 @@
+archivebox/importers/README.md
+  s_4c6c21040e0541::t_4cf9b583385769 35-46
+archivebox/importers/diagnostics.py
+  s_a827ff5c21370d::t_98810eb2b3dfe4 1-88
+archivebox/importers/management/commands/importers.py
+  s_4c6c21040e0541::t_a9712bee2e9af6 3,12
+archivebox/importers/migrations/0002_importerrun_reset_code.py
+  s_20f72622e178fb::t_9c27ebacacb46f 1-17
+archivebox/importers/models.py
+  s_4c6c21040e0541::t_6a47d0f9e0caf2 51
+archivebox/importers/service.py
+  s_4c6c21040e0541::t_9780dd12eb5c59 5,42,227-246
+archivebox/importers/templates/importers/activity.html
+  s_4c6c21040e0541::t_893a102aa21c7b 1-8
+archivebox/importers/templates/importers/detail.html
+  s_4c6c21040e0541::t_1dba5088db8eda 3,6,9-13
+archivebox/importers/templates/importers/history.html
+  s_10bc94d001be49::t_3dfa5eca3f3ca4 1-12
+archivebox/importers/templates/importers/index.html
+  s_4c6c21040e0541::t_edc324ded82c22 5-8
+archivebox/importers/templates/importers/run.html
+  s_4c6c21040e0541::t_bcec4739c5d40c 3-5
+archivebox/importers/templates/importers/run_body.html
+  s_20f72622e178fb::t_4b1beb444ac828 1-4
+archivebox/importers/templates/importers/run_links.html
+  s_10bc94d001be49::t_dac2238fe77859 1-4
+archivebox/importers/templates/importers/sessions.html
+  s_10bc94d001be49::t_aec9d9e9f22905 1
+archivebox/importers/templates/importers/style.html
+  s_4c6c21040e0541::t_2fca4456b0ae5c 12
+archivebox/importers/templates/importers/updates.html
+  s_4c6c21040e0541::t_c0d21d66540dc8 1-37
+archivebox/importers/urls.py
+  s_4c6c21040e0541::t_1a74276114cf5d 15-16,18,20
+archivebox/importers/views.py
+  s_20f72622e178fb::t_63d4baf67ec135 7,11-12,18,24,55-63,65-67,121-122,132-133,168,172-227
+archivebox/templates/admin/index.html
+  s_4c6c21040e0541::t_acfe2ea72bc97b 504-511
+archivebox/tests/fixtures/importers/README.md
+  s_20f72622e178fb::t_e53e1a5f3eb956 1-7
+archivebox/tests/fixtures/importers/opencode_sessions.json
+  s_20f72622e178fb::t_8a201ce540f5c5 1
+archivebox/tests/test_importers.py
+  s_4c6c21040e0541::t_7a6e747d6eacd1 78-79,83,86,89,120-135,502-629
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a34f3982e998f9eaa058abc79762cc867f89dfc2",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_4c6c21040e0541": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a122bc-d29d-7ef1-b59a-3fcb2442d9ba",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a827ff5c21370d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12d75-d26e-7ed0-91f7-e4a7f913b29c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
