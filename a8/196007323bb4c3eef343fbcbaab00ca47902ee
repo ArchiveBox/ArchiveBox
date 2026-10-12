@@ -1,0 +1,21 @@
+archivebox/services/runner.py
+  s_4c6c21040e0541::t_1d7713167ded09 792-817
+archivebox/tests/test_persona_runtime.py
+  s_4c6c21040e0541::t_881c5a32cf6a4c 7-8,12-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a8196007323bb4c3eef343fbcbaab00ca47902ee",
+  "prompts": {},
+  "sessions": {
+    "s_4c6c21040e0541": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a122bc-d29d-7ef1-b59a-3fcb2442d9ba",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
