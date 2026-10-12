@@ -1170,6 +1170,52 @@ class TestLiveProgressView:
         assert result.plugin in plugins
         assert "parse_txt_urls" in plugins
 
+    def test_live_progress_reports_hook_durations_for_badge_widths(
+        self,
+        client,
+        admin_user,
+        snapshot,
+        real_snapshot_hook_projection,
+        real_second_snapshot_hook_process,
+    ):
+        import os
+        from datetime import timedelta
+
+        import archivebox.machine.models as machine_models
+        from archivebox.machine.models import Process
+
+        # The live UI sizes each hook badge by its duration: finished hooks
+        # need their real run span, running ones their start to grow from.
+        machine_models._CURRENT_MACHINE = None
+        _, result = real_snapshot_hook_projection
+        result.refresh_from_db()
+        assert result.start_ts is not None and result.end_ts is not None
+        process = real_second_snapshot_hook_process
+        running_started_at = timezone.now() - timedelta(seconds=42)
+        # The capture began before its longest-running hook did.
+        type(snapshot).objects.filter(pk=snapshot.pk).update(created_at=running_started_at - timedelta(minutes=1))
+        process.status = Process.StatusChoices.RUNNING
+        process.pid = os.getpid()
+        process.exit_code = None
+        process.started_at = running_started_at
+        process.ended_at = None
+        process.save(update_fields=["status", "pid", "exit_code", "started_at", "ended_at", "modified_at"])
+
+        client.force_login(admin_user)
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert response.status_code == 200
+        active_crawl = next(crawl for crawl in response.json()["active_crawls"] if crawl["id"] == str(snapshot.crawl_id))
+        active_snapshot = next(item for item in active_crawl["active_snapshots"] if item["id"] == str(snapshot.id))
+        finished = next(item for item in active_snapshot["all_plugins"] if item["id"] == str(result.id))
+        running = next(item for item in active_snapshot["all_plugins"] if item["source"] == "process")
+        assert finished["status"] == result.status
+        assert finished["elapsed"] == round((result.end_ts - result.start_ts).total_seconds(), 1)
+        assert "started_at" not in finished
+        assert running["status"] == "started"
+        assert running["started_at"] == running_started_at.isoformat()
+        assert "elapsed" not in running
+
     def test_live_progress_omits_pid_for_exited_process_rows(
         self,
         client,

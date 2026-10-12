@@ -610,6 +610,12 @@ def live_progress_view(request, *, authorized_snapshot=None):
             }
             if status == "started" and proc["pid"]:
                 payload["pid"] = proc["pid"]
+            # Badge width encodes hook duration. Running hooks get their start
+            # so the browser grows them between polls; finished ones a fixed span.
+            if status == "started" and proc["started_at"]:
+                payload["started_at"] = proc["started_at"].isoformat()
+            elif proc["started_at"] and proc["ended_at"]:
+                payload["elapsed"] = round(max(0.0, (proc["ended_at"] - proc["started_at"]).total_seconds()), 1)
             proc_started_at = proc["started_at"] or proc["modified_at"]
             proc_run_at = (
                 proc_started_at
@@ -788,6 +794,10 @@ def live_progress_view(request, *, authorized_snapshot=None):
                     if status == ArchiveResult.StatusChoices.STARTED:
                         plugin_payload["progress"] = progress_value
                         plugin_payload["timeout"] = process.timeout if process else 120
+                        if started_at:
+                            plugin_payload["started_at"] = started_at.isoformat()
+                    elif ar.start_ts and ar.end_ts:
+                        plugin_payload["elapsed"] = round(max(0.0, (ar.end_ts - ar.start_ts).total_seconds()), 1)
                     plugin_payload["source"] = "archiveresult"
                     all_plugins.append(plugin_payload)
                     seen_plugin_keys.add(str(process.id) if process else f"{ar.plugin}:{hook_name}")
