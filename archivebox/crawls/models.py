@@ -6,7 +6,7 @@ import uuid
 import json
 import re
 from datetime import timedelta
-from archivebox.uuid_compat import CompactUUIDField, uuid7
+from archivebox.uuid_compat import CompactUUIDField, compact_uuid, uuid7
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -471,8 +471,10 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         first_url = next((url for _raw_line, url in self._iter_url_lines() if url), "")
         domain = Snapshot.extract_domain_from_url(first_url) if first_url else "unknown"
 
-        output_dir = CONSTANTS.USERS_DIR / self.created_by.username / CONSTANTS.CRAWLS_DIR_NAME / date_str / domain / str(self.id)
-        return output_dir, output_dir.with_name(str(uuid.UUID(hex=self.id.hex)))
+        output_dir = (
+            CONSTANTS.USERS_DIR / self.created_by.username / CONSTANTS.CRAWLS_DIR_NAME / date_str / domain / compact_uuid(self.id).hex
+        )
+        return output_dir, output_dir.with_name(str(uuid.UUID(str(self.id))))
 
     @property
     def output_dir(self) -> Path:

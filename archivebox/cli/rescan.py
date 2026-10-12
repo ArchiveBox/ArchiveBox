@@ -16,6 +16,7 @@ from archivebox.config.common import SENSITIVE_CONFIG_VALUE_REDACTED
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.misc.util import parse_date
+from archivebox.uuid_compat import compact_uuid
 
 
 def _directories(parent: Path):
@@ -199,7 +200,7 @@ def _reconcile_directory(directory: Path) -> str:
         snapshot.write_index_jsonl(output_dir=directory)
     # Crawl.output_dir trusts the DB too; rename a legacy hyphenated crawl dir.
     snapshot.crawl.migrate_legacy_output_dir()
-    link = Path(snapshot.crawl.output_dir) / "snapshots" / snapshot.extract_domain_from_url(snapshot.url) / str(snapshot.id)
+    link = Path(snapshot.crawl.output_dir) / "snapshots" / snapshot.extract_domain_from_url(snapshot.url) / compact_uuid(snapshot.id).hex
     links_ok = link.is_symlink() and link.resolve() == directory.resolve()
     if not links_ok:
         snapshot.reconcile_filesystem_links()

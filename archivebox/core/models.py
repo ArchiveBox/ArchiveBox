@@ -54,7 +54,7 @@ from archivebox.plugins.discovery import (
     get_plugin_name,
     get_plugins,
 )
-from archivebox.uuid_compat import CompactUUIDField, uuid7
+from archivebox.uuid_compat import CompactUUIDField, compact_uuid, uuid7
 from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS, RETRY_AT_MAX, ModelWithQueue
 
 if TYPE_CHECKING:
@@ -596,10 +596,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         current = self.get_storage_path_for_version(self.fs_version)
         paths = [Path(self.output_dir), current, CONSTANTS.ARCHIVE_DIR / self.timestamp]
         if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
-            paths.append(current.with_name(str(uuid.UUID(hex=self.id.hex))))
+            paths.append(current.with_name(str(uuid.UUID(str(self.id)))))
         if self.crawl_id:
             domain_dir = self.crawl.output_dir / CONSTANTS.SNAPSHOTS_DIR_NAME / self.extract_domain_from_url(self.url)
-            paths.extend((domain_dir / str(self.id), domain_dir / str(uuid.UUID(hex=self.id.hex))))
+            paths.extend((domain_dir / compact_uuid(self.id).hex, domain_dir / str(uuid.UUID(str(self.id)))))
         return tuple(dict.fromkeys(paths))
 
     def delete(self, using=None, keep_parents=False):
@@ -1392,7 +1392,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
             domain = self.extract_domain_from_url(self.url)
 
-            return CONSTANTS.USERS_DIR / username / CONSTANTS.SNAPSHOTS_DIR_NAME / date_str / domain / str(self.id)
+            # WHY compact_uuid: rows built from disk imports carry a hyphenated str
+            # or uuid.UUID id until reloaded; the on-disk name must not depend on it.
+            return CONSTANTS.USERS_DIR / username / CONSTANTS.SNAPSHOTS_DIR_NAME / date_str / domain / compact_uuid(self.id).hex
         else:
             # Unknown version - use current
             return self.get_storage_path_for_version(self._fs_current_version())
@@ -2761,7 +2763,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             return current_path
 
         if self.fs_version in ("0.9.0", "0.9.1", "0.9.2", "0.9.3", "0.9.4", "1.0.0"):
-            hyphen_path = current_path.with_name(str(uuid.UUID(hex=self.id.hex)))
+            hyphen_path = current_path.with_name(str(uuid.UUID(str(self.id))))
             if hyphen_path.exists():
                 return hyphen_path
 
@@ -2795,7 +2797,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         domain = self.extract_domain_from_url(self.url)
 
-        link_path = Path(crawl_dir) / CONSTANTS.SNAPSHOTS_DIR_NAME / domain / str(self.id)
+        link_path = Path(crawl_dir) / CONSTANTS.SNAPSHOTS_DIR_NAME / domain / compact_uuid(self.id).hex
         link_parent = link_path.parent
         link_parent.mkdir(parents=True, exist_ok=True)
 
