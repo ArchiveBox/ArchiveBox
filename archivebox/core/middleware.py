@@ -4,6 +4,7 @@ import ipaddress
 import re
 from pathlib import Path
 
+from asgiref.sync import iscoroutinefunction
 from django.conf import settings
 from django.contrib.auth.middleware import RemoteUserMiddleware
 from django.contrib.auth.models import AnonymousUser
@@ -14,6 +15,7 @@ from django.shortcuts import redirect
 from django.utils import timezone
 from django.utils.http import http_date
 from django.utils.cache import patch_cache_control, patch_vary_headers
+from django.utils.decorators import sync_and_async_middleware
 
 from archivebox.config import VERSION
 from archivebox.config.common import get_config, get_request_config
@@ -32,10 +34,33 @@ from archivebox.core.routes_util import (
     is_snapshot_subdomain,
     split_host_port,
 )
-from archivebox.core.views import OriginalDomainHostView, SnapshotHostView
+from archivebox.core.views import HealthCheckView, OriginalDomainHostView, SnapshotHostView
 from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL
 
 ADMIN_LOGIN_HINT_COOKIE = "archivebox_admin_logged_in"
+
+
+@sync_and_async_middleware
+def HealthCheckMiddleware(get_response):
+    # Liveness has no user/collection state. Running it through authentication
+    # loads Machine config from SQLite and bridges into synchronous middleware,
+    # making the probe wait for the work it is meant to observe under load.
+    health_view = HealthCheckView.as_view()
+    if iscoroutinefunction(get_response):
+
+        async def middleware(request):
+            if request.path == "/health/" and request.method in {"GET", "HEAD"}:
+                return health_view(request)
+            return await get_response(request)
+
+    else:
+
+        def middleware(request):
+            if request.path == "/health/" and request.method in {"GET", "HEAD"}:
+                return health_view(request)
+            return get_response(request)
+
+    return middleware
 
 
 def _admin_login_hint_cookie_domain(config) -> str | None:

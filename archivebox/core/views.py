@@ -1857,6 +1857,7 @@ class HealthCheckView(View):
         response["Access-Control-Allow-Origin"] = "*"
         response["Access-Control-Expose-Headers"] = "X-ArchiveBox-Health"
         response["X-ArchiveBox-Health"] = "OK"
+        response["Cache-Control"] = "no-store"
         return response
 
 
