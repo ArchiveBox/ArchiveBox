@@ -1,0 +1,20 @@
+archivebox/crawls/models.py
+  s_2b44ee96cc775e::t_8d961ff9b11281 471,645-648,654,663,665,667
+  s_2b44ee96cc775e::t_310b87efdf56f9 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8a126021daffb4e7b5ccb4afdcf5d6751f8363ac",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
