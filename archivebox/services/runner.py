@@ -2082,6 +2082,7 @@ def _higher_priority_crawl_waiting(crawl_id: str, active_snapshot_ids: list[str]
     for queryset, newest_first in (
         (active_snapshots.filter(crawl__status=Crawl.StatusChoices.QUEUED), True),
         (Crawl.objects.filter(retry_at__lte=timezone.now(), status=Crawl.StatusChoices.QUEUED), True),
+        (active_snapshots.filter(status=Snapshot.StatusChoices.STARTED), False),
         (active_snapshots, False),
     ):
         candidate_id = _first_due_id(queryset, newest_first=newest_first)
@@ -2301,13 +2302,20 @@ def run_pending_crawls(
             ):
                 continue
 
-            if _run_due_snapshot_query(
-                active_snapshots,
-                lock_seconds=60,
-                interactive_interrupts=interactive_interrupts,
-                wait_for_resources=not daemon,
-                runtime_config=runtime_config,
-                schedule_all_crawls=crawl_id is None,
+            # Resume interrupted captures before admitting more backlog.
+            # Recovery unlocks them with retry_at=now, which would otherwise
+            # sort them behind every older queued child (hours on big crawls).
+            # Keep this order in sync with _higher_priority_crawl_waiting.
+            if any(
+                _run_due_snapshot_query(
+                    due_snapshots,
+                    lock_seconds=60,
+                    interactive_interrupts=interactive_interrupts,
+                    wait_for_resources=not daemon,
+                    runtime_config=runtime_config,
+                    schedule_all_crawls=crawl_id is None,
+                )
+                for due_snapshots in (active_snapshots.filter(status=Snapshot.StatusChoices.STARTED), active_snapshots)
             ):
                 continue
 

@@ -1282,6 +1282,48 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert snapshot.status == Snapshot.StatusChoices.STARTED
         assert snapshot.retry_at == now
 
+    def test_interrupted_started_snapshot_preempts_older_queued_children(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import _higher_priority_crawl_waiting
+
+        # Recovery unlocks an interrupted capture with retry_at=now. Queued
+        # children keep their original (older) retry_at, so retry_at order
+        # alone would leave the half-finished capture behind the whole backlog.
+        now = timezone.now()
+        running = Crawl.objects.create(
+            urls="https://blog.sweeting.me",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=now + timedelta(minutes=1),
+        )
+        Snapshot.objects.create(
+            url="https://blog.sweeting.me/queued",
+            crawl=running,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=now - timedelta(hours=8),
+        )
+        interrupted = Crawl.objects.create(
+            urls="https://docs.sweeting.me",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=now + timedelta(minutes=1),
+        )
+        Snapshot.objects.create(
+            url="https://docs.sweeting.me",
+            crawl=interrupted,
+            status=Snapshot.StatusChoices.STARTED,
+            retry_at=now,
+        )
+
+        assert _higher_priority_crawl_waiting(str(running.id), []) is True
+        assert _higher_priority_crawl_waiting(str(interrupted.id), []) is False
+
     def test_crawl_cancel_schedules_children_for_per_snapshot_sealing(self):
         from datetime import timedelta
 
