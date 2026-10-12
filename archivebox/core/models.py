@@ -4587,13 +4587,17 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         ignored = {"stdout.log", "stderr.log", "hook.pid", "listener.pid"}
         # Responses/wget manifests can contain thousands of paths. Parse each
         # once instead of rebuilding Path objects for every preferred filename
-        # and extension group, each time a list row selects a preview.
+        # and extension group, each time a list row selects a preview. Keys are
+        # normalized relative POSIX paths, so plain string splitting yields
+        # Path.name/Path.suffix without constructing thousands of Path objects
+        # per list page.
         candidates = []
         names = {}
         extensions = {}
         for path in output_file_paths:
-            parsed_path = Path(path)
-            name, extension = parsed_path.name, parsed_path.suffix.lower()
+            name = path.rstrip("/").rpartition("/")[2]
+            dot = name.rfind(".")
+            extension = name[dot:].lower() if 0 < dot < len(name) - 1 else ""
             if name in ignored or extension in (".pid", ".log", ".sh"):
                 continue
             candidates.append(path)

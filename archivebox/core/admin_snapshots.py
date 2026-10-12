@@ -26,6 +26,7 @@ from archivebox.misc.serve_static import serve_static_with_byterange_support
 from archivebox.search.admin import SearchResultsAdminMixin, SearchResultsChangeList
 from archivebox.search.views import admin_snapshot_search_stream_view
 from archivebox.core.routes_util import (
+    build_snapshot_detail_path,
     build_snapshot_detail_url,
     build_snapshot_files_url,
     build_snapshot_role_output_url,
@@ -1154,6 +1155,10 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         icons_by_group: dict[str, list[dict[str, Any]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
         request = self.request
         config = request.archivebox_config
+        # Every icon links into this one detail page and differs only in its
+        # #fragment. Resolving the request's web origin takes several urlparse
+        # calls, so do it once per row instead of once per icon.
+        detail_url = build_snapshot_detail_url(obj.archive_path_from_db, request=request, config=config)
         for result in sorted_results:
             if plugin_icon_is_hidden(result.plugin):
                 continue
@@ -1169,12 +1174,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                 {
                     "plugin": result.plugin,
                     "icon": icon,
-                    "href": build_snapshot_detail_url(
-                        obj.archive_path_from_db,
-                        output_path=anchor_path,
-                        request=request,
-                        config=config,
-                    ),
+                    "href": detail_url + build_snapshot_detail_path("", output_path=anchor_path, prefix=""),
                 },
             )
 
