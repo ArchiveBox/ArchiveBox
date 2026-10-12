@@ -37,7 +37,8 @@ def get_snapshot_permissions(snapshot) -> str:
 
 def can_view_snapshot(request: HttpRequest, snapshot) -> bool:
     permissions = get_snapshot_permissions(snapshot)
-    return permissions in {PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED} or is_admin_user(request)
+    unlisted_ok = permissions == PERMISSIONS_UNLISTED and not getattr(snapshot, "matched_by_prefix", False)
+    return permissions == PERMISSIONS_PUBLIC or unlisted_ok or is_admin_user(request)
 
 
 def _persona_ids_for_permissions(allowed_permissions: set[str]) -> list[str]:

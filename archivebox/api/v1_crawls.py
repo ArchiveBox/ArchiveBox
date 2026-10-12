@@ -176,7 +176,10 @@ def crawl_file(request: HttpRequest, crawl_id: str, path: str):
     if not is_admin_user(request):
         permissions = normalize_permissions(crawl.permissions)
         is_owner = bool(user and crawl.created_by_id == user.id)
-        if not is_owner and permissions not in {PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED}:
+        # UUIDv7 prefixes are guessable timestamps: not an unlisted link (suffixes are random).
+        ref, full_id = crawl_id.replace("-", "").lower(), str(crawl.id).replace("-", "")
+        by_prefix = ref != full_id and full_id.startswith(ref)
+        if not is_owner and not (permissions == PERMISSIONS_PUBLIC or (permissions == PERMISSIONS_UNLISTED and not by_prefix)):
             raise HttpError(404, "Crawl not found")
 
     # WHY: .persona holds the crawl's browser logins (cookies.txt, auth.json,

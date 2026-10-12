@@ -131,12 +131,10 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
     try:
         return snapshots.get(pk=lookup)
     except Snapshot.DoesNotExist:
-        try:
-            return snapshots.get(id__startswith=lookup)
-        except Snapshot.DoesNotExist:
-            return None
-        except Snapshot.MultipleObjectsReturned:
-            return snapshots.filter(id__startswith=lookup).first()
+        snapshot = snapshots.filter(id__startswith=lookup).first()
+        if snapshot is not None:
+            snapshot.matched_by_prefix = True  # UUIDv7 prefixes are guessable timestamps: not an unlisted link
+        return snapshot
 
 
 def _admin_login_redirect_or_forbidden(request: HttpRequest):
