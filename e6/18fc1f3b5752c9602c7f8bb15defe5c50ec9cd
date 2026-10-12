@@ -1,0 +1,21 @@
+archivebox/services/runner.py
+  s_10bc94d001be49::t_a6cad8ba642ca2 455,1396,1408,1422,1430-1434,1436,1443-1464,1589
+  s_10bc94d001be49::t_decddded0d0cfa 1601-1608,1615
+  s_10bc94d001be49::t_30dbf70d67e79a 1619-1626,1709,1732,1741,1752,1840,1871,2078,2099,2111,2120,2131,2149,2262,2274,2283,2295,2314,2331,2350,2369,2380
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e618fc1f3b5752c9602c7f8bb15defe5c50ec9cd",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
