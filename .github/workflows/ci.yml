@@ -105,7 +105,7 @@ jobs:
           path: /tmp/digests
           pattern: digest-*
           merge-multiple: true
-      - name: Publish the existing universal SHA tag and opt-in dev-head channel
+      - name: Publish the existing universal SHA tag and opt-in dev-unstable channel
         id: publish
         shell: bash
         run: |
@@ -121,10 +121,10 @@ jobs:
             # the moving channel. :dev stays owned by the green release job.
             head="$(git ls-remote origin refs/heads/dev | cut -f1)"
             if [[ "$head" != "$GITHUB_SHA" ]]; then
-              echo "Source $GITHUB_SHA superseded by $head; not promoting dev-head."
+              echo "Source $GITHUB_SHA superseded by $head; not promoting dev-unstable."
               exit 0
             fi
-            docker buildx imagetools create --tag "$image:dev-head" "$image:sha-${GITHUB_SHA::12}"
+            docker buildx imagetools create --tag "$image:dev-unstable" "$image:sha-${GITHUB_SHA::12}"
           done
           echo 'ready=true' >> "$GITHUB_OUTPUT"
 
