@@ -713,6 +713,11 @@ body.change-list:not(.model-snapshot) #changelist #toolbar,
     }
 }
 
+#user-tools .navbar-archive-size {
+    font-size: 10px;
+    opacity: 0.65;
+}
+
 /* Keep the global admin navigation on one compact row at tablet/mobile sizes. */
 @media (max-width: 1180px) {
     #archivebox-system-warning-banner {
