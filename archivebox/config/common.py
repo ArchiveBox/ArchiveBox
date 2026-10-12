@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __package__ = "archivebox.config"
 
+import copy
 import inspect
 import json
 import os
@@ -19,10 +20,11 @@ from urllib.parse import quote, urlparse
 from abx_plugins.plugins.base.utils import build_config_model
 from django.db import DatabaseError
 from pydantic import BaseModel, Field, PrivateAttr, TypeAdapter, create_model, field_validator, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic._internal._utils import deep_update
+from pydantic_settings import BaseSettings, EnvSettingsSource, SettingsConfigDict
 from rich.console import Console
 
-from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, decode_config_inputs
+from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, IniConfigSettingsSource, decode_config_inputs
 
 from .constants import CONSTANTS
 from .ldap import LDAPConfig
@@ -643,15 +645,24 @@ def _explicit_plugin_enabled_keys(config: Mapping[str, object]) -> set[str]:
     expands ``PLUGINS`` into concrete booleans.
     """
     provided = {str(key) for key in config}
-    explicit: set[str] = set()
+    return {key for key, input_names in _plugin_enabled_input_names() if provided & input_names}
+
+
+@lru_cache(maxsize=1)
+def _plugin_enabled_input_names() -> tuple[tuple[str, frozenset[str]], ...]:
+    """Each plugin ``*_ENABLED`` key with the input names (key and aliases) that set it.
+
+    Derived only from the plugin schemas loaded at import; get_config() checks
+    several inputs against it per call, so re-walking every schema was waste.
+    """
+    enabled_inputs: list[tuple[str, frozenset[str]]] = []
     for key, prop in _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS).items():
         if not key.endswith("_ENABLED") or not isinstance(prop, Mapping):
             continue
-        aliases = prop.get("x-aliases") if isinstance(prop, Mapping) else None
+        aliases = prop.get("x-aliases")
         input_names = {key, *(str(alias) for alias in aliases if str(alias).strip())} if isinstance(aliases, list) else {key}
-        if provided & input_names:
-            explicit.add(key)
-    return explicit
+        enabled_inputs.append((key, frozenset(input_names)))
+    return tuple(enabled_inputs)
 
 
 def _discover_plugin_config_schemas() -> PluginSchemaDocuments:
@@ -945,6 +956,31 @@ class ArchiveBoxSourceSettings(ArchiveBoxConfig, BaseSettings):
     model_config = SettingsConfigDict(**{**ArchiveBoxConfig.model_config, "extra": "ignore"})
 
 
+_ENV_SOURCE_VALUES: tuple[Mapping[str, str | None], dict[str, Any]] | None = None
+
+
+def load_source_config() -> ArchiveBoxBaseConfig:
+    """Return the same config ``ArchiveBoxSourceSettings()`` loads, with less repeated work.
+
+    ``BaseSettings.__init__`` re-derives the env names, aliases and JSON-complexity of
+    every core and plugin field on each call, which made it the bulk of every
+    ``get_config()``. The env source's output depends only on the environment snapshot
+    it captured, so it is reused while that snapshot is unchanged; ArchiveBox.conf is
+    re-read every call, and defaults and validators still run every call.
+    """
+    global _ENV_SOURCE_VALUES
+    env_source = EnvSettingsSource(ArchiveBoxSourceSettings)
+    env_values = _ENV_SOURCE_VALUES
+    if env_values is None or env_values[0] != env_source.env_vars:
+        env_values = _ENV_SOURCE_VALUES = (env_source.env_vars, env_source())
+    # Same sources, precedence and nested-dict merge as settings_customise_sources():
+    # env over ArchiveBox.conf. Copy so validation can never alias the reused env values.
+    values = deep_update(IniConfigSettingsSource(ArchiveBoxSourceSettings)(), copy.deepcopy(env_values[1]))
+    # Validate with the plain model: pydantic routes BaseSettings.model_validate()
+    # through BaseSettings.__init__, which would reload every source again.
+    return ArchiveBoxConfig.model_validate(values)
+
+
 def _normalize_plugins_config_value(value: Any) -> set[str]:
     if value is None:
         return set()
@@ -1159,7 +1195,7 @@ def get_config(
     config_data["PERSONAS_DIR"] = str(CONSTANTS.PERSONAS_DIR)
     base_config_payload: ConfigPayload = {}
     file_config: dict[str, Any] | None = None
-    base_config_model = ArchiveBoxSourceSettings() if base_config is None else None
+    base_config_model = load_source_config() if base_config is None else None
 
     if crawl_config_base:
         assert base_config_model is not None
@@ -1326,7 +1362,7 @@ def get_config(
 
 def get_all_configs() -> dict[str, BaseConfigSet]:
     """Get all config section objects as a dictionary."""
-    resolved = ArchiveBoxSourceSettings().model_dump(mode="json")
+    resolved = load_source_config().model_dump(mode="json")
     return {
         "SHELL_CONFIG": ShellConfig.model_validate(resolved),
         "STORAGE_CONFIG": StorageConfig.model_validate(resolved),

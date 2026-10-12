@@ -5,6 +5,7 @@ __package__ = "archivebox.config"
 import json
 from collections.abc import Mapping
 from configparser import ConfigParser
+from functools import cache
 from pathlib import Path
 from typing import Any, ClassVar, cast
 
@@ -33,17 +34,27 @@ class CaseConfigParser(ConfigParser):
         return optionstr
 
 
+_PARSED_INI_CONFIG: tuple[Path, str, dict[str, Any]] | None = None
+
+
 def read_ini_config(config_path: str | Path) -> dict[str, Any]:
     """Read and flatten an ArchiveBox INI config file."""
+    global _PARSED_INI_CONFIG
     config_path = Path(config_path)
     try:
-        if not config_path.exists():
-            return {}
-        parser = CaseConfigParser(interpolation=None)
-        parser.read(config_path)
+        # Same text decoding as ConfigParser.read(), which also treats unreadable files as absent.
+        config_text = config_path.read_text()
     except OSError:
         return {}
-    return {key.upper(): value for section in parser.sections() for key, value in parser.items(section)}
+    # Every get_config() reads this file; parsing dominates reading. Keying on the
+    # exact text just read means any edit, however fast or same-sized, re-parses.
+    parsed = _PARSED_INI_CONFIG
+    if parsed is None or parsed[0] != config_path or parsed[1] != config_text:
+        parser = CaseConfigParser(interpolation=None)
+        parser.read_string(config_text, source=str(config_path))
+        flattened = {key.upper(): value for section in parser.sections() for key, value in parser.items(section)}
+        parsed = _PARSED_INI_CONFIG = (config_path, config_text, flattened)
+    return dict(parsed[2])
 
 
 class IniConfigSettingsSource(PydanticBaseSettingsSource):
@@ -77,6 +88,20 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
         return read_ini_config(config_path)
 
 
+@cache
+def _config_decoder(settings_cls: type[BaseModel]) -> tuple[IniConfigSettingsSource, frozenset[str]]:
+    """Return a JSON decoder and the dict/list-typed field names for a config model.
+
+    Both depend only on the class's fields, which are fixed once the model is built,
+    yet building the source and classifying every annotation cost more than the
+    decoding itself on each get_config() call.
+    """
+    # Decoding uses only BaseModel.model_fields/model_config, not source loading.
+    decoder = IniConfigSettingsSource(cast(type[BaseSettings], settings_cls))
+    complex_fields = frozenset(name for name, field in settings_cls.model_fields.items() if decoder.field_is_complex(field))
+    return decoder, complex_fields
+
+
 def decode_config_inputs(
     settings_cls: type[BaseModel],
     config: Mapping[str, Any],
@@ -84,8 +109,7 @@ def decode_config_inputs(
     decode_unknown_json: bool = False,
 ) -> dict[str, Any]:
     """Decode string-only config values once at the boundary to typed config."""
-    # Decoding uses only BaseModel.model_fields/model_config, not source loading.
-    decoder = IniConfigSettingsSource(cast(type[BaseSettings], settings_cls))
+    decoder, complex_fields = _config_decoder(settings_cls)
     decoded: dict[str, Any] = dict(config)
     for source_key, raw in list(decoded.items()):
         if not isinstance(raw, str) or not raw:
@@ -99,7 +123,7 @@ def decode_config_inputs(
                 except (TypeError, ValueError):
                     pass
             continue
-        if decoder.field_is_complex(field):
+        if field_name in complex_fields:
             decoded[field_name] = decoder.prepare_field_value(field_name, field, raw, True)
             if source_key != field_name:
                 decoded.pop(source_key, None)

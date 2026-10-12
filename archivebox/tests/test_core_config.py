@@ -77,6 +77,45 @@ def test_string_config_values_are_decoded_at_one_boundary():
     assert decoded["UNKNOWN_COMPLEX"] == {"source": "plugin"}
 
 
+def test_repeated_config_loads_see_every_env_and_config_file_edit():
+    from archivebox.config.common import ArchiveBoxSourceSettings, get_config, load_source_config
+
+    # A fixed key keeps the random SECRET_KEY default out of the equality checks.
+    os.environ["SECRET_KEY"] = "fixed-secret-for-config-equality"
+    config_file = CONSTANTS.CONFIG_FILE
+
+    def assert_loaded(timeout: int, chrome_args: list[str]) -> None:
+        loaded = load_source_config()
+        assert loaded.model_dump(mode="json") == ArchiveBoxSourceSettings().model_dump(mode="json")
+        assert (loaded.TIMEOUT, loaded.CHROME_ARGS) == (timeout, chrome_args)
+        for resolve_plugins in (False, True):
+            resolved = get_config(include_machine=False, resolve_plugins=resolve_plugins)
+            assert (resolved.TIMEOUT, resolved.CHROME_ARGS) == (timeout, chrome_args)
+        # Callers own their result; mutating it must not leak into later loads.
+        loaded.CHROME_ARGS.append("--mutated-by-caller")
+
+    config_file.write_text('[ARCHIVING_CONFIG]\nTIMEOUT = 11\nCHROME_ARGS = ["--from-file-a"]\n')
+    assert_loaded(11, ["--from-file-a"])
+
+    # Same size and same mtime: only the content changed, which must still be seen.
+    original_stat = config_file.stat()
+    config_file.write_text('[ARCHIVING_CONFIG]\nTIMEOUT = 22\nCHROME_ARGS = ["--from-file-b"]\n')
+    os.utime(config_file, ns=(original_stat.st_atime_ns, original_stat.st_mtime_ns))
+    assert config_file.stat().st_size == original_stat.st_size
+    assert_loaded(22, ["--from-file-b"])
+
+    os.environ["TIMEOUT"] = "33"
+    os.environ["CHROME_ARGS"] = '["--from-env"]'
+    assert_loaded(33, ["--from-env"])
+
+    del os.environ["TIMEOUT"]
+    del os.environ["CHROME_ARGS"]
+    assert_loaded(22, ["--from-file-b"])
+
+    config_file.unlink()
+    assert_loaded(ArchiveBoxSourceSettings.model_fields["TIMEOUT"].default, ArchiveBoxSourceSettings().CHROME_ARGS)
+
+
 def test_resolving_scoped_config_does_not_mutate_process_environment(tmp_path):
     from archivebox.config.common import ArchiveBoxConfig, get_config
 
