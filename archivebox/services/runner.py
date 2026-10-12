@@ -166,6 +166,25 @@ async def _run_event_now(event, timeout: float | None = None):
     return event
 
 
+def snapshot_attempt_timeout(plugins: PluginCatalog, config: dict[str, Any]) -> float:
+    # The hard ceiling the runner gives one complete capture attempt. Recovery
+    # reuses it to tell a capture restarted before from a first interruption.
+    return compute_phase_timeout(plugins.hooks("Snapshot"), config) + 120.0
+
+
+def resolve_snapshot_attempt_timeout(snapshot) -> float:
+    """The attempt ceiling run_snapshot would use, resolved outside a runner."""
+    from archivebox.config.common import get_config
+    from archivebox.plugins.discovery import get_enabled_plugins
+
+    config = get_config(crawl=snapshot.crawl, snapshot=snapshot)
+    plugin_names = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS") or [] if str(name).strip()]
+    plugin_names = plugin_names or [name.strip() for name in str(config.get("PLUGINS") or "").split(",") if name.strip()]
+    plugin_names = plugin_names or get_enabled_plugins(config=config)
+    catalog = get_plugin_catalog()
+    return snapshot_attempt_timeout(catalog.select(plugin_names) if plugin_names else catalog, normalize_runtime_config(config))
+
+
 def ensure_background_runner() -> bool:
     from archivebox.machine.models import Machine, Process
     from archivebox.workers.supervisord_util import RUNNER_WORKER, get_existing_supervisord_process, get_worker, start_worker
@@ -1082,7 +1101,7 @@ class CrawlRunner:
         )
         crawl_setup_phase_timeout = compute_phase_timeout(setup_hooks, config)
         max_snapshot_count = max(1, int(config.get("CRAWL_MAX_URLS") or len(snapshot_ids) or 1))
-        snapshot_phase_timeout = compute_phase_timeout(plugins.hooks("Snapshot"), config) + 120.0
+        snapshot_phase_timeout = snapshot_attempt_timeout(plugins, config)
         all_snapshots_phase_timeout = snapshot_phase_timeout * max_snapshot_count
         crawl_cleanup_phase_timeout = crawl_setup_phase_timeout
         crawl_lifecycle_timeout = (
@@ -1326,7 +1345,7 @@ class CrawlRunner:
                 crawl_id=str(self.crawl.id),
             )
             config["ABX_RUNTIME"] = "archivebox"
-            snapshot_phase_timeout = compute_phase_timeout(plugins.hooks("Snapshot"), config) + 120.0
+            snapshot_phase_timeout = snapshot_attempt_timeout(plugins, config)
             user_config_event = MachineEvent(config=config, config_type="user")
             user_config_event.event_parent_id = crawl_start_event.event_id
             await self.bus.emit(user_config_event).now()
@@ -2056,10 +2075,11 @@ def run_install(*, plugin_names: list[str] | None = None) -> None:
 #   shows progress immediately instead of waiting behind a huge older import.
 # - Everything else drains oldest-first, so the longest-waiting URLs are
 #   captured before they disappear.
-# - Work that already started resumes oldest-first and ahead of untouched
-#   backlog: a half-finished capture holds browser/session state and partial
-#   outputs, and recovery resets its retry_at to now, which would otherwise
-#   sort it behind hours of older queued children.
+# - Captures are never resumed: recovery requeues every interrupted STARTED
+#   Snapshot as a fresh capture that reruns all hooks (plugins overwrite in
+#   place), so it simply takes its FIFO place below. STARTED rows that are due
+#   without a restart (an owner lost its lease) still run oldest-first ahead
+#   of untouched backlog, and that run is likewise a full capture.
 # - Within one crawl, snapshots run FIFO breadth-first by (depth, created_at,
 #   pk) so seeds finish before discovered links and ties stay deterministic.
 # Accepted tradeoff: a continuous stream of new submissions can delay older

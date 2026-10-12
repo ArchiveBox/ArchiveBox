@@ -1074,7 +1074,8 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert ArchiveResult.objects.filter(pk=result.pk).values().get() == previous_result
         assert output_path.read_text() == "previous title"
         assert result.status == ArchiveResult.StatusChoices.STARTED
-        assert snapshot.status == Snapshot.StatusChoices.STARTED
+        # Never resumed: the rerun from scratch overwrites the result in place.
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
         assert snapshot.retry_at is not None
 
     def test_recovery_preserves_started_archiveresult_with_exited_process(self):

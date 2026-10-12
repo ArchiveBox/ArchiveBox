@@ -1,5 +1,6 @@
 __package__ = "archivebox.progressmonitor"
 
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -389,6 +390,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
             "downloaded_at",
             "fs_version",
             "status",
+            "retry_at",
         )
         queued_snapshot_fields = (
             "id_str",
@@ -526,6 +528,11 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
         running_worker_ids: set[str] = set()
         running_snapshot_ids: set[str] = set()
+        # The current capture attempt began when its earliest live hook did
+        # (background hooks such as the chrome tab span the whole attempt).
+        # Snapshot timestamps cannot say this: created_at predates any queue
+        # wait and downloaded_at is only set once a capture completes.
+        attempt_started_at_by_snapshot: dict[str, datetime] = {}
         for proc in running_processes:
             if not proc["pwd"]:
                 continue
@@ -541,6 +548,11 @@ def live_progress_view(request, *, authorized_snapshot=None):
             running_worker_ids.add(str(proc["id"]))
             if snapshot_id:
                 running_snapshot_ids.add(snapshot_id)
+                if proc["started_at"]:
+                    attempt_started_at_by_snapshot[snapshot_id] = min(
+                        proc["started_at"],
+                        attempt_started_at_by_snapshot.get(snapshot_id, proc["started_at"]),
+                    )
             _plugin, _label, phase, _hook_name = _process_label(proc["cmd"])
             if _plugin == "chrome_screencast" and proc["started_at"]:
                 # CDP sends frames only when the page changes. Keep a still
@@ -672,6 +684,17 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 # validates, copies, sorts, and totals every captured asset.
                 # Resolve each link once for both role previews and plugin rows.
                 output_paths = {ar.id: ar.embed_path_db(output_file_map=ar.output_files) for ar in snapshot_results}
+                attempt_started_at = attempt_started_at_by_snapshot.get(str(snapshot["id"]))
+                if attempt_started_at is not None:
+                    # Every capture reruns all hooks from scratch. An unfinished
+                    # row older than every live hook was left by an interrupted
+                    # attempt and is superseded; finished rows keep showing the
+                    # outputs on disk until this attempt overwrites them.
+                    snapshot_results = [
+                        ar
+                        for ar in snapshot_results
+                        if ar.status in ArchiveResult.FINAL_STATES or ar.start_ts is None or ar.start_ts >= attempt_started_at
+                    ]
 
                 plugin_progress_values: list[int] = []
                 all_plugins: list[dict[str, object]] = []
@@ -795,12 +818,13 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 worker_state = "running" if snapshot_process_pids.get(str(snapshot["id"])) else "waiting"
                 if (
                     snapshot["status"] == Snapshot.StatusChoices.STARTED
-                    and worker_state == "waiting"
-                    and not all_plugins
-                    and snapshot["modified_at"]
-                    and (now - snapshot["modified_at"]).total_seconds() > 30
+                    and str(snapshot["id"]) not in running_snapshot_ids
+                    and not (snapshot["retry_at"] and snapshot["retry_at"] > now)
                 ):
-                    worker_state = "waiting" if orchestrator_running else "crashed"
+                    # No live hook and no runner renewing its lease: the
+                    # capture was interrupted and waits to be started over.
+                    worker_state = "interrupted"
+                    attempt_started_at = None
 
                 if snapshot["status"] == Snapshot.StatusChoices.QUEUED and not snapshot_process_pids.get(str(snapshot["id"])):
                     compact_snapshot = [
@@ -823,9 +847,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
                     snapshot_payload.update(
                         {
                             "view_url": snapshot_view_url(snapshot),
-                            "started": (snapshot["downloaded_at"] or snapshot["created_at"]).isoformat()
-                            if (snapshot["downloaded_at"] or snapshot["created_at"])
-                            else None,
+                            "started": attempt_started_at.isoformat() if attempt_started_at else None,
                             "progress": snapshot_progress,
                             "total_plugins": total_plugins,
                             "completed_plugins": completed_plugins,

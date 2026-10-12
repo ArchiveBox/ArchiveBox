@@ -787,6 +787,7 @@
         background: rgba(248, 81, 73, 0.2);
         color: #f85149;
     }
+    #progress-monitor .status-badge.interrupted,
     #progress-monitor .status-badge.backoff {
         background: rgba(210, 153, 34, 0.15);
         color: #b8860b;
@@ -1633,7 +1634,13 @@
         const processOnly = hasProcessEntries && !hasArchiveResults;
         const runningProcessCount = (snapshot.all_plugins || []).filter(extractor => extractor.source === 'process' && extractor.status === 'started').length;
         const failedProcessCount = (snapshot.all_plugins || []).filter(extractor => extractor.source === 'process' && extractor.status === 'failed').length;
-        const snapshotMeta = (snapshot.total_plugins || 0) > 0
+        // A STARTED row with no live hook and no runner lease was interrupted;
+        // it is captured again from scratch, so nothing is counting up.
+        const isInterrupted = snapshot.worker_state === 'interrupted';
+        const snapshotBadge = isInterrupted ? 'interrupted' : (snapshot.status || 'unknown');
+        const snapshotMeta = isInterrupted
+            ? '<span style="color:#d29922">Interrupted, waiting to be captured again from scratch</span>'
+            : (snapshot.total_plugins || 0) > 0
             ? processOnly
                 ? runningProcessCount > 0
                     ? `Running ${runningProcessCount}/${snapshot.total_plugins || 0} setup hooks`
@@ -1668,13 +1675,13 @@
                         </div>
                         ${snapshotPidHtml}
                         ${snapshotDurationHtml}
-                        <span class="status-badge ${snapshot.status || 'unknown'}">${snapshot.status || 'unknown'}</span>
+                        <span class="status-badge ${snapshotBadge}">${snapshotBadge}</span>
                     </a>
                     ${cancelBtn}
                 </div>
                 <div class="snapshot-progress">
                     <div class="progress-bar-container">
-                        <div class="progress-bar snapshot ${((processOnly && runningProcessCount > 0) || (snapshot.status === 'started' && (snapshot.progress || 0) === 0)) ? 'indeterminate' : ''}"
+                        <div class="progress-bar snapshot ${((processOnly && runningProcessCount > 0) || (snapshot.status === 'started' && !isInterrupted && (snapshot.progress || 0) === 0)) ? 'indeterminate' : ''}"
                              style="width: ${snapshot.progress || 0}%"></div>
                     </div>
                 </div>

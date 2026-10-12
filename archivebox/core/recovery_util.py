@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from django.utils import timezone
 from rich.console import Console
 
@@ -23,6 +25,7 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
         "snapshots_queued_without_retry_at": 0,
         "snapshots_sealed_with_extension_uploads_only": 0,
         "snapshots_started_without_running_results": 0,
+        "snapshots_interrupted_after_restart": 0,
         "crawls_started_with_due_snapshots": 0,
         "crawls_started_waiting_on_future_snapshots": 0,
         "crawls_started_without_active_snapshots": 0,
@@ -95,26 +98,44 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
     # ArchiveResults belong to the live hook lifecycle. Do not infer outcomes
     # from interrupted processes or reconstruct old stdout here. A new run
     # overwrites its own result and files as it executes (abx-plugins contract).
-    started_snapshots = Snapshot.objects.filter(status=Snapshot.StatusChoices.STARTED).filter(
-        Q(retry_at__isnull=True) | Q(retry_at__gt=now),
-        **snapshot_filter,
+    interrupted_snapshots = Snapshot.objects.filter(status=Snapshot.StatusChoices.STARTED, **snapshot_filter).annotate(
+        has_running_process=Exists(running_hook_processes),
     )
 
-    # Broken lock repair: STARTED + retry_at=NULL or retry_at in the future
-    # means "owned by an active runner". Recovery only runs from the current
-    # elected runner after Process cleanup has proven old owners are gone, so
-    # STARTED rows with no live ArchiveResult process should not wait out the
-    # previous runner's full lease before the new runner can resume them.
-    # We only unlock scheduling; normal Snapshot runner code owns the next
-    # transition and side effects.
-    cleaned["snapshots_started_without_running_results"] = (
-        started_snapshots.annotate(has_running_process=Exists(running_hook_processes))
-        .filter(has_running_process=False)
-        .update(
+    # A capture is never resumed: plugins overwrite their outputs in place, so
+    # an interrupted Snapshot starts over as a fresh queued capture that reruns
+    # every hook. Recovery only runs from the elected runner after Process
+    # cleanup proved old owners gone, so the dead owner's lease is irrelevant:
+    # one that expired before the restart leaves retry_at in the past, and
+    # skipping those left captures STARTED (shown as running) for days.
+    # Materialize first: no read cursor may stay open across these writes.
+    restartable = list(
+        interrupted_snapshots.filter(has_running_process=False, crawl__status__in=Crawl.RUNNABLE_STATES).select_related(
+            "crawl",
+            "crawl__created_by",
+        ),
+    )
+    for snapshot in restartable:
+        if _restarted_from_scratch_before(snapshot):
+            # Bounded give-up: one fresh restart already failed to finish, so a
+            # capture that kills its runner cannot crash-loop the collection.
+            if snapshot.seal():
+                cleaned["snapshots_interrupted_after_restart"] += 1
+        elif Snapshot.objects.filter(pk=snapshot.pk, status=Snapshot.StatusChoices.STARTED, retry_at=snapshot.retry_at).update(
+            status=Snapshot.StatusChoices.QUEUED,
             retry_at=now,
             modified_at=now,
-        )
-    )
+        ):
+            cleaned["snapshots_started_without_running_results"] += 1
+
+    # Paused/cancelled crawls own their children's next transition; only make
+    # an orphaned lease due so the runner's pause/seal pass can apply it.
+    cleaned["snapshots_started_without_running_results"] += Snapshot.objects.filter(
+        id__in=interrupted_snapshots.filter(has_running_process=False)
+        .exclude(crawl__status__in=Crawl.RUNNABLE_STATES)
+        .filter(Q(retry_at__isnull=True) | Q(retry_at__gt=now))
+        .values("id"),
+    ).update(retry_at=now, modified_at=now)
 
     # Broken lock repair: STARTED + retry_at=NULL is an orphaned ownership
     # lease. Recovery only unlocks scheduling; the runner owns any subsequent
@@ -167,8 +188,12 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             "(uploaded and server-created results will remain together on the same Snapshot)."
         ),
         "snapshots_started_without_running_results": (
-            "Resuming {count} Snapshot(s) that were interrupted before finishing "
-            "(ArchiveBox may have been interrupted before it was able to finish archiving them; missing outputs will be retried)."
+            "Recovering {count} Snapshot(s) that were interrupted before finishing "
+            "(ArchiveBox may have been interrupted before it was able to finish archiving them; unfinished captures start over from scratch)."
+        ),
+        "snapshots_interrupted_after_restart": (
+            "Finishing {count} Snapshot(s) that were interrupted again after already being restarted from scratch "
+            "(their outputs so far are kept; failed extractors can be retried manually)."
         ),
         "crawls_started_with_due_snapshots": (
             "Resuming {count} Crawl(s) with pending URLs ready to archive "
@@ -188,3 +213,29 @@ def recover_orchestrator_state(*, include_chrome: bool = False, crawl_id: str | 
             recovery_console.print(f"[yellow]⚠️ Repairing: {message.format(count=cleaned[key])}[/yellow]")
 
     return cleaned
+
+
+def _restarted_from_scratch_before(snapshot) -> bool:
+    from archivebox.machine.models import Process
+    from archivebox.services.runner import resolve_snapshot_attempt_timeout
+    from django.db.models import Max, Min
+
+    # Hook Process rows are never overwritten, unlike ArchiveResults, so they
+    # are the only existing record of earlier attempts. The runner aborts an
+    # attempt at its ceiling, so hook starts spread wider than one ceiling
+    # came from at least two attempts of this capture. Range on pwd (not
+    # LIKE) so SQLite can use the (process_type, worker_type, pwd) index.
+    snapshot_dir = f"{snapshot.output_dir}{os.sep}"
+    hook_runs = Process.objects.filter(
+        process_type=Process.TypeChoices.HOOK,
+        worker_type="",
+        pwd__gte=snapshot_dir,
+        pwd__lt=f"{snapshot_dir}\U0010ffff",
+    )
+    if snapshot.downloaded_at:
+        # Earlier completed captures are not attempts of this one.
+        hook_runs = hook_runs.filter(started_at__gt=snapshot.downloaded_at)
+    span = hook_runs.aggregate(first=Min("started_at"), last=Max("started_at"))
+    if span["first"] is None:
+        return False
+    return (span["last"] - span["first"]).total_seconds() > resolve_snapshot_attempt_timeout(snapshot)

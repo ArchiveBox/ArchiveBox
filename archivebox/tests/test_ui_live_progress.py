@@ -1197,6 +1197,66 @@ class TestLiveProgressView:
         assert process_entry["status"] == "succeeded"
         assert "pid" not in process_entry
 
+    def test_live_progress_times_current_attempt_and_shows_interrupted_capture_waiting(
+        self,
+        client,
+        admin_user,
+        snapshot,
+        real_snapshot_hook_projection,
+    ):
+        import os
+        from datetime import timedelta
+
+        import archivebox.machine.models as machine_models
+        from archivebox.core.models import ArchiveResult
+        from archivebox.machine.models import Process
+
+        # Cabbage showed captures interrupted by a restart as running for
+        # "59h+": the timer counted from Snapshot.created_at because
+        # downloaded_at is only set when a capture completes.
+        process, _result = real_snapshot_hook_projection
+        machine_models._CURRENT_MACHINE = process.machine
+        now = timezone.now()
+        type(snapshot).objects.filter(pk=snapshot.pk).update(created_at=now - timedelta(hours=59), retry_at=now - timedelta(hours=1))
+        assert process.status == Process.StatusChoices.EXITED
+        # A hook the interrupted attempt left mid-run; the restart reruns it.
+        superseded = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="title",
+            hook_name="on_Snapshot__54_title",
+            status=ArchiveResult.StatusChoices.STARTED,
+            start_ts=now - timedelta(hours=2),
+        )
+
+        def displayed_snapshot():
+            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200, response.content
+            active_crawl = next(crawl for crawl in response.json()["active_crawls"] if crawl["id"] == str(snapshot.crawl_id))
+            return next(item for item in active_crawl["active_snapshots"] if item["id"] == str(snapshot.id))
+
+        client.force_login(admin_user)
+        interrupted = displayed_snapshot()
+        assert interrupted["status"] == "started"
+        assert interrupted["worker_state"] == "interrupted"
+        assert interrupted["started"] is None
+        assert "worker_pid" not in interrupted
+
+        # The runner starts it over: lease renewed and a hook running again.
+        attempt_started_at = now - timedelta(minutes=5)
+        type(snapshot).objects.filter(pk=snapshot.pk).update(retry_at=now + timedelta(seconds=60))
+        process.status = Process.StatusChoices.RUNNING
+        process.pid = os.getpid()
+        process.exit_code = None
+        process.started_at = attempt_started_at
+        process.ended_at = None
+        process.save(update_fields=["status", "pid", "exit_code", "started_at", "ended_at", "modified_at"])
+
+        resumed = displayed_snapshot()
+        assert resumed["worker_state"] == "running"
+        assert resumed["worker_pid"] == os.getpid()
+        assert resumed["started"] == attempt_started_at.isoformat()
+        assert str(superseded.id) not in {item["id"] for item in resumed["all_plugins"]}
+
 
 def _progress_snapshot_id(item) -> str:
     # Queued rows are compact [id, url, title?] lists; detailed rows are dicts.

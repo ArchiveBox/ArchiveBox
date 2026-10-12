@@ -507,7 +507,8 @@ class TestRecoverOrchestratorState:
         assert recovered["snapshots_started_without_running_results"] == 1
         assert recovered["crawls_started_with_due_snapshots"] == 1
         assert crawl.status == Crawl.StatusChoices.STARTED
-        assert snapshot.status == Snapshot.StatusChoices.STARTED
+        # Never resumed: the interrupted capture starts over as a fresh one.
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
         assert crawl.retry_at is not None
         assert snapshot.retry_at is not None
         assert crawl.retry_at < future
@@ -1002,7 +1003,8 @@ class TestRecoverOrchestratorState:
         snapshot.refresh_from_db()
         assert "sealed_snapshots" not in recovered
         assert recovered["snapshots_started_without_running_results"] == 1
-        assert snapshot.status == Snapshot.StatusChoices.STARTED
+        # Never resumed: the interrupted capture starts over as a fresh one.
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
         assert snapshot.retry_at is not None
 
         assert run_due_snapshot(snapshot, lock_seconds=60) is True
