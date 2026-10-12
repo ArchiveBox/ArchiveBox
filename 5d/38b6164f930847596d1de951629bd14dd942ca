@@ -1,0 +1,23 @@
+.github/STAGING.md
+  s_10bc94d001be49::t_ad9bb5df71dd43 3,6
+.github/workflows/ci.yml
+  s_10bc94d001be49::t_25863ad696ad10 108,124,127
+README.md
+  s_10bc94d001be49::t_d154cf39c36e92 190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5d38b6164f930847596d1de951629bd14dd942ca",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
