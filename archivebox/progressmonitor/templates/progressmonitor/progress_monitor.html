@@ -173,6 +173,9 @@
         border-color: #6e7681;
         color: #6e7681;
     }
+    #progress-monitor .progress-overflow-note a {
+        color: #58a6ff;
+    }
     #progress-monitor .progress-overflow-note {
         padding: 8px 12px;
         color: #8b949e;
@@ -1305,6 +1308,8 @@
             (data.crawls_active || 0) > 0 ||
             (data.snapshots_queued || 0) > 0 ||
             (data.snapshots_active || 0) > 0;
+        // Only a live snapshot target (set below) keeps the frame timer running.
+        delete screencastPanel.dataset.desiredFrameKey;
         let target = activeScreencastTarget(data);
         if (!target) {
             const currentFrame = screencastPanel.querySelector('.screencast-frame img');
@@ -1395,6 +1400,7 @@
                     screencastPanel.dataset.mode = 'frame';
                     screencastPanel.dataset.key = '';
                     screencastPanel.dataset.currentFrameSrc = newUrl;
+                    screencastPanel.dataset.currentFrameKey = snapshotKey;
                     screencastPanel.innerHTML = `
                         <a class="screencast-frame" href="${escapeAttr(linkUrl)}" title="Open active snapshot">
                             <img src="${escapeAttr(newUrl)}" alt="" decoding="async" loading="eager">
@@ -1449,38 +1455,49 @@
             img.style.opacity = '1';
             screencastPanel.classList.add('visible');
         }
-        if (screencastPanel.dataset.currentFrameSrc !== newUrl && screencastPanel.dataset.pendingFrameSrc !== newUrl && !screencastPanel.dataset.pendingFrameSrc) {
-            screencastPanel.dataset.pendingFrameSrc = newUrl;
-            screencastPanel.dataset.pendingFrameKey = snapshotKey;
-            const nextFrame = new Image();
-            nextFrame.decoding = 'async';
-            nextFrame.onload = () => {
-                (nextFrame.decode ? nextFrame.decode() : Promise.resolve()).catch(() => {}).finally(() => {
-                    if (screencastPanel.dataset.pendingFrameSrc !== newUrl) return;
-                    delete screencastPanel.dataset.pendingFrameSrc;
-                    delete screencastPanel.dataset.pendingFrameKey;
-                    if (screencastPanel.dataset.desiredFrameKey !== snapshotKey) return;
-                    const currentImg = screencastPanel.querySelector('.screencast-frame img');
-                    if (!currentImg) return;
-                    nextFrame.alt = '';
-                    nextFrame.loading = 'eager';
-                    nextFrame.style.opacity = '1';
-                    currentImg.replaceWith(nextFrame);
-                    screencastPanel.dataset.currentFrameSrc = newUrl;
-                    screencastPanel.classList.add('visible');
-                });
-            };
-            nextFrame.onerror = () => {
-                if (screencastPanel.dataset.pendingFrameSrc === newUrl) {
-                    delete screencastPanel.dataset.pendingFrameSrc;
-                    delete screencastPanel.dataset.pendingFrameKey;
-                    if (!screencastPanel.querySelector('.screencast-frame img')?.getAttribute('src')) {
-                        screencastPanel.classList.remove('visible');
-                    }
+        loadScreencastFrame(newUrl, snapshotKey);
+    }
+
+    // Swap in the next frame only once it has decoded, so the panel never flashes.
+    function loadScreencastFrame(newUrl, snapshotKey) {
+        if (screencastPanel.dataset.currentFrameSrc === newUrl || screencastPanel.dataset.pendingFrameSrc) return;
+        screencastPanel.dataset.pendingFrameSrc = newUrl;
+        screencastPanel.dataset.pendingFrameKey = snapshotKey;
+        const nextFrame = new Image();
+        nextFrame.decoding = 'async';
+        nextFrame.onload = () => {
+            (nextFrame.decode ? nextFrame.decode() : Promise.resolve()).catch(() => {}).finally(() => {
+                if (screencastPanel.dataset.pendingFrameSrc !== newUrl) return;
+                delete screencastPanel.dataset.pendingFrameSrc;
+                delete screencastPanel.dataset.pendingFrameKey;
+                if (screencastPanel.dataset.desiredFrameKey !== snapshotKey) return;
+                const currentImg = screencastPanel.querySelector('.screencast-frame img');
+                if (!currentImg) return;
+                nextFrame.alt = '';
+                nextFrame.loading = 'eager';
+                nextFrame.style.opacity = '1';
+                currentImg.replaceWith(nextFrame);
+                screencastPanel.dataset.currentFrameSrc = newUrl;
+                screencastPanel.dataset.currentFrameKey = snapshotKey;
+                screencastPanel.classList.add('visible');
+            });
+        };
+        nextFrame.onerror = () => {
+            if (screencastPanel.dataset.pendingFrameSrc === newUrl) {
+                delete screencastPanel.dataset.pendingFrameSrc;
+                delete screencastPanel.dataset.pendingFrameKey;
+                if (!screencastPanel.querySelector('.screencast-frame img')?.getAttribute('src')) {
+                    screencastPanel.classList.remove('visible');
                 }
-            };
-            nextFrame.src = newUrl;
-        }
+            }
+        };
+        nextFrame.src = newUrl;
+    }
+
+    // TEMPORARY: hide running background (.bg.) hook badges; they stay up for
+    // the whole capture. Foreground hooks and queued/failed bg hooks still show.
+    function isShownExtractor(extractor) {
+        return !(extractor.status === 'started' && (extractor.hook_name || '').includes('.bg.'));
     }
 
     function renderExtractor(extractor) {
@@ -1551,7 +1568,7 @@
             );
             extractorHtml = `
                 <div class="extractor-list">
-                    ${sortedExtractors.map(e => renderExtractor(e)).join('')}
+                    ${sortedExtractors.filter(isShownExtractor).map(e => renderExtractor(e)).join('')}
                 </div>
             `;
         }
@@ -1641,10 +1658,7 @@
         if (crawl.active_snapshots && crawl.active_snapshots.length > 0) {
             snapshotsHtml = crawl.active_snapshots.map(s => renderSnapshot(s, crawl.id)).join('');
         }
-        const queuedSnapshotsHidden = Number(crawl.queued_snapshots_hidden || 0);
-        const queuedSnapshotsNote = queuedSnapshotsHidden > 0
-            ? `<div class="progress-overflow-note">${queuedSnapshotsHidden} more queued snapshot${queuedSnapshotsHidden === 1 ? '' : 's'} not shown</div>`
-            : '';
+        const queuedSnapshotsNote = renderOverflowNotes(crawl.hidden_snapshots, 'snapshot');
         let setupHtml = '';
         if (crawl.setup_plugins && crawl.setup_plugins.length > 0) {
             const sortedSetup = [...crawl.setup_plugins].sort((a, b) =>
@@ -1661,7 +1675,7 @@
                         </div>
                     </div>
                     <div class="extractor-list">
-                        ${sortedSetup.map(e => renderExtractor(e)).join('')}
+                        ${sortedSetup.filter(isShownExtractor).map(e => renderExtractor(e)).join('')}
                     </div>
                 </div>
             `;
@@ -1768,6 +1782,14 @@
         `;
     }
 
+    // Each truncated section links to the admin list holding the rest.
+    function renderOverflowNotes(hidden, noun) {
+        return (hidden || []).map(item => {
+            const count = Number(item.count || 0);
+            return `<div class="progress-overflow-note"><a href="${escapeAttr(item.url)}">Show ${count.toLocaleString()} more ${escapeHtml(item.status)} ${noun}${count === 1 ? '' : 's'}</a></div>`;
+        }).join('');
+    }
+
     function setOrchestratorState(state, label) {
         const dot = document.getElementById('orchestrator-dot');
         dot.classList.remove('stopped', 'idle', 'running', 'error');
@@ -1822,7 +1844,7 @@
         idleMessage.style.color = '';
 
         // Calculate if there's activity
-        const hasActivity = data.active_crawls.length > 0 ||
+        const hasActivity = (data.active_crawls || []).length > 0 ||
                            data.crawls_queued > 0 || data.crawls_active > 0 ||
                            data.snapshots_queued > 0 || data.snapshots_active > 0 ||
                            data.archiveresults_queued > 0 || data.archiveresults_active > 0;
@@ -1859,15 +1881,15 @@
             `Indexing: ${count(data.indexing_active)} active, ${count(data.indexing_queued)} queued.`);
         document.getElementById('metric-indexing').hidden = !(data.indexing_active || data.indexing_queued);
 
+        // Collapsed polls omit the tree (tree=0); keep the hidden DOM as-is.
+        if (!data.active_crawls) return;
+
         updateScreencastPanel(data);
 
         // Render crawl tree
         if (data.active_crawls.length > 0) {
             idleMessage.style.display = 'none';
-            const queuedCrawlsHidden = Number(data.queued_crawls_hidden || 0);
-            const queuedCrawlsNote = queuedCrawlsHidden > 0
-                ? `<div class="progress-overflow-note">${queuedCrawlsHidden} more queued crawl${queuedCrawlsHidden === 1 ? '' : 's'} not shown</div>`
-                : '';
+            const queuedCrawlsNote = renderOverflowNotes(data.hidden_crawls, 'crawl');
             replaceCrawlTree(data.active_crawls.map(c => renderCrawl(c)).join('') + queuedCrawlsNote);
         } else if (hasActivity) {
             idleMessage.style.display = 'none';
@@ -1907,7 +1929,10 @@
         let httpStatus = null;
         // Bypass the browser cache before transmission: identical live polls in
         // other tabs can otherwise wait on its entry lock despite no-store responses.
-        fetch(progressEndpoint, { credentials: 'same-origin', cache: 'no-store' })
+        const omittedTree = isCollapsed;
+        const requestUrl = new URL(progressEndpoint);
+        if (omittedTree) requestUrl.searchParams.set('tree', '0');
+        fetch(requestUrl, { credentials: 'same-origin', cache: 'no-store' })
             .then(response => {
                 httpStatus = response.status;
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -1943,8 +1968,27 @@
             })
             .finally(() => {
                 progressRequestInFlight = false;
+                // Expanded while a tree-less poll was in flight: load the tree now.
+                if (omittedTree && !isCollapsed && pollInterval) fetchProgress();
             });
     }
+
+    // CDP frames arrive faster than the JSON poll. Refresh the visible frame
+    // on its own cheap timer (one local file read per request), never while
+    // collapsed, hidden, or still waiting on the previous frame.
+    const screencastFrameMs = 250;
+    const screencastFrameInterval = setInterval(() => {
+        if (!monitor.isConnected) {
+            clearInterval(screencastFrameInterval);
+            return;
+        }
+        if (isCollapsed || document.hidden || screencastPanel.dataset.mode !== 'frame') return;
+        const currentSrc = screencastPanel.dataset.currentFrameSrc;
+        if (!currentSrc || screencastPanel.dataset.currentFrameKey !== screencastPanel.dataset.desiredFrameKey) return;
+        const nextUrl = new URL(currentSrc, window.location.href);
+        nextUrl.searchParams.set('v', Date.now().toString());
+        loadScreencastFrame(nextUrl.toString(), screencastPanel.dataset.desiredFrameKey);
+    }, screencastFrameMs);
 
     function startPolling() {
         if (pollInterval || !monitor.isConnected) return;
@@ -1977,6 +2021,8 @@
             monitor.classList.remove('collapsed');
             collapseBtn.textContent = 'Hide';
             collapseBtn.setAttribute('aria-expanded', 'true');
+            // Collapsed polls skipped the tree; load it now, not on the next tick.
+            if (pollInterval) fetchProgress();
         }
     }
 

@@ -462,7 +462,8 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         return crawl
 
     @property
-    def output_dir(self) -> Path:
+    def output_dir_candidates(self) -> tuple[Path, Path]:
+        """Current and legacy hyphenated output dirs, computed without touching storage."""
         from archivebox.config import CONSTANTS
         from archivebox.core.models import Snapshot
 
@@ -471,7 +472,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         domain = Snapshot.extract_domain_from_url(first_url) if first_url else "unknown"
 
         output_dir = CONSTANTS.USERS_DIR / self.created_by.username / CONSTANTS.CRAWLS_DIR_NAME / date_str / domain / str(self.id)
-        hyphen_dir = output_dir.with_name(str(uuid.UUID(hex=self.id.hex)))
+        return output_dir, output_dir.with_name(str(uuid.UUID(hex=self.id.hex)))
+
+    @property
+    def output_dir(self) -> Path:
+        output_dir, hyphen_dir = self.output_dir_candidates
         return output_dir if output_dir.exists() or not hyphen_dir.exists() else hyphen_dir
 
     def get_urls_list(self) -> list[str]:

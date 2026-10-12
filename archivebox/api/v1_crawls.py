@@ -1,5 +1,6 @@
 __package__ = "archivebox.api"
 
+import os
 from pathlib import Path
 from hashlib import sha256
 from uuid import UUID
@@ -178,27 +179,41 @@ def crawl_file(request: HttpRequest, crawl_id: str, path: str):
         if not is_owner and permissions not in {PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED}:
             raise HttpError(404, "Crawl not found")
 
-    crawl_root = Path(crawl.output_dir).resolve()
-    file_path = (crawl_root / path).resolve()
-    file_root = crawl_root
-    if path == "chrome_screencast/latest.jpg":
-        crawl_key = sha256(str(crawl_root).encode()).hexdigest()
-        live_root = (Path(get_config(crawl=crawl).TMP_DIR) / "chrome_screencast" / crawl_key).resolve()
-        live_frame = (live_root / "latest.jpg").resolve()
-        if live_frame.is_file() and live_root in live_frame.parents:
-            file_root, file_path = live_root, live_frame
-    if not file_path.is_file() or file_root not in file_path.parents:
-        raise HttpError(404, "Crawl file not found")
-
+    started_at = None
     if path == "chrome_screencast/latest.jpg" and request.GET.get("after"):
         try:
             started_at = float(request.GET["after"])
         except ValueError:
             raise HttpError(400, "Invalid screencast start time")
-        if file_path.stat().st_mtime < started_at:
-            raise HttpError(404, "No frame for this capture yet")
 
-    response = FileResponse(file_path.open("rb"))
+    file = None
+    if path == "chrome_screencast/latest.jpg":
+        # Polled every second while a capture runs: open the local TMP_DIR frame
+        # directly. The hook keys it by path.resolve(CRAWL_DIR), which is lexical
+        # like abspath; try the current then legacy hyphenated crawl dir name
+        # instead of probing (possibly remote) archive storage for which exists.
+        live_root = Path(get_config(crawl=crawl, resolve_plugins=False).TMP_DIR) / "chrome_screencast"
+        for crawl_dir in crawl.output_dir_candidates:
+            try:
+                file = open(live_root / sha256(os.path.abspath(crawl_dir).encode()).hexdigest() / "latest.jpg", "rb")
+                break
+            except FileNotFoundError:
+                continue
+    if file is None:
+        crawl_root = Path(crawl.output_dir).resolve()
+        file_path = (crawl_root / path).resolve()
+        if crawl_root not in file_path.parents:
+            raise HttpError(404, "Crawl file not found")
+        try:
+            file = file_path.open("rb")
+        except (FileNotFoundError, IsADirectoryError, NotADirectoryError):
+            raise HttpError(404, "Crawl file not found")
+
+    if started_at is not None and os.fstat(file.fileno()).st_mtime < started_at:
+        file.close()
+        raise HttpError(404, "No frame for this capture yet")
+
+    response = FileResponse(file)
     response["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
     response["Pragma"] = "no-cache"
     response["Expires"] = "0"
