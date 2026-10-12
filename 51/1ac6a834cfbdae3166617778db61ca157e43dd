@@ -1,0 +1,21 @@
+archivebox/core/admin_snapshots.py
+  s_2b44ee96cc775e::t_504eb13a089ff6 29,1158-1161,1177
+archivebox/core/models.py
+  s_2b44ee96cc775e::t_504eb13a089ff6 4590-4593,4598-4600
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "511ac6a834cfbdae3166617778db61ca157e43dd",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
