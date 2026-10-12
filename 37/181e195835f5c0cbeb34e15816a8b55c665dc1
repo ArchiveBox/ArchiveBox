@@ -1,0 +1,31 @@
+archivebox/cli/rescan.py
+  s_2b44ee96cc775e::t_1cc4c8772b0fae 19,203
+archivebox/core/models.py
+  s_2b44ee96cc775e::t_92daa5ceb380df 57,599,602,1395-1397,2766,2800
+archivebox/crawls/models.py
+  s_a286607305588e::t_ae63d4e997d281 9,474-477
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "37181e195835f5c0cbeb34e15816a8b55c665dc1",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_a286607305588e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf8bf608-099b-4dff-9e7c-f87508f3f76d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
