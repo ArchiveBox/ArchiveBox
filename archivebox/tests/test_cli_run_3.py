@@ -1374,6 +1374,44 @@ class TestRecoverOrchestratorStateRedFailureModes:
         assert _higher_priority_crawl_waiting(str(older.id), []) is True
         assert _higher_priority_crawl_waiting(str(imported.id), []) is False
 
+    def test_running_crawl_does_not_yield_to_older_backlog_of_another_started_crawl(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from archivebox.base_models.models import get_or_create_system_user_pk
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.services.runner import _higher_priority_crawl_waiting
+
+        now = timezone.now()
+        running = Crawl.objects.create(
+            urls="https://blog.sweeting.me",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=now + timedelta(minutes=1),
+        )
+        Snapshot.objects.create(
+            url="https://blog.sweeting.me/next",
+            crawl=running,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=now - timedelta(hours=1),
+        )
+        older = Crawl.objects.create(
+            urls="https://docs.sweeting.me",
+            created_by_id=get_or_create_system_user_pk(),
+            status=Crawl.StatusChoices.STARTED,
+            retry_at=now + timedelta(minutes=1),
+        )
+        Snapshot.objects.create(
+            url="https://docs.sweeting.me/older",
+            crawl=older,
+            status=Snapshot.StatusChoices.QUEUED,
+            retry_at=now - timedelta(hours=8),
+        )
+
+        assert _higher_priority_crawl_waiting(str(running.id), []) is False
+
     def test_crawl_cancel_schedules_children_for_per_snapshot_sealing(self):
         from datetime import timedelta
 

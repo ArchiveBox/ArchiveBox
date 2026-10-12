@@ -2104,7 +2104,11 @@ def _higher_priority_crawl_waiting(crawl_id: str, active_snapshot_ids: list[str]
     from archivebox.core.models import Snapshot
     from archivebox.crawls.models import Crawl
 
-    # Mirrors run_pending_crawls' pass order (policy above _first_due_id).
+    # Mirrors run_pending_crawls' pass order (policy above _first_due_id), but
+    # never yields to mere older backlog of another started crawl: a crawl
+    # exists to keep one browser open across a long run of URLs, and each
+    # switch cost ~30s idle, a browser relaunch, and a solo warmup capture
+    # (measured on cabbage: ~1 snapshot per 3-5 min instead of ~1/min).
     # Only the winning crawl matters here, so pass 1 can skip the within-crawl
     # pick _next_queued_crawl_snapshot_id makes. Owned captures finish in this
     # runner; an expired lease must not make one look like a new admission.
@@ -2117,7 +2121,6 @@ def _higher_priority_crawl_waiting(crawl_id: str, active_snapshot_ids: list[str]
         (active_snapshots.filter(crawl__status=Crawl.StatusChoices.QUEUED), True),
         (Crawl.objects.filter(retry_at__lte=timezone.now(), status=Crawl.StatusChoices.QUEUED), True),
         (active_snapshots.filter(status=Snapshot.StatusChoices.STARTED), False),
-        (active_snapshots, False),
     ):
         candidate_id = _first_due_id(queryset, newest_first=newest_first)
         if candidate_id is not None:
