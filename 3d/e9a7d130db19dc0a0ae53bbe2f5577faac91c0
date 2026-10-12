@@ -1,0 +1,19 @@
+archivebox/templates/core/snapshot.html
+  s_2b44ee96cc775e::t_8d8beb94d79027 1183-1187,1663-1666,1668
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3de9a7d130db19dc0a0ae53bbe2f5577faac91c0",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
