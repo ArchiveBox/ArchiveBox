@@ -396,6 +396,12 @@ def live_progress_view(request, *, authorized_snapshot=None):
             "crawl_id_str",
             "title",
             "status",
+            # A QUEUED row whose hooks already spawned (or ?all_plugins=1) gets
+            # the full payload, whose view_url needs the archive path columns.
+            "fs_version",
+            "timestamp",
+            "bookmarked_at",
+            "created_at",
         )
         # One snapshot budget across displayed crawls: started rows first, then
         # queued. Each (crawl, status) query is a LIMITed walk of the existing

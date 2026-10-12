@@ -1081,6 +1081,41 @@ class TestLiveProgressView:
         assert active_snapshot["all_plugins"][0]["status"] == "started"
         assert active_snapshot["worker_pid"] == pid
 
+    def test_live_progress_renders_queued_snapshot_whose_hooks_already_spawned(
+        self,
+        client,
+        admin_user,
+        snapshot,
+        real_snapshot_hook_projection,
+    ):
+        # The runner spawns hooks before the DB row leaves QUEUED. Such a row
+        # takes the full payload path, so the compact queued query must still
+        # carry every column its view_url needs (fs_version, timestamp, dates).
+        import os
+        import archivebox.machine.models as machine_models
+        from django.utils import timezone
+        from archivebox.core.models import Snapshot
+        from archivebox.machine.models import Process
+
+        machine_models._CURRENT_MACHINE = None
+        process, result = real_snapshot_hook_projection
+        result.delete()
+        process.status = Process.StatusChoices.RUNNING
+        process.pid = os.getpid()
+        process.ended_at = None
+        process.save(update_fields=["status", "pid", "ended_at"])
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.QUEUED, retry_at=timezone.now())
+
+        client.force_login(admin_user)
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+
+        assert response.status_code == 200, response.content[:300]
+        active_crawl = next(crawl for crawl in response.json()["active_crawls"] if crawl["id"] == str(snapshot.crawl_id))
+        active_snapshot = next(item for item in active_crawl["active_snapshots"] if item["id"] == str(snapshot.id))
+        assert active_snapshot["status"] == Snapshot.StatusChoices.QUEUED
+        assert str(snapshot.id).replace("-", "")[-12:] in active_snapshot["view_url"]
+        assert active_snapshot["all_plugins"][0]["label"] == "hashes"
+
     def test_live_progress_filters_process_query_to_displayed_crawls_without_hiding_older_live_hooks(
         self,
         client,
