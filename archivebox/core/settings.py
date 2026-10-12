@@ -322,17 +322,12 @@ CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
 ### Security Settings
 ################################################################################
 
-# Prefer the adopted DB secret; retain the file fallback until DB commit.
-# Persist SECRET_KEY on first use. Data dirs created before init wrote a
-# SECRET_KEY line — or those whose ArchiveBox.conf was hand-edited to remove
-# it — would otherwise sign session cookies with a fresh random key on every
-# boot (because the pydantic field's default_factory regenerates), logging
-# users out on every server restart. ``archivebox init`` writes this for new
-# collections; this branch is the recovery path for the rest.
-#
-# We can't check ``CONFIG.SECRET_KEY`` for "missing" — pydantic's
-# default_factory already filled it with a fresh random value. We have to
-# inspect the conf file directly to know whether the value will survive.
+# Load the adopted DB key before Django's app registry is ready. Startup
+# reconciliation moves legacy file keys into Machine.config without rotation.
+# For a new collection, persist the generated key temporarily until the DB is
+# initialized; reconciliation removes the file entry only after DB commit.
+# Check the persisted stores explicitly: CONFIG.SECRET_KEY already contains
+# a random default when neither store has a key.
 SECRET_KEY = CONFIG.SECRET_KEY
 _secret_in_db = None
 try:

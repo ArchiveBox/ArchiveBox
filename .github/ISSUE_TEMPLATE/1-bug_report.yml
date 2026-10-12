@@ -166,12 +166,10 @@ body:
     id: configuration
     attributes:
       label: ArchiveBox Configuration
-      description: "Please share your full `data/ArchiveBox.conf` file here."
+      description: "Please share your `data/ArchiveBox.conf` file here, with passwords, API keys, and other credentials redacted."
       render: shell
       placeholder: |
         [SERVER_CONFIG]
-        SECRET_KEY = "*********<redact any secrets/passwords>************"
-
         WGET_RESTRICT_FILE_NAMES=windows
         USE_SYSTEM_WGET=true
         CHECK_SSL_VALIDITY=false
