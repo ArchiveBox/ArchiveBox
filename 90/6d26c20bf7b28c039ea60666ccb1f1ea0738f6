@@ -1,0 +1,23 @@
+archivebox/core/context_processors.py
+  s_6e5f9698a9278d::t_552a25ee5b2536 29
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_6e5f9698a9278d::t_84f6e01f429f55 1827-1829
+archivebox/tests/test_progress_archive_size.py
+  s_6e5f9698a9278d::t_5d13da616ccb31 12,20,39,52-53,55-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "906d26c20bf7b28c039ea60666ccb1f1ea0738f6",
+  "prompts": {},
+  "sessions": {
+    "s_6e5f9698a9278d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12eff-7add-7c91-bee8-e43e4ab16a9c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
