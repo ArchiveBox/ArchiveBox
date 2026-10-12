@@ -485,8 +485,11 @@ class CrawlRunner:
                 self._initial_snapshot_admitted = True
                 run_state_loaded = True
                 snapshot_ids = await sync_to_async(self.load_run_state, thread_sensitive=True)()
-                if not self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 0):
-                    self._observed_snapshot_cost = resource_admission.observed_snapshot_cost
+                # Reuse the cost this process already learned even when a limit
+                # is configured: the limit caps concurrency, it is not a reason
+                # to re-measure. Otherwise every crawl start (switch, restart,
+                # new submission) ran a solo warmup capture at half throughput.
+                self._observed_snapshot_cost = resource_admission.observed_snapshot_cost
                 max_concurrent_snapshots = resource_admission.snapshot_limit(int(self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 0)))
                 self.max_concurrent_snapshots = max_concurrent_snapshots
                 self.snapshot_semaphore = asyncio.Semaphore(max_concurrent_snapshots)
@@ -685,11 +688,7 @@ class CrawlRunner:
                 self._memory_peak_cost,
                 int((resource_admission.observed_snapshot_cost or 0) * 0.9),
             )
-            self._observed_snapshot_cost = (
-                max(self._observed_snapshot_cost or 0, self._memory_peak_cost)
-                if self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 0)
-                else resource_admission.observed_snapshot_cost
-            )
+            self._observed_snapshot_cost = resource_admission.observed_snapshot_cost
             logging.getLogger(__name__).info(
                 "Snapshot admission: concurrency limit=%s, observed memory growth=%s bytes",
                 self.max_concurrent_snapshots,
