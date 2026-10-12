@@ -12,7 +12,10 @@ urlpatterns = [
     path("icon/<slug:plugin>/<slug:feed>/", views.brand_icon, name="icon"),
     re_path(rf"^runs/(?P<run_id>{UUID})/$", views.run_detail, name="run"),
     re_path(rf"^runs/(?P<run_id>{UUID})/items\.json$", views.run_json, name="run-json"),
+    re_path(rf"^runs/(?P<run_id>{UUID})/activity/$", views.run_activity, name="run-activity"),
+    re_path(rf"^runs/(?P<run_id>{UUID})/logs/(?P<name>[a-z0-9.-]+)/$", views.run_log, name="run-log"),
     re_path(rf"^(?P<source_id>{UUID})/$", views.detail, name="detail"),
+    re_path(rf"^(?P<source_id>{UUID})/activity/$", views.source_activity, name="source-activity"),
     re_path(rf"^(?P<source_id>{UUID})/edit/$", views.configure, name="edit"),
-    re_path(rf"^(?P<source_id>{UUID})/(?P<action>[a-z]+)/$", views.action, name="action"),
+    re_path(rf"^(?P<source_id>{UUID})/(?P<action>[a-z_]+)/$", views.action, name="action"),
 ]

@@ -1,0 +1,1 @@
+{% for session in run.diagnostics.sessions %}<a class="session-link" href="/admin/agent/?session={{ session|urlencode }}">AI session {{ forloop.counter }} ↗</a>{% empty %}<span class="muted">{% if activity_loaded or run.diagnostics %}No AI session recorded{% else %}Loading activity…{% endif %}</span>{% endfor %}

@@ -1,0 +1,37 @@
+<p class="muted" data-activity-status role="status">Loading run activity…</p>
+<script>
+(() => {
+  const region = document.querySelector('[data-activity-url]');
+  const status = document.querySelector('[data-activity-status]');
+  if (!region) return;
+  let timer, pending, stopped = false;
+  function renderPending() {
+    if (!pending || region.contains(document.activeElement) || region.querySelector('details[open]')) return;
+    const html = pending;
+    pending = null;
+    region.innerHTML = html;
+  }
+  region.addEventListener('focusout', () => setTimeout(renderPending, 0));
+  region.addEventListener('toggle', renderPending, true);
+  async function update() {
+    if (stopped) return;
+    if (document.hidden) { timer = setTimeout(update, 5000); return; }
+    try {
+      const response = await fetch(region.dataset.activityUrl, {headers: {'Accept': 'application/json'}});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      if (stopped) return;
+      // Templates escape all plugin text; this is same-origin rendered HTML.
+      pending = result.html;
+      renderPending();
+      document.querySelectorAll('[data-discovery-action]').forEach(button => { button.disabled = result.active; });
+      status.textContent = result.active ? 'Activity updates every 5 seconds.' : 'Activity is up to date.';
+      if (result.active) timer = setTimeout(update, 5000);
+    } catch (error) {
+      status.textContent = `Activity unavailable (${error.message}). Refresh to retry.`;
+    }
+  }
+  window.addEventListener('pagehide', () => { stopped = true; clearTimeout(timer); });
+  update();
+})();
+</script>

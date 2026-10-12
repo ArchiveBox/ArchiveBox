@@ -501,6 +501,14 @@
                                     {% for model in app.models %}
                                         {% if model.object_name == "Snapshot" %}
                                             {% include "admin/index_model_card.html" with model=model tone="main" %}
+                                            {% if request.user.is_superuser %}
+                                            <article class="abx-admin-card abx-admin-card--importers abx-admin-card--main">
+                                                <a class="abx-admin-card__main abx-admin-card__main--link" href="{% url 'importers:index' %}">
+                                                    <span class="abx-admin-card__icon" aria-hidden="true"><svg viewBox="0 0 24 24" role="presentation" focusable="false"><path d="M12 3v12m-5-5 5 5 5-5M4 15v6h16v-6" /></svg></span>
+                                                    <span class="abx-admin-card__copy"><span class="abx-admin-card__title-row"><strong class="abx-admin-card__title">{% translate "Importers" %}</strong></span><span class="abx-admin-card__text">Connect accounts and discover pages to archive.</span></span>
+                                                </a>
+                                            </article>
+                                            {% endif %}
                                         {% endif %}
                                     {% endfor %}
                                 {% endfor %}

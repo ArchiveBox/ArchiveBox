@@ -32,7 +32,18 @@ run history; reset before changing an account or source with committed progress.
 
 Discovery success and capture success are separate. Each successful nonempty
 batch submits normal URL input to an ordinary Crawl using the selected Persona,
-tags, and `ONLY_NEW`. Follow the capture link for actual archive results.
+tags, and `ONLY_NEW`. Each run links to its Crawl and filtered snapshot list;
+linked captures may still be queued after discovery finishes. Source and run pages
+link to their Persona and all recorded AI sessions. Run details include timestamps,
+latest recorded agent activity, failures, and authenticated private logs. History
+is paginated; bounded log reads are loaded separately from the initial HTML.
+
+**Learned code** shows the absolute server directory containing the adapter and
+Browser Harness / Stagehand workspace. You can optionally manage it with your own
+version control. **Reset learned code** uses the existing worker and excludes
+concurrent discovery; it removes generated state while preserving a root `.git`,
+progress, captures, Persona cookies, and run history. The next browser run learns
+again. **Reset progress** is a separate action.
 
 ## Plugin contract
 

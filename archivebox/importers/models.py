@@ -48,6 +48,7 @@ class ImporterRun(models.Model):
         CHECK = "check", "Check access"
         PREVIEW = "preview", "Preview"
         IMPORT = "import", "Import"
+        RESET_CODE = "reset_code", "Reset learned code"
 
     id = CompactUUIDField(primary_key=True, default=uuid7, editable=False)
     source = models.ForeignKey(ImporterSource, related_name="runs", on_delete=models.CASCADE)

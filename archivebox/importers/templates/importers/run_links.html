@@ -1,0 +1,4 @@
+{% if run.crawl_id %}
+<a href="{% url 'admin:crawls_crawl_change' run.crawl_id %}">Crawl {{ run.crawl_id|stringformat:"s"|slice:":8" }} · {{ run.crawl.get_status_display }}</a><br>
+<a href="{% url 'admin:core_snapshot_changelist' %}?crawl_id={{ run.crawl_id }}">View snapshots →</a>
+{% elif run.action == 'import' %}<span class="muted">No crawl created</span>{% else %}<span class="muted">No captures requested</span>{% endif %}

@@ -4,19 +4,24 @@ from pathlib import Path
 from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.db.models import Prefetch
 from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from archivebox.config.common import get_request_config
+from archivebox.config.constants import CONSTANTS
 from archivebox.core.admin_site import archivebox_admin
 from archivebox.crawls.schedule_util import next_run_for_schedule
 from archivebox.plugins.discovery import get_plugin_catalog
 
 from .catalog import get_importer, get_importers
+from .diagnostics import diagnostics, log_path
 from .forms import ImporterSourceForm
 from .models import ImporterRun, ImporterSource
 from .service import ACTIVE_STATUSES, enqueue, pause
@@ -47,11 +52,19 @@ def index(request):
     for definition in definitions.values():
         group = providers.setdefault(definition.provider, {"name": definition.provider, "definition": definition, "feeds": []})
         group["feeds"].append(definition)
-    sources = list(
-        ImporterSource.objects.select_related("persona").prefetch_related(
-            Prefetch("runs", queryset=ImporterRun.objects.order_by("-created_at", "-id")[:1], to_attr="latest_runs"),
+    sources = Paginator(
+        ImporterSource.objects.select_related("persona")
+        .defer("settings", "checkpoint", "account")
+        .prefetch_related(
+            Prefetch(
+                "runs",
+                queryset=ImporterRun.objects.defer("request", "result").order_by("-created_at", "-id")[:1],
+                to_attr="latest_runs",
+            ),
         ),
-    )
+        50,
+    ).get_page(request.GET.get("page"))
+    sources.object_list = list(sources.object_list)
     for source in sources:
         source.definition = definitions.get((source.plugin, source.feed))
         source.latest_run = next(iter(source.latest_runs), None)
@@ -105,8 +118,8 @@ def configure(request, plugin=None, feed=None, source_id=None):
 def detail(request, source_id):
     source = get_object_or_404(ImporterSource.objects.select_related("persona"), pk=source_id)
     definition = get_importers().get((source.plugin, source.feed))
-    runs = list(source.runs.select_related("crawl")[:20])
-    active = source.runs.filter(status__in=ACTIVE_STATUSES).first()
+    runs = run_page(source_id, request.GET.get("page"))
+    active = source.runs.filter(status__in=ACTIVE_STATUSES).exists()
     return page(
         request,
         "importers/detail.html",
@@ -116,6 +129,8 @@ def detail(request, source_id):
             "definition": definition,
             "runs": runs,
             "active": active,
+            "source_url": source.get_absolute_url(),
+            "state_path": CONSTANTS.DATA_DIR / "importers" / str(source.pk) / "state",
         },
     )
 
@@ -150,8 +165,64 @@ def action(request, source_id, action):
 @importer_admin
 @require_GET
 def run_detail(request, run_id):
-    run = get_object_or_404(ImporterRun.objects.select_related("source", "crawl"), pk=run_id)
+    run = get_object_or_404(ImporterRun.objects.select_related("source__persona", "crawl").defer("request"), pk=run_id)
     return page(request, "importers/run.html", {"title": run.get_action_display(), "run": run, "active": run.status in ACTIVE_STATUSES})
+
+
+@importer_admin
+@require_GET
+def source_activity(request, source_id):
+    # Materialize bounded DB reads before accessing files; never hold a cursor
+    # across log reads, and keep them out of the initial HTML response entirely.
+    source = get_object_or_404(ImporterSource.objects.only("id"), pk=source_id)
+    runs = run_page(source_id, request.GET.get("page"))
+    active = source.runs.filter(status__in=ACTIVE_STATUSES).exists()
+    for run in runs:
+        run.diagnostics = diagnostics(run)
+    return JsonResponse(
+        {
+            "html": render_to_string(
+                "importers/history.html",
+                {"runs": runs, "activity_loaded": True, "source_url": reverse("importers:detail", args=[source_id])},
+            ),
+            "active": active,
+        },
+    )
+
+
+def run_page(source_id, number):
+    runs = Paginator(ImporterRun.objects.filter(source_id=source_id).select_related("crawl").defer("request", "result"), 20).get_page(
+        number,
+    )
+    runs.object_list = list(runs.object_list)
+    return runs
+
+
+@importer_admin
+@require_GET
+def run_activity(request, run_id):
+    run = get_object_or_404(ImporterRun.objects.select_related("source", "crawl").defer("request"), pk=run_id)
+    run.diagnostics = diagnostics(run)
+    return JsonResponse(
+        {
+            "html": render_to_string("importers/run_body.html", {"run": run}),
+            "active": run.status in ACTIVE_STATUSES,
+        },
+    )
+
+
+@importer_admin
+@require_GET
+def run_log(request, run_id, name):
+    run = get_object_or_404(ImporterRun.objects.only("source_id"), pk=run_id)
+    try:
+        stream = log_path(run, name).open("rb")
+    except (ValueError, OSError) as error:
+        raise Http404 from error
+    response = FileResponse(stream, content_type="text/plain; charset=utf-8")
+    response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @importer_admin

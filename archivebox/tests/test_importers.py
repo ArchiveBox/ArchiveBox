@@ -75,14 +75,18 @@ def test_daemon_discovers_work_after_capture_dispatch_stops_ticking(admin_client
 
 
 def test_import_preview_and_run_preserve_checkpoint_and_queue_real_crawl(admin_client, import_site):
+    from django.urls import reverse
+
     from archivebox.crawls.models import Crawl
     from archivebox.importers.models import ImporterRun, ImporterSource
     from archivebox.importers.service import run_next_importer
+    from archivebox.personas.models import Persona
 
     _, url = import_site
+    persona = Persona.get_or_create_named("Importer navigation")
     response = admin_client.post(
         "/admin/importers/new/importer_rss/feed/",
-        {"name": "Reading list", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50", "schedule": ""},
+        {"name": "Reading list", "persona": persona.pk, "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50", "schedule": ""},
         HTTP_HOST=ADMIN_TEST_HOST,
     )
     assert response.status_code == 302
@@ -112,6 +116,22 @@ def test_import_preview_and_run_preserve_checkpoint_and_queue_real_crawl(admin_c
     assert snapshots[0].url == f"{url}/article.html"
     assert snapshots[0].title == "Imported article"
     assert snapshots[0].archiveresult_set.filter(plugin="wget", status="succeeded").exists()
+
+    persona_url = reverse("admin:personas_persona_change", args=[persona.pk])
+    crawl_url = reverse("admin:crawls_crawl_change", args=[run.crawl_id])
+    snapshots_url = reverse("admin:core_snapshot_changelist") + f"?crawl_id={run.crawl_id}"
+    for path in (source.get_absolute_url(), reverse("importers:run", args=[run.pk])):
+        response = admin_client.get(path, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        html = response.content.decode()
+        assert f'href="{persona_url}"' in html
+        assert f'href="{crawl_url}"' in html
+        assert f'href="{snapshots_url}"' in html
+        assert 'http-equiv="refresh"' not in html
+    activity = admin_client.get(reverse("importers:run-activity", args=[run.pk]), HTTP_HOST=ADMIN_TEST_HOST)
+    assert activity.status_code == 200
+    assert activity.json()["active"] is False
+    assert "No AI session recorded" in activity.json()["html"]
 
     admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST)
     assert run_next_importer()
@@ -479,3 +499,131 @@ def test_malformed_importer_ids_are_not_server_errors(admin_client):
     for suffix in ("", "edit/", "import/"):
         path = f"/admin/importers/{'-' * 32}/{suffix}"
         assert admin_client.get(path, HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
+
+
+def test_reset_learned_code_uses_worker_and_preserves_progress(admin_client, import_site):
+    from archivebox.config.constants import CONSTANTS
+    from archivebox.importers.models import ImporterSource
+    from archivebox.importers.service import run_next_importer
+
+    _, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Reset code", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Reset code")
+    admin_client.post(f"{source.get_absolute_url()}import/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert run_next_importer()
+    source.refresh_from_db()
+    checkpoint = source.checkpoint
+    imported = source.runs.get()
+    assert imported.status == "succeeded", imported.message
+    assert imported.crawl_id
+    root = CONSTANTS.DATA_DIR / "importers" / str(source.pk)
+    state = root / "state"
+    (state / "harness").mkdir(parents=True)
+    (state / "harness" / "notes.txt").write_text("Local notes to reset")
+    # A user's independent version control and run history must survive reset.
+    import subprocess
+
+    subprocess.run(["git", "init", "--quiet", str(state)], check=True)
+    history = root / str(imported.pk) / "harness.log"
+    history.write_text("Previous run log")
+    html = admin_client.get(source.get_absolute_url(), HTTP_HOST=ADMIN_TEST_HOST).content.decode()
+    assert str(state) in html
+    assert "Reset learned code" in html
+    assert "version control" in html
+
+    endpoint = f"{source.get_absolute_url()}reset_code/"
+    response = admin_client.post(endpoint, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 302
+    reset = source.runs.get(action="reset_code")
+    assert reset.status == "queued"
+    assert (state / "harness" / "notes.txt").exists()
+    # A second action cannot start while the reset owns this source.
+    admin_client.post(f"{source.get_absolute_url()}preview/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert source.runs.filter(status="queued").count() == 1
+    assert run_next_importer()
+    reset.refresh_from_db()
+    source.refresh_from_db()
+    assert reset.status == "succeeded", reset.message
+    assert not (state / "harness").exists()
+    assert (state / ".git" / "HEAD").is_file()
+    assert history.read_text() == "Previous run log"
+    assert source.checkpoint == checkpoint
+    assert source.runs.get(pk=imported.pk).crawl_id == imported.crawl_id
+    assert reset.crawl_id is None
+
+
+def test_run_activity_links_recorded_sessions_and_protects_logs(admin_client, import_site, tmp_path):
+    import json
+    from pathlib import Path
+    from django.test import Client
+    from django.urls import reverse
+    from archivebox.importers.diagnostics import run_directory
+    from archivebox.importers.models import ImporterSource
+
+    _, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Run activity", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Run activity")
+    admin_client.post(f"{source.get_absolute_url()}check/", HTTP_HOST=ADMIN_TEST_HOST)
+    run = source.runs.get()
+    directory = run_directory(run)
+    directory.mkdir(parents=True)
+    events = json.loads((Path(__file__).parent / "fixtures/importers/opencode_sessions.json").read_text())
+    for name, event in events.items():
+        (directory / name).write_text(json.dumps(event) + "\n")
+    for endpoint in (reverse("importers:source-activity", args=[source.pk]), reverse("importers:run-activity", args=[run.pk])):
+        response = admin_client.get(endpoint, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert response.json()["active"] is True
+        for event in events.values():
+            assert f"/admin/agent/?session={event['sessionID']}" in response.json()["html"]
+        assert Client().get(endpoint, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    name = "learning-1.jsonl"
+    endpoint = reverse("importers:run-log", args=[run.pk, name])
+    response = admin_client.get(endpoint, HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    assert b"".join(response.streaming_content) == (directory / name).read_bytes()
+    assert Client().get(endpoint, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    private = tmp_path / "not-a-run-log"
+    private.write_text("Not served")
+    (directory / "failure.log").symlink_to(private)
+    for name in ("failure.log", "request.json"):
+        assert admin_client.get(reverse("importers:run-log", args=[run.pk, name]), HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
+
+
+def test_importer_navigation_table_and_paginated_history(admin_client, import_site):
+    import re
+    from archivebox.importers.models import ImporterSource
+
+    _, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "History", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="History")
+    for _ in range(21):
+        assert admin_client.post(f"{source.get_absolute_url()}check/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+        assert admin_client.post(f"{source.get_absolute_url()}pause/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    admin_client.post(f"{source.get_absolute_url()}check/", HTTP_HOST=ADMIN_TEST_HOST)
+    html = admin_client.get(source.get_absolute_url(), HTTP_HOST=ADMIN_TEST_HOST).content.decode()
+    assert html.split("<tbody>")[1].split("</tbody>")[0].count("<tr>") == 20
+    response = admin_client.get(f"{source.get_absolute_url()}activity/?page=2", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.json()["active"] is True  # Active run may be on another page.
+    assert response.json()["html"].split("<tbody>")[1].split("</tbody>")[0].count("<tr>") == 2
+    html = admin_client.get("/admin/importers/", HTTP_HOST=ADMIN_TEST_HOST).content.decode()
+    assert f'href="{source.get_absolute_url()}"' in html.split("<tbody>")[1].split("</tbody>")[0]
+    home = admin_client.get("/admin/", HTTP_HOST=ADMIN_TEST_HOST).content.decode()
+    row = re.search(r'abx-admin-flow__row--child">(.*?)abx-admin-flow__row--grandchild', home, re.S).group(1)
+    assert 'href="/admin/core/snapshot/"' in row
+    assert 'href="/admin/importers/"' in row

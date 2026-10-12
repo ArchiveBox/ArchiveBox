@@ -2,6 +2,7 @@
 
 import json
 import logging
+import shutil
 import subprocess
 import threading
 import time
@@ -38,7 +39,7 @@ def enqueue(source: ImporterSource, action: str) -> ImporterRun:
             # checkpoint. This is a short DB-only write, including on SQLite.
             ImporterSource.objects.filter(pk=source.pk).update(name=F("name"))
             source.refresh_from_db()
-            if definition.auth == "persona" and not source.persona_id:
+            if action != ImporterRun.Action.RESET_CODE and definition.auth == "persona" and not source.persona_id:
                 raise ValueError("Select a persona before running this importer.")
             request = {
                 "version": 1,
@@ -223,6 +224,26 @@ def run_next_importer(stop_event=None) -> bool:
     ):
         return False
     try:
+        if run.action == ImporterRun.Action.RESET_CODE:
+            # The active-run constraint excludes discovery while its state is
+            # removed. Filesystem work happens outside any DB transaction.
+            state = CONSTANTS.DATA_DIR / "importers" / str(run.source_id) / "state"
+            if state.is_symlink():
+                raise ValueError("The learned code directory is a symlink; reset it on the server directly.")
+            if state.exists():
+                for path in state.iterdir():
+                    if path.name == ".git":
+                        continue
+                    if path.is_dir() and not path.is_symlink():
+                        shutil.rmtree(path)
+                    else:
+                        path.unlink()
+            ImporterRun.objects.filter(pk=run.pk).update(
+                status=ImporterRun.Status.SUCCEEDED,
+                message="Learned code reset. The next browser run will learn again. Progress, captures and run history are unchanged.",
+                finished_at=timezone.now(),
+            )
+            return True
         get_importer(run.source.plugin, run.source.feed)
         catalog = get_plugin_catalog()
         # Optional host commands own persona/framework setup so standalone

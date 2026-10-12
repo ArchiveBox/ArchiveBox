@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from archivebox.importers.models import ImporterSource
+from archivebox.importers.models import ImporterRun, ImporterSource
 from archivebox.importers.service import enqueue, enqueue_due, recover_interrupted, run_next_importer
 
 
@@ -9,7 +9,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--source", help="Configured importer source UUID")
-        parser.add_argument("--action", choices=["check", "preview", "import"], default="import")
+        parser.add_argument("--action", choices=ImporterRun.Action.values, default="import")
         parser.add_argument("--due", action="store_true", help="Also enqueue due schedules")
         parser.add_argument("--once", action="store_true", help="Process at most one queued run")
 
