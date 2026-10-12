@@ -1,0 +1,21 @@
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_2b44ee96cc775e::t_75ce13cb82d21d 1053-1058,1153,1271,1284-1300,1323-1324,1611,1614-1618,1972-1973,2041
+archivebox/tests/test_ui_live_progress.py
+  s_2b44ee96cc775e::t_75ce13cb82d21d 1254-1371
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "63c556558da219e0d51970c40a97b59eb581d30f",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
