@@ -203,6 +203,7 @@ class CrawlRunner:
         interactive_interrupts: bool = False,
         config_overrides: dict[str, Any] | None = None,
         schedule_all_crawls: bool = False,
+        wait_for_resources: bool = True,
     ):
         self.crawl = crawl
         self.bus = create_bus(name=_bus_name("ArchiveBox", str(crawl.id)), total_timeout=3600.0)
@@ -223,6 +224,7 @@ class CrawlRunner:
         MachineService(self.bus)
         self.process_discovered_snapshots_inline = process_discovered_snapshots_inline
         self.schedule_all_crawls = schedule_all_crawls
+        self.wait_for_resources = wait_for_resources
         self._scheduler_yielded = False
         self.show_progress = show_progress
         self.interactive_interrupts = interactive_interrupts
@@ -456,8 +458,7 @@ class CrawlRunner:
             raise_on_first_signal=False,
         ):
             try:
-                if await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(self.crawl):
-                    self._resource_deferred = True
+                if not await self.wait_for_resource_admission():
                     return
                 # Startup and its first snapshot are one admission. Browser
                 # startup can itself cause reclaim; checking again immediately
@@ -502,8 +503,22 @@ class CrawlRunner:
                 if run_state_loaded:
                     await sync_to_async(project_abxpkg_derived_cache_to_db, thread_sensitive=True)(self.base_config.get("ABXPKG_LIB_DIR"))
                     await sync_to_async(self.finalize_run_state, thread_sensitive=True)()
-            if self._user_aborted:
-                raise KeyboardInterrupt
+                if self._user_aborted:
+                    raise KeyboardInterrupt
+
+    async def wait_for_resource_admission(self) -> bool:
+        # Foreground callers retain this bus and its observers while waiting.
+        # Collection scheduling instead returns deferred work after cleanup so
+        # the outer scheduler can reconsider all crawls using its normal order.
+        while True:
+            if await self.crawl_is_cancelled() or (await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl):
+                return False
+            self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(self.crawl)
+            if not self._resource_deferred:
+                return True
+            if not self.wait_for_resources or self.schedule_all_crawls:
+                return False
+            await asyncio.sleep(RESOURCE_RECHECK_SECONDS)
 
     async def enqueue_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         if self._resource_deferred or self._scheduler_yielded:
@@ -585,8 +600,12 @@ class CrawlRunner:
                     raise ExceptionGroup("One or more snapshot tasks failed", task_errors)
                 if stop_scheduling:
                     return
+                if self._resource_deferred and not await self.wait_for_resource_admission():
+                    return
                 if enqueue_projected:
                     await self.enqueue_pending_snapshots_from_projection()
+                if self._resource_deferred and self.wait_for_resources and not self.schedule_all_crawls:
+                    continue
                 if not self.snapshot_tasks:
                     return
                 continue
@@ -1108,19 +1127,24 @@ class CrawlRunner:
             if event.event_id != self.root_crawl_start_event_id:
                 return
             if self.initial_snapshot_ids is not None:
-                remaining_snapshot_ids = iter(snapshot_ids)
+                next_snapshot = 0
                 while True:
                     slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
-                    batch = list(zip(range(slots), remaining_snapshot_ids, strict=False))
+                    batch = snapshot_ids[next_snapshot : next_snapshot + slots]
                     if not batch:
                         return
-                    for _slot, snapshot_id in batch:
+                    for snapshot_id in batch:
                         if await self.crawl_is_cancelled():
                             return
                         if await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl:
                             return
                         await self.enqueue_snapshot(snapshot_id)
+                        if self._resource_deferred:
+                            break
+                        next_snapshot += 1
                     await self.wait_for_snapshot_tasks(enqueue_projected=False)
+                    if self._resource_deferred:
+                        return
             else:
                 slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
                 for snapshot_id in snapshot_ids[:slots]:
@@ -1435,41 +1459,24 @@ def _run_crawl_locked(
     def run_in_current_thread() -> None:
         close_old_connections()
         try:
-            remaining_ids = snapshot_ids
-            while True:
-                raise_if_shutdown_requested()
-                crawl = Crawl.objects.get(id=crawl_id)
-                runner = CrawlRunner(
-                    crawl,
-                    snapshot_ids=remaining_ids,
-                    selected_plugins=selected_plugins,
-                    process_discovered_snapshots_inline=process_discovered_snapshots_inline,
-                    show_progress=show_progress,
-                    interactive_interrupts=interactive_interrupts,
-                    config_overrides=config_overrides,
-                    schedule_all_crawls=schedule_all_crawls,
-                )
-                asyncio.run(runner.run())
-                if not runner._resource_deferred or not wait_for_resources:
-                    return
-                # The daemon returns durable deferred work to its scheduler.
-                # A foreground invocation must wait, not report success while
-                # its extraction is still queued. The event bus and all active
-                # hooks are finalized before waiting; no DB transaction spans it.
+            raise_if_shutdown_requested()
+            crawl = Crawl.objects.get(id=crawl_id)
+            runner = CrawlRunner(
+                crawl,
+                snapshot_ids=snapshot_ids,
+                selected_plugins=selected_plugins,
+                process_discovered_snapshots_inline=process_discovered_snapshots_inline,
+                show_progress=show_progress,
+                interactive_interrupts=interactive_interrupts,
+                config_overrides=config_overrides,
+                schedule_all_crawls=schedule_all_crawls,
+                wait_for_resources=wait_for_resources,
+            )
+            asyncio.run(runner.run())
+            if runner._resource_deferred and wait_for_resources and schedule_all_crawls:
+                # The foreground collection loop reconsiders priority after
+                # cleanup; a daemon leaves the retry time to its scheduler.
                 time.sleep(RESOURCE_RECHECK_SECONDS)
-                if schedule_all_crawls:
-                    return  # Reconsider collection priority on the next pass.
-                crawl.refresh_from_db(fields=["status"])
-                if crawl.status not in Crawl.RUNNABLE_STATES:
-                    return
-                if remaining_ids is not None:
-                    from archivebox.core.models import Snapshot
-
-                    remaining_ids = list(
-                        crawl.snapshot_set.filter(id__in=remaining_ids, status__in=Snapshot.RUNNABLE_STATES).values_list("id", flat=True),
-                    )
-                    if not remaining_ids:
-                        return
         finally:
             close_old_connections()
 
