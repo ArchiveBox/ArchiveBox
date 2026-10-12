@@ -42,7 +42,15 @@ def _live_progress_plugin_names() -> tuple[frozenset[str], frozenset[str]]:
 
 
 def live_progress_view(request, *, authorized_snapshot=None):
-    """Simple JSON endpoint for live progress status - used by admin progress monitor."""
+    """Read-only live progress; keep the server-side request below 100 ms.
+
+    Every caller, including snapshot replay, must use bounded DB reads and
+    cached metadata only. Never walk, stat, open, or reconcile archive/persona
+    files here, probe Supervisor, or perform network/subprocess work. Captures
+    publish their state to the DB; file existence and freshness belong to the
+    separate output/image request. Do not scan history or rebuild inventories
+    in this one-second polling path; expensive totals belong off the request.
+    """
     try:
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl

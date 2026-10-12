@@ -70,6 +70,8 @@ urlpatterns = [
     path("accounts/login/", RedirectView.as_view(url="/admin/login/", query_string=True)),
     path("accounts/logout/", RedirectView.as_view(url="/admin/logout/", query_string=True)),
     path("accounts/", include("django.contrib.auth.urls")),
+    # Polling contract: read-only DB/cache, <100 ms, no archive/persona file I/O
+    # or reconciliation. Keep this route on the shared live_progress_view.
     path("progress.json", live_progress_view, name="live_progress"),
     path("admin/", archivebox_admin.urls),
     path("api/", include("archivebox.api.urls"), name="api"),

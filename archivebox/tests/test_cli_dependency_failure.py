@@ -17,6 +17,12 @@ def test_add_preserves_failed_dependency_and_captures_healthy_plugin(initialized
     assert installed.returncode != 0
     assert "BinaryInstallError:" in installed.stderr
     assert missing_binary.name in installed.stderr
+    with use_archivebox_db(initialized_archive):
+        installs = list(Process.objects.filter(process_type=Process.TypeChoices.BINARY, binary__name="missing-yt-dlp"))
+        assert installs
+        assert all(
+            process.status == Process.StatusChoices.EXITED and process.exit_code == 1 and process.ended_at for process in installs
+        ), [(str(process.id), process.status, process.exit_code, process.ended_at) for process in installs]
     content = "<html><body>Healthy ArchiveBox capture despite missing yt-dlp.</body></html>"
     httpserver.expect_request("/index.html").respond_with_data(content, content_type="text/html")
     result = run_archivebox_cmd(
@@ -43,4 +49,6 @@ def test_add_preserves_failed_dependency_and_captures_healthy_plugin(initialized
         assert (snapshot.output_dir / wget.output_str).read_text() == content
         installs = Process.objects.filter(process_type=Process.TypeChoices.BINARY, binary__name="missing-yt-dlp")
         assert installs.exists()
-        assert all(process.status == Process.StatusChoices.EXITED and process.exit_code == 1 and process.ended_at for process in installs)
+        assert all(
+            process.status == Process.StatusChoices.EXITED and process.exit_code == 1 and process.ended_at for process in installs
+        ), list(installs.values("id", "status", "exit_code", "started_at", "ended_at", "cmd", "stderr"))

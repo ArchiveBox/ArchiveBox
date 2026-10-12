@@ -269,23 +269,14 @@ def project_abxpkg_derived_cache_to_db(lib_dir: Path | str | None) -> None:
             )
             previous_projection = (
                 binary.status,
-                binary.abspath,
-                binary.version,
-                binary.sha256,
                 binary.binprovider,
             )
-            binary.abspath = installed_abspath
-            binary.version = version
-            binary.sha256 = sha256
             binary.binproviders = provider_name or resolved_provider_name or binary.binproviders or "env"
             binary.binprovider = resolved_provider_name or provider_name or binary.binprovider
             binary.status = Binary.StatusChoices.INSTALLED
             binary.retry_at = None
             binary.save(
                 update_fields=[
-                    "abspath",
-                    "version",
-                    "sha256",
                     "binproviders",
                     "binprovider",
                     "status",
@@ -296,9 +287,6 @@ def project_abxpkg_derived_cache_to_db(lib_dir: Path | str | None) -> None:
 
             current_projection = (
                 binary.status,
-                binary.abspath,
-                binary.version,
-                binary.sha256,
                 binary.binprovider,
             )
             if current_projection == previous_projection:

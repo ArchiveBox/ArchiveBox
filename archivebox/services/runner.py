@@ -213,7 +213,7 @@ class CrawlRunner:
         )
         register_sonic_daemon_event_handler(self.bus)
         PersistedProcessService(self.bus)
-        ArchiveBoxBinaryService(self.bus)
+        self.binary_process_service = ArchiveBoxBinaryService(self.bus)
         BinaryService(self.bus)
         TagService(self.bus)
         CrawlService(self.bus, crawl_id=str(crawl.id))
@@ -475,6 +475,7 @@ class CrawlRunner:
                         try:
                             await self.process_service.stop_background_hooks()
                             await self.bus.wait_until_idle(timeout=1.0 if self._skip_wait_until_idle else 30.0)
+                            await self.binary_process_service.flush_missing_finalizers()
                         except TimeoutError:
                             pass
                         finally:
@@ -1834,7 +1835,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
     config = normalize_runtime_config(config)
     bus = create_bus(name="ArchiveBox_install", total_timeout=3600.0)
     PersistedProcessService(bus)
-    ArchiveBoxBinaryService(bus)
+    binary_process_service = ArchiveBoxBinaryService(bus)
     BinaryService(bus)
     TagService(bus)
     MachineService(bus)
@@ -1935,6 +1936,7 @@ async def _run_install(plugin_names: list[str] | None = None) -> None:
                 finally:
                     try:
                         await bus.wait_until_idle()
+                        await binary_process_service.flush_missing_finalizers()
                     finally:
                         await bus.destroy(clear=False)
                         bus_destroyed = True

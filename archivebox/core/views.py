@@ -1063,6 +1063,8 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
         # /progress.json on through to the same view used everywhere else. The caller
         # passes snapshot_id explicitly in the query string — we don't read it from the
         # subdomain (this keeps the endpoint identical across all security modes).
+        # Same <100 ms DB/cache-only contract as the admin progress route.
+        # Dispatch before any replay file resolution, stat, or storage access.
         return live_progress_view(request, authorized_snapshot=snapshot)
 
     if rel_path.startswith("_card/"):
