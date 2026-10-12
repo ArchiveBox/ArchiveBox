@@ -287,10 +287,14 @@ def test_hook_resolution_preserves_registered_binary_installations(
     # A migrated collection can already contain several installations of one
     # tool. A real hook's derived.env must add its exact installation without
     # looking up only the name or rewriting previous Process provenance.
-    alternate = tmp_path / "python-alternate"
-    alternate.symlink_to(sys.executable)
+    # Keep both registered paths distinct from the hook's interpreter. On
+    # Linux the hook can legitimately resolve sys.executable itself; registering
+    # it here would reuse that exact installation instead of creating a third.
+    registered_paths = [tmp_path / "python-original", tmp_path / "python-alternate"]
+    for path in registered_paths:
+        path.symlink_to(sys.executable)
     original = {}
-    for abspath in (sys.executable, str(alternate)):
+    for abspath in registered_paths:
         result = run_archivebox_cmd(
             ["binary", "create", "--name=python", f"--abspath={abspath}", f"--version={sys.version.split()[0]}"],
             cwd=initialized_archive,
