@@ -506,49 +506,40 @@ jobs:
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
 
-      - name: Create Docker Hub manifest
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          mapfile -t DIGESTS < <($UV_BINARY run --no-cache --no-project python -c 'import re; from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file() and re.fullmatch(r"[0-9a-f]{64}", path.name))))')
-          TAG_ARGS=()
-          while IFS= read -r tag; do [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag"); done <<< '${{ steps.docker_meta.outputs.dockerhub_tags }}'
-          REFS=()
-          for digest in "${DIGESTS[@]}"; do REFS+=("${DOCKERHUB_IMAGE}@sha256:${digest}"); done
-          $DOCKER_BINARY buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
-
-      - name: Create GHCR manifest
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          mapfile -t DIGESTS < <($UV_BINARY run --no-cache --no-project python -c 'import re; from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file() and re.fullmatch(r"[0-9a-f]{64}", path.name))))')
-          TAG_ARGS=()
-          while IFS= read -r tag; do [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag"); done <<< '${{ steps.docker_meta.outputs.ghcr_tags }}'
-          REFS=()
-          for digest in "${DIGESTS[@]}"; do REFS+=("${GHCR_IMAGE}@sha256:${digest}"); done
-          $DOCKER_BINARY buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
-
-      - name: Verify published tags contain the exact tested images
+      - name: Promote the exact tested universal image
         env:
           DOCKERHUB_TAGS: ${{ steps.docker_meta.outputs.dockerhub_tags }}
           GHCR_TAGS: ${{ steps.docker_meta.outputs.ghcr_tags }}
         shell: bash
         run: |
           set -Eeuo pipefail
-          # Both architectures already passed CLI/version/capture acceptance by
-          # digest. Verify promotion preserves those exact images and attestations
-          # instead of downloading and running the same image again on one arch.
-          mapfile -t DIGESTS < <($UV_BINARY run --no-cache --no-project python -c 'import re; from pathlib import Path; print("\n".join(sorted(path.name for path in Path("/tmp/digests").iterdir() if path.is_file() and re.fullmatch(r"[0-9a-f]{64}", path.name))))')
+          mapfile -t DIGESTS < <(find /tmp/digests -maxdepth 1 -type f -printf '%f\n' | LC_ALL=C sort | grep -E '^[0-9a-f]{64}$')
           REFS=()
           for digest in "${DIGESTS[@]}"; do REFS+=("${DOCKERHUB_IMAGE}@sha256:${digest}"); done
           EXPECTED="$("$DOCKER_BINARY" buildx imagetools create --dry-run "${REFS[@]}" | "$JQ_BINARY" -ceS '.manifests | sort_by(.digest)')"
           "$JQ_BINARY" -e 'map(select(.platform.os == "linux") | .platform.architecture) | sort == ["amd64", "arm64"]' <<< "$EXPECTED"
-          while IFS= read -r image; do
-            [[ -n "$image" ]] || continue
-            ACTUAL="$("$DOCKER_BINARY" buildx imagetools inspect --raw "$image" | "$JQ_BINARY" -ceS 'select(.schemaVersion == 2) | .manifests | sort_by(.digest)')"
-            [[ "$ACTUAL" == "$EXPECTED" ]] || { echo "Published tag differs from tested images: $image" >&2; exit 1; }
-            echo "Verified exact tested images: $image"
-          done < <(printf '%s\n' "$DOCKERHUB_TAGS" "$GHCR_TAGS")
+          for registry in DOCKERHUB GHCR; do
+            image_var="${registry}_IMAGE"
+            tags_var="${registry}_TAGS"
+            REFS=()
+            if [[ "$RELEASE_BRANCH" == dev ]]; then
+              # Retag this green run's image, never a newer moving unstable tag.
+              REFS=("${!image_var}:sha-${RELEASE_SHA::12}")
+              ACTUAL="$("$DOCKER_BINARY" buildx imagetools inspect --raw "${REFS[0]}" | "$JQ_BINARY" -ceS '.manifests | sort_by(.digest)')"
+              [[ "$ACTUAL" == "$EXPECTED" ]]
+            else
+              for digest in "${DIGESTS[@]}"; do REFS+=("${!image_var}@sha256:${digest}"); done
+            fi
+            TAG_ARGS=()
+            while IFS= read -r tag; do [[ -n "$tag" ]] && TAG_ARGS+=(--tag "$tag"); done <<< "${!tags_var}"
+            "$DOCKER_BINARY" buildx imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"
+            while IFS= read -r tag; do
+              [[ -n "$tag" ]] || continue
+              ACTUAL="$("$DOCKER_BINARY" buildx imagetools inspect --raw "$tag" | "$JQ_BINARY" -ceS '.manifests | sort_by(.digest)')"
+              [[ "$ACTUAL" == "$EXPECTED" ]]
+              echo "Verified exact tested images: $tag"
+            done <<< "${!tags_var}"
+          done
 
       - name: Record published image source
         shell: bash

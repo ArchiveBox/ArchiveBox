@@ -202,9 +202,22 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert screenshots["jobs"]["complete"]["needs"] == ["changes", "deploy"]
     assert screenshots["jobs"]["complete"]["name"] == "Scheduled inputs: ${{ needs.changes.outputs.key }}"
     for name, job in ci["jobs"].items():
-        if name not in {"prepare", "required"}:
+        if name not in {"prepare", "required", "dev-image", "staging-health"}:
             assert job["needs"] == "prepare"
             assert job["if"] == "needs.prepare.outputs.run_jobs == 'true'"
+    early = ci["jobs"]["dev-image"]
+    assert early["needs"] == "docker-digests"
+    assert early["if"] == "github.event_name == 'push' && github.ref_name == 'dev'"
+    publish = next(step["run"] for step in early["steps"] if step.get("id") == "publish")
+    assert '[[ "$(< /tmp/digests/source-ref)" == "$GITHUB_SHA" ]]' in publish
+    assert '[[ "${#digests[@]}" -eq 2 ]]' in publish
+    assert publish.index('if [[ "$head" != "$GITHUB_SHA" ]]') < publish.index('--tag "$image:dev-unstable"')
+    assert '--tag "$image:dev"' not in publish
+    health = ci["jobs"]["staging-health"]
+    assert health["needs"] == "dev-image"
+    assert health["if"] == "needs.dev-image.outputs.ready == 'true'"
+    assert health["with"] == {"sha": "${{ github.sha }}", "health_only": True}
+    assert {"dev-image", "staging-health"} <= set(ci["jobs"]["required"]["needs"])
     gate = next(step["run"] for step in jobs["candidate"]["steps"] if step.get("id") == "verified")
     assert 'ARTIFACT_RUN_ID="$CI_RUN_ID"' in gate
     assert 'DIGEST_RUN_ID="$CI_RUN_ID"' in gate
@@ -240,9 +253,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert 'echo "${DOCKERHUB_IMAGE}:sha-${SHORT_SHA}"' in tag_script
     assert 'echo "${DOCKERHUB_IMAGE}:${VERSION}"' in tag_script
 
-    docker_verify = next(
-        step for step in docker_release["steps"] if step.get("name") == "Verify published tags contain the exact tested images"
-    )
+    docker_verify = next(step for step in docker_release["steps"] if step.get("name") == "Promote the exact tested universal image")
     verify_script = docker_verify["run"]
     assert docker_verify["env"] == {
         "DOCKERHUB_TAGS": "${{ steps.docker_meta.outputs.dockerhub_tags }}",
@@ -250,10 +261,15 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     }
     assert '"${DOCKERHUB_IMAGE}@sha256:${digest}"' in verify_script
     assert 'imagetools create --dry-run "${REFS[@]}"' in verify_script
-    assert 'imagetools inspect --raw "$image"' in verify_script
+    assert 'imagetools inspect --raw "${REFS[0]}"' in verify_script
+    assert 'imagetools inspect --raw "$tag"' in verify_script
     assert 'sort == ["amd64", "arm64"]' in verify_script
     assert '[[ "$ACTUAL" == "$EXPECTED" ]]' in verify_script
-    assert '"$DOCKERHUB_TAGS" "$GHCR_TAGS"' in verify_script
+    assert "for registry in DOCKERHUB GHCR" in verify_script
+    assert 'REFS=("${!image_var}:sha-${RELEASE_SHA::12}")' in verify_script
+    assert 'imagetools create "${TAG_ARGS[@]}" "${REFS[@]}"' in verify_script
+    assert "dev-unstable" not in verify_script
+    assert "buildx build" not in verify_script
 
     release_script = (REPO_ROOT / "bin" / "release.sh").read_text()
     assert "Never create GitHub Releases for automated rc builds" in release_script
@@ -322,7 +338,7 @@ def test_stable_publication_requires_live_acceptance_before_upload():
 def test_staging_acceptance_uses_published_image_source_not_workflow_run_head():
     release = yaml.safe_load(RELEASE_WORKFLOW.read_text())
     docker_steps = release["jobs"]["docker-release"]["steps"]
-    verified = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Verify published tags contain the exact tested images")
+    verified = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Promote the exact tested universal image")
     source = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Record published image source")
     uploaded = next(i for i, step in enumerate(docker_steps) if step.get("name") == "Upload published image source")
     assert verified < source < uploaded
@@ -345,11 +361,11 @@ def test_staging_acceptance_uses_published_image_source_not_workflow_run_head():
     assert '"$branch" == dev' in next(step for step in published["steps"] if step.get("id") == "source")["run"]
 
     acceptance = staging["jobs"]["acceptance"]
-    assert acceptance["steps"][0]["with"]["ref"] == "${{ needs.published.outputs.sha }}"
+    assert acceptance["steps"][0]["with"]["ref"] == "${{ inputs.sha || needs.published.outputs.sha }}"
     verify = next(
         step for step in acceptance["steps"] if step.get("name") == "Verify actual deployment, full captures and rendered snapshots"
     )
-    assert verify["env"]["STAGING_SHA"] == "${{ needs.published.outputs.sha }}"
+    assert verify["env"]["STAGING_SHA"] == "${{ inputs.sha || needs.published.outputs.sha }}"
 
 
 @pytest.mark.parametrize(("branch", "ready"), [("dev", "true"), ("main", "false")])
