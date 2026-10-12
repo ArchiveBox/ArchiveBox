@@ -52,6 +52,8 @@ def test_progress_archive_size_browser(live_server, admin_user, snapshot, browse
         page.locator('[name="password"]').fill("testpassword")
         page.get_by_role("button", name="Log in", exact=True).click()
         expect(page.locator("#user-tools .navbar-archive-size")).to_have_count(0)
+        expect(page.locator("#orchestrator-text")).to_have_text("1 - 0 queued")
+        expect(page.locator("svg#orchestrator-dot path")).to_have_attribute("d", "M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5")
         estimate = page.locator("#metric-storage")
         expect(estimate).to_be_visible()
         expect(estimate).to_contain_text("55 GB (")

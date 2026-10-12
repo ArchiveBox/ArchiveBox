@@ -98,32 +98,16 @@
         align-items: center;
         gap: 6px;
     }
-    #progress-monitor .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        flex-shrink: 0;
+    #progress-monitor .status-icon.running {
+        color: #3fb950;
+        animation: download-pulse 2s infinite;
     }
-    #progress-monitor .status-dot.running {
-        background: #238636;
-        box-shadow: 0 0 8px #238636;
-        animation: pulse 2s infinite;
-    }
-    #progress-monitor .status-dot.idle {
-        background: #7ee787;
-        box-shadow: 0 0 4px #7ee787;
-        animation: idle-pulse 5s infinite;
-    }
-    #progress-monitor .status-dot.stopped {
-        background: #d29922;
-        box-shadow: 0 0 4px #d29922;
-    }
-    #progress-monitor .status-dot.error {
-        background: #f85149;
-        box-shadow: 0 0 8px #f85149;
-    }
-    #progress-monitor .status-dot.flash {
-        animation: flash 0.3s ease-out;
+    #progress-monitor .status-icon.idle { color: #7ee787; }
+    #progress-monitor .status-icon.stopped { color: #d29922; }
+    #progress-monitor .status-icon.error { color: #f85149; }
+    @keyframes download-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
     }
     @keyframes pulse {
         0%, 100% { opacity: 1; box-shadow: 0 0 8px #238636; }
@@ -984,7 +968,7 @@
     <div class="header-bar">
         <div class="header-left">
             <div class="orchestrator-status metric-badge" id="metric-status" tabindex="0">
-                <span class="status-dot stopped" id="orchestrator-dot"></span>
+                <svg class="status-icon stopped" id="orchestrator-dot" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>
                 <span id="orchestrator-text">Runner stopped</span>
             </div>
             <div class="telemetry" id="progress-telemetry" aria-label="Capture and server metrics" hidden>
@@ -1854,31 +1838,26 @@
             }
         }
 
-        // Update orchestrator status - show "Running" only when there are active workers.
+        // Reuse the existing progress counts; no additional polling or queries.
         const hasWorkers = data.total_workers > 0;
         document.getElementById('metric-throughput').hidden = !hasWorkers;
-        let dot = null;
 
         if (hasWorkers) {
-            dot = setOrchestratorState('running', 'Running');
+            setOrchestratorState('running', 'Running');
         } else if (!data.orchestrator_running) {
-            dot = setOrchestratorState('stopped', 'Runner stopped');
+            setOrchestratorState('stopped', 'Runner stopped');
         } else {
-            dot = setOrchestratorState('idle', 'Idle');
+            setOrchestratorState('idle', 'Idle');
         }
 
         const count = value => Number(value || 0).toLocaleString();
-        if (data.snapshots_queued) document.getElementById('orchestrator-text').textContent += ` · ${count(data.snapshots_queued)} queued`;
+        document.getElementById('orchestrator-text').textContent = `${count(data.snapshots_active)} - ${count(data.snapshots_queued)} queued`;
         const status = document.getElementById('metric-status');
-        status.title = `Snapshots: ${count(data.snapshots_active)} active, ${count(data.snapshots_queued)} queued. Crawls: ${count(data.crawls_active)} active, ${count(data.crawls_queued)} queued. Downloads: ${count(data.downloads_active)} active, ${count(data.downloads_queued)} queued.${data.orchestrator_pid ? ` Runner PID ${data.orchestrator_pid}.` : ''}`;
+        status.title = `${hasWorkers ? 'Running' : data.orchestrator_running ? 'Idle' : 'Runner stopped'}. Snapshots: ${count(data.snapshots_active)} active, ${count(data.snapshots_queued)} queued. Crawls: ${count(data.crawls_active)} active, ${count(data.crawls_queued)} queued. Downloads: ${count(data.downloads_active)} active, ${count(data.downloads_queued)} queued.${data.orchestrator_pid ? ` Runner PID ${data.orchestrator_pid}.` : ''}`;
         status.setAttribute('aria-label', `${status.textContent.trim()}. ${status.title}`);
         metricBadge('indexing', `Indexing ${count(data.indexing_active)}${data.indexing_queued ? ` · ${count(data.indexing_queued)} queued` : ''}`,
             `Indexing: ${count(data.indexing_active)} active, ${count(data.indexing_queued)} queued.`);
         document.getElementById('metric-indexing').hidden = !(data.indexing_active || data.indexing_queued);
-
-        // Pulse the dot to show we got fresh data
-        dot.classList.add('flash');
-        setTimeout(() => dot.classList.remove('flash'), 300);
 
         updateScreencastPanel(data);
 
