@@ -14,9 +14,7 @@ from .conftest import (
     live_api_request,
     run_archivebox_cmd,
     run_queued_crawls,
-    start_archivebox_server,
     stop_archivebox_process,
-    stop_server,
     get_http_response,
     wait_for_log,
 )
@@ -322,14 +320,16 @@ def test_api_cli_add_concurrent_first_time_default_persona_creation(tmp_path):
             },
         )
 
+    # Keep the real API concurrent, without a runner consuming the queued crawls
+    # before the queue-only assertions below can inspect them.
+    api_server = start_api_server_without_runner(tmp_path, env, port)
     try:
-        start_archivebox_server(tmp_path, env=env, port=port)
         with ThreadPoolExecutor(max_workers=len(submitted_urls)) as pool:
             futures = [pool.submit(post_add, url) for url in submitted_urls]
             start.set()
             responses = [future.result(timeout=75) for future in futures]
     finally:
-        stop_server(tmp_path)
+        stop_archivebox_process(api_server)
 
     assert [response.status_code for response in responses] == [200] * len(responses), [response.text[:500] for response in responses]
     bodies = [response.json() for response in responses]
