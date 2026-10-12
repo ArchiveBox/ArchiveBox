@@ -60,6 +60,9 @@ def _resolve_cookie_file_paths(config: dict[str, Any]) -> dict[str, Any]:
 _STDOUT_CONSOLE = Console()
 _STDERR_CONSOLE = Console(stderr=True)
 _WARNED_ARCHIVING_CONFIGS: set[tuple[int, bool]] = set()
+# Building a TypeAdapter compiles a pydantic validator; get_config() used to build one
+# per explicit *_ENABLED input on every call, though bool's validator never changes.
+_BOOL_ADAPTER = TypeAdapter(bool)
 _WARNED_CONFIG_TYPOS: set[str] = set()
 
 
@@ -1345,7 +1348,7 @@ def get_config(
             config = config.model_copy(update={"SERVER_SECURITY_MODE": "safe-subdomains-fullreplay"})
     for key in explicit_plugin_enabled_keys:
         if key in config_data:
-            setattr(config, key, TypeAdapter(bool).validate_python(config_data[key]))
+            setattr(config, key, _BOOL_ADAPTER.validate_python(config_data[key]))
     if config.PLUGINS:
         config._derive_plugin_enabled_config(respect_current_enabled=True)
     if redact_sensitive:
