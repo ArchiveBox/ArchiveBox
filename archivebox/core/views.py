@@ -1306,25 +1306,22 @@ class PublicIndexView(ListView):
         )
 
     def _ordered_public_page_from_order_index(self, *, page_number: int, page_size: int) -> list[Snapshot]:
-        # Walk the existing chronological index in bounded keyset pages,
-        # reading only identity/visibility until reaching the requested page.
-        # Repeated OFFSET batches used to revisit every earlier row AND join
-        # owners each time, making deep pages quadratic. Filtering visibility
-        # in SQL instead made SQLite sort the entire permissions index first.
-        # Each helper page closes its cursor before yielding; only the final
-        # displayed IDs load wide rows/owners. No new index or SQLite hint.
+        # Let the database walk snapshot_public_order_idx, test visibility, and
+        # skip earlier rows in one statement. Doing that walk in Python hydrated
+        # and discarded every earlier and private row in keyset batches, which
+        # dominated server CPU once crawlers requested deep pages.
+        # Filter on the JSON source of the generated permissions column: an
+        # equality on the indexed column makes SQLite pick the permissions
+        # index and sort every public snapshot before LIMIT. A composite
+        # permissions/order index measured faster only on very deep pages.
+        # OFFSET must stay ID-only: wide columns and owner joins would also be
+        # computed for every skipped row.
         start = (page_number - 1) * page_size
-        visible_count = 0
-        page_ids = []
-        candidates = Snapshot.objects.only("id", "permissions").order_by(*self.ordering, "id")
-        for snapshot in candidates.paged_iterator(chunk_size=max(100, page_size + 1)):
-            if snapshot.permissions != PERMISSIONS_PUBLIC:
-                continue
-            if visible_count >= start:
-                page_ids.append(snapshot.pk)
-                if len(page_ids) > page_size:
-                    break
-            visible_count += 1
+        page_ids = list(
+            Snapshot.objects.filter(config__PERMISSIONS=PERMISSIONS_PUBLIC)
+            .order_by(*self.ordering, "id")
+            .values_list("id", flat=True)[start : start + page_size + 1],
+        )
         return list(
             Snapshot.objects.filter(pk__in=page_ids, permissions=PERMISSIONS_PUBLIC)
             .select_related("crawl__created_by")
@@ -1451,9 +1448,11 @@ class PublicIndexView(ListView):
                 # Thumbnail URLs traverse result.snapshot too; share the page's
                 # already-loaded parent rather than fetching it once per result.
                 result.snapshot = snapshots_by_id[snapshot_key]
-                # These read-only page objects are shared by icons, sizes, and
-                # thumbnails. Normalize each manifest once for this render.
-                result._render_output_file_map = result.output_file_map()
+                # Icons, sizes, and thumbnails share these read-only page objects.
+                # Capture/import already persist the canonical output_files map;
+                # rebuilding Pydantic manifests for every row only revalidated,
+                # copied, and sorted each captured asset on every page view.
+                result._render_output_file_map = result.output_files
                 all_results_by_snapshot[snapshot_key].append(result)
                 progress = progress_by_snapshot[snapshot_key]
                 progress["total"] += 1

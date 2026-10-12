@@ -4,10 +4,11 @@ import cProfile
 import pstats
 
 import pytest
+from django.test import override_settings
 
 from archivebox.core.routes_util import get_snapshot_host
 from archivebox.crawls.models import Crawl
-from archivebox.tests.conftest import ADMIN_TEST_HOST
+from archivebox.tests.conftest import ADMIN_TEST_HOST, WEB_TEST_HOST
 from archivebox.tests.test_snapshot_output_stacks import save_output
 
 pytestmark = pytest.mark.django_db
@@ -92,3 +93,35 @@ def test_progress_reads_saved_manifests_without_rebuilding_them(snapshot, admin_
             if source.endswith("core/models.py") and function == "embed_path_db"
         )
         assert path_resolutions == len(results), path_resolutions
+
+
+@override_settings(PUBLIC_INDEX=True)
+def test_public_index_reads_saved_manifests_without_rebuilding_them(snapshot, client):
+    snapshot.permissions = "public"
+    snapshot.status = snapshot.StatusChoices.SEALED
+    snapshot.save(update_fields=["permissions", "status"])
+    results = [
+        save_output(snapshot, plugin, extra_files=tuple(f"asset-{index}.html" for index in range(64)))
+        for plugin in ("favicon", "screenshot", "readability")
+    ]
+    for filename in ("content.html", "replacement.html"):
+        if filename == "replacement.html":
+            for result in results:
+                (snapshot.output_dir / result.plugin / filename).write_text("<h1>Replacement capture</h1>")
+                result.output_str = filename
+                result.output_files = {filename: {"size": 28, "mimetype": "text/html"}}
+                result.save(update_fields=["output_str", "output_files"])
+        profile = cProfile.Profile()
+        with profile:
+            response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+        assert response.status_code == 200, response.content
+        body = response.content.decode()
+        assert f'/favicon/{filename}" data-fallbacks=""' in body
+        assert f'#readability/{filename}"' in body
+        assert f"/_card/{results[1].id}" in body
+        normalizations = sum(
+            values[1]
+            for (source, _line, function), values in pstats.Stats(profile).stats.items()
+            if source.endswith("core/models.py") and function == "_normalize_output_files"
+        )
+        assert normalizations == 0, normalizations

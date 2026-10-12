@@ -481,6 +481,63 @@ class TestPublicIndex:
         assert b'title="singlefile"' not in response.content
 
     @override_settings(PUBLIC_INDEX=True)
+    def test_deep_public_page_walks_order_index_in_one_id_query(self, client, admin_user):
+        from datetime import timedelta
+
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from django.utils import timezone
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        crawls = {
+            permissions: Crawl.objects.create(
+                urls=f"https://{permissions}.example",
+                created_by=admin_user,
+                config={"PERMISSIONS": permissions},
+            )
+            for permissions in ("public", "private")
+        }
+        newest = timezone.now()
+        # Interleave private rows so walking the chronological order in Python
+        # would have to read and discard them before reaching a deep page.
+        Snapshot.objects.bulk_create(
+            [
+                Snapshot(
+                    url=f"https://{permissions}.example/{index}",
+                    title=f"{permissions} {index}",
+                    timestamp=str(1800000000 + index * 2 + offset),
+                    bookmarked_at=newest - timedelta(minutes=index),
+                    crawl=crawls[permissions],
+                    config={"PERMISSIONS": permissions},
+                    status="sealed",
+                )
+                for index in range(160)
+                for offset, permissions in enumerate(("public", "private"))
+            ],
+        )
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("ANALYZE core_snapshot")
+
+        with CaptureQueriesContext(connection) as queries:
+            response = client.get("/public/?page=3", HTTP_HOST=WEB_TEST_HOST)
+
+        assert response.status_code == 200
+        assert [snapshot.title for snapshot in response.context["object_list"]] == [f"public {index}" for index in range(100, 150)]
+        assert response.context["page_obj"].has_next()
+        snapshot_reads = [query["sql"] for query in queries if re.search(r'FROM "core_snapshot"\s', query["sql"])]
+        assert len(snapshot_reads) == 2, "A deep page must read one page of IDs, then only its displayed rows"
+        if connection.vendor == "sqlite":
+            with connection.cursor() as cursor:
+                cursor.execute("EXPLAIN QUERY PLAN " + snapshot_reads[0])
+                plan = " ".join(str(row[-1]) for row in cursor.fetchall())
+            # Walking the chronological index lets LIMIT stop early. Choosing
+            # the permissions index instead sorts every public snapshot first.
+            assert "SCAN core_snapshot USING INDEX snapshot_public_order_idx" in plan, plan
+            assert "TEMP B-TREE FOR ORDER BY" not in plan, plan
+
+    @override_settings(PUBLIC_INDEX=True)
     @pytest.mark.django_db(transaction=True)
     def test_public_count_uses_permission_index_for_uniform_visibility(self, client, admin_user):
         import time
