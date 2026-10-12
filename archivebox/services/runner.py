@@ -466,7 +466,9 @@ class CrawlRunner:
                 self._initial_snapshot_admitted = True
                 run_state_loaded = True
                 snapshot_ids = await sync_to_async(self.load_run_state, thread_sensitive=True)()
-                max_concurrent_snapshots = resource_admission.snapshot_limit(int(self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 1)))
+                if not self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 0):
+                    self._observed_snapshot_cost = resource_admission.observed_snapshot_cost
+                max_concurrent_snapshots = resource_admission.snapshot_limit(int(self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 0)))
                 self.max_concurrent_snapshots = max_concurrent_snapshots
                 self.snapshot_semaphore = asyncio.Semaphore(max_concurrent_snapshots)
                 live_ui = self._create_live_ui()
@@ -614,6 +616,8 @@ class CrawlRunner:
             done, _pending = await asyncio.wait(pending_tasks, timeout=RESOURCE_RECHECK_SECONDS, return_when=asyncio.FIRST_COMPLETED)
             self._observe_snapshot_memory()
             if not done:
+                if enqueue_projected and not stop_scheduling:
+                    await self.enqueue_pending_snapshots_from_projection()
                 continue
             for task in done:
                 for snapshot_id, tracked_task in list(self.snapshot_tasks.items()):
@@ -654,22 +658,24 @@ class CrawlRunner:
                 self._observed_snapshot_cost = max(self._observed_snapshot_cost, self._memory_peak_cost)
 
     def _finish_warmup_snapshot(self, snapshot_id: str) -> None:
-        if snapshot_id != self._warmup_snapshot_id or self._observed_snapshot_cost is not None:
-            return
         self._observe_snapshot_memory()
-        if self._memory_peak_cost > 0:
-            self._observed_snapshot_cost = self._memory_peak_cost
-            headroom = resource_admission.memory_headroom()
+        # Only isolated captures teach a per-snapshot cost. Reuse it across
+        # crawls, with slow decay so one expensive capture is not a lifetime cap.
+        if self._memory_baseline is not None and self._memory_peak_cost > 0:
+            resource_admission.observed_snapshot_cost = max(
+                self._memory_peak_cost,
+                int((resource_admission.observed_snapshot_cost or 0) * 0.9),
+            )
+            self._observed_snapshot_cost = (
+                max(self._observed_snapshot_cost or 0, self._memory_peak_cost)
+                if self.base_config.get("CRAWL_MAX_CONCURRENT_SNAPSHOTS", 0)
+                else resource_admission.observed_snapshot_cost
+            )
             logging.getLogger(__name__).info(
-                "Snapshot admission: concurrency limit=%s, observed memory growth=%s bytes, available=%s bytes",
+                "Snapshot admission: concurrency limit=%s, observed memory growth=%s bytes",
                 self.max_concurrent_snapshots,
                 self._observed_snapshot_cost,
-                headroom[1] if headroom else None,
             )
-        else:
-            # No observed cost cannot justify parallel admission. Probe the
-            # next real snapshot while the queue keeps moving one at a time.
-            self._memory_baseline = None
         self._warmup_snapshot_id = None
 
     async def heartbeat_active_leases(self) -> None:

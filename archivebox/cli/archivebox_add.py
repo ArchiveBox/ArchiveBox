@@ -100,8 +100,8 @@ def add(
         raise ValueError("crawl_timeout must be >= 0")
     if snapshot_max_size < 0:
         raise ValueError("snapshot_max_size must be >= 0")
-    if crawl_max_concurrent_snapshots < 1:
-        raise ValueError("crawl_max_concurrent_snapshots must be >= 1")
+    if crawl_max_concurrent_snapshots < 0:
+        raise ValueError("crawl_max_concurrent_snapshots must be >= 0")
 
     # import models once django is set up
     from archivebox.crawls.models import Crawl
@@ -397,8 +397,8 @@ def main(**kwargs):
             kwargs["snapshot_max_size"] = parse_filesize_to_bytes(kwargs.get("snapshot_max_size"))
         except ValueError as err:
             raise click.BadParameter(str(err), param_hint="--snapshot-max-size") from err
-        if kwargs.get("crawl_max_concurrent_snapshots") is not None and int(kwargs["crawl_max_concurrent_snapshots"]) < 1:
-            raise click.BadParameter("crawl_max_concurrent_snapshots must be at least 1.", param_hint="--crawl-max-concurrent-snapshots")
+        if kwargs.get("crawl_max_concurrent_snapshots") is not None and int(kwargs["crawl_max_concurrent_snapshots"]) < 0:
+            raise click.BadParameter("crawl_max_concurrent_snapshots must be at least 0.", param_hint="--crawl-max-concurrent-snapshots")
 
         # Translate --only-new/--no-only-new into a crawl config override.
         # add() takes config overrides as a dict; no per-flag kwargs.

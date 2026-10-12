@@ -332,7 +332,7 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
             if raw_concurrency in (None, ""):
                 config.pop("CRAWL_MAX_CONCURRENT_SNAPSHOTS", None)
             else:
-                config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] = max(1, int(raw_concurrency))
+                config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] = max(0, int(raw_concurrency))
 
         if config != (self.config or {}):
             self.config = config

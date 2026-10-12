@@ -89,3 +89,24 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
     assert runner._observed_snapshot_cost > isolated_cost + size, measurements
     assert Snapshot.objects.filter(crawl=crawl, status="sealed").count() == 4
     assert ArchiveResult.objects.filter(snapshot__crawl=crawl, plugin="parse_txt_urls", status="succeeded").count() == 4
+
+    # A subsequent automatic crawl reuses the real allocation measurement.
+    from archivebox.services.resource_admission import resource_admission
+
+    learned = resource_admission.observed_snapshot_cost
+    assert learned is not None and learned > size
+    next_crawl = Crawl.objects.create(
+        urls="https://example.com/next",
+        config={"PLUGINS": "parse_txt_urls", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 0},
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    next_snapshot = Snapshot.objects.create(crawl=next_crawl, url=next_crawl.urls)
+    source = next_snapshot.output_dir / "staticfile" / "links.txt"
+    source.parent.mkdir(parents=True)
+    source.write_text("https://example.com/next-saved\n")
+    next_runner = CrawlRunner(next_crawl, show_progress=False)
+    observed = []
+    next_runner.bus.on(SnapshotEvent, lambda event: observed.append(next_runner._observed_snapshot_cost))
+    asyncio.run(next_runner.run())
+    assert observed == [learned]
+    assert ArchiveResult.objects.filter(snapshot=next_snapshot, plugin="parse_txt_urls", status="succeeded").count() == 1

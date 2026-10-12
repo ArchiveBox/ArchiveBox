@@ -491,8 +491,9 @@ class ArchivingConfig(BaseConfigSet):
     CRAWL_MAX_SIZE: int = Field(default=0)
     CRAWL_TIMEOUT: int = Field(default=0, description="Maximum total crawl runtime in seconds (0 = unlimited).")
     CRAWL_MAX_CONCURRENT_SNAPSHOTS: int = Field(
-        default=4,
-        description="Maximum number of snapshots to archive concurrently within one crawl.",
+        default=0,
+        ge=0,
+        description="Automatic concurrency based on available resources (0), or an explicit per-crawl ceiling.",
     )
     SNAPSHOT_MAX_SIZE: int = Field(default=0)
 

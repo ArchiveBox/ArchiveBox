@@ -126,9 +126,10 @@ def test_abort_stops_long_running_background_hook(initialized_archive):
         os.close(master)
 
 
-def test_add_bg_persists_queue_without_starting_extraction_workers(initialized_archive):
+@pytest.mark.parametrize("concurrency", [0, 4])
+def test_add_bg_persists_queue_without_starting_extraction_workers(initialized_archive, concurrency):
     result = run_archivebox_cmd(
-        ["add", "--bg", "--plugins=wget", "--crawl-max-concurrent-snapshots=4", "https://example.com", "https://example.org"],
+        ["add", "--bg", "--plugins=wget", f"--crawl-max-concurrent-snapshots={concurrency}", "https://example.com", "https://example.org"],
         cwd=initialized_archive,
         env=cli_env(),
     )
@@ -139,7 +140,7 @@ def test_add_bg_persists_queue_without_starting_extraction_workers(initialized_a
         assert crawl.retry_at is not None
         assert crawl.get_urls_list() == ["https://example.com", "https://example.org"]
         assert crawl.config["PLUGINS"] == "wget"
-        assert crawl.config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] == 4
+        assert crawl.config["CRAWL_MAX_CONCURRENT_SNAPSHOTS"] == concurrency
         assert not Snapshot.objects.exists()
         assert not ArchiveResult.objects.exists()
         assert not Process.objects.filter(process_type__in=[Process.TypeChoices.ORCHESTRATOR, Process.TypeChoices.HOOK]).exists()

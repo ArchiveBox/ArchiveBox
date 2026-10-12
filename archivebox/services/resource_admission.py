@@ -88,6 +88,9 @@ class ResourceAdmission:
         self._stalls: dict[str, tuple[int, float]] = {}
         self._checked_at = float("-inf")
         self._reason: str | None = None
+        self.observed_snapshot_cost: int | None = None
+        self._concurrency = 1
+        self._last_growth = float("-inf")
 
     @staticmethod
     def cgroup_paths() -> list[Path]:
@@ -115,15 +118,25 @@ class ResourceAdmission:
                 continue
         # CPU quota bounds parallel work; measured memory admission is done
         # only after the first complete snapshot establishes its actual cost.
-        return max(1, min(configured, cpus))
+        return max(1, min(configured or cpus, cpus))
+
+    def concurrency_limit(self, ceiling: int, *, pressure: bool, now: float) -> int:
+        if pressure:
+            self._concurrency = max(1, self._concurrency // 2)
+            self._last_growth = now
+        elif now - self._last_growth >= 10:
+            self._concurrency = min(ceiling, self._concurrency + 1)
+            self._last_growth = now
+        return min(ceiling, self._concurrency)
 
     def additional_snapshot_slots(self, configured: int, active: int, observed_cost: int | None) -> int:
         if not observed_cost:
             # Stage one complete real capture before spending memory on parallel
             # hook trees. A zero-cost/failed probe cannot justify fanout.
             return 1 if active == 0 and configured > 0 else 0
+        ceiling = self.concurrency_limit(configured, pressure=bool(self.resource_pressure()), now=time.monotonic())
         headroom = self.memory_headroom()
-        return self.slots_for_headroom(configured, active, observed_cost, headroom[1] if headroom else 0)
+        return self.slots_for_headroom(ceiling, active, observed_cost, headroom[1] if headroom else 0)
 
     @staticmethod
     def slots_for_headroom(configured: int, active: int, observed_cost: int, available: int) -> int:

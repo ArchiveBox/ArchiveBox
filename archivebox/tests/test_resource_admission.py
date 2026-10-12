@@ -163,3 +163,15 @@ def test_cpu_and_io_pressure_counters_recover_independently():
     # Distinct cgroups have independent counters; reset counters are not load.
     assert not admission.observe_stalls("cpu", 1, 65.69, 8.03, 50.0)
     assert not admission.observe_stalls("other-cpu", 42, 49.0, 8.03, 50.0)
+
+
+def test_auto_admission_grows_gradually_and_backs_off_without_canceling_work():
+    admission = ResourceAdmission()
+    assert admission.snapshot_limit(0) == admission.snapshot_limit(100000)
+    assert admission.concurrency_limit(4, pressure=False, now=0) == 2
+    assert admission.concurrency_limit(4, pressure=False, now=5) == 2
+    assert admission.concurrency_limit(4, pressure=False, now=10) == 3
+    assert admission.concurrency_limit(4, pressure=True, now=11) == 1
+    assert admission.concurrency_limit(4, pressure=False, now=15) == 1
+    assert admission.concurrency_limit(4, pressure=False, now=21) == 2
+    assert admission.concurrency_limit(1, pressure=False, now=40) == 1

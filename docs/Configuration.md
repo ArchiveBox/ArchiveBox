@@ -227,13 +227,10 @@ Distinct from [`TIMEOUT`](#timeout): `TIMEOUT` caps one extractor invocation on 
 
 ---
 #### `CRAWL_MAX_CONCURRENT_SNAPSHOTS`
-**Possible Values:** [`4`]/`1`/`8`/`16`/...
-How many Snapshots within a single crawl ArchiveBox will archive in parallel. The runner schedules up to this many extractor pipelines at once, then waits for one to finish before starting the next.
+**Possible Values:** [`0`]/`1`/`4`/`8`/...
+`0` automatically adjusts parallel Snapshot captures to available CPU, measured memory use, and system pressure. The runner starts with one capture to measure its cost, retains that estimate across crawls in the same process, and gradually admits more work while resources permit. Under pressure it backs off without interrupting captures already running.
 
-Raising this speeds up large crawls on beefy hardware, but each concurrent Snapshot opens a new tab inside the crawl's shared Chrome instance (when Chrome-based extractors are enabled) — RAM per tab and CPU pressure scale roughly linearly with concurrency. On a typical laptop, `2-4` is sane; on a dedicated server with 32GB+ RAM, `8-16` can be reasonable.
-
-> [!NOTE]
-> This is **per-crawl** concurrency. If you run multiple crawls simultaneously, each one independently gets up to `CRAWL_MAX_CONCURRENT_SNAPSHOTS` parallel Snapshots.
+A positive value sets an explicit per-crawl ceiling; resource admission can still run fewer captures. Existing configured ceilings remain in effect. Use `0` to enable automatic sizing.
 
 *Related options:*
 [`CRAWL_MAX_URLS`](#crawl_max_urls), [`TIMEOUT`](#timeout)
