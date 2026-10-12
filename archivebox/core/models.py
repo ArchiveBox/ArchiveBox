@@ -3449,7 +3449,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             lower = (path or "").lower()
             return lower.endswith(text_exts)
 
-        if filesystem_index is not None:
+        if filesystem_index is not None and not filesystem_index:
             filesystem_index.update(ArchiveResult._scan_output_file_map(snap_dir))
         hashes_index = filesystem_index if filesystem_index is not None else (self.hashes_index if include_filesystem_fallback else {})
         if include_filesystem_fallback and not hashes_index and filesystem_index is None:
@@ -3686,6 +3686,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Static exports must reflect files that still exist even when the
         # saved hash manifest is incomplete or stale.
         filesystem_index = {} if discover_files or static_export_dir is not None else None
+        # Live discovery (every detail-page view) of a sealed snapshot reads its
+        # hashes manifest instead of walking the output dir, which on remote
+        # archive storage stat'd every captured file per view.
+        if discover_files and static_export_dir is None and self.status == self.StatusChoices.SEALED and self.hashes_index:
+            filesystem_index = dict(self.hashes_index)
         outputs = [
             output
             for output in self.discover_outputs(
