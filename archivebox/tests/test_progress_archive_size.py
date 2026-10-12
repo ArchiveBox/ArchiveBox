@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from django.core.cache import cache
 
@@ -52,8 +54,13 @@ def test_progress_archive_size_browser(live_server, admin_user, snapshot, browse
         expect(page.locator("#user-tools .navbar-archive-size")).to_have_count(0)
         estimate = page.locator("#metric-storage")
         expect(estimate).to_be_visible()
-        expect(estimate).to_contain_text("55 GB archived · ")
-        expect(estimate).to_contain_text(" free")
+        expect(estimate).to_contain_text("55 GB (")
+        expect(estimate.locator("small")).to_contain_text(" free)")
+        assert estimate.locator("small").evaluate("el => getComputedStyle(el).color") == "rgb(63, 185, 80)"
+        assert estimate.locator("small").evaluate(
+            "el => parseFloat(getComputedStyle(el).fontSize) < parseFloat(getComputedStyle(el.parentElement).fontSize)",
+        )
+        expect(page.locator("#metric-web .metric-text")).to_have_text(re.compile(r"^\d+\.\ds/Req$"))
         page.set_viewport_size({"width": 390, "height": 844})
         expect(estimate).to_be_visible()
         browser.close()
