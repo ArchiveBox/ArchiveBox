@@ -1,0 +1,21 @@
+archivebox/tests/test_snapshot_output_stacks.py
+  s_2b44ee96cc775e::t_12b497bf5dfd99 530
+  s_2b44ee96cc775e::t_e7ab8958b4220a 507-515,519,522-529,564,567
+  s_2b44ee96cc775e::t_3a87e5a5fbab19 516-518,520-521
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d5db238f3659b6051458ee31c16728577364f64c",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
