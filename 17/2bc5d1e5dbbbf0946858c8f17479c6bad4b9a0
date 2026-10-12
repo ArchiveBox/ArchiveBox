@@ -1,0 +1,24 @@
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_2b44ee96cc775e::t_959b9f63e90da3 1787-1788
+archivebox/progressmonitor/views.py
+  s_2b44ee96cc775e::t_c5102177a7b28e 849-855,889
+archivebox/tests/test_ui_live_progress.py
+  s_2b44ee96cc775e::t_6fadd84a4f5f97 857-863,867-869
+  s_2b44ee96cc775e::t_ef3834d635730d 827-856,864-866,870-873
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "172bc5d1e5dbbbf0946858c8f17479c6bad4b9a0",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
