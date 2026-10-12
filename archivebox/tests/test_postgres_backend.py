@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 import uuid
 from pathlib import Path
+from typing import LiteralString
 
 import pytest
 
@@ -103,7 +104,7 @@ def unique_dbname() -> str:
     return f"abx_test_{uuid.uuid4().hex[:12]}"
 
 
-def pg_query(pg_server: dict, dbname: str, query: str) -> list[tuple]:
+def pg_query(pg_server: dict, dbname: str, query: LiteralString) -> list[tuple]:
     import psycopg
 
     with psycopg.connect(host=pg_server["host"], port=pg_server["port"], user=pg_server["user"], dbname=dbname) as conn:
@@ -116,6 +117,7 @@ def test_init_creates_postgres_schema(pg_server, tmp_path):
     env = pg_cli_env(pg_server, dbname)
 
     result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=300)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Init failed: {result.stderr}\n{result.stdout}"
 
     assert not (tmp_path / "index.sqlite3").exists(), "sqlite file should not be created when using postgres"
@@ -128,6 +130,15 @@ def test_init_creates_postgres_schema(pg_server, tmp_path):
         (regclass,) = pg_query(pg_server, dbname, f"SELECT to_regclass('{table}')")[0]
         assert regclass == table, f"Table {table} missing from postgres schema"
 
+    stored = pg_query(pg_server, dbname, "SELECT config FROM machine_machine")[0][0]
+    assert stored["_SECRET_KEY_DB"] and stored["SECRET_KEY"]
+    assert "SECRET_KEY" not in (tmp_path / "ArchiveBox.conf").read_text()
+    restarted = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=300)
+    assert isinstance(restarted.stdout, str)
+    assert restarted.returncode == 0, restarted.stderr
+    assert pg_query(pg_server, dbname, "SELECT config FROM machine_machine")[0][0]["SECRET_KEY"] == stored["SECRET_KEY"]
+    assert "SECRET_KEY" not in (tmp_path / "ArchiveBox.conf").read_text()
+
 
 def test_postgres_schema_matches_models(pg_server, tmp_path):
     """Every model column must exist in postgres and vice versa (no state/schema drift)."""
@@ -135,6 +146,7 @@ def test_postgres_schema_matches_models(pg_server, tmp_path):
     env = pg_cli_env(pg_server, dbname)
 
     result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=300)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
     parity_script = (
@@ -159,10 +171,12 @@ def test_postgres_schema_matches_models(pg_server, tmp_path):
         "print('SCHEMA_PROBLEMS=' + repr(sorted(problems)))\n"
     )
     result = run_archivebox_cmd(["manage", "shell", "-c", parity_script], cwd=tmp_path, env=env, timeout=120)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"manage shell failed: {result.stderr}"
     assert "SCHEMA_PROBLEMS=[]" in result.stdout, f"Postgres schema diverges from models:\n{result.stdout}\n{result.stderr}"
 
     result = run_archivebox_cmd(["manage", "makemigrations", "--check", "--dry-run"], cwd=tmp_path, env=env, timeout=120)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Model state does not match migrations: {result.stdout}\n{result.stderr}"
 
 
@@ -172,14 +186,17 @@ def test_status_and_reinit_on_postgres(pg_server, tmp_path):
     env = pg_cli_env(pg_server, dbname)
 
     result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=300)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
     assert "Initializing a new ArchiveBox" in result.stdout
 
     result = run_archivebox_cmd(["status"], cwd=tmp_path, env=env, timeout=120)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Status failed: {result.stderr}"
     assert f"postgresql://{PG_TEST_USER}@" in result.stdout, f"status should show the postgres DSN:\n{result.stdout}"
 
     result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=300)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Re-init failed: {result.stderr}"
     assert "Verifying and updating existing ArchiveBox collection" in result.stdout
 
@@ -191,9 +208,11 @@ def test_add_list_remove_on_postgres(pg_server, tmp_path):
     test_url = "https://example.com/abx-postgres-test"
 
     result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=300)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
 
     result = run_archivebox_cmd(["add", "--index-only", test_url], cwd=tmp_path, env=env, timeout=300)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Add failed: {result.stderr}\n{result.stdout}"
     run_queued_crawls(tmp_path, env)
 
@@ -203,10 +222,12 @@ def test_add_list_remove_on_postgres(pg_server, tmp_path):
     assert crawl_count >= 1, "Crawl row not written to postgres"
 
     result = run_archivebox_cmd(["list"], cwd=tmp_path, env=env, timeout=120)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"List failed: {result.stderr}"
     assert "example.com/abx-postgres-test" in result.stdout, f"Added URL missing from list output:\n{result.stdout}"
 
     result = run_archivebox_cmd(["search", "abx-postgres-test"], cwd=tmp_path, env=env, timeout=120)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Search failed: {result.stderr}"
     assert "example.com/abx-postgres-test" in result.stdout, f"Added URL missing from search output:\n{result.stdout}"
 
@@ -216,6 +237,7 @@ def test_add_list_remove_on_postgres(pg_server, tmp_path):
         env=env,
         timeout=120,
     )
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Remove failed: {result.stderr}\n{result.stdout}"
     (snapshot_count,) = pg_query(pg_server, dbname, f"SELECT COUNT(*) FROM core_snapshot WHERE url = '{test_url}'")[0]
     assert snapshot_count == 0, "Snapshot row should be deleted from postgres"
@@ -224,5 +246,6 @@ def test_add_list_remove_on_postgres(pg_server, tmp_path):
 def test_sqlite_remains_the_default(tmp_path):
     """Without DATABASE_ENGINE config, init keeps using the sqlite file backend."""
     result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=cli_env(), timeout=300)
+    assert isinstance(result.stdout, str)
     assert result.returncode == 0, f"Init failed: {result.stderr}"
     assert (tmp_path / "index.sqlite3").exists(), "sqlite file should be created by default"

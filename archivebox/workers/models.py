@@ -44,7 +44,7 @@ class ModelWithQueue(models.Model):
     database queue protocol: status, retry_at, pause/resume, and claims.
     """
 
-    StatusChoices: ClassVar[type[models.TextChoices]] = DefaultStatusChoices
+    StatusChoices = DefaultStatusChoices
     INITIAL_STATE: ClassVar[str] = DefaultStatusChoices.QUEUED
     ACTIVE_STATE: ClassVar[str] = DefaultStatusChoices.STARTED
     FINAL_STATES: ClassVar[tuple[str, ...]] = (DefaultStatusChoices.SEALED,)

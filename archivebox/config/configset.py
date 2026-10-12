@@ -6,7 +6,7 @@ import json
 from collections.abc import Mapping
 from configparser import ConfigParser
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
@@ -78,13 +78,14 @@ class IniConfigSettingsSource(PydanticBaseSettingsSource):
 
 
 def decode_config_inputs(
-    settings_cls: type[BaseSettings],
+    settings_cls: type[BaseModel],
     config: Mapping[str, Any],
     *,
     decode_unknown_json: bool = False,
 ) -> dict[str, Any]:
     """Decode string-only config values once at the boundary to typed config."""
-    decoder = IniConfigSettingsSource(settings_cls)
+    # Decoding uses only BaseModel.model_fields/model_config, not source loading.
+    decoder = IniConfigSettingsSource(cast(type[BaseSettings], settings_cls))
     decoded: dict[str, Any] = dict(config)
     for source_key, raw in list(decoded.items()):
         if not isinstance(raw, str) or not raw:

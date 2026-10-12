@@ -14,7 +14,16 @@ __package__ = "archivebox"
 import os
 import sys
 from pathlib import Path
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
+
+if TYPE_CHECKING:
+    from .config.constants import CONSTANTS as CONSTANTS
+    from .config.paths import DATA_DIR as DATA_DIR
+
+    BUILTIN_PLUGINS_DIR: Path
+    USER_PLUGINS_DIR: Path
+    ALL_PLUGINS: dict[str, Path]
+    LOADED_PLUGINS: dict[str, Path]
 
 
 class _ReconfigurableStream(Protocol):

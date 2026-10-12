@@ -15,7 +15,7 @@ from datetime import timedelta
 from itertools import batched
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Literal
+from typing import Any, Literal, TextIO, cast
 
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
@@ -70,6 +70,7 @@ from archivebox.config.common import (
     _is_cookie_file_config_key,
     _plugin_enabled_config_keys,
 )
+from archivebox.base_models.models import PagedQuerySet
 from archivebox.misc.db import run_db_analyze_batch
 from archivebox.core.shutdown_util import foreground_shutdown_signals, raise_if_shutdown_requested
 from archivebox.plugins.discovery import get_plugin_catalog
@@ -121,10 +122,12 @@ def _runner_console_line(*, crawl=None, crawl_id=None, snapshot=None, status: st
     prefix_width = len(line.plain)
     if snapshot is not None:
         label = snapshot.url
-    else:
+    elif crawl is not None:
         label = (crawl.label or "").strip()
         if not label:
             label = (crawl.urls or "").partition("\n")[0].strip() or str(crawl_id)
+    else:
+        label = str(crawl_id)
     line.append(_runner_label(label, reserve=prefix_width))
     Console(highlight=False).print(line)
 
@@ -169,7 +172,7 @@ def ensure_background_runner() -> bool:
 
     supervisor = get_existing_supervisord_process()
     runner_worker = get_worker(supervisor, "worker_runner") if supervisor else None
-    if runner_worker and runner_worker.get("statename") in ("STARTING", "RUNNING"):
+    if isinstance(runner_worker, dict) and runner_worker.get("statename") in ("STARTING", "RUNNING"):
         return False
     if supervisor is not None:
         start_worker(supervisor, RUNNER_WORKER())
@@ -252,7 +255,7 @@ class CrawlRunner:
         self.derived_config: dict[str, Any] = {}
         self.primary_url = ""
         self.crawl_output_dir = ""
-        self._live_stream = None
+        self._live_stream: TextIO | None = None
         self._live_ui: LiveBusUI | None = None
         self.root_crawl_event_id: str | None = None
         self.root_crawl_start_event_id: str | None = None
@@ -283,8 +286,8 @@ class CrawlRunner:
             # displaced by takeover. Tell the owning add command explicitly
             # so it exits instead of reclaiming and restarting this crawl.
             if os.environ.get("SUPERVISOR_PROCESS_NAME"):
-                sys.__stderr__.write("ARCHIVEBOX_CRAWL_ABORTED\n")
-                sys.__stderr__.flush()
+                (sys.__stderr__ or sys.stderr).write("ARCHIVEBOX_CRAWL_ABORTED\n")
+                (sys.__stderr__ or sys.stderr).flush()
 
     def _interrupt_hook(self) -> None:
         if self._user_aborted:
@@ -295,8 +298,8 @@ class CrawlRunner:
             # the boundary. Tell a supervising add parent this was user intent
             # before bypassing the worker's normal finalization path.
             if os.environ.get("SUPERVISOR_PROCESS_NAME"):
-                os.write(sys.__stderr__.fileno(), b"ARCHIVEBOX_CRAWL_ABORTED\n")
-            os.write(sys.__stderr__.fileno(), b"\n[!] Forcing aborted crawl to exit now.\n")
+                os.write((sys.__stderr__ or sys.stderr).fileno(), b"ARCHIVEBOX_CRAWL_ABORTED\n")
+            os.write((sys.__stderr__ or sys.stderr).fileno(), b"\n[!] Forcing aborted crawl to exit now.\n")
             self.process_service.force_kill_owned_processes()
             os._exit(130)
         if self._run_task is None:
@@ -306,8 +309,8 @@ class CrawlRunner:
             # second signal to Python's default handler in this teardown window.
             self._user_aborted = True
             if os.environ.get("SUPERVISOR_PROCESS_NAME"):
-                os.write(sys.__stderr__.fileno(), b"ARCHIVEBOX_CRAWL_ABORTED\n")
-            stream = self._live_stream if self._live_stream is not None and not self._live_stream.closed else sys.__stderr__
+                os.write((sys.__stderr__ or sys.stderr).fileno(), b"ARCHIVEBOX_CRAWL_ABORTED\n")
+            stream = self._live_stream if self._live_stream is not None and not self._live_stream.closed else (sys.__stderr__ or sys.stderr)
             os.write(stream.fileno(), b"\nAborting crawl - finishing shutdown... Ctrl+C again to force exit.\n")
             return
         if self._interrupt_choice is not None:
@@ -344,8 +347,10 @@ class CrawlRunner:
         # A supervised worker has log pipes instead of terminal input. Its add
         # parent owns the same shared reader and returns the answer via signals.
         self._interrupt_choice = asyncio.get_running_loop().create_future()
-        sys.__stderr__.write("ARCHIVEBOX_HOOK_INTERRUPTED " + json.dumps({"hook_name": hook_name, "rendered": rendered}) + "\n")
-        sys.__stderr__.flush()
+        (sys.__stderr__ or sys.stderr).write(
+            "ARCHIVEBOX_HOOK_INTERRUPTED " + json.dumps({"hook_name": hook_name, "rendered": rendered}) + "\n",
+        )
+        (sys.__stderr__ or sys.stderr).flush()
         try:
             return await self._interrupt_choice
         finally:
@@ -852,6 +857,7 @@ class CrawlRunner:
         if parser_name not in {"auto", "url_list"}:
             requested = parser_name if parser_name.startswith("parse_") else f"parse_{parser_name}_urls"
             parser_catalog = self.catalog.select([requested])
+        assert isinstance(self.base_config, ArchiveBoxBaseConfig)
         runtime_config = self.base_config.for_crawl_runtime(
             crawl=self.crawl,
             persona=self.persona,
@@ -1246,9 +1252,10 @@ class CrawlRunner:
 
     async def run_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         async with self.snapshot_semaphore:
-            crawl_start_event = crawl_start_event or get_current_event()
-            if not isinstance(crawl_start_event, CrawlStartEvent):
+            parent_event = crawl_start_event or get_current_event()
+            if not isinstance(parent_event, CrawlStartEvent):
                 raise RuntimeError("Snapshot events must be emitted from a CrawlStartEvent handler")
+            crawl_start_event = parent_event
             snapshot = await sync_to_async(self.load_snapshot_payload, thread_sensitive=True)(snapshot_id)
             try:
                 await sync_to_async(snapshot["_snapshot"].validate_url_for_archiving, thread_sensitive=True)()
@@ -1307,6 +1314,7 @@ class CrawlRunner:
                 snapshot_cleanup_phase_timeout=snapshot_phase_timeout,
                 abort_requested=self.crawl_is_cancelled,
             )
+            snapshot_event = None
             projected = False
             try:
                 snapshot_event = SnapshotEvent(
@@ -1358,10 +1366,10 @@ class CrawlRunner:
                 # Projection and snapshot cleanup have finished. Historical
                 # capture results now live in the database; only active work
                 # needs its event ancestry available to the downloader.
-                expired = [snapshot_event, user_config_event] if projected else []
+                expired = [snapshot_event, user_config_event] if projected and snapshot_event is not None else []
                 if projected and derived_config_event is not None:
                     expired.append(derived_config_event)
-                if projected:
+                if projected and snapshot_event is not None:
                     expired.extend(await self.bus.filter("*", child_of=snapshot_event, past=True, future=False))
                 for event in expired:
                     event.event_ttl = 0
@@ -1807,7 +1815,8 @@ def _run_due_snapshot_locked(
         # crawl. The crawl lifecycle lock already serializes all of its child
         # work, so let one runner drain the due siblings and discoveries.
         if any(
-            process.is_running for process in snapshot.process_set.filter(status="running").order_by("pk").paged_iterator(chunk_size=100)
+            process.is_running
+            for process in cast(PagedQuerySet, snapshot.process_set.filter(status="running").order_by("pk")).paged_iterator(chunk_size=100)
         ):
             snapshot.update_and_requeue(retry_at=timezone.now() + timedelta(seconds=lock_seconds))
             return True
@@ -1844,7 +1853,10 @@ def _run_due_snapshot_locked(
     if not snapshot.claim_processing_lock(lock_seconds=lock_seconds):
         return False
     snapshot.refresh_from_db()
-    if any(process.is_running for process in snapshot.process_set.filter(status="running").order_by("pk").paged_iterator(chunk_size=100)):
+    if any(
+        process.is_running
+        for process in cast(PagedQuerySet, snapshot.process_set.filter(status="running").order_by("pk")).paged_iterator(chunk_size=100)
+    ):
         # The Snapshot lease may have expired while an abx-dl hook process is
         # still alive. Preserve the snapshot-level ownership boundary and do
         # not launch a second sequence; ArchiveResult status is irrelevant.

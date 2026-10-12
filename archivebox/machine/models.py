@@ -13,6 +13,7 @@ from datetime import timedelta, datetime
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import IntegrityError, transaction
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.db.models import Q, QuerySet
 from django.utils import timezone
@@ -476,7 +477,7 @@ class NetworkInterface(ModelWithHealthStats):
         return _CURRENT_INTERFACE
 
 
-class BinaryManager(models.Manager.from_queryset(PagedQuerySet)):
+class BinaryManager(models.Manager.from_queryset(PagedQuerySet)):  # ty: ignore[unsupported-base]
     def get_valid_binary(self, name: str, machine: Machine | None = None) -> Binary | None:
         """Get a valid Binary for the given name on the current machine, or None if not found."""
         machine = machine or Machine.current()
@@ -508,6 +509,9 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
     The database row is the only lifecycle state; there is intentionally no
     second in-memory state machine to reconcile after a worker interruption.
     """
+
+    if TYPE_CHECKING:
+        process_set: models.Manager[Process]
 
     class StatusChoices(models.TextChoices):
         QUEUED = "queued", "Queued"
@@ -844,7 +848,7 @@ class Binary(ModelWithHealthStats, ModelWithQueue):
 # =============================================================================
 
 
-class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):
+class ProcessManager(models.Manager.from_queryset(PagedQuerySet)):  # ty: ignore[unsupported-base]
     """Manager for Process model."""
 
     def current(self) -> Process:
@@ -1116,6 +1120,7 @@ class Process(ModelWithDeleteAfter, models.Model):
     machine_id: uuid.UUID
     parent_id: uuid.UUID | None
     binary_id: uuid.UUID | None
+    iface_id: uuid.UUID | None
     children: models.Manager[Process]
     archiveresult: ArchiveResult
 
@@ -1186,7 +1191,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         """Get plugin name from associated ArchiveResult (if any)."""
         try:
             return self.archiveresult.plugin
-        except Process.archiveresult.RelatedObjectDoesNotExist:
+        except ObjectDoesNotExist:
             return ""
 
     @property
@@ -1194,7 +1199,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         """Get hook name from associated ArchiveResult (if any)."""
         try:
             return self.archiveresult.hook_name
-        except Process.archiveresult.RelatedObjectDoesNotExist:
+        except ObjectDoesNotExist:
             return ""
 
     def to_json(self) -> dict:
@@ -1584,7 +1589,7 @@ class Process(ModelWithDeleteAfter, models.Model):
             stale = stale.filter(machine=machine)
 
         # Close each bounded read before inspecting processes or writing their state.
-        for proc in stale.order_by("pk").paged_iterator(chunk_size=100):
+        for proc in cast(PagedQuerySet, stale.order_by("pk")).paged_iterator(chunk_size=100):
             shares_pid_namespace = proc.shares_pid_namespace
             if shares_pid_namespace and proc.poll() is not None:
                 cleaned += 1
@@ -2470,10 +2475,10 @@ class Process(ModelWithDeleteAfter, models.Model):
         from importlib.resources import files
 
         chrome_utils = files("abx_plugins.plugins.chrome").joinpath("chrome_utils.js")
-        if not chrome_utils.exists():
+        if not chrome_utils.is_file():
             return 0
 
-        node_binary = cast(BinaryManager, Binary.objects).get_valid_binary("node")
+        node_binary = Binary.objects.get_valid_binary("node")
         if node_binary is None or not node_binary.is_valid:
             return 0
         from archivebox.config.common import get_config
@@ -2534,7 +2539,7 @@ class Process(ModelWithDeleteAfter, models.Model):
         )
 
         # Close each bounded read before inspecting processes or writing their state.
-        for proc in running_children.order_by("pk").paged_iterator(chunk_size=100):
+        for proc in cast(PagedQuerySet, running_children.order_by("pk")).paged_iterator(chunk_size=100):
             if not proc.is_running:
                 proc.mark_exited(
                     exit_code=proc.exit_code if proc.exit_code is not None else _default_exit_code_for_unowned_process(proc.process_type),

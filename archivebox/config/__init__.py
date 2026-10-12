@@ -1,5 +1,12 @@
 """Minimal import-time config exports."""
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .constants import CONSTANTS as CONSTANTS, CONSTANTS_CONFIG as CONSTANTS_CONFIG
+    from .paths import PACKAGE_DIR as PACKAGE_DIR, DATA_DIR as DATA_DIR
+    from .version import VERSION as VERSION
+
 __package__ = "archivebox.config"
 __order__ = 200
 

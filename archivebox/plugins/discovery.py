@@ -5,7 +5,7 @@ from functools import lru_cache
 from importlib import import_module
 from pathlib import Path, PurePosixPath
 from types import ModuleType
-from typing import Any, Protocol, TypedDict
+from typing import Any, Protocol, TypedDict, cast
 
 from abx_plugins import get_plugins_dir
 from abx_dl.catalog import PluginCatalog, PluginConfigResolver
@@ -15,7 +15,7 @@ from archivebox.config.constants import CONSTANTS
 
 
 class ConfigLookup(Protocol):
-    def get(self, key: str, default: Any = None) -> Any: ...
+    def get(self, key: str, default: Any = None, /) -> Any: ...
 
     def items(self) -> Iterable[tuple[str, Any]]: ...
 
@@ -254,7 +254,7 @@ def get_plugin_special_config(plugin_name: str, config: ConfigLookup, _visited: 
         - {PLUGIN}_TIMEOUT: Plugin-specific timeout (fallback to TIMEOUT, default 300)
         - {PLUGIN}_BINARY: Primary binary path (default to plugin_name)
     """
-    return get_plugin_config_resolver().runtime_settings(plugin_name, dict(config.items()))
+    return cast(PluginSpecialConfig, get_plugin_config_resolver().runtime_settings(plugin_name, dict(config.items())))
 
 
 DEFAULT_TEMPLATES = {

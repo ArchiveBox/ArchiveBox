@@ -855,8 +855,11 @@ def test_wait_for_snapshot_tasks_surfaces_already_failed_task():
     crawl_runner = runner_module.CrawlRunner(crawl)
 
     async def run_test():
-        task = asyncio.get_running_loop().create_future()
-        task.set_exception(RuntimeError("snapshot failed"))
+        async def fail():
+            raise RuntimeError("snapshot failed")
+
+        task = asyncio.create_task(fail())
+        await asyncio.sleep(0)
         crawl_runner.snapshot_tasks["snap-1"] = task
         with pytest.raises(RuntimeError, match="snapshot failed"):
             await crawl_runner.wait_for_snapshot_tasks()
@@ -876,8 +879,8 @@ def test_wait_for_snapshot_tasks_returns_after_completed_tasks_are_pruned():
     crawl_runner = runner_module.CrawlRunner(crawl)
 
     async def run_test():
-        task = asyncio.get_running_loop().create_future()
-        task.set_result(None)
+        task = asyncio.create_task(asyncio.sleep(0))
+        await task
         crawl_runner.snapshot_tasks["snap-1"] = task
         await asyncio.wait_for(crawl_runner.wait_for_snapshot_tasks(), timeout=0.5)
         assert crawl_runner.snapshot_tasks == {}

@@ -44,7 +44,7 @@ def is_postgres(config: Any | None = None) -> bool:
 
             config = get_config()
 
-        _IS_POSTGRES = (config.DATABASE_ENGINE or "sqlite").strip().lower().startswith("postgres")
+        _IS_POSTGRES = str(config.DATABASE_ENGINE or "sqlite").strip().lower().startswith("postgres")
 
     return _IS_POSTGRES
 
@@ -154,6 +154,7 @@ def ensure_database_ready() -> None:
         return
 
     import psycopg
+    from psycopg import sql
     from rich import print as rich_print
 
     params = postgres_db_params()
@@ -170,8 +171,7 @@ def ensure_database_ready() -> None:
 
     with _psycopg_connect(dbname="postgres") as conn:
         conn.autocommit = True
-        safe_name = params["NAME"].replace('"', '""')
-        conn.execute(f'CREATE DATABASE "{safe_name}"')
+        conn.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(params["NAME"])))
         rich_print(f"    + Created PostgreSQL database {params['NAME']}")
 
 
@@ -405,7 +405,9 @@ def migration_lock(stdout: TextIO | None = None):
     from archivebox.config.paths import get_or_create_working_tmp_dir
     from rich.console import Console
 
-    lock_path = get_or_create_working_tmp_dir(autofix=True, quiet=True) / "migrate.lock"
+    tmp_dir = get_or_create_working_tmp_dir(autofix=True, quiet=False)
+    assert tmp_dir is not None
+    lock_path = tmp_dir / "migrate.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
     with lock_path.open("a+") as lock_file:
         try:

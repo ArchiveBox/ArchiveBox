@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from archivebox.config.common import get_config, get_request_config
+
+if TYPE_CHECKING:
+    from archivebox.config.common import ArchiveBoxBaseConfig
 
 _SNAPSHOT_ID_RE = re.compile(r"^[0-9a-fA-F-]{8,36}$")
 _SNAPSHOT_SUBDOMAIN_RE = re.compile(r"^snap-(?P<suffix>[0-9a-fA-F]{12})$")
@@ -62,7 +65,7 @@ def _csrf_trusted_origins(config) -> list[str]:
     return seen
 
 
-def derive_base_url_from_csrf(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def derive_base_url_from_csrf(config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     """Pick a single CSRF_TRUSTED_ORIGINS entry to act as the implicit BASE_URL.
 
     0.7.3 → 0.9.0 upgrade path: any reverse-proxied 0.7.3 deployment already
@@ -83,7 +86,7 @@ def derive_base_url_from_csrf(config: dict[str, Any] | None = None, **config_kwa
     return ""
 
 
-def get_listen_host(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def get_listen_host(config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or get_config(**config_kwargs)
     return (config.BIND_ADDR or "").strip()
 
@@ -134,14 +137,14 @@ def canonical_base_host_for_request(request_host: str) -> str:
     return _with_port(hostname, port)
 
 
-def _root_host_from_listen(config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def _root_host_from_listen(config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or get_config(**config_kwargs)
     listen_host, listen_port = split_host_port(get_listen_host(config=config))
     root_host = "archivebox.localhost" if _is_local_bind_host(listen_host) else listen_host
     return _with_port(root_host, listen_port) if root_host else ""
 
 
-def get_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def get_base_url(request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     override = _normalize_base_url(config.BASE_URL)
     if override:
@@ -176,11 +179,11 @@ def get_base_url(request=None, config: dict[str, Any] | None = None, **config_kw
     return f"{scheme}://{root_host}" if root_host else ""
 
 
-def get_base_host(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def get_base_host(request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     return urlparse(get_base_url(request=request, config=config, **config_kwargs)).netloc.lower()
 
 
-def _build_base_host(subdomain: str | None, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def _build_base_host(subdomain: str | None, request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     base_host = get_base_host(request=request, config=config, **config_kwargs)
     if not base_host:
         return ""
@@ -189,21 +192,21 @@ def _build_base_host(subdomain: str | None, request=None, config: dict[str, Any]
     return _with_port(full_host, port)
 
 
-def get_admin_host(config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+def get_admin_host(config: ArchiveBoxBaseConfig | None = None, request=None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_host(request=request, config=config)
     return _build_base_host("admin", request=request, config=config)
 
 
-def get_web_host(config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+def get_web_host(config: ArchiveBoxBaseConfig | None = None, request=None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_host(request=request, config=config)
     return _build_base_host("web", request=request, config=config)
 
 
-def get_api_host(config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+def get_api_host(config: ArchiveBoxBaseConfig | None = None, request=None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_host(request=request, config=config)
@@ -216,14 +219,14 @@ def get_snapshot_subdomain(snapshot_id: str) -> str:
     return f"snap-{suffix}"
 
 
-def get_snapshot_host(snapshot_id: str, config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+def get_snapshot_host(snapshot_id: str, config: ArchiveBoxBaseConfig | None = None, request=None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_host(request=request, config=config)
     return _build_base_host(get_snapshot_subdomain(snapshot_id), request=request, config=config)
 
 
-def get_original_host(domain: str, config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+def get_original_host(domain: str, config: ArchiveBoxBaseConfig | None = None, request=None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_host(request=request, config=config)
@@ -245,7 +248,7 @@ def get_snapshot_lookup_key(snapshot_ref: str) -> str:
     return value
 
 
-def get_listen_subdomain(request_host: str, config: dict[str, Any] | None = None, request=None, **config_kwargs: Any) -> str:
+def get_listen_subdomain(request_host: str, config: ArchiveBoxBaseConfig | None = None, request=None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return ""
@@ -273,7 +276,7 @@ def host_matches(request_host: str, target_host: str) -> bool:
     return not (target_port and req_port and target_port != req_port)
 
 
-def is_allowed_archivebox_redirect_url(url: str | None, request=None, config: dict[str, Any] | None = None) -> bool:
+def is_allowed_archivebox_redirect_url(url: str | None, request=None, config: ArchiveBoxBaseConfig | None = None) -> bool:
     """Allow login redirects to this host or to the explicit ArchiveBox BASE_URL family.
 
     Django already rejects arbitrary absolute ``next=`` URLs for the current host.
@@ -321,7 +324,7 @@ def is_allowed_archivebox_redirect_url(url: str | None, request=None, config: di
     return redirect_port is None
 
 
-def _scheme_from_request(request=None, config: dict[str, Any] | None = None) -> str:
+def _scheme_from_request(request=None, config: ArchiveBoxBaseConfig | None = None) -> str:
     config = config or get_config()
     override = _normalize_base_url(config.BASE_URL)
     if override:
@@ -331,35 +334,35 @@ def _scheme_from_request(request=None, config: dict[str, Any] | None = None) -> 
     return "http"
 
 
-def _build_base_url_for_host(host: str, request=None, config: dict[str, Any] | None = None) -> str:
+def _build_base_url_for_host(host: str, request=None, config: ArchiveBoxBaseConfig | None = None) -> str:
     if not host:
         return ""
     scheme = _scheme_from_request(request, config=config)
     return f"{scheme}://{host}"
 
 
-def get_admin_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def get_admin_base_url(request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_url(request=request, config=config)
     return _build_base_url_for_host(_build_base_host("admin", request=request, config=config), request=request, config=config)
 
 
-def get_web_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def get_web_base_url(request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_url(request=request, config=config)
     return _build_base_url_for_host(_build_base_host("web", request=request, config=config), request=request, config=config)
 
 
-def get_api_base_url(request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def get_api_base_url(request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return get_base_url(request=request, config=config)
     return _build_base_url_for_host(_build_base_host("api", request=request, config=config), request=request, config=config)
 
 
-def get_snapshot_base_url(snapshot_id: str, request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def get_snapshot_base_url(snapshot_id: str, request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     if not config.USES_SUBDOMAIN_ROUTING:
         return _build_url(get_web_base_url(request=request, config=config), f"/snapshot/{str(snapshot_id).replace('-', '')}")
@@ -370,15 +373,21 @@ def get_snapshot_base_url(snapshot_id: str, request=None, config: dict[str, Any]
     )
 
 
-def build_admin_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def build_admin_url(path: str = "", request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     return _build_url(get_admin_base_url(request, config=config, **config_kwargs), path)
 
 
-def build_web_url(path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def build_web_url(path: str = "", request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     return _build_url(get_web_base_url(request, config=config, **config_kwargs), path)
 
 
-def build_snapshot_url(snapshot_id: str, path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def build_snapshot_url(
+    snapshot_id: str,
+    path: str = "",
+    request=None,
+    config: ArchiveBoxBaseConfig | None = None,
+    **config_kwargs: Any,
+) -> str:
     # `path` is a filesystem-relative output path, not an already-encoded URL.
     # In particular, wget can save literal `%3A` in filenames; emitting that
     # unchanged makes the browser request `:`, which cannot match the file.
@@ -418,7 +427,7 @@ def build_snapshot_detail_url(
     archive_path: str,
     output_path: str = "",
     request=None,
-    config: dict[str, Any] | None = None,
+    config: ArchiveBoxBaseConfig | None = None,
     **config_kwargs: Any,
 ) -> str:
     """Build a request-aware URL for trusted snapshot UI on the web origin."""
@@ -434,7 +443,7 @@ def build_snapshot_role_output_url(
     snapshot,
     role: str,
     request=None,
-    config: dict[str, Any] | None = None,
+    config: ArchiveBoxBaseConfig | None = None,
     archive_results=None,
     fallback_to_default: bool = False,
     **config_kwargs: Any,
@@ -455,7 +464,7 @@ def build_snapshot_files_url(
     snapshot_id: str,
     path: str = "",
     request=None,
-    config: dict[str, Any] | None = None,
+    config: ArchiveBoxBaseConfig | None = None,
     **config_kwargs: Any,
 ) -> str:
     """Build a request-aware directory-browser URL on the isolated replay origin."""
@@ -470,7 +479,7 @@ def build_snapshot_zip_url(
     snapshot_id: str,
     path: str = "",
     request=None,
-    config: dict[str, Any] | None = None,
+    config: ArchiveBoxBaseConfig | None = None,
     **config_kwargs: Any,
 ) -> str:
     """Build a request-aware ZIP download URL for a snapshot directory."""
@@ -478,7 +487,7 @@ def build_snapshot_zip_url(
     return _replace_url_query_params(files_url, download="zip")
 
 
-def build_original_url(domain: str, path: str = "", request=None, config: dict[str, Any] | None = None, **config_kwargs: Any) -> str:
+def build_original_url(domain: str, path: str = "", request=None, config: ArchiveBoxBaseConfig | None = None, **config_kwargs: Any) -> str:
     config = config or (get_request_config(request) if request is not None else get_config(**config_kwargs))
     base_url = _build_url(get_web_base_url(request=request, config=config), f"/original/{domain}")
     return _build_url(base_url, path)
