@@ -206,15 +206,16 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 process_type=Process.TypeChoices.ORCHESTRATOR,
                 status=Process.StatusChoices.RUNNING,
             )
-            .only("id", "pid", "started_at", "machine_id", "process_type", "status", "env", "cmd")
+            .values("pid")
             .order_by("-started_at")
             .first()
             if machine_id is not None
             else None
         )
-        orchestrator_proc_running = bool(orchestrator_proc and orchestrator_proc.is_running)
-        orchestrator_running = orchestrator_proc_running
-        orchestrator_pid = orchestrator_proc.pid if orchestrator_proc_running and orchestrator_proc else None
+        # The runner owns process liveness/reconciliation. A JSON poll must not
+        # call Process.is_running: psutil probes OS state and /proc on Linux.
+        orchestrator_running = orchestrator_proc is not None
+        orchestrator_pid = orchestrator_proc["pid"] if orchestrator_proc else None
 
         # Get model counts by status
         crawl_status_counts = Crawl.status_counts(
@@ -500,9 +501,11 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 snapshot_id = str(matched_snapshot["id"])
             running_worker_ids.add(str(proc["id"]))
             _plugin, _label, phase, _hook_name = process_label(proc["cmd"])
-            if _plugin == "chrome_screencast" and proc["started_at"] and Process(**proc, machine_id=machine_id).is_running:
+            if _plugin == "chrome_screencast" and proc["started_at"]:
                 # CDP sends frames only when the page changes. Keep a still
                 # frame visible for its live capture, never for a previous run.
+                # This query already selects RUNNING rows; trust the runner's
+                # recorded state instead of probing its PID during every poll.
                 running_screencasts[crawl_id] = max(proc["started_at"], running_screencasts.get(crawl_id, proc["started_at"]))
             if crawl_id and proc["pid"]:
                 crawl_process_pids.setdefault(crawl_id, proc["pid"])
@@ -616,9 +619,11 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 if snapshot["status"] == Snapshot.StatusChoices.QUEUED:
                     snapshot_results = []
 
-                # Role previews and plugin links reuse metadata within this poll only.
-                for ar in snapshot_results:
-                    ar._render_output_file_map = ar.output_file_map()
+                # Capture/import already persist the canonical output_files map.
+                # Read it directly; rebuilding Pydantic manifests here repeatedly
+                # validates, copies, sorts, and totals every captured asset.
+                # Resolve each link once for both role previews and plugin rows.
+                output_paths = {ar.id: ar.embed_path_db(output_file_map=ar.output_files) for ar in snapshot_results}
 
                 plugin_progress_values: list[int] = []
                 all_plugins: list[dict[str, object]] = []
@@ -639,13 +644,13 @@ def live_progress_view(request, *, authorized_snapshot=None):
                     snapshot_title = Snapshot._normalize_title_candidate(title_result.output_str, snapshot_url=snapshot["url"])
                 favicon_result = get_snapshot_role_result(snapshot_results, "list_icon")
                 if favicon_result is not None:
-                    favicon_path = favicon_result.embed_path_db() or get_plugin_default_output_path(favicon_result.plugin)
+                    favicon_path = output_paths[favicon_result.id] or get_plugin_default_output_path(favicon_result.plugin)
                     if favicon_path:
                         snapshot_favicon_url = snapshot_output_url(snapshot, favicon_path)
                 screenshot_result = get_snapshot_role_result(snapshot_results, "primary_preview")
                 if screenshot_result is not None:
                     snapshot_preview_link = snapshot_view_url(snapshot)
-                    screenshot_path = screenshot_result.embed_path_db() or get_plugin_default_output_path(screenshot_result.plugin)
+                    screenshot_path = output_paths[screenshot_result.id] or get_plugin_default_output_path(screenshot_result.plugin)
                     if screenshot_path:
                         snapshot_preview_url = snapshot_output_url(snapshot, screenshot_path)
                         snapshot_preview_link = snapshot_view_url(snapshot, screenshot_path)
@@ -703,7 +708,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
                         "process_id": str(process.id) if process else None,
                         "admin_url": f"/admin/core/archiveresult/{ar.id}/change/",
                     }
-                    output_path = ar.embed_path_db()
+                    output_path = output_paths[ar.id]
                     if output_path:
                         plugin_payload["output_path"] = output_path
                         plugin_payload["output_url"] = snapshot_view_url(snapshot, output_path)

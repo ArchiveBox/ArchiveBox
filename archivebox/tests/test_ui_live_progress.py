@@ -295,18 +295,25 @@ class TestLiveProgressView:
         assert scoped["crawl_output_size"] == 9999
         assert scoped["cancelled_snapshots"] == 1
 
-    def test_live_progress_does_not_inspect_archive_files(self, client, admin_user, crawl, snapshot):
+    @pytest.mark.parametrize("scope", ["collection", "crawl", "snapshot"])
+    def test_live_progress_does_not_inspect_archive_files(self, client, admin_user, crawl, snapshot, scope):
         import sys
         from archivebox.core.models import Snapshot
+        from archivebox.core.routes_util import get_snapshot_host
         from archivebox.crawls.models import Crawl
         from archivebox.config.constants import CONSTANTS
+        from archivebox.tests.test_snapshot_output_stacks import save_output
 
         Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED)
-        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.STARTED)
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.STARTED, config={"PERMISSIONS": "public"})
+        for plugin in ("favicon", "screenshot", "readability"):
+            save_output(snapshot, plugin, extra_files=tuple(f"asset-{index}.html" for index in range(64)))
         client.force_login(admin_user)
+        query = {f"{scope}_id": str(snapshot.pk if scope == "snapshot" else crawl.pk)} if scope != "collection" else {}
+        host = get_snapshot_host(str(snapshot.pk)) if scope == "snapshot" else ADMIN_TEST_HOST
         # Warm imports/settings, then observe real calls without replacing any
         # filesystem API or the endpoint under test.
-        assert client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST).status_code == 200
+        assert client.get(reverse("live_progress"), query, HTTP_HOST=host).status_code == 200
         filesystem_calls = []
         storage_roots = (CONSTANTS.ARCHIVE_DIR, CONSTANTS.PERSONAS_DIR)
 
@@ -321,7 +328,7 @@ class TestLiveProgressView:
         previous_profile = sys.getprofile()
         sys.setprofile(observe)
         try:
-            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+            response = client.get(reverse("live_progress"), query, HTTP_HOST=host)
         finally:
             sys.setprofile(previous_profile)
         assert response.status_code == 200, response.content
@@ -661,7 +668,9 @@ class TestLiveProgressView:
         keep_frames,
         tmp_path,
     ):
+        import cProfile
         import hashlib
+        import pstats
         import time
 
         from archivebox.config.common import get_config
@@ -727,8 +736,12 @@ class TestLiveProgressView:
             assert frame.read_bytes().startswith(b"\xff\xd8\xff")
             assert time.time() - frame.stat().st_mtime > 16
             client.force_login(admin_user)
-            response = client.get("/progress.json", HTTP_HOST=ADMIN_TEST_HOST)
+            profile = cProfile.Profile()
+            with profile:
+                response = client.get("/progress.json", HTTP_HOST=ADMIN_TEST_HOST)
             assert response.status_code == 200, response.content
+            process_probes = [(source, function) for (source, _line, function) in pstats.Stats(profile).stats if "/psutil/" in source]
+            assert process_probes == []
             active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
             assert active_crawl["screencast_url"].startswith(f"/api/v1/crawls/crawl/{crawl.pk}/files/chrome_screencast/latest.jpg")
             image_response = client.get(active_crawl["screencast_url"], HTTP_HOST=ADMIN_TEST_HOST)
@@ -852,6 +865,9 @@ class TestLiveProgressView:
         admin_user,
         initialized_archive,
     ):
+        import cProfile
+        import pstats
+
         import archivebox.machine.models as machine_models
         from archivebox.machine.models import Machine, Process, psutil
 
@@ -880,12 +896,18 @@ class TestLiveProgressView:
             )
 
             client.force_login(admin_user)
-            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+            # The runner publishes this state. Polling must not inspect the OS
+            # or /proc again for each viewer, even when the process is local.
+            profile = cProfile.Profile()
+            with profile:
+                response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
 
             assert response.status_code == 200
             payload = response.json()
             assert payload["orchestrator_running"] is True
             assert payload["orchestrator_pid"] == popen.pid
+            process_probes = [(source, function) for (source, _line, function) in pstats.Stats(profile).stats if "/psutil/" in source]
+            assert process_probes == []
         finally:
             assert popen.stdin is not None
             popen.stdin.close()

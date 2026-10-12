@@ -47,7 +47,8 @@ def test_replay_normalizes_manifest_once_and_reads_replaced_metadata(snapshot, c
         assert normalizations == 1, normalizations
 
 
-def test_progress_normalizes_each_manifest_once_and_reads_replaced_metadata(snapshot, admin_client):
+@pytest.mark.parametrize("metadata_only", [False, True])
+def test_progress_reads_saved_manifests_without_rebuilding_them(snapshot, admin_client, metadata_only):
     Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED)
     results = [
         save_output(snapshot, plugin, extra_files=tuple(f"asset-{index}.html" for index in range(64)))
@@ -57,9 +58,13 @@ def test_progress_normalizes_each_manifest_once_and_reads_replaced_metadata(snap
         if filename == "replacement.html":
             for result in results:
                 (snapshot.output_dir / result.plugin / filename).write_text("<h1>Replacement capture</h1>")
-                result.output_str = filename
+                result.output_str = "" if metadata_only else filename
                 result.output_files = {filename: {"size": 28, "mimetype": "text/html"}}
                 result.save(update_fields=["output_str", "output_files"])
+        elif metadata_only:
+            for result in results:
+                result.output_str = ""
+                result.save(update_fields=["output_str"])
         profile = cProfile.Profile()
         with profile:
             response = admin_client.get("/progress.json", {"snapshot_id": str(snapshot.id)}, HTTP_HOST=ADMIN_TEST_HOST)
@@ -80,4 +85,10 @@ def test_progress_normalizes_each_manifest_once_and_reads_replaced_metadata(snap
             for (source, _line, function), values in pstats.Stats(profile).stats.items()
             if source.endswith("core/models.py") and function == "_normalize_output_files"
         )
-        assert normalizations == len(results), normalizations
+        assert normalizations == 0, normalizations
+        path_resolutions = sum(
+            values[1]
+            for (source, _line, function), values in pstats.Stats(profile).stats.items()
+            if source.endswith("core/models.py") and function == "embed_path_db"
+        )
+        assert path_resolutions == len(results), path_resolutions
