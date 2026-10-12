@@ -1,0 +1,29 @@
+archivebox/core/models.py
+  s_2b44ee96cc775e::t_19eceb369e49fd 1120,1176,2752-2759,3329-3337
+archivebox/cli/rescan.py
+  s_2b44ee96cc775e::t_19eceb369e49fd 63-80,200-201,258
+archivebox/crawls/models.py
+  s_2b44ee96cc775e::t_19eceb369e49fd 479-491,493-496
+archivebox/services/runner.py
+  s_2b44ee96cc775e::t_19eceb369e49fd 827-829,1029
+archivebox/tests/test_snapshot_filesystem_migration.py
+  s_2b44ee96cc775e::t_19eceb369e49fd 109-162
+archivebox/tests/test_archive_storage_isolation.py
+  s_2b44ee96cc775e::t_112d4c86395141 1-422
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "55fc0a5f1b9d7f22b00a11a569859aabb0118276",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
