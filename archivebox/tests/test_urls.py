@@ -497,6 +497,157 @@ class TestUrlRouting:
             mode=mode,
         )
 
+    @pytest.mark.parametrize(
+        "mode",
+        ["auto", "safe-subdomains-fullreplay", "safe-onedomain-nojsreplay", "unsafe-onedomain-noadmin", "danger-onedomain-fullreplay"],
+    )
+    def test_agent_importer_and_progress_routes_require_superuser_in_every_security_mode(self, mode: str) -> None:
+        # WHY: plugin-contributed agent routes proxy a local shell-capable AI
+        # service. Each security mode must keep them superuser-only, on the
+        # admin host, and same-origin for writes, including the WebSocket path.
+        self._run(
+            """
+            import asyncio
+            import json
+
+            from archivebox.core.asgi import application
+
+            admin = ensure_admin_user()
+            User = get_user_model()
+            staff, _ = User.objects.get_or_create(username="agentstaff", defaults={"is_staff": True, "is_superuser": False})
+            staff.is_staff, staff.is_superuser = True, False
+            staff.set_password("staffpassword")
+            staff.save()
+            admin_host = get_admin_host()
+            web_host = get_web_host()
+            control = SERVER_CONFIG.CONTROL_PLANE_ENABLED
+            agent_paths = (
+                "/admin/agent/",
+                "/admin/agent/browser/list",
+                "/admin/agent/opencode/session",
+                "/admin/importers/",
+            )
+
+            anonymous = Client()
+            for path in (*agent_paths, "/assets/index.js"):
+                resp = anonymous.get(path, HTTP_HOST=admin_host)
+                body = response_body(resp)
+                if control or path.startswith("/assets/"):
+                    assert resp.status_code == 302, (path, resp.status_code, body[:200])
+                    assert "/admin/login/" in resp["Location"], (path, resp["Location"])
+                else:
+                    assert resp.status_code == 403, (path, resp.status_code)
+                assert b"browsers" not in body and b"opencode" not in body.lower()
+            if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING and web_host != admin_host:
+                for path in agent_paths:
+                    resp = anonymous.get(path, HTTP_HOST=web_host)
+                    assert resp.status_code == 302, (path, resp.status_code)
+                    assert resp["Location"].startswith(f"http://{admin_host}/"), resp["Location"]
+
+            resp = anonymous.get("/progress.json", HTTP_HOST=admin_host)
+            assert resp.status_code == 403
+            assert b"active_crawls" not in response_body(resp)
+
+            resp = anonymous.post(
+                "/api/v1/agent/tasks/",
+                data=json.dumps({"snapshot_id": str(get_snapshot().id), "task": "summarize"}),
+                content_type="application/json",
+                HTTP_HOST=admin_host,
+            )
+            assert resp.status_code == (401 if control else 403), resp.status_code
+
+            staff_client = Client()
+            assert staff_client.login(username="agentstaff", password="staffpassword")
+            for path in agent_paths:
+                resp = staff_client.get(path, HTTP_HOST=admin_host)
+                assert resp.status_code == 403, (path, resp.status_code)
+
+            superuser = Client(enforce_csrf_checks=True)
+            assert superuser.login(username="testadmin", password="testpassword")
+            resp = superuser.get("/admin/agent/browser/list", HTTP_HOST=admin_host)
+            if control:
+                assert resp.status_code == 200, (resp.status_code, response_body(resp)[:200])
+                assert "browsers" in resp.json()
+            else:
+                assert resp.status_code == 403
+            # Replayed pages are hostile: subdomain mode isolates them on snap-*,
+            # one-domain modes serve risky documents sandboxed (Origin: null).
+            replay_origin = f"http://{get_snapshot_host(str(get_snapshot().id))}" if SERVER_CONFIG.USES_SUBDOMAIN_ROUTING else "null"
+            for origin in ("https://attacker.example", replay_origin):
+                resp = superuser.post(
+                    "/admin/agent/opencode/session",
+                    data="{}",
+                    content_type="application/json",
+                    HTTP_HOST=admin_host,
+                    HTTP_ORIGIN=origin,
+                )
+                assert resp.status_code == 403, (origin, resp.status_code)
+
+            async def websocket(cookie, origin):
+                headers = [(b"host", admin_host.encode()), (b"origin", origin.encode())]
+                if cookie:
+                    headers.append((b"cookie", cookie.encode()))
+                scope = {
+                    "type": "websocket",
+                    "path": "/admin/agent/opencode/pty/connect",
+                    "raw_path": b"/admin/agent/opencode/pty/connect",
+                    "query_string": b"",
+                    "headers": headers,
+                    "scheme": "ws",
+                    "server": (admin_host.split(":")[0], 80),
+                    "client": ("127.0.0.1", 50000),
+                    "subprotocols": [],
+                }
+                received = [{"type": "websocket.connect"}]
+                sent = []
+
+                async def receive():
+                    return received.pop(0) if received else {"type": "websocket.disconnect"}
+
+                async def send(message):
+                    sent.append(message)
+
+                await application(scope, receive, send)
+                return sent
+
+            session_cookie = "; ".join(f"{name}={morsel.value}" for name, morsel in superuser.cookies.items())
+            for cookie, origin in (("", f"http://{admin_host}"), (session_cookie, "https://attacker.example")):
+                sent = asyncio.run(websocket(cookie, origin))
+                assert sent == [{"type": "websocket.close", "code": 1008}], (cookie[:20], origin, sent)
+
+            # The rejections above must come from auth/origin checks, not from
+            # the WebSocket gate refusing everyone: a same-origin superuser passes.
+            from django.core.exceptions import PermissionDenied
+            from abx_plugins.plugins.opencode.archivebox.views import _websocket_context
+
+            scope = {
+                "type": "websocket",
+                "path": "/admin/agent/opencode/pty/connect",
+                "query_string": b"",
+                "headers": [
+                    (b"host", admin_host.encode()),
+                    (b"origin", f"http://{admin_host}".encode()),
+                    (b"cookie", session_cookie.encode()),
+                ],
+                "scheme": "ws",
+                "server": (admin_host.split(":")[0], 80),
+                "client": ("127.0.0.1", 50000),
+            }
+            if control:
+                assert _websocket_context(scope)[2] == "pty/connect"
+            else:
+                try:
+                    _websocket_context(scope)
+                except PermissionDenied:
+                    pass
+                else:
+                    raise AssertionError("WebSocket agent proxy must stay disabled without a control plane")
+            print("OK")
+            """,
+            mode=mode,
+            env_overrides={"OPENCODE_ENABLED": "True"},
+        )
+
     def test_cross_domain_admin_hint_only_marks_superusers(self) -> None:
         self._run(
             """
@@ -713,6 +864,54 @@ class TestUrlRouting:
                 assert rejected.status_code == 403
             finally:
                 other_snapshot.delete()
+                Snapshot.objects.filter(pk=snapshot.pk).update(config=original_config)
+
+            print("OK")
+            """,
+            mode="safe-subdomains-fullreplay",
+        )
+
+    def test_private_snapshot_replay_grant_url_is_not_a_long_lived_cookie(self) -> None:
+        self._run(
+            """
+            from urllib.parse import parse_qs, urlsplit
+
+            from archivebox.core.views import _replay_cookie_name
+
+            ensure_admin_user()
+            snapshot = get_snapshot()
+            original_config = snapshot.config
+            Snapshot.objects.filter(pk=snapshot.pk).update(config={**snapshot.config, "PERMISSIONS": "private"})
+            snapshot.refresh_from_db()
+            snapshot_host = get_snapshot_host(str(snapshot.id))
+
+            try:
+                admin_client = Client()
+                assert admin_client.login(username="testadmin", password="testpassword")
+                grant_response = admin_client.get(
+                    f"/admin/core/snapshot/replay-auth/?snapshot={snapshot.id}&next=/index.jsonl",
+                    HTTP_HOST=get_admin_host(),
+                )
+                assert grant_response.status_code in (301, 302)
+                grant_url = urlsplit(grant_response["Location"])
+                grant = parse_qs(grant_url.query)["grant"][0]
+
+                # A grant sits in URLs (history, proxy logs) and is only meant to
+                # live for 60 seconds; it must not work directly as the cookie.
+                replayed = Client()
+                replayed.cookies[_replay_cookie_name(snapshot)] = grant
+                resp = replayed.get("/index.jsonl", HTTP_HOST=snapshot_host)
+                assert resp.status_code == 302, resp.status_code
+                assert "/admin/core/snapshot/replay-auth/" in resp["Location"]
+
+                exchanged = Client()
+                auth_response = exchanged.get(f"{grant_url.path}?{grant_url.query}", HTTP_HOST=snapshot_host)
+                assert auth_response.status_code == 302
+                assert auth_response["Location"] == "/index.jsonl"
+                assert exchanged.cookies[_replay_cookie_name(snapshot)].value != grant
+                resp = exchanged.get("/index.jsonl", HTTP_HOST=snapshot_host)
+                assert resp.status_code == 200, (resp.status_code, resp.headers.get("Location"))
+            finally:
                 Snapshot.objects.filter(pk=snapshot.pk).update(config=original_config)
 
             print("OK")

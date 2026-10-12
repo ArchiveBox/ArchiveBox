@@ -146,6 +146,10 @@ def _admin_login_redirect_or_forbidden(request: HttpRequest):
 
 
 REPLAY_AUTH_SALT = "archivebox.private-snapshot-replay.v2"
+# WHY: grants travel in URLs (history, proxy logs) and must expire after
+# REPLAY_GRANT_MAX_AGE. A distinct salt stops a captured grant from being
+# presented directly as the long-lived replay cookie.
+REPLAY_GRANT_SALT = "archivebox.private-snapshot-replay-grant.v1"
 REPLAY_COOKIE_PREFIX = f"archivebox_replay_{CONSTANTS.COLLECTION_ID}_"
 REPLAY_GRANT_MAX_AGE = 60
 
@@ -222,7 +226,7 @@ def _private_snapshot_auth_redirect(request: HttpRequest, snapshot: Snapshot, pa
 
 def _replay_auth_response(request: HttpRequest, snapshot: Snapshot):
     try:
-        payload = signing.loads(str(request.GET.get("grant") or ""), salt=REPLAY_AUTH_SALT, max_age=REPLAY_GRANT_MAX_AGE)
+        payload = signing.loads(str(request.GET.get("grant") or ""), salt=REPLAY_GRANT_SALT, max_age=REPLAY_GRANT_MAX_AGE)
     except signing.BadSignature:
         return _private_snapshot_auth_redirect(request, snapshot, "index.html", preserve_query=False)
 
@@ -272,7 +276,7 @@ class SnapshotReplayAuthView(View):
         replay_session.set_expiry(request.session.get_expiry_date())
         replay_session.create()
         payload = {"snapshot_id": str(snapshot.id), "replay_session": replay_session.session_key}
-        grant = signing.dumps(payload, salt=REPLAY_AUTH_SALT)
+        grant = signing.dumps(payload, salt=REPLAY_GRANT_SALT)
         next_path = _clean_replay_next(request.GET.get("next"))
         target = build_snapshot_url(str(snapshot.id), "_auth", request=request, config=get_request_config(request))
         return redirect(f"{target}?grant={quote(grant, safe='')}&next={quote(next_path, safe='')}")
