@@ -988,7 +988,7 @@
                 <span id="orchestrator-text">Runner stopped</span>
             </div>
             <div class="telemetry" id="progress-telemetry" aria-label="Capture and server metrics" hidden>
-                <span class="metric-badge" id="metric-throughput" tabindex="0" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17 6-6 4 4 8-10M15 5h6v6"/></svg><span class="metric-text">Pages/hr —</span></span>
+                <span class="metric-badge" id="metric-throughput" tabindex="0" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17 6-6 4 4 8-10M15 5h6v6"/></svg><span class="metric-text">URLs/hr —</span></span>
                 <span class="metric-badge" id="metric-resources" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3"/></svg><span class="metric-text">— · RAM —</span></span>
                 <span class="metric-badge" id="metric-io" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V4m-4 4 4-4 4 4m6-4v16m-4-4 4 4 4-4"/></svg><span class="metric-text">I/O —</span></span>
                 <span class="metric-badge" id="metric-storage" tabindex="0"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/></svg><span class="metric-text">—</span></span>
@@ -1812,7 +1812,7 @@
         const sampled = ts => ts ? `Sampled ${age(ts)} seconds ago; refreshes about once a minute.` : 'Waiting for a background sample.';
         const stale = !metrics || age(metrics.sampled_at) > 180;
         const rate = metrics?.throughput;
-        metricBadge('throughput', rate ? `${rate.last_hour} pages/hr${rate.last_hour ? ` ~${shortNumber(60 / rate.last_hour)}min/ea` : ''}` : 'Pages/hr —',
+        metricBadge('throughput', rate ? `${rate.last_hour} URLs/hr${rate.last_hour ? ` ~${shortNumber(60 / rate.last_hour)}min/ea` : ''}` : 'URLs/hr —',
             rate ? `${rate.last_30_minutes} finished in the last 30 minutes. Rolling hour for this view; minutes/snapshot is the completion interval, not individual capture duration. Partial captures count; cancelled snapshots without a completion time do not. ${sampled(metrics.sampled_at)}` : sampled(null), stale);
         const system = metrics?.system || {};
         const systemStale = !system.sampled_at || age(system.sampled_at) > 180;
