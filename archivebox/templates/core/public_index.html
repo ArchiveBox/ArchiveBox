@@ -145,7 +145,6 @@
 
     #table-bookmarks {
         width: 100%;
-        min-width: 980px;
         table-layout: fixed;
         border-collapse: collapse;
     }
@@ -551,6 +550,21 @@
         .public-search-input {
             width: 100%;
             flex-basis: auto;
+        }
+    }
+
+    /* Drop secondary columns as the window narrows so the title column keeps
+       room and the table fits without scrolling. Status goes before Size so
+       the Files column's hover tooltips never sit against the right edge. */
+    @media (max-width: 900px) {
+        #table-bookmarks .snapshot-tags-cell {
+            display: none;
+        }
+    }
+
+    @media (max-width: 760px) {
+        #table-bookmarks .snapshot-status-cell {
+            display: none;
         }
     }
 

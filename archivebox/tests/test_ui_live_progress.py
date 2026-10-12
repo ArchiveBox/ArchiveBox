@@ -1251,7 +1251,7 @@ class TestLiveProgressView:
         assert running["started_at"] == running_started_at.isoformat()
         assert "elapsed" not in running
 
-    def test_live_progress_hook_badges_only_grow(
+    def test_live_progress_hook_badges_keep_their_cells_and_only_grow(
         self,
         snapshot,
         live_server,
@@ -1309,17 +1309,25 @@ class TestLiveProgressView:
             writer.join()
             assert errors == []
 
-        # Record every badge's rendered width on every frame, keyed by its label,
-        # so both animated transitions and instant re-renders are observed.
-        record_widths = """
-            window.badgeShrinks = [];
-            const widest = new Map();
+        # Every frame, record each badge's cell (layout box within its list) and
+        # its rendered duration bar, keyed by label, so animated transitions and
+        # instant re-renders are both observed. A badge must keep its cell and
+        # its bar must never shrink.
+        record_badges = """
+            window.badgeProblems = [];
+            const seen = new Map();
             const sample = () => {
                 document.querySelectorAll('#progress-monitor .extractor-badge').forEach((badge) => {
-                    const label = badge.querySelector('.badge-content span:nth-child(2)')?.textContent || '';
-                    const width = parseFloat(getComputedStyle(badge).paddingRight);
-                    if (width < (widest.get(label) || 0) - 0.5) window.badgeShrinks.push(`${label}: ${widest.get(label)}px -> ${width}px`);
-                    widest.set(label, Math.max(widest.get(label) || 0, width));
+                    const label = badge.querySelector('.badge-label')?.textContent || '';
+                    const list = badge.closest('.extractor-list');
+                    const cell = {x: badge.offsetLeft - list.offsetLeft, y: badge.offsetTop - list.offsetTop, w: badge.offsetWidth};
+                    const bar = badge.querySelector('.badge-bar').getBoundingClientRect().width;
+                    const prev = seen.get(label);
+                    if (prev && (prev.x !== cell.x || prev.y !== cell.y || prev.w !== cell.w)) {
+                        window.badgeProblems.push(`${label} moved: ${JSON.stringify(prev.cell)} -> ${JSON.stringify(cell)}`);
+                    }
+                    if (prev && bar < prev.bar - 0.5) window.badgeProblems.push(`${label} bar shrank: ${prev.bar}px -> ${bar}px`);
+                    seen.set(label, {...cell, cell, bar: Math.max(bar, prev ? prev.bar : 0)});
                 });
                 requestAnimationFrame(sample);
             };
@@ -1334,11 +1342,11 @@ class TestLiveProgressView:
             page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}")
             running = page.locator("#progress-monitor .extractor-badge.started")
             running.wait_for()
-            page.evaluate(record_widths)
+            page.evaluate(record_badges)
             page.wait_for_timeout(1500)
 
-            # A newly queued hook sorts before the running one; it must get its
-            # own badge rather than inherit (and animate down from) the wider one.
+            # A newly queued hook sorts alphabetically before the running one; it
+            # is appended after it instead of displacing the running hook's cell.
             outside_event_loop(
                 lambda: ArchiveResult.objects.create(
                     snapshot=snapshot,
@@ -1349,6 +1357,8 @@ class TestLiveProgressView:
             )
             page.locator("#progress-monitor .extractor-badge.queued").wait_for()
             page.wait_for_timeout(1500)
+            labels = page.locator("#progress-monitor .extractor-badge .badge-label").all_text_contents()
+            assert labels == ["parse txt urls", "chrome wait"]
 
             # The completion is recorded after the hook already exited, as it is
             # when the bus event lands after the browser's last extrapolation.
@@ -1366,7 +1376,7 @@ class TestLiveProgressView:
             page.locator("#progress-monitor .extractor-badge.succeeded").wait_for()
             page.wait_for_timeout(1500)
 
-            assert page.evaluate("window.badgeShrinks") == []
+            assert page.evaluate("window.badgeProblems") == []
             browser.close()
 
     def test_live_progress_omits_pid_for_exited_process_rows(

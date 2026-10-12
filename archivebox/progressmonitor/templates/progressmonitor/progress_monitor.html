@@ -665,104 +665,106 @@
         text-overflow: ellipsis;
     }
 
-    /* Extractor List - Compact Badge Layout */
+    /* Hook badges sit in a fixed grid. Every cell has the same width, so a
+       running hook's growing duration or a new hook never reflows the rest;
+       new hooks are appended in the order they first appear. */
     #progress-monitor .extractor-list {
         padding: 8px 12px;
         background: rgba(0,0,0,0.2);
         border-top: 1px solid #21262d;
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
         gap: 4px;
     }
     #progress-monitor .extractor-badge {
         position: relative;
-        display: inline-flex;
+        display: flex;
         align-items: center;
-        gap: 4px;
-        padding: 3px 8px;
+        gap: 6px;
+        min-width: 0;
+        height: 22px;
+        padding: 0 8px;
         border-radius: 4px;
         font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
         font-size: 10px;
-        background: #21262d;
+        background-color: #161b22;
+        color: #8b949e;
         overflow: hidden;
         white-space: nowrap;
-        color: inherit;
         text-decoration: none;
-        /* Width encodes hook duration on a log scale (--hook-scale 0..1), so
-           slow hooks stand out at a glance. The duration is added after the
-           label: a min-width hid every hook shorter than its label was wide.
-           Padding percentages follow the list width, keeping it responsive;
-           the px floor keeps durations distinguishable on phones. */
-        padding-right: calc(8px + var(--hook-scale, 0) * max(72px, 15%));
-        transition: padding-right 1s linear;
+        transition: background-color 0.4s ease, color 0.4s ease;
+        animation: hook-badge-enter 0.35s ease-out;
     }
-    #progress-monitor a.extractor-badge:hover {
-        background: #30363d;
+    @keyframes hook-badge-enter {
+        from { opacity: 0; transform: translateY(3px); }
+    }
+    #progress-monitor .extractor-badge[href]:hover {
+        background-color: #30363d;
         color: #f0f6fc;
     }
-    #progress-monitor .extractor-badge .progress-fill {
+    #progress-monitor .extractor-badge .badge-icon {
+        flex: 0 0 12px;
+        text-align: center;
+    }
+    #progress-monitor .extractor-badge.started .badge-icon::before {
+        content: '';
+        display: block;
+        width: 7px;
+        height: 7px;
+        margin: 0 auto;
+        border: 1.5px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: hook-badge-spin 0.9s linear infinite;
+    }
+    @keyframes hook-badge-spin {
+        to { transform: rotate(360deg); }
+    }
+    #progress-monitor .extractor-badge .badge-label {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    #progress-monitor .extractor-badge .badge-time {
+        flex: 0 0 auto;
+        font-variant-numeric: tabular-nums;
+        opacity: 0.75;
+    }
+    /* Duration on a log scale (--hook-scale 0..1) as a hairline along the
+       bottom, so slow hooks still stand out at a glance. It only ever grows. */
+    #progress-monitor .extractor-badge .badge-bar {
         position: absolute;
-        top: 0;
         left: 0;
+        right: 0;
         bottom: 0;
-        z-index: 0;
-        transition: width 0.3s ease-out;
-    }
-    #progress-monitor .extractor-badge .badge-content {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-    }
-    #progress-monitor .extractor-badge.queued {
-        color: #8b949e;
-    }
-    #progress-monitor .extractor-badge.queued .progress-fill {
-        background: rgba(110, 118, 129, 0.2);
-        width: 0%;
+        height: 2px;
+        background: currentColor;
+        opacity: 0.6;
+        transform-origin: left center;
+        transform: scaleX(var(--hook-scale, 0));
+        transition: transform 1s linear;
     }
     #progress-monitor .extractor-badge.started {
+        background-color: rgba(210, 153, 34, 0.12);
         color: #d29922;
     }
-    #progress-monitor .extractor-badge.started .progress-fill {
-        background: rgba(210, 153, 34, 0.3);
-        animation: progress-pulse 1.5s ease-in-out infinite;
-    }
-    @keyframes progress-pulse {
-        0%, 100% { opacity: 0.5; }
-        50% { opacity: 1; }
-    }
     #progress-monitor .extractor-badge.succeeded {
+        background-color: rgba(63, 185, 80, 0.1);
         color: #3fb950;
     }
-    #progress-monitor .extractor-badge.succeeded .progress-fill {
-        background: rgba(63, 185, 80, 0.25);
-        width: 100%;
-    }
     #progress-monitor .extractor-badge.failed {
+        background-color: rgba(248, 81, 73, 0.12);
         color: #f85149;
     }
-    #progress-monitor .extractor-badge.failed .progress-fill {
-        background: rgba(248, 81, 73, 0.25);
-        width: 100%;
-    }
     #progress-monitor .extractor-badge.backoff {
+        background-color: rgba(210, 153, 34, 0.08);
         color: #b8860b;
     }
-    #progress-monitor .extractor-badge.backoff .progress-fill {
-        background: rgba(210, 153, 34, 0.2);
-        width: 30%;
-    }
-    #progress-monitor .extractor-badge.skipped {
+    #progress-monitor .extractor-badge.skipped,
+    #progress-monitor .extractor-badge.noresults {
+        background-color: rgba(110, 118, 129, 0.08);
         color: #6e7681;
-    }
-    #progress-monitor .extractor-badge.skipped .progress-fill {
-        background: rgba(110, 118, 129, 0.15);
-        width: 100%;
-    }
-    #progress-monitor .extractor-badge .badge-icon {
-        font-size: 10px;
     }
     /* Status Badge */
     #progress-monitor .status-badge {
@@ -994,11 +996,7 @@
         }
         #progress-monitor .extractor-list {
             padding: 7px 8px;
-            gap: 4px;
-        }
-        #progress-monitor .extractor-badge {
-            max-width: 100%;
-            white-space: nowrap;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         }
     }
 
@@ -1284,19 +1282,41 @@
         return Math.min(1, Math.log1p(Math.max(0, seconds)) / Math.log1p(hookScaleMaxSeconds));
     }
 
-    // A hook's badge only ever grows. Running hooks are extrapolated between
-    // polls, so a finish is seen up to a poll late and its recorded span is a
-    // little shorter than the width already drawn: keep the widest width shown.
-    const hookScales = new Map();
-    function grownHookScale(hookKey, seconds) {
-        const scale = Math.max(hookScales.get(hookKey) || 0, hookWidthScale(seconds));
-        hookScales.set(hookKey, scale);
-        return scale.toFixed(3);
+    // One identity per hook within its snapshot or crawl setup, the same whether
+    // its row came from the Process or the ArchiveResult, so each hook keeps one
+    // badge node across polls and never inherits another hook's cell.
+    function hookKeyFor(scopeId, extractor) {
+        return `${scopeId}|${extractor.plugin || ''}|${extractor.label || extractor.hook_name || ''}`;
     }
-    function pruneHookScales() {
-        const shown = new Set(Array.from(crawlTree.querySelectorAll('.extractor-badge[data-hook-key]'), (badge) => badge.dataset.hookKey));
-        for (const hookKey of hookScales.keys()) {
-            if (!shown.has(hookKey)) hookScales.delete(hookKey);
+
+    // A hook's duration only ever grows. Running hooks are extrapolated between
+    // polls, so a finish is seen up to a poll late and its recorded span is a
+    // little shorter than what was already shown: keep the longest shown.
+    const hookSeconds = new Map();
+    function shownHookSeconds(hookKey, seconds) {
+        const shown = Math.max(hookSeconds.get(hookKey) || 0, seconds);
+        hookSeconds.set(hookKey, shown);
+        return shown;
+    }
+
+    // Badges keep the slot they first appeared in: unseen hooks are appended in
+    // execution order (hook names start with their run priority), never inserted.
+    const hookOrder = new Map();
+    let nextHookOrder = 0;
+    function orderedHooks(scopeId, extractors) {
+        const keyed = extractors.filter(isShownExtractor).map((extractor) => ({extractor, key: hookKeyFor(scopeId, extractor)}));
+        keyed.filter(({key}) => !hookOrder.has(key))
+            .sort((a, b) => (a.extractor.hook_name || a.extractor.plugin || '').localeCompare(b.extractor.hook_name || b.extractor.plugin || ''))
+            .forEach(({key}) => hookOrder.set(key, nextHookOrder++));
+        return keyed.sort((a, b) => hookOrder.get(a.key) - hookOrder.get(b.key));
+    }
+
+    function pruneHookState() {
+        const scopes = new Set(Array.from(crawlTree.querySelectorAll('.extractor-list[data-hook-scope]'), (list) => list.dataset.hookScope));
+        for (const state of [hookSeconds, hookOrder]) {
+            for (const hookKey of state.keys()) {
+                if (!scopes.has(hookKey.split('|')[0])) state.delete(hookKey);
+            }
         }
     }
 
@@ -1305,7 +1325,11 @@
         return seconds < 10 ? `${Math.max(0, seconds).toFixed(1)}s` : formatDuration(seconds);
     }
 
-    // Exact timing lives in the tooltip; the badge width alone carries it at a glance.
+    // While running, count whole seconds so the tick reads steadily.
+    function hookCellTime(seconds, running) {
+        return running && seconds < 10 ? `${Math.floor(seconds)}s` : hookSecondsText(seconds);
+    }
+
     function hookTimingTitle(baseTitle, seconds, running, timeout) {
         if (running) return `${baseTitle}\nrunning ${hookSecondsText(seconds)}${timeout ? ` of ${timeout}s timeout` : ''}`;
         return `${baseTitle}\ntook ${hookSecondsText(seconds)}`;
@@ -1320,8 +1344,10 @@
         document.querySelectorAll('#progress-monitor .extractor-badge[data-started-at]').forEach((badge) => {
             const startedMs = Date.parse(badge.dataset.startedAt);
             if (!Number.isFinite(startedMs)) return;
-            const seconds = (serverNowMs() - startedMs) / 1000;
-            badge.style.setProperty('--hook-scale', grownHookScale(badge.dataset.hookKey, seconds));
+            const seconds = shownHookSeconds(badge.dataset.hookKey, (serverNowMs() - startedMs) / 1000);
+            badge.style.setProperty('--hook-scale', hookWidthScale(seconds).toFixed(3));
+            const time = badge.querySelector('.badge-time');
+            if (time) time.textContent = hookCellTime(seconds, true);
             badge.title = hookTimingTitle(badge.dataset.hookTitle || '', seconds, true, Number(badge.dataset.timeout) || 0);
         });
     }
@@ -1588,46 +1614,37 @@
         return !(extractor.status === 'started' && (extractor.hook_name || '').includes('.bg.'));
     }
 
-    function renderExtractor(extractor) {
-        const icon = extractor.status === 'started' ? '▶' :
-                    extractor.status === 'succeeded' ? '✓' :
-                    extractor.status === 'failed' ? '!' :
-                    extractor.status === 'backoff' ? 'wait' :
-                    extractor.status === 'skipped' ? 'skip' :
-                    extractor.status === 'noresults' ? '∅' : getPluginIcon(extractor.plugin);
-        const progress = typeof extractor.progress === 'number'
-            ? Math.max(0, Math.min(100, extractor.progress))
-            : null;
-        const progressStyle = progress !== null ? ` style="width: ${progress}%;"` : '';
-        const pidHtml = extractor.status === 'started' && extractor.pid ? `<span class="pid-label compact">pid ${extractor.pid}</span>` : '';
+    function renderExtractor(extractor, hookKey) {
+        const status = extractor.status || 'queued';
+        // A running hook's icon is a CSS spinner; every glyph fits one fixed slot.
+        const icon = status === 'started' ? '' :
+                    status === 'succeeded' ? '✓' :
+                    status === 'failed' ? '✕' :
+                    status === 'backoff' ? '↻' :
+                    status === 'skipped' ? '–' :
+                    status === 'noresults' ? '∅' : getPluginIcon(extractor.plugin);
         const href = extractor.output_url || extractor.admin_url || '';
-        const tag = href ? 'a' : 'span';
         const hrefAttr = href ? ` href="${escapeAttr(href)}"` : '';
-        const baseTitle = extractor.output_path
+        const baseTitle = (extractor.output_path
             ? `${extractor.plugin || 'output'}: ${extractor.output_path}`
-            : `${extractor.plugin || 'hook'}${extractor.hook_name ? `: ${extractor.hook_name}` : ''}`;
-        const startedMs = extractor.status === 'started' ? Date.parse(extractor.started_at || '') : NaN;
+            : `${extractor.plugin || 'hook'}${extractor.hook_name ? `: ${extractor.hook_name}` : ''}`)
+            + (status === 'started' && extractor.pid ? `\npid ${extractor.pid}` : '');
+        const startedMs = status === 'started' ? Date.parse(extractor.started_at || '') : NaN;
         const running = Number.isFinite(startedMs);
-        const seconds = running ? (serverNowMs() - startedMs) / 1000 : extractor.elapsed;
-        const timed = typeof seconds === 'number';
+        const rawSeconds = running ? (serverNowMs() - startedMs) / 1000 : extractor.elapsed;
+        const timed = typeof rawSeconds === 'number';
+        const seconds = timed ? shownHookSeconds(hookKey, rawSeconds) : null;
         const title = timed ? hookTimingTitle(baseTitle, seconds, running, extractor.timeout) : baseTitle;
-        // Each run of a hook keeps its own badge node across polls, so a badge
-        // never inherits (and animates down from) another hook's width.
-        const hookKey = extractor.process_id || extractor.id || '';
-        const timingAttrs = ` data-hook-key="${escapeAttr(hookKey)}"`
-            + (timed ? ` style="--hook-scale: ${grownHookScale(hookKey, seconds)};"` : '')
+        const timingAttrs = (timed ? ` style="--hook-scale: ${hookWidthScale(seconds).toFixed(3)};"` : '')
             + (running ? ` data-started-at="${escapeAttr(extractor.started_at)}" data-hook-title="${escapeAttr(baseTitle)}" data-timeout="${escapeAttr(extractor.timeout || '')}"` : '');
 
-        return `
-            <${tag} class="extractor-badge ${extractor.status || 'queued'}"${hrefAttr} title="${escapeAttr(title)}"${timingAttrs}>
-                <span class="progress-fill"${progressStyle}></span>
-                <span class="badge-content">
-                    <span class="badge-icon">${icon}</span>
-                    <span>${escapeHtml(extractor.label || extractor.plugin || 'unknown')}</span>
-                    ${pidHtml}
-                </span>
-            </${tag}>
-        `;
+        // Always an <a> (a plain one without href) so a hook's node is never
+        // swapped for another element when its output link appears.
+        return `<a class="extractor-badge ${status}" data-hook-key="${escapeAttr(hookKey)}"${hrefAttr} title="${escapeAttr(title)}"${timingAttrs}><span class="badge-icon">${icon}</span><span class="badge-label">${escapeHtml(extractor.label || extractor.plugin || 'unknown')}</span><span class="badge-time">${timed ? hookCellTime(seconds, running) : ''}</span><span class="badge-bar"></span></a>`;
+    }
+
+    function renderExtractorList(scopeId, extractors) {
+        return `<div class="extractor-list" data-hook-scope="${escapeAttr(scopeId)}">${orderedHooks(scopeId, extractors).map(({extractor, key}) => renderExtractor(extractor, key)).join('')}</div>`;
     }
 
     function renderSnapshot(snapshot, crawlId) {
@@ -1684,15 +1701,7 @@
 
         let extractorHtml = '';
         if (snapshot.all_plugins && snapshot.all_plugins.length > 0) {
-            // Sort plugins alphabetically by name to prevent reordering on updates
-            const sortedExtractors = [...snapshot.all_plugins].sort((a, b) =>
-                (a.plugin || '').localeCompare(b.plugin || '')
-            );
-            extractorHtml = `
-                <div class="extractor-list">
-                    ${sortedExtractors.filter(isShownExtractor).map(e => renderExtractor(e)).join('')}
-                </div>
-            `;
+            extractorHtml = renderExtractorList(String(snapshot.id), snapshot.all_plugins);
         }
 
         const hasProcessEntries = (snapshot.all_plugins || []).some(extractor => extractor.source === 'process');
@@ -1789,9 +1798,6 @@
         const queuedSnapshotsNote = renderOverflowNotes(crawl.hidden_snapshots, 'snapshot');
         let setupHtml = '';
         if (crawl.setup_plugins && crawl.setup_plugins.length > 0) {
-            const sortedSetup = [...crawl.setup_plugins].sort((a, b) =>
-                (a.plugin || '').localeCompare(b.plugin || '')
-            );
             setupHtml = `
                 <div class="snapshot-item">
                     <div class="snapshot-header">
@@ -1802,9 +1808,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="extractor-list">
-                        ${sortedSetup.filter(isShownExtractor).map(e => renderExtractor(e)).join('')}
-                    </div>
+                    ${renderExtractorList(`setup-${crawl.id}`, crawl.setup_plugins)}
                 </div>
             `;
         }
@@ -2038,7 +2042,7 @@
             replaceCrawlTree('');
         }
 
-        pruneHookScales();
+        pruneHookState();
         updateDurationBadges();
     }
 

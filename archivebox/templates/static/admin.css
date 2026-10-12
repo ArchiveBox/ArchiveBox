@@ -625,6 +625,13 @@ body.change-list:not(.model-snapshot) #changelist #changelist-form > .results {
 
 }
 
+/* Django's base.css fixes #container at min-width 980px, so any narrower
+   window scrolled the whole page sideways and clipped the logo. Wide
+   tables scroll inside their own wrappers instead. */
+#container {
+    min-width: 0;
+}
+
 @media (max-width: 520px) {
     #container {
         width: 100%;
