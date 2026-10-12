@@ -1,0 +1,24 @@
+archivebox/tests/test_ui_add_view.py
+  s_abed0e561cd58d::t_8d93e1f71033f1 12,292-338
+  s_abed0e561cd58d::t_a875b5f297d0d2 339-340
+archivebox/templates/core/add.html
+  s_abed0e561cd58d::t_469e858c25f236 239,516
+archivebox/core/forms.py
+  s_abed0e561cd58d::t_469e858c25f236 195-197,200,475-476
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "21c4e69bdab58911d42b8da8f2494e7d277e1f7d",
+  "prompts": {},
+  "sessions": {
+    "s_abed0e561cd58d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12e04-1f08-7ea1-94df-2e240b481935",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
