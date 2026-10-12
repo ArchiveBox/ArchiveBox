@@ -1,0 +1,39 @@
+archivebox/search/query.py
+  s_2b44ee96cc775e::t_acaf74fc4ef161 11,65-76,85
+archivebox/search/views.py
+  s_2b44ee96cc775e::t_acaf74fc4ef161 19-20,178-186,190
+archivebox/memento/views.py
+  s_2b44ee96cc775e::t_bb4d9665e88cdd 18,25-27,29,34-35
+  s_2b44ee96cc775e::t_176a19c17c4ba5 28
+archivebox/core/views.py
+  s_2b44ee96cc775e::t_acaf74fc4ef161 4,7,80,83,327-332,336,343,1777-1789,1791,1829
+archivebox/cli/archivebox_extract.py
+  s_2b44ee96cc775e::t_acaf74fc4ef161 24,48-49
+archivebox/core/models.py
+  s_2b44ee96cc775e::t_acaf74fc4ef161 45,47,905-907,3187-3189
+archivebox/crawls/models.py
+  s_2b44ee96cc775e::t_acaf74fc4ef161 36,515-516,696-697,700,914-915,919,921,985-986,1027,1116-1118,1132,1140,1142-1144,1174-1175
+archivebox/misc/util.py
+  s_2b44ee96cc775e::t_acaf74fc4ef161 11,19,151-246
+  s_2b44ee96cc775e::t_ebbb498e25848b 247-248
+archivebox/tests/test_non_ascii_urls.py
+  s_2b44ee96cc775e::t_bb4d9665e88cdd 1-294
+archivebox/api/v1_core.py
+  s_2b44ee96cc775e::t_bb4d9665e88cdd 36,978-979,985-990
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0622a2bac5e75c419c6ffce3aa74951c9ce7e47",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
