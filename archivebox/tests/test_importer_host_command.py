@@ -11,7 +11,7 @@ from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 
 @pytest.mark.django_db(transaction=True)
-def test_browser_importer_host_command_owns_browser_until_cancelled(initialized_archive):
+def test_browser_importer_host_command_owns_browser_until_cancelled(initialized_archive, installed_opencode):
     from django.contrib.auth import get_user_model
 
     from archivebox.importers.models import ImporterRun, ImporterSource
@@ -43,12 +43,12 @@ def test_browser_importer_host_command_owns_browser_until_cancelled(initialized_
             deadline = time.monotonic() + 60
             while time.monotonic() < deadline:
                 run.refresh_from_db()
-                if run.message.startswith("Learning browser importer") or process.poll() is not None:
+                if run.message.startswith("Learning or repairing browser importer") or process.poll() is not None:
                     break
                 time.sleep(0.1)
             # This progress event occurs only after browser-harness has created
             # the real task tab. Cancel before relying on any model response.
-            assert run.message.startswith("Learning browser importer"), (run.status, run.message)
+            assert run.message.startswith("Learning or repairing browser importer"), (run.status, run.message)
             browser_pid = int((Path(persona.path) / ".browser" / "chrome.pid").read_text())
             assert psutil.pid_exists(browser_pid)
             pause(source)
