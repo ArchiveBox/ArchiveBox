@@ -767,13 +767,17 @@ def test_crawl_runner_resolves_persona_and_crawl_config_for_each_live_snapshot()
 
 
 @pytest.mark.django_db(transaction=True)
-def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path):
+@pytest.mark.parametrize("warm_cache", [False, True])
+def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path, warm_cache):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.crawls.models import Crawl
     from archivebox.core.models import Snapshot
     from archivebox.machine.models import Binary, Machine
     from archivebox.services.runner import run_pending_crawls
     from django.utils import timezone
+
+    if warm_cache:
+        resolve_abxpkg_binary_env(tmp_path / "lib", "bash")
 
     crawl = Crawl.objects.create(
         urls="https://example.com",
@@ -802,7 +806,10 @@ def test_run_pending_crawls_processes_queued_crawl_and_real_binary(tmp_path):
     assert crawl.status == Crawl.StatusChoices.SEALED
     assert crawl.retry_at is None
     assert Snapshot.objects.filter(crawl=crawl, status=Snapshot.StatusChoices.SEALED).count() == 1
-    assert binary.status == Binary.StatusChoices.INSTALLED
+    assert binary.status == Binary.StatusChoices.INSTALLED, {
+        "binaries": list(Binary.objects.filter(name="bash").values("id", "status", "retry_at", "abspath", "version", "sha256")[:5]),
+        "processes": list(binary.process_set.values("status", "exit_code", "stdout", "stderr")[:5]),
+    }
     assert binary.retry_at is None
     assert Path(binary.abspath).is_file()
     assert binary.version
