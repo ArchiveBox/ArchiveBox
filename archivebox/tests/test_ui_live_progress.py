@@ -740,8 +740,9 @@ class TestLiveProgressView:
             with profile:
                 response = client.get("/progress.json", HTTP_HOST=ADMIN_TEST_HOST)
             assert response.status_code == 200, response.content
-            process_probes = [(source, function) for (source, _line, function) in pstats.Stats(profile).stats if "/psutil/" in source]
-            assert process_probes == []
+            profile_stats = pstats.Stats(profile).stats
+            process_probes = [(source, function) for (source, _line, function) in profile_stats if "/psutil/" in source]
+            assert process_probes == [], {key: value[4] for key, value in profile_stats.items() if "/psutil/" in key[0]}
             active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
             assert active_crawl["screencast_url"].startswith(f"/api/v1/crawls/crawl/{crawl.pk}/files/chrome_screencast/latest.jpg")
             image_response = client.get(active_crawl["screencast_url"], HTTP_HOST=ADMIN_TEST_HOST)
