@@ -1,0 +1,36 @@
+archivebox/core/recovery_util.py
+  s_2b44ee96cc775e::t_f01137fce86062 3-4,28,101-102,105-125,128-132,134-138,193-196,216-241
+  s_2b44ee96cc775e::t_b3a96dece0ee45 133,191-192
+archivebox/tests/test_crawl_runner_2.py
+  s_2b44ee96cc775e::t_f01137fce86062 94-216
+archivebox/services/runner.py
+  s_2b44ee96cc775e::t_f01137fce86062 169-187,1104,1348,2078-2082
+archivebox/tests/test_cli_run_2.py
+  s_2b44ee96cc775e::t_b3a96dece0ee45 510-511,1006-1007
+archivebox/progressmonitor/views.py
+  s_2b44ee96cc775e::t_b3a96dece0ee45 531-532
+  s_2b44ee96cc775e::t_f01137fce86062 3,393,533-535,551-555,687-697,821-822,824-827,850
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_2b44ee96cc775e::t_f01137fce86062 790,1637-1641
+  s_2b44ee96cc775e::t_0708bd1d87664e 1642-1643,1678,1684
+archivebox/tests/test_ui_live_progress.py
+  s_2b44ee96cc775e::t_f01137fce86062 1200-1259
+archivebox/tests/test_cli_run_3.py
+  s_2b44ee96cc775e::t_b3a96dece0ee45 1077-1078
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9fd61f7859a52a0ac10744ecf83b30d68bb538ae",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
