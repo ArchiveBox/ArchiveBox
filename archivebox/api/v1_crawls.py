@@ -179,6 +179,13 @@ def crawl_file(request: HttpRequest, crawl_id: str, path: str):
         if not is_owner and permissions not in {PERMISSIONS_PUBLIC, PERMISSIONS_UNLISTED}:
             raise HttpError(404, "Crawl not found")
 
+    # WHY: .persona holds the crawl's browser logins (cookies.txt, auth.json,
+    # chrome_profile). Older crawls kept it as a real directory inside the crawl
+    # output, so the resolve() containment check below cannot exclude it. Match
+    # serve_static's snapshot rule; casefold covers case-insensitive filesystems.
+    if any(part.casefold() == ".persona" for part in Path(path).parts):
+        raise HttpError(404, "Crawl file not found")
+
     started_at = None
     if path == "chrome_screencast/latest.jpg" and request.GET.get("after"):
         try:
