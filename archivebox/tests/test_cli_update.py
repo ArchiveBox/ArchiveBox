@@ -8,6 +8,7 @@ import pytest
 import shutil
 import signal
 import json
+import sqlite3
 import uuid
 
 from archivebox.core.models import ArchiveResult, Snapshot
@@ -17,6 +18,67 @@ from archivebox.tests.conftest import run_queued_crawls, run_archivebox_cmd, cli
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_merged_capture_can_rebuild_destination_search_index(initialized_archive, tmp_path):
+    """A source's successful search hook does not mean the destination is indexed (#1915)."""
+    env = cli_env(disable_extractors=True)
+    run_archivebox_cmd(["add", "--index-only", "https://example.com/portable-search"], env=env, check=True)
+    run_queued_crawls(initialized_archive, env)
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get()
+        snapshot_id = snapshot.pk
+        relative_path = snapshot.output_dir.relative_to(initialized_archive)
+        content = snapshot.output_dir / "dom" / "output.html"
+    content.parent.mkdir(parents=True, exist_ok=True)
+    content.write_text("<html><body>portablemergeuniquetext</body></html>")
+    search_env = {**env, "PLUGINS": "search_backend_sqlite", "SEARCH_BACKEND_ENGINE": "sqlite"}
+    run_archivebox_cmd(["update", "--index-only"], env=search_env, check=True)
+    with sqlite3.connect(initialized_archive / "search.sqlite3") as conn:
+        assert conn.execute("SELECT snapshot_id FROM search_index WHERE search_index MATCH 'portablemergeuniquetext'").fetchall() == [
+            (str(snapshot_id),),
+        ]
+    with use_archivebox_db(initialized_archive):
+        source = Snapshot.objects.get(pk=snapshot_id)
+        assert source.status == "sealed"
+        assert source.downloaded_at is not None
+        downloaded_at = source.downloaded_at
+        source_result = source.archiveresult_set.get(plugin="search_backend_sqlite")
+        assert source_result.status == "succeeded"
+        result_id = source_result.pk
+        source_metadata = source.to_json()
+
+    destination = tmp_path / "destination"
+    destination.mkdir()
+    run_archivebox_cmd(["init", "--quick"], cwd=destination, env=env, check=True)
+    shutil.copytree(initialized_archive / "archive", destination / "archive", dirs_exist_ok=True, symlinks=True)
+    # Repeat discovery before indexing, to ensure a retry cannot reinstate the
+    # source's completed search state or trigger a capture.
+    for _ in range(2):
+        run_archivebox_cmd(["update", "--rescan", "--migrate-only"], cwd=destination, env=env, check=True)
+        assert not (destination / "search.sqlite3").exists()
+        with use_archivebox_db(destination):
+            assert Snapshot.objects.get(pk=snapshot_id).to_json() == source_metadata
+    run_archivebox_cmd(["update", "--index-only"], cwd=destination, env=search_env, check=True)
+    assert (destination / "search.sqlite3").is_file()
+    with sqlite3.connect(destination / "search.sqlite3") as conn:
+        assert conn.execute("SELECT snapshot_id FROM search_index WHERE search_index MATCH 'portablemergeuniquetext'").fetchall() == [
+            (str(snapshot_id),),
+        ]
+    with use_archivebox_db(destination):
+        imported = Snapshot.objects.get(pk=snapshot_id)
+        assert imported.downloaded_at == downloaded_at
+        assert imported.status == "sealed"
+        assert imported.retry_at is None
+        result = imported.archiveresult_set.get(plugin="search_backend_sqlite")
+        assert result.pk == result_id
+        assert result.status == "succeeded"
+        indexed_at = result.modified_at
+    # Later rescans and search backfills must not rerun a completed local index.
+    run_archivebox_cmd(["update", "--rescan", "--index-only"], cwd=destination, env=search_env, check=True)
+    with use_archivebox_db(destination):
+        assert ArchiveResult.objects.get(pk=result_id).modified_at == indexed_at
+    assert (destination / relative_path / "dom" / "output.html").read_bytes() == content.read_bytes()
 
 
 def test_rescan_recovers_already_migrated_idless_result(initialized_archive, tmp_path):

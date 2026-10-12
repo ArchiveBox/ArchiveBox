@@ -1,5 +1,6 @@
 import json
 import os
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -13,6 +14,76 @@ from archivebox.tests.migrations_helpers import filesystem_manifest
 from archivebox.tests.test_orm_helpers import use_archivebox_db
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+
+def test_rescan_preserves_legacy_snapshot_and_result_identities(initialized_archive):
+    env = cli_env(disable_extractors=True)
+    snapshot_id, result_id = uuid.uuid4(), uuid.uuid4()
+    legacy_dir = initialized_archive / "archive" / "1615190176"
+    legacy_dir.mkdir()
+    payload = b"<html>Preserve this saved capture</html>"
+    (legacy_dir / "singlefile.html").write_bytes(payload)
+    metadata = {
+        "id": str(snapshot_id),
+        "url": "https://example.com/legacy-identity",
+        "timestamp": legacy_dir.name,
+        "title": "Original capture",
+        "created_at": "2021-03-08T07:56:16+00:00",
+        "modified_at": "2021-03-08T07:58:16+00:00",
+        "downloaded_at": "2021-03-08T07:57:16+00:00",
+        "archive_results": [
+            {
+                "id": str(result_id),
+                "plugin": "singlefile",
+                "status": "succeeded",
+                "output": "singlefile.html",
+                "created_at": "2021-03-08T07:56:16+00:00",
+                "modified_at": "2021-03-08T07:57:16+00:00",
+                "start_ts": "2021-03-08T07:56:16+00:00",
+                "end_ts": "2021-03-08T07:57:16+00:00",
+            },
+        ],
+    }
+    original_index = json.dumps(metadata)
+    (legacy_dir / "index.json").write_text(original_index)
+    for _ in range(2):
+        run_archivebox_cmd(["update", "--rescan", "--migrate-only"], env=env, check=True)
+        with use_archivebox_db(initialized_archive):
+            snapshot = Snapshot.objects.get(pk=snapshot_id)
+            assert snapshot.timestamp == metadata["timestamp"]
+            for name in ("created_at", "modified_at", "downloaded_at"):
+                assert getattr(snapshot, name).isoformat() == metadata[name]
+            result = snapshot.archiveresult_set.get(pk=result_id)
+            for name in ("created_at", "modified_at", "start_ts", "end_ts"):
+                assert getattr(result, name).isoformat() == metadata["archive_results"][0][name]
+            assert (snapshot.output_dir / "singlefile.html").read_bytes() == payload
+            assert (snapshot.output_dir / "index.json").read_text() == original_index
+
+
+@pytest.mark.parametrize("collision", ["id", "timestamp", "same_url_timestamp"])
+def test_rescan_rejects_conflicting_legacy_identity(initialized_archive, collision):
+    env = cli_env(disable_extractors=True)
+    run_archivebox_cmd(["snapshot", "create", "https://example.com/destination"], env=env, check=True)
+    with use_archivebox_db(initialized_archive):
+        existing = Snapshot.objects.get()
+        original = (existing.pk, existing.url, existing.timestamp, existing.created_at, existing.modified_at)
+    timestamp = "1615190176" if collision == "id" else existing.timestamp
+    legacy_dir = initialized_archive / "archive" / timestamp
+    legacy_dir.mkdir()
+    metadata = {
+        "id": str(existing.pk if collision == "id" else uuid.uuid4()),
+        "url": existing.url if collision == "same_url_timestamp" else "https://example.com/source",
+        "timestamp": timestamp,
+    }
+    original_index = json.dumps(metadata)
+    (legacy_dir / "index.json").write_text(original_index)
+    result = run_archivebox_cmd(["update", "--rescan", "--migrate-only"], env=env)
+    assert result.returncode == 1, result.stdout + result.stderr
+    with use_archivebox_db(initialized_archive):
+        assert Snapshot.objects.count() == 1
+        existing.refresh_from_db()
+        assert (existing.pk, existing.url, existing.timestamp, existing.created_at, existing.modified_at) == original
+    assert (legacy_dir / "index.json").read_text() == original_index
 
 
 @pytest.mark.parametrize("index_format", ["history", "archive_results"])

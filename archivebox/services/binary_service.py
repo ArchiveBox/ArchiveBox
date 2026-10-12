@@ -253,9 +253,15 @@ def project_abxpkg_derived_cache_to_db(lib_dir: Path | str | None) -> None:
             resolved_provider_name = str(record.get("resolved_provider_name") or provider_name)
             installed_abspath = str(binary_path)
 
+            # Match the Binary uniqueness key, as CLI registration does. A name
+            # may have several installed versions; overwriting one would change
+            # the provenance of all existing Processes pointing at that row.
             binary, _created = Binary.objects.get_or_create(
                 machine=machine,
                 name=binary_name,
+                abspath=installed_abspath,
+                version=version,
+                sha256=sha256,
                 defaults={
                     "status": Binary.StatusChoices.QUEUED,
                     "binproviders": provider_name or resolved_provider_name or "env",

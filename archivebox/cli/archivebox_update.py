@@ -464,7 +464,7 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
     from archivebox.crawls.models import Crawl
     from django.utils import timezone
 
-    stats = {"processed": 0, "migrated": 0, "queued": 0, "skipped": 0, "invalid": 0, "removed_symlinks": 0}
+    stats = {"processed": 0, "migrated": 0, "queued": 0, "skipped": 0, "invalid": 0, "errors": 0, "removed_symlinks": 0}
     crawl_url_lines: dict[str, list[str]] = {}
     crawl_url_sets: dict[str, set[str]] = {}
     dirty_crawl_ids: set[str] = set()
@@ -544,10 +544,16 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
 
             try:
                 snapshot.status = Snapshot.StatusChoices.SEALED
-                snapshot.retry_at = timezone.now()
+                snapshot.retry_at = None
                 # Snapshot.save() owns URL validation and filesystem/index side
                 # effects. Do not use bulk_create() here; it bypasses save().
-                snapshot.save()
+                snapshot.save(force_insert=True)
+                snapshot.migrate_filesystem_to_current_version(source_dir=entry_path)
+                if snapshot._imported_dates:
+                    Snapshot.objects.filter(pk=snapshot.pk).update(**snapshot._imported_dates)
+                    for name, value in snapshot._imported_dates.items():
+                        setattr(snapshot, name, value)
+                snapshot.write_index_jsonl()
 
                 crawl = _get_snapshot_crawl(snapshot)
                 if crawl is not None:
@@ -563,10 +569,11 @@ def drain_old_archive_dirs(resume_from: str | None = None, batch_size: int = 500
                         existing_urls.add(snapshot.url)
                         dirty_crawl_ids.add(crawl_cache_key)
 
-                stats["queued"] += 1
-                print(f"    [{stats['processed']}] Imported orphaned snapshot and queued migration: {entry_path.name}")
+                stats["migrated"] += 1
+                print(f"    [{stats['processed']}] Imported orphaned snapshot: {entry_path.name}")
             except Exception as e:
                 stats["skipped"] += 1
+                stats["errors"] += 1
                 print(f"    [{stats['processed']}] Skipped (error: {e}): {entry_path.name}")
             continue
 

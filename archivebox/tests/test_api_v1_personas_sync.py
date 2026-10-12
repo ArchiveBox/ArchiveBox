@@ -22,6 +22,7 @@ def test_sync_persona_settings_reach_runtime_and_explicit_clearing(client, api_h
             "language": "fr-FR",
             "timezone": "Europe/Paris",
             "platform": "MacIntel",
+            "user_agent_metadata": {"platform": "macOS", "platformVersion": "27.0.0", "architecture": "arm", "model": "", "mobile": False},
             "color_scheme": "dark",
             "geolocation": {"latitude": 48.85, "longitude": 2.35, "accuracy": 10},
         },
@@ -36,6 +37,7 @@ def test_sync_persona_settings_reach_runtime_and_explicit_clearing(client, api_h
         "BROWSER_LANGUAGE": "fr-FR",
         "BROWSER_TIMEZONE": "Europe/Paris",
         "BROWSER_PLATFORM": "MacIntel",
+        "BROWSER_USER_AGENT_METADATA": payload["settings"]["user_agent_metadata"],
         "BROWSER_COLOR_SCHEME": "dark",
         "BROWSER_GEOLOCATION": payload["settings"]["geolocation"],
     }
@@ -46,7 +48,14 @@ def test_sync_persona_settings_reach_runtime_and_explicit_clearing(client, api_h
     assert response.status_code == 200, response.content
     persona.refresh_from_db()
     assert {key: persona.config.get(key) for key in expected} == expected
-    payload["settings"] = {"language": "", "timezone": "", "platform": "", "geolocation": None, "viewport_device_scale_factor": None}
+    payload["settings"] = {
+        "language": "",
+        "timezone": "",
+        "platform": "",
+        "user_agent_metadata": None,
+        "geolocation": None,
+        "viewport_device_scale_factor": None,
+    }
     response = api_client_request(client, "post", "/api/v1/personas/sync", payload=payload, headers=api_headers)
     assert response.status_code == 200, response.content
     persona.refresh_from_db()
@@ -54,6 +63,7 @@ def test_sync_persona_settings_reach_runtime_and_explicit_clearing(client, api_h
     assert config["BROWSER_LANGUAGE"] == ""
     assert config["BROWSER_TIMEZONE"] == ""
     assert config["BROWSER_PLATFORM"] == ""
+    assert config["BROWSER_USER_AGENT_METADATA"] == {}
     assert config["BROWSER_GEOLOCATION"] == {}
     assert config["BROWSER_DEVICE_SCALE_FACTOR"] == 1
     assert config["CHROME_USER_AGENT"] == "PersonaBrowser/1.0"

@@ -1520,7 +1520,6 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
         snapshot.migrate_filesystem_to_current_version()
     updated = snapshot.safe_update(
         {"retry_at": next_retry_at},
-        refresh=False,
         extra_filter={
             "status": snapshot.status,
             "retry_at": current_retry_at,

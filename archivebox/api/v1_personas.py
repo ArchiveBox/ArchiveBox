@@ -29,6 +29,7 @@ class PersonaBrowserSettingsSchema(Schema):
     language: str = ""
     timezone: str = ""
     platform: str = ""
+    user_agent_metadata: dict[str, Any] | None = None
     geolocation: dict[str, Any] | None = None
 
 
@@ -106,6 +107,8 @@ def browser_settings_to_config(extension_persona_id: str, settings: PersonaBrows
         config["BROWSER_TIMEZONE"] = settings.timezone
     if "platform" in settings.model_fields_set:
         config["BROWSER_PLATFORM"] = settings.platform
+    if "user_agent_metadata" in settings.model_fields_set:
+        config["BROWSER_USER_AGENT_METADATA"] = settings.user_agent_metadata or {}
     if "geolocation" in settings.model_fields_set:
         config["BROWSER_GEOLOCATION"] = settings.geolocation or {}
 

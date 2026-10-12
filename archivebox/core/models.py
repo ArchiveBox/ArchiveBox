@@ -1488,6 +1488,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Look up existing (try exact match first, then fuzzy match for truncated timestamps)
         try:
             snapshot = cls.objects.select_related("crawl__created_by").get(url=url, timestamp=timestamp)
+            if data.get("id") and uuid.UUID(str(data["id"])) != snapshot.pk:
+                raise ValueError("existing snapshot has a different UUID for this URL and timestamp")
             return snapshot
         except cls.DoesNotExist:
             # Try fuzzy match - index.json may have truncated timestamp
@@ -1581,9 +1583,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         if not timestamp:
             return None
 
-        # Ensure uniqueness (reuses existing logic from create_or_update_from_dict)
-        if not preserve_identity:
-            timestamp = cls._ensure_unique_timestamp(url, timestamp)
+        # A copied capture retains its identity; a collision needs resolution,
+        # not a newly issued timestamp that disguises it as another capture.
+        if cls.objects.filter(timestamp=timestamp).exists():
+            raise ValueError("timestamp belongs to another snapshot")
 
         # Detect version
         fs_version = cls._detect_fs_version_from_index(data)
@@ -1610,8 +1613,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "fs_version": fs_version,
             "crawl": catchall_crawl,
         }
+        if data.get("id"):
+            snapshot_kwargs["id"] = data["id"]
         if preserve_identity:
             snapshot_kwargs.update({key: data[key] for key in ("id", "depth", "config", "notes") if key in data})
+        if data.get("downloaded_at"):
+            snapshot_kwargs["downloaded_at"] = parse_date(data["downloaded_at"])
         try:
             bookmarked_at = parse_date(data.get("bookmarked_at") or timestamp)
         except (TypeError, ValueError, OSError):
@@ -1627,6 +1634,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         snapshot = cls(**snapshot_kwargs)
         snapshot._imported_tag_names = Crawl.parse_tag_names(data.get("tags") or "")
+        snapshot._imported_dates = {key: parse_date(data[key]) for key in ("created_at", "modified_at") if data.get(key)}
         return snapshot
 
     @staticmethod
@@ -1848,6 +1856,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         output_mimetypes = result_data.get("output_mimetypes", "")
 
         hook_name = result_data.get("hook_name", "")
+        preserve_identity = preserve_identity or bool(result_data.get("id"))
         existing_result = existing.get((plugin, hook_name))
         if existing_result:
             if not update_existing:
@@ -1882,6 +1891,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 existing_result.save(update_fields=[*update_fields, "modified_at"])
             return
 
+        if plugin.startswith("search_backend_"):
+            # A source collection's search index is not part of the capture.
+            # Keep the hook pending until the destination runs --index-only.
+            status = ArchiveResult.StatusChoices.QUEUED
+
         # Machine.current() can probe the host and sanitize config. Do that before
         # atomic() so the transaction below only covers the two related row writes.
         machine = Machine.current() if (cmd or pwd) and not preserve_identity else None
@@ -1914,10 +1928,15 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 end_ts=end_ts,
                 process=process,
             )
-            if preserve_identity:
-                dates = {key: parse_date(result_data[key]) for key in ("created_at", "modified_at") if result_data.get(key)}
-                if dates:
-                    ArchiveResult.objects.filter(pk=archiveresult.pk).update(**dates)
+        # Filesystem hydration must stay outside the insert transaction. Restore
+        # historical dates afterward so deriving missing sizes cannot redate it.
+        dates = {key: parse_date(result_data[key]) for key in ("created_at", "modified_at") if result_data.get(key)}
+        if dates:
+            if not archiveresult.output_files:
+                archiveresult.update_output_metadata_from_filesystem()
+            ArchiveResult.objects.filter(pk=archiveresult.pk).update(**dates)
+            for key, value in dates.items():
+                setattr(archiveresult, key, value)
         existing[(plugin, hook_name)] = archiveresult
 
     def write_index_json(self):
@@ -2103,6 +2122,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         # Handle 0.8.x/0.9.x format (archive_results list)
         for result_data in data.get("archive_results", []):
             ar_record = {
+                **{key: result_data[key] for key in ("id", "created_at", "modified_at") if result_data.get(key)},
                 "type": "ArchiveResult",
                 "snapshot_id": str(self.id),
                 "plugin": result_data.get("plugin", ""),
@@ -2129,6 +2149,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     continue
                 for result_data in result_list:
                     ar_record = {
+                        **{key: result_data[key] for key in ("id", "created_at", "modified_at") if result_data.get(key)},
                         "type": "ArchiveResult",
                         "snapshot_id": str(self.id),
                         "plugin": result_data.get("plugin") or result_data.get("extractor") or plugin,
@@ -2986,6 +3007,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             "bookmarked_at": self.bookmarked_at.isoformat() if self.bookmarked_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "modified_at": self.modified_at.isoformat() if self.modified_at else None,
+            "downloaded_at": self.downloaded_at.isoformat() if self.downloaded_at else None,
             "config": redact_sensitive_config(self.config),
             "notes": self.notes,
             "timestamp": self.timestamp,

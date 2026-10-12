@@ -12,6 +12,7 @@ from django.db import IntegrityError
 from rich import print
 
 from archivebox.config import CONSTANTS
+from archivebox.config.common import SENSITIVE_CONFIG_VALUE_REDACTED
 from archivebox.core.models import ArchiveResult, Snapshot
 from archivebox.crawls.models import Crawl
 from archivebox.misc.util import parse_date
@@ -39,7 +40,12 @@ def _snapshot_directories(reverse=False):
 
 
 def _fields(record, names):
-    return {name: record[name] for name in names.split() if name in record}
+    fields = {name: record[name] for name in names.split() if name in record}
+    if "config" in fields:
+        # Exported placeholders are not executable configuration. Inherit the
+        # destination's settings for values that the source did not export.
+        fields["config"] = {key: value for key, value in fields["config"].items() if value != SENSITIVE_CONFIG_VALUE_REDACTED}
+    return fields
 
 
 def _dates(record):
@@ -154,8 +160,7 @@ def _reconcile_directory(directory: Path) -> str:
             raise ValueError("invalid snapshot metadata")
         snapshot.status = "sealed"
         snapshot.retry_at = None
-        if "config" not in record:
-            snapshot.config = {"PERMISSIONS": "private"}
+        snapshot.config = _fields(record, "config").get("config", {"PERMISSIONS": "private"})
         if Path(snapshot.get_storage_path_for_version(Snapshot._fs_current_version())) != directory:
             raise ValueError("metadata does not match its owner/date/domain directory")
         snapshot.save(force_insert=True)
@@ -217,7 +222,13 @@ def rescan_snapshots(wait_for_turn=None, reverse=False, scan_legacy=None):
     # next time; only one day's directory names are held in memory at a time.
     for existing in (False, True):
         if existing and scan_legacy:
-            scan_legacy()
+            try:
+                legacy_stats = scan_legacy()
+                stats["Imported"] += legacy_stats.get("migrated", 0)
+                stats["Errors"] += legacy_stats.get("errors", 0)
+            except (OSError, ValueError, KeyError, TypeError, ValidationError, IntegrityError) as err:
+                stats["Errors"] += 1
+                print(f"[yellow]    Unresolved legacy snapshot: {err}[/yellow]")
         for directory in _snapshot_directories(reverse=reverse):
             if (directory.name.replace("-", "") in known) != existing:
                 continue

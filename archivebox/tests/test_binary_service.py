@@ -273,3 +273,48 @@ def test_missing_binary_request_stays_queued_then_recovers_when_provider_can_res
     assert recovered.binprovider == "pip"
     assert Path(recovered.abspath).is_file()
     assert process_exit_codes == [1, 0, 0]
+
+
+def test_hook_resolution_preserves_registered_binary_installations(
+    initialized_archive,
+    recursive_test_site,
+    cached_abxpkg_lib_dir,
+    tmp_path,
+):
+    from archivebox.core.models import Snapshot
+    from archivebox.tests.conftest import cli_env, parse_jsonl_output
+
+    # A migrated collection can already contain several installations of one
+    # tool. A real hook's derived.env must add its exact installation without
+    # looking up only the name or rewriting previous Process provenance.
+    alternate = tmp_path / "python-alternate"
+    alternate.symlink_to(sys.executable)
+    original = {}
+    for abspath in (sys.executable, str(alternate)):
+        result = run_archivebox_cmd(
+            ["binary", "create", "--name=python", f"--abspath={abspath}", f"--version={sys.version.split()[0]}"],
+            cwd=initialized_archive,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        record = next(row for row in parse_jsonl_output(result.stdout) if row.get("type") == "Binary")
+        original[record["id"]] = (record["abspath"], record["version"], record["sha256"])
+    assert len(original) == 2
+    url = recursive_test_site["root_url"]
+    result = run_archivebox_cmd(
+        ["add", "--plugins=wget", url],
+        cwd=initialized_archive,
+        env=cli_env(disable_extractors=True, ABXPKG_LIB_DIR=str(cached_abxpkg_lib_dir)),
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(url=url)
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.archiveresult_set.filter(plugin="wget", status="succeeded").exists()
+        assert any("Root" in file.read_text(errors="ignore") for file in (snapshot.output_dir / "wget").rglob("*.html"))
+        for binary_id, identity in original.items():
+            binary = Binary.objects.get(pk=binary_id)
+            assert (binary.abspath, binary.version, binary.sha256) == identity
+        resolved = Binary.objects.filter(name="python").exclude(pk__in=original)
+        assert resolved.exists()
+        assert Process.objects.filter(binary__in=resolved, process_type=Process.TypeChoices.BINARY, exit_code=0).exists()
