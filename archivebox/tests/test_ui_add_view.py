@@ -9,7 +9,7 @@ from django.contrib.auth import get_user_model
 from django.test import Client
 from django.urls import reverse
 
-from archivebox.config.common import ArchiveBoxConfig
+from archivebox.config.common import ArchiveBoxConfig, get_config
 from archivebox.core.models import Snapshot, Tag
 from archivebox.crawls.models import Crawl
 from archivebox.machine.models import Machine
@@ -287,6 +287,55 @@ def test_add_view_creates_crawl_with_tag_and_url_filter_overrides(client, admin_
     assert crawl.config["URL_ALLOWLIST"] == "example.com\n*.example.com"
     assert crawl.config["URL_DENYLIST"] == "cdn.example.com"
     assert crawl.config["ONLY_NEW"] is True
+
+
+@pytest.mark.parametrize("concurrency", [None, "", "0", "3", "-1"])
+def test_add_view_preserves_automatic_concurrency(client, public_add_enabled, concurrency):
+    data = {**ADD_FORM_DEFAULTS, "url": "https://example.com/automatic-concurrency"}
+    if concurrency is not None:
+        data["crawl_max_concurrent_snapshots"] = concurrency
+
+    response = client.post(reverse("add"), data=data, HTTP_HOST=WEB_HOST)
+
+    if concurrency == "-1":
+        assert response.status_code == 200
+        error = response.context["form"].errors.as_data()["crawl_max_concurrent_snapshots"][0]
+        assert error.code == "min_value"
+        assert not Crawl.objects.exists()
+        return
+
+    assert response.status_code == 302, response.context["form"].errors if response.context else response.content.decode()
+    crawl = Crawl.objects.get(urls=data["url"])
+    assert get_config(crawl=crawl).CRAWL_MAX_CONCURRENT_SNAPSHOTS == (3 if concurrency == "3" else 0)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_add_view_persona_switch_restores_automatic_concurrency(public_add_enabled, live_server, browser_runtime):
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    port = urlsplit(live_server.url).port
+    public_add_enabled.config["BASE_URL"] = f"http://archivebox.localhost:{port}"
+    public_add_enabled.save(update_fields=["config"])
+    Persona.objects.create(name="Limited", config={"PERMISSIONS": "public", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 3})
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        page = browser.new_page()
+        page.goto(f"http://web.archivebox.localhost:{port}/add/")
+        concurrency = page.locator('input[name="crawl_max_concurrent_snapshots"]')
+        expect(concurrency).to_have_value("0")
+        page.locator('select[name="persona"]').select_option("Limited")
+        expect(concurrency).to_have_value("3")
+        page.locator('select[name="persona"]').select_option("Default")
+        expect(concurrency).to_have_value("0")
+        expect(concurrency).to_have_attribute("min", "0")
+        assert concurrency.evaluate("input => input.checkValidity()")
+        browser.close()
 
 
 def _csrf_test_add_data(url: str) -> dict[str, str]:

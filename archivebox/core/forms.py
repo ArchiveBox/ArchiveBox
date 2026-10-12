@@ -192,10 +192,12 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
     crawl_max_concurrent_snapshots = forms.IntegerField(
         label="Max in parallel",
         required=False,
-        min_value=1,
+        # Zero delegates concurrency to resource admission, including the
+        # default value submitted by the SavePageNow shortcut.
+        min_value=0,
         widget=forms.NumberInput(
             attrs={
-                "min": 1,
+                "min": 0,
                 "step": 1,
             },
         ),
@@ -470,8 +472,8 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
         if value in (None, ""):
             value = get_config().CRAWL_MAX_CONCURRENT_SNAPSHOTS
         value = int(value)
-        if value < 1:
-            raise forms.ValidationError("Max concurrent snapshots must be at least 1.")
+        if value < 0:
+            raise forms.ValidationError("Max concurrent snapshots must be at least 0.")
         return value
 
     def clean_schedule(self):

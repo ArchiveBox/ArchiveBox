@@ -236,7 +236,7 @@
                             {% if form.crawl_max_concurrent_snapshots.errors %}
                                 <div class="error">{{ form.crawl_max_concurrent_snapshots.errors }}</div>
                             {% endif %}
-                            <div class="help-text">Whole numbers, e.g. 1, 4, 12.</div>
+                            <div class="help-text">0 = automatic. Positive numbers set a ceiling.</div>
                         </div>
                     </div>
 
@@ -513,7 +513,7 @@
                     const effectiveConfig = personaData.effective_config || {};
                     const concurrencyInput = document.querySelector('input[name="crawl_max_concurrent_snapshots"]');
                     const concurrencyValue = effectiveConfig.CRAWL_MAX_CONCURRENT_SNAPSHOTS;
-                    if (concurrencyInput && concurrencyValue) {
+                    if (concurrencyInput && concurrencyValue !== undefined && concurrencyValue !== null) {
                         concurrencyInput.value = concurrencyValue;
                     }
                     const deleteAfterInput = document.querySelector('input[name="delete_after"]');
