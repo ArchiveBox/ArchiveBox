@@ -1050,6 +1050,12 @@
 
     let pollInterval = null;
     let pollDelayMs = 1000;
+    // Hook and capture timings come from the server's clock. Measure elapsed
+    // time against it, not the browser's, which may run ahead or behind.
+    let serverClockOffsetMs = 0;
+    function serverNowMs() {
+        return Date.now() + serverClockOffsetMs;
+    }
     let idleTicks = 0;
     let isCollapsed = monitor.dataset.autoExpand !== '1';
     const snapshotMedia = new Map();
@@ -1144,7 +1150,7 @@
         if (current.nodeType !== next.nodeType) return false;
         if (current.nodeType !== Node.ELEMENT_NODE) return true;
         if (current.tagName !== next.tagName) return false;
-        for (const key of ['crawlId', 'snapshotId', 'stableMedia']) {
+        for (const key of ['crawlId', 'snapshotId', 'hookKey', 'stableMedia']) {
             if ((current.dataset[key] || next.dataset[key]) && current.dataset[key] !== next.dataset[key]) return false;
         }
         return (current.className || '').split(' ')[0] === (next.className || '').split(' ')[0];
@@ -1262,7 +1268,7 @@
     function durationText(startedAt) {
         const startedMs = Date.parse(startedAt || '');
         if (!Number.isFinite(startedMs)) return '';
-        return formatDuration((Date.now() - startedMs) / 1000);
+        return formatDuration((serverNowMs() - startedMs) / 1000);
     }
 
     function renderDurationBadge(startedAt) {
@@ -1275,7 +1281,23 @@
     // ends distinguishable; anything past five minutes simply hits the cap.
     const hookScaleMaxSeconds = 300;
     function hookWidthScale(seconds) {
-        return Math.min(1, Math.log1p(Math.max(0, seconds)) / Math.log1p(hookScaleMaxSeconds)).toFixed(3);
+        return Math.min(1, Math.log1p(Math.max(0, seconds)) / Math.log1p(hookScaleMaxSeconds));
+    }
+
+    // A hook's badge only ever grows. Running hooks are extrapolated between
+    // polls, so a finish is seen up to a poll late and its recorded span is a
+    // little shorter than the width already drawn: keep the widest width shown.
+    const hookScales = new Map();
+    function grownHookScale(hookKey, seconds) {
+        const scale = Math.max(hookScales.get(hookKey) || 0, hookWidthScale(seconds));
+        hookScales.set(hookKey, scale);
+        return scale.toFixed(3);
+    }
+    function pruneHookScales() {
+        const shown = new Set(Array.from(crawlTree.querySelectorAll('.extractor-badge[data-hook-key]'), (badge) => badge.dataset.hookKey));
+        for (const hookKey of hookScales.keys()) {
+            if (!shown.has(hookKey)) hookScales.delete(hookKey);
+        }
     }
 
     function hookSecondsText(seconds) {
@@ -1298,8 +1320,8 @@
         document.querySelectorAll('#progress-monitor .extractor-badge[data-started-at]').forEach((badge) => {
             const startedMs = Date.parse(badge.dataset.startedAt);
             if (!Number.isFinite(startedMs)) return;
-            const seconds = (Date.now() - startedMs) / 1000;
-            badge.style.setProperty('--hook-scale', hookWidthScale(seconds));
+            const seconds = (serverNowMs() - startedMs) / 1000;
+            badge.style.setProperty('--hook-scale', grownHookScale(badge.dataset.hookKey, seconds));
             badge.title = hookTimingTitle(badge.dataset.hookTitle || '', seconds, true, Number(badge.dataset.timeout) || 0);
         });
     }
@@ -1586,10 +1608,14 @@
             : `${extractor.plugin || 'hook'}${extractor.hook_name ? `: ${extractor.hook_name}` : ''}`;
         const startedMs = extractor.status === 'started' ? Date.parse(extractor.started_at || '') : NaN;
         const running = Number.isFinite(startedMs);
-        const seconds = running ? (Date.now() - startedMs) / 1000 : extractor.elapsed;
+        const seconds = running ? (serverNowMs() - startedMs) / 1000 : extractor.elapsed;
         const timed = typeof seconds === 'number';
         const title = timed ? hookTimingTitle(baseTitle, seconds, running, extractor.timeout) : baseTitle;
-        const timingAttrs = (timed ? ` style="--hook-scale: ${hookWidthScale(seconds)};"` : '')
+        // Each run of a hook keeps its own badge node across polls, so a badge
+        // never inherits (and animates down from) another hook's width.
+        const hookKey = extractor.process_id || extractor.id || '';
+        const timingAttrs = ` data-hook-key="${escapeAttr(hookKey)}"`
+            + (timed ? ` style="--hook-scale: ${grownHookScale(hookKey, seconds)};"` : '')
             + (running ? ` data-started-at="${escapeAttr(extractor.started_at)}" data-hook-title="${escapeAttr(baseTitle)}" data-timeout="${escapeAttr(extractor.timeout || '')}"` : '');
 
         return `
@@ -1943,6 +1969,8 @@
     }
 
     function updateProgress(data) {
+        const serverMs = Date.parse(data.server_time || '');
+        if (Number.isFinite(serverMs)) serverClockOffsetMs = serverMs - Date.now();
         updateMetrics(data);
         idleMessage.style.color = '';
 
@@ -2010,6 +2038,7 @@
             replaceCrawlTree('');
         }
 
+        pruneHookScales();
         updateDurationBadges();
     }
 

@@ -1251,6 +1251,124 @@ class TestLiveProgressView:
         assert running["started_at"] == running_started_at.isoformat()
         assert "elapsed" not in running
 
+    def test_live_progress_hook_badges_only_grow(
+        self,
+        snapshot,
+        live_server,
+        browser_runtime,
+        real_second_snapshot_hook_process,
+    ):
+        import os
+        from datetime import timedelta
+        from urllib.parse import urlsplit
+
+        from playwright.sync_api import sync_playwright
+
+        import archivebox.machine.models as machine_models
+        from archivebox.core.models import ArchiveResult
+        from archivebox.machine.models import Machine, Process
+
+        machine_models._CURRENT_MACHINE = None
+        port = urlsplit(live_server.url).port
+        machine = Machine.current()
+        machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+        machine.save(update_fields=["config"])
+        started_at = timezone.now() - timedelta(seconds=10)
+        type(snapshot).objects.filter(pk=snapshot.pk).update(permissions="public", created_at=started_at - timedelta(minutes=1))
+        process = real_second_snapshot_hook_process
+        process.status = Process.StatusChoices.RUNNING
+        process.pid = os.getpid()
+        process.exit_code = None
+        process.started_at = started_at
+        process.ended_at = None
+        process.save(update_fields=["status", "pid", "exit_code", "started_at", "ended_at", "modified_at"])
+        # The runner's ProcessStartedEvent projection: a started row for the hook.
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="parse_txt_urls",
+            hook_name="on_Snapshot__71_parse_txt_urls.py",
+            status=ArchiveResult.StatusChoices.STARTED,
+            start_ts=started_at,
+            process=process,
+        )
+        Path(snapshot.output_dir).mkdir(parents=True, exist_ok=True)
+
+        def outside_event_loop(write):
+            # Sync Playwright runs an event loop on this thread and Django
+            # refuses ORM calls there, so make the real DB writes from another.
+            errors = []
+
+            def run():
+                try:
+                    write()
+                except BaseException as err:
+                    errors.append(err)
+
+            writer = Thread(target=run)
+            writer.start()
+            writer.join()
+            assert errors == []
+
+        # Record every badge's rendered width on every frame, keyed by its label,
+        # so both animated transitions and instant re-renders are observed.
+        record_widths = """
+            window.badgeShrinks = [];
+            const widest = new Map();
+            const sample = () => {
+                document.querySelectorAll('#progress-monitor .extractor-badge').forEach((badge) => {
+                    const label = badge.querySelector('.badge-content span:nth-child(2)')?.textContent || '';
+                    const width = parseFloat(getComputedStyle(badge).paddingRight);
+                    if (width < (widest.get(label) || 0) - 0.5) window.badgeShrinks.push(`${label}: ${widest.get(label)}px -> ${width}px`);
+                    widest.set(label, Math.max(widest.get(label) || 0, width));
+                });
+                requestAnimationFrame(sample);
+            };
+            requestAnimationFrame(sample);
+        """
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(
+                executable_path=str(browser_runtime["chrome_binary"]),
+                args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+            )
+            page = browser.new_page()
+            page.goto(f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}")
+            running = page.locator("#progress-monitor .extractor-badge.started")
+            running.wait_for()
+            page.evaluate(record_widths)
+            page.wait_for_timeout(1500)
+
+            # A newly queued hook sorts before the running one; it must get its
+            # own badge rather than inherit (and animate down from) the wider one.
+            outside_event_loop(
+                lambda: ArchiveResult.objects.create(
+                    snapshot=snapshot,
+                    plugin="chrome",
+                    hook_name="on_Snapshot__11_chrome_wait",
+                    status=ArchiveResult.StatusChoices.QUEUED,
+                ),
+            )
+            page.locator("#progress-monitor .extractor-badge.queued").wait_for()
+            page.wait_for_timeout(1500)
+
+            # The completion is recorded after the hook already exited, as it is
+            # when the bus event lands after the browser's last extrapolation.
+            process.status = Process.StatusChoices.EXITED
+            process.exit_code = 0
+            process.ended_at = timezone.now() - timedelta(seconds=3)
+            result.status = ArchiveResult.StatusChoices.SUCCEEDED
+            result.end_ts = process.ended_at
+
+            def finish():
+                process.save(update_fields=["status", "exit_code", "ended_at", "modified_at"])
+                result.save(update_fields=["status", "end_ts", "modified_at"])
+
+            outside_event_loop(finish)
+            page.locator("#progress-monitor .extractor-badge.succeeded").wait_for()
+            page.wait_for_timeout(1500)
+
+            assert page.evaluate("window.badgeShrinks") == []
+            browser.close()
+
     def test_live_progress_omits_pid_for_exited_process_rows(
         self,
         client,
