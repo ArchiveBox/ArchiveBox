@@ -1,0 +1,21 @@
+archivebox/services/runner.py
+  s_2b44ee96cc775e::t_dd8a47d060562c 2107,2109-2114
+archivebox/tests/test_cli_run_3.py
+  s_2b44ee96cc775e::t_f86dc82134dcc9 1285,1324-1326,1328-1331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "53b6c1e774de53f453ebcb729a08343b7513acdd",
+  "prompts": {},
+  "sessions": {
+    "s_2b44ee96cc775e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a90fd5ba-5c6e-4e2a-97b0-44f409fd7cba",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
