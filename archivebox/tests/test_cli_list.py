@@ -161,6 +161,8 @@ def test_static_exports_use_filesystem_paths_not_live_django_routes(snapshot):
 
 
 def test_streaming_json_matches_snapshot_serializer(initialized_archive):
+    from django.utils import timezone
+
     from archivebox.crawls.models import Crawl
 
     with use_archivebox_db(initialized_archive):
@@ -179,6 +181,7 @@ def test_streaming_json_matches_snapshot_serializer(initialized_archive):
             status=Snapshot.StatusChoices.SEALED,
             retry_at=None,
             output_size=42,
+            downloaded_at=timezone.now(),
         )
         populated.save_tags(["éclair", "Zulu", "alpha"])
         empty = Snapshot.objects.create(
@@ -196,6 +199,8 @@ def test_streaming_json_matches_snapshot_serializer(initialized_archive):
 
     assert actual == expected
     assert [record["url"] for record in actual] == ["https://example.com/a", "https://example.com/b"]
+    assert actual[0]["downloaded_at"] == populated.downloaded_at.isoformat()
+    assert actual[1]["downloaded_at"] is None
 
 
 def test_list_outputs_existing_snapshots_as_jsonl(initialized_archive):
