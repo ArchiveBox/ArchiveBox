@@ -1,0 +1,43 @@
+archivebox/services/runner.py
+  s_e37750da3e6d76::t_2d56a654b7fecc 772-774,1468
+  s_e37750da3e6d76::t_61eb9b6f232a5c 1469-1470,1849-1851
+archivebox/machine/models.py
+  s_e37750da3e6d76::t_0a8c54e56cca86 261-264,355-358
+archivebox/core/settings.py
+  s_e37750da3e6d76::t_94ad5c5cf655f8 325,357
+  s_e37750da3e6d76::t_0a8c54e56cca86 337-344,352,361
+archivebox/misc/db.py
+  s_e37750da3e6d76::t_0a8c54e56cca86 102-113,117-118,127-134
+  s_e37750da3e6d76::t_94ad5c5cf655f8 114-116,119-126
+  s_e37750da3e6d76::t_898e21d576713a 135-136
+archivebox/config/collection.py
+  s_e37750da3e6d76::t_94ad5c5cf655f8 21,150
+  s_e37750da3e6d76::t_0a8c54e56cca86 6,43-52,120-121,148-149,151-152,168-170,270-273,277-278,346-347
+archivebox/tests/test_cli_config.py
+  s_e37750da3e6d76::t_27c1a0c422ee5e 16-17,22-28,33-37,41-43,48-53,59-65,69,72-73
+  s_e37750da3e6d76::t_a3b171cfed88e2 74-80,83-98,102-103,105
+  s_e37750da3e6d76::t_94ad5c5cf655f8 21,29-32,38-40,56-58,66-68,70-71,81-82,99-101
+  s_e37750da3e6d76::t_43e9ce354980ec 11-15,18-20,44-47,104
+  s_e37750da3e6d76::t_6a5719637af325 54-55
+  s_e37750da3e6d76::t_2d56a654b7fecc 7-9
+archivebox/tests/test_crawl_runner.py
+  s_e37750da3e6d76::t_2d56a654b7fecc 471,529
+archivebox/cli/archivebox_init.py
+  s_e37750da3e6d76::t_0a8c54e56cca86 35,87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a4da20cd3ce221a95782bc5eb9aeeef17e3c827e",
+  "prompts": {},
+  "sessions": {
+    "s_e37750da3e6d76": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12df6-d0b4-7223-aa0c-cb6453586270",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
