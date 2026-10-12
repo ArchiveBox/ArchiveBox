@@ -170,6 +170,9 @@ body:
       render: shell
       placeholder: |
         [SERVER_CONFIG]
+        # Legacy configs may contain this key. Always redact it before sharing.
+        SECRET_KEY = "*********<redact any secrets/passwords>************"
+
         WGET_RESTRICT_FILE_NAMES=windows
         USE_SYSTEM_WGET=true
         CHECK_SSL_VALIDITY=false
