@@ -443,6 +443,110 @@ def test_responses_card_uses_relative_preview_urls_in_static_export(snapshot):
 
 
 @pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("javascript", [False, True])
+def test_responses_card_paints_only_largest_nine_tiles_in_three_by_three_grid(snapshot, live_server, browser_runtime, javascript):
+    import hashlib
+    import json
+    from urllib.parse import urlsplit
+    from uuid import uuid4
+
+    from playwright.sync_api import sync_playwright
+
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    host = get_snapshot_host(str(snapshot.id)).split(":")[0]
+    responses_dir = Path(snapshot.output_dir) / "responses"
+    (responses_dir / "all").mkdir(parents=True)
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
+        # Pages like Facebook posts capture 100+ images. Save real PNG bodies
+        # with distinct sizes the way the responses hook names and indexes them.
+        renderer = browser.new_page()
+        output_files, index = {}, []
+        for number in range(24):
+            renderer.set_viewport_size({"width": 40 + number * 12, "height": 30 + number * 8})
+            renderer.set_content(f"<body style='margin:0;background:hsl({number * 15} 70% 50%)'><h1>{number}</h1></body>")
+            body = renderer.screenshot()
+            name = f"all/20261012T1247{number:02d}__GET__{uuid4()}__https_3A_2F_2Fexample.com_2Fimage-{number}.png"
+            (responses_dir / name).write_bytes(body)
+            output_files[name] = {"size": len(body), "mimetype": "image/png", "extension": "png"}
+            index.append(
+                {
+                    "url": f"https://example.com/image-{number}.png",
+                    "responseSha256": hashlib.sha256(body).hexdigest(),
+                    "mimeType": "image/png",
+                    "path": f"./{name}",
+                },
+            )
+        browser.close()
+    (responses_dir / "index.jsonl").write_text("".join(json.dumps(entry) + "\n" for entry in index))
+    output_files["index.jsonl"] = {"size": (responses_dir / "index.jsonl").stat().st_size, "mimetype": "application/x-ndjson"}
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="responses",
+        hook_name="on_Snapshot__24_responses.daemon.bg.js",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str="responses/index.jsonl",
+        output_files=output_files,
+    )
+    largest = sorted((name for name in output_files if name.startswith("all/")), key=lambda name: -output_files[name]["size"])[:9]
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
+        context = browser.new_context(viewport={"width": 204, "height": 128}, java_script_enabled=javascript)
+        page = context.new_page()
+        # Record the layout the card paints before its index/LiteParse fetches
+        # resolve; on a busy server that first layout is what people look at.
+        page.add_init_script(
+            "document.addEventListener('DOMContentLoaded', () => { window.firstLayout = "
+            "[...document.querySelectorAll('.responses-thumbnail > *')].filter(tile => tile.getClientRects().length)"
+            ".map(tile => tile.getBoundingClientRect().height); });",
+        )
+        image_requests = []
+        page.on("request", lambda request: image_requests.append(request.url) if "/responses/all/" in request.url else None)
+        page.goto(f"http://{host}:{port}/_card/{result.id}", wait_until="networkidle")
+        tiles = page.locator(".responses-thumbnail > *").evaluate_all(
+            "tiles => tiles.filter(tile => tile.getClientRects().length).map(tile => {"
+            "const box = tile.getBoundingClientRect(); return {name: tile.dataset.name, width: box.width, height: box.height};})",
+        )
+        page.screenshot(path=f"/tmp/archivebox-responses-card-js-{javascript}.png")
+
+        # The card is a fixed 3x3 thumbnail grid, like LiteParse's, whether or
+        # not its metadata scripts have run; extra captures must never squeeze
+        # into implicit rows of thin stripes.
+        assert len(tiles) == 9
+        assert all(tile["height"] > 36 and tile["width"] > 60 for tile in tiles)
+        if javascript:
+            first_layout = page.evaluate("window.firstLayout")
+            assert len(first_layout) == 9
+            assert min(first_layout) > 36
+            assert [tile["name"] for tile in tiles] == largest
+            # Hidden captures are never fetched: on large snapshots they would
+            # queue ahead of every other card on the snapshot origin.
+            assert sorted({urlsplit(url).path.removeprefix("/responses/") for url in image_requests}) == sorted(largest)
+        context.close()
+        browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("status", ["queued", "started", "paused"])
 def test_empty_snapshot_keeps_live_progress_until_files_are_opened(snapshot, live_server, status, browser_runtime):
     from urllib.parse import urlsplit
