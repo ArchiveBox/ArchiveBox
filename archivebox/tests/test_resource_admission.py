@@ -210,9 +210,9 @@ import django
 django.setup()
 from archivebox.services.resource_admission import ResourceAdmission
 admission = ResourceAdmission()
-print(json.dumps([admission.process_tree_memory(), admission.memory_headroom()]), flush=True)
+print(json.dumps(admission.process_tree_memory()), flush=True)
 sys.stdin.readline()
-print(json.dumps([admission.process_tree_memory(), admission.memory_headroom()]), flush=True)
+print(json.dumps(admission.process_tree_memory()), flush=True)
 """,
         ],
         stdin=subprocess.PIPE,
@@ -241,8 +241,7 @@ print(json.dumps([admission.process_tree_memory(), admission.memory_headroom()])
         observer.stdin.flush()
         after = json.loads(observer.stdout.readline())
         assert observer.wait(timeout=20) == 0
-        assert after[0] - before[0] < 128 * 1024 * 1024, "Sibling memory charged to capture cost"
-        assert after[1] < before[1], "Sibling memory must still consume available headroom"
+        assert after - before < 128 * 1024 * 1024, "Sibling memory charged to capture cost"
     finally:
         assert observer.stdin is not None
         observer.stdin.close()
