@@ -1322,7 +1322,15 @@ class TestLiveProgressView:
         machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
         machine.save(update_fields=["config"])
         started_at = timezone.now() - timedelta(seconds=10)
-        type(snapshot).objects.filter(pk=snapshot.pk).update(permissions="public", created_at=started_at - timedelta(minutes=1))
+        from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
+
+        # The capture remains owned between hooks. Without a live lease, the
+        # last hook's exit correctly moves this row to the interrupted queue.
+        type(snapshot).objects.filter(pk=snapshot.pk).update(
+            permissions="public",
+            created_at=started_at - timedelta(minutes=1),
+            retry_at=timezone.now() + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS),
+        )
         process = real_second_snapshot_hook_process
         process.status = Process.StatusChoices.RUNNING
         process.pid = os.getpid()
