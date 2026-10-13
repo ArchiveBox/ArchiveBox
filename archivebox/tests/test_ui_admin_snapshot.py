@@ -85,23 +85,34 @@ def test_snapshot_delete_preserves_rows_when_real_filesystem_cleanup_fails(snaps
     assert not output_dir.exists()
 
 
-def test_failed_hook_partial_file_does_not_become_successful_card(snapshot, cached_abxpkg_lib_dir):
-    partial = Path(snapshot.output_dir) / "title" / "partial.html"
+def test_failed_hook_partial_file_does_not_become_successful_card(snapshot, cached_abxpkg_lib_dir, recursive_test_site):
+    # Gallery-DL writes metadata before this real local download returns404.
+    # The partial artifact belongs to this failed attempt, not an older capture.
+    snapshot.url = recursive_test_site["root_url"] + "wikipedia/commons/a/a9/Missing.jpg"
+    snapshot.save(update_fields=["url"])
+    partial = Path(snapshot.output_dir) / "gallerydl" / "info.json"
     partial.parent.mkdir(parents=True, exist_ok=True)
-    partial.write_text("<html>incomplete capture</html>")
-    _process, result = _run_shipped_snapshot_hook(
+    previous = partial.parent / "previous.json"
+    previous.write_text('{"title":"Previous capture"}\n')
+    assert not partial.exists()
+    process, result = _run_shipped_snapshot_hook(
         snapshot,
-        plugin="title",
-        hook_name="on_Snapshot__54_title.js",
+        plugin="gallerydl",
+        hook_name="on_Snapshot__32_gallerydl.finite.bg.py",
         lib_dir=cached_abxpkg_lib_dir,
         expected_exit_codes=(1,),
     )
+    assert "404" in process.stderr
     assert result.status == "failed"
-    assert "partial.html" in result.output_files
+    assert "info.json" in result.output_files
+    assert "previous.json" not in result.output_files
+    assert previous.read_text() == '{"title":"Previous capture"}\n'
+    assert result.output_files["info.json"]["size"] == partial.stat().st_size > 0
+    assert json.loads(partial.read_text())
     context = snapshot.get_html_details_context()
-    assert not any(output["name"] == "title" for output in context["archiveresults"])
+    assert not any(output["name"] == "gallerydl" for output in context["archiveresults"])
     assert any(item["name"].endswith("(failed)") for item in context["failed_items"])
-    assert partial.read_text() == "<html>incomplete capture</html>"
+    assert partial.is_file()
 
 
 def test_current_snapshot_layout_has_no_top_level_timestamp_projection(snapshot):
