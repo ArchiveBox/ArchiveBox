@@ -227,8 +227,6 @@ class Machine(ModelWithHealthStats):
         ArchiveBox.conf fails. Use the indexed lookup rather than another global
         cache whose freshness depends on a different store's modification time.
         """
-        if _CURRENT_MACHINE is not None:
-            return _CURRENT_MACHINE
         return cls.objects.filter(guid=get_host_guid()).first()
 
     @classmethod

@@ -200,13 +200,15 @@ class TestMachineModel:
         assert current.config["USER_AGENT"] == "read-only-machine-test"
         assert list(queries) == []
 
-    def test_machine_current_readonly_sees_committed_config(self):
+    @pytest.mark.parametrize("registered_in_this_process", [False, True])
+    def test_machine_current_readonly_sees_committed_config(self, registered_in_this_process):
         """Web config reads see DB edits even before their file mirror succeeds."""
         import archivebox.machine.models as models
         from archivebox.config import CONSTANTS
 
         registered = Machine.current()
-        models._CURRENT_MACHINE = None  # like daphne, which only reads
+        if not registered_in_this_process:
+            models._CURRENT_MACHINE = None
 
         first = Machine.current_readonly()
         assert first is not None and first.pk == registered.pk
@@ -221,6 +223,58 @@ class TestMachineModel:
         edited.config = {**edited.config, "USER_AGENT": "edited-here"}
         edited.save(update_fields=["config"])
         assert Machine.current_readonly().config["USER_AGENT"] == "edited-here"
+
+    def test_add_requests_see_machine_config_committed_by_another_process(self, client):
+        from django.contrib.auth import get_user_model
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from django.urls import reverse
+        from archivebox.config.common import get_request_config
+        from archivebox.personas.models import Persona
+        import archivebox.machine.models as models
+
+        user = get_user_model().objects.create_superuser(username="machine-config-reader", password="testpassword")
+        Persona.get_or_create_default()
+        client.force_login(user)
+        first = client.get(reverse("add"), HTTP_HOST="admin.archivebox.localhost:5797")
+        assert first.status_code == 200
+        assert models._CURRENT_MACHINE is not None
+        machine = models._CURRENT_MACHINE
+        footer = "Machine config committed outside the web process"
+        assert first.context["FOOTER_INFO"] != footer
+
+        updated = subprocess.run(
+            [
+                "uv",
+                "run",
+                "--no-project",
+                "--active",
+                "python",
+                "-c",
+                "import json,sqlite3,sys; "
+                "db=sqlite3.connect(sys.argv[1]); "
+                "config=json.loads(db.execute('SELECT config FROM machine_machine WHERE guid=?', (sys.argv[2],)).fetchone()[0]); "
+                "config['FOOTER_INFO']=sys.argv[3]; "
+                "db.execute('UPDATE machine_machine SET config=? WHERE guid=?', (json.dumps(config),sys.argv[2])); "
+                "db.commit(); db.close()",
+                str(connection.settings_dict["NAME"]),
+                machine.guid,
+                footer,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert updated.returncode == 0, updated.stderr
+        assert Machine.objects.get(pk=machine.pk).config["FOOTER_INFO"] == footer
+        second = client.get(reverse("add"), HTTP_HOST="admin.archivebox.localhost:5797")
+        assert second.status_code == 200
+        assert second.context["FOOTER_INFO"] == footer
+        # Template/context consumers still reuse this request's resolved config.
+        with CaptureQueriesContext(connection) as queries:
+            assert get_request_config(second.wsgi_request).FOOTER_INFO == footer
+            assert get_request_config(second.wsgi_request, resolve_plugins=True).FOOTER_INFO == footer
+        assert list(queries) == []
 
     def test_machine_current_recreates_stale_cached_row(self):
         """Machine.current() should recreate the cached machine if the row was deleted."""
