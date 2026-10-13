@@ -702,6 +702,13 @@
         background-color: #30363d;
         color: #f0f6fc;
     }
+    /* Django's base.css underlines links via a (1,1,2)-specificity :not() rule. */
+    #progress-monitor .extractor-list a.extractor-badge {
+        text-decoration: none;
+    }
+    #progress-monitor .extractor-list a.extractor-badge[href]:hover .badge-label {
+        text-decoration: underline;
+    }
     #progress-monitor .extractor-badge .badge-icon {
         flex: 0 0 12px;
         text-align: center;

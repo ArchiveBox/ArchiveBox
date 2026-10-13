@@ -1170,6 +1170,34 @@ class TestLiveProgressView:
         assert str(snapshot.id) in running_process_sql
         assert str(unrelated.pk) not in running_process_sql
 
+    def test_live_progress_keeps_started_snapshots_in_a_stable_order_while_heartbeats_move_modified_at(
+        self,
+        client,
+        admin_user,
+        crawl,
+        snapshot,
+    ):
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+
+        # The runner heartbeats modified_at on every capture it works on, so
+        # ordering by it swapped the displayed snapshots (and all their hook
+        # badges) back and forth between polls.
+        Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED)
+        second = Snapshot.objects.create(url="https://example.org", crawl=crawl, status=Snapshot.StatusChoices.STARTED)
+        client.force_login(admin_user)
+
+        def displayed_order():
+            response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200
+            active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
+            return [item["id"] if isinstance(item, dict) else item[0] for item in active_crawl["active_snapshots"]]
+
+        expected = [str(snapshot.pk).replace("-", ""), str(second.pk).replace("-", "")]
+        for heartbeat in (snapshot, second, snapshot):
+            Snapshot.objects.filter(pk=heartbeat.pk).update(modified_at=timezone.now())
+            assert displayed_order() == expected
+
     def test_live_progress_merges_process_rows_with_archiveresults_when_present(
         self,
         client,

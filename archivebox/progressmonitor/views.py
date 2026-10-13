@@ -426,6 +426,10 @@ def live_progress_view(request, *, authorized_snapshot=None):
                     if remaining_snapshots and status_total
                     else []
                 )
+                # modified_at only picks the window: the runner heartbeats it on
+                # every live capture, so displaying in that order swapped them
+                # (and all their hook badges) between polls. Ids are time-ordered.
+                rows.sort(key=lambda row: row["id_str"])
                 remaining_snapshots -= len(rows)
                 snapshots.extend(rows)
                 if status_total > len(rows):
