@@ -1,5 +1,5 @@
 {% if run.diagnostics.screenshots %}<div class="failure-screens">
 {% for screenshot in run.diagnostics.screenshots %}<figure>
-<figcaption><strong>Failure screen</strong> · {% if screenshot.attempt %}after learning attempt {{ screenshot.attempt }}{% else %}saved adapter{% endif %}</figcaption>
+<figcaption><strong>Failure screen</strong> · {% if screenshot.attempt %}after learning attempt {{ screenshot.attempt }}{% else %}browser state{% endif %}</figcaption>
 <a href="{% url 'importers:run-screenshot' run.pk screenshot.name %}" target="_blank" rel="noopener"><img src="{% url 'importers:run-screenshot' run.pk screenshot.name %}" alt="Failure screen for this run, attempt {{ screenshot.attempt }}" loading="lazy" decoding="async"></a>
 </figure>{% endfor %}</div>{% endif %}
