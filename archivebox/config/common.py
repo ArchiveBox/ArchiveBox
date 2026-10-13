@@ -1071,9 +1071,12 @@ def find_config_section(key: str) -> str:
 
     if key in CONSTANTS_CONFIG:
         return "CONSTANT"
-    for section_id, section in get_all_configs().items():
-        if key in type(section).model_fields:
-            return section_id
+    # Sections describe the schema, not today's settings. Resolving source
+    # config per field made cold admin forms take seconds and hid their edit
+    # options when an unrelated live value was invalid.
+    for config_cls in ArchiveBoxConfig._core_config_classes():
+        if key in config_cls.model_fields:
+            return str(config_cls.model_fields["toml_section_header"].default)
     if key in _plugin_config_properties(PLUGIN_CONFIG_SCHEMAS):
         return "PLUGINS"
     return "DYNAMIC"

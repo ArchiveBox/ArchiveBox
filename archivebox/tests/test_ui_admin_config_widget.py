@@ -36,6 +36,34 @@ def test_key_value_widget_renders_enum_autocomplete_metadata():
     assert "validateValueAgainstMeta_id_config" in html
 
 
+def test_cold_config_widget_metadata_does_not_validate_live_values():
+    import os
+
+    from archivebox.config.common import config_field_metadata, find_config_section
+
+    previous_timeout = os.environ.get("TIMEOUT")
+    config_field_metadata.cache_clear()
+    try:
+        # Schema metadata must remain available to explain/edit invalid config.
+        # Loading live settings for each field both hides the options here and
+        # used to take seconds on the first admin change-form request.
+        os.environ["TIMEOUT"] = "not-a-number"
+        html = str(KeyValueWidget().render("config", {"TIMEOUT": "not-a-number"}, attrs={"id": "id_config"}))
+        assert '"CHROME_WAIT_FOR":' in html
+        assert '"enum": ["domcontentloaded", "load", "networkidle0", "networkidle2"]' in html
+        assert "not-a-number" in html
+        assert find_config_section("TIMEOUT") == "ARCHIVING_CONFIG"
+        assert find_config_section("BASE_URL") == "SERVER_CONFIG"
+        assert find_config_section("CHROME_WAIT_FOR") == "PLUGINS"
+        assert find_config_section("UNKNOWN_CONFIG_KEY") == "DYNAMIC"
+    finally:
+        if previous_timeout is None:
+            os.environ.pop("TIMEOUT", None)
+        else:
+            os.environ["TIMEOUT"] = previous_timeout
+        config_field_metadata.cache_clear()
+
+
 def test_key_value_widget_renders_numeric_and_pattern_constraints():
     html = str(KeyValueWidget().render("config", {}, attrs={"id": "id_config"}))
 
