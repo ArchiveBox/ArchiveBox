@@ -252,18 +252,30 @@ def live_progress_view(request, *, authorized_snapshot=None):
         )
         # Start from open results using the existing status index. Filtering by
         # plugin first scans historical runs, including all completed results.
+        # Grouping by the owning snapshot/crawl status here (a primary-key join
+        # per open result) replaces two COUNTs that filtered on those joined
+        # statuses and cost ~40ms per poll on a large collection.
         result_counts = list(
-            archiveresult_scope.filter(status__in=result_statuses).order_by().values("status", "plugin").annotate(count=Count("*")),
+            archiveresult_scope.filter(status__in=result_statuses)
+            .order_by()
+            .values("status", "plugin", "snapshot__status", "snapshot__crawl__status")
+            .annotate(count=Count("*")),
         )
         archiveresult_status_counts = {
             status: sum(row["count"] for row in result_counts if row["status"] == status) for status in result_statuses
         }
-        download_scope = archiveresult_scope.filter(
-            plugin__in=download_plugin_names,
-            snapshot__status__in=Snapshot.RUNNABLE_STATES,
-            snapshot__crawl__status__in=Crawl.RUNNABLE_STATES,
-        )
-        download_status_counts = ArchiveResult.status_counts(download_scope, result_statuses)
+        # Leftover open results of a finished or cancelled capture are not downloads.
+        download_status_counts = {
+            status: sum(
+                row["count"]
+                for row in result_counts
+                if row["status"] == status
+                and row["plugin"] in download_plugin_names
+                and row["snapshot__status"] in Snapshot.RUNNABLE_STATES
+                and row["snapshot__crawl__status"] in Crawl.RUNNABLE_STATES
+            )
+            for status in result_statuses
+        }
         indexing_status_counts = {
             status: sum(row["count"] for row in result_counts if row["status"] == status and row["plugin"] in indexing_plugin_names)
             for status in result_statuses

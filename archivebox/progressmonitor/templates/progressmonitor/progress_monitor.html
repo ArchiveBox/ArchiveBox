@@ -752,9 +752,20 @@
         transform: scaleX(var(--hook-scale, 0));
         transition: transform 1s linear;
     }
+    /* Running foreground hooks are what the capture is waiting on: the
+       brightest cells in the grid. Background (.bg) hooks run for the whole
+       capture, so while running they recede to a faint amber. */
     #progress-monitor .extractor-badge.started {
-        background-color: rgba(210, 153, 34, 0.12);
-        color: #d29922;
+        background-color: rgba(240, 183, 47, 0.22);
+        color: #f5c451;
+        font-weight: 600;
+        box-shadow: inset 0 0 0 1px rgba(240, 183, 47, 0.8), 0 0 10px rgba(240, 183, 47, 0.25);
+    }
+    #progress-monitor .extractor-badge.started.bg {
+        background-color: rgba(210, 153, 34, 0.05);
+        color: rgba(210, 153, 34, 0.5);
+        font-weight: normal;
+        box-shadow: none;
     }
     #progress-monitor .extractor-badge.succeeded {
         background-color: rgba(63, 185, 80, 0.1);
@@ -1311,7 +1322,7 @@
     const hookOrder = new Map();
     let nextHookOrder = 0;
     function orderedHooks(scopeId, extractors) {
-        const keyed = extractors.filter(isShownExtractor).map((extractor) => ({extractor, key: hookKeyFor(scopeId, extractor)}));
+        const keyed = extractors.map((extractor) => ({extractor, key: hookKeyFor(scopeId, extractor)}));
         keyed.filter(({key}) => !hookOrder.has(key))
             .sort((a, b) => (a.extractor.hook_name || a.extractor.plugin || '').localeCompare(b.extractor.hook_name || b.extractor.plugin || ''))
             .forEach(({key}) => hookOrder.set(key, nextHookOrder++));
@@ -1615,14 +1626,10 @@
         nextFrame.src = newUrl;
     }
 
-    // TEMPORARY: hide running background (.bg.) hook badges; they stay up for
-    // the whole capture. Foreground hooks and queued/failed bg hooks still show.
-    function isShownExtractor(extractor) {
-        return !(extractor.status === 'started' && (extractor.hook_name || '').includes('.bg.'));
-    }
-
     function renderExtractor(extractor, hookKey) {
         const status = extractor.status || 'queued';
+        // Result rows name the hook without its extension (…daemon.bg), process rows with it.
+        const background = /\.bg(\.|$)/.test(extractor.hook_name || '');
         // A running hook's icon is a CSS spinner; every glyph fits one fixed slot.
         const icon = status === 'started' ? '' :
                     status === 'succeeded' ? '✓' :
@@ -1647,7 +1654,7 @@
 
         // Always an <a> (a plain one without href) so a hook's node is never
         // swapped for another element when its output link appears.
-        return `<a class="extractor-badge ${status}" data-hook-key="${escapeAttr(hookKey)}"${hrefAttr} title="${escapeAttr(title)}"${timingAttrs}><span class="badge-icon">${icon}</span><span class="badge-label">${escapeHtml(extractor.label || extractor.plugin || 'unknown')}</span><span class="badge-time">${timed ? hookCellTime(seconds, running) : ''}</span><span class="badge-bar"></span></a>`;
+        return `<a class="extractor-badge ${status}${background ? ' bg' : ''}" data-hook-key="${escapeAttr(hookKey)}"${hrefAttr} title="${escapeAttr(title)}"${timingAttrs}><span class="badge-icon">${icon}</span><span class="badge-label">${escapeHtml(extractor.label || extractor.plugin || 'unknown')}</span><span class="badge-time">${timed ? hookCellTime(seconds, running) : ''}</span><span class="badge-bar"></span></a>`;
     }
 
     function renderExtractorList(scopeId, extractors) {

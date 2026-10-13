@@ -9,6 +9,7 @@ add --index-only, list, remove, and a full schema-vs-models parity check.
 Requires PostgreSQL server binaries (initdb/pg_ctl) to be installed.
 """
 
+import json
 import os
 import shlex
 import shutil
@@ -241,6 +242,53 @@ def test_add_list_remove_on_postgres(pg_server, tmp_path):
     assert result.returncode == 0, f"Remove failed: {result.stderr}\n{result.stdout}"
     (snapshot_count,) = pg_query(pg_server, dbname, f"SELECT COUNT(*) FROM core_snapshot WHERE url = '{test_url}'")[0]
     assert snapshot_count == 0, "Snapshot row should be deleted from postgres"
+
+
+def test_live_progress_counts_open_downloads_on_postgres(pg_server, tmp_path):
+    """The live progress view's grouped open-result counts run on postgres and
+    count a queued download only while its snapshot and crawl can still run."""
+    dbname = unique_dbname()
+    env = pg_cli_env(pg_server, dbname, disable_extractors=True)
+    result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, env=env, timeout=300)
+    assert result.returncode == 0, f"Init failed: {result.stderr}"
+    result = run_archivebox_cmd(["add", "--index-only", "https://example.com/abx-postgres-progress"], cwd=tmp_path, env=env, timeout=300)
+    assert result.returncode == 0, f"Add failed: {result.stderr}\n{result.stdout}"
+    run_queued_crawls(tmp_path, env)
+
+    script = """
+import json
+from django.contrib.auth import get_user_model
+from django.test import Client
+from archivebox.core.models import ArchiveResult, Snapshot
+from archivebox.crawls.models import Crawl
+
+snapshot = Snapshot.objects.get(url="https://example.com/abx-postgres-progress")
+Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED)
+Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.STARTED)
+ArchiveResult.objects.create(snapshot=snapshot, plugin="singlefile", hook_name="on_Snapshot__50_singlefile", status=ArchiveResult.StatusChoices.QUEUED)
+admin = get_user_model().objects.create_superuser("pgprogress", "pgprogress@example.com", "unused-test-password")
+client = Client()
+client.force_login(admin)
+
+def counts():
+    response = client.get("/progress.json", HTTP_HOST="admin.archivebox.localhost:8000")
+    assert response.status_code == 200, response.content[:500]
+    payload = response.json()
+    return {key: payload[key] for key in ("archiveresults_queued", "downloads_queued")}
+
+running = counts()
+Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.SEALED)
+Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.SEALED)
+print("PROGRESS_COUNTS=" + json.dumps({"running": running, "sealed": counts()}))
+"""
+    result = run_archivebox_cmd(["manage", "shell", "-c", script], cwd=tmp_path, env=env, timeout=120)
+    assert result.returncode == 0, f"Live progress on postgres failed: {result.stderr}\n{result.stdout}"
+    line = next(line for line in result.stdout.splitlines() if line.startswith("PROGRESS_COUNTS="))
+    counts = json.loads(line.removeprefix("PROGRESS_COUNTS="))
+    assert counts == {
+        "running": {"archiveresults_queued": 1, "downloads_queued": 1},
+        "sealed": {"archiveresults_queued": 1, "downloads_queued": 0},
+    }
 
 
 def test_sqlite_remains_the_default(tmp_path):
