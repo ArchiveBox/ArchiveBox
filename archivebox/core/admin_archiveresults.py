@@ -100,6 +100,18 @@ def render_archiveresults_list(archiveresults_qs, limit=50, config=None, can_del
             "snapshot__crawl__created_by",
             "process",
             "process__machine",
+            # cmd_version reads process.binary: one query per row without this.
+            "process__binary",
+        )
+        # The table never shows hook output, machine telemetry, or a crawl's
+        # seed list; those columns made this query most of the page's time.
+        .defer(
+            "process__stdout",
+            "process__stderr",
+            "process__machine__stats",
+            "process__machine__config",
+            "snapshot__crawl__urls",
+            "snapshot__crawl__notes",
         )
         .all()[:limit],
     )
