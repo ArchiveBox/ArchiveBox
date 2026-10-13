@@ -10,28 +10,31 @@ descriptors) for every row, plus decoding manifests nothing renders. Here:
 
 - every result is one plain value row, never a model instance;
 - sizes come from the materialized ``output_size`` column;
-- the same query ships ``output_files`` only for rows that can render a link
-  (successful results and thumbnail candidates); queued/failed/skipped rows
-  never transfer or decode theirs.
+- the same query ships ``output_files`` (as text) only for rows that can
+  render a link: successful results and thumbnail candidates. Queued, failed
+  and skipped rows never transfer theirs, and a shipped manifest is decoded
+  only when rendering asks that result for its link.
 
 List pages must never read the archive filesystem; nothing here does.
 """
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from django.db import connection
-from django.db.models import Case, F, JSONField, Q, Value, When
+from django.db.models import Case, CharField, Q, TextField, Value, When
+from django.db.models.functions import Cast
 from django.db.models.base import DEFERRED
 
 from archivebox.core.models import ArchiveResult
+from archivebox.uuid_compat import compact_uuid
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from uuid import UUID
 
 
 _UNRESOLVED = object()
@@ -42,21 +45,29 @@ class ListResult:
     """One ArchiveResult as list pages read it: a value row, not a model instance.
 
     Duck-types the attributes and ``embed_path()`` that icon, favicon and
-    thumbnail rendering read from ArchiveResult instances.
+    thumbnail rendering read from ArchiveResult instances. Ids are hex
+    strings, the way CompactUUIDs print.
     """
 
-    id: UUID
-    snapshot_id: UUID
+    id: str
+    snapshot_id: str
     plugin: str
     status: str
     output_size: int
     output_str: str
+    # Undecoded output_files JSON, shipped only for rows that can render a link.
+    output_files_json: str | None = None
     _embed_path: Any = _UNRESOLVED
 
     def embed_path(self) -> str | None:
         if self._embed_path is _UNRESOLVED:
-            # Only rows that can render a link carry their manifest (see below).
-            raise LookupError(f"embed path of {self.plugin} result {self.id} was not loaded for this list page")
+            if self.output_files_json is None:
+                raise LookupError(f"embed path of {self.plugin} result {self.id} was not loaded for this list page")
+            # Decode on first use: rendering asks only for the results it
+            # shows (one per plugin, thumbnail candidates until one has a
+            # file), so later hooks' and unused candidates' manifests stay text.
+            output_files = json.loads(self.output_files_json)
+            self._embed_path = ArchiveResult.resolve_embed_path(self.plugin, self.output_str, output_files or {})
         return self._embed_path
 
 
@@ -93,9 +104,7 @@ class SnapshotListResults:
         return [
             output_path
             for result in self.results
-            if result.plugin in plugins
-            and result.status == ArchiveResult.StatusChoices.SUCCEEDED
-            and (output_path := result.embed_path())
+            if result.plugin in plugins and result.status == ArchiveResult.StatusChoices.SUCCEEDED and (output_path := result.embed_path())
         ]
 
 
@@ -108,48 +117,57 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
     from archivebox.plugins.discovery import get_snapshot_thumbnail_card_order
     from archivebox.plugins.output_groups import snapshot_thumbnail_result
 
-    snapshots_by_id = {snapshot.id: snapshot for snapshot in snapshots}
-    summaries = {snapshot_id: SnapshotListResults() for snapshot_id in snapshots_by_id}
+    snapshots_by_hex = {snapshot.id.hex: snapshot for snapshot in snapshots}
+    summaries = {snapshot_hex: SnapshotListResults() for snapshot_hex in snapshots_by_hex}
     if not summaries:
-        return summaries
+        return {}
 
     card_plugins = get_snapshot_thumbnail_card_order()
     # Successful results feed file icons and favicons; thumbnail cards try
     # their candidates regardless of status. Nothing else renders a path.
     links_output = Q(status=ArchiveResult.StatusChoices.SUCCEEDED) | Q(plugin__in=list(card_plugins))
     rows = (
-        ArchiveResult.objects.filter(snapshot_id__in=list(summaries))
+        ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
         # A stable order picks the same "first" result per plugin every time.
         .order_by("snapshot_id", "plugin", "id")
         .values_list(
-            "id",
-            "snapshot_id",
+            # Ids and manifests as text: the per-row UUID and JSON field
+            # converters cost more than the rest of the page's row handling,
+            # and most manifests are never decoded (see ListResult.embed_path).
+            Cast("id", output_field=CharField()),
+            Cast("snapshot_id", output_field=CharField()),
             "plugin",
             "status",
             "output_size",
             "output_str",
-            Case(When(links_output, then=F("output_files")), default=Value(None), output_field=JSONField()),
+            Case(When(links_output, then=Cast("output_files", output_field=TextField())), default=Value(None), output_field=TextField()),
         )
     )
-    for result_id, snapshot_id, plugin, status, output_size, output_str, output_files in rows:
-        summary = summaries[snapshot_id]
+    for result_id, snapshot_id, plugin, status, output_size, output_str, output_files_json in rows:
+        # PostgreSQL renders uuid as text with dashes; SQLite stores bare hex.
+        summary = summaries[snapshot_id.replace("-", "")]
         if not plugin:
             summary.unnamed_status_counts[status] += 1
             continue
-        result = ListResult(result_id, snapshot_id, plugin, status, output_size or 0, output_str)
-        if status == ArchiveResult.StatusChoices.SUCCEEDED or plugin in card_plugins:
-            # Capture/import persist the canonical output_files map; resolve
-            # straight from it, as embed_path_db() would on a model instance.
-            result._embed_path = ArchiveResult.resolve_embed_path(plugin, output_str, output_files or {})
-        summary.results.append(result)
+        summary.results.append(
+            ListResult(
+                result_id.replace("-", ""),
+                snapshot_id.replace("-", ""),
+                plugin,
+                status,
+                output_size or 0,
+                output_str,
+                output_files_json,
+            ),
+        )
 
-    for snapshot_id, summary in summaries.items():
+    for snapshot_hex, summary in summaries.items():
         card_row = snapshot_thumbnail_result(summary.results)
         if card_row is not None:
             summary.thumbnail_result = _archive_result_from_row(card_row)
             # Card URLs may read result.snapshot; share the page's loaded parent.
-            summary.thumbnail_result.snapshot = snapshots_by_id[snapshot_id]
-    return summaries
+            summary.thumbnail_result.snapshot = snapshots_by_hex[snapshot_hex]
+    return {snapshot.id: summaries[snapshot_hex] for snapshot_hex, snapshot in snapshots_by_hex.items()}
 
 
 def _archive_result_from_row(row: ListResult) -> ArchiveResult:
@@ -158,8 +176,8 @@ def _archive_result_from_row(row: ListResult) -> ArchiveResult:
     Card rendering requires a real ArchiveResult; one per snapshot is cheap.
     """
     values = {
-        "id": row.id,
-        "snapshot_id": row.snapshot_id,
+        "id": compact_uuid(row.id),
+        "snapshot_id": compact_uuid(row.snapshot_id),
         "plugin": row.plugin,
         "status": row.status,
         "output_size": row.output_size,
