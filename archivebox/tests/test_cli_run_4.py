@@ -110,7 +110,10 @@ def test_run_third_interrupt_forces_chosen_abort(initialized_archive, choice):
 
 
 @pytest.mark.django_db(transaction=True)
-def test_cli_run_retries_snapshot_after_filesystem_failure(initialized_archive):
+def test_cli_run_seals_snapshot_after_filesystem_failure_without_retrying_it(initialized_archive):
+    """A snapshot attempt that raises is finished, not retried: rerunning it
+    is a user action (Redo or a new Snapshot). Retrying it automatically made
+    one deterministic failure rerun forever at the head of its crawl."""
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
@@ -128,24 +131,28 @@ def test_cli_run_retries_snapshot_after_filesystem_failure(initialized_archive):
     broken_directory.symlink_to("hashes")
 
     failed = run_archivebox_cmd(["run", f"--snapshot-id={snapshot_id}"], cwd=initialized_archive, env=env, timeout=60)
-    assert failed.returncode == 1, failed.stdout + failed.stderr
+    assert failed.returncode == 0, failed.stdout + failed.stderr
     assert "FileExistsError: [Errno 17]" in failed.stderr
-    with use_archivebox_db(initialized_archive):
-        snapshot = Snapshot.objects.get(pk=snapshot_id)
-        assert snapshot.status == Snapshot.StatusChoices.STARTED
-        assert snapshot.retry_at is not None
-        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
-
-    broken_directory.unlink()
-    resumed = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=60)
-    assert resumed.returncode == 0, resumed.stdout + resumed.stderr
+    # Logged with its id; the log handler wraps long lines, so compare without whitespace.
+    assert f"Snapshot{snapshot_id}failed" in "".join(failed.stderr.split())
     with use_archivebox_db(initialized_archive):
         snapshot = Snapshot.objects.get(pk=snapshot_id)
         assert snapshot.status == Snapshot.StatusChoices.SEALED
-        result = snapshot.archiveresult_set.get(plugin="hashes")
-        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
-        assert result.output_size > 0
-    assert (directory / "hashes").is_dir()
+        assert snapshot.retry_at is None
+        sealed_at = snapshot.modified_at
+        # The hook never got to run, so it has no result.
+        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
+
+    broken_directory.unlink()
+    rerun = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=60)
+    assert rerun.returncode == 0, rerun.stdout + rerun.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(pk=snapshot_id)
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.modified_at == sealed_at
+        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
+    assert (directory / "input.txt").is_file()
+    assert not (directory / "hashes").is_dir()
 
 
 @pytest.mark.django_db(transaction=True)
