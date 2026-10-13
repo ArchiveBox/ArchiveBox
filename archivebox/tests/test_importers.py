@@ -643,3 +643,41 @@ def test_importer_navigation_table_and_paginated_history(admin_client, import_si
     row = re.search(r'abx-admin-flow__row--child">(.*?)abx-admin-flow__row--grandchild', home, re.S).group(1)
     assert 'href="/admin/core/snapshot/"' in row
     assert 'href="/admin/importers/"' in row
+
+
+@pytest.mark.parametrize("status", ["queued", "running", "succeeded", "failed", "needs_login", "cancelled"])
+def test_run_without_message_displays_its_lifecycle(admin_client, import_site, status):
+    from django.urls import reverse
+    from django.utils import timezone
+    from archivebox.importers.models import ImporterSource
+
+    _, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Lifecycle status", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Lifecycle status")
+    assert admin_client.post(f"{source.get_absolute_url()}check/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    run = source.runs.get()
+    run.status = status
+    # Cancelled queued work can finish without ever starting.
+    run.started_at = timezone.now() if status not in ("queued", "cancelled") else None
+    run.finished_at = timezone.now() if status not in ("queued", "running") else None
+    run.save()
+    paths = [source.get_absolute_url(), reverse("importers:run", args=[run.pk])]
+    endpoints = [reverse("importers:source-activity", args=[source.pk]), reverse("importers:run-activity", args=[run.pk])]
+    for endpoint in paths + endpoints:
+        response = admin_client.get(endpoint, HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        html = response.json()["html"] if endpoint in endpoints else response.content.decode()
+        if status == "queued":
+            assert "Waiting for the ArchiveBox worker." in html
+        else:
+            assert "Waiting for the ArchiveBox worker." not in html
+            assert ">Waiting for worker" not in html
+        if status == "running":
+            assert "Importer is running. No activity update yet." in html
+        if status == "cancelled":
+            assert "Not started" in html

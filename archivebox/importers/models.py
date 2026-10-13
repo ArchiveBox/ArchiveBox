@@ -65,6 +65,16 @@ class ImporterRun(models.Model):
     result = models.JSONField(default=dict)
     message = models.TextField(blank=True)
 
+    @property
+    def status_message(self):
+        if self.message:
+            return self.message
+        if self.status == self.Status.QUEUED:
+            return "Waiting for the ArchiveBox worker."
+        if self.status == self.Status.RUNNING:
+            return "Importer is running. No activity update yet."
+        return self.get_status_display()
+
     class Meta:
         ordering: ClassVar = ["-created_at", "-id"]
         constraints: ClassVar = [

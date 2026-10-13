@@ -1,8 +1,8 @@
 <section class="card">
 <h2>Run activity <span class="badge {{ run.status }}">{{ run.get_status_display }}</span></h2>
-<p>{{ run.message|default:"Waiting for the ArchiveBox worker." }}</p>
+<p>{{ run.status_message }}</p>
 {% include "importers/screenshots.html" %}
-<dl><dt>Run ID</dt><dd><code>{{ run.pk }}</code></dd><dt>Queued</dt><dd>{{ run.created_at|date:"Y-m-d H:i:s T" }}</dd><dt>Started</dt><dd>{{ run.started_at|date:"Y-m-d H:i:s T"|default:"Waiting for worker" }}</dd><dt>Finished</dt><dd>{{ run.finished_at|date:"Y-m-d H:i:s T"|default:"—" }}</dd><dt>AI sessions</dt><dd>{% include "importers/sessions.html" %}</dd><dt>Captures</dt><dd>{% include "importers/run_links.html" %}</dd></dl>
+<dl><dt>Run ID</dt><dd><code>{{ run.pk }}</code></dd><dt>Queued</dt><dd>{{ run.created_at|date:"Y-m-d H:i:s T" }}</dd><dt>Started</dt><dd>{% if run.started_at %}{{ run.started_at|date:"Y-m-d H:i:s T" }}{% elif run.status == "queued" %}Waiting for worker{% else %}Not started{% endif %}</dd><dt>Finished</dt><dd>{{ run.finished_at|date:"Y-m-d H:i:s T"|default:"—" }}</dd><dt>AI sessions</dt><dd>{% include "importers/sessions.html" %}</dd><dt>Captures</dt><dd>{% include "importers/run_links.html" %}</dd></dl>
 {% if run.diagnostics.latest %}<h3 class="section">Last recorded agent activity</h3><p>{{ run.diagnostics.latest }}</p>{% endif %}
 {% if run.diagnostics.error %}<h3 class="section">Failure details</h3><pre>{{ run.diagnostics.error }}</pre>{% endif %}
 {% if run.diagnostics.logs %}<h3 class="section">Private run logs</h3><ul>{% for log in run.diagnostics.logs %}<li><a href="{% url 'importers:run-log' run.pk log.name %}" target="_blank" rel="noopener">{{ log.name }}</a> <span class="muted">{{ log.size|filesizeformat }}</span></li>{% endfor %}</ul>{% endif %}
