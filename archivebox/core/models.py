@@ -2045,18 +2045,21 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         }
         preserved_lines = []
         if index_path.exists():
-            for line in index_path.read_text(encoding="utf-8").splitlines(keepends=True):
-                try:
-                    existing_record = json.loads(line)
-                except json.JSONDecodeError:
-                    preserved_lines.append(line)
-                    continue
-                if existing_record.get("type") == "Snapshot":
-                    records[0] = {**existing_record, **records[0]}
-                    continue
-                key = (existing_record.get("type"), str(existing_record.get("id")))
-                if existing_record.get("id") is None or key not in canonical_keys:
-                    preserved_lines.append(line)
+            # Iterate physical JSONL lines: splitlines() also splits valid
+            # Unicode string contents and would corrupt retained evidence.
+            with index_path.open(encoding="utf-8") as source:
+                for line in source:
+                    try:
+                        existing_record = json.loads(line)
+                    except json.JSONDecodeError:
+                        preserved_lines.append(line)
+                        continue
+                    if existing_record.get("type") == "Snapshot":
+                        records[0] = {**existing_record, **records[0]}
+                        continue
+                    key = (existing_record.get("type"), str(existing_record.get("id")))
+                    if existing_record.get("id") is None or key not in canonical_keys:
+                        preserved_lines.append(line)
 
         tmp_index_path = index_path.with_name(f".{index_path.name}.tmp")
         with open(tmp_index_path, "w", encoding="utf-8") as f:

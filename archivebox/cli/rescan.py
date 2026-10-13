@@ -74,7 +74,9 @@ def _reconcile_directory(directory: Path) -> str:
         snapshot.reconcile_filesystem_links()
         return "Repaired"
 
-    records = [json.loads(line) for line in index.read_text().splitlines() if line.strip()]
+    # JSONL records are delimited by LF, not Unicode separators inside strings.
+    with index.open(encoding="utf-8") as source:
+        records = [json.loads(line) for line in source if line.strip()]
     if any(not isinstance(record, dict) for record in records):
         raise ValueError("metadata records must be JSON objects")
     snapshots = [record for record in records if record.get("type") == "Snapshot"]

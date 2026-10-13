@@ -153,12 +153,13 @@ def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tm
         original.refresh_from_db()
         original.write_index_jsonl()
         index = original.output_dir / "index.jsonl"
-        historical = {**result.to_json(), "id": uuid.uuid4().hex}
+        historical = {**result.to_json(), "id": uuid.uuid4().hex, "notes": "Original\u0085title\u2028and\u2029description"}
+        historical_line = json.dumps(historical, ensure_ascii=False) + "\n"
         # #1915: portable captures may come from a collection with a dangling
         # Process.binary_id. Historical execution evidence must remain readable
         # without recreating that broken runtime foreign key in the destination.
         orphaned_process = {"type": "Process", "id": uuid.uuid4().hex, "binary_id": uuid.uuid4().hex}
-        index.write_text(json.dumps(orphaned_process) + "\n" + json.dumps(historical) + "\n" + index.read_text())
+        index.write_text(json.dumps(orphaned_process) + "\n" + historical_line + index.read_text())
         snapshot_id = original.pk
         original_fields = (original.crawl_id, original.created_at, original.modified_at, original.bookmarked_at, original.timestamp)
         original.crawl.refresh_from_db()
@@ -185,6 +186,7 @@ def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tm
             assert imported.status == "sealed"
             assert imported.output_dir.relative_to(CONSTANTS.DATA_DIR) == relative_path
             assert (destination / relative_path / "index.jsonl").is_file()
+            assert historical_line in (destination / relative_path / "index.jsonl").read_text()
             assert (
                 imported.crawl_id,
                 imported.created_at,
@@ -218,7 +220,7 @@ def test_rescan_imports_current_layout_and_is_idempotent(initialized_archive, tm
         assert set(Snapshot.objects.get(pk=snapshot_id).tags.values_list("name", flat=True)) == {"portable"}
 
     copied_index = destination / relative_path / "index.jsonl"
-    records = [json.loads(line) for line in copied_index.read_text().splitlines()]
+    records = [json.loads(line) for line in copied_index.read_text().split("\n") if line.strip()]
     for record in records:
         if record.get("type") == "Snapshot":
             record["url"] = "https://example.com/conflicting-identity"
