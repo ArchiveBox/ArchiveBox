@@ -432,13 +432,15 @@ def test_snapshot_grid_serves_extension_preview_from_authenticated_admin_origin(
     assert admin_client.get(disallowed_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 404
 
 
-def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snapshot):
+@pytest.mark.parametrize("matching_status", ["failed", "succeeded"])
+def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snapshot, matching_status):
     from archivebox.core.models import ArchiveResult
 
+    other_status = "failed" if matching_status == "succeeded" else "succeeded"
     for plugin, status in (
-        ("title", ArchiveResult.StatusChoices.FAILED),
-        ("wget", ArchiveResult.StatusChoices.FAILED),
-        ("hashes", ArchiveResult.StatusChoices.SUCCEEDED),
+        ("title", matching_status),
+        ("wget", matching_status),
+        ("hashes", other_status),
     ):
         ArchiveResult.objects.create(
             snapshot=snapshot,
@@ -449,11 +451,35 @@ def test_snapshot_result_health_filter_uses_live_status_rows(admin_client, snaps
 
     response = admin_client.get(
         reverse("admin:core_snapshot_changelist"),
-        {"archiveresult_status": "failed"},
+        {"archiveresult_status": matching_status},
         HTTP_HOST=ADMIN_TEST_HOST,
     )
 
     assert response.status_code == 200
+    assert snapshot in response.context["cl"].queryset
+    assert response.context["cl"].result_count == 1
+
+    # Two of four is not a majority. Subsequent requests must read current
+    # result rows as a majority becomes a tie and then a majority again.
+    result = ArchiveResult.objects.create(snapshot=snapshot, plugin="dns", status=other_status)
+    response = admin_client.get(
+        reverse("admin:core_snapshot_changelist"),
+        {"archiveresult_status": matching_status},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 200
+    assert response.context["cl"].result_count == 0
+    assert snapshot not in response.context["cl"].queryset
+
+    result.status = matching_status
+    result.save(update_fields=["status"])
+    response = admin_client.get(
+        reverse("admin:core_snapshot_changelist"),
+        {"archiveresult_status": matching_status},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 200
+    assert response.context["cl"].result_count == 1
     assert snapshot in response.context["cl"].queryset
 
 

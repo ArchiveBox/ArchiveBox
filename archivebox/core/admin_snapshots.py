@@ -232,11 +232,19 @@ class SnapshotResultHealthListFilter(admin.SimpleListFilter):
                     # "succeeded" is overwhelmingly common in large collections.
                     # Scan Snapshots in admin order and do indexed per-snapshot
                     # probes so page 1 can stop after list_per_page matches.
-                    queryset = queryset.alias(
-                        total_results=ArchiveResult.snapshot_count_expr(),
-                        matching_results=ArchiveResult.snapshot_count_expr(status=status),
-                    ).filter(matching_results__gt=F("total_results") / 2)
-                    return queryset
+                    # Count both values in one covering-index scan. Separate
+                    # scalar subqueries scan every snapshot's results twice
+                    # when the paginator computes the exact filtered count.
+                    matching = (
+                        results.order_by()
+                        .values("snapshot_id")
+                        .annotate(
+                            total_results=Count("snapshot_id"),
+                            matching_results=Count("snapshot_id", filter=Q(status=status)),
+                        )
+                        .filter(matching_results__gt=F("total_results") / 2)
+                    )
+                    return queryset.filter(Exists(matching))
 
                 # Rare statuses are faster status-first: use the
                 # (status, snapshot_id) index to find candidate snapshots.
