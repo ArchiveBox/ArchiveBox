@@ -1432,7 +1432,7 @@ class TestAdminSnapshotListView:
         assert len(unrendered_results) == 3
         # They are plain value rows that never received a manifest to resolve from.
         for result in unrendered_results:
-            with pytest.raises(LookupError, match="was not loaded for this list page"):
+            with pytest.raises(LookupError, match="not loaded for this list page"):
                 result.embed_path()
 
         additional_snapshots = [

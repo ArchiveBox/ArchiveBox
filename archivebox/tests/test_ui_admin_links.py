@@ -283,7 +283,7 @@ def test_snapshot_admin_zip_links(real_hook_result):
     assert html.escape(zip_url, quote=True) in str(admin.admin_actions(snapshot))
 
 
-def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins():
+def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(live_server, admin_user, browser_runtime):
     from archivebox.core.admin_snapshots import SnapshotAdmin
     from archivebox.core.admin_archiveresults import ArchiveResultAdmin
     from archivebox.core.models import ArchiveResult, Snapshot
@@ -318,8 +318,25 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
     assert f"/{snapshot.archive_path_from_db}/singlefile/" not in html.unescape(file_icons)
     assert "files-icon-pile--html" in file_icons
     assert file_icons.count(expected_path) == 2
-    assert "--files-icon-card-width:116px" in file_icons
-    assert "--files-icon-row-offset:47px" in file_icons
+    # Verify the rendered defaults as well as explicit styles: compact rows omit
+    # redundant CSS variables, but the popup must retain its size and centering.
+    from playwright.sync_api import expect, sync_playwright
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(executable_path=str(browser_runtime["chrome_binary"]), args=browser_runtime["chrome_args"])
+        page = browser.new_page(viewport={"width": 1440, "height": 900})
+        page.goto(f"{live_server.url}/admin/login/?next=/admin/core/snapshot/")
+        page.locator('[name="username"]').fill(admin_user.username)
+        page.locator('[name="password"]').fill("testpassword")
+        page.get_by_role("button", name="Log in", exact=True).click()
+        pile = page.locator(".files-icon-pile--html")
+        pile.locator(".files-icon-pile-top").hover()
+        popup = pile.locator(".files-icon-pile-popup")
+        expect(popup).to_be_visible()
+        assert popup.evaluate("el => el.getBoundingClientRect().width") == 116
+        member = popup.locator("a")
+        assert member.evaluate("el => parseFloat(getComputedStyle(el).left) + el.getBoundingClientRect().width / 2") == 58
+        browser.close()
     assert 'class="files-icon-pile-popup" popover="manual"' in file_icons
     assert 'class="files-icon-pile-label">HTML</span>' in file_icons
     assert "interestfor=" not in file_icons
@@ -380,7 +397,7 @@ def test_snapshot_file_icons_link_to_migrated_root_outputs_and_show_all_plugins(
             output_size=1,
         )
     all_file_icons = str(admin.files(snapshot))
-    assert all_file_icons.count('class="exists-True') == 22
+    assert all_file_icons.count("<a href=") == 22
     assert "+" not in all_file_icons
 
     from django.template.loader import render_to_string
