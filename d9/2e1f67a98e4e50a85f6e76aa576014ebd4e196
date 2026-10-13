@@ -1,0 +1,19 @@
+archivebox/tests/test_ui_live_progress.py
+  s_8dbda046044e96::t_d06b4ba7576f81 1325-1333
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d92e1f67a98e4e50a85f6e76aa576014ebd4e196",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
