@@ -1433,8 +1433,10 @@ class TestAdminSnapshotListView:
             "is_sealed": False,
         }
         assert "_admin_archiveresults" not in rendered_snapshot.__dict__
-        assert [result.plugin for result in rendered_snapshot.__dict__["_admin_output_results"]] == ["screenshot"]
-        assert f"_card/{rendered_snapshot.__dict__['_admin_output_results'][0].id}".encode() in response.content
+        output_results = rendered_snapshot.__dict__["_admin_output_results"]
+        assert [result.plugin for result in output_results] == ["hashes", "screenshot", "title", "wget"]
+        screenshot_result = next(result for result in output_results if result.plugin == "screenshot")
+        assert f"_card/{screenshot_result.id}".encode() in response.content
         # Rows the list never renders must not ship their output manifest:
         # responses/wget manifests can hold thousands of entries per row.
         unrendered_results = [
