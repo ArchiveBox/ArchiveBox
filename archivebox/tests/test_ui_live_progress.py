@@ -181,6 +181,64 @@ def real_crawl_setup_process(snapshot, cached_abxpkg_lib_dir):
 
 
 class TestLiveProgressView:
+    @pytest.mark.parametrize(
+        ("status", "declared", "output_str", "expected_path"),
+        [
+            ("noresults", False, "Not a shared draw.io diagram", None),
+            ("skipped", False, "Could not load diagram.svg", None),
+            ("failed", False, "Could not load diagram.svg", None),
+            ("failed", True, "Could not finish diagram.svg", "drawio/partial.svg"),
+            ("started", True, "Downloading diagram.svg", "drawio/partial.svg"),
+            ("succeeded", False, "drawio/diagram.svg", "drawio/diagram.svg"),
+        ],
+    )
+    def test_live_progress_links_declared_files_and_successful_legacy_outputs(
+        self,
+        client,
+        admin_user,
+        crawl,
+        snapshot,
+        status,
+        declared,
+        output_str,
+        expected_path,
+    ):
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.crawls.models import Crawl
+
+        now = timezone.now()
+        Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED, retry_at=now)
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.STARTED, retry_at=None)
+        output_files = {}
+        if expected_path:
+            output = Path(snapshot.output_dir) / expected_path
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text('<svg xmlns="http://www.w3.org/2000/svg"><title>Partial</title></svg>')
+            if declared:
+                output_files = {"partial.svg": {"size": output.stat().st_size, "mimetype": "image/svg+xml"}}
+        result = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="drawio",
+            hook_name="on_Snapshot__53_drawio.js",
+            status=status,
+            output_str=output_str,
+            output_files=output_files,
+            start_ts=now,
+        )
+        client.force_login(admin_user)
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200, response.content
+        active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
+        active_snapshot = next(item for item in active_crawl["active_snapshots"] if item["id"] == str(snapshot.pk))
+        plugin = next(item for item in active_snapshot["all_plugins"] if item["id"] == str(result.pk))
+        assert plugin["status"] == status
+        if expected_path:
+            assert plugin["output_path"] == expected_path
+            assert plugin["output_url"].endswith(f"#{expected_path}")
+        else:
+            assert "output_path" not in plugin
+            assert "output_url" not in plugin
+
     def test_live_progress_uses_existing_indexes_and_cached_totals(self, client, admin_user, crawl, snapshot):
         from django.db import connection
         from django.test.utils import CaptureQueriesContext

@@ -740,7 +740,15 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
                 # Share each path within this response; subsequent requests read
                 # fresh rows, including partial saves that do not touch modified_at.
-                output_paths = {ar.id: ar.embed_path_db(output_file_map=ar.output_files) for ar in snapshot_results}
+                # Error/no-results messages can contain dots without naming a
+                # file. Only successful legacy rows may use the path fallback;
+                # any status can still link files declared by the hook.
+                output_paths = {
+                    ar.id: ar.embed_path_db(output_file_map=ar.output_files)
+                    if ar.output_files or ar.status == ArchiveResult.StatusChoices.SUCCEEDED
+                    else None
+                    for ar in snapshot_results
+                }
 
                 plugin_progress_values: list[int] = []
                 all_plugins: list[dict[str, object]] = []

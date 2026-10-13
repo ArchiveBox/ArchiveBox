@@ -1027,8 +1027,8 @@
     <div class="header-bar">
         <div class="header-left">
             <div class="orchestrator-status metric-badge" id="metric-status" tabindex="0">
-                <svg class="status-icon stopped" id="orchestrator-dot" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>
-                <span id="orchestrator-text">Runner stopped</span>
+                <svg class="status-icon" id="orchestrator-dot" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>
+                <span id="orchestrator-text">Loading status…</span>
             </div>
             <div class="telemetry" id="progress-telemetry" aria-label="Capture and server metrics" hidden>
                 <span class="metric-badge" id="metric-throughput" tabindex="0" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 17 6-6 4 4 8-10M15 5h6v6"/></svg><span class="metric-text">URLs/hr —</span></span>
@@ -1048,7 +1048,7 @@
 
     <div class="progress-content">
         <div class="tree-container" id="tree-container">
-            <div class="idle-message" id="idle-message">No active crawls</div>
+            <div class="idle-message" id="idle-message">Loading crawl progress…</div>
             <div id="crawl-tree"></div>
         </div>
         <aside class="screencast-panel" id="screencast-panel" aria-label="Live browser screencast"></aside>
