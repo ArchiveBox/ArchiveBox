@@ -92,7 +92,11 @@ class ProcessService(BaseService):
         process = await process_query.order_by("-modified_at").afirst()
         process_env = normalize_process_env(event.env)
         if process is None:
-            process = await Process.objects.acreate(
+            # Every hook start lands here. Insert the row complete, binary
+            # included, rather than inserting it and then rewriting every
+            # column again: the runner's single DB thread is shared by all
+            # concurrent hooks' starts, results and completions.
+            process = Process(
                 machine=iface.machine,
                 iface=iface,
                 parent_id=None,
@@ -108,42 +112,48 @@ class ProcessService(BaseService):
                 status=Process.StatusChoices.RUNNING,
                 retry_at=None,
             )
-        elif process.iface_id != iface.id or process.machine_id != iface.machine_id:
-            process.iface = iface
-            process.machine = iface.machine
-            await process.asave(update_fields=["iface", "machine", "modified_at"])
+            await sync_to_async(process.hydrate_binary_from_context, thread_sensitive=True)(
+                plugin_name=event.plugin_name,
+                hook_path=event.hook_path,
+            )
+            await process.asave(force_insert=True)
+        else:
+            if process.iface_id != iface.id or process.machine_id != iface.machine_id:
+                process.iface = iface
+                process.machine = iface.machine
+                await process.asave(update_fields=["iface", "machine", "modified_at"])
 
-        process.pwd = event.output_dir
-        process.cmd = [event.hook_path, *event.hook_args]
-        process.env = process_env
-        process.timeout = event.timeout
-        process.pid = event.pid or None
-        process.url = event.url or process.url
-        process.process_type = process_type or process.process_type
-        process.worker_type = worker_type or process.worker_type
-        process.started_at = started_at
-        process.status = process.StatusChoices.RUNNING
-        process.retry_at = None
-        await sync_to_async(process.hydrate_binary_from_context, thread_sensitive=True)(
-            plugin_name=event.plugin_name,
-            hook_path=event.hook_path,
-        )
-        await Process.objects.filter(id=process.id).aupdate(
-            parent_id=process.parent_id,
-            pwd=process.pwd,
-            cmd=process.cmd,
-            env=process.env,
-            timeout=process.timeout,
-            pid=process.pid,
-            url=process.url,
-            process_type=process.process_type,
-            worker_type=process.worker_type,
-            started_at=process.started_at,
-            status=process.status,
-            retry_at=process.retry_at,
-            binary_id=process.binary_id,
-            modified_at=timezone.now(),
-        )
+            process.pwd = event.output_dir
+            process.cmd = [event.hook_path, *event.hook_args]
+            process.env = process_env
+            process.timeout = event.timeout
+            process.pid = event.pid or None
+            process.url = event.url or process.url
+            process.process_type = process_type or process.process_type
+            process.worker_type = worker_type or process.worker_type
+            process.started_at = started_at
+            process.status = process.StatusChoices.RUNNING
+            process.retry_at = None
+            await sync_to_async(process.hydrate_binary_from_context, thread_sensitive=True)(
+                plugin_name=event.plugin_name,
+                hook_path=event.hook_path,
+            )
+            await Process.objects.filter(id=process.id).aupdate(
+                parent_id=process.parent_id,
+                pwd=process.pwd,
+                cmd=process.cmd,
+                env=process.env,
+                timeout=process.timeout,
+                pid=process.pid,
+                url=process.url,
+                process_type=process.process_type,
+                worker_type=process.worker_type,
+                started_at=process.started_at,
+                status=process.status,
+                retry_at=process.retry_at,
+                binary_id=process.binary_id,
+                modified_at=timezone.now(),
+            )
         if event.hook_name.startswith("on_Snapshot"):
             snapshot_event = await self.bus.find(
                 SnapshotEvent,
