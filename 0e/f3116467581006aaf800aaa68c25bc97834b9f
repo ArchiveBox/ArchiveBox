@@ -1,0 +1,25 @@
+docs/Docker.md
+  s_8dbda046044e96::t_bf2755d7b47a61 3
+archivebox/importers/README.md
+  s_8dbda046044e96::t_bf2755d7b47a61 50
+docs/Usage.md
+  s_8dbda046044e96::t_bf2755d7b47a61 129
+docs/_Sidebar.md
+  s_8dbda046044e96::t_bf2755d7b47a61 35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ef3116467581006aaf800aaa68c25bc97834b9f",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
