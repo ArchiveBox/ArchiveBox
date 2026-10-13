@@ -334,10 +334,15 @@ def test_reindex_snapshots_runs_only_missing_sealed_search_indexes():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_update_schedule_backfills_missing_search_index_without_reopening_snapshot():
+def test_update_schedule_backfills_missing_search_index_without_reopening_snapshot(initialized_archive):
     from archivebox.base_models.models import get_or_create_system_user_pk
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.crawls.models import Crawl, CrawlSchedule
+    from archivebox.tests.conftest import _set_archivebox_config
+
+    # Selecting a query backend alone leaves other default indexers enabled.
+    # Configure SQLite alone so this test cannot depend on an ambient Sonic daemon.
+    _set_archivebox_config(initialized_archive, "PLUGINS=search_backend_sqlite", "SEARCH_BACKEND_ENGINE=sqlite")
 
     user_id = get_or_create_system_user_pk()
     template = Crawl.objects.create(
@@ -372,17 +377,9 @@ def test_update_schedule_backfills_missing_search_index_without_reopening_snapsh
     (snapshot.output_dir / "title").mkdir(parents=True, exist_ok=True)
     (snapshot.output_dir / "title" / "title.txt").write_text("Scheduled Search Index")
 
-    original_engine = os.environ.get("SEARCH_BACKEND_ENGINE")
-    os.environ["SEARCH_BACKEND_ENGINE"] = "sqlite"
-    try:
-        assert schedule.dispatch() is None
-        first_modified_at = schedule.modified_at
-        assert schedule.dispatch() is None
-    finally:
-        if original_engine is None:
-            os.environ.pop("SEARCH_BACKEND_ENGINE", None)
-        else:
-            os.environ["SEARCH_BACKEND_ENGINE"] = original_engine
+    assert schedule.dispatch() is None
+    first_modified_at = schedule.modified_at
+    assert schedule.dispatch() is None
 
     snapshot.refresh_from_db()
     stale_snapshot.refresh_from_db()
@@ -396,6 +393,7 @@ def test_update_schedule_backfills_missing_search_index_without_reopening_snapsh
         == 1
     )
     assert not ArchiveResult.objects.filter(snapshot=snapshot, status=ArchiveResult.StatusChoices.QUEUED).exists()
+    assert set(snapshot.archiveresult_set.values_list("plugin", flat=True)) == {"search_backend_sqlite"}
     assert stale_snapshot.retry_at is not None
     assert not ArchiveResult.objects.filter(snapshot=stale_snapshot, plugin="search_backend_sqlite").exists()
     assert schedule.modified_at >= first_modified_at
