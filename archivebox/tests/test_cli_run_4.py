@@ -203,7 +203,7 @@ def test_newest_crawl_runs_before_older_queued_and_started_crawls(initialized_ar
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("targeted", [False, True], ids=["collection", "explicit-crawl"])
-def test_bulk_crawl_reconsiders_pending_work_between_captures(initialized_archive, targeted):
+def test_bulk_crawl_finishes_before_older_started_backlog(initialized_archive, targeted):
     from datetime import timedelta
 
     from django.utils import timezone
@@ -232,7 +232,7 @@ def test_bulk_crawl_reconsiders_pending_work_between_captures(initialized_archiv
     assert result.returncode == 0, result.stdout + result.stderr
     with use_archivebox_db(initialized_archive):
         results = list(ArchiveResult.objects.filter(plugin="hashes").select_related("snapshot").order_by("start_ts"))
-        expected = bulk_urls if targeted else [bulk_urls[0], old_url, *bulk_urls[1:]]
+        expected = bulk_urls if targeted else [*bulk_urls, old_url]
         assert [row.snapshot.url for row in results] == expected
         for row in results:
             assert row.status == ArchiveResult.StatusChoices.SUCCEEDED
