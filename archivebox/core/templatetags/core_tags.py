@@ -946,6 +946,18 @@ def plugin_card(context, result) -> str:
     return render_plugin_card_document(context, result)
 
 
+@register.simple_tag
+def snapshot_results(snapshot, plugins: str):
+    """Load the named plugins' manifests once for reuse across template loops."""
+    names = {name.strip() for name in plugins.split(",") if name.strip()}
+    prefetched = snapshot.__dict__.get("_prefetched_objects_cache", {}).get("archiveresult_set")
+    if prefetched is not None:
+        return [result for result in prefetched if result.plugin in names]
+    # The reverse manager needs snapshot_id to attach its known parent without
+    # fetching that deferred field separately for every result.
+    return snapshot.archiveresult_set.filter(plugin__in=names).only("snapshot_id", "plugin", "output_files")
+
+
 def render_plugin_card_document(context, result) -> str:
     """Render one plugin card template for the trusted snapshot-origin frame."""
     plugin = get_plugin_name(result.plugin)
