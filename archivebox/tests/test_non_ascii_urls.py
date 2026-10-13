@@ -242,6 +242,22 @@ def test_admin_search_finds_iri_snapshot_by_either_form(admin_client, admin_user
     assert list(response.context["cl"].queryset.values_list("pk", flat=True)) == [snapshot.pk]
 
 
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("query", ["http://[ notes", "http://[not-an-ip]/ notes"])
+def test_admin_search_treats_malformed_url_query_as_literal_text(admin_client, admin_user, query):
+    crawl = Crawl.objects.create(urls="https://example.com/", created_by=admin_user)
+    snapshot = Snapshot.objects.create(url="https://example.com/", title=f"Notes about {query}", crawl=crawl)
+
+    response = populate_admin_search_cache(
+        admin_client,
+        reverse("admin:core_snapshot_changelist"),
+        {"q": query, "search_mode": "meta"},
+    )
+
+    assert response.status_code == 200
+    assert list(response.context["cl"].queryset.values_list("pk", flat=True)) == [snapshot.pk]
+
+
 @pytest.mark.timeout(240)
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("via", ["args", "stdin"])

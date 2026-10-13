@@ -9,11 +9,11 @@ used to dominate these pages: model construction (field converters, signals,
 descriptors) for every row, plus decoding manifests nothing renders. Here:
 
 - every result is one plain value row, never a model instance;
-- sizes come from the materialized ``output_size`` column;
-- the same query ships ``output_files`` (as text) only for rows that can
-  render a link: successful results and thumbnail candidates. Queued, failed
-  and skipped rows never transfer theirs, and a shipped manifest is decoded
-  only when rendering asks that result for its link.
+- single-result plugin sizes come from the materialized ``output_size`` column;
+- multi-hook plugin sizes deduplicate their shared manifest paths;
+- the same query ships ``output_files`` as text for links, thumbnail candidates
+  and multi-hook groups. Other rows never transfer theirs. Manifests are decoded
+  only when rendering needs a link or must deduplicate a plugin's file sizes.
 
 List pages must never read the archive filesystem; nothing here does.
 """
@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from django.db import connection
-from django.db.models import BooleanField, Case, CharField, Count, Max, Q, TextField, Value, When
+from django.db.models import Case, CharField, Count, Q, TextField, Value, When, Window
 from django.db.models.functions import Cast
 from django.db.models.base import DEFERRED
 
@@ -38,16 +38,6 @@ if TYPE_CHECKING:
 
 
 _UNRESOLVED = object()
-
-# A result's embed path only changes with its row. Decoding manifests (some list
-# thousands of files) on every page view was the largest part of the snapshot
-# list's time on prod, so resolve each once per row version, per process.
-_EMBED_PATHS: dict[str, tuple[tuple[Any, ...], str | None]] = {}
-_EMBED_PATHS_MAX = 50_000
-# Per snapshot: ((result count, latest modified_at), results, unnamed status counts).
-# Rendering only reads these; each request builds its own thumbnail instance.
-_SNAPSHOT_RESULTS: dict[str, tuple[tuple[Any, ...], list[Any], Counter[str]]] = {}
-_SNAPSHOT_RESULTS_MAX = 5_000
 
 
 @dataclass(slots=True, eq=False)
@@ -65,29 +55,21 @@ class ListResult:
     status: str
     output_size: int
     output_str: str
-    # Row version (modified_at, size, status) keying the process-wide path cache.
-    version: tuple[Any, ...] = ()
-    # Undecoded output_files JSON, fetched only for rows that can render a link
-    # and whose path is not cached for this version.
+    # Undecoded JSON for link resolution and multi-hook size deduplication.
     output_files_json: str | None = None
     _embed_path: Any = _UNRESOLVED
+    _output_files: dict[str, dict[str, Any]] | None = None
+
+    def output_file_map(self) -> dict[str, dict[str, Any]]:
+        if self._output_files is None:
+            if self.output_files_json is None:
+                raise LookupError(f"output files of {self.plugin} result {self.id} were not loaded for this list page")
+            self._output_files = json.loads(self.output_files_json) or {}
+        return self._output_files
 
     def embed_path(self) -> str | None:
         if self._embed_path is _UNRESOLVED:
-            cached = _EMBED_PATHS.get(self.id)
-            if cached is not None and cached[0] == self.version:
-                self._embed_path = cached[1]
-                return self._embed_path
-            if self.output_files_json is None:
-                raise LookupError(f"embed path of {self.plugin} result {self.id} was not loaded for this list page")
-            # Decode on first use: rendering asks only for the results it
-            # shows (one per plugin, thumbnail candidates until one has a
-            # file), so later hooks' and unused candidates' manifests stay text.
-            output_files = json.loads(self.output_files_json)
-            self._embed_path = ArchiveResult.resolve_embed_path(self.plugin, self.output_str, output_files or {})
-            if len(_EMBED_PATHS) > _EMBED_PATHS_MAX:
-                _EMBED_PATHS.clear()
-            _EMBED_PATHS[self.id] = (self.version, self._embed_path)
+            self._embed_path = ArchiveResult.resolve_embed_path(self.plugin, self.output_str, self.output_file_map())
         return self._embed_path
 
 
@@ -142,34 +124,15 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
     if not summaries:
         return {}
 
-    # A finished capture's results rarely change, yet reloading every row of a
-    # page (~70 per snapshot) was most of the list's remaining time. Reuse each
-    # snapshot's rows until its result count or latest modified_at moves.
-    versions = {
-        snapshot_id.hex: (count, latest)
-        for snapshot_id, count, latest in ArchiveResult.objects.filter(
-            snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()],
-        )
-        .order_by()
-        .values("snapshot_id")
-        .annotate(count=Count("id"), latest=Max("modified_at"))
-        .values_list("snapshot_id", "count", "latest")
-    }
-    stale = []
-    for snapshot_hex, summary in summaries.items():
-        version = versions.get(snapshot_hex, (0, None))
-        cached = _SNAPSHOT_RESULTS.get(snapshot_hex)
-        if cached is not None and cached[0] == version:
-            summary.results, summary.unnamed_status_counts = cached[1], cached[2]
-        else:
-            stale.append(snapshot_hex)
-
     card_plugins = get_snapshot_thumbnail_card_order()
     # Successful results feed file icons and favicons; thumbnail cards try
     # their candidates regardless of status. Nothing else renders a path.
     links_output = Q(status=ArchiveResult.StatusChoices.SUCCEEDED) | Q(plugin__in=list(card_plugins))
     rows = (
-        ArchiveResult.objects.filter(snapshot_id__in=[snapshots_by_hex[snapshot_hex].id for snapshot_hex in stale])
+        ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
+        # Multiple hooks may report the same plugin files, including failures.
+        # Only those groups need manifests for size deduplication.
+        .annotate(plugin_result_count=Window(Count("id"), partition_by=["snapshot_id", "plugin"]))
         # A stable order picks the same "first" result per plugin every time.
         .order_by("snapshot_id", "plugin", "id")
         .values_list(
@@ -182,49 +145,30 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
             "status",
             "output_size",
             "output_str",
-            Cast("modified_at", output_field=CharField()),
-            # Whether this row can render a link (and so may need its manifest).
-            Case(When(links_output, then=Value(True)), default=Value(False), output_field=BooleanField()),
+            Case(
+                When(links_output | Q(plugin_result_count__gt=1), then=Cast("output_files", output_field=TextField())),
+                default=Value(None),
+                output_field=TextField(),
+            ),
         )
     )
-    needs_manifest: dict[str, ListResult] = {}
-    for result_id, snapshot_id, plugin, status, output_size, output_str, modified_at, links in rows:
+    for result_id, snapshot_id, plugin, status, output_size, output_str, output_files_json in rows:
         # PostgreSQL renders uuid as text with dashes; SQLite stores bare hex.
         summary = summaries[snapshot_id.replace("-", "")]
         if not plugin:
             summary.unnamed_status_counts[status] += 1
             continue
-        result = ListResult(
-            result_id.replace("-", ""),
-            snapshot_id.replace("-", ""),
-            plugin,
-            status,
-            output_size or 0,
-            output_str,
-            (modified_at, output_size, status),
+        summary.results.append(
+            ListResult(
+                result_id.replace("-", ""),
+                snapshot_id.replace("-", ""),
+                plugin,
+                status,
+                output_size or 0,
+                output_str,
+                output_files_json,
+            ),
         )
-        summary.results.append(result)
-        cached = _EMBED_PATHS.get(result.id)
-        if links and (cached is None or cached[0] != result.version):
-            needs_manifest[result.id] = result
-    if needs_manifest:
-        # Manifests only for linkable rows whose path is not cached yet.
-        manifests = ArchiveResult.objects.filter(id__in=[compact_uuid(result_id) for result_id in needs_manifest]).values_list(
-            Cast("id", output_field=CharField()),
-            Cast("output_files", output_field=TextField()),
-        )
-        for result_id, output_files_json in manifests:
-            result = needs_manifest[result_id.replace("-", "")]
-            result.output_files_json = output_files_json
-            # Resolve now, so the next view finds every fetched row cached even
-            # when this one never rendered it (hidden icons, unused thumbnails).
-            result.embed_path()
-
-    if len(_SNAPSHOT_RESULTS) > _SNAPSHOT_RESULTS_MAX:
-        _SNAPSHOT_RESULTS.clear()
-    for snapshot_hex in stale:
-        summary = summaries[snapshot_hex]
-        _SNAPSHOT_RESULTS[snapshot_hex] = (versions.get(snapshot_hex, (0, None)), summary.results, summary.unnamed_status_counts)
 
     for snapshot_hex, summary in summaries.items():
         card_row = snapshot_thumbnail_result(summary.results)

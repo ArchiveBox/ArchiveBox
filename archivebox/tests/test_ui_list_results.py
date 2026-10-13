@@ -238,3 +238,49 @@ def test_admin_grid_draws_icons_from_one_sprite_even_when_first_card_is_running(
     html = response.content.decode()
     assert html.index("Started list row") < html.index("Sealed list row")
     _assert_icons_drawn_from_one_sprite(html)
+
+
+def test_list_result_sizes_deduplicate_overlapping_failed_hooks_in_one_query(list_collection):
+    from archivebox.core.list_results_util import load_snapshot_list_results
+
+    snapshot = list_collection[0]
+    plugin_dir = snapshot.output_dir / "dns"
+    plugin_dir.mkdir(parents=True, exist_ok=True)
+    for name, content in {"shared.txt": b"12345", "first.txt": b"1234567", "second.txt": b"12345678901"}.items():
+        (plugin_dir / name).write_bytes(content)
+    _result(snapshot, "dns", hook="10", output_files={"shared.txt": {"size": 5}, "first.txt": {"size": 7}})
+    _result(
+        snapshot,
+        "dns",
+        ArchiveResult.StatusChoices.FAILED,
+        hook="20",
+        output_files={"shared.txt": {"size": 5}, "second.txt": {"size": 11}},
+    )
+
+    with CaptureQueriesContext(connection) as captured:
+        summary = load_snapshot_list_results([snapshot])[snapshot.pk]
+        sizes = summary.output_sizes
+    assert len(captured) == 1
+    assert sizes["dns"] == sum(path.stat().st_size for path in plugin_dir.iterdir()) == 23
+    shipped = _manifests_shipped(captured.captured_queries)
+    assert shipped[("dns", ArchiveResult.StatusChoices.FAILED)] is not None
+    assert shipped[("title", ArchiveResult.StatusChoices.FAILED)] is None
+
+
+@override_settings(PUBLIC_INDEX=True)
+def test_warm_public_list_reflects_result_save_without_modified_at(client, list_collection):
+    snapshot = list_collection[0]
+    result = snapshot.archiveresult_set.get(plugin="favicon")
+    assert client.get("/public/", HTTP_HOST=WEB_TEST_HOST).status_code == 200
+    previous_modified_at = result.modified_at
+    result.output_str = "favicon/replacement.ico"
+    result.output_files = {"replacement.ico": {"size": 300}}
+    result.save(update_fields=["output_str", "output_files"])
+    result.refresh_from_db()
+    assert result.modified_at == previous_modified_at
+
+    response = client.get("/public/", HTTP_HOST=WEB_TEST_HOST)
+    assert response.status_code == 200
+    row = _row(response.content.decode(), f"/{snapshot.archive_path_from_db}")
+    assert 'favicon/replacement.ico" data-fallbacks=""' in row
+    assert 'favicon/favicon.ico"' not in row

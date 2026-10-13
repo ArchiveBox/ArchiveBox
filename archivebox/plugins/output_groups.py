@@ -81,16 +81,25 @@ def display_plugin_name(plugin: str) -> str:
 
 
 def plugin_output_sizes(results) -> dict[str, int]:
-    """Sum each plugin's results' output_size: the bytes each result saved.
+    """Count a plugin's shared files once; single-result sizes need no manifest."""
+    from archivebox.core.models import ArchiveResult
 
-    output_size is the materialized total of that result's own output files,
-    so sizes never need the output_files manifests (thousands of entries for
-    wget/responses). Plugins without saved bytes are omitted.
-    """
-    sizes: dict[str, int] = {}
+    by_plugin = {}
     for result in results:
-        sizes[result.plugin] = sizes.get(result.plugin, 0) + (result.output_size or 0)
-    return {plugin: size for plugin, size in sizes.items() if size}
+        by_plugin.setdefault(result.plugin, []).append(result)
+    sizes = {}
+    for plugin, plugin_results in by_plugin.items():
+        if len(plugin_results) == 1:
+            size = plugin_results[0].output_size or 0
+        else:
+            files = {}
+            for result in plugin_results:
+                for path, metadata in result.output_file_map().items():
+                    files[path] = ArchiveResult._coerce_output_file_size(metadata.get("size"))
+            size = sum(files.values())
+        if size:
+            sizes[plugin] = size
+    return sizes
 
 
 def order_output_plugins(plugins, sizes: dict[str, int]) -> list[str]:

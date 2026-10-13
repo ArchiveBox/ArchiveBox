@@ -21,36 +21,6 @@ from archivebox.misc.logging_util import printable_filesize
 from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_default_output_path, get_snapshot_role_result
 
 
-# Decoding every displayed result's output_files map on each one-second poll
-# was a quarter of the view's time on a busy collection. A result's embed path
-# only changes with its row, so resolve it once per (modified_at, size, status).
-_RESULT_EMBED_PATHS: dict[str, tuple[tuple[object, ...], str | None]] = {}
-_RESULT_EMBED_PATHS_MAX = 5000
-
-
-def _result_embed_paths(results) -> dict:
-    from archivebox.core.models import ArchiveResult
-
-    paths = {}
-    stale = {}
-    for result in results:
-        version = (result.modified_at, result.output_size, result.status)
-        cached = _RESULT_EMBED_PATHS.get(str(result.id))
-        if cached is not None and cached[0] == version:
-            paths[result.id] = cached[1]
-        else:
-            stale[result.id] = (result, version)
-    if stale:
-        if len(_RESULT_EMBED_PATHS) > _RESULT_EMBED_PATHS_MAX:
-            _RESULT_EMBED_PATHS.clear()
-        for result_id, output_files in ArchiveResult.objects.filter(id__in=list(stale)).values_list("id", "output_files"):
-            result, version = stale[result_id]
-            path = result.embed_path_db(output_file_map=output_files or {})
-            _RESULT_EMBED_PATHS[str(result_id)] = (version, path)
-            paths[result_id] = path
-    return paths
-
-
 def progress_endpoint(scope: Literal["crawl", "snapshot"] | None = None, object_id: object | None = None) -> str:
     """Return the canonical same-origin progress endpoint for monitor embeds."""
     if not scope or object_id is None:
@@ -559,6 +529,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
                     "hook_name",
                     "status",
                     "output_str",
+                    "output_files",
                     "output_size",
                     "start_ts",
                     "end_ts",
@@ -759,9 +730,9 @@ def live_progress_view(request, *, authorized_snapshot=None):
                         if ar.status in ArchiveResult.FINAL_STATES or ar.start_ts is None or ar.start_ts >= attempt_started_at
                     ]
 
-                # Resolve each link once for both role previews and plugin rows,
-                # from the canonical output_files map only when the row changed.
-                output_paths = _result_embed_paths(snapshot_results)
+                # Share each path within this response; subsequent requests read
+                # fresh rows, including partial saves that do not touch modified_at.
+                output_paths = {ar.id: ar.embed_path_db(output_file_map=ar.output_files) for ar in snapshot_results}
 
                 plugin_progress_values: list[int] = []
                 all_plugins: list[dict[str, object]] = []
@@ -1060,7 +1031,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
         if include_tree:
             payload["active_crawls"] = active_crawls
             payload["hidden_crawls"] = hidden_crawls
-        if is_admin and not snapshot_id_filter and not crawl_id_filter and request.GET.get("collection") == "1":
+        if is_admin and (request.GET.get("collection") == "1" or request.GET.get("metrics") == "1"):
             from archivebox.progressmonitor.collection import collection_summary
 
             payload["collection"] = collection_summary(request.user)

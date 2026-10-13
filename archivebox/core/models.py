@@ -3810,8 +3810,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             current = outputs_by_name.get(output["name"])
             if current is None or (output.get("size") or 0) > (current.get("size") or 0):
                 outputs_by_name[output["name"]] = output
-        # A plugin card's size is the bytes all its hooks saved (each result's
-        # output_size). Every result ID is retained for the existing delete action.
+        # Multiple hooks can report the same files; count each path once per
+        # plugin. Retain every result ID for the existing delete action.
         output_sizes = plugin_output_sizes(archive_results)
         for name, output in outputs_by_name.items():
             output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))

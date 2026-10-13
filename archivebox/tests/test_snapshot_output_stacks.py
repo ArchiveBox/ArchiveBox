@@ -323,7 +323,7 @@ def test_papersdl_is_above_responses_regardless_of_output_size(snapshot, larger_
     assert [output["name"] for output in media] == ["papersdl", "responses"]
 
 
-def test_equal_outputs_sort_by_whole_output_size_summing_each_hooks_output_size(snapshot):
+def test_equal_outputs_sort_by_whole_output_size_without_double_counting_hooks(snapshot):
     save_output(snapshot, "git", extra_files=("README.html", "license.html"))
     save_output(snapshot, "forumdl")
     save_output(snapshot, "gallerydl")
@@ -336,11 +336,9 @@ def test_equal_outputs_sort_by_whole_output_size_summing_each_hooks_output_size(
     assert [output["name"] for output in outputs if output["output_group"] == "embedded_media"] == ["git", "forumdl", "gallerydl"]
     metadata = [output for output in outputs if output["output_group"] == "metadata"]
     assert [output["name"] for output in metadata] == ["dns", "headers"]
-    # A plugin's size is what each of its results recorded saving (output_size),
-    # never a re-walk of their output_files manifests.
-    dns_sizes = ArchiveResult.objects.filter(pk__in=[first_dns.pk, second_dns.pk]).values_list("output_size", flat=True)
-    assert sorted(dns_sizes) == [2 * FIXTURE.stat().st_size, 2 * FIXTURE.stat().st_size]
-    assert metadata[0]["size"] == sum(dns_sizes) == 4 * FIXTURE.stat().st_size
+    # Both hooks retain the shared path, but the plugin owns only three files.
+    assert set(first_dns.output_file_map()) & set(second_dns.output_file_map())
+    assert metadata[0]["size"] == 3 * FIXTURE.stat().st_size
     assert len(metadata[0]["result_ids"].split(",")) == 2
 
 

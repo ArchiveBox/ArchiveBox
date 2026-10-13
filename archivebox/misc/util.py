@@ -236,7 +236,12 @@ def equivalent_urls(url: str) -> list[str]:
     Use for exact lookups (``url__in=equivalent_urls(url)``) so a snapshot
     saved in one form is found, deduped and replayed when requested in another.
     """
-    uri = iri_to_uri(url)
+    try:
+        uri = iri_to_uri(url)
+    except ValueError:
+        # Search uses this helper for literal text too. Malformed URL-looking
+        # text has no URI variants, but must still match titles/notes verbatim.
+        return [url]
     iri = uri_to_iri(uri)
     # Some spellings need ASCII escapes decoded too (a raw space typed in a
     # password is %20 in the URI). Decoding everything can also change the

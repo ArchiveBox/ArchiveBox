@@ -1,8 +1,5 @@
 from pathlib import Path
 
-from django.core.cache import cache
-from django.db.models import Sum
-
 from archivebox.config import VERSION
 from archivebox.config.version import get_COMMIT_HASH
 
@@ -18,23 +15,7 @@ def get_static_cache_key() -> str:
 
 
 def archivebox_globals(request):
-    context = {
+    return {
         "VERSION": VERSION,
         "STATIC_CACHE_KEY": get_static_cache_key(),
     }
-    if request.user.is_authenticated and request.user.is_staff:
-        from archivebox.config import CONSTANTS
-        from archivebox.core.models import Snapshot
-
-        cache_key = f"progress_archive_size:{CONSTANTS.DATA_DIR}"
-        size = cache.get(cache_key)
-        if size is None:
-            size = Snapshot.objects.aggregate(total=Sum("output_size"))["total"] or 0
-            cache.set(cache_key, size, timeout=3600)
-        gb, tb = 1024**3, 1024**4
-        if size >= tb:
-            tenths = (size * 10 + tb - 1) // tb
-            context["ARCHIVE_SIZE_ESTIMATE"] = f"{tenths // 10}.{tenths % 10} TB"
-        else:
-            context["ARCHIVE_SIZE_ESTIMATE"] = f"{(size + gb - 1) // gb} GB"
-    return context

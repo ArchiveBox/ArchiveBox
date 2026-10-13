@@ -71,11 +71,9 @@ def _manifest_metadata(manifest: OutputManifest) -> tuple[dict[str, dict], int, 
 
 
 def _resolve_output_metadata(raw_output_files: Any) -> tuple[dict[str, dict], int, str]:
-    # abx-dl reports exactly the files this hook created or rewrote, each
-    # claimed by one result. Never fill an empty report from the plugin dir:
-    # that dir is shared by the plugin's other hooks and earlier runs, so the
-    # scan made a hook that wrote nothing adopt its siblings' files and count
-    # their bytes a second time in output_size.
+    # Persist the manifest emitted by abx-dl. An empty report must stay empty:
+    # the plugin directory also contains other hooks' and earlier runs' files,
+    # so scanning it here would invent outputs the hook did not report.
     return _manifest_metadata(OutputManifest.from_value(raw_output_files))
 
 
