@@ -1,0 +1,21 @@
+archivebox/tests/test_takeover_util_2.py
+  s_8dbda046044e96::t_4418118d33dd3b 134-162
+archivebox/core/takeover_util.py
+  s_8dbda046044e96::t_01055e8a5ee413 120-124,127-129,131-136,138,140,143-146,159,167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "641a4fc16729a4c486f7d318bbd276b72050971f",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
