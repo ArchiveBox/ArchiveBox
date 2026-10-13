@@ -524,7 +524,6 @@ def test_collect_output_metadata_preserves_file_metadata():
 
     output_files, output_size, output_mimetypes = _resolve_output_metadata(
         [OutputFile(path="index.html", extension="html", mimetype="text/html", size=42)],
-        Path("/tmp/does-not-need-to-exist"),
     )
 
     assert output_files == {
@@ -778,3 +777,93 @@ def test_binary_event_updates_existing_row_from_native_abxpkg_resolution():
     assert binary.version
     assert binary.binprovider == "env"
     assert binary.binproviders == "env,apt,brew"
+
+
+def test_hooks_sharing_a_plugin_dir_save_each_file_in_one_result_across_reruns(tmp_path):
+    """Summing ArchiveResult.output_size never double counts a file, on the first run or a re-run.
+
+    The second hook reports success without writing anything, like
+    archivewebpage_stop reading the start hook's recording.json. It owns no
+    bytes, so its row must not adopt the files it can see in the shared dir.
+    """
+    import asyncio
+
+    from django.db.models import Sum
+
+    from abx_dl.services.archive_result_service import ArchiveResultService as HookArchiveResultService
+    from abx_dl.services.process_service import ProcessService as HookProcessService
+    from archivebox.core.models import ArchiveResult
+    from archivebox.services.archive_result_service import ArchiveResultService
+    from archivebox.services.process_service import ProcessService as PersistedProcessService
+
+    hooks_dir = tmp_path / "hooks"
+    hooks_dir.mkdir()
+    writer_hook = hooks_dir / "on_Snapshot__20_overlap_writer.sh"
+    writer_hook.write_text(
+        "#!/bin/sh\nprintf 'recording-state' > recording.json\nprintf 'archive-bytes' > capture.bin\n"
+        'echo \'{"type":"ArchiveResult","status":"succeeded","output_str":"capture.bin"}\'\n',
+    )
+    reader_hook = hooks_dir / "on_Snapshot__30_overlap_reader.sh"
+    reader_hook.write_text(
+        '#!/bin/sh\ncat recording.json > /dev/null\necho \'{"type":"ArchiveResult","status":"succeeded","output_str":"read recording.json"}\'\n',
+    )
+    for hook in (writer_hook, reader_hook):
+        hook.chmod(0o755)
+
+    snapshot = _create_snapshot()
+    output_dir = Path(snapshot.output_dir) / "overlap"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    def run_snapshot() -> None:
+        bus = create_bus(name=f"test_overlap_{snapshot.id}_{os.urandom(4).hex()}")
+        HookProcessService(bus, emit_jsonl=False, interactive_tty=False)
+        HookArchiveResultService(bus, emit_jsonl=False)
+        PersistedProcessService(bus)
+        ArchiveResultService(bus)
+
+        async def run() -> None:
+            try:
+                snapshot_event = SnapshotEvent(url=snapshot.url, snapshot_id=str(snapshot.id), output_dir=str(snapshot.output_dir))
+                await bus.emit(snapshot_event).now()
+                for hook in (writer_hook, reader_hook):
+                    await bus.emit(
+                        ProcessEvent(
+                            plugin_name="overlap",
+                            hook_name=hook.stem,
+                            hook_path=str(hook),
+                            hook_args=[f"--url={snapshot.url}"],
+                            env={"PATH": os.environ["PATH"], "SNAP_DIR": str(snapshot.output_dir)},
+                            output_dir=str(output_dir),
+                            timeout=30,
+                            is_background=False,
+                            url=snapshot.url,
+                            process_type="hook",
+                            worker_type="hook",
+                            event_parent_id=snapshot_event.event_id,
+                        ),
+                    ).now()
+                await bus.wait_until_idle()
+            finally:
+                await bus.destroy(clear=False)
+
+        asyncio.run(run())
+
+    # The second run starts over in the same directory and rewrites identical
+    # bytes; the writer must still own them.
+    for _run in range(2):
+        run_snapshot()
+        results = {result.hook_name: result for result in ArchiveResult.objects.filter(snapshot=snapshot, plugin="overlap")}
+        assert {hook_name: result.status for hook_name, result in results.items()} == {
+            writer_hook.stem: ArchiveResult.StatusChoices.SUCCEEDED,
+            reader_hook.stem: ArchiveResult.StatusChoices.SUCCEEDED,
+        }
+        assert set(results[writer_hook.stem].output_files) == {"recording.json", "capture.bin"}
+        assert results[reader_hook.stem].output_files == {}
+        assert results[reader_hook.stem].output_size == 0
+        disk_total = sum(
+            path.stat().st_size for path in output_dir.rglob("*") if path.is_file() and not path.name.endswith((".log", ".pid", ".sh"))
+        )
+        assert disk_total == len("recording-state") + len("archive-bytes")
+        saved_total = ArchiveResult.objects.filter(snapshot=snapshot, plugin="overlap").aggregate(total=Sum("output_size"))["total"]
+        assert saved_total == disk_total
+    _cleanup_machine_process_rows()

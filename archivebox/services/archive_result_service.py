@@ -70,11 +70,13 @@ def _manifest_metadata(manifest: OutputManifest) -> tuple[dict[str, dict], int, 
     return manifest.as_mapping(), manifest.total_size, ",".join(manifest.mimetypes)
 
 
-def _resolve_output_metadata(raw_output_files: Any, plugin_dir: Path) -> tuple[dict[str, dict], int, str]:
-    manifest = OutputManifest.from_value(raw_output_files)
-    if manifest.files and any(output_file.size for output_file in manifest.files):
-        return _manifest_metadata(manifest)
-    return _manifest_metadata(OutputManifest.scan(plugin_dir, containment_root=plugin_dir.parent))
+def _resolve_output_metadata(raw_output_files: Any) -> tuple[dict[str, dict], int, str]:
+    # abx-dl reports exactly the files this hook created or rewrote, each
+    # claimed by one result. Never fill an empty report from the plugin dir:
+    # that dir is shared by the plugin's other hooks and earlier runs, so the
+    # scan made a hook that wrote nothing adopt its siblings' files and count
+    # their bytes a second time in output_size.
+    return _manifest_metadata(OutputManifest.from_value(raw_output_files))
 
 
 def _normalize_status(status: str) -> str:
@@ -154,7 +156,7 @@ def _save_archiveresult_event_to_db(
             else Path(snapshot.output_dir) / event.plugin
         )
     with _perf_span("archivebox.ArchiveResultService.on_ArchiveResultEvent.resolve_output_metadata"):
-        output_files, output_size, output_mimetypes = _resolve_output_metadata(event.output_files, plugin_dir)
+        output_files, output_size, output_mimetypes = _resolve_output_metadata(event.output_files)
 
     process = None
     if process_started is not None:
