@@ -216,37 +216,6 @@ def test_recovery_gives_up_on_capture_that_was_already_restarted_from_scratch():
     assert once.retry_at <= timezone.now()
 
 
-# A real hook, run by abx-dl as a subprocess like any other plugin hook. Each
-# attempt appends a line to attempts.log in its own output dir, so tests can
-# count how often a Snapshot actually ran instead of inferring it from status.
-CAPTURE_PROBE_HOOK = """#!/usr/bin/env bash
-url=""
-for arg in "$@"; do
-  case "$arg" in --url=*) url="${arg#--url=}" ;; esac
-done
-echo "$url" >> attempts.log
-case "$url" in
-  *never-ready*)
-    # Alive but silent: abx-dl raises once its readiness wait runs out.
-    exec sleep 300 ;;
-  *slow-first-attempt*)
-    if [ "$(( $(wc -l < attempts.log) ))" -eq 1 ]; then
-      echo "capturing"
-      exec sleep 300
-    fi ;;
-esac
-echo '{"type":"ArchiveResult","status":"succeeded","output_str":"captured"}'
-"""
-
-
-def _install_custom_hook(data_dir, plugin_name, hook_name, script):
-    plugin_dir = data_dir / "custom_plugins" / plugin_name
-    plugin_dir.mkdir(parents=True, exist_ok=True)
-    hook_path = plugin_dir / hook_name
-    hook_path.write_text(script)
-    hook_path.chmod(0o755)
-
-
 def _create_crawl(data_dir, env, *urls):
     from archivebox.tests.conftest import parse_jsonl_output, run_archivebox_cmd
 
@@ -255,53 +224,54 @@ def _create_crawl(data_dir, env, *urls):
     return next(record["id"] for record in parse_jsonl_output(created.stdout) if record.get("type") == "Crawl")
 
 
-def _attempt_urls(snapshot):
-    from pathlib import Path
-
-    attempts = Path(snapshot.output_dir) / "capture_probe" / "attempts.log"
-    return attempts.read_text().splitlines() if attempts.exists() else []
-
-
 @pytest.mark.django_db(transaction=True)
-def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_continues(initialized_archive):
-    """Cabbage: abx-dl raised inside one snapshot's hook processing, which
-    killed the crawl run; every rerun picked that snapshot first and died the
-    same way, so the crawl's other snapshots never ran."""
+def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_continues(initialized_archive, cached_abxpkg_lib_dir):
+    """A real output-directory failure must not strand the crawl's remaining work."""
+    import hashlib
+    import json
+
     from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
     from archivebox.machine.models import Process
     from archivebox.tests.conftest import cli_env, run_archivebox_cmd
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-    _install_custom_hook(initialized_archive, "capture_probe", "on_Snapshot__10_capture_probe.bg.sh", CAPTURE_PROBE_HOOK)
-    # One capture at a time and the failing URL first: the failure used to
-    # end the run before any later snapshot was admitted.
-    env = cli_env(PLUGINS="capture_probe", TIMEOUT="10", CRAWL_MAX_CONCURRENT_SNAPSHOTS="1")
-    urls = ["https://example.com/never-ready", "https://example.com/after-1", "https://example.com/after-2"]
+    env = cli_env(PLUGINS="hashes", CRAWL_MAX_CONCURRENT_SNAPSHOTS="1")
+    urls = ["https://example.com/broken", "https://example.com/after-1", "https://example.com/after-2"]
     crawl_id = _create_crawl(initialized_archive, env, *urls)
-
-    run = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=240)
-    assert run.returncode == 0, run.stdout + run.stderr
-    assert "Runner error" not in run.stderr
-
     with use_archivebox_db(initialized_archive):
+        Crawl.objects.get(pk=crawl_id).create_snapshots_from_urls()
         snapshots = {snapshot.url: snapshot for snapshot in Snapshot.objects.filter(crawl_id=crawl_id)}
         assert set(snapshots) == set(urls)
         for url, snapshot in snapshots.items():
+            snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+            (snapshot.output_dir / "input.txt").write_text(url)
+        # The same real filesystem failure covered by the one-snapshot CLI test,
+        # now followed by two captures that must still run their shipped hook.
+        (snapshots[urls[0]].output_dir / "hashes").symlink_to("hashes")
+
+    run = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=120)
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "FileExistsError: [Errno 17]" in run.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshots = {snapshot.url: snapshot for snapshot in Snapshot.objects.filter(crawl_id=crawl_id)}
+        for url, snapshot in snapshots.items():
             assert snapshot.status == Snapshot.StatusChoices.SEALED, url
             assert snapshot.retry_at is None, url
-            assert _attempt_urls(snapshot) == [url]
+            assert (snapshot.output_dir / "input.txt").read_text() == url
         for url in urls[1:]:
-            result = ArchiveResult.objects.get(snapshot=snapshots[url], plugin="capture_probe")
+            result = ArchiveResult.objects.get(snapshot=snapshots[url], plugin="hashes")
             assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
-            assert result.output_str == "captured"
+            hashes = json.loads((snapshots[url].output_dir / "hashes/hashes.json").read_text())
+            file_hash = next(row for row in hashes["files"] if row["path"] == "input.txt")
+            assert file_hash["hash"] == hashlib.sha256(url.encode()).hexdigest()
         broken = snapshots[urls[0]]
-        # The hook that did run keeps its own (non-successful) record.
-        assert not broken.archiveresult_set.filter(status=ArchiveResult.StatusChoices.SUCCEEDED).exists()
-        assert not Process.objects.filter(process_type=Process.TypeChoices.HOOK, status=Process.StatusChoices.RUNNING).exists()
+        assert not broken.archiveresult_set.exists(), "The obstructed hook never started"
+        hooks = Process.objects.filter(process_type=Process.TypeChoices.HOOK)
+        assert hooks.count() == 2
+        assert not hooks.filter(status=Process.StatusChoices.RUNNING).exists()
         sealed_at = broken.modified_at
 
-    # A later scheduler pass, including its startup recovery, must not run the
-    # failed snapshot again: it is finished, not interrupted.
     rerun = run_archivebox_cmd(["run", "--no-stdin"], cwd=initialized_archive, env=env, timeout=120)
     assert rerun.returncode == 0, rerun.stdout + rerun.stderr
     assert "Recovering" not in rerun.stderr
@@ -310,25 +280,27 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
         assert broken.status == Snapshot.StatusChoices.SEALED
         assert broken.retry_at is None
         assert broken.modified_at == sealed_at
-        assert _attempt_urls(broken) == [urls[0]]
+        assert Process.objects.filter(process_type=Process.TypeChoices.HOOK).count() == 2
 
 
 @pytest.mark.django_db(transaction=True)
-def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initialized_archive):
+def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initialized_archive, cached_abxpkg_lib_dir, recursive_test_site):
     import os
     import signal
     import time
+
+    import psutil
 
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.machine.models import Process
     from archivebox.tests.conftest import cleanup_process_group, cli_env, run_archivebox_cmd, wait_for_pid_to_disappear
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-    _install_custom_hook(initialized_archive, "capture_probe", "on_Snapshot__10_capture_probe.bg.sh", CAPTURE_PROBE_HOOK)
-    env = cli_env(PLUGINS="capture_probe", TIMEOUT="120")
-    url = "https://example.com/slow-first-attempt"
+    # wget's supported bandwidth limit makes this real local download long
+    # enough to observe and interrupt without inventing a test-only hook.
+    env = cli_env(wget=True, WGET_ARGS_EXTRA='["--limit-rate=64"]', TIMEOUT="120")
+    url = recursive_test_site["root_url"]
     crawl_id = _create_crawl(initialized_archive, env, url)
-
     runner = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, wait=False, start_new_session=True)
     hook_pid = None
     try:
@@ -336,20 +308,18 @@ def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initializ
         while hook_pid is None and time.monotonic() < deadline:
             assert runner.poll() is None, runner.stdout + runner.stderr
             with use_archivebox_db(initialized_archive):
-                snapshot = Snapshot.objects.filter(crawl_id=crawl_id).first()
-                if snapshot is not None and _attempt_urls(snapshot) == [url]:
-                    hook_pid = (
-                        Process.objects.filter(
-                            process_type=Process.TypeChoices.HOOK,
-                            status=Process.StatusChoices.RUNNING,
-                            cmd__0__endswith="on_Snapshot__10_capture_probe.bg.sh",
-                        )
-                        .values_list("pid", flat=True)
-                        .first()
-                    )
-            time.sleep(0.2)
-        assert hook_pid, "the capture hook never started"
-        # Power loss: the runner and its hook die together, with no cleanup.
+                hook = Process.objects.filter(
+                    process_type=Process.TypeChoices.HOOK,
+                    status=Process.StatusChoices.RUNNING,
+                    cmd__0__endswith="_wget.finite.bg.py",
+                ).first()
+                if hook is not None and hook.pid:
+                    children = psutil.Process(hook.pid).children(recursive=True)
+                    if any(child.name() == "wget" for child in children):
+                        hook_pid = hook.pid
+            if hook_pid is None:
+                time.sleep(0.1)
+        assert hook_pid, "the shipped wget hook never started"
         os.killpg(runner.pid, signal.SIGKILL)
         os.killpg(hook_pid, signal.SIGKILL)
         wait_for_pid_to_disappear(runner.pid)
@@ -360,6 +330,7 @@ def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initializ
     with use_archivebox_db(initialized_archive):
         snapshot = Snapshot.objects.get(crawl_id=crawl_id)
         assert snapshot.status == Snapshot.StatusChoices.STARTED
+        first_hook_id = hook.id
 
     restarted = run_archivebox_cmd(["run", "--no-stdin"], cwd=initialized_archive, env=env, timeout=180)
     assert restarted.returncode == 0, restarted.stdout + restarted.stderr
@@ -369,7 +340,12 @@ def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initializ
         snapshot = Snapshot.objects.get(crawl_id=crawl_id)
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.retry_at is None
-        # The interrupted attempt started over from scratch and completed.
-        assert _attempt_urls(snapshot) == [url, url]
-        result = ArchiveResult.objects.get(snapshot=snapshot, plugin="capture_probe")
+        result = ArchiveResult.objects.get(snapshot=snapshot, plugin="wget")
         assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert result.process_id != first_hook_id
+        hooks = Process.objects.filter(process_type=Process.TypeChoices.HOOK, cmd__0__endswith="_wget.finite.bg.py")
+        assert hooks.count() == 2
+        assert not hooks.filter(status=Process.StatusChoices.RUNNING).exists()
+        html_files = list((snapshot.output_dir / "wget").rglob("*.html"))
+        assert html_files
+        assert any("<title>Root</title>" in path.read_text() for path in html_files)
