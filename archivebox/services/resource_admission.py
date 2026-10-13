@@ -1,6 +1,7 @@
 """Measured resource pressure and memory headroom for capture admission."""
 
 import math
+import logging
 import os
 import re
 import stat
@@ -134,9 +135,23 @@ class ResourceAdmission:
             # Stage one complete real capture before spending memory on parallel
             # hook trees. A zero-cost/failed probe cannot justify fanout.
             return 1 if active == 0 and configured > 0 else 0
-        ceiling = self.concurrency_limit(configured, pressure=bool(self.resource_pressure()), now=time.monotonic())
+        pressure = self.resource_pressure()
+        previous_limit = self._concurrency
+        ceiling = self.concurrency_limit(configured, pressure=bool(pressure), now=time.monotonic())
         headroom = self.memory_headroom()
-        return self.slots_for_headroom(ceiling, active, observed_cost, headroom)
+        slots = self.slots_for_headroom(ceiling, active, observed_cost, headroom)
+        if ceiling != previous_limit or slots < max(0, configured - active):
+            logging.getLogger(__name__).info(
+                "Snapshot admission decision: configured=%s adaptive=%s active=%s slots=%s observed_cost=%s available=%s pressure=%s",
+                configured,
+                ceiling,
+                active,
+                slots,
+                observed_cost,
+                headroom,
+                pressure or "none",
+            )
+        return slots
 
     @staticmethod
     def slots_for_headroom(configured: int, active: int, observed_cost: int, available: int) -> int:
