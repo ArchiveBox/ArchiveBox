@@ -1,0 +1,23 @@
+archivebox/tests/test_cli_update_reindex_snapshots.py
+  s_8dbda046044e96::t_dbcc508c5d0c7a 341,380-382
+  s_8dbda046044e96::t_b93eeddd4276f6 343-345
+  s_8dbda046044e96::t_81256ada6eafa8 337
+  s_8dbda046044e96::t_731f3a4839cbf4 396
+  s_8dbda046044e96::t_b7f8f13fbf6959 342
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4b0b8cc8339117b3a153a7aee01e47e1d18c2bdc",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
