@@ -189,9 +189,11 @@ atexit.register(close_idle_connections)
 
 class DatabaseWrapper(DjangoSQLiteDatabaseWrapper):
     _idle_pool_key: tuple | None = None
+    _connection_file_identity: tuple[int, int] | None = None
 
     def get_new_connection(self, conn_params):
         self._idle_pool_key = None
+        self._connection_file_identity = None
         if not self.is_in_memory_db():
             key = (os.getpid(), self.alias, tuple(sorted(conn_params.items())), tuple(self.init_commands))
             identity = _database_file_identity(conn_params["database"])
@@ -209,8 +211,12 @@ class DatabaseWrapper(DjangoSQLiteDatabaseWrapper):
                 stale_conn.close()
             self._idle_pool_key = key
             if conn is not None:
+                self._connection_file_identity = identity
                 return conn
-        return super().get_new_connection(conn_params)
+        conn = super().get_new_connection(conn_params)
+        if self._idle_pool_key is not None:
+            self._connection_file_identity = _database_file_identity(conn_params["database"])
+        return conn
 
     def _close(self):
         conn = self.connection
@@ -218,7 +224,9 @@ class DatabaseWrapper(DjangoSQLiteDatabaseWrapper):
         if conn is not None and key is not None and key[0] == os.getpid() and not self.in_atomic_block:
             identity = _database_file_identity(self.settings_dict["NAME"])
             try:
-                reusable = identity is not None and not conn.in_transaction
+                # The pathname may have been replaced while this request held
+                # the old file open. Never label that handle with the new inode.
+                reusable = identity is not None and identity == self._connection_file_identity and not conn.in_transaction
             except sqlite3.Error:
                 reusable = False
             if reusable:

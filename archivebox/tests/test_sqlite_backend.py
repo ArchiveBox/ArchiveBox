@@ -91,3 +91,20 @@ def test_replaced_database_file_is_not_reused(db_path):
     assert rows == []
     with pytest.raises(sqlite3.ProgrammingError):
         first.execute("SELECT 1")
+
+
+def test_database_replaced_during_request_is_not_pooled(db_path):
+    db = DatabaseWrapper({**connection.settings_dict, "NAME": str(db_path)}, alias="sqlite-reuse-test")
+    with db.cursor() as cursor:
+        cursor.execute("CREATE TABLE old_file (name TEXT)")
+    first = db.connection
+    replacement = db_path.with_name("replacement.sqlite3")
+    sqlite3.connect(replacement).close()
+    os.replace(replacement, db_path)
+    db.close()
+
+    second, rows = _request(db_path, "SELECT name FROM sqlite_master WHERE name = 'old_file'")
+    assert rows == []
+    assert second is not first
+    with pytest.raises(sqlite3.ProgrammingError):
+        first.execute("SELECT 1")
