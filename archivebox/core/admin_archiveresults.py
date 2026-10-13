@@ -803,12 +803,14 @@ class ArchiveResultAdmin(BaseModelAdmin):
     @admin.display(description="Plugin", ordering="plugin")
     def plugin_with_icon(self, result):
         icon = get_plugin_icon(result.plugin)
+        # Resolves every plugin dir on disk; look it up once per row.
+        plugin_admin_url = get_plugin_admin_url(result.plugin)
         return format_html(
             '<a href="{}" title="{}">{}</a> <a href="{}"><code>{}</code></a>',
-            get_plugin_admin_url(result.plugin),
+            plugin_admin_url,
             result.plugin,
             icon,
-            get_plugin_admin_url(result.plugin),
+            plugin_admin_url,
             result.plugin,
         )
 
