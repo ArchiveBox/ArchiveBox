@@ -703,6 +703,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                         "plugin",
                         "status",
                         "output_size",
+                        "output_str",
                         "output_files",
                     ),
                 ),
@@ -1102,7 +1103,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
     def files(self, obj):
         results = self._get_prefetched_results(obj)
         if results is None:
-            results = obj.archiveresult_set.only("plugin", "status", "output_size", "output_files")
+            results = obj.archiveresult_set.only("plugin", "status", "output_size", "output_str", "output_files")
 
         plugins_with_output: dict[str, ArchiveResult] = {}
         for result in results:

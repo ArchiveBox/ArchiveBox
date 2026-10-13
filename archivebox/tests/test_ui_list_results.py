@@ -295,3 +295,20 @@ def test_warm_public_list_reflects_result_save_without_modified_at(client, list_
     row = _row(response.content.decode(), f"/{snapshot.archive_path_from_db}")
     assert 'favicon/replacement.ico" data-fallbacks=""' in row
     assert 'favicon/favicon.ico"' not in row
+
+
+def test_admin_detail_preserves_explicit_result_output_path(client, admin_user, list_collection):
+    snapshot, _started = list_collection
+    result = snapshot.archiveresult_set.get(plugin="favicon")
+    result.output_str = "favicon/selected.ico"
+    result.output_files = {"favicon.ico": {"size": 300}, "selected.ico": {"size": 100}}
+    result.save(update_fields=["output_str", "output_files"])
+    assert result.embed_path() == "favicon/selected.ico"
+
+    client.force_login(admin_user)
+    response = client.get(reverse("admin:core_snapshot_change", args=[snapshot.pk]), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    page = response.content.decode()
+    favicon = re.search(r'<img src="([^"]+)" alt="Favicon"', page)
+    assert favicon is not None
+    assert favicon.group(1).endswith("/favicon/selected.ico")
