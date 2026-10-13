@@ -1,0 +1,21 @@
+archivebox/tests/test_sqlite_backend.py
+  s_a286607305588e::t_1c90be7645f3ef 94-110
+archivebox/core/sqlite_backend/base.py
+  s_a286607305588e::t_1c90be7645f3ef 192,196,214,216-219,227-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e376ebf0f765705cb8c422f92e1eaf57ccc12249",
+  "prompts": {},
+  "sessions": {
+    "s_a286607305588e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf8bf608-099b-4dff-9e7c-f87508f3f76d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
