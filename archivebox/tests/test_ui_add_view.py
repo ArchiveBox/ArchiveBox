@@ -64,6 +64,16 @@ def public_add_enabled():
     return Machine.from_json({"config": {"PUBLIC_ADD_VIEW": True}})
 
 
+def test_empty_persona_binary_lookup_does_not_query_installed_binaries():
+    from archivebox.plugins.discovery import discover_plugin_configs
+    from archivebox.plugins.forms import build_required_binary_url_lookup
+
+    plugin_configs = discover_plugin_configs()
+    with CaptureQueriesContext(connection) as queries:
+        assert build_required_binary_url_lookup(plugin_configs, []) == {}
+    assert len(queries) == 0
+
+
 def test_add_view_batches_binary_links_and_preserves_persona_path_selection(client, admin_user):
     machine = Machine.current()
     wget = install_binary_with_abxpkg("wget", binproviders="env,brew,apt")
@@ -96,8 +106,8 @@ def test_add_view_batches_binary_links_and_preserves_persona_path_selection(clie
         else:
             assert url == "/admin/environment/binaries/missing-downloader/"
     binary_queries = [query for query in queries if 'FROM "machine_binary"' in query["sql"]]
-    # One batch per persona, plus the form's own binary-link batch.
-    assert len(binary_queries) <= Persona.objects.count() + 2
+    # One shared persona batch plus the form's own binary-link batch.
+    assert len(binary_queries) == 2
     newest.abspath = ""
     newest.save(update_fields=["abspath"])
     updated = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)

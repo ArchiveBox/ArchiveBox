@@ -333,7 +333,9 @@ class AddLinkForm(PluginConfigFormMixin, forms.Form):
                 persona_queryset.filter(name=str(self.data.get(self.add_prefix("persona")) or "")).first() or selected_persona
             )
         if self.can_override_crawl_config:
-            self.build_plugin_groups(get_config(persona=selected_persona) if selected_persona else get_config())
+            # An unbound form still uses the default persona resolved above.
+            selected_config = get_config(persona=selected_persona) if self.is_bound else default_config
+            self.build_plugin_groups(selected_config)
         else:
             grouped_plugins = get_plugin_catalog().groups()
             for category, field_name, _title in PLUGIN_GROUPS:

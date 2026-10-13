@@ -146,7 +146,7 @@ class PluginConfigFormMixin:
         all_plugins = set(catalog)
         plugin_configs = discover_plugin_configs()
         runtime_config = runtime_config or get_config()
-        binary_url_lookup = _build_required_binary_url_lookup(plugin_configs, runtime_config)
+        binary_url_lookup = build_required_binary_url_lookup(plugin_configs, [runtime_config])
         self.plugin_config_binary_urls = get_plugin_config_binary_urls(runtime_config, binary_url_lookup)
         grouped_plugins = catalog.groups()
 
@@ -410,23 +410,24 @@ def _iter_required_binary_names(
             yield resolved
 
 
-def _build_required_binary_url_lookup(
+def build_required_binary_url_lookup(
     plugin_configs: Mapping[str, dict[str, Any]],
-    runtime_config: Mapping[str, Any],
+    runtime_configs: Iterable[Mapping[str, Any]],
 ) -> dict[str, str]:
-    """Resolve required/configured binary links together in one DB query."""
+    """Resolve required/configured binary links for all configs in one DB query."""
     from django.db.models import Q
     from django.db.models.functions import Lower
     from archivebox.config.views import get_environment_binary_url, get_installed_binary_change_url
     from archivebox.machine.models import Binary, Machine
 
     resolved_names: set[str] = set()
-    for schema in plugin_configs.values():
-        for name in _iter_required_binary_names(schema.get("required_binaries") or [], runtime_config):
-            resolved_names.add(name)
-        for key in schema.get("properties") or {}:
-            if key.endswith("_BINARY") and (value := str(runtime_config.get(key) or "").strip()):
-                resolved_names.add(value)
+    for runtime_config in runtime_configs:
+        for schema in plugin_configs.values():
+            for name in _iter_required_binary_names(schema.get("required_binaries") or [], runtime_config):
+                resolved_names.add(name)
+            for key in schema.get("properties") or {}:
+                if key.endswith("_BINARY") and (value := str(runtime_config.get(key) or "").strip()):
+                    resolved_names.add(value)
 
     if not resolved_names:
         return {}
@@ -490,7 +491,7 @@ def get_plugin_config_binary_urls(
         if isinstance(prop_schema, dict) and str(config_key).endswith("_BINARY")
     }
     if binary_url_lookup is None:
-        binary_url_lookup = _build_required_binary_url_lookup(plugin_configs, runtime_config)
+        binary_url_lookup = build_required_binary_url_lookup(plugin_configs, [runtime_config])
     urls: dict[str, str] = {}
     for key in binary_keys:
         value = str(runtime_config.get(key) or "").strip()
