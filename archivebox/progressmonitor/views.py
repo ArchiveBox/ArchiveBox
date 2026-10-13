@@ -8,6 +8,7 @@ from typing import Literal
 
 from abx_dl.events import PROCESS_EXIT_SKIPPED
 from django.conf import settings
+from django.core.cache import cache
 from django.db import DatabaseError
 from django.db.models import CharField, Count, Q
 from django.db.models.functions import Cast
@@ -18,6 +19,36 @@ from archivebox.core.permissions import can_view_snapshot, is_admin_user
 from archivebox.core.routes_util import build_snapshot_detail_url, build_snapshot_url, get_api_base_url
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.plugins.discovery import discover_plugin_configs, get_plugin_default_output_path, get_snapshot_role_result
+
+
+# Decoding every displayed result's output_files map on each one-second poll
+# was a quarter of the view's time on a busy collection. A result's embed path
+# only changes with its row, so resolve it once per (modified_at, size, status).
+_RESULT_EMBED_PATHS: dict[str, tuple[tuple[object, ...], str | None]] = {}
+_RESULT_EMBED_PATHS_MAX = 5000
+
+
+def _result_embed_paths(results) -> dict:
+    from archivebox.core.models import ArchiveResult
+
+    paths = {}
+    stale = {}
+    for result in results:
+        version = (result.modified_at, result.output_size, result.status)
+        cached = _RESULT_EMBED_PATHS.get(str(result.id))
+        if cached is not None and cached[0] == version:
+            paths[result.id] = cached[1]
+        else:
+            stale[result.id] = (result, version)
+    if stale:
+        if len(_RESULT_EMBED_PATHS) > _RESULT_EMBED_PATHS_MAX:
+            _RESULT_EMBED_PATHS.clear()
+        for result_id, output_files in ArchiveResult.objects.filter(id__in=list(stale)).values_list("id", "output_files"):
+            result, version = stale[result_id]
+            path = result.embed_path_db(output_file_map=output_files or {})
+            _RESULT_EMBED_PATHS[str(result_id)] = (version, path)
+            paths[result_id] = path
+    return paths
 
 
 def progress_endpoint(scope: Literal["crawl", "snapshot"] | None = None, object_id: object | None = None) -> str:
@@ -350,8 +381,12 @@ def live_progress_view(request, *, authorized_snapshot=None):
             rows = list(section_scope.values(*active_crawl_fields).order_by("-modified_at")[:limit]) if limit else []
             active_crawls_list.extend(rows)
             if len(rows) == limit:
-                # Paused crawls have no cached count; only count when truncated.
-                hidden = (section_scope.count() if section_total is None else section_total) - len(rows)
+                # Paused crawls have no stored count, and counting them scans every
+                # due snapshot; the "N hidden" note may trail by a few seconds.
+                if section_total is None:
+                    scope_key = f"{request.user.pk}:{is_admin}:{crawl_id_filter}:{scoped_snapshot.pk if scoped_snapshot else ''}"
+                    section_total = cache.get_or_set(f"progress-paused-crawls:{scope_key}", section_scope.count, timeout=10)
+                hidden = section_total - len(rows)
                 if hidden > 0:
                     hidden_crawls.append(
                         {"status": status, "count": hidden, "url": f"/admin/crawls/crawl/?status__exact={status}{owner_filter}"},
@@ -518,7 +553,6 @@ def live_progress_view(request, *, authorized_snapshot=None):
                     "hook_name",
                     "status",
                     "output_str",
-                    "output_files",
                     "output_size",
                     "start_ts",
                     "end_ts",
@@ -719,11 +753,9 @@ def live_progress_view(request, *, authorized_snapshot=None):
                         if ar.status in ArchiveResult.FINAL_STATES or ar.start_ts is None or ar.start_ts >= attempt_started_at
                     ]
 
-                # Capture/import already persist the canonical output_files map.
-                # Read it directly; rebuilding Pydantic manifests here repeatedly
-                # validates, copies, sorts, and totals every captured asset.
-                # Resolve each link once for both role previews and plugin rows.
-                output_paths = {ar.id: ar.embed_path_db(output_file_map=ar.output_files) for ar in snapshot_results}
+                # Resolve each link once for both role previews and plugin rows,
+                # from the canonical output_files map only when the row changed.
+                output_paths = _result_embed_paths(snapshot_results)
 
                 plugin_progress_values: list[int] = []
                 all_plugins: list[dict[str, object]] = []
