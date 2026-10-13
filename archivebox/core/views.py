@@ -20,6 +20,7 @@ from django.contrib.auth.mixins import UserPassesTestMixin
 from django.contrib.sessions.models import Session
 from django.contrib.sessions.backends.db import SessionStore
 from django.core import signing
+from django.core.exceptions import ValidationError
 from django.db.models import Case, IntegerField, Q, Value, When
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseForbidden, QueryDict
 from django.shortcuts import redirect, render
@@ -152,7 +153,8 @@ def _find_snapshot_by_ref(snapshot_ref: str) -> Snapshot | None:
 
     try:
         return snapshots.get(pk=lookup)
-    except Snapshot.DoesNotExist:
+    except (Snapshot.DoesNotExist, ValidationError):
+        # Short references are valid route inputs but not complete UUIDs.
         snapshot = snapshots.filter(id__startswith=lookup).first()
         if snapshot is not None:
             snapshot.matched_by_prefix = True  # UUIDv7 prefixes are guessable timestamps: not an unlisted link

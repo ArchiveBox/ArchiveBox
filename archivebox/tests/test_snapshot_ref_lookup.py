@@ -1,11 +1,13 @@
 import pytest
 import uuid
 from datetime import timedelta
+from urllib.parse import parse_qs, urlsplit
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
 from archivebox.core.views import _find_snapshot_by_ref
 from archivebox.core.models import Snapshot
+from archivebox.core.routes_util import get_web_host
 
 
 @pytest.mark.django_db
@@ -70,3 +72,33 @@ def test_snapshot_suffix_lookup_does_not_cache_ambiguous_or_prefix_matches(snaps
     # A 12-hex *prefix* is not a suffix: it must never resolve as an unlisted link.
     prefix = str(snapshot.id).replace("-", "")[:12]
     assert _find_snapshot_by_ref(prefix) is None
+
+
+@pytest.mark.django_db
+def test_snapshot_prefix_lookup_preserves_unlisted_access_rules(snapshot, client):
+    snapshot.config = {**(snapshot.config or {}), "PERMISSIONS": "unlisted"}
+    snapshot.save(update_fields=["config"])
+    prefix = snapshot.id.hex[:19]
+    found = _find_snapshot_by_ref(prefix)
+    assert found.id == snapshot.id
+    assert found.matched_by_prefix is True
+
+    # Guessable UUID timestamp prefixes must still require authentication.
+    path = "/" + snapshot.url_path.rsplit("/", 1)[0]
+    response = client.get(f"{path}/{prefix}/", HTTP_HOST=get_web_host())
+    assert response.status_code == 302
+    auth_redirect = urlsplit(response["Location"])
+    assert auth_redirect.path == "/admin/core/snapshot/replay-auth/"
+    assert parse_qs(auth_redirect.query)["snapshot"] == [str(snapshot.id)]
+
+    # The complete unlisted reference continues to resolve without a login.
+    response = client.get(f"{path}/{snapshot.id.hex}/", HTTP_HOST=get_web_host())
+    assert response.status_code == 200
+    assert snapshot.url.encode() in response.content
+
+
+@pytest.mark.django_db
+def test_unknown_short_numeric_snapshot_reference_returns_404(client):
+    response = client.get("/web/20261013/example.com/1512629671342460931/", HTTP_HOST=get_web_host())
+    assert response.status_code == 404
+    assert b"1512629671342460931" in response.content
