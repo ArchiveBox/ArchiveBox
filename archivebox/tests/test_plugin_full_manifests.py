@@ -154,3 +154,67 @@ def test_full_viewers_render_saved_sibling_files(snapshot, live_server, browser_
                 expect(page.locator("#count")).to_contain_text("1 item")
             assert errors == [], (plugin, errors)
         browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("exact_media", [False, True])
+def test_ytdlp_viewer_pairs_trimmed_media_with_metadata(snapshot, live_server, browser_runtime, exact_media):
+    import json
+    import wave
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{urlsplit(live_server.url).port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["permissions"])
+    output_dir = snapshot.output_dir / "ytdlp"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    # Real yt-dlp --trim-filenames joins the last two suffixes, dropping the
+    # empty component before media extensions but preserving it for .info.json.
+    # This same shape separated a saved X video's metadata from its playable file.
+    with wave.open(str(output_dir / "clip...wav"), "wb") as audio:
+        audio.setparams((1, 2, 8000, 0, "NONE", "not compressed"))
+        audio.writeframes(b"\x00\x00" * 8000)
+    if exact_media:
+        (output_dir / "clip....wav").write_bytes((output_dir / "clip...wav").read_bytes())
+    (output_dir / "clip....info.json").write_text(json.dumps({"title": "Saved media title", "uploader": "Saved creator", "duration": 1}))
+    (output_dir / "clip...description").write_text("Saved media description")
+    (output_dir / "clip...en.vtt").write_text("WEBVTT\n\n00:00.000 --> 00:01.000\nSaved subtitle\n")
+    ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="ytdlp",
+        status="succeeded",
+        output_str="clip...wav",
+        output_files={path.name: {"size": path.stat().st_size} for path in output_dir.iterdir()},
+    )
+    origin = f"http://{get_snapshot_host(snapshot.archive_path_from_db)}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        page = browser.new_page()
+        response = page.goto(f"{origin}/ytdlp/clip...wav?preview=1")
+        assert response.status == 200
+        expect(page.locator("#count")).to_have_text("2 items · 2 playable · 0:01" if exact_media else "1 item · 1 playable · 0:01")
+        if exact_media:
+            expect(page.locator("#title")).to_have_text("clip...wav")
+            expect(page.locator("#byline")).to_contain_text("Unknown creator")
+            page.locator("#queue .item").filter(has_text="Saved media title").click()
+        expect(page.locator("#title")).to_have_text("Saved media title")
+        expect(page.locator("#byline")).to_contain_text("Saved creator")
+        if exact_media:
+            expect(page.locator("#description")).to_have_text("No description saved.")
+        else:
+            expect(page.locator("#description")).to_have_text("Saved media description")
+            expect(page.locator("#language option")).to_have_text("en.vtt")
+            expect(page.locator("#transcript")).to_contain_text("Saved subtitle")
+        page.locator("audio").evaluate("audio => audio.play()")
+        page.wait_for_function("document.querySelector('audio').currentTime > 0")
+        browser.close()
