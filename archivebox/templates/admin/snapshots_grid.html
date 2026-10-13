@@ -264,6 +264,7 @@
 {% endblock %}
 
 {% block content %}
+  {{ icon_sprite }}
   <section class="cards">
     {% for obj, files in results %}
       <div class="card{% if obj.status == 'started' %} archiving{% endif %}">

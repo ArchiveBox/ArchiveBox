@@ -475,10 +475,17 @@ def result_list(context, cl):
     if config is not None:
         for obj in results:
             obj._runtime_config = config
+    # Cards of running snapshots hide their icons, so draw the shared icon
+    # sprite once above all cards rather than inside the first card's icons.
+    icon_sprite = ""
+    if request is not None and not request.__dict__.get("_archivebox_icon_sprite_sent"):
+        request._archivebox_icon_sprite_sent = True
+        icon_sprite = get_plugin_icon_sprite()
     return {
         "cl": cl,
         "num_sorted_fields": num_sorted_fields,
         "results": [(obj, cl.model_admin.files(obj)) for obj in results],
+        "icon_sprite": icon_sprite,
         "request": request,
         "CONFIG": config,
     }

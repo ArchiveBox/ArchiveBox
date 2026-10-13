@@ -10,6 +10,7 @@ these pages used before.
 """
 
 import re
+from datetime import timedelta
 from html import unescape
 
 import pytest
@@ -58,7 +59,10 @@ def list_collection(admin_user, db):
         output_str="wget/list-results.example/article.html",
         output_files={
             "list-results.example/article.html": {"size": 5000, "mimetype": "text/html"},
-            **{f"list-results.example/assets/{index}.js": {"size": index, "mimetype": "text/javascript"} for index in range(BIG_MANIFEST_ENTRIES)},
+            **{
+                f"list-results.example/assets/{index}.js": {"size": index, "mimetype": "text/javascript"}
+                for index in range(BIG_MANIFEST_ENTRIES)
+            },
         },
     )
     _result(
@@ -67,7 +71,10 @@ def list_collection(admin_user, db):
         hook="24",
         output_str="responses/list-results.example/article",
         output_files={
-            **{f"all/20261012T000000__GET__{index}.png": {"size": 900 + index, "mimetype": "image/png"} for index in range(BIG_MANIFEST_ENTRIES)},
+            **{
+                f"all/20261012T000000__GET__{index}.png": {"size": 900 + index, "mimetype": "image/png"}
+                for index in range(BIG_MANIFEST_ENTRIES)
+            },
             "all/20261012T000001__GET__article.html": {"size": 7000, "mimetype": "text/html"},
             "all/20261012T000002__GET__tie.html": {"size": 7000, "mimetype": "text/html"},
         },
@@ -151,6 +158,16 @@ def _assert_only_linkable_manifests_shipped(captured_queries):
     assert shipped[("git", ArchiveResult.StatusChoices.QUEUED)] is None
 
 
+def _assert_icons_drawn_from_one_sprite(html):
+    """Row icons <use> symbols that the page defines exactly once (see get_plugin_list_icon)."""
+    used = set(re.findall(r'<use href="#(abx-icon-[a-z0-9_]+)">', html))
+    defined = re.findall(r'<symbol id="(abx-icon-[a-z0-9_]+)"', html)
+    assert used, "list rows should draw their icons from the page sprite"
+    assert len(defined) == len(set(defined)), "the icon sprite must be emitted once per page"
+    assert used <= set(defined)
+    assert html.index("<symbol ") < html.index("<use href=")
+
+
 @override_settings(PUBLIC_INDEX=True)
 def test_public_index_links_match_model_instances_and_skip_unrendered_manifests(client, list_collection):
     sealed, started = list_collection
@@ -186,6 +203,7 @@ def test_public_index_links_match_model_instances_and_skip_unrendered_manifests(
     assert 'data-tooltip="screenshot"' in started_row and 'data-tooltip="dom"' in started_row
 
     _assert_only_linkable_manifests_shipped(captured.captured_queries)
+    _assert_icons_drawn_from_one_sprite(html)
 
 
 def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manifests(client, admin_user, list_collection):
@@ -207,3 +225,16 @@ def test_admin_changelist_links_match_model_instances_and_skip_unrendered_manife
     assert re.search(r'class="snapshot-url-favicon" src="[^"]*favicon/favicon\.ico"', row)
 
     _assert_only_linkable_manifests_shipped(captured.captured_queries)
+    _assert_icons_drawn_from_one_sprite(response.content.decode())
+
+
+def test_admin_grid_draws_icons_from_one_sprite_even_when_first_card_is_running(client, admin_user, list_collection):
+    sealed, started = list_collection
+    # The newest card is the running one, whose icons the grid hides.
+    Snapshot.objects.filter(pk=started.pk).update(bookmarked_at=sealed.bookmarked_at + timedelta(minutes=1))
+    client.force_login(admin_user)
+    response = client.get(reverse("admin:grid"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    html = response.content.decode()
+    assert html.index("Started list row") < html.index("Sealed list row")
+    _assert_icons_drawn_from_one_sprite(html)
