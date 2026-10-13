@@ -1,5 +1,6 @@
 __package__ = "archivebox.progressmonitor"
 
+import time
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -97,6 +98,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
     separate output/image request. Do not scan history or rebuild inventories
     in this one-second polling path; expensive totals belong off the request.
     """
+    started = time.perf_counter()
     try:
         from archivebox.core.models import ArchiveResult, Snapshot
         from archivebox.crawls.models import Crawl
@@ -1036,9 +1038,12 @@ def live_progress_view(request, *, authorized_snapshot=None):
         try:
             import ujson
 
-            return HttpResponse(ujson.dumps(payload), content_type="application/json")
+            response = HttpResponse(ujson.dumps(payload), content_type="application/json")
         except ImportError:
-            return JsonResponse(payload)
+            response = JsonResponse(payload)
+        # The view's own time per poll, readable in browser devtools on any deployment.
+        response["Server-Timing"] = f"progress;dur={(time.perf_counter() - started) * 1000:.1f}"
+        return response
     except (DatabaseError, OSError, RuntimeError, TypeError, ValueError) as e:
         error_payload = {
             "error": str(e),
