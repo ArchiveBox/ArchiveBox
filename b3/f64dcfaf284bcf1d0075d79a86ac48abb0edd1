@@ -1,0 +1,19 @@
+archivebox/tests/test_cli_run_4.py
+  s_8dbda046044e96::t_49fcdb9cffc579 206,235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b3f64dcfaf284bcf1d0075d79a86ac48abb0edd1",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
