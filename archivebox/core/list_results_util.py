@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from django.db import connection
-from django.db.models import Case, CharField, Count, Q, TextField, Value, When, Window
+from django.db.models import Case, CharField, Exists, OuterRef, Q, TextField, Value, When
 from django.db.models.functions import Cast
 from django.db.models.base import DEFERRED
 
@@ -130,9 +130,14 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
     links_output = Q(status=ArchiveResult.StatusChoices.SUCCEEDED) | Q(plugin__in=list(card_plugins))
     rows = (
         ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
-        # Multiple hooks may report the same plugin files, including failures.
-        # Only those groups need manifests for size deduplication.
-        .annotate(plugin_result_count=Window(Count("id"), partition_by=["snapshot_id", "plugin"]))
+        # Probe the existing (snapshot, plugin, hook) index only when needed.
+        # A window count sorted/copied the large manifests for the entire page;
+        # EXISTS avoids that work and stops at the first sibling hook.
+        .alias(
+            has_sibling_result=Exists(
+                ArchiveResult.objects.filter(snapshot_id=OuterRef("snapshot_id"), plugin=OuterRef("plugin")).exclude(id=OuterRef("id")),
+            ),
+        )
         # A stable order picks the same "first" result per plugin every time.
         .order_by("snapshot_id", "plugin", "id")
         .values_list(
@@ -146,7 +151,7 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
             "output_size",
             "output_str",
             Case(
-                When(links_output | Q(plugin_result_count__gt=1), then=Cast("output_files", output_field=TextField())),
+                When(links_output | Q(has_sibling_result=True), then=Cast("output_files", output_field=TextField())),
                 default=Value(None),
                 output_field=TextField(),
             ),
