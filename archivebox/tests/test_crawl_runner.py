@@ -705,6 +705,37 @@ def test_crawl_runner_fails_one_snapshot_and_still_runs_the_next(tmp_path):
 
 
 @pytest.mark.django_db(transaction=True)
+def test_crawl_setup_failure_preserves_unattempted_snapshots(tmp_path):
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import CrawlRunner
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com/first\nhttps://example.com/second",
+        config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "PLUGINS": "base", "CHROME_BINARY": ""},
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshots = [Snapshot.objects.create(crawl=crawl, url=url, depth=0) for url in crawl.get_urls_list()]
+    # Crawl setup reads the first snapshot's payload before admitting any capture.
+    # A real filesystem obstruction must not turn that queued URL into a completion.
+    output_dir = Path(snapshots[0].output_dir)
+    output_dir.parent.mkdir(parents=True, exist_ok=True)
+    output_dir.write_text("not a directory\n")
+
+    with pytest.raises(FileExistsError):
+        asyncio.run(CrawlRunner(crawl, show_progress=False).run())
+
+    for snapshot in snapshots:
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert snapshot.retry_at is not None
+        assert snapshot.downloaded_at is None
+        assert not snapshot.archiveresult_set.exists()
+    assert output_dir.read_text() == "not a directory\n"
+
+
+@pytest.mark.django_db(transaction=True)
 def test_crawl_runner_preflights_plugins_before_crawl_lifecycle(tmp_path):
     from abx_dl.events import CrawlEvent, CrawlSetupEvent, InstallEvent
     from archivebox.base_models.models import get_or_create_system_user_pk

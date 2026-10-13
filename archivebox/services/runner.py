@@ -512,24 +512,6 @@ class CrawlRunner:
                         finally:
                             await self.bus.destroy(clear=False)
                             bus_destroyed = True
-            except Exception:
-                # A crawl-level failure (install, browser setup, ...) happens
-                # before or between snapshot attempts; snapshots that did start
-                # were drained and finished on their own. The scheduler picks
-                # the same first snapshot again for the next run of this crawl,
-                # so a failure that repeats would rerun it forever and starve
-                # the rest of the queue. Charge the run to the snapshot it was
-                # started for: each failed run finishes one snapshot.
-                if not self.execution_interrupted():
-                    failed_snapshot_id = root_snapshot_id or (str(self.initial_snapshot_ids[0]) if self.initial_snapshot_ids else None)
-                    logging.getLogger(__name__).exception(
-                        "Crawl %s run failed before Snapshot %s finished",
-                        self.crawl.id,
-                        failed_snapshot_id,
-                    )
-                    if failed_snapshot_id is not None:
-                        await self.snapshot_service.finalize_failed_attempt(failed_snapshot_id)
-                raise
             finally:
                 if not bus_destroyed:
                     self._run_task = None

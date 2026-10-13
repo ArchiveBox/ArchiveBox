@@ -314,41 +314,6 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
 
 
 @pytest.mark.django_db(transaction=True)
-def test_crawl_level_failure_finishes_one_snapshot_per_run_instead_of_rerunning_it(initialized_archive):
-    """A crawl that fails before any capture must not rerun the same snapshot
-    forever: each failed run finishes the snapshot it was started for."""
-    from archivebox.core.models import Snapshot
-    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
-    from archivebox.tests.test_orm_helpers import use_archivebox_db
-
-    _install_custom_hook(initialized_archive, "capture_probe", "on_Snapshot__10_capture_probe.bg.sh", CAPTURE_PROBE_HOOK)
-    # Like a browser that cannot launch: crawl setup exits before readiness.
-    _install_custom_hook(initialized_archive, "setup_probe", "on_CrawlSetup__10_setup_probe.bg.sh", "#!/usr/bin/env bash\nexit 1\n")
-    env = cli_env(PLUGINS="setup_probe,capture_probe", TIMEOUT="10", CRAWL_MAX_CONCURRENT_SNAPSHOTS="1")
-    urls = ["https://example.com/first", "https://example.com/second"]
-    crawl_id = _create_crawl(initialized_archive, env, *urls)
-
-    def statuses():
-        with use_archivebox_db(initialized_archive):
-            return {snapshot.url: snapshot.status for snapshot in Snapshot.objects.filter(crawl_id=crawl_id)}
-
-    first_run = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=120)
-    # The crawl-level error still surfaces; it just cannot pin one snapshot.
-    assert first_run.returncode == 1, first_run.stdout + first_run.stderr
-    assert "Runner error" in first_run.stderr
-    assert statuses() == {urls[0]: Snapshot.StatusChoices.SEALED, urls[1]: Snapshot.StatusChoices.QUEUED}
-
-    second_run = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=120)
-    assert second_run.returncode == 1, second_run.stdout + second_run.stderr
-    assert statuses() == {urls[0]: Snapshot.StatusChoices.SEALED, urls[1]: Snapshot.StatusChoices.SEALED}
-    with use_archivebox_db(initialized_archive):
-        for snapshot in Snapshot.objects.filter(crawl_id=crawl_id):
-            assert snapshot.retry_at is None
-            # Setup failed before any capture hook could run.
-            assert _attempt_urls(snapshot) == []
-
-
-@pytest.mark.django_db(transaction=True)
 def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initialized_archive):
     import os
     import signal
