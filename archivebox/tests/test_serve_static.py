@@ -6,6 +6,42 @@ from django.test import RequestFactory
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 
 
+@pytest.mark.parametrize("validator", ["etag", "modified"])
+@pytest.mark.parametrize("extension", ["wacz", "zip"])
+def test_generated_archive_preview_is_not_validated_by_source_file(tmp_path, validator, extension):
+    import hashlib
+    import json
+    import zipfile
+
+    from django.utils.http import http_date
+
+    output = tmp_path / f"capture.{extension}"
+    with zipfile.ZipFile(output, "w") as archive:
+        archive.writestr("pages/pages.jsonl", json.dumps({"url": "https://example.com/"}) + "\n")
+    digest = hashlib.sha256(output.read_bytes()).hexdigest()
+    (tmp_path / "hashes").mkdir()
+    (tmp_path / "hashes" / "hashes.json").write_text(json.dumps({"files": [{"path": output.name, "hash": digest}]}))
+    headers = {
+        "etag": {"HTTP_IF_NONE_MATCH": f'"{digest}"'},
+        "modified": {"HTTP_IF_MODIFIED_SINCE": http_date(output.stat().st_mtime)},
+    }[validator]
+    request = RequestFactory().get(f"/{output.name}?preview=1", **headers)
+    request.archivebox_snapshot_url = "https://example.com/"
+    response = serve_static_with_byterange_support(request, output.name, document_root=tmp_path)
+    # A deployment can change the generated viewer without touching its archive.
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/html")
+    assert (b"replay-web-page" if extension == "wacz" else b"indexZip") in response.content
+    assert "ETag" not in response
+
+    raw = serve_static_with_byterange_support(
+        RequestFactory().get(f"/{output.name}?raw=1", **headers),
+        output.name,
+        document_root=tmp_path,
+    )
+    assert raw.status_code == 304
+
+
 @pytest.mark.parametrize("validator", [None, "range", "etag", "modified"])
 @pytest.mark.parametrize("filename", ["favicon.ico", "favicon.svg", "favicon.png"])
 def test_favicons_allow_long_lived_shared_caching(tmp_path, validator, filename):
