@@ -117,13 +117,15 @@ jobs:
             refs=()
             for digest in "${digests[@]}"; do refs+=("$image@sha256:$digest"); done
             docker buildx imagetools create --tag "$image:sha-${GITHUB_SHA::12}" "${refs[@]}"
-            # A superseded build keeps its exact SHA tag but cannot roll back
-            # the moving channel. :dev stays owned by the green release job.
-            head="$(git ls-remote origin refs/heads/dev | cut -f1)"
-            if [[ "$head" != "$GITHUB_SHA" ]]; then
-              echo "Source $GITHUB_SHA superseded by $head; not promoting dev-unstable."
-              exit 0
-            fi
+          done
+          # Keep both exact SHA tags even if this build was superseded. Only
+          # the current head may update the moving channel and start staging.
+          head="$(git ls-remote origin refs/heads/dev | cut -f1)"
+          if [[ "$head" != "$GITHUB_SHA" ]]; then
+            echo "Source $GITHUB_SHA superseded by $head; not promoting dev-unstable."
+            exit 0
+          fi
+          for image in archivebox/archivebox ghcr.io/archivebox/archivebox; do
             docker buildx imagetools create --tag "$image:dev-unstable" "$image:sha-${GITHUB_SHA::12}"
           done
           echo 'ready=true' >> "$GITHUB_OUTPUT"
