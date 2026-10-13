@@ -283,7 +283,9 @@ class SnapshotChangeList(SearchResultsChangeList):
                 "output_size": obj.output_size or 0,
                 "is_sealed": obj.status not in (obj.StatusChoices.QUEUED, obj.StatusChoices.STARTED, obj.StatusChoices.PAUSED),
             }
-            obj.__dict__["_admin_output_results"] = list(summary.first_succeeded_by_plugin(with_output=True).values())
+            # files() selects successful links itself, but needs every sibling
+            # hook to count shared plugin files once and order the icons.
+            obj.__dict__["_admin_output_results"] = summary.results
             obj.__dict__["_snapshot_card_results"] = summary.results
             obj.__dict__["_snapshot_thumbnail_result"] = summary.thumbnail_result
 

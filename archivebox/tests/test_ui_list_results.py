@@ -240,6 +240,17 @@ def test_admin_grid_draws_icons_from_one_sprite_even_when_first_card_is_running(
     _assert_icons_drawn_from_one_sprite(html)
 
 
+def test_admin_icon_order_counts_all_hook_files_once(client, admin_user, list_collection):
+    snapshot = list_collection[0]
+    # chrome's two hooks save 100 bytes, larger than hashes' 80 bytes. Keeping
+    # only its first successful hook incorrectly sorts chrome as 40 bytes.
+    client.force_login(admin_user)
+    response = client.get(reverse("admin:core_snapshot_changelist"), HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 200
+    row = _row(response.content.decode(), f'value="{snapshot.pk}"')
+    assert row.index('data-tooltip="chrome"') < row.index('data-tooltip="hashes"')
+
+
 def test_list_result_sizes_deduplicate_overlapping_failed_hooks_in_one_query(list_collection):
     from archivebox.core.list_results_util import load_snapshot_list_results
 
