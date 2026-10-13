@@ -47,7 +47,7 @@ again. **Reset progress** is a separate action.
 
 ## Plugin contract
 
-See the [browser importer](../../../abx-plugins/abx_plugins/plugins/importers_browser/README.md)
+See the [browser importer](https://github.com/ArchiveBox/abx-plugins/blob/main/abx_plugins/plugins/importers_browser/README.md)
 in the sibling repository. A plugin exposes `commands.import`, an `importers`
 mapping keyed by feed ID, and JSON Schema `properties` referenced by each feed's
 `config_fields`. The executable receives a versioned JSON request on stdin and

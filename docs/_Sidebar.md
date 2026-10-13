@@ -32,7 +32,7 @@
  - [[Setting up Authentication]] <small>(SSO/LDAP/etc)</small>
  - [[Setting up Search]] <small>(rg/sonic/etc)</small>
  - [[Scheduled Archiving]]
- - [[Archiving URLs from Google Sheets]]
+ - [Archiving URLs from Google Sheets](https://github.com/ArchiveBox/ArchiveBox/wiki/Archiving-URLs-from-Google-Sheets)
  - 💬 [Chat Bots](Integrating-with-Slack)
  - [[Publishing Your Archive]]
  - [[Chromium Install]]

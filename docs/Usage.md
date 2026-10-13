@@ -126,7 +126,7 @@ archivebox add < safari_history.json
 
 ### Import browser cookies into a persona
 
-See [Chrome profile setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile) for cookies, bookmarks, and host/Docker imports. Select the imported identity with `archivebox add --persona=personal URL`.
+See [Chrome profile setup](Chromium-Install.md#import-an-existing-browser-profile) for cookies, bookmarks, and host/Docker imports. Select the imported identity with `archivebox add --persona=personal URL`.
 
 <br/>
 

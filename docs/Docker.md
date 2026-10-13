@@ -1,6 +1,6 @@
 # Docker
 
-For desktop browser cookies and bookmarks, see [Chrome profile setup](https://github.com/ArchiveBox/ArchiveBox/wiki/Chromium-Install#import-an-existing-browser-profile).
+For desktop browser cookies and bookmarks, see [Chrome profile setup](Chromium-Install.md#import-an-existing-browser-profile).
 
 ## Overview
 
