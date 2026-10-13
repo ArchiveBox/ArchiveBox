@@ -178,7 +178,7 @@ def test_recovery_restarts_interrupted_captures_from_scratch(cached_abxpkg_lib_d
 
 
 @pytest.mark.django_db(transaction=True)
-def test_recovery_gives_up_on_capture_that_was_already_restarted_from_scratch():
+def test_recovery_restarts_repeated_interruptions_without_inferring_attempts(cached_abxpkg_lib_dir):
     from datetime import timedelta
 
     from django.utils import timezone
@@ -188,32 +188,47 @@ def test_recovery_gives_up_on_capture_that_was_already_restarted_from_scratch():
     from archivebox.core.recovery_util import recover_orchestrator_state
     from archivebox.crawls.models import Crawl
 
-    # No selected Snapshot hooks: one attempt may take at most
-    # compute_phase_timeout's 60s floor + 120s = 180s.
+    from archivebox.core.models import ArchiveResult
+    from archivebox.services.runner import run_crawl
+
     now = timezone.now()
     crawl = Crawl.objects.create(
         urls="https://example.com/retried\nhttps://example.com/once",
         created_by_id=get_or_create_system_user_pk(),
-        config={"PLUGINS": "__archivebox_test_no_plugins__"},
+        config={"PLUGINS": "hashes", "TIMEOUT": 3600},
         status=Crawl.StatusChoices.STARTED,
         retry_at=now,
     )
     retried = _interrupted_snapshot(crawl, "https://example.com/retried", retry_at=now - timedelta(hours=1))
     _exited_hook_run(retried, started_at=now - timedelta(hours=2))
     _exited_hook_run(retried, started_at=now - timedelta(minutes=10))
-    # Cabbage: interrupted Oct 9 and never retried since (59h+).
     once = _interrupted_snapshot(crawl, "https://example.com/once", retry_at=now - timedelta(hours=59))
     _exited_hook_run(once, started_at=now - timedelta(hours=59))
+    # A deployment or config change can reduce today's timeout. Old process
+    # timestamps cannot establish how many whole captures were interrupted.
+    crawl.config["TIMEOUT"] = 60
+    crawl.save(update_fields=["config"])
 
+    recovered_at = timezone.now()
     recover_orchestrator_state()
 
-    retried.refresh_from_db()
-    once.refresh_from_db()
-    assert retried.status == Snapshot.StatusChoices.SEALED
-    assert retried.retry_at is None
-    assert retried.downloaded_at is None
-    assert once.status == Snapshot.StatusChoices.QUEUED
-    assert once.retry_at <= timezone.now()
+    for snapshot in (retried, once):
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.QUEUED
+        assert snapshot.retry_at <= timezone.now()
+        assert snapshot.downloaded_at is None
+
+    run_crawl(str(crawl.id), show_progress=False)
+
+    for snapshot in (retried, once):
+        snapshot.refresh_from_db()
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.downloaded_at >= recovered_at
+        result = ArchiveResult.objects.get(snapshot=snapshot, plugin="hashes")
+        assert result.start_ts >= recovered_at
+        assert result.status == ArchiveResult.StatusChoices.SUCCEEDED
+        assert result.process.exit_code == 0
+        assert (snapshot.output_dir / "hashes" / "hashes.json").is_file()
 
 
 def _create_crawl(data_dir, env, *urls):

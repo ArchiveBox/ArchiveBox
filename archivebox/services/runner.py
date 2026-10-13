@@ -167,22 +167,8 @@ async def _run_event_now(event, timeout: float | None = None):
 
 
 def snapshot_attempt_timeout(plugins: PluginCatalog, config: dict[str, Any]) -> float:
-    # The hard ceiling the runner gives one complete capture attempt. Recovery
-    # reuses it to tell a capture restarted before from a first interruption.
+    # The hard ceiling the runner gives one complete capture attempt.
     return compute_phase_timeout(plugins.hooks("Snapshot"), config) + 120.0
-
-
-def resolve_snapshot_attempt_timeout(snapshot) -> float:
-    """The attempt ceiling run_snapshot would use, resolved outside a runner."""
-    from archivebox.config.common import get_config
-    from archivebox.plugins.discovery import get_enabled_plugins
-
-    config = get_config(crawl=snapshot.crawl, snapshot=snapshot)
-    plugin_names = [str(name).strip() for name in (snapshot.config or {}).get("RETRY_PLUGINS") or [] if str(name).strip()]
-    plugin_names = plugin_names or [name.strip() for name in str(config.get("PLUGINS") or "").split(",") if name.strip()]
-    plugin_names = plugin_names or get_enabled_plugins(config=config)
-    catalog = get_plugin_catalog()
-    return snapshot_attempt_timeout(catalog.select(plugin_names) if plugin_names else catalog, normalize_runtime_config(config))
 
 
 def ensure_background_runner() -> bool:
