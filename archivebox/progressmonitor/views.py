@@ -171,6 +171,10 @@ def live_progress_view(request, *, authorized_snapshot=None):
             crawl_scope = crawl_scope.filter(created_by=request.user)
             snapshot_scope = snapshot_scope.filter(crawl__created_by=request.user)
             archiveresult_scope = archiveresult_scope.filter(snapshot__crawl__created_by=request.user)
+        # Header badges (queued, active, workers, throughput) always describe the
+        # admin's whole collection; only the tree below follows the page's scope.
+        # Guests on a public snapshot page only ever see that snapshot.
+        header_crawl_scope, header_snapshot_scope, header_archiveresult_scope = crawl_scope, snapshot_scope, archiveresult_scope
         if scoped_snapshot is not None:
             snapshot_scope = Snapshot.objects.filter(id=scoped_snapshot.id)
             crawl_scope = Crawl.objects.filter(id=scoped_snapshot.crawl_id)
@@ -179,6 +183,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
             snapshot_scope = snapshot_scope.filter(crawl_id=crawl_id_filter)
             crawl_scope = crawl_scope.filter(id=crawl_id_filter)
             archiveresult_scope = archiveresult_scope.filter(snapshot__crawl_id=crawl_id_filter)
+        if not is_admin:
+            header_crawl_scope, header_snapshot_scope, header_archiveresult_scope = crawl_scope, snapshot_scope, archiveresult_scope
 
         def is_current_run_timestamp(event_ts, run_started_at) -> bool:
             if run_started_at is None:
@@ -260,7 +266,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
         # Get model counts by status
         crawl_status_counts = Crawl.status_counts(
-            crawl_scope,
+            header_crawl_scope,
             (Crawl.StatusChoices.QUEUED, Crawl.StatusChoices.STARTED),
         )
         crawls_queued = crawl_status_counts.get(Crawl.StatusChoices.QUEUED, 0)
@@ -271,10 +277,10 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
         one_day_ago = now - timedelta(days=1)
         paused_crawl_cutoff = now - timedelta(hours=12)
-        crawls_recent = crawl_scope.filter(created_at__gte=one_day_ago).count()
+        crawls_recent = header_crawl_scope.filter(created_at__gte=one_day_ago).count()
 
         # Active captures are counted from live hook processes below.
-        snapshot_status_counts = Snapshot.status_counts(snapshot_scope, (Snapshot.StatusChoices.QUEUED,))
+        snapshot_status_counts = Snapshot.status_counts(header_snapshot_scope, (Snapshot.StatusChoices.QUEUED,))
         snapshots_queued = snapshot_status_counts.get(Snapshot.StatusChoices.QUEUED, 0)
         snapshots_active = snapshot_status_counts.get(Snapshot.StatusChoices.STARTED, 0)
 
@@ -289,7 +295,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
         # per open result) replaces two COUNTs that filtered on those joined
         # statuses and cost ~40ms per poll on a large collection.
         result_counts = list(
-            archiveresult_scope.filter(status__in=result_statuses)
+            header_archiveresult_scope.filter(status__in=result_statuses)
             .order_by()
             .values("status", "plugin", "snapshot__status", "snapshot__crawl__status")
             .annotate(count=Count("*")),
@@ -509,7 +515,7 @@ def live_progress_view(request, *, authorized_snapshot=None):
         # just the displayed window (and still work when the tree is skipped).
         worker_snapshot_crawls = {
             str(snapshot_id).replace("-", ""): str(crawl_id).replace("-", "")
-            for snapshot_id, crawl_id in snapshot_scope.filter(status=Snapshot.StatusChoices.STARTED).values_list("id", "crawl_id")
+            for snapshot_id, crawl_id in header_snapshot_scope.filter(status=Snapshot.StatusChoices.STARTED).values_list("id", "crawl_id")
         }
         worker_snapshot_crawls.update({snapshot_id: snapshot["crawl_id"] for snapshot_id, snapshot in snapshots_by_id.items()})
         # The running crawl heartbeats modified_at, so it is always among the
@@ -1063,8 +1069,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
             payload["metrics"] = progress_metrics(
                 request.user,
-                crawl_id=crawl_id_filter or None,
-                snapshot_id=snapshot_id_filter or None,
+                crawl_id=None,
+                snapshot_id=None,
                 rclone_stats_file=request_config.PROGRESS_RCLONE_STATS_FILE,
             )
         try:
