@@ -3,15 +3,15 @@ __package__ = "archivebox.misc"
 # Bootable utility functions (URL parsing, date parsing, JSON encoding, decorators).
 # MUST NOT import archivebox.config, archivebox.core, or Django — this module is
 # loaded by hooks.py and other early code paths. Only depends on stdlib and the
-# bootable .logging module and standalone abx_plugins URL helpers.
+# bootable .logging module and standalone abx_plugins URL helpers. Unicode
+# hostname conversion lazily uses the already-required pydantic-core URL parser.
 
 import re
 import json as pyjson
 import http.cookiejar
-import unicodedata
 from decimal import Decimal, InvalidOperation
 
-from typing import Any
+from typing import Any, cast
 from collections.abc import Callable
 from pathlib import Path
 from inspect import signature
@@ -160,8 +160,6 @@ def validate_url(url: str) -> str:
 _URI_SAFE_CHARS = "!#$%&'()*+,/:;=?@[]~"
 # Inside a userinfo component ":" and "@" are data, not delimiters.
 _USERINFO_SAFE_CHARS = "!$%&'()*+,;=~"
-# Label separators UTS #46 accepts: ASCII, ideographic, fullwidth, halfwidth.
-_IDNA_DOTS = re.compile("[.\u3002\uff0e\uff61]")
 # A run of escaped bytes that may spell non-ASCII UTF-8 text.
 _ESCAPED_NON_ASCII = re.compile(r"(?:%[89a-fA-F][0-9a-fA-F])+")
 
@@ -180,9 +178,9 @@ def _split_netloc(netloc: str) -> tuple[str, str, str, str]:
 def iri_to_uri(url: str) -> str:
     """Return the ASCII URI a browser would request for a (possibly Unicode) URL.
 
-    Hostnames get UTS #46 nontransitional IDNA like Chrome (not Python's IDNA
-    2003 codec, which maps straße.de to the different strasse.de; NFKC plus
-    lowercase also folds fullwidth letters and dots). Userinfo is escaped per
+    Unicode hostnames use pydantic-core's WHATWG URL parser, preserving ß/ς
+    and emoji while rejecting invalid combining characters and joiners.
+    Invalid hostnames raise ValueError. Userinfo is escaped per
     component; everything else outside the URI grammar is UTF-8 percent-encoded.
     Delimiters and existing %XX escapes are kept, so ASCII URLs are unchanged.
     """
@@ -192,8 +190,9 @@ def iri_to_uri(url: str) -> str:
         username, colon, password = userinfo.partition(":")
         userinfo = quote(username, safe=_USERINFO_SAFE_CHARS) + colon + quote(password, safe=_USERINFO_SAFE_CHARS)
     if not host.isascii():
-        labels = _IDNA_DOTS.split(unicodedata.normalize("NFKC", host).lower())
-        host = ".".join(label if label.isascii() else "xn--" + label.encode("punycode").decode() for label in labels)
+        from pydantic_core import Url
+
+        host = cast(str, Url(f"https://{host}/").host)
     ascii_netloc = f"{userinfo}{at}{host}{port}"
     if ascii_netloc != netloc:
         url = url.replace(netloc, ascii_netloc, 1)

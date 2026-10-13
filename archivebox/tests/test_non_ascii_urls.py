@@ -48,6 +48,29 @@ def test_validate_url_keeps_iri_and_credentials_as_submitted():
     assert iri_to_uri(ascii_url) == ascii_url
 
 
+@pytest.mark.parametrize(
+    ("host", "ascii_host"),
+    [
+        ("Straße.example", "xn--strae-oqa.example"),
+        ("ς.example", "xn--3xa.example"),
+        ("😀.example", "xn--e28h.example"),
+        ("a\u200bb.example", "ab.example"),
+        ("a\u00adb.example", "ab.example"),
+        ("a\u034fb.example", "ab.example"),
+        ("\ufeffexample.com", "example.com"),
+        ("a\ufe0fb.example", "ab.example"),
+    ],
+)
+def test_iri_hostname_uses_browser_idna_mapping(host, ascii_host):
+    assert iri_to_uri(f"https://{host}/über") == f"https://{ascii_host}/%C3%BCber"
+
+
+@pytest.mark.parametrize("host", ["a\u200cb.example", "a\u200db.example", "\u0308.example"])
+def test_iri_hostname_rejects_invalid_joiners_and_combining_labels(host):
+    with pytest.raises(ValueError):
+        iri_to_uri(f"https://{host}/")
+
+
 @pytest.mark.django_db
 @pytest.mark.parametrize(
     "url",
@@ -55,6 +78,8 @@ def test_validate_url_keeps_iri_and_credentials_as_submitted():
         "http://ａｄｍｉｎ.archivebox.localhost:5797/admin/",
         "http://admin.archivebox.localhost．:5797/admin/",
         "http://１２７.０.０.１:5797/",
+        "http://a\u200bdmin.archivebox.localhost:5797/admin/",
+        "http://12\u00ad7.0.0.1:5797/",
     ],
 )
 def test_self_archive_protection_folds_unicode_hostnames(url):
