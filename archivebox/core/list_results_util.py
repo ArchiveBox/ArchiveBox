@@ -188,7 +188,11 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
             Cast("output_files", output_field=TextField()),
         )
         for result_id, output_files_json in manifests:
-            needs_manifest[result_id.replace("-", "")].output_files_json = output_files_json
+            result = needs_manifest[result_id.replace("-", "")]
+            result.output_files_json = output_files_json
+            # Resolve now, so the next view finds every fetched row cached even
+            # when this one never rendered it (hidden icons, unused thumbnails).
+            result.embed_path()
 
     for snapshot_hex, summary in summaries.items():
         card_row = snapshot_thumbnail_result(summary.results)
