@@ -1157,23 +1157,10 @@
             (() => {
                 const frame = document.getElementById('main-frame')
                 if (!frame) return
-                const snapshotBaseUrlEarly = "{% snapshot_base_url snapshot %}"
-                const snapshotFilesUrlEarly = "{% snapshot_files_url snapshot %}"
-                const defaultSrc = frame.dataset.defaultSrc || snapshotFilesUrlEarly
-                // Hash fragments hold an encoded output path; decoding changes literal percent bytes in filenames.
-                const rawHash = window.location.hash ? window.location.hash.slice(1) : ''
-
-                function resolveEarlyPreviewUrl(raw) {
-                    if (!raw) return defaultSrc
-                    let value = raw
-                    if (value === 'all') return snapshotFilesUrlEarly
-                    if (value.startsWith('http://') || value.startsWith('https://')) return value
-                    if (value.startsWith('//')) return window.location.protocol + value
-                    value = value.replace(/^\/+/, '')
-                    return `${snapshotBaseUrlEarly}/${value}`
-                }
-
-                const target = resolveEarlyPreviewUrl(rawHash)
+                // Saved hashes omit preview=1. Let the card selection below resolve
+                // their actual viewer URL instead of starting a raw-file download.
+                if (window.location.hash) return
+                const target = frame.dataset.defaultSrc || "{% snapshot_files_url snapshot %}"
                 if (target) {
                     if (target.endsWith('.pdf')) {
                         frame.removeAttribute('sandbox')

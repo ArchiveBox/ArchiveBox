@@ -1225,8 +1225,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 // Not paint timing: the parent covers this frame with the
                 // screenshot until we signal, and Chrome records no
                 // first-contentful-paint for a fully covered frame (deadlock).
+                // Text-only and empty bodies are valid loaded documents too.
                 if (child.location.pathname.includes('/replay/w/') &&
-                    doc.readyState !== 'loading' && doc.body && doc.body.childElementCount) return true;
+                    doc.readyState !== 'loading' && doc.body) return true;
                 if (painted(doc)) return true;
             } catch (error) {}
         }

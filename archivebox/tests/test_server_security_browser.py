@@ -9,6 +9,9 @@ import time
 import subprocess
 import textwrap
 from pathlib import Path
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 from urllib.parse import urlencode
 
 import pytest
@@ -236,6 +239,7 @@ let probeBrowser;
 let probeStage = "launch";
 const probeConsoleMessages = [];
 const probeRequestFailures = [];
+const probeDownloads = [];
 
 function isDescendantOf(frame, ancestor) {
   let parent = frame.parentFrame();
@@ -267,6 +271,7 @@ async function readPreviewText(page, expectedText) {
 
   const frameState = [];
   for (const frame of frames) {
+    if (!previewFrame || !isDescendantOf(frame, previewFrame) || !frame.url().includes("/replay/w/")) continue;
     const text = await frameText(frame);
     frameState.push({
       name: frame.name(),
@@ -275,12 +280,13 @@ async function readPreviewText(page, expectedText) {
       underPreview: previewFrame ? isDescendantOf(frame, previewFrame) : false,
       textSample: text.slice(0, 240),
     });
-    if (previewFrame && (frame === previewFrame || isDescendantOf(frame, previewFrame)) && text.includes(expectedText)) {
+    if (text.includes(expectedText)) {
       return {
         matched: true,
         previewUrl: previewFrame.url(),
         matchedFrameUrl: frame.url(),
         matchedFrameName: frame.name(),
+        bodyChildren: await frame.evaluate(() => document.body.childElementCount),
         textSample: text.slice(0, 400),
       };
     }
@@ -288,16 +294,6 @@ async function readPreviewText(page, expectedText) {
   return {matched: false, frames: frameState};
 }
 
-async function waitForPreviewReady(frame) {
-  return await frame.evaluate(() => {
-    if (window.archiveboxReplayError) throw new Error(window.archiveboxReplayError);
-    if (window.archiveboxReplayReady) return window.archiveboxReplayReady;
-    return new Promise((resolve, reject) => {
-      window.addEventListener("archivebox-replay-ready", (event) => resolve(event.detail), {once: true});
-      window.addEventListener("archivebox-replay-error", (event) => reject(new Error(event.detail)), {once: true});
-    });
-  });
-}
 
 async function main() {
   const config = JSON.parse(fs.readFileSync(0, "utf8"));
@@ -311,6 +307,9 @@ async function main() {
     ],
   });
   probeBrowser = browser;
+  const downloadSession = await browser.target().createCDPSession();
+  await downloadSession.send('Browser.setDownloadBehavior', {behavior: 'default', eventsEnabled: true});
+  downloadSession.on('Browser.downloadWillBegin', ({url, suggestedFilename}) => probeDownloads.push({url, suggestedFilename}));
 
   const page = await browser.newPage();
   probePage = page;
@@ -327,18 +326,39 @@ async function main() {
     });
   });
 
+  await page.evaluateOnNewDocument(() => {
+    window.replayCoverObserved = false;
+    window.replayPaintedObserved = false;
+    window.addEventListener('message', (event) => {
+      if (event.source === document.getElementById('main-frame')?.contentWindow && event.data?.type === 'archivebox-replay-painted') {
+        window.replayPaintedObserved = true;
+      }
+    });
+    new MutationObserver((records) => {
+      if (records.some((record) => Array.from(record.addedNodes).some((node) => node.id === 'replay-screenshot-cover'))) {
+        window.replayCoverObserved = true;
+      }
+    }).observe(document, {childList: true, subtree: true});
+  });
   probeStage = "detail navigation";
   const response = await page.goto(config.detailUrl, {
     waitUntil: "domcontentloaded",
     timeout: 30000,
   });
   probeStage = "preview frame navigation";
-  const previewFrame = await page.waitForFrame((frame) => {
+  await page.waitForFrame((frame) => {
     const url = frame.url();
     return url.includes("/archivewebpage/archivewebpage.wacz") && url.includes("preview=1");
   });
-  probeStage = "replay ready";
-  await waitForPreviewReady(previewFrame);
+  probeStage = "screenshot cover dismissal";
+  await page.waitForFunction(() =>
+    window.replayPaintedObserved && !document.getElementById('replay-screenshot-cover'),
+    {polling: 50, timeout: 10000});
+  const coverState = await page.evaluate(() => ({
+    observed: window.replayCoverObserved,
+    dismissed: !document.getElementById('replay-screenshot-cover'),
+    screenshot: !!document.querySelector('.thumb-card[data-plugin-name="screenshot"] iframe'),
+  }));
   probeStage = "captured page content";
   const previewResult = await readPreviewText(page, config.expectedText);
 
@@ -347,6 +367,8 @@ async function main() {
     status: response ? response.status() : null,
     finalUrl: page.url(),
     previewResult,
+    coverState,
+    downloads: probeDownloads,
     consoleMessages: probeConsoleMessages,
     requestFailures: probeRequestFailures,
   }));
@@ -369,6 +391,9 @@ main().catch(async (error) => {
       diagnostics.document = await Promise.race([
         page.evaluate(() => ({
           title: document.title,
+          coverObserved: window.replayCoverObserved,
+          replayObserved: window.replayPaintedObserved,
+          coverPresent: !!document.getElementById('replay-screenshot-cover'),
           bodyText: document.body?.innerText.slice(0, 1000),
           frameSources: Array.from(document.querySelectorAll("iframe")).map((frame) => frame.src),
         })),
@@ -765,6 +790,7 @@ def _run_wacz_preview_probe(
     runtime: dict[str, Path | str],
     detail_url: str,
     tmp_path: Path,
+    expected_text: str,
 ) -> dict[str, object]:
     probe_path = tmp_path / "wacz_preview_probe.js"
     probe_path.write_text(PUPPETEER_WACZ_PREVIEW_SCRIPT, encoding="utf-8")
@@ -783,7 +809,7 @@ def _run_wacz_preview_probe(
             {
                 "chromePath": str(runtime["chrome_binary"]),
                 "detailUrl": detail_url,
-                "expectedText": "This domain is for use in documentation examples",
+                "expectedText": expected_text,
             },
         ),
         capture_output=True,
@@ -920,9 +946,33 @@ def test_server_security_modes_in_chrome(
             assert "swagger" in probe_results["api"]["sample"].lower()
 
 
+@pytest.fixture
+def wacz_source_site(tmp_path):
+    root = tmp_path / "wacz-source"
+    root.mkdir()
+    (root / "text-only.html").write_text("<html><body>Archived plain body text</body></html>", encoding="utf-8")
+    (root / "empty.html").write_text("<html><body></body></html>", encoding="utf-8")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(SimpleHTTPRequestHandler, directory=str(root)))
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.timeout(600)
-def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archive: Path, browser_runtime, tmp_path: Path) -> None:
+@pytest.mark.parametrize("page_kind", ["example", "text-only", "empty"])
+def test_archivewebpage_wacz_preview_serves_real_capture_frame(
+    initialized_archive: Path,
+    browser_runtime,
+    tmp_path: Path,
+    wacz_source_site,
+    page_kind,
+) -> None:
     from archivebox.core.routes_util import get_snapshot_subdomain
 
     node_binary = Path(browser_runtime["node_binary"])
@@ -936,12 +986,16 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
             f"{stage} changed the browser runtime: {node_target} ({node_version}) -> {actual_target} ({actual_version})"
         )
 
-    url = "https://example.com"
+    url = "https://example.com" if page_kind == "example" else f"{wacz_source_site}/{page_kind}.html"
+    expected_text = {"example": "This domain is for use in documentation examples", "text-only": "Archived plain body text", "empty": ""}[
+        page_kind
+    ]
+    plugins = "archivewebpage,screenshot"
     port = get_free_port()
     env = cli_env(
         port=port,
         server=True,
-        PLUGINS="archivewebpage",
+        PLUGINS=plugins,
         BASE_URL=f"http://archivebox.localhost:{port}",
         URL_ALLOWLIST="",
         PUBLIC_INDEX="True",
@@ -986,7 +1040,7 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
         get_http_response(port, host=f"archivebox.localhost:{port}", path="/")
         assert_browser_runtime_unchanged("archivebox server startup")
         command_result = run_archivebox_cmd(
-            ["add", "--depth=0", "--max-urls=1", "--plugins=archivewebpage", url],
+            ["add", "--depth=0", "--max-urls=1", f"--plugins={plugins}", url],
             cwd=initialized_archive,
             env=env,
             timeout=120,
@@ -1012,12 +1066,16 @@ def test_archivewebpage_wacz_preview_serves_real_capture_frame(initialized_archi
         assert "archivewebpage-thumbnail" in card.text
         assert f"http://web.archivebox.localhost:{port}" in card.headers["Content-Security-Policy"]
         detail_url = f"http://{snapshot_host}/#archivewebpage/archivewebpage.wacz"
-        result = _run_wacz_preview_probe(initialized_archive, browser_runtime, detail_url, tmp_path)
+        result = _run_wacz_preview_probe(initialized_archive, browser_runtime, detail_url, tmp_path, expected_text=expected_text)
     finally:
         if process is not None:
             stop_archivebox_process(process)
 
     assert result["status"] == 200
+    assert result["downloads"] == [], json.dumps(result, indent=2)
+    assert result["coverState"] == {"observed": True, "dismissed": True, "screenshot": True}, json.dumps(result, indent=2)
     assert result["previewResult"]["matched"], json.dumps(result, indent=2)
     assert "/archivewebpage/archivewebpage.wacz" in result["previewResult"]["previewUrl"]
     assert result["previewResult"]["matchedFrameUrl"] != result["finalUrl"]
+    if page_kind != "example":
+        assert result["previewResult"]["bodyChildren"] == 0, json.dumps(result, indent=2)
