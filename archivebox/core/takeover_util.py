@@ -117,20 +117,32 @@ def ensure_daemon_stack(*, reason: str = ""):
         start_worker,
     )
 
+    try:
+        from abx_plugins.plugins.search_backend_sonic.daemon import SONIC_WORKER_NAME, is_port_listening, is_sonic_backend_enabled
+    except ModuleNotFoundError as err:
+        if err.name != "abx_plugins.plugins.search_backend_sonic.daemon":
+            raise
+        return None
+
     config = get_config()
+    if not is_sonic_backend_enabled(config):
+        return None
+
+    host = str(config.SEARCH_BACKEND_SONIC_HOST_NAME)
+    port = int(config.SEARCH_BACKEND_SONIC_PORT)
+    # Search only needs the existing server's protocol endpoint. Preparing a
+    # worker installs/resolves its binary and rewrites its config, so reserve
+    # that work for a daemon we actually need to start.
+    if is_port_listening(host, port):
+        return {
+            "name": SONIC_WORKER_NAME,
+            "statename": "RUNNING",
+            "description": f"existing Sonic daemon at tcp://{host}:{port}",
+        }
+
     sonic_worker = get_sonic_supervisord_worker_from_plugin(config)
     if sonic_worker is None:
         return None
-
-    from abx_plugins.plugins.search_backend_sonic.daemon import is_port_listening, prepare_sonic_daemon
-
-    sonic_event = prepare_sonic_daemon(config)
-    if is_port_listening(sonic_event.host, sonic_event.port):
-        return {
-            "name": sonic_event.worker_name,
-            "statename": "RUNNING",
-            "description": f"existing Sonic daemon at {sonic_event.url}",
-        }
 
     supervisor = get_existing_supervisord_process() or get_or_create_supervisord_process(daemonize=False)
     worker = get_worker(supervisor, sonic_worker["name"])
@@ -144,7 +156,7 @@ def ensure_daemon_stack(*, reason: str = ""):
     # the daemon is about to become ready.
     deadline = time.monotonic() + 30.0
     while time.monotonic() < deadline:
-        if is_port_listening(sonic_event.host, sonic_event.port):
+        if is_port_listening(host, port):
             if time.monotonic() < deadline:
                 return worker
             break
@@ -152,7 +164,7 @@ def ensure_daemon_stack(*, reason: str = ""):
         if not isinstance(worker, dict) or worker.get("statename") not in ("STARTING", "RUNNING"):
             raise RuntimeError(f"Sonic search backend worker failed to start: {worker}")
         time.sleep(min(0.1, max(0.0, deadline - time.monotonic())))
-    raise RuntimeError(f"Sonic search backend is not listening at {sonic_event.url}")
+    raise RuntimeError(f"Sonic search backend is not listening at tcp://{host}:{port}")
 
 
 def live_runner_processes(*, data_dir: str | Path):

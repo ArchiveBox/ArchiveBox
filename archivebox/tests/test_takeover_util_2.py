@@ -131,6 +131,35 @@ def test_interactive_add_borrowing_server_supervisor_can_abort(initialized_archi
         assert_no_processes_for_data_dir(initialized_archive, timeout=12)
 
 
+def test_search_reuses_running_sonic_without_rewriting_daemon_config(initialized_archive, archivebox_daemon_server):
+    env = cli_env(live=True, ABXPKG_LIB_DIR=str(initialized_archive / "lib"))
+    sonic_env = _resolve_sonic_env(env)
+    server = archivebox_daemon_server(
+        PLUGINS="search_backend_sonic",
+        SEARCH_BACKEND_ENGINE="sonic",
+        SONIC_BINARY=sonic_env["SONIC_BINARY"],
+        ABXPKG_LIB_DIR=env["ABXPKG_LIB_DIR"],
+    )
+    before = server.wait_for_workers(("worker_sonic",))
+    # A real first query waits for Sonic's search socket after supervisord
+    # reports RUNNING; the second must reuse that ready daemon without writes.
+    command = ["list", "--search=contents", "--csv=url", "not-indexed"]
+    first = run_archivebox_cmd(command, cwd=server.data_dir, env=server.env, timeout=60)
+    assert first.returncode == 0, first.stderr or first.stdout
+    assert first.stdout == ""
+    config_path = server.data_dir / "sonic" / "config.cfg"
+    original_config = config_path.read_bytes()
+    original_stat = config_path.stat()
+
+    second = run_archivebox_cmd(command, cwd=server.data_dir, env=server.env, timeout=60)
+    assert second.returncode == 0, second.stderr or second.stdout
+    assert second.stdout == ""
+    assert config_path.read_bytes() == original_config
+    assert config_path.stat().st_mtime_ns == original_stat.st_mtime_ns
+    assert config_path.stat().st_ino == original_stat.st_ino
+    assert server.worker_state()["worker_sonic"]["pid"] == before["worker_sonic"]["pid"]
+
+
 def test_explicit_sonic_binary_is_used_by_real_search_worker(initialized_archive):
     sonic_port = get_free_port()
     lib_dir = initialized_archive / "lib"
