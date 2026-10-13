@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from django.db import connection
-from django.db.models import Case, CharField, Q, TextField, Value, When
+from django.db.models import BooleanField, Case, CharField, Q, TextField, Value, When
 from django.db.models.functions import Cast
 from django.db.models.base import DEFERRED
 
@@ -38,6 +38,12 @@ if TYPE_CHECKING:
 
 
 _UNRESOLVED = object()
+
+# A result's embed path only changes with its row. Decoding manifests (some list
+# thousands of files) on every page view was the largest part of the snapshot
+# list's time on prod, so resolve each once per row version, per process.
+_EMBED_PATHS: dict[str, tuple[tuple[Any, ...], str | None]] = {}
+_EMBED_PATHS_MAX = 50_000
 
 
 @dataclass(slots=True, eq=False)
@@ -55,12 +61,19 @@ class ListResult:
     status: str
     output_size: int
     output_str: str
-    # Undecoded output_files JSON, shipped only for rows that can render a link.
+    # Row version (modified_at, size, status) keying the process-wide path cache.
+    version: tuple[Any, ...] = ()
+    # Undecoded output_files JSON, fetched only for rows that can render a link
+    # and whose path is not cached for this version.
     output_files_json: str | None = None
     _embed_path: Any = _UNRESOLVED
 
     def embed_path(self) -> str | None:
         if self._embed_path is _UNRESOLVED:
+            cached = _EMBED_PATHS.get(self.id)
+            if cached is not None and cached[0] == self.version:
+                self._embed_path = cached[1]
+                return self._embed_path
             if self.output_files_json is None:
                 raise LookupError(f"embed path of {self.plugin} result {self.id} was not loaded for this list page")
             # Decode on first use: rendering asks only for the results it
@@ -68,6 +81,9 @@ class ListResult:
             # file), so later hooks' and unused candidates' manifests stay text.
             output_files = json.loads(self.output_files_json)
             self._embed_path = ArchiveResult.resolve_embed_path(self.plugin, self.output_str, output_files or {})
+            if len(_EMBED_PATHS) > _EMBED_PATHS_MAX:
+                _EMBED_PATHS.clear()
+            _EMBED_PATHS[self.id] = (self.version, self._embed_path)
         return self._embed_path
 
 
@@ -140,26 +156,39 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
             "status",
             "output_size",
             "output_str",
-            Case(When(links_output, then=Cast("output_files", output_field=TextField())), default=Value(None), output_field=TextField()),
+            Cast("modified_at", output_field=CharField()),
+            # Whether this row can render a link (and so may need its manifest).
+            Case(When(links_output, then=Value(True)), default=Value(False), output_field=BooleanField()),
         )
     )
-    for result_id, snapshot_id, plugin, status, output_size, output_str, output_files_json in rows:
+    needs_manifest: dict[str, ListResult] = {}
+    for result_id, snapshot_id, plugin, status, output_size, output_str, modified_at, links in rows:
         # PostgreSQL renders uuid as text with dashes; SQLite stores bare hex.
         summary = summaries[snapshot_id.replace("-", "")]
         if not plugin:
             summary.unnamed_status_counts[status] += 1
             continue
-        summary.results.append(
-            ListResult(
-                result_id.replace("-", ""),
-                snapshot_id.replace("-", ""),
-                plugin,
-                status,
-                output_size or 0,
-                output_str,
-                output_files_json,
-            ),
+        result = ListResult(
+            result_id.replace("-", ""),
+            snapshot_id.replace("-", ""),
+            plugin,
+            status,
+            output_size or 0,
+            output_str,
+            (modified_at, output_size, status),
         )
+        summary.results.append(result)
+        cached = _EMBED_PATHS.get(result.id)
+        if links and (cached is None or cached[0] != result.version):
+            needs_manifest[result.id] = result
+    if needs_manifest:
+        # Manifests only for linkable rows whose path is not cached yet.
+        manifests = ArchiveResult.objects.filter(id__in=[compact_uuid(result_id) for result_id in needs_manifest]).values_list(
+            Cast("id", output_field=CharField()),
+            Cast("output_files", output_field=TextField()),
+        )
+        for result_id, output_files_json in manifests:
+            needs_manifest[result_id.replace("-", "")].output_files_json = output_files_json
 
     for snapshot_hex, summary in summaries.items():
         card_row = snapshot_thumbnail_result(summary.results)
