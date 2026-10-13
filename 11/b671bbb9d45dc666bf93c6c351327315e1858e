@@ -1,0 +1,49 @@
+archivebox/core/context_processors.py
+  s_e37750da3e6d76::t_3306e49372228d 18
+archivebox/core/list_results_util.py
+  s_e37750da3e6d76::t_98a74bc7c1b471 12-16,29,58,61-68,72,132-135,148-152,155,161-170
+archivebox/core/models.py
+  s_e37750da3e6d76::t_41fd3b778e818f 3813-3814
+archivebox/misc/util.py
+  s_e37750da3e6d76::t_9465ce80f152cf 239-244
+archivebox/plugins/output_groups.py
+  s_e37750da3e6d76::t_45e4bfb7fd2b3a 84-85,87,89-102
+archivebox/progressmonitor/templates/progressmonitor/progress_monitor.html
+  s_e37750da3e6d76::t_162993aded20f9 1994-1997,2000
+archivebox/progressmonitor/views.py
+  s_e37750da3e6d76::t_fe01b487aa05df 532,733-735,1034
+archivebox/services/archive_result_service.py
+  s_8dbda046044e96::t_bba75034234d8a 74-76
+archivebox/tests/test_non_ascii_urls.py
+  s_e37750da3e6d76::t_4da8df6412b3be 242-257
+archivebox/tests/test_progress_archive_size.py
+  s_e37750da3e6d76::t_ff159c7390d711 2,6-7,12-37,42-43,45,47,49-69,88-89
+archivebox/tests/test_snapshot_output_stacks.py
+  s_e37750da3e6d76::t_31a59d2cae035c 326,339-341
+archivebox/tests/test_ui_list_results.py
+  s_e37750da3e6d76::t_a7a31f13c2fabd 241-286
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "11b671bbb9d45dc666bf93c6c351327315e1858e",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    },
+    "s_e37750da3e6d76": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12df6-d0b4-7223-aa0c-cb6453586270",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
