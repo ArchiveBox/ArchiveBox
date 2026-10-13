@@ -5,6 +5,7 @@ from django.db import connection
 from django.db.models import prefetch_related_objects
 from django.template import Context, Template
 from django.test.utils import CaptureQueriesContext
+from django.utils.html import escapejs
 
 from archivebox.core.models import ArchiveResult
 
@@ -50,3 +51,29 @@ def test_snapshot_results_empty_selection_does_not_load_unrelated_results(snapsh
         rendered = card.render(Context({"snapshot": snapshot}))
     assert rendered == "0"
     assert len(queries) == 0
+
+
+@pytest.mark.parametrize("plugin", ["responses", "liteparse", "git"])
+def test_plugin_cards_query_only_their_source_manifests(snapshot, plugin):
+    from archivebox.core.templatetags.core_tags import render_plugin_card_document
+
+    results = {}
+    for name in ("responses", "staticfile", "wget", "liteparse", "papersdl", "git", "dom", "singlefile", "archivewebpage"):
+        results[name] = ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin=name,
+            status="succeeded",
+            output_str="index.html",
+            output_files={
+                f"{name}/asset-{index}.html": {"size": index, "mimetype": "text/html", "root_relative": True} for index in range(128)
+            },
+        )
+    with CaptureQueriesContext(connection) as queries:
+        rendered = render_plugin_card_document(Context({}), results[plugin])
+    manifest_queries = [query["sql"] for query in queries if '"core_archiveresult"' in query["sql"] and '"output_files"' in query["sql"]]
+    assert len(manifest_queries) == 1, manifest_queries
+    assert '"plugin" IN (' in manifest_queries[0]
+    columns = manifest_queries[0].split(" FROM ")[0]
+    assert '"output_str"' not in columns
+    assert escapejs("archivewebpage/asset-") not in rendered
+    assert escapejs("wget/asset-127.html") in rendered
