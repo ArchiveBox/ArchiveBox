@@ -499,7 +499,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         max_length=10,
         default="0.9.0",
         db_index=True,
-        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.5").',
+        help_text='Filesystem version of this snapshot (e.g., "0.7.0", "0.8.0", "0.9.4").',
     )
     retry_at = ModelWithQueue.RetryAtField(default=timezone.now)
     status = ModelWithQueue.StatusField(
