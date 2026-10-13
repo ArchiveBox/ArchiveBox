@@ -1,4 +1,5 @@
 import json
+import shutil
 from abx_plugins.plugins.opencode.archivebox.host_cases import (
     test_add_view_hides_agent_link_when_opencode_is_disabled as test_add_view_hides_agent_link_when_opencode_is_disabled,
 )
@@ -7,12 +8,14 @@ from abx_plugins.plugins.opencode.archivebox.host_cases import (
 import pytest
 from django.contrib.auth import get_user_model
 from django.test import Client
+from django.test.utils import CaptureQueriesContext
+from django.db import connection
 from django.urls import reverse
 
 from archivebox.config.common import ArchiveBoxConfig, get_config
 from archivebox.core.models import Snapshot, Tag
 from archivebox.crawls.models import Crawl
-from archivebox.machine.models import Machine
+from archivebox.machine.models import Binary, Machine
 from archivebox.personas.models import Persona
 from archivebox.services.runner import CrawlRunner
 from archivebox.workers.models import RETRY_AT_MAX
@@ -59,6 +62,47 @@ def admin_user(db):
 @pytest.fixture
 def public_add_enabled():
     return Machine.from_json({"config": {"PUBLIC_ADD_VIEW": True}})
+
+
+def test_add_view_batches_binary_links_and_preserves_persona_path_selection(client, admin_user):
+    machine = Machine.current()
+    wget_path = shutil.which("wget")
+    curl_path = shutil.which("curl")
+    assert wget_path and curl_path
+    older = Binary.objects.create(machine=machine, name="wget", abspath=wget_path, version="older")
+    newest = Binary.objects.create(machine=machine, name="wget", abspath=wget_path, version="newer")
+    exact_path = Binary.objects.create(machine=machine, name="custom-fetcher", abspath=curl_path, version="installed")
+    empty = Binary.objects.create(machine=machine, name="wget", abspath="", version="")
+    personas = {
+        "Named": ("WGET", newest),
+        "ExactPath": (curl_path, exact_path),
+        "Basename": ("/not-installed/wget", newest),
+        "Missing": ("missing-downloader", None),
+    }
+    for name, (value, _binary) in personas.items():
+        Persona.objects.create(name=name, config={"WGET_BINARY": value})
+    client.force_login(admin_user)
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
+    assert response.status_code == 200
+    configs = json.loads(response.context["persona_config_map_json"])
+    for name, (_value, binary) in personas.items():
+        url = configs[name]["binary_urls"]["WGET_BINARY"]
+        if binary:
+            assert binary.admin_change_url in url
+            assert empty.admin_change_url not in url
+        else:
+            assert url == "/admin/environment/binaries/missing-downloader/"
+    binary_queries = [query for query in queries if 'FROM "machine_binary"' in query["sql"]]
+    # One batch per persona, plus the form's own binary-link batch.
+    assert len(binary_queries) <= Persona.objects.count() + 2
+    newest.abspath = ""
+    newest.save(update_fields=["abspath"])
+    updated = client.get(reverse("add"), HTTP_HOST=ADMIN_HOST)
+    assert updated.status_code == 200
+    updated_configs = json.loads(updated.context["persona_config_map_json"])
+    assert older.admin_change_url in updated_configs["Named"]["binary_urls"]["WGET_BINARY"]
+    assert exact_path.admin_change_url in updated_configs["ExactPath"]["binary_urls"]["WGET_BINARY"]
 
 
 def test_add_view_renders_tag_editor_and_url_filter_fields(client, admin_user, public_add_enabled):

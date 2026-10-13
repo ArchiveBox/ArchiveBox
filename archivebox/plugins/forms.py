@@ -146,7 +146,8 @@ class PluginConfigFormMixin:
         all_plugins = set(catalog)
         plugin_configs = discover_plugin_configs()
         runtime_config = runtime_config or get_config()
-        self.plugin_config_binary_urls = get_plugin_config_binary_urls(runtime_config)
+        binary_url_lookup = _build_required_binary_url_lookup(plugin_configs, runtime_config)
+        self.plugin_config_binary_urls = get_plugin_config_binary_urls(runtime_config, binary_url_lookup)
         grouped_plugins = catalog.groups()
 
         group_specs = []
@@ -157,7 +158,6 @@ class PluginConfigFormMixin:
                 get_choice_field(self, field_name).choices = [
                     (p, get_plugin_choice_label(p, plugin_configs)) for p in plugin_names if p in all_plugins
                 ]
-        binary_url_lookup = _build_required_binary_url_lookup(plugin_configs, runtime_config)
         self.plugin_groups = [
             {
                 "field_name": field_name,
@@ -414,7 +414,9 @@ def _build_required_binary_url_lookup(
     plugin_configs: Mapping[str, dict[str, Any]],
     runtime_config: Mapping[str, Any],
 ) -> dict[str, str]:
-    """Resolve admin URLs for every required binary across all plugin schemas in a single DB query."""
+    """Resolve required/configured binary links together in one DB query."""
+    from django.db.models import Q
+    from django.db.models.functions import Lower
     from archivebox.config.views import get_environment_binary_url, get_installed_binary_change_url
     from archivebox.machine.models import Binary, Machine
 
@@ -422,14 +424,22 @@ def _build_required_binary_url_lookup(
     for schema in plugin_configs.values():
         for name in _iter_required_binary_names(schema.get("required_binaries") or [], runtime_config):
             resolved_names.add(name)
+        for key in schema.get("properties") or {}:
+            if key.endswith("_BINARY") and (value := str(runtime_config.get(key) or "").strip()):
+                resolved_names.add(value)
 
     if not resolved_names:
         return {}
 
     machine = Machine.current()
     name_to_binary: dict[str, Binary] = {}
+    path_to_binary: dict[str, Binary] = {}
+    names = {name.lower() for name in resolved_names}
+    names.update(Path(name).name.lower() for name in resolved_names if "/" in name)
     for binary in (
-        Binary.objects.filter(machine=machine, name__in=resolved_names)
+        Binary.objects.filter(machine=machine)
+        .alias(normalized_name=Lower("name"))
+        .filter(Q(normalized_name__in=names) | Q(abspath__in=resolved_names))
         .exclude(abspath="")
         .exclude(abspath__isnull=True)
         .order_by("-modified_at")
@@ -437,11 +447,17 @@ def _build_required_binary_url_lookup(
         key = binary.name.lower()
         if key not in name_to_binary:
             name_to_binary[key] = binary
+        path_to_binary.setdefault(binary.abspath, binary)
 
-    return {
-        name: (get_installed_binary_change_url(name, name_to_binary.get(name.lower())) or get_environment_binary_url(name))
-        for name in resolved_names
-    }
+    urls = {}
+    for value in resolved_names:
+        name = Path(value).name if "/" in value else value
+        binary = name_to_binary.get(value.lower())
+        if binary is None and "/" in value:
+            binary = path_to_binary.get(value) or name_to_binary.get(name.lower())
+        binary_name = binary.name if binary is not None else name
+        urls[value] = get_installed_binary_change_url(binary_name, binary) or get_environment_binary_url(name)
+    return urls
 
 
 def _build_required_binary_links(
@@ -462,34 +478,23 @@ def _build_required_binary_links(
     return links
 
 
-def get_plugin_config_binary_urls(runtime_config: Mapping[str, Any]) -> dict[str, str]:
-    from archivebox.config.views import get_environment_binary_url, get_installed_binary_change_url
-    from archivebox.machine.models import Binary, Machine
-
+def get_plugin_config_binary_urls(
+    runtime_config: Mapping[str, Any],
+    binary_url_lookup: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    plugin_configs = discover_plugin_configs()
     binary_keys = {
         str(config_key)
-        for schema in discover_plugin_configs().values()
+        for schema in plugin_configs.values()
         for config_key, prop_schema in (schema.get("properties") or {}).items()
         if isinstance(prop_schema, dict) and str(config_key).endswith("_BINARY")
     }
+    if binary_url_lookup is None:
+        binary_url_lookup = _build_required_binary_url_lookup(plugin_configs, runtime_config)
     urls: dict[str, str] = {}
-    machine = Machine.current()
     for key in binary_keys:
         value = str(runtime_config.get(key) or "").strip()
         if not value:
             continue
-        name = Path(value).name if "/" in value else value
-        binary = Binary.objects.get_valid_binary(value, machine=machine)
-        if binary is None and "/" in value:
-            binary = (
-                Binary.objects.exclude(abspath="")
-                .exclude(abspath__isnull=True)
-                .filter(machine=machine, abspath=value)
-                .order_by("-modified_at")
-                .first()
-            )
-        if binary is None and name != value:
-            binary = Binary.objects.get_valid_binary(name, machine=machine)
-        binary_name = binary.name if binary is not None else name
-        urls[key] = get_installed_binary_change_url(binary_name, binary) or get_environment_binary_url(name)
+        urls[key] = binary_url_lookup[value]
     return urls
