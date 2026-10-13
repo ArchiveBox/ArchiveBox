@@ -1,5 +1,5 @@
 import json
-import shutil
+from abx_plugins.plugins.base.testing import install_binary_with_abxpkg
 from abx_plugins.plugins.opencode.archivebox.host_cases import (
     test_add_view_hides_agent_link_when_opencode_is_disabled as test_add_view_hides_agent_link_when_opencode_is_disabled,
 )
@@ -66,9 +66,11 @@ def public_add_enabled():
 
 def test_add_view_batches_binary_links_and_preserves_persona_path_selection(client, admin_user):
     machine = Machine.current()
-    wget_path = shutil.which("wget")
-    curl_path = shutil.which("curl")
-    assert wget_path and curl_path
+    wget = install_binary_with_abxpkg("wget", binproviders="env,brew,apt")
+    curl = install_binary_with_abxpkg("curl", binproviders="env,brew,apt")
+    assert wget.loaded_abspath and curl.loaded_abspath
+    wget_path = str(wget.loaded_abspath)
+    curl_path = str(curl.loaded_abspath)
     older = Binary.objects.create(machine=machine, name="wget", abspath=wget_path, version="older")
     newest = Binary.objects.create(machine=machine, name="wget", abspath=wget_path, version="newer")
     exact_path = Binary.objects.create(machine=machine, name="custom-fetcher", abspath=curl_path, version="installed")
