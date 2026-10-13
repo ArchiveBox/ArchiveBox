@@ -550,8 +550,7 @@ class CrawlRunner:
         if not isinstance(current_event, CrawlStartEvent) and in_handler_context():
             return
         if not any(not task.done() for task in self.snapshot_tasks.values()):
-            observation = resource_admission.memory_headroom()
-            self._memory_baseline = observation[0] if observation is not None else None
+            self._memory_baseline = resource_admission.process_tree_memory()
             self._memory_peak_cost = 0
             if self._observed_snapshot_cost is None:
                 self._warmup_snapshot_id = snapshot_id
@@ -652,9 +651,8 @@ class CrawlRunner:
     def _observe_snapshot_memory(self) -> None:
         if self._memory_baseline is None:
             return
-        observation = resource_admission.memory_headroom()
-        if observation is not None:
-            used, _available = observation
+        used = resource_admission.process_tree_memory()
+        if used is not None:
             # Only attribute this workload's growth to a capture. Other jobs on
             # the host reduce available headroom, but are not a per-capture cost
             # to multiply again for every snapshot we want to admit.

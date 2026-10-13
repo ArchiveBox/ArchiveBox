@@ -136,7 +136,7 @@ class ResourceAdmission:
             return 1 if active == 0 and configured > 0 else 0
         ceiling = self.concurrency_limit(configured, pressure=bool(self.resource_pressure()), now=time.monotonic())
         headroom = self.memory_headroom()
-        return self.slots_for_headroom(ceiling, active, observed_cost, headroom[1] if headroom else 0)
+        return self.slots_for_headroom(ceiling, active, observed_cost, headroom)
 
     @staticmethod
     def slots_for_headroom(configured: int, active: int, observed_cost: int, available: int) -> int:
@@ -148,8 +148,8 @@ class ResourceAdmission:
             slots = min(slots, unpromised // observed_cost)
         return max(1, slots) if active == 0 and configured else slots
 
-    def memory_headroom(self) -> tuple[int, int] | None:
-        """Return workload RAM+swap usage and effective available headroom."""
+    def memory_headroom(self) -> int:
+        """Return effective available RAM plus independently backed swap."""
         try:
             meminfo = {
                 name: int(value.split()[0]) * 1024
@@ -162,7 +162,6 @@ class ResourceAdmission:
             host_available = psutil.virtual_memory().available + host_swap_free
 
         available = host_available
-        used_bytes = None
         for path in self.cgroup_paths():
             try:
                 memory_max = (path / "memory.max").read_text().strip()
@@ -179,37 +178,38 @@ class ResourceAdmission:
                 swap_current = int((path / "memory.swap.current").read_text())
                 swap_room = host_swap_free if swap_max == "max" else min(host_swap_free, max(0, int(swap_max) - swap_current))
                 available = min(available, max(0, int(memory_max) - current) + swap_room)
-                if used_bytes is None:
-                    used_bytes = current + swap_current
             except (OSError, ValueError, KeyError):
                 continue
-        if used_bytes is None:
-            # Bare-metal and non-Linux installs have no finite cgroup. Count
-            # the real runner process tree rather than the entire host.
+        return available
+
+    def process_tree_memory(self) -> int | None:
+        """Measure RAM and swap attributable to this runner and its children."""
+        # Learn only this runner's process tree. Sibling web/importer processes
+        # consume shared headroom, but their growth is not a capture's cost.
+        try:
+            process = psutil.Process()
+            processes = [process, *process.children(recursive=True)]
+        except (psutil.Error, OSError):
+            return None
+        used_bytes = 0
+        for child in processes:
             try:
-                process = psutil.Process()
-                processes = [process, *process.children(recursive=True)]
+                if sys.platform.startswith("linux"):
+                    try:
+                        memory = child.memory_full_info()
+                        # Chrome's processes share substantial resident
+                        # memory. RSS charges those pages once per process
+                        # and can falsely serialize captures on an idle host.
+                        used_bytes += memory.pss + memory.swap
+                        continue
+                    except psutil.AccessDenied:
+                        # Restricted /proc access still gets conservative
+                        # accounting through the available RSS measurement.
+                        pass
+                used_bytes += child.memory_info().rss
             except (psutil.Error, OSError):
-                return None
-            used_bytes = 0
-            for child in processes:
-                try:
-                    if sys.platform.startswith("linux"):
-                        try:
-                            memory = child.memory_full_info()
-                            # Chrome's processes share substantial resident
-                            # memory. RSS charges those pages once per process
-                            # and can falsely serialize captures on an idle host.
-                            used_bytes += memory.pss + memory.swap
-                            continue
-                        except psutil.AccessDenied:
-                            # Restricted /proc access still gets conservative
-                            # accounting through the available RSS measurement.
-                            pass
-                    used_bytes += child.memory_info().rss
-                except (psutil.Error, OSError):
-                    continue
-        return used_bytes, available
+                continue
+        return used_bytes
 
     def observe_stalls(self, source: str, total: int, avg10: float, sampled_at: float, threshold: float) -> bool:
         previous = self._stalls.get(source)

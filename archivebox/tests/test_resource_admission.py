@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -30,7 +31,7 @@ def test_snapshot_admission_stages_first_capture_then_uses_measured_headroom():
 
 def test_memory_observation_tracks_a_real_child_process():
     admission = ResourceAdmission()
-    before = admission.memory_headroom()
+    before = admission.process_tree_memory()
     assert before is not None
     child = subprocess.Popen(
         [
@@ -47,9 +48,9 @@ def test_memory_observation_tracks_a_real_child_process():
     try:
         assert child.stdout is not None
         assert child.stdout.readline().strip() == str(64 * 1024 * 1024)
-        during = admission.memory_headroom()
+        during = admission.process_tree_memory()
         assert during is not None
-        assert during[0] > before[0] + 32 * 1024 * 1024
+        assert during > before + 32 * 1024 * 1024
     finally:
         assert child.stdin is not None
         child.stdin.close()
@@ -58,7 +59,7 @@ def test_memory_observation_tracks_a_real_child_process():
 
 def test_memory_observation_counts_shared_pages_once_on_linux():
     admission = ResourceAdmission()
-    before = admission.memory_headroom()
+    before = admission.process_tree_memory()
     assert before is not None
     size = 128 * 1024 * 1024
     child = subprocess.Popen(
@@ -91,17 +92,13 @@ for pid in children:
     try:
         assert child.stdout is not None
         assert child.stdout.readline().strip() == str(size)
-        during = admission.memory_headroom()
+        during = admission.process_tree_memory()
         assert during is not None
-        growth = during[0] - before[0]
+        growth = during - before
         assert growth > size // 2
-        finite_cgroup = any(
-            (path / "memory.max").is_file() and (path / "memory.max").read_text().strip() != "max" for path in admission.cgroup_paths()
-        )
-        if sys.platform.startswith("linux") and not finite_cgroup:
+        if sys.platform.startswith("linux"):
             # These three real processes share one allocation. Linux PSS and
-            # summing RSS differ by two copies. A finite cgroup instead measures
-            # the entire container, including unrelated concurrent test workers.
+            # summing RSS differ by two copies, including inside a cgroup.
             assert growth < size * 2, f"Shared allocation counted repeatedly: {growth}"
     finally:
         assert child.stdin is not None
@@ -181,7 +178,7 @@ def test_memory_observation_ignores_reclaimable_page_cache_of_written_files(tmp_
     # Captures write hundreds of MB of output files. Their page cache is
     # reclaimable, so it must not be charged as per-snapshot memory cost.
     admission = ResourceAdmission()
-    before = admission.memory_headroom()
+    before = admission.process_tree_memory()
     assert before is not None
     output = tmp_path / "capture-output.bin"
     with output.open("wb") as file:
@@ -189,7 +186,70 @@ def test_memory_observation_ignores_reclaimable_page_cache_of_written_files(tmp_
             file.write(os.urandom(1024 * 1024))
         file.flush()
         os.fsync(file.fileno())
-    during = admission.memory_headroom()
+    during = admission.process_tree_memory()
     assert during is not None
     assert output.stat().st_size == 256 * 1024 * 1024
-    assert during[0] - before[0] < 128 * 1024 * 1024, f"Page cache counted as capture memory: {during[0] - before[0]}"
+    assert during - before < 128 * 1024 * 1024, f"Page cache counted as capture memory: {during - before}"
+
+
+def test_memory_observation_excludes_other_process_trees_from_capture_cost():
+    # The observer is a sibling of a real allocating subprocess, like the
+    # runner and an independently invoked importer sharing one container.
+    observer = subprocess.Popen(
+        [
+            "uv",
+            "run",
+            "python",
+            "-c",
+            """
+import json
+import os
+import sys
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "archivebox.core.settings")
+import django
+django.setup()
+from archivebox.services.resource_admission import ResourceAdmission
+admission = ResourceAdmission()
+print(json.dumps([admission.process_tree_memory(), admission.memory_headroom()]), flush=True)
+sys.stdin.readline()
+print(json.dumps([admission.process_tree_memory(), admission.memory_headroom()]), flush=True)
+""",
+        ],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    allocator = None
+    try:
+        assert observer.stdout is not None and observer.stdin is not None
+        before = json.loads(observer.stdout.readline())
+        allocator = subprocess.Popen(
+            [
+                "uv",
+                "run",
+                "python",
+                "-c",
+                "import sys; allocation = bytearray(256 * 1024 * 1024); print(len(allocation), flush=True); sys.stdin.read()",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        assert allocator.stdout is not None
+        assert allocator.stdout.readline().strip() == str(256 * 1024 * 1024)
+        observer.stdin.write("\n")
+        observer.stdin.flush()
+        after = json.loads(observer.stdout.readline())
+        assert observer.wait(timeout=20) == 0
+        assert after[0] - before[0] < 128 * 1024 * 1024, "Sibling memory charged to capture cost"
+        assert after[1] < before[1], "Sibling memory must still consume available headroom"
+    finally:
+        assert observer.stdin is not None
+        observer.stdin.close()
+        if observer.poll() is None:
+            observer.kill()
+            observer.wait(timeout=10)
+        if allocator is not None:
+            assert allocator.stdin is not None
+            allocator.stdin.close()
+            assert allocator.wait(timeout=10) == 0
