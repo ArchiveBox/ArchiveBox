@@ -1,6 +1,7 @@
 __package__ = "archivebox.core"
 
 import json
+from html import escape
 from typing import Any
 
 from django.contrib import admin, messages
@@ -36,7 +37,7 @@ from archivebox.core.routes_util import (
 from archivebox.core.tag_util import get_or_create_tag
 from archivebox.core.templatetags.core_tags import snapshot_thumbnail, snapshot_url_text
 from archivebox.plugins.hooks import discover_hooks
-from archivebox.plugins.discovery import get_plugin_icon, get_snapshot_role_names
+from archivebox.plugins.discovery import get_plugin_icon, get_plugin_icon_sprite, get_plugin_list_icon, get_snapshot_role_names
 from archivebox.plugins.output_groups import (
     OUTPUT_GROUPS,
     display_plugin_name,
@@ -1116,8 +1117,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         for result in sorted_results:
             if plugin_icon_is_hidden(result.plugin):
                 continue
-            icon = mark_safe(get_plugin_icon(result.plugin))
-            if not icon.strip():
+            if not str(get_plugin_icon(result.plugin)).strip():
                 continue
             embed_path = result.embed_path()
             if not embed_path:
@@ -1126,74 +1126,52 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             anchor_path = get_snapshot_output_anchor(result.plugin, embed_path)
             icons_by_group[group_id].append(
                 {
-                    "plugin": result.plugin,
-                    "icon": icon,
-                    "href": detail_url + build_snapshot_detail_path("", output_path=anchor_path, prefix=""),
+                    "plugin": escape(result.plugin),
+                    # The page draws each icon's SVG once (see get_plugin_list_icon).
+                    "icon": str(get_plugin_list_icon(result.plugin)),
+                    "href": escape(detail_url + build_snapshot_detail_path("", output_path=anchor_path, prefix="")),
                 },
             )
 
+        # ~40 icons per row: plain strings instead of format_html, and only the
+        # CSS variables admin.css/files-icon-piles.js read, left out where they
+        # equal their var()/JS fallback. Every icon, link, label and position stays.
         output = []
         for group_id, label, _ in OUTPUT_GROUPS:
             icons = icons_by_group[group_id]
-            if icons:
-                top = icons[0]
-                front_index = 0
-                pile_column = len(output)
-                top_html = format_html(
-                    '<a href="{}" class="exists-True files-icon-pile-top files-icon-pile-cover files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-front-index:{};--files-icon-front-offset:{}px">{}</a>',
-                    top["href"],
-                    top["plugin"],
-                    label,
-                    label,
-                    front_index,
-                    front_index * 2,
-                    top["icon"],
+            if not icons:
+                continue
+            column = len(output)
+            rows = (len(icons) + 4) // 5
+            label = escape(label)
+            pile_vars = ([f"--files-icon-popup-left:{column * -22}px"] if column else []) + ([f"--files-icon-rows:{rows}"] if rows > 1 else [])
+            pile_style = f' style="{";".join(pile_vars)}"' if pile_vars else ""
+            top = icons[0]
+            members = []
+            for icon_index, item in enumerate(icons):
+                row = icon_index // 5
+                row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
+                member_vars = [f"--files-icon-member-left:{3 + row_offset + (icon_index % 5) * 22}px"]
+                if row:
+                    member_vars.append(f"--files-icon-member-top:{8 + row * 18}px")
+                members.append(
+                    f'<a href="{item["href"]}" class="files-icon-plugin--{item["plugin"]}" aria-label="{escape(display_plugin_name(item["plugin"]))}" '
+                    f'data-tooltip="{item["plugin"]}" style="{";".join(member_vars)}">{item["icon"]}</a>',
                 )
-                members = []
-                for icon_index, item in enumerate(icons):
-                    row = icon_index // 5
-                    row_count = min(5, len(icons) - row * 5)
-                    member_top = 8 + row * 18
-                    row_offset = (5 - row_count) * 11 + 3
-                    member_left = 3 + row_offset + (icon_index % 5) * 22
-                    members.append(
-                        format_html(
-                            '<a href="{}" class="exists-True files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-index:{};--files-icon-row:{};--files-icon-column:{};--files-icon-row-offset:{}px;--files-icon-member-left:{}px;--files-icon-member-top:{}px">{}</a>',
-                            item["href"],
-                            item["plugin"],
-                            display_plugin_name(item["plugin"]),
-                            item["plugin"],
-                            icon_index,
-                            row,
-                            icon_index % 5,
-                            row_offset,
-                            member_left,
-                            member_top,
-                            item["icon"],
-                        ),
-                    )
-                popup = format_html(
-                    '<span class="files-icon-pile-popup" popover="manual">{}<span class="files-icon-pile-label">{}</span></span>',
-                    mark_safe("".join(str(icon) for icon in members)),
-                    label,
-                )
-                pile_contents = format_html("{}{}", top_html, popup)
-                output.append(
-                    format_html(
-                        '<span class="files-icon-pile files-icon-pile--{}" role="group" aria-label="{} saved outputs" style="--files-icon-popup-left:{}px;--files-icon-rows:{};--files-icon-card-width:{}px">{}</span>',
-                        group_id,
-                        label,
-                        pile_column * -22 - front_index * 2,
-                        (len(icons) + 4) // 5,
-                        116,
-                        pile_contents,
-                    ),
-                )
+            output.append(
+                f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs"{pile_style}>'
+                f'<a href="{top["href"]}" class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{top["plugin"]}" aria-label="{label}" data-tooltip="{label}">{top["icon"]}</a>'
+                f'<span class="files-icon-pile-popup" popover="manual">{"".join(members)}<span class="files-icon-pile-label">{label}</span></span>'
+                "</span>",
+            )
 
-        return format_html(
-            '<span class="files-icons files-icons--compact" style="font-size: 1em;">{}</span>',
-            mark_safe("".join(output)),
-        )
+        # One copy of the icon drawings per page, outside .files-icons whose
+        # svg sizing rules would otherwise give it a box.
+        sprite = ""
+        if not request.__dict__.get("_archivebox_icon_sprite_sent"):
+            request._archivebox_icon_sprite_sent = True
+            sprite = get_plugin_icon_sprite()
+        return mark_safe(f'{sprite}<span class="files-icons files-icons--compact" style="font-size: 1em;">{"".join(output)}</span>')
 
     @admin.display(empty_value="")
     def size(self, obj):

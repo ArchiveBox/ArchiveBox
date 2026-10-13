@@ -2644,6 +2644,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
 
         from archivebox.core.list_results_util import ListResult
         from archivebox.core.routes_util import build_snapshot_detail_path, build_snapshot_index_path, get_snapshot_output_anchor
+        from archivebox.plugins.discovery import get_plugin_list_icon
         from archivebox.plugins.output_groups import OUTPUT_GROUPS, display_plugin_name, output_group_for_plugin, plugin_icon_is_hidden
 
         build_path = build_snapshot_index_path if quote_paths else build_snapshot_detail_path
@@ -2655,9 +2656,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             href = ""
             if linked and not (result is True or (result and result.status == "succeeded")):
                 continue
-            icon = str(get_plugin_icon(plugin))
-            if not icon.strip():
+            if not str(get_plugin_icon(plugin)).strip():
                 continue
+            # The page draws each icon's SVG once (see get_plugin_list_icon).
+            icon = str(get_plugin_list_icon(plugin))
             if linked:
                 embed_path = result.embed_path() if isinstance(result, (ArchiveResult, ListResult)) else f"{plugin}/"
                 if not embed_path or str(embed_path).strip() in (".", "/", "./"):

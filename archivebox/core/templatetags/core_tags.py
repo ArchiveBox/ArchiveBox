@@ -29,6 +29,7 @@ from archivebox.core.setup_wizard import get_base_url_mismatch_context, get_setu
 from archivebox.plugins.discovery import (
     get_plugin_catalog,
     get_plugin_icon,
+    get_plugin_icon_sprite,
     get_plugin_name,
     get_plugin_template,
     plugin_card_is_interactive,
@@ -878,6 +879,12 @@ def snapshot_preview_url(context, snapshot, path: str = "", result=None) -> str:
         plugin=plugin,
         base_url=_snapshot_base_url_for_context(context, snapshot) if context.get("STATIC_EXPORT") else None,
     )
+
+
+@register.simple_tag
+def plugin_icon_sprite() -> str:
+    """Every list-row plugin icon's SVG, drawn once per page (see get_plugin_list_icon)."""
+    return get_plugin_icon_sprite()
 
 
 @register.simple_tag
