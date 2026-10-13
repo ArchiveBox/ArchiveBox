@@ -1,0 +1,21 @@
+archivebox/progressmonitor/views.py
+  s_24004f468c231b::t_fd6ebdd2aaa959 101
+  s_24004f468c231b::t_40e09d77c51975 1041,1043-1046
+  s_24004f468c231b::t_f992e006511dd3 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "287ce241c575e6b44761d2c78c5cfb62c14b5fa9",
+  "prompts": {},
+  "sessions": {
+    "s_24004f468c231b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "34429556-fd91-451d-8604-40cec6049bda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
