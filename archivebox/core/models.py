@@ -2678,7 +2678,11 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             label = escape(label)
             pile_vars = []
             if column:
-                pile_vars += [f"--files-icon-popup-left:{column * -22}px", f"--files-icon-bridge-start:{column * 22}px", f"--files-icon-bridge-end:{column * 22 + 16}px"]
+                pile_vars += [
+                    f"--files-icon-popup-left:{column * -22}px",
+                    f"--files-icon-bridge-start:{column * 22}px",
+                    f"--files-icon-bridge-end:{column * 22 + 16}px",
+                ]
             if rows > 1:
                 pile_vars.append(f"--files-icon-rows:{rows}")
             pile_style = f' style="{";".join(pile_vars)}"' if pile_vars else ""

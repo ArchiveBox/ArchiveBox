@@ -1144,7 +1144,9 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             column = len(output)
             rows = (len(icons) + 4) // 5
             label = escape(label)
-            pile_vars = ([f"--files-icon-popup-left:{column * -22}px"] if column else []) + ([f"--files-icon-rows:{rows}"] if rows > 1 else [])
+            pile_vars = ([f"--files-icon-popup-left:{column * -22}px"] if column else []) + (
+                [f"--files-icon-rows:{rows}"] if rows > 1 else []
+            )
             pile_style = f' style="{";".join(pile_vars)}"' if pile_vars else ""
             top = icons[0]
             members = []
