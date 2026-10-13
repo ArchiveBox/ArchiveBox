@@ -661,6 +661,50 @@ def test_crawl_runner_empty_plugin_selection_emits_lifecycle_and_seals_crawl(tmp
 
 
 @pytest.mark.django_db(transaction=True)
+def test_crawl_runner_fails_one_snapshot_and_still_runs_the_next(tmp_path):
+    """A snapshot whose attempt raises must end alone, not take its crawl down.
+
+    The failed crawl was retried and picked the same snapshot first again, so
+    one snapshot that failed deterministically stalled the entire crawl.
+    """
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.crawls.models import Crawl
+    from archivebox.core.models import Snapshot
+    from archivebox.services.runner import CrawlRunner
+
+    crawl = Crawl.objects.create(
+        urls="https://example.com/first\nhttps://example.com/broken\nhttps://example.com/next",
+        config={
+            "ABXPKG_LIB_DIR": str(tmp_path / "lib"),
+            "PLUGINS": "__archivebox_test_no_plugins__",
+            "CHROME_BINARY": "",
+        },
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    first = Snapshot.objects.create(crawl=crawl, url="https://example.com/first", depth=0)
+    broken = Snapshot.objects.create(crawl=crawl, url="https://example.com/broken", depth=0)
+    following = Snapshot.objects.create(crawl=crawl, url="https://example.com/next", depth=0)
+    # A real filesystem failure: the snapshot's output dir path is a file, so
+    # its attempt cannot write its index or any hook output.
+    broken_output_dir = Path(broken.output_dir)
+    broken_output_dir.parent.mkdir(parents=True, exist_ok=True)
+    broken_output_dir.write_text("not a directory\n")
+
+    asyncio.run(CrawlRunner(crawl).run())
+
+    for snapshot in (first, broken, following):
+        snapshot.refresh_from_db()
+    crawl.refresh_from_db()
+    for finished in (first, following):
+        assert finished.status == Snapshot.StatusChoices.SEALED
+        assert finished.downloaded_at is not None
+    # The failed attempt is finished, so the next crawl run cannot pick it first again.
+    assert broken.status == Snapshot.StatusChoices.SEALED
+    assert broken.retry_at is None
+    assert crawl.status == Crawl.StatusChoices.SEALED
+
+
+@pytest.mark.django_db(transaction=True)
 def test_crawl_runner_preflights_plugins_before_crawl_lifecycle(tmp_path):
     from abx_dl.events import CrawlEvent, CrawlSetupEvent, InstallEvent
     from archivebox.base_models.models import get_or_create_system_user_pk

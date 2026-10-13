@@ -1305,6 +1305,20 @@ class CrawlRunner:
                 raise RuntimeError(f"Crawl setup hook {plugin.name}:{hook.name} failed")
 
     async def run_snapshot(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
+        try:
+            await self._run_snapshot_attempt(snapshot_id, crawl_start_event)
+        except Exception:
+            # Losing this runner's ownership (takeover, shutdown) is not a
+            # capture failure: leave the lease for the next owner to resume.
+            if self.execution_interrupted():
+                raise
+            # One snapshot's failure is that snapshot's alone. Raising here
+            # failed the whole crawl, and every rerun picked this snapshot first
+            # and failed again, so none of the crawl's other snapshots ran.
+            logging.getLogger(__name__).exception("Snapshot %s failed; continuing with the rest of its crawl", snapshot_id)
+            await self.snapshot_service.finalize_failed_attempt(snapshot_id)
+
+    async def _run_snapshot_attempt(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         async with self.snapshot_semaphore:
             parent_event = crawl_start_event or get_current_event()
             if not isinstance(parent_event, CrawlStartEvent):

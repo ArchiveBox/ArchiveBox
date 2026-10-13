@@ -194,3 +194,30 @@ class SnapshotService(BaseService):
             was_sealed=was_sealed,
             consumed_retry_plugins=retry_plugins,
         )
+
+    async def finalize_failed_attempt(self, snapshot_id: str) -> None:
+        """Finish an attempt that raised instead of completing.
+
+        Left open, the snapshot kept its place at the head of the crawl: each
+        crawl run failed on it again before reaching any other snapshot, so one
+        snapshot that fails deterministically stalled its whole crawl. Finish
+        it like a completed attempt instead; its ArchiveResults record what ran,
+        and retrying it is a separate user action. An attempt that failed before
+        taking ownership has no results to project, so it is only sealed.
+        """
+        from archivebox.core.models import Snapshot
+
+        async with self._ownership_lock:
+            ownership = self._run_ownership.pop(str(snapshot_id), None)
+        if ownership is None:
+            snapshot = await Snapshot.objects.filter(id=snapshot_id, crawl_id=self.crawl_id).afirst()
+            if snapshot is not None and not snapshot.is_paused:
+                await sync_to_async(snapshot.seal, thread_sensitive=True)()
+            return
+        _, owned_retry_at, was_sealed, retry_plugins = ownership
+        await sync_to_async(finalize_completed_snapshot, thread_sensitive=True)(
+            snapshot_id,
+            owned_retry_at=owned_retry_at,
+            was_sealed=was_sealed,
+            consumed_retry_plugins=retry_plugins,
+        )
