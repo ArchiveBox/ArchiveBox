@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from django.db import connection
-from django.db.models import BooleanField, Case, CharField, Q, TextField, Value, When
+from django.db.models import BooleanField, Case, CharField, Count, Max, Q, TextField, Value, When
 from django.db.models.functions import Cast
 from django.db.models.base import DEFERRED
 
@@ -44,6 +44,10 @@ _UNRESOLVED = object()
 # list's time on prod, so resolve each once per row version, per process.
 _EMBED_PATHS: dict[str, tuple[tuple[Any, ...], str | None]] = {}
 _EMBED_PATHS_MAX = 50_000
+# Per snapshot: ((result count, latest modified_at), results, unnamed status counts).
+# Rendering only reads these; each request builds its own thumbnail instance.
+_SNAPSHOT_RESULTS: dict[str, tuple[tuple[Any, ...], list[Any], Counter[str]]] = {}
+_SNAPSHOT_RESULTS_MAX = 5_000
 
 
 @dataclass(slots=True, eq=False)
@@ -138,12 +142,34 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
     if not summaries:
         return {}
 
+    # A finished capture's results rarely change, yet reloading every row of a
+    # page (~70 per snapshot) was most of the list's remaining time. Reuse each
+    # snapshot's rows until its result count or latest modified_at moves.
+    versions = {
+        snapshot_id.hex: (count, latest)
+        for snapshot_id, count, latest in ArchiveResult.objects.filter(
+            snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()],
+        )
+        .order_by()
+        .values("snapshot_id")
+        .annotate(count=Count("id"), latest=Max("modified_at"))
+        .values_list("snapshot_id", "count", "latest")
+    }
+    stale = []
+    for snapshot_hex, summary in summaries.items():
+        version = versions.get(snapshot_hex, (0, None))
+        cached = _SNAPSHOT_RESULTS.get(snapshot_hex)
+        if cached is not None and cached[0] == version:
+            summary.results, summary.unnamed_status_counts = cached[1], cached[2]
+        else:
+            stale.append(snapshot_hex)
+
     card_plugins = get_snapshot_thumbnail_card_order()
     # Successful results feed file icons and favicons; thumbnail cards try
     # their candidates regardless of status. Nothing else renders a path.
     links_output = Q(status=ArchiveResult.StatusChoices.SUCCEEDED) | Q(plugin__in=list(card_plugins))
     rows = (
-        ArchiveResult.objects.filter(snapshot_id__in=[snapshot.id for snapshot in snapshots_by_hex.values()])
+        ArchiveResult.objects.filter(snapshot_id__in=[snapshots_by_hex[snapshot_hex].id for snapshot_hex in stale])
         # A stable order picks the same "first" result per plugin every time.
         .order_by("snapshot_id", "plugin", "id")
         .values_list(
@@ -193,6 +219,12 @@ def load_snapshot_list_results(snapshots: Iterable[Any]) -> dict[Any, SnapshotLi
             # Resolve now, so the next view finds every fetched row cached even
             # when this one never rendered it (hidden icons, unused thumbnails).
             result.embed_path()
+
+    if len(_SNAPSHOT_RESULTS) > _SNAPSHOT_RESULTS_MAX:
+        _SNAPSHOT_RESULTS.clear()
+    for snapshot_hex in stale:
+        summary = summaries[snapshot_hex]
+        _SNAPSHOT_RESULTS[snapshot_hex] = (versions.get(snapshot_hex, (0, None)), summary.results, summary.unnamed_status_counts)
 
     for snapshot_hex, summary in summaries.items():
         card_row = snapshot_thumbnail_result(summary.results)
