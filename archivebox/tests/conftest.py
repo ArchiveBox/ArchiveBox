@@ -400,7 +400,6 @@ def isolate_test_runtime(tmp_path):
         import archivebox.machine.models as machine_models
 
         machine_models._CURRENT_MACHINE = None
-        machine_models._READONLY_MACHINE = None
         machine_models._CURRENT_INTERFACE = None
         machine_models._CURRENT_PROCESS = None
 

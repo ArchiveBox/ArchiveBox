@@ -82,7 +82,6 @@ def _reset_machine_model_caches():
     import archivebox.machine.models as models
 
     models._CURRENT_MACHINE = None
-    models._READONLY_MACHINE = None
     models._CURRENT_INTERFACE = None
     models._CURRENT_PROCESS = None
 
@@ -201,16 +200,8 @@ class TestMachineModel:
         assert current.config["USER_AGENT"] == "read-only-machine-test"
         assert list(queries) == []
 
-    def test_machine_current_readonly_reuses_row_until_config_edit(self):
-        """The web server never registers, so its per-request config reads must not query.
-
-        Config edits must still apply promptly: another process commits
-        Machine.config and mirrors it to ArchiveBox.conf, and an in-process
-        save drops the cached row directly.
-        """
-        from django.db import connection
-        from django.test.utils import CaptureQueriesContext
-
+    def test_machine_current_readonly_sees_committed_config(self):
+        """Web config reads see DB edits even before their file mirror succeeds."""
         import archivebox.machine.models as models
         from archivebox.config import CONSTANTS
 
@@ -219,12 +210,10 @@ class TestMachineModel:
 
         first = Machine.current_readonly()
         assert first is not None and first.pk == registered.pk
-        with CaptureQueriesContext(connection) as queries:
-            assert Machine.current_readonly() is first
-        assert list(queries) == []
 
         # Another process commits the edit, then rewrites ArchiveBox.conf.
         Machine.objects.filter(pk=registered.pk).update(config={**(registered.config or {}), "USER_AGENT": "edited-elsewhere"})
+        assert Machine.current_readonly().config["USER_AGENT"] == "edited-elsewhere"
         CONSTANTS.CONFIG_FILE.write_text("[GENERAL_CONFIG]\nUSER_AGENT = edited-elsewhere\n", encoding="utf-8")
         assert Machine.current_readonly().config["USER_AGENT"] == "edited-elsewhere"
 
