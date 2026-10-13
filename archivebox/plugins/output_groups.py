@@ -81,13 +81,16 @@ def display_plugin_name(plugin: str) -> str:
 
 
 def plugin_output_sizes(results) -> dict[str, int]:
-    """Count each plugin's files once, even when several hooks report them."""
-    files_by_plugin: dict[str, dict[str, int]] = {}
+    """Sum each plugin's results' output_size: the bytes each result saved.
+
+    output_size is the materialized total of that result's own output files,
+    so sizes never need the output_files manifests (thousands of entries for
+    wget/responses). Plugins without saved bytes are omitted.
+    """
+    sizes: dict[str, int] = {}
     for result in results:
-        files = files_by_plugin.setdefault(result.plugin, {})
-        for path, metadata in result.output_file_map().items():
-            files[path] = result._coerce_output_file_size(metadata.get("size"))
-    return {plugin: sum(files.values()) for plugin, files in files_by_plugin.items() if files}
+        sizes[result.plugin] = sizes.get(result.plugin, 0) + (result.output_size or 0)
+    return {plugin: size for plugin, size in sizes.items() if size}
 
 
 def order_output_plugins(plugins, sizes: dict[str, int]) -> list[str]:

@@ -2421,6 +2421,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         compact_icons = self.__dict__.get("_icons_compact", False)
 
         def calc_icons():
+            from archivebox.core.list_results_util import ListResult
             from archivebox.plugins.output_groups import (
                 OUTPUT_GROUPS,
                 display_plugin_name,
@@ -2433,7 +2434,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             precomputed_archive_results = self.__dict__.get("_icons_archive_results")
             if precomputed_archive_results is not None and compact_icons:
                 archive_results = {
-                    plugin: result if isinstance(result, ArchiveResult) else True
+                    plugin: result if isinstance(result, (ArchiveResult, ListResult)) else True
                     for plugin, result in (
                         precomputed_archive_results.items()
                         if isinstance(precomputed_archive_results, dict)
@@ -2462,76 +2463,9 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 running = int(progress_stats.get("running") or 0)
                 completed = succeeded + failed + skipped + noresults
                 percent = int((completed / total * 100) if total > 0 else 0)
-                icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
-                for plugin in ordered_plugins:
-                    if plugin_icon_is_hidden(plugin):
-                        continue
-                    icon = get_plugin_icon(plugin)
-                    if str(icon).strip():
-                        group_id = output_group_for_plugin(plugin)
-                        icons_by_group[group_id].append({"plugin": plugin, "icon": mark_safe(icon)})
-                plugin_icon_piles = []
-                for group_id, label, _ in OUTPUT_GROUPS:
-                    icons = icons_by_group[group_id]
-                    if icons:
-                        top = icons[0]
-                        front_index = 0
-                        pile_column = len(plugin_icon_piles)
-                        top_html = format_html(
-                            '<span class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-front-index:{}">{}</span>',
-                            top["plugin"],
-                            label,
-                            label,
-                            front_index,
-                            top["icon"],
-                        )
-                        members = []
-                        for index, item in enumerate(icons):
-                            row = index // 5
-                            member_top = 26 + row * 18
-                            row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
-                            member_left = 3 + row_offset + (index % 5) * 22 - pile_column * 22
-                            members.append(
-                                format_html(
-                                    '<span class="files-icon-plugin--{}" aria-label="{}" data-tooltip="{}" style="--files-icon-index:{};--files-icon-row:{};--files-icon-column:{};--files-icon-row-offset:{}px;--files-icon-member-left:{}px;--files-icon-member-top:{}px">{}</span>',
-                                    item["plugin"],
-                                    display_plugin_name(item["plugin"]),
-                                    item["plugin"],
-                                    index,
-                                    row,
-                                    index % 5,
-                                    row_offset,
-                                    member_left,
-                                    member_top,
-                                    item["icon"],
-                                ),
-                            )
-                        pile_contents = format_html(
-                            '<span class="files-icon-pile-backplate" aria-hidden="true"></span><span class="files-icon-pile-hover-bridge" aria-hidden="true"></span>{}{}',
-                            top_html,
-                            mark_safe("".join(str(icon) for icon in members)),
-                        )
-                        plugin_icon_piles.append(
-                            format_html(
-                                '<span class="files-icon-pile files-icon-pile--{}" role="group" aria-label="{} saved outputs" style="--files-icon-count:{};--files-icon-pile-column:{};--files-icon-front-index:{};--files-icon-popup-left:{}px;--files-icon-front-offset:{}px;--files-icon-bridge-start:{}px;--files-icon-bridge-end:{}px;--files-icon-rows:{};--files-icon-card-height:{}px;--files-icon-card-width:{}px">{}</span>',
-                                group_id,
-                                label,
-                                len(icons),
-                                pile_column,
-                                front_index,
-                                pile_column * -22,
-                                front_index * 2,
-                                pile_column * 22 + front_index * 2,
-                                pile_column * 22 + front_index * 2 + 16,
-                                (len(icons) + 4) // 5,
-                                ((len(icons) + 4) // 5) * 18 + 8,
-                                116,
-                                pile_contents,
-                            ),
-                        )
                 successful_icons = format_html(
                     '<div class="snapshot-successful-plugin-icons files-icons">{}</div>',
-                    mark_safe("".join(str(pile) for pile in plugin_icon_piles)),
+                    mark_safe(self._compact_icon_piles(ordered_plugins, archive_results, linked=False)),
                 )
                 return format_html(
                     '<div class="snapshot-files-progress" title="{} of {} hooks complete" style="min-width: 96px;">'
@@ -2558,6 +2492,21 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                     successful_icons,
                 )
 
+            if compact_icons:
+                return format_html(
+                    '<span class="files-icons" style="font-size: 1em;">{}</span>',
+                    mark_safe(
+                        self._compact_icon_piles(
+                            ordered_plugins,
+                            archive_results,
+                            linked=True,
+                            archive_path=path or self.archive_path_from_db,
+                            prefix=prefix,
+                            quote_paths=quote_paths,
+                        ),
+                    ),
+                )
+
             archive_path = path or self.archive_path_from_db
             icons_by_group: dict[str, list[dict[str, object]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
 
@@ -2577,7 +2526,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 if not icon.strip():
                     continue
 
-                embed_path = result.embed_path() if isinstance(result, ArchiveResult) else f"{plugin}/"
+                embed_path = result.embed_path() if isinstance(result, (ArchiveResult, ListResult)) else f"{plugin}/"
                 if not embed_path or str(embed_path).strip() in (".", "/", "./"):
                     continue
                 output_path = Path(str(embed_path))
@@ -2672,6 +2621,87 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             )
 
         return calc_icons()
+
+    @staticmethod
+    def _compact_icon_piles(
+        ordered_plugins: list[str],
+        archive_results: dict[str, Any],
+        *,
+        linked: bool,
+        archive_path: str = "",
+        prefix: str = "/",
+        quote_paths: bool = False,
+    ) -> str:
+        """Render list-row file icon piles (public index) as plain strings.
+
+        A page renders ~2,000 icons, so this skips format_html's lazy escaping
+        (html.escape gives the same text) and writes only the CSS variables
+        public_index.html/admin.css read, leaving out values equal to their
+        var() fallback. That keeps every icon, link, label and position while
+        cutting the row HTML that dominated page size and render time.
+        """
+        from html import escape
+
+        from archivebox.core.list_results_util import ListResult
+        from archivebox.core.routes_util import build_snapshot_detail_path, build_snapshot_index_path, get_snapshot_output_anchor
+        from archivebox.plugins.output_groups import OUTPUT_GROUPS, display_plugin_name, output_group_for_plugin, plugin_icon_is_hidden
+
+        build_path = build_snapshot_index_path if quote_paths else build_snapshot_detail_path
+        icons_by_group: dict[str, list[tuple[str, str, str]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
+        for plugin in ordered_plugins:
+            if plugin_icon_is_hidden(plugin):
+                continue
+            result = archive_results.get(plugin)
+            href = ""
+            if linked and not (result is True or (result and result.status == "succeeded")):
+                continue
+            icon = str(get_plugin_icon(plugin))
+            if not icon.strip():
+                continue
+            if linked:
+                embed_path = result.embed_path() if isinstance(result, (ArchiveResult, ListResult)) else f"{plugin}/"
+                if not embed_path or str(embed_path).strip() in (".", "/", "./"):
+                    continue
+                href = build_path(archive_path, output_path=get_snapshot_output_anchor(plugin, embed_path), prefix=prefix)
+            icons_by_group[output_group_for_plugin(plugin)].append((plugin, icon, escape(href)))
+
+        tag = "a" if linked else "span"
+        piles = []
+        for group_id, label, _ in OUTPUT_GROUPS:
+            icons = icons_by_group[group_id]
+            if not icons:
+                continue
+            column = len(piles)
+            rows = (len(icons) + 4) // 5
+            label = escape(label)
+            pile_vars = []
+            if column:
+                pile_vars += [f"--files-icon-popup-left:{column * -22}px", f"--files-icon-bridge-start:{column * 22}px", f"--files-icon-bridge-end:{column * 22 + 16}px"]
+            if rows > 1:
+                pile_vars.append(f"--files-icon-rows:{rows}")
+            pile_style = f' style="{";".join(pile_vars)}"' if pile_vars else ""
+            top_plugin, top_icon, top_href = icons[0]
+            href_attr = f' href="{top_href}"' if linked else ""
+            parts = [
+                f'<span class="files-icon-pile files-icon-pile--{escape(group_id)}" role="group" aria-label="{label} saved outputs"{pile_style}>',
+                '<span class="files-icon-pile-backplate" aria-hidden="true"></span><span class="files-icon-pile-hover-bridge" aria-hidden="true"></span>',
+                f'<{tag}{href_attr} class="files-icon-pile-top files-icon-pile-cover files-icon-plugin--{escape(top_plugin)}" aria-label="{label}" data-tooltip="{label}">{top_icon}</{tag}>',
+            ]
+            for index, (plugin, icon, href) in enumerate(icons):
+                row = index // 5
+                row_offset = (5 - min(5, len(icons) - row * 5)) * 11 + 3
+                member_vars = [f"--files-icon-index:{index}"] if index else []
+                if row:
+                    member_vars.append(f"--files-icon-row:{row}")
+                member_vars.append(f"--files-icon-member-left:{3 + row_offset + (index % 5) * 22 - column * 22}px")
+                href_attr = f' href="{href}"' if linked else ""
+                parts.append(
+                    f'<{tag}{href_attr} class="files-icon-plugin--{escape(plugin)}" aria-label="{escape(display_plugin_name(plugin))}" '
+                    f'data-tooltip="{escape(plugin)}" style="{";".join(member_vars)}">{icon}</{tag}>',
+                )
+            parts.append("</span>")
+            piles.append("".join(parts))
+        return "".join(piles)
 
     @property
     def api_url(self) -> str:
@@ -3774,8 +3804,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
             current = outputs_by_name.get(output["name"])
             if current is None or (output.get("size") or 0) > (current.get("size") or 0):
                 outputs_by_name[output["name"]] = output
-        # Several hooks can report the same plugin directory. Count overlapping
-        # files once, while retaining every result ID for the existing delete action.
+        # A plugin card's size is the bytes all its hooks saved (each result's
+        # output_size). Every result ID is retained for the existing delete action.
         output_sizes = plugin_output_sizes(archive_results)
         for name, output in outputs_by_name.items():
             output["result_ids"] = ",".join(result_ids_by_name.get(name, ()))
@@ -4480,20 +4510,24 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         output_file_map: dict[str, dict[str, Any]] | None = None,
     ) -> str | None:
         """Resolve an output_files key to its snapshot-relative path."""
+        output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
+        return self._resolve_output_file_path(self.plugin, path, output_file_map)
+
+    @staticmethod
+    def _resolve_output_file_path(plugin: str, path: str, output_file_map: dict[str, dict[str, Any]]) -> str | None:
         requested_path = str(path or "")
         if not requested_path or requested_path.startswith("/") or ".." in Path(requested_path).parts:
             return None
 
-        output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
-        plugin_relative_path = requested_path.removeprefix(f"{self.plugin}/")
-        plugin_path = f"{self.plugin}/{plugin_relative_path}"
+        plugin_relative_path = requested_path.removeprefix(f"{plugin}/")
+        plugin_path = f"{plugin}/{plugin_relative_path}"
         for candidate in dict.fromkeys((requested_path, plugin_relative_path, plugin_path)):
             file_info = output_file_map.get(candidate)
             if not isinstance(file_info, dict):
                 continue
             if file_info.get("root_relative"):
-                return candidate.removeprefix(f"{self.plugin}/")
-            return candidate if candidate.startswith(f"{self.plugin}/") else f"{self.plugin}/{candidate}"
+                return candidate.removeprefix(f"{plugin}/")
+            return candidate if candidate.startswith(f"{plugin}/") else f"{plugin}/{candidate}"
         return None
 
     def update_output_metadata_from_filesystem(self, snapshot_dir: Path | None = None, save: bool = True, full_scan: bool = False) -> bool:
@@ -4698,18 +4732,32 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
         output_file_map = output_file_map if output_file_map is not None else self.output_file_map()
 
         output_str = "" if "output_str" in self.get_deferred_fields() else self.output_str
+        return self.resolve_embed_path(self.plugin, output_str, output_file_map)
+
+    @classmethod
+    def resolve_embed_path(
+        cls,
+        plugin: str,
+        output_str: str | None,
+        output_file_map: dict[str, dict[str, Any]],
+    ) -> str | None:
+        """Pick the output file that represents a result, from DB fields only.
+
+        A classmethod so list pages can resolve plain value rows without
+        instantiating a model per result (see archivebox.core.list_results_util).
+        """
         if output_str:
             raw_output = str(output_str).strip()
-            if self._looks_like_output_path(raw_output, self.plugin):
+            if cls._looks_like_output_path(raw_output, plugin):
                 output_path = Path(raw_output)
                 if output_path.is_absolute():
                     return None
 
                 candidates: list[str] = []
-                if raw_output.startswith(f"{self.plugin}/"):
+                if raw_output.startswith(f"{plugin}/"):
                     candidates.append(raw_output)
                 elif len(output_path.parts) == 1:
-                    candidates.append(f"{self.plugin}/{raw_output}")
+                    candidates.append(f"{plugin}/{raw_output}")
                     candidates.append(raw_output)
                 else:
                     candidates.append(raw_output)
@@ -4728,15 +4776,15 @@ class ArchiveResult(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithNotes):
                     return candidates[0] if ".." not in output_path.parts else None
 
                 for relative_path in candidates:
-                    resolved_path = self.output_file_path(relative_path, output_file_map=output_file_map)
+                    resolved_path = cls._resolve_output_file_path(plugin, relative_path, output_file_map)
                     if resolved_path:
                         return resolved_path
 
         output_file_paths = list(output_file_map.keys())
         if output_file_paths:
-            fallback_path = self._fallback_output_file_path(output_file_paths, self.plugin, output_file_map)
+            fallback_path = cls._fallback_output_file_path(output_file_paths, plugin, output_file_map)
             if fallback_path:
-                return self.output_file_path(fallback_path, output_file_map=output_file_map)
+                return cls._resolve_output_file_path(plugin, fallback_path, output_file_map)
 
         return None
 

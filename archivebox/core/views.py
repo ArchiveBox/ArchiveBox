@@ -1430,86 +1430,41 @@ class PublicIndexView(ListView):
             max(1, (count + context["paginator"].per_page - 1) // context["paginator"].per_page) if count is not None else None
         )
         snapshots = list(context.get("object_list") or ())
-        from archivebox.plugins.output_groups import plugin_output_sizes
+        from archivebox.core.list_results_util import load_snapshot_list_results
 
-        all_results_by_snapshot = {str(snapshot.id): [] for snapshot in snapshots}
-        snapshots_by_id = {str(snapshot.id): snapshot for snapshot in snapshots}
-        icons_by_snapshot: dict[str, dict[str, ArchiveResult]] = {str(snapshot.id): {} for snapshot in snapshots}
         tag_names_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
-        list_icon_paths_by_snapshot: dict[str, list[str]] = {str(snapshot.id): [] for snapshot in snapshots}
-        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
-        progress_by_snapshot: dict[str, dict[str, int]] = {
-            str(snapshot.id): {
-                "total": 0,
-                "succeeded": 0,
-                "failed": 0,
-                "running": 0,
-                "skipped": 0,
-                "noresults": 0,
-            }
-            for snapshot in snapshots
-        }
-        if icons_by_snapshot:
+        if snapshots:
             for snapshot_id, tag_name in (
-                SnapshotTag.objects.filter(snapshot_id__in=icons_by_snapshot.keys())
+                SnapshotTag.objects.filter(snapshot_id__in=tag_names_by_snapshot.keys())
                 .order_by("tag__name")
                 .values_list("snapshot_id", "tag__name")
                 .iterator(chunk_size=1000)
             ):
                 tag_names_by_snapshot[str(snapshot_id)].append(tag_name)
 
-            results = (
-                ArchiveResult.objects.filter(snapshot_id__in=icons_by_snapshot.keys())
-                .exclude(plugin="")
-                .only(
-                    "snapshot_id",
-                    "plugin",
-                    "status",
-                    "output_str",
-                    "output_files",
-                    "output_size",
-                )
-            )
-            # This is already bounded by the displayed snapshot page. Finish
-            # the SELECT before parsing output manifests: a streaming cursor
-            # otherwise keeps SQLite's read lock throughout rendering.
-            for result in list(results):
-                snapshot_key = str(result.snapshot_id)
-                # Thumbnail URLs traverse result.snapshot too; share the page's
-                # already-loaded parent rather than fetching it once per result.
-                result.snapshot = snapshots_by_id[snapshot_key]
-                # Icons, sizes, and thumbnails share these read-only page objects.
-                # Capture/import already persist the canonical output_files map;
-                # rebuilding Pydantic manifests for every row only revalidated,
-                # copied, and sorted each captured asset on every page view.
-                result._render_output_file_map = result.output_files
-                all_results_by_snapshot[snapshot_key].append(result)
-                progress = progress_by_snapshot[snapshot_key]
-                progress["total"] += 1
-                if result.status == ArchiveResult.StatusChoices.SUCCEEDED:
-                    icons_by_snapshot[snapshot_key].setdefault(result.plugin, result)
-                    progress["succeeded"] += 1
-                elif result.status == ArchiveResult.StatusChoices.FAILED:
-                    progress["failed"] += 1
-                elif result.status == ArchiveResult.StatusChoices.STARTED:
-                    progress["running"] += 1
-                elif result.status == ArchiveResult.StatusChoices.SKIPPED:
-                    progress["skipped"] += 1
-                elif result.status == ArchiveResult.StatusChoices.NORESULTS:
-                    progress["noresults"] += 1
-                if result.plugin in list_icon_plugins and result.status == ArchiveResult.StatusChoices.SUCCEEDED:
-                    if output_path := result.embed_path():
-                        list_icon_paths_by_snapshot[snapshot_key].append(output_path)
-
+        # Icons, sizes, favicons, thumbnails and progress come from plain rows
+        # plus the few manifest entries their links need (list_results_util).
+        list_results = load_snapshot_list_results(snapshots)
+        list_icon_plugins = set(get_snapshot_role_names("list_icon"))
         for snapshot in snapshots:
+            summary = list_results[snapshot.id]
+            status_counts = summary.status_counts
             snapshot._icons_compact = True
-            snapshot._icons_output_sizes = plugin_output_sizes(all_results_by_snapshot[str(snapshot.id)])
-            snapshot._icons_archive_results = icons_by_snapshot.get(str(snapshot.id), set())
-            snapshot._icons_progress_stats = progress_by_snapshot.get(str(snapshot.id), {})
-            snapshot.num_outputs_cached = snapshot._icons_progress_stats.get("succeeded", 0)
-            snapshot._tags_str_cached = ",".join(tag_names_by_snapshot.get(str(snapshot.id), []))
-            snapshot._snapshot_card_results = all_results_by_snapshot[str(snapshot.id)]
-            snapshot._public_list_icon_paths = list_icon_paths_by_snapshot.get(str(snapshot.id), [])
+            snapshot._icons_output_sizes = summary.output_sizes
+            snapshot._icons_archive_results = summary.first_succeeded_by_plugin()
+            snapshot._icons_progress_stats = {
+                "total": len(summary.results),
+                "succeeded": status_counts[ArchiveResult.StatusChoices.SUCCEEDED],
+                "failed": status_counts[ArchiveResult.StatusChoices.FAILED],
+                "running": status_counts[ArchiveResult.StatusChoices.STARTED],
+                "skipped": status_counts[ArchiveResult.StatusChoices.SKIPPED],
+                "noresults": status_counts[ArchiveResult.StatusChoices.NORESULTS],
+            }
+            snapshot.num_outputs_cached = snapshot._icons_progress_stats["succeeded"]
+            snapshot._tags_str_cached = ",".join(tag_names_by_snapshot[str(snapshot.id)])
+            snapshot._snapshot_card_results = summary.results
+            snapshot._snapshot_thumbnail_result = summary.thumbnail_result
+            snapshot._public_list_icon_paths = summary.succeeded_paths(list_icon_plugins)
             snapshot._is_archived_cached = bool(snapshot.downloaded_at or snapshot.status == Snapshot.StatusChoices.SEALED)
         context["object_list"] = snapshots
         return context

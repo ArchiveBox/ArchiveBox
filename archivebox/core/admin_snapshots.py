@@ -1,7 +1,6 @@
 __package__ = "archivebox.core"
 
 import json
-from collections import Counter
 from typing import Any
 
 from django.contrib import admin, messages
@@ -13,7 +12,7 @@ from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import mark_safe
-from django.db.models import Q, Case, Count, Exists, F, JSONField, OuterRef, Prefetch, Value, When
+from django.db.models import Q, Count, Exists, F, OuterRef, Prefetch
 from django import forms
 from django.template import Context, Template, RequestContext
 from django.contrib.admin.helpers import ActionForm
@@ -37,7 +36,7 @@ from archivebox.core.routes_util import (
 from archivebox.core.tag_util import get_or_create_tag
 from archivebox.core.templatetags.core_tags import snapshot_thumbnail, snapshot_url_text
 from archivebox.plugins.hooks import discover_hooks
-from archivebox.plugins.discovery import get_plugin_icon, get_snapshot_role_names, get_snapshot_thumbnail_card_order
+from archivebox.plugins.discovery import get_plugin_icon, get_snapshot_role_names
 from archivebox.plugins.output_groups import (
     OUTPUT_GROUPS,
     display_plugin_name,
@@ -50,6 +49,7 @@ from archivebox.plugins.output_groups import (
 from archivebox.base_models.admin import BaseModelAdmin, ConfigEditorMixin
 
 from archivebox.core.models import Tag, Snapshot, ArchiveResult
+from archivebox.core.list_results_util import load_snapshot_list_results
 from archivebox.crawls.models import Crawl
 from archivebox.core.admin_archiveresults import render_archiveresults_list
 from archivebox.progressmonitor.views import progress_endpoint
@@ -253,52 +253,16 @@ class SnapshotChangeList(SearchResultsChangeList):
         )
 
     def _attach_archiveresult_summaries(self):
-        snapshot_ids = [obj.pk for obj in self.result_list]
-        if not snapshot_ids:
+        if not self.result_list:
             return
 
-        # One bounded SELECT feeds progress counts, file icons, favicons and
-        # thumbnails. Only successful rows (icons, favicons) and thumbnail
-        # candidates can render a path, so every other row skips its
-        # output_files manifest in SQL: responses/wget manifests hold thousands
-        # of entries and decoding them for queued/failed rows dominated the page.
-        rendered_output_files = Q(status=ArchiveResult.StatusChoices.SUCCEEDED) | Q(plugin__in=list(get_snapshot_thumbnail_card_order()))
-        results = list(
-            ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids)
-            .order_by("snapshot_id", "plugin", "pk")
-            .only("id", "snapshot_id", "plugin", "status", "output_str", "output_size")
-            .annotate(
-                rendered_output_files=Case(
-                    When(rendered_output_files, then=F("output_files")),
-                    default=Value(None),
-                    output_field=JSONField(),
-                ),
-            ),
-        )
-
-        status_counts_by_snapshot = {snapshot_id: Counter() for snapshot_id in snapshot_ids}
-        output_results_by_snapshot = {snapshot_id: [] for snapshot_id in snapshot_ids}
-        card_results_by_snapshot = {snapshot_id: [] for snapshot_id in snapshot_ids}
-        seen_plugins = {snapshot_id: set() for snapshot_id in snapshot_ids}
-        for result in results:
-            # embed_path() reads this request-local map instead of re-validating
-            # the stored (already normalized) manifest through pydantic on each
-            # call; output_files itself stays deferred so nothing re-fetches it.
-            result._render_output_file_map = result.rendered_output_files or {}
-            status_counts_by_snapshot[result.snapshot_id][result.status] += 1
-            if not result.plugin:
-                continue
-            card_results_by_snapshot[result.snapshot_id].append(result)
-            if (
-                result.status == ArchiveResult.StatusChoices.SUCCEEDED
-                and result.output_size > 0
-                and result.plugin not in seen_plugins[result.snapshot_id]
-            ):
-                seen_plugins[result.snapshot_id].add(result.plugin)
-                output_results_by_snapshot[result.snapshot_id].append(result)
-
+        # Progress counts, file icons, favicons and thumbnails come from plain
+        # rows plus the few manifest entries their links need: responses/wget
+        # manifests hold thousands of entries (see list_results_util).
+        list_results = load_snapshot_list_results(self.result_list)
         for obj in self.result_list:
-            counts = status_counts_by_snapshot[obj.pk]
+            summary = list_results[obj.pk]
+            counts = summary.status_counts + summary.unnamed_status_counts
             total = sum(counts.values())
             succeeded = counts[ArchiveResult.StatusChoices.SUCCEEDED]
             failed = counts[ArchiveResult.StatusChoices.FAILED]
@@ -318,8 +282,9 @@ class SnapshotChangeList(SearchResultsChangeList):
                 "output_size": obj.output_size or 0,
                 "is_sealed": obj.status not in (obj.StatusChoices.QUEUED, obj.StatusChoices.STARTED, obj.StatusChoices.PAUSED),
             }
-            obj.__dict__["_admin_output_results"] = output_results_by_snapshot[obj.pk]
-            obj.__dict__["_snapshot_card_results"] = card_results_by_snapshot[obj.pk]
+            obj.__dict__["_admin_output_results"] = list(summary.first_succeeded_by_plugin(with_output=True).values())
+            obj.__dict__["_snapshot_card_results"] = summary.results
+            obj.__dict__["_snapshot_thumbnail_result"] = summary.thumbnail_result
 
     def get_results(self, request):
         super().get_results(request)
@@ -1139,18 +1104,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         if not plugins_with_output:
             return ""
 
-        results_by_plugin: dict[str, list[ArchiveResult]] = {}
-        for result in results:
-            results_by_plugin.setdefault(result.plugin, []).append(result)
-        # A lone result's materialized output_size already is its manifest
-        # total; only multi-hook plugins merge manifests to count shared files
-        # once. Re-summing thousands of responses/wget entries per row only
-        # reproduced that column.
-        output_sizes = {
-            plugin: plugin_results[0].output_size if len(plugin_results) == 1 else plugin_output_sizes(plugin_results).get(plugin, 0)
-            for plugin, plugin_results in results_by_plugin.items()
-            if plugin in plugins_with_output
-        }
+        output_sizes = plugin_output_sizes(result for result in results if result.plugin in plugins_with_output)
         sorted_results = [plugins_with_output[plugin] for plugin in order_output_plugins(plugins_with_output, output_sizes)]
         icons_by_group: dict[str, list[dict[str, Any]]] = {group_id: [] for group_id, _, _ in OUTPUT_GROUPS}
         request = self.request

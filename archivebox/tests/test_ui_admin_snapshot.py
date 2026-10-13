@@ -1430,8 +1430,10 @@ class TestAdminSnapshotListView:
             result for result in rendered_snapshot.__dict__["_snapshot_card_results"] if result.plugin in {"title", "wget", "hashes"}
         ]
         assert len(unrendered_results) == 3
-        assert all(result._render_output_file_map == {} for result in unrendered_results)
-        assert all("output_files" in result.get_deferred_fields() for result in unrendered_results)
+        # They are plain value rows that never received a manifest to resolve from.
+        for result in unrendered_results:
+            with pytest.raises(LookupError, match="was not loaded for this list page"):
+                result.embed_path()
 
         additional_snapshots = [
             Snapshot.objects.create(

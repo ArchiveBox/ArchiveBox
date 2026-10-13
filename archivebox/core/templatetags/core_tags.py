@@ -709,7 +709,9 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
 
     from archivebox.plugins.output_groups import snapshot_thumbnail_result
 
-    results = snapshot.__dict__.get("_snapshot_card_results")
+    # List pages pick the card with their batch of results (list_results_util).
+    precomputed = "_snapshot_thumbnail_result" in snapshot.__dict__
+    results = () if precomputed else snapshot.__dict__.get("_snapshot_card_results")
     if results is None:
         results = snapshot.__dict__.get("_admin_output_results")
     if results is None:
@@ -738,7 +740,7 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
             "core/snapshot_thumbnail.html",
             {
                 **context.flatten(),
-                "card_result": snapshot_thumbnail_result(results),
+                "card_result": snapshot.__dict__["_snapshot_thumbnail_result"] if precomputed else snapshot_thumbnail_result(results),
                 "host": host,
                 "initial": host[:1].upper(),
                 "hue": hue,
