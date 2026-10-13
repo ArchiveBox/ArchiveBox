@@ -1073,10 +1073,15 @@
         return Date.now() + serverClockOffsetMs;
     }
     let idleTicks = 0;
-    let isCollapsed = monitor.dataset.autoExpand !== '1';
-    // Live captures open the panel on their own; a collapse the viewer chose
-    // themselves stays collapsed for the rest of this page view.
-    let collapsedByViewer = false;
+    // The panel opens on every page as the viewer last left it; the page's own
+    // default applies only until they first toggle it.
+    const collapsedStorageKey = 'progress-monitor-collapsed';
+    let storedCollapsed = null;
+    try { storedCollapsed = localStorage.getItem(collapsedStorageKey); } catch (e) {}
+    let isCollapsed = storedCollapsed === null ? monitor.dataset.autoExpand !== '1' : storedCollapsed === 'true';
+    function rememberCollapsed(collapsed) {
+        try { localStorage.setItem(collapsedStorageKey, String(collapsed)); } catch (e) {}
+    }
     const snapshotMedia = new Map();
 
     function getApiKey() {
@@ -2113,7 +2118,6 @@
                 }
                 monitor.classList.toggle('is-guest', data.is_admin === false);
                 updateProgress(data);
-                if (isCollapsed && !collapsedByViewer && data.snapshots_active > 0) setCollapsedState(false);
             })
             .catch(error => {
                 if (!monitor.isConnected) {
@@ -2219,13 +2223,13 @@
     // Collapse toggle
     collapseBtn.addEventListener('click', function(event) {
         event.stopPropagation();
-        collapsedByViewer = !isCollapsed;
+        rememberCollapsed(!isCollapsed);
         setCollapsedState(!isCollapsed);
     });
     monitor.querySelector('.header-bar').addEventListener('click', function(event) {
         if (event.target.closest('button, a, input, select, textarea, [role="button"], .metric-badge')) return;
         if (isCollapsed) {
-            collapsedByViewer = false;
+            rememberCollapsed(false);
             setCollapsedState(false);
         }
     });
