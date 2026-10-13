@@ -953,8 +953,8 @@ class TestLiveProgressView:
             )
 
             client.force_login(admin_user)
-            # The runner publishes this state. Polling must not inspect the OS
-            # or /proc again for each viewer, even when the process is local.
+            # Bound liveness work to the one runner candidate, not historical
+            # Process rows or each hook in the collection.
             profile = cProfile.Profile()
             with profile:
                 response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
@@ -963,12 +963,53 @@ class TestLiveProgressView:
             payload = response.json()
             assert payload["orchestrator_running"] is True
             assert payload["orchestrator_pid"] == popen.pid
-            process_probes = [(source, function) for (source, _line, function) in pstats.Stats(profile).stats if "/psutil/" in source]
-            assert process_probes == []
+            process_probes = [
+                stats[0]
+                for (source, _line, function), stats in pstats.Stats(profile).stats.items()
+                if source.endswith("machine/models.py") and function == "proc"
+            ]
+            assert process_probes == [1]
         finally:
             assert popen.stdin is not None
             popen.stdin.close()
             popen.wait(timeout=20)
+
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert response.json()["orchestrator_running"] is False
+        assert response.json()["orchestrator_pid"] is None
+        assert Process.objects.filter(pid=popen.pid, status=Process.StatusChoices.RUNNING).exists(), (
+            "A GET must not rewrite process history"
+        )
+
+    def test_live_progress_does_not_count_interrupted_results_as_active_downloads(
+        self,
+        client,
+        admin_user,
+        snapshot,
+        real_snapshot_hook_projection,
+    ):
+        from archivebox.core.models import ArchiveResult, Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.machine.models import Process
+
+        process, result = real_snapshot_hook_projection
+        assert process.status == Process.StatusChoices.EXITED
+        assert process.exit_code == 0
+        # Recovery preserves the old result projection and queues a fresh
+        # capture; the completed process is no longer an active download.
+        result.status = ArchiveResult.StatusChoices.STARTED
+        result.end_ts = None
+        result.save(update_fields=["status", "end_ts"])
+        Snapshot.objects.filter(pk=snapshot.pk).update(status=Snapshot.StatusChoices.QUEUED)
+        Crawl.objects.filter(pk=snapshot.crawl_id).update(status=Crawl.StatusChoices.STARTED)
+        client.force_login(admin_user)
+        response = client.get(reverse("live_progress"), HTTP_HOST=ADMIN_TEST_HOST)
+        assert response.status_code == 200
+        assert response.json()["downloads_active"] == 0
+        result.refresh_from_db()
+        assert result.status == ArchiveResult.StatusChoices.STARTED
+        assert result.end_ts is None
 
     def test_live_progress_ignores_unscoped_running_processes_when_no_crawls(
         self,

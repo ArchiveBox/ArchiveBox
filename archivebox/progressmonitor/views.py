@@ -223,16 +223,17 @@ def live_progress_view(request, *, authorized_snapshot=None):
                 process_type=Process.TypeChoices.ORCHESTRATOR,
                 status=Process.StatusChoices.RUNNING,
             )
-            .values("pid")
+            .only("pid", "started_at", "machine_id", "env", "cmd", "status")
             .order_by("-started_at")
             .first()
             if machine_id is not None
             else None
         )
-        # The runner owns process liveness/reconciliation. A JSON poll must not
-        # call Process.is_running: psutil probes OS state and /proc on Linux.
-        orchestrator_running = orchestrator_proc is not None
-        orchestrator_pid = orchestrator_proc["pid"] if orchestrator_proc else None
+        # A stopped runner cannot reconcile its own stale row. Validate only
+        # this one candidate using the existing PID/start-time/namespace guard;
+        # leave historical process rows and remote namespace semantics intact.
+        orchestrator_running = bool(orchestrator_proc and orchestrator_proc.is_running)
+        orchestrator_pid = orchestrator_proc.pid if orchestrator_running else None
 
         # Get model counts by status
         crawl_status_counts = Crawl.status_counts(
@@ -267,9 +268,16 @@ def live_progress_view(request, *, authorized_snapshot=None):
         result_counts = list(
             header_archiveresult_scope.filter(status__in=result_statuses)
             .order_by()
-            .values("status", "plugin", "snapshot__status", "snapshot__crawl__status")
+            .values("status", "plugin", "snapshot__status", "snapshot__crawl__status", "process__status")
             .annotate(count=Count("*")),
         )
+        # Recovery preserves interrupted ArchiveResults until their next fresh
+        # capture. Their exited Process rows are not active downloads/indexing.
+        result_counts = [
+            row
+            for row in result_counts
+            if row["status"] != ArchiveResult.StatusChoices.STARTED or row["process__status"] == Process.StatusChoices.RUNNING
+        ]
         archiveresult_status_counts = {
             status: sum(row["count"] for row in result_counts if row["status"] == status) for status in result_statuses
         }
