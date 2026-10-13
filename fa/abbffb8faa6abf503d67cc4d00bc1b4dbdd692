@@ -1,0 +1,23 @@
+archivebox/tests/test_snapshot_ref_lookup.py
+  s_8dbda046044e96::t_c84a9b8b4b2a37 96-97
+  s_8dbda046044e96::t_453dd70983c258 10,75-89,93-95,98-104
+  s_8dbda046044e96::t_4efff4a524e957 4,90-92
+archivebox/core/views.py
+  s_8dbda046044e96::t_96696f8681bc92 23,156-157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "faabbffb8faa6abf503d67cc4d00bc1b4dbdd692",
+  "prompts": {},
+  "sessions": {
+    "s_8dbda046044e96": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a133ba-5ab0-71c3-976a-587dc300c72c",
+        "model": "gpt-6-astra"
+      },
+      "human_author": null
+    }
+  }
+}
