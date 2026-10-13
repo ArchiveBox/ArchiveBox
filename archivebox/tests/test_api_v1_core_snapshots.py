@@ -58,6 +58,33 @@ def test_browser_metadata_respects_only_new_and_reports_capture_owner(client, ap
     assert Snapshot.objects.filter(url=url).count() == 2
 
 
+def test_snapshot_list_filters_receipt_crawl_before_pagination(client, api_admin_user, api_headers):
+    url = "https://example.com/shared-url"
+    original = Crawl.objects.create(urls=url, created_by=api_admin_user)
+    submitted = Crawl.objects.create(urls=url, created_by=api_admin_user)
+    historical = Snapshot.objects.create(url=url, crawl=original)
+    owned = [
+        Snapshot.objects.create(url=url, crawl=submitted),
+        Snapshot.objects.create(url="https://example.com/second-shared-url", crawl=submitted),
+    ]
+    found = set()
+    for offset in (0, 1):
+        response = client.get(
+            "/api/v1/core/snapshots",
+            {"crawl_id": str(submitted.pk), "limit": 1, "offset": offset},
+            **api_headers,
+        )
+        assert response.status_code == 200, response.content
+        payload = response.json()
+        assert payload["count"] == 2
+        assert len(payload["items"]) == 1
+        item = payload["items"][0]
+        assert item["crawl_id"].replace("-", "") == str(submitted.pk).replace("-", "")
+        found.add(item["id"].replace("-", ""))
+    assert found == {str(snapshot.pk).replace("-", "") for snapshot in owned}
+    assert str(historical.pk).replace("-", "") not in found
+
+
 def test_snapshot_delete_only_queues_cleanup(client, api_headers):
     created = client.post(
         "/api/v1/core/snapshots",

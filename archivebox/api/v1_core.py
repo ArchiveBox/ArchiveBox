@@ -858,6 +858,7 @@ def _snapshots_rss_response(
 
 
 class SnapshotFilterSchema(FilterSchema):
+    crawl_id: Annotated[UUID | None, FilterLookup("crawl_id")] = None
     id: Annotated[str | None, FilterLookup(["id__istartswith", "id__iendswith", "timestamp__startswith"])] = None
     created_by_id: Annotated[str | None, FilterLookup("crawl__created_by_id")] = None
     created_by_username: Annotated[str | None, FilterLookup("crawl__created_by__username__icontains")] = None
