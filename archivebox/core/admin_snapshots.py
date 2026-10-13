@@ -1,6 +1,7 @@
 __package__ = "archivebox.core"
 
 import json
+from copy import copy
 from html import escape
 from typing import Any
 
@@ -516,6 +517,11 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             return []
         return super().get_ordering(request)
 
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        self = copy(self)
+        self.request = request
+        return super().changeform_view(request, object_id, form_url, extra_context)
+
     def render_change_form(self, request, context, add=False, change=False, form_url="", obj=None):
         self.request = request
         context["CONFIG"] = request.archivebox_config
@@ -530,6 +536,8 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
         return super().render_change_form(request, context, add=add, change=change, form_url=form_url, obj=obj)
 
     def changelist_view(self, request, extra_context=None):
+        # Django shares ModelAdmin instances; deferred rendering must keep its own request.
+        self = copy(self)
         self.request = request
         saved_list_per_page = self.list_per_page
         embedded_changelist = request.GET.get("_embedded") == "crawl"

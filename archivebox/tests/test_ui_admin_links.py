@@ -577,3 +577,82 @@ def test_process_admin_output_summary_uses_archiveresult_output_files(real_hook_
 
     assert f"{len(result.output_files)} file" in output_html
     assert printable_filesize(expected_size) in output_html
+
+
+@pytest.mark.parametrize("view_name", ["admin:core_snapshot_changelist", "admin:core_snapshot_change"])
+def test_snapshot_admin_keeps_request_on_each_rendered_response(client, admin_user, view_name):
+    from archivebox.tests.conftest import ADMIN_TEST_HOST
+
+    snapshot = _create_snapshot()
+    client.force_login(admin_user)
+    url = reverse(view_name, args=[snapshot.pk] if view_name.endswith("_change") else [])
+    first = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert first.status_code == 200
+    context_key = "adminform" if view_name.endswith("_change") else "cl"
+    first_admin = first.context[context_key].model_admin
+    second = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+    assert second.status_code == 200
+    second_admin = second.context[context_key].model_admin
+    assert first_admin is not second_admin
+    assert first_admin.request is first.wsgi_request
+    assert second_admin.request is second.wsgi_request
+
+
+def test_concurrent_snapshot_admin_lists_keep_icons_and_page_sizes(live_server, client, admin_user):
+    from concurrent.futures import ThreadPoolExecutor
+    import re
+    import threading
+    from urllib.parse import urlsplit
+    from urllib.request import Request, urlopen
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+
+    crawl = Crawl.objects.create(urls="https://example.com", created_by=admin_user)
+    for index in range(60):
+        snapshot = Snapshot.objects.create(
+            crawl=crawl,
+            url=f"https://example.com/{index}",
+            status=Snapshot.StatusChoices.SEALED,
+            title=f"Concurrent page {index}",
+        )
+        output = Path(snapshot.output_dir) / "singlefile" / "singlefile.html"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(f"<html><body>Concurrent page {index}</body></html>")
+        ArchiveResult.objects.create(
+            snapshot=snapshot,
+            plugin="singlefile",
+            status=ArchiveResult.StatusChoices.SUCCEEDED,
+            output_str="singlefile/singlefile.html",
+            output_size=output.stat().st_size,
+            output_files={"singlefile.html": {"size": output.stat().st_size, "mimetype": "text/html"}},
+        )
+    client.force_login(admin_user)
+    cookie = "; ".join(f"{key}={value.value}" for key, value in client.cookies.items())
+    host = f"admin.archivebox.localhost:{urlsplit(live_server.url).port}"
+
+    def read(embedded, barrier=None):
+        if barrier is not None:
+            barrier.wait()
+        query = f"?_embedded=crawl&per_page=200&crawl__id__exact={crawl.pk}" if embedded else ""
+        request = Request(
+            live_server.url + reverse("admin:core_snapshot_changelist") + query,
+            headers={"Host": host, "Cookie": cookie},
+        )
+        with urlopen(request, timeout=60) as response:
+            body = response.read().decode()
+            assert response.status == 200
+        return {
+            "embedded": embedded,
+            "rows": len(re.findall('name="_selected_action"', body)),
+            "sprites": body.count('id="abx-icon-singlefile"'),
+        }
+
+    sequential = [read(False), read(True)]
+    assert sequential == [
+        {"embedded": False, "rows": 50, "sprites": 1},
+        {"embedded": True, "rows": 60, "sprites": 1},
+    ]
+    barrier = threading.Barrier(8)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(lambda index: read(bool(index % 2), barrier), range(8)))
+    assert all(result["rows"] == (60 if result["embedded"] else 50) and result["sprites"] == 1 for result in results), results
