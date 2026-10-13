@@ -1,0 +1,21 @@
+archivebox/tests/test_archive_result_service.py
+  s_24004f468c231b::t_75b6fcedaea38e 780-869
+archivebox/services/archive_result_service.py
+  s_24004f468c231b::t_75b6fcedaea38e 73-79,159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "66563a83f288b96171e8a5d1c50b785b8cb04461",
+  "prompts": {},
+  "sessions": {
+    "s_24004f468c231b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "34429556-fd91-451d-8604-40cec6049bda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
