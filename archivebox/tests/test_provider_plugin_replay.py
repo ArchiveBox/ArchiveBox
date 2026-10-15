@@ -7,8 +7,9 @@ or its owner revokes access. Plugin-local tests assert provider-specific content
 import hashlib
 import json
 import zipfile
+from datetime import datetime
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 import pytest
 from abx_plugins import get_plugins_dir
@@ -113,7 +114,15 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                     return frames.map(frame => ({connected: frame.isConnected, src: frame.src, sandbox: frame.getAttribute('sandbox')}));
                 }""")
                 transitions.dispose()
-                assert selected_frames == [{"connected": True, "src": card.get_attribute("data-preview-url"), "sandbox": None}]
+                modified = datetime.fromisoformat(snapshot["modified_at"])
+                revision = f"{int(modified.timestamp())}.{modified.microsecond:06d}"
+                raw_preview = card.get_attribute("data-preview-url")
+                assert raw_preview
+                preview_url = urlsplit(raw_preview)
+                expected_preview = urlunsplit(
+                    preview_url._replace(query=urlencode([*parse_qsl(preview_url.query), ("_abx_rev", revision)])),
+                )
+                assert selected_frames == [{"connected": True, "src": expected_preview, "sandbox": None}]
             card.locator('a[target="preview"]').first.click()
             preview = page.frame_locator("#main-frame")
             if plugin in DOCUMENT_PROVIDERS:
