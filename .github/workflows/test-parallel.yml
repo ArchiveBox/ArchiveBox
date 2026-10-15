@@ -292,6 +292,7 @@ jobs:
         run: |
           chrome_sandbox="$(uv run --no-cache --no-sync --no-sources python - <<'PY'
           import json
+          import os
           import subprocess
           from pathlib import Path
           import abx_plugins
@@ -301,7 +302,20 @@ jobs:
               "abxpkg", "env", "--install", "--json",
               f"--deps-from={config}:required_binaries", "browsers",
           ], text=True))
-          helper = Path(env["CHROME_BINARY"]).resolve(strict=True).with_name("chrome_sandbox")
+          # CHROME_BINARY may be a provider launcher, not the native executable.
+          native_chrome = subprocess.check_output([
+              env["NODE_BINARY"], "-e", r"""
+              const {getInstalledBrowsers, detectBrowserPlatform} = require('@puppeteer/browsers');
+              const {execFileSync} = require('node:child_process');
+              const version = execFileSync(process.env.CHROME_BINARY, ['--version'], {encoding: 'utf8'}).match(/\d+\.\d+\.\d+\.\d+/)[0];
+              getInstalledBrowsers({cacheDir: process.env.PUPPETEER_CACHE_DIR}).then(browsers => {
+                  const matches = browsers.filter(b => b.browser === 'chrome' && b.buildId === version && b.platform === detectBrowserPlatform());
+                  if (matches.length !== 1) throw new Error('Expected exactly one matching installed Chrome');
+                  console.log(matches[0].executablePath);
+              }).catch(error => { console.error(error); process.exit(1); });
+              """,
+          ], env={**os.environ, **env}, text=True).strip()
+          helper = Path(native_chrome).resolve(strict=True).with_name("chrome_sandbox")
           assert helper.is_file(), helper
           print(helper)
           PY
