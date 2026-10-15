@@ -364,3 +364,72 @@ def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initializ
         html_files = list((snapshot.output_dir / "wget").rglob("*.html"))
         assert html_files
         assert any("<title>Root</title>" in path.read_text() for path in html_files)
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("request_during_capture", [False, True], ids=["already-queued", "while-running"])
+def test_running_crawl_consumes_explicit_sealed_plugin_requests(cached_abxpkg_lib_dir, request_during_capture):
+    from django.utils import timezone
+
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.runner import CrawlRunner
+    from abx_dl.events import SnapshotCompletedEvent
+    from asgiref.sync import sync_to_async
+
+    crawl = Crawl.objects.create(
+        urls="https://archivebox.io/tests/",
+        created_by_id=get_or_create_system_user_pk(),
+        config={"PLUGINS": "hashes", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 1},
+        status=Crawl.StatusChoices.STARTED,
+        retry_at=timezone.now(),
+    )
+    requested = Snapshot.objects.create(
+        crawl=crawl,
+        url="https://archivebox.io/tests/",
+        status=Snapshot.StatusChoices.SEALED,
+        downloaded_at=timezone.now(),
+        retry_at=None,
+    )
+    maintenance = Snapshot.objects.create(
+        crawl=crawl,
+        url="https://archivebox.io/tests/maintenance",
+        status=Snapshot.StatusChoices.SEALED,
+        downloaded_at=timezone.now(),
+        retry_at=timezone.now(),
+    )
+    queued = Snapshot.objects.create(crawl=crawl, url="https://archivebox.io/tests/second/")
+    requested.output_dir.mkdir(parents=True, exist_ok=True)
+    preserved = requested.output_dir / "preserved.txt"
+    preserved.write_text("Already archived bytes must survive the requested hash run.\n")
+    downloaded_at = requested.downloaded_at
+    runner = CrawlRunner(crawl, show_progress=False)
+    if request_during_capture:
+
+        async def request_hashes(event: SnapshotCompletedEvent) -> None:
+            if str(event.snapshot_id) == str(queued.id):
+                await sync_to_async(requested.schedule_plugin_run, thread_sensitive=True)(["hashes"])
+
+        runner.bus.on(SnapshotCompletedEvent, request_hashes)
+    else:
+        requested.schedule_plugin_run(["hashes"])
+
+    asyncio.run(runner.run())
+
+    requested.refresh_from_db()
+    queued.refresh_from_db()
+    assert requested.status == Snapshot.StatusChoices.SEALED
+    assert requested.downloaded_at == downloaded_at
+    assert requested.retry_at is None
+    assert "RETRY_PLUGINS" not in requested.config
+    assert preserved.read_text() == "Already archived bytes must survive the requested hash run.\n"
+    assert (requested.output_dir / "hashes/hashes.json").is_file()
+    request_result = ArchiveResult.objects.get(snapshot=requested, plugin="hashes")
+    queued_result = ArchiveResult.objects.get(snapshot=queued, plugin="hashes")
+    assert request_result.status == queued_result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    if request_during_capture:
+        assert queued_result.end_ts <= request_result.start_ts
+    else:
+        assert request_result.end_ts <= queued_result.start_ts
+    assert not ArchiveResult.objects.filter(snapshot=maintenance).exists()

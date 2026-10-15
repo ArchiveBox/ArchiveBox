@@ -19,6 +19,7 @@ from typing import Any, Literal, TextIO, cast
 
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils import timezone
 from rich.console import Console
 from rich.text import Text
@@ -764,10 +765,15 @@ class CrawlRunner:
             # browser/session when this crawl still owns the next admission.
             self._scheduler_yielded = True
             return
+        # Explicit plugin requests are capture work even on sealed snapshots.
+        # Consume them in the same crawl; ordinary sealed maintenance still waits.
         # Within-crawl FIFO breadth-first; policy above _first_due_id.
         pending_snapshot_ids = await sync_to_async(
             lambda: list(
-                self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
+                self.crawl.snapshot_set.filter(
+                    Q(status__in=Snapshot.RUNNABLE_STATES)
+                    | Q(status=Snapshot.StatusChoices.SEALED, config__RETRY_PLUGINS__0__isnull=False),
+                )
                 .exclude(id__in=active_snapshot_ids)
                 .filter(retry_at__lte=timezone.now())
                 .order_by("depth", "created_at", "pk")
@@ -832,7 +838,10 @@ class CrawlRunner:
         else:
             # Within-crawl FIFO breadth-first; policy above _first_due_id.
             pending_snapshots = list(
-                self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
+                self.crawl.snapshot_set.filter(
+                    Q(status__in=Snapshot.RUNNABLE_STATES)
+                    | Q(status=Snapshot.StatusChoices.SEALED, config__RETRY_PLUGINS__0__isnull=False),
+                )
                 .filter(retry_at__lte=timezone.now())
                 .order_by("depth", "created_at", "pk"),
             )
@@ -1411,7 +1420,7 @@ class CrawlRunner:
                     if crawl.status != crawl.StatusChoices.STARTED:
                         return
                     if crawl.snapshot_set.filter(
-                        status__in=crawl.snapshot_set.model.OPEN_STATES,
+                        Q(status__in=crawl.snapshot_set.model.OPEN_STATES) | Q(status="sealed", config__RETRY_PLUGINS__0__isnull=False),
                     ).exists():
                         return
                     crawl.seal()
