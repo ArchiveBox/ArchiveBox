@@ -50,6 +50,8 @@ def enqueue(source: ImporterSource, action: str) -> ImporterRun:
                 "limit": min(source.limit, 20) if action == ImporterRun.Action.PREVIEW else source.limit,
                 "all": action == ImporterRun.Action.IMPORT,
             }
+            if source.account.get("id") and (source.checkpoint or definition.auth == "persona"):
+                request["expected_account"] = source.account
             if action == ImporterRun.Action.IMPORT and not source.checkpoint:
                 preview = (
                     source.runs.filter(action=ImporterRun.Action.PREVIEW, status=ImporterRun.Status.SUCCEEDED)

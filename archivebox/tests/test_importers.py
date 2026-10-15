@@ -511,6 +511,38 @@ def test_browser_importer_discovers_account_from_selected_persona(admin_client):
     assert source.checkpoint == {}
 
 
+@pytest.mark.parametrize("action", ["check", "preview", "import"])
+@pytest.mark.parametrize("checkpoint", [{}, {"cursor": "saved-progress"}])
+def test_browser_request_carries_existing_account_pin(admin_client, action, checkpoint):
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterSource
+    from archivebox.personas.models import Persona
+
+    persona = Persona.get_or_create_named("Importer account context")
+    response = admin_client.post(
+        "/admin/importers/new/importers_browser/reddit_saves/",
+        {"persona": persona.pk},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get()
+    # A real persisted source pin is the enqueue input, not an authentication
+    # simulation. This test exercises request construction, not browser access.
+    source.account = {"id": "opaque:ExactCase", "label": "Prior detected account"}
+    source.checkpoint = checkpoint
+    source.save(update_fields=["account", "checkpoint"])
+
+    response = admin_client.post(f"/admin/importers/{source.pk}/{action}/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 302
+    run = source.runs.get()
+    assert run.request["expected_account"] == source.account
+    assert run.request["checkpoint"] == (source.checkpoint if action == "import" else {})
+    source.refresh_from_db()
+    assert source.account["id"] == "opaque:ExactCase"
+    assert source.checkpoint == checkpoint
+    assert run.status == "queued" and run.crawl_id is None and Crawl.objects.count() == 0
+
+
 def test_custom_importer_requires_post_and_csrf(admin_client, admin_user):
     from django.test import Client
 
