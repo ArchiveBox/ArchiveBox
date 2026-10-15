@@ -417,14 +417,15 @@ def test_staging_gate_matches_the_exact_tested_docker_base_digest(tmp_path):
     workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
     publisher = workflow["jobs"]["python-release"]
     steps = publisher["steps"]
-    metadata = next(step for step in steps if step.get("name") == "Download tested Docker base-image metadata")
+    metadata = [step for step in steps if step.get("name", "").startswith("Download tested Docker base-image metadata (")]
     gate = next(step for step in steps if step.get("name") == "Require matching acceptance on Cabbage")
-    assert metadata["with"]["run-id"] == "${{ env.DOCKER_DIGEST_RUN_ID }}"
     assert publisher["env"]["DOCKER_DIGEST_RUN_ID"] == "${{ needs.candidate.outputs.digest_run_id }}"
-    assert metadata["with"]["pattern"] == "digest-*"
-    assert metadata["with"]["merge-multiple"] is True
-    assert metadata["with"]["path"] == "${{ runner.temp }}/tested-docker-artifacts"
-    assert steps.index(metadata) < steps.index(gate)
+    assert [step["with"]["name"] for step in metadata] == ["digest-linux-amd64", "digest-linux-arm64"]
+    for step in metadata:
+        assert step["with"]["run-id"] == "${{ env.DOCKER_DIGEST_RUN_ID }}"
+        assert "pattern" not in step["with"]
+        assert step["with"]["path"] == "${{ runner.temp }}/tested-docker-artifacts"
+        assert steps.index(step) < steps.index(gate)
     assert gate["env"]["STAGING_DOCKER_ARTIFACT_DIR"] == "${{ runner.temp }}/tested-docker-artifacts"
 
     docker_workflow = yaml.safe_load(DOCKER_WORKFLOW.read_text())
