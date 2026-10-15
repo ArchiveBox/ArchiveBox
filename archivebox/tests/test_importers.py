@@ -150,6 +150,84 @@ def test_import_routes_require_admin_and_post(admin_client):
     assert response.status_code == 405
 
 
+def test_initial_import_requires_recheck_after_nonempty_preview_becomes_empty(admin_client, import_site):
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterSource
+    from archivebox.importers.service import run_next_importer
+
+    root, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Preview evidence", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Preview evidence")
+    preview_url = f"/admin/importers/{source.pk}/preview/"
+    import_url = f"/admin/importers/{source.pk}/import/"
+    assert admin_client.post(preview_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    preview = source.runs.first()
+    assert preview.status == "succeeded" and len(preview.items) == 1
+
+    (root / "feed.xml").write_text('<rss version="2.0"><channel><title>Empty feed</title></channel></rss>')
+    assert admin_client.post(import_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    failed = source.runs.first()
+    assert failed.status == "failed", failed.message
+    assert "nonempty preview" in failed.message
+    assert failed.request["preview_count"] == 1
+    assert failed.items == [] and failed.crawl_id is None
+    source.refresh_from_db()
+    assert source.checkpoint == {} and Crawl.objects.count() == 0
+
+    # A fresh real empty preview clears the contradiction; empty sources remain
+    # supported without weakening the failed first run or changing its progress.
+    assert admin_client.post(preview_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    empty_preview = source.runs.first()
+    assert empty_preview.status == "succeeded" and empty_preview.items == []
+    assert admin_client.post(import_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    empty_import = source.runs.first()
+    assert empty_import.status == "succeeded", empty_import.message
+    assert empty_import.request["preview_count"] == 0
+    assert empty_import.items == [] and empty_import.crawl_id is None
+    failed.refresh_from_db()
+    assert failed.status == "failed" and Crawl.objects.count() == 0
+
+
+def test_changed_source_does_not_inherit_the_previous_preview_count(admin_client, import_site):
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterSource
+    from archivebox.importers.service import run_next_importer
+
+    root, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Changed source", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Changed source")
+    assert admin_client.post(f"/admin/importers/{source.pk}/preview/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    assert len(source.runs.first().items) == 1
+    (root / "empty.xml").write_text('<rss version="2.0"><channel><title>Another feed</title></channel></rss>')
+    response = admin_client.post(
+        f"/admin/importers/{source.pk}/edit/",
+        {"name": source.name, "setting_IMPORTER_RSS_URL": f"{url}/empty.xml"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    assert admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    run = source.runs.first()
+    assert run.status == "succeeded", run.message
+    assert "preview_count" not in run.request
+    assert run.items == [] and run.crawl_id is None and Crawl.objects.count() == 0
+
+
 def test_spreadsheet_reordering_and_new_rows(admin_client, import_site):
     from archivebox.importers.models import ImporterSource
     from archivebox.importers.service import run_next_importer

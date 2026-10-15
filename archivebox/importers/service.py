@@ -50,6 +50,20 @@ def enqueue(source: ImporterSource, action: str) -> ImporterRun:
                 "limit": min(source.limit, 20) if action == ImporterRun.Action.PREVIEW else source.limit,
                 "all": action == ImporterRun.Action.IMPORT,
             }
+            if action == ImporterRun.Action.IMPORT and not source.checkpoint:
+                preview = (
+                    source.runs.filter(action=ImporterRun.Action.PREVIEW, status=ImporterRun.Status.SUCCEEDED)
+                    .order_by("-created_at")
+                    .values("request", "result", "items")
+                    .first()
+                )
+                if (
+                    preview
+                    and preview["request"].get("feed") == source.feed
+                    and preview["request"].get("settings") == source.settings
+                    and preview["result"].get("account", {}).get("id") == source.account.get("id")
+                ):
+                    request["preview_count"] = len(preview["items"])
             return ImporterRun.objects.create(source=source, action=action, request=request)
     except IntegrityError:
         active = source.runs.filter(status__in=ACTIVE_STATUSES).first()
