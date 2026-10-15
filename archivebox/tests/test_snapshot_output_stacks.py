@@ -1165,3 +1165,73 @@ def test_year_badges_attach_selected_capture_to_its_year(snapshot, live_server, 
             assert all(text.strip().startswith(other_year) for text in other_menu.locator("a").all_text_contents())
             assert other_menu.locator('[aria-current="page"]').count() == 0
         browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("selection", ["", "#singlefile/content.html?reader=1#section"])
+def test_refreshed_output_replaces_warm_replay_without_disabling_cache(snapshot, live_server, browser_runtime, selection):
+    from concurrent.futures import ThreadPoolExecutor
+
+    import hashlib
+    import json
+    from urllib.parse import parse_qs, urlsplit
+
+    from playwright.sync_api import sync_playwright
+
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save()
+    result = save_output(snapshot, "singlefile")
+    output = snapshot.output_dir / "singlefile/content.html"
+    hashes = snapshot.output_dir / "hashes/hashes.json"
+    hashes.parent.mkdir(exist_ok=True)
+
+    def record_bytes():
+        digest = hashlib.sha256(output.read_bytes()).hexdigest()
+        hashes.write_text(json.dumps({"files": [{"path": "singlefile/content.html", "hash": digest}]}))
+        result.output_files = {"content.html": {"size": output.stat().st_size, "mimetype": "text/html", "sha256": digest}}
+        result.save(update_fields=["output_files", "modified_at"])
+        snapshot.save(update_fields=["modified_at"])
+
+    record_bytes()
+    target = f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html{selection}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page()
+            page.goto(target, wait_until="domcontentloaded")
+            frame = page.frame_locator("#main-frame")
+            assert frame.locator("h1").inner_text() == "ArchiveBox consolelog preview fixture"
+            first_src = page.locator("#main-frame").get_attribute("src")
+            assert first_src
+            # A normal revisit must keep the same cache key, not a random timestamp.
+            page.goto("about:blank")
+            page.goto(target, wait_until="domcontentloaded")
+            assert frame.locator("h1").inner_text() == "ArchiveBox consolelog preview fixture"
+            assert page.locator("#main-frame").get_attribute("src") == first_src
+            output.write_text(output.read_text().replace("consolelog preview fixture", "refreshed preview fixture"))
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(record_bytes).result()
+            page.goto("about:blank")
+            # Obtain fresh detail HTML while retaining the cached archive in this browser.
+            page.goto(target.replace("/index.html", "/index.html?view=refreshed"), wait_until="domcontentloaded")
+            assert frame.locator("h1").inner_text() == "ArchiveBox refreshed preview fixture"
+            refreshed_src = page.locator("#main-frame").get_attribute("src")
+            assert refreshed_src and refreshed_src != first_src
+            if selection:
+                assert parse_qs(urlsplit(refreshed_src).query)["reader"] == ["1"]
+                assert urlsplit(refreshed_src).fragment == "section"
+            raw = page.request.get(refreshed_src)
+            assert raw.status == 200
+            assert "immutable" in raw.headers["cache-control"]
+            assert b"refreshed preview fixture" in raw.body()
+        finally:
+            browser.close()

@@ -1154,15 +1154,27 @@
             })();
         </script>
         <script>
+            function versionSnapshotPreviewUrl(raw) {
+                // Refreshed outputs reuse their paths. Keep warm browser caching,
+                // but select new bytes after the already-loaded DB row changes.
+                const revision = "{% if not STATIC_EXPORT %}{{ snapshot.modified_at|date:'U.u' }}{% endif %}"
+                if (!raw || !revision) return raw
+                const url = new URL(raw, window.location.href)
+                const base = new URL("{% snapshot_base_url snapshot %}", window.location.href)
+                if (url.origin === base.origin && url.pathname.startsWith(base.pathname.replace(/\/+$/, '') + '/')) {
+                    url.searchParams.set('_abx_rev', revision)
+                }
+                return url.href
+            }
             (() => {
                 const frame = document.getElementById('main-frame')
                 if (!frame) return
                 // Saved hashes omit preview=1. Let the card selection below resolve
                 // their actual viewer URL instead of starting a raw-file download.
                 if (window.location.hash) return
-                const target = frame.dataset.defaultSrc || "{% snapshot_files_url snapshot %}"
+                const target = versionSnapshotPreviewUrl(frame.dataset.defaultSrc || "{% snapshot_files_url snapshot %}")
                 if (target) {
-                    if (target.endsWith('.pdf')) {
+                    if (new URL(target, window.location.href).pathname.endsWith('.pdf')) {
                         frame.removeAttribute('sandbox')
                     }
                     frame.src = target
@@ -1614,7 +1626,7 @@
                 document.querySelectorAll('.selected-card').forEach((selected) => selected.classList.remove('selected-card'))
                 card?.closest('.thumb-card').classList.add('selected-card')
 
-                const nextSrc = isSnapshotRootPreview(target) ? snapshotFilesUrl : target
+                const nextSrc = versionSnapshotPreviewUrl(isSnapshotRootPreview(target) ? snapshotFilesUrl : target)
                 const existingFrame = document.getElementById('main-frame')
                 let currentSrc = ''
                 try {
