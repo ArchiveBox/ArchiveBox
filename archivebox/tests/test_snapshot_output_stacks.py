@@ -795,7 +795,8 @@ def test_extension_mhtml_uses_html_stack_and_mhtml_viewer(snapshot, live_server,
         page = browser.new_page()
         page.goto(f"http://{host}:{port}/_card/{result.id}")
         viewer = page.locator(".chrome-mhtml-thumbnail > iframe")
-        assert viewer.get_attribute("src") == f"http://{host}:{port}/chrome_extension_mhtml/snapshot.mhtml?preview=1"
+        revision = f"{int(result.modified_at.timestamp())}.{result.modified_at.microsecond:06d}"
+        assert viewer.get_attribute("src") == f"http://{host}:{port}/chrome_extension_mhtml/snapshot.mhtml?_abx_rev={revision}&preview=1"
         rendered = viewer.content_frame.locator("iframe").content_frame.locator("h1")
         assert rendered.inner_text() == saved_text
 
@@ -860,7 +861,9 @@ def test_forumdl_card_and_full_view_render_saved_thread(snapshot, live_server, b
         embedded = page.locator("iframe")
         embedded.wait_for()
         assert page.locator("html").evaluate("e => getComputedStyle(e).overflowY") == "clip"
-        assert embedded.get_attribute("src") == f"{viewer_url}&titlebar=0"
+        revision = f"{int(result.modified_at.timestamp())}.{result.modified_at.microsecond:06d}"
+        expected_card = viewer_url.replace("?preview=1", f"?_abx_rev={revision}&preview=1&titlebar=0")
+        assert embedded.get_attribute("src") == expected_card
         embedded.content_frame.locator(".thread-title").wait_for()
         assert "Navier-Stokes" in embedded.content_frame.locator(".thread-title").inner_text()
         assert embedded.content_frame.locator("body > header").is_hidden()
@@ -1233,5 +1236,64 @@ def test_refreshed_output_replaces_warm_replay_without_disabling_cache(snapshot,
             assert raw.status == 200
             assert "immutable" in raw.headers["cache-control"]
             assert b"refreshed preview fixture" in raw.body()
+        finally:
+            browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("plugin", ["singlefile", "dom", "wget", "readability", "mercury", "defuddle"])
+def test_refreshed_card_replaces_warm_nested_output(snapshot, live_server, browser_runtime, plugin):
+    from concurrent.futures import ThreadPoolExecutor
+    from urllib.parse import urlsplit
+
+    from playwright.sync_api import sync_playwright
+
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save()
+    result = save_output(snapshot, plugin)
+    output = snapshot.output_dir / plugin / "content.html"
+    target = f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html"
+
+    def update_result():
+        result.save(update_fields=["modified_at"])
+        snapshot.save(update_fields=["modified_at"])
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page()
+            page.goto(target, wait_until="domcontentloaded")
+            card = page.locator(f'iframe[title="{plugin} card"]').first
+            nested = card.content_frame.locator("iframe")
+            leaf = nested.content_frame
+            if plugin in {"readability", "mercury", "defuddle"}:
+                leaf = leaf.frame_locator("#reader")
+            assert leaf.locator("h1").inner_text() == "ArchiveBox consolelog preview fixture"
+            original_card = card.get_attribute("src")
+            original_output = nested.get_attribute("src")
+            page.goto("about:blank")
+            page.goto(target, wait_until="domcontentloaded")
+            assert leaf.locator("h1").inner_text() == "ArchiveBox consolelog preview fixture"
+            assert card.get_attribute("src") == original_card
+            assert nested.get_attribute("src") == original_output
+            output.write_text(output.read_text().replace("consolelog preview fixture", "refreshed preview fixture"))
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(update_result).result()
+            page.goto("about:blank")
+            page.goto(target + "?view=refreshed", wait_until="domcontentloaded")
+            assert leaf.locator("h1").inner_text() == "ArchiveBox refreshed preview fixture"
+            assert card.get_attribute("src") != original_card
+            assert nested.get_attribute("src") != original_output
+            assert card.get_attribute("loading") == "lazy"
+            assert card.get_attribute("fetchpriority") == "low"
         finally:
             browser.close()

@@ -2112,10 +2112,12 @@ class TestUrlRouting:
                         self.frames.append(dict(attrs))
             frames = PreviewFrames()
             frames.feed(live_html)
+            revision = f"{int(console_result.modified_at.timestamp())}.{console_result.modified_at.microsecond:06d}"
+            snapshot_host = get_snapshot_host(str(snapshot.id))
             console_frames = [
                 frame for frame in frames.frames
                 if frame.get("title") == "consolelog card"
-                and frame.get("src", "").endswith(f"/_card/{console_result.id}")
+                and frame.get("src") == f"http://{snapshot_host}/_card/{console_result.id}?_abx_rev={revision}"
             ]
             assert len(console_frames) == 1, frames.frames
             assert console_frames[0]["loading"] == "lazy"
@@ -2126,7 +2128,7 @@ class TestUrlRouting:
             assert card_resp.status_code == 200
             assert card_resp["Content-Type"].startswith("text/html")
             card_html = response_body(card_resp).decode("utf-8", "ignore")
-            assert f"{consolelog_rel}?preview=1&amp;titlebar=0" in card_html
+            assert f"{consolelog_rel}?_abx_rev={revision}&amp;preview=1&amp;titlebar=0" in card_html
             resp = client.get(f"/{consolelog_rel}?preview=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             assert resp["Content-Type"].startswith("text/html")
