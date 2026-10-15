@@ -13,18 +13,18 @@ supported-markers = [
 ]
 
 [options]
-exclude-newer = "2026-10-10T10:14:28.719257393Z"
+exclude-newer = "2026-10-10T15:47:31.430792467Z"
 exclude-newer-span = "P5D"
 
 [options.exclude-newer-package]
-abxbus = { timestamp = "2026-10-15T10:14:27.719271323Z", span = "PT1S" }
+abxbus = { timestamp = "2026-10-15T15:47:30.430808658Z", span = "PT1S" }
 abx-plugins = "2100-01-01T00:00:00Z"
 abx-dl = "2100-01-01T00:00:00Z"
 abxpkg = "2100-01-01T00:00:00Z"
 
 [[package]]
 name = "abx-dl"
-version = "1.13.199"
+version = "1.13.201"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abx-plugins", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -38,14 +38,14 @@ dependencies = [
     { name = "rich", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/31/4f30393ee3316cb8acfd68a6e8597c8d7a250ca62d4273a0e650da7831ec/abx_dl-1.13.199.tar.gz", hash = "sha256:a997f0563e8e2b941e2d915a32c40342a9fd11a0f196f51e4e328f4ef47e2418", size = 102454, upload-time = "2026-10-15T10:12:40.08Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d9/4e/17687e49b7610fc75280e1560e5ecf1fd4094d59a38173321ffe75f943f6/abx_dl-1.13.201.tar.gz", hash = "sha256:6dfc955f68563b9e484601b812f3b3793805420364258d9b0aca81354c92e365", size = 102741, upload-time = "2026-10-15T15:45:45.152Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/01/94/560df89cb4974440b072539c24ec3f01e57bae928b811dc9e90e4236d9a6/abx_dl-1.13.199-py3-none-any.whl", hash = "sha256:ee231e8d780c252b307b987cd0f1c3a815bf2cc0eca1c6491af1b784fd78c3a6", size = 107244, upload-time = "2026-10-15T10:12:41.299Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/d6/b0bd75fc6c25ac28baed2597f418abd19a7abb8711854cdb46959da2be39/abx_dl-1.13.201-py3-none-any.whl", hash = "sha256:c986319016b44d91de3e5445a4477e845471e1585f23a1784f799f0bd7951676", size = 107555, upload-time = "2026-10-15T15:45:46.542Z" },
 ]
 
 [[package]]
 name = "abx-plugins"
-version = "1.13.361"
+version = "1.13.363"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "abxbus", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -54,9 +54,9 @@ dependencies = [
     { name = "rich-click", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
     { name = "uv", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f7/05/73103729e392c59f535ec3cc63f17adbf7253d5d41c881d919f2433a6222/abx_plugins-1.13.361.tar.gz", hash = "sha256:20eaaa5621428203c1805692acde418066265886c124b22698afba4d684ea94a", size = 1260532, upload-time = "2026-10-15T10:04:03.402Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/12/10/596ac770d21751b0169c67271f65cc4b3e5c1bc7ebad1f27ecca2a263b8f/abx_plugins-1.13.363.tar.gz", hash = "sha256:ab8d0f00b08afdb851614e03def6a8ec0064d36d91b9fe9c6d4bf95c9c8daf55", size = 1260988, upload-time = "2026-10-15T11:52:53.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/c0/8ddaf6a35ee3b8f41c7d25e8a8624026e919ca9cca3d1a48d5aeb41780b9/abx_plugins-1.13.361-py3-none-any.whl", hash = "sha256:e809e41ceff19e6ef317fbf3852246182d72611ac4352574e049015abc86456a", size = 1570427, upload-time = "2026-10-15T10:04:05.467Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/fe/90b578c3b3b853347f6b08ca612f436768994ed3473051167febe3e387c2/abx_plugins-1.13.363-py3-none-any.whl", hash = "sha256:463f6081fdfdf8c78279a98fadedb01b03e66eea999bb10aee0451ee5c25139f", size = 1570808, upload-time = "2026-10-15T11:52:55.603Z" },
 ]
 
 [package.optional-dependencies]
@@ -127,7 +127,7 @@ wheels = [
 
 [[package]]
 name = "archivebox"
-version = "0.9.74rc243"
+version = "0.9.74rc244"
 source = { editable = "." }
 dependencies = [
     { name = "abx-dl", marker = "sys_platform == 'darwin' or sys_platform == 'linux'" },
@@ -229,8 +229,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "abx-dl", specifier = "==1.13.199" },
-    { name = "abx-plugins", extras = ["opencode"], specifier = "==1.13.361" },
+    { name = "abx-dl", specifier = "==1.13.201" },
+    { name = "abx-plugins", extras = ["opencode"], specifier = "==1.13.363" },
     { name = "abxbus", specifier = "==2.5.77" },
     { name = "abxpkg", specifier = "==1.13.50" },
     { name = "archivebox", extras = ["sonic", "ldap", "debug"], marker = "extra == 'all'" },
