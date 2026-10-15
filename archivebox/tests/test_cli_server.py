@@ -565,9 +565,15 @@ def test_server_automatically_finishes_interrupted_capture_and_next_url(archiveb
     try:
         assert blocking_http_server.request_started.wait(30), "The real wget hook did not begin its request"
         with use_archivebox_db(server.data_dir):
-            original = ArchiveResult.objects.get(snapshot__url=urls[0], plugin="wget")
+            original = ArchiveResult.objects.select_related("process__parent").get(snapshot__url=urls[0], plugin="wget")
             assert original.status == ArchiveResult.StatusChoices.STARTED
+            assert original.process.parent is not None
+            assert original.process.parent.pid == old_runner_pid
             original_id, original_process_id = original.pk, original.process_id
+            interrupted_process = original.process.proc
+            assert interrupted_process is not None
+            interrupted_children = interrupted_process.children(recursive=True)
+            assert interrupted_children, "The real wget download must be running before its owner is killed"
 
         supervisord_log = server.data_dir / "logs" / "supervisord.log"
         spawn_text = "spawned: 'worker_runner' with pid"
@@ -578,6 +584,10 @@ def test_server_automatically_finishes_interrupted_capture_and_next_url(archiveb
         replacement = server.wait_for_workers(("worker_daphne", "worker_runner"))
         assert replacement["worker_runner"]["pid"] != old_runner_pid
         assert blocking_http_server.request_started.wait(30), "The replacement worker did not resume the interrupted request"
+        for old_process in [interrupted_process, *interrupted_children]:
+            assert not (old_process.is_running() and pid_is_alive(old_process.pid)), (
+                "Replacement runner left an interrupted hook or downloader alive"
+            )
         blocking_http_server.release_response.set()
 
         deadline = time.monotonic() + 60

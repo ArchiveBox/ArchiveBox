@@ -75,6 +75,7 @@ class ProcessService(BaseService):
         from archivebox.machine.models import Process
 
         iface = await self.current_iface()
+        owner = await sync_to_async(Process.current, thread_sensitive=True)()
         process_type = event.process_type or Process.TypeChoices.HOOK
         worker_type = event.worker_type or ""
         started_at = parse_event_datetime(event.start_ts)
@@ -99,7 +100,7 @@ class ProcessService(BaseService):
             process = Process(
                 machine=iface.machine,
                 iface=iface,
-                parent_id=None,
+                parent_id=owner.id,
                 process_type=process_type,
                 worker_type=worker_type,
                 pwd=event.output_dir,
@@ -124,6 +125,7 @@ class ProcessService(BaseService):
                 await process.asave(update_fields=["iface", "machine", "modified_at"])
 
             process.pwd = event.output_dir
+            process.parent_id = process.parent_id or owner.id
             process.cmd = [event.hook_path, *event.hook_args]
             process.env = process_env
             process.timeout = event.timeout
@@ -206,6 +208,7 @@ class ProcessService(BaseService):
         from archivebox.machine.models import Process
 
         iface = await self.current_iface()
+        owner = await sync_to_async(Process.current, thread_sensitive=True)()
         process_type = event.process_type or Process.TypeChoices.HOOK
         worker_type = event.worker_type or ""
         started_at = parse_event_datetime(event.start_ts)
@@ -226,7 +229,7 @@ class ProcessService(BaseService):
             await Process.objects.acreate(
                 machine=iface.machine,
                 iface=iface,
-                parent_id=None,
+                parent_id=owner.id,
                 process_type=process_type,
                 worker_type=worker_type,
                 pwd=event.output_dir,

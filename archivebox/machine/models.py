@@ -2549,6 +2549,14 @@ class Process(ModelWithDeleteAfter, models.Model):
                 cleaned += 1
                 continue
 
+            # A supervised server can outlive a killed runner. Its surviving
+            # hooks still own output files, so the live server root alone must
+            # not preserve them or let a replacement capture write concurrently.
+            if any(ancestor.process_type == cls.TypeChoices.ORCHESTRATOR and not ancestor.is_running for ancestor in proc.ancestors):
+                proc.kill_tree()
+                cleaned += 1
+                continue
+
             root = proc.root
             # Standalone worker/hook process (run directly)
             if root.id == proc.id and root.process_type in (cls.TypeChoices.WORKER, cls.TypeChoices.HOOK):
