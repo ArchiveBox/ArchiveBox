@@ -106,6 +106,50 @@ def test_snapshot_detail_link_stays_on_web_origin(snapshot, security_mode, expec
     )
 
 
+@pytest.mark.parametrize("username", ["admin", "accounts", "add"])
+def test_snapshot_owner_matching_control_route_stays_on_web(snapshot, admin_user, client, username):
+    from urllib.parse import urlsplit
+
+    from archivebox.machine.models import Machine
+    from archivebox.tests.conftest import WEB_TEST_HOST
+
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": "http://archivebox.localhost:5797",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+        "PUBLIC_ADD_VIEW": False,
+    }
+    machine.save(update_fields=["config"])
+    admin_user.username = username
+    admin_user.save(update_fields=["username"])
+    snapshot.config = {**snapshot.config, "PERMISSIONS": "public"}
+    snapshot.save(update_fields=["config"])
+    save_output(snapshot, "singlefile")
+    path = snapshot.get_absolute_url()
+    assert path.startswith(f"/{username}/")
+    response = client.get(path, HTTP_HOST=WEB_TEST_HOST)
+    assert response.status_code == 200
+    assert b"singlefile" in response.content
+
+    # The real control route still goes to the admin origin.
+    control = client.get(f"/{username}/?next=%2F", HTTP_HOST=WEB_TEST_HOST)
+    assert control.status_code == 302
+    assert control["Location"] == f"http://{ADMIN_TEST_HOST}/{username}/?next=%2F"
+
+    # Recognizing a snapshot route must not bypass snapshot permissions.
+    snapshot.config = {**snapshot.config, "PERMISSIONS": "private"}
+    snapshot.save(update_fields=["config"])
+    denied = client.get(path, HTTP_HOST=WEB_TEST_HOST)
+    assert denied.status_code == 302
+    auth = urlsplit(denied["Location"])
+    assert auth.netloc == ADMIN_TEST_HOST
+    assert auth.path == "/admin/core/snapshot/replay-auth/"
+    login = client.get(f"{auth.path}?{auth.query}", HTTP_HOST=auth.netloc)
+    assert login.status_code == 302
+    assert urlsplit(login["Location"]).path == "/admin/login/"
+
+
 def save_output(snapshot, plugin, filename="content.html", *, hook="50", extra_files=()):
     directory = Path(snapshot.output_dir) / plugin
     directory.mkdir(parents=True, exist_ok=True)

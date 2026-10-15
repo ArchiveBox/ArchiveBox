@@ -304,7 +304,14 @@ def HostRoutingMiddleware(get_response):
         if request.path.startswith("/static/") or request.path in {"/favicon.ico", "/robots.txt"}:
             return get_response(request)
 
-        if config.USES_SUBDOMAIN_ROUTING and config.BASE_URL and not host_matches(request_host, admin_host):
+        if (
+            config.USES_SUBDOMAIN_ROUTING
+            and config.BASE_URL
+            and not host_matches(request_host, admin_host)
+            # A dated snapshot path can belong to an owner named admin/accounts/add.
+            # Keep it on the replay path instead of cycling through the admin host.
+            and not snapshot_path_re.match(request.path)
+        ):
             add_should_redirect = not config.PUBLIC_ADD_VIEW and (request.path == "/add" or request.path.startswith("/add/"))
             if (
                 request.path == "/admin"
