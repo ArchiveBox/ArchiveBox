@@ -13,10 +13,10 @@ from rich.console import Console
 from rich.highlighter import Highlighter
 
 # SETUP RICH CONSOLE / TTY detection / COLOR / PROGRESS BARS
-# Disable wrapping - use soft_wrap=True and large width so text flows naturally
-# Colors are preserved, just no hard line breaks inserted
-CONSOLE = Console(width=32768, soft_wrap=True, force_terminal=True)
-STDERR = Console(stderr=True, width=32768, soft_wrap=True, force_terminal=True)
+# Soft wrapping preserves long text without inventing a huge terminal width:
+# RichHandler pads its table to that width, which can fill a pipe in two logs.
+CONSOLE = Console(soft_wrap=True, force_terminal=True)
+STDERR = Console(stderr=True, soft_wrap=True, force_terminal=True)
 IS_TTY = sys.stdout.isatty()
 
 
