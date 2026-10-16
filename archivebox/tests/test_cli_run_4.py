@@ -131,7 +131,8 @@ def test_cli_run_seals_snapshot_after_filesystem_failure_without_retrying_it(ini
     broken_directory.symlink_to("hashes")
 
     failed = run_archivebox_cmd(["run", f"--snapshot-id={snapshot_id}"], cwd=initialized_archive, env=env, timeout=60)
-    assert failed.returncode == 0, failed.stdout + failed.stderr
+    assert failed.returncode == 1, failed.stdout + failed.stderr
+    assert "SnapshotAttemptError: 1 snapshot attempt(s) failed:" in failed.stderr
     assert "FileExistsError: [Errno 17]" in failed.stderr
     # Logged with its id; the log handler wraps long lines, so compare without whitespace.
     assert f"Snapshot{snapshot_id}failed" in "".join(failed.stderr.split())
