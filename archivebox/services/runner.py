@@ -197,6 +197,10 @@ def ensure_background_runner() -> bool:
     return False
 
 
+class SnapshotAttemptError(RuntimeError):
+    """A capture attempt failed and was finalized; remaining work is runnable."""
+
+
 class CrawlRunner:
     def __init__(
         self,
@@ -250,6 +254,7 @@ class CrawlRunner:
         self.selected_plugins = selected_plugins
         self.initial_snapshot_ids = snapshot_ids
         self.snapshot_tasks: dict[str, asyncio.Task[None]] = {}
+        self._failed_snapshot_ids: list[str] = []
         self.snapshot_semaphore = asyncio.Semaphore(1)
         self.max_concurrent_snapshots = 1
         self._warmup_snapshot_id: str | None = None
@@ -516,6 +521,15 @@ class CrawlRunner:
                     await sync_to_async(self.finalize_run_state, thread_sensitive=True)()
                 if self._user_aborted:
                     raise KeyboardInterrupt
+
+        # Failed attempts are sealed so they cannot starve the remaining URLs.
+        # Report failure only after those URLs and cleanup have finished: a
+        # drained queue must not turn a storage/execution error into CLI success.
+        if self._failed_snapshot_ids:
+            raise SnapshotAttemptError(
+                f"{len(self._failed_snapshot_ids)} snapshot attempt(s) failed: {', '.join(self._failed_snapshot_ids)}. "
+                "See logs/errors.log for the original errors.",
+            )
 
     async def wait_for_resource_admission(self) -> bool:
         # Foreground callers retain this bus and its observers while waiting.
@@ -1305,6 +1319,7 @@ class CrawlRunner:
             # capture failure: leave the lease for the next owner to resume.
             if self.execution_interrupted():
                 raise
+            self._failed_snapshot_ids.append(str(snapshot_id))
             # One snapshot's failure is that snapshot's alone. Raising here
             # failed the whole crawl, and every rerun picked this snapshot first
             # and failed again, so none of the crawl's other snapshots ran.
@@ -1314,6 +1329,12 @@ class CrawlRunner:
             except Exception:
                 # Recording the failure must not become the crawl's failure.
                 logging.getLogger(__name__).exception("Could not finish failed Snapshot %s", snapshot_id)
+                from archivebox.core.models import Snapshot
+
+                if await Snapshot.objects.filter(id=snapshot_id, status__in=Snapshot.RUNNABLE_STATES).aexists():
+                    # The foreground scheduler may continue only after this
+                    # attempt is final; otherwise it would retry the same fault.
+                    raise
 
     async def _run_snapshot_attempt(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         async with self.snapshot_semaphore:

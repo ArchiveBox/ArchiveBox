@@ -266,8 +266,9 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
         (snapshots[urls[0]].output_dir / "hashes").symlink_to("hashes")
 
     run = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=120)
-    assert run.returncode == 0, run.stdout + run.stderr
+    assert run.returncode == 1, run.stdout + run.stderr
     assert "FileExistsError: [Errno 17]" in run.stderr
+    assert "1 snapshot attempt(s) failed" in run.stderr
     with use_archivebox_db(initialized_archive):
         snapshots = {snapshot.url: snapshot for snapshot in Snapshot.objects.filter(crawl_id=crawl_id)}
         for url, snapshot in snapshots.items():
@@ -282,6 +283,10 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
             assert file_hash["hash"] == hashlib.sha256(url.encode()).hexdigest()
         broken = snapshots[urls[0]]
         assert not broken.archiveresult_set.exists(), "The obstructed hook never started"
+        assert str(broken.id) in run.stderr
+        runner_process = Process.objects.get(process_type=Process.TypeChoices.ORCHESTRATOR)
+        assert runner_process.status == Process.StatusChoices.EXITED
+        assert runner_process.exit_code == 1
         hooks = Process.objects.filter(process_type=Process.TypeChoices.HOOK)
         assert hooks.count() == 2
         assert not hooks.filter(status=Process.StatusChoices.RUNNING).exists()
@@ -296,6 +301,39 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
         assert broken.retry_at is None
         assert broken.modified_at == sealed_at
         assert Process.objects.filter(process_type=Process.TypeChoices.HOOK).count() == 2
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("mode", ["daemon", "snapshot"])
+def test_capture_attempt_failure_is_nonzero_in_worker_modes(initialized_archive, cached_abxpkg_lib_dir, mode):
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Process
+    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    env = cli_env(PLUGINS="hashes")
+    crawl_id = _create_crawl(initialized_archive, env, "https://example.com/broken-worker")
+    with use_archivebox_db(initialized_archive):
+        Crawl.objects.get(pk=crawl_id).create_snapshots_from_urls()
+        snapshot = Snapshot.objects.get(crawl_id=crawl_id)
+        snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+        (snapshot.output_dir / "hashes").symlink_to("hashes")
+        snapshot_id = str(snapshot.id)
+
+    args = ["--daemon", f"--crawl-id={crawl_id}"] if mode == "daemon" else [f"--snapshot-id={snapshot_id}"]
+    run = run_archivebox_cmd(["run", *args], cwd=initialized_archive, env=env, timeout=120)
+    assert run.returncode == 1, run.stdout + run.stderr
+    assert "FileExistsError: [Errno 17]" in run.stderr
+    assert "1 snapshot attempt(s) failed" in run.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(pk=snapshot_id)
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.retry_at is None
+        assert not snapshot.archiveresult_set.exists()
+        process = Process.objects.get(process_type=Process.TypeChoices.ORCHESTRATOR)
+        assert process.status == Process.StatusChoices.EXITED
+        assert process.exit_code == 1
 
 
 @pytest.mark.django_db(transaction=True)
