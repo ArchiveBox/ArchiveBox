@@ -606,6 +606,7 @@ mimetypes.add_type("multipart/related", ".mht")
 MARKDOWN_INLINE_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)")
 HTML_TAG_RE = re.compile(r"<[A-Za-z][^>]*>")
 HTML_BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", flags=re.IGNORECASE | re.DOTALL)
+HTML_DOCUMENT_RE = re.compile(r"^\s*(?:<!doctype\s+html\b|<html(?:\s|>))", flags=re.IGNORECASE)
 RISKY_REPLAY_MIMETYPES = {
     "text/html",
     "application/xhtml+xml",
@@ -620,6 +621,12 @@ RISKY_REPLAY_MARKERS = (
 
 
 def _extract_markdown_candidate(text: str) -> str:
+    # Keep the document markers that _looks_like_markdown uses to reject HTML.
+    # Stripping its body first both defeated that guard and scanned large saved
+    # pages (including embedded assets) for Markdown on every replay request.
+    # HTML permits omitted head/body/end tags, including SingleFile's output.
+    if HTML_DOCUMENT_RE.match(text):
+        return text
     candidate = text
     body_match = HTML_BODY_RE.search(candidate)
     if body_match:
@@ -630,6 +637,8 @@ def _extract_markdown_candidate(text: str) -> str:
 
 
 def _looks_like_markdown(text: str) -> bool:
+    if HTML_DOCUMENT_RE.match(text):
+        return False
     lower = text.lower()
     if "<html" in lower and "<head" in lower and "</body>" in lower:
         return False
@@ -824,6 +833,11 @@ def _rewrite_html_image_sources_to_responses(
         image_url = html.unescape(match.group(2))
         if image_url not in encoded_urls_by_src:
             encoded_urls_by_src[image_url] = _encoded_responses_image_url(image_url, page_url)
+    wanted = {encoded for encoded in encoded_urls_by_src.values() if encoded}
+    if not wanted:
+        # Self-contained captures have no network image URLs to enrich. Avoid
+        # reading/parsing optional DOM and responses artifacts in that case.
+        return html_text, 0
 
     # Optional dom plugin artifact: dom/output.html. Only image src and
     # data-canonical-src attributes are read; no scripts or plugin code execute.
@@ -844,7 +858,6 @@ def _rewrite_html_image_sources_to_responses(
     dom = snapshot_root / "dom" / "output.html"
     if dom.is_file() and dom.stat().st_size <= 10 * 1024 * 1024:
         ImageAliases().feed(dom.read_text(errors="replace"))
-    wanted = {encoded for encoded in encoded_urls_by_src.values() if encoded}
     response_paths = _index_responses_paths_for_html_images(
         snapshot_root,
         html_rel_path,

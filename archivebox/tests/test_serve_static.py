@@ -303,6 +303,29 @@ def test_markdown_repository_tables_and_code_render(tmp_path: Path):
     assert b"<code>ulid()</code>" in response.content
 
 
+@pytest.mark.parametrize("closing_tags", ["</body></html>", ""])
+def test_complete_html_is_not_reinterpreted_as_markdown(tmp_path: Path, closing_tags: str):
+    # Markdown syntax in page data/comments must not replace an HTML document.
+    markers = "\n".join(f"# Saved heading {number}" for number in range(6))
+    source = f"<!doctype html><html><head><title>Saved page</title></head><body><p>Article</p><!--\n{markers}\n-->{closing_tags}"
+    output = tmp_path / "page.html"
+    output.write_text(source)
+    response = serve_static_with_byterange_support(RequestFactory().get("/page.html"), "page.html", document_root=tmp_path)
+    assert response.status_code == 200
+    body = b"".join(response.streaming_content) if response.streaming else response.content
+    assert body == source.encode()
+    assert output.read_text() == source
+
+
+def test_markdown_in_html_fragment_still_renders(tmp_path: Path):
+    source = "<p>" + "\n".join(f"# Saved heading {number}" for number in range(6)) + "</p>"
+    (tmp_path / "article.html").write_text(source)
+    response = serve_static_with_byterange_support(RequestFactory().get("/article.html"), "article.html", document_root=tmp_path)
+    assert response.status_code == 200
+    assert response.content.count(b"<h1") == 6
+    assert (tmp_path / "article.html").read_text() == source
+
+
 def test_image_rewrite_uses_optional_saved_artifacts(tmp_path: Path):
     import json
     from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
