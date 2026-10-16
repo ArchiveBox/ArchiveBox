@@ -1,0 +1,25 @@
+archivebox/importers/management/commands/importers.py
+  s_20f72622e178fb::t_e67ee66ad9bab7 18,21-22,28-35,37-39,43-44
+  s_20f72622e178fb::t_8e1301aff03e39 11
+archivebox/tests/test_importers.py
+  s_20f72622e178fb::t_4ac19dae284db1 44-95
+archivebox/importers/service.py
+  s_20f72622e178fb::t_8e1301aff03e39 226,230
+  s_20f72622e178fb::t_e67ee66ad9bab7 225,227-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "da63e9c58788a3373944ce5f0c22f5ec34a966a0",
+  "prompts": {},
+  "sessions": {
+    "s_20f72622e178fb": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a12055-56d0-7ef0-b548-c37349a8f4db",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
