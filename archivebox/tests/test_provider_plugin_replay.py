@@ -7,7 +7,6 @@ or its owner revokes access. Plugin-local tests assert provider-specific content
 import hashlib
 import json
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
@@ -116,8 +115,8 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                     return frames.map(frame => ({connected: frame.isConnected, src: frame.src, sandbox: frame.getAttribute('sandbox')}));
                 }""")
                 transitions.dispose()
-                modified = datetime.fromisoformat(snapshot["modified_at"])
-                revision = f"{int(modified.timestamp())}.{modified.microsecond:06d}"
+                revision = card.get_attribute("data-output-revision")
+                assert revision
                 raw_preview = card.get_attribute("data-preview-url")
                 assert raw_preview
                 preview_url = urlsplit(raw_preview)

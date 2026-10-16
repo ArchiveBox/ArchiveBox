@@ -1698,7 +1698,9 @@
                 if (!hashValue) {
                     return null
                 }
-                const previewLinks = [...document.querySelectorAll('a[target=preview]')]
+                // Stack covers clone a card's links, but deliberately omit its
+                // output identity/revision. Only real cards can select a replay.
+                const previewLinks = [...document.querySelectorAll('.thumb-card[data-output-path] a[target=preview]')]
                 const pathMatch = previewLinks.find((link) => getPreviewHashValueFromHref(link.getAttribute('href')) === hashValue)
                 if (pathMatch) {
                     return pathMatch
