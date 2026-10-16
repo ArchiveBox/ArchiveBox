@@ -4,6 +4,7 @@ import json
 import operator
 import os
 import posixpath
+import time
 from functools import reduce
 from pathlib import Path
 from typing import ClassVar, cast
@@ -1142,6 +1143,7 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
     for candidate_path in (rel_path, *fallback_relpaths):
         try:
+            file_started = time.perf_counter()
             response = serve_static_with_byterange_support(
                 request,
                 candidate_path,
@@ -1149,6 +1151,7 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
                 show_indexes=show_indexes,
                 is_archive_replay=True,
             )
+            response["Server-Timing"] = f"replay_file;dur={(time.perf_counter() - file_started) * 1000:.1f}"
             return add_memento_headers(
                 request,
                 snapshot,
@@ -1170,7 +1173,12 @@ def _build_snapshot_replay_response(request: HttpRequest, snapshot: Snapshot, pa
 
 
 def _serve_snapshot_replay(request: HttpRequest, snapshot: Snapshot, path: str = ""):
+    started, cpu_started = time.perf_counter(), time.thread_time()
     response = _build_snapshot_replay_response(request, snapshot, path)
+    # Response construction only, not body streaming or time queued before the
+    # view. Thread CPU excludes other capture workers; wall time includes waits.
+    timings = f"replay;dur={(time.perf_counter() - started) * 1000:.1f}, replay_cpu;dur={(time.thread_time() - cpu_started) * 1000:.1f}"
+    response["Server-Timing"] = ", ".join(filter(None, (response.get("Server-Timing"), timings)))
     if response.status_code in (200, 206, 304) and response.get("Cache-Control") == FAVICON_CACHE_CONTROL:
         return response
     if path != "progress.json" and response.status_code in (200, 206, 304):

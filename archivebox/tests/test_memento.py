@@ -138,6 +138,26 @@ def test_memento_archive_live_range(live_server, captures, archive_files, name, 
 
 
 @pytest.mark.django_db(transaction=True)
+def test_replay_server_timing_preserves_saved_response(live_server, captures):
+    snapshot = captures[0]
+    path = "singlefile/singlefile.html"
+    url = urlsplit(build_snapshot_url(str(snapshot.id), path))
+    original = (snapshot.output_dir / path).read_bytes()
+    with requests.Session() as session:
+        session.trust_env = False
+        response = session.get(live_server.url + url.path, headers={"Host": url.netloc}, timeout=10)
+    assert response.status_code == 200
+    assert response.content == original
+    assert response.headers["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
+    assert 'rel="original"' in response.headers["Link"]
+    timings = dict(part.strip().split(";dur=") for part in response.headers["Server-Timing"].split(","))
+    assert {"replay", "replay_cpu", "replay_file"} <= timings.keys()
+    assert 0 <= float(timings["replay_file"]) <= float(timings["replay"])
+    assert float(timings["replay_cpu"]) >= 0
+    assert (snapshot.output_dir / path).read_bytes() == original
+
+
+@pytest.mark.django_db(transaction=True)
 def test_memento_existing_routes(client, captures):
     first, latest, unlisted, private = captures
     gate = "/archive/" + quote(first.url, safe=":/")
