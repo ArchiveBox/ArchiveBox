@@ -1215,6 +1215,14 @@ def test_refreshed_output_replaces_warm_replay_without_disabling_cache(snapshot,
             assert frame.locator("h1").inner_text() == "ArchiveBox consolelog preview fixture"
             first_src = page.locator("#main-frame").get_attribute("src")
             assert first_src
+            # The thumbnail and main viewer render the same saved bytes. Their
+            # cache version must agree even when the snapshot row changed later.
+            card = page.locator('.stack-cover iframe[title="singlefile card"]')
+            asset = card.content_frame.locator("iframe")
+            assert asset.content_frame.locator("h1").inner_text() == "ArchiveBox consolelog preview fixture"
+            card_src = asset.get_attribute("src")
+            assert card_src
+            assert parse_qs(urlsplit(first_src).query)["_abx_rev"] == parse_qs(urlsplit(card_src).query)["_abx_rev"]
             # A normal revisit must keep the same cache key, not a random timestamp.
             page.goto("about:blank")
             page.goto(target, wait_until="domcontentloaded")
