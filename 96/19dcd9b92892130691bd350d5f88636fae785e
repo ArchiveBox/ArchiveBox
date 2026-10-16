@@ -1,0 +1,21 @@
+archivebox/services/archive_result_service.py
+  s_10bc94d001be49::t_4764b98a1bbe3e 16,125,179,295-303
+archivebox/tests/test_cli_run_4.py
+  s_10bc94d001be49::t_e1dea3327f1227 10-11,116-117,121,130-136,142-154,163-167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9619dcd9b92892130691bd350d5f88636fae785e",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
