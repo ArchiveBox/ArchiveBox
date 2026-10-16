@@ -1430,23 +1430,32 @@ class CrawlRunner:
                     return
                 if snapshot["status"] == "sealed":
                     await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
-                    return
-                await self.enqueue_discovered_snapshots_from_outputs(snapshot)
+                else:
+                    await self.enqueue_discovered_snapshots_from_outputs(snapshot)
 
-                def _seal_when_last_snapshot_finished() -> None:
-                    # Re-read immediately before the idempotent conditional
-                    # update so concurrent last-snapshot completions are safe.
-                    crawl = self.crawl
-                    crawl.refresh_from_db(fields=["status"])
-                    if crawl.status != crawl.StatusChoices.STARTED:
-                        return
-                    if crawl.snapshot_set.filter(
-                        Q(status__in=crawl.snapshot_set.model.OPEN_STATES) | Q(status="sealed", config__RETRY_PLUGINS__0__isnull=False),
-                    ).exists():
-                        return
-                    crawl.seal()
+                    def _seal_when_last_snapshot_finished() -> None:
+                        # Re-read immediately before the idempotent conditional
+                        # update so concurrent last-snapshot completions are safe.
+                        crawl = self.crawl
+                        crawl.refresh_from_db(fields=["status"])
+                        if crawl.status != crawl.StatusChoices.STARTED:
+                            return
+                        if crawl.snapshot_set.filter(
+                            Q(status__in=crawl.snapshot_set.model.OPEN_STATES) | Q(status="sealed", config__RETRY_PLUGINS__0__isnull=False),
+                        ).exists():
+                            return
+                        crawl.seal()
 
-                await sync_to_async(_seal_when_last_snapshot_finished, thread_sensitive=True)()
+                    await sync_to_async(_seal_when_last_snapshot_finished, thread_sensitive=True)()
+                # A preparation failure has no started subprocess. Let every
+                # independent hook finish, then retain the capture/CLI failure.
+                preparation_failures = [
+                    completed.stderr
+                    for completed in await self.bus.filter(ProcessCompletedEvent, child_of=emitted_snapshot_event, past=True, future=False)
+                    if completed.status == "failed" and not completed.pid and not completed.cancelled
+                ]
+                if preparation_failures:
+                    raise SnapshotAttemptError("; ".join(preparation_failures))
             finally:
                 snapshot_service.close()
                 # Projection and snapshot cleanup have finished. Historical

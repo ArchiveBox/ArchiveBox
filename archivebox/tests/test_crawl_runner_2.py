@@ -282,13 +282,17 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
             file_hash = next(row for row in hashes["files"] if row["path"] == "input.txt")
             assert file_hash["hash"] == hashlib.sha256(url.encode()).hexdigest()
         broken = snapshots[urls[0]]
-        assert not broken.archiveresult_set.exists(), "The obstructed hook never started"
+        failed = broken.archiveresult_set.get()
+        assert failed.status == "failed"
+        assert "FileExistsError" in failed.output_str
+        assert failed.process.exit_code == -1
+        assert failed.process.pid is None
         assert str(broken.id) in run.stderr
         runner_process = Process.objects.get(process_type=Process.TypeChoices.ORCHESTRATOR)
         assert runner_process.status == Process.StatusChoices.EXITED
         assert runner_process.exit_code == 1
         hooks = Process.objects.filter(process_type=Process.TypeChoices.HOOK)
-        assert hooks.count() == 2
+        assert hooks.count() == 3
         assert not hooks.filter(status=Process.StatusChoices.RUNNING).exists()
         sealed_at = broken.modified_at
 
@@ -300,7 +304,7 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
         assert broken.status == Snapshot.StatusChoices.SEALED
         assert broken.retry_at is None
         assert broken.modified_at == sealed_at
-        assert Process.objects.filter(process_type=Process.TypeChoices.HOOK).count() == 2
+        assert Process.objects.filter(process_type=Process.TypeChoices.HOOK).count() == 3
 
 
 @pytest.mark.django_db(transaction=True)
@@ -330,7 +334,11 @@ def test_capture_attempt_failure_is_nonzero_in_worker_modes(initialized_archive,
         snapshot = Snapshot.objects.get(pk=snapshot_id)
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.retry_at is None
-        assert not snapshot.archiveresult_set.exists()
+        failed = snapshot.archiveresult_set.get()
+        assert failed.status == "failed"
+        assert "FileExistsError" in failed.output_str
+        assert failed.process.exit_code == -1
+        assert failed.process.pid is None
         process = Process.objects.get(process_type=Process.TypeChoices.ORCHESTRATOR)
         assert process.status == Process.StatusChoices.EXITED
         assert process.exit_code == 1

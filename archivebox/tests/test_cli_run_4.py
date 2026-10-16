@@ -133,7 +133,9 @@ def test_cli_run_seals_snapshot_after_filesystem_failure_without_retrying_it(ini
     broken_directory.write_bytes(b"Existing output must survive")
 
     result = run_archivebox_cmd(["run", f"--snapshot-id={snapshot_id}"], cwd=initialized_archive, env=env, timeout=60)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "FileExistsError" in result.stderr
+    assert "1 snapshot attempt(s) failed" in result.stderr
     with use_archivebox_db(initialized_archive):
         snapshot = Snapshot.objects.get(pk=snapshot_id)
         assert snapshot.status == Snapshot.StatusChoices.SEALED
