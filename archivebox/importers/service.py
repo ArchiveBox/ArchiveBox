@@ -222,13 +222,12 @@ def _finish(run, items, result):
             ImporterSource.objects.filter(pk=source.pk).update(enabled=False, next_run_at=None)
 
 
-def run_next_importer(stop_event=None) -> bool:
-    run = (
-        ImporterRun.objects.filter(status=ImporterRun.Status.QUEUED)
-        .select_related("source__persona", "source__created_by")
-        .order_by("created_at")
-        .first()
-    )
+def run_next_importer(stop_event=None, *, run_id=None) -> bool:
+    """Claim one queued run, optionally the exact run selected by a CLI caller."""
+    queued = ImporterRun.objects.filter(status=ImporterRun.Status.QUEUED)
+    if run_id is not None:
+        queued = queued.filter(pk=run_id)
+    run = queued.select_related("source__persona", "source__created_by").order_by("created_at").first()
     if run is None:
         return False
     if not ImporterRun.objects.filter(pk=run.pk, status=ImporterRun.Status.QUEUED).update(

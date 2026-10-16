@@ -41,6 +41,58 @@ def test_import_catalog_is_rendered_from_real_plugins(admin_client):
     assert b"Spreadsheet" in response.content
 
 
+@pytest.mark.parametrize("scenario", ["failure", "selected-source", "drain"])
+def test_importer_cli_reports_outcomes_and_preserves_source_scope(initialized_archive, import_site, scenario):
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterRun, ImporterSource
+    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    _, url = import_site
+    with use_archivebox_db(initialized_archive):
+        user = get_user_model().objects.create_superuser(username="importer-cli", password="test-importer-cli")
+        client = Client()
+        client.force_login(user)
+        for name, path in [("First feed", "missing.xml" if scenario != "selected-source" else "feed.xml"), ("Selected feed", "feed.xml")]:
+            response = client.post(
+                "/admin/importers/new/importer_rss/feed/",
+                {"name": name, "setting_IMPORTER_RSS_URL": f"{url}/{path}"},
+                HTTP_HOST=ADMIN_TEST_HOST,
+            )
+            assert response.status_code == 302
+        first = ImporterSource.objects.get(name="First feed")
+        selected = ImporterSource.objects.get(name="Selected feed")
+        if scenario != "failure":
+            assert client.post(f"/admin/importers/{first.pk}/preview/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+        if scenario == "drain":
+            assert client.post(f"/admin/importers/{selected.pk}/preview/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+
+    args = ["manage", "importers"]
+    if scenario != "drain":
+        args.extend(["--source", str(first.pk if scenario == "failure" else selected.pk), "--action", "preview", "--once"])
+    result = run_archivebox_cmd(args, cwd=initialized_archive, env=cli_env(), timeout=60)
+    assert result.returncode == (0 if scenario == "selected-source" else 1), result.stdout + result.stderr
+    with use_archivebox_db(initialized_archive):
+        first_run = ImporterRun.objects.get(source_id=first.pk)
+        if scenario == "selected-source":
+            assert first_run.status == ImporterRun.Status.QUEUED
+        else:
+            assert first_run.status == ImporterRun.Status.FAILED
+            assert first_run.items == [] and first_run.crawl_id is None
+            assert str(first_run.pk) in result.stderr
+            assert "failed" in result.stderr
+        if scenario != "failure":
+            selected_run = ImporterRun.objects.get(source_id=selected.pk)
+            assert selected_run.status == ImporterRun.Status.SUCCEEDED, selected_run.message
+            assert [item["url"] for item in selected_run.items] == [f"{url}/article.html"]
+            assert selected_run.crawl_id is None
+        assert all(source.checkpoint == {} for source in ImporterSource.objects.all())
+        assert Crawl.objects.count() == 0
+
+
 def test_daemon_discovers_work_after_capture_dispatch_stops_ticking(admin_client, import_site):
     import time
 
