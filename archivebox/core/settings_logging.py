@@ -2,6 +2,7 @@ __package__ = "archivebox.core"
 
 import re
 import os
+import sys
 import tempfile
 import logging
 
@@ -149,6 +150,10 @@ SETTINGS_LOGGING = {
             "datefmt": "[%Y-%m-%d %H:%M:%S]",
             "format": "%(name)s %(message)s",
         },
+        "plain": {
+            "datefmt": "[%Y-%m-%d %H:%M:%S]",
+            "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
+        },
         "outbound_webhooks": {
             "()": CustomOutboundWebhookLogFormatter,
             "datefmt": "[%Y-%m-%d %H:%M:%S]",
@@ -176,13 +181,21 @@ SETTINGS_LOGGING = {
     },
     "handlers": {
         "default": {
-            "class": "rich.logging.RichHandler",
-            "formatter": "rich",
+            # Rich's table layout hard-wraps messages and tracebacks even when
+            # Console.soft_wrap is set. Pipes need complete, unpadded lines.
+            **(
+                {
+                    "class": "rich.logging.RichHandler",
+                    "markup": False,
+                    "enable_link_path": False,
+                    "rich_tracebacks": False,
+                    "console": STDERR,
+                }
+                if sys.stderr.isatty()
+                else {"class": "logging.StreamHandler", "stream": "ext://sys.stderr"}
+            ),
+            "formatter": "rich" if sys.stderr.isatty() else "plain",
             "level": "DEBUG",
-            "markup": False,
-            "enable_link_path": False,
-            "rich_tracebacks": False,  # Use standard Python tracebacks (no frame/box)
-            "console": STDERR,
             "filters": ["noisyrequestsfilter", "daphneclosetimeout", "asynciocancelledshield", "stripansi"],
         },
         "logfile": {
