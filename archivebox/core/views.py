@@ -857,6 +857,8 @@ def _plugin_full_preview_response(
         return None
 
     # Preview templates can read saved artifacts before the static-file view.
+    # Apply the same boundary here so a rendered preview cannot bypass the
+    # containment check that protects raw and ranged file responses.
     _resolve_archive_path(snapshot.output_dir, rel_path)
 
     raw_query = request.GET.copy()

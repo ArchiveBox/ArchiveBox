@@ -302,11 +302,17 @@ def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
 
 def _resolve_contained_path(root: Path, path: Path) -> Path:
     """Resolve links before reading outputs, including during an active capture."""
+    # Capture tools can create links before post-processing cleans them up, so
+    # enforce containment at read time. Callers pass a canonical root to avoid
+    # resolving its ancestors again for every directory entry. Allow links
+    # within that root: plugins legitimately share captured response files.
     try:
         resolved = path.resolve()
         relative = resolved.relative_to(root)
     except (OSError, RuntimeError, ValueError) as err:
         raise Http404("Archive output is outside the document root or unavailable") from err
+    # A harmless-looking alias can target private browser state inside the
+    # root, so checking only the requested URL would miss this exclusion.
     if any(part.casefold() == ".persona" for part in relative.parts):
         raise Http404("Browser runtime files are not archive outputs")
     return resolved
@@ -317,10 +323,13 @@ def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Pat
     if any(part.casefold() == ".persona" for part in Path(rel_path).parts):
         raise Http404("Browser runtime files are not archive outputs")
     root = Path(document_root).resolve()
+    # safe_join rejects lexical traversal; it does not inspect symlink targets.
     fullpath = _resolve_contained_path(root, Path(safe_join(root, rel_path)))
     if os.access(fullpath, os.R_OK):
         return fullpath, rel_path
 
+    # Case-insensitive fallback selects different filesystem entries, so each
+    # selected component needs validation before we descend into it.
     current = root
     resolved_parts: list[str] = []
     for part in Path(rel_path).parts:
@@ -397,6 +406,8 @@ def _iter_visible_files(root: Path):
         dirnames[:] = sorted(dirname for dirname in dirnames if not dirname.startswith("."))
         for filename in sorted(name for name in filenames if not name.startswith(".")):
             entry = Path(current_root) / filename
+            # os.walk skips directory links but still yields file links; ZIP
+            # creation must not dereference those into files outside this tree.
             try:
                 resolved = _resolve_contained_path(root, entry)
             except Http404:
@@ -1196,7 +1207,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         config = get_config(resolve_plugins=False)
     cache_policy = getattr(request, "archivebox_cache_policy", None) or _cache_policy(config=config)
     fullpath, path = _resolve_archive_path(document_root, path)
-    # One access + one stat per request: each is a round trip on FUSE storage.
+    # Reuse this stat for response metadata after path validation; redundant
+    # metadata reads can each cost a round trip on FUSE storage.
     readable = os.access(fullpath, os.R_OK)
     statobj = fullpath.stat() if readable else None
     if statobj is not None and stat.S_ISDIR(statobj.st_mode):
