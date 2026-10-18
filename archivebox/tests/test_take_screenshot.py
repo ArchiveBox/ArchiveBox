@@ -55,7 +55,8 @@ const {waitForVisibleCardPreviews} = require(process.env.SCREENSHOT_SCRIPT);
 (async () => {
   const browser = await puppeteer.launch({
     executablePath: process.env.CHROME_BINARY, headless: true,
-    args: JSON.parse(process.env.CHROME_ARGS),
+    // Match browser_runtime's CHROME_SANDBOX=False and the existing isolated browser tests.
+    args: [...JSON.parse(process.env.CHROME_ARGS), '--no-sandbox'],
   });
   try {
     const page = await browser.newPage();
