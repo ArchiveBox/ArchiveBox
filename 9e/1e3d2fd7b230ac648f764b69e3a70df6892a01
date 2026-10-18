@@ -1,0 +1,21 @@
+docs/Contents.rst
+  s_10bc94d001be49::t_38905fcfb32bc0 81
+docs/Release-Notes.md
+  s_10bc94d001be49::t_23587ae6202e9a 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9e1e3d2fd7b230ac648f764b69e3a70df6892a01",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
