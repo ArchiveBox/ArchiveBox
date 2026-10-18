@@ -305,19 +305,31 @@ def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
     return file_map.get(rel_path)
 
 
+def _resolve_contained_path(root: Path, path: Path) -> Path:
+    """Resolve links before reading outputs, including during an active capture."""
+    try:
+        resolved = path.resolve()
+        relative = resolved.relative_to(root)
+    except (OSError, RuntimeError, ValueError) as err:
+        raise Http404("Archive output is outside the document root or unavailable") from err
+    if any(part.casefold() == ".persona" for part in relative.parts):
+        raise Http404("Browser runtime files are not archive outputs")
+    return resolved
+
+
 def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Path, str]:
     rel_path = posixpath.normpath(rel_path).lstrip("/") if rel_path else ""
     if any(part.casefold() == ".persona" for part in Path(rel_path).parts):
         raise Http404("Browser runtime files are not archive outputs")
-    fullpath = Path(safe_join(document_root, rel_path))
+    root = Path(document_root).resolve()
+    fullpath = _resolve_contained_path(root, Path(safe_join(root, rel_path)))
     if os.access(fullpath, os.R_OK):
         return fullpath, rel_path
 
-    root = Path(document_root)
     current = root
     resolved_parts: list[str] = []
     for part in Path(rel_path).parts:
-        exact = current / part
+        exact = _resolve_contained_path(root, current / part)
         if os.access(exact, os.R_OK):
             current = exact
             resolved_parts.append(part)
@@ -331,11 +343,11 @@ def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Pat
         if match is None:
             return fullpath, rel_path
 
-        current = match
+        current = _resolve_contained_path(root, match)
         resolved_parts.append(match.name)
 
     resolved_path = posixpath.join(*resolved_parts) if resolved_parts else ""
-    return Path(safe_join(document_root, resolved_path)), resolved_path
+    return current, resolved_path
 
 
 def _cache_policy(config=None, **config_kwargs) -> str:
@@ -390,7 +402,11 @@ def _iter_visible_files(root: Path):
         dirnames[:] = sorted(dirname for dirname in dirnames if not dirname.startswith("."))
         for filename in sorted(name for name in filenames if not name.startswith(".")):
             entry = Path(current_root) / filename
-            if entry.resolve().is_relative_to(root):
+            try:
+                resolved = _resolve_contained_path(root, entry)
+            except Http404:
+                continue
+            if resolved.is_file():
                 yield entry
 
 
@@ -515,7 +531,7 @@ async def _stream_ranged_file_async(ranged_file: "RangedFileReader"):
         ranged_file.close()
 
 
-def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
+def _render_directory_index(request, path: str, fullpath: Path, document_root: Path) -> HttpResponse:
     try:
         template = loader.select_template(
             [
@@ -528,10 +544,17 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
 
     entries = []
     file_list = []
-    visible_entries = sorted(
-        (entry for entry in fullpath.iterdir() if not entry.name.startswith(".")),
-        key=lambda entry: (not entry.is_dir(), entry.name.lower()),
-    )
+    visible_entries = []
+    for entry in fullpath.iterdir():
+        if entry.name.startswith("."):
+            continue
+        try:
+            resolved = _resolve_contained_path(document_root, entry)
+        except Http404:
+            continue
+        if resolved.exists():
+            visible_entries.append(entry)
+    visible_entries.sort(key=lambda entry: (not entry.is_dir(), entry.name.lower()))
     for entry in visible_entries:
         url = str(entry.relative_to(fullpath))
         if entry.is_dir():
@@ -1035,7 +1058,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
             return response
         if show_indexes:
-            response = _render_directory_index(request, path, fullpath)
+            response = _render_directory_index(request, path, fullpath, Path(document_root).resolve())
             response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
             response.headers["Last-Modified"] = http_date(statobj.st_mtime)
             return _apply_archive_replay_headers(

@@ -76,7 +76,7 @@ from archivebox.core.routes_util import (
 )
 from archivebox.crawls.models import Crawl
 from archivebox.misc.paginators import AcceleratedPaginator
-from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, serve_static_with_byterange_support
+from archivebox.misc.serve_static import FAVICON_CACHE_CONTROL, _resolve_archive_path, serve_static_with_byterange_support
 from archivebox.misc.util import (
     base_url,
     equivalent_urls,
@@ -855,6 +855,9 @@ def _plugin_full_preview_response(
         # Defer to the file-serving response hook so unrelated outputs from the
         # same plugin continue through their normal MIME-specific renderer.
         return None
+
+    # Preview templates can read saved artifacts before the static-file view.
+    _resolve_archive_path(snapshot.output_dir, rel_path)
 
     raw_query = request.GET.copy()
     raw_query.pop("preview", None)
