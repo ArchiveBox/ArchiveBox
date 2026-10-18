@@ -72,7 +72,7 @@ def test_direct_url_crawl_measures_first_snapshot_before_parallel_admission(
         left_id != right_id and left_start < right_end and right_start < left_end
         for index, (left_id, left_start, left_end) in enumerate(later_intervals)
         for right_id, right_start, right_end in later_intervals[index + 1 :]
-    ), later_intervals
+    ), (later_intervals, result.stdout, result.stderr)
 
 
 def test_crawl_snapshot_has_parent_snapshot_field(tmp_path, initialized_archive):
