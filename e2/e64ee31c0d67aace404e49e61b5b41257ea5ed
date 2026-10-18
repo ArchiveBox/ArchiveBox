@@ -1,0 +1,26 @@
+bin/take_screenshot.js
+  s_10bc94d001be49::t_5064a97cc96c92 520
+  s_10bc94d001be49::t_78330cc39e2e68 89-95,98-122,278-280,286-287,485-507,513-519
+.github/workflows/screenshots.yml
+  s_10bc94d001be49::t_04974e13de2ea1 4-14,156,184-192
+archivebox/tests/test_release_workflow.py
+  s_10bc94d001be49::t_f0b59a521c1c58 192-203
+archivebox/tests/test_take_screenshot.py
+  s_10bc94d001be49::t_92c3d6ac8a9d13 1-170
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e2e64ee31c0d67aace404e49e61b5b41257ea5ed",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
