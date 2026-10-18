@@ -178,3 +178,57 @@ def test_large_crawl_cached_progress_workload(client, admin_user, crawl):
         ),
     )
     assert statistics.mean(cpu[True]) <= 1.10 * statistics.mean(cpu[False])
+
+
+@pytest.mark.parametrize(
+    ("queued", "completed", "label"),
+    [
+        (15, 60, "15 queued (~15min)"),
+        (870, 60, "870 queued (~14hr 30min)"),
+        (1501, 60, "1,501 queued (~1d 1hr 1min)"),
+        (15, 56, "15 queued (~17min)"),
+        (15, 0, "15 queued"),
+        (0, 60, "0 queued"),
+    ],
+)
+def test_queue_eta_from_real_completion_rate(admin_user, crawl, live_server, browser_runtime, queued, completed, label):
+    from urllib.parse import urlsplit
+    from playwright.sync_api import sync_playwright, expect
+    from archivebox.core.models import Snapshot
+    from archivebox.machine.models import Machine
+
+    now = timezone.now()
+    Snapshot.objects.bulk_create(
+        [
+            Snapshot(
+                crawl=crawl,
+                url=f"https://archivebox.io/tests/?eta={index}",
+                timestamp=str(now.timestamp() + index),
+                status="sealed" if index < completed else "queued",
+                downloaded_at=now - timedelta(minutes=5) if index < completed else None,
+            )
+            for index in range(completed + queued)
+        ],
+    )
+    cache.clear()
+    assert await_metrics(admin_user)["throughput"]["last_hour"] == completed
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    origin = f"http://admin.archivebox.localhost:{port}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page()
+            page.goto(f"{origin}/admin/login/")
+            page.locator("#id_username").fill(admin_user.username)
+            page.locator("#id_password").fill("testpassword")
+            page.locator('input[type="submit"]').click()
+            page.wait_for_url(f"{origin}/admin/")
+            expect(page.locator("#orchestrator-text")).to_have_text(f"0 - {label}")
+        finally:
+            browser.close()
