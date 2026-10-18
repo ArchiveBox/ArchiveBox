@@ -1,0 +1,31 @@
+archivebox/tests/test_saved_html_resources.py
+  s_10bc94d001be49::t_91e1cb1de40144 17-20,23-26,31-33,37-51
+  s_10bc94d001be49::t_0348ae0f470021 29,34-36,64-68,76-79,83,85-87,92-95,105-106
+  s_10bc94d001be49::t_bfd65f2a0b465d 21-22,27-28,30,52-63,69-75,80-82,84,88-91,96-104,107-112
+  s_10bc94d001be49::t_8b2184705bffe6 113-120
+archivebox/misc/serve_static.py
+  s_10bc94d001be49::t_395640b508d484 867,882-884,893-896,913-918,989,996-997
+  s_10bc94d001be49::t_bb5f00ebdb5113 868,885-886,898-907,990-995
+archivebox/tests/fixtures/bablosoft-lazy-image/background.html
+  s_10bc94d001be49::t_8b8f3935c892d7 1
+archivebox/tests/fixtures/bablosoft-lazy-image/image.html
+  s_10bc94d001be49::t_3dffd35f524893 1
+archivebox/tests/fixtures/bablosoft-lazy-image/provenance.txt
+  s_10bc94d001be49::t_d1f82df63d5c19 1-6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6698051dc6b7d70d62793f3257741691c7f2b09e",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
