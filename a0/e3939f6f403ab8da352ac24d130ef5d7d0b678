@@ -1,0 +1,25 @@
+archivebox/services/resource_admission.py
+  s_10bc94d001be49::t_103c7aac845669 134-138,141,144,167,244-251
+archivebox/services/runner.py
+  s_10bc94d001be49::t_410c3fc4475ffc 541-544,774-778,1178-1185,1203-1204,1681,1687-1689
+archivebox/tests/test_crawl_memory_admission.py
+  s_10bc94d001be49::t_ed61ade375fc39 113-163
+archivebox/tests/test_resource_admission.py
+  s_10bc94d001be49::t_d48d33d7a57390 26-29,258-268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0e3939f6f403ab8da352ac24d130ef5d7d0b678",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
