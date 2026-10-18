@@ -1,0 +1,37 @@
+.pre-commit-config.yaml
+  s_10bc94d001be49::t_96afa1a8785eb7 14-15,61-62
+archivebox/misc/serve_static.py
+  s_10bc94d001be49::t_53375dccba4b5c 2-3,785-797,802,817-822,824-830,862,864-912,940,944-946,949-970,972-1020,1037,1206-1215,1217,1276,1427-1442,1473-1474,1549-1555
+archivebox/tests/fixtures/crontab-resources/OFL.txt
+  s_10bc94d001be49::t_a730266db30018 1-93
+archivebox/tests/fixtures/crontab-resources/README.md
+  s_10bc94d001be49::t_4050a7aa9f7781 1-9
+archivebox/tests/fixtures/crontab-resources/index.js
+  s_10bc94d001be49::t_79325ec03dd018 1
+archivebox/tests/fixtures/crontab-resources/index.jsonl
+  s_10bc94d001be49::t_2af91847422bcd 1-6
+archivebox/tests/fixtures/crontab-resources/page.html
+  s_10bc94d001be49::t_b035afdb680bb5 1-248
+archivebox/tests/fixtures/crontab-resources/styles.css
+  s_10bc94d001be49::t_bcf0de6678067a 1-2
+archivebox/tests/test_saved_html_resources.py
+  s_10bc94d001be49::t_ef258936293b3b 1-301
+archivebox/tests/test_urls.py
+  s_10bc94d001be49::t_a218d143ebbd8f 1325,1342-1344
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "535e6e88754a781b8898a9a0cb05132340761a8d",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
