@@ -23,7 +23,10 @@ def test_snapshot_admission_stages_first_capture_then_uses_measured_headroom():
     assert admission.slots_for_headroom(3, active=1, observed_cost=500_000_000, available=400_000_000) == 0
     assert admission.slots_for_headroom(3, active=1, observed_cost=500_000_000, available=900_000_000) == 0
     assert admission.slots_for_headroom(3, active=1, observed_cost=500_000_000, available=1_100_000_000) == 1
-    assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=0) == 1
+    # Idle is not permission to exceed an already measured capture cost.
+    assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=0) == 0
+    assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=499_999_999) == 0
+    assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=500_000_000) == 1
     # Headroom from memory_headroom() also includes disk-backed free swap.
     assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=2_000_000_000) == 3
     assert admission.additional_snapshot_slots(3, active=0, observed_cost=0) == 1
@@ -252,3 +255,14 @@ print(json.dumps(admission.process_tree_memory()), flush=True)
             assert allocator.stdin is not None
             allocator.stdin.close()
             assert allocator.wait(timeout=10) == 0
+
+
+def test_idle_admission_defers_a_capture_larger_than_real_headroom():
+    import psutil
+
+    admission = ResourceAdmission()
+    # This requirement exceeds the actual machine's entire RAM and swap;
+    # no allocation, fake pressure source, or modified host limit is needed.
+    cost = psutil.virtual_memory().total + psutil.swap_memory().total + 1
+    assert admission.additional_snapshot_slots(3, active=0, observed_cost=cost) == 0
+    assert "memory headroom" in admission.resource_pressure(required_memory=cost)

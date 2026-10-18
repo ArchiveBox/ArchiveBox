@@ -131,14 +131,17 @@ class ResourceAdmission:
         return min(ceiling, self._concurrency)
 
     def additional_snapshot_slots(self, configured: int, active: int, observed_cost: int | None) -> int:
+        pressure = self.resource_pressure()
+        headroom = self.memory_headroom()
+        if pressure or headroom <= 0:
+            self.concurrency_limit(configured, pressure=True, now=time.monotonic())
+            return 0
         if not observed_cost:
             # Stage one complete real capture before spending memory on parallel
-            # hook trees. A zero-cost/failed probe cannot justify fanout.
+            # hook trees. Even this warmup must wait for resource pressure to clear.
             return 1 if active == 0 and configured > 0 else 0
-        pressure = self.resource_pressure()
         previous_limit = self._concurrency
-        ceiling = self.concurrency_limit(configured, pressure=bool(pressure), now=time.monotonic())
-        headroom = self.memory_headroom()
+        ceiling = self.concurrency_limit(configured, pressure=False, now=time.monotonic())
         slots = self.slots_for_headroom(ceiling, active, observed_cost, headroom)
         if ceiling != previous_limit or slots < max(0, configured - active):
             logging.getLogger(__name__).info(
@@ -161,7 +164,7 @@ class ResourceAdmission:
             # that growth before promising the remaining headroom to new work.
             unpromised = max(0, available - active * observed_cost)
             slots = min(slots, unpromised // observed_cost)
-        return max(1, slots) if active == 0 and configured else slots
+        return slots
 
     def memory_headroom(self) -> int:
         """Return effective available RAM plus independently backed swap."""
@@ -238,7 +241,14 @@ class ResourceAdmission:
         stalled_percent = (total - previous_total) / (elapsed * 1_000_000) * 100
         return avg10 >= threshold and stalled_percent >= threshold
 
-    def resource_pressure(self) -> str | None:
+    def resource_pressure(self, *, required_memory: int | None = None) -> str | None:
+        # Check capacity on every admission, independently of cached PSI. An
+        # idle runner still needs room for its last measured capture; allowing
+        # one unconditionally can restart work into an already exhausted host.
+        if required_memory is not None:
+            available = self.memory_headroom()
+            if available <= 0 or available < required_memory:
+                return f"memory headroom {available} bytes below capture requirement {required_memory} bytes"
         now = time.monotonic()
         if now - self._checked_at < RESOURCE_RECHECK_SECONDS:
             return self._reason

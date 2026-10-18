@@ -538,7 +538,10 @@ class CrawlRunner:
         while True:
             if await self.crawl_is_cancelled() or (await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl):
                 return False
-            self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(self.crawl)
+            self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
+                self.crawl,
+                required_memory=self._observed_snapshot_cost,
+            )
             if not self._resource_deferred:
                 return True
             if not self.wait_for_resources or self.schedule_all_crawls:
@@ -768,6 +771,11 @@ class CrawlRunner:
             self._observed_snapshot_cost,
         )
         if available_slots <= 0:
+            if not active_snapshot_ids:
+                self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
+                    self.crawl,
+                    required_memory=self._observed_snapshot_cost,
+                )
             return
         if self.schedule_all_crawls and await sync_to_async(_higher_priority_crawl_waiting, thread_sensitive=True)(
             str(self.crawl.id),
@@ -1167,6 +1175,14 @@ class CrawlRunner:
                 next_snapshot = 0
                 while True:
                     slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
+                    if self._initial_snapshot_admitted:
+                        # Startup and its first snapshot already passed the same
+                        # admission before allocating the crawl browser.
+                        slots = max(1, slots)
+                    if not slots and next_snapshot < len(snapshot_ids):
+                        if not await self.wait_for_resource_admission():
+                            return
+                        continue
                     batch = snapshot_ids[next_snapshot : next_snapshot + slots]
                     if not batch:
                         return
@@ -1184,6 +1200,8 @@ class CrawlRunner:
                         return
             else:
                 slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
+                if self._initial_snapshot_admitted:
+                    slots = max(1, slots)
                 for snapshot_id in snapshot_ids[:slots]:
                     if await self.crawl_is_cancelled():
                         break
@@ -1660,13 +1678,15 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     return True
 
 
-def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=()) -> bool:
+def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=(), required_memory: int | None = None) -> bool:
     """Leave extraction durable; never delay cancellation or final cleanup."""
     from archivebox.core.models import Snapshot
 
     if crawl.status not in (crawl.StatusChoices.QUEUED, crawl.StatusChoices.STARTED):
         return False
-    reason = resource_admission.resource_pressure()
+    reason = resource_admission.resource_pressure(
+        required_memory=(resource_admission.observed_snapshot_cost or 0) if required_memory is None else required_memory,
+    )
     if reason is None:
         return False
     pending = crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES).exclude(id__in=excluded_snapshot_ids)
