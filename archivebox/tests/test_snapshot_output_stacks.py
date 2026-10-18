@@ -1305,3 +1305,95 @@ def test_refreshed_card_replaces_warm_nested_output(snapshot, live_server, brows
             assert card.get_attribute("fetchpriority") == "low"
         finally:
             browser.close()
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("plugin", ["accessibility", "hashes", "headers", "dns", "consolelog", "seo", "title", "redirects", "chrome"])
+def test_refreshed_metadata_card_replaces_warm_saved_output(snapshot, live_server, browser_runtime, plugin):
+    from concurrent.futures import ThreadPoolExecutor
+    import json
+    from urllib.parse import urlsplit
+    from playwright.sync_api import expect, sync_playwright
+    from archivebox.machine.models import Machine
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    snapshot.permissions = "public"
+    snapshot.save()
+    filename = {
+        "chrome": "navigation.json",
+        "consolelog": "console.jsonl",
+        "title": "title.txt",
+        "dns": "dns.jsonl",
+        "redirects": "redirects.jsonl",
+    }.get(plugin, plugin + ".json")
+    output = snapshot.output_dir / plugin / filename
+    output.parent.mkdir(parents=True)
+
+    def saved_bytes(marker):
+        url = "https://archivebox.io/tests/" + marker
+        values = {
+            "accessibility": {"url": snapshot.url, "tree": {"role": "RootWebArea", "name": marker}, "headings": [], "iframes": []},
+            "hashes": {
+                "files": [{"path": marker + ".html", "size": 12, "hash": "a" * 64}],
+                "metadata": {"file_count": 1, "total_size": 12},
+                "root_hash": "a" * 64,
+            },
+            "headers": {"url": url, "response_headers": {"x-capture-title": marker}},
+            "dns": {"hostname": marker, "ip": "127.0.0.1"},
+            "consolelog": {"text": marker, "type": "log"},
+            "seo": {"title": marker, "url": url},
+            "redirects": {"type": "initial", "to_url": url},
+            "chrome": {"url": url, "finalUrl": url, "status": 200},
+        }
+        return (marker if plugin == "title" else json.dumps(values[plugin])).encode()
+
+    output.write_bytes(saved_bytes("OriginalCapture"))
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin=plugin,
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        output_str=filename,
+        output_files={filename: {"size": output.stat().st_size, "mimetype": "text/plain" if plugin == "title" else "application/json"}},
+    )
+    target = f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}/index.html"
+
+    def update_result():
+        result.save(update_fields=["modified_at"])
+        snapshot.save(update_fields=["modified_at"])
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=["--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page()
+            page.goto(target, wait_until="domcontentloaded")
+            card = page.locator(f'.stack-cover iframe[title="{plugin} card"]')
+            leaf = card.content_frame.frame_locator("iframe")
+            expect(leaf.locator("body")).to_contain_text("OriginalCapture")
+            original_card = card.get_attribute("src")
+            page.goto("about:blank")
+            output.write_bytes(saved_bytes("RefreshedCapture"))
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                executor.submit(update_result).result()
+            page.goto(target + "?view=refreshed", wait_until="domcontentloaded")
+            assert card.get_attribute("src") != original_card
+            expect(leaf.locator("body")).to_contain_text("RefreshedCapture")
+            card.locator("xpath=ancestor::button").click()
+            full = page.frame_locator("#main-frame")
+            expect(full.locator("body")).to_contain_text("RefreshedCapture")
+            for link in ("#download", "#raw"):
+                href = full.locator(link).get_attribute("href")
+                response = page.request.get(href)
+                assert response.status == 200
+                assert b"RefreshedCapture" in response.body()
+                if link == "#download":
+                    assert response.body() == saved_bytes("RefreshedCapture")
+                assert "_abx_rev=" in href
+
+        finally:
+            browser.close()
