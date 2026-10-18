@@ -1,0 +1,21 @@
+archivebox/tests/test_api_v1_cli_workflow_add_search_update_remove.py
+  s_10bc94d001be49::t_67400da7399a9a 61-64,66-68
+archivebox/tests/test_crawl_runner_2.py
+  s_10bc94d001be49::t_014ec2d2b124dd 348-354,402-405
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cbed3a91ae97cbe1a92155afb959c8539339c20a",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
