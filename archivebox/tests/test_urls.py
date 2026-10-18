@@ -1322,7 +1322,7 @@ class TestUrlRouting:
             assert resp.status_code == 200
             assert response_body(resp) == Path(snapshot.output_dir, output_rel).read_bytes()
 
-            resp = client.get(f"/{response_rel}", HTTP_HOST=snapshot_host)
+            resp = client.get(f"/{response_rel}?raw=1", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
             snapshot_body = response_body(resp)
             if response_rel == "index.html":
@@ -1339,7 +1339,9 @@ class TestUrlRouting:
             assert resp["Location"] == f"http://{snapshot_host}/responses/{snapshot.domain}/{original_response_rel}"
             resp = client.get(f"/responses/{snapshot.domain}/{original_response_rel}", HTTP_HOST=snapshot_host)
             assert resp.status_code == 200
-            assert response_body(resp) == response_file.read_bytes()
+            raw = client.get(f"/responses/{snapshot.domain}/{original_response_rel}?raw=1", HTTP_HOST=snapshot_host)
+            assert raw.status_code == 200
+            assert response_body(raw) == response_file.read_bytes()
 
             resp = client.get("/index.html", HTTP_HOST=snapshot_host)
             assert resp.status_code in (301, 302)

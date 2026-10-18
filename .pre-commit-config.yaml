@@ -11,6 +11,8 @@ repos:
     rev: v2.4.1
     hooks:
       - id: codespell
+        # Captured minified JavaScript must retain its original bytes and names.
+        exclude: ^archivebox/tests/fixtures/crontab-resources/index\.js$
         additional_dependencies:
           - tomli
 
@@ -56,8 +58,8 @@ repos:
       - id: mixed-line-ending
       - id: fix-byte-order-marker
       - id: end-of-file-fixer
-        # Preserve the exact bytes of captured cryptographic proof fixtures.
-        exclude: ^archivebox/tests/fixtures/legacy_proofs/.*\.json$
+        # Preserve exact captured bytes (proofs and stylesheet SRI fixtures).
+        exclude: ^archivebox/tests/fixtures/(legacy_proofs/.*\.json|crontab-resources/styles\.css)$
       - id: detect-private-key
       - id: debug-statements
       - id: forbid-submodules
