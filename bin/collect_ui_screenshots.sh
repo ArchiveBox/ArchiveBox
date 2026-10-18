@@ -299,7 +299,9 @@ add_supplementary_template_capture() {
             "$source_url"
     ) >"$capture_log" 2>&1; then
         echo "[!] Supplementary $plugin_names capture failed" >&2
-        tail -100 "$capture_log" >&2
+        # Preserve launch/navigation failures before the many downstream hooks;
+        # truncating to the tail can leave only their missing-target errors.
+        cat "$capture_log" >&2
         exit 1
     fi
     stop_background_runner
@@ -312,7 +314,7 @@ add_supplementary_template_capture() {
     ) | tail -1)"
     if [[ -z "$snapshot_record" ]]; then
         echo "[!] Supplementary $plugin_names capture did not create a snapshot" >&2
-        tail -100 "$capture_log" >&2
+        cat "$capture_log" >&2
         exit 1
     fi
 
@@ -336,7 +338,7 @@ add_supplementary_template_capture() {
         )"
         if [[ -z "$discovered_preview_url" ]]; then
             echo "[!] The $supplementary_plugin snapshot did not expose its output in the real snapshot UI" >&2
-            tail -100 "$capture_log" >&2
+            cat "$capture_log" >&2
             cat "$discovery_report" >&2
             exit 1
         fi
