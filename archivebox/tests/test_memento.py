@@ -103,7 +103,12 @@ def test_memento_archive_enclosures(client, captures, archive_files):
             assert download["Content-Type"] == types[name]
             assert "Content-Encoding" not in download
             assert "Memento-Datetime" not in download
-            assert b"".join(download.streaming_content) == (archive_files[name] if method == "get" else b"")
+            assert int(download["Content-Length"]) == len(archive_files[name])
+            if method == "get":
+                assert b"".join(download.streaming_content) == archive_files[name]
+            else:
+                assert not download.streaming
+                assert download.content == b""
         partial = fetch(client, link["url"], HTTP_RANGE="bytes=0-9")
         assert partial.status_code == 206
         assert b"".join(partial.streaming_content) == archive_files[name][:10]
