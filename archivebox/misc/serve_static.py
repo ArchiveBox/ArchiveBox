@@ -1347,11 +1347,16 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         except (OSError, UnicodeDecodeError, ValueError):
             pass
 
-    # setup response object
-    ranged_file = RangedFileReader(fullpath.open("rb"))
-    response = StreamingHttpResponse(
-        _stream_ranged_file_async(ranged_file) if _is_asgi_request(request) else ranged_file,
-        content_type=content_type,
+    # HEAD must not open the payload: a FUSE open can start remote downloads,
+    # and ASGI consumes a streaming iterator even when no wire body is needed.
+    ranged_file = None if request.method == "HEAD" else RangedFileReader(fullpath.open("rb"))
+    response = (
+        HttpResponse(content_type=content_type)
+        if ranged_file is None
+        else StreamingHttpResponse(
+            _stream_ranged_file_async(ranged_file) if _is_asgi_request(request) else ranged_file,
+            content_type=content_type,
+        )
     )
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
     if etag:
@@ -1385,8 +1390,9 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 if stop > size:
                     # requested range not satisfiable
                     return HttpResponse(status=416)
-                ranged_file.start = start
-                ranged_file.stop = stop
+                if ranged_file is not None:
+                    ranged_file.start = start
+                    ranged_file.stop = stop
                 response["Content-Range"] = f"bytes {start}-{stop - 1}/{size}"
                 response["Content-Length"] = stop - start
                 response.status_code = 206

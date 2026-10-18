@@ -289,6 +289,55 @@ def test_description_file_is_served_as_plain_text(tmp_path: Path, filename: str,
     assert b"".join(response.streaming_content) == (content[2:6] if byte_range else content)
 
 
+@pytest.mark.parametrize("filename,query", [("document.html", "?raw=1"), ("payload.bin", "")])
+@pytest.mark.parametrize("byte_range", [None, "bytes=2-5"])
+def test_head_file_headers_do_not_open_payload(tmp_path: Path, filename: str, query: str, byte_range: str | None):
+    import sys
+
+    content = b"<!doctype html><html><body>" + b"saved archive content\n" * 100_000 + b"</body></html>"
+    output = tmp_path / filename
+    output.write_bytes(content)
+    headers = {"HTTP_RANGE": byte_range} if byte_range else {}
+    observed_opens: list[str] = []
+    phase = ""
+
+    # Observe native CPython file opens without replacing or interrupting any
+    # filesystem operation. On a full-cache FUSE mount even open() can start
+    # remote payload reads, so merely suppressing HEAD's wire body is too late.
+    def observe_open(event, args):
+        if phase and event == "open" and args[0] == str(output):
+            observed_opens.append(phase)
+
+    sys.addaudithook(observe_open)
+    try:
+        phase = "head"
+        request = RequestFactory().head(f"/{filename}{query}", **headers)
+        request.scope = {"type": "http"}
+        head = serve_static_with_byterange_support(request, filename, document_root=tmp_path)
+        head.close()
+        phase = "get"
+        get = serve_static_with_byterange_support(RequestFactory().get(f"/{filename}{query}", **headers), filename, document_root=tmp_path)
+        assert b"".join(get.streaming_content) == (content[2:6] if byte_range else content)
+        get.close()
+    finally:
+        phase = ""
+
+    assert "get" in observed_opens, "the observer must see the real GET payload open"
+    assert "head" not in observed_opens, "HEAD opened the payload before returning headers"
+    assert head.status_code == get.status_code == (206 if byte_range else 200)
+    assert not head.streaming and head.content == b""
+    for name in (
+        "Content-Type",
+        "Content-Length",
+        "Content-Range",
+        "Accept-Ranges",
+        "Last-Modified",
+        "Cache-Control",
+        "Content-Disposition",
+    ):
+        assert head.get(name) == get.get(name), name
+
+
 def test_archive_file_response_uses_async_iterator_under_asgi(tmp_path: Path):
     output = tmp_path / "screenshot" / "output.png"
     output.parent.mkdir()
