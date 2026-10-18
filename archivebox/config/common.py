@@ -29,7 +29,7 @@ from archivebox.config.configset import COMPUTED_CONFIG_KEYS, BaseConfigSet, Ini
 from .constants import CONSTANTS
 from .ldap import LDAPConfig
 from .permissions import IN_DOCKER
-from .version import VERSION, get_BUILD_TIME, get_COMMIT_HASH
+from .version import get_BUILD_TIME, get_COMMIT_HASH
 
 ConfigOverrides = Mapping[str, object]
 ConfigPayload = dict[str, object]
@@ -505,7 +505,8 @@ class ArchivingConfig(BaseConfigSet):
     RESOLUTION: str = Field(default="1440,2000")
     CHECK_SSL_VALIDITY: bool = Field(default=True)
     USER_AGENT: str = Field(
-        default=f"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 ArchiveBox/{VERSION} (+https://github.com/ArchiveBox/ArchiveBox/)",
+        default="",
+        description="HTTP user agent override. Empty uses the identity detected from Chrome during browser setup.",
     )
     COOKIES_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
     AUTH_STORAGE_FILE: Path | None = Field(default=None, json_schema_extra={"scope": _SCOPE_CRAWL_EXECUTION})
