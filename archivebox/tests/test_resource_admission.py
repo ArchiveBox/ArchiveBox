@@ -15,8 +15,12 @@ def test_cpu_admission_respects_process_affinity():
 
 def test_snapshot_admission_stages_first_capture_then_uses_measured_headroom():
     admission = ResourceAdmission()
-    assert admission.additional_snapshot_slots(3, active=0, observed_cost=None) == 1
-    assert admission.additional_snapshot_slots(3, active=1, observed_cost=None) == 0
+    # Exercise the warmup policy with explicit headroom. The integration entry
+    # point must also defer under real host PSI, including on busy CI runners.
+    assert admission.slots_for_headroom(3, active=0, observed_cost=None, available=1_100_000_000) == 1
+    assert admission.slots_for_headroom(3, active=1, observed_cost=None, available=1_100_000_000) == 0
+    assert admission.slots_for_headroom(3, active=0, observed_cost=None, available=0) == 0
+    assert admission.slots_for_headroom(0, active=0, observed_cost=None, available=1_100_000_000) == 0
     # One observed peak costs 500 MB; only measured space is reserved for
     # each additional in-flight snapshot, with no fixed minimum RAM.
     assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=1_100_000_000) == 2
@@ -29,7 +33,8 @@ def test_snapshot_admission_stages_first_capture_then_uses_measured_headroom():
     assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=500_000_000) == 1
     # Headroom from memory_headroom() also includes disk-backed free swap.
     assert admission.slots_for_headroom(3, active=0, observed_cost=500_000_000, available=2_000_000_000) == 3
-    assert admission.additional_snapshot_slots(3, active=0, observed_cost=0) == 1
+    assert admission.slots_for_headroom(3, active=0, observed_cost=0, available=1_100_000_000) == 1
+    assert admission.additional_snapshot_slots(3, active=1, observed_cost=None) == 0
 
 
 def test_memory_observation_tracks_a_real_child_process():

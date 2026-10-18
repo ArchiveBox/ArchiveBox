@@ -139,7 +139,7 @@ class ResourceAdmission:
         if not observed_cost:
             # Stage one complete real capture before spending memory on parallel
             # hook trees. Even this warmup must wait for resource pressure to clear.
-            return 1 if active == 0 and configured > 0 else 0
+            return self.slots_for_headroom(configured, active, observed_cost, headroom)
         previous_limit = self._concurrency
         ceiling = self.concurrency_limit(configured, pressure=False, now=time.monotonic())
         slots = self.slots_for_headroom(ceiling, active, observed_cost, headroom)
@@ -157,7 +157,9 @@ class ResourceAdmission:
         return slots
 
     @staticmethod
-    def slots_for_headroom(configured: int, active: int, observed_cost: int, available: int) -> int:
+    def slots_for_headroom(configured: int, active: int, observed_cost: int | None, available: int) -> int:
+        if not observed_cost:
+            return int(active == 0 and configured > 0 and available > 0)
         slots = max(0, configured - active)
         if observed_cost > 0:
             # Active captures can still grow to the measured peak. Reserve for
