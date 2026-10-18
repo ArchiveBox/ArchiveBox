@@ -118,6 +118,7 @@ def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots):
     import psutil
     from django.utils import timezone
     from archivebox.services.runner import defer_crawl_for_resources
+    from archivebox.services.resource_admission import resource_admission
 
     crawl = Crawl.objects.create(
         urls="https://archivebox.io/tests/memory-admission",
@@ -138,9 +139,10 @@ def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots):
     assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
     assert source.read_text() == "https://archivebox.io/tests/retained-memory-output\n"
 
-    # The default measured requirement fits again: deferred work remains a
-    # normal capture, not a sealed failure or a separately resubmitted URL.
-    assert not defer_crawl_for_resources(crawl, required_memory=0)
+    # The memory requirement fits again, but real host CPU/IO pressure can
+    # still defer admission. Let the foreground runner exercise its normal
+    # pressure wait instead of assuming the CI host is idle at this instant.
+    assert resource_admission.memory_headroom() > 0
     runner = CrawlRunner(
         crawl,
         snapshot_ids=[str(snapshot.id)] if explicit_snapshots else None,
@@ -154,6 +156,7 @@ def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots):
         await runner.run()
 
     asyncio.run(run_when_due())
+    assert not runner._resource_deferred
     snapshot.refresh_from_db()
     assert snapshot.status == "sealed" and snapshot.downloaded_at is not None
     assert Snapshot.objects.filter(crawl=crawl).count() == 1
