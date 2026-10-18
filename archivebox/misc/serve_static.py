@@ -12,6 +12,7 @@ import threading
 import time
 import zipfile
 from datetime import UTC, datetime
+from functools import lru_cache
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, urlencode, urljoin
@@ -30,7 +31,6 @@ from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.plugins.discovery import render_plugin_full_response
 
-_HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 DIRECTORY_PREVIEW_MAX_BYTES = 100 * 1024
 FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
 IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
@@ -280,22 +280,16 @@ def add_replay_archive_fallbacks(response: HttpResponse) -> HttpResponse:
 def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
     hashes_path = snapshot_dir / "hashes" / "hashes.json"
     try:
-        mtime = hashes_path.stat().st_mtime
-    except OSError:
-        return None
-
-    cached = _HASHES_CACHE.get(hashes_path)
-    if cached and cached[0] == mtime:
-        return cached[1]
-
-    try:
-        data = json.loads(hashes_path.read_text(encoding="utf-8"))
+        return _read_hash_map(hashes_path, hashes_path.stat().st_mtime_ns)
     except (json.JSONDecodeError, OSError, TypeError, ValueError):
         return None
 
-    file_map = {str(entry.get("path")): entry.get("hash") for entry in data.get("files", []) if entry.get("path")}
-    _HASHES_CACHE[hashes_path] = (mtime, file_map)
-    return file_map
+
+@lru_cache(maxsize=32)
+def _read_hash_map(hashes_path: Path, mtime_ns: int) -> dict[str, str]:
+    # Include the file version in the key without retaining every replayed manifest.
+    data = json.loads(hashes_path.read_text(encoding="utf-8"))
+    return {str(entry.get("path")): entry.get("hash") for entry in data.get("files", []) if entry.get("path")}
 
 
 def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
