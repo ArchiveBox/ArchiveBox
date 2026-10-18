@@ -870,6 +870,7 @@
         }
         #progress-monitor .tree-container {
             max-height: 310px;
+            width: 100%;
         }
         #progress-monitor .progress-content {
             flex-direction: column;
@@ -924,6 +925,15 @@
         }
         #progress-monitor .snapshot-header-link {
             min-width: 0;
+        }
+        /* The preview is a sibling of this link. Give the capture text its
+           own full-width row, with process/status badges beneath it. */
+        #progress-monitor .snapshot-item[data-snapshot-id]:not(.queued-compact) .snapshot-header-link {
+            flex-wrap: wrap;
+            gap: 4px 8px;
+        }
+        #progress-monitor .snapshot-item[data-snapshot-id]:not(.queued-compact) .snapshot-info {
+            flex: 1 0 100%;
         }
     }
 
@@ -994,11 +1004,6 @@
         #progress-monitor .pid-label {
             justify-self: start;
         }
-        #progress-monitor .snapshot-header-link {
-            display: grid;
-            grid-template-columns: 56px minmax(0, 1fr);
-            gap: 8px;
-        }
         #progress-monitor .snapshot-preview {
             width: 56px;
             height: 42px;
@@ -1007,8 +1012,10 @@
         #progress-monitor .snapshot-title-line {
             align-items: flex-start;
         }
-        #progress-monitor .snapshot-title,
-        #progress-monitor .snapshot-url {
+        #progress-monitor .snapshot-title {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
             white-space: normal;
             overflow-wrap: anywhere;
         }

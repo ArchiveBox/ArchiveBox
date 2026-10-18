@@ -181,6 +181,95 @@ def real_crawl_setup_process(snapshot, cached_abxpkg_lib_dir):
 
 
 class TestLiveProgressView:
+    @pytest.mark.parametrize("title", ["", "Why Children Aren't Behaving, And What You Can Do About It " * 3])
+    def test_snapshot_header_uses_available_width_on_small_screens(
+        self,
+        snapshot,
+        admin_user,
+        live_server,
+        browser_runtime,
+        real_snapshot_hook_projection,
+        tmp_path,
+        title,
+    ):
+        from datetime import timedelta
+        from urllib.parse import urlsplit
+
+        from playwright.sync_api import expect, sync_playwright
+
+        from archivebox.core.models import Snapshot
+        from archivebox.machine.models import Machine
+        from archivebox.workers.models import ACTIVE_STATE_LEASE_SECONDS
+
+        port = urlsplit(live_server.url).port
+        machine = Machine.current()
+        machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+        machine.save(update_fields=["config"])
+        # Keep a real capture with its completed hashes hook visible between
+        # hooks, alongside an ordinary queued capture.
+        Snapshot.objects.filter(pk=snapshot.pk).update(
+            title=title,
+            url="https://www.npr.org/sections/ed/2018/06/02/611082566/why-children-arent-behaving-and-what-you-can-do-about-it",
+            permissions="public",
+            status=Snapshot.StatusChoices.STARTED,
+            retry_at=timezone.now() + timedelta(seconds=ACTIVE_STATE_LEASE_SECONDS),
+        )
+        queued = Snapshot.objects.create(crawl=snapshot.crawl, url="https://example.org/queued/" + "long-path/" * 20)
+        origin = f"http://admin.archivebox.localhost:{port}"
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(
+                executable_path=str(browser_runtime["chrome_binary"]),
+                args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+            )
+            try:
+                page = browser.new_page(viewport={"width": 390, "height": 844})
+                page.goto(f"{origin}/admin/login/")
+                page.locator("#id_username").fill(admin_user.username)
+                page.locator("#id_password").fill("testpassword")
+                page.locator('input[type="submit"]').click()
+                page.wait_for_url(f"{origin}/admin/")
+                for surface, url in [
+                    ("admin", f"{origin}/admin/crawls/crawl/{snapshot.crawl_id}/change/"),
+                    ("public", f"http://web.archivebox.localhost:{port}{snapshot.get_absolute_url()}"),
+                ]:
+                    page.goto(url)
+                    card = page.locator(f'#progress-monitor .snapshot-item[data-snapshot-id="{snapshot.pk}"]')
+                    expect(card.locator(".snapshot-info")).to_be_visible()
+                    for width in [390, 320, 520, 768, 1280]:
+                        page.set_viewport_size({"width": width, "height": 844})
+                        card.screenshot(path=str(tmp_path / f"progress-{surface}-{width}.png"))
+                        layout = card.evaluate("""card => {
+                            const box = selector => card.querySelector(selector).getBoundingClientRect();
+                            const info = box('.snapshot-info');
+                            const link = box('.snapshot-header-link');
+                            const header = box('.snapshot-header');
+                            const title = box('.snapshot-title');
+                            const url = box('.snapshot-url');
+                            const status = box('.status-badge');
+                            return {infoWidth: info.width, linkWidth: link.width,
+                                headerHeight: header.height, titleHeight: title.height,
+                                titleLineHeight: parseFloat(getComputedStyle(card.querySelector('.snapshot-title')).lineHeight),
+                                urlHeight: url.height, statusTop: status.top, infoBottom: info.bottom,
+                                right: card.getBoundingClientRect().right,
+                                overflow: card.scrollWidth - card.clientWidth};
+                        }""")
+                        assert layout["overflow"] <= 1, layout
+                        assert layout["right"] <= width, layout
+                        assert layout["headerHeight"] < 160, layout
+                        assert layout["titleHeight"] <= layout["titleLineHeight"] * 2 + 1, layout
+                        assert layout["urlHeight"] < 25, layout
+                        if width <= 900:
+                            assert layout["infoWidth"] >= layout["linkWidth"] - 1, layout
+                            assert layout["statusTop"] >= layout["infoBottom"], layout
+                    if surface == "admin":
+                        queued_card = page.locator(f'#progress-monitor .snapshot-item[data-snapshot-id="{queued.pk}"]')
+                        expect(queued_card).to_be_visible()
+                        page.set_viewport_size({"width": 320, "height": 844})
+                        assert queued_card.bounding_box()["height"] < 50
+                print(f"Progress layout screenshots: {tmp_path}")
+            finally:
+                browser.close()
+
     @pytest.mark.parametrize(
         ("status", "declared", "output_str", "expected_path"),
         [
