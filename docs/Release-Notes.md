@@ -1,3 +1,5 @@
+# Release Notes
+
 ## Security
 
 - Snapshot replay now rejects symbolic links that resolve outside the snapshot,
