@@ -1,0 +1,21 @@
+.github/workflows/screenshots.yml
+  s_10bc94d001be49::t_42621dbecf36f7 90,95-134
+.github/workflows/test-parallel.yml
+  s_10bc94d001be49::t_fe47d856ac6e36 330,338-375
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4ae235c671d1bb0a0ed0256cded2915d168ce71",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
