@@ -327,6 +327,7 @@ jobs:
       - name: Prepare authorized provider persona
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
+          FIGMA_AUTH_STORAGE_JSON: ${{ secrets.FIGMA_AUTH_STORAGE_JSON }}
         run: |
           set -Eeuo pipefail
           : "${PROVIDER_AUTH_STORAGE_JSON:?Missing provider-capture authentication secret}"
@@ -334,6 +335,44 @@ jobs:
           auth_file="$(mktemp --suffix=.json "$RUNNER_TEMP/provider-auth.XXXXXX")"
           printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$auth_file"
           chmod 600 "$auth_file"
+          # The filtered Figma refresh must not replace other providers' sessions.
+          uv run --no-project python - "$auth_file" <<'PYAUTH'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          refresh = os.environ.get("FIGMA_AUTH_STORAGE_JSON")
+          if refresh:
+              path = Path(sys.argv[1])
+              original = json.loads(path.read_text())
+              figma = json.loads(refresh)
+              assert figma.get("SOURCE") == "archivebox-browser-extension", "Expected Figma extension export"
+
+              def is_figma(item, key):
+                  value = item.get(key) or item.get("url") or ""
+                  host = urlsplit(value if "://" in value else "//" + value.lstrip(".")).hostname or ""
+                  return host == "figma.com" or host.endswith(".figma.com")
+
+              for field, key in (("cookies", "domain"), ("origins", "origin"), ("tabs", "url")):
+                  incoming = [item for item in figma.get(field, []) if is_figma(item, key)]
+                  if field == "cookies" and original.get("SOURCE") != "archivebox-browser-extension":
+                      # Match Chrome's extension-to-CDP import without changing old cookies.
+                      converted = []
+                      for cookie in incoming:
+                          assert not cookie.get("partitionKey"), "Partitioned extension cookies are unsupported"
+                          item = {key: cookie[key] for key in ("name", "value", "domain", "path", "secure", "httpOnly") if key in cookie}
+                          if cookie.get("expirationDate") is not None:
+                              item["expires"] = cookie["expirationDate"]
+                          same_site = str(cookie.get("sameSite") or "").lower()
+                          if same_site and same_site != "unspecified":
+                              item["sameSite"] = {"no_restriction": "None", "none": "None", "lax": "Lax", "strict": "Strict"}[same_site]
+                          converted.append(item)
+                      incoming = converted
+                  original[field] = [item for item in original.get(field, []) if not is_figma(item, key)] + incoming
+              path.write_text(json.dumps(original))
+          PYAUTH
           {
             echo "AUTH_STORAGE_FILE=$auth_file"
             echo "ABXPKG_LIB_DIR=$RUNNER_TEMP/provider-runtime"
