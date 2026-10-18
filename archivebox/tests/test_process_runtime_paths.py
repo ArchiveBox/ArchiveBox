@@ -10,7 +10,8 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 class TestProcessRuntimePaths:
-    def test_hook_processes_use_isolated_runtime_dir(self, tmp_path):
+    def test_hook_processes_keep_execution_specific_log_paths(self, tmp_path):
+        from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY
         from archivebox.tests.conftest import run_test_hook
 
         snap_dir = tmp_path / "snapshot"
@@ -18,20 +19,28 @@ class TestProcessRuntimePaths:
         output_dir.mkdir(parents=True)
         (snap_dir / "source.txt").write_text("real runtime path input", encoding="utf-8")
         hook_path = Path(str(files("abx_plugins.plugins.hashes").joinpath("on_Snapshot__93_hashes.py")))
-        process = run_test_hook(
-            hook_path,
-            output_dir,
-            config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
-            timeout=30,
-            url="https://example.com/runtime-path",
-        )
-        process.refresh_from_db()
-        assert process.exit_code == 0, process.stderr
-
-        expected_dir = output_dir / ".hooks" / hook_path.name
-        assert process.runtime_dir == expected_dir
-        assert process.stdout_file == expected_dir / "stdout.log"
-        assert process.stderr_file == expected_dir / "stderr.log"
+        log_paths = set()
+        for _ in range(2):
+            process = run_test_hook(
+                hook_path,
+                output_dir,
+                config={"ABXPKG_LIB_DIR": str(tmp_path / "lib"), "SNAP_DIR": str(snap_dir)},
+                timeout=30,
+                url="https://archivebox.io/tests/runtime-path",
+            )
+            process.refresh_from_db()
+            assert process.exit_code == 0, process.stderr
+            assert "Hash generation started" in process.stderr
+            assert any(record.get("status") == "succeeded" for record in process.get_records())
+            for path, key, suffix in (
+                (process.stdout_file, PROCESS_STDOUT_FILE_KEY, ".stdout.log"),
+                (process.stderr_file, PROCESS_STDERR_FILE_KEY, ".stderr.log"),
+            ):
+                assert path == Path(process.env[key])
+                assert path.name.startswith(f"{hook_path.stem}.")
+                assert path.name.endswith(suffix)
+                assert path not in log_paths
+                log_paths.add(path)
 
     def test_non_hook_processes_keep_runtime_files_in_pwd(self, tmp_path):
         init_result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, timeout=90)
