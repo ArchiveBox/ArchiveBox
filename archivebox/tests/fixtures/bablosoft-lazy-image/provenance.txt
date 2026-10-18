@@ -1,0 +1,6 @@
+Source: https://bablosoft.com/shop/BrowserAutomationStudio#features
+Capture: 06ac8d8ce8ae77ea8000e7445adb077c, sealed 2026-10-18.
+image.html and background.html are unmodified start tags from the saved Wget page.
+work-1.png is the captured image embedded by SingleFile in that snapshot.
+pic.jpg is the same public background embedded by a real native SingleFile capture on 2026-10-18, after the saved snapshot was found to have lost it.
+Original resources: https://bablosoft.com/landing2/work-1.png and https://bablosoft.com/landing2/pic.jpg.

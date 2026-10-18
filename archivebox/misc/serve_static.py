@@ -864,6 +864,8 @@ def _rewrite_html_image_sources_to_responses(
     # Parse real start tags: strings containing markup in scripts/comments must
     # stay untouched. Preserve all bytes outside the selected attribute values.
     spans: list[tuple[int, int, str]] = []
+    inserted_sources: set[int] = set()
+    background_styles: dict[int, bool] = {}
     stylesheet_integrities: dict[int, tuple[int, int]] = {}
     offsets = [0]
     for line in html_text.splitlines(keepends=True):
@@ -877,20 +879,43 @@ def _rewrite_html_image_sources_to_responses(
             values = dict(attrs)
             if tag == "base" and base_href is None:
                 base_href = values.get("href")
-            names = {"src", "data-src"} if tag == "img" else {"src"} if tag == "script" else set()
+            lazy_names = ("data-src", "data-lazy-src", "data-echo")
+            lazy_src = next((values[name] for name in lazy_names if values.get(name)), None) if tag == "img" else None
+            names = {"src", *lazy_names} if tag == "img" else {"src"} if tag == "script" else set()
+            if values.get("data-echo-background"):
+                names.add("data-echo-background")
             if tag == "link" and "stylesheet" in (values.get("rel") or "").lower().split():
                 names = {"href"}
             if not names:
                 return
             line, column = self.getpos()
             offset = offsets[line - 1] + column
+            if lazy_src and "src" not in values:
+                start = offset + len(tag) + 1
+                spans.append((start, start, lazy_src))
+                inserted_sources.add(start)
             attributes = list(attribute.finditer(self.get_starttag_text()))
+            if values.get("data-echo-background"):
+                style = next((match for match in attributes if match.group(1).lower() == "style"), None)
+                if style:
+                    group = next(i for i in (2, 3, 4) if style.group(i) is not None)
+                    start = offset + style.end(group)
+                else:
+                    tag_text = self.get_starttag_text()
+                    start = offset + len(tag_text) - (2 if tag_text.endswith("/>") else 1)
+                spans.append((start, start, values["data-echo-background"]))
+                background_styles[start] = style is None
             integrity = next((match for match in attributes if match.group(1).lower() == "integrity"), None)
             for match in attributes:
                 if match.group(1).lower() in names:
                     group = next(i for i in (2, 3, 4) if match.group(i) is not None)
                     start = offset + match.start(group)
-                    spans.append((start, offset + match.end(group), html.unescape(match.group(group))))
+                    resource_url = html.unescape(match.group(group))
+                    if lazy_src and match.group(1).lower() == "src" and (not resource_url or resource_url.startswith(("data:", "about:"))):
+                        # Cards intentionally disable scripts. Resolve an explicit
+                        # lazy image from saved bytes instead of its placeholder.
+                        resource_url = lazy_src
+                    spans.append((start, offset + match.end(group), resource_url))
                     if tag == "link" and integrity:
                         stylesheet_integrities[start] = (offset + integrity.start(), offset + integrity.end())
 
@@ -961,7 +986,15 @@ def _rewrite_html_image_sources_to_responses(
             if not replay_url:
                 continue
             local_path = urljoin(replay_url, local_path)
-        edits.append((start, end, html.escape(local_path, quote=True)))
+        value = html.escape(local_path, quote=True)
+        if start in background_styles:
+            css_url = local_path.replace("\\", "\\\\").replace('"', r"\"")
+            value = html.escape(f';background-image:url("{css_url}")', quote=True)
+            if background_styles[start]:
+                value = f' style="{value}"'
+        elif start in inserted_sources:
+            value = f' src="{value}"'
+        edits.append((start, end, value))
         if changed_stylesheet:
             # Preserve integrity checking for the exact enriched representation;
             # raw downloads and unchanged stylesheet/script digests stay intact.

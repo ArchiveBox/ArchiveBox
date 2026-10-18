@@ -14,6 +14,110 @@ from playwright.sync_api import expect, sync_playwright
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 
 FIXTURE = Path(__file__).parent / "fixtures/crontab-resources"
+LAZY_FIXTURE = Path(__file__).parent / "fixtures/bablosoft-lazy-image"
+
+
+@pytest.mark.parametrize("attribute", ["data-echo", "data-src", "data-lazy-src"])
+@pytest.mark.parametrize("source_kind", ["placeholder", "missing", "empty"])
+def test_saved_lazy_image_uses_captured_body_without_script(tmp_path, attribute, source_kind):
+    from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
+    from html.parser import HTMLParser
+
+    source = (LAZY_FIXTURE / "image.html").read_text().replace("data-echo", attribute)
+    if source_kind != "placeholder":
+        import re
+
+        source = re.sub(r' src="[^"]*"', ' src=""' if source_kind == "empty" else "", source)
+    responses = tmp_path / "responses"
+    responses.mkdir()
+    shutil.copyfile(LAZY_FIXTURE / "work-1.png", responses / "work-1.png")
+    (responses / "index.jsonl").write_text(
+        json.dumps({"method": "GET", "status": 200, "url": "https://bablosoft.com/landing2/work-1.png", "path": "work-1.png"}) + "\n",
+    )
+    request = RequestFactory().get("/wget/bablosoft.com/shop/BrowserAutomationStudio.html")
+    request.archivebox_snapshot_url = "https://bablosoft.com/shop/BrowserAutomationStudio"
+    body, _ = _rewrite_html_image_sources_for_request(request, source, tmp_path, "wget/bablosoft.com/shop/BrowserAutomationStudio.html")
+    images = []
+
+    class Images(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            if tag == "img":
+                images.append(dict(attrs))
+
+    Images().feed(body)
+    assert images[0]["src"] == "../../../responses/work-1.png"
+    assert images[0][attribute] == images[0]["src"]
+    assert images[0]["alt"] == "A problem"
+    assert images[0]["style"] == "width:230px;height:230px"
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("card", [False, True])
+def test_captured_lazy_image_renders_without_javascript(snapshot, live_server, browser_runtime, card, tmp_path):
+    from archivebox.core.routes_util import get_snapshot_host
+    from archivebox.core.models import ArchiveResult
+    from archivebox.machine.models import Machine
+    from django.utils import timezone
+
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {
+        **machine.config,
+        "BASE_URL": f"http://archivebox.localhost:{port}",
+        "SERVER_SECURITY_MODE": "safe-subdomains-fullreplay",
+    }
+    machine.save(update_fields=["config"])
+    snapshot.url = "https://bablosoft.com/shop/BrowserAutomationStudio"
+    snapshot.permissions = "public"
+    snapshot.save(update_fields=["url", "permissions"])
+    root = snapshot.output_dir
+    (root / "responses").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(LAZY_FIXTURE / "work-1.png", root / "responses/work-1.png")
+    shutil.copyfile(LAZY_FIXTURE / "pic.jpg", root / "responses/pic.jpg")
+    (root / "responses/index.jsonl").write_text(
+        "\n".join(
+            json.dumps({"method": "GET", "status": 200, "url": f"https://bablosoft.com/landing2/{name}", "path": name})
+            for name in ("work-1.png", "pic.jpg")
+        )
+        + "\n",
+    )
+    path = "wget/page.html"
+    output = root / path
+    output.parent.mkdir(exist_ok=True)
+    source = (LAZY_FIXTURE / "background.html").read_bytes() + (LAZY_FIXTURE / "image.html").read_bytes() + b"</section>"
+    output.write_bytes(source)
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        status=ArchiveResult.StatusChoices.SUCCEEDED,
+        start_ts=timezone.now(),
+        output_str=path,
+    )
+    assert result.update_output_metadata_from_filesystem(full_scan=True)
+    host = get_snapshot_host(str(snapshot.id)).split(":")[0]
+    origin = f"http://{host}:{port}"
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], f"--host-resolver-rules=MAP {host} 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page(java_script_enabled=False)
+            response = page.goto(origin + (f"/_card/{result.id}" if card else "/" + path), wait_until="load")
+            assert response.status == 200
+            content = page.frame_locator("iframe") if card else page
+            picture = content.locator('img[alt="A problem"]')
+            expect(picture).to_be_visible()
+            assert picture.evaluate("i => i.naturalWidth") == 230
+            assert picture.evaluate("i => i.naturalHeight") == 230
+            expect(content.locator("#header")).to_have_css("background-image", f'url("{origin}/responses/pic.jpg")')
+            assert page.request.get(origin + "/responses/pic.jpg?raw=1").body() == (LAZY_FIXTURE / "pic.jpg").read_bytes()
+            assert page.request.get(origin + "/" + path + "?raw=1").body() == source
+            assert output.read_bytes() == source
+            page.screenshot(path=str(tmp_path / ("lazy-card.png" if card else "lazy-full.png")))
+            print(f"LAZY_IMAGE_SCREENSHOT={tmp_path}")
+        finally:
+            browser.close()
 
 
 def install_responses(root):
