@@ -1,6 +1,17 @@
 name: Capture publicsite screenshots
 
 on:
+  # UI/capture repairs refresh the gallery immediately; dependency/version bots
+  # retain the scheduled path rather than starting another full provider capture.
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/screenshots.yml'
+      - 'bin/take_screenshot.js'
+      - 'bin/collect_ui_screenshots.sh'
+      - 'bin/generate_ui_screenshot_gallery.py'
+      - 'archivebox/templates/**'
+      - 'archivebox/core/templatetags/core_tags.py'
   schedule:
     - cron: '37 5,17 * * *'
   workflow_dispatch:
@@ -142,6 +153,7 @@ jobs:
           AUTH_STORAGE_FILE: ${{ runner.temp }}/provider-auth.json
           CHROME_HEADLESS: "false"
           UI_SCREENSHOT_DATA_DIR: ${{ runner.temp }}/provider-gallery-data
+          SCREENSHOT_FAILURE_DIR: ${{ runner.temp }}/gallery-failure-diagnostics
 
       - name: Verify gallery was generated from this exact revision
         run: |
@@ -168,6 +180,15 @@ jobs:
           path: publicsite/screenshots
           if-no-files-found: error
           retention-days: 90
+
+      - name: Retain failed gallery frame and request diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-failure-diagnostics
+          path: ${{ runner.temp }}/gallery-failure-diagnostics
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Remove provider persona and browser profiles
         if: always()

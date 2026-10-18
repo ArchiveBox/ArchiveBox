@@ -189,7 +189,18 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     prepare_path = ci["jobs"]["prepare"]["uses"]
     prepare = yaml.safe_load((REPO_ROOT / prepare_path).read_text())
     assert prepare["jobs"]["prepare"]["steps"][-1]["uses"] == "ArchiveBox/monorepo/.github/actions/prepare-release-version@main"
-    assert set(screenshots["on"]) == {"schedule", "workflow_dispatch"}
+    assert set(screenshots["on"]) == {"push", "schedule", "workflow_dispatch"}
+    assert screenshots["on"]["push"] == {
+        "branches": ["dev"],
+        "paths": [
+            ".github/workflows/screenshots.yml",
+            "bin/take_screenshot.js",
+            "bin/collect_ui_screenshots.sh",
+            "bin/generate_ui_screenshot_gallery.py",
+            "archivebox/templates/**",
+            "archivebox/core/templatetags/core_tags.py",
+        ],
+    }
     _, hours, *days = screenshots["on"]["schedule"][0]["cron"].split()
     assert days == ["*", "*", "*"]
     assert len(hours.split(",")) == 2
