@@ -345,7 +345,13 @@ def test_capture_attempt_failure_is_nonzero_in_worker_modes(initialized_archive,
 
 
 @pytest.mark.django_db(transaction=True)
-def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initialized_archive, cached_abxpkg_lib_dir, recursive_test_site):
+@pytest.mark.parametrize("target_crawl", [False, True], ids=["collection", "crawl"])
+def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(
+    initialized_archive,
+    cached_abxpkg_lib_dir,
+    recursive_test_site,
+    target_crawl,
+):
     import os
     import signal
     import time
@@ -393,7 +399,10 @@ def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initializ
         assert snapshot.status == Snapshot.StatusChoices.STARTED
         first_hook_id = hook.id
 
-    restarted = run_archivebox_cmd(["run", "--no-stdin"], cwd=initialized_archive, env=env, timeout=180)
+    restart_args = ["run", "--no-stdin"]
+    if target_crawl:
+        restart_args.append(f"--crawl-id={crawl_id}")
+    restarted = run_archivebox_cmd(restart_args, cwd=initialized_archive, env=env, timeout=180)
     assert restarted.returncode == 0, restarted.stdout + restarted.stderr
     assert "Recovering 1 Snapshot(s) that were interrupted" in restarted.stderr
 
