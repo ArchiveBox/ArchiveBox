@@ -11,7 +11,7 @@ import json as pyjson
 import http.cookiejar
 from decimal import Decimal, InvalidOperation
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from collections.abc import Callable
 from pathlib import Path
 from inspect import signature
@@ -24,6 +24,9 @@ from abx_plugins.plugins.base.url_cleaning import URL_REGEX, fix_url_from_markdo
 from abx_plugins.plugins.base.url_cleaning import sanitize_extracted_url as sanitize_plugin_url
 
 from .logging import COLOR_DICT
+
+if TYPE_CHECKING:
+    from archivebox.config.common import ArchiveBoxBaseConfig
 
 
 def filter_queryset_by_uuid_substring(queryset, slug: str, field: str = "id"):
@@ -444,10 +447,11 @@ def parse_date(date: Any) -> datetime | None:
 
 
 @enforce_types
-def download_url(url: str, timeout: int | None = None, config=None, **config_kwargs) -> str:
+def download_url(url: str, timeout: int | None = None, config: "ArchiveBoxBaseConfig | None" = None, **config_kwargs) -> str:
     """Download the contents of a remote url and return the text"""
 
     import requests
+    from abx_plugins.plugins.base.utils import resolve_user_agent
     from w3lib.encoding import html_body_declared_encoding, http_content_type_encoding
 
     from archivebox.config.common import get_config
@@ -465,7 +469,7 @@ def download_url(url: str, timeout: int | None = None, config=None, **config_kwa
 
     response = session.get(
         url,
-        headers={"User-Agent": config.USER_AGENT},
+        headers={"User-Agent": resolve_user_agent({"USER_AGENT": config.USER_AGENT, "ABXPKG_LIB_DIR": str(config.ABXPKG_LIB_DIR)}) or None},
         verify=config.CHECK_SSL_VALIDITY,
         timeout=timeout,
     )

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href='./css/styles.css?cb=1' rel='stylesheet' type='text/css'>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <title>Crontab.guru - The cron schedule expression generator</title>
+  <meta name="description" content="An easy to use editor for crontab schedules.">
+  <meta property="og:image" content="https://og.cronitor.io/api/blog?title=*%20*%20*%20*%20*%20%0ACrontab%20Guru" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+</head>
+<body>
+  <div class="max-w-screen-xl mx-auto">
+    
+    <div class="flex justify-center lg:justify-between lg:items-center mt-6 mb-8">
+      <div class="logo">
+        <a href="https://cronitor.io/cron-job-monitoring?utm_source=crontabguru&utm_campaign=cronitor_logo">
+          <svg class="h-8" width="120" viewBox="0 0 139 27" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.8954 11.4596H16.1615C16.1054 10.9006 15.9931 10.3975 15.7687 9.95033C15.5442 9.50313 15.2636 9.11182 14.9269 8.77642C14.5902 8.44101 14.1413 8.21741 13.6363 7.99381C13.1312 7.82611 12.57 7.71431 11.9528 7.71431C10.8304 7.71431 9.87646 7.99381 9.14695 8.49692C8.36132 9.05592 7.80016 9.78263 7.40735 10.7888C7.01453 11.7951 6.79007 13.0249 6.79007 14.4224C6.79007 15.9317 7.01453 17.1615 7.40735 18.1677C7.80016 19.1739 8.41744 19.9006 9.14695 20.4037C9.93258 20.9069 10.8304 21.1864 11.8967 21.1864C12.5139 21.1864 13.0751 21.1305 13.524 20.9628C14.0291 20.7951 14.4219 20.5714 14.8147 20.2919C15.2075 20.0124 15.4881 19.6211 15.7126 19.2298C15.937 18.8385 16.1054 18.3354 16.1615 17.8323L22.8954 17.8882C22.8393 18.8944 22.5026 19.9565 21.9976 21.0187C21.4925 22.0808 20.763 23.087 19.8652 23.9814C18.9673 24.8758 17.7889 25.6025 16.4421 26.1615C15.0953 26.7205 13.524 27 11.7283 27C9.48365 27 7.46346 26.4969 5.72386 25.5466C3.92814 24.5963 2.52523 23.1988 1.51514 21.2982C0.505046 19.4534 0 17.1615 0 14.4783C0 11.7951 0.505046 9.50313 1.57126 7.60251C2.63746 5.75779 4.04037 4.36027 5.83609 3.40996C7.63181 2.45965 9.59588 1.95654 11.7844 1.95654C13.3557 1.95654 14.7586 2.18015 16.0493 2.57145C17.3399 2.96275 18.4623 3.57766 19.4723 4.41617C20.4263 5.19878 21.212 6.20499 21.8292 7.3789C22.4465 8.60872 22.7832 9.95033 22.8954 11.4596Z" fill="#FFF"></path><path d="M26.0396 26.6645V8.38498H32.4368V11.8508H32.6052C32.9418 10.5651 33.4469 9.61479 34.1764 9.05579C34.9059 8.44088 35.7477 8.16138 36.7578 8.16138C37.0383 8.16138 37.3189 8.16138 37.5995 8.21728C37.8801 8.27318 38.1607 8.32908 38.4412 8.38498V13.975C38.1045 13.8632 37.7117 13.8073 37.2628 13.7514C36.7578 13.6955 36.3649 13.6955 36.0282 13.6955C35.411 13.6955 34.7937 13.8632 34.2886 14.1427C33.7836 14.4222 33.3908 14.8136 33.0541 15.3726C32.7735 15.8757 32.6052 16.4906 32.6052 17.2173V26.7204H26.0396V26.6645Z" fill="#FFF"></path><path d="M48.3704 27.0001C46.4063 27.0001 44.6667 26.6088 43.2638 25.8262C41.8609 25.0436 40.7386 23.9256 40.009 22.5281C39.2795 21.1306 38.8867 19.4536 38.8867 17.6088C38.8867 15.7641 39.2795 14.0871 40.009 12.6896C40.7386 11.2921 41.8609 10.1741 43.2638 9.39144C44.6667 8.60883 46.4063 8.21753 48.3704 8.21753C50.3344 8.21753 52.074 8.60883 53.4769 9.39144C54.8798 10.1741 56.0022 11.2921 56.7317 12.6896C57.4612 14.0871 57.854 15.7641 57.854 17.6088C57.854 19.4536 57.4612 21.1306 56.7317 22.5281C56.0022 23.9256 54.8798 25.0436 53.4769 25.8262C52.0179 26.6088 50.3344 27.0001 48.3704 27.0001ZM48.3704 22.1368C48.9315 22.1368 49.4366 21.9691 49.8294 21.5778C50.2222 21.1865 50.5589 20.6834 50.7834 20.0126C51.0078 19.3418 51.1201 18.5032 51.1201 17.5529C51.1201 16.6026 51.0078 15.7641 50.7834 15.0933C50.5589 14.4225 50.2222 13.8635 49.8294 13.5281C49.4366 13.1368 48.9315 12.9691 48.3704 12.9691C47.8092 12.9691 47.3042 13.1368 46.8552 13.5281C46.4063 13.9194 46.1257 14.4225 45.9012 15.0933C45.6768 15.7641 45.5645 16.6026 45.5645 17.5529C45.5645 18.5032 45.6768 19.3418 45.9012 20.0126C46.1257 20.6834 46.4624 21.2424 46.8552 21.5778C47.3042 21.9691 47.8092 22.1368 48.3704 22.1368Z" fill="#FFF"></path><path d="M67.1152 16.379V26.6647H60.5496V8.38522H66.7785V11.8511H66.9468C67.3396 10.6771 68.0691 9.78273 69.0792 9.11192C70.0893 8.44112 71.2678 8.10571 72.6146 8.10571C73.9052 8.10571 75.0276 8.38522 75.9815 9.00012C76.9355 9.61503 77.665 10.3976 78.2262 11.4038C78.7312 12.4101 79.0118 13.584 79.0118 14.9256V26.5529H72.3901V16.379C72.3901 15.4846 72.1656 14.7579 71.7167 14.2548C71.2678 13.7517 70.5944 13.4722 69.7526 13.4722C69.1915 13.4722 68.7425 13.584 68.3497 13.8076C67.9569 14.0312 67.6202 14.3666 67.4519 14.8138C67.2835 15.261 67.1152 15.82 67.1152 16.379Z" fill="#FFF"></path><path d="M82.2104 26.6645V8.38501H88.776V26.6645H82.2104Z" fill="#FFF"></path><path d="M103.086 8.38515V13.1367H91.0208V8.38515H103.086ZM93.3776 4.0249H99.9432V20.7951C99.9432 21.0746 99.9994 21.2423 100.055 21.41C100.168 21.5777 100.28 21.6895 100.448 21.8013C100.617 21.8572 100.841 21.9131 101.178 21.9131C101.402 21.9131 101.627 21.9131 101.851 21.8572C102.132 21.8013 102.3 21.7454 102.468 21.7454L103.422 26.3852C103.142 26.497 102.693 26.5529 102.188 26.7206C101.683 26.8883 101.009 26.9442 100.224 26.9442C98.7087 27.0001 97.418 26.8883 96.4079 26.497C95.3978 26.1056 94.6122 25.4907 94.1071 24.6522C93.6021 23.8137 93.3215 22.7516 93.3776 21.4659V4.0249Z" fill="#FFF"></path><path d="M114.419 27.0001C112.455 27.0001 110.716 26.6088 109.313 25.8262C107.91 25.0436 106.787 23.9256 106.058 22.5281C105.328 21.1306 104.936 19.4536 104.936 17.6088C104.936 15.7641 105.328 14.0871 106.058 12.6896C106.787 11.2921 107.91 10.1741 109.313 9.39144C110.716 8.60883 112.455 8.21753 114.419 8.21753C116.383 8.21753 118.123 8.60883 119.526 9.39144C120.929 10.1741 122.051 11.2921 122.781 12.6896C123.51 14.0871 123.903 15.7641 123.903 17.6088C123.903 19.4536 123.51 21.1306 122.781 22.5281C122.051 23.9256 120.929 25.0436 119.526 25.8262C118.123 26.6088 116.383 27.0001 114.419 27.0001ZM114.475 22.1368C115.036 22.1368 115.542 21.9691 115.934 21.5778C116.327 21.1865 116.664 20.6834 116.888 20.0126C117.113 19.3418 117.225 18.5032 117.225 17.5529C117.225 16.6026 117.113 15.7641 116.888 15.0933C116.664 14.4225 116.327 13.8635 115.934 13.5281C115.542 13.1368 115.036 12.9691 114.475 12.9691C113.914 12.9691 113.409 13.1368 112.96 13.5281C112.511 13.9194 112.231 14.4225 112.006 15.0933C111.782 15.7641 111.669 16.6026 111.669 17.5529C111.669 18.5032 111.782 19.3418 112.006 20.0126C112.231 20.6834 112.567 21.2424 112.96 21.5778C113.353 21.9691 113.858 22.1368 114.475 22.1368Z" fill="#FFF"></path><path d="M126.599 26.6645V8.38498H132.996V11.8508H133.164C133.501 10.5651 134.006 9.61479 134.735 9.05579C135.465 8.44088 136.307 8.16138 137.317 8.16138C137.597 8.16138 137.878 8.16138 138.159 8.21728C138.439 8.27318 138.72 8.32908 139 8.38498V13.975C138.664 13.8632 138.271 13.8073 137.822 13.7514C137.317 13.6955 136.924 13.6955 136.587 13.6955C135.97 13.6955 135.353 13.8632 134.848 14.1427C134.343 14.4222 133.95 14.8136 133.613 15.3726C133.333 15.8757 133.164 16.4906 133.164 17.2173V26.7204H126.599V26.6645Z" fill="#FFF"></path><path d="M85.3551 7.26708C87.3696 7.26708 89.0026 5.64029 89.0026 3.63354C89.0026 1.62679 87.3696 0 85.3551 0C83.3406 0 81.7075 1.62679 81.7075 3.63354C81.7075 5.64029 83.3406 7.26708 85.3551 7.26708Z" fill="#00F159"></path></svg>
+        </a>
+      </div>
+      <div class="hidden lg:block">
+        <a class="header-button shadow-dp-yellow-01 hover:shadow-dp-yellow-02" href="https://cronitor.io/cron-job-monitoring?utm_source=crontabguru&utm_campaign=cronitor_butt
+on" rel="nofollow">Cron Job Monitoring</a>
+      </div>
+    </div>
+
+    <div class="text-center">
+      <h1 class="text-dp-yellow font-bold mb-4 text-4xl inline-block"><a href="/">crontab guru</a></h1>
+      <p class="text-base f">
+        The quick and simple editor for cron schedule expressions by <a class="hover:font-bold underline" href="https://cronitor.io?utm_source=crontabguru&utm_campaign=cronitor_top" title="Cron job monitoring and observability" rel="nofollow">Cronitor</a>.</p>
+    </div>
+
+    <div id="content" class="min-h-[500px] max-w-screen-md mx-auto px-4 lg:px-0">loading...</div>
+
+    <div id="cronitordetails" class="mt-16 mb-24">
+      <div class="mb-4">
+        <h2 class="text-dp-yellow font-mono font-bold text-2xl">Monitor your cron jobs with Cronitor</h2>
+      </div>
+      <h3 class="font-mono text-lg -mb-5 max-w-4xl text-center mx-auto">From the creators of Crontab.guru, Cronitor tracks every job execution, alerts on any failure, and tells you everything you need to know about your cron jobs.<br>Get started free. Setup in minutes.</h3>
+      
+        <a href="https://cronitor.io/cron-job-monitoring?utm_source=crontabguru&utm_campaign=screenshot" rel="nofollow">
+          <img class="mt-6 mx-auto" src="/cronitor.png" alt="Cronitor Dashboard">
+        </a>
+        <a class="variant-x-button" href="https://cronitor.io/cron-job-monitoring?utm_source=crontabguru&utm_campaign=start_monitoring_button" rel="nofollow">
+          Start Monitoring
+        </a>          
+    </div>
+
+    <!-- Self-hosted Dashboard Section -->
+    <div class="max-w-screen-lg mx-auto px-4 lg:px-0 text-center">
+      <div class="mb-4">
+          <div class="inline-block bg-dp-yellow text-neutral-950 text-xs font-bold px-2 py-1 rounded-sm mb-3">NEW</div>
+          <h2 class="text-dp-yellow font-mono font-bold text-2xl">The control panel for your crontab</h2>
+        </div>
+      <h3 class="font-mono text-lg mb-8 max-w-2xl text-center mx-auto">The Crontab Guru dashboard is a free, self-hosted, <a href="https://github.com/cronitorio/cronitor-cli" class="hover:text-neutral-300 underline" target="_blank" rel="noopener noreferrer">open source</a> control panel for your cron jobs.</h3>
+      
+
+      <div class="max-w-md mx-auto mb-16 relative z-50">
+        <div class="flex items-center bg-neutral-900 border-2 border-dp-dimyellow rounded-md p-3 mb-4">
+          <input type="text" value="curl https://crontab.guru/install | sh" readonly 
+                 class="flex-1 bg-transparent text-neutral-50 font-mono text-sm outline-none select-all cursor-text" 
+                 id="install-command">
+          <button onclick="copyInstallCommand()" 
+                  class="ml-3 px-3 py-1 bg-dp-yellow text-neutral-950 rounded-sm text-xs font-bold hover:bg-dp-brightyellow transition-colors"
+                  title="Copy to clipboard">
+            Copy
+          </button>
+        </div>
+        
+      </div>
+      <div class="relative z-10 mb-12">
+        <a href="dashboard.html">
+          <img src="jobs-dark.png" class="max-w-full lg:max-w-[720px] mx-auto rounded-sm cursor-pointer hover:opacity-90 transition-opacity" style="box-shadow: 0 0 30px 10px rgba(255, 255, 255, 0.3);" alt="Crontab Guru Self-hosted Dashboard">
+        </a>
+      </div>
+      <a class="variant-x-button" href="/dashboard.html" rel="nofollow">
+        Learn More
+      </a>          
+    </div>
+
+    <!-- Footer links -->
+    <div class="mt-24">
+      <div class="max-w-screen-xl mx-auto">
+        <ul class="text-base flex flex-col md:flex-row w-full">
+          <li class="flex-1">
+            <a href="/examples.html" class="block text-center w-full underline hover:font-bold">cron examples</a>
+          </li>
+          <li class="flex-1">
+            <a href="/dashboard.html" class="block text-center w-full underline hover:font-bold">cron dashboard</a>
+          </li>
+          <li class="flex-1">
+            <a href="https://systemd.guru?utm_source=crontabguru" class="block text-center w-full underline hover:font-bold">systemd guru</a>
+          </li>
+          <li class="flex-1">
+            <a href="https://cronitor.io/guides/cron-jobs?utm_source=crontabguru&utm_campaign=cron_reference" title="cron job guide" class="block text-center w-full underline hover:font-bold">cron jobs</a>
+          </li>
+          <li class="flex-1">
+            <a href="https://cronitor.io/cron-job-monitoring?utm_source=crontabguru&utm_campaign=cron_monitoring" title="cron job monitoring" class="block text-center w-full underline hover:font-bold">cron monitoring</a>
+          </li> 
+          <li class="flex-1">
+            <a href="https://cronitor.io/uptime-monitoring?utm_source=crontabguru&utm_campaign=uptime_monitoring" title="uptime monitoring" class="block text-center w-full underline hover:font-bold">uptime monitoring</a>
+          </li>
+
+          <li class="flex-1">
+            <a href="https://cronitor.io/status-pages?utm_source=crontabguru&utm_campaign=status_pages" title="status pages" class="block text-center w-full underline hover:font-bold">status pages</a>
+          </li>
+        </ul>
+      </div>
+      
+      <!-- Copyright -->
+      <p class="text-center my-10 text-sm">
+        <span>&copy; <span id="current-year" style="margin:0px;"></span> Cronitor.io</span>
+      </p>
+    </div>
+  </div>
+
+<script>
+  // Copy install command function
+  function copyInstallCommand() {
+    const input = document.getElementById('install-command');
+    input.select();
+    input.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+      document.execCommand('copy');
+      
+      // Provide visual feedback
+      const button = event.target;
+      const originalText = button.textContent;
+      const originalWidth = button.offsetWidth + 'px';
+      button.style.width = originalWidth;
+      button.textContent = '✓';
+      button.style.backgroundColor = 'var(--dp-green)';
+      
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.style.backgroundColor = 'var(--dp-yellow)';
+        button.style.width = '';
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+      
+      // Fallback: show alert with the command
+      alert('Copy this command: curl https://crontab.guru/install | sh');
+    }
+  }
+
+  var cookie = {
+
+    get: function(name) {
+      var start = document.cookie.indexOf(name + '='),
+        len = start + name.length + 1,
+        end = document.cookie.indexOf(';', len);
+
+      if (!start && (name != document.cookie.substring(0, name.length))) {
+        return null;
+      }
+
+      if (start === -1) {
+        return null;
+      }
+
+      if (end === -1) {
+        end = document.cookie.length;
+      }
+
+      return decodeURIComponent(document.cookie.substring(len, end));
+    },
+
+    set: function(cookieName, cookieValue, expireDateOrDays, path) {
+      var cookie = cookieName + '=' + encodeURIComponent(cookieValue);
+
+      if (!path) {
+        path = '/';
+      }
+
+      // If expiry is an integer, treat it as days
+      if(typeof expireDateOrDays==='number' && (expireDateOrDays%1)===0) {
+        var date = new Date();
+        date.setTime(date.getTime() + (expireDateOrDays * 24 * 60 * 60 * 1000));
+        expireDateOrDays = date.toGMTString();
+      }
+
+      if (expireDateOrDays) {
+        cookie += ';expires=' + expireDateOrDays;
+      }
+
+      cookie += ';path=' + path + ';';
+      cookie += 'y;domain=' + location.hostname.replace('www.', '') + ';';
+      document.cookie = cookie;
+    },
+
+    remove: function(cookieName, path) {
+      var date = new Date();
+      path = path || '/';
+
+      date.setTime(date.getTime() - 1);
+      this.set(cookieName, '', date.toGMTString(), path);
+    }
+  };
+
+  var currentVariant = null
+  var cookieVariant = cookie.get('lp_test5')
+  if (cookieVariant) {
+    currentVariant = cookieVariant
+  } else {
+    // Pick random test variant
+    // Sets a cookie for which variant the user sees
+    currentVariant = Math.ceil(Math.random() * 4) + 34
+    cookie.set('lp_test5', currentVariant, 7)
+  }
+
+  document.getElementById(`cronitor_${currentVariant}`).style.display = 'block'
+
+  var allLinks = document.getElementsByTagName("a");
+  for (var i=0; i < allLinks.length; i++) {
+    if (allLinks[i].href.includes('cronitor.io')) {
+      allLinks[i].href = `${allLinks[i].href}&utm_content=${currentVariant}`
+    }
+  }
+
+
+</script>
+
+<script src="/index.js"></script>
+
+<script>
+  document.getElementById("current-year").innerHTML = new Date().getFullYear();
+</script>
+
+<!-- Cronitor RUM -->
+<script async src="https://rum.cronitor.io/script.js"></script>
+<script>
+  window.cronitor = window.cronitor || function() { (window.cronitor.q = window.cronitor.q || []).push(arguments); };
+  cronitor('config', { clientKey: 'cc50bf27a1c23e33e37e44b08902edf7' });
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', window.main);
+</script>
+
+
+</body>
+</html>

@@ -708,6 +708,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
                     queryset=ArchiveResult.objects.only(
                         "id",
                         "snapshot_id",
+                        "modified_at",
                         "plugin",
                         "status",
                         "output_size",
@@ -736,6 +737,7 @@ class SnapshotAdmin(SearchResultsAdminMixin, ConfigEditorMixin, BaseModelAdmin):
             qs = qs.only(
                 "id",
                 "created_at",
+                "modified_at",
                 "url",
                 "timestamp",
                 "bookmarked_at",

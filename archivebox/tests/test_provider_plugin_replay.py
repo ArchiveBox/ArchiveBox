@@ -8,7 +8,7 @@ import hashlib
 import json
 import zipfile
 from pathlib import Path
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit, urlunsplit
 
 import pytest
 from abx_plugins import get_plugins_dir
@@ -63,7 +63,9 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
     assert len(snapshots) == 1
     snapshot = snapshots[0]
     output = Path(snapshot["output_dir"]) / plugin
-    manifest = json.loads((output / "downloads.json").read_text())
+    manifest_path = output / "downloads.json"
+    assert manifest_path.is_file(), f"{plugin} did not produce {manifest_path}\n{captured.stdout}{captured.stderr}"
+    manifest = json.loads(manifest_path.read_text())
     assert manifest["files"], captured.stdout
     for item in manifest["files"]:
         data = (output / item["path"]).read_bytes()
@@ -113,7 +115,15 @@ def capture_and_replay(plugin, root, browser_runtime, *, headless=True):
                     return frames.map(frame => ({connected: frame.isConnected, src: frame.src, sandbox: frame.getAttribute('sandbox')}));
                 }""")
                 transitions.dispose()
-                assert selected_frames == [{"connected": True, "src": card.get_attribute("data-preview-url"), "sandbox": None}]
+                revision = card.get_attribute("data-output-revision")
+                assert revision
+                raw_preview = card.get_attribute("data-preview-url")
+                assert raw_preview
+                preview_url = urlsplit(raw_preview)
+                expected_preview = urlunsplit(
+                    preview_url._replace(query=urlencode([*parse_qsl(preview_url.query), ("_abx_rev", revision)])),
+                )
+                assert selected_frames == [{"connected": True, "src": expected_preview, "sandbox": None}]
             card.locator('a[target="preview"]').first.click()
             preview = page.frame_locator("#main-frame")
             if plugin in DOCUMENT_PROVIDERS:

@@ -215,7 +215,7 @@ def test_add_title_hook_env_gets_canonical_runtime_config_without_archivebox_sel
             "add",
             "--depth=0",
             "--plugins=title",
-            "https://example.com/?archivebox-title-env=1",
+            "https://archivebox.io/tests/?archivebox-title-env=1",
         ],
         cwd=initialized_archive,
         env=env,
@@ -250,11 +250,11 @@ def test_add_title_hook_env_gets_canonical_runtime_config_without_archivebox_sel
         process_env = title_result.process.env
 
     assert crawl.config["PLUGINS"] == "title"
-    assert snapshot.url == "https://example.com/?archivebox-title-env=1"
+    assert snapshot.url == "https://archivebox.io/tests/?archivebox-title-env=1"
     assert snapshot.status == Snapshot.StatusChoices.SEALED
-    assert snapshot.title == "Example Domain"
+    assert snapshot.title == "ArchiveBox Test Page"
     assert title_result.status == ArchiveResult.StatusChoices.SUCCEEDED
-    assert title_result.output_str == "Example Domain"
+    assert title_result.output_str == "ArchiveBox Test Page"
     assert title_result.process.exit_code == 0
     assert process_env["TITLE_ENABLED"] == "True"
     assert process_env["CHROME_ENABLED"] == "True"

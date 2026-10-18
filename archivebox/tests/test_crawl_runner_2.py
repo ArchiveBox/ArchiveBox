@@ -266,8 +266,9 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
         (snapshots[urls[0]].output_dir / "hashes").symlink_to("hashes")
 
     run = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=120)
-    assert run.returncode == 0, run.stdout + run.stderr
+    assert run.returncode == 1, run.stdout + run.stderr
     assert "FileExistsError: [Errno 17]" in run.stderr
+    assert "1 snapshot attempt(s) failed" in run.stderr
     with use_archivebox_db(initialized_archive):
         snapshots = {snapshot.url: snapshot for snapshot in Snapshot.objects.filter(crawl_id=crawl_id)}
         for url, snapshot in snapshots.items():
@@ -281,9 +282,17 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
             file_hash = next(row for row in hashes["files"] if row["path"] == "input.txt")
             assert file_hash["hash"] == hashlib.sha256(url.encode()).hexdigest()
         broken = snapshots[urls[0]]
-        assert not broken.archiveresult_set.exists(), "The obstructed hook never started"
+        failed = broken.archiveresult_set.get()
+        assert failed.status == "failed"
+        assert "FileExistsError" in failed.output_str
+        assert failed.process.exit_code == -1
+        assert failed.process.pid is None
+        assert str(broken.id) in run.stderr
+        runner_process = Process.objects.get(process_type=Process.TypeChoices.ORCHESTRATOR)
+        assert runner_process.status == Process.StatusChoices.EXITED
+        assert runner_process.exit_code == 1
         hooks = Process.objects.filter(process_type=Process.TypeChoices.HOOK)
-        assert hooks.count() == 2
+        assert hooks.count() == 3
         assert not hooks.filter(status=Process.StatusChoices.RUNNING).exists()
         sealed_at = broken.modified_at
 
@@ -295,11 +304,54 @@ def test_snapshot_whose_hook_processing_raises_is_sealed_once_and_its_crawl_cont
         assert broken.status == Snapshot.StatusChoices.SEALED
         assert broken.retry_at is None
         assert broken.modified_at == sealed_at
-        assert Process.objects.filter(process_type=Process.TypeChoices.HOOK).count() == 2
+        assert Process.objects.filter(process_type=Process.TypeChoices.HOOK).count() == 3
 
 
 @pytest.mark.django_db(transaction=True)
-def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initialized_archive, cached_abxpkg_lib_dir, recursive_test_site):
+@pytest.mark.parametrize("mode", ["daemon", "snapshot"])
+def test_capture_attempt_failure_is_nonzero_in_worker_modes(initialized_archive, cached_abxpkg_lib_dir, mode):
+    from archivebox.core.models import Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.machine.models import Process
+    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    env = cli_env(PLUGINS="hashes")
+    crawl_id = _create_crawl(initialized_archive, env, "https://example.com/broken-worker")
+    with use_archivebox_db(initialized_archive):
+        Crawl.objects.get(pk=crawl_id).create_snapshots_from_urls()
+        snapshot = Snapshot.objects.get(crawl_id=crawl_id)
+        snapshot.output_dir.mkdir(parents=True, exist_ok=True)
+        (snapshot.output_dir / "hashes").symlink_to("hashes")
+        snapshot_id = str(snapshot.id)
+
+    args = ["--daemon", f"--crawl-id={crawl_id}"] if mode == "daemon" else [f"--snapshot-id={snapshot_id}"]
+    run = run_archivebox_cmd(["run", *args], cwd=initialized_archive, env=env, timeout=120)
+    assert run.returncode == 1, run.stdout + run.stderr
+    assert "FileExistsError: [Errno 17]" in run.stderr
+    assert "1 snapshot attempt(s) failed" in run.stderr
+    with use_archivebox_db(initialized_archive):
+        snapshot = Snapshot.objects.get(pk=snapshot_id)
+        assert snapshot.status == Snapshot.StatusChoices.SEALED
+        assert snapshot.retry_at is None
+        failed = snapshot.archiveresult_set.get()
+        assert failed.status == "failed"
+        assert "FileExistsError" in failed.output_str
+        assert failed.process.exit_code == -1
+        assert failed.process.pid is None
+        process = Process.objects.get(process_type=Process.TypeChoices.ORCHESTRATOR)
+        assert process.status == Process.StatusChoices.EXITED
+        assert process.exit_code == 1
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("target_crawl", [False, True], ids=["collection", "crawl"])
+def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(
+    initialized_archive,
+    cached_abxpkg_lib_dir,
+    recursive_test_site,
+    target_crawl,
+):
     import os
     import signal
     import time
@@ -347,7 +399,10 @@ def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initializ
         assert snapshot.status == Snapshot.StatusChoices.STARTED
         first_hook_id = hook.id
 
-    restarted = run_archivebox_cmd(["run", "--no-stdin"], cwd=initialized_archive, env=env, timeout=180)
+    restart_args = ["run", "--no-stdin"]
+    if target_crawl:
+        restart_args.append(f"--crawl-id={crawl_id}")
+    restarted = run_archivebox_cmd(restart_args, cwd=initialized_archive, env=env, timeout=180)
     assert restarted.returncode == 0, restarted.stdout + restarted.stderr
     assert "Recovering 1 Snapshot(s) that were interrupted" in restarted.stderr
 
@@ -364,3 +419,72 @@ def test_snapshot_interrupted_by_process_death_starts_over_on_recovery(initializ
         html_files = list((snapshot.output_dir / "wget").rglob("*.html"))
         assert html_files
         assert any("<title>Root</title>" in path.read_text() for path in html_files)
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("request_during_capture", [False, True], ids=["already-queued", "while-running"])
+def test_running_crawl_consumes_explicit_sealed_plugin_requests(cached_abxpkg_lib_dir, request_during_capture):
+    from django.utils import timezone
+
+    from archivebox.base_models.models import get_or_create_system_user_pk
+    from archivebox.core.models import ArchiveResult, Snapshot
+    from archivebox.crawls.models import Crawl
+    from archivebox.services.runner import CrawlRunner
+    from abx_dl.events import SnapshotCompletedEvent
+    from asgiref.sync import sync_to_async
+
+    crawl = Crawl.objects.create(
+        urls="https://archivebox.io/tests/",
+        created_by_id=get_or_create_system_user_pk(),
+        config={"PLUGINS": "hashes", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 1},
+        status=Crawl.StatusChoices.STARTED,
+        retry_at=timezone.now(),
+    )
+    requested = Snapshot.objects.create(
+        crawl=crawl,
+        url="https://archivebox.io/tests/",
+        status=Snapshot.StatusChoices.SEALED,
+        downloaded_at=timezone.now(),
+        retry_at=None,
+    )
+    maintenance = Snapshot.objects.create(
+        crawl=crawl,
+        url="https://archivebox.io/tests/maintenance",
+        status=Snapshot.StatusChoices.SEALED,
+        downloaded_at=timezone.now(),
+        retry_at=timezone.now(),
+    )
+    queued = Snapshot.objects.create(crawl=crawl, url="https://archivebox.io/tests/second/")
+    requested.output_dir.mkdir(parents=True, exist_ok=True)
+    preserved = requested.output_dir / "preserved.txt"
+    preserved.write_text("Already archived bytes must survive the requested hash run.\n")
+    downloaded_at = requested.downloaded_at
+    runner = CrawlRunner(crawl, show_progress=False)
+    if request_during_capture:
+
+        async def request_hashes(event: SnapshotCompletedEvent) -> None:
+            if str(event.snapshot_id) == str(queued.id):
+                await sync_to_async(requested.schedule_plugin_run, thread_sensitive=True)(["hashes"])
+
+        runner.bus.on(SnapshotCompletedEvent, request_hashes)
+    else:
+        requested.schedule_plugin_run(["hashes"])
+
+    asyncio.run(runner.run())
+
+    requested.refresh_from_db()
+    queued.refresh_from_db()
+    assert requested.status == Snapshot.StatusChoices.SEALED
+    assert requested.downloaded_at == downloaded_at
+    assert requested.retry_at is None
+    assert "RETRY_PLUGINS" not in requested.config
+    assert preserved.read_text() == "Already archived bytes must survive the requested hash run.\n"
+    assert (requested.output_dir / "hashes/hashes.json").is_file()
+    request_result = ArchiveResult.objects.get(snapshot=requested, plugin="hashes")
+    queued_result = ArchiveResult.objects.get(snapshot=queued, plugin="hashes")
+    assert request_result.status == queued_result.status == ArchiveResult.StatusChoices.SUCCEEDED
+    if request_during_capture:
+        assert queued_result.end_ts <= request_result.start_ts
+    else:
+        assert request_result.end_ts <= queued_result.start_ts
+    assert not ArchiveResult.objects.filter(snapshot=maintenance).exists()

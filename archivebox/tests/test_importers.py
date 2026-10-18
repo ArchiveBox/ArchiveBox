@@ -41,6 +41,58 @@ def test_import_catalog_is_rendered_from_real_plugins(admin_client):
     assert b"Spreadsheet" in response.content
 
 
+@pytest.mark.parametrize("scenario", ["failure", "selected-source", "drain"])
+def test_importer_cli_reports_outcomes_and_preserves_source_scope(initialized_archive, import_site, scenario):
+    from django.contrib.auth import get_user_model
+    from django.test import Client
+
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterRun, ImporterSource
+    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+    from archivebox.tests.test_orm_helpers import use_archivebox_db
+
+    _, url = import_site
+    with use_archivebox_db(initialized_archive):
+        user = get_user_model().objects.create_superuser(username="importer-cli", password="test-importer-cli")
+        client = Client()
+        client.force_login(user)
+        for name, path in [("First feed", "missing.xml" if scenario != "selected-source" else "feed.xml"), ("Selected feed", "feed.xml")]:
+            response = client.post(
+                "/admin/importers/new/importer_rss/feed/",
+                {"name": name, "setting_IMPORTER_RSS_URL": f"{url}/{path}"},
+                HTTP_HOST=ADMIN_TEST_HOST,
+            )
+            assert response.status_code == 302
+        first = ImporterSource.objects.get(name="First feed")
+        selected = ImporterSource.objects.get(name="Selected feed")
+        if scenario != "failure":
+            assert client.post(f"/admin/importers/{first.pk}/preview/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+        if scenario == "drain":
+            assert client.post(f"/admin/importers/{selected.pk}/preview/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+
+    args = ["manage", "importers"]
+    if scenario != "drain":
+        args.extend(["--source", str(first.pk if scenario == "failure" else selected.pk), "--action", "preview", "--once"])
+    result = run_archivebox_cmd(args, cwd=initialized_archive, env=cli_env(), timeout=60)
+    assert result.returncode == (0 if scenario == "selected-source" else 1), result.stdout + result.stderr
+    with use_archivebox_db(initialized_archive):
+        first_run = ImporterRun.objects.get(source_id=first.pk)
+        if scenario == "selected-source":
+            assert first_run.status == ImporterRun.Status.QUEUED
+        else:
+            assert first_run.status == ImporterRun.Status.FAILED
+            assert first_run.items == [] and first_run.crawl_id is None
+            assert str(first_run.pk) in result.stderr
+            assert "failed" in result.stderr
+        if scenario != "failure":
+            selected_run = ImporterRun.objects.get(source_id=selected.pk)
+            assert selected_run.status == ImporterRun.Status.SUCCEEDED, selected_run.message
+            assert [item["url"] for item in selected_run.items] == [f"{url}/article.html"]
+            assert selected_run.crawl_id is None
+        assert all(source.checkpoint == {} for source in ImporterSource.objects.all())
+        assert Crawl.objects.count() == 0
+
+
 def test_daemon_discovers_work_after_capture_dispatch_stops_ticking(admin_client, import_site):
     import time
 
@@ -148,6 +200,84 @@ def test_import_routes_require_admin_and_post(admin_client):
     assert response.status_code == 302
     response = admin_client.get("/admin/importers/00000000-0000-0000-0000-000000000000/import/", HTTP_HOST=ADMIN_TEST_HOST)
     assert response.status_code == 405
+
+
+def test_initial_import_requires_recheck_after_nonempty_preview_becomes_empty(admin_client, import_site):
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterSource
+    from archivebox.importers.service import run_next_importer
+
+    root, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Preview evidence", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml", "limit": "50"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Preview evidence")
+    preview_url = f"/admin/importers/{source.pk}/preview/"
+    import_url = f"/admin/importers/{source.pk}/import/"
+    assert admin_client.post(preview_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    preview = source.runs.first()
+    assert preview.status == "succeeded" and len(preview.items) == 1
+
+    (root / "feed.xml").write_text('<rss version="2.0"><channel><title>Empty feed</title></channel></rss>')
+    assert admin_client.post(import_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    failed = source.runs.first()
+    assert failed.status == "failed", failed.message
+    assert "nonempty preview" in failed.message
+    assert failed.request["preview_count"] == 1
+    assert failed.items == [] and failed.crawl_id is None
+    source.refresh_from_db()
+    assert source.checkpoint == {} and Crawl.objects.count() == 0
+
+    # A fresh real empty preview clears the contradiction; empty sources remain
+    # supported without weakening the failed first run or changing its progress.
+    assert admin_client.post(preview_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    empty_preview = source.runs.first()
+    assert empty_preview.status == "succeeded" and empty_preview.items == []
+    assert admin_client.post(import_url, HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    empty_import = source.runs.first()
+    assert empty_import.status == "succeeded", empty_import.message
+    assert empty_import.request["preview_count"] == 0
+    assert empty_import.items == [] and empty_import.crawl_id is None
+    failed.refresh_from_db()
+    assert failed.status == "failed" and Crawl.objects.count() == 0
+
+
+def test_changed_source_does_not_inherit_the_previous_preview_count(admin_client, import_site):
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterSource
+    from archivebox.importers.service import run_next_importer
+
+    root, url = import_site
+    response = admin_client.post(
+        "/admin/importers/new/importer_rss/feed/",
+        {"name": "Changed source", "setting_IMPORTER_RSS_URL": f"{url}/feed.xml"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get(name="Changed source")
+    assert admin_client.post(f"/admin/importers/{source.pk}/preview/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    assert len(source.runs.first().items) == 1
+    (root / "empty.xml").write_text('<rss version="2.0"><channel><title>Another feed</title></channel></rss>')
+    response = admin_client.post(
+        f"/admin/importers/{source.pk}/edit/",
+        {"name": source.name, "setting_IMPORTER_RSS_URL": f"{url}/empty.xml"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    assert admin_client.post(f"/admin/importers/{source.pk}/import/", HTTP_HOST=ADMIN_TEST_HOST).status_code == 302
+    assert run_next_importer()
+    run = source.runs.first()
+    assert run.status == "succeeded", run.message
+    assert "preview_count" not in run.request
+    assert run.items == [] and run.crawl_id is None and Crawl.objects.count() == 0
 
 
 def test_spreadsheet_reordering_and_new_rows(admin_client, import_site):
@@ -431,6 +561,38 @@ def test_browser_importer_discovers_account_from_selected_persona(admin_client):
     assert source.settings["IMPORTERS_BROWSER_ACCOUNT"] == ""
     assert source.account == {}
     assert source.checkpoint == {}
+
+
+@pytest.mark.parametrize("action", ["check", "preview", "import"])
+@pytest.mark.parametrize("checkpoint", [{}, {"cursor": "saved-progress"}])
+def test_browser_request_carries_existing_account_pin(admin_client, action, checkpoint):
+    from archivebox.crawls.models import Crawl
+    from archivebox.importers.models import ImporterSource
+    from archivebox.personas.models import Persona
+
+    persona = Persona.get_or_create_named("Importer account context")
+    response = admin_client.post(
+        "/admin/importers/new/importers_browser/reddit_saves/",
+        {"persona": persona.pk},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+    assert response.status_code == 302
+    source = ImporterSource.objects.get()
+    # A real persisted source pin is the enqueue input, not an authentication
+    # simulation. This test exercises request construction, not browser access.
+    source.account = {"id": "opaque:ExactCase", "label": "Prior detected account"}
+    source.checkpoint = checkpoint
+    source.save(update_fields=["account", "checkpoint"])
+
+    response = admin_client.post(f"/admin/importers/{source.pk}/{action}/", HTTP_HOST=ADMIN_TEST_HOST)
+    assert response.status_code == 302
+    run = source.runs.get()
+    assert run.request["expected_account"] == source.account
+    assert run.request["checkpoint"] == (source.checkpoint if action == "import" else {})
+    source.refresh_from_db()
+    assert source.account["id"] == "opaque:ExactCase"
+    assert source.checkpoint == checkpoint
+    assert run.status == "queued" and run.crawl_id is None and Crawl.objects.count() == 0
 
 
 def test_custom_importer_requires_post_and_csrf(admin_client, admin_user):

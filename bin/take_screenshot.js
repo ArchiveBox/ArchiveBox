@@ -86,30 +86,40 @@ async function waitForVisibleCardPreviews(page, timeout = 45000) {
 
     const expectedUrl = await cardHandle.evaluate((iframe) => iframe.src);
     const frame = await cardHandle.contentFrame();
-    if (!frame) throw new Error('Visible snapshot card iframe has no loaded document');
-    visibleFrames.push({frame, expectedUrl});
+    if (!frame) {
+      // A real WACZ paint removes its temporary screenshot cover during capture.
+      // Only detached owners cease to be required; a connected blank card is an error.
+      if (!await cardHandle.evaluate((iframe) => iframe.isConnected)) continue;
+      throw new Error(`Visible snapshot card iframe has no loaded document: ${new URL(expectedUrl).pathname}`);
+    }
+    visibleFrames.push({cardHandle, frame, expectedUrl});
   }
 
-  await Promise.all(visibleFrames.map(async ({frame, expectedUrl}) => {
-    await frame.waitForFunction(async (url) => {
-      if (location.href !== url || document.readyState !== 'complete') return false;
-      const images = [...document.images].filter((img) => {
-        const rect = img.getBoundingClientRect();
-        const style = getComputedStyle(img);
-        return rect.width > 0
-          && rect.height > 0
-          && rect.bottom > 0
-          && rect.right > 0
-          && rect.top < innerHeight
-          && rect.left < innerWidth
-          && style.display !== 'none'
-          && style.visibility !== 'hidden'
-          && Number(style.opacity) > 0;
-      });
-      if (!images.every((img) => img.complete && img.naturalWidth > 0)) return false;
-      await Promise.all(images.map((img) => img.decode()));
-      return true;
-    }, {timeout}, expectedUrl);
+  await Promise.all(visibleFrames.map(async ({cardHandle, frame, expectedUrl}) => {
+    try {
+      await frame.waitForFunction(async (url) => {
+        if (location.href !== url || document.readyState !== 'complete') return false;
+        const images = [...document.images].filter((img) => {
+          const rect = img.getBoundingClientRect();
+          const style = getComputedStyle(img);
+          return rect.width > 0
+            && rect.height > 0
+            && rect.bottom > 0
+            && rect.right > 0
+            && rect.top < innerHeight
+            && rect.left < innerWidth
+            && style.display !== 'none'
+            && style.visibility !== 'hidden'
+            && Number(style.opacity) > 0;
+        });
+        if (!images.every((img) => img.complete && img.naturalWidth > 0)) return false;
+        await Promise.all(images.map((img) => img.decode()));
+        return true;
+      }, {timeout}, expectedUrl);
+    } catch (error) {
+      // Frame detachment is expected only when the page removed that actual iframe.
+      if (await cardHandle.evaluate((iframe) => iframe.isConnected)) throw error;
+    }
   }));
 }
 
@@ -265,12 +275,16 @@ async function main() {
     addLaunchArg(launchOptions.args, '--disable-setuid-sandbox');
   }
   const browser = await puppeteer.launch(launchOptions);
+  let page;
+  const documentRequests = new Map();
+  const pageErrors = [];
   try {
     // Persistent persona profiles can restore tabs left by earlier launches.
     // Close them before navigating so repeated captures do not multiply live
     // admin requests and overwhelm the server being documented.
     const restoredPages = await browser.pages();
-    const page = await browser.newPage();
+    page = await browser.newPage();
+    page.on('error', (error) => pageErrors.push(error.name));
     await page.setCacheEnabled(false);
     await Promise.all(restoredPages.map((restoredPage) => restoredPage.close()));
     page.setDefaultTimeout(45000);
@@ -284,7 +298,6 @@ async function main() {
     }
 
     const client = await page.createCDPSession();
-    const documentRequests = new Map();
     await client.send('Network.enable');
     client.on('Network.requestWillBeSent', (event) => {
       if (event.type !== 'Document') return;
@@ -469,12 +482,39 @@ async function main() {
       await capture(output);
     }
     console.log(JSON.stringify({ screenshotPath: screenshotPaths[0], screenshotPaths, checks }, null, 2));
+  } catch (error) {
+    if (process.env.SCREENSHOT_FAILURE_DIR) {
+      // CI removes provider data after failure. Retain only URL paths and native
+      // frame/request state, never persona data, request headers, or response bodies.
+      const safeUrl = (value) => {
+        try {
+          const parsed = new URL(value);
+          return ['http:', 'https:'].includes(parsed.protocol) ? `${parsed.origin}${parsed.pathname}` : parsed.protocol;
+        } catch { return ''; }
+      };
+      const failureDir = path.resolve(process.env.SCREENSHOT_FAILURE_DIR);
+      fs.mkdirSync(failureDir, {recursive: true});
+      fs.writeFileSync(path.join(failureDir, `${path.basename(output)}.json`), JSON.stringify({
+        error: error.name,
+        pageErrors,
+        url: safeUrl(page?.url()),
+        frames: page?.frames().map((frame) => ({url: safeUrl(frame.url()), detached: frame.detached})),
+        documents: [...documentRequests.values()].map((record) => ({
+          ...record, url: safeUrl(record.url), responseUrl: safeUrl(record.responseUrl),
+        })),
+      }, null, 2));
+    }
+    throw error;
   } finally {
     await browser.close();
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+module.exports = {waitForVisibleCardPreviews};

@@ -58,10 +58,14 @@ def test_cli_api_add_search_update_remove_over_server(tmp_path):
         crawl_id = add_payload["result"]["crawl_id"]
         assert add_payload["result"]["snapshot_ids"] == []
         stop_server(tmp_path)
-        from archivebox.services.runner import run_crawl
-
+        # Use the public runner entrypoint: it recovers any capture interrupted
+        # by stopping the server before executing the requested crawl.
+        run_result = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=tmp_path, env=env)
+        assert run_result.returncode == 0, run_result.stderr or run_result.stdout
         with use_archivebox_db(tmp_path):
-            run_crawl(crawl_id, show_progress=False)
+            snapshot = Snapshot.objects.get(crawl_id=crawl_id, url=target_url)
+            assert snapshot.status == Snapshot.StatusChoices.SEALED
+            assert snapshot.retry_at is None
         start_archivebox_server(tmp_path, env=env, port=port)
         wait_for_live_api(port)
 

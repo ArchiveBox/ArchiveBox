@@ -146,14 +146,14 @@ sudo apt install archivebox
 mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
-sudo archivebox install
+sudo "$(command -v archivebox)" install
 archivebox add 'https://example.com'
 ```
 
 The apt package is a thin dev-channel wrapper around the normal Python install
 flow. Runtime extractor
 dependencies such as Chromium, yt-dlp, SingleFile, and other plugin-managed
-tools are installed by `sudo archivebox install`, which uses apt for missing
+tools are installed by `sudo "$(command -v archivebox)" install`, which uses apt for missing
 system dependencies while preserving ownership of the user-owned collection.
 
 Alternatively, install with `uv`:

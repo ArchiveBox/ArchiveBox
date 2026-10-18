@@ -1,6 +1,17 @@
 name: Capture publicsite screenshots
 
 on:
+  # UI/capture repairs refresh the gallery immediately; dependency/version bots
+  # retain the scheduled path rather than starting another full provider capture.
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/screenshots.yml'
+      - 'bin/take_screenshot.js'
+      - 'bin/collect_ui_screenshots.sh'
+      - 'bin/generate_ui_screenshot_gallery.py'
+      - 'archivebox/templates/**'
+      - 'archivebox/core/templatetags/core_tags.py'
   schedule:
     - cron: '37 5,17 * * *'
   workflow_dispatch:
@@ -51,6 +62,7 @@ jobs:
         run: |
           chrome_sandbox="$(uv run --no-cache --no-sync python - <<'PY'
           import json
+          import os
           import subprocess
           from pathlib import Path
           import abx_plugins
@@ -60,7 +72,20 @@ jobs:
               "abxpkg", "env", "--install", "--json",
               f"--deps-from={config}:required_binaries", "browsers",
           ], text=True))
-          helper = Path(env["CHROME_BINARY"]).resolve(strict=True).with_name("chrome_sandbox")
+          # CHROME_BINARY may be a provider launcher, not the native executable.
+          native_chrome = subprocess.check_output([
+              env["NODE_BINARY"], "-e", r"""
+              const {getInstalledBrowsers, detectBrowserPlatform} = require('@puppeteer/browsers');
+              const {execFileSync} = require('node:child_process');
+              const version = execFileSync(process.env.CHROME_BINARY, ['--version'], {encoding: 'utf8'}).match(/\d+\.\d+\.\d+\.\d+/)[0];
+              getInstalledBrowsers({cacheDir: process.env.PUPPETEER_CACHE_DIR}).then(browsers => {
+                  const matches = browsers.filter(b => b.browser === 'chrome' && b.buildId === version && b.platform === detectBrowserPlatform());
+                  if (matches.length !== 1) throw new Error('Expected exactly one matching installed Chrome');
+                  console.log(matches[0].executablePath);
+              }).catch(error => { console.error(error); process.exit(1); });
+              """,
+          ], env={**os.environ, **env}, text=True).strip()
+          helper = Path(native_chrome).resolve(strict=True).with_name("chrome_sandbox")
           assert helper.is_file(), helper
           print(helper)
           PY
@@ -73,11 +98,51 @@ jobs:
       - name: Prepare authorized provider persona and browser display
         env:
           PROVIDER_AUTH_STORAGE_JSON: ${{ secrets.PROVIDER_AUTH_STORAGE_JSON }}
+          FIGMA_AUTH_STORAGE_JSON: ${{ secrets.FIGMA_AUTH_STORAGE_JSON }}
         run: |
           set -Eeuo pipefail
           test -n "$PROVIDER_AUTH_STORAGE_JSON"
           umask 077
-          printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$RUNNER_TEMP/provider-auth.json"
+          auth_file="$RUNNER_TEMP/provider-auth.json"
+          printf '%s' "$PROVIDER_AUTH_STORAGE_JSON" > "$auth_file"
+          # The filtered Figma refresh must not replace other providers' sessions.
+          uv run --no-project python - "$auth_file" <<'PYAUTH'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          refresh = os.environ.get("FIGMA_AUTH_STORAGE_JSON")
+          if refresh:
+              path = Path(sys.argv[1])
+              original = json.loads(path.read_text())
+              figma = json.loads(refresh)
+              assert figma.get("SOURCE") == "archivebox-browser-extension", "Expected Figma extension export"
+
+              def is_figma(item, key):
+                  value = item.get(key) or item.get("url") or ""
+                  host = urlsplit(value if "://" in value else "//" + value.lstrip(".")).hostname or ""
+                  return host == "figma.com" or host.endswith(".figma.com")
+
+              for field, key in (("cookies", "domain"), ("origins", "origin"), ("tabs", "url")):
+                  incoming = [item for item in figma.get(field, []) if is_figma(item, key)]
+                  if field == "cookies" and original.get("SOURCE") != "archivebox-browser-extension":
+                      # Match Chrome's extension-to-CDP import without changing old cookies.
+                      converted = []
+                      for cookie in incoming:
+                          assert not cookie.get("partitionKey"), "Partitioned extension cookies are unsupported"
+                          item = {key: cookie[key] for key in ("name", "value", "domain", "path", "secure", "httpOnly") if key in cookie}
+                          if cookie.get("expirationDate") is not None:
+                              item["expires"] = cookie["expirationDate"]
+                          same_site = str(cookie.get("sameSite") or "").lower()
+                          if same_site and same_site != "unspecified":
+                              item["sameSite"] = {"no_restriction": "None", "none": "None", "lax": "Lax", "strict": "Strict"}[same_site]
+                          converted.append(item)
+                      incoming = converted
+                  original[field] = [item for item in original.get(field, []) if not is_figma(item, key)] + incoming
+              path.write_text(json.dumps(original))
+          PYAUTH
           sudo apt-get update
           sudo apt-get install -y xvfb xauth poppler-utils
 
@@ -88,6 +153,7 @@ jobs:
           AUTH_STORAGE_FILE: ${{ runner.temp }}/provider-auth.json
           CHROME_HEADLESS: "false"
           UI_SCREENSHOT_DATA_DIR: ${{ runner.temp }}/provider-gallery-data
+          SCREENSHOT_FAILURE_DIR: ${{ runner.temp }}/gallery-failure-diagnostics
 
       - name: Verify gallery was generated from this exact revision
         run: |
@@ -114,6 +180,15 @@ jobs:
           path: publicsite/screenshots
           if-no-files-found: error
           retention-days: 90
+
+      - name: Retain failed gallery frame and request diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gallery-failure-diagnostics
+          path: ${{ runner.temp }}/gallery-failure-diagnostics
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Remove provider persona and browser profiles
         if: always()

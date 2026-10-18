@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+from pathlib import Path
 from typing import ClassVar
 
 from asgiref.sync import sync_to_async
@@ -33,10 +34,15 @@ def current_network_interface_with_machine():
 
 def normalize_process_env(env: dict) -> dict:
     from archivebox.config.common import filter_crawl_env, is_sensitive_config_key
+    from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY
 
     raw_plugins = (env or {}).get("PLUGINS", "")
     selected_plugins = {name.strip().lower() for name in str(raw_plugins).split(",") if name.strip()}
-    normalized = {key: value for key, value in filter_crawl_env(env or {}).items() if not is_sensitive_config_key(key)}
+    normalized = {
+        key: value
+        for key, value in filter_crawl_env(env or {}).items()
+        if not is_sensitive_config_key(key) and key not in (PROCESS_STDOUT_FILE_KEY, PROCESS_STDERR_FILE_KEY)
+    }
     if selected_plugins:
         from archivebox.config.common import _plugin_enabled_config_keys
         from archivebox.plugins.discovery import get_plugin_catalog
@@ -72,9 +78,10 @@ class ProcessService(BaseService):
         return self._iface
 
     async def on_ProcessStartedEvent__save_to_db(self, event: ProcessStartedEvent) -> None:
-        from archivebox.machine.models import Process
+        from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY, Process
 
         iface = await self.current_iface()
+        owner = await sync_to_async(Process.current, thread_sensitive=True)()
         process_type = event.process_type or Process.TypeChoices.HOOK
         worker_type = event.worker_type or ""
         started_at = parse_event_datetime(event.start_ts)
@@ -91,6 +98,9 @@ class ProcessService(BaseService):
             )
         process = await process_query.order_by("-modified_at").afirst()
         process_env = normalize_process_env(event.env)
+        # Only the host executor can identify these files; never trust child env.
+        process_env[PROCESS_STDOUT_FILE_KEY] = str(event.stdout_file)
+        process_env[PROCESS_STDERR_FILE_KEY] = str(event.stderr_file)
         if process is None:
             # Every hook start lands here. Insert the row complete, binary
             # included, rather than inserting it and then rewriting every
@@ -99,7 +109,7 @@ class ProcessService(BaseService):
             process = Process(
                 machine=iface.machine,
                 iface=iface,
-                parent_id=None,
+                parent_id=owner.id,
                 process_type=process_type,
                 worker_type=worker_type,
                 pwd=event.output_dir,
@@ -124,6 +134,7 @@ class ProcessService(BaseService):
                 await process.asave(update_fields=["iface", "machine", "modified_at"])
 
             process.pwd = event.output_dir
+            process.parent_id = process.parent_id or owner.id
             process.cmd = [event.hook_path, *event.hook_args]
             process.env = process_env
             process.timeout = event.timeout
@@ -203,9 +214,10 @@ class ProcessService(BaseService):
         await self.flush_completed()
 
     async def _save_completed_process_to_db(self, event: ProcessCompletedEvent) -> None:
-        from archivebox.machine.models import Process
+        from archivebox.machine.models import PROCESS_STDERR_FILE_KEY, PROCESS_STDOUT_FILE_KEY, Process
 
         iface = await self.current_iface()
+        owner = await sync_to_async(Process.current, thread_sensitive=True)()
         process_type = event.process_type or Process.TypeChoices.HOOK
         worker_type = event.worker_type or ""
         started_at = parse_event_datetime(event.start_ts)
@@ -226,7 +238,7 @@ class ProcessService(BaseService):
             await Process.objects.acreate(
                 machine=iface.machine,
                 iface=iface,
-                parent_id=None,
+                parent_id=owner.id,
                 process_type=process_type,
                 worker_type=worker_type,
                 pwd=event.output_dir,
@@ -242,6 +254,15 @@ class ProcessService(BaseService):
             process = await process_query.order_by("-modified_at").afirst()
             if process is None:
                 return
+
+        # Completion archives failed/cancelled logs under their original unique
+        # names; successful logs are deleted. Preserve exact live paths otherwise.
+        for key in (PROCESS_STDOUT_FILE_KEY, PROCESS_STDERR_FILE_KEY):
+            recorded = process.env.get(key)
+            if isinstance(recorded, str) and recorded:
+                process_env[key] = (
+                    str(Path(event.output_dir) / Path(recorded).name) if event.exit_code != 0 or event.cancelled else recorded
+                )
 
         missing_cmd = not process.cmd
         updates = {

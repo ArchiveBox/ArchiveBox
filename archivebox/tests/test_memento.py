@@ -103,7 +103,12 @@ def test_memento_archive_enclosures(client, captures, archive_files):
             assert download["Content-Type"] == types[name]
             assert "Content-Encoding" not in download
             assert "Memento-Datetime" not in download
-            assert b"".join(download.streaming_content) == (archive_files[name] if method == "get" else b"")
+            assert int(download["Content-Length"]) == len(archive_files[name])
+            if method == "get":
+                assert b"".join(download.streaming_content) == archive_files[name]
+            else:
+                assert not download.streaming
+                assert download.content == b""
         partial = fetch(client, link["url"], HTTP_RANGE="bytes=0-9")
         assert partial.status_code == 206
         assert b"".join(partial.streaming_content) == archive_files[name][:10]
@@ -135,6 +140,26 @@ def test_memento_archive_live_range(live_server, captures, archive_files, name, 
     assert response.content == archive_files[name][:32]
     assert response.headers["Content-Type"] == mime
     assert "Content-Encoding" not in response.headers
+
+
+@pytest.mark.django_db(transaction=True)
+def test_replay_server_timing_preserves_saved_response(live_server, captures):
+    snapshot = captures[0]
+    path = "singlefile/singlefile.html"
+    url = urlsplit(build_snapshot_url(str(snapshot.id), path))
+    original = (snapshot.output_dir / path).read_bytes()
+    with requests.Session() as session:
+        session.trust_env = False
+        response = session.get(live_server.url + url.path, headers={"Host": url.netloc}, timeout=10)
+    assert response.status_code == 200
+    assert response.content == original
+    assert response.headers["Memento-Datetime"] == http_date(snapshot.downloaded_at.timestamp())
+    assert 'rel="original"' in response.headers["Link"]
+    timings = dict(part.strip().split(";dur=") for part in response.headers["Server-Timing"].split(","))
+    assert {"replay", "replay_cpu", "replay_file"} <= timings.keys()
+    assert 0 <= float(timings["replay_file"]) <= float(timings["replay"])
+    assert float(timings["replay_cpu"]) >= 0
+    assert (snapshot.output_dir / path).read_bytes() == original
 
 
 @pytest.mark.django_db(transaction=True)

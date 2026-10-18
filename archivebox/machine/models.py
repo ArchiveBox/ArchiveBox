@@ -52,6 +52,8 @@ PID_REUSE_WINDOW = timedelta(hours=24)  # Max age for considering a PID match va
 PROCESS_TIMEOUT_GRACE = timedelta(seconds=30)  # Extra margin before force-cleaning timed-out RUNNING rows
 START_TIME_TOLERANCE = 5.0  # Seconds tolerance for start time matching
 PROCESS_PID_NAMESPACE_KEY = "_ARCHIVEBOX_PID_NAMESPACE"
+PROCESS_STDOUT_FILE_KEY = "_ARCHIVEBOX_STDOUT_FILE"
+PROCESS_STDERR_FILE_KEY = "_ARCHIVEBOX_STDERR_FILE"
 
 
 def get_current_pid_namespace() -> str:
@@ -1808,13 +1810,19 @@ class Process(ModelWithDeleteAfter, models.Model):
 
     @property
     def stdout_file(self) -> Path | None:
-        """Path to stdout log."""
+        """Path to the exact hook log, or the legacy process runtime log."""
+        recorded = self.env.get(PROCESS_STDOUT_FILE_KEY)
+        if isinstance(recorded, str) and recorded:
+            return Path(recorded)
         runtime_dir = self.runtime_dir
         return runtime_dir / "stdout.log" if runtime_dir else None
 
     @property
     def stderr_file(self) -> Path | None:
-        """Path to stderr log."""
+        """Path to the exact hook log, or the legacy process runtime log."""
+        recorded = self.env.get(PROCESS_STDERR_FILE_KEY)
+        if isinstance(recorded, str) and recorded:
+            return Path(recorded)
         runtime_dir = self.runtime_dir
         return runtime_dir / "stderr.log" if runtime_dir else None
 
@@ -2546,6 +2554,14 @@ class Process(ModelWithDeleteAfter, models.Model):
                 proc.mark_exited(
                     exit_code=proc.exit_code if proc.exit_code is not None else _default_exit_code_for_unowned_process(proc.process_type),
                 )
+                cleaned += 1
+                continue
+
+            # A supervised server can outlive a killed runner. Its surviving
+            # hooks still own output files, so the live server root alone must
+            # not preserve them or let a replacement capture write concurrently.
+            if any(ancestor.process_type == cls.TypeChoices.ORCHESTRATOR and not ancestor.is_running for ancestor in proc.ancestors):
+                proc.kill_tree()
                 cleaned += 1
                 continue
 

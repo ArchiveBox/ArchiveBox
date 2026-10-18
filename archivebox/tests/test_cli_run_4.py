@@ -7,6 +7,8 @@ Tests cover:
 - pass-through output (for chaining)
 """
 
+import hashlib
+import json
 import os
 import pty
 import select
@@ -111,13 +113,12 @@ def test_run_third_interrupt_forces_chosen_abort(initialized_archive, choice):
 
 @pytest.mark.django_db(transaction=True)
 def test_cli_run_seals_snapshot_after_filesystem_failure_without_retrying_it(initialized_archive):
-    """A snapshot attempt that raises is finished, not retried: rerunning it
-    is a user action (Redo or a new Snapshot). Retrying it automatically made
-    one deterministic failure rerun forever at the head of its crawl."""
+    """A failed plugin stays visible while independent hooks finish; sealed
+    snapshots are never automatically retried when their filesystem recovers."""
     from archivebox.core.models import ArchiveResult, Snapshot
     from archivebox.tests.test_orm_helpers import use_archivebox_db
 
-    env = cli_env(live=True, PLUGINS="hashes")
+    env = cli_env(live=True, PLUGINS="parse_html_urls,hashes")
     created = run_archivebox_cmd(["snapshot", "create", create_test_url()], cwd=initialized_archive, env=env)
     assert created.returncode == 0, created.stdout + created.stderr
     snapshot_id = next(record["id"] for record in parse_jsonl_output(created.stdout) if record.get("type") == "Snapshot")
@@ -126,22 +127,33 @@ def test_cli_run_seals_snapshot_after_filesystem_failure_without_retrying_it(ini
         crawl_id = str(snapshot.crawl_id)
         directory = snapshot.output_dir
     directory.mkdir(parents=True, exist_ok=True)
-    (directory / "input.txt").write_text("Capture survives a temporary filesystem failure")
-    broken_directory = directory / "hashes"
-    broken_directory.symlink_to("hashes")
+    original = b"Capture survives a temporary filesystem failure"
+    (directory / "input.txt").write_bytes(original)
+    broken_directory = directory / "parse_html_urls"
+    broken_directory.write_bytes(b"Existing output must survive")
 
-    failed = run_archivebox_cmd(["run", f"--snapshot-id={snapshot_id}"], cwd=initialized_archive, env=env, timeout=60)
-    assert failed.returncode == 0, failed.stdout + failed.stderr
-    assert "FileExistsError: [Errno 17]" in failed.stderr
-    # Logged with its id; the log handler wraps long lines, so compare without whitespace.
-    assert f"Snapshot{snapshot_id}failed" in "".join(failed.stderr.split())
+    result = run_archivebox_cmd(["run", f"--snapshot-id={snapshot_id}"], cwd=initialized_archive, env=env, timeout=60)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "FileExistsError" in result.stderr
+    assert "1 snapshot attempt(s) failed" in result.stderr
     with use_archivebox_db(initialized_archive):
         snapshot = Snapshot.objects.get(pk=snapshot_id)
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.retry_at is None
         sealed_at = snapshot.modified_at
-        # The hook never got to run, so it has no result.
-        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
+        failed = ArchiveResult.objects.get(snapshot=snapshot, plugin="parse_html_urls")
+        assert failed.status == "failed"
+        assert "FileExistsError" in failed.output_str
+        assert failed.process_id is not None
+        assert failed.process.exit_code == -1
+        assert failed.process.pid is None
+        assert ArchiveResult.objects.get(snapshot=snapshot, plugin="hashes").status == "succeeded"
+        result_ids = set(ArchiveResult.objects.filter(snapshot=snapshot).values_list("id", flat=True))
+    manifest_path = directory / "hashes/hashes.json"
+    manifest_bytes = manifest_path.read_bytes()
+    manifest = json.loads(manifest_bytes)
+    assert next(item["hash"] for item in manifest["files"] if item["path"] == "input.txt") == hashlib.sha256(original).hexdigest()
+    assert broken_directory.read_bytes() == b"Existing output must survive"
 
     broken_directory.unlink()
     rerun = run_archivebox_cmd(["run", f"--crawl-id={crawl_id}"], cwd=initialized_archive, env=env, timeout=60)
@@ -150,9 +162,11 @@ def test_cli_run_seals_snapshot_after_filesystem_failure_without_retrying_it(ini
         snapshot = Snapshot.objects.get(pk=snapshot_id)
         assert snapshot.status == Snapshot.StatusChoices.SEALED
         assert snapshot.modified_at == sealed_at
-        assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
-    assert (directory / "input.txt").is_file()
-    assert not (directory / "hashes").is_dir()
+        assert set(ArchiveResult.objects.filter(snapshot=snapshot).values_list("id", flat=True)) == result_ids
+        assert ArchiveResult.objects.get(pk=failed.pk).status == "failed"
+    assert (directory / "input.txt").read_bytes() == original
+    assert manifest_path.read_bytes() == manifest_bytes
+    assert not broken_directory.exists()
 
 
 @pytest.mark.django_db(transaction=True)

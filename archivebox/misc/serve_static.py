@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import hashlib
 import html
 import json
 import mimetypes
@@ -12,6 +14,7 @@ import threading
 import time
 import zipfile
 from datetime import UTC, datetime
+from functools import lru_cache
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import quote, urlencode, urljoin
@@ -30,10 +33,8 @@ from archivebox.config.common import get_config
 from archivebox.misc.logging_util import printable_filesize
 from archivebox.plugins.discovery import render_plugin_full_response
 
-_HASHES_CACHE: dict[Path, tuple[float, dict[str, str]]] = {}
 DIRECTORY_PREVIEW_MAX_BYTES = 100 * 1024
 FAVICON_CACHE_CONTROL = "public, max-age=31536000, s-maxage=31536000, immutable"
-IMG_SRC_ATTR_RE = re.compile(r'(<img\b[^>]*?\s(?:src|data-src)=["\'])([^"\']+)(["\'])', re.IGNORECASE)
 TRANSFORMED_HTML_PREVIEW_STYLE = """<style id="archivebox-static-html-preview-style">
 html {
     width: 100%;
@@ -280,22 +281,16 @@ def add_replay_archive_fallbacks(response: HttpResponse) -> HttpResponse:
 def _load_hash_map(snapshot_dir: Path) -> dict[str, str] | None:
     hashes_path = snapshot_dir / "hashes" / "hashes.json"
     try:
-        mtime = hashes_path.stat().st_mtime
-    except OSError:
-        return None
-
-    cached = _HASHES_CACHE.get(hashes_path)
-    if cached and cached[0] == mtime:
-        return cached[1]
-
-    try:
-        data = json.loads(hashes_path.read_text(encoding="utf-8"))
+        return _read_hash_map(hashes_path, hashes_path.stat().st_mtime_ns)
     except (json.JSONDecodeError, OSError, TypeError, ValueError):
         return None
 
-    file_map = {str(entry.get("path")): entry.get("hash") for entry in data.get("files", []) if entry.get("path")}
-    _HASHES_CACHE[hashes_path] = (mtime, file_map)
-    return file_map
+
+@lru_cache(maxsize=32)
+def _read_hash_map(hashes_path: Path, mtime_ns: int) -> dict[str, str]:
+    # Include the file version in the key without retaining every replayed manifest.
+    data = json.loads(hashes_path.read_text(encoding="utf-8"))
+    return {str(entry.get("path")): entry.get("hash") for entry in data.get("files", []) if entry.get("path")}
 
 
 def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
@@ -305,19 +300,40 @@ def _hash_for_path(document_root: Path, rel_path: str) -> str | None:
     return file_map.get(rel_path)
 
 
+def _resolve_contained_path(root: Path, path: Path) -> Path:
+    """Resolve links before reading outputs, including during an active capture."""
+    # Capture tools can create links before post-processing cleans them up, so
+    # enforce containment at read time. Callers pass a canonical root to avoid
+    # resolving its ancestors again for every directory entry. Allow links
+    # within that root: plugins legitimately share captured response files.
+    try:
+        resolved = path.resolve()
+        relative = resolved.relative_to(root)
+    except (OSError, RuntimeError, ValueError) as err:
+        raise Http404("Archive output is outside the document root or unavailable") from err
+    # A harmless-looking alias can target private browser state inside the
+    # root, so checking only the requested URL would miss this exclusion.
+    if any(part.casefold() == ".persona" for part in relative.parts):
+        raise Http404("Browser runtime files are not archive outputs")
+    return resolved
+
+
 def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Path, str]:
     rel_path = posixpath.normpath(rel_path).lstrip("/") if rel_path else ""
     if any(part.casefold() == ".persona" for part in Path(rel_path).parts):
         raise Http404("Browser runtime files are not archive outputs")
-    fullpath = Path(safe_join(document_root, rel_path))
+    root = Path(document_root).resolve()
+    # safe_join rejects lexical traversal; it does not inspect symlink targets.
+    fullpath = _resolve_contained_path(root, Path(safe_join(root, rel_path)))
     if os.access(fullpath, os.R_OK):
         return fullpath, rel_path
 
-    root = Path(document_root)
+    # Case-insensitive fallback selects different filesystem entries, so each
+    # selected component needs validation before we descend into it.
     current = root
     resolved_parts: list[str] = []
     for part in Path(rel_path).parts:
-        exact = current / part
+        exact = _resolve_contained_path(root, current / part)
         if os.access(exact, os.R_OK):
             current = exact
             resolved_parts.append(part)
@@ -331,11 +347,11 @@ def _resolve_archive_path(document_root: str | Path, rel_path: str) -> tuple[Pat
         if match is None:
             return fullpath, rel_path
 
-        current = match
+        current = _resolve_contained_path(root, match)
         resolved_parts.append(match.name)
 
     resolved_path = posixpath.join(*resolved_parts) if resolved_parts else ""
-    return Path(safe_join(document_root, resolved_path)), resolved_path
+    return current, resolved_path
 
 
 def _cache_policy(config=None, **config_kwargs) -> str:
@@ -390,7 +406,13 @@ def _iter_visible_files(root: Path):
         dirnames[:] = sorted(dirname for dirname in dirnames if not dirname.startswith("."))
         for filename in sorted(name for name in filenames if not name.startswith(".")):
             entry = Path(current_root) / filename
-            if entry.resolve().is_relative_to(root):
+            # os.walk skips directory links but still yields file links; ZIP
+            # creation must not dereference those into files outside this tree.
+            try:
+                resolved = _resolve_contained_path(root, entry)
+            except Http404:
+                continue
+            if resolved.is_file():
                 yield entry
 
 
@@ -515,7 +537,7 @@ async def _stream_ranged_file_async(ranged_file: "RangedFileReader"):
         ranged_file.close()
 
 
-def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
+def _render_directory_index(request, path: str, fullpath: Path, document_root: Path) -> HttpResponse:
     try:
         template = loader.select_template(
             [
@@ -528,10 +550,17 @@ def _render_directory_index(request, path: str, fullpath: Path) -> HttpResponse:
 
     entries = []
     file_list = []
-    visible_entries = sorted(
-        (entry for entry in fullpath.iterdir() if not entry.name.startswith(".")),
-        key=lambda entry: (not entry.is_dir(), entry.name.lower()),
-    )
+    visible_entries = []
+    for entry in fullpath.iterdir():
+        if entry.name.startswith("."):
+            continue
+        try:
+            resolved = _resolve_contained_path(document_root, entry)
+        except Http404:
+            continue
+        if resolved.exists():
+            visible_entries.append(entry)
+    visible_entries.sort(key=lambda entry: (not entry.is_dir(), entry.name.lower()))
     for entry in visible_entries:
         url = str(entry.relative_to(fullpath))
         if entry.is_dir():
@@ -606,6 +635,7 @@ mimetypes.add_type("multipart/related", ".mht")
 MARKDOWN_INLINE_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+(?:\([^)]*\)[^)\s]*)*)\)")
 HTML_TAG_RE = re.compile(r"<[A-Za-z][^>]*>")
 HTML_BODY_RE = re.compile(r"<body[^>]*>(.*)</body>", flags=re.IGNORECASE | re.DOTALL)
+HTML_DOCUMENT_RE = re.compile(r"^\s*(?:<!doctype\s+html\b|<html(?:\s|>))", flags=re.IGNORECASE)
 RISKY_REPLAY_MIMETYPES = {
     "text/html",
     "application/xhtml+xml",
@@ -620,6 +650,12 @@ RISKY_REPLAY_MARKERS = (
 
 
 def _extract_markdown_candidate(text: str) -> str:
+    # Keep the document markers that _looks_like_markdown uses to reject HTML.
+    # Stripping its body first both defeated that guard and scanned large saved
+    # pages (including embedded assets) for Markdown on every replay request.
+    # HTML permits omitted head/body/end tags, including SingleFile's output.
+    if HTML_DOCUMENT_RE.match(text):
+        return text
     candidate = text
     body_match = HTML_BODY_RE.search(candidate)
     if body_match:
@@ -630,6 +666,8 @@ def _extract_markdown_candidate(text: str) -> str:
 
 
 def _looks_like_markdown(text: str) -> bool:
+    if HTML_DOCUMENT_RE.match(text):
+        return False
     lower = text.lower()
     if "<html" in lower and "<head" in lower and "</body>" in lower:
         return False
@@ -755,10 +793,24 @@ def _encoded_responses_image_url(image_url: str, page_url: str | None) -> str | 
     return quote(absolute_url, safe="").replace("%", "_")
 
 
+def _saved_response_records(index: Path) -> list[dict]:
+    records = []
+    with index.open(errors="replace") as lines:
+        for line in lines:
+            try:
+                record = json.loads(line)
+                if isinstance(record, dict):
+                    records.append(record)
+            except ValueError:
+                continue
+    return records
+
+
 def _index_responses_paths_for_html_images(
     snapshot_root: Path,
     html_rel_path: str,
     encoded_urls: set[str],
+    records: list[dict] | None = None,
 ) -> dict[str, str]:
     responses_root = snapshot_root / "responses"
     if not encoded_urls or not responses_root.is_dir():
@@ -773,20 +825,20 @@ def _index_responses_paths_for_html_images(
     index = responses_root / "index.jsonl"
     if index.is_file():
         resolved_root = responses_root.resolve()
-        with index.open(errors="replace") as records:
-            for line in records:
-                try:
-                    record = json.loads(line)
-                    encoded = _encoded_responses_image_url(record.get("url", ""), None)
-                    if encoded not in encoded_urls or record.get("method") != "GET" or record.get("status") != 200:
-                        continue
-                    candidate = (responses_root / record.get("path", "")).resolve()
-                    if not candidate.is_relative_to(resolved_root) or not candidate.is_file():
-                        continue
-                    best_matches[encoded] = posixpath.relpath(candidate, start=snapshot_root / posixpath.dirname(html_rel_path))
-                    image_matches.add(encoded)
-                except (ValueError, TypeError, AttributeError):
+        if records is None:
+            records = _saved_response_records(index)
+        for record in records:
+            try:
+                encoded = _encoded_responses_image_url(record.get("url", ""), None)
+                if encoded not in encoded_urls or record.get("method") != "GET" or record.get("status") != 200:
                     continue
+                candidate = (responses_root / record.get("path", "")).resolve()
+                if not candidate.is_relative_to(resolved_root) or not candidate.is_file():
+                    continue
+                best_matches[encoded] = posixpath.relpath(candidate, start=snapshot_root / posixpath.dirname(html_rel_path))
+                image_matches.add(encoded)
+            except (ValueError, TypeError, AttributeError):
+                continue
         # The index lists every saved response, so walking responses/ (thousands
         # of files on possibly-remote archive storage, on every HTML page view)
         # is only for legacy captures that predate it.
@@ -818,12 +870,85 @@ def _rewrite_html_image_sources_to_responses(
     snapshot_root: Path,
     html_rel_path: str,
     page_url: str | None,
+    replay_url: str | None = None,
 ) -> tuple[str, int]:
-    encoded_urls_by_src: dict[str, str | None] = {}
-    for match in IMG_SRC_ATTR_RE.finditer(html_text):
-        image_url = html.unescape(match.group(2))
-        if image_url not in encoded_urls_by_src:
-            encoded_urls_by_src[image_url] = _encoded_responses_image_url(image_url, page_url)
+    # Parse real start tags: strings containing markup in scripts/comments must
+    # stay untouched. Preserve all bytes outside the selected attribute values.
+    spans: list[tuple[int, int, str]] = []
+    inserted_sources: set[int] = set()
+    background_styles: dict[int, bool] = {}
+    stylesheet_integrities: dict[int, tuple[int, int]] = {}
+    offsets = [0]
+    for line in html_text.splitlines(keepends=True):
+        offsets.append(offsets[-1] + len(line))
+    base_href = None
+    attribute = re.compile(r"\s([^\s=/>]+)\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s>]+))", re.IGNORECASE)
+
+    class Resources(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            nonlocal base_href
+            values = dict(attrs)
+            if tag == "base" and base_href is None:
+                base_href = values.get("href")
+            lazy_names = ("data-src", "data-lazy-src", "data-echo")
+            lazy_src = next((values[name] for name in lazy_names if values.get(name)), None) if tag == "img" else None
+            names = {"src", *lazy_names} if tag == "img" else {"src"} if tag == "script" else set()
+            if values.get("data-echo-background"):
+                names.add("data-echo-background")
+            if tag == "link" and "stylesheet" in (values.get("rel") or "").lower().split():
+                names = {"href"}
+            if not names:
+                return
+            line, column = self.getpos()
+            offset = offsets[line - 1] + column
+            if lazy_src and "src" not in values:
+                start = offset + len(tag) + 1
+                spans.append((start, start, lazy_src))
+                inserted_sources.add(start)
+            attributes = list(attribute.finditer(self.get_starttag_text()))
+            if values.get("data-echo-background"):
+                style = next((match for match in attributes if match.group(1).lower() == "style"), None)
+                if style:
+                    group = next(i for i in (2, 3, 4) if style.group(i) is not None)
+                    start = offset + style.end(group)
+                else:
+                    tag_text = self.get_starttag_text()
+                    start = offset + len(tag_text) - (2 if tag_text.endswith("/>") else 1)
+                spans.append((start, start, values["data-echo-background"]))
+                background_styles[start] = style is None
+            integrity = next((match for match in attributes if match.group(1).lower() == "integrity"), None)
+            for match in attributes:
+                if match.group(1).lower() in names:
+                    group = next(i for i in (2, 3, 4) if match.group(i) is not None)
+                    start = offset + match.start(group)
+                    resource_url = html.unescape(match.group(group))
+                    if lazy_src and match.group(1).lower() == "src" and (not resource_url or resource_url.startswith(("data:", "about:"))):
+                        # Cards intentionally disable scripts. Resolve an explicit
+                        # lazy image from saved bytes instead of its placeholder.
+                        resource_url = lazy_src
+                    spans.append((start, offset + match.end(group), resource_url))
+                    if tag == "link" and integrity:
+                        stylesheet_integrities[start] = (offset + integrity.start(), offset + integrity.end())
+
+        handle_startendtag = handle_starttag
+
+    Resources().feed(html_text)
+    if not any(src and not src.startswith(("#", "data:", "blob:", "about:", "javascript:")) for _, _, src in spans):
+        return html_text, 0
+
+    records = None
+    index = snapshot_root / "responses" / "index.jsonl"
+    if index.is_file():
+        records = _saved_response_records(index)
+        for record in records:
+            # Response HTML can be a different page from the snapshot URL.
+            if posixpath.normpath("responses/" + str(record.get("path", ""))) == html_rel_path:
+                page_url = record.get("url") or page_url
+    page_url = urljoin(page_url or "", base_href) if base_href else page_url
+    encoded_urls_by_src = {src: _encoded_responses_image_url(src, page_url) for _, _, src in spans}
+    wanted = {encoded for encoded in encoded_urls_by_src.values() if encoded}
+    if not wanted:
+        return html_text, 0
 
     # Optional dom plugin artifact: dom/output.html. Only image src and
     # data-canonical-src attributes are read; no scripts or plugin code execute.
@@ -844,25 +969,99 @@ def _rewrite_html_image_sources_to_responses(
     dom = snapshot_root / "dom" / "output.html"
     if dom.is_file() and dom.stat().st_size <= 10 * 1024 * 1024:
         ImageAliases().feed(dom.read_text(errors="replace"))
-    wanted = {encoded for encoded in encoded_urls_by_src.values() if encoded}
     response_paths = _index_responses_paths_for_html_images(
         snapshot_root,
         html_rel_path,
         wanted | {aliases[key] for key in wanted if key in aliases},
+        records=records,
     )
     rewrites = 0
 
-    def replace_src(match: re.Match[str]) -> str:
-        nonlocal rewrites
-        image_url = html.unescape(match.group(2))
-        encoded_url = encoded_urls_by_src.get(image_url)
+    edits = []
+    for start, end, resource_url in spans:
+        encoded_url = encoded_urls_by_src.get(resource_url)
         local_path = response_paths.get(encoded_url or "") or response_paths.get(aliases.get(encoded_url or "", ""))
         if not local_path:
-            return match.group(0)
+            continue
+        stylesheet_body, changed_stylesheet = "", 0
+        if start in stylesheet_integrities:
+            stylesheet = snapshot_root / posixpath.normpath(posixpath.join(posixpath.dirname(html_rel_path), local_path))
+            if stylesheet.stat().st_size <= 10 * 1024 * 1024:
+                stylesheet_body, changed_stylesheet = _rewrite_css_sources_to_responses(
+                    stylesheet.read_text(errors="replace"),
+                    snapshot_root,
+                    posixpath.normpath(posixpath.join(posixpath.dirname(html_rel_path), local_path)),
+                )
+        if base_href:
+            # An external <base> must never send a rewritten local asset live.
+            if not replay_url:
+                continue
+            local_path = urljoin(replay_url, local_path)
+        value = html.escape(local_path, quote=True)
+        if start in background_styles:
+            css_url = local_path.replace("\\", "\\\\").replace('"', r"\"")
+            value = html.escape(f';background-image:url("{css_url}")', quote=True)
+            if background_styles[start]:
+                value = f' style="{value}"'
+        elif start in inserted_sources:
+            value = f' src="{value}"'
+        edits.append((start, end, value))
+        if changed_stylesheet:
+            # Preserve integrity checking for the exact enriched representation;
+            # raw downloads and unchanged stylesheet/script digests stay intact.
+            integrity_start, integrity_end = stylesheet_integrities[start]
+            digest = base64.b64encode(hashlib.sha384(stylesheet_body.encode("utf-8")).digest()).decode("ascii")
+            edits.append((integrity_start, integrity_end, f' integrity="sha384-{digest}"'))
         rewrites += 1
-        return f"{match.group(1)}{html.escape(local_path, quote=True)}{match.group(3)}"
+    chunks = []
+    previous = 0
+    for start, end, value in sorted(edits):
+        chunks.extend((html_text[previous:start], value))
+        previous = end
+    chunks.append(html_text[previous:])
+    return "".join(chunks), rewrites
 
-    return IMG_SRC_ATTR_RE.sub(replace_src, html_text), rewrites
+
+def _rewrite_css_sources_to_responses(css_text: str, snapshot_root: Path, rel_path: str) -> tuple[str, int]:
+    index = snapshot_root / "responses" / "index.jsonl"
+    if not index.is_file():
+        return css_text, 0
+    records = _saved_response_records(index)
+    page_url = next(
+        (record.get("url") for record in records if posixpath.normpath("responses/" + str(record.get("path", ""))) == rel_path),
+        None,
+    )
+    if not page_url:
+        # Mirrored stylesheets already have their own resource layout. Only
+        # recorded response bodies have the original URL needed for resolution.
+        return css_text, 0
+    # Consume comments and ordinary strings as whole tokens so their apparent
+    # url() text is inert. Escaped CSS URLs are left unchanged, never guessed.
+    token = re.compile(
+        r"/\*[\s\S]*?\*/|(?P<prefix>url\(\s*|@import\s+(?=[\"']))(?:\"(?P<double>[^\"\\]*)\"|'(?P<single>[^'\\]*)'|(?P<bare>[^\s()'\"\\]+))"
+        r"|\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'",
+        re.IGNORECASE,
+    )
+    matches = [
+        match
+        for match in token.finditer(css_text)
+        if match.group("prefix") and (not match.group("prefix").lower().startswith("url") or re.match(r"\s*\)", css_text[match.end() :]))
+    ]
+    wanted = {_encoded_responses_image_url(next(value for value in match.groups()[1:] if value is not None), page_url) for match in matches}
+    paths = _index_responses_paths_for_html_images(snapshot_root, rel_path, {url for url in wanted if url}, records=records)
+    chunks = []
+    previous = 0
+    for match in matches:
+        value = next(value for value in match.groups()[1:] if value is not None)
+        local = paths.get(_encoded_responses_image_url(value, page_url) or "")
+        if local is None:
+            continue
+        chunks.extend(
+            (css_text[previous : match.start()], match.group("prefix"), '"', local.replace("\\", "\\\\").replace('"', r"\""), '"'),
+        )
+        previous = match.end()
+    chunks.append(css_text[previous:])
+    return "".join(chunks), len(chunks) // 5
 
 
 def _rewrite_html_image_sources_for_request(
@@ -879,6 +1078,7 @@ def _rewrite_html_image_sources_for_request(
             document_root,
             html_rel_path,
             request.__dict__.get("archivebox_snapshot_url"),
+            request.build_absolute_uri(),
         )
     except (OSError, ValueError, TypeError, RecursionError):
         # Saved plugin artifacts are optional and may be incomplete, malformed,
@@ -1007,7 +1207,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         config = get_config(resolve_plugins=False)
     cache_policy = getattr(request, "archivebox_cache_policy", None) or _cache_policy(config=config)
     fullpath, path = _resolve_archive_path(document_root, path)
-    # One access + one stat per request: each is a round trip on FUSE storage.
+    # Reuse this stat for response metadata after path validation; redundant
+    # metadata reads can each cost a round trip on FUSE storage.
     readable = os.access(fullpath, os.R_OK)
     statobj = fullpath.stat() if readable else None
     if statobj is not None and stat.S_ISDIR(statobj.st_mode):
@@ -1022,7 +1223,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
             response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
             return response
         if show_indexes:
-            response = _render_directory_index(request, path, fullpath)
+            response = _render_directory_index(request, path, fullpath, Path(document_root).resolve())
             response.headers["Cache-Control"] = f"{cache_policy}, max-age=60, stale-while-revalidate=300"
             response.headers["Last-Modified"] = http_date(statobj.st_mtime)
             return _apply_archive_replay_headers(
@@ -1047,8 +1248,18 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     )
     document_root = Path(document_root) if document_root else None
     rel_path = path
+    # Available captured assets can change without changing the CSS source.
+    # Raw/ranges keep stored bytes; HEAD must not fetch a cold payload.
+    enrich_css = bool(
+        document_root
+        and rel_path.startswith("responses/")
+        and fullpath.suffix.lower() == ".css"
+        and not request.GET.get("raw")
+        and not request.META.get("HTTP_RANGE")
+        and statobj.st_size <= 10 * 1024 * 1024,
+    )
     etag = None
-    if document_root:
+    if document_root and not enrich_css:
         file_hash = _hash_for_path(document_root, rel_path)
         if file_hash:
             etag = f'"{file_hash}"'
@@ -1107,6 +1318,7 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
     # Respect the If-Modified-Since header for non-markdown responses.
     if (
         not request.GET.get("preview")
+        and not enrich_css
         and not content_type.startswith(("text/plain", "text/html"))
         and not static.was_modified_since(
             request.META.get("HTTP_IF_MODIFIED_SINCE"),
@@ -1257,6 +1469,22 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         except (OSError, RuntimeError, ValueError):
             pass
 
+    if enrich_css and request.method != "HEAD":
+        try:
+            css, count = _rewrite_css_sources_to_responses(fullpath.read_text(errors="replace"), document_root, rel_path)
+            if count:
+                response = HttpResponse(css, content_type=content_type)
+                _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
+                return _apply_archive_replay_headers(
+                    response,
+                    fullpath=fullpath,
+                    content_type=content_type,
+                    is_archive_replay=is_archive_replay,
+                    config=config,
+                )
+        except (OSError, ValueError, TypeError):
+            pass
+
     # Heuristic fix: some archived HTML outputs are stored with HTML-escaped markup
     # or markdown sources. If so, render sensibly.
     if not request.GET.get("raw") and not preserve_plain_text and content_type.startswith(("text/plain", "text/html", "text/markdown")):
@@ -1287,7 +1515,8 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                         config=config,
                     )
                 if rewritten_count:
-                    rewritten_html = _apply_transformed_html_preview_style(rewritten_html)
+                    if not HTML_DOCUMENT_RE.match(rewritten_html):
+                        rewritten_html = _apply_transformed_html_preview_style(rewritten_html)
                     response = HttpResponse(rewritten_html, content_type=content_type)
                     _set_transformed_response_headers(response, fullpath, statobj, encoding, cache_policy)
                     return _apply_archive_replay_headers(
@@ -1311,11 +1540,16 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
         except (OSError, UnicodeDecodeError, ValueError):
             pass
 
-    # setup response object
-    ranged_file = RangedFileReader(fullpath.open("rb"))
-    response = StreamingHttpResponse(
-        _stream_ranged_file_async(ranged_file) if _is_asgi_request(request) else ranged_file,
-        content_type=content_type,
+    # HEAD must not open the payload: a FUSE open can start remote downloads,
+    # and ASGI consumes a streaming iterator even when no wire body is needed.
+    ranged_file = None if request.method == "HEAD" else RangedFileReader(fullpath.open("rb"))
+    response = (
+        HttpResponse(content_type=content_type)
+        if ranged_file is None
+        else StreamingHttpResponse(
+            _stream_ranged_file_async(ranged_file) if _is_asgi_request(request) else ranged_file,
+            content_type=content_type,
+        )
     )
     response.headers["Last-Modified"] = http_date(statobj.st_mtime)
     if etag:
@@ -1349,13 +1583,21 @@ def serve_static_with_byterange_support(request, path, document_root=None, show_
                 if stop > size:
                     # requested range not satisfiable
                     return HttpResponse(status=416)
-                ranged_file.start = start
-                ranged_file.stop = stop
+                if ranged_file is not None:
+                    ranged_file.start = start
+                    ranged_file.stop = stop
                 response["Content-Range"] = f"bytes {start}-{stop - 1}/{size}"
                 response["Content-Length"] = stop - start
                 response.status_code = 206
     if encoding:
         response.headers["Content-Encoding"] = encoding
+    if enrich_css:
+        del response.headers["Last-Modified"]
+        if request.method == "HEAD":
+            # These fields need the transformed body. Omit rather than report
+            # the source size or trigger a remote read just to answer HEAD.
+            del response.headers["Content-Length"]
+            del response.headers["Accept-Ranges"]
     return _apply_archive_replay_headers(
         response,
         fullpath=fullpath,

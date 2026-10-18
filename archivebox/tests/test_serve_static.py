@@ -6,6 +6,109 @@ from django.test import RequestFactory
 from archivebox.misc.serve_static import serve_static_with_byterange_support
 
 
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("mode", ["safe-subdomains-fullreplay", "safe-onedomain-nojsreplay"])
+@pytest.mark.parametrize("query,headers", [("", {}), ("?raw=1", {"HTTP_RANGE": "bytes=0-5"}), ("?preview=1", {})])
+@pytest.mark.parametrize("link_kind", ["absolute", "relative", "directory", "casefold"])
+def test_public_replay_rejects_escaping_symlinks(snapshot, tmp_path, mode, query, headers, link_kind):
+    import os
+    from urllib.parse import urlsplit
+
+    from django.test import Client
+
+    from archivebox.core.routes_util import build_snapshot_url
+    from archivebox.machine.models import Machine
+
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": "http://archivebox.localhost:5797", "SERVER_SECURITY_MODE": mode}
+    machine.save(update_fields=["config"])
+    snapshot.config = {**snapshot.config, "PERMISSIONS": "public"}
+    snapshot.save(update_fields=["config"])
+    secret = tmp_path / "secret.txt"
+    secret.write_bytes(b"synthetic private contents")
+    output = snapshot.output_dir / "git"
+    output.mkdir(parents=True, exist_ok=True)
+    path = "git/leak.txt"
+    if link_kind == "directory":
+        (output / "leak").symlink_to(tmp_path, target_is_directory=True)
+        path = "git/leak/secret.txt"
+    else:
+        target = os.path.relpath(secret, output) if link_kind == "relative" else secret
+        (output / "leak.txt").symlink_to(target)
+        if link_kind == "casefold":
+            path = "GIT/LEAK.TXT"
+    url = urlsplit(build_snapshot_url(str(snapshot.id), path))
+
+    response = Client().get(f"{url.path}{query}", HTTP_HOST=url.netloc, **headers)
+
+    assert response.status_code == 404
+    assert secret.read_bytes() not in response.content
+
+
+@pytest.mark.parametrize("query", ["?files=1", "?download=zip"])
+def test_directory_replay_rejects_escaping_symlink(tmp_path, query):
+    from django.http import Http404
+
+    root = tmp_path / "snapshot"
+    root.mkdir()
+    outside = tmp_path / "snapshot-other"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("synthetic private contents")
+    (root / "linked").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(Http404):
+        serve_static_with_byterange_support(RequestFactory().get(f"/linked/{query}"), "linked", document_root=root, show_indexes=True)
+
+
+@pytest.mark.parametrize("target", ["missing", "loop", ".persona/private.txt"])
+def test_replay_rejects_broken_or_private_symlink(tmp_path, target):
+    from django.http import Http404
+
+    (tmp_path / ".persona").mkdir()
+    (tmp_path / ".persona" / "private.txt").write_text("synthetic browser state")
+    (tmp_path / "loop").symlink_to("loop")
+    (tmp_path / "alias.txt").symlink_to(target)
+    with pytest.raises(Http404):
+        serve_static_with_byterange_support(RequestFactory().get("/alias.txt"), "alias.txt", document_root=tmp_path)
+
+
+def test_directory_index_omits_escaping_and_broken_symlinks(tmp_path):
+    root = tmp_path / "snapshot"
+    root.mkdir()
+    (root / "note.txt").write_text("inside")
+    (root / "alias.txt").symlink_to("note.txt")
+    (root / "outside").symlink_to(tmp_path, target_is_directory=True)
+    (root / "broken").symlink_to("missing")
+    (root / "loop").symlink_to("loop")
+    response = serve_static_with_byterange_support(RequestFactory().get("/?files=1"), "", document_root=root, show_indexes=True)
+    assert response.status_code == 200
+    assert b'href="note.txt"' in response.content
+    assert b'href="alias.txt"' in response.content
+    for name in (b"outside", b"broken", b"loop"):
+        assert b'href="' + name not in response.content
+
+
+@pytest.mark.parametrize("byte_range", [None, "bytes=2-5"])
+@pytest.mark.parametrize("path", ["alias.txt", "linked/note.txt", "LINKED/NOTE.TXT"])
+def test_replay_preserves_in_snapshot_symlinks(tmp_path, path, byte_range):
+    root = tmp_path / "snapshot"
+    (root / "nested").mkdir(parents=True)
+    content = b"0123456789"
+    (root / "nested" / "note.txt").write_bytes(content)
+    (root / "alias.txt").symlink_to("nested/note.txt")
+    (root / "linked").symlink_to("nested", target_is_directory=True)
+    # Collections themselves may live behind a trusted storage symlink.
+    document_root = tmp_path / "storage"
+    document_root.symlink_to(root, target_is_directory=True)
+    response = serve_static_with_byterange_support(
+        RequestFactory().get(f"/{path}?raw=1", **({"HTTP_RANGE": byte_range} if byte_range else {})),
+        path,
+        document_root=document_root,
+    )
+    assert response.status_code == (206 if byte_range else 200)
+    assert b"".join(response.streaming_content) == (content[2:6] if byte_range else content)
+    response.close()
+
+
 @pytest.mark.parametrize("validator", ["etag", "modified"])
 @pytest.mark.parametrize("extension", ["wacz", "zip"])
 def test_generated_archive_preview_is_not_validated_by_source_file(tmp_path, validator, extension):
@@ -186,6 +289,55 @@ def test_description_file_is_served_as_plain_text(tmp_path: Path, filename: str,
     assert b"".join(response.streaming_content) == (content[2:6] if byte_range else content)
 
 
+@pytest.mark.parametrize("filename,query", [("document.html", "?raw=1"), ("payload.bin", "")])
+@pytest.mark.parametrize("byte_range", [None, "bytes=2-5"])
+def test_head_file_headers_do_not_open_payload(tmp_path: Path, filename: str, query: str, byte_range: str | None):
+    import sys
+
+    content = b"<!doctype html><html><body>" + b"saved archive content\n" * 100_000 + b"</body></html>"
+    output = tmp_path / filename
+    output.write_bytes(content)
+    headers = {"HTTP_RANGE": byte_range} if byte_range else {}
+    observed_opens: list[str] = []
+    phase = ""
+
+    # Observe native CPython file opens without replacing or interrupting any
+    # filesystem operation. On a full-cache FUSE mount even open() can start
+    # remote payload reads, so merely suppressing HEAD's wire body is too late.
+    def observe_open(event, args):
+        if phase and event == "open" and args[0] == str(output):
+            observed_opens.append(phase)
+
+    sys.addaudithook(observe_open)
+    try:
+        phase = "head"
+        request = RequestFactory().head(f"/{filename}{query}", **headers)
+        request.scope = {"type": "http"}
+        head = serve_static_with_byterange_support(request, filename, document_root=tmp_path)
+        head.close()
+        phase = "get"
+        get = serve_static_with_byterange_support(RequestFactory().get(f"/{filename}{query}", **headers), filename, document_root=tmp_path)
+        assert b"".join(get.streaming_content) == (content[2:6] if byte_range else content)
+        get.close()
+    finally:
+        phase = ""
+
+    assert "get" in observed_opens, "the observer must see the real GET payload open"
+    assert "head" not in observed_opens, "HEAD opened the payload before returning headers"
+    assert head.status_code == get.status_code == (206 if byte_range else 200)
+    assert not head.streaming and head.content == b""
+    for name in (
+        "Content-Type",
+        "Content-Length",
+        "Content-Range",
+        "Accept-Ranges",
+        "Last-Modified",
+        "Cache-Control",
+        "Content-Disposition",
+    ):
+        assert head.get(name) == get.get(name), name
+
+
 def test_archive_file_response_uses_async_iterator_under_asgi(tmp_path: Path):
     output = tmp_path / "screenshot" / "output.png"
     output.parent.mkdir()
@@ -303,6 +455,29 @@ def test_markdown_repository_tables_and_code_render(tmp_path: Path):
     assert b"<code>ulid()</code>" in response.content
 
 
+@pytest.mark.parametrize("closing_tags", ["</body></html>", ""])
+def test_complete_html_is_not_reinterpreted_as_markdown(tmp_path: Path, closing_tags: str):
+    # Markdown syntax in page data/comments must not replace an HTML document.
+    markers = "\n".join(f"# Saved heading {number}" for number in range(6))
+    source = f"<!doctype html><html><head><title>Saved page</title></head><body><p>Article</p><!--\n{markers}\n-->{closing_tags}"
+    output = tmp_path / "page.html"
+    output.write_text(source)
+    response = serve_static_with_byterange_support(RequestFactory().get("/page.html"), "page.html", document_root=tmp_path)
+    assert response.status_code == 200
+    body = b"".join(response.streaming_content) if response.streaming else response.content
+    assert body == source.encode()
+    assert output.read_text() == source
+
+
+def test_markdown_in_html_fragment_still_renders(tmp_path: Path):
+    source = "<p>" + "\n".join(f"# Saved heading {number}" for number in range(6)) + "</p>"
+    (tmp_path / "article.html").write_text(source)
+    response = serve_static_with_byterange_support(RequestFactory().get("/article.html"), "article.html", document_root=tmp_path)
+    assert response.status_code == 200
+    assert response.content.count(b"<h1") == 6
+    assert (tmp_path / "article.html").read_text() == source
+
+
 def test_image_rewrite_uses_optional_saved_artifacts(tmp_path: Path):
     import json
     from archivebox.misc.serve_static import _rewrite_html_image_sources_for_request
@@ -390,6 +565,11 @@ def test_directory_zip_excludes_symlinks_outside_export_root(tmp_path: Path):
     root.mkdir()
     (root / "note.txt").write_bytes(b"inside")
     (root / "alias.txt").symlink_to(root / "note.txt")
+    (root / ".persona").mkdir()
+    (root / ".persona" / "private.txt").write_bytes(b"private browser state")
+    (root / "private.txt").symlink_to(".persona/private.txt")
+    (root / "broken.txt").symlink_to("missing")
+    (root / "loop.txt").symlink_to("loop.txt")
     outside = tmp_path / "export-other"
     outside.mkdir()
     (outside / "secret.txt").write_bytes(b"outside")

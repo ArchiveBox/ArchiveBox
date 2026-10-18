@@ -110,3 +110,57 @@ def test_parallel_capture_growth_is_not_reused_as_one_snapshot_cost(tmp_path):
     asyncio.run(next_runner.run())
     assert observed == [learned]
     assert ArchiveResult.objects.filter(snapshot=next_snapshot, plugin="parse_txt_urls", status="succeeded").count() == 1
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("explicit_snapshots", [False, True], ids=["projected", "explicit"])
+def test_memory_deferral_keeps_durable_work_and_recovers(explicit_snapshots):
+    import psutil
+    from django.utils import timezone
+    from archivebox.services.runner import defer_crawl_for_resources
+    from archivebox.services.resource_admission import resource_admission
+
+    crawl = Crawl.objects.create(
+        urls="https://archivebox.io/tests/memory-admission",
+        config={"PLUGINS": "parse_txt_urls", "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 1},
+        created_by_id=get_or_create_system_user_pk(),
+    )
+    snapshot = Snapshot.objects.create(crawl=crawl, url=crawl.urls)
+    source = snapshot.output_dir / "staticfile" / "links.txt"
+    source.parent.mkdir(parents=True)
+    source.write_text("https://archivebox.io/tests/retained-memory-output\n")
+    before = timezone.now()
+    impossible_cost = psutil.virtual_memory().total + psutil.swap_memory().total + 1
+    assert defer_crawl_for_resources(crawl, required_memory=impossible_cost)
+    snapshot.refresh_from_db()
+    crawl.refresh_from_db()
+    assert snapshot.status == "queued" and snapshot.downloaded_at is None
+    assert snapshot.retry_at > before and crawl.retry_at > before
+    assert not ArchiveResult.objects.filter(snapshot=snapshot).exists()
+    assert source.read_text() == "https://archivebox.io/tests/retained-memory-output\n"
+
+    # The memory requirement fits again, but real host CPU/IO pressure can
+    # still defer admission. Let the foreground runner exercise its normal
+    # pressure wait instead of assuming the CI host is idle at this instant.
+    assert resource_admission.memory_headroom() > 0
+    runner = CrawlRunner(
+        crawl,
+        snapshot_ids=[str(snapshot.id)] if explicit_snapshots else None,
+        selected_plugins=["parse_txt_urls"],
+        show_progress=False,
+    )
+
+    async def run_when_due():
+        # The collection scheduler respects the real retry_at written above.
+        await asyncio.sleep(max(0, (snapshot.retry_at - timezone.now()).total_seconds()))
+        await runner.run()
+
+    asyncio.run(run_when_due())
+    assert not runner._resource_deferred
+    snapshot.refresh_from_db()
+    assert snapshot.status == "sealed" and snapshot.downloaded_at is not None
+    assert Snapshot.objects.filter(crawl=crawl).count() == 1
+    assert ArchiveResult.objects.filter(snapshot=snapshot, plugin="parse_txt_urls", status="succeeded").count() == 1
+    output = snapshot.output_dir / "parse_txt_urls" / "urls.jsonl"
+    records = [json.loads(line) for line in output.read_text().splitlines()]
+    assert any(record["url"] == "https://archivebox.io/tests/retained-memory-output" for record in records)

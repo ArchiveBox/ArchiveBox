@@ -250,7 +250,7 @@ def run_runner(
     from archivebox.machine.models import Machine, Process
     from archivebox.core.takeover_util import enter_single_runner_gate, standby_until_foreground_runner_needed
     from archivebox.core.recovery_util import recover_orchestrator_state
-    from archivebox.services.runner import run_pending_crawls
+    from archivebox.services.runner import SnapshotAttemptError, run_pending_crawls
 
     Machine.current()
     current = Process.current()
@@ -296,6 +296,7 @@ def run_runner(
         os.environ[RUNNER_DAEMON_ENV] = "1"
 
     shutdown_state = None
+    exit_code = 1
     try:
         with (
             foreground_shutdown_signals(
@@ -304,33 +305,50 @@ def run_runner(
             ) as shutdown_state,
             foreground_parent_watchdog(enabled=not daemon),
         ):
-            run_pending_crawls(
-                daemon=daemon,
-                crawl_id=crawl_id,
-                maintenance_only=maintenance_only,
-                interactive_interrupts=interactive_interrupts,
-            )
+            exit_code = 0
+            while True:
+                try:
+                    run_pending_crawls(
+                        daemon=daemon,
+                        crawl_id=crawl_id,
+                        maintenance_only=maintenance_only,
+                        interactive_interrupts=interactive_interrupts,
+                    )
+                    break
+                except SnapshotAttemptError as e:
+                    if daemon:
+                        raise
+                    # The failed attempt is already final. Continue only the
+                    # remaining queue, retaining failure for this command's exit.
+                    rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
+                    exit_code = 1
         if daemon and shutdown_state.signal_name:
-            return 128 + signal.Signals[shutdown_state.signal_name].value
-        return 0
+            exit_code = 128 + signal.Signals[shutdown_state.signal_name].value
+        return exit_code
     except KeyboardInterrupt:
         if daemon and shutdown_state and shutdown_state.signal_name:
-            return 128 + signal.Signals[shutdown_state.signal_name].value
-        return 130
+            exit_code = 128 + signal.Signals[shutdown_state.signal_name].value
+        else:
+            exit_code = 130
+        return exit_code
     except asyncio.CancelledError as e:
         if daemon and shutdown_state and shutdown_state.signal_name:
-            return 128 + signal.Signals[shutdown_state.signal_name].value
+            exit_code = 128 + signal.Signals[shutdown_state.signal_name].value
+            return exit_code
         if daemon:
             rprint(f"[red]Runner cancelled unexpectedly: {type(e).__name__}: {e}[/red]", file=sys.stderr)
+            exit_code = 1
             return 1
-        return 0
+        exit_code = 0
+        return exit_code
     except Exception as e:
         rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
+        exit_code = 1
         return 1
     finally:
         current.refresh_from_db()
         if current.status != Process.StatusChoices.EXITED:
-            current.mark_exited()
+            current.mark_exited(exit_code=exit_code)
 
 
 @click.command()
@@ -426,6 +444,7 @@ def run_snapshot_worker(snapshot_id: str, *, daemon: bool = False) -> int:
         return 0
 
     snapshot = None
+    exit_code = 1
     interactive_interrupts = not daemon and sys.stdin.isatty() and (sys.stdout.isatty() or sys.stderr.isatty())
     try:
         with foreground_shutdown_signals(), foreground_parent_watchdog():
@@ -437,7 +456,8 @@ def run_snapshot_worker(snapshot_id: str, *, daemon: bool = False) -> int:
                     break
                 if not run_due_snapshot(snapshot, lock_seconds=60, interactive_interrupts=interactive_interrupts):
                     break
-        return 0
+        exit_code = 0
+        return exit_code
     except KeyboardInterrupt:
         try:
             if snapshot is not None:
@@ -448,7 +468,8 @@ def run_snapshot_worker(snapshot_id: str, *, daemon: bool = False) -> int:
                 snapshot.update_and_requeue(retry_at=timezone.now())
         except Exception:
             pass
-        return 130
+        exit_code = 130
+        return exit_code
     except Exception as e:
         rprint(f"[red]Runner error: {type(e).__name__}: {e}[/red]", file=sys.stderr)
         import traceback
@@ -458,7 +479,7 @@ def run_snapshot_worker(snapshot_id: str, *, daemon: bool = False) -> int:
     finally:
         current.refresh_from_db()
         if current.status != Process.StatusChoices.EXITED:
-            current.mark_exited()
+            current.mark_exited(exit_code=exit_code)
 
 
 if __name__ == "__main__":

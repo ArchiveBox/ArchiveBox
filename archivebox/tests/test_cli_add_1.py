@@ -258,7 +258,7 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
 
     try:
         result = run_archivebox_cmd(
-            ["add", f"--plugins={plugins}", "https://example.com"],
+            ["add", f"--plugins={plugins}", "https://archivebox.io/tests/"],
             cwd=initialized_archive,
             env=env,
             stdin=subprocess.DEVNULL if choice == "noninteractive" else slave,
@@ -328,7 +328,7 @@ def test_add_interrupts_active_hook(initialized_archive, choice, plugins):
         with use_archivebox_db(initialized_archive):
             snapshot_dir = Snapshot.objects.get(pk=before_interrupt["snapshot_id"]).output_dir
         navigation = json.loads((snapshot_dir / "chrome" / "navigation.json").read_text())
-        assert navigation["url"] == "https://example.com"
+        assert navigation["url"] == "https://archivebox.io/tests/"
         assert navigation["status"] == 200
     finally:
         if result is not None and result.poll() is None:

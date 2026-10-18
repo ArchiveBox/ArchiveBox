@@ -13,7 +13,7 @@ from typing import Any
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 
-from abx_dl.events import ArchiveResultEvent, ProcessStartedEvent
+from abx_dl.events import ArchiveResultEvent, ProcessCompletedEvent, ProcessStartedEvent
 from abx_dl.output_files import OutputManifest
 from abx_dl.services.base import BaseService
 
@@ -122,7 +122,7 @@ def _should_update_snapshot_title(current_title: str, next_title: str, *, snapsh
 @_perf_trace("archivebox.ArchiveResultService._save_archiveresult_event_sync")
 def _save_archiveresult_event_to_db(
     event: ArchiveResultEvent,
-    process_started: ProcessStartedEvent | None,
+    process_started: ProcessStartedEvent | ProcessCompletedEvent | None,
 ) -> None:
     """Project one ArchiveResultEvent with a single thread-sensitive ORM hop.
 
@@ -176,7 +176,7 @@ def _save_archiveresult_event_to_db(
         end_ts = parse_event_datetime(event.end_ts) or timezone.now()
         defaults = {
             "status": _normalize_status(event.status),
-            "output_str": event.output_str,
+            "output_str": event.output_str or event.error,
             "output_json": event.output_json,
             "output_files": output_files,
             "output_size": output_size,
@@ -292,6 +292,15 @@ class ArchiveResultService(BaseService):
                 future=False,
                 where=lambda candidate: self.bus.event_is_child_of(event, candidate),
             )
+            if process_started is None:
+                # Preparation can fail before spawn. The completed event still
+                # identifies its durable failed attempt, without inventing a PID.
+                process_started = await self.bus.find(
+                    ProcessCompletedEvent,
+                    past=True,
+                    future=False,
+                    where=lambda candidate: self.bus.event_is_child_of(event, candidate),
+                )
 
         key = (str(event.snapshot_id), event.plugin, event.hook_name)
         lock = self._save_locks.setdefault(key, asyncio.Lock())

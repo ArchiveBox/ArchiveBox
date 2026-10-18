@@ -19,6 +19,7 @@ from typing import Any, Literal, TextIO, cast
 
 from asgiref.sync import sync_to_async
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils import timezone
 from rich.console import Console
 from rich.text import Text
@@ -196,6 +197,10 @@ def ensure_background_runner() -> bool:
     return False
 
 
+class SnapshotAttemptError(RuntimeError):
+    """A capture attempt failed and was finalized; remaining work is runnable."""
+
+
 class CrawlRunner:
     def __init__(
         self,
@@ -249,6 +254,7 @@ class CrawlRunner:
         self.selected_plugins = selected_plugins
         self.initial_snapshot_ids = snapshot_ids
         self.snapshot_tasks: dict[str, asyncio.Task[None]] = {}
+        self._failed_snapshot_ids: list[str] = []
         self.snapshot_semaphore = asyncio.Semaphore(1)
         self.max_concurrent_snapshots = 1
         self._warmup_snapshot_id: str | None = None
@@ -516,6 +522,15 @@ class CrawlRunner:
                 if self._user_aborted:
                     raise KeyboardInterrupt
 
+        # Failed attempts are sealed so they cannot starve the remaining URLs.
+        # Report failure only after those URLs and cleanup have finished: a
+        # drained queue must not turn a storage/execution error into CLI success.
+        if self._failed_snapshot_ids:
+            raise SnapshotAttemptError(
+                f"{len(self._failed_snapshot_ids)} snapshot attempt(s) failed: {', '.join(self._failed_snapshot_ids)}. "
+                "See logs/errors.log for the original errors.",
+            )
+
     async def wait_for_resource_admission(self) -> bool:
         # Foreground callers retain this bus and its observers while waiting.
         # Collection scheduling instead returns deferred work after cleanup so
@@ -523,7 +538,10 @@ class CrawlRunner:
         while True:
             if await self.crawl_is_cancelled() or (await self.crawl_is_paused() and not self.allow_maintenance_on_inactive_crawl):
                 return False
-            self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(self.crawl)
+            self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
+                self.crawl,
+                required_memory=self._observed_snapshot_cost,
+            )
             if not self._resource_deferred:
                 return True
             if not self.wait_for_resources or self.schedule_all_crawls:
@@ -753,6 +771,11 @@ class CrawlRunner:
             self._observed_snapshot_cost,
         )
         if available_slots <= 0:
+            if not active_snapshot_ids:
+                self._resource_deferred = await sync_to_async(defer_crawl_for_resources, thread_sensitive=True)(
+                    self.crawl,
+                    required_memory=self._observed_snapshot_cost,
+                )
             return
         if self.schedule_all_crawls and await sync_to_async(_higher_priority_crawl_waiting, thread_sensitive=True)(
             str(self.crawl.id),
@@ -764,10 +787,15 @@ class CrawlRunner:
             # browser/session when this crawl still owns the next admission.
             self._scheduler_yielded = True
             return
+        # Explicit plugin requests are capture work even on sealed snapshots.
+        # Consume them in the same crawl; ordinary sealed maintenance still waits.
         # Within-crawl FIFO breadth-first; policy above _first_due_id.
         pending_snapshot_ids = await sync_to_async(
             lambda: list(
-                self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
+                self.crawl.snapshot_set.filter(
+                    Q(status__in=Snapshot.RUNNABLE_STATES)
+                    | Q(status=Snapshot.StatusChoices.SEALED, config__RETRY_PLUGINS__0__isnull=False),
+                )
                 .exclude(id__in=active_snapshot_ids)
                 .filter(retry_at__lte=timezone.now())
                 .order_by("depth", "created_at", "pk")
@@ -832,7 +860,10 @@ class CrawlRunner:
         else:
             # Within-crawl FIFO breadth-first; policy above _first_due_id.
             pending_snapshots = list(
-                self.crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES)
+                self.crawl.snapshot_set.filter(
+                    Q(status__in=Snapshot.RUNNABLE_STATES)
+                    | Q(status=Snapshot.StatusChoices.SEALED, config__RETRY_PLUGINS__0__isnull=False),
+                )
                 .filter(retry_at__lte=timezone.now())
                 .order_by("depth", "created_at", "pk"),
             )
@@ -1144,6 +1175,14 @@ class CrawlRunner:
                 next_snapshot = 0
                 while True:
                     slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
+                    if self._initial_snapshot_admitted:
+                        # Startup and its first snapshot already passed the same
+                        # admission before allocating the crawl browser.
+                        slots = max(1, slots)
+                    if not slots and next_snapshot < len(snapshot_ids):
+                        if not await self.wait_for_resource_admission():
+                            return
+                        continue
                     batch = snapshot_ids[next_snapshot : next_snapshot + slots]
                     if not batch:
                         return
@@ -1161,6 +1200,8 @@ class CrawlRunner:
                         return
             else:
                 slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
+                if self._initial_snapshot_admitted:
+                    slots = max(1, slots)
                 for snapshot_id in snapshot_ids[:slots]:
                     if await self.crawl_is_cancelled():
                         break
@@ -1296,6 +1337,7 @@ class CrawlRunner:
             # capture failure: leave the lease for the next owner to resume.
             if self.execution_interrupted():
                 raise
+            self._failed_snapshot_ids.append(str(snapshot_id))
             # One snapshot's failure is that snapshot's alone. Raising here
             # failed the whole crawl, and every rerun picked this snapshot first
             # and failed again, so none of the crawl's other snapshots ran.
@@ -1305,6 +1347,12 @@ class CrawlRunner:
             except Exception:
                 # Recording the failure must not become the crawl's failure.
                 logging.getLogger(__name__).exception("Could not finish failed Snapshot %s", snapshot_id)
+                from archivebox.core.models import Snapshot
+
+                if await Snapshot.objects.filter(id=snapshot_id, status__in=Snapshot.RUNNABLE_STATES).aexists():
+                    # The foreground scheduler may continue only after this
+                    # attempt is final; otherwise it would retry the same fault.
+                    raise
 
     async def _run_snapshot_attempt(self, snapshot_id: str, crawl_start_event: CrawlStartEvent | None = None) -> None:
         async with self.snapshot_semaphore:
@@ -1400,23 +1448,32 @@ class CrawlRunner:
                     return
                 if snapshot["status"] == "sealed":
                     await sync_to_async(run_snapshot_maintenance, thread_sensitive=True)(snapshot_id, output_dir=output_dir)
-                    return
-                await self.enqueue_discovered_snapshots_from_outputs(snapshot)
+                else:
+                    await self.enqueue_discovered_snapshots_from_outputs(snapshot)
 
-                def _seal_when_last_snapshot_finished() -> None:
-                    # Re-read immediately before the idempotent conditional
-                    # update so concurrent last-snapshot completions are safe.
-                    crawl = self.crawl
-                    crawl.refresh_from_db(fields=["status"])
-                    if crawl.status != crawl.StatusChoices.STARTED:
-                        return
-                    if crawl.snapshot_set.filter(
-                        status__in=crawl.snapshot_set.model.OPEN_STATES,
-                    ).exists():
-                        return
-                    crawl.seal()
+                    def _seal_when_last_snapshot_finished() -> None:
+                        # Re-read immediately before the idempotent conditional
+                        # update so concurrent last-snapshot completions are safe.
+                        crawl = self.crawl
+                        crawl.refresh_from_db(fields=["status"])
+                        if crawl.status != crawl.StatusChoices.STARTED:
+                            return
+                        if crawl.snapshot_set.filter(
+                            Q(status__in=crawl.snapshot_set.model.OPEN_STATES) | Q(status="sealed", config__RETRY_PLUGINS__0__isnull=False),
+                        ).exists():
+                            return
+                        crawl.seal()
 
-                await sync_to_async(_seal_when_last_snapshot_finished, thread_sensitive=True)()
+                    await sync_to_async(_seal_when_last_snapshot_finished, thread_sensitive=True)()
+                # A preparation failure has no started subprocess. Let every
+                # independent hook finish, then retain the capture/CLI failure.
+                preparation_failures = [
+                    completed.stderr
+                    for completed in await self.bus.filter(ProcessCompletedEvent, child_of=emitted_snapshot_event, past=True, future=False)
+                    if completed.status == "failed" and not completed.pid and not completed.cancelled
+                ]
+                if preparation_failures:
+                    raise SnapshotAttemptError("; ".join(preparation_failures))
             finally:
                 snapshot_service.close()
                 # Projection and snapshot cleanup have finished. Historical
@@ -1621,13 +1678,15 @@ def run_snapshot_maintenance(snapshot_id: str, *, output_dir: Path | None = None
     return True
 
 
-def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=()) -> bool:
+def defer_crawl_for_resources(crawl, *, excluded_snapshot_ids=(), required_memory: int | None = None) -> bool:
     """Leave extraction durable; never delay cancellation or final cleanup."""
     from archivebox.core.models import Snapshot
 
     if crawl.status not in (crawl.StatusChoices.QUEUED, crawl.StatusChoices.STARTED):
         return False
-    reason = resource_admission.resource_pressure()
+    reason = resource_admission.resource_pressure(
+        required_memory=(resource_admission.observed_snapshot_cost or 0) if required_memory is None else required_memory,
+    )
     if reason is None:
         return False
     pending = crawl.snapshot_set.filter(status__in=Snapshot.RUNNABLE_STATES).exclude(id__in=excluded_snapshot_ids)

@@ -690,7 +690,8 @@ def test_crawl_runner_fails_one_snapshot_and_still_runs_the_next(tmp_path):
     broken_output_dir.parent.mkdir(parents=True, exist_ok=True)
     broken_output_dir.write_text("not a directory\n")
 
-    asyncio.run(CrawlRunner(crawl).run())
+    with pytest.raises(RuntimeError, match="1 snapshot attempt\\(s\\) failed"):
+        asyncio.run(CrawlRunner(crawl).run())
 
     for snapshot in (first, broken, following):
         snapshot.refresh_from_db()

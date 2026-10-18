@@ -201,7 +201,7 @@ def test_add_tagged_single_url_seals_without_duplicate_snapshot_tags(initialized
             "--bg",
             "--depth=0",
             "--tag=tagged-single-url",
-            "https://example.com/?archivebox-tagged-single-url=1",
+            "https://archivebox.io/tests/?archivebox-tagged-single-url=1",
         ],
         cwd=initialized_archive,
         env=env,
@@ -225,13 +225,13 @@ def test_add_tagged_single_url_seals_without_duplicate_snapshot_tags(initialized
 
     assert crawl.status == Crawl.StatusChoices.SEALED
     assert [(snapshot.url, snapshot.depth, snapshot.status) for snapshot in snapshots] == [
-        ("https://example.com/?archivebox-tagged-single-url=1", 0, Snapshot.StatusChoices.SEALED),
+        ("https://archivebox.io/tests/?archivebox-tagged-single-url=1", 0, Snapshot.StatusChoices.SEALED),
     ]
     assert tag_counts == {
-        "https://example.com/?archivebox-tagged-single-url=1": 1,
+        "https://archivebox.io/tests/?archivebox-tagged-single-url=1": 1,
     }
     by_url_plugin = {(url, plugin): status for url, plugin, status, _output in results}
-    assert by_url_plugin[("https://example.com/?archivebox-tagged-single-url=1", "title")] == "succeeded"
+    assert by_url_plugin[("https://archivebox.io/tests/?archivebox-tagged-single-url=1", "title")] == "succeeded"
     unexpected_failures = [(url, plugin, status, output) for url, plugin, status, output in results if status == "failed"]
     assert not unexpected_failures
 
@@ -380,10 +380,10 @@ def test_add_preserves_apostrophe_in_snapshot_url(initialized_archive):
 def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_archive):
 
     wget_urls = [
-        "https://example.com",
+        "https://archivebox.io/tests/",
         "https://pirate.github.io/stress-tests/challenge.html",
     ]
-    chrome_url = "https://example.com/?archivebox-chrome-flow=1"
+    chrome_url = "https://archivebox.io/tests/?archivebox-chrome-flow=1"
     env = os.environ.copy()
     env.pop("CHROME_BINARY", None)
     env.update(
@@ -498,7 +498,7 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_a
     assert all(depth == 0 for _id, url, depth, _status, _title in snapshots)
 
     by_url_plugin = {(url, plugin): status for url, plugin, status, _files, _size, _output in archive_results}
-    assert by_url_plugin[("https://example.com", "wget")] == "succeeded"
+    assert by_url_plugin[("https://archivebox.io/tests/", "wget")] == "succeeded"
     assert by_url_plugin[("https://pirate.github.io/stress-tests/challenge.html", "wget")] == "succeeded"
     assert by_url_plugin[(chrome_url, "headers")] == "succeeded"
     assert by_url_plugin[(chrome_url, "title")] == "succeeded"
@@ -514,13 +514,13 @@ def test_cli_add_real_urls_with_options_writes_inspectable_outputs(initialized_a
     index_outputs = [path for path in snapshot_root.rglob("index.jsonl") if path.is_file()]
     assert html_outputs
     assert header_outputs
-    assert any("example.com" in path.read_text(errors="ignore").lower() for path in header_outputs)
+    assert any("archivebox.io" in path.read_text(errors="ignore").lower() for path in header_outputs)
     assert title_outputs
-    assert any("Example Domain" in path.read_text(errors="ignore") for path in title_outputs)
+    assert any("ArchiveBox Test Page" in path.read_text(errors="ignore") for path in title_outputs)
     assert len(index_outputs) >= len(wget_urls) + 1
 
     combined_html = "\n".join(path.read_text(errors="ignore") for path in html_outputs)
-    assert "Example Domain" in combined_html
+    assert "ArchiveBox Test Page" in combined_html
     assert "Browser Agent Challenge for AI Browser Drivers" in combined_html
 
     assert processes

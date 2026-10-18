@@ -5,7 +5,7 @@ import re
 from html import unescape
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
 from django import template
 from django.utils import timezone
@@ -749,6 +749,7 @@ def snapshot_thumbnail(context, snapshot, admin=False, width="100px", height="10
             {
                 **context.flatten(),
                 "card_result": snapshot.__dict__["_snapshot_thumbnail_result"] if precomputed else snapshot_thumbnail_result(results),
+                "card_modified_at": snapshot.modified_at,
                 "host": host,
                 "initial": host[:1].upper(),
                 "hue": hue,
@@ -907,6 +908,17 @@ def plugin_icon(plugin: str) -> str:
     )
 
 
+def _version_card_url(context, result, url: str) -> str:
+    """Keep warm cards reusable, but invalidate their assets after a recapture."""
+    if context.get("STATIC_EXPORT"):
+        return url
+    modified = context.get("card_modified_at") or result.modified_at
+    revision = f"{int(modified.timestamp())}.{modified.microsecond:06d}"
+    parts = urlsplit(url)
+    query = [(key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if key != "_abx_rev"]
+    return urlunsplit(parts._replace(query=urlencode([*query, ("_abx_rev", revision)])))
+
+
 @register.simple_tag(takes_context=True)
 def plugin_card(context, result) -> str:
     """
@@ -939,7 +951,7 @@ def plugin_card(context, result) -> str:
             config=context.get("CONFIG"),
         )
         return mark_safe(
-            f'<iframe src="{escape(card_url)}" title="{escape(plugin)} card" '
+            f'<iframe src="{escape(_version_card_url(context, result, card_url))}" title="{escape(plugin)} card" '
             'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
             'style="width:100% !important;height:100% !important;transform:none !important;border:0"></iframe>',
         )
@@ -966,7 +978,7 @@ def render_plugin_card_document(context, result) -> str:
 
     # Use embed_path() for the display path
     raw_output_path = result.embed_path() or ""
-    output_url = _snapshot_url_for_context(context, result.snapshot, raw_output_path or "")
+    output_url = _version_card_url(context, result, _snapshot_url_for_context(context, result.snapshot, raw_output_path or ""))
 
     icon_html = get_plugin_icon(plugin)
     media_files = _list_media_files(result, include_filesystem_fallback=bool(context.get("STATIC_EXPORT")))
@@ -984,7 +996,7 @@ def render_plugin_card_document(context, result) -> str:
     if media_files:
         for item in media_files:
             path = item.get("path") or ""
-            item["url"] = _snapshot_url_for_context(context, result.snapshot, path) if path else ""
+            item["url"] = _version_card_url(context, result, _snapshot_url_for_context(context, result.snapshot, path)) if path else ""
 
     output_lower = (raw_output_path or "").lower()
     force_text_preview = output_lower.endswith(_TEXT_PREVIEW_EXTS)
@@ -1045,7 +1057,7 @@ def render_plugin_card_document(context, result) -> str:
             plugin=plugin,
         )
         return mark_safe(
-            f'<iframe src="{escape(preview_url)}" title="{escape(plugin)} preview" '
+            f'<iframe src="{escape(_version_card_url(context, result, preview_url))}" title="{escape(plugin)} preview" '
             'loading="lazy" fetchpriority="low" sandbox="allow-scripts allow-same-origin" '
             'style="border:0;pointer-events:none"></iframe>',
         )

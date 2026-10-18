@@ -289,7 +289,7 @@ sudo apt install archivebox
 <pre lang="bash"><code style="white-space: pre-line">mkdir -p ~/archivebox/data
 cd ~/archivebox/data
 archivebox init
-sudo archivebox install
+sudo "$(command -v archivebox)" install
 archivebox add 'https://example.com'
 </code></pre>
 <br/>
@@ -303,7 +303,7 @@ archivebox help
 </li>
 </ol>
 See <a href="#cli-usage">below</a> for more usage examples using the CLI, Web UI, or filesystem/SQL/Python to manage your archive.<br/>
-<sub>The apt package is a thin dev-channel wrapper around the normal Python install flow. <code>sudo archivebox install</code> uses apt for missing system dependencies while preserving ownership of the user-owned collection. See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for details.</sub>
+<sub>The apt package is a thin dev-channel wrapper around the normal Python install flow. <code>sudo "$(command -v archivebox)" install</code> uses apt for missing system dependencies while preserving ownership of the user-owned collection. See the <a href="https://github.com/ArchiveBox/debian-archivebox"><code>debian-archivebox</code></a> repo for details.</sub>
 <br/><br/>
 </details>
 
@@ -747,7 +747,9 @@ The configuration is documented here: **[Configuration Wiki](https://github.com/
 Title extraction prefers Open Graph or Twitter title metadata, then falls back
 to the rendered page title, including JavaScript changes. This preserves post
 captions on sites such as Instagram that use a generic document title.
-Set <code>USER_AGENT</code> for the default request identity, or
+By default, HTTP downloads reuse Chrome's detected identity after browser setup.
+yt-dlp keeps its native identity and its own argument overrides.
+Set <code>USER_AGENT</code> to override the shared request identity, or
 <code>CHROME_USER_AGENT</code> for an explicit browser override, before creating a
 new crawl. The historical curl-only <code>CURL_USER_AGENT</code> option does not
 configure browser title extraction. Existing crawls retain their frozen config.

@@ -870,6 +870,7 @@
         }
         #progress-monitor .tree-container {
             max-height: 310px;
+            width: 100%;
         }
         #progress-monitor .progress-content {
             flex-direction: column;
@@ -924,6 +925,15 @@
         }
         #progress-monitor .snapshot-header-link {
             min-width: 0;
+        }
+        /* The preview is a sibling of this link. Give the capture text its
+           own full-width row, with process/status badges beneath it. */
+        #progress-monitor .snapshot-item[data-snapshot-id]:not(.queued-compact) .snapshot-header-link {
+            flex-wrap: wrap;
+            gap: 4px 8px;
+        }
+        #progress-monitor .snapshot-item[data-snapshot-id]:not(.queued-compact) .snapshot-info {
+            flex: 1 0 100%;
         }
     }
 
@@ -994,11 +1004,6 @@
         #progress-monitor .pid-label {
             justify-self: start;
         }
-        #progress-monitor .snapshot-header-link {
-            display: grid;
-            grid-template-columns: 56px minmax(0, 1fr);
-            gap: 8px;
-        }
         #progress-monitor .snapshot-preview {
             width: 56px;
             height: 42px;
@@ -1007,8 +1012,10 @@
         #progress-monitor .snapshot-title-line {
             align-items: flex-start;
         }
-        #progress-monitor .snapshot-title,
-        #progress-monitor .snapshot-url {
+        #progress-monitor .snapshot-title {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
             white-space: normal;
             overflow-wrap: anywhere;
         }
@@ -2039,7 +2046,19 @@
         }
 
         const count = value => Number(value || 0).toLocaleString();
-        document.getElementById('orchestrator-text').textContent = `${count(data.snapshots_active)} - ${count(data.snapshots_queued)} queued`;
+        const hourlyRate = data.metrics?.throughput?.last_hour;
+        let queueEta = '';
+        if (data.snapshots_queued > 0 && Number.isFinite(hourlyRate) && hourlyRate > 0
+            && Date.now() / 1000 - data.metrics.sampled_at <= 180) {
+            const minutes = Math.ceil(data.snapshots_queued * 60 / hourlyRate);
+            const parts = [
+                [Math.floor(minutes / 1440), 'd'],
+                [Math.floor(minutes % 1440 / 60), 'hr'],
+                [minutes % 60, 'min'],
+            ].filter(([value]) => value > 0).map(([value, unit]) => `${value}${unit}`);
+            queueEta = ` (~${parts.join(' ')})`;
+        }
+        document.getElementById('orchestrator-text').textContent = `${count(data.snapshots_active)} - ${count(data.snapshots_queued)} queued${queueEta}`;
         const status = document.getElementById('metric-status');
         status.title = `${hasWorkers ? 'Running' : data.orchestrator_running ? 'Idle' : 'Runner stopped'}. Snapshots: ${count(data.snapshots_active)} active, ${count(data.snapshots_queued)} queued. Crawls: ${count(data.crawls_active)} active, ${count(data.crawls_queued)} queued. Downloads: ${count(data.downloads_active)} active, ${count(data.downloads_queued)} queued.${data.orchestrator_pid ? ` Runner PID ${data.orchestrator_pid}.` : ''}`;
         status.setAttribute('aria-label', `${status.textContent.trim()}. ${status.title}`);
