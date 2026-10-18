@@ -789,7 +789,7 @@ ArchiveBox can index Snapshot text/HTML output into searchable indexes that powe
 
 ---
 #### `SEARCH_BACKEND_ENGINE`
-**Possible Values:** [`ripgrep`]/`sqlite`/`sonic`
+**Possible Values:** [`sonic`]/`ripgrep`/`sqlite`
 
 Which search backend engine to use when running `archivebox search` and rendering the Web UI search bar.
 
