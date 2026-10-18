@@ -748,6 +748,7 @@ Title extraction prefers Open Graph or Twitter title metadata, then falls back
 to the rendered page title, including JavaScript changes. This preserves post
 captions on sites such as Instagram that use a generic document title.
 By default, HTTP downloads reuse Chrome's detected identity after browser setup.
+yt-dlp keeps its native identity and its own argument overrides.
 Set <code>USER_AGENT</code> to override the shared request identity, or
 <code>CHROME_USER_AGENT</code> for an explicit browser override, before creating a
 new crawl. The historical curl-only <code>CURL_USER_AGENT</code> option does not
