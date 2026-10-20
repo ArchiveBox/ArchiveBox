@@ -846,6 +846,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """Atomically finalize this Snapshot and reconcile its output metadata."""
         if self.status == self.StatusChoices.SEALED:
             return True
+        never_started = (
+            self.status == self.StatusChoices.QUEUED
+            and self.downloaded_at is None
+            and not self.output_size
+            and not self.archiveresult_set.exists()
+        )
         now = timezone.now()
         updated = (
             type(self)
@@ -862,7 +868,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         )
         self.refresh_from_db()
         if updated == 1:
-            self.finalize_output_metadata()
+            # Canceling untouched queue rows has no capture files to reconcile.
+            # Avoid a remote archive stat/glob for every canceled bulk child.
+            if not never_started:
+                self.finalize_output_metadata()
             # The atomic state transition bypasses Model.save()/post_save.
             # Notify integrations only after final output metadata is persisted.
             from signal_webhooks.handlers import webhook_handler
