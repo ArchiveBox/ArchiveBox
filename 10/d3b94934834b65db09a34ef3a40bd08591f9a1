@@ -1,0 +1,38 @@
+archivebox/tests/test_runner_deletion.py
+  s_10bc94d001be49::t_a402ac7205c65d 115-119,172,180
+archivebox/services/runner.py
+  s_10bc94d001be49::t_a402ac7205c65d 2343
+  s_10bc94d001be49::t_5f985f61bd36e7 2357
+archivebox/tests/test_output_path_deletion.py
+  s_10bc94d001be49::t_06299b1b6f5482 61-75
+  s_10bc94d001be49::t_42f8ebf4b8571c 1-54,56-60
+  s_10bc94d001be49::t_2ba452554549bd 76-109
+  s_10bc94d001be49::t_dba8848c3621c9 55
+  s_10bc94d001be49::t_bbb6065c0d3aa8 110-112
+archivebox/core/models.py
+  s_10bc94d001be49::t_a402ac7205c65d 630,633-636
+  s_10bc94d001be49::t_45c967323be5c0 640
+archivebox/base_models/models.py
+  s_10bc94d001be49::t_45c967323be5c0 393
+  s_10bc94d001be49::t_0e14defb435d68 6,8,382-385,392,394-398,401,403
+  s_10bc94d001be49::t_06299b1b6f5482 399-400
+archivebox/tests/test_deletion_drain.py
+  s_10bc94d001be49::t_01dc64c9325756 8-9,22
+  s_10bc94d001be49::t_aa0e7a8894849b 1-7,10-21,23-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "10d3b94934834b65db09a34ef3a40bd08591f9a1",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
