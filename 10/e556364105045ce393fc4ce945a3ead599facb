@@ -1,0 +1,29 @@
+archivebox/cli/rescan.py
+  s_10bc94d001be49::t_f2810e9dc59424 185
+archivebox/core/models.py
+  s_10bc94d001be49::t_474926c2a1cb95 1223,2889-2890
+archivebox/crawls/models.py
+  s_10bc94d001be49::t_8014b742b85ff2 487,493,495-497,503
+archivebox/services/runner.py
+  s_10bc94d001be49::t_2772fd716b4383 839
+archivebox/tests/test_crawl_migration_boundary.py
+  s_10bc94d001be49::t_7a7c0f826480c5 1-153
+archivebox/tests/test_snapshot_filesystem_migration.py
+  s_10bc94d001be49::t_c8d4c9543f0cfa 117-118,130,174-175,211-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "10e556364105045ce393fc4ce945a3ead599facb",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
