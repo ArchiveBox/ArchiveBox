@@ -114,8 +114,8 @@ def _hyphenated(path: Path) -> Path:
     return path.with_name(str(uuid.UUID(hex=path.name)))
 
 
-def test_filesystem_migration_renames_hyphenated_crawl_dir(snapshot):
-    """Crawl.output_dir trusts the DB, so migration must move pre-0.9.4 crawl dirs."""
+def test_filesystem_migration_links_hyphenated_crawl_dir(snapshot):
+    """Expose the canonical crawl name without relocating historical output."""
     crawl_dir = Path(snapshot.crawl.output_dir)
     legacy_crawl_dir = _hyphenated(crawl_dir)
     legacy_crawl_dir.mkdir(parents=True)
@@ -127,7 +127,7 @@ def test_filesystem_migration_renames_hyphenated_crawl_dir(snapshot):
     snapshot.refresh_from_db()
 
     assert snapshot.fs_version == snapshot._fs_current_version()
-    assert not legacy_crawl_dir.exists()
+    assert legacy_crawl_dir.is_dir() and crawl_dir.is_symlink()
     assert (crawl_dir / "sources.txt").read_text(encoding="utf-8") == "https://example.com\n"
 
 
@@ -171,7 +171,8 @@ def test_rescan_moves_hyphenated_previous_layout_dirs_into_db_paths(snapshot):
     snapshot.refresh_from_db()
     assert stats["Errors"] == 0
     assert snapshot.fs_version == snapshot._fs_current_version()
-    assert not legacy_dir.exists() and not legacy_crawl_dir.exists()
+    assert not legacy_dir.exists()
+    assert legacy_crawl_dir.is_dir() and crawl_dir.is_symlink()
     assert (current_dir / "wget" / "index.html").read_text(encoding="utf-8") == "<html>saved hyphenated capture</html>"
     assert (current_dir / CONSTANTS.JSONL_INDEX_FILENAME).is_file()
     assert (crawl_dir / "sources.txt").read_text(encoding="utf-8") == "https://example.com\n"
@@ -207,7 +208,8 @@ def test_hyphenated_previous_layout_serves_until_lazy_migration_moves_it(snapsho
     snapshot.refresh_from_db()
     assert snapshot.fs_version == snapshot._fs_current_version()
     assert Path(snapshot.output_dir) == current_dir
-    assert not legacy_dir.exists() and not legacy_crawl_dir.exists()
+    assert not legacy_dir.exists()
+    assert legacy_crawl_dir.is_dir() and crawl_dir.is_symlink()
     assert (current_dir / "wget" / "index.html").read_text(encoding="utf-8") == "<html>saved hyphenated capture</html>"
     assert (crawl_dir / "sources.txt").read_text(encoding="utf-8") == "https://example.com\n"
     crawl_link = crawl_dir / "snapshots" / Snapshot.extract_domain_from_url(snapshot.url) / str(snapshot.id)

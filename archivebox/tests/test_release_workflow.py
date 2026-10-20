@@ -213,7 +213,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert screenshots["jobs"]["complete"]["needs"] == ["changes", "deploy"]
     assert screenshots["jobs"]["complete"]["name"] == "Scheduled inputs: ${{ needs.changes.outputs.key }}"
     for name, job in ci["jobs"].items():
-        if name not in {"prepare", "required", "dev-image", "staging-health"}:
+        if name not in {"prepare", "required", "dev-image"}:
             assert job["needs"] == "prepare"
             assert job["if"] == "needs.prepare.outputs.run_jobs == 'true'"
     early = ci["jobs"]["dev-image"]
@@ -224,11 +224,7 @@ def test_release_uses_registered_publisher_and_authorized_tag_credentials():
     assert '[[ "${#digests[@]}" -eq 2 ]]' in publish
     assert publish.index('if [[ "$head" != "$GITHUB_SHA" ]]') < publish.index('--tag "$image:dev-unstable"')
     assert '--tag "$image:dev"' not in publish
-    health = ci["jobs"]["staging-health"]
-    assert health["needs"] == "dev-image"
-    assert health["if"] == "needs.dev-image.outputs.ready == 'true'"
-    assert health["with"] == {"sha": "${{ github.sha }}", "health_only": True}
-    assert {"dev-image", "staging-health"} <= set(ci["jobs"]["required"]["needs"])
+    assert "dev-image" in ci["jobs"]["required"]["needs"]
     gate = next(step["run"] for step in jobs["candidate"]["steps"] if step.get("id") == "verified")
     assert 'ARTIFACT_RUN_ID="$CI_RUN_ID"' in gate
     assert 'DIGEST_RUN_ID="$CI_RUN_ID"' in gate
@@ -344,6 +340,63 @@ def test_stable_publication_requires_live_acceptance_before_upload():
     assert 'inspection.get("health") != "healthy"' in verifier
     assert "expected_abx_dl_digest" in verifier
     assert 'run["conclusion"] != "success"' in verifier
+
+
+def test_dev_promotion_does_not_wait_for_its_own_deployment():
+    ci = yaml.safe_load(CI_WORKFLOW.read_text())
+    # Cabbage follows :dev, so its exact-SHA check can run only after promotion.
+    # All pre-promotion test lanes still run against the candidate in CI.
+    assert set(ci["jobs"]["required"]["needs"]) == {
+        "prepare",
+        "lint",
+        "install-cli-platform",
+        "tests",
+        "codeql",
+        "python-artifacts",
+        "docker-digests",
+        "dev-image",
+    }
+    assert not any(job.get("uses", "").endswith("staging-acceptance.yml") for job in ci["jobs"].values())
+    docker = yaml.load(DOCKER_WORKFLOW.read_text(), Loader=yaml.BaseLoader)
+    assert docker["on"]["workflow_call"]["inputs"]["full_tests"]["default"] == "true"
+    assert ci["jobs"]["docker-digests"]["with"].get("full_tests", True) is True
+    validation = next(
+        step
+        for step in docker["jobs"]["build"]["steps"]
+        if step.get("name") == "Validate Docker mounts, ports, CLI and compose concurrently"
+    )
+    assert "steps.docker_build.outputs.digest" in validation["env"]["ARCHIVEBOX_IMAGE"]
+    staging = yaml.load((REPO_ROOT / ".github/workflows/staging-acceptance.yml").read_text(), Loader=yaml.BaseLoader)
+    assert staging["on"]["workflow_run"] == {"workflows": ["Release"], "types": ["completed"]}
+    assert staging["jobs"]["acceptance"]["needs"] == "published"
+    assert not staging["jobs"]["acceptance"].get("continue-on-error")
+
+
+@pytest.mark.parametrize(
+    "failed_lane",
+    [
+        None,
+        "LINT_RESULT",
+        "INSTALL_CLI_PLATFORM_RESULT",
+        "TESTS_RESULT",
+        "CODEQL_RESULT",
+        "PYTHON_ARTIFACTS_RESULT",
+        "DOCKER_DIGESTS_RESULT",
+        "DEV_IMAGE_RESULT",
+    ],
+)
+def test_required_ci_gate_rejects_each_failed_lane(failed_lane):
+    ci = yaml.safe_load(CI_WORKFLOW.read_text())
+    # An explicit status function overrides the implicit success() filter, so
+    # failed predecessors still reach this strict shell gate. Cancellation alone
+    # must suppress it, allowing the next run to acquire the concurrency group.
+    assert ci["jobs"]["required"]["if"] == "${{ !cancelled() && needs.prepare.outputs.run_jobs == 'true' }}"
+    gate = ci["jobs"]["required"]["steps"][0]
+    env = {**os.environ, **dict.fromkeys(gate["env"], "success")}
+    if failed_lane:
+        env[failed_lane] = "failure"
+    result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", gate["run"]], env=env, capture_output=True, text=True)
+    assert (result.returncode == 0) is (failed_lane is None), result.stdout + result.stderr
 
 
 def test_staging_acceptance_uses_published_image_source_not_workflow_run_head():
@@ -478,7 +531,7 @@ def test_staging_acceptance_limits_only_exact_known_auth_and_tls_failures():
     assert not accepts("other-plugin", "failed", "Claude Code auth not set")
     assert not accepts("claudechrome", "succeeded", "ANTHROPIC_API_KEY not set")
     assert "'limitations': []" in embedded.group(1)
-    assert "'PLUGINS': ','.join(sorted(catalog))" in embedded.group(1)
+    assert "'PLUGINS': ','.join(sorted(enabled_plugins))" in embedded.group(1)
     assert "for plugin in capture_plugins:" in embedded.group(1)
     assert "missing or truncated" in embedded.group(1)
     assert "output.stat().st_size != metadata.get('size')" in embedded.group(1)
@@ -555,3 +608,73 @@ def test_ci_discovery_handles_added_renamed_and_deleted_files_without_timing_edi
     assert next(item for item in discover() if "archivebox/tests/test_runner_renamed.py" in item["paths"])["ugnas"] is False
     (tests / "test_runner_renamed.py").unlink()
     assert all(item["ugnas"] for item in discover())
+
+    (tests / "test_core_config.py").write_text("# ci-workers: 1\n" + source.read_text())
+    limited = next(item for item in discover() if "archivebox/tests/test_core_config.py" in item["paths"])
+    assert limited["paths"] == ["archivebox/tests/test_core_config.py"]
+    assert limited["max_workers"] == 1
+    (tests / "test_core_config.py").rename(tests / "test_limited_renamed.py")
+    renamed = next(item for item in discover() if "archivebox/tests/test_limited_renamed.py" in item["paths"])
+    assert renamed["max_workers"] == 1
+
+
+@pytest.mark.parametrize("runner,limit", [("github-hosted", 0), ("github-hosted", 1), ("self-hosted", 0), ("self-hosted", 1)])
+def test_ci_applies_declared_worker_limit_without_changing_runtime_paths(tmp_path, runner, limit):
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/test-parallel.yml").read_text())
+    step = next(
+        step for job in workflow["jobs"].values() for step in job.get("steps", []) if step.get("name") == "Set job-local runtime paths"
+    )
+    env_file = tmp_path / "github-env"
+    subprocess.run(
+        ["bash", "-e", "-c", step["run"]],
+        env={
+            **os.environ,
+            "CI_RUNNER_ENVIRONMENT": runner,
+            "CI_TEST_MAX_WORKERS": str(limit),
+            "RUNNER_TEMP": str(tmp_path),
+            "GITHUB_ENV": str(env_file),
+        },
+        check=True,
+    )
+    written = dict(line.split("=", 1) for line in env_file.read_text().splitlines())
+    available = int(subprocess.check_output(["nproc"], text=True)) if runner == "github-hosted" else 2
+    assert int(written["CI_TEST_WORKERS"]) == (min(available, limit) if limit else available)
+    assert written["DATA_DIR"] == str(tmp_path / "archivebox-test-data")
+    assert written["PERSONAS_DIR"] == str(tmp_path / "abx-personas")
+
+
+@pytest.mark.django_db(transaction=True)
+def test_staging_capture_respects_host_disabled_plugins(initialized_archive):
+    from archivebox.tests.conftest import cli_env, run_archivebox_cmd
+
+    helper = (REPO_ROOT / "bin" / "staging-acceptance-host.sh").read_text()
+    embedded = re.search(r"script=\"\$\(cat <<'PY'\n(.*?)\nPY\n\)\"", helper, re.S)
+    assert embedded is not None
+    setup = embedded.group(1).split("crawls = list(", 1)[0]
+    env = cli_env(ACCEPTANCE_SHA="a" * 40)
+    run_archivebox_cmd(
+        ["config", "--set", "TLSNOTARY_ENABLED=False", "CLAUDECHROME_ENABLED=False", "SCREENSHOT_ENABLED=True"],
+        cwd=initialized_archive,
+        env=env,
+        check=True,
+    )
+    result = run_archivebox_cmd(
+        [
+            "shell",
+            "-c",
+            setup
+            + "\nassert 'tlsnotary' not in capture_config['PLUGINS'].split(',')"
+            + "\nassert 'claudechrome' not in capture_config['PLUGINS'].split(',')"
+            + "\nassert 'screenshot' in capture_config['PLUGINS'].split(',')"
+            + "\nassert 'tlsnotary' not in [plugin.name for plugin in capture_plugins]"
+            + "\nassert 'screenshot' in [plugin.name for plugin in capture_plugins]"
+            + "\ncrawl, _ = add(urls=['https://example.com/acceptance-policy'], bg=True, config=capture_config)"
+            + "\nfrom archivebox.config.common import get_config"
+            + "\nassert get_config(crawl=crawl).TLSNOTARY_ENABLED is False"
+            + "\nassert get_config(crawl=crawl).CLAUDECHROME_ENABLED is False"
+            + "\nassert get_config(crawl=crawl).SCREENSHOT_ENABLED is True",
+        ],
+        cwd=initialized_archive,
+        env=env,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

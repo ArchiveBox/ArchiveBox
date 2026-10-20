@@ -1,12 +1,16 @@
 # Stable releases require live dev acceptance
 
-The order is **dev Docker checks → early universal SHA/dev-unstable image → automatic
-Cabbage deployment and health → full dev CI → approved dev image publication →
-real capture and browser acceptance → stable publication**. The existing
-Watchtower deployment follows `:dev-unstable`; ordinary `:dev` users receive only
-fully green builds. Cabbage must deploy the exact candidate and become healthy
-within ten minutes for the CI deployment-health lane to pass. This health-only
-check does not create a capture or authorize stable publication. Never
+The order is **candidate Docker checks in CI → early universal SHA/dev-unstable
+image → full dev CI → promotion of that exact image to dev → automatic Cabbage
+deployment and health → real capture and browser acceptance → stable
+publication**. Cabbage's normal Watchtower deployment follows `:dev`. Both
+architectures and the existing image/CLI/storage checks run against the exact
+candidate in CI before promotion; they do not wait for Cabbage to deploy it.
+After successful promotion, `staging-acceptance.yml` selects the exact published
+source from that Release run's artifact, waits for Watchtower, and verifies the
+running source, dependency pins, mounts, and health before capturing. Requiring
+Cabbage to run the candidate before promotion would deadlock ordinary `:dev`
+updates. Publication alone is not deployment or capture acceptance. Never
 substitute a published PyPI wheel, healthy container, or local build for this
 acceptance. The release workflow blocks *before* a stable upload unless Cabbage
 has successful evidence from `staging-acceptance.yml` matching all tracked
@@ -27,7 +31,8 @@ Only trusted release events use the private ugNAS runner route. Never expose
 these credentials to PR jobs or copy an operator's existing root key.
 
 Acceptance creates one tagged background crawl per source through the normal
-add/runner path, enabling every snapshot extractor, including TLSNotary. It
+add/runner path, retaining the host's effective plugin selection. Explicitly
+disabled extractors remain disabled and are listed in `disabled_plugins`. It
 checks installed pins, completed outputs and their files, unexpected/missing
 plugin results, host OOM kills, and real rendered snapshot pages. For this
 release, the explicitly accepted TLSNotary failures and exact missing-Claude-auth

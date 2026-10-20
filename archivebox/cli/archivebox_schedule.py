@@ -86,7 +86,11 @@ def schedule(
         crawl_schedule = CrawlSchedule.objects.create(
             template=template,
             schedule=schedule_str,
-            config={**template.config, "SCHEDULE_KIND": "update" if is_update_schedule else "crawl"},
+            config={
+                "DEPTH": 0 if is_update_schedule else depth,
+                **config_overrides,
+                "SCHEDULE_KIND": "update" if is_update_schedule else "crawl",
+            },
             is_enabled=True,
             label=template_label,
             notes=template_notes,
@@ -174,6 +178,7 @@ def schedule(
     "only_new",
     default=None,
     help="Skip URLs that already have a snapshot (default: inherit from ONLY_NEW config). "
+    "Recursive schedules always refresh their seed URLs to discover new links. "
     "Pass --no-only-new to force re-archive on each scheduled run.",
 )
 @click.option("--clear", is_flag=True, help="Disable all currently enabled schedules")

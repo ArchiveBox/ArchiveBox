@@ -627,14 +627,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return super().delete(using=using, keep_parents=keep_parents)
 
     @classmethod
-    def delete_requested(cls, *, batch_size=100):
+    def delete_requested(cls, *, batch_size=100, drain: bool = False):
         # Finish the bounded read before touching files: even an open SELECT
         # cursor can hold a SQLite read lock for the duration of slow cleanup.
-        pending = list(cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by")[:batch_size])
+        queryset = cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by").order_by("pk")
+        # The daemon's existing filesystem job can drain successive pages.
+        # Keyset iteration advances past failed rows, attempting each only once.
+        pending = queryset.paged_iterator(chunk_size=batch_size) if drain else list(queryset[:batch_size])
         for snapshot in pending:
             try:
                 snapshot.delete()
-            except OSError:
+            except (OSError, ValueError):
                 logging.getLogger(__name__).exception("Snapshot %s file deletion failed; keeping its database row", snapshot.pk)
 
     @classmethod
@@ -846,6 +849,12 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         """Atomically finalize this Snapshot and reconcile its output metadata."""
         if self.status == self.StatusChoices.SEALED:
             return True
+        never_started = (
+            self.status == self.StatusChoices.QUEUED
+            and self.downloaded_at is None
+            and not self.output_size
+            and not self.archiveresult_set.exists()
+        )
         now = timezone.now()
         updated = (
             type(self)
@@ -862,7 +871,10 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         )
         self.refresh_from_db()
         if updated == 1:
-            self.finalize_output_metadata()
+            # Canceling untouched queue rows has no capture files to reconcile.
+            # Avoid a remote archive stat/glob for every canceled bulk child.
+            if not never_started:
+                self.finalize_output_metadata()
             # The atomic state transition bypasses Model.save()/post_save.
             # Notify integrations only after final output metadata is persisted.
             from signal_webhooks.handlers import webhook_handler
@@ -1208,7 +1220,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return cleanup
 
     def _fs_migrate_from_0_9_4_to_0_9_5(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None):
-        """Move a hyphenated-id snapshot folder (and its crawl's) to the compact-id path."""
+        """Move a hyphenated snapshot folder and expose its crawl at the canonical path."""
         target_dir = self.get_storage_path_for_version("0.9.5")
         legacy_dir = Path(source_dir) if source_dir else target_dir.with_name(str(uuid.UUID(str(self.id))))
         cleanup = None
@@ -2874,8 +2886,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 crawl = Crawl.objects.filter(id=self.crawl_id).select_related("created_by").first()
             if not crawl:
                 return
-            # Creating the canonical crawl dir below would strand a legacy
-            # hyphenated one (migrate_legacy_output_dir never merges), so move it first.
+            # Keep a historical crawl tree in place behind its canonical alias
+            # before creating this snapshot's projection; never merge whole trees.
             crawl.migrate_legacy_output_dir()
             crawl_dir = Path(crawl.output_dir)
 

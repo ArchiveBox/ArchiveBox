@@ -1,0 +1,4 @@
+# Actual stderr excerpt: https://github.com/ArchiveBox/ArchiveBox/actions/runs/39389118788/job/118516480716
+[2026-10-20 07:52:41] WARNING archivebox.services.runner Capture admission deferred for crawl 06ad71db64ea72bb80002740d5283a00: io stalls
+[2026-10-20 07:52:43] INFO archivebox.services.resource_admission Snapshot admission decision: configured=3 adaptive=1 active=0 slots=1 observed_cost=119257088 available=17087172608 pressure=none
+[2026-10-20 07:52:45] INFO archivebox.services.resource_admission Snapshot admission decision: configured=3 adaptive=1 active=0 slots=1 observed_cost=107331379 available=16805789696 pressure=none

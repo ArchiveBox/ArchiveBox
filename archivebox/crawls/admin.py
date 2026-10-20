@@ -893,15 +893,16 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
     @admin.action(description="Resume")
     def resume_selected_crawls(self, request, queryset):
         now = timezone.now()
-        # Freeze the eligible selection before changing parent statuses. Keep
-        # child scheduling set-based, without save() hooks or result rewrites.
-        crawl_ids = list(queryset.filter(status__in=Crawl.INACTIVE_STATES).values_list("pk", flat=True))
-        Snapshot.objects.filter(crawl_id__in=crawl_ids, status=Snapshot.StatusChoices.PAUSED).update(
+        # Freeze eligibility before changing parent statuses. Only paused
+        # parents resume their children; sealed parents keep their captures.
+        crawls = list(queryset.filter(status__in=Crawl.INACTIVE_STATES).values_list("pk", "status"))
+        paused_ids = [pk for pk, status in crawls if status == Crawl.StatusChoices.PAUSED]
+        Snapshot.objects.filter(crawl_id__in=paused_ids, status=Snapshot.StatusChoices.PAUSED).update(
             status=Snapshot.StatusChoices.QUEUED,
             retry_at=now,
             modified_at=now,
         )
-        resumed = Crawl.objects.filter(pk__in=crawl_ids, status__in=Crawl.INACTIVE_STATES).update(
+        resumed = Crawl.objects.filter(pk__in=[pk for pk, _ in crawls], status__in=Crawl.INACTIVE_STATES).update(
             status=Crawl.StatusChoices.QUEUED,
             retry_at=now,
             modified_at=now,

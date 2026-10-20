@@ -87,6 +87,7 @@ def host_swap_free_bytes(meminfo_swap_free: int) -> int:
 class ResourceAdmission:
     def __init__(self):
         self._stalls: dict[str, tuple[int, float]] = {}
+        self._cpu_throttled: dict[str, int] = {}
         self._checked_at = float("-inf")
         self._reason: str | None = None
         self.observed_snapshot_cost: int | None = None
@@ -130,11 +131,20 @@ class ResourceAdmission:
             self._last_growth = now
         return min(ceiling, self._concurrency)
 
-    def additional_snapshot_slots(self, configured: int, active: int, observed_cost: int | None) -> int:
+    def additional_snapshot_slots(self, configured: int, active: int, observed_cost: int | None, *, crawl_id: str | None = None) -> int:
         pressure = self.resource_pressure()
         headroom = self.memory_headroom()
         if pressure or headroom <= 0:
             self.concurrency_limit(configured, pressure=True, now=time.monotonic())
+            # Active captures also reset recovery; idle-only runner logging
+            # otherwise hides the measured reason for later serial admission.
+            logging.getLogger(__name__).warning(
+                "Capture admission deferred for crawl %s: %s (active=%s slots=0 adaptive=%s)",
+                crawl_id,
+                pressure or f"memory headroom {headroom} bytes",
+                active,
+                self._concurrency,
+            )
             return 0
         if not observed_cost:
             # Stage one complete real capture before spending memory on parallel
@@ -243,6 +253,13 @@ class ResourceAdmission:
         stalled_percent = (total - previous_total) / (elapsed * 1_000_000) * 100
         return avg10 >= threshold and stalled_percent >= threshold
 
+    def observe_cpu_throttling(self, source: str, total: int) -> bool:
+        previous = self._cpu_throttled.get(source)
+        self._cpu_throttled[source] = total
+        # Counters are cumulative: historical throttling or a recreated cgroup
+        # must not indefinitely prevent new captures.
+        return previous is not None and total > previous
+
     def resource_pressure(self, *, required_memory: int | None = None) -> str | None:
         # Check capacity on every admission, independently of cached PSI. An
         # idle runner still needs room for its last measured capture; allowing
@@ -259,6 +276,14 @@ class ResourceAdmission:
         cgroups = self.cgroup_paths()
         for path in cgroups:
             try:
+                cpu_stat = dict(line.split() for line in (path / "cpu.stat").read_text().splitlines())
+                # PSI measures waiting, not remaining CPU quota. One runnable
+                # task can exhaust a fractional quota with almost no PSI.
+                if self.observe_cpu_throttling(str(path), int(cpu_stat["nr_throttled"])):
+                    reasons.append("cpu quota throttling")
+            except (OSError, ValueError, KeyError):
+                pass
+            try:
                 current = int((path / "memory.current").read_text())
                 for name in ("memory.high", "memory.max"):
                     limit = (path / name).read_text().strip()
@@ -271,11 +296,19 @@ class ResourceAdmission:
             ("cpu", "some", CPU_SOME_STALL_PERCENT),
             ("io", "full", IO_FULL_STALL_PERCENT),
         ):
-            for path in [Path(f"/proc/pressure/{resource}"), *[p / f"{resource}.pressure" for p in cgroups]]:
+            host_pressure = Path(f"/proc/pressure/{resource}")
+            scoped_pressure_available = False
+            for path in [*[p / f"{resource}.pressure" for p in cgroups], host_pressure]:
+                # Other containers or disks can stall without delaying this
+                # cgroup. Host memory pressure remains shared physical pressure.
+                if path == host_pressure and resource != "memory" and scoped_pressure_available:
+                    continue
                 try:
                     line = next(line for line in path.read_text().splitlines() if line.startswith(f"{signal} "))
                     fields = dict(field.split("=", 1) for field in line.split()[1:])
-                    if self.observe_stalls(str(path), int(fields["total"]), float(fields["avg10"]), now, threshold):
+                    total, avg10 = int(fields["total"]), float(fields["avg10"])
+                    scoped_pressure_available |= path != host_pressure
+                    if self.observe_stalls(str(path), total, avg10, now, threshold):
                         reasons.append(f"{resource} stalls")
                 except (OSError, ValueError, KeyError, StopIteration):
                     continue

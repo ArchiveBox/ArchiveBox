@@ -2,8 +2,24 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 from archivebox.services.resource_admission import ResourceAdmission, disk_backed_swap_free_bytes
+
+
+def test_cpu_and_io_admission_uses_visible_cgroup_pressure():
+    admission = ResourceAdmission()
+    admission.resource_pressure()
+    for resource in ("cpu", "io"):
+        scoped_sources = {str(path / f"{resource}.pressure") for path in admission.cgroup_paths()}
+        observed_scoped = scoped_sources.intersection(admission._stalls)
+        if observed_scoped:
+            assert f"/proc/pressure/{resource}" not in admission._stalls
+        elif Path(f"/proc/pressure/{resource}").is_file():
+            assert f"/proc/pressure/{resource}" in admission._stalls
+    # Container isolation does not remove shared host memory pressure.
+    if Path("/proc/pressure/memory").is_file():
+        assert "/proc/pressure/memory" in admission._stalls
 
 
 def test_cpu_admission_respects_process_affinity():
@@ -11,6 +27,19 @@ def test_cpu_admission_respects_process_affinity():
     available = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else os.cpu_count()
     assert 1 <= admission.snapshot_limit(100000) <= available
     assert admission.snapshot_limit(1) == 1
+
+
+def test_cpu_quota_admission_uses_fresh_throttling_without_sticky_history():
+    admission = ResourceAdmission()
+    assert not admission.observe_cpu_throttling("capture", 200)
+    assert admission.observe_cpu_throttling("capture", 201)
+    assert not admission.observe_cpu_throttling("capture", 201)
+    assert not admission.observe_cpu_throttling("capture", 0)
+    assert admission.observe_cpu_throttling("capture", 1)
+    # Each ancestor has an independent quota/counter.
+    assert not admission.observe_cpu_throttling("parent", 50)
+    assert admission.observe_cpu_throttling("parent", 51)
+    assert not admission.observe_cpu_throttling("capture", 1)
 
 
 def test_snapshot_admission_stages_first_capture_then_uses_measured_headroom():

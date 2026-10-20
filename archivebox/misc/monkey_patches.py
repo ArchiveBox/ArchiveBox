@@ -52,6 +52,8 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
             return
         if "GET /api/v1/crawls/crawl/" in request and "/files/chrome_screencast/latest.jpg" in request:
             return
+        if "GET /api/v1/core/snapshot/" in request and "/screencast.jpg" in request:
+            return
         if "GET /admin/jsi18n/" in request:
             return
         if request.endswith("/favicon.ico") or request.endswith("/robots.txt") or request.endswith("/screenshot.png"):
@@ -62,6 +64,7 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
             return
 
         # clean up the log format to mostly match the same format as django.conf.settings.LOGGING rich formats
+        host = host or "-"  # Daphne has no client address for UNIX sockets and some rejected requests.
         self.stream.write(
             "%s HTTP     %s %s %s\n"
             % (

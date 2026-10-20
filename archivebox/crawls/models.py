@@ -127,6 +127,7 @@ class CrawlSchedule(ModelWithUUID, ModelWithNotes):
         queued_at = queued_at or timezone.now()
         template = self.template
         label = template.label or self.label
+        # Template config is frozen; new runs must resolve current persona defaults.
         crawl_config = {key: value for key, value in (self.config or {}).items() if key != "SCHEDULE_KIND"}
 
         return Crawl.objects.create(
@@ -481,21 +482,23 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         # WHY: derived from DB fields only. Request handlers (e.g. the crawl
         # changelist's stop-reason column) read this per row, and archive
         # storage may be a remote FUSE mount where each exists() probe is a
-        # network round trip. Legacy hyphenated dirs are renamed into place by
+        # network round trip. Legacy hyphenated dirs are linked into place by
         # the orchestrator / `archivebox update --rescan --migrate-only` via
         # migrate_legacy_output_dir(), so nothing else needs to look for them.
         return self.output_dir_candidates[0]
 
     def migrate_legacy_output_dir(self) -> bool:
-        """Rename a pre-0.9.5 hyphenated crawl dir to the current compact-UUID name.
+        """Expose a legacy crawl under its canonical name without moving its tree.
 
-        Orchestrator/migration-only: touches archive storage.
+        A directory rename on object storage copies every descendant. Snapshot
+        maintenance must not relocate unrelated captures in a historical crawl.
+        Both names have the same parent, so existing relative links stay valid.
         """
         output_dir, hyphen_dir = self.output_dir_candidates
         # is_dir() first: it is the only check made for an already-canonical crawl.
         if not hyphen_dir.is_dir() or hyphen_dir.is_symlink() or output_dir.exists():
             return False
-        hyphen_dir.rename(output_dir)
+        output_dir.symlink_to(hyphen_dir.name, target_is_directory=True)
         return True
 
     def get_urls_list(self) -> list[str]:
@@ -982,8 +985,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 continue
             if not self.url_passes_filters(url, use_effective_config=False):
                 continue
+            # Recurring discovery needs a fresh seed to find new links. ONLY_NEW
+            # still deduplicates discovered children and ordinary adds.
+            refresh_scheduled_seed = self.schedule_id is not None and self.max_depth > 0 and depth == 0
             # /über and /%C3%BCber are one URL: dedupe across both spellings.
-            if only_new_urls and Snapshot.objects.filter(url__in=equivalent_urls(url)).exists():
+            if only_new_urls and not refresh_scheduled_seed and Snapshot.objects.filter(url__in=equivalent_urls(url)).exists():
                 continue
 
             # Skip if depth exceeds max_depth
@@ -1170,7 +1176,11 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
                 tag_ids = [Tag.get_or_create_by_name(tag_name)[0].pk for tag_name in tag_names]
                 snapshot.add_tag_ids(tag_ids)
 
-        existing_scope = Snapshot.objects if bool(self._config_value(config, "ONLY_NEW", True)) else self.snapshot_set
+        # The runner also enters through this batch path for explicit seeds.
+        # Child discoveries must retain global ONLY_NEW even in scheduled crawls.
+        refresh_scheduled_seed = self.schedule_id is not None and self.max_depth > 0 and parent_snapshot is None and depth == 0
+        only_new_urls = bool(self._config_value(config, "ONLY_NEW", True)) and not refresh_scheduled_seed
+        existing_scope = Snapshot.objects if only_new_urls else self.snapshot_set
         existing_uris = {iri_to_uri(url) for url in existing_scope.filter(url__in=lookup_urls).values_list("url", flat=True)}
         urls = [url for url in deduped_records.keys() if iri_to_uri(url) not in existing_uris]
         remaining = self.remaining_snapshot_capacity()

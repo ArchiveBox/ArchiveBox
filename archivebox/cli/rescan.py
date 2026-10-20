@@ -61,7 +61,27 @@ def _restore_dates(obj, record):
             setattr(obj, name, value)
 
 
-def _reconcile_directory(directory: Path) -> str:
+def _reconcile_unattributed_output_size(snapshot: Snapshot, directory: Path) -> bool:
+    # Legacy imports can retain payloads without any recoverable extractor
+    # history. Count their bytes without inventing successful ArchiveResults.
+    if snapshot.status != "sealed" or snapshot.archiveresult_set.exists():
+        return False
+    generated = {CONSTANTS.JSON_INDEX_FILENAME, CONSTANTS.JSONL_INDEX_FILENAME, CONSTANTS.HTML_INDEX_FILENAME}
+    output_size = sum(
+        metadata["size"] for path, metadata in ArchiveResult._scan_output_file_map(directory).items() if path not in generated
+    )
+    if snapshot.output_size == output_size:
+        return False
+    updated = snapshot.safe_update(
+        {"output_size": output_size},
+        extra_filter={"status": "sealed", "modified_at": snapshot.modified_at},
+    )
+    if updated:
+        snapshot.write_index_jsonl(output_dir=directory)
+    return updated
+
+
+def _reconcile_directory(directory: Path, *, repair_unattributed_size: bool = False) -> str:
     snapshot_id = uuid.UUID(directory.name)
     snapshot = Snapshot.objects.select_related("crawl__created_by").filter(pk=snapshot_id).first()
     index = directory / CONSTANTS.JSONL_INDEX_FILENAME
@@ -72,6 +92,8 @@ def _reconcile_directory(directory: Path) -> str:
             raise ValueError("missing index.jsonl; cannot reconstruct an unknown or active snapshot")
         snapshot.write_index_jsonl(output_dir=directory)
         snapshot.reconcile_filesystem_links()
+        if repair_unattributed_size:
+            _reconcile_unattributed_output_size(snapshot, directory)
         return "Repaired"
 
     # JSONL records are delimited by LF, not Unicode separators inside strings.
@@ -182,7 +204,7 @@ def _reconcile_directory(directory: Path) -> str:
         # Maintenance projects DB edits back to disk. Do not make web tag edits
         # wait for remote storage, or treat the stale export as an edit itself.
         snapshot.write_index_jsonl(output_dir=directory)
-    # Crawl.output_dir trusts the DB too; rename a legacy hyphenated crawl dir.
+    # Crawl.output_dir trusts the DB too; link a legacy crawl at its canonical name.
     snapshot.crawl.migrate_legacy_output_dir()
     link = Path(snapshot.crawl.output_dir) / "snapshots" / snapshot.extract_domain_from_url(snapshot.url) / compact_uuid(snapshot.id).hex
     links_ok = link.is_symlink() and link.resolve() == directory.resolve()
@@ -190,16 +212,17 @@ def _reconcile_directory(directory: Path) -> str:
         snapshot.reconcile_filesystem_links()
     if snapshot.fs_migration_needed:
         snapshot.migrate_filesystem_to_current_version(source_dir=directory)
+    size_changed = repair_unattributed_size and _reconcile_unattributed_output_size(snapshot, directory)
     if imported:
         _restore_dates(snapshot, record)
     if imported_crawl:
         _restore_dates(crawl, crawl_record)
     # Unchanged imports retain source metadata, including process/binary records
     # that are historical evidence rather than runnable destination process state.
-    return "Imported" if imported else "Repaired" if pending or tags_changed or not links_ok else "Unchanged"
+    return "Imported" if imported else "Repaired" if pending or tags_changed or not links_ok or size_changed else "Unchanged"
 
 
-def reconcile_known_snapshots(snapshots, wait_for_turn=None):
+def reconcile_known_snapshots(snapshots, wait_for_turn=None, *, repair_unattributed_size=False):
     """Explicit metadata / asset repair; normal updates never call this scan."""
     for snapshot in snapshots.filter(status="sealed").paged_iterator():
         if wait_for_turn:
@@ -213,7 +236,7 @@ def reconcile_known_snapshots(snapshots, wait_for_turn=None):
             if snapshot.downloaded_at is None and not snapshot.archiveresult_set.exists():
                 continue
             raise ValueError(f"Missing snapshot directory: {directory}")
-        _reconcile_directory(directory)
+        _reconcile_directory(directory, repair_unattributed_size=repair_unattributed_size)
         for result in snapshot.archiveresult_set.all():
             result.update_output_metadata_from_filesystem(snapshot_dir=directory, full_scan=True)
 
@@ -240,7 +263,7 @@ def rescan_snapshots(wait_for_turn=None, reverse=False, scan_legacy=None):
             if wait_for_turn:
                 wait_for_turn()
             try:
-                outcome = _reconcile_directory(directory)
+                outcome = _reconcile_directory(directory, repair_unattributed_size=True)
                 if directory.name.replace("-", "") in known:
                     for result in ArchiveResult.objects.filter(snapshot_id=uuid.UUID(directory.name)):
                         result.update_output_metadata_from_filesystem(snapshot_dir=directory, full_scan=True)

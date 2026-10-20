@@ -163,7 +163,7 @@ async function liveProgressState(readyOnly = false, rejectedFrameUrl = '') {
   state.ready = state.progressMonitorVisible && state.progressDetailsVisible
     && state.snapshotStarted && state.runningExtractors > 0
     && state.screencastVisible && !state.screencastPlaceholderVisible && state.screencastImageLoaded
-    && /\/api\/v1\/crawls\/crawl\/[^/]+\/files\/chrome_screencast\/latest\.jpg$/.test(new URL(src || 'about:blank').pathname);
+    && /\/api\/v1\/core\/snapshot\/[^/]+\/screencast\.jpg$/.test(new URL(src || 'about:blank').pathname);
   if (!readyOnly) return state;
   if (!state.ready || src === rejectedFrameUrl) return false;
   try {
@@ -291,7 +291,7 @@ async function main() {
     const screencastResponses = new Map();
     if (requireLiveProgress) {
       page.on('response', (response) => {
-        if (/\/files\/chrome_screencast\/latest\.jpg$/.test(new URL(response.url()).pathname) && response.ok()) {
+        if (/\/api\/v1\/core\/snapshot\/[^/]+\/screencast\.jpg$/.test(new URL(response.url()).pathname) && response.ok()) {
           screencastResponses.set(response.url(), response);
         }
       });

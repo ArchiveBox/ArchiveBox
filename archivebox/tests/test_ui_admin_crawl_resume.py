@@ -69,12 +69,17 @@ def test_bulk_resume_requeues_paused_children_with_bounded_sql(admin_client, adm
         assert before <= crawl.retry_at <= after
         for child in children:
             child.refresh_from_db()
-            assert child.status == Snapshot.StatusChoices.QUEUED
-            assert child.retry_at == crawl.retry_at
+            if old_crawls[crawl.pk]["status"] == Crawl.StatusChoices.PAUSED:
+                assert child.status == Snapshot.StatusChoices.QUEUED
+                assert child.retry_at == crawl.retry_at
+            else:
+                assert Snapshot.objects.filter(pk=child.pk).values().get() == old_snapshots[child.pk]
 
     changed_fields = {"status", "retry_at", "modified_at"}
     selected_ids = {crawl.pk for crawl, _ in selected}
-    resumed_ids = {child.pk for _, children in selected for child in children}
+    resumed_ids = {
+        child.pk for crawl, children in selected if old_crawls[crawl.pk]["status"] == Crawl.StatusChoices.PAUSED for child in children
+    }
     for model, old_rows, changed_ids in ((Crawl, old_crawls, selected_ids), (Snapshot, old_snapshots, resumed_ids)):
         for row in model.objects.values():
             old = old_rows[row["id"]]

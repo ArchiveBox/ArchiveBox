@@ -3,7 +3,9 @@ __package__ = "archivebox.api"
 import math
 import json
 import mimetypes
+import os
 import re
+from hashlib import sha256
 from html import unescape
 from collections import defaultdict
 from pathlib import Path, PurePosixPath
@@ -13,7 +15,7 @@ from datetime import datetime, time
 
 from django.db import IntegrityError
 from django.db.models import Model, Q
-from django.http import HttpRequest, HttpResponse
+from django.http import FileResponse, HttpRequest, HttpResponse
 from django.http.multipartparser import MultiPartParser, MultiPartParserError
 from django.core.exceptions import ValidationError
 from django.core.files.storage import FileSystemStorage
@@ -29,7 +31,7 @@ from ninja.pagination import paginate, PaginationBase
 from ninja.errors import HttpError
 
 from archivebox.core.models import Snapshot, ArchiveResult, Tag
-from archivebox.core.permissions import public_snapshots_queryset
+from archivebox.core.permissions import can_view_snapshot, public_snapshots_queryset
 from archivebox.api.auth import authenticated_user_from_request
 from archivebox.config.common import get_config
 from archivebox.core.routes_util import build_snapshot_detail_url, build_web_url
@@ -941,6 +943,44 @@ def get_snapshot(request: HttpRequest, snapshot_id: str, with_archiveresults: bo
     """Get a specific Snapshot by id."""
     setattr(request, "with_archiveresults", with_archiveresults)
     return _get_snapshot_by_ref(snapshot_id)
+
+
+@router.get("/snapshot/{snapshot_id}/screencast.jpg", auth=None, url_name="snapshot_screencast")
+def snapshot_screencast(request: HttpRequest, snapshot_id: str):
+    try:
+        snapshot = Snapshot.objects.select_related("crawl__created_by").get(pk=UUID(snapshot_id))
+    except (ValueError, Snapshot.DoesNotExist):
+        raise HttpError(404, "Snapshot not found")
+    authenticated_user_from_request(request)
+    if not can_view_snapshot(request, snapshot):
+        raise HttpError(404, "Snapshot not found")
+    try:
+        started_at = float(request.GET["after"]) if request.GET.get("after") else None
+    except ValueError:
+        raise HttpError(400, "Invalid screencast start time")
+
+    # Match the hook's lexical path.resolve(SNAP_DIR) without probing remote
+    # storage. Never substitute another capture's shared crawl frame.
+    snapshot_dir = snapshot.get_storage_path_for_version(snapshot.fs_version)
+    candidates = [snapshot_dir]
+    if snapshot_dir.name == snapshot.pk.hex:
+        candidates.append(snapshot_dir.with_name(str(UUID(snapshot.pk.hex))))
+    live_root = Path(get_config(snapshot=snapshot, resolve_plugins=False).TMP_DIR) / "chrome_screencast"
+    for directory in candidates:
+        try:
+            frame = (live_root / sha256(os.path.abspath(directory).encode()).hexdigest() / "latest.jpg").open("rb")
+        except (FileNotFoundError, IsADirectoryError, NotADirectoryError):
+            continue
+        if started_at is not None and os.fstat(frame.fileno()).st_mtime < started_at:
+            frame.close()
+            continue
+        response = FileResponse(frame, content_type="image/jpeg")
+        response["Cache-Control"] = "no-store, no-cache, max-age=0, must-revalidate"
+        response["Pragma"] = "no-cache"
+        response["Expires"] = "0"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+    raise HttpError(404, "No frame for this capture yet")
 
 
 @router.post("/snapshots", response=SnapshotSchema, url_name="create_snapshot")

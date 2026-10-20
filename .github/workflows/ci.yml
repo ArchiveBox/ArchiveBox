@@ -130,23 +130,11 @@ jobs:
           done
           echo 'ready=true' >> "$GITHUB_OUTPUT"
 
-  staging-health:
-    name: Cabbage deployment health
-    needs: dev-image
-    if: needs.dev-image.outputs.ready == 'true'
-    permissions:
-      actions: read
-      contents: read
-      deployments: write
-    uses: ./.github/workflows/staging-acceptance.yml
-    with:
-      sha: ${{ github.sha }}
-      health_only: true
-    secrets: inherit
-
+  # Cabbage follows :dev. Its exact-SHA acceptance runs after Release promotes
+  # the tested image; requiring that deployment here would block promotion.
   required:
     name: All required CI lanes
-    if: ${{ always() && needs.prepare.outputs.run_jobs == 'true' }}
+    if: ${{ !cancelled() && needs.prepare.outputs.run_jobs == 'true' }}
     needs:
       - prepare
       - lint
@@ -156,7 +144,6 @@ jobs:
       - python-artifacts
       - docker-digests
       - dev-image
-      - staging-health
     runs-on: ubuntu-24.04
     steps:
       - name: Verify every required lane succeeded
@@ -168,7 +155,6 @@ jobs:
           PYTHON_ARTIFACTS_RESULT: ${{ needs.python-artifacts.result }}
           DOCKER_DIGESTS_RESULT: ${{ needs.docker-digests.result }}
           DEV_IMAGE_RESULT: ${{ needs.dev-image.result }}
-          STAGING_HEALTH_RESULT: ${{ needs.staging-health.result }}
         run: |
           for result in \
             "$LINT_RESULT" \
@@ -180,7 +166,5 @@ jobs:
           do
             [[ "$result" == success ]]
           done
-          for result in "$DEV_IMAGE_RESULT" "$STAGING_HEALTH_RESULT"; do
-            [[ "$result" == success || "$result" == skipped ]]
-          done
+          [[ "$DEV_IMAGE_RESULT" == success || "$DEV_IMAGE_RESULT" == skipped ]]
           echo 'All required CI lanes and tested release artifacts succeeded.'

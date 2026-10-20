@@ -143,7 +143,7 @@ class KeyValueWidget(forms.Widget):
         # Render existing key-value pairs
         for key, val in data.items():
             val_str = json.dumps(val) if not isinstance(val, str) else val
-            html += self._render_row(widget_id, key, val_str)
+            html += self._render_row(widget_id, key, val_str, original_json=json.dumps(val))
 
         # Always add one empty row for new entries
         html += self._render_row(widget_id, "", "")
@@ -599,17 +599,23 @@ class KeyValueWidget(forms.Widget):
                     function updateHiddenField_{widget_id}() {{
                         var container = document.getElementById('{widget_id}_rows');
                         var rows = container.querySelectorAll('.key-value-row');
-                        var result = {{}};
+                        var result = [];
                         rows.forEach(function(row) {{
                             var keyInput = row.querySelector('.kv-key');
                             var valInput = row.querySelector('.kv-value');
                             if (keyInput && valInput && keyInput.value.trim()) {{
                                 var key = keyInput.value.trim();
                                 var val = valInput.value.trim();
-                                result[key] = coerceValueForStorage_{widget_id}(key, val);
+                                // Keep untouched values byte-exact, including numeric-looking strings
+                                // and JSON numbers outside JavaScript's safe integer range.
+                                var original = row.getAttribute('data-original-json');
+                                var unchanged = original !== null && keyInput.value === keyInput.defaultValue &&
+                                    valInput.value === valInput.defaultValue;
+                                var serialized = unchanged ? original : JSON.stringify(coerceValueForStorage_{widget_id}(key, val));
+                                result.push(JSON.stringify(key) + ':' + serialized);
                             }}
                         }});
-                        document.getElementById('{widget_id}').value = JSON.stringify(result);
+                        document.getElementById('{widget_id}').value = '{{' + result.join(',') + '}}';
                     }}
 
                     window.addKeyValueRow_{widget_id} = function() {{
@@ -762,7 +768,7 @@ class KeyValueWidget(forms.Widget):
         '''
         return mark_safe(html)
 
-    def _render_row(self, widget_id: str, key: str, value: str) -> str:
+    def _render_row(self, widget_id: str, key: str, value: str, original_json: str | None = None) -> str:
         from archivebox.config.common import is_sensitive_config_key
 
         # Sensitive keys (``*TOKEN*``, ``*SECRET*``, ``*API_KEY*``, ``*APIKEY*``) are
@@ -785,8 +791,9 @@ class KeyValueWidget(forms.Widget):
             rendered_value = self._escape(value)
             placeholder = "value"
             extra_attrs = ""
+        original_attr = f' data-original-json="{self._escape(original_json)}"' if original_json is not None and not is_sensitive else ""
         return f'''
-            <div class="key-value-row" style="margin-bottom: 6px;">
+            <div class="key-value-row" style="margin-bottom: 6px;"{original_attr}>
                 <div class="kv-inputs" style="display: flex; gap: 8px; align-items: center;">
                     <input type="text" class="kv-key" value="{self._escape(key)}" placeholder="KEY" list="{widget_id}_keys"
                            style="flex: 1; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 12px;">
@@ -832,6 +839,7 @@ class ConfigEditorMixin(admin.ModelAdmin):
         """Use KeyValueWidget for the config JSON field."""
         if db_field.name == "config":
             kwargs["widget"] = KeyValueWidget()
+            kwargs["show_hidden_initial"] = False  # The default hidden initial exposes write-only credentials.
         return super().formfield_for_dbfield(db_field, request, **kwargs)
 
     def save_model(self, request: HttpRequest, obj, form, change):

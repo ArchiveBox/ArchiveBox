@@ -683,6 +683,8 @@ See the [Usage: CLI](https://github.com/ArchiveBox/ArchiveBox/wiki/Usage#cli-usa
 
 It also includes a built-in scheduled import feature with `archivebox schedule`, handled by the same orchestrator that powers `archivebox server`, so you can pull in URLs from RSS feeds and websites regularly without a separate cron container.
 
+Recursive schedules (`--depth=1` or greater) refresh their explicit seed URLs on each run so they can discover new links. With `ONLY_NEW=True`, previously archived discovered URLs are still skipped. Nonrecursive schedules and ordinary `add --only-new` calls continue to skip existing URLs. Schedules preserve explicitly submitted filters, plugin selection, limits, and custom config; each new run resolves current defaults for settings left unspecified.
+
 <br/>
 
 
@@ -891,6 +893,12 @@ snapshot/crawl identities and saved results, and can be restarted. Normal
 <code>init</code> and <code>update</code> do not scan the entire archive tree.
 Conflicting identities are reported rather than overwritten. Copying captures
 does not require importing the old database or its machine/process records.
+
+To repair only known captures, add snapshot filters, for example
+<code>archivebox update --rescan --migrate-only --filter-type timestamp TIMESTAMP</code>.
+Filtered rescans do not search other directories for orphans or recapture URLs.
+Retained files without recoverable extractor history contribute to the cached
+snapshot size without creating successful extractor results.
 
 Tags are restored on the first import. Later rescans preserve tag removals and
 renames made in the destination database and update the on-disk metadata.

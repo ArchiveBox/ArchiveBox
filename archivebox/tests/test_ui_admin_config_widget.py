@@ -416,3 +416,60 @@ def test_auto_onedomain_mode_is_not_reported_as_unsafe():
 
     assert config.USES_SUBDOMAIN_ROUTING is False
     assert system_warnings_banner({"CONFIG": config})["mode"] != "unsafe"
+
+
+@pytest.mark.django_db(transaction=True)
+def test_config_widget_preserves_untouched_json_values_on_save(admin_user, crawl, live_server, browser_runtime):
+    import json
+    from urllib.parse import urlsplit
+
+    from django.urls import reverse
+    from playwright.sync_api import expect, sync_playwright
+
+    from archivebox.machine.models import Machine
+
+    original = {
+        "DELETE_AFTER": "0",
+        "CHROME_DELAY_AFTER_LOAD": 0.0,
+        "CUSTOM_LEADING_ZERO": "001",
+        "CUSTOM_SPACES": "  keep spaces  ",
+        "CUSTOM_BIG_INTEGER": 9007199254740993,
+        "CUSTOM_NESTED": {"number": 9007199254740993, "fraction": 0.0},
+        "CUSTOM_FALSE": False,
+        "CUSTOM_NULL": None,
+        "CUSTOM_API_KEY": "local-test-write-only-secret",
+        "CRAWL_MAX_SIZE": 10737418240,
+    }
+    crawl.config = original
+    crawl.save(update_fields=["config"])
+    crawl.refresh_from_db()
+    original = dict(crawl.config)
+    port = urlsplit(live_server.url).port
+    machine = Machine.current()
+    machine.config = {**machine.config, "BASE_URL": f"http://archivebox.localhost:{port}"}
+    machine.save(update_fields=["config"])
+    origin = f"http://admin.archivebox.localhost:{port}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(
+            executable_path=str(browser_runtime["chrome_binary"]),
+            args=[*browser_runtime["chrome_args"], "--host-resolver-rules=MAP *.archivebox.localhost 127.0.0.1"],
+        )
+        try:
+            page = browser.new_page()
+            page.goto(f"{origin}/admin/login/")
+            page.locator("#id_username").fill(admin_user.username)
+            page.locator("#id_password").fill("testpassword")
+            page.locator('input[type="submit"]').click()
+            page.wait_for_url(f"{origin}/admin/")
+            page.goto(origin + reverse("admin:crawls_crawl_change", args=[crawl.pk]))
+            secret_in_page = original["CUSTOM_API_KEY"] in page.content()
+            row = page.locator(".key-value-row").filter(has=page.locator('.kv-key[value="CRAWL_MAX_SIZE"]'))
+            row.locator(".kv-value").fill("10995116277760")
+            page.get_by_role("button", name="Save", exact=False).click()
+            expect(page.locator(".messagelist")).to_contain_text("changed successfully")
+        finally:
+            browser.close()
+    crawl.refresh_from_db()
+    expected = {**original, "CRAWL_MAX_SIZE": 10995116277760}
+    assert json.dumps(crawl.config, sort_keys=True) == json.dumps(expected, sort_keys=True)
+    assert not secret_in_page
