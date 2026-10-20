@@ -14,6 +14,34 @@ ADMIN_HOST = "admin.archivebox.localhost:5797"
 API_HOST = "api.archivebox.localhost:5797"
 
 
+@pytest.mark.parametrize("override", [0, "0", False, "off", None, ""])
+def test_snapshot_retention_zero_overrides_parent_duration(crawl, override):
+    from archivebox.core.models import ArchiveResult, Snapshot
+
+    crawl.config = {"DELETE_AFTER": "2h"}
+    crawl.save()
+    snapshot = Snapshot.objects.create(
+        crawl=crawl,
+        url="https://example.com/retention-override",
+        config={"DELETE_AFTER": override},
+    )
+    result = ArchiveResult.objects.create(
+        snapshot=snapshot,
+        plugin="wget",
+        hook_name="on_Snapshot__06_wget",
+    )
+    assert ArchiveResult.delete_expired() == 0
+    snapshot.refresh_from_db()
+    result.refresh_from_db()
+    assert crawl.delete_at is not None
+    if override is None or override == "":
+        assert snapshot.delete_at is not None
+        assert result.delete_at is not None
+    else:
+        assert snapshot.delete_at is None
+        assert result.delete_at is None
+
+
 def test_delete_after_real_cli_and_orchestrator_paths_cover_all_retained_models(tmp_path, recursive_test_site):
     env = cli_env(disable_extractors=True)
     _cmd_result = run_archivebox_cmd(["init", "--quick"], cwd=tmp_path, timeout=90)

@@ -135,7 +135,8 @@ def resolve_delete_after_config_value(*configs: Mapping[str, Any] | None) -> str
         if config is None:
             continue
         value = config.get("DELETE_AFTER")
-        if value:
+        # Explicit JSON zero/false disables retention instead of inheriting it.
+        if value is not None and value != "":
             return str(value)
     return "0"
 
