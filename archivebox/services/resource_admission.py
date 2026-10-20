@@ -87,6 +87,7 @@ def host_swap_free_bytes(meminfo_swap_free: int) -> int:
 class ResourceAdmission:
     def __init__(self):
         self._stalls: dict[str, tuple[int, float]] = {}
+        self._cpu_throttled: dict[str, int] = {}
         self._checked_at = float("-inf")
         self._reason: str | None = None
         self.observed_snapshot_cost: int | None = None
@@ -252,6 +253,13 @@ class ResourceAdmission:
         stalled_percent = (total - previous_total) / (elapsed * 1_000_000) * 100
         return avg10 >= threshold and stalled_percent >= threshold
 
+    def observe_cpu_throttling(self, source: str, total: int) -> bool:
+        previous = self._cpu_throttled.get(source)
+        self._cpu_throttled[source] = total
+        # Counters are cumulative: historical throttling or a recreated cgroup
+        # must not indefinitely prevent new captures.
+        return previous is not None and total > previous
+
     def resource_pressure(self, *, required_memory: int | None = None) -> str | None:
         # Check capacity on every admission, independently of cached PSI. An
         # idle runner still needs room for its last measured capture; allowing
@@ -267,6 +275,14 @@ class ResourceAdmission:
         reasons = []
         cgroups = self.cgroup_paths()
         for path in cgroups:
+            try:
+                cpu_stat = dict(line.split() for line in (path / "cpu.stat").read_text().splitlines())
+                # PSI measures waiting, not remaining CPU quota. One runnable
+                # task can exhaust a fractional quota with almost no PSI.
+                if self.observe_cpu_throttling(str(path), int(cpu_stat["nr_throttled"])):
+                    reasons.append("cpu quota throttling")
+            except (OSError, ValueError, KeyError):
+                pass
             try:
                 current = int((path / "memory.current").read_text())
                 for name in ("memory.high", "memory.max"):

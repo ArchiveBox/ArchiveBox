@@ -22,6 +22,7 @@ from .test_recursive_crawl_1 import (
 
 def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
     """Require recent measured pressure and a matching single-slot decision."""
+    pressure_reason = r"(?:(?:cpu|memory|io) stalls|cpu quota throttling)"
     pressure_times = [
         datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc)
         for source, suffix in (
@@ -30,7 +31,7 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
         )
         for stamp in re.findall(
             rf"\[([^]\n]+)\] WARNING archivebox.services.{source} Capture admission deferred for crawl {re.escape(crawl_id)}: "
-            rf"(?:cpu|memory|io) stalls(?:, (?:cpu|memory|io) stalls)*{suffix}$",
+            rf"{pressure_reason}(?:, {pressure_reason})*{suffix}$",
             stderr,
             re.M,
         )
@@ -60,10 +61,12 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
 
 
 @pytest.mark.parametrize("active_pressure", [False, True])
+@pytest.mark.parametrize("pressure_reason", ["io stalls", "cpu quota throttling"])
 @pytest.mark.parametrize("invalid", [None, "absent", "stale", "other-crawl", "parallel", "missing-decision", "unmeasured", "not-denied"])
-def test_serialized_recovery_requires_matching_observed_evidence(invalid, active_pressure):
+def test_serialized_recovery_requires_matching_observed_evidence(invalid, active_pressure, pressure_reason):
     # Exact stderr excerpt and first-hook timestamps from the real hosted run.
     stderr = (Path(__file__).parent / "fixtures" / "admission-pressure-recovery.txt").read_text()
+    stderr = stderr.replace("io stalls", pressure_reason)
     if active_pressure:
         # Same strict evidence contract for the active-pressure branch, whose
         # native cgroup regression proves it can deny without the idle warning.

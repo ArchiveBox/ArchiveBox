@@ -29,6 +29,19 @@ def test_cpu_admission_respects_process_affinity():
     assert admission.snapshot_limit(1) == 1
 
 
+def test_cpu_quota_admission_uses_fresh_throttling_without_sticky_history():
+    admission = ResourceAdmission()
+    assert not admission.observe_cpu_throttling("capture", 200)
+    assert admission.observe_cpu_throttling("capture", 201)
+    assert not admission.observe_cpu_throttling("capture", 201)
+    assert not admission.observe_cpu_throttling("capture", 0)
+    assert admission.observe_cpu_throttling("capture", 1)
+    # Each ancestor has an independent quota/counter.
+    assert not admission.observe_cpu_throttling("parent", 50)
+    assert admission.observe_cpu_throttling("parent", 51)
+    assert not admission.observe_cpu_throttling("capture", 1)
+
+
 def test_snapshot_admission_stages_first_capture_then_uses_measured_headroom():
     admission = ResourceAdmission()
     # Exercise the warmup policy with explicit headroom. The integration entry
