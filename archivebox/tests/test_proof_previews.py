@@ -111,6 +111,14 @@ def test_tlsnotary_preview_verifies_saved_evidence_without_remote_requests(snaps
         assert page.locator("nav").is_visible()
         assert page.locator("#summary").is_visible()
 
+        # Chrome teardown removes its runtime navigation marker. The saved proof
+        # remains independently verifiable after that normal lifecycle transition.
+        (snapshot.output_dir / "chrome/navigation.json").unlink()
+        page.goto(url)
+        page.wait_for_function("document.querySelector('#status').classList.contains('verified')")
+        assert page.locator("#source-response-time").inner_text() == "Page load time unavailable"
+        assert page.locator("#content").is_visible()
+
         response_path = evidence / "response.http"
         original = response_path.read_bytes()
         response_path.write_bytes(original[:-1] + bytes([original[-1] ^ 1]))
