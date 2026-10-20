@@ -1,0 +1,25 @@
+README.md
+  s_10bc94d001be49::t_41a9fc92ed2d7b 686-687
+archivebox/cli/archivebox_schedule.py
+  s_10bc94d001be49::t_5eb28b9d00d0da 177
+archivebox/crawls/models.py
+  s_10bc94d001be49::t_6445a3ac8db2ee 130-133,988-990,992,1179-1183
+archivebox/tests/test_scheduled_recursive_seeds.py
+  s_10bc94d001be49::t_a45f938aa46371 1-122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5fd1a9224dc4079e3a7cac6dd3b1c50941e3c638",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
