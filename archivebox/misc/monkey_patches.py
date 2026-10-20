@@ -62,6 +62,7 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
             return
 
         # clean up the log format to mostly match the same format as django.conf.settings.LOGGING rich formats
+        host = host or "-"  # Daphne has no client address for UNIX sockets and some rejected requests.
         self.stream.write(
             "%s HTTP     %s %s %s\n"
             % (
