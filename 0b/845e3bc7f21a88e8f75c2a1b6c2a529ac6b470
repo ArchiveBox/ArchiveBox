@@ -1,0 +1,24 @@
+archivebox/tests/test_recursive_crawl_2.py
+  s_10bc94d001be49::t_1bfab86c51becb 64,66,69
+  s_10bc94d001be49::t_d7273b249f611a 25,34
+archivebox/services/resource_admission.py
+  s_10bc94d001be49::t_93b6b014a7f5cc 90,256-262,278-285
+archivebox/tests/test_resource_admission.py
+  s_10bc94d001be49::t_93b6b014a7f5cc 32-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0b845e3bc7f21a88e8f75c2a1b6c2a529ac6b470",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
