@@ -1,0 +1,16 @@
+archivebox/core/models.py
+  h_923c208e183a7b 849-854,871-874
+archivebox/tests/test_snapshot_cancel_storage.py
+  h_923c208e183a7b 1-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "117bdb1245caab1b8abddb75984e7e773c90605e",
+  "prompts": {},
+  "humans": {
+    "h_923c208e183a7b": {
+      "author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
