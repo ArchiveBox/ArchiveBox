@@ -1,0 +1,27 @@
+.github/scripts/discover_test_matrix.py
+  s_10bc94d001be49::t_fcfc6c3e417f2a 29-36,46,69,83
+.github/workflows/test-parallel.yml
+  s_10bc94d001be49::t_fcfc6c3e417f2a 120,126-127
+  s_10bc94d001be49::t_bdec22c2c01c8e 128
+archivebox/tests/test_cli_run_4.py
+  s_10bc94d001be49::t_fcfc6c3e417f2a 1-3
+archivebox/tests/test_release_workflow.py
+  s_10bc94d001be49::t_ea9e936bc55e00 619-643
+  s_10bc94d001be49::t_d6acbe9d67d6ab 611-618
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f5c551b7e62afc7d88ab235abe73d5e50a458dd3",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
