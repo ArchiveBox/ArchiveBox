@@ -836,7 +836,7 @@ class CrawlRunner:
             and (not key.endswith("_BINARY") or value == self.base_config.get(key))
         }
         # Crawl.output_dir no longer probes for pre-0.9.4 hyphenated dirs (it
-        # is read by request handlers). Rename one into place before writing.
+        # is read by request handlers). Link one into place before writing.
         self.crawl.migrate_legacy_output_dir()
         self.crawl_output_dir = str(self.crawl.output_dir)
         Path(self.crawl_output_dir).mkdir(parents=True, exist_ok=True)

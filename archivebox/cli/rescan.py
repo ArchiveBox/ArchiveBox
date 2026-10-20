@@ -182,7 +182,7 @@ def _reconcile_directory(directory: Path) -> str:
         # Maintenance projects DB edits back to disk. Do not make web tag edits
         # wait for remote storage, or treat the stale export as an edit itself.
         snapshot.write_index_jsonl(output_dir=directory)
-    # Crawl.output_dir trusts the DB too; rename a legacy hyphenated crawl dir.
+    # Crawl.output_dir trusts the DB too; link a legacy crawl at its canonical name.
     snapshot.crawl.migrate_legacy_output_dir()
     link = Path(snapshot.crawl.output_dir) / "snapshots" / snapshot.extract_domain_from_url(snapshot.url) / compact_uuid(snapshot.id).hex
     links_ok = link.is_symlink() and link.resolve() == directory.resolve()

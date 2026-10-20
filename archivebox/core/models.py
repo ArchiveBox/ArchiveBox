@@ -1220,7 +1220,7 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return cleanup
 
     def _fs_migrate_from_0_9_4_to_0_9_5(self, source_dir: Path | None = None, config: "ArchiveBoxBaseConfig | None" = None):
-        """Move a hyphenated-id snapshot folder (and its crawl's) to the compact-id path."""
+        """Move a hyphenated snapshot folder and expose its crawl at the canonical path."""
         target_dir = self.get_storage_path_for_version("0.9.5")
         legacy_dir = Path(source_dir) if source_dir else target_dir.with_name(str(uuid.UUID(str(self.id))))
         cleanup = None
@@ -2886,8 +2886,8 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
                 crawl = Crawl.objects.filter(id=self.crawl_id).select_related("created_by").first()
             if not crawl:
                 return
-            # Creating the canonical crawl dir below would strand a legacy
-            # hyphenated one (migrate_legacy_output_dir never merges), so move it first.
+            # Keep a historical crawl tree in place behind its canonical alias
+            # before creating this snapshot's projection; never merge whole trees.
             crawl.migrate_legacy_output_dir()
             crawl_dir = Path(crawl.output_dir)
 

@@ -484,21 +484,23 @@ class Crawl(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelWith
         # WHY: derived from DB fields only. Request handlers (e.g. the crawl
         # changelist's stop-reason column) read this per row, and archive
         # storage may be a remote FUSE mount where each exists() probe is a
-        # network round trip. Legacy hyphenated dirs are renamed into place by
+        # network round trip. Legacy hyphenated dirs are linked into place by
         # the orchestrator / `archivebox update --rescan --migrate-only` via
         # migrate_legacy_output_dir(), so nothing else needs to look for them.
         return self.output_dir_candidates[0]
 
     def migrate_legacy_output_dir(self) -> bool:
-        """Rename a pre-0.9.5 hyphenated crawl dir to the current compact-UUID name.
+        """Expose a legacy crawl under its canonical name without moving its tree.
 
-        Orchestrator/migration-only: touches archive storage.
+        A directory rename on object storage copies every descendant. Snapshot
+        maintenance must not relocate unrelated captures in a historical crawl.
+        Both names have the same parent, so existing relative links stay valid.
         """
         output_dir, hyphen_dir = self.output_dir_candidates
         # is_dir() first: it is the only check made for an already-canonical crawl.
         if not hyphen_dir.is_dir() or hyphen_dir.is_symlink() or output_dir.exists():
             return False
-        hyphen_dir.rename(output_dir)
+        output_dir.symlink_to(hyphen_dir.name, target_is_directory=True)
         return True
 
     def get_urls_list(self) -> list[str]:
