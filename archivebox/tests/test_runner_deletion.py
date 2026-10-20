@@ -112,7 +112,11 @@ def test_runner_retries_failed_deletion_without_blocking_captures(initialized_ar
         kill_processes_for_data_dir(initialized_archive)
 
 
-def test_deletion_releases_database_before_filesystem_io(initialized_archive):
+@pytest.mark.parametrize(
+    "entrypoint",
+    ["run_pending_crawls(maintenance_only=True)", "Snapshot.delete_requested(batch_size=1, drain=True)"],
+)
+def test_deletion_releases_database_before_filesystem_io(initialized_archive, entrypoint):
     result = run_archivebox_cmd(
         [
             "manage",
@@ -165,7 +169,7 @@ def test_deletion_releases_database_before_filesystem_io(initialized_archive):
                     checked.add(str(args[0]))
 
                 sys.addaudithook(inspect_filesystem_operation)
-                run_pending_crawls(maintenance_only=True)
+                RUN_DELETION()
                 assert checked == paths
                 assert not Snapshot.objects.filter(crawl=crawl).exists()
                 assert not ArchiveResult.objects.filter(snapshot_id__in=snapshot_ids).exists()
@@ -173,7 +177,7 @@ def test_deletion_releases_database_before_filesystem_io(initialized_archive):
                 crawl.refresh_from_db()
                 assert crawl.notes == 'concurrent write succeeded'
                 print(json.dumps({'verified_deletions': len(checked)}))
-            """),
+            """).replace("RUN_DELETION()", entrypoint),
         ],
         cwd=initialized_archive,
         env=cli_env(disable_extractors=True),

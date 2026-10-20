@@ -2340,7 +2340,7 @@ def run_pending_crawls(
         from django.db import connections
 
         try:
-            Snapshot.delete_requested(batch_size=100)
+            Snapshot.delete_requested(batch_size=100, drain=True)
         finally:
             connections.close_all()
 
@@ -2354,7 +2354,7 @@ def run_pending_crawls(
                 continue
         if crawl_id is None and now_monotonic - last_retention_at >= (60.0 if daemon else 1.0):
             if daemon:
-                # At most one batch can be doing filesystem I/O. A stuck mount
+                # At most one job can be doing filesystem I/O. A stuck mount
                 # must not block capture scheduling or runner shutdown; rows
                 # remain pending until cleanup succeeds, including on restart.
                 if (deletion_thread is None or not deletion_thread.is_alive()) and Snapshot.objects.filter(

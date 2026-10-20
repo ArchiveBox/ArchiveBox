@@ -627,14 +627,17 @@ class Snapshot(ModelWithDeleteAfter, ModelWithOutputDir, ModelWithConfig, ModelW
         return super().delete(using=using, keep_parents=keep_parents)
 
     @classmethod
-    def delete_requested(cls, *, batch_size=100):
+    def delete_requested(cls, *, batch_size=100, drain: bool = False):
         # Finish the bounded read before touching files: even an open SELECT
         # cursor can hold a SQLite read lock for the duration of slow cleanup.
-        pending = list(cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by")[:batch_size])
+        queryset = cls.objects.filter(status=cls.DELETING_STATE).select_related("crawl__created_by").order_by("pk")
+        # The daemon's existing filesystem job can drain successive pages.
+        # Keyset iteration advances past failed rows, attempting each only once.
+        pending = queryset.paged_iterator(chunk_size=batch_size) if drain else list(queryset[:batch_size])
         for snapshot in pending:
             try:
                 snapshot.delete()
-            except OSError:
+            except (OSError, ValueError):
                 logging.getLogger(__name__).exception("Snapshot %s file deletion failed; keeping its database row", snapshot.pk)
 
     @classmethod

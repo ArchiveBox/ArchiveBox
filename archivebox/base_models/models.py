@@ -3,7 +3,9 @@
 __package__ = "archivebox.base_models"
 
 import json
+import os
 import shutil
+import stat
 from typing import Any
 
 from archivebox.uuid_compat import CompactUUIDField, uuid7
@@ -377,25 +379,28 @@ class ModelWithOutputDir(ModelWithUUID):
         safe_paths = []
         for raw_path in paths:
             path = Path(raw_path)
-            is_safe = False
-            for candidate in (path.absolute(), path.resolve()):
-                try:
-                    candidate.relative_to(data_dir)
-                    is_safe = True
-                    break
-                except ValueError:
-                    continue
-            if not is_safe:
+            # Resolve parents for containment, but never follow the final link:
+            # deletion unlinks that entry, including dangling/cyclic symlinks.
+            candidate = Path(os.path.abspath(path.parent.resolve() / path.name))
+            if candidate == data_dir or not candidate.is_relative_to(data_dir):
                 raise ValueError(f"Refusing to delete output path outside DATA_DIR: {path}")
             safe_paths.append(path)
         return tuple(safe_paths)
 
     @classmethod
     def delete_output_paths(cls, paths) -> None:
-        for path in cls.validate_output_paths_for_delete(paths):
-            if path.is_symlink() or path.is_file():
+        existing = []
+        for path in dict.fromkeys(Path(raw_path) for raw_path in paths):
+            try:
+                mode = path.lstat().st_mode
+            except FileNotFoundError:
+                continue
+            existing.append((path, mode))
+        cls.validate_output_paths_for_delete(path for path, _mode in existing)
+        for path, mode in existing:
+            if stat.S_ISLNK(mode) or stat.S_ISREG(mode):
                 path.unlink(missing_ok=True)
-            elif path.is_dir():
+            elif stat.S_ISDIR(mode):
                 shutil.rmtree(path)
             # lstat also catches dangling symlinks and propagates mount and
             # permission errors rather than mistaking them for absence.
