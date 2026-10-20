@@ -1,0 +1,21 @@
+archivebox/crawls/admin.py
+  s_10bc94d001be49::t_6b1b55c5576ff3 895-901,903-904
+archivebox/tests/test_ui_admin_crawl.py
+  s_10bc94d001be49::t_ce6d637674282d 279-314
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "666ed5fd62fd1de0ccef048aac1d0c39f29c88a4",
+  "prompts": {},
+  "sessions": {
+    "s_10bc94d001be49": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a11f62-2c55-7051-a677-585a21b42fb4",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "Nick Sweeting <git@sweeting.me>"
+    }
+  }
+}
