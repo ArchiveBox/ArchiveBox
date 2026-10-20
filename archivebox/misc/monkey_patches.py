@@ -52,6 +52,8 @@ class ModifiedAccessLogGenerator(access.AccessLogGenerator):
             return
         if "GET /api/v1/crawls/crawl/" in request and "/files/chrome_screencast/latest.jpg" in request:
             return
+        if "GET /api/v1/core/snapshot/" in request and "/screencast.jpg" in request:
+            return
         if "GET /admin/jsi18n/" in request:
             return
         if request.endswith("/favicon.ico") or request.endswith("/robots.txt") or request.endswith("/screenshot.png"):

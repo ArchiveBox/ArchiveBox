@@ -565,7 +565,7 @@ class TestLiveProgressView:
                 assert saved["screencastImageHasContent"] is True, saved
                 assert saved["snapshotId"] == str(snapshot.pk).replace("-", "")
                 assert saved["runningExtractors"] > 0
-                assert saved["screencastImageUrl"].split("?")[0].endswith(f"/crawl/{crawl.pk}/files/chrome_screencast/latest.jpg")
+                assert saved["screencastImageUrl"].split("?")[0].endswith(f"/snapshot/{snapshot.pk}/screencast.jpg")
                 png = Path(variant["path"]).read_bytes()
                 assert png[:8] == b"\x89PNG\r\n\x1a\n"
                 assert unpack(">II", png[16:24]) == (variant["width"], variant["height"])
@@ -856,9 +856,9 @@ class TestLiveProgressView:
             },
         )
         snapshot.refresh_from_db()
-        durable_dir = Path(snapshot.crawl.output_dir) / "chrome_screencast"
-        crawl_key = hashlib.sha256(str(snapshot.crawl.output_dir.resolve()).encode()).hexdigest()
-        frame = Path(get_config(crawl=crawl).TMP_DIR) / "chrome_screencast" / crawl_key / "latest.jpg"
+        durable_dir = Path(snapshot.output_dir) / "chrome_screencast"
+        snapshot_key = hashlib.sha256(os.path.abspath(snapshot.output_dir).encode()).hexdigest()
+        frame = Path(get_config(snapshot=snapshot).TMP_DIR) / "chrome_screencast" / snapshot_key / "latest.jpg"
         errors = []
 
         def run_snapshot():
@@ -900,7 +900,9 @@ class TestLiveProgressView:
             assert response.status_code == 200, response.content
             assert process_probes == []
             active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
-            assert active_crawl["screencast_url"].startswith(f"/api/v1/crawls/crawl/{crawl.pk}/files/chrome_screencast/latest.jpg")
+            assert active_crawl["screencast_url"].startswith(f"/api/v1/core/snapshot/{snapshot.pk}/screencast.jpg")
+            active_snapshot = next(item for item in active_crawl["active_snapshots"] if item["id"] == str(snapshot.pk))
+            assert active_snapshot["screencast_url"] == active_crawl["screencast_url"]
             image_response = client.get(active_crawl["screencast_url"], HTTP_HOST=ADMIN_TEST_HOST)
             assert image_response.status_code == 200
             assert b"".join(image_response.streaming_content) == frame.read_bytes()
@@ -915,9 +917,105 @@ class TestLiveProgressView:
         assert len(kept_frames) == keep_frames
         assert all(saved.read_bytes().startswith(b"\xff\xd8\xff") for saved in kept_frames)
         for saved in kept_frames:
-            response = client.get(f"/api/v1/crawls/crawl/{crawl.pk}/files/chrome_screencast/{saved.name}", HTTP_HOST=ADMIN_TEST_HOST)
+            from archivebox.core.routes_util import build_snapshot_url
+            from urllib.parse import urlsplit
+
+            saved_url = urlsplit(build_snapshot_url(str(snapshot.pk), f"chrome_screencast/{saved.name}"))
+            response = client.get(saved_url.path, HTTP_HOST=saved_url.netloc)
             assert response.status_code == 200
             assert b"".join(response.streaming_content) == saved.read_bytes()
+
+    def test_live_progress_keeps_concurrent_snapshot_frames_separate(
+        self,
+        client,
+        admin_user,
+        crawl,
+        painted_http_server,
+        cached_abxpkg_lib_dir,
+        tmp_path,
+    ):
+        import hashlib
+
+        from archivebox.config.common import get_config
+        from archivebox.core.models import Snapshot
+        from archivebox.crawls.models import Crawl
+        from archivebox.machine.models import Machine
+        from archivebox.services.runner import run_crawl
+
+        resolve_abxpkg_chrome_env(cached_abxpkg_lib_dir)
+        machine = Machine.current()
+        machine.config = {**machine.config, "TMP_DIR": str(tmp_path / "local-runtime")}
+        machine.save(update_fields=["config"])
+        config = {
+            "PLUGINS": "chrome,chrome_screencast",
+            "CHROME_HEADLESS": True,
+            "CHROME_SANDBOX": False,
+            "CHROME_ISOLATION": "snapshot",
+            "CRAWL_MAX_CONCURRENT_SNAPSHOTS": 2,
+            "CHROME_TIMEOUT": 90,
+            "CHROME_PAGELOAD_TIMEOUT": 90,
+            "CHROME_DELAY_AFTER_LOAD": 30,
+            "CHROME_SCREENCAST_KEEP": 0,
+            "TIMEOUT": 90,
+        }
+        Crawl.objects.filter(pk=crawl.pk).update(status=Crawl.StatusChoices.STARTED, retry_at=timezone.now(), config=config)
+        snapshots = [
+            Snapshot.objects.create(
+                crawl=crawl,
+                url=f"{painted_http_server.url}?capture={index}",
+                config=config,
+                retry_at=timezone.now(),
+            )
+            for index in range(3)
+        ]
+        # Three real captures allow the runner's initial solo warmup; if an
+        # earlier capture already taught its cost, the first pair can overlap.
+        frames = [
+            get_config(snapshot=snapshot).TMP_DIR
+            / "chrome_screencast"
+            / hashlib.sha256(os.path.abspath(snapshot.output_dir).encode()).hexdigest()
+            / "latest.jpg"
+            for snapshot in snapshots
+        ]
+        errors = []
+
+        def run_snapshots():
+            try:
+                run_crawl(str(crawl.pk), snapshot_ids=[str(item.pk) for item in snapshots])
+            except BaseException as err:
+                errors.append(err)
+
+        runner = Thread(target=run_snapshots)
+        runner.start()
+        try:
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline and sum(frame.is_file() for frame in frames) < 2:
+                assert not errors, errors
+                time.sleep(0.1)
+            active = [(snapshot, frame) for snapshot, frame in zip(snapshots, frames) if frame.is_file()]
+            assert len(active) == 2
+            client.force_login(admin_user)
+            response = client.get("/progress.json", HTTP_HOST=ADMIN_TEST_HOST)
+            assert response.status_code == 200, response.content
+            active_crawl = next(item for item in response.json()["active_crawls"] if item["id"] == str(crawl.pk))
+            # Queued rows use the public progress API's compact list form.
+            rows = {item["id"]: item for item in active_crawl["active_snapshots"] if isinstance(item, dict)}
+            urls = []
+            for snapshot, frame in active:
+                assert rows[str(snapshot.pk)]["status"] == "started"
+                url = rows[str(snapshot.pk)]["screencast_url"]
+                assert url.split("?")[0] == f"/api/v1/core/snapshot/{snapshot.pk}/screencast.jpg"
+                image = client.get(url, HTTP_HOST=ADMIN_TEST_HOST)
+                assert image.status_code == 200
+                assert b"".join(image.streaming_content) == frame.read_bytes()
+                urls.append(url)
+            assert len(set(urls)) == 2
+            assert active_crawl["screencast_url"] in urls
+        finally:
+            runner.join(timeout=120)
+        assert not runner.is_alive()
+        assert not errors, errors
+        assert not any(frame.exists() for frame in frames)
 
     def test_live_progress_hides_finished_cancelled_crawl(self, client, admin_user, crawl, snapshot):
         from archivebox.core.models import ArchiveResult, Snapshot

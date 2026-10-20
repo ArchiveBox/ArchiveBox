@@ -206,13 +206,13 @@ def live_progress_view(request, *, authorized_snapshot=None):
 
         running_screencasts = {}
 
-        def screencast_frame_url(crawl_id: str) -> str:
-            started_at = running_screencasts.get(crawl_id)
+        def screencast_frame_url(snapshot_id: str) -> str:
+            started_at = running_screencasts.get(snapshot_id)
             if started_at is None:
                 return ""
             # File existence/freshness belongs to the image request, never to
             # the one-second JSON poll (archive storage may be remote).
-            rel = f"/api/v1/crawls/crawl/{crawl_id}/files/chrome_screencast/latest.jpg?v={int(now.timestamp())}&after={started_at.timestamp()}"
+            rel = f"/api/v1/core/snapshot/{snapshot_id}/screencast.jpg?v={int(now.timestamp())}&after={started_at.timestamp()}"
             return f"{api_base}{rel}" if api_base else rel
 
         machine = Machine.current_readonly()
@@ -596,12 +596,12 @@ def live_progress_view(request, *, authorized_snapshot=None):
                         attempt_started_at_by_snapshot.get(snapshot_id, proc["started_at"]),
                     )
             _plugin, _label, phase, _hook_name = _process_label(proc["cmd"])
-            if _plugin == "chrome_screencast" and proc["started_at"]:
+            if _plugin == "chrome_screencast" and snapshot_id and proc["started_at"]:
                 # CDP sends frames only when the page changes. Keep a still
                 # frame visible for its live capture, never for a previous run.
                 # This query already selects RUNNING rows; trust the runner's
                 # recorded state instead of probing its PID during every poll.
-                running_screencasts[crawl_id] = max(proc["started_at"], running_screencasts.get(crawl_id, proc["started_at"]))
+                running_screencasts[snapshot_id] = max(proc["started_at"], running_screencasts.get(snapshot_id, proc["started_at"]))
             if crawl_id and proc["pid"]:
                 crawl_process_pids.setdefault(crawl_id, proc["pid"])
             if phase == "snapshot" and snapshot_id and proc["pid"]:
@@ -708,8 +708,8 @@ def live_progress_view(request, *, authorized_snapshot=None):
             crawl_setup_completed = sum(1 for item in crawl_setup_plugins if item.get("status") == "succeeded")
             crawl_setup_failed = sum(1 for item in crawl_setup_plugins if item.get("status") == "failed")
             crawl_setup_pending = sum(1 for item in crawl_setup_plugins if item.get("status") == "queued")
-            crawl_screencast_url = screencast_frame_url(crawl_id)
-            crawl_screencast_link = f"/admin/crawls/crawl/{crawl_id.replace('-', '')}/change/" if crawl_screencast_url else ""
+            crawl_screencast_url = ""
+            crawl_screencast_link = ""
 
             # Get active snapshots for this crawl (already prefetched)
             active_snapshots_for_crawl = []
@@ -785,8 +785,11 @@ def live_progress_view(request, *, authorized_snapshot=None):
                     snapshot_preview_url = snapshot_favicon_url
 
                 if snapshot["status"] == Snapshot.StatusChoices.STARTED:
-                    snapshot_screencast_url = screencast_frame_url(crawl_id)
+                    snapshot_screencast_url = screencast_frame_url(str(snapshot["id"]))
                     snapshot_screencast_link = snapshot_view_url(snapshot) if snapshot_screencast_url else ""
+                    if snapshot_screencast_url and not crawl_screencast_url:
+                        crawl_screencast_url = snapshot_screencast_url
+                        crawl_screencast_link = snapshot_screencast_link
 
                 def plugin_sort_key(ar):
                     status_order = {
