@@ -271,11 +271,19 @@ class ResourceAdmission:
             ("cpu", "some", CPU_SOME_STALL_PERCENT),
             ("io", "full", IO_FULL_STALL_PERCENT),
         ):
-            for path in [Path(f"/proc/pressure/{resource}"), *[p / f"{resource}.pressure" for p in cgroups]]:
+            host_pressure = Path(f"/proc/pressure/{resource}")
+            scoped_pressure_available = False
+            for path in [*[p / f"{resource}.pressure" for p in cgroups], host_pressure]:
+                # Other containers or disks can stall without delaying this
+                # cgroup. Host memory pressure remains shared physical pressure.
+                if path == host_pressure and resource != "memory" and scoped_pressure_available:
+                    continue
                 try:
                     line = next(line for line in path.read_text().splitlines() if line.startswith(f"{signal} "))
                     fields = dict(field.split("=", 1) for field in line.split()[1:])
-                    if self.observe_stalls(str(path), int(fields["total"]), float(fields["avg10"]), now, threshold):
+                    total, avg10 = int(fields["total"]), float(fields["avg10"])
+                    scoped_pressure_available |= path != host_pressure
+                    if self.observe_stalls(str(path), total, avg10, now, threshold):
                         reasons.append(f"{resource} stalls")
                 except (OSError, ValueError, KeyError, StopIteration):
                     continue
