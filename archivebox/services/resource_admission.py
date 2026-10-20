@@ -130,11 +130,20 @@ class ResourceAdmission:
             self._last_growth = now
         return min(ceiling, self._concurrency)
 
-    def additional_snapshot_slots(self, configured: int, active: int, observed_cost: int | None) -> int:
+    def additional_snapshot_slots(self, configured: int, active: int, observed_cost: int | None, *, crawl_id: str | None = None) -> int:
         pressure = self.resource_pressure()
         headroom = self.memory_headroom()
         if pressure or headroom <= 0:
             self.concurrency_limit(configured, pressure=True, now=time.monotonic())
+            # Active captures also reset recovery; idle-only runner logging
+            # otherwise hides the measured reason for later serial admission.
+            logging.getLogger(__name__).warning(
+                "Capture admission deferred for crawl %s: %s (active=%s slots=0 adaptive=%s)",
+                crawl_id,
+                pressure or f"memory headroom {headroom} bytes",
+                active,
+                self._concurrency,
+            )
             return 0
         if not observed_cost:
             # Stage one complete real capture before spending memory on parallel

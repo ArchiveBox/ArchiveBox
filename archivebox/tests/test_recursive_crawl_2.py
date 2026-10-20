@@ -24,9 +24,13 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
     """Require recent measured pressure and a matching single-slot decision."""
     pressure_times = [
         datetime.fromisoformat(stamp).replace(tzinfo=timezone.utc)
+        for source, suffix in (
+            ("runner", ""),
+            ("resource_admission", r" \(active=\d+ slots=0 adaptive=\d+\)"),
+        )
         for stamp in re.findall(
-            rf"\[([^]\n]+)\] WARNING archivebox.services.runner Capture admission deferred for crawl {re.escape(crawl_id)}: "
-            r"(?:cpu|memory|io) stalls(?:, (?:cpu|memory|io) stalls)*$",
+            rf"\[([^]\n]+)\] WARNING archivebox.services.{source} Capture admission deferred for crawl {re.escape(crawl_id)}: "
+            rf"(?:cpu|memory|io) stalls(?:, (?:cpu|memory|io) stalls)*{suffix}$",
             stderr,
             re.M,
         )
@@ -55,10 +59,19 @@ def assert_serialized_pressure_recovery(stderr, crawl_id, starts):
         )
 
 
-@pytest.mark.parametrize("invalid", [None, "absent", "stale", "other-crawl", "parallel", "missing-decision", "unmeasured"])
-def test_serialized_recovery_requires_matching_observed_evidence(invalid):
+@pytest.mark.parametrize("active_pressure", [False, True])
+@pytest.mark.parametrize("invalid", [None, "absent", "stale", "other-crawl", "parallel", "missing-decision", "unmeasured", "not-denied"])
+def test_serialized_recovery_requires_matching_observed_evidence(invalid, active_pressure):
     # Exact stderr excerpt and first-hook timestamps from the real hosted run.
     stderr = (Path(__file__).parent / "fixtures" / "admission-pressure-recovery.txt").read_text()
+    if active_pressure:
+        # Same strict evidence contract for the active-pressure branch, whose
+        # native cgroup regression proves it can deny without the idle warning.
+        stderr = re.sub(
+            r"WARNING archivebox.services.runner (Capture admission deferred[^\n]+)",
+            r"WARNING archivebox.services.resource_admission \1 (active=1 slots=0 adaptive=1)",
+            stderr,
+        )
     crawl_id = "06ad71db64ea72bb80002740d5283a00"
     starts = [datetime.fromisoformat(value) for value in ("2026-10-20T07:52:43.845871+00:00", "2026-10-20T07:52:46.034821+00:00")]
     if invalid == "absent":
@@ -73,6 +86,8 @@ def test_serialized_recovery_requires_matching_observed_evidence(invalid):
         stderr = "\n".join(line for line in stderr.splitlines() if "07:52:45" not in line)
     elif invalid == "unmeasured":
         stderr = re.sub(r"observed_cost=\d+", "observed_cost=0", stderr)
+    elif invalid == "not-denied":
+        stderr = stderr.replace("Capture admission deferred", "Capture admission allowed").replace("slots=0", "slots=1")
     if invalid:
         with pytest.raises(AssertionError):
             assert_serialized_pressure_recovery(stderr, crawl_id, starts)

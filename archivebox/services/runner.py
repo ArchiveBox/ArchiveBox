@@ -769,6 +769,7 @@ class CrawlRunner:
             self.max_concurrent_snapshots,
             len(active_snapshot_ids),
             self._observed_snapshot_cost,
+            crawl_id=str(self.crawl.id),
         )
         if available_slots <= 0:
             if not active_snapshot_ids:
@@ -1174,7 +1175,12 @@ class CrawlRunner:
             if self.initial_snapshot_ids is not None:
                 next_snapshot = 0
                 while True:
-                    slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
+                    slots = resource_admission.additional_snapshot_slots(
+                        self.max_concurrent_snapshots,
+                        0,
+                        self._observed_snapshot_cost,
+                        crawl_id=str(self.crawl.id),
+                    )
                     if self._initial_snapshot_admitted:
                         # Startup and its first snapshot already passed the same
                         # admission before allocating the crawl browser.
@@ -1199,7 +1205,12 @@ class CrawlRunner:
                     if self._resource_deferred:
                         return
             else:
-                slots = resource_admission.additional_snapshot_slots(self.max_concurrent_snapshots, 0, self._observed_snapshot_cost)
+                slots = resource_admission.additional_snapshot_slots(
+                    self.max_concurrent_snapshots,
+                    0,
+                    self._observed_snapshot_cost,
+                    crawl_id=str(self.crawl.id),
+                )
                 if self._initial_snapshot_admitted:
                     slots = max(1, slots)
                 for snapshot_id in snapshot_ids[:slots]:
