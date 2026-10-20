@@ -894,6 +894,12 @@ snapshot/crawl identities and saved results, and can be restarted. Normal
 Conflicting identities are reported rather than overwritten. Copying captures
 does not require importing the old database or its machine/process records.
 
+To repair only known captures, add snapshot filters, for example
+<code>archivebox update --rescan --migrate-only --filter-type timestamp TIMESTAMP</code>.
+Filtered rescans do not search other directories for orphans or recapture URLs.
+Retained files without recoverable extractor history contribute to the cached
+snapshot size without creating successful extractor results.
+
 Tags are restored on the first import. Later rescans preserve tag removals and
 renames made in the destination database and update the on-disk metadata.
 Crawl tags are copied to new snapshots at creation time. Changing crawl tags
