@@ -892,13 +892,16 @@ class CrawlAdmin(ConfigEditorMixin, BaseModelAdmin):
 
     @admin.action(description="Resume")
     def resume_selected_crawls(self, request, queryset):
-        # Keep resume symmetrical with pause: one tight scheduler UPDATE, no
-        # save() hooks and no child fanout in the request path. Paused child
-        # rows become runnable through their own resume/maintenance paths.
-        resumed = queryset.filter(status__in=Crawl.INACTIVE_STATES).update(
+        now = timezone.now()
+        # The model resumes paused children with one set-based update per crawl;
+        # queuing only their parent leaves those snapshots permanently paused.
+        resumed = 0
+        for crawl in queryset.filter(status=Crawl.StatusChoices.PAUSED).order_by("pk").paged_iterator():
+            resumed += bool(crawl.resume(when=now))
+        resumed += queryset.filter(status=Crawl.StatusChoices.SEALED).update(
             status=Crawl.StatusChoices.QUEUED,
-            retry_at=timezone.now(),
-            modified_at=timezone.now(),
+            retry_at=now,
+            modified_at=now,
         )
         if resumed:
             messages.success(request, f"Resumed {resumed} crawl(s). The runner will pick them up on the next sweep.")

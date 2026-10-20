@@ -276,6 +276,42 @@ def test_crawl_admin_resume_action_updates_only_status(client, admin_user, crawl
     assert crawl.notes == "unsaved-change-guard"
 
 
+def test_crawl_admin_resume_action_requeues_paused_children_only(client, admin_user, crawl):
+    from archivebox.workers.models import RETRY_AT_MAX
+
+    paused, sealed = crawl.create_snapshots_from_urls()
+    Snapshot.objects.filter(pk=sealed.pk).update(status=Snapshot.StatusChoices.SEALED, retry_at=None)
+    assert crawl.pause()
+    paused.refresh_from_db()
+    assert paused.status == Snapshot.StatusChoices.PAUSED
+    assert paused.retry_at == RETRY_AT_MAX
+    unrelated = Crawl.objects.create(urls="https://archivebox.io/tests/unselected", created_by=admin_user)
+    unrelated_snapshot = unrelated.create_snapshots_from_urls()[0]
+    assert unrelated.pause()
+    client.force_login(admin_user)
+
+    response = client.post(
+        reverse("admin:crawls_crawl_changelist"),
+        data={"action": "resume_selected_crawls", "_selected_action": str(crawl.pk), "index": "0"},
+        HTTP_HOST=ADMIN_TEST_HOST,
+    )
+
+    assert response.status_code == 302
+    crawl.refresh_from_db()
+    paused.refresh_from_db()
+    sealed.refresh_from_db()
+    unrelated.refresh_from_db()
+    unrelated_snapshot.refresh_from_db()
+    assert crawl.status == Crawl.StatusChoices.QUEUED
+    assert paused.status == Snapshot.StatusChoices.QUEUED
+    assert paused.retry_at == crawl.retry_at
+    assert sealed.status == Snapshot.StatusChoices.SEALED
+    assert sealed.retry_at is None
+    assert unrelated.status == Crawl.StatusChoices.PAUSED
+    assert unrelated_snapshot.status == Snapshot.StatusChoices.PAUSED
+    assert unrelated_snapshot.retry_at == RETRY_AT_MAX
+
+
 def test_crawl_admin_pause_action_updates_only_crawl_scheduler_row(client, admin_user, crawl):
     snapshots = crawl.create_snapshots_from_urls()
     client.force_login(admin_user)
